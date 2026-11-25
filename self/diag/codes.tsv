@@ -165,7 +165,7 @@ ErrRawValueNotLiteral	E3940	-	A raw value is a string with an interpolated value
 ErrAmbiguousConformance	E3941	-	Two declarations that a module sees say one type implements one interface.
 ErrAmbiguousExtension	E3942	-	A call names a method, or a type names a typealias, that two extensions the module sees add to the type.
 ErrLentToCoroutine	E3943	-	A place that an async call lent its coroutine to read is changed or moved before the promise is awaited (README, "Where it differs from Maxon").
-ErrProvenTry	E3944	-	A 'try' covers nothing that can fail but accesses the range analysis proves inside their collections (README, "Where it differs from Maxon").
+ErrNeedlessTry	E3944	-	A 'try', a 'try' block or an 'if try' covers nothing that can fail: an operation the range analysis proves cannot, an access it proves inside its collection, or a call of a function that does not throw (README, "Where it differs from Maxon").
 ErrInvalidFieldAccess	E4006	invalidFieldAccess	A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 ErrTypeCycle	E4014	irTypeCycle	A type contains itself.
 ErrRegisterPressure	E5001	registerPressure	A loop holds more values at once than the target has registers of their class, so a load or store would land in the loop.

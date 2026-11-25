@@ -183,7 +183,7 @@ export type Asm
 		let target = code.count()
 		var use = labels[index].last
 		while use != 0 'uses'
-			let at = try use - 1 otherwise panic("a label use is before the table")
+			let at = use - 1
 			let kind = useKind[at]
 			let field = useAt[at]
 			self.patchUse(kind, at: field, target: target)

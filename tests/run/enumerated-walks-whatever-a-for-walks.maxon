@@ -22,7 +22,7 @@ function main() returns ExitCode
 	end 'clusters'
 	print("\n")
 	var xs = Ints.create()
-	try xs.insert(10) otherwise panic("full")
+	xs.insert(10)
 	for (i, x) in xs.enumerated() 'set'
 		print("{i}:{x}\n")
 	end 'set'

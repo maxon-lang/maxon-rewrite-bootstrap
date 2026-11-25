@@ -48,20 +48,20 @@ function wrapAdd(a Count, b Count) returns Count
 	if a <= room 'fits'
 		return try a + b otherwise panic("fuzz: an addition that fits overflows")
 	end 'fits'
-	let over = try a - room otherwise panic("fuzz: a wrapped addition")
-	return try over - 1 otherwise panic("fuzz: a wrapped addition")
+	let over = a - room
+	return over - 1
 end 'wrapAdd'
 
 // seedStep is one step of the generator that seeds the state: x * 48271 modulo 2^31 - 1.
 function seedStep(x Count) returns Count
 	let hi = x / seedQuotient
 	let lo = x mod seedQuotient
-	let plus = try seedMultiplier * lo otherwise panic("fuzz: a seed product past 2^31")
-	let minus = try seedRemainder * hi otherwise panic("fuzz: a seed product past 2^31")
+	let plus = seedMultiplier * lo
+	let minus = seedRemainder * hi
 	if plus >= minus 'direct'
-		return try plus - minus otherwise panic("fuzz: a seed step below 0")
+		return plus - minus
 	end 'direct'
-	let wrapped = try plus + int32Max otherwise panic("fuzz: a seed step past 2^32")
+	let wrapped = plus + int32Max
 	return try wrapped - minus otherwise panic("fuzz: a seed step below 0")
 end 'seedStep'
 
@@ -82,7 +82,7 @@ type Rand
 		end 'warm'
 		for i in 0 upto rngLen 'fill'
 			x = seedStep(x)
-			var u = try (x and lowBits24) shl shiftHigh otherwise panic("fuzz: a seed word past 64 bits")
+			var u = (x and lowBits24) shl shiftHigh
 			x = seedStep(x)
 			u = u xor (try x shl shiftMid otherwise panic("fuzz: a seed word past 64 bits"))
 			x = seedStep(x)
@@ -90,18 +90,18 @@ type Rand
 			u = u xor cooked[i]
 			vec.push(u)
 		end 'fill'
-		return Rand{vec: vec, tap: 0, feed: try rngLen - rngTap otherwise panic("fuzz: the tap is past the state")}
+		return Rand{vec: vec, tap: 0, feed: rngLen - rngTap}
 	end 'new'
 
 	// uint64 is the next word of the state.
 	function uint64(mutates self) returns Count
 		if tap == 0 'wrapTap'
-			tap = try rngLen - 1 otherwise panic("fuzz: an empty state")
+			tap = rngLen - 1
 		end 'wrapTap' else 'stepTap'
 			tap = try tap - 1 otherwise panic("fuzz: a tap below 0")
 		end 'stepTap'
 		if feed == 0 'wrapFeed'
-			feed = try rngLen - 1 otherwise panic("fuzz: an empty state")
+			feed = rngLen - 1
 		end 'wrapFeed' else 'stepFeed'
 			feed = try feed - 1 otherwise panic("fuzz: a feed below 0")
 		end 'stepFeed'
@@ -127,7 +127,7 @@ type Rand
 		if n == 0 'none'
 			panic("fuzz: a draw from an empty range")
 		end 'none'
-		let below = try n - 1 otherwise panic("fuzz: a range below 1")
+		let below = n - 1
 		if (n and below) == 0 'power'
 			return self.int31() and below
 		end 'power'
@@ -159,7 +159,7 @@ type Rand
 	function perm(mutates self, n Count) returns CountList
 		var m = CountList.create(0)
 		for i in 0 upto n 'each'
-			let j = self.intn(try i + 1 otherwise panic("fuzz: a permutation past memory"))
+			let j = self.intn(i + 1)
 			if j < m.count() 'moved'
 				let old = m[j]
 				m.push(old)
@@ -180,8 +180,8 @@ type Rand
 		end 'identity'
 		var i = n
 		while i > 1 'swaps'
-			i = try i - 1 otherwise panic("fuzz: a shuffle below 0")
-			let j = self.shuffleN(try i + 1 otherwise panic("fuzz: a shuffle past memory"))
+			i = i - 1
+			let j = self.shuffleN(i + 1)
 			let kept = order[i]
 			order[i] = order[j]
 			order[j] = kept

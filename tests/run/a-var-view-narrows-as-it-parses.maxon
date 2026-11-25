@@ -9,7 +9,7 @@ function sumFields(line String) returns Count
 	while not rest.isEmpty() 'fields'
 		var comma = 0 as Count
 		while comma < rest.byteLength() and rest.byteAt(comma) != 44 'find'
-			comma = try comma + 1 otherwise panic("past the line")
+			comma = comma + 1
 		end 'find'
 		var field = rest.sliceBytes(0, endPos: comma)
 		field = field.trim()

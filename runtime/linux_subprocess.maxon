@@ -305,7 +305,7 @@
 	function prepareClone(run Count)
 		__Raw.storeWord(run, offset: runAllSignalsOffset, value: 0xFFFFFFFFFFFFFFFF as Count)
 		for at in 0 upto linuxSigactionBytes / wordBytes 'action'
-			__Raw.storeWord(fieldAt(run, offset: runDefaultActionOffset), offset: try at * wordBytes otherwise panic("a sigaction past the run's record"), value: 0)
+			__Raw.storeWord(fieldAt(run, offset: runDefaultActionOffset), offset: at * wordBytes, value: 0)
 		end 'action'
 	end 'prepareClone'
 

@@ -37,7 +37,7 @@ type Ratio
 		let room = try m - self.remainder otherwise panic("opt: a remainder past its modulus")
 		if self.remainder >= room 'carry'
 			self.quotient = ir.wrapAdd(doubled, b: 1)
-			self.remainder = try self.remainder - room otherwise panic("opt: a remainder past its modulus")
+			self.remainder = self.remainder - room
 			return
 		end 'carry'
 		self.quotient = doubled
@@ -69,7 +69,7 @@ function isPowerOfTwoBits(m Count) returns bool
 	if m == 0 'zero'
 		return false
 	end 'zero'
-	return (m and (try m - 1 otherwise panic("opt: a power of two below 1"))) == 0
+	return (m and (m - 1)) == 0
 end 'isPowerOfTwoBits'
 
 // floorLog2 is the place of the highest bit of m, which is not 0.
@@ -93,7 +93,7 @@ function signedMagic(d Count) returns Magic
 	var p = signBitPlace
 	var step = 0 as Count
 	while step < maxRefinements 'refine'
-		step = try step + 1 otherwise panic("opt: a step past the word")
+		step = step + 1
 		p = try p + 1 otherwise panic("opt: a power of two past the word")
 		ar.raise(anc)
 		dr.raise(d)

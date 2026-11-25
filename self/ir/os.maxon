@@ -313,7 +313,7 @@ end 'lowerFileReadText'
 
 // isExecutable is whether a FilePermission is the executable case, as the flag the runtime's write takes.
 function isExecutable(mutates l Lowerer, mode Reg) returns Reg
-	let executable = konst(l, value: try ast.filePermissionExecutable as Word otherwise panic("ir: a case index is out of range"))
+	let executable = konst(l, value: ast.filePermissionExecutable as Word)
 	return compare(l, op: CmpOp.cmpEq, a: mode, b: executable, unsigned: false)
 end 'isExecutable'
 
@@ -465,7 +465,7 @@ function deadlineMs(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 	let within = l.b.newBlock()
 	let join = l.b.newBlock()
 	let tag = tagReg(l, p: p, ms: ms, t: p.builtins.waitDeadlineTy, v: deadline)
-	let withinCase = konst(l, value: try ast.waitDeadlineWithin as Word otherwise panic("ir: a case index is out of range"))
+	let withinCase = konst(l, value: ast.waitDeadlineWithin as Word)
 	let isWithin = compare(l, op: CmpOp.cmpEq, a: tag, b: withinCase, unsigned: false)
 	l.b.terminate(l.cur, t: newBranch(isWithin, ifTrue: within, ifFalse: join))
 	l.cur = within
@@ -517,7 +517,7 @@ function executableText(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	let name = l.b.newBlock()
 	let join = l.b.newBlock()
 	let tag = tagReg(l, p: p, ms: ms, t: p.builtins.executableTy, v: exe)
-	let pathCase = konst(l, value: try ast.executablePath as Word otherwise panic("ir: a case index is out of range"))
+	let pathCase = konst(l, value: ast.executablePath as Word)
 	let isPath = compare(l, op: CmpOp.cmpEq, a: tag, b: pathCase, unsigned: false)
 	l.b.terminate(l.cur, t: newBranch(isPath, ifTrue: path, ifFalse: name))
 	l.cur = path
@@ -566,7 +566,7 @@ function lowerDebuggeeWaitEvent(mutates l Lowerer, p ast.Project, ms ast.ModuleS
 end 'lowerDebuggeeWaitEvent'
 
 function lowerDebuggeeContinueEvent(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let unhandledCase = konst(l, value: try ast.dispositionUnhandled as Word otherwise panic("ir: a case index is out of range"))
+	let unhandledCase = konst(l, value: ast.dispositionUnhandled as Word)
 	let unhandled = compare(l, op: CmpOp.cmpEq, a: args[2], b: unhandledCase, unsigned: false)
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtDebugContinueEvent, kind: IrKind.kindScalar, args: argsOf3(args[0], b: args[1], c: unhandled))
 end 'lowerDebuggeeContinueEvent'

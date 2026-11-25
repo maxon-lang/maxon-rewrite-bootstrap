@@ -125,7 +125,7 @@ function main() returns ExitCode
 	let log2_result = Math.log2(test_val)
 	// `Math.log(2.0)` is ln(2) ≈ 0.693 — non-zero — but float `/` cannot prove a runtime divisor
 	// non-zero, so the safe divide rides `try`; the `otherwise` is unreachable.
-	let log_result = try (Math.log(test_val) / Math.log(2.0)) otherwise panic("log(2.0) is non-zero")
+	let log_result = (Math.log(test_val) / Math.log(2.0))
 	// Check difference is negligible
 	var abs_diff = log2_result - log_result
 	if abs_diff < 0.0 'abs'

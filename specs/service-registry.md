@@ -1415,7 +1415,7 @@ type Averager
 	end 'take'
 
 	export function averageHundredths() returns Integer
-		let average = try (self.total / (self.count as FullRangeFloat)) otherwise 0.0
+		let average = (self.total / (self.count as FullRangeFloat))
 		return trunc(average * 100.0)
 	end 'averageHundredths'
 end 'Averager'

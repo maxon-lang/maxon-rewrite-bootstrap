@@ -64,7 +64,7 @@ end 'Doubler'
 
 extension int implements Doubler
 	function doubled() returns Integer
-		return try (self * 2) as Integer otherwise panic("overflow")
+		return (self * 2) as Integer
 	end 'doubled'
 end 'int'
 

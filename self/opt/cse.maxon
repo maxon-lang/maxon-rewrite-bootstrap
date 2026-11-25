@@ -546,7 +546,7 @@ export type Cse
 		if at == ir.noDef 'param'
 			return table.Option.none
 		end 'param'
-		let k = try at as Count otherwise panic("opt: a definition before the instructions")
+		let k = at as Count
 		if f.instrs[k].op != ir.Opcode.opCmp 'other'
 			return table.Option.none
 		end 'other'

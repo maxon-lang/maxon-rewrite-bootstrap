@@ -555,7 +555,7 @@ type LocalHarvest
 				p = pieceNext[p]
 			end 'points'
 			for t in 1 upto points.count() 'spans'
-				let k = points[try t - 1 otherwise panic("backend: a point before the first")]
+				let k = points[t - 1]
 				let best = self.bestPiece(c, b: b, k: k)
 				if best == noValue 'none'
 					continue 'spans'
@@ -633,7 +633,7 @@ type LocalHarvest
 	function record(mutates self, binding Count, word Count, kind mxdbg.MxdbgIndex, value FullRangeInt, block Count, lo Count, hi Count)
 		let n = outBinding.count()
 		if n > 0 and block != wholeFunction 'extend'
-			let last = try n - 1 otherwise panic("backend: a record before the first")
+			let last = n - 1
 			if outBinding[last] == binding and outWord[last] == word and outKind[last] == kind and outValue[last] == value and outBlock[last] == block and outHi[last] == lo 'same'
 				outHi[last] = hi
 				return
@@ -798,14 +798,14 @@ function x64RegisterName(number Count) returns String
 	if number < x64FirstVector 'general'
 		return X64Register.allCases[number].name
 	end 'general'
-	return "xmm{try number - x64FirstVector otherwise panic("backend: a register below the vector ones")}"
+	return "xmm{number - x64FirstVector}"
 end 'x64RegisterName'
 
 function arm64RegisterName(number Count) returns String
 	if number < arm64FirstVector 'general'
 		return Arm64Register.allCases[number].name
 	end 'general'
-	return "v{try number - arm64FirstVector otherwise panic("backend: a register below the vector ones")}"
+	return "v{number - arm64FirstVector}"
 end 'arm64RegisterName'
 
 // sortCounts sorts the counts from from up to to of list in ascending order, through scratch: a merge sort.

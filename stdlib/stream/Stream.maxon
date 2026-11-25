@@ -137,7 +137,7 @@ public type StreamReader uses Source where Source implements ByteSource
 		var textLength = length
 		var skipping = LineFeed.byteLength() as BytePos
 		if length > 0 'mayEndInCarriageReturn'
-			let last = try length - 1 otherwise 0
+			let last = length - 1
 			if self.backlog.byteAt(last) == CarriageReturn 'carriageReturn'
 				textLength = last
 				skipping = try skipping + 1 otherwise panic("StreamReader.lineOf: a line ending past a position")

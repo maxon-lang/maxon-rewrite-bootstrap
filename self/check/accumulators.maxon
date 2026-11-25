@@ -60,7 +60,7 @@ typealias AccBoundList = Array with AccBound
 function rangeBoundOf(r Ranges, local Count) returns table.Option with Span
 	var i = r.bounds.count()
 	while i > 0 'bounds'
-		i = try i - 1 otherwise panic("ranges: the bounds ran out")
+		i = i - 1
 		if r.bounds[i].local == local 'found'
 			return table.Option.some(r.bounds[i].span.clone())
 		end 'found'

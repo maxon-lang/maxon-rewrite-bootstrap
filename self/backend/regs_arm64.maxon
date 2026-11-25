@@ -164,10 +164,10 @@ function arm64PlaceArgs(floats Array with bool, mutates places CountList) return
 	for i in 0 upto floats.count() 'args'
 		if floats[i] and vectors < arm64InternalFloatArgCount 'vector'
 			places.push(arm64InternalFloatArg(vectors) as Count)
-			vectors = try vectors + 1 otherwise panic("backend: more arguments than memory")
+			vectors = vectors + 1
 		end 'vector' else if not floats[i] and words < arm64InternalArgCount 'word'
 			places.push(arm64RegNumOf(arm64InternalArg(words)) as Count)
-			words = try words + 1 otherwise panic("backend: more arguments than memory")
+			words = words + 1
 		end 'word' else 'stack'
 			places.push(arm64StackPlace(stacked))
 			stacked = try stacked + 1 otherwise panic("backend: more arguments than memory")

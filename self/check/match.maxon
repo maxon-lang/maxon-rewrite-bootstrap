@@ -38,7 +38,7 @@ end 'popBlock'
 function lookupScopes(scopes ScopeList, name String) returns ast.LocalID
 	var i = scopes.count()
 	while i > 0 'scopes'
-		i = try i - 1 otherwise 0 as Count
+		i = i - 1
 		var slot as Count
 		if scopes[i].find(name, slot: slot) 'found'
 			return scopes[i].valueAt(slot)
@@ -56,7 +56,7 @@ function lookupLocal(c Checker, name String) returns ast.LocalID
 	end 'own'
 	var i = c.outers.count()
 	while i > 0 'outers'
-		i = try i - 1 otherwise 0 as Count
+		i = i - 1
 		let found = lookupScopes(c.outers[i].scopes, name: name)
 		if found != ast.noLocal 'found'
 			return found

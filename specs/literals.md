@@ -600,7 +600,7 @@ typealias Quantity = int(0 to u64.max)
 typealias Divisor = int(2 to u64.max)
 
 function remainder(n Quantity, d Divisor) returns Quantity
-	return try (n mod (d as Quantity)) otherwise panic("d is never zero")
+	return (n mod (d as Quantity))
 end 'remainder'
 
 function main() returns ExitCode

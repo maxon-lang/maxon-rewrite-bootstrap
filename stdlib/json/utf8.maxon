@@ -107,9 +107,7 @@ end 'utf8WidthFits'
 
 /// Get the UTF-8 sequence length from the lead byte at `pos`
 export function utf8ByteLengthAt(s String, pos BytePos) returns ByteWidth
-	let b0 = try s.byteAt(pos as Count) otherwise 'b0Err'
-		panic("utf8ByteLengthAt: pos out of bounds — caller guarantees valid position")
-	end 'b0Err'
+	let b0 = s.byteAt(pos as Count)
 	if b0 < 128 'ascii'
 		return 1
 	end 'ascii'
@@ -133,9 +131,7 @@ end 'utf8ByteLengthAt'
 
 /// Decode the UTF-8 codepoint at the given byte position
 export function utf8DecodeAt(s String, pos BytePos) returns Codepoint
-	let b0 = try s.byteAt(pos as Count) otherwise 'b0Err'
-		panic("utf8DecodeAt: pos out of bounds — caller guarantees valid position")
-	end 'b0Err'
+	let b0 = s.byteAt(pos as Count)
 	if b0 < 128 'ascii'
 		return b0
 	end 'ascii'

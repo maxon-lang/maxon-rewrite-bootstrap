@@ -30,7 +30,7 @@ function holdsText(text String, needle String) returns bool
 	if width > length 'short'
 		return false
 	end 'short'
-	let last = try length - width otherwise 0 as Count
+	let last = length - width
 	for at in 0 upto increment(last) 'starts'
 		if text.byteAt(at) == needle.byteAt(0 as Count) and text.sliceBytes(at, endPos: try at + width otherwise length) == needle 'found'
 			return true
@@ -62,15 +62,16 @@ function withoutCurrentDirectory(path String) returns borrowed String
 	return path
 end 'withoutCurrentDirectory'
 
-// collectSourceFiles adds to files the .maxon and .md files at path, a file or a directory to search.
-function collectSourceFiles(path String, mutates files ast.StringList)
+// collectSourceFiles adds to files the .maxon, .maxtest and .md files at path, a file or a directory to search, and with
+// markers the ignore markers too, which a project held in memory needs to leave out the directories they keep out.
+function collectSourceFiles(path String, markers bool, mutates files ast.StringList)
 	if project.isDirectoryPath(path) 'directory'
 		let dir = try FilePath.from(path) otherwise panic("fmt: {path} is not a path")
 		let listed = try Directory.list(dir) otherwise panic("fmt: cannot list {path}")
 		for i in 0 upto listed.count() 'each'
-			collectSourceFiles(withoutCurrentDirectory(listed[i].toString()), files: files)
+			collectSourceFiles(withoutCurrentDirectory(listed[i].toString()), markers: markers, files: files)
 		end 'each'
-	end 'directory' else if isSourcePath(path) 'file'
+	end 'directory' else if isSourcePath(path) or (markers and project.lastComponent(path) == project.ignoreMarkerName) 'file'
 		files.push(path.clone())
 	end 'file'
 end 'collectSourceFiles'
@@ -94,7 +95,7 @@ function collectSourceFilesOf(paths ast.StringList, mutates files ast.StringList
 			printError("cannot read {paths[i]}\n")
 			return false
 		end 'unreadable'
-		collectSourceFiles(paths[i], files: files)
+		collectSourceFiles(paths[i], markers: false, files: files)
 	end 'roots'
 	project.sortStrings(files)
 	return true

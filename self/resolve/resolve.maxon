@@ -316,7 +316,7 @@ function qualifiedLookup(mutates r Resolver, p ast.Project, head String, headOff
 			some(nextMod) then curMod = nextMod
 			none then break 'walk'
 		end 'sub'
-		i = try i + 1 otherwise i
+		i = i + 1
 	end 'walk'
 	if i == rest.count() 'isMod'
 		var joined = ByteArray.create(0)
@@ -388,7 +388,7 @@ function qualifiedDeclRef(p ast.Project, module diag.ModuleID, head String, rest
 			some(nextMod) then curMod = nextMod
 			none then break 'walk'
 		end 'sub'
-		i = try i + 1 otherwise i
+		i = i + 1
 	end 'walk'
 	if i == rest.count() 'isMod'
 		return table.Option.none
@@ -1041,7 +1041,7 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState
 		return
 	end 'fail'
 	match consumes qualifiedDeclRef(p, module: r.modID, head: headName, rest: names) 'hit'
-		some(target) then rewriteMemberToName(r, targetNode: segs[try used - 1 otherwise 0 as Count].node, headNode: cur, targetDecl: target)
+		some(target) then rewriteMemberToName(r, targetNode: segs[used - 1].node, headNode: cur, targetDecl: target)
 		none then _ = 0
 	end 'hit'
 end 'resolveMemberExpr'

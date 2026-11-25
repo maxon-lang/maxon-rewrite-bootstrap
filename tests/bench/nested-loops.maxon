@@ -13,12 +13,12 @@ function work() returns ExitCode
 	var cells = Words.filled(size, value: 1)
 	for round in 0 upto rounds 'rounds'
 		for i in 1 upto size 'cells'
-			let previous = cells[try i - 1 otherwise panic("index underflowed")]
+			let previous = cells[i - 1]
 			cells[i] = try (previous * 31 + cells[i] + round) mod modulus otherwise panic("cell overflowed")
 		end 'cells'
 		for i in 0 upto size 'pairs'
 			for j in 0 upto 8 'spread'
-				let at = try (i + j * 251) mod size otherwise panic("index overflowed")
+				let at = (i + j * 251) mod size
 				cells[at] = try (cells[at] + cells[i]) mod modulus otherwise panic("cell overflowed")
 			end 'spread'
 		end 'pairs'

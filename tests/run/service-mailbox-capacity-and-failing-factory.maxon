@@ -97,7 +97,7 @@ end 'startsChecked'
 // end before the factory's does.
 function hasRoom(slow Slow.handle) returns bool
 	let reply = try slow.count() otherwise return false
-	_ = try await reply otherwise 0
+	_ = await reply
 	return true
 end 'hasRoom'
 

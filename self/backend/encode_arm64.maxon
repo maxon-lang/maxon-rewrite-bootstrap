@@ -355,14 +355,14 @@ function arm64EncodeFrameSetup(mutates u CodeUnit, fn MirFunction, framed bool)
 	let size = arm64FrameSize(fn)
 	let sp = Arm64Register.sp
 	if fn.outgoingBytes == 0 and size <= arm64PreIndexReach 'pair'
-		encodeArm64Stp64Pre(u.asm.code, first: arm64FramePointer, second: arm64LinkRegister, base: sp, disp: try (0 - (size as FullRangeInt)) as Imm32 otherwise panic("backend: a frame past 2 GiB"))
+		encodeArm64Stp64Pre(u.asm.code, first: arm64FramePointer, second: arm64LinkRegister, base: sp, disp: (0 - (size as FullRangeInt)) as Imm32)
 		u.asm.arm64Mov(arm64FramePointer, src: sp)
 	end 'pair' else 'room'
 		var rest = size
 		while rest > arm64ProbeBytes 'pages'
 			u.asm.arm64AddImm(sp, src: sp, value: arm64Negated(arm64Disp(arm64ProbeBytes)))
 			encodeArm64Str64Off(u.asm.code, src: arm64ZeroRegister, base: sp, disp: 0)
-			rest = try rest - arm64ProbeBytes otherwise panic("backend: a frame below zero")
+			rest = rest - arm64ProbeBytes
 		end 'pages'
 		u.asm.arm64AddImm(sp, src: sp, value: arm64Negated(arm64Disp(rest)))
 		if size > arm64ProbeBytes 'last'

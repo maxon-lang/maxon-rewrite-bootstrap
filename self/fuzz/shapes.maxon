@@ -111,8 +111,8 @@ end 'dedupe'
 // trimTrailingNewlines is the text without the newlines at its end.
 function trimTrailingNewlines(text String) returns borrowed String
 	var finish = text.byteLength()
-	while finish > 0 and text.byteAt(try finish - 1 otherwise 0) == 10 'trim'
-		finish = try finish - 1 otherwise 0
+	while finish > 0 and text.byteAt(finish - 1) == 10 'trim'
+		finish = finish - 1
 	end 'trim'
 	return text.sliceBytes(0, endPos: finish)
 end 'trimTrailingNewlines'

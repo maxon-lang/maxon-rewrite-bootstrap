@@ -342,7 +342,7 @@ type Parser
 				if depth == 0 'closes'
 					return ParenScan.make(hasComma, closing: i)
 				end 'closes'
-				depth = try depth - 1 otherwise 0 as Count
+				depth = depth - 1
 			end 'close' else if kind == TokenKind.comma and depth == 0 'comma'
 				hasComma = true
 			end 'comma'

@@ -380,7 +380,7 @@ end 'signatureText'
 export function verifyBounds(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, bounds PendingBoundList, mutates errs diag.ErrorList)
 	var failedSame = false
 	for i in 0 upto bounds.count() 'each'
-		if i > 0 and failedSame and sameArgument(bounds[i], b: bounds[(try i - 1 otherwise 0 as Count)]) 'skipped'
+		if i > 0 and failedSame and sameArgument(bounds[i], b: bounds[(i - 1)]) 'skipped'
 			continue 'each'
 		end 'skipped'
 		let mark = errs.count()

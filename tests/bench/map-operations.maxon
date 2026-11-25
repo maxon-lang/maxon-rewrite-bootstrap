@@ -26,17 +26,17 @@ function integerKeys() returns Word
 	var started = Clock.nowNanos()
 	var m = WordMap.create()
 	for i in 0 upto size 'insert'
-		m.upsert(try (i as Word) * spread otherwise panic("key overflowed"), value: i as Word)
+		m.upsert((i as Word) * spread, value: i as Word)
 	end 'insert'
 	started = lap("int insert", since: started)
 	var sum = 0 as Word
 	for i in 0 upto size 'hits'
-		sum = try sum + (try m.get(try (i as Word) * spread otherwise panic("key overflowed")) otherwise panic("a key went missing")) otherwise panic("sum overflowed")
+		sum = try sum + (try m.get((i as Word) * spread) otherwise panic("a key went missing")) otherwise panic("sum overflowed")
 	end 'hits'
 	started = lap("int hit", since: started)
 	var misses = 0 as Word
 	for i in 0 upto size 'misses'
-		if not m.contains(try (i as Word) * spread + 1 otherwise panic("key overflowed")) 'missed'
+		if not m.contains((i as Word) * spread + 1) 'missed'
 			misses = try misses + 1 otherwise panic("count overflowed")
 		end 'missed'
 	end 'misses'
@@ -47,7 +47,7 @@ function integerKeys() returns Word
 	started = lap("int iterate", since: started)
 	var removed = 0 as Word
 	for i in 0 upto size 'remove'
-		if m.remove(try (i as Word) * spread otherwise panic("key overflowed")) 'gone'
+		if m.remove((i as Word) * spread) 'gone'
 			removed = try removed + 1 otherwise panic("count overflowed")
 		end 'gone'
 	end 'remove'

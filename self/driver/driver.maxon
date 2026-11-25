@@ -266,13 +266,13 @@ end 'runsAtBackgroundPriority'
 // executable's.
 function defaultOutput(path String, suffix String) returns String
 	var finish = path.byteLength()
-	while finish > 0 and isSeparator(path.byteAt(try finish - 1 otherwise 0)) 'trim'
-		finish = try finish - 1 otherwise 0
+	while finish > 0 and isSeparator(path.byteAt(finish - 1)) 'trim'
+		finish = finish - 1
 	end 'trim'
 	let trimmed = path.sliceBytes(0, endPos: finish)
 	var at = finish
 	while at > 0 'back'
-		let before = try at - 1 otherwise 0
+		let before = at - 1
 		let c = trimmed.byteAt(before)
 		if isSeparator(c) 'separator'
 			break 'back'
@@ -315,8 +315,8 @@ end 'runProgram'
 function temporaryExecutable(path String, suffix String) returns String
 	let name = defaultOutput(path, suffix: suffix)
 	var at = name.byteLength()
-	while at > 0 and not isSeparator(name.byteAt(try at - 1 otherwise 0)) 'back'
-		at = try at - 1 otherwise 0
+	while at > 0 and not isSeparator(name.byteAt(at - 1)) 'back'
+		at = at - 1
 	end 'back'
 	return ast.temporaryPath("minimaxon-run-{Process.id()}-{name.sliceBytes(at, endPos: name.byteLength())}")
 end 'temporaryExecutable'

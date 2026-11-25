@@ -1070,7 +1070,7 @@ export function lackBoundFix(p ast.Project, ms ast.ModuleState, fn ast.FuncID, i
 	if n == 0 'nothing'
 		return diag.Fix.none()
 	end 'nothing'
-	let last = info.steps[try n - 1 otherwise panic("a lack with no step")].clone()
+	let last = info.steps[n - 1].clone()
 	if last.reason != LackReason.lackUnbounded 'otherChange'
 		return diag.Fix.none()
 	end 'otherChange'

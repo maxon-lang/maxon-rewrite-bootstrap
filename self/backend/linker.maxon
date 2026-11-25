@@ -88,7 +88,7 @@ function containing(starts CountList, offset Count) returns Count
 	var low = 0 as Count
 	var high = starts.count()
 	while low < high 'search'
-		let span = try high - low otherwise panic("link: a search that ends before it starts")
+		let span = high - low
 		let middle = try low + span / 2 otherwise panic("link: a part past memory")
 		if starts[middle] <= offset 'after'
 			low = try middle + 1 otherwise panic("link: a part past memory")
@@ -260,7 +260,7 @@ export type LinkUnits
 		if i <= ready.count() 'ready'
 			return ready[ir.pred(i)]
 		end 'ready'
-		return own[try i - ready.count() otherwise panic("link: a place of the layout among the ready units is taken for one of the program's")]
+		return own[i - ready.count()]
 	end 'at'
 
 	// add puts the units at the end of the layout.
@@ -402,12 +402,12 @@ let hexDigitMask = 15 as Count
 // appendHex appends value as mapHexDigits lowercase hexadecimal digits.
 function appendHex(mutates text ByteArray, value Count)
 	for i in 0 upto mapHexDigits 'digits'
-		let shift = try (mapHexDigits - 1 - i) * bitsPerHexDigit otherwise panic("link: a digit before the first")
+		let shift = (mapHexDigits - 1 - i) * bitsPerHexDigit
 		let digit = (value shr shift) and hexDigitMask
 		if digit < decimalBase 'number'
-			text.push(try (digitOffset + digit) as Byte otherwise panic("link: a digit past a byte"))
+			text.push((digitOffset + digit) as Byte)
 		end 'number' else 'letter'
-			text.push(try (hexLetterOffset + digit) as Byte otherwise panic("link: a digit past a byte"))
+			text.push((hexLetterOffset + digit) as Byte)
 		end 'letter'
 	end 'digits'
 end 'appendHex'
@@ -430,7 +430,7 @@ function symbolMapText(links LinkUnitList, units LinkUnits, symbols SymbolIds, d
 	var text = ByteArray.create(0)
 	for i in 0 upto entries.count() 'entries'
 		var finish = (try textRva + codeSize otherwise panic("link: code past memory")) as Count
-		let next = try i + 1 otherwise panic("link: more symbols than memory")
+		let next = i + 1
 		if next < entries.count() 'following'
 			finish = entries[next].rva
 		end 'following'
@@ -450,7 +450,7 @@ function sortMapEntries(mutates entries MapEntryList)
 	for i in 1 upto entries.count() 'insert'
 		var j = i
 		while j > 0 'shift'
-			let prev = try j - 1 otherwise panic("link: no entry before the first")
+			let prev = j - 1
 			if entries[j].rva < entries[prev].rva 'swap'
 				let current = entries[j].clone()
 				entries[j] = entries[prev].clone()
@@ -512,7 +512,7 @@ function markLive(mutates links LinkUnitList, units LinkUnits, symbols SymbolIds
 	var at = 0 as Count
 	while at < work.count() 'reach'
 		let section = work[at].clone()
-		at = try at + 1 otherwise panic("link: more sections than memory")
+		at = at + 1
 		markSection(links, u: units.at(section.unit), symbols: symbols, defined: defined, section: section, work: work)
 	end 'reach'
 end 'markLive'
@@ -808,7 +808,7 @@ function calledNames(links LinkUnitList, units LinkUnits) returns NameList
 	for u in 0 upto links.count() 'units'
 		for s in 0 upto links[u].liveCode.count() 'sections'
 			if links[u].liveCode[s] 'live'
-				let next = try s + 1 otherwise panic("link: more sections than memory")
+				let next = s + 1
 				for j in links[u].sections[s].importFixups upto links[u].sections[next].importFixups 'fixups'
 					if not containsName(names, name: units.at(u).asm.importFixups[j].name) 'new'
 						names.push(units.at(u).asm.importFixups[j].name.clone())
@@ -833,8 +833,8 @@ end 'containsName'
 function sortNames(mutates names NameList)
 	for i in 1 upto names.count() 'insert'
 		var j = i
-		while j > 0 and nameBefore(names[j], b: names[try j - 1 otherwise 0]) 'down'
-			let earlier = try j - 1 otherwise 0
+		while j > 0 and nameBefore(names[j], b: names[j - 1]) 'down'
+			let earlier = j - 1
 			let moved = exchange(names[j], value: "")
 			let before = exchange(names[earlier], value: moved)
 			names[j] = before
@@ -868,7 +868,7 @@ function namedByLiveCode(links LinkUnitList, id Count) returns bool
 			if not links[u].liveCode[s] 'dropped'
 				continue 'sections'
 			end 'dropped'
-			let next = try s + 1 otherwise panic("link: more sections than memory")
+			let next = s + 1
 			for j in links[u].sections[s].symbolFixups upto links[u].sections[next].symbolFixups 'fixups'
 				if links[u].targets[j] == id 'named'
 					return true

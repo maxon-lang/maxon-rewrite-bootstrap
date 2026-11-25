@@ -386,6 +386,11 @@ func emitDivide(w *writer, remainder bool) {
 		w.p("\t\t\tvalue = 0 - a\n\t\t\treturn %s\n", outcomeValue)
 	}
 	w.p("\t\tend 'minusOne'\n")
+	if remainder {
+		// b is neither 0 nor -1 here, the one remainder that fails.
+		w.p("\t\tvalue = a mod b\n\t\treturn %s\n", outcomeValue)
+		return
+	}
 	w.p("\t\tvalue = try a %s b otherwise panic(%q)\n\t\treturn %s\n", operator, "ir: "+what, outcomeValue)
 }
 

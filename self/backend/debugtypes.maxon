@@ -367,5 +367,5 @@ function caseWord(p ast.Project, ms ast.ModuleState, t ast.TypeID, kind mxdbg.Mx
 	if niche < 0 'negative'
 		return try (niche + wordOffsetModulus) as Count otherwise panic("backend: a niche past an offset")
 	end 'negative'
-	return try niche as Count otherwise panic("backend: a niche past an offset")
+	return niche as Count
 end 'caseWord'

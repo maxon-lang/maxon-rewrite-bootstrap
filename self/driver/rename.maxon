@@ -364,7 +364,7 @@ function skipGroup(src String, at Count) returns Count
 			depth = increment(depth)
 		end 'open' else if isCloseBracket(c) 'close'
 			if depth > 0 'inside'
-				depth = try depth - 1 otherwise panic("rename: no group is open")
+				depth = depth - 1
 				if depth == 0 'closed'
 					return increment(stop)
 				end 'closed'
@@ -461,8 +461,8 @@ function trimSpan(src String, begin Count, until Count) returns ArgSpan
 	while first < last and isBlankByte(src.byteAt(first)) 'left'
 		first = increment(first)
 	end 'left'
-	while last > first and isBlankByte(src.byteAt(try last - 1 otherwise panic("rename: no byte before the first"))) 'right'
-		last = try last - 1 otherwise panic("rename: no byte before the first")
+	while last > first and isBlankByte(src.byteAt(last - 1)) 'right'
+		last = last - 1
 	end 'right'
 	return ArgSpan.make(first, until: last)
 end 'trimSpan'
@@ -511,8 +511,8 @@ end 'labelEnd'
 // it does unless it is all of an argument, an interpolation, a value given to a name, a return or an expression statement.
 function needsParens(src String, begin Count, until Count) returns bool
 	var before = begin
-	while before > 0 and (src.byteAt(try before - 1 otherwise panic("rename: no byte before the first")) == spaceByte or src.byteAt(try before - 1 otherwise panic("rename: no byte before the first")) == tabByte) 'beforeBlanks'
-		before = try before - 1 otherwise panic("rename: no byte before the first")
+	while before > 0 and (src.byteAt(before - 1) == spaceByte or src.byteAt(before - 1) == tabByte) 'beforeBlanks'
+		before = before - 1
 	end 'beforeBlanks'
 	var after = until
 	while after < src.byteLength() and (src.byteAt(after) == spaceByte or src.byteAt(after) == tabByte) 'afterBlanks'
@@ -1186,8 +1186,8 @@ function splitCases(text String) returns SpanList
 			stop = starts[increment(i)]
 		end 'following'
 		// The blank lines between cases belong to neither.
-		while stop >= 2 and stop - 1 > starts[i] and text.byteAt(try stop - 1 otherwise panic("rename: no byte before the first")) == newlineByte and text.byteAt(try stop - 2 otherwise panic("rename: no byte before the first")) == newlineByte 'blank'
-			stop = try stop - 1 otherwise panic("rename: no byte before the first")
+		while stop >= 2 and stop - 1 > starts[i] and text.byteAt(stop - 1) == newlineByte and text.byteAt(stop - 2) == newlineByte 'blank'
+			stop = stop - 1
 		end 'blank'
 		cases.push(ArgSpan.make(starts[i], until: stop))
 	end 'cases'
@@ -1236,7 +1236,7 @@ function sortedByBegin(edits RenameEdits) returns RenameEdits
 		sorted.push(edits[i].clone())
 		var j = i
 		while j > 0 'shift'
-			let prev = try j - 1 otherwise panic("rename: no edit before the first")
+			let prev = j - 1
 			if sorted[j].begin < sorted[prev].begin 'swap'
 				let current = sorted[j].clone()
 				sorted[j] = sorted[prev].clone()

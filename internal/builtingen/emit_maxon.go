@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -600,6 +601,32 @@ func emitMaxonCheck(t table) string {
 	return sb.String()
 }
 
+// interpDir is the interpreter's source, whose entry functions say whether they throw.
+const interpDir = "../../self/interp"
+
+// entryDeclaration is the first line of an entry function of the interpreter: its name after "entry", and its signature.
+var entryDeclaration = regexp.MustCompile(`(?m)^function entry(\w+)\(.*$`)
+
+// throwingEntries says, for each entry function of the interpreter, whether it declares throws: a call of one that does
+// needs a try, and a try on a call of one that does not is an error.
+func throwingEntries() map[string]bool {
+	files, err := filepath.Glob(filepath.Join(interpDir, "*.maxon"))
+	if err != nil {
+		fail("the interpreter's source: %v", err)
+	}
+	throwing := map[string]bool{}
+	for _, file := range files {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			fail("the interpreter's source: %v", err)
+		}
+		for _, m := range entryDeclaration.FindAllStringSubmatch(string(src), -1) {
+			throwing[m[1]] = strings.Contains(m[0], " throws ")
+		}
+	}
+	return throwing
+}
+
 // emitMaxonInterp writes self/interp's dispatch from a runtime entry to the function of the interpreter that runs it, which
 // is entry+Name.
 func emitMaxonInterp(t table) string {
@@ -607,12 +634,21 @@ func emitMaxonInterp(t table) string {
 	sb.WriteString(maxonHeader)
 	sb.WriteString("// runtimeEntry runs a call of a runtime entry.\nfunction runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt\n\tlet symbol = ir.callRuntimeSymbol(x)\n")
 	var others []string
+	throwing := throwingEntries()
 	for _, e := range entries {
 		if e.Role != roleCall {
 			others = append(others, "symbol == ir.Rt.rt"+e.Name)
 			continue
 		}
-		fmt.Fprintf(&sb, "\tif symbol == ir.Rt.rt%s 'rt%s'\n\t\ttry entry%s(vm, f: f, x: x)\n\t\treturn\n\tend 'rt%s'\n", e.Name, e.Name, e.Name, e.Name)
+		throws, known := throwing[e.Name]
+		if !known {
+			fail("the interpreter has no function entry%s", e.Name)
+		}
+		try := ""
+		if throws {
+			try = "try "
+		}
+		fmt.Fprintf(&sb, "\tif symbol == ir.Rt.rt%s 'rt%s'\n\t\t%sentry%s(vm, f: f, x: x)\n\t\treturn\n\tend 'rt%s'\n", e.Name, e.Name, try, e.Name, e.Name)
 	}
 	for i := 0; i < len(others); i += 4 {
 		end := min(i+4, len(others))

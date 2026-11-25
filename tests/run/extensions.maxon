@@ -70,7 +70,7 @@ end 'Shape'
 
 extension int
 	function doubled() returns Score
-		return try self * 2 otherwise panic("overflow")
+		return self * 2
 	end 'doubled'
 end 'int'
 

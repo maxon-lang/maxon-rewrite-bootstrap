@@ -92,7 +92,7 @@ function orderedByOffset(items Qualifications) returns Qualifications
 		sorted.push(items[i].clone())
 		var j = i
 		while j > 0 'shift'
-			let prev = try j - 1 otherwise panic("qualify: no entry before the first")
+			let prev = j - 1
 			if sorted[j].offset < sorted[prev].offset 'swap'
 				let current = sorted[j].clone()
 				sorted[j] = sorted[prev].clone()
@@ -114,7 +114,7 @@ function applyQualifications(file String, items Qualifications) returns bool
 	var out = ByteArray.create(0)
 	var at = 0 as Count
 	for i in 0 upto sorted.count() 'each'
-		if i > 0 and sorted[try i - 1 otherwise panic("qualify: no entry before the first")].offset == sorted[i].offset 'same'
+		if i > 0 and sorted[i - 1].offset == sorted[i].offset 'same'
 			continue 'each'
 		end 'same'
 		out.append(text.sliceBytes(at, endPos: sorted[i].offset).toByteArray())

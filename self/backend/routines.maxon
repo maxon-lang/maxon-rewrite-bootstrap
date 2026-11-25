@@ -248,7 +248,7 @@ export function carryRoutines(p ast.Project, mutates ms ast.ModuleState, mutates
 	while i < u.needed.list.count() 'routines'
 		let routine = u.needed.list[i].clone()
 		emitRoutine(u, a: a, p: p, ms: ms, routine: routine)
-		i = try i + 1 otherwise panic("backend: more routines than memory")
+		i = i + 1
 	end 'routines'
 	u.needed = RoutineSet.new()
 end 'carryRoutines'
@@ -1392,7 +1392,7 @@ function coroutineWordDisp(index Count) returns Imm32
 	if index >= greenArgWords 'past'
 		panic("routines: a coroutine has no argument word of that index")
 	end 'past'
-	return imm32Of(try greenArgsOffset + index * wordBytes otherwise panic("routines: a coroutine past memory"))
+	return imm32Of(greenArgsOffset + index * wordBytes)
 end 'coroutineWordDisp'
 
 // loadBehaviourWord loads into thunkWord the word of a behaviour's record, which thunkBase holds, that is the body's

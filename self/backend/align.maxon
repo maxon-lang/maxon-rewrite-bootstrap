@@ -47,7 +47,7 @@ function encodeNops(mutates code ByteArray, bytes Count)
 	var left = bytes
 	while left > longestNop 'longest'
 		encodeNop9(code)
-		left = try left - longestNop otherwise panic("backend: nops below zero")
+		left = left - longestNop
 	end 'longest'
 	match left 'length'
 		0 then return

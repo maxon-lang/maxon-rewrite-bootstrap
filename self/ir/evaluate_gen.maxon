@@ -69,7 +69,7 @@ export function evalBin(op BinOp, a Word, b Word, unsigned bool, checked bool, s
 		if b == -1 'minusOne'
 			return Outcome.outcomeValue
 		end 'minusOne'
-		value = try a mod b otherwise panic("ir: a signed remainder that fails past its tests")
+		value = a mod b
 		return Outcome.outcomeValue
 	end 'mod'
 	if op == BinOp.binAnd 'and'

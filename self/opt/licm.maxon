@@ -76,7 +76,7 @@ export type Licm
 		self.start(f, analysis: analysis, facts: facts)
 		var l = facts.loops.loopCount()
 		while l > 0 'loops'
-			l = try l - 1 otherwise panic("opt: a loop below 0")
+			l = l - 1
 			self.fromLoop(f, l: l, analysis: analysis, facts: facts)
 		end 'loops'
 		if order.count() == 0 'none'
@@ -252,7 +252,7 @@ export type Licm
 		if at == ir.noDef 'param'
 			return false
 		end 'param'
-		return motionOf(f.instrs[try at as Count otherwise panic("opt: a definition before the instructions")]) == Motion.constant
+		return motionOf(f.instrs[at as Count]) == Motion.constant
 	end 'isConstant'
 
 	// failStaysOut is whether the failure block of the check x is outside loop l and what it dominates reads only what is

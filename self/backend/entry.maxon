@@ -390,7 +390,7 @@ function emitAddressDigits(mutates u CodeUnit)
 		u.asm.andImm(rdx, imm: nibbleMask)
 		u.asm.add(rdx, src: r10)
 		u.asm.loadByte(r11, base: rdx, disp: wordBytes)
-		u.asm.storeByte(rsp, disp: imm32Of(try lastDigit - i otherwise panic("backend: a digit before the fault frame")), src: r11)
+		u.asm.storeByte(rsp, disp: imm32Of(lastDigit - i), src: r11)
 		u.asm.shrCl(rax)
 	end 'digits'
 	u.asm.movImm(r11, imm: newlineByte)

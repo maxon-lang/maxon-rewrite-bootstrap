@@ -90,6 +90,6 @@ function intTextNegated(magnitude IntTextMagnitude) returns FullRangeInt throws 
 	if magnitude == intTextNegativeLimit 'least'
 		return i64.min
 	end 'least'
-	let positive = try magnitude as FullRangeInt otherwise panic("IntText: a magnitude below 2^63 fits")
-	return try 0 - positive otherwise panic("IntText: the negation of a magnitude below 2^63 fits")
+	let positive = magnitude as FullRangeInt
+	return 0 - positive
 end 'intTextNegated'

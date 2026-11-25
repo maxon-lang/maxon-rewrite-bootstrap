@@ -891,7 +891,7 @@ end 'popFrameOwn'
 function frameOf(o Ownership, target ast.NodeID) returns Count
 	var i = o.frames.count()
 	while i > 0 'back'
-		i = try i - 1 otherwise 0 as Count
+		i = i - 1
 		if o.frames[i].target == target 'hit'
 			return i
 		end 'hit'

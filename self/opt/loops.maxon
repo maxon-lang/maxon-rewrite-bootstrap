@@ -73,7 +73,7 @@ export type LoopFacts
 			let s = flow.order[i]
 			var l = loops.loopOf[s]
 			while l != ir.noLoop 'up'
-				let at = try l as Count otherwise panic("opt: a loop below 0")
+				let at = l as Count
 				pairFrom.push(at)
 				pairTo.push(s)
 				l = loops.parent[at]
@@ -102,7 +102,7 @@ end 'LoopFacts'
 function markLoops(loops ir.GraphLoops, s Count, mutates marks Array with bool)
 	var l = loops.loopOf[s]
 	while l != ir.noLoop 'up'
-		let at = try l as Count otherwise panic("opt: a loop below 0")
+		let at = l as Count
 		if marks[at] 'marked'
 			return
 		end 'marked'

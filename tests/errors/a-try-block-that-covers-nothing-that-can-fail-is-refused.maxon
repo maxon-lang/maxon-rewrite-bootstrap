@@ -1,0 +1,33 @@
+// expect-error: E3944 at 11:2
+// expect-error: E3944 at 19:2
+// expect-error: E3944 at 25:10
+// A try block whose body has nothing that can fail has a handler that never runs, and one with no handler passes on a
+// failure that never happens. So does a try with a block for a handler whose expression cannot fail.
+enum ParseError implements Error
+	empty
+end 'ParseError'
+
+function greet()
+	try 'safe'
+		print("hello\n")
+	end 'safe' otherwise 'failed'
+		print("goodbye\n")
+	end 'failed'
+end 'greet'
+
+function relay() throws ParseError
+	try 'passes'
+		print("relayed\n")
+	end 'passes'
+end 'relay'
+
+function first(s String) returns Byte
+	let b = try s.byteAt(0 as Count) otherwise 'missing'
+		return 0
+	end 'missing'
+	return b
+end 'first'
+
+function main() returns ExitCode
+	return 0
+end 'main'

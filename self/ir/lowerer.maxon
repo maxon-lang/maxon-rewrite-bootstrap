@@ -433,10 +433,10 @@ let i64MinWord = -9223372036854775808 as Word
 // wordOf is the number a 128-bit constant is, as a word: the low 64 bits, read as a signed number.
 function wordOf(v ast.I128) returns Word
 	if v.lo <= i64MaxCount 'low'
-		return try v.lo as Word otherwise panic("ir: a constant does not fit a word")
+		return v.lo as Word
 	end 'low'
-	let masked = try (v.lo and i64MaxCount) as Word otherwise panic("ir: a constant does not fit a word")
-	return try masked + i64MinWord otherwise panic("ir: a constant does not fit a word")
+	let masked = (v.lo and i64MaxCount) as Word
+	return masked + i64MinWord
 end 'wordOf'
 
 // wordOffset is the size of that many words.

@@ -824,7 +824,7 @@ function requirementSignature(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	for i in 0 upto c.info.paramSpecs.count() 'params'
 		let t = applyType(l, p: p, ms: ms, t: c.info.paramSpecs[i].ty)
 		if passesFloat(p, ms: ms, conv: c.info.paramSpecs[i].conv, t: t) 'float'
-			args = args or floatBit(try i + 1 otherwise panic("lower: too many parameters"))
+			args = args or floatBit(i + 1)
 		end 'float'
 	end 'params'
 	let lends = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.method).result == ast.ResultConv.resultBorrowed
@@ -1076,7 +1076,7 @@ function record(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t 
 	let box = newReg(l, kind: IrKind.kindManaged)
 	emit(l, i: newAlloc(box, bytes: bytes))
 	if tagged 'tagStore'
-		let tagReg = konst(l, value: try tag as Word otherwise panic("ir: a case index is out of range"))
+		let tagReg = konst(l, value: tag as Word)
 		emit(l, i: newStoreField(box, offset: tagOffset, src: tagReg, borrow: false))
 	end 'tagStore'
 	let mark = l.pending.count()

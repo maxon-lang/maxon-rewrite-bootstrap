@@ -42,7 +42,7 @@ end 'hashString'
 
 function hashCount(k Count) returns Count
 	let folded = (k xor (k shr hashHalfShift)) and hashLow32Mask
-	let x = try folded * fibonacciMultiplier otherwise 0 as Count
+	let x = folded * fibonacciMultiplier
 	return (x xor (x shr foldShift)) and hashLow32Mask
 end 'hashCount'
 
@@ -63,7 +63,7 @@ function restoredSlots(states ByteArray, consumes filled Array with V) uses V re
 	slots = __SlotArray.create(states.count())
 	var i = states.count()
 	while i > 0 'slots'
-		i = try i - 1 otherwise 0 as Count
+		i = i - 1
 		if mapSlotOccupied(states[i] as Count) 'filled'
 			slots.fillSlot(i, value: try rest.pop() otherwise panic("table: a stored map has fewer values than occupied slots"))
 		end 'filled'
@@ -203,7 +203,7 @@ export type StringMap uses V
 		if cap == 0 'first'
 			self.grow(firstCapacity)
 		end 'first' else if (try (used + 1) * 10 otherwise cap) >= (try cap * 7 otherwise cap) 'needGrow'
-			self.grow(try cap * 2 otherwise cap)
+			self.grow(sum(cap, b: cap))
 		end 'needGrow'
 		let curCap = states.count()
 		if curCap == 0 'noCap'
@@ -391,7 +391,7 @@ export type IntMap uses V
 		if cap == 0 'first'
 			self.grow(firstCapacity)
 		end 'first' else if (try (used + 1) * 10 otherwise cap) >= (try cap * 7 otherwise cap) 'needGrow'
-			self.grow(try cap * 2 otherwise cap)
+			self.grow(sum(cap, b: cap))
 		end 'needGrow'
 		let curCap = states.count()
 		if curCap == 0 'noCap'

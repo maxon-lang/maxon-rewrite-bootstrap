@@ -18,7 +18,7 @@ function countPrimes(limit Count) returns Count
 		if holds(primes, n: i) 'prime'
 			n = try n + 1 otherwise 0
 		end 'prime'
-		i = try i - 1 otherwise 0
+		i = i - 1
 	end 'outer'
 	return n
 end 'countPrimes'

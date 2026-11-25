@@ -96,9 +96,9 @@ type Verifier
 				let sig = funcSignatureIn(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, fid: callCallee(f, x: f.instrs[k]))
 				self.expectFloats(f, k: k, args: sig.args, result: sig.result, shift: 0, of: "its callee's declaration")
 			end 'call' else if op == Opcode.opCallValue 'value'
-				let made = flow.defs.instr[regIndex(f.args[try callValueArgsStart(f.instrs[k]) as Count otherwise panic("ir: arguments before the pool")])]
+				let made = flow.defs.instr[regIndex(f.args[callValueArgsStart(f.instrs[k]) as Count])]
 				if made != noDef 'shown'
-					let at = try made as Count otherwise panic("ir: a definition before the instructions")
+					let at = made as Count
 					if f.instrs[at].op == Opcode.opClosure 'closure'
 						let body = closureBody(f, x: f.instrs[at])
 						self.expectFloats(f, k: k, args: f.bodies[body].floatParams, result: f.bodies[body].floatResult, shift: 0, of: "its closure's body")
@@ -108,9 +108,9 @@ type Verifier
 					end 'named'
 				end 'shown'
 			end 'value' else if op == Opcode.opCallWitness 'witness'
-				let made = flow.defs.instr[regIndex(f.args[try callWitnessArgsStart(f.instrs[k]) as Count otherwise panic("ir: arguments before the pool")])]
+				let made = flow.defs.instr[regIndex(f.args[callWitnessArgsStart(f.instrs[k]) as Count])]
 				if made != noDef 'shown'
-					let at = try made as Count otherwise panic("ir: a definition before the instructions")
+					let at = made as Count
 					if f.instrs[at].op == Opcode.opBox 'box'
 						self.expectMethodFloats(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, f: f, k: k, t: boxTable(f, x: f.instrs[at]))
 					end 'box' else if f.instrs[at].op == Opcode.opFrameBox 'frameBox'

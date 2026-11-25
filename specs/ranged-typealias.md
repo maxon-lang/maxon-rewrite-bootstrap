@@ -677,12 +677,12 @@ end 'ident'
 
 function quotient(bits Integer, halfRadix HalfRadix) returns Integer
 	let half = bits shr 1
-	return try (half / (halfRadix as Integer)) otherwise panic("halfRadix is never zero")
+	return (half / (halfRadix as Integer))
 end 'quotient'
 
 function remainder(bits Integer, halfRadix HalfRadix) returns Integer
 	let half = bits shr 1
-	return try (half mod (halfRadix as Integer)) otherwise panic("halfRadix is never zero")
+	return (half mod (halfRadix as Integer))
 end 'remainder'
 
 function main() returns ExitCode
@@ -715,11 +715,11 @@ function ident(v Integer) returns Integer
 end 'ident'
 
 function quotient(a Small, b NegativeOnly) returns Integer
-	return try ((a as Integer) / (b as Integer)) otherwise panic("b is never zero")
+	return ((a as Integer) / (b as Integer))
 end 'quotient'
 
 function remainder(a Small, b NegativeOnly) returns Integer
-	return try ((a as Integer) mod (b as Integer)) otherwise panic("b is never zero")
+	return ((a as Integer) mod (b as Integer))
 end 'remainder'
 
 function main() returns ExitCode
@@ -753,7 +753,7 @@ function ident(v Integer) returns Integer
 end 'ident'
 
 function quotient(w MachineWord, halfRadix HalfRadix) returns MachineWord
-	return try (w / (halfRadix as MachineWord)) otherwise panic("halfRadix is never zero")
+	return (w / (halfRadix as MachineWord))
 end 'quotient'
 
 function main() returns ExitCode

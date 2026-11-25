@@ -1,7 +1,7 @@
 function hexDigit(c Byte) returns Count
 	let value = c as Count
 	if value >= 65 'upper'
-		return try value - 55 otherwise panic("not a hex digit")
+		return value - 55
 	end 'upper'
 	return try value - 48 otherwise panic("not a hex digit")
 end 'hexDigit'
@@ -13,11 +13,11 @@ function emitHex(mutates code ByteArray, hex String)
 		let c = hex.byteAt(i)
 		if c != 32 'digit'
 			let hi = hexDigit(c)
-			let lo = hexDigit(hex.byteAt(try i + 1 otherwise panic("odd hex digits")))
+			let lo = hexDigit(hex.byteAt(i + 1))
 			code.push(try hi * 16 + lo as Byte otherwise panic("not a byte"))
 			i = try i + 2 otherwise panic("hex too long")
 		end 'digit' else 'space'
-			i = try i + 1 otherwise panic("hex too long")
+			i = i + 1
 		end 'space'
 	end 'pairs'
 end 'emitHex'
@@ -26,7 +26,7 @@ end 'emitHex'
 function emitU32(mutates code ByteArray, v Count)
 	var rest = v
 	for _ in 0 upto 4 'bytes'
-		code.push(try (rest and 255) as Byte otherwise panic("not a byte"))
+		code.push((rest and 255) as Byte)
 		rest = rest shr 8
 	end 'bytes'
 end 'emitU32'

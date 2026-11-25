@@ -288,7 +288,7 @@ function runLoaded(mutates p ast.Project, schedules Count, mutates outcome Gener
 				out = again
 				outcome.scheduleSeed = schedule
 			end 'broken'
-			schedule = try schedule + 1 otherwise panic("fuzz: more schedules than memory")
+			schedule = schedule + 1
 		end 'schedules'
 	end 'scheduled'
 	outcome.violations = out.violations.clone()
@@ -521,16 +521,16 @@ function fail(mutates tally FuzzTally, options FuzzOptions, seed Count, source S
 	end 'brief'
 end 'fail'
 
-// fixedProofProgram is the proof program after the compiler's own fix pass: it removes the handler of each access, and the
-// try of each piece of arithmetic, that the analysis proves cannot fail (E3944), and adds a try that panics to what the
-// generator wrote bare, so the program that is left is what the analysis accepts.
-function fixedProofProgram(source String, libraries FixLibraries) returns String
+// fixedProgram is the program after the compiler's own fix pass: it removes the handler of each access, and the try of each
+// piece of arithmetic, that the analysis proves cannot fail (E3944), and adds a try that panics to what the generator wrote
+// bare, so the program that is left is what the analysis accepts. With only, the fixes of that kind are the only ones made.
+function fixedProgram(source String, libraries FixLibraries, only table.Option with String) returns String
 	var files = project.SourceFiles.create(0)
 	files.push(project.SourceFile.make(generatedPath.clone(), text: source.clone()))
 	let prog = FixProgram.make(generatedPath.clone(), name: generatedPath.clone(), single: true, files: files, candidates: ast.knownTargets())
-	let outcome = fixProgram(prog, libraries: libraries, expected: table.Option.none, watches: ast.StringList.create(0))
+	let outcome = fixProgram(prog, libraries: libraries, expected: table.Option.none, watches: ast.StringList.create(0), only: only)
 	return outcome.files[0].text.clone()
-end 'fixedProofProgram'
+end 'fixedProgram'
 
 // proofLibraries is the library that the fixes of a --proofs run share, prepared once: the first target's, which is the one a
 // program of one file is checked for. Another run has none to prepare.
@@ -569,9 +569,15 @@ function fuzzWorker(options FuzzOptions, library String) returns ExitCode
 		let generated = generatedProgram(options, seed: seed, library: library)
 		var source = generated.source.clone()
 		if options.proofs 'proofs'
-			source = fixedProofProgram(source, libraries: libraries)
+			source = fixedProgram(source, libraries: libraries, only: table.Option.none)
 		end 'proofs'
-		let outcome = runGenerated(source, schedules: options.schedules)
+		var outcome = runGenerated(source, schedules: options.schedules)
+		if outcome.rejected and outcome.rejectedCode == diag.errNeedlessTry 'needless'
+			// The generator writes a try on every piece of arithmetic, which the analysis may prove cannot fail; what it is
+			// refused for is nothing the program is about, so the program runs without those tries.
+			source = fixedProgram(source, libraries: libraries, only: table.Option.some(check.fixKindUntry.clone()))
+			outcome = runGenerated(source, schedules: options.schedules)
+		end 'needless'
 		if outcome.syntaxFail 'syntax'
 			fail(tally, options: options, seed: seed, source: source, message: "the generator wrote a program that does not parse: {outcome.rejectedText}")
 		end 'syntax' else if outcome.rejected and options.proofs and not isStaticRefusal(outcome.rejectedCode) 'refused'
@@ -625,7 +631,7 @@ function fuzzSupervisor(options FuzzOptions) returns ExitCode
 	let last = try options.first + options.count otherwise panic("fuzz: the seeds pass the largest number")
 	var first = options.first
 	while first < last 'chunks'
-		let room = try last - first otherwise panic("fuzz: a chunk past the seeds")
+		let room = last - first
 		var size = programsPerWorker
 		if room < size 'short'
 			size = room

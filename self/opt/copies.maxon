@@ -187,7 +187,7 @@ export type Copies
 				if budget == 0 'long'
 					return false
 				end 'long'
-				budget = try budget - 1 otherwise panic("opt: a window past its budget")
+				budget = budget - 1
 				let n = self.readsOf(f, x: f.instrs[j], r: c)
 				if n > 0 'reads'
 					if f.instrs[j].op == ir.Opcode.opDrop 'drop'

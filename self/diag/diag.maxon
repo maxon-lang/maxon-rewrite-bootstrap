@@ -211,7 +211,7 @@ export function sortErrors(mutates errs ErrorList)
 	for i in 1 upto n 'ins'
 		var j = i
 		while j > 0 'shift'
-			let prev = try j - 1 otherwise 0 as Count
+			let prev = j - 1
 			if errorBefore(errs[j], b: errs[prev]) 'swap'
 				let cur = errs[j].clone()
 				errs[j] = errs[prev].clone()

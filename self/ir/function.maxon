@@ -230,7 +230,7 @@ export type IrFunction
 			return
 		end 'words'
 		let kept = floatStarts.count()
-		if kept > 0 and floatStarts[try kept - 1 otherwise panic("ir: a float pool below empty")] >= start 'order'
+		if kept > 0 and floatStarts[kept - 1] >= start 'order'
 			panic("ir: a call's float signature kept before one whose arguments start later")
 		end 'order'
 		floatStarts.push(start)

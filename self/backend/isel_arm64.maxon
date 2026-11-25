@@ -193,7 +193,7 @@ extension Selector
 	// arm64CompareWith compares with an immediate where 12 bits hold the constant or its negation, and with a register
 	// that holds it otherwise.
 	function arm64CompareWith(mutates self, a MReg, value ir.Word)
-		let wanted = try value as FullRangeInt otherwise panic("backend: a constant past the word")
+		let wanted = value as FullRangeInt
 		if arm64HoldsImm12(wanted) 'immediate'
 			self.arm64Instr(Arm64Form.cmpRegImm, a: a, b: noMReg, c: noMReg, aux: 0, imm: wanted)
 		end 'immediate' else if arm64HoldsNegatedImm12(wanted) 'negated'

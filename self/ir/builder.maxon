@@ -458,7 +458,7 @@ export type Builder
 	function paramStarts() returns Array with Count
 		let n = terms.count()
 		var start as Array with Count
-		start = Array.create(try n + 1 otherwise panic("ir: too many blocks"))
+		start = Array.create(table.sum(n, b: 1))
 		for i in 0 upto paramBlock.count() 'count'
 			let at = try blockIndex(paramBlock[i]) + 1 otherwise panic("ir: too many blocks")
 			start[at] = try start[at] + 1 otherwise panic("ir: a block has too many parameters")
@@ -498,7 +498,7 @@ export type Builder
 			panic("ir: a function has no blocks")
 		end 'empty'
 		var edgeStart as Array with Count
-		edgeStart = Array.create(try n + 1 otherwise panic("ir: too many blocks"))
+		edgeStart = Array.create(table.sum(n, b: 1))
 		for i in 0 upto instrs.count() 'count'
 			if failTarget(instrs[i]) != noBlock 'fails'
 				let at = try blockIndex(instrBlock[i]) + 1 otherwise panic("ir: too many blocks")

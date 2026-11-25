@@ -240,7 +240,7 @@ function tableEntry(table String, index Count) returns Count
 	let at = try index * tableDigits otherwise panic("a DFA table index overflows")
 	let high = try (table.byteAt(at) as Count) - tableDigitZero otherwise panic("a DFA table holds a byte that is no digit")
 	let low = try (table.byteAt(try at + 1 otherwise panic("a DFA table index overflows")) as Count) - tableDigitZero otherwise panic("a DFA table holds a byte that is no digit")
-	return try high * tableBase + low otherwise panic("a DFA table entry overflows")
+	return high * tableBase + low
 end 'tableEntry'
 
 // The lexer's DFA, compiled from every token rule and keyword of Maxon.g4. A state is a row of dfaNextTable, a

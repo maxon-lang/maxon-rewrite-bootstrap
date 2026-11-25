@@ -90,7 +90,7 @@ export extension Array
 		// midpoint (x + n/x)/2, which is >= 1 for x, n >= 1. `ElementIndex` is 0-inclusive and there is
 		// no flow-narrowing to say otherwise, so the divide `n / x` — fallible at the type level —
 		// rides `try`; the `otherwise` is unreachable, so it panics rather than fold a wrong answer.
-		var y = try ((x + (try (n / x) otherwise panic("sqrtApprox: Newton iterate x reached 0"))) / 2) as ElementIndex otherwise panic("out of range")
+		var y = try ((x + ((n / x))) / 2) as ElementIndex otherwise panic("out of range")
 		while y < x 'newton'
 			x = y
 			y = try (x + (try (n / x) otherwise panic("sqrtApprox: Newton iterate x reached 0"))) / 2 otherwise panic("out of range")
@@ -278,14 +278,14 @@ export extension Array
 		// allocLen = n (safe over-allocation) should it read 0.
 		let elemBytes = self.managed.elementSize()
 		let halfUp = try n - n / 2 otherwise panic("out of range")
-		var byteCap = try n as ElementIndex otherwise panic("out of range")
+		var byteCap = n as ElementIndex
 		if elemBytes > 0 'haveSize'
 			// Guarded `elemBytes > 0`, but the guard does not narrow the type, so the divide rides
 			// `try`; the zero path is unreachable inside the guard, so it panics.
-			let maxElems = (try (8000000 / elemBytes) otherwise panic("driftsort scratch: elemBytes was 0 inside the elemBytes > 0 guard")) as ElementIndex
+			let maxElems = ((8000000 / elemBytes)) as ElementIndex
 			byteCap = maxElems if maxElems < n else n
 		end 'haveSize'
-		var allocLen = try halfUp as ElementIndex otherwise panic("out of range")
+		var allocLen = halfUp as ElementIndex
 		if byteCap > allocLen 'byByte'
 			allocLen = byteCap
 		end 'byByte'

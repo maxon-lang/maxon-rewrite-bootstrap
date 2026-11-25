@@ -375,7 +375,7 @@ export type MxdbgWriter
 	// each site's parent to one recorded before it.
 	function requireAscendingTables(mutates self)
 		for i in 1 upto lineOffsets.count() 'rows'
-			if lineOffsets[i] < lineOffsets[try i - 1 otherwise 0] 'rowOutOfOrder'
+			if lineOffsets[i] < lineOffsets[i - 1] 'rowOutOfOrder'
 				panic("MxdbgWriter: line row {i} is at {lineOffsets[i]}, behind the row before it; the table is written in the order of the code")
 			end 'rowOutOfOrder'
 		end 'rows'

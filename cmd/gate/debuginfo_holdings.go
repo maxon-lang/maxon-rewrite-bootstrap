@@ -63,7 +63,7 @@ end 'Color'
 
 function note(n Count) returns Count
 	if n > 0 'more'
-		return note(try n - 1 otherwise 0)
+		return note(n - 1)
 	end 'more'
 	return 0
 end 'note'

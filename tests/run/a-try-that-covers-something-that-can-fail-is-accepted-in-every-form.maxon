@@ -1,0 +1,103 @@
+typealias Counts = Array with Count
+
+enum ParseError implements Error
+	empty
+end 'ParseError'
+
+function parse(n Count) returns Count throws ParseError
+	if n == 0 'zero'
+		throw ParseError.empty
+	end 'zero'
+	return n
+end 'parse'
+
+function add(a Count, b Count) returns Count
+	return try a + b otherwise 0
+end 'add'
+
+function addOrReturn(a Count, b Count) returns Count
+	let sum = try a + b otherwise return 1
+	return sum
+end 'addOrReturn'
+
+function addOrBlock(a Count, b Count) returns Count
+	let sum = try a + b otherwise 'overflowed'
+		return 2
+	end 'overflowed'
+	return sum
+end 'addOrBlock'
+
+function addAll(values Counts) returns Count
+	var total = 0 as Count
+	for i in 0 upto values.count() 'each'
+		let v = try values.get(i + 1) otherwise break 'each'
+		let next = try total + v otherwise continue 'each'
+		total = next
+	end 'each'
+	return total
+end 'addAll'
+
+function block(a Count, b Count) returns Count
+	var out = 0 as Count
+	try 'sum'
+		out = a + b
+	end 'sum' otherwise 'overflowed'
+		out = 3
+	end 'overflowed'
+	return out
+end 'block'
+
+function propagate(n Count) returns Count throws ParseError
+	try 'parse'
+		return parse(n)
+	end 'parse'
+end 'propagate'
+
+function relay(n Count) returns Count throws ParseError
+	return try parse(n)
+end 'relay'
+
+function relayed(n Count) returns Count
+	return try relay(n) otherwise 4
+end 'relayed'
+
+function conditional(n Count) returns Count
+	if let found = try parse(n) 'found'
+		return found
+	end 'found' else 'missing'
+		return 5
+	end 'missing'
+end 'conditional'
+
+function inside(n Count, a Count, b Count) returns Count throws ParseError
+	let sum = try a + b otherwise 6
+	let total = try sum + n otherwise 8
+	return try parse(total)
+end 'inside'
+
+function nested(n Count) returns Count
+	return try (try parse(n) otherwise 0) + (try parse(n + 1) otherwise 0) otherwise 7
+end 'nested'
+
+function main() returns ExitCode
+	print("{add(1, b: 2)} {add((u64.max as Count), b: 1)}\n")
+	print("{addOrReturn(1, b: 2)} {addOrReturn((u64.max as Count), b: 1)}\n")
+	print("{addOrBlock(1, b: 2)} {addOrBlock((u64.max as Count), b: 1)}\n")
+	var values = Counts.create(0)
+	values.push(1)
+	values.push(2)
+	values.push(3)
+	print("{addAll(values)}\n")
+	print("{block(1, b: 2)} {block((u64.max as Count), b: 1)}\n")
+	print("{relayed(0)} {relayed(2)} {conditional(0)} {conditional(2)}\n")
+	print("{nested(0)} {nested(2)}\n")
+	return 0
+end 'main'
+
+//> 3 0
+//> 3 1
+//> 3 2
+//> 5
+//> 3 3
+//> 4 2 5 2
+//> 1 5

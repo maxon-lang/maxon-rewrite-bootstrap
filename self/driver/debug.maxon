@@ -278,7 +278,7 @@ function littleEndian(image ByteArray, at Count, bytes Count) returns Count
 	var v = 0 as Count
 	var i = bytes
 	while i > 0 'bytes'
-		i = try i - 1 otherwise panic("debug: a byte before the word")
+		i = i - 1
 		let place = sumCounts(at, b: i)
 		if place >= image.count() 'past'
 			return 0
@@ -426,7 +426,7 @@ function hexOffset(offset Count) returns String
 	var out = ByteArray.create(0)
 	var i = digits.count()
 	while i > 0 'reverse'
-		i = try i - 1 otherwise panic("debug: a digit before the first")
+		i = i - 1
 		out.push(digits[i])
 	end 'reverse'
 	return "{hexPrefix}{String.from(out)}"
@@ -542,7 +542,7 @@ function localLine(reader mxdbg.MxdbgReader, k Count, arch ast.TargetArch) retur
 		if value >= 0 'above'
 			place = "[{fp}+{hexOffset(value as Count)}]"
 		end 'above' else 'below'
-			place = "[{fp}-{hexOffset(try (0 - value) as Count otherwise panic("debug: a displacement past a count"))}]"
+			place = "[{fp}-{hexOffset((0 - value) as Count)}]"
 		end 'below'
 	end 'slot' else if kind == mxdbg.MxdbgLocKindRegister 'register'
 		place = backend.registerName(arch, number: try value as Count otherwise panic("debug: a register below 0"))
@@ -664,8 +664,8 @@ end 'functionSource'
 // declaredSource is functionSource of a declaration that starts at start of text, in a file that ends at fileEnd.
 function declaredSource(text String, module diag.ModuleID, start Count, fileEnd Count) returns SourceRange
 	var lineStart = start
-	while lineStart > 0 and text.byteAt(try lineStart - 1 otherwise 0) != newlineByte 'back'
-		lineStart = try lineStart - 1 otherwise 0
+	while lineStart > 0 and text.byteAt(lineStart - 1) != newlineByte 'back'
+		lineStart = lineStart - 1
 	end 'back'
 	let lineEnd = endOfLine(text, at: lineStart, finish: fileEnd)
 	let tabs = indentOf(text, at: lineStart, lineEnd: lineEnd)

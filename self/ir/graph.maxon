@@ -219,7 +219,7 @@ export type GraphLoops
 	export function holds(loop Count, node Count) returns bool
 		var l = loopOf[node]
 		while l != noLoop 'up'
-			let at = try l as Count otherwise panic("ir: a loop below 0")
+			let at = l as Count
 			if at == loop 'found'
 				return true
 			end 'found'

@@ -105,7 +105,7 @@ function flips(mutates p WordArray) returns Word
 		try p.set(first as ElementIndex, value: first) otherwise panic("flips: first < p.count()")
 		if first > 2 'reverseMiddle'
 			var low = 1 as Word
-			var high = try (first - 1) as Word otherwise panic("out of range")
+			var high = (first - 1) as Word
 			while low < high 'swap'
 				let atLow = try p.get(low as ElementIndex) otherwise panic("flips: low < high < first < p.count()")
 				let atHigh = try p.get(high as ElementIndex) otherwise panic("flips: high < first < p.count()")

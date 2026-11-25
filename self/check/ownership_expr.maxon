@@ -987,7 +987,7 @@ function passArguments(mutates o Ownership, p ast.Project, mutates ms ast.Module
 			requireNotReceiver(o, p: p, ms: ms, arg: arg, param: name)
 		end 'mutates'
 		out = argument(o, p: p, ms: ms, e: arg, conv: conv, dest: OwnDest.make(OwnDestKind.destParameter, name: name), s: out)
-		let next = try i + 1 otherwise n
+		let next = i + 1
 		if next < n 'more'
 			hold(o, p: p, ms: ms, place: arg, kind: OwnProjectionKind.projectArgument, byAddress: ast.isByAddress(conv))
 			holdArgument(o, p: p, ms: ms, e: arg)

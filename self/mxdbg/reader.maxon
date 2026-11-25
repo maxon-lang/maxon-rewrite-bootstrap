@@ -119,7 +119,7 @@ export type MxdbgReader
 	export function buildIdHex() returns String
 		var bytes = ByteArray.create(0)
 		for i in 0 upto buildIdLength 'bytes'
-			bytes.push(image[try MxdbgOffBuildId + buildIdLength - 1 - i otherwise panic("mxdbg: a build id byte before the first")])
+			bytes.push(image[MxdbgOffBuildId + buildIdLength - 1 - i])
 		end 'bytes'
 		return "0x{hexOf(bytes)}"
 	end 'buildIdHex'
@@ -130,7 +130,7 @@ export type MxdbgReader
 			return false
 		end 'length'
 		for i in 0 upto buildIdLength 'bytes'
-			if image[try MxdbgOffBuildId + buildIdLength - 1 - i otherwise panic("mxdbg: a build id byte before the first")] != id[i] 'differs'
+			if image[MxdbgOffBuildId + buildIdLength - 1 - i] != id[i] 'differs'
 				return false
 			end 'differs'
 		end 'bytes'
@@ -151,8 +151,8 @@ export type MxdbgReader
 
 	export function imageBase() returns Count
 		let low = self.word(MxdbgOffImageBase) as Count
-		let high = self.word(try MxdbgOffImageBase + dwordBytes otherwise panic("mxdbg: a header past memory")) as Count
-		return try (high shl readerWordBits) or low otherwise panic("mxdbg: an image base past a word")
+		let high = self.word(MxdbgOffImageBase + dwordBytes) as Count
+		return (high shl readerWordBits) or low
 	end 'imageBase'
 
 	export function typeCount() returns Count
@@ -421,7 +421,7 @@ export type MxdbgReader
 				if figure < 0 'negative'
 					return table.Option.none
 				end 'negative'
-				return table.Option.some(try figure as Count otherwise panic("mxdbg: a figure past a count"))
+				return table.Option.some(figure as Count)
 			end 'found'
 		end 'figures'
 		return table.Option.none

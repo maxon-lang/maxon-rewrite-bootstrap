@@ -20,7 +20,7 @@ function testCoordinator(g Count) returns Count
 	let list = alloc(testSleepers * wordBytes)
 	for i in 0 upto testSleepers 'spawn'
 		let sleeper = greenSpawn(__Raw.codeAddress("testSleeper"))
-		greenSetArgument(sleeper, index: 0, value: (try i mod testSteps otherwise 0) + 1)
+		greenSetArgument(sleeper, index: 0, value: (i mod testSteps) + 1)
 		__Raw.storeWord(list, offset: i * wordBytes, value: sleeper)
 		greenReady(sleeper)
 	end 'spawn'

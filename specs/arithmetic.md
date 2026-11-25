@@ -87,7 +87,7 @@ typealias NonZero = int(1 to i64.max)
 
 function divLive(a Integer, b NonZero, x Integer) returns Integer
 	let preserved = try x + 1 otherwise panic("out of range")
-	let result = try (a / (b as Integer)) otherwise panic("b is never zero")
+	let result = (a / (b as Integer))
 	return trunc(try result + preserved otherwise panic("out of range"))
 end 'divLive'
 
@@ -108,7 +108,7 @@ typealias NonZero = int(1 to i64.max)
 
 function modLive(a Integer, b NonZero, x Integer) returns Integer
 	let preserved = try x + 1 otherwise panic("out of range")
-	let result = try (a mod (b as Integer)) otherwise panic("b is never zero")
+	let result = (a mod (b as Integer))
 	return try result + preserved otherwise panic("out of range")
 end 'modLive'
 
@@ -155,7 +155,7 @@ function helper(x Integer) returns Integer
 end 'helper'
 
 function divCall(a Integer, b NonZero) returns Integer
-	let temp = trunc(try (a / (b as Integer)) otherwise panic("b is never zero"))
+	let temp = trunc((a / (b as Integer)))
 	let result = helper(temp)
 	return try result + temp otherwise panic("out of range")
 end 'divCall'
@@ -176,8 +176,8 @@ typealias Integer = int(i64.min to i64.max)
 typealias NonZero = int(1 to i64.max)
 
 function multiDiv(a Integer, b NonZero, c Integer, d NonZero) returns Integer
-	let r1 = try (a / (b as Integer)) otherwise panic("b is never zero")
-	let r2 = try (c / (d as Integer)) otherwise panic("d is never zero")
+	let r1 = (a / (b as Integer))
+	let r2 = (c / (d as Integer))
 	return trunc(try r1 + r2 otherwise panic("out of range"))
 end 'multiDiv'
 

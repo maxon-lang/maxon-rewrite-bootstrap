@@ -2,7 +2,7 @@
 // for a function of this module, and is checked where it is computed.
 function main() returns ExitCode
 	let a = 300 as lib.Score
-	print("{lib.half(try a + a otherwise 0)}\n")
+	print("{lib.half(a + a)}\n")
 	print("{lib.half(try a + a + a + a otherwise 0)}\n")
 	return 0
 end 'main'

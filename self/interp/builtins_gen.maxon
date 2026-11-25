@@ -236,19 +236,19 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		return
 	end 'rtAsyncComplete'
 	if symbol == ir.Rt.rtSleep 'rtSleep'
-		try entrySleep(vm, f: f, x: x)
+		entrySleep(vm, f: f, x: x)
 		return
 	end 'rtSleep'
 	if symbol == ir.Rt.rtYield 'rtYield'
-		try entryYield(vm, f: f, x: x)
+		entryYield(vm, f: f, x: x)
 		return
 	end 'rtYield'
 	if symbol == ir.Rt.rtSchedPin 'rtSchedPin'
-		try entrySchedPin(vm, f: f, x: x)
+		entrySchedPin(vm, f: f, x: x)
 		return
 	end 'rtSchedPin'
 	if symbol == ir.Rt.rtSchedUnpin 'rtSchedUnpin'
-		try entrySchedUnpin(vm, f: f, x: x)
+		entrySchedUnpin(vm, f: f, x: x)
 		return
 	end 'rtSchedUnpin'
 	if symbol == ir.Rt.rtHashSeed 'rtHashSeed'
@@ -260,35 +260,35 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		return
 	end 'rtHashSeedDraw'
 	if symbol == ir.Rt.rtHeapThreadAllocs 'rtHeapThreadAllocs'
-		try entryHeapThreadAllocs(vm, f: f, x: x)
+		entryHeapThreadAllocs(vm, f: f, x: x)
 		return
 	end 'rtHeapThreadAllocs'
 	if symbol == ir.Rt.rtHeapThreadFrees 'rtHeapThreadFrees'
-		try entryHeapThreadFrees(vm, f: f, x: x)
+		entryHeapThreadFrees(vm, f: f, x: x)
 		return
 	end 'rtHeapThreadFrees'
 	if symbol == ir.Rt.rtHeapThreadBytes 'rtHeapThreadBytes'
-		try entryHeapThreadBytes(vm, f: f, x: x)
+		entryHeapThreadBytes(vm, f: f, x: x)
 		return
 	end 'rtHeapThreadBytes'
 	if symbol == ir.Rt.rtHeapProcessAllocs 'rtHeapProcessAllocs'
-		try entryHeapProcessAllocs(vm, f: f, x: x)
+		entryHeapProcessAllocs(vm, f: f, x: x)
 		return
 	end 'rtHeapProcessAllocs'
 	if symbol == ir.Rt.rtHeapProcessFrees 'rtHeapProcessFrees'
-		try entryHeapProcessFrees(vm, f: f, x: x)
+		entryHeapProcessFrees(vm, f: f, x: x)
 		return
 	end 'rtHeapProcessFrees'
 	if symbol == ir.Rt.rtHeapProcessLive 'rtHeapProcessLive'
-		try entryHeapProcessLive(vm, f: f, x: x)
+		entryHeapProcessLive(vm, f: f, x: x)
 		return
 	end 'rtHeapProcessLive'
 	if symbol == ir.Rt.rtHeapProcessBytes 'rtHeapProcessBytes'
-		try entryHeapProcessBytes(vm, f: f, x: x)
+		entryHeapProcessBytes(vm, f: f, x: x)
 		return
 	end 'rtHeapProcessBytes'
 	if symbol == ir.Rt.rtHeapScavenge 'rtHeapScavenge'
-		try entryHeapScavenge(vm, f: f, x: x)
+		entryHeapScavenge(vm, f: f, x: x)
 		return
 	end 'rtHeapScavenge'
 	if symbol == ir.Rt.rtRandomFill 'rtRandomFill'
@@ -296,7 +296,7 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		return
 	end 'rtRandomFill'
 	if symbol == ir.Rt.rtHashWord 'rtHashWord'
-		try entryHashWord(vm, f: f, x: x)
+		entryHashWord(vm, f: f, x: x)
 		return
 	end 'rtHashWord'
 	if symbol == ir.Rt.rtHashBytes 'rtHashBytes'
@@ -340,7 +340,7 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		return
 	end 'rtReplyGive'
 	if symbol == ir.Rt.rtArrayNew 'rtArrayNew'
-		try entryArrayNew(vm, f: f, x: x)
+		entryArrayNew(vm, f: f, x: x)
 		return
 	end 'rtArrayNew'
 	if symbol == ir.Rt.rtArrayLen 'rtArrayLen'
@@ -436,7 +436,7 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		return
 	end 'rtCownNew'
 	if symbol == ir.Rt.rtBytesNew 'rtBytesNew'
-		try entryBytesNew(vm, f: f, x: x)
+		entryBytesNew(vm, f: f, x: x)
 		return
 	end 'rtBytesNew'
 	if symbol == ir.Rt.rtBytesLen 'rtBytesLen'
@@ -476,7 +476,7 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		return
 	end 'rtBytesToString'
 	if symbol == ir.Rt.rtOsArgs 'rtOsArgs'
-		try entryOsArgs(vm, f: f, x: x)
+		entryOsArgs(vm, f: f, x: x)
 		return
 	end 'rtOsArgs'
 	if symbol == ir.Rt.rtOsEnvironmentVariable 'rtOsEnvironmentVariable'
@@ -488,15 +488,15 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		return
 	end 'rtOsExecutablePath'
 	if symbol == ir.Rt.rtOsCurrentPath 'rtOsCurrentPath'
-		try entryOsCurrentPath(vm, f: f, x: x)
+		entryOsCurrentPath(vm, f: f, x: x)
 		return
 	end 'rtOsCurrentPath'
 	if symbol == ir.Rt.rtOsProcessId 'rtOsProcessId'
-		try entryOsProcessId(vm, f: f, x: x)
+		entryOsProcessId(vm, f: f, x: x)
 		return
 	end 'rtOsProcessId'
 	if symbol == ir.Rt.rtOsSetExitCode 'rtOsSetExitCode'
-		try entryOsSetExitCode(vm, f: f, x: x)
+		entryOsSetExitCode(vm, f: f, x: x)
 		return
 	end 'rtOsSetExitCode'
 	if symbol == ir.Rt.rtOsExitAtOnce 'rtOsExitAtOnce'
@@ -512,31 +512,31 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		return
 	end 'rtOsEnterBackgroundPriority'
 	if symbol == ir.Rt.rtOsClockNanos 'rtOsClockNanos'
-		try entryOsClockNanos(vm, f: f, x: x)
+		entryOsClockNanos(vm, f: f, x: x)
 		return
 	end 'rtOsClockNanos'
 	if symbol == ir.Rt.rtOsClockMillis 'rtOsClockMillis'
-		try entryOsClockMillis(vm, f: f, x: x)
+		entryOsClockMillis(vm, f: f, x: x)
 		return
 	end 'rtOsClockMillis'
 	if symbol == ir.Rt.rtOsTickMillis 'rtOsTickMillis'
-		try entryOsTickMillis(vm, f: f, x: x)
+		entryOsTickMillis(vm, f: f, x: x)
 		return
 	end 'rtOsTickMillis'
 	if symbol == ir.Rt.rtOsThreadCpuTicks 'rtOsThreadCpuTicks'
-		try entryOsThreadCpuTicks(vm, f: f, x: x)
+		entryOsThreadCpuTicks(vm, f: f, x: x)
 		return
 	end 'rtOsThreadCpuTicks'
 	if symbol == ir.Rt.rtOsUnixNanos 'rtOsUnixNanos'
-		try entryOsUnixNanos(vm, f: f, x: x)
+		entryOsUnixNanos(vm, f: f, x: x)
 		return
 	end 'rtOsUnixNanos'
 	if symbol == ir.Rt.rtOsUnixSeconds 'rtOsUnixSeconds'
-		try entryOsUnixSeconds(vm, f: f, x: x)
+		entryOsUnixSeconds(vm, f: f, x: x)
 		return
 	end 'rtOsUnixSeconds'
 	if symbol == ir.Rt.rtOsProcessorCount 'rtOsProcessorCount'
-		try entryOsProcessorCount(vm, f: f, x: x)
+		entryOsProcessorCount(vm, f: f, x: x)
 		return
 	end 'rtOsProcessorCount'
 	if symbol == ir.Rt.rtOsPathFrom 'rtOsPathFrom'
@@ -652,11 +652,11 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		return
 	end 'rtOsRunInput'
 	if symbol == ir.Rt.rtOsReadStdin 'rtOsReadStdin'
-		try entryOsReadStdin(vm, f: f, x: x)
+		entryOsReadStdin(vm, f: f, x: x)
 		return
 	end 'rtOsReadStdin'
 	if symbol == ir.Rt.rtOsStdoutWantsColor 'rtOsStdoutWantsColor'
-		try entryOsStdoutWantsColor(vm, f: f, x: x)
+		entryOsStdoutWantsColor(vm, f: f, x: x)
 		return
 	end 'rtOsStdoutWantsColor'
 	if symbol == ir.Rt.rtEntry or symbol == ir.Rt.rtAlloc or symbol == ir.Rt.rtFree or symbol == ir.Rt.rtCheckSimpleBytes 'internal0'

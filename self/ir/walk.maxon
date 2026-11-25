@@ -19,7 +19,7 @@ export type BlockWalk
 	export function reach(mutates self, mutates f IrFunction, k Count, written Count)
 		while block < f.blocks.count() and until == k 'past'
 			f.blocks[block].endAt = written
-			block = try block + 1 otherwise panic("ir: more blocks than a count holds")
+			block = block + 1
 			self.open(f, k: k, written: written)
 		end 'past'
 	end 'reach'

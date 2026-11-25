@@ -246,7 +246,7 @@ type Calc
 		if by == 0 'zero'
 			throw MathError.divideByZero
 		end 'zero'
-		return try (n / by) otherwise throw MathError.divideByZero
+		return (n / by)
 	end 'divide'
 end 'Calc'
 

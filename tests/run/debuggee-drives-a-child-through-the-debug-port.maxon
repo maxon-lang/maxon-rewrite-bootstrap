@@ -68,7 +68,7 @@ function word(bytes Array with Byte, at Count, width Count) returns Count
 	var value = 0 as Count
 	var i = width
 	while i > 0 'bytes'
-		i = try i - 1 otherwise 0
+		i = i - 1
 		value = try (value shl 8) or (bytes[try at + i otherwise 0] as Count) otherwise 0
 	end 'bytes'
 	return value
@@ -150,7 +150,7 @@ function excepted(mutates s Session, event Array with Byte) returns DebugDisposi
 	let thread = s.threadOf(word(event, at: eventThreadIdAt, width: 4))
 	var context = try Debuggee.readContext(thread) otherwise panic("the stopped thread's context is unreadable")
 	for i in 0 upto 8 'rip'
-		context[try contextRipAt + i otherwise 0] = ((s.entry shr (i * 8)) and 0xFF) as Byte
+		context[contextRipAt + i] = ((s.entry shr (i * 8)) and 0xFF) as Byte
 	end 'rip'
 	try Debuggee.writeContext(thread, context: context) otherwise panic("the stopped thread's context cannot be written")
 	return DebugDisposition.handled

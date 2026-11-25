@@ -368,7 +368,7 @@ function datumRecord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, t 
 		let caseIndex = try tag as Count otherwise panic("ir: a case index past a word")
 		let form = unionForm(ms.types, reads: p.types, t: t)
 		if form == UnionForm.unionCases 'cases'
-			w = DatumWord.make(DatumPart.scalar, value: try caseIndex as Word otherwise panic("ir: a case index past a word"))
+			w = DatumWord.make(DatumPart.scalar, value: caseIndex as Word)
 			return true
 		end 'cases'
 		if form == UnionForm.unionNiche 'niche'
@@ -400,7 +400,7 @@ function datumRecord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, t 
 	b.d.boxes.push(DatumBox.make(DatumShape.words, first: 0, count: 0))
 	var parts = DatumWordList.create(0)
 	if tagged 'tag'
-		parts.push(DatumWord.make(DatumPart.scalar, value: try tag as Word otherwise panic("ir: a case index past a word")))
+		parts.push(DatumWord.make(DatumPart.scalar, value: tag as Word))
 	end 'tag'
 	for i in 0 upto values.count() 'each'
 		var v = DatumWord.make(DatumPart.scalar, value: 0 as Word)

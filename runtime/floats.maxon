@@ -132,7 +132,7 @@ function floatDivSmall(big Count, n Count, d FloatDivisor) returns FloatLimb
 		i = i - 1
 		let cur = ((rem as Count) shl floatLimbBits) + (floatLimbAt(big, i: i) as Count)
 		floatSetLimb(big, i: i, v: cur / divisor)
-		rem = try (cur mod divisor) as FloatLimb otherwise panic("runtime: a remainder past its divisor")
+		rem = (cur mod divisor) as FloatLimb
 	end 'down'
 	return rem
 end 'floatDivSmall'
@@ -202,7 +202,7 @@ end 'floatSignificant'
 function floatScaleOf(count Count, e FullRangeInt) returns FullRangeInt
 	let digits = try count as FullRangeInt otherwise panic("runtime: a decimal past the word")
 	if e < 0 'fraction'
-		return try digits + e otherwise panic("runtime: a scale past the word")
+		return digits + e
 	end 'fraction'
 	return digits
 end 'floatScaleOf'

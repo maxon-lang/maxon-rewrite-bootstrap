@@ -94,19 +94,19 @@ typealias PosDivisor = int(2 to 1000000)
 typealias NegDivisor = int(-1000000 to -2)
 
 function refDiv(n Word, d PosDivisor) returns Word
-	return try (n / (d as Word)) otherwise panic("d is never zero")
+	return (n / (d as Word))
 end 'refDiv'
 
 function refMod(n Word, d PosDivisor) returns Word
-	return try (n mod (d as Word)) otherwise panic("d is never zero")
+	return (n mod (d as Word))
 end 'refMod'
 
 function refDivNeg(n Word, d NegDivisor) returns Word
-	return try (n / (d as Word)) otherwise panic("d is never zero")
+	return (n / (d as Word))
 end 'refDivNeg'
 
 function refModNeg(n Word, d NegDivisor) returns Word
-	return try (n mod (d as Word)) otherwise panic("d is never zero")
+	return (n mod (d as Word))
 end 'refModNeg'
 
 function edgeDividends() returns WordArray
@@ -215,11 +215,11 @@ typealias WordArray = Array with Word
 typealias PosDivisor = int(2 to 1000000)
 
 function refDiv(n Word, d PosDivisor) returns Word
-	return try (n / (d as Word)) otherwise panic("d is never zero")
+	return (n / (d as Word))
 end 'refDiv'
 
 function refMod(n Word, d PosDivisor) returns Word
-	return try (n mod (d as Word)) otherwise panic("d is never zero")
+	return (n mod (d as Word))
 end 'refMod'
 
 // The largest positive `n` with `n mod d == d - 1`. Both divisions here read a RUNTIME divisor, so
@@ -352,11 +352,11 @@ typealias UnsignedArray = Array with Unsigned
 typealias UPosDivisor = int(2 to 1000000)
 
 function refUDiv(n Unsigned, d UPosDivisor) returns Unsigned
-	return try (n / (d as Unsigned)) otherwise panic("d is never zero")
+	return (n / (d as Unsigned))
 end 'refUDiv'
 
 function refUMod(n Unsigned, d UPosDivisor) returns Unsigned
-	return try (n mod (d as Unsigned)) otherwise panic("d is never zero")
+	return (n mod (d as Unsigned))
 end 'refUMod'
 
 function main() returns ExitCode
@@ -405,11 +405,11 @@ typealias Unsigned = bits(64)
 typealias UPosDivisor = int(2 to u64.max)
 
 function refUDiv(n Unsigned, d UPosDivisor) returns Unsigned
-	return try (n / (d as Unsigned)) otherwise panic("d is never zero")
+	return (n / (d as Unsigned))
 end 'refUDiv'
 
 function refUMod(n Unsigned, d UPosDivisor) returns Unsigned
-	return try (n mod (d as Unsigned)) otherwise panic("d is never zero")
+	return (n mod (d as Unsigned))
 end 'refUMod'
 
 function main() returns ExitCode
@@ -539,11 +539,11 @@ typealias UnsignedArray = Array with Unsigned
 typealias UPosDivisor = int(2 to 4294967295)
 
 function refUDiv(n Unsigned, d UPosDivisor) returns Unsigned
-	return try (n / (d as Unsigned)) otherwise panic("d is never zero")
+	return (n / (d as Unsigned))
 end 'refUDiv'
 
 function refUMod(n Unsigned, d UPosDivisor) returns Unsigned
-	return try (n mod (d as Unsigned)) otherwise panic("d is never zero")
+	return (n mod (d as Unsigned))
 end 'refUMod'
 
 function edgeDividends() returns UnsignedArray
@@ -646,18 +646,18 @@ typealias UnsignedArray = Array with Unsigned
 typealias UPosDivisor = int(2 to 4294967295)
 
 function refUDiv(n Unsigned, d UPosDivisor) returns Unsigned
-	return try (n / (d as Unsigned)) otherwise panic("d is never zero")
+	return (n / (d as Unsigned))
 end 'refUDiv'
 
 function refUMod(n Unsigned, d UPosDivisor) returns Unsigned
-	return try (n mod (d as Unsigned)) otherwise panic("d is never zero")
+	return (n mod (d as Unsigned))
 end 'refUMod'
 
 // The largest `n` below 2^64 with `n mod d == d - 1`, from two runtime-divisor `mod`s the pass cannot
 // see through and the folder cannot evaluate.
 function hardestDividend(d UPosDivisor) returns Unsigned
 	let umax = u64.max as Unsigned
-	return umax - (try ((refUMod(umax, d: d) + 1) mod (d as Unsigned)) otherwise panic("d is never zero"))
+	return umax - (((refUMod(umax, d: d) + 1) mod (d as Unsigned)))
 end 'hardestDividend'
 
 function neighbourhood(d UPosDivisor) returns UnsignedArray

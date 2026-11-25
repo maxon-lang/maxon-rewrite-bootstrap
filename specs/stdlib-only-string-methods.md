@@ -91,9 +91,10 @@ error E3008: <fragment>:3:15: function 'String.byteAtOrPanic' is not exported
 ```
 
 <!-- test: error.byte-at-is-stdlib-only -->
+<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	return try "abc".byteAt(0) otherwise 1
+	return "abc".byteAt(0)
 end 'main'
 ```
 ```maxoncstderr

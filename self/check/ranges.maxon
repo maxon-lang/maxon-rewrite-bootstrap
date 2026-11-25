@@ -8,17 +8,34 @@ type RangeHandler
 	export var takes as ast.TypeID
 	// site is the try, or 0 for the handler a test's body has.
 	export var site as ast.NodeID
-	// fallible is whether something the try covers can fail; proven is the first access it covers that the analysis proved
-	// cannot, or 0. A try that covers only proven accesses says a failure is handled that cannot happen.
-	export var fallible as bool
+	// failures is how many operations the try covers that can fail, and proofs how many accesses it covers that the analysis
+	// proved cannot, the latest being proven. A try that covers no failure says a failure is handled that cannot happen.
+	export var failures as Count
+	export var proofs as Count
 	export var proven as ast.NodeID
 
 	static function make(propagates bool, takes ast.TypeID, site ast.NodeID) returns RangeHandler
-		return RangeHandler{propagates: propagates, entry: deadState, takes: takes, site: site, fallible: false, proven: 0 as ast.NodeID}
+		return RangeHandler{propagates: propagates, entry: deadState, takes: takes, site: site, failures: 0 as Count, proofs: 0 as Count, proven: 0 as ast.NodeID}
 	end 'make'
 end 'RangeHandler'
 
 typealias RangeHandlerList = Array with RangeHandler
+
+// RangeTry is a try being walked: the handler it added, if it added one, and what the handler that takes its failures had
+// counted when it began, which the try's own end is measured against. A try inside another passes its failures on and adds
+// no handler.
+type RangeTry
+	export var site as ast.NodeID
+	export var added as bool
+	// reached is whether the try can run: one in code the analysis proves unreachable covers nothing the walk judged.
+	export var reached as bool
+	export var failures as Count
+	export var proofs as Count
+
+	static function make(site ast.NodeID, added bool, reached bool, failures Count, proofs Count) returns RangeTry
+		return RangeTry{site: site, added: added, reached: reached, failures: failures, proofs: proofs}
+	end 'make'
+end 'RangeTry'
 
 // RangeFrame is a loop or a match being walked, which a break leaves for the state after it.
 type RangeFrame
@@ -681,12 +698,13 @@ function rangeIfTryStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s a
 		some(id) gives r.typing.locals[id as Count].ty
 		none gives ast.noType
 	end 'local'
-	let added = rangeEnterTry(r, p: p, ms: ms, site: s, handles: true, takes: takes)
+	let entered = rangeEnterTry(r, p: p, ms: ms, site: s, handles: true, takes: takes)
 	let v = rangeEval(r, p: p, ms: ms, e: call)
-	if not added 'passed'
+	rangeCheckTry(r, p: p, ms: ms, entered: entered)
+	if not entered.added 'passed'
 		return
 	end 'passed'
-	let h = rangeLeaveTry(r, p: p, ms: ms)
+	let h = rangeLeaveTry(r)
 	_ = rangeKeep(r)
 	if ast.ifTryStmtName(ms.tree(), id: s) != "" 'bind'
 		let local = match consumes nodeLocalOf(r, node: s) 'bound'
@@ -849,30 +867,51 @@ end 'rangeWhenStmt'
 
 // rangeEnterTry starts a try. One with a handler catches what it covers, and takes only the error takes if that is not
 // none; one without passes it to the try around it, and with none around it to the caller, which only a function that
-// throws has. It gives whether the try added a handler.
-function rangeEnterTry(mutates r Ranges, p ast.Project, ms ast.ModuleState, site ast.NodeID, handles bool, takes ast.TypeID) returns bool
-	if not handles and r.handlers.count() > 0 'passes'
-		return false
-	end 'passes'
-	if not handles 'toCaller'
-		rangeRequirePropagates(r, p: p, ms: ms, site: site)
-		if r.failed 'refused'
-			return false
-		end 'refused'
-	end 'toCaller'
-	r.handlers.push(RangeHandler.make(not handles, takes: takes, site: site))
-	return true
+// throws has.
+function rangeEnterTry(mutates r Ranges, p ast.Project, ms ast.ModuleState, site ast.NodeID, handles bool, takes ast.TypeID) returns RangeTry
+	var added = false
+	if handles or r.handlers.count() == 0 'own'
+		if not handles 'toCaller'
+			rangeRequirePropagates(r, p: p, ms: ms, site: site)
+		end 'toCaller'
+		if handles or not r.failed 'allowed'
+			r.handlers.push(RangeHandler.make(not handles, takes: takes, site: site))
+			added = true
+		end 'allowed'
+	end 'own'
+	var failures = 0 as Count
+	var proofs = 0 as Count
+	if r.handlers.count() > 0 'counted'
+		let top = try r.handlers.count() - 1 otherwise panic("ranges: no handler")
+		failures = r.handlers[top].failures
+		proofs = r.handlers[top].proofs
+	end 'counted'
+	return RangeTry.make(site, added: added, reached: not isDead(r, s: r.st), failures: failures, proofs: proofs)
 end 'rangeEnterTry'
 
-// rangeLeaveTry ends a try that rangeEnterTry added a handler for, and gives the handler. A try that covers only accesses
-// the analysis proved inside their collections handles a failure that cannot happen, which is an error: the code would
-// say the access is checked where it is not. It does not end the walk, and it is reported only where nothing else is.
-function rangeLeaveTry(mutates r Ranges, p ast.Project, ms ast.ModuleState) returns RangeHandler
-	let h = try r.handlers.pop() otherwise panic("ranges: a try ended that was never begun")
-	if not h.fallible and h.proven != 0 and h.site != 0 and not r.probing and not r.failed 'needless'
-		checkFailFixed(r.modID, off: ms.tree().startOf(h.site), code: diag.errProvenTry, msg: provenTryText(ms.tree(), access: h.proven), fix: untryFix(ms.tree(), site: h.site), errs: r.needless)
-	end 'needless'
-	return h
+// rangeCheckTry says whether the try that is ending covers anything that can fail, which one function decides for every form
+// of try, whether it added a handler or passes its failures on: an operation the analysis leaves fallible, a call of a
+// function that throws, an access it cannot prove. A try that covers none handles a failure that cannot happen, which is an
+// error: the code would say a failure is possible where it is not. It does not end the walk, and it is reported only where
+// nothing else is wrong. Code the analysis proves unreachable has nothing judged, so it is left alone.
+function rangeCheckTry(mutates r Ranges, p ast.Project, ms ast.ModuleState, entered RangeTry)
+	if r.failed or r.probing or not entered.reached 'unjudged'
+		return
+	end 'unjudged'
+	let covering = try r.handlers.count() - 1 otherwise panic("ranges: a try ended outside every handler")
+	if r.handlers[covering].failures != entered.failures 'fallible'
+		return
+	end 'fallible'
+	var access = 0 as ast.NodeID
+	if r.handlers[covering].proofs != entered.proofs 'proven'
+		access = r.handlers[covering].proven
+	end 'proven'
+	checkFailFixed(r.modID, off: ms.tree().startOf(entered.site), code: diag.errNeedlessTry, msg: needlessTryText(ms.tree(), site: entered.site, access: access), fix: untryFix(ms.tree(), site: entered.site), errs: r.needless)
+end 'rangeCheckTry'
+
+// rangeLeaveTry ends a try that rangeEnterTry added a handler for, and gives the handler.
+function rangeLeaveTry(mutates r Ranges) returns RangeHandler
+	return try r.handlers.pop() otherwise panic("ranges: a try ended that was never begun")
 end 'rangeLeaveTry'
 
 // fnErrorType is the error the function being walked throws, or none.
@@ -908,12 +947,13 @@ function rangeTryStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast
 		none gives ast.noType
 	end 'local'
 	let handles = ast.tryStmtHasOtherwise(ms.tree(), id: s)
-	let added = rangeEnterTry(r, p: p, ms: ms, site: s, handles: handles, takes: takes)
+	let entered = rangeEnterTry(r, p: p, ms: ms, site: s, handles: handles, takes: takes)
 	rangeBlock(r, p: p, ms: ms, body: ast.tryStmtBodyRef(ms.tree(), id: s))
-	if not added 'passed'
+	rangeCheckTry(r, p: p, ms: ms, entered: entered)
+	if not entered.added 'passed'
 		return
 	end 'passed'
-	let h = rangeLeaveTry(r, p: p, ms: ms)
+	let h = rangeLeaveTry(r)
 	if not handles 'noHandler'
 		return
 	end 'noHandler'
@@ -964,7 +1004,7 @@ function rangeBreakStmt(mutates r Ranges, s ast.NodeID)
 	let target = r.typing.jumps.expect(s as Count, what: "jump target")
 	var i = r.frames.count()
 	while i > 0 'frames'
-		i = try i - 1 otherwise panic("ranges: the frames ran out")
+		i = i - 1
 		if r.frames[i].node == target 'found'
 			let kept = rangeKeep(r)
 			let breaks = r.frames[i].breaks

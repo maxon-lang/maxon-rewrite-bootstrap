@@ -304,7 +304,7 @@ export function buildMachOImage(layout ImageLayout, imports NameList) returns Im
 	// chained fixups has none of its tables of contents, modules, external references, indirect symbols or relocations.
 	pushU32(w, v: lcDysymtab)
 	pushU32(w, v: dysymtabCommandSize)
-	pushZeros(w, n: try dysymtabCommandSize - loadCommandHeaderSize otherwise panic("macho: LC_DYSYMTAB smaller than its header"))
+	pushZeros(w, n: dysymtabCommandSize - loadCommandHeaderSize)
 	pushU32(w, v: lcLoadDylinker)
 	pushU32(w, v: dylinkerCommandSize)
 	pushU32(w, v: dylinkerNameOffset)
@@ -369,7 +369,7 @@ function chainNext(fixups CountList, index Count) returns Count
 	if next / machoPageBytes != at / machoPageBytes 'otherPage'
 		return 0
 	end 'otherPage'
-	let distance = try next - at otherwise panic("macho: the chained fixups out of order")
+	let distance = next - at
 	return distance / dyldChainedNextStride
 end 'chainNext'
 

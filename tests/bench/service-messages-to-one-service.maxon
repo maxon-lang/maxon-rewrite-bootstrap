@@ -29,7 +29,7 @@ function work() returns ExitCode
 	var total = 0 as Word
 	for b in 0 upto batches 'batches'
 		for i in 0 upto batchMessages 'batch'
-			try counter.add(try b * batchMessages + i otherwise panic("the message number overflowed")) otherwise panic("the mailbox has room for a batch")
+			try counter.add(b * batchMessages + i) otherwise panic("the mailbox has room for a batch")
 		end 'batch'
 		total = try await counter.total() otherwise panic("the service runs until it is shut down")
 	end 'batches'

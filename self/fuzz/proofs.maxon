@@ -906,7 +906,7 @@ type ProofGen
 		var written = 0 as Count
 		while written < statements and budget > 0 'each'
 			self.statement(depth)
-			written = try written + 1 otherwise panic("fuzz: more statements than memory")
+			written = written + 1
 		end 'each'
 		if out.count() == start 'empty'
 			let row21 = "acc = mix(acc, v: {self.pick(9)})"
@@ -1270,7 +1270,7 @@ export function proofAccessTally(source String) returns CountList
 	for i in start upto n 'bytes'
 		if source.byteAt(i) == 10 'line'
 			let text = source.sliceBytes(start, endPos: i)
-			start = try i + 1 otherwise panic("fuzz: a line past memory")
+			start = i + 1
 			let access = proofAccessAt(text)
 			if access.isSome() 'access'
 				accesses = try accesses + 1 otherwise panic("fuzz: more accesses than memory")

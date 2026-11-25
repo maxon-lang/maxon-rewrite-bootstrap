@@ -229,7 +229,7 @@ function encodeFrameSetup(mutates u CodeUnit, fn MirFunction, framed bool)
 		while frame > machinePageSize 'pages'
 			encodeSubRegImm(u.asm.code, dest: X64Register.rsp, imm: machinePageSize)
 			encodeStoreBaseDispReg(u.asm.code, base: X64Register.rsp, disp: 0, src: X64Register.rax)
-			frame = try frame - machinePageSize otherwise panic("backend: a frame below zero")
+			frame = frame - machinePageSize
 		end 'pages'
 		if frame > 0 'rest'
 			encodeSubRegImm(u.asm.code, dest: X64Register.rsp, imm: imm32Of(frame))

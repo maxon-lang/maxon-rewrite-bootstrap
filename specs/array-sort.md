@@ -1461,7 +1461,7 @@ function main() returns ExitCode
 			var squares = 0 as Tally
 			for _ in 0 upto n 'fill'
 				seed = nextSeed(seed)
-				let v = try ((seed shr 16) mod (spread as Tally)) otherwise panic("a spread is never zero")
+				let v = ((seed shr 16) mod (spread as Tally))
 				values.push(v as SortKey)
 				sum = sum + v
 				squares = squares + v * v
@@ -1542,7 +1542,7 @@ function main() returns ExitCode
 			var entries = TicketArray.create(0)
 			for arrival in 0 upto n 'fill'
 				seed = nextSeed(seed)
-				let key = try ((seed shr 16) mod (spread as Tally)) otherwise panic("a spread is never zero")
+				let key = ((seed shr 16) mod (spread as Tally))
 				entries.push(Ticket.create(key as SortKey, arrival: arrival))
 			end 'fill'
 			entries.sortBy(byKey)

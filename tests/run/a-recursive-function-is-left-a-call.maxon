@@ -3,7 +3,7 @@ function depth(n Count) returns Count
 	if n == 0 'base'
 		return 0
 	end 'base'
-	let below = try n - 1 otherwise panic("below 0")
+	let below = n - 1
 	return try depth(below) + 1 otherwise panic("deeper than a word")
 end 'depth'
 

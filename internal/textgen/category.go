@@ -148,7 +148,7 @@ func generateCategory() (string, error) {
 function categoryTableDigit(at Count) returns Count
 	let character = categoryTable.byteAt(at) as Count
 	if character > categoryTableDigitEscape 'afterEscape'
-		return try character - categoryTableDigitFirst - 1 otherwise panic("a category table digit below its first")
+		return character - categoryTableDigitFirst - 1
 	end 'afterEscape'
 	return try character - categoryTableDigitFirst otherwise panic("a category table digit below its first")
 end 'categoryTableDigit'

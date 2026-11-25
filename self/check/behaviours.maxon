@@ -572,7 +572,7 @@ function followHolding(p ast.Project, mutates ms ast.ModuleState, label String, 
 		return true
 	end 'found'
 	if not ast.hasTypeDepthOverflow(ms.types, reads: p.types, t: held, depth: 0 as Count) 'bounded'
-		let key = try (held as Count) * 2 + (1 if next else 0) otherwise panic("too many types")
+		let key = (held as Count) * 2 + (1 if next else 0)
 		if not visited.has(key) 'unseen'
 			visited.insert(key, value: true)
 			if reachesThroughCown(p, ms: ms, from: held, target: target, via: next, services: services, path: path, visited: visited) 'inside'

@@ -17,7 +17,7 @@ export type I128
 
 	export static function fromInt(v FullRangeInt) returns I128
 		if v < 0 'neg'
-			let lo = (try v + (9223372036854775807 as FullRangeInt) + 1 otherwise 0 as FullRangeInt) as Count
+			let lo = (v + (9223372036854775807 as FullRangeInt) + 1) as Count
 			return I128{lo: lo or (9223372036854775808 as Count), hi: -1 as FullRangeInt}
 		end 'neg'
 		return I128{lo: v as Count, hi: 0 as FullRangeInt}
@@ -134,7 +134,7 @@ export type I128
 	export function toSigned() returns FullRangeInt
 		if hi < 0 'neg'
 			let masked = lo and i64MaxCount
-			return try (masked as FullRangeInt) + i64MinSigned otherwise 0 as FullRangeInt
+			return (masked as FullRangeInt) + i64MinSigned
 		end 'neg'
 		return try lo as FullRangeInt otherwise 0 as FullRangeInt
 	end 'toSigned'
@@ -186,17 +186,17 @@ function divMod10(mutates n I128) returns Count
 	let w3 = n.lo and (4294967295 as Count)
 	let q0 = (w0 / 10) as Count
 	let r0 = (w0 mod 10) as Count
-	let d1 = try (r0 shl 32) + w1 otherwise 0 as Count
+	let d1 = (r0 shl 32) + w1
 	let q1 = (d1 / 10) as Count
 	let r1 = (d1 mod 10) as Count
-	let d2 = try (r1 shl 32) + w2 otherwise 0 as Count
+	let d2 = (r1 shl 32) + w2
 	let q2 = (d2 / 10) as Count
 	let r2 = (d2 mod 10) as Count
-	let d3 = try (r2 shl 32) + w3 otherwise 0 as Count
+	let d3 = (r2 shl 32) + w3
 	let q3 = (d3 / 10) as Count
 	let r3 = d3 mod 10
-	let newHi = (try (q0 shl 32) + q1 otherwise 0 as Count) as FullRangeInt
-	let newLo = try (q2 shl 32) + q3 otherwise 0 as Count
+	let newHi = ((q0 shl 32) + q1) as FullRangeInt
+	let newLo = (q2 shl 32) + q3
 	n = I128.make(newLo, hi: newHi)
 	return r3
 end 'divMod10'
@@ -223,12 +223,12 @@ export function mulWide(a I128, b I128) returns I128
 	let x1 = x shr 32
 	let y0 = y and mask32
 	let y1 = y shr 32
-	let p00 = try x0 * y0 otherwise 0 as Count
+	let p00 = x0 * y0
 	let p01 = try x0 * y1 otherwise 0 as Count
 	let p10 = try x1 * y0 otherwise 0 as Count
 	let p11 = try x1 * y1 otherwise 0 as Count
-	let mid = (try (p00 shr 32) + (p01 and mask32) + (p10 and mask32) otherwise 0 as Count)
-	let lo = (try ((mid and mask32) shl 32) + (p00 and mask32) otherwise 0 as Count)
+	let mid = ((p00 shr 32) + (p01 and mask32) + (p10 and mask32))
+	let lo = (((mid and mask32) shl 32) + (p00 and mask32))
 	let hiU = try p11 + (p01 shr 32) + (p10 shr 32) + (mid shr 32) otherwise 0 as Count
 	let hi = try hiU as FullRangeInt otherwise satHi
 	var m = I128.make(lo, hi: hi)
@@ -245,7 +245,7 @@ function signedToU64Bits(x FullRangeInt) returns Count
 	if x >= 0 'pos'
 		return x as Count
 	end 'pos'
-	let low = (try x + (9223372036854775807 as FullRangeInt) + 1 otherwise 0 as FullRangeInt) as Count
+	let low = (x + (9223372036854775807 as FullRangeInt) + 1) as Count
 	return low or (9223372036854775808 as Count)
 end 'signedToU64Bits'
 
@@ -254,7 +254,7 @@ function u64BitsToSigned(x Count) returns FullRangeInt
 		return x as FullRangeInt
 	end 'pos'
 	let low = (x and i64MaxCount) as FullRangeInt
-	return try low + i64MinSigned otherwise 0 as FullRangeInt
+	return low + i64MinSigned
 end 'u64BitsToSigned'
 
 function divU128(aHi Count, aLo Count, bHi Count, bLo Count) returns I128

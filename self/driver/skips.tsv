@@ -75,8 +75,8 @@ skip	E3085	ErrErrorTypeMismatch	language difference: a try block's handler names
 expect	ErrModuleLetCallsFunction	language difference: a constant may call a literal factory, and E3220 names what it may call
 expect	E2027,E2048,E3010,E3012,E3062,E3064,E3065,E3067,E3077,E3081,E3087,E3092,E3097,E3219	language difference: style and lint rules are not checked, since the generated code does not depend on them
 expect	E3063,E3095	language difference: another module's names are always qualified by its path, so a bare name never finds two
-expect	E3055	language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program
-expect	E3083,E3168	language difference: a throws or a try block that nothing can make fail is allowed, so a sharper analysis never breaks a program
+expect	E3055,E3083	language difference: a try that covers nothing that can fail is E3944 whatever it covers (a call that does not throw, a try block, an operation or an access the range analysis proves), where maxon names two of those with E3055 and E3083
+expect	E3168	language difference: a throws that nothing can make fail is allowed, so a sharper analysis never breaks a program
 expect	E3196,E3198,E3199,E3200,E3201,E3202,E3203,E3205,E3206,E3207,E3208,E3209,E3211,E3214,E3226	language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist
 expect	E3224	language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse
 expect	E3156	language difference: an interface value is one word that owns its value, so it may stand where any value may

@@ -11,7 +11,7 @@ function main() returns ExitCode
 		if a.count() < 40 'more'
 			a.push(i)
 		end 'more'
-		i = try i + 1 otherwise panic("index overflowed")
+		i = i + 1
 	end 'grow'
 	var bytes = ByteArray.create(0)
 	bytes.push(3)
@@ -20,9 +20,9 @@ function main() returns ExitCode
 	while b < bytes.count() 'bytes'
 		high = try high + bytes[b] as Count otherwise panic("sum overflowed")
 		if bytes.count() < 20 'more'
-			bytes.push(try (b mod 7) as Byte otherwise 0)
+			bytes.push((b mod 7) as Byte)
 		end 'more'
-		b = try b + 1 otherwise panic("index overflowed")
+		b = b + 1
 	end 'bytes'
 	print("{a.count()} {sum} {bytes.count()} {high}\n")
 	return 0

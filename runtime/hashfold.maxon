@@ -183,9 +183,9 @@ function hashSecretOfText(text String) returns HashWord
 	var secret = 0 as HashWord
 	var shift = 0 as HashWord
 	for pair in 0 upto hashSecretDigits / hashDigitsPerByte 'bytes'
-		let at = try pair * hashDigitsPerByte otherwise panic("a pinned secret past its digits")
+		let at = pair * hashDigitsPerByte
 		let high = hashDigitValue(text.byteAt(at))
-		let low = hashDigitValue(text.byteAt(try at + 1 otherwise panic("a pinned secret past its digits")))
+		let low = hashDigitValue(text.byteAt(at + 1))
 		secret = secret or (((high shl hashDigitBits) or low) shl shift)
 		shift = shift + hashBitsPerByte
 	end 'bytes'
@@ -200,9 +200,9 @@ end 'hashIsDigit'
 // hashDigitValue is the value of a digit that hashIsDigit holds of.
 function hashDigitValue(c Byte) returns HashWord
 	if c >= hashDigitZero and c <= hashDigitNine 'decimal'
-		return try (c - hashDigitZero) as HashWord otherwise panic("a decimal digit below zero")
+		return (c - hashDigitZero) as HashWord
 	end 'decimal'
-	return try ((c or hashLetterCaseBit) - hashLetterFirst + hashLetterFirstValue) as HashWord otherwise panic("a hexadecimal letter below a")
+	return ((c or hashLetterCaseBit) - hashLetterFirst + hashLetterFirstValue) as HashWord
 end 'hashDigitValue'
 
 let hashByteMask = 0xFF as HashWord

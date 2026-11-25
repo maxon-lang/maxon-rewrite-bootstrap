@@ -51,7 +51,7 @@ export type Defs
 		if at == noDef 'param'
 			return 0
 		end 'param'
-		return plusOne(try at as Count otherwise panic("ir: a definition before the instructions"))
+		return plusOne(at as Count)
 	end 'place'
 end 'Defs'
 
@@ -231,7 +231,7 @@ export function buildCsr(sources Array with Count, targets Array with Count, nod
 	end 'fill'
 	var n = nodes
 	while n > 0 'shift'
-		let prev = try n - 1 otherwise panic("ir: an empty walk")
+		let prev = n - 1
 		starts[n] = starts[prev]
 		n = prev
 	end 'shift'
@@ -241,15 +241,15 @@ end 'buildCsr'
 // resetCounts makes a n zeros long, in the room it has.
 export function resetCounts(mutates a Array with Count, n Count)
 	a.clear()
-	try a.resize(n) otherwise panic("ir: an analysis past memory")
+	a.resize(n)
 end 'resetCounts'
 
 export function resetFlags(mutates a Array with bool, n Count)
 	a.clear()
-	try a.resize(n) otherwise panic("ir: an analysis past memory")
+	a.resize(n)
 end 'resetFlags'
 
 export function resetIndexes(mutates a Array with Index, n Count)
 	a.clear()
-	try a.resize(n) otherwise panic("ir: an analysis past memory")
+	a.resize(n)
 end 'resetIndexes'

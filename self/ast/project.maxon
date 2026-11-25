@@ -35,7 +35,7 @@ end 'ConstValue'
 
 export function declKey(ref DeclRef) returns Count
 	let m = (ref.module + 1) as Count
-	return (try m shl 32 otherwise 0 as Count) or (ref.ordinal as Count)
+	return (m shl 32) or (ref.ordinal as Count)
 end 'declKey'
 
 // inModule is a name preceded by the path of the module that declares it, as maxon names a declaration of another module in a message.
@@ -140,7 +140,7 @@ export type ModuleTables
 		if upTo <= sealed.count() 'sealed'
 			return
 		end 'sealed'
-		let n = try upTo - sealed.count() otherwise panic("a seal before the parts sealed already")
+		let n = upTo - sealed.count()
 		var rest = TablesParts.create(0)
 		for i in 0 upto open.count() 'open'
 			let part = exchange(open[i], value: TablesPart.new())

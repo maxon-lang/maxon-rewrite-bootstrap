@@ -176,9 +176,8 @@ end 'publishWaits'
 
 // exprText is the text an expression is written with, for a message that quotes it.
 function exprText(tree ast.Tree, e ast.NodeID) returns String
-	let start = ast.exprStart(tree, e: e) as Count
-	return match consumes ast.exprEnd(tree, e: e) 'end'
-		some(past) gives tree.text.sliceBytes(start, endPos: past).clone()
+	return match consumes ast.exprExtent(tree, e: e) 'extent'
+		some(x) gives tree.text.sliceBytes(x.begin as Count, endPos: x.until as Count).clone()
 		none gives placeText(tree, e: e)
-	end 'end'
+	end 'extent'
 end 'exprText'

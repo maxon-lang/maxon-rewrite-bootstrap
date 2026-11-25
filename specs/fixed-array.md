@@ -3238,7 +3238,7 @@ function main() returns ExitCode
 	a.push(1)
 	a.push(2)
 	a.push(3)
-	try a.managed.setLength(2) otherwise ignore
+	a.managed.setLength(2)
 	try a.managed.remove(0) otherwise ignore
 	let afterRemove = a.managed.length()
 	a.managed.clear()
@@ -4671,7 +4671,7 @@ end 'main'
 ```
 
 <!-- test: error.try-on-a-proven-index-of-a-constant-length-create -->
-<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
+<!-- skip: language difference: a try that covers nothing that can fail is E3944 whatever it covers (a call that does not throw, a try block, an operation or an access the range analysis proves), where maxon names two of those with E3055 and E3083 -->
 <!-- positions: moved -->
 The array is a `FixedArray with 4 Int`, so slot 0 is proven and the `try` is E3055, exactly as on a `Vec4`.
 ```maxon

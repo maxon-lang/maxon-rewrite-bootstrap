@@ -114,7 +114,7 @@ end 'matchFull'
 // firstMatch is the first slot of a set of hits that is not empty.
 function firstMatch(hits ControlWord) returns SlotInGroup
 	let index = (__Builtins.trailingZeros(hits as Count) shr slotOfBitShift) and slotInGroupMask
-	return try index as SlotInGroup otherwise panic("Map: a hit names a slot of its group")
+	return index as SlotInGroup
 end 'firstMatch'
 
 function withoutFirst(hits ControlWord) returns ControlWord
@@ -145,7 +145,7 @@ end 'slotAt'
 // A probe visits a table's groups in the triangular sequence from the group its hash names: h, h + 1, h + 1 + 2, ...
 // modulo the number of groups, which is a power of two, so the sequence visits every group once in that many steps.
 function firstGroup(hash MapHash, mask GroupIndex) returns GroupIndex
-	return try ((hash shr h1Shift) and (mask as MapHash)) as GroupIndex otherwise panic("Map: a group of the table")
+	return ((hash shr h1Shift) and (mask as MapHash)) as GroupIndex
 end 'firstGroup'
 
 function nextGroup(group GroupIndex, step GroupIndex, mask GroupIndex) returns GroupIndex
@@ -308,7 +308,7 @@ export type MapTable uses Key, Value where Key implements core.Hashable and core
 	// bits of split: every entry for a split of 0, and one half of the table for the bit a split divides it by.
 	function drain(mutates self, mutates into Self, seed MapHash, split MapHash, side MapHash) where Key implements Droppable, Value implements Droppable
 		for g in 0 to mask 'groups'
-			let group = try g as GroupIndex otherwise panic("Map: a table past its largest")
+			let group = g as GroupIndex
 			var full = matchFull(control(group))
 			while full != 0 'entries'
 				let at = firstMatch(full)
@@ -335,7 +335,7 @@ export type MapTable uses Key, Value where Key implements core.Hashable and core
 		end 'few'
 		var needed = Array.filled(mask + 1, value: false)
 		for g in 0 to mask 'groups'
-			let group = try g as GroupIndex otherwise panic("Map: a table past its largest")
+			let group = g as GroupIndex
 			var full = matchFull(control(group))
 			while full != 0 'entries'
 				let slot = slotAt(group, index: firstMatch(full))
@@ -386,7 +386,7 @@ export type MapTable uses Key, Value where Key implements core.Hashable and core
 		if g > mask 'past'
 			throw IterationError.exhausted
 		end 'past'
-		let group = try g as GroupIndex otherwise panic("Map: a table past its largest")
+		let group = g as GroupIndex
 		let below = (from and slotInGroupMask) * controlByteBits
 		var full = matchFull(control(group)) and not ((1 as ControlWord shl below) - 1)
 		if full != 0 'here'
@@ -394,7 +394,7 @@ export type MapTable uses Key, Value where Key implements core.Hashable and core
 		end 'here'
 		g = g + 1
 		while g <= mask 'groups'
-			let next = try g as GroupIndex otherwise panic("Map: a table past its largest")
+			let next = g as GroupIndex
 			full = matchFull(control(next))
 			if full != 0 'found'
 				return slotAt(next, index: firstMatch(full))
@@ -613,7 +613,7 @@ public type Map uses Key, Value implements core.Iterable with (Entry, MapIterato
 		let t = tableOf(hash)
 		let slot = try tables[t].find(key, hash: hash) otherwise return false
 		tables[t].erase(slot, small: isSmall())
-		storedCount = try storedCount - 1 otherwise panic("Map: a removal from an empty map")
+		storedCount = storedCount - 1
 		return true
 	end 'remove'
 

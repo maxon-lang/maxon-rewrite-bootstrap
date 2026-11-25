@@ -16,7 +16,7 @@ end 'sha 256'
 function countingBytes(n Count) returns ByteArray
 	var out = ByteArray.create(0)
 	for i in 0 upto n 'bytes'
-		out.push(try (i mod 251) as Byte otherwise panic("not a byte"))
+		out.push((i mod 251) as Byte)
 	end 'bytes'
 	return out
 end 'countingBytes'
@@ -118,7 +118,7 @@ let machoSecondPageAt = 16384 as Count
 
 function machoRebasedData() returns ByteArray
 	var data = ByteArray.create(sum(machoSecondPageAt, b: 32))
-	data[machoExitCodeAt] = try machoRebasedExitCode as Byte otherwise panic("not a byte")
+	data[machoExitCodeAt] = machoRebasedExitCode as Byte
 	copyInto(data, at: machoMessageAt, src: machoMessage.toByteArray())
 	return data
 end 'machoRebasedData'
@@ -247,7 +247,7 @@ function checkMachO(file ByteArray, image Image, code ByteArray, imports NameLis
 		expectValue(readU64(file, at: sum(s.start, b: 24)), expected: sum(base, b: fileoff), label: "segment {i}'s address")
 		expectValue(fileoff mod machoPageBytes, expected: 0, label: "segment {i}'s offset in pages")
 		if i > 0 'follows'
-			let before = segments[try i - 1 otherwise panic("no segment before")].clone()
+			let before = segments[i - 1].clone()
 			expectValue(fileoff, expected: sum(readU64(file, at: sum(before.start, b: segFileoffField)), b: readU64(file, at: sum(before.start, b: segFilesizeField))), label: "segment {i} follows the one before")
 		end 'follows'
 	end 'segments'
@@ -323,7 +323,7 @@ function checkChainedFixups(file ByteArray, commands MachOCommands, dataOffset C
 				expectValue(sum(image.dataRva, b: inSegment), expected: sum(image.iatRva, b: product(ordinal, b: importSlotBytes)), label: "the slot of bind {ordinal}")
 				binds.push(ordinal)
 			end 'bind' else 'rebase'
-				let target = word and (try dyldChainedRebaseTargetLimit - 1 otherwise panic("no rebase target"))
+				let target = word and (dyldChainedRebaseTargetLimit - 1)
 				rebases.push(DataPointer.make(try at - dataOffset otherwise panic("a rebase before __DATA"), target: try target - image.dataRva otherwise panic("a rebase before the data")))
 			end 'rebase'
 			at = sum(at, b: product(next, b: dyldChainedNextStride))

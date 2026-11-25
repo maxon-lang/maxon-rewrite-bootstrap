@@ -33,7 +33,7 @@ export extension Array
 			return
 		end 'trivial'
 		var i = lo
-		var j = try (hi - 1) as ElementIndex otherwise panic("out of range")
+		var j = (hi - 1) as ElementIndex
 		while i < j 'loop'
 			self.swap(i, j: j)
 			i = i + 1

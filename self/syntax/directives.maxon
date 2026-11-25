@@ -70,7 +70,7 @@ end 'holdsDirective'
 // asciiLower is a letter in lower case, and any other byte as it is.
 function asciiLower(c Byte) returns Byte
 	if c >= byteUpperA and c <= byteUpperZ 'upper'
-		return try ((c as Count) + caseDistance) as Byte otherwise panic("a lower case letter exceeds a byte")
+		return ((c as Count) + caseDistance) as Byte
 	end 'upper'
 	return c
 end 'asciiLower'

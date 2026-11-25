@@ -137,7 +137,7 @@ export type Token
 	end 'make'
 
 	export function endOffset() returns Count
-		return try (start as Count) + (length as Count) otherwise panic("a token ends past U32")
+		return (start as Count) + (length as Count)
 	end 'endOffset'
 
 	export function text(src String) returns String
@@ -187,7 +187,7 @@ function hexDigit(ch Byte) returns Count
 		return try (ch as Count) - (byteZero as Count) otherwise panic("a digit is below '0'")
 	end 'digit'
 	if ch >= byteLowerA 'lower'
-		return try (ch as Count) - (byteLowerA as Count) + hexDigitValue otherwise panic("a hex digit is below 'a'")
+		return (ch as Count) - (byteLowerA as Count) + hexDigitValue
 	end 'lower'
 	return try (ch as Count) - (byteUpperA as Count) + hexDigitValue otherwise panic("a hex digit is below 'A'")
 end 'hexDigit'
@@ -294,17 +294,17 @@ end 'codepointText'
 // appendRune appends the UTF-8 bytes of a code point an escape writes, which is at most four hex digits and no surrogate.
 function appendRune(mutates buf ByteArray, ch Count)
 	if ch < utf8Max1 'one'
-		buf.push(try ch as Byte otherwise panic("a one-byte rune exceeds a byte"))
+		buf.push(ch as Byte)
 		return
 	end 'one'
 	if ch < utf8Max2 'two'
 		buf.push(try (utf8Lead2 or (ch shr 6)) as Byte otherwise panic("a two-byte rune exceeds a byte"))
-		buf.push(try (utf8ContinuationTag or (ch and utf8ContinuationBits)) as Byte otherwise panic("a continuation exceeds a byte"))
+		buf.push((utf8ContinuationTag or (ch and utf8ContinuationBits)) as Byte)
 		return
 	end 'two'
 	buf.push(try (utf8Lead3 or (ch shr 12)) as Byte otherwise panic("a three-byte rune exceeds a byte"))
-	buf.push(try (utf8ContinuationTag or ((ch shr 6) and utf8ContinuationBits)) as Byte otherwise panic("a continuation exceeds a byte"))
-	buf.push(try (utf8ContinuationTag or (ch and utf8ContinuationBits)) as Byte otherwise panic("a continuation exceeds a byte"))
+	buf.push((utf8ContinuationTag or ((ch shr 6) and utf8ContinuationBits)) as Byte)
+	buf.push((utf8ContinuationTag or (ch and utf8ContinuationBits)) as Byte)
 end 'appendRune'
 
 type Lexer
@@ -441,7 +441,7 @@ type Lexer
 			throw self.fail(src, message: "a token is longer than 16 MB; split it", at: start)
 		end 'long'
 		let at = try start as diag.U32 otherwise panic("a token starts past U32")
-		let n = try length as diag.U32 otherwise panic("a token is longer than U32")
+		let n = length as diag.U32
 		tokens.push(Token.make(kind, start: at, length: n))
 	end 'emit'
 

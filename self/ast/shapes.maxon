@@ -83,7 +83,7 @@ end 'shapeTextStep'
 function shapeI128Step(h Count, v I128) returns Count
 	let x = shapeWordStep(h, w: v.lo)
 	if v.hi < 0 'negative'
-		return shapeWordStep(shapeStep(x, w: 1 as Count), w: (try -(v.hi + 1) as Count otherwise panic("the high word of a negative I128 has no magnitude")))
+		return shapeWordStep(shapeStep(x, w: 1 as Count), w: (-(v.hi + 1) as Count))
 	end 'negative'
 	return shapeWordStep(shapeStep(x, w: 0 as Count), w: v.hi as Count)
 end 'shapeI128Step'
@@ -373,7 +373,7 @@ type ShapeIndex
 			if old[i] != emptyWord 'held'
 				let at = self.probe(old[i])
 				cells[at] = old[i]
-				cells[try at + 1 otherwise panic("a place past the cells of a shape index")] = old[try i + 1 otherwise panic("a place past the cells of a shape index")]
+				cells[try at + 1 otherwise panic("a place past the cells of a shape index")] = old[i + 1]
 			end 'held'
 			i = try i + shapeCell otherwise panic("a shape index past memory")
 		end 'rehash'

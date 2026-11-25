@@ -5,7 +5,7 @@
 export function arrange(mutates xs Array with T, mutates source Array with Count, mutates taken Array with bool) uses T where T implements Droppable
 	let keep = source.count()
 	taken.clear()
-	try taken.resize(xs.count()) otherwise panic("table: a list past memory")
+	taken.resize(xs.count())
 	for t in 0 upto keep 'listed'
 		try taken.set(try source.get(t) otherwise panic("table: an order shorter than it is"), value: true) otherwise panic("table: an order that names an element past the end of its list")
 	end 'listed'

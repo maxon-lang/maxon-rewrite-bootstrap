@@ -268,7 +268,7 @@ function withNested(mutates job J, p ast.Project, f ir.IrFunction, path CountLis
 		job.run(p, f: f)
 		return
 	end 'found'
-	withNested(job, p: p, f: f.bodies[path[depth]], path: path, depth: try depth + 1 otherwise panic("interp: a path past memory"))
+	withNested(job, p: p, f: f.bodies[path[depth]], path: path, depth: depth + 1)
 end 'withNested'
 
 // Interp is a run: the Vm, with the machine that runs its operations.
@@ -430,7 +430,7 @@ function runScheduler(mutates job Interp, p ast.Project, modules ModuleFunctions
 		if choice < threadIds.count() 'thread'
 			t = threadIds[choice]
 		end 'thread' else 'behaviour'
-			t = beginBehaviour(job.m.vm, b: startable[try choice - threadIds.count() otherwise panic("interp: a choice before the behaviours")])
+			t = beginBehaviour(job.m.vm, b: startable[choice - threadIds.count()])
 		end 'behaviour'
 		resumeThread(job, p: p, modules: modules, paths: paths, t: t)
 	end 'turns'

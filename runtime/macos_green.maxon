@@ -52,7 +52,7 @@
 	function sleepMicros(context Count, micros Count)
 		let time = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockClockOffset)
 		__Raw.storeWord(time, offset: 0, value: micros / microsPerSecond)
-		__Raw.storeWord(time, offset: wordBytes, value: try (micros mod microsPerSecond) * nanosPerMicro otherwise panic("a sleep past a word of nanoseconds"))
+		__Raw.storeWord(time, offset: wordBytes, value: (micros mod microsPerSecond) * nanosPerMicro)
 		_ = sysNanosleep(time, remaining: noRemaining)
 	end 'sleepMicros'
 

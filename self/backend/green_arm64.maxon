@@ -25,7 +25,7 @@ function arm64SwitchGeneralRegister(slot Count) returns Arm64Register
 		return Arm64Register.x20
 	end 'x20'
 	if slot < arm64SwitchGeneralCount 'rest'
-		return arm64RegisterOf(try (slot + 18) as RegNum otherwise panic("backend: a switch slot past the register file"))
+		return arm64RegisterOf((slot + 18) as RegNum)
 	end 'rest'
 	panic("backend: a switch record has no slot {slot} for an arm64 general register")
 end 'arm64SwitchGeneralRegister'
@@ -36,7 +36,7 @@ let arm64SwitchFirstExtra = 6
 // arm64SwitchGeneralDisp is where a switch record holds the general register of a slot.
 function arm64SwitchGeneralDisp(slot Count) returns FullRangeInt
 	if slot < arm64SwitchFirstExtra 'x64Slots'
-		return arm64Disp(try switchRbxOffset + slot * wordBytes otherwise panic("backend: a switch record past memory"))
+		return arm64Disp(switchRbxOffset + slot * wordBytes)
 	end 'x64Slots'
 	return arm64Disp(try switchXmmOffset + (slot - arm64SwitchFirstExtra) * wordBytes otherwise panic("backend: a switch record past memory"))
 end 'arm64SwitchGeneralDisp'
@@ -124,7 +124,7 @@ function emitArm64SwitchVectors(mutates u CodeUnit, record Arm64Register, saves 
 	var nth = 0 as Count
 	for r in arm64FirstVector upto arm64RegisterFileSize 'vectors'
 		if maskHas(kept, number: regNumOfCount(r)) 'kept'
-			let n = try r - arm64FirstVector otherwise panic("backend: a d register before the first")
+			let n = r - arm64FirstVector
 			if saves 'save'
 				u.asm.arm64StoreVector(record, disp: arm64SwitchVectorDisp(nth), n: n)
 			end 'save' else 'load'
@@ -177,26 +177,26 @@ function emitArm64AsyncPreempt(mutates u CodeUnit, system ast.TargetSystem)
 	u.asm.arm64AddImm(Arm64Register.sp, src: Arm64Register.sp, value: arm64Negated(arm64Disp(preemptFrameBytes)))
 	for r in 0 upto preemptGeneralSlots 'saveGprs'
 		if arm64Preserved(r) 'saved'
-			u.asm.arm64Store(Arm64Register.sp, disp: arm64Disp(try r * wordBytes otherwise panic("backend: a frame past memory")), src: arm64RegisterOf(regNumOfCount(r)))
+			u.asm.arm64Store(Arm64Register.sp, disp: arm64Disp(r * wordBytes), src: arm64RegisterOf(regNumOfCount(r)))
 		end 'saved'
 	end 'saveGprs'
 	encodeArm64MrsNzcv(u.asm.code, dest: resume)
 	u.asm.arm64Store(Arm64Register.sp, disp: preemptFlagsDisp, src: resume)
 	for n in 0 upto preemptVectorCount 'saveVectors'
-		u.asm.arm64StoreVector(Arm64Register.sp, disp: arm64Disp(try preemptVectorsDisp + n * wordBytes otherwise panic("backend: a frame past memory")), n: n)
+		u.asm.arm64StoreVector(Arm64Register.sp, disp: arm64Disp(preemptVectorsDisp + n * wordBytes), n: n)
 	end 'saveVectors'
 	emitArm64LoadContext(u, system: system, dst: resume)
 	u.asm.arm64Mov(arm64ArgWord(), src: resume)
 	u.asm.arm64Load(resume, base: resume, disp: arm64Disp(contextPreemptCodeOffset))
 	u.asm.arm64CallRegister(resume)
 	for n in 0 upto preemptVectorCount 'loadVectors'
-		u.asm.arm64LoadVector(n, base: Arm64Register.sp, disp: arm64Disp(try preemptVectorsDisp + n * wordBytes otherwise panic("backend: a frame past memory")))
+		u.asm.arm64LoadVector(n, base: Arm64Register.sp, disp: arm64Disp(preemptVectorsDisp + n * wordBytes))
 	end 'loadVectors'
 	u.asm.arm64Load(resume, base: Arm64Register.sp, disp: preemptFlagsDisp)
 	encodeArm64MsrNzcv(u.asm.code, src: resume)
 	for r in 0 upto preemptGeneralSlots 'loadGprs'
 		if arm64Preserved(r) 'saved'
-			u.asm.arm64Load(arm64RegisterOf(regNumOfCount(r)), base: Arm64Register.sp, disp: arm64Disp(try r * wordBytes otherwise panic("backend: a frame past memory")))
+			u.asm.arm64Load(arm64RegisterOf(regNumOfCount(r)), base: Arm64Register.sp, disp: arm64Disp(r * wordBytes))
 		end 'saved'
 	end 'loadGprs'
 	u.asm.arm64Load(resume, base: Arm64Register.sp, disp: resumeDisp)

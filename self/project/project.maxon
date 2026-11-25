@@ -30,7 +30,7 @@ end 'endsWithMaxon'
 export function endsWithText(text String, suffix String) returns bool
 	let length = text.byteLength()
 	let tail = suffix.byteLength()
-	return length >= tail and text.sliceBytes(try length - tail otherwise 0 as Count, endPos: length) == suffix
+	return length >= tail and text.sliceBytes(length - tail, endPos: length) == suffix
 end 'endsWithText'
 
 // endsWithMaxtest is whether a file name ends in `.maxtest`, the extension of the files that hold tests.
@@ -43,7 +43,7 @@ export function sortStrings(mutates xs ast.StringList)
 	for i in 1 upto n 'ins'
 		var j = i
 		while j > 0 'shift'
-			let prev = try j - 1 otherwise 0 as Count
+			let prev = j - 1
 			if diag.stringLess(xs[j], b: xs[prev]) 'swap'
 				let cur = xs[j].clone()
 				xs[j] = xs[prev].clone()
@@ -61,7 +61,7 @@ end 'sortStrings'
 function trimTrailingSlash(p String) returns borrowed String
 	var endPos = p.byteLength()
 	while endPos > 0 'trim'
-		let lastIdx = try endPos - 1 otherwise 0 as Count
+		let lastIdx = endPos - 1
 		let ch = p.byteAt(lastIdx)
 		if ch != 47 and ch != 92 'stop'
 			break 'trim'
@@ -84,7 +84,7 @@ export function joinPath(dir String, name String) returns String
 	end 'cur'
 	let cn = clean.byteLength()
 	if cn > 0 'chkLast'
-		let last = clean.byteAt(try cn - 1 otherwise 0 as Count)
+		let last = clean.byteAt(cn - 1)
 		if last == 47 or last == 92 'hasSep'
 			return "{clean}{name}"
 		end 'hasSep'
@@ -96,7 +96,7 @@ end 'joinPath'
 export function parentDir(path String) returns String
 	var i = path.byteLength()
 	while i > 0 'back'
-		let prev = try i - 1 otherwise 0 as Count
+		let prev = i - 1
 		let ch = path.byteAt(prev)
 		if ch == 47 or ch == 92 'sep'
 			if prev == 0 'rootSlash'
@@ -133,7 +133,7 @@ end 'isReservedTopLevel'
 let projectFileExtension = ".maxproj"
 
 // ignoreMarkerName is the name of the file that keeps a directory, and what is below it, out of the program that discovers it.
-let ignoreMarkerName = ".maxonignore"
+export let ignoreMarkerName = ".maxonignore"
 
 // runtimeDirName is the directory of the runtime's source (README, "The runtime").
 let runtimeDirName = "runtime"
@@ -427,7 +427,7 @@ let caseOffset = 32 as Byte
 
 function foldCase(c Byte) returns Byte
 	if c >= upperA and c <= upperZ 'upper'
-		return try c + caseOffset otherwise c
+		return c + caseOffset
 	end 'upper'
 	return c
 end 'foldCase'
@@ -451,7 +451,7 @@ end 'readTextFile'
 export function lastComponent(path String) returns borrowed String
 	var at = path.byteLength()
 	while at > 0 'back'
-		let before = try at - 1 otherwise 0
+		let before = at - 1
 		if path.byteAt(before) == nativeSeparatorByte() 'separator'
 			break 'back'
 		end 'separator'
@@ -888,7 +888,7 @@ function lastPathPart(path String) returns String
 	for i in 0 upto path.byteLength() 'each'
 		let c = path.byteAt(i)
 		if c == slashByte or c == backslashByte 'separator'
-			start = try i + 1 otherwise i
+			start = i + 1
 		end 'separator'
 	end 'each'
 	return path.sliceBytes(start, endPos: path.byteLength()).clone()

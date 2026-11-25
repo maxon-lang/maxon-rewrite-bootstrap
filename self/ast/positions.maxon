@@ -111,7 +111,7 @@ end 'panicLocation'
 export function fileNameOf(path String) returns borrowed String
 	var at = path.byteLength()
 	while at > 0 'back'
-		let before = try at - 1 otherwise 0
+		let before = at - 1
 		let c = path.byteAt(before)
 		if c == backslashByte or c == slashByte 'separator'
 			break 'back'

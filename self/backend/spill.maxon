@@ -499,7 +499,7 @@ export type Spiller
 		var lo = lv.useStart[owner]
 		var hi = self.usesEnd(owner)
 		while lo < hi 'search'
-			let mid = addCounts(lo, b: (try hi - lo otherwise panic("backend: a search out of order")) / 2)
+			let mid = addCounts(lo, b: (hi - lo) / 2)
 			if self.entryAt(mid) < at 'below'
 				lo = nextCount(mid)
 			end 'below' else 'above'
@@ -1003,7 +1003,7 @@ function loopTier(mutates fn MirFunction, mutates s Spiller, level Count) return
 				continue 'classes'
 			end 'fits'
 			over = true
-			let excess = try most - pool otherwise panic("backend: an excess below 0")
+			let excess = most - pool
 			var need = excess as Count
 			for i in 0 upto s.splitThisRound.count() 'relieved'
 				let r = s.splitThisRound[i]

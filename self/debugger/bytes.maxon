@@ -15,7 +15,7 @@ export function word(bytes ByteArray, at Count, width Count) returns Count
 	var value = 0 as Word
 	var i = width
 	while i > 0 'bytes'
-		i = try i - 1 otherwise panic("debugger: a byte before the word")
+		i = i - 1
 		let place = try at + i otherwise panic("debugger: a byte past memory")
 		if place >= bytes.count() 'past'
 			return 0
@@ -66,7 +66,7 @@ export function hexWord(value Count) returns String
 	var out = ByteArray.create(0)
 	var i = digits.count()
 	while i > 0 'reverse'
-		i = try i - 1 otherwise panic("debugger: a digit before the first")
+		i = i - 1
 		out.push(digits[i])
 	end 'reverse'
 	return "0x{String.from(out)}"

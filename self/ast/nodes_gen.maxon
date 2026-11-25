@@ -607,7 +607,7 @@ end 'setTypeCountNegative'
 export function typeCountValue(t Tree, id NodeID) returns I128
 	let lo = t.records[id as Count].a as Count
 	let hi = t.records[id as Count].b as Count
-	return I128.fromCount(lo or (try hi shl 32 otherwise 0 as Count))
+	return I128.fromCount(lo or (hi shl 32))
 end 'typeCountValue'
 
 export function setTypeCountValue(mutates t Tree, id NodeID, value I128)
@@ -2045,7 +2045,7 @@ end 'setIntLitNegative'
 export function intLitMagnitude(t Tree, id NodeID) returns I128
 	let lo = t.records[id as Count].a as Count
 	let hi = t.records[id as Count].b as Count
-	return I128.fromCount(lo or (try hi shl 32 otherwise 0 as Count))
+	return I128.fromCount(lo or (hi shl 32))
 end 'intLitMagnitude'
 
 export function setIntLitMagnitude(mutates t Tree, id NodeID, value I128)
@@ -2069,7 +2069,7 @@ end 'setFloatLitNegative'
 export function floatLitMagnitude(t Tree, id NodeID) returns I128
 	let lo = t.records[id as Count].a as Count
 	let hi = t.records[id as Count].b as Count
-	return I128.fromCount(lo or (try hi shl 32 otherwise 0 as Count))
+	return I128.fromCount(lo or (hi shl 32))
 end 'floatLitMagnitude'
 
 export function setFloatLitMagnitude(mutates t Tree, id NodeID, value I128)

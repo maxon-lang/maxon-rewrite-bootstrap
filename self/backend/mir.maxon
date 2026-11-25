@@ -135,19 +135,19 @@ end 'newCopy'
 
 export function newSpill(src MReg, slot SpillSlot) returns MInstr
 	var x = MInstr.make(MKind.spill, form: noForm, a: src, b: noMReg, c: noMReg)
-	x.aux = try slot as Imm32 otherwise panic("backend: a spill slot past 2 GiB")
+	x.aux = slot as Imm32
 	return x
 end 'newSpill'
 
 export function newReload(dst MReg, slot SpillSlot) returns MInstr
 	var x = MInstr.make(MKind.reload, form: noForm, a: dst, b: noMReg, c: noMReg)
-	x.aux = try slot as Imm32 otherwise panic("backend: a spill slot past 2 GiB")
+	x.aux = slot as Imm32
 	return x
 end 'newReload'
 
 function newRestore(r MReg, slot SpillSlot) returns MInstr
 	var x = MInstr.make(MKind.restore, form: noForm, a: r, b: noMReg, c: noMReg)
-	x.aux = try slot as Imm32 otherwise panic("backend: a spill slot past 2 GiB")
+	x.aux = slot as Imm32
 	return x
 end 'newRestore'
 
@@ -378,7 +378,7 @@ export type MirFunction
 		if n == 0 'none'
 			panic("backend: no block is being written")
 		end 'none'
-		return order[try n - 1 otherwise panic("backend: no block")] as Count
+		return order[n - 1] as Count
 	end 'writing'
 
 	// endBlock makes the instructions since the last block started its body.
@@ -461,8 +461,8 @@ export typealias MirFunctionList = Array with MirFunction
 
 // spillSlotOffset is where a spill slot sits below the frame pointer.
 function spillSlotOffset(slot SpillSlot) returns Imm32
-	let below = try (slot as Count + 1) * spillSlotBytes otherwise panic("backend: a frame past memory")
-	let signed = try below as FullRangeInt otherwise panic("backend: a frame past memory")
+	let below = (slot as Count + 1) * spillSlotBytes
+	let signed = below as FullRangeInt
 	return try 0 - signed otherwise panic("backend: a frame past 2 GiB")
 end 'spillSlotOffset'
 

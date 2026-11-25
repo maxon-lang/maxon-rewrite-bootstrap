@@ -83,7 +83,7 @@ export extension Array
 		// past the next slot to write. All three start one past the rightmost
 		// unconsumed slot, and decrement before write/read.
 		var lEnd = mid
-		var rEnd = try rightLen as ElementIndex otherwise panic("out of range")
+		var rEnd = rightLen as ElementIndex
 		var outEnd = hi
 		while lEnd > lo and rEnd > 0 'pick'
 			let lv = try self.managed.get(lEnd - 1) otherwise panic("mergeBufferedRight: get OOB at lEnd-1")

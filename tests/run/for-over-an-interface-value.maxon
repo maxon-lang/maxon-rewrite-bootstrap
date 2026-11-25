@@ -25,7 +25,7 @@ type Upto implements Seq
 		if self.pos >= self.limit 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'
-		self.pos = try self.pos + 1 otherwise panic("overflow")
+		self.pos = self.pos + 1
 	end 'advance'
 end 'Upto'
 
@@ -45,7 +45,7 @@ type Numbered
 		if self.pos >= self.limit 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'
-		self.pos = try self.pos + 1 otherwise panic("overflow")
+		self.pos = self.pos + 1
 	end 'advance'
 end 'Numbered'
 

@@ -19,7 +19,7 @@ export function log2(c ir.Word) returns ir.Word
 	var n = 0 as ir.Word
 	var v = c
 	while v > 1 'halve'
-		v = try v / 2 otherwise panic("opt: a division by 2 that fails")
+		v = v / 2
 		n = try n + 1 otherwise panic("opt: a power of two past the word")
 	end 'halve'
 	return n

@@ -512,7 +512,7 @@ type JsonParser
 	end 'decodeEscape'
 
 	function decodeUnicodeEscape(mutates self, mutates out ByteArray) throws JsonError
-		let cu = try try parseHex4() as CodeUnit16 otherwise panic("out of range")
+		let cu = try parseHex4() as CodeUnit16 otherwise panic("out of range")
 		if utf16IsLeadSurrogate(cu) 'high'
 			let nextSlash = try peek()
 			if nextSlash != 0x5C 'noBs'
@@ -524,7 +524,7 @@ type JsonParser
 				throw JsonError.invalidSurrogate
 			end 'noU'
 			try advance()
-			let low = try try parseHex4() as CodeUnit16 otherwise panic("out of range")
+			let low = try parseHex4() as CodeUnit16 otherwise panic("out of range")
 			if not utf16IsTrailSurrogate(low) 'badLow'
 				throw JsonError.invalidSurrogate
 			end 'badLow'

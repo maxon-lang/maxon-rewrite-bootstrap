@@ -679,8 +679,8 @@ end 'arm64LoadPlace'
 // rResultFromFloat moves the bits of the convention's float result into its word result.
 function rResultFromFloat(mutates u CodeUnit, a ast.TargetArch)
 	match a 'arch'
-		x64 then u.asm.moveFromVector(resultWord(), src: x64RegisterOf(try (x64InternalFloatResult - x64FirstVector) as RegNum otherwise panic("routines: a float result in a general register")))
-		arm64 then encodeArm64FmovXD(u.asm.code, dest: arm64ResultWord(), src: arm64VectorOfNumber(try (arm64InternalFloatResult as Count) - arm64FirstVector otherwise panic("routines: a float result in a general register")))
+		x64 then u.asm.moveFromVector(resultWord(), src: x64RegisterOf((x64InternalFloatResult - x64FirstVector) as RegNum))
+		arm64 then encodeArm64FmovXD(u.asm.code, dest: arm64ResultWord(), src: arm64VectorOfNumber((arm64InternalFloatResult as Count) - arm64FirstVector))
 	end 'arch'
 end 'rResultFromFloat'
 

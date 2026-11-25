@@ -1,0 +1,6 @@
+// sum is a + b where a count could in principle reach the top of Count. This compiler's range analysis knows that no
+// collection holds more elements than memory has bytes, which the seed's does not yet, so the addition is written as a call
+// the seed accepts; the seed's next renewal replaces each call of it with the addition.
+export function sum(a Count, b Count) returns Count
+	return try a + b otherwise panic("table: a count past memory")
+end 'sum'

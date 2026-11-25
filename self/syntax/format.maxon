@@ -215,7 +215,7 @@ function sameTokenText(source String, t Token, other String, u Token) returns bo
 		return false
 	end 'length'
 	for i in 0 upto t.length as Count 'each'
-		if source.byteAt(try (t.start as Count) + i otherwise panic("a token ends past U32")) != other.byteAt(try (u.start as Count) + i otherwise panic("a token ends past U32")) 'differs'
+		if source.byteAt((t.start as Count) + i) != other.byteAt((u.start as Count) + i) 'differs'
 			return false
 		end 'differs'
 	end 'each'

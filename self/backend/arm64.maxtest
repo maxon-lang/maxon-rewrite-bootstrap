@@ -258,7 +258,7 @@ test 'arm64 machine ir'
 		panic("arm64's last form has the FormID {arm64FormID(Arm64Form.msrNzcv)}, and there are {formCount}")
 	end 'number'
 	for i in 0 upto formCount 'forms'
-		let form = try i as FormID otherwise panic("more forms than a FormID names")
+		let form = i as FormID
 		if machineOperandCount(form) > 3 or (reusesOperand(form) and not definesOperand(form)) 'operands'
 			panic("form {i} has operands the machine IR does not hold")
 		end 'operands'

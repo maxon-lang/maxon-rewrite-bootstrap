@@ -301,7 +301,7 @@ type BlockScan
 			end 'operand'
 			let edge = refIndex(fn.instrs[k])
 			let target = fn.edges[edge].target as Count
-			let param = fn.blockParams[addCounts(fn.blocks[target].params, b: try slot - firstListUse otherwise panic("backend: a slot below the lists"))]
+			let param = fn.blockParams[addCounts(fn.blocks[target].params, b: slot - firstListUse)]
 			if webs[vregIndex(param)] != webs[vregIndex(r)] 'otherVariable'
 				return readCounted
 			end 'otherVariable'
@@ -701,7 +701,7 @@ end 'instrNeed'
 function excessOf(t Count, d Count, f Count, pool Count) returns Count
 	let need = addCounts(t, b: maxOf(d, b: f))
 	if need > pool 'over'
-		return try need - pool otherwise panic("backend: an excess below 0")
+		return need - pool
 	end 'over'
 	return 0
 end 'excessOf'

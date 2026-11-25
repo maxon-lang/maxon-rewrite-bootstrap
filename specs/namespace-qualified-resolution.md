@@ -2425,7 +2425,7 @@ error E3036: app/<fragment>:18:10: 'pick' expects 2 argument(s) but 1 were provi
 
 
 <!-- test: error.a-root-contestant-does-not-inherit-a-subdirectorys-throws -->
-<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
+<!-- skip: language difference: a try that covers nothing that can fail is E3944 whatever it covers (a call that does not throw, a try block, an operation or an access the range analysis proves), where maxon names two of those with E3055 and E3083 -->
 ⛔ **THE SAME HOLE ON THE `throws` REGISTRY.** `error.contested-free-function-throws-is-not-inherited`
 below is this program with the second contestant in `beta/` instead of at the root — and that one passes
 whether or not the by-name clear runs, for the reason above. Without the clear this program would

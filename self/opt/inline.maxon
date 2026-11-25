@@ -472,7 +472,7 @@ export type Inliner
 		if err != ir.noReg 'error'
 			f.blockParams.push(err)
 		end 'error'
-		let rest = ir.Block.make(tail.count(), endAt: tail.count(), params: params, paramCount: try f.blockParams.count() - params otherwise panic("opt: parameters out of order"), term: ir.newTrap())
+		let rest = ir.Block.make(tail.count(), endAt: tail.count(), params: params, paramCount: (1 if dst != ir.noReg else 0) + (1 if err != ir.noReg else 0), term: ir.newTrap())
 		writingAdded = true
 		writing = added.count()
 		added.push(rest)

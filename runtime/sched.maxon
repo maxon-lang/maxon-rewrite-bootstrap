@@ -1272,7 +1272,7 @@ function requestedWorkers() returns Count
 		if c < digitZero or c > digitNine 'notDigit'
 			return noRequest
 		end 'notDigit'
-		count = try count * decimalBase + ((try c - digitZero otherwise 0) as Count) otherwise return noRequest
+		count = try count * decimalBase + ((c - digitZero) as Count) otherwise return noRequest
 		if count > mostRequestedWorkers 'tooMany'
 			return noRequest
 		end 'tooMany'

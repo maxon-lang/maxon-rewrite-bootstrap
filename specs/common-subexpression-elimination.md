@@ -241,7 +241,7 @@ typealias Word = int(i64.min to i64.max)
 typealias NonZeroWord = int(1 to i64.max)
 
 function halves(a Word, b NonZeroWord) returns Word
-	return try (try (a / (b as Word)) otherwise panic("b is never zero")) + (try (a / (b as Word)) otherwise panic("b is never zero")) + (try (a mod (b as Word)) otherwise panic("b is never zero")) + (try (a mod (b as Word)) otherwise panic("b is never zero")) otherwise panic("out of range")
+	return try ((a / (b as Word))) + ((a / (b as Word))) + ((a mod (b as Word))) + ((a mod (b as Word))) otherwise panic("out of range")
 end 'halves'
 
 function main() returns ExitCode

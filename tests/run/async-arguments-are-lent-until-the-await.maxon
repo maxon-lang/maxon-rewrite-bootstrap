@@ -37,7 +37,7 @@ function main() returns ExitCode
 	let r1 = async readRow(row, label: "first", delay: 2)
 	let r2 = async readRow(row, label: "second", delay: 30)
 	print("before {row.n}\n")
-	let s = try await r1 + await r2 otherwise 0
+	let s = await r1 + await r2
 	row.n = 7
 	print("sum {s} then {row.n}\n")
 	return 0

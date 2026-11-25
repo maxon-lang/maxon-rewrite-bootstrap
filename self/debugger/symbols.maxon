@@ -59,11 +59,11 @@ end 'isAbsolute'
 export function baseName(path String) returns String
 	var at = path.byteLength()
 	while at > 0 'back'
-		let b = path.byteAt(try at - 1 otherwise 0)
+		let b = path.byteAt(at - 1)
 		if b == slashByte or b == backslashByte 'separator'
 			return path.sliceBytes(at, endPos: path.byteLength()).clone()
 		end 'separator'
-		at = try at - 1 otherwise 0
+		at = at - 1
 	end 'back'
 	return path.clone()
 end 'baseName'
@@ -111,13 +111,13 @@ export function sourceWindow(reader mxdbg.MxdbgReader, file mxdbg.MxdbgIndex, li
 		if i == text.byteLength() or text.byteAt(i) == newlineByte 'end'
 			if number >= first and number <= last and not (i == text.byteLength() and start == i) 'held'
 				var finish = i as Count
-				if finish > start and text.byteAt(try finish - 1 otherwise 0) == carriageReturnByte 'cr'
-					finish = try finish - 1 otherwise 0
+				if finish > start and text.byteAt(finish - 1) == carriageReturnByte 'cr'
+					finish = finish - 1
 				end 'cr'
 				window.push(SourceLine.make(number, text: text.sliceBytes(start, endPos: finish).clone(), current: number == line))
 			end 'held'
 			number = try number + 1 otherwise number
-			start = try i + 1 otherwise i
+			start = i + 1
 		end 'end'
 	end 'bytes'
 	return window
@@ -263,7 +263,7 @@ export function returnOf(host WindowsHost, reader mxdbg.MxdbgReader, textBase Co
 		let pops = popsBeforeReturn(code, at: at)
 		pushes = (reader.funcFrameSize(f) as Count) / wordBytes
 		if pops >= 0 'epilogue'
-			pushes = try pops as Count otherwise pushes
+			pushes = pops as Count
 		end 'epilogue'
 	end 'body'
 	return returnAt(host, sp: frame.sp, pushes: pushes, fp: frame.fp)
@@ -281,13 +281,14 @@ function popsBeforeReturn(code ByteArray, at Count) returns FullRangeInt
 	var pops = 0 as FullRangeInt
 	while i < code.count() 'scan'
 		let b = code[i]
+		let next = i + 1
 		if b == returnByte 'ret'
 			return pops
 		end 'ret'
 		if b >= firstPop and b <= lastPop 'pop'
-			i = try i + 1 otherwise code.count()
-		end 'pop' else if b == rexB and i + 1 < code.count() and code[i + 1] >= firstPop and code[i + 1] <= lastPop 'popHigh'
-			i = try i + 2 otherwise code.count()
+			i = next
+		end 'pop' else if b == rexB and next < code.count() and code[next] >= firstPop and code[next] <= lastPop 'popHigh'
+			i = next + 1
 		end 'popHigh' else 'other'
 			return -1
 		end 'other'

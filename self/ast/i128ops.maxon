@@ -48,8 +48,8 @@ export function shiftLeft(a I128, n Count) returns I128
 		return I128.fromCount(a.lo)
 	end 'none'
 	let keepBits = try 64 - n otherwise 0 as Count
-	let keep = try (1 as Count) shl keepBits otherwise 0 as Count
-	let mask = try keep - 1 otherwise 0 as Count
+	let keep = (1 as Count) shl keepBits
+	let mask = keep - 1
 	return I128.fromCount(try (a.lo and mask) shl n otherwise 0 as Count)
 end 'shiftLeft'
 

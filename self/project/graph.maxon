@@ -97,7 +97,7 @@ export function checkAcyclic(g Graph, p ast.Project) returns table.Option with d
 	end 'mark'
 	var startIdx = 0 as Count
 	while startIdx < n and done[startIdx] 'findStart'
-		startIdx = try startIdx + 1 otherwise n
+		startIdx = startIdx + 1
 	end 'findStart'
 	let start = try startIdx as diag.ModuleID otherwise panic("too many modules")
 	var path = ModIDList.create(0)
@@ -132,7 +132,7 @@ export function checkAcyclic(g Graph, p ast.Project) returns table.Option with d
 				let firstMod = path[at]
 				var secondMod = nextMod
 				if at + 1 < path.count() 'hasSecond'
-					secondMod = path[try at + 1 otherwise at]
+					secondMod = path[at + 1]
 				end 'hasSecond'
 				let off = edgeOffset(g, fromMod: firstMod, target: secondMod)
 				return table.Option.some(diag.CompileError.atSite(diag.errDependsOnItself, message: String.from(msgBuf), site: diag.Site.make(firstMod, offset: off)))

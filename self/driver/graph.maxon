@@ -107,7 +107,7 @@ type TaskGraph
 		let firstInput = inputs.count()
 		inputs.append(group)
 		inputs.append(also)
-		tasks.push(Task.make(stage, module: 0, firstInput: firstInput, inputCount: try inputs.count() - firstInput otherwise panic("driver: a task's inputs end before they start")))
+		tasks.push(Task.make(stage, module: 0, firstInput: firstInput, inputCount: table.sum(group.count(), b: also.count())))
 		group = TaskIDs.create(0)
 		group.push(id)
 		groupOfModules = false
@@ -120,7 +120,7 @@ type TaskGraph
 		let firstInput = inputs.count()
 		inputs.append(group)
 		inputs.append(also)
-		tasks.push(Task.make(stage, module: 0, firstInput: firstInput, inputCount: try inputs.count() - firstInput otherwise panic("driver: a task's inputs end before they start")))
+		tasks.push(Task.make(stage, module: 0, firstInput: firstInput, inputCount: table.sum(group.count(), b: also.count())))
 		return id
 	end 'addSideTask'
 
@@ -242,7 +242,7 @@ type TaskGraph
 		let firstInput = inputs.count()
 		inputs.append(before)
 		inputs.append(also)
-		tasks.push(Task.make(stage, module: module, firstInput: firstInput, inputCount: try inputs.count() - firstInput otherwise panic("driver: a task's inputs end before they start")))
+		tasks.push(Task.make(stage, module: module, firstInput: firstInput, inputCount: table.sum(before.count(), b: also.count())))
 		moduleTask[module] = id
 		return id
 	end 'addTaskAfter'
@@ -623,7 +623,7 @@ function execute(mutates run Run, mutates p ast.Project, memory project.SourceFi
 		run.states.push(state)
 		run.errors.push(taskErrors)
 		run.outcomes.push(outcome)
-		t = try t + 1 otherwise panic("driver: more tasks than memory")
+		t = t + 1
 	end 'tasks'
 end 'execute'
 

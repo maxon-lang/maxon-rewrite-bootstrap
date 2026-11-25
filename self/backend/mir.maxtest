@@ -287,7 +287,7 @@ function testMachineForms()
 			panic("x64 form {i} fixes a register no value can be given")
 		end 'allocatable'
 		for r in 0 upto x64RegisterFileSize 'registers'
-			let number = try r as RegNum otherwise panic("a register past a mask")
+			let number = r as RegNum
 			if maskHas(fixed, number: number) and not maskHas(allocatable(x64Arch, class: classOfNumber(x64Arch, number: number)), number: number) 'class'
 				panic("x64 form {i} fixes register {r} outside its class")
 			end 'class'

@@ -31,9 +31,9 @@ function parseSeed(text String) returns table.Option with Count
 		if c < 48 or c > 57 'notDigit'
 			return table.Option.none
 		end 'notDigit'
-		let digit = try (c - 48) as Count otherwise return table.Option.none
+		let digit = (c - 48) as Count
 		magnitude = try magnitude * 10 + digit otherwise return table.Option.none
-		at = try at + 1 otherwise return table.Option.none
+		at = at + 1
 	end 'digits'
 	if negative 'negated'
 		// The schedule is named by the bits of the seed, which is the two's complement of a negative one.
@@ -43,7 +43,7 @@ function parseSeed(text String) returns table.Option with Count
 		if magnitude == 0 'zero'
 			return table.Option.some(0 as Count)
 		end 'zero'
-		return table.Option.some(try (18446744073709551615 - magnitude) + 1 otherwise return table.Option.none)
+		return table.Option.some((18446744073709551615 - magnitude) + 1)
 	end 'negated'
 	if magnitude > 9223372036854775807 'tooHigh'
 		return table.Option.none

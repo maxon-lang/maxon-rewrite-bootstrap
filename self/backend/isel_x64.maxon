@@ -268,7 +268,7 @@ extension Selector
 
 	// x64CompareWith compares with an immediate where one holds the constant, and with a register that holds it otherwise.
 	function x64CompareWith(mutates self, a MReg, value ir.Word)
-		let wanted = try value as FullRangeInt otherwise panic("backend: a constant past the word")
+		let wanted = value as FullRangeInt
 		if fitsImm32(value) 'immediate'
 			let imm = try wanted as Imm32 otherwise panic("backend: a constant past 32 bits")
 			self.target(chooseCmpRegImm(imm), a: a, b: noMReg, c: noMReg, aux: 0, imm: wanted)

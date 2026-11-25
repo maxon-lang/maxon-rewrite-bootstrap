@@ -2246,7 +2246,7 @@ end 'opaque'
 
 function ratioVia(s Scorer, d Real) returns Real
 	let base = s.score()
-	return try (base / d) otherwise panic("ratioVia: d was 0")
+	return (base / d)
 end 'ratioVia'
 
 function main() returns ExitCode

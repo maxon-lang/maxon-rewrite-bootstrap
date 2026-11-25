@@ -64,7 +64,7 @@ func emitMaxonTokens(m *model) string {
 	w.p("\tlet at = try index * tableDigits otherwise panic(\"a DFA table index overflows\")\n")
 	w.p("\tlet high = try (table.byteAt(at) as Count) - tableDigitZero otherwise panic(\"a DFA table holds a byte that is no digit\")\n")
 	w.p("\tlet low = try (table.byteAt(try at + 1 otherwise panic(\"a DFA table index overflows\")) as Count) - tableDigitZero otherwise panic(\"a DFA table holds a byte that is no digit\")\n")
-	w.p("\treturn try high * tableBase + low otherwise panic(\"a DFA table entry overflows\")\nend 'tableEntry'\n")
+	w.p("\treturn high * tableBase + low\nend 'tableEntry'\n")
 
 	a := buildDfa(m)
 	w.p("\n// The lexer's DFA, compiled from every token rule and keyword of %s. A state is a row of dfaNextTable, a\n", grammarName)

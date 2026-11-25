@@ -8,7 +8,7 @@ function sumAt(a Counts, k Count) returns Count
 	var i = 0 as Count
 	while i < 3 'each'
 		sum = try sum + a[k] otherwise panic("sum overflowed")
-		i = try i + 1 otherwise panic("index overflowed")
+		i = i + 1
 	end 'each'
 	return sum
 end 'sumAt'
@@ -21,7 +21,7 @@ function main() returns ExitCode
 	while i < 3 'each'
 		print("{i}\n")
 		print("{a[k]}\n")
-		i = try i + 1 otherwise panic("index overflowed")
+		i = i + 1
 	end 'each'
 	return 0
 end 'main'

@@ -203,7 +203,7 @@ function definingOp(f ir.IrFunction, defs ir.Defs, r ir.Reg) returns ir.Opcode
 	if at == ir.noDef 'param'
 		return ir.Opcode.opNone
 	end 'param'
-	return f.instrs[try at as Count otherwise panic("opt: a definition before the instructions")].op
+	return f.instrs[at as Count].op
 end 'definingOp'
 
 // keyed is whether an instruction of the motion m is merged with an earlier identical one: what it gives, or whether it

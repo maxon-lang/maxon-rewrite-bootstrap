@@ -15,7 +15,7 @@ end 'Entry'
 function wordLength(text String) returns Count
 	var i = 0 as Count
 	while i < text.byteLength() and text.byteAt(i) != 32 'scan'
-		i = try i + 1 otherwise panic("past the text")
+		i = i + 1
 	end 'scan'
 	return i
 end 'wordLength'

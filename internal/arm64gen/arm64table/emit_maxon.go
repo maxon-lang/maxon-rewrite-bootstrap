@@ -120,7 +120,7 @@ const helpers = `// arm64Emit appends the word of an instruction, little endian.
 function arm64Emit(mutates code ByteArray, word Arm64Bits)
 	var rest = word
 	for i in 0 upto arm64WordBytes 'bytes'
-		code.push(try (rest and arm64ByteMask) as Byte otherwise panic("backend: a byte of an instruction past a byte"))
+		code.push((rest and arm64ByteMask) as Byte)
 		rest = rest shr arm64ByteBits
 	end 'bytes'
 end 'arm64Emit'
@@ -297,7 +297,7 @@ end 'arm64LadderInverted'
 export function arm64LadderHalfword(value FullRangeInt, hw Count) returns Arm64Imm16
 	let at = try hw * arm64HalfwordBits otherwise panic("backend: a halfword past a word")
 	let chunk = ((value as Arm64Bits) shr at) and arm64HalfwordMask
-	return try chunk as Arm64Imm16 otherwise panic("backend: a halfword past 16 bits")
+	return chunk as Arm64Imm16
 end 'arm64LadderHalfword'
 
 // arm64LadderSkips is whether the ladder of a word writes nothing for its halfword hw: one that the first move leaves as
@@ -315,7 +315,7 @@ end 'arm64LadderSkips'
 export function arm64LadderFirst(value FullRangeInt, hw Count) returns Arm64Imm16
 	let chunk = arm64LadderHalfword(value, hw: hw)
 	if arm64LadderInverted(value) 'inverted'
-		return try ((chunk as Arm64Bits) xor arm64HalfwordMask) as Arm64Imm16 otherwise panic("backend: a halfword past 16 bits")
+		return ((chunk as Arm64Bits) xor arm64HalfwordMask) as Arm64Imm16
 	end 'inverted'
 	return chunk
 end 'arm64LadderFirst'

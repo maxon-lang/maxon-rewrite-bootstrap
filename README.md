@@ -2250,7 +2250,9 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   the checker lacked would be all that stands between that program and the interpreter. Every program it accepts must run
   clean, under several schedules when it schedules a behaviour, and one that does not is a hole. A program is a pure function of
   its seed; the generator draws from `self/fuzz/rand.maxon` and the generic library every program starts with is
-  `self/fuzz/library.txt`. The command runs its seeds in worker processes, loads each program from memory
+  `self/fuzz/library.txt`. The generator writes a `try` on every piece of arithmetic, and one that the analysis proves
+  cannot fail is `E3944`, which is no fault of the program: a program refused for that alone runs after `fix` removes those
+  `try`s and nothing else. The command runs its seeds in worker processes, loads each program from memory
   (`project.loadSourceInto`), and with `--native` also builds each accepted program that has an executable, with its
   allocations counted, and compares it with the interpreter's: the same output and exit code, and no box left live.
   The programs with no slot map, which are the ones with an executable, share in half the seeds, and those are
@@ -3097,8 +3099,8 @@ end 'forms'
   `b - i >= 1`. A state keeps at most 32 relations. Every rule is checked by brute force against what the operations do to
   values (`self/check/rules.maxtest`). An access that is not proven where no
   `try` covers it is `E3057`, which says what it needs (`'xs.get(i)' needs i < xs.count()`) and names the guard and the
-  `try` that would give it. A `try` that covers nothing that can fail but proven accesses is `E3944`: the code would say
-  the access is checked where it is not; `fix` removes the `try` and its handler.
+  `try` that would give it. A `try` that covers nothing that can fail, as one that covers only proven accesses, is `E3944` (see
+  "Checked arithmetic").
 - What leaves the function, through a `try` without `otherwise` or a `throw`, must be the error the function throws:
   `E3059` otherwise, also where the function throws nothing; convert another error with `otherwise throw`. Where what
   fails so is an operation's range (an arithmetic, a cast, an index, a conversion at a return), `fix` gives the
@@ -3184,7 +3186,19 @@ end 'sums'
   operation that can fail with `ArithmeticError` (`E3059`); the handler of a `try` block whose body fails only by its
   operations names the `ArithmeticError`. `main` cannot throw, and neither can a function with a `sets` parameter, which
   a failure would leave set or not (`E3924`); a method throws exactly when the interface's signature does (`E3016`).
-- A `try` that covers nothing that can fail is allowed, so a sharper analysis never breaks a program.
+- **A `try` that covers nothing that can fail is `E3944`**, whatever it covers: an operation the range analysis proves
+  cannot fail, an access it proves inside its collection, or a call of a function that does not throw. The code would
+  say a failure is possible where it is not, and its handler would be code that never runs. It is the same for a `try`
+  block (nothing in its body can fail), an `if try` (its call cannot), and a `try` with no `otherwise` that passes on
+  nothing. A `try` inside another that covers something that can fail does not excuse the outer one: each is judged by
+  what it covers itself, a `try` with an `otherwise` taking what is inside it. `fix` removes the `try` and its handler
+  (a try block's `try` line, its `end` and its handler, keeping the body: the handler never runs, so nothing it holds
+  is lost), and gives no fix for an `if try`, which is rewritten as a call and the code that follows. A sharper
+  analysis therefore refuses programs the older one accepted, and every commit that sharpens it removes the `try`s it
+  makes needless with `fix`, as the conversion of maxon's code does. The error is reported only for a module with no
+  other error, since the proof takes the rest of the program to be right, and not for code the analysis proves
+  unreachable. A generic body is analysed once, with its type parameters unknown, so a `try` that a body needs is
+  needed in every instance, including one whose types could not fail.
 - A failure leaves what it interrupts, as a jump out of it would: the temporaries of the statement and the locals of
   the blocks it leaves are dropped, and so are the values computed for a call, a record or a union that never runs
   (`ir.Lowerer.pending`). The ownership pass follows each failure to its handler, so a value moved before a failure may
@@ -5103,7 +5117,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   buffer, so it has no `managed` field, no `init(managed)`, no member called through the type's name (`FixedArray.set(v, ...)`)
   and no `__ManagedMemory` refusals. `set` and `refill` take `mutates self`, as an array's writes do, where maxon writes
   through a `let`: a borrowed element would otherwise be dropped under its borrower. A `try` around a get or a set that the
-  range analysis proves is allowed, as any `try` that covers nothing that can fail is, where maxon refuses it (`E3055`). A
+  range analysis proves is `E3944`, as any `try` that covers nothing that can fail is (maxon's `E3055` and `E3083` are two of those). A
   generic body is checked once, so `create()` or `create(n)` of a fixed array of a type parameter is `E3106` whatever the
   instances are, and an enum's first case is no zero value, as for `Array.create(n)`. The count of a type is an integer
   literal, so `with K Int` and `with 3.5 Int` are the parser's generic `E2010` rather than `E2069`. `countof(Self)` is only a
@@ -5162,8 +5176,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - Errors (see "Errors of the program"): a `try` block's handler names
   one error, not the combined error of several (refused with `E3059`), and has no terminal `otherwise panic(...)` or
   `otherwise throws ...` form; there is no block handler `otherwise (e) 'label'` on a `try` expression
-  inside brackets and no `default throws` in a match. Maxon's `E3168` (a `throws` that nothing throws) and
-  `E3083` (a `try` block with nothing that throws) are not raised, so a sharper range analysis never breaks a program. A `try` covers every
+  inside brackets and no `default throws` in a match. Maxon's `E3168` (a `throws` that nothing throws) is not raised, so a sharper range analysis never breaks a program, but a `try` that covers nothing that can fail is `E3944` (see "Checked arithmetic"). A `try` covers every
   operation of its expression, not one call, and a condition that rules a failure out is a proof the compiler checks
   (see "Checked arithmetic"). Maxon's `E3161` (a handler of a union error must match it exactly once) is not raised: the
   handler owns the error as a local and a `try` block's handler still has to `match` it (`E3084`). A `throw` moves its
@@ -5194,8 +5207,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - A format specifier (see "Format specifiers") reads the integers, floats and Strings, and leaves any other value as it is:
   there is no `FormattedStringable`, so `{c:verbose}` of a type of the program is not interpolated. An empty specifier (`{x:}`) is no specifier.
 - A `get` or a `set` of an array at an index that the range analysis proves inside the count needs no `try` and runs with
-  no check, where maxon's throws and needs one; a `try` around such an access alone is `E3944`, which `fix` (and so the
-  conversion of maxon's code, `specs.ps1` and `stdlib.ps1`) removes with its handler. `E3057` for an access that is not
+  no check, where maxon's throws and needs one; a `try` around such an access alone is `E3944`, as is any `try` that covers nothing that can fail, whose
+  `fix` (and so the conversion of maxon's code, `specs.ps1` and `stdlib.ps1`) removes the `try` with its handler: maxon's
+  `E3055` (a `try` on a call that does not throw) and `E3083` (a `try` block with nothing that throws) are two cases of it, and an
+  operation the range analysis proves cannot fail, which maxon traps and so never covers, is another. `E3057` for an access that is not
   proven says what the access needs and how to give it, not maxon's text (see "Proven accesses").
 - A `return` converts an integer to the function's declared integer type with no cast where the range analysis proves that
   it fits, and the value that may not fit is `E3057` (see "Integers"). Maxon converts every `return` implicitly and checks

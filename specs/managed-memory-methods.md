@@ -285,9 +285,7 @@ typealias IntArray = Array with Int
 function main() returns ExitCode
 	var arr = IntArray.create(0)
 	arr.push(1)
-	try arr.managed.setLength(100) otherwise 'overlen'
-		return 7
-	end 'overlen'
+	arr.managed.setLength(100)
 	return 0
 end 'main'
 ```
@@ -346,8 +344,8 @@ typealias IntArray = Array with Int
 
 function main() returns ExitCode
 	var arr = IntArray.create(0)
-	try arr.managed.grow(8) otherwise panic("grow OOB")
-	try arr.managed.setLength(4) otherwise panic("setLength OOB")
+	arr.managed.grow(8)
+	arr.managed.setLength(4)
 	try arr.managed.set(0, 10) otherwise panic("set OOB")
 	try arr.managed.set(1, 20) otherwise panic("set OOB")
 	try arr.managed.set(2, 30) otherwise panic("set OOB")
@@ -1681,7 +1679,7 @@ end 'main'
 ```
 
 <!-- test: error.try-on-the-buffers-append -->
-<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
+<!-- skip: language difference: a try that covers nothing that can fail is E3944 whatever it covers (a call that does not throw, a try block, an operation or an access the range analysis proves), where maxon names two of those with E3055 and E3083 -->
 <!-- tier: stdlib -->
 
 ⚖ **`append` IS THE ONE BUFFER MUTATOR THAT CANNOT FAIL, SO A `try` ON IT IS E3055 — USER RULING.**

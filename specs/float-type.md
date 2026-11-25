@@ -790,7 +790,7 @@ end 'take'
 function main() returns ExitCode
 	let xs = [1.5, 2.5]
 	let r = try xs.get(0) otherwise 2.0
-	let q = try (4.5 / r) otherwise 0.0
+	let q = (4.5 / r)
 	print("{take(try (r + r) as Span otherwise panic("out of range"))} {take(try (r * r) as Span otherwise panic("out of range"))} {take(try (r - 1.0) as Span otherwise panic("out of range"))} {take(try q as Span otherwise panic("out of range"))} {take(try (5.0 - r) as Span otherwise panic("out of range"))} {take(try abs(-r) as Span otherwise panic("out of range"))}\n")
 	return 0
 end 'main'

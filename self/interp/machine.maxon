@@ -557,7 +557,7 @@ function runEndings(mutates vm Vm) throws Halt
 	let rs = exchange(vm.endingR, value: ir.WordList.create(0))
 	var i = fns.count()
 	while i > 0 'due'
-		i = try i - 1 otherwise panic("interp: no endings")
+		i = i - 1
 		clearArguments(vm)
 		vm.argN.push(ns[i])
 		vm.argR.push(rs[i])
@@ -575,7 +575,7 @@ function finishInstruction(mutates m Machine, info Count, f ir.IrFunction)
 	end 'endings'
 	var link = m.vm.prog.infos[info].head[m.vm.curIdx]
 	while link != 0 'windows'
-		let entry = try link - 1 otherwise panic("interp: a link before the first")
+		let entry = link - 1
 		let call = m.vm.prog.infos[info].calls[entry]
 		let callBlock = m.vm.prog.infos[info].blocks[entry]
 		let idx = m.vm.curIdx

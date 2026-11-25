@@ -34,13 +34,13 @@ function main() returns ExitCode
 	var ts = Trios.create(0)
 	for i in 0 upto 6 'fill'
 		let n = i as Small
-		ts.push(Trio.make(n, b: try n * 2 otherwise 0, c: try n * 3 otherwise 0))
+		ts.push(Trio.make(n, b: n * 2, c: n * 3))
 	end 'fill'
 	print("{all(ts)}\n")
 	ts[1] = Trio.make(7, b: 8, c: 9)
 	ts[2].b = 55
 	bump(ts[3])
-	try ts.swap(0, j: 5) otherwise panic("swap")
+	ts.swap(0, j: 5)
 	print("{all(ts)}\n")
 	let popped = try ts.pop() otherwise panic("pop")
 	let removed = try ts.remove(1) otherwise panic("remove")

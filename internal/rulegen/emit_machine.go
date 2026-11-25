@@ -186,6 +186,9 @@ func (e *machineEmitter) value(text, ty string) string {
 	if ty == "" || number.MatchString(expr) {
 		return expr
 	}
+	if fitsType(text, ty, e.vars) {
+		return fmt.Sprintf("(%s) as %s", expr, ty)
+	}
 	return fmt.Sprintf("try (%s) as %s otherwise panic(\"backend: a value of %s:%d does not fit %s\")", expr, ty, e.r.file, e.r.line, ty)
 }
 

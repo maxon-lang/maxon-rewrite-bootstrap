@@ -627,9 +627,8 @@ function rangeProvenCovered(mutates r Ranges, e ast.NodeID)
 		return
 	end 'uncovered'
 	let last = try r.handlers.count() - 1 otherwise panic("ranges: no handler")
-	if r.handlers[last].proven == 0 'first'
-		r.handlers[last].proven = e
-	end 'first'
+	r.handlers[last].proofs = try r.handlers[last].proofs + 1 otherwise panic("ranges: more proofs than a count holds")
+	r.handlers[last].proven = e
 end 'rangeProvenCovered'
 
 // indexArgument is the first argument of a call, the index of an access, or 0 for a call with none.
@@ -779,12 +778,13 @@ function rangeTryExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast
 		some(id) gives r.typing.locals[id as Count].ty
 		none gives ast.noType
 	end 'local'
-	let added = rangeEnterTry(r, p: p, ms: ms, site: e, handles: not ast.propagates(ms.tree(), e: e), takes: takes)
+	let entered = rangeEnterTry(r, p: p, ms: ms, site: e, handles: not ast.propagates(ms.tree(), e: e), takes: takes)
 	let v = rangeEval(r, p: p, ms: ms, e: ast.tryExprE(ms.tree(), id: e))
-	if not added 'passed'
+	rangeCheckTry(r, p: p, ms: ms, entered: entered)
+	if not entered.added 'passed'
 		return v
 	end 'passed'
-	let h = rangeLeaveTry(r, p: p, ms: ms)
+	let h = rangeLeaveTry(r)
 	if h.propagates 'toCaller'
 		return v
 	end 'toCaller'
@@ -1159,11 +1159,40 @@ function receiverText(t ast.Tree, call ast.NodeID, receiver ast.NodeID) returns 
 	return table.blankTrimmed(t.text.sliceBytes(ast.exprStart(t, e: receiver), endPos: t.startOf(callee) as Count), fromStart: false, fromEnd: true).clone()
 end 'receiverText'
 
-// provenTryText is the error for a try that covers nothing that can fail but the access, which the analysis proved inside
-// its collection.
-function provenTryText(t ast.Tree, access ast.NodeID) returns String
-	return "'{exprText(t, e: access)}' cannot fail here: its index is proven inside the collection, so the 'try' handles a failure that never happens; remove the 'try' and its handler"
-end 'provenTryText'
+// needlessTryText is the error for a try that covers nothing that can fail: what it covers, when that is an expression or a
+// call, and the change that leaves the code saying what is true. access is the access that the analysis proved inside its
+// collection, or 0 where nothing was an access.
+function needlessTryText(t ast.Tree, site ast.NodeID, access ast.NodeID) returns String
+	let kind = t.kindOf(site)
+	if kind == ast.NodeKind.tryExpr 'expression'
+		let covered = ast.tryExprE(t, id: site)
+		let why = needlessReason(t, covered: covered, access: access)
+		if ast.propagates(t, e: site) 'passes'
+			return "{why}, so this 'try' passes on a failure that never happens; remove the 'try'"
+		end 'passes'
+		return "{why}, so this 'try' handles a failure that never happens; remove the 'try' and its handler"
+	end 'expression'
+	if kind == ast.NodeKind.tryStmt 'block'
+		let why = "nothing in this 'try' block can fail" if access == 0 else "its only access, '{exprText(t, e: access)}', is proven inside the collection, and nothing else in this 'try' block can fail"
+		if ast.tryStmtHasOtherwise(t, id: site) 'handled'
+			return "{why}, so its handler never runs; remove the 'try' and the 'end' around the body, and the handler"
+		end 'handled'
+		return "{why}, so the 'try' passes on a failure that never happens; remove the 'try' and the 'end' around the body"
+	end 'block'
+	if kind == ast.NodeKind.ifTryStmt 'conditional'
+		let why = needlessReason(t, covered: ast.ifTryStmtCall(t, id: site), access: access)
+		return "{why}, so the 'else' of this 'if try' never runs; call it without 'try' and write the block that follows, which 'fix' does not do for you"
+	end 'conditional'
+	panic("ranges: a needless try at a node that is no try")
+end 'needlessTryText'
+
+// needlessReason says that the expression a try covers cannot fail.
+function needlessReason(t ast.Tree, covered ast.NodeID, access ast.NodeID) returns String
+	if access != 0 'proven'
+		return "'{exprText(t, e: access)}' cannot fail here: its index is proven inside the collection"
+	end 'proven'
+	return "'{exprText(t, e: covered)}' cannot fail here"
+end 'needlessReason'
 
 // rangeFail records how the operation e can fail, if it can, and that the innermost try covers it. The probe of a loop
 // records nothing, as the real walk of the loop will.
@@ -1196,7 +1225,7 @@ function rangeFallible(mutates r Ranges, p ast.Project, ms ast.ModuleState, site
 		return
 	end 'uncovered'
 	let last = try r.handlers.count() - 1 otherwise panic("ranges: no handler")
-	r.handlers[last].fallible = true
+	r.handlers[last].failures = try r.handlers[last].failures + 1 otherwise panic("ranges: more failures than a count holds")
 	let propagates = r.handlers[last].propagates
 	let takes = r.handlers[last].takes
 	if not r.probing 'judged'

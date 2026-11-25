@@ -88,10 +88,10 @@ function sha256Compress(mutates state Sha2Words, mutates schedule Sha2Words, k S
 		schedule[wi] = sha256ReadWord(padded, at: try blockOff + wi * sha256WordBytes otherwise panic("sha256: a block past the bytes"))
 	end 'readWords'
 	for wi in sha2BlockWords upto sha256RoundCount 'extend'
-		let wm2 = schedule[try wi - 2 otherwise panic("sha256: extend w[wi-2] unreachable")]
-		let wm7 = schedule[try wi - 7 otherwise panic("sha256: extend w[wi-7] unreachable")]
-		let wm15 = schedule[try wi - 15 otherwise panic("sha256: extend w[wi-15] unreachable")]
-		let wm16 = schedule[try wi - 16 otherwise panic("sha256: extend w[wi-16] unreachable")]
+		let wm2 = schedule[wi - 2]
+		let wm7 = schedule[wi - 7]
+		let wm15 = schedule[wi - 15]
+		let wm16 = schedule[wi - 16]
 		schedule[wi] = (wm16 + sha256SmSigma0(wm15) + wm7 + sha256SmSigma1(wm2)) and sha256WordMask
 	end 'extend'
 	var a = state[0]
@@ -150,14 +150,14 @@ function sha256Range(data ByteArray, start Count, stop Count) returns ByteArray
 		offset = sum(offset, b: 1)
 	end 'tail'
 	pending.push(paddingMarkerByte)
-	let lengthAt = try sha256BlockBytes - sha256LengthFieldBytes otherwise panic("sha256: a length field past the block")
+	let lengthAt = sha256BlockBytes - sha256LengthFieldBytes
 	while pending.count() mod sha256BlockBytes != lengthAt 'pad'
 		pending.push(0)
 	end 'pad'
 	let bits = product(length, b: sha256BitsPerByte) as Sha2Word
 	for i in 0 upto sha256LengthFieldBytes 'lengthBytes'
-		let shift = product(try sha256LengthFieldBytes - 1 - i otherwise panic("sha256: a length byte past the field"), b: sha256BitsPerByte)
-		pending.push(try ((bits shr shift) and sha256ByteMask) as Byte otherwise panic("sha256: a byte that is not one"))
+		let shift = product(sha256LengthFieldBytes - 1 - i, b: sha256BitsPerByte)
+		pending.push(((bits shr shift) and sha256ByteMask) as Byte)
 	end 'lengthBytes'
 	var padOffset = 0 as Count
 	while padOffset < pending.count() 'padded'
@@ -167,8 +167,8 @@ function sha256Range(data ByteArray, start Count, stop Count) returns ByteArray
 	var digest = ByteArray.create(0)
 	for slot in 0 upto sha256StateWords 'eachWord'
 		for i in 0 upto sha256WordBytes 'wordBytes'
-			let shift = product(try sha256WordBytes - 1 - i otherwise panic("sha256: a digest byte past the word"), b: sha256BitsPerByte)
-			digest.push(try ((state[slot] shr shift) and sha256ByteMask) as Byte otherwise panic("sha256: a byte that is not one"))
+			let shift = product(sha256WordBytes - 1 - i, b: sha256BitsPerByte)
+			digest.push(((state[slot] shr shift) and sha256ByteMask) as Byte)
 		end 'wordBytes'
 	end 'eachWord'
 	if digest.count() != sha256DigestBytes 'size'

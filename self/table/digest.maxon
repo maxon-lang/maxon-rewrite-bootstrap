@@ -147,7 +147,7 @@ export type Hasher
 			self.addByte(text.byteAt(i))
 			i = i + 1
 		end 'align'
-		while i < finish and (try finish - i otherwise 0) >= bytesPerWord 'words'
+		while i < finish and (finish - i) >= bytesPerWord 'words'
 			word = littleWordAt(text, at: i)
 			length = length + 8
 			self.take()
@@ -167,7 +167,7 @@ export type Hasher
 			self.addByte(bytes[i])
 			i = i + 1
 		end 'align'
-		while i < bytes.count() and (try bytes.count() - i otherwise 0) >= bytesPerWord 'words'
+		while i < bytes.count() and (bytes.count() - i) >= bytesPerWord 'words'
 			var w = 0 as Word64
 			var at = 0 as Word64
 			for k in 0 upto bytesPerWord 'word'

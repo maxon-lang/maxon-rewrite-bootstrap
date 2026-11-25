@@ -38,6 +38,8 @@ let letKeyword = "let"
 
 let varKeyword = "var"
 
+let openParenByte = 40 as Byte
+
 let closeParenByte = 41 as Byte
 
 let newlineByte = 10 as Byte
@@ -45,6 +47,8 @@ let newlineByte = 10 as Byte
 let carriageReturnByte = 13 as Byte
 
 let tabByte = 9 as Byte
+
+let apostropheBeforeName = 1 as Count
 
 let spaceByte = 32 as Byte
 
@@ -99,43 +103,119 @@ export function tryFix(t ast.Tree, e ast.NodeID) returns diag.Fix
 	return wrapFix(t, kind: fixKindTry, e: ast.outermostArithmetic(t, e: e), before: "try ", after: panicClause())
 end 'tryFix'
 
-// untryFix removes a try expression's 'try' and its handler, leaving the expression it covers, which cannot fail: what a
-// try that covers only proven accesses is told to do. A try statement, or a try whose handler is a block, has no fix:
-// where it ends is not found from its nodes.
+// untryFix removes a try that covers nothing that can fail, with the handler that never runs, leaving the code the try
+// covers. A conditional try has no fix: its block and its else are written as a call and the code that follows it.
 export function untryFix(t ast.Tree, site ast.NodeID) returns diag.Fix
-	if t.kindOf(site) != ast.NodeKind.tryExpr 'other'
+	let kind = t.kindOf(site)
+	if kind == ast.NodeKind.tryExpr 'expression'
+		return untryExprFix(t, site: site)
+	end 'expression'
+	if kind == ast.NodeKind.tryStmt 'block'
+		return untryBlockFix(t, site: site)
+	end 'block'
+	if kind == ast.NodeKind.ifTryStmt 'conditional'
 		return diag.Fix.none()
-	end 'other'
-	let inner = ast.exprExtent(t, e: ast.tryExprE(t, id: site))
-	let finish = tryEnd(t, e: site)
-	if not inner.isSome() or not finish.isSome() 'unknown'
-		return diag.Fix.none()
-	end 'unknown'
-	let kept = inner.unwrap()
-	var edits = diag.FixEdits.create(0)
-	edits.push(diag.FixEdit.make(t.module, begin: at32(ast.exprStart(t, e: site)), until: kept.begin, text: ""))
-	edits.push(diag.FixEdit.make(t.module, begin: kept.until, until: at32(finish.unwrap()), text: ""))
-	return fixOf(fixKindUntry, edits: edits)
+	end 'conditional'
+	panic("fixes: a try fix for a node that is no try")
 end 'untryFix'
 
-// tryEnd is where a try expression ends: after the end of its handler's block, after its fallback or its expression, after
-// the statement its handler is, or after the word ignore.
-function tryEnd(t ast.Tree, e ast.NodeID) returns table.Option with Count
-	let handler = ast.tryExprHandler(t, id: e)
-	if handler != 0 'block'
-		let closing = ast.handlerBlockEnd(t, id: handler)
-		if closing == 0 'unclosed'
+// untryExprFix removes the 'try' of a try expression and its handler, whichever of the forms of handler it has, and leaves
+// the parentheses around what it covered.
+function untryExprFix(t ast.Tree, site ast.NodeID) returns diag.Fix
+	let start = ast.exprStart(t, e: site)
+	let afterTry = ast.skipSpace(t.text, at: ast.wordEnd(t.text, at: start))
+	var edits = diag.FixEdits.create(0)
+	edits.push(diag.FixEdit.make(t.module, begin: at32(start), until: at32(afterTry), text: ""))
+	if ast.propagates(t, e: site) 'passes'
+		return fixOf(fixKindUntry, edits: edits)
+	end 'passes'
+	let covered = wrappedEnd(t, begin: afterTry, e: ast.tryExprE(t, id: site))
+	if not covered.isSome() 'unknown'
+		return diag.Fix.none()
+	end 'unknown'
+	let coveredEnd = covered.unwrap()
+	let finish = tryEnd(t, e: site, covered: coveredEnd)
+	if not finish.isSome() 'unterminated'
+		return diag.Fix.none()
+	end 'unterminated'
+	edits.push(diag.FixEdit.make(t.module, begin: at32(coveredEnd), until: at32(finish.unwrap()), text: ""))
+	return fixOf(fixKindUntry, edits: edits)
+end 'untryExprFix'
+
+// wrappedEnd is past the expression e and the parentheses that stand around all of it, as many closing ones as there are
+// opening ones between begin and the start of its extent. It is nothing where the end of e is not known or the parentheses
+// do not close.
+function wrappedEnd(t ast.Tree, begin Count, e ast.NodeID) returns table.Option with Count
+	let found = ast.exprExtent(t, e: e)
+	if not found.isSome() 'unknown'
+		return table.Option.none
+	end 'unknown'
+	let extent = found.unwrap()
+	var opened = 0 as Count
+	for i in begin upto extent.begin as Count 'between'
+		if t.text.byteAt(i) == openParenByte 'open'
+			opened = try opened + 1 otherwise panic("fixes: more parentheses than a module holds")
+		end 'open'
+	end 'between'
+	var at = extent.until as Count
+	while opened > 0 'close'
+		let next = ast.skipSpace(t.text, at: at)
+		if next >= t.text.byteLength() or t.text.byteAt(next) != closeParenByte 'unclosed'
 			return table.Option.none
 		end 'unclosed'
-		return table.Option.some(ast.jumpEnd(t.text, at: t.startOf(closing) as Count))
-	end 'block'
+		at = next + 1
+		opened = opened - 1
+	end 'close'
+	return table.Option.some(at)
+end 'wrappedEnd'
+
+// untryBlockFix removes the 'try' line of a try block, the line of the 'end' that closes its body and its handler, and one
+// tab of each line of the body, which it keeps. The handler never runs, so what it holds is dropped with it. A block whose
+// 'try' or 'end' shares its line with other code has no fix.
+function untryBlockFix(t ast.Tree, site ast.NodeID) returns diag.Fix
+	var last = ast.tryStmtEnd(t, id: site)
+	let bodyEnd = last
+	if ast.tryStmtHasOtherwise(t, id: site) 'handled'
+		last = ast.tryStmtHandlerEnd(t, id: site)
+	end 'handled'
+	if bodyEnd == 0 or last == 0 'unlabelled'
+		return diag.Fix.none()
+	end 'unlabelled'
+	let opened = ast.labelEnd(t.text, at: t.labelStart(ast.tryStmtLabelRef(t, id: site)) as Count)
+	let headerBegin = ast.lineBegin(t.text, at: t.startOf(site) as Count)
+	let tailBegin = ast.lineBegin(t.text, at: t.endKeywordStart(bodyEnd) as Count)
+	if not ast.isIndent(t.text, begin: headerBegin, until: t.startOf(site) as Count) or not ast.isIndent(t.text, begin: tailBegin, until: t.endKeywordStart(bodyEnd) as Count) 'shared'
+		return diag.Fix.none()
+	end 'shared'
+	var edits = diag.FixEdits.create(0)
+	var line = ast.lineAfter(t.text, at: opened)
+	edits.push(diag.FixEdit.make(t.module, begin: at32(headerBegin), until: at32(line), text: ""))
+	while line < tailBegin 'body'
+		if t.text.byteAt(line) == tabByte 'indented'
+			edits.push(diag.FixEdit.make(t.module, begin: at32(line), until: at32(line + 1), text: ""))
+		end 'indented'
+		line = ast.lineAfter(t.text, at: line)
+	end 'body'
+	edits.push(diag.FixEdit.make(t.module, begin: at32(tailBegin), until: at32(ast.lineAfter(t.text, at: endLabelPast(t, label: last))), text: ""))
+	return fixOf(fixKindUntry, edits: edits)
+end 'untryBlockFix'
+
+// endLabelPast is past the label that closes a block, whose label node is label: the node starts at the name, after the
+// apostrophe that opens the label.
+function endLabelPast(t ast.Tree, label ast.NodeID) returns Count
+	return ast.labelEnd(t.text, at: try (t.startOf(label) as Count) - apostropheBeforeName otherwise panic("fixes: an end label starts before its apostrophe"))
+end 'endLabelPast'
+
+// tryEnd is where a try expression ends, whose covered expression ends at covered: after its fallback, the value of its
+// return or throw, the statement or the block its handler is, or the word ignore.
+function tryEnd(t ast.Tree, e ast.NodeID, covered Count) returns table.Option with Count
 	let ret = ast.tryExprRet(t, id: e)
 	if ret != 0 and ast.returnStmtValue(t, id: ret) != 0 'returns'
-		return ast.exprEnd(t, e: ast.returnStmtValue(t, id: ret))
+		return wrappedEnd(t, begin: ast.wordEnd(t.text, at: t.startOf(ret) as Count), e: ast.returnStmtValue(t, id: ret))
 	end 'returns'
 	let thr = ast.tryExprThr(t, id: e)
 	if thr != 0 'throws'
-		return ast.exprEnd(t, e: ast.throwStmtValue(t, id: thr))
+		return wrappedEnd(t, begin: ast.wordEnd(t.text, at: t.startOf(thr) as Count), e: ast.throwStmtValue(t, id: thr))
 	end 'throws'
 	var jump = ast.tryExprBrk(t, id: e)
 	if jump == 0 'notBreak'
@@ -148,18 +228,21 @@ function tryEnd(t ast.Tree, e ast.NodeID) returns table.Option with Count
 		return table.Option.some(ast.jumpEnd(t.text, at: t.startOf(jump) as Count))
 	end 'jumps'
 	if ast.tryExprIgnore(t, id: e) 'ignores'
-		return ignoreEnd(t, e: e)
+		return table.Option.some(ast.wordEnd(t.text, at: ast.skipSpace(t.text, at: ast.wordEnd(t.text, at: ast.skipSpace(t.text, at: covered)))))
 	end 'ignores'
-	return ast.exprEnd(t, e: e)
+	let handler = ast.tryExprHandler(t, id: e)
+	if handler != 0 and ast.handlerBlockEnd(t, id: handler) != 0 'block'
+		return table.Option.some(endLabelPast(t, label: ast.handlerBlockEnd(t, id: handler)))
+	end 'block'
+	if handler != 0 'unlabelled'
+		return table.Option.none
+	end 'unlabelled'
+	let fallback = ast.tryFallback(t, e: e)
+	if fallback == 0 'passes'
+		panic("fixes: a try with no handler that does not pass its failure on")
+	end 'passes'
+	return wrappedEnd(t, begin: ast.wordEnd(t.text, at: ast.skipSpace(t.text, at: covered)), e: fallback)
 end 'tryEnd'
-
-// ignoreEnd is past the words 'otherwise ignore' after the expression of a try.
-function ignoreEnd(t ast.Tree, e ast.NodeID) returns table.Option with Count
-	match consumes ast.exprEnd(t, e: ast.tryExprE(t, id: e)) 'covered'
-		some(past) then return table.Option.some(ast.wordEnd(t.text, at: ast.skipSpace(t.text, at: ast.wordEnd(t.text, at: ast.skipSpace(t.text, at: past)))))
-		none then return table.Option.none
-	end 'covered'
-end 'ignoreEnd'
 
 // returnFix writes the conversion that a return makes to the integer type named target as a cast that a try covers.
 export function returnFix(t ast.Tree, e ast.NodeID, target String) returns diag.Fix
@@ -296,7 +379,7 @@ export function mutatesSelfFix(t ast.Tree, method ast.NodeID) returns diag.Fix
 	if open >= t.text.byteLength() 'noParameters'
 		return diag.Fix.none()
 	end 'noParameters'
-	let inside = try open + 1 otherwise panic("fixes: an offset past a module")
+	let inside = open + 1
 	let first = ast.skipSpace(t.text, at: inside)
 	var text = "mutates self, "
 	if first < t.text.byteLength() and t.text.byteAt(first) == closeParenByte 'empty'
@@ -328,7 +411,7 @@ export function borrowedResultFix(t ast.Tree, method ast.NodeID) returns diag.Fi
 			edits.push(diag.FixEdit.insert(t.module, at: at32(past), text: "{borrowedKeyword} "))
 			return fixOf(fixKindBorrowed, edits: edits)
 		end 'returns'
-		at = try at + 1 otherwise panic("fixes: an offset past a module")
+		at = at + 1
 	end 'scan'
 	return diag.Fix.none()
 end 'borrowedResultFix'
@@ -395,7 +478,7 @@ export function toStringFix(t ast.Tree, call ast.NodeID) returns diag.Fix
 	end 'noDot'
 	text = table.blankTrimmed(text.sliceBytes(0, endPos: try text.byteLength() - 1 otherwise panic("fixes: an empty receiver")), fromStart: false, fromEnd: true)
 	var written = "\"\{{text}\}\""
-	if extent.begin > 0 and t.text.byteAt(try (extent.begin as Count) - 1 otherwise panic("fixes: an offset before a module")) == openBraceByte and (extent.until as Count) < t.text.byteLength() and t.text.byteAt(extent.until as Count) == closeBraceByte 'part'
+	if extent.begin > 0 and t.text.byteAt((extent.begin as Count) - 1) == openBraceByte and (extent.until as Count) < t.text.byteLength() and t.text.byteAt(extent.until as Count) == closeBraceByte 'part'
 		written = text.clone()
 	end 'part'
 	var edits = diag.FixEdits.create(0)
@@ -411,7 +494,7 @@ end 'nextOf'
 function aloneOnItsLine(t ast.Tree, begin Count, until Count) returns bool
 	var at = begin
 	while at > 0 'before'
-		let prev = try at - 1 otherwise panic("fixes: an offset before a module")
+		let prev = at - 1
 		let b = t.text.byteAt(prev)
 		if b == newlineByte 'line'
 			break 'before'

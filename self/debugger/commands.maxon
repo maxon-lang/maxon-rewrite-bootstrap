@@ -450,10 +450,10 @@ end 'isSiteEntry'
 function moduleLocal(symbol String) returns String
 	var at = symbol.byteLength()
 	while at > 1 'back'
-		if symbol.byteAt(try at - 1 otherwise 0) == colonByte and symbol.byteAt(try at - 2 otherwise 0) == colonByte 'module'
+		if symbol.byteAt(at - 1) == colonByte and symbol.byteAt(at - 2) == colonByte 'module'
 			return symbol.sliceBytes(at, endPos: symbol.byteLength()).clone()
 		end 'module'
-		at = try at - 1 otherwise 0
+		at = at - 1
 	end 'back'
 	return symbol.clone()
 end 'moduleLocal'
@@ -463,10 +463,10 @@ function leafName(symbol String) returns String
 	let local = moduleLocal(symbol)
 	var at = local.byteLength()
 	while at > 0 'back'
-		if local.byteAt(try at - 1 otherwise 0) == 46 'dot'
+		if local.byteAt(at - 1) == 46 'dot'
 			return local.sliceBytes(at, endPos: local.byteLength()).clone()
 		end 'dot'
-		at = try at - 1 otherwise 0
+		at = at - 1
 	end 'back'
 	return local
 end 'leafName'
@@ -474,7 +474,7 @@ end 'leafName'
 function lastColon(spelling String) returns table.Option with Count
 	var at = spelling.byteLength()
 	while at > 0 'back'
-		at = try at - 1 otherwise 0
+		at = at - 1
 		if spelling.byteAt(at) == colonByte 'colon'
 			return table.Option.some(at)
 		end 'colon'

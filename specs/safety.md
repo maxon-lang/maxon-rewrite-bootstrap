@@ -348,7 +348,7 @@ end 'opaque'
 
 function main() returns ExitCode
 	let v = opaque(5)
-	let w = try (v) otherwise 99
+	let w = (v)
 	return try w as ExitCode otherwise panic("out of range")
 end 'main'
 ```
@@ -368,7 +368,7 @@ function main() returns ExitCode
 	var arr = IntArray.create(0)
 	arr.push(7)
 	let a = try arr.get(2) otherwise panic("out of range")
-	let w = try (a) otherwise 99
+	let w = (a)
 	return try w as ExitCode otherwise panic("out of range")
 end 'main'
 ```
@@ -632,7 +632,7 @@ q=4198346131 r=161219195
 ```
 
 <!-- test: error.try-over-a-total-mod-names-the-operator -->
-<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
+<!-- skip: language difference: a try that covers nothing that can fail is E3944 whatever it covers (a call that does not throw, a try block, an operation or an access the range analysis proves), where maxon names two of those with E3055 and E3083 -->
 #### A `try` over a guarded `mod` is refused — and answers as a `mod`, not as a "builtin call"
 The overflow guard makes this `mod` a compiler-expanded CALL rather than a bare `binOp`, so the
 `try` reaches the throwing-target check instead of the not-a-call one. That shape must not change what
@@ -657,7 +657,7 @@ error E3055: <fragment>:10:10: try requires a throwing function: this `mod` cann
 ```
 
 <!-- test: error.try-over-a-total-quotient-names-the-operator -->
-<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
+<!-- skip: language difference: a try that covers nothing that can fail is E3944 whatever it covers (a call that does not throw, a try block, an operation or an access the range analysis proves), where maxon names two of those with E3055 and E3083 -->
 <!-- positions: moved -->
 #### A `try` over a `/` whose divisor is proven non-zero is the same refusal
 A divisor that is a sum of ranged values carries the interval their ranges give, so `n + 1` over

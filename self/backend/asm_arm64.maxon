@@ -16,7 +16,7 @@ end 'arm64ReadWord'
 function arm64WriteWord(mutates code ByteArray, at Count, word Arm64Bits)
 	var rest = word
 	for i in 0 upto arm64WordBytes 'bytes'
-		code[try at + i otherwise panic("backend: a word past the code")] = try (rest and arm64ByteMask) as Byte otherwise panic("backend: a byte of an instruction past a byte")
+		code[try at + i otherwise panic("backend: a word past the code")] = (rest and arm64ByteMask) as Byte
 		rest = rest shr arm64ByteBits
 	end 'bytes'
 end 'arm64WriteWord'
@@ -95,7 +95,7 @@ function arm64PatchPageOffset(mutates code ByteArray, kind FixupKind, at Count, 
 	end 'word' else if kind != FixupKind.pageOffset12 'other'
 		panic("backend: a fixup of kind {kind.name} is no page offset")
 	end 'other'
-	let high = try (arm64Imm12Max as FullRangeInt) / scale otherwise panic("backend: a page offset of no unit")
+	let high = (arm64Imm12Max as FullRangeInt) / scale
 	arm64SetField(code, at: at, mask: arm64FieldMask(arm64Imm12At, bits: arm64PageOffsetBits), field: arm64UnitsField(low, scale: scale, low: 0, high: high, bits: arm64PageOffsetBits, at: arm64Imm12At))
 end 'arm64PatchPageOffset'
 

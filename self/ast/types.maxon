@@ -622,7 +622,7 @@ export type TypeSlot
 		if upTo <= sealed.count() 'sealed'
 			return
 		end 'sealed'
-		let n = try upTo - sealed.count() otherwise panic("a seal before the lists sealed already")
+		let n = upTo - sealed.count()
 		var rest = TypeEntryLists.create(0)
 		for i in 0 upto lists.count() 'lists'
 			let entries = exchange(lists[i], value: TypeEntryList.create(0))
@@ -944,7 +944,7 @@ function readAt(tt TypeSlot, k Count) returns Count
 	if k == 1 'shared'
 		return sharedSlot
 	end 'shared'
-	return tt.reads[try k - leadingReads otherwise panic("a read before the slots own reads")]
+	return tt.reads[k - leadingReads]
 end 'readAt'
 
 // findShape finds the entry of the structure under word in a slot the running task reads, and sets place to its slot and
@@ -1909,7 +1909,7 @@ export function hasTypeDepthOverflow(tt TypeSlot, reads TypeTable, t TypeID, dep
 	if n == 0 'leaf'
 		return false
 	end 'leaf'
-	let nextDepth = try depth + 1 otherwise maxTypeDepth
+	let nextDepth = depth + 1
 	for i in 0 upto n 'each'
 		let child = typeEntry(tt, reads: reads, t: t).typeArgs[i]
 		if hasTypeDepthOverflow(tt, reads: reads, t: child, depth: nextDepth) 'deep'
@@ -2076,7 +2076,7 @@ export function instanceSpelling(base String, args Array with String) returns St
 		let sn = s.byteLength()
 		if sn >= 6 'chk'
 			for i in 0 upto (sn - 5) 'scan'
-				if s.sliceBytes(i, endPos: try i + 6 otherwise i) == " with " 'hit'
+				if s.sliceBytes(i, endPos: i + 6) == " with " 'hit'
 					hasWith = true
 					break 'scan'
 				end 'hit'
@@ -2218,7 +2218,7 @@ export type FuncSlot
 		if upTo <= sealed.count() 'sealed'
 			return
 		end 'sealed'
-		let n = try upTo - sealed.count() otherwise panic("a seal before the lists sealed already")
+		let n = upTo - sealed.count()
 		var rest = FuncEntryLists.create(0)
 		for i in 0 upto lists.count() 'lists'
 			let entries = exchange(lists[i], value: FuncEntryList.create(0))

@@ -326,7 +326,7 @@ func emitMaxonNodes(m *model) string {
 				w.p("\nexport function %s(t Tree, id NodeID) returns I128\n", getter)
 				w.p("\tlet lo = %s as Count\n", maxonWordRead(p, fp.word))
 				w.p("\tlet hi = %s as Count\n", maxonWordRead(p, fp.word+1))
-				w.p("\treturn I128.fromCount(lo or (try hi shl 32 otherwise 0 as Count))\n")
+				w.p("\treturn I128.fromCount(lo or (hi shl 32))\n")
 				w.p("end '%s'\n", getter)
 				w.p("\nexport function %s(mutates t Tree, id NodeID, value I128)\n", setter)
 				w.p("\t%s\n", maxonWordWrite(p, fp.word, "(value.lo and (4294967295 as Count)) as diag.U32"))

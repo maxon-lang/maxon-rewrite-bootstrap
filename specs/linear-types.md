@@ -1600,7 +1600,7 @@ end 'Factory'
 function main() returns ExitCode
 	let f = spawn Factory.create()
 	let asked = try f.make() otherwise panic("sent")
-	let r = try await asked otherwise panic("answered")
+	let r = await asked
 	r.fin()
 	return 0
 end 'main'

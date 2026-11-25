@@ -299,7 +299,7 @@ export type Fold
 	// drainDying drops the edges out of every block that died, which may kill the blocks they entered.
 	function drainDying(mutates self, f ir.IrFunction)
 		while dyingTop > 0 'dying'
-			dyingTop = try dyingTop - 1 otherwise panic("opt: an empty list of dying blocks")
+			dyingTop = dyingTop - 1
 			let b = dying[dyingTop]
 			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
 				if not dead[k] 'live'
@@ -915,7 +915,7 @@ export type Fold
 		putCount(walk, at: 0, v: 0)
 		walkTop = 1
 		while walkTop > 0 'walk'
-			walkTop = try walkTop - 1 otherwise panic("opt: an empty walk")
+			walkTop = walkTop - 1
 			let b = walk[walkTop]
 			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
 				if not dead[k] 'live'
@@ -1000,12 +1000,12 @@ export type Fold
 			end 'value'
 		end 'blocks'
 		while marksTop > 0 'marks'
-			marksTop = try marksTop - 1 otherwise panic("opt: an empty list of marks")
+			marksTop = marksTop - 1
 			let r = marks[marksTop]
 			let i = regIndex(r)
 			let def = defs.instr[i]
 			if def != ir.noDef 'instr'
-				self.markInstr(f, k: try def as Count otherwise panic("opt: a definition before the instructions"))
+				self.markInstr(f, k: def as Count)
 				continue 'marks'
 			end 'instr'
 			if paramOf[i] == 0 'none'

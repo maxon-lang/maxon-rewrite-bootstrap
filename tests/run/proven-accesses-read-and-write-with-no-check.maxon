@@ -45,7 +45,7 @@ function doubled(mutates xs Counts)
 	while i < xs.count() 'each'
 		let v = xs.get(i)
 		xs.set(i, value: try v * 2 otherwise panic("doubled overflowed"))
-		i = try i + 1 otherwise panic("index overflowed")
+		i = i + 1
 	end 'each'
 end 'doubled'
 

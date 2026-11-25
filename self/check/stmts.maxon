@@ -54,7 +54,7 @@ function bodyTerminates(tree ast.Tree, body diag.U32) returns bool
 	if n == 0 'empty'
 		return false
 	end 'empty'
-	return terminates(tree, s: tree.listAt(body, index: try n - 1 otherwise 0 as Count) as ast.NodeID)
+	return terminates(tree, s: tree.listAt(body, index: n - 1) as ast.NodeID)
 end 'bodyTerminates'
 
 // endsInEndlessLoop is whether the last statement of a body is a `while true` loop that no break leaves, as maxon has it: its
@@ -95,7 +95,7 @@ function liveCount(tree ast.Tree, body diag.U32) returns Count
 	let n = tree.listLen(body)
 	for i in 0 upto n 'each'
 		if endsBlock(tree, s: tree.listAt(body, index: i) as ast.NodeID) 'ends'
-			return try i + 1 otherwise n
+			return i + 1
 		end 'ends'
 	end 'each'
 	return n
@@ -165,7 +165,7 @@ function checkStmts(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	let outer = c.dead
 	let count = ms.tree().listLen(body)
 	for i in 0 upto count 'each'
-		if (try i + 1 otherwise count) < count 'followed'
+		if (i + 1) < count 'followed'
 			failUnreachable(c, tree: ms.tree(), body: body, index: i, errs: errs)
 		end 'followed'
 		c.dead = outer or i >= live
@@ -1149,7 +1149,7 @@ function resolveJump(c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID,
 	end 'break'
 	var i = c.blocks.count()
 	while i > 0 'blocks'
-		i = try i - 1 otherwise 0 as Count
+		i = i - 1
 		let frame = c.blocks[i].clone()
 		if label == "" 'unlabelled'
 			if isBreak or frame.isLoop 'found'

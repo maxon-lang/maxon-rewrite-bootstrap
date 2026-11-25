@@ -23,7 +23,7 @@ end 'Rename'
 function splitRename(text String) returns table.Option with Rename
 	var at = 0 as Count
 	while at < text.byteLength() and text.sliceBytes(at, endPos: (try at + keywordSeparator.byteLength() otherwise text.byteLength())) != keywordSeparator 'scan'
-		at = try at + 1 otherwise panic("rewrite: a flag longer than memory")
+		at = at + 1
 	end 'scan'
 	if at >= text.byteLength() 'unseparated'
 		return table.Option.none

@@ -60,7 +60,7 @@ function vectorRegister(r MReg) returns X64Register
 	if number < x64FirstVector 'general'
 		panic("backend: an xmm operand in a general register")
 	end 'general'
-	return x64RegisterOf(try (number - x64FirstVector) as RegNum otherwise panic("backend: an xmm register past the register file"))
+	return x64RegisterOf((number - x64FirstVector) as RegNum)
 end 'vectorRegister'
 
 // argRegisterCount is how many arguments a convention passes in registers on a system.
@@ -154,10 +154,10 @@ function placeArgs(floats Array with bool, mutates places CountList) returns Cou
 	for i in 0 upto floats.count() 'args'
 		if floats[i] and vectors < x64InternalFloatArgCount 'vector'
 			places.push(x64InternalFloatArg(vectors) as Count)
-			vectors = try vectors + 1 otherwise panic("backend: more arguments than memory")
+			vectors = vectors + 1
 		end 'vector' else if not floats[i] and words < x64InternalArgCount 'word'
 			places.push(regNumOf(x64InternalArg(words)) as Count)
-			words = try words + 1 otherwise panic("backend: more arguments than memory")
+			words = words + 1
 		end 'word' else 'stack'
 			places.push(stackPlace(stacked))
 			stacked = try stacked + 1 otherwise panic("backend: more arguments than memory")

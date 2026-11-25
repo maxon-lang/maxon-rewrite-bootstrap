@@ -450,7 +450,7 @@ let dwordBytes = 4 as Count
 function patchDword(mutates buf ByteArray, offset Count, value MxdbgIndex)
 	var v = value as Count
 	for i in 0 upto dwordBytes 'bytes'
-		buf[try offset + i otherwise panic("mxdbg: a word past the file")] = try (v and byteMask) as Byte otherwise panic("mxdbg: a byte past a byte")
+		buf[try offset + i otherwise panic("mxdbg: a word past the file")] = (v and byteMask) as Byte
 		v = v shr byteBits
 	end 'bytes'
 end 'patchDword'
@@ -459,7 +459,7 @@ function readDword(buf ByteArray, offset Count) returns MxdbgIndex
 	var v = 0 as Count
 	var i = dwordBytes
 	while i > 0 'bytes'
-		i = try i - 1 otherwise panic("mxdbg: a byte before the word")
+		i = i - 1
 		v = try (v shl byteBits) or (buf[try offset + i otherwise panic("mxdbg: a word past the file")] as Count) otherwise panic("mxdbg: a word past 32 bits")
 	end 'bytes'
 	return try v as MxdbgIndex otherwise panic("mxdbg: a word past 32 bits")
@@ -472,7 +472,7 @@ let MxdbgSignedWordMax = 2147483647 as MxdbgIndex
 
 function mxdbgFigureWord(value MxdbgRecordFigure) returns MxdbgIndex
 	if value < 0 'negative'
-		return try (MxdbgWordModulus - ((0 - value) as Count)) as MxdbgIndex otherwise panic("mxdbg: a figure past 32 bits")
+		return (MxdbgWordModulus - ((0 - value) as Count)) as MxdbgIndex
 	end 'negative'
 	return value as MxdbgIndex
 end 'mxdbgFigureWord'

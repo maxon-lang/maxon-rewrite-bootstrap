@@ -1412,7 +1412,7 @@ end 'x64Rule21'
 // x64.rules:22: (const [c]) => (MovRegImm r [c])
 function x64Rule22(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	let vC = ir.constValue(ins)
-	let i1 = try (vC) as FullRangeInt otherwise panic("backend: a value of x64.rules:22 does not fit FullRangeInt")
+	let i1 = (vC) as FullRangeInt
 	let t2 = sel.resultOf(ins.dst)
 	var mi3 = newX64Target(chooseMovRegImm(i1), a: t2, b: noMReg, c: noMReg, aux: 0, imm: i1)
 	sel.emit(mi3)
@@ -1507,7 +1507,7 @@ function x64Rule34(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns
 		return false
 	end 'm1'
 	let t1 = sel.resultOf(ins.dst)
-	var mi2 = newX64Target(X64Form.movsdRegBaseDisp, a: t1, b: x64PhysReg(X64Register.rbp), c: noMReg, aux: try (slotDisp(vN)) as Imm32 otherwise panic("backend: a value of x64.rules:34 does not fit Imm32"), imm: 0)
+	var mi2 = newX64Target(X64Form.movsdRegBaseDisp, a: t1, b: x64PhysReg(X64Register.rbp), c: noMReg, aux: (slotDisp(vN)) as Imm32, imm: 0)
 	sel.emit(mi2)
 	return true
 end 'x64Rule34'
@@ -1516,7 +1516,7 @@ end 'x64Rule34'
 function x64Rule35(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	let vN = ir.loadSlotSlot(ins)
 	let t1 = sel.resultOf(ins.dst)
-	var mi2 = newX64Target(X64Form.loadRegBaseDisp, a: t1, b: x64PhysReg(X64Register.rbp), c: noMReg, aux: try (slotDisp(vN)) as Imm32 otherwise panic("backend: a value of x64.rules:35 does not fit Imm32"), imm: 0)
+	var mi2 = newX64Target(X64Form.loadRegBaseDisp, a: t1, b: x64PhysReg(X64Register.rbp), c: noMReg, aux: (slotDisp(vN)) as Imm32, imm: 0)
 	sel.emit(mi2)
 	return true
 end 'x64Rule35'
@@ -1528,7 +1528,7 @@ function x64Rule36(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns
 	if not (sel.inXmm(vV)) 'm1'
 		return false
 	end 'm1'
-	var mi1 = newX64Target(X64Form.movsdBaseDispReg, a: x64PhysReg(X64Register.rbp), b: vregOf(vV), c: noMReg, aux: try (slotDisp(vN)) as Imm32 otherwise panic("backend: a value of x64.rules:36 does not fit Imm32"), imm: 0)
+	var mi1 = newX64Target(X64Form.movsdBaseDispReg, a: x64PhysReg(X64Register.rbp), b: vregOf(vV), c: noMReg, aux: (slotDisp(vN)) as Imm32, imm: 0)
 	sel.emit(mi1)
 	return true
 end 'x64Rule36'
@@ -1537,7 +1537,7 @@ end 'x64Rule36'
 function x64Rule37(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	let vN = ir.storeSlotSlot(ins)
 	let vV = ir.storeSlotSrc(ins)
-	var mi1 = newX64Target(X64Form.storeBaseDispReg, a: x64PhysReg(X64Register.rbp), b: vregOf(vV), c: noMReg, aux: try (slotDisp(vN)) as Imm32 otherwise panic("backend: a value of x64.rules:37 does not fit Imm32"), imm: 0)
+	var mi1 = newX64Target(X64Form.storeBaseDispReg, a: x64PhysReg(X64Register.rbp), b: vregOf(vV), c: noMReg, aux: (slotDisp(vN)) as Imm32, imm: 0)
 	sel.emit(mi1)
 	return true
 end 'x64Rule37'
@@ -1546,7 +1546,7 @@ end 'x64Rule37'
 function x64Rule38(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	let vN = ir.slotAddrSlot(ins)
 	let t1 = sel.resultOf(ins.dst)
-	var mi2 = newX64Target(X64Form.leaRegBaseDisp, a: t1, b: x64PhysReg(X64Register.rbp), c: noMReg, aux: try (slotDisp(vN)) as Imm32 otherwise panic("backend: a value of x64.rules:38 does not fit Imm32"), imm: 0)
+	var mi2 = newX64Target(X64Form.leaRegBaseDisp, a: t1, b: x64PhysReg(X64Register.rbp), c: noMReg, aux: (slotDisp(vN)) as Imm32, imm: 0)
 	sel.emit(mi2)
 	return true
 end 'x64Rule38'
@@ -1555,10 +1555,10 @@ end 'x64Rule38'
 function x64Rule39(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	let vN = ir.moveSlotSlot(ins)
 	let t1 = sel.resultOf(ins.dst)
-	var mi2 = newX64Target(X64Form.loadRegBaseDisp, a: t1, b: x64PhysReg(X64Register.rbp), c: noMReg, aux: try (slotDisp(vN)) as Imm32 otherwise panic("backend: a value of x64.rules:39 does not fit Imm32"), imm: 0)
+	var mi2 = newX64Target(X64Form.loadRegBaseDisp, a: t1, b: x64PhysReg(X64Register.rbp), c: noMReg, aux: (slotDisp(vN)) as Imm32, imm: 0)
 	sel.emit(mi2)
 	let i3 = 0
-	var mi4 = newX64Target(X64Form.storeBaseDispImm32, a: x64PhysReg(X64Register.rbp), b: noMReg, c: noMReg, aux: try (slotDisp(vN)) as Imm32 otherwise panic("backend: a value of x64.rules:39 does not fit Imm32"), imm: i3 as FullRangeInt)
+	var mi4 = newX64Target(X64Form.storeBaseDispImm32, a: x64PhysReg(X64Register.rbp), b: noMReg, c: noMReg, aux: (slotDisp(vN)) as Imm32, imm: i3 as FullRangeInt)
 	sel.emit(mi4)
 	return true
 end 'x64Rule39'
@@ -2834,7 +2834,7 @@ function x64Rule107(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	mi3.aux = r1.aux
 	sel.emit(mi3)
 	let t4 = sel.resultOf(ins.dst)
-	var mi5 = newX64Target(X64Form.loadRegGsBaseDisp, a: t4, b: t2, c: noMReg, aux: try (tebTlsSlotsOffset) as Imm32 otherwise panic("backend: a value of x64.rules:107 does not fit Imm32"), imm: 0)
+	var mi5 = newX64Target(X64Form.loadRegGsBaseDisp, a: t4, b: t2, c: noMReg, aux: (tebTlsSlotsOffset) as Imm32, imm: 0)
 	sel.emit(mi5)
 	return true
 end 'x64Rule107'
@@ -2852,7 +2852,7 @@ function x64Rule113(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	end 'm1'
 	let vS = ir.lengthSrc(ins)
 	let t1 = sel.resultOf(ins.dst)
-	var mi2 = newX64Target(X64Form.loadRegBaseDisp, a: t1, b: vregOf(vS), c: noMReg, aux: try (arrayLengthOffset) as Imm32 otherwise panic("backend: a value of x64.rules:113 does not fit Imm32"), imm: 0)
+	var mi2 = newX64Target(X64Form.loadRegBaseDisp, a: t1, b: vregOf(vS), c: noMReg, aux: (arrayLengthOffset) as Imm32, imm: 0)
 	sel.emit(mi2)
 	return true
 end 'x64Rule113'
@@ -2881,7 +2881,7 @@ function x64Rule117(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 		return false
 	end 'm1'
 	let t1 = sel.newTemp()
-	var mi2 = newX64Target(X64Form.loadRegBaseDisp, a: t1, b: vregOf(vA), c: noMReg, aux: try (arrayDataOffset) as Imm32 otherwise panic("backend: a value of x64.rules:117 does not fit Imm32"), imm: 0)
+	var mi2 = newX64Target(X64Form.loadRegBaseDisp, a: t1, b: vregOf(vA), c: noMReg, aux: (arrayDataOffset) as Imm32, imm: 0)
 	sel.emit(mi2)
 	let t3 = sel.resultOf(ins.dst)
 	var mi4 = newX64Target(X64Form.leaRegBaseIndex8Disp, a: t3, b: t1, c: vregOf(vI), aux: 0, imm: 0)
@@ -2912,7 +2912,7 @@ function x64Rule120(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 		return false
 	end 'm1'
 	let t1 = sel.newTemp()
-	var mi2 = newX64Target(X64Form.loadRegBaseDisp, a: t1, b: vregOf(vA), c: noMReg, aux: try (arrayDataOffset) as Imm32 otherwise panic("backend: a value of x64.rules:120 does not fit Imm32"), imm: 0)
+	var mi2 = newX64Target(X64Form.loadRegBaseDisp, a: t1, b: vregOf(vA), c: noMReg, aux: (arrayDataOffset) as Imm32, imm: 0)
 	sel.emit(mi2)
 	let t3 = sel.resultOf(ins.dst)
 	var mi4 = newX64Target(X64Form.movsdRegBaseIndex8Disp, a: t3, b: t1, c: vregOf(vI), aux: 0, imm: 0)
@@ -2925,7 +2925,7 @@ function x64Rule121(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	let vA = ir.elemLoadArr(ins)
 	let vI = ir.elemLoadIndex(ins)
 	let t1 = sel.newTemp()
-	var mi2 = newX64Target(X64Form.loadRegBaseDisp, a: t1, b: vregOf(vA), c: noMReg, aux: try (arrayDataOffset) as Imm32 otherwise panic("backend: a value of x64.rules:121 does not fit Imm32"), imm: 0)
+	var mi2 = newX64Target(X64Form.loadRegBaseDisp, a: t1, b: vregOf(vA), c: noMReg, aux: (arrayDataOffset) as Imm32, imm: 0)
 	sel.emit(mi2)
 	let t3 = sel.resultOf(ins.dst)
 	var mi4 = newX64Target(X64Form.loadRegBaseIndex8Disp, a: t3, b: t1, c: vregOf(vI), aux: 0, imm: 0)
@@ -2941,7 +2941,7 @@ function x64Rule122(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	let vA = ir.loadByteSrc(ins)
 	let vI = ir.loadByteIndex(ins)
 	let t1 = sel.newTemp()
-	var mi2 = newX64Target(X64Form.loadRegBaseDisp, a: t1, b: vregOf(vA), c: noMReg, aux: try (arrayDataOffset) as Imm32 otherwise panic("backend: a value of x64.rules:122 does not fit Imm32"), imm: 0)
+	var mi2 = newX64Target(X64Form.loadRegBaseDisp, a: t1, b: vregOf(vA), c: noMReg, aux: (arrayDataOffset) as Imm32, imm: 0)
 	sel.emit(mi2)
 	let t3 = sel.resultOf(ins.dst)
 	var mi4 = newX64Target(X64Form.movzxRegByteBaseIndex1Disp, a: t3, b: t1, c: vregOf(vI), aux: 0, imm: 0)
@@ -2962,7 +2962,7 @@ end 'x64Rule123'
 function x64Rule124(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	let vS = ir.bufferSrc(ins)
 	let t1 = sel.resultOf(ins.dst)
-	var mi2 = newX64Target(X64Form.loadRegBaseDisp, a: t1, b: vregOf(vS), c: noMReg, aux: try (arrayDataOffset) as Imm32 otherwise panic("backend: a value of x64.rules:124 does not fit Imm32"), imm: 0)
+	var mi2 = newX64Target(X64Form.loadRegBaseDisp, a: t1, b: vregOf(vS), c: noMReg, aux: (arrayDataOffset) as Imm32, imm: 0)
 	sel.emit(mi2)
 	return true
 end 'x64Rule124'
@@ -4446,7 +4446,7 @@ function x64Rule200(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	let vX = ir.guardSrc(ins)
 	let vBound = ir.guardBound(ins)
 	let vF = ins.c as ir.BlockID
-	let i1 = try (vBound) as FullRangeInt otherwise panic("backend: a value of x64.rules:200 does not fit FullRangeInt")
+	let i1 = (vBound) as FullRangeInt
 	let t2 = sel.newTemp()
 	var mi3 = newX64Target(chooseMovRegImm(i1), a: t2, b: noMReg, c: noMReg, aux: 0, imm: i1)
 	sel.emit(mi3)
@@ -4665,7 +4665,7 @@ function x64Rule218(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 		return false
 	end 'm1'
 	let vX = ir.fUnarySrc(ins)
-	let i1 = try (roundNearest) as Imm8 otherwise panic("backend: a value of x64.rules:218 does not fit Imm8")
+	let i1 = (roundNearest) as Imm8
 	let t2 = sel.resultOf(ins.dst)
 	var mi3 = newX64Target(X64Form.roundsdRegRegImm8, a: t2, b: vregOf(vX), c: noMReg, aux: 0, imm: i1 as FullRangeInt)
 	sel.emit(mi3)
@@ -4678,7 +4678,7 @@ function x64Rule219(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 		return false
 	end 'm1'
 	let vX = ir.fUnarySrc(ins)
-	let i1 = try (roundDown) as Imm8 otherwise panic("backend: a value of x64.rules:219 does not fit Imm8")
+	let i1 = (roundDown) as Imm8
 	let t2 = sel.resultOf(ins.dst)
 	var mi3 = newX64Target(X64Form.roundsdRegRegImm8, a: t2, b: vregOf(vX), c: noMReg, aux: 0, imm: i1 as FullRangeInt)
 	sel.emit(mi3)
@@ -4691,7 +4691,7 @@ function x64Rule220(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 		return false
 	end 'm1'
 	let vX = ir.fUnarySrc(ins)
-	let i1 = try (roundUp) as Imm8 otherwise panic("backend: a value of x64.rules:220 does not fit Imm8")
+	let i1 = (roundUp) as Imm8
 	let t2 = sel.resultOf(ins.dst)
 	var mi3 = newX64Target(X64Form.roundsdRegRegImm8, a: t2, b: vregOf(vX), c: noMReg, aux: 0, imm: i1 as FullRangeInt)
 	sel.emit(mi3)

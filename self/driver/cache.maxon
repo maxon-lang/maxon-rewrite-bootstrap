@@ -276,7 +276,7 @@ end 'bodyEnd'
 function endOfLine(text String, at Count, finish Count) returns Count
 	var i = at
 	while i < finish and text.byteAt(i) != newlineByte 'scan'
-		i = try i + 1 otherwise panic("driver: a line past memory")
+		i = i + 1
 	end 'scan'
 	return i
 end 'endOfLine'
@@ -284,7 +284,7 @@ end 'endOfLine'
 function indentOf(text String, at Count, lineEnd Count) returns Count
 	var i = at
 	while i < lineEnd and text.byteAt(i) == tabByte 'tabs'
-		i = try i + 1 otherwise panic("driver: a line past memory")
+		i = i + 1
 	end 'tabs'
 	return try i - at otherwise panic("driver: a line that ends before it starts")
 end 'indentOf'
@@ -338,7 +338,7 @@ function usesTypeParameters(text String, at Count, lineEnd Count) returns bool
 		if startsWith(text, at: i, prefix: " uses ") 'uses'
 			return true
 		end 'uses'
-		i = try i + 1 otherwise panic("driver: a line past memory")
+		i = i + 1
 	end 'scan'
 	return false
 end 'usesTypeParameters'

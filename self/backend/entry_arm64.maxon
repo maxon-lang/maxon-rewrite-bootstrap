@@ -423,7 +423,7 @@ function emitArm64AddressDigits(mutates u CodeUnit)
 		let lastDigit = try faultDigitsSlot + addressDigits - 1 otherwise panic("backend: the fault frame is past 2 GiB")
 		encodeArm64AndRegMask(u.asm.code, dest: nibble, src: value, imm: nibbleMask)
 		u.asm.arm64LoadByte(byte, base: digits, index: nibble)
-		encodeArm64StrbOff(u.asm.code, src: byte, base: Arm64Register.sp, disp: imm32Of(try lastDigit - i otherwise panic("backend: a digit before the fault frame")))
+		encodeArm64StrbOff(u.asm.code, src: byte, base: Arm64Register.sp, disp: imm32Of(lastDigit - i))
 		encodeArm64UbfmRegReg(u.asm.code, dest: value, src: value, immr: nibbleBits, imms: arm64SignShift)
 	end 'digits'
 	u.asm.arm64MovImm(byte, value: newlineByte)

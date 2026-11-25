@@ -27,7 +27,7 @@ function buildInfo(mutates vm Vm, f ir.IrFunction, fi Count)
 	end 'regs'
 	for k in 0 upto f.instrs.count() 'defs'
 		match consumes ir.instrDef(f.instrs[k]) 'def'
-			some(dst) then defOf[try dst as Count otherwise panic("interp: a register that does not exist")] = try k + 1 otherwise panic("interp: more instructions than memory")
+			some(dst) then defOf[try dst as Count otherwise panic("interp: a register that does not exist")] = k + 1
 			none then _ = 0
 		end 'def'
 	end 'defs'
@@ -46,7 +46,7 @@ function buildInfo(mutates vm Vm, f ir.IrFunction, fi Count)
 				some(found) gives found
 				none gives panic("interp: a call of a function that has no IR")
 			end 'callee'
-			let last = try argsCount - 1 otherwise panic("interp: a call with no arguments")
+			let last = argsCount - 1
 			for i in 0 upto last 'args'
 				if ownsArgument(vm.prog.fnConvs[callee][i]) 'owned'
 					continue 'args'
@@ -54,13 +54,12 @@ function buildInfo(mutates vm Vm, f ir.IrFunction, fi Count)
 				let arg = f.args[try argsStart + i otherwise panic("interp: an argument past the pool")]
 				let def = defOf[try arg as Count otherwise panic("interp: a register that does not exist")]
 				if def != 0 'defined'
-					let at = try def - 1 otherwise panic("interp: a definition before the first instruction")
+					let at = def - 1
 					if borrowsStorage(f.instrs[at]) 'borrows'
-						let entry = info.calls.count()
 						info.calls.push(k)
 						info.blocks.push(bi)
 						info.next.push(0)
-						let link = try entry + 1 otherwise panic("interp: more calls than memory")
+						let link = info.calls.count()
 						if info.head[at] == 0 'first'
 							info.head[at] = link
 						end 'first' else 'later'
@@ -108,7 +107,7 @@ function skipWindows(mutates vm Vm, f ir.IrFunction, target Count)
 		if vm.windows[i].frame == vm.top and not pathEnters(f, start: target, goal: vm.windows[i].block, avoid: vm.windows[i].def) 'skipped'
 			try vm.windows.remove(i) otherwise ignore
 		end 'skipped' else 'kept'
-			i = try i + 1 otherwise panic("interp: more windows than memory")
+			i = i + 1
 		end 'kept'
 	end 'each'
 end 'skipWindows'
@@ -120,7 +119,7 @@ function endWindows(mutates vm Vm)
 		if vm.windows[i].frame == vm.top 'ended'
 			try vm.windows.remove(i) otherwise ignore
 		end 'ended' else 'kept'
-			i = try i + 1 otherwise panic("interp: more windows than memory")
+			i = i + 1
 		end 'kept'
 	end 'each'
 end 'endWindows'
@@ -165,8 +164,8 @@ end 'pathEnters'
 // closeWindows closes the windows of the call at index k of the frame that runs, which is about to run.
 function closeWindows(mutates vm Vm, call Count)
 	var n = vm.windows.count()
-	while n > 0 and vm.windows[try n - 1 otherwise panic("interp: no windows")].call == call and vm.windows[try n - 1 otherwise panic("interp: no windows")].frame == vm.top 'closing'
-		n = try n - 1 otherwise panic("interp: no windows")
+	while n > 0 and vm.windows[n - 1].call == call and vm.windows[n - 1].frame == vm.top 'closing'
+		n = n - 1
 	end 'closing'
 	while vm.windows.count() > n 'drop'
 		try vm.windows.pop() otherwise ignore

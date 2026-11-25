@@ -35,7 +35,7 @@ export function bitsOfWord(x Word) returns Count
 	if x >= 0 'positive'
 		return x as Count
 	end 'positive'
-	let low = (try x + maxWord + 1 otherwise panic("ir: a word below i64.min")) as Count
+	let low = (x + maxWord + 1) as Count
 	return low or signBit
 end 'bitsOfWord'
 
@@ -45,7 +45,7 @@ export function wordOfBits(c Count) returns Word
 		return c as Word
 	end 'positive'
 	let low = (c and maxWordBits) as Word
-	return try low + minWord otherwise panic("ir: a word past i64.min")
+	return low + minWord
 end 'wordOfBits'
 
 // wrapAdd is a + b modulo 2^64.
@@ -54,16 +54,16 @@ export function wrapAdd(a Count, b Count) returns Count
 	if a <= room 'fits'
 		return try a + b otherwise panic("ir: an addition that fits overflows")
 	end 'fits'
-	let over = try a - room otherwise panic("ir: a wrapped addition")
-	return try over - 1 otherwise panic("ir: a wrapped addition")
+	let over = a - room
+	return over - 1
 end 'wrapAdd'
 
 // wrapSub is a - b modulo 2^64.
 export function wrapSub(a Count, b Count) returns Count
 	if a >= b 'fits'
-		return try a - b otherwise panic("ir: a subtraction that fits underflows")
+		return a - b
 	end 'fits'
-	let under = try (b - a) - 1 otherwise panic("ir: a wrapped subtraction")
+	let under = (b - a) - 1
 	return allBits - under
 end 'wrapSub'
 
@@ -83,12 +83,12 @@ export function mulWide(a Count, b Count) returns Wide
 	let a1 = a shr halfBits
 	let b0 = b and lowHalf
 	let b1 = b shr halfBits
-	let p00 = try a0 * b0 otherwise panic("ir: a product of halves overflows")
+	let p00 = a0 * b0
 	let p01 = try a0 * b1 otherwise panic("ir: a product of halves overflows")
 	let p10 = try a1 * b0 otherwise panic("ir: a product of halves overflows")
 	let p11 = try a1 * b1 otherwise panic("ir: a product of halves overflows")
-	let mid = try (p00 shr halfBits) + (p01 and lowHalf) + (p10 and lowHalf) otherwise panic("ir: a middle sum overflows")
-	let lo = try ((mid and lowHalf) shl halfBits) + (p00 and lowHalf) otherwise panic("ir: a low half overflows")
+	let mid = (p00 shr halfBits) + (p01 and lowHalf) + (p10 and lowHalf)
+	let lo = ((mid and lowHalf) shl halfBits) + (p00 and lowHalf)
 	let hi = try p11 + (p01 shr halfBits) + (p10 shr halfBits) + (mid shr halfBits) otherwise panic("ir: a high half overflows")
 	return Wide.make(hi, lo: lo)
 end 'mulWide'
@@ -124,20 +124,20 @@ end 'powerOfTwo'
 
 function addOverflows(a Word, b Word) returns bool
 	if b > 0 'positive'
-		return a > (try maxWord - b otherwise panic("ir: a bound past a word"))
+		return a > (maxWord - b)
 	end 'positive'
 	if b < 0 'negative'
-		return a < (try minWord - b otherwise panic("ir: a bound past a word"))
+		return a < (minWord - b)
 	end 'negative'
 	return false
 end 'addOverflows'
 
 function subOverflows(a Word, b Word) returns bool
 	if b < 0 'negative'
-		return a > (try maxWord + b otherwise panic("ir: a bound past a word"))
+		return a > (maxWord + b)
 	end 'negative'
 	if b > 0 'positive'
-		return a < (try minWord + b otherwise panic("ir: a bound past a word"))
+		return a < (minWord + b)
 	end 'positive'
 	return false
 end 'subOverflows'

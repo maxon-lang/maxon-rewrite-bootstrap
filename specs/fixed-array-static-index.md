@@ -425,7 +425,7 @@ end 'main'
 ```
 
 <!-- test: error.try-on-a-proven-fixed-array-get -->
-<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
+<!-- skip: language difference: a try that covers nothing that can fail is E3944 whatever it covers (a call that does not throw, a try block, an operation or an access the range analysis proves), where maxon names two of those with E3055 and E3083 -->
 <!-- positions: moved -->
 A proven `get` cannot fail, so a `try` on it has nothing to catch and is refused.
 ```maxon
@@ -444,7 +444,7 @@ error E3055: <fragment>:7:10: try requires a throwing function: this `get` canno
 ```
 
 <!-- test: error.try-on-a-proven-fixed-array-set -->
-<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
+<!-- skip: language difference: a try that covers nothing that can fail is E3944 whatever it covers (a call that does not throw, a try block, an operation or an access the range analysis proves), where maxon names two of those with E3055 and E3083 -->
 <!-- positions: moved -->
 The same refusal for a proven `set`.
 ```maxon

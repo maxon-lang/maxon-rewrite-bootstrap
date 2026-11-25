@@ -23,6 +23,8 @@ let slashByte = 47 as Byte
 
 let newlineByte = 10 as Byte
 
+let tabByte = 9 as Byte
+
 let openParenByte = 40 as Byte
 
 let closeParenByte = 41 as Byte
@@ -163,7 +165,7 @@ function characterEnd(text String, at Count) returns Count
 end 'characterEnd'
 
 // labelEnd is past the quoted label whose opening apostrophe is at at.
-function labelEnd(text String, at Count) returns Count
+export function labelEnd(text String, at Count) returns Count
 	var i = stepOn(at)
 	while i < text.byteLength() and text.byteAt(i) != apostropheByte and text.byteAt(i) != newlineByte 'chars'
 		i = stepOn(i)
@@ -193,6 +195,34 @@ function lineEnd(text String, at Count) returns Count
 	end 'line'
 	return i
 end 'lineEnd'
+
+// lineBegin is where the line that holds at starts.
+export function lineBegin(text String, at Count) returns Count
+	var i = at
+	while i > 0 and text.byteAt(stepBack(i)) != newlineByte 'line'
+		i = stepBack(i)
+	end 'line'
+	return i
+end 'lineBegin'
+
+// lineAfter is where the line after the one that holds at starts, or the end of the text.
+export function lineAfter(text String, at Count) returns Count
+	let finish = lineEnd(text, at: at)
+	if finish < text.byteLength() 'next'
+		return stepOn(finish)
+	end 'next'
+	return finish
+end 'lineAfter'
+
+// isIndent is whether the bytes from begin until until are tabs alone.
+export function isIndent(text String, begin Count, until Count) returns bool
+	for i in begin upto until 'bytes'
+		if text.byteAt(i) != tabByte 'other'
+			return false
+		end 'other'
+	end 'bytes'
+	return true
+end 'isIndent'
 
 // tokenEnd is past the token at at: a string, a label, a comment, a word or one byte.
 function tokenEnd(text String, at Count) returns Count
@@ -389,7 +419,7 @@ export function exprExtent(t Tree, e NodeID) returns table.Option with Extent
 			unclosed = stepOn(unclosed)
 		end 'open' else if c == closeParenByte 'close'
 			if unclosed > 0 'paired'
-				unclosed = try unclosed - 1 otherwise 0 as Count
+				unclosed = unclosed - 1
 			end 'paired' else 'unpaired'
 				unopened = stepOn(unopened)
 			end 'unpaired'
@@ -413,7 +443,7 @@ export function exprExtent(t Tree, e NodeID) returns table.Option with Extent
 			return table.Option.none
 		end 'unbalanced'
 		until = stepOn(next)
-		unclosed = try unclosed - 1 otherwise 0 as Count
+		unclosed = unclosed - 1
 	end 'closes'
 	return table.Option.some(Extent.make(try begin as diag.U32 otherwise panic("extents: an offset past a module"), until: try until as diag.U32 otherwise panic("extents: an offset past a module")))
 end 'exprExtent'

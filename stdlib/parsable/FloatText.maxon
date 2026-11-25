@@ -83,9 +83,9 @@ end 'float'
 // floatTextSigned is the 64 bits of a double as the signed integer bitsToFloat takes: the sign bit is its sign.
 function floatTextSigned(bits Count) returns FullRangeInt
 	if bits < floatTextSignBit 'positive'
-		return try bits as FullRangeInt otherwise panic("FloatText: bits below the sign bit fit")
+		return bits as FullRangeInt
 	end 'positive'
-	return try ((bits - floatTextSignBit) as FullRangeInt) + i64.min otherwise panic("FloatText: bits with the sign bit fit")
+	return ((bits - floatTextSignBit) as FullRangeInt) + i64.min
 end 'floatTextSigned'
 
 enum FloatTextFailure implements Error
@@ -164,7 +164,7 @@ function floatTextRead(text String, at Count) returns FloatTextRead throws Parse
 	let fraction = try fractionDigits as FloatTextExponent otherwise throw ParseError.invalidFormat
 	let kept = try significant as FloatTextExponent otherwise throw ParseError.invalidFormat
 	let scale = try (exp10 - fraction) as FloatTextExponent otherwise throw ParseError.invalidFormat
-	let magnitude = try scale + kept otherwise throw ParseError.invalidFormat
+	let magnitude = scale + kept
 	if magnitude > floatTextOverflowMagnitude 'over'
 		return FloatTextRead.create(floatTextInfinityBits or sign, pastRange: true, endAt: cursor)
 	end 'over'
@@ -258,7 +258,7 @@ function floatTextSub(mutates a FloatTextLimbs, b FloatTextLimbs)
 		end 'part'
 		let ai = a[i] as Count
 		if ai >= sub 'fits'
-			a[i] = try (ai - sub) as FloatTextLimb otherwise panic("FloatText: a difference is past a limb")
+			a[i] = (ai - sub) as FloatTextLimb
 			borrow = 0
 		end 'fits' else 'borrows'
 			a[i] = try (ai + floatTextLimbMask + 1 - sub) as FloatTextLimb otherwise panic("FloatText: a borrow is past a limb")
@@ -296,7 +296,7 @@ function floatTextRound(num FloatTextLimbs, den FloatTextLimbs) returns Count th
 	var e0 = try (floatTextBitLength(num) - floatTextBitLength(den)) as FloatTextExponent otherwise panic("FloatText: a bit length is past its bound")
 	if e0 >= 0 'up'
 		if floatTextCompare(num, b: floatTextShl(den, n: floatTextShift(e0))) < 0 'below'
-			e0 = try e0 - 1 otherwise panic("FloatText: a bit length is past its bound")
+			e0 = e0 - 1
 		end 'below'
 	end 'up' else 'down'
 		if floatTextCompare(floatTextShl(num, n: floatTextShift(-e0)), b: den) < 0 'below'

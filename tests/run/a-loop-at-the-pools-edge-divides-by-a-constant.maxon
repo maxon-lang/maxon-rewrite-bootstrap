@@ -29,7 +29,7 @@ function quotients(n Word) returns Word
 		a7 = a7 xor a6
 		a8 = try a8 + a7 otherwise panic("out of range")
 		a9 = a9 xor a8
-		let e = try t / 7 otherwise 0
+		let e = t / 7
 		t = try t + e + a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 otherwise panic("out of range")
 	end 'each'
 	return t
@@ -58,7 +58,7 @@ function remainders(n Word) returns Word
 		a7 = a7 xor a6
 		a8 = try a8 + a7 otherwise panic("out of range")
 		a9 = a9 xor a8
-		let e = try i mod 7 otherwise 0
+		let e = i mod 7
 		t = try t + e + a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 otherwise panic("out of range")
 	end 'each'
 	return t
@@ -69,7 +69,7 @@ end 'remainders'
 function inArray(n Word, remainder bool) returns Word
 	var a = Words.create(0)
 	for k in 0 upto 10 'start'
-		a.push(try k + 1 otherwise panic("out of range"))
+		a.push(k + 1)
 	end 'start'
 	a.push(7)
 	var t = 0 as Word

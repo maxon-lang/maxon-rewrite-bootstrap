@@ -184,8 +184,8 @@ function trimSpace(text String) returns borrowed String
 	while start < finish and isSpaceByte(text.byteAt(start)) 'skipLeft'
 		start = start + 1
 	end 'skipLeft'
-	while finish > start and isSpaceByte(text.byteAt(try finish - 1 otherwise 0)) 'skipRight'
-		finish = try finish - 1 otherwise 0
+	while finish > start and isSpaceByte(text.byteAt(finish - 1)) 'skipRight'
+		finish = finish - 1
 	end 'skipRight'
 	return text.sliceBytes(start, endPos: finish)
 end 'trimSpace'
@@ -226,7 +226,7 @@ function parseCount(text String) returns table.Option with Count
 		if c < zeroByte or c > nineByte 'notDigit'
 			return table.Option.none
 		end 'notDigit'
-		let digit = (try c - zeroByte otherwise 0) as Count
+		let digit = (c - zeroByte) as Count
 		value = try value * decimalBase + digit otherwise return table.Option.none
 	end 'digits'
 	return table.Option.some(value)
@@ -1037,7 +1037,7 @@ function runFixTest(file String, expected String) returns TestResult
 	let wanted = withoutCarriageReturns(readText(expected), loneToo: false)
 	let sections = splitSections(text)
 	if sections.count() > 0 'project'
-		let built = fixProgram(FixProgram.make(projectRoot, name: file.clone(), single: false, files: sectionFiles(sections), candidates: ast.knownTargets()), libraries: noFixLibraries(), expected: table.Option.none, watches: ast.StringList.create(0))
+		let built = fixProgram(FixProgram.make(projectRoot, name: file.clone(), single: false, files: sectionFiles(sections), candidates: ast.knownTargets()), libraries: noFixLibraries(), expected: table.Option.none, watches: ast.StringList.create(0), only: table.Option.none)
 		print(built.said)
 		return fixedResult(built, expected: expected, wanted: withoutFinalNewline(wanted), actual: withoutFinalNewline(fixedBlock(text, sections: sections, outcome: built)))
 	end 'project'

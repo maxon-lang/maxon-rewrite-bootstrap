@@ -180,14 +180,14 @@ export extension Array
 			return
 		end 'trivial'
 		// Build the max-heap: sift-down from the last non-leaf node.
-		var start = try (n / 2) as ElementIndex otherwise panic("out of range")
+		var start = (n / 2) as ElementIndex
 		while start > 0 'buildHeap'
 			start = start - 1
 			self.siftDown(lo, start: start, count: n, cmp: cmp)
 		end 'buildHeap'
 		// Extract elements one by one: swap root to end, shrink, sift the
 		// new root down.
-		var heapEnd = try n as ElementIndex otherwise panic("out of range")
+		var heapEnd = n as ElementIndex
 		while heapEnd > 1 'extract'
 			heapEnd = heapEnd - 1
 			self.swap(lo, j: try lo + heapEnd otherwise panic("out of range"))

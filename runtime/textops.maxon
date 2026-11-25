@@ -160,7 +160,7 @@ function strEncodedByte(code Count, length Count, index Count) returns Byte
 	let after = strSub(strSub(length, right: 1), right: index)
 	let bits = code shr (try strContinuationBits * after otherwise panic("a sequence past four bytes"))
 	if index > 0 'continuation'
-		return try (strContinuationLead or (bits and strContinuationMask)) as Byte otherwise panic("a continuation byte past a byte")
+		return (strContinuationLead or (bits and strContinuationMask)) as Byte
 	end 'continuation'
 	if length == 1 'single'
 		return try bits as Byte otherwise panic("a code point past a byte")
@@ -174,7 +174,7 @@ function strEncodedByte(code Count, length Count, index Count) returns Byte
 		lead = strLeadThree as Count
 		mask = strThreeByteMask
 	end 'three'
-	return try (lead or (bits and mask)) as Byte otherwise panic("a lead byte past a byte")
+	return (lead or (bits and mask)) as Byte
 end 'strEncodedByte'
 
 let strAsciiCodeLimit = 0x80 as Count

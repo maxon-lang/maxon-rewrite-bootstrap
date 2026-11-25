@@ -209,7 +209,7 @@ function lowerText(text String) returns String
 	for i in 0 upto text.byteLength() 'bytes'
 		let c = text.byteAt(i)
 		if c >= upperA and c <= upperZ 'capital'
-			out.push(try c + letterCase otherwise c)
+			out.push(c + letterCase)
 		end 'capital' else 'plain'
 			out.push(c)
 		end 'plain'
@@ -235,8 +235,8 @@ function parseSpec(text String) returns SpecTests
 			lineEnd = offsetBy(lineEnd, by: 1)
 		end 'scan'
 		var contentEnd = lineEnd
-		while contentEnd > lineStart and isTrailingSpace(text.byteAt(try contentEnd - 1 otherwise 0)) 'trim'
-			contentEnd = try contentEnd - 1 otherwise 0
+		while contentEnd > lineStart and isTrailingSpace(text.byteAt(contentEnd - 1)) 'trim'
+			contentEnd = contentEnd - 1
 		end 'trim'
 		let isEmpty = contentEnd == lineStart
 		var first = 0 as Byte
@@ -249,7 +249,7 @@ function parseSpec(text String) returns SpecTests
 				if inTests and reading 'keep'
 					var bodyFinish = bodyStart
 					if lineStart > bodyStart 'body'
-						bodyFinish = try lineStart - 1 otherwise bodyStart
+						bodyFinish = lineStart - 1
 					end 'body'
 					addFence(current, name: fenceName, start: bodyStart, finish: bodyFinish)
 				end 'keep'
@@ -290,8 +290,8 @@ end 'parseSpec'
 function commentText(rest String) returns String
 	var finish = rest.byteLength()
 	let suffix = commentSuffix.byteLength()
-	if finish >= suffix and rest.sliceBytes(try finish - suffix otherwise 0, endPos: finish) == commentSuffix 'closed'
-		finish = try finish - suffix otherwise 0
+	if finish >= suffix and rest.sliceBytes(finish - suffix, endPos: finish) == commentSuffix 'closed'
+		finish = finish - suffix
 	end 'closed'
 	return trimSpace(rest.sliceBytes(0, endPos: finish)).clone()
 end 'commentText'
@@ -697,8 +697,8 @@ end 'portablePath'
 // directoryEnd is where the directory part of a portable path ends, past its last separator.
 function directoryEnd(path String) returns Count
 	var at = path.byteLength()
-	while at > 0 and path.byteAt(try at - 1 otherwise 0) != slashByte 'back'
-		at = try at - 1 otherwise 0
+	while at > 0 and path.byteAt(at - 1) != slashByte 'back'
+		at = at - 1
 	end 'back'
 	return at
 end 'directoryEnd'
@@ -1057,7 +1057,7 @@ function printSummary(tally SpecRun)
 		var at = order.count()
 		order.push(i)
 		while at > 0 'sift'
-			let before = try at - 1 otherwise 0
+			let before = at - 1
 			if not skipsBefore(tally, a: order[at], b: order[before]) 'ordered'
 				break 'sift'
 			end 'ordered'
@@ -1091,16 +1091,21 @@ function skipsBefore(tally SpecRun, a Count, b Count) returns bool
 	return diag.stringLess(tally.reasons[a], b: tally.reasons[b])
 end 'skipsBefore'
 
-// isSpecPath is whether a path given to test names spec files: one file of the format, or a directory of them.
+// isSpecPath is whether a path given to test names spec files: one file of the format, or a directory of them. A directory
+// that holds source too is a project whose README is a document, as the runtime's is.
 function isSpecPath(path String) returns bool
 	if project.isDirectoryPath(path) 'directory'
 		let listed = try Directory.list(try FilePath.from(path) otherwise return false) otherwise return false
+		var holdsSpec = false
 		for i in 0 upto listed.count() 'entries'
+			if endsWith(listed[i].toString(), suffix: sourceExtension) 'source'
+				return false
+			end 'source'
 			if endsWith(listed[i].toString(), suffix: specExtension) 'spec'
-				return true
+				holdsSpec = true
 			end 'spec'
 		end 'entries'
-		return false
+		return holdsSpec
 	end 'directory'
 	return endsWith(path, suffix: specExtension)
 end 'isSpecPath'

@@ -653,7 +653,7 @@ type Generator
 			while left > 0 'payload'
 				let fieldT = self.fieldType()
 				payload.push(Field.make("x{payload.count()}", t: fieldT, isVar: false))
-				left = try left - 1 otherwise panic("fuzz: a payload below 0")
+				left = left - 1
 			end 'payload'
 			u.cases.push(CaseDecl.make("c{c}", payload: payload))
 		end 'cases'
@@ -959,7 +959,7 @@ type Generator
 		let r = ri.unwrap()
 		let src = store[p].src.clone()
 		let outerMutable = store[p].mutable
-		let below = try depth - 1 otherwise panic("fuzz: a walk below its depth")
+		let below = depth - 1
 		for k in 0 upto records[r].fields.count() 'fields'
 			let fieldName = records[r].fields[k].name.clone()
 			let fieldT = records[r].fields[k].t
@@ -2098,7 +2098,7 @@ type Generator
 		var i = 0 as Count
 		while i < n and budget > 0 'statements'
 			self.stmt(depth)
-			i = try i + 1 otherwise panic("fuzz: more statements than memory")
+			i = i + 1
 		end 'statements'
 		if out.count() == start 'empty'
 			self.say(printedText("."))
@@ -2456,7 +2456,7 @@ type Generator
 		var i = 0 as Count
 		while i < n and budget > 0 'statements'
 			self.stmt(lower(depth))
-			i = try i + 1 otherwise panic("fuzz: more statements than memory")
+			i = i + 1
 		end 'statements'
 		if out.count() == start 'empty'
 			self.say(printed(index))
@@ -3357,7 +3357,7 @@ type Generator
 		var ordered = CountList.create(0)
 		var i = chain.count()
 		while i > 0 'reverse'
-			i = try i - 1 otherwise panic("fuzz: a chain below 0")
+			i = i - 1
 			ordered.push(chain[i])
 		end 'reverse'
 		return ordered

@@ -467,8 +467,8 @@ export type Resolution
 		// Keep deps ascending by module ID for deterministic Graph order
 		var i = deps.count()
 		while i > 1 'ins'
-			let cur = try i - 1 otherwise 0 as Count
-			let prev = try i - 2 otherwise 0 as Count
+			let cur = i - 1
+			let prev = i - 2
 			if deps[cur].module < deps[prev].module 'swap'
 				let tmp = deps[cur].clone()
 				deps[cur] = deps[prev].clone()

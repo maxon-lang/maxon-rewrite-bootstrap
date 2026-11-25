@@ -77,7 +77,7 @@ export function withSite(s Word, site Count) returns Word
 		panic("ir: more inline sites in one function than a span names ({spanSiteLimit})")
 	end 'wide'
 	let cleared = s and spanSiteClear
-	let field = try (site as Word) shl spanOffsetBits otherwise panic("ir: a site past a span's field")
+	let field = (site as Word) shl spanOffsetBits
 	return cleared or field
 end 'withSite'
 

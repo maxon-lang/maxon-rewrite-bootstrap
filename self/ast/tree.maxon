@@ -318,7 +318,7 @@ export type Tree
 		if tag < partFormatTag 'none'
 			return text.sliceBytes(0, endPos: 0)
 		end 'none'
-		return strings[try (tag - partFormatTag) as Count otherwise panic("strPart format tag")]
+		return strings[(tag - partFormatTag) as Count]
 	end 'strPartFormat'
 
 	export function strPartExpr(partsRef diag.U32, index Count) returns NodeID
@@ -335,7 +335,7 @@ export type Tree
 		end 'decoded'
 		let n = try (tag - partRunTag) as Count otherwise panic("strPart raw tag")
 		let off = arg as Count
-		return text.sliceBytes(off, endPos: try off + n otherwise panic("strPart slice overflow"))
+		return text.sliceBytes(off, endPos: off + n)
 	end 'strPartText'
 
 	export function strIsPlain(partsRef diag.U32) returns bool

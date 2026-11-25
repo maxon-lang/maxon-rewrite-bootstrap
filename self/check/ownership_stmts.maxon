@@ -1014,7 +1014,7 @@ end 'armBorrows'
 function consumingMatchFix(o Ownership, p ast.Project, ms ast.ModuleState, binding ast.LocalID) returns diag.Fix
 	var i = o.borrowingMatches.count()
 	while i > 0 'matches'
-		i = try i - 1 otherwise panic("ownership: the stack of matches is empty")
+		i = i - 1
 		let core = o.borrowingMatches[i]
 		if bindsInMatch(o, ms: ms, core: core, l: binding) 'found'
 			return subjectConsumesFix(o, p: p, ms: ms, core: core)

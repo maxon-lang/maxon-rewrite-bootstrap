@@ -109,7 +109,7 @@ type Operands
 		var fixedReads = RegMaskList.create(0)
 		var fixedWrites = RegMaskList.create(0)
 		for i in 0 upto formCount 'forms'
-			let form = try i as FormID otherwise panic("backend: more forms than a FormID names")
+			let form = i as FormID
 			fixedReads.push(fixedUses(form))
 			fixedWrites.push(formWrites(form))
 		end 'forms'
@@ -225,7 +225,7 @@ function useOperand(fn MirFunction, k Count, slot Count) returns MReg
 	if slot < firstListUse 'operand'
 		return operandAt(fn.instrs[k], index: slot)
 	end 'operand'
-	let i = try slot - firstListUse otherwise panic("backend: a slot below the lists")
+	let i = slot - firstListUse
 	if fn.instrs[k].kind == MKind.parallelCopy 'copy'
 		return fn.copies[addCounts(refIndex(fn.instrs[k]), b: i)].src
 	end 'copy'
@@ -238,7 +238,7 @@ function renameUse(mutates fn MirFunction, k Count, slot Count, r MReg)
 		setOperand(fn.instrs[k], index: slot, r: r)
 		return
 	end 'operand'
-	let i = try slot - firstListUse otherwise panic("backend: a slot below the lists")
+	let i = slot - firstListUse
 	if fn.instrs[k].kind == MKind.parallelCopy 'copy'
 		let at = addCounts(refIndex(fn.instrs[k]), b: i)
 		fn.copies[at].src = r

@@ -45,7 +45,7 @@ function main() returns ExitCode
 	var w = Wrapper.make(Pair.make(5, b: 6), count: 1)
 	w.inner.a = 50
 	let base = w.clone()
-	let add = function(x Small) gives try base.inner.a + x otherwise 0
+	let add = function(x Small) gives base.inner.a + x
 	print("wrapped {w.inner.a} {w.inner.b} {w.count} {add(1)}\n")
 	var o = Outer.make(Wrapper.make(Pair.make(7, b: 8), count: 2), tag: 3)
 	o.wrapped.inner.b = 80

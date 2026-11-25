@@ -588,11 +588,11 @@ typealias UnsignedArray = Array with Unsigned
 typealias UBigDivisor = int(2 to u64.max)
 
 function refUDiv(n Unsigned, d UBigDivisor) returns Unsigned
-	return try (n / (d as Unsigned)) otherwise panic("d is never zero")
+	return (n / (d as Unsigned))
 end 'refUDiv'
 
 function refUMod(n Unsigned, d UBigDivisor) returns Unsigned
-	return try (n mod (d as Unsigned)) otherwise panic("d is never zero")
+	return (n mod (d as Unsigned))
 end 'refUMod'
 
 function dividendsAround(d UBigDivisor) returns UnsignedArray
@@ -705,19 +705,19 @@ typealias PosDivisor = int(2 to i64.max)
 typealias NegDivisor = int(i64.min to -2)
 
 function refDiv(n Word, d PosDivisor) returns Word
-	return try (n / (d as Word)) otherwise panic("d is never zero")
+	return (n / (d as Word))
 end 'refDiv'
 
 function refMod(n Word, d PosDivisor) returns Word
-	return try (n mod (d as Word)) otherwise panic("d is never zero")
+	return (n mod (d as Word))
 end 'refMod'
 
 function refDivNeg(n Word, d NegDivisor) returns Word
-	return try (n / (d as Word)) otherwise panic("d is never zero")
+	return (n / (d as Word))
 end 'refDivNeg'
 
 function refModNeg(n Word, d NegDivisor) returns Word
-	return try (n mod (d as Word)) otherwise panic("d is never zero")
+	return (n mod (d as Word))
 end 'refModNeg'
 
 function dividends(d Word) returns WordArray

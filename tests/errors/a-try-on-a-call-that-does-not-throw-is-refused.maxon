@@ -1,0 +1,44 @@
+// expect-error: E3944 at 23:9
+// expect-error: E3944 at 27:9
+// expect-error: E3944 at 31:2
+// expect-error: E3944 at 39:9
+// A try on a call of a function that does not throw handles a failure that never happens, in each form: with a handler,
+// with none, as a conditional try (which has no fix), and around a try that already handles what it covers.
+enum ParseError implements Error
+	empty
+end 'ParseError'
+
+function parse(n Count) returns Count throws ParseError
+	if n == 0 'zero'
+		throw ParseError.empty
+	end 'zero'
+	return n
+end 'parse'
+
+function plain(n Count) returns Count
+	return n
+end 'plain'
+
+function guarded(n Count) returns Count
+	return try plain(n) otherwise 0
+end 'guarded'
+
+function relayed(n Count) returns Count throws ParseError
+	return try plain(n)
+end 'relayed'
+
+function tested(n Count) returns Count
+	if let found = try plain(n) 'found'
+		return found
+	end 'found' else 'missing'
+		return 0
+	end 'missing'
+end 'tested'
+
+function doubled(n Count) returns Count throws ParseError
+	return try (try parse(n) otherwise 0)
+end 'doubled'
+
+function main() returns ExitCode
+	return 0
+end 'main'

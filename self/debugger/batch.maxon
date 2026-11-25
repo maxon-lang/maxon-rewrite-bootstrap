@@ -27,7 +27,7 @@ function splitCommands(spelling String) returns StringArray
 			if piece != "" 'command'
 				commands.push(piece.clone())
 			end 'command'
-			start = try i + 1 otherwise i
+			start = i + 1
 		end 'end'
 	end 'bytes'
 	return commands

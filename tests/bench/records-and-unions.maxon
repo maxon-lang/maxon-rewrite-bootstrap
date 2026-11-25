@@ -45,13 +45,13 @@ function work() returns ExitCode
 	var started = Clock.nowNanos()
 	var shapes = Shapes.create(0)
 	for i in 0 upto count 'build'
-		let p = Point.make(i as Word, y: try ((i as Word) * 7) mod modulus otherwise panic("point overflowed"))
+		let p = Point.make(i as Word, y: ((i as Word) * 7) mod modulus)
 		if i mod 3 == 0 'dot'
 			shapes.push(Shape.dot(p))
 		end 'dot' else if i mod 3 == 1 'box'
 			shapes.push(Shape.box(p, width: (i as Word) mod 17))
 		end 'box' else 'line'
-			shapes.push(Shape.line(p, last: Point.make(try (i as Word) + 1 otherwise panic("point overflowed"), y: (i as Word) mod 11)))
+			shapes.push(Shape.line(p, last: Point.make((i as Word) + 1, y: (i as Word) mod 11)))
 		end 'line'
 	end 'build'
 	started = lap("build", since: started)

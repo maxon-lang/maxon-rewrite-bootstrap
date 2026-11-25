@@ -231,7 +231,7 @@ export type Selector
 		if d == noDefAt or readCount[regIndex(r)] != 1 or irAt == f.blocks[irBlock].first 'apart'
 			return false
 		end 'apart'
-		return (try d as Count otherwise panic("backend: a definition before the first instruction")) == prevCount(irAt)
+		return (d as Count) == prevCount(irAt)
 	end 'fuses'
 
 	// knownLength is whether the IR register index holds the length of the array in the IR register box at the instruction
@@ -304,7 +304,7 @@ export type Selector
 		if at == noDefAt 'parameter'
 			return false
 		end 'parameter'
-		return f.instrs[try at as Count otherwise panic("backend: a definition before the first instruction")].op == op
+		return f.instrs[at as Count].op == op
 	end 'definedBy'
 
 	// defOf is the instruction that defines the register r, which one does.
@@ -658,7 +658,7 @@ export type Selector
 		var power = 1 as Count
 		var shift = wordElementShift as Count
 		while power < words 'power'
-			power = try power + power otherwise panic("backend: an element past memory")
+			power = power + power
 			shift = nextCount(shift)
 		end 'power'
 		if power == words 'shifted'
@@ -1299,7 +1299,7 @@ function paramPosition(k Count, count Count, closure bool) returns Count
 	if k == 0 'closure'
 		return try count - 1 otherwise panic("backend: a closure's body with no parameters")
 	end 'closure'
-	return try k - 1 otherwise panic("backend: a parameter below 0")
+	return k - 1
 end 'paramPosition'
 
 // paramAtPosition is the parameter that the internal convention passes at a position, which paramPosition gives.

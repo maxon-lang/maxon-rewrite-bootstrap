@@ -184,10 +184,10 @@ export function valueSignature(p ast.Project, ms ast.ModuleState, t ast.TypeID) 
 		let conv = ast.funcParamConv(ms.types, reads: p.types, t: t, index: i)
 		let ty = ast.funcParamType(ms.types, reads: p.types, t: t, index: i)
 		if passesFloat(p, ms: ms, conv: conv, t: ty) 'float'
-			args = args or floatBit(try i + 1 otherwise panic("ir: too many parameters"))
+			args = args or floatBit(i + 1)
 		end 'float'
 		if passesString(ms.types, reads: p.types, conv: conv, t: ty) 'string'
-			strings = strings or floatBit(try i + 1 otherwise panic("ir: too many parameters"))
+			strings = strings or floatBit(i + 1)
 		end 'string'
 	end 'params'
 	let result = ast.funcResult(ms.types, reads: p.types, t: t)

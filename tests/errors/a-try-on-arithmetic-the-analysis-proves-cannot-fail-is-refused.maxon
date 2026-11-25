@@ -1,0 +1,38 @@
+// expect-error: E3944 at 11:9
+// expect-error: E3944 at 16:10
+// expect-error: E3944 at 22:13
+// expect-error: E3944 at 29:16
+// expect-error: E3944 at 30:16
+// A try on arithmetic whose result the range analysis proves fits handles a failure that never happens, whatever its
+// handler is: a fallback, a panic, a return, a break or a continue.
+typealias Digit = int(0 to 9)
+
+function sum(a Digit, b Digit) returns Count
+	return try (a + b) as Count otherwise 0
+end 'sum'
+
+function previous(a Count, b Count) returns Count
+	if a < b 'below'
+		return try b - a otherwise panic("a is below b")
+	end 'below'
+	return 0
+end 'previous'
+
+function first(a Digit) returns Count
+	let next = try (a + 1) as Count otherwise return 0
+	return next
+end 'first'
+
+function total() returns Count
+	var n = 0 as Count
+	for i in 0 upto 10 'each'
+		let double = try i * 2 otherwise break 'each'
+		let triple = try i * 3 otherwise continue 'each'
+		n = try n + double + triple otherwise panic("total overflowed")
+	end 'each'
+	return n
+end 'total'
+
+function main() returns ExitCode
+	return 0
+end 'main'

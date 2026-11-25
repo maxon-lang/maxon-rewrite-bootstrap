@@ -41,7 +41,7 @@ function grow(node cown with Node, tally cown with Tally)
 		end 'report'
 		if level < depth 'children'
 			for i in 0 upto fanOut 'childrenBlock'
-				let child = cown(Node.make(try level + 1 otherwise 0, path: try path * fanOut + i otherwise 0))
+				let child = cown(Node.make(level + 1, path: try path * fanOut + i otherwise 0))
 				grow(child, tally: t)
 			end 'childrenBlock'
 		end 'children'

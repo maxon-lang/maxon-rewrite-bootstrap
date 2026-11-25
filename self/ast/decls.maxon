@@ -282,7 +282,7 @@ end 'visibilityModifier'
 export function parentPath(path String) returns borrowed String
 	var i = path.byteLength()
 	while i > 0 'back'
-		i = try i - 1 otherwise 0 as Count
+		i = i - 1
 		if path.byteAt(i) == 46 'dot'
 			return path.sliceBytes(0 as Count, endPos: i)
 		end 'dot'
@@ -343,7 +343,7 @@ export type FileSpan
 		lineStarts.push(start as Count)
 		for pos in start as Count upto endOff as Count 'bytes'
 			if text.byteAt(pos) == newlineByte 'newline'
-				lineStarts.push(try pos + 1 otherwise panic("ast: a line past memory"))
+				lineStarts.push(pos + 1)
 			end 'newline'
 		end 'bytes'
 		return FileSpan{path: path, start: start, endOff: endOff, lineStarts: lineStarts}

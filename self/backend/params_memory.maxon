@@ -37,7 +37,7 @@ function paramsToMemory(mutates fn MirFunction, g MirGraph, convs Conventions) r
 			let held = paramsOfClass(fn, b: b, c: c)
 			var over = 0 as Count
 			if held > pool 'over'
-				over = try held - pool otherwise panic("backend: an excess below 0")
+				over = held - pool
 				any = true
 			end 'over'
 			excess.push(over)

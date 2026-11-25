@@ -458,7 +458,7 @@ error E3054: specs/error-handling/error.main-cannot-throw.maxon:7:10: main canno
 ```
 
 <!-- test: error.throws-but-can-never-throw -->
-<!-- skip: language difference: a throws or a try block that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
+<!-- skip: language difference: a throws that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
 A function that declares `throws` must be able to throw. This one only returns, so every caller is made to
 handle an error that can never arrive.
 ```maxon
@@ -481,7 +481,7 @@ error E3168: <fragment>:8:10: 'throws Failure' is declared but nothing in the bo
 ```
 
 <!-- test: error.throws-but-every-call-it-makes-is-handled -->
-<!-- skip: language difference: a throws or a try block that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
+<!-- skip: language difference: a throws that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
 Calling a throwing function is not throwing. `careful`'s one throwing call handles its error with
 `otherwise`, so nothing leaves the body.
 ```maxon
@@ -511,7 +511,7 @@ error E3168: <fragment>:15:10: 'throws Failure' is declared but nothing in the b
 ```
 
 <!-- test: error.throws-but-its-only-throw-is-caught-by-a-try-block -->
-<!-- skip: language difference: a throws or a try block that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
+<!-- skip: language difference: a throws that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
 <!-- positions: moved -->
 A `throw` inside a block-form `try` goes to that block's handler, not to the caller. The handler here
 returns, so the function's error can never reach a caller.
@@ -544,7 +544,7 @@ error E3168: <fragment>:8:10: 'throws Failure' is declared but nothing in the bo
 ```
 
 <!-- test: error.throws-method-can-never-throw -->
-<!-- skip: language difference: a throws or a try block that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
+<!-- skip: language difference: a throws that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
 The rule covers methods as well as top-level functions.
 ```maxon
 enum Failure implements Error
@@ -575,7 +575,7 @@ error E3168: <fragment>:15:11: 'throws Failure' is declared but nothing in the b
 ```
 
 <!-- test: error.throws-service-message-can-never-throw -->
-<!-- skip: language difference: a throws or a try block that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
+<!-- skip: language difference: a throws that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
 A service message is checked like any other function. A `throws` clause gives the message a reply slot, but a
 body that cannot throw still makes the clause false.
 ```maxon
@@ -704,7 +704,7 @@ error E3057: specs/error-handling/error.throwing-method-requires-try.maxon:13:12
 ```
 
 <!-- test: error.try-on-non-throwing-function -->
-<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
+<!-- skip: language difference: a try that covers nothing that can fail is E3944 whatever it covers (a call that does not throw, a try block, an operation or an access the range analysis proves), where maxon names two of those with E3055 and E3083 -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -724,7 +724,7 @@ error E3055: specs/error-handling/error.try-on-non-throwing-function.maxon:11:12
 ```
 
 <!-- test: error.try-on-non-throwing-method -->
-<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
+<!-- skip: language difference: a try that covers nothing that can fail is E3944 whatever it covers (a call that does not throw, a try block, an operation or an access the range analysis proves), where maxon names two of those with E3055 and E3083 -->
 <!-- positions: moved -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -744,7 +744,7 @@ error E3055: specs/error-handling/error.try-on-non-throwing-method.maxon:10:12: 
 ```
 
 <!-- test: error.try-on-non-throwing-instance-method -->
-<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
+<!-- skip: language difference: a try that covers nothing that can fail is E3944 whatever it covers (a call that does not throw, a try block, an operation or an access the range analysis proves), where maxon names two of those with E3055 and E3083 -->
 
 Regression: `try recv.method()` on a non-throwing **instance method** must also
 report E3055. The error-handling check inspects `tryMethodCall` (the op a method

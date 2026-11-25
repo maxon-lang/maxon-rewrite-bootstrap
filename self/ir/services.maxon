@@ -95,9 +95,10 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	let name = behaviourBodyName(irSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: l.b.f), index: l.b.f.bodies.count())
 	let fn = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).clone()
 	let params = fn.params.count()
+	let cellIndex = table.sum(params, b: 1)
 	var inner = Lowerer.new(exchange(l.instances, value: InstanceSet.new()))
 	begin(inner, p: p, ms: ms, fn: c.info.body, bindParams: ast.cloneTypeArgs(l.bindParams), bindArgs: ast.cloneTypeArgs(l.bindArgs), bindWitnesses: l.bindWitnesses.clone(), name: name)
-	inner.b.f.paramCount = try 1 + params + (1 if cell else 0) otherwise panic("lower: too many parameters in a message")
+	inner.b.f.paramCount = table.sum(cellIndex, b: 1 if cell else 0)
 	let state = paramReg(inner, index: 0 as Count, kind: IrKind.kindScalar)
 	var args = RegList.create(0)
 	if not factory 'message'
@@ -112,9 +113,9 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 		let ty = applyType(l, p: p, ms: ms, t: fn.paramTypes[i])
 		let kind = holderKind(l, p: p, ms: ms, t: ty)
 		if kind == IrKind.kindString 'string'
-			strings = strings or floatBit(try i + 1 otherwise panic("lower: too many parameters in a message"))
+			strings = strings or floatBit(i + 1)
 		end 'string'
-		let v = paramReg(inner, index: try i + 1 otherwise panic("lower: too many parameters in a message"), kind: kind)
+		let v = paramReg(inner, index: i + 1, kind: kind)
 		args.push(v)
 		owned.push(v)
 	end 'params'
@@ -145,7 +146,7 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 		let held = boxed(inner, p: p, ms: ms, v: dst, t: resultTy)
 		emit(inner, i: newStoreAt(state, src: held))
 	end 'store' else if cell 'reply'
-		let cellReg = paramReg(inner, index: try 1 + params otherwise panic("lower: too many parameters in a message"), kind: IrKind.kindScalar)
+		let cellReg = paramReg(inner, index: cellIndex, kind: IrKind.kindScalar)
 		let value = boxed(inner, p: p, ms: ms, v: dst, t: resultTy) if dst != noReg else konst(inner, value: 0 as Word)
 		let error = err if err != noReg else konst(inner, value: 0 as Word)
 		entryVoid(inner, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtReplyGive, args: argsOf3(cellReg, b: value, c: error))

@@ -109,7 +109,7 @@ function entryRandomFill(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	try makeHash(vm)
 	let length = vm.h.buffers[vm.h.oData[b]].count()
 	for at in 0 upto length 'bytes'
-		vm.h.buffers[vm.h.oData[b]][at] = try (vm.hash.rng.uint64() and 255) as Byte otherwise panic("interp: a random byte is below 256")
+		vm.h.buffers[vm.h.oData[b]][at] = (vm.hash.rng.uint64() and 255) as Byte
 	end 'bytes'
 	giveNum(vm, x: x, n: ir.wordOfBits(0 as Count))
 end 'entryRandomFill'

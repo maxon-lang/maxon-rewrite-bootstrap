@@ -40,7 +40,7 @@ end 'slotDisp'
 
 // isStringReg is whether the IR register r of f holds a String, which selection gives two virtual registers.
 function isStringReg(f ir.IrFunction, r ir.Reg) returns bool
-	return r != ir.noReg and f.regs[try r as Count otherwise panic("backend: a register that is not one")] == ir.IrKind.kindString
+	return r != ir.noReg and f.regs[r as Count] == ir.IrKind.kindString
 end 'isStringReg'
 
 // cmpCondition is the condition code that holds when a comparison does.

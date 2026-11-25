@@ -109,7 +109,7 @@ function loopExpected(shape LoopShape) returns ExitCode
 			a[j] = wrapAdd(a[j], b: a[next] / 2)
 		end 'accs'
 		if shape.call and (not shape.coldCall or (i / coldEvery) mod 2 == 1) 'call'
-			a[0] = wrapAdd(a[0], b: try (i * 2) as FullRangeInt otherwise panic("a counter past 64 bits"))
+			a[0] = wrapAdd(a[0], b: (i * 2) as FullRangeInt)
 		end 'call'
 	end 'iterations'
 	var sum = 0 as FullRangeInt
@@ -517,7 +517,7 @@ function testSpillStraightLine(mutates p ast.Project)
 	var expected = 1 as FullRangeInt
 	var x = 1 as FullRangeInt
 	for k in 1 upto straightValues 'values'
-		xs.push(mirAddImm(fn, left: xs[k - 1], imm: try k as Imm32 otherwise panic("a step past 32 bits")))
+		xs.push(mirAddImm(fn, left: xs[k - 1], imm: k as Imm32))
 		x = wrapAdd(x, b: k as FullRangeInt)
 		expected = wrapAdd(expected, b: x)
 	end 'values'
@@ -636,7 +636,7 @@ function mirScale(segments Count, straight Count) returns MirFunction
 		var args = MRegList.create(0)
 		args.push(mirConst(fn, value: 0))
 		for j in 0 upto scaleAccs 'start'
-			args.push(mirAddImm(fn, left: carry, imm: try j as Imm32 otherwise panic("a step past 32 bits")))
+			args.push(mirAddImm(fn, left: carry, imm: j as Imm32))
 		end 'start'
 		mirJump(fn, target: header, args: args)
 		_ = fn.startBlock()

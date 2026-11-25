@@ -1499,8 +1499,8 @@ function arm64Rule24(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retur
 	if not (arm64OneMove(vC) and arm64LadderInverted(vC as FullRangeInt)) 'm1'
 		return false
 	end 'm1'
-	let i1 = try (arm64OneMoveHalfword(vC)) as Arm64Imm16 otherwise panic("backend: a value of arm64.rules:24 does not fit Arm64Imm16")
-	let x2 = try (arm64OneMoveShift(vC)) as Arm64Imm2 otherwise panic("backend: a value of arm64.rules:24 does not fit Arm64Imm2")
+	let i1 = (arm64OneMoveHalfword(vC)) as Arm64Imm16
+	let x2 = (arm64OneMoveShift(vC)) as Arm64Imm2
 	let t3 = sel.resultOf(ins.dst)
 	var mi4 = newArm64Target(Arm64Form.movnRegImm, a: t3, b: noMReg, c: noMReg, aux: x2 as Imm32, imm: i1 as FullRangeInt)
 	sel.emit(mi4)
@@ -1513,8 +1513,8 @@ function arm64Rule25(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retur
 	if not (arm64OneMove(vC)) 'm1'
 		return false
 	end 'm1'
-	let i1 = try (arm64OneMoveHalfword(vC)) as Arm64Imm16 otherwise panic("backend: a value of arm64.rules:25 does not fit Arm64Imm16")
-	let x2 = try (arm64OneMoveShift(vC)) as Arm64Imm2 otherwise panic("backend: a value of arm64.rules:25 does not fit Arm64Imm2")
+	let i1 = (arm64OneMoveHalfword(vC)) as Arm64Imm16
+	let x2 = (arm64OneMoveShift(vC)) as Arm64Imm2
 	let t3 = sel.resultOf(ins.dst)
 	var mi4 = newArm64Target(Arm64Form.movzRegImm, a: t3, b: noMReg, c: noMReg, aux: x2 as Imm32, imm: i1 as FullRangeInt)
 	sel.emit(mi4)
@@ -1527,7 +1527,7 @@ function arm64Rule26(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retur
 	if not (arm64IsLogicalImmediate(vC as FullRangeInt)) 'm1'
 		return false
 	end 'm1'
-	let i1 = try (vC) as FullRangeInt otherwise panic("backend: a value of arm64.rules:26 does not fit FullRangeInt")
+	let i1 = (vC) as FullRangeInt
 	let t2 = sel.resultOf(ins.dst)
 	var mi3 = newArm64Target(Arm64Form.movRegMask, a: t2, b: noMReg, c: noMReg, aux: 0, imm: i1)
 	sel.emit(mi3)
@@ -1652,7 +1652,7 @@ function arm64Rule38(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retur
 		return false
 	end 'm1'
 	let t1 = sel.resultOf(ins.dst)
-	var mi2 = newArm64Target(Arm64Form.ldrDOff, a: t1, b: arm64PhysReg(Arm64Register.x29), c: noMReg, aux: try (arm64SlotDisp(vN)) as Imm32 otherwise panic("backend: a value of arm64.rules:38 does not fit Imm32"), imm: 0)
+	var mi2 = newArm64Target(Arm64Form.ldrDOff, a: t1, b: arm64PhysReg(Arm64Register.x29), c: noMReg, aux: (arm64SlotDisp(vN)) as Imm32, imm: 0)
 	sel.emit(mi2)
 	return true
 end 'arm64Rule38'
@@ -1664,7 +1664,7 @@ function arm64Rule39(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retur
 		return false
 	end 'm1'
 	let t1 = sel.resultOf(ins.dst)
-	var mi2 = newArm64Target(Arm64Form.ldr64Off, a: t1, b: arm64PhysReg(Arm64Register.x29), c: noMReg, aux: try (arm64SlotDisp(vN)) as Imm32 otherwise panic("backend: a value of arm64.rules:39 does not fit Imm32"), imm: 0)
+	var mi2 = newArm64Target(Arm64Form.ldr64Off, a: t1, b: arm64PhysReg(Arm64Register.x29), c: noMReg, aux: (arm64SlotDisp(vN)) as Imm32, imm: 0)
 	sel.emit(mi2)
 	return true
 end 'arm64Rule39'
@@ -1682,7 +1682,7 @@ function arm64Rule41(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retur
 	if not (sel.inXmm(vV) and arm64StrDOffHolds(arm64SlotDisp(vN) as FullRangeInt)) 'm1'
 		return false
 	end 'm1'
-	var mi1 = newArm64Target(Arm64Form.strDOff, a: vregOf(vV), b: arm64PhysReg(Arm64Register.x29), c: noMReg, aux: try (arm64SlotDisp(vN)) as Imm32 otherwise panic("backend: a value of arm64.rules:41 does not fit Imm32"), imm: 0)
+	var mi1 = newArm64Target(Arm64Form.strDOff, a: vregOf(vV), b: arm64PhysReg(Arm64Register.x29), c: noMReg, aux: (arm64SlotDisp(vN)) as Imm32, imm: 0)
 	sel.emit(mi1)
 	return true
 end 'arm64Rule41'
@@ -1694,7 +1694,7 @@ function arm64Rule42(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retur
 	if not (arm64Str64OffHolds(arm64SlotDisp(vN) as FullRangeInt)) 'm1'
 		return false
 	end 'm1'
-	var mi1 = newArm64Target(Arm64Form.str64Off, a: vregOf(vV), b: arm64PhysReg(Arm64Register.x29), c: noMReg, aux: try (arm64SlotDisp(vN)) as Imm32 otherwise panic("backend: a value of arm64.rules:42 does not fit Imm32"), imm: 0)
+	var mi1 = newArm64Target(Arm64Form.str64Off, a: vregOf(vV), b: arm64PhysReg(Arm64Register.x29), c: noMReg, aux: (arm64SlotDisp(vN)) as Imm32, imm: 0)
 	sel.emit(mi1)
 	return true
 end 'arm64Rule42'
@@ -1731,9 +1731,9 @@ function arm64Rule46(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retur
 		return false
 	end 'm1'
 	let t1 = sel.resultOf(ins.dst)
-	var mi2 = newArm64Target(Arm64Form.ldr64Off, a: t1, b: arm64PhysReg(Arm64Register.x29), c: noMReg, aux: try (arm64SlotDisp(vN)) as Imm32 otherwise panic("backend: a value of arm64.rules:46 does not fit Imm32"), imm: 0)
+	var mi2 = newArm64Target(Arm64Form.ldr64Off, a: t1, b: arm64PhysReg(Arm64Register.x29), c: noMReg, aux: (arm64SlotDisp(vN)) as Imm32, imm: 0)
 	sel.emit(mi2)
-	var mi3 = newArm64Target(Arm64Form.str64Off, a: arm64PhysReg(Arm64Register.sp), b: arm64PhysReg(Arm64Register.x29), c: noMReg, aux: try (arm64SlotDisp(vN)) as Imm32 otherwise panic("backend: a value of arm64.rules:46 does not fit Imm32"), imm: 0)
+	var mi3 = newArm64Target(Arm64Form.str64Off, a: arm64PhysReg(Arm64Register.sp), b: arm64PhysReg(Arm64Register.x29), c: noMReg, aux: (arm64SlotDisp(vN)) as Imm32, imm: 0)
 	sel.emit(mi3)
 	return true
 end 'arm64Rule46'
@@ -2523,7 +2523,7 @@ function arm64Rule80(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retur
 		return false
 	end 'm2'
 	let t3 = sel.newTemp()
-	var mi4 = newArm64Target(Arm64Form.ldr64Off, a: t3, b: vregOf(vArr), c: noMReg, aux: try (arrayDataOffset) as Imm32 otherwise panic("backend: a value of arm64.rules:80 does not fit Imm32"), imm: 0)
+	var mi4 = newArm64Target(Arm64Form.ldr64Off, a: t3, b: vregOf(vArr), c: noMReg, aux: (arrayDataOffset) as Imm32, imm: 0)
 	sel.emit(mi4)
 	let t5 = sel.resultOf(ins.dst)
 	var mi6 = newArm64Target(Arm64Form.ldrDIdx, a: t5, b: t3, c: vregOf(vI), aux: 0, imm: 0)
@@ -2546,7 +2546,7 @@ function arm64Rule81(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retur
 		return false
 	end 'm2'
 	let t3 = sel.newTemp()
-	var mi4 = newArm64Target(Arm64Form.ldr64Off, a: t3, b: vregOf(vArr), c: noMReg, aux: try (arrayDataOffset) as Imm32 otherwise panic("backend: a value of arm64.rules:81 does not fit Imm32"), imm: 0)
+	var mi4 = newArm64Target(Arm64Form.ldr64Off, a: t3, b: vregOf(vArr), c: noMReg, aux: (arrayDataOffset) as Imm32, imm: 0)
 	sel.emit(mi4)
 	let t5 = sel.resultOf(ins.dst)
 	var mi6 = newArm64Target(Arm64Form.ldr64Idx, a: t5, b: t3, c: vregOf(vI), aux: 0, imm: 0)
@@ -2570,7 +2570,7 @@ function arm64Rule82(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retur
 		return false
 	end 'm2'
 	let t3 = sel.newTemp()
-	var mi4 = newArm64Target(Arm64Form.ldr64Off, a: t3, b: vregOf(vArr), c: noMReg, aux: try (arrayDataOffset) as Imm32 otherwise panic("backend: a value of arm64.rules:82 does not fit Imm32"), imm: 0)
+	var mi4 = newArm64Target(Arm64Form.ldr64Off, a: t3, b: vregOf(vArr), c: noMReg, aux: (arrayDataOffset) as Imm32, imm: 0)
 	sel.emit(mi4)
 	var mi5 = newArm64Target(Arm64Form.strDIdx, a: vregOf(vV), b: t3, c: vregOf(vI), aux: 0, imm: 0)
 	sel.emit(mi5)
@@ -2593,7 +2593,7 @@ function arm64Rule83(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retur
 		return false
 	end 'm2'
 	let t3 = sel.newTemp()
-	var mi4 = newArm64Target(Arm64Form.ldr64Off, a: t3, b: vregOf(vArr), c: noMReg, aux: try (arrayDataOffset) as Imm32 otherwise panic("backend: a value of arm64.rules:83 does not fit Imm32"), imm: 0)
+	var mi4 = newArm64Target(Arm64Form.ldr64Off, a: t3, b: vregOf(vArr), c: noMReg, aux: (arrayDataOffset) as Imm32, imm: 0)
 	sel.emit(mi4)
 	var mi5 = newArm64Target(Arm64Form.str64Idx, a: vregOf(vV), b: t3, c: vregOf(vI), aux: 0, imm: 0)
 	sel.emit(mi5)
@@ -2954,7 +2954,7 @@ function arm64Rule119(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retu
 	let t1 = sel.newTemp()
 	var mi2 = newArm64Target(Arm64Form.mrsTpidrro, a: t1, b: noMReg, c: noMReg, aux: 0, imm: 0)
 	sel.emit(mi2)
-	let i3 = try (arm64TsdMask) as FullRangeInt otherwise panic("backend: a value of arm64.rules:119 does not fit FullRangeInt")
+	let i3 = (arm64TsdMask) as FullRangeInt
 	let t4 = sel.newTemp()
 	var mi5 = newArm64Target(Arm64Form.andRegMask, a: t4, b: t1, c: noMReg, aux: 0, imm: i3)
 	sel.emit(mi5)
@@ -2989,7 +2989,7 @@ function arm64Rule126(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retu
 	end 'm1'
 	let vS = ir.lengthSrc(ins)
 	let t1 = sel.resultOf(ins.dst)
-	var mi2 = newArm64Target(Arm64Form.ldr64Off, a: t1, b: vregOf(vS), c: noMReg, aux: try (arrayLengthOffset) as Imm32 otherwise panic("backend: a value of arm64.rules:126 does not fit Imm32"), imm: 0)
+	var mi2 = newArm64Target(Arm64Form.ldr64Off, a: t1, b: vregOf(vS), c: noMReg, aux: (arrayLengthOffset) as Imm32, imm: 0)
 	sel.emit(mi2)
 	return true
 end 'arm64Rule126'
@@ -3015,7 +3015,7 @@ function arm64Rule129(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retu
 	let vI = ir.elemAddrIndex(ins)
 	let vS = ir.elemAddrShift(ins)
 	let t1 = sel.newTemp()
-	var mi2 = newArm64Target(Arm64Form.ldr64Off, a: t1, b: vregOf(vA), c: noMReg, aux: try (arrayDataOffset) as Imm32 otherwise panic("backend: a value of arm64.rules:129 does not fit Imm32"), imm: 0)
+	var mi2 = newArm64Target(Arm64Form.ldr64Off, a: t1, b: vregOf(vA), c: noMReg, aux: (arrayDataOffset) as Imm32, imm: 0)
 	sel.emit(mi2)
 	let i3 = try (vS) as Arm64Imm6 otherwise panic("backend: a value of arm64.rules:129 does not fit Arm64Imm6")
 	let t4 = sel.resultOf(ins.dst)
@@ -3041,7 +3041,7 @@ function arm64Rule131(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retu
 		return false
 	end 'm1'
 	let t1 = sel.newTemp()
-	var mi2 = newArm64Target(Arm64Form.ldr64Off, a: t1, b: vregOf(vA), c: noMReg, aux: try (arrayDataOffset) as Imm32 otherwise panic("backend: a value of arm64.rules:131 does not fit Imm32"), imm: 0)
+	var mi2 = newArm64Target(Arm64Form.ldr64Off, a: t1, b: vregOf(vA), c: noMReg, aux: (arrayDataOffset) as Imm32, imm: 0)
 	sel.emit(mi2)
 	let t3 = sel.resultOf(ins.dst)
 	var mi4 = newArm64Target(Arm64Form.ldrDIdx, a: t3, b: t1, c: vregOf(vI), aux: 0, imm: 0)
@@ -3054,7 +3054,7 @@ function arm64Rule132(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retu
 	let vA = ir.elemLoadArr(ins)
 	let vI = ir.elemLoadIndex(ins)
 	let t1 = sel.newTemp()
-	var mi2 = newArm64Target(Arm64Form.ldr64Off, a: t1, b: vregOf(vA), c: noMReg, aux: try (arrayDataOffset) as Imm32 otherwise panic("backend: a value of arm64.rules:132 does not fit Imm32"), imm: 0)
+	var mi2 = newArm64Target(Arm64Form.ldr64Off, a: t1, b: vregOf(vA), c: noMReg, aux: (arrayDataOffset) as Imm32, imm: 0)
 	sel.emit(mi2)
 	let t3 = sel.resultOf(ins.dst)
 	var mi4 = newArm64Target(Arm64Form.ldr64Idx, a: t3, b: t1, c: vregOf(vI), aux: 0, imm: 0)
@@ -3070,7 +3070,7 @@ function arm64Rule133(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retu
 	let vA = ir.loadByteSrc(ins)
 	let vI = ir.loadByteIndex(ins)
 	let t1 = sel.newTemp()
-	var mi2 = newArm64Target(Arm64Form.ldr64Off, a: t1, b: vregOf(vA), c: noMReg, aux: try (arrayDataOffset) as Imm32 otherwise panic("backend: a value of arm64.rules:133 does not fit Imm32"), imm: 0)
+	var mi2 = newArm64Target(Arm64Form.ldr64Off, a: t1, b: vregOf(vA), c: noMReg, aux: (arrayDataOffset) as Imm32, imm: 0)
 	sel.emit(mi2)
 	let t3 = sel.resultOf(ins.dst)
 	var mi4 = newArm64Target(Arm64Form.ldrbIdx, a: t3, b: t1, c: vregOf(vI), aux: 0, imm: 0)
@@ -3091,7 +3091,7 @@ end 'arm64Rule134'
 function arm64Rule135(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	let vS = ir.bufferSrc(ins)
 	let t1 = sel.resultOf(ins.dst)
-	var mi2 = newArm64Target(Arm64Form.ldr64Off, a: t1, b: vregOf(vS), c: noMReg, aux: try (arrayDataOffset) as Imm32 otherwise panic("backend: a value of arm64.rules:135 does not fit Imm32"), imm: 0)
+	var mi2 = newArm64Target(Arm64Form.ldr64Off, a: t1, b: vregOf(vS), c: noMReg, aux: (arrayDataOffset) as Imm32, imm: 0)
 	sel.emit(mi2)
 	return true
 end 'arm64Rule135'
@@ -4036,8 +4036,8 @@ function arm64Rule174(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retu
 	let t3 = sel.newTemp()
 	var mi4 = newArm64Target(Arm64Form.smulhRegReg, a: t3, b: vregOf(vX), c: vregOf(vY), aux: 0, imm: 0)
 	sel.emit(mi4)
-	let i5 = try (arm64SignShift) as Arm64Imm6 otherwise panic("backend: a value of arm64.rules:174 does not fit Arm64Imm6")
-	let x6 = try (arm64SignShift) as Arm64Imm6 otherwise panic("backend: a value of arm64.rules:174 does not fit Arm64Imm6")
+	let i5 = (arm64SignShift) as Arm64Imm6
+	let x6 = (arm64SignShift) as Arm64Imm6
 	let t7 = sel.newTemp()
 	var mi8 = newArm64Target(Arm64Form.sbfmRegReg, a: t7, b: t1, c: noMReg, aux: x6 as Imm32, imm: i5 as FullRangeInt)
 	sel.emit(mi8)
@@ -4207,7 +4207,7 @@ function arm64Rule188(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retu
 	if not (arm64IsLogicalImmediate(vC as FullRangeInt)) 'm3'
 		return false
 	end 'm3'
-	let i3 = try (vC) as FullRangeInt otherwise panic("backend: a value of arm64.rules:188 does not fit FullRangeInt")
+	let i3 = (vC) as FullRangeInt
 	let t4 = sel.resultOf(ins.dst)
 	var mi5 = newArm64Target(Arm64Form.andRegMask, a: t4, b: vregOf(vX), c: noMReg, aux: 0, imm: i3)
 	sel.emit(mi5)
@@ -4230,7 +4230,7 @@ function arm64Rule188v2(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) re
 	if not (arm64IsLogicalImmediate(vC as FullRangeInt)) 'm3'
 		return false
 	end 'm3'
-	let i3 = try (vC) as FullRangeInt otherwise panic("backend: a value of arm64.rules:188 does not fit FullRangeInt")
+	let i3 = (vC) as FullRangeInt
 	let t4 = sel.resultOf(ins.dst)
 	var mi5 = newArm64Target(Arm64Form.andRegMask, a: t4, b: vregOf(vX), c: noMReg, aux: 0, imm: i3)
 	sel.emit(mi5)
@@ -4265,7 +4265,7 @@ function arm64Rule190(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retu
 	if not (arm64IsLogicalImmediate(vC as FullRangeInt)) 'm3'
 		return false
 	end 'm3'
-	let i3 = try (vC) as FullRangeInt otherwise panic("backend: a value of arm64.rules:190 does not fit FullRangeInt")
+	let i3 = (vC) as FullRangeInt
 	let t4 = sel.resultOf(ins.dst)
 	var mi5 = newArm64Target(Arm64Form.orrRegMask, a: t4, b: vregOf(vX), c: noMReg, aux: 0, imm: i3)
 	sel.emit(mi5)
@@ -4288,7 +4288,7 @@ function arm64Rule190v2(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) re
 	if not (arm64IsLogicalImmediate(vC as FullRangeInt)) 'm3'
 		return false
 	end 'm3'
-	let i3 = try (vC) as FullRangeInt otherwise panic("backend: a value of arm64.rules:190 does not fit FullRangeInt")
+	let i3 = (vC) as FullRangeInt
 	let t4 = sel.resultOf(ins.dst)
 	var mi5 = newArm64Target(Arm64Form.orrRegMask, a: t4, b: vregOf(vX), c: noMReg, aux: 0, imm: i3)
 	sel.emit(mi5)
@@ -4323,7 +4323,7 @@ function arm64Rule192(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retu
 	if not (arm64IsLogicalImmediate(vC as FullRangeInt)) 'm3'
 		return false
 	end 'm3'
-	let i3 = try (vC) as FullRangeInt otherwise panic("backend: a value of arm64.rules:192 does not fit FullRangeInt")
+	let i3 = (vC) as FullRangeInt
 	let t4 = sel.resultOf(ins.dst)
 	var mi5 = newArm64Target(Arm64Form.eorRegMask, a: t4, b: vregOf(vX), c: noMReg, aux: 0, imm: i3)
 	sel.emit(mi5)
@@ -4346,7 +4346,7 @@ function arm64Rule192v2(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) re
 	if not (arm64IsLogicalImmediate(vC as FullRangeInt)) 'm3'
 		return false
 	end 'm3'
-	let i3 = try (vC) as FullRangeInt otherwise panic("backend: a value of arm64.rules:192 does not fit FullRangeInt")
+	let i3 = (vC) as FullRangeInt
 	let t4 = sel.resultOf(ins.dst)
 	var mi5 = newArm64Target(Arm64Form.eorRegMask, a: t4, b: vregOf(vX), c: noMReg, aux: 0, imm: i3)
 	sel.emit(mi5)
@@ -4411,7 +4411,7 @@ function arm64Rule197(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retu
 		return false
 	end 'm4'
 	let i3 = try (vC) as Arm64Imm6 otherwise panic("backend: a value of arm64.rules:197 does not fit Arm64Imm6")
-	let x4 = try (arm64SignShift) as Arm64Imm6 otherwise panic("backend: a value of arm64.rules:197 does not fit Arm64Imm6")
+	let x4 = (arm64SignShift) as Arm64Imm6
 	let t5 = sel.resultOf(ins.dst)
 	var mi6 = newArm64Target(Arm64Form.ubfmRegReg, a: t5, b: vregOf(vX), c: noMReg, aux: x4 as Imm32, imm: i3 as FullRangeInt)
 	sel.emit(mi6)
@@ -4437,7 +4437,7 @@ function arm64Rule198(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retu
 		return false
 	end 'm4'
 	let i3 = try (vC) as Arm64Imm6 otherwise panic("backend: a value of arm64.rules:198 does not fit Arm64Imm6")
-	let x4 = try (arm64SignShift) as Arm64Imm6 otherwise panic("backend: a value of arm64.rules:198 does not fit Arm64Imm6")
+	let x4 = (arm64SignShift) as Arm64Imm6
 	let t5 = sel.resultOf(ins.dst)
 	var mi6 = newArm64Target(Arm64Form.sbfmRegReg, a: t5, b: vregOf(vX), c: noMReg, aux: x4 as Imm32, imm: i3 as FullRangeInt)
 	sel.emit(mi6)

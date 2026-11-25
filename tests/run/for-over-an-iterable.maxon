@@ -64,7 +64,7 @@ type Words
 		if self.n >= 3 'done'
 			throw IterationError.exhausted
 		end 'done'
-		self.n = try self.n + 1 otherwise panic("overflow")
+		self.n = self.n + 1
 	end 'advance'
 
 	static function make() returns Words

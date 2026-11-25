@@ -114,7 +114,7 @@ function emitSwitchVectors(mutates u CodeUnit, record X64Register, saves bool)
 	for r in x64FirstVector upto x64RegisterFileSize 'vectors'
 		if maskHas(kept, number: regNumOfCount(r)) 'kept'
 			let disp = imm32Of(try switchXmmOffset + nth * xmmSlotBytes otherwise panic("backend: a switch record past 2 GiB"))
-			let n = try r - x64FirstVector otherwise panic("backend: an xmm register before the first")
+			let n = r - x64FirstVector
 			if saves 'save'
 				u.asm.storeVector(record, disp: disp, n: n)
 			end 'save' else 'load'
@@ -189,14 +189,14 @@ function emitAsyncPreempt(mutates u CodeUnit, system ast.TargetSystem)
 	end 'push'
 	u.asm.subImm(X64Register.rsp, imm: vectorBytes)
 	for n in 0 upto vectorRegisters 'saveVectors'
-		u.asm.storeVector(X64Register.rsp, disp: imm32Of(try n * xmmSlotBytes otherwise panic("backend: a frame past 2 GiB")), n: n)
+		u.asm.storeVector(X64Register.rsp, disp: imm32Of(n * xmmSlotBytes), n: n)
 	end 'saveVectors'
 	emitLoadContext(u, system: system, dst: X64Register.rax)
 	u.asm.mov(argWord(), src: X64Register.rax)
 	u.asm.load(X64Register.rax, base: X64Register.rax, disp: imm32Of(contextPreemptCodeOffset))
 	u.asm.callRegister(X64Register.rax)
 	for n in 0 upto vectorRegisters 'loadVectors'
-		u.asm.loadVector(n, base: X64Register.rsp, disp: imm32Of(try n * xmmSlotBytes otherwise panic("backend: a frame past 2 GiB")))
+		u.asm.loadVector(n, base: X64Register.rsp, disp: imm32Of(n * xmmSlotBytes))
 	end 'loadVectors'
 	u.asm.addImm(X64Register.rsp, imm: vectorBytes)
 	var r = x64FirstVector as Count

@@ -199,7 +199,7 @@ public type List uses T implements core.InitableFromArrayLiteral with T, core.It
 		let n = slots.count()
 		let s = try at + by otherwise panic("List: a slot past a count")
 		if s >= n 'wrap'
-			return try s - n otherwise panic("List: a slot around the ring")
+			return s - n
 		end 'wrap'
 		return s
 	end 'shifted'

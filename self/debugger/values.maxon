@@ -432,7 +432,7 @@ function renderArray(mutates tree ValueTree, host WindowsHost, reader mxdbg.Mxdb
 	let shown = count if count < mostChildren else mostChildren
 	var children = CountList.create(0)
 	for i in 0 upto shown 'elements'
-		children.push(renderElement(tree, host: host, reader: reader, element: element, at: plus(buffer, by: try i * stride otherwise 0), stride: stride, index: i))
+		children.push(renderElement(tree, host: host, reader: reader, element: element, at: plus(buffer, by: i * stride), stride: stride, index: i))
 	end 'elements'
 	return withChildren(tree, name: name, typeName: typeName, kind: kind, display: "[{count}]", children: children)
 end 'renderArray'
@@ -546,7 +546,7 @@ function splitDots(path String) returns StringArray
 	for i in 0 upto limit 'bytes'
 		if i == path.byteLength() or path.byteAt(i) == dotByte 'end'
 			parts.push(path.sliceBytes(start, endPos: i).clone())
-			start = try i + 1 otherwise i
+			start = i + 1
 		end 'end'
 	end 'bytes'
 	return parts

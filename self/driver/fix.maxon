@@ -415,19 +415,28 @@ function addKind(mutates kinds ast.StringList, kind String)
 end 'addKind'
 
 // chooseFixes is the fixes of the diagnostics, in their order, that can be made together. A diagnostic whose code is the
-// expected one gets none: what a test expects is what it is about, whatever fix its message names.
-function chooseFixes(prog FixProgram, errs diag.ErrorList, expected table.Option with String) returns Choice
+// expected one gets none: what a test expects is what it is about, whatever fix its message names. With only, a fix of
+// another kind is left alone.
+function chooseFixes(prog FixProgram, errs diag.ErrorList, expected table.Option with String, only table.Option with String) returns Choice
 	var choice = Choice.new()
 	for i in 0 upto errs.count() 'errors'
 		if isExpectedCode(errs[i].code, expected: expected) 'about'
 			continue 'errors'
 		end 'about'
-		if errs[i].fix.isSome() and choice.fits(prog, fix: errs[i].fix) 'fits'
+		if errs[i].fix.isSome() and isChosenKind(errs[i].fix, only: only) and choice.fits(prog, fix: errs[i].fix) 'fits'
 			choice.add(errs[i].fix)
 		end 'fits'
 	end 'errors'
 	return choice
 end 'chooseFixes'
+
+// isChosenKind is whether the fix is of the one kind that only names, or of any kind where it names none.
+function isChosenKind(fix diag.Fix, only table.Option with String) returns bool
+	return match only 'only'
+		some(kind) gives fix.kind == kind
+		none gives true
+	end 'only'
+end 'isChosenKind'
 
 // isExpectedCode is whether code is the first code that a test expects, when it expects a compile error.
 function isExpectedCode(code String, expected table.Option with String) returns bool
@@ -448,7 +457,7 @@ function editsOfFile(edits diag.FixEdits, file String) returns syntax.Edits
 		var j = 0 as Count
 		j = try out.count() - 1 otherwise panic("fix: no edit after a push")
 		while j > 0 'shift'
-			let prev = try j - 1 otherwise panic("fix: no edit before the first")
+			let prev = j - 1
 			if out[j].begin >= out[prev].begin 'ordered'
 				break 'shift'
 			end 'ordered'
@@ -490,7 +499,8 @@ end 'applyChoice'
 // a fix that can be made, or the rounds run out. A round that leaves a file unparsable is undone, and the outcome says so. For
 // a test that expects a compile error it stops as soon as the first diagnostic has the expected code, or has no fix, and leaves the
 // diagnostics of that code alone. The first of the watched codes to be a round's first diagnostic is kept (FixOutcome.watched).
-function fixProgram(consumes prog FixProgram, libraries FixLibraries, expected table.Option with String, watches ast.StringList) returns FixOutcome
+// With only, the fixes of that kind are the only ones made.
+function fixProgram(consumes prog FixProgram, libraries FixLibraries, expected table.Option with String, watches ast.StringList, only table.Option with String) returns FixOutcome
 	var current = prog
 	var changed = Flags.create(0)
 	for i in 0 upto current.files.count() 'unchanged'
@@ -523,7 +533,7 @@ function fixProgram(consumes prog FixProgram, libraries FixLibraries, expected t
 		if round == maxFixRounds 'last'
 			break 'rounds'
 		end 'last'
-		let choice = chooseFixes(current, errs: errs, expected: expected)
+		let choice = chooseFixes(current, errs: errs, expected: expected, only: only)
 		if choice.edits.count() == 0 'stuck'
 			break 'rounds'
 		end 'stuck'
@@ -605,7 +615,7 @@ function countsText(keys ast.StringList, counts CountList) returns String
 		order.push(i)
 		var at = i
 		while at > 0 'sift'
-			let before = try at - 1 otherwise 0
+			let before = at - 1
 			let a = order[at]
 			let b = order[before]
 			if counts[a] < counts[b] or (counts[a] == counts[b] and not diag.stringLess(keys[a], b: keys[b])) 'ordered'
@@ -729,10 +739,10 @@ function programAt(path String) returns FixProgram
 	var files = project.SourceFiles.create(0)
 	if project.isDirectoryPath(path) 'project'
 		var names = ast.StringList.create(0)
-		collectSourceFiles(path, files: names)
+		collectSourceFiles(path, markers: true, files: names)
 		project.sortStrings(names)
 		for i in 0 upto names.count() 'files'
-			if endsWithText(names[i], suffix: sourceExtension) 'source'
+			if endsWithText(names[i], suffix: sourceExtension) or endsWithText(names[i], suffix: testExtension) or project.lastComponent(names[i]) == project.ignoreMarkerName 'source'
 				files.push(project.SourceFile.make(names[i].clone(), text: readText(names[i])))
 			end 'source'
 		end 'files'
@@ -745,7 +755,7 @@ end 'programAt'
 // fixProgramAt fixes the program at path: the files it changed are to be written, or with check named.
 function fixProgramAt(path String, libraries FixLibraries, checkOnly bool) returns FixResult
 	var result = FixResult.new()
-	let outcome = fixProgram(programAt(path), libraries: libraries, expected: table.Option.none, watches: ast.StringList.create(0))
+	let outcome = fixProgram(programAt(path), libraries: libraries, expected: table.Option.none, watches: ast.StringList.create(0), only: table.Option.none)
 	result.say(outcome.said)
 	result.tally.count(outcome)
 	if not outcome.anyChanged() 'unchanged'
@@ -771,7 +781,7 @@ end 'fixProgramAt'
 function fixSource(path String, text String) returns FixOutcome
 	var files = project.SourceFiles.create(0)
 	files.push(project.SourceFile.make(path.clone(), text: text.clone()))
-	return fixProgram(FixProgram.make(path.clone(), name: path.clone(), single: true, files: files, candidates: ast.knownTargets()), libraries: noFixLibraries(), expected: table.Option.none, watches: ast.StringList.create(0))
+	return fixProgram(FixProgram.make(path.clone(), name: path.clone(), single: true, files: files, candidates: ast.knownTargets()), libraries: noFixLibraries(), expected: table.Option.none, watches: ast.StringList.create(0), only: table.Option.none)
 end 'fixSource'
 
 // isFixable is whether fix may change a spec test: one that the conversion did not skip, that runs a program rather than
@@ -795,8 +805,8 @@ end 'expectsTrap'
 // withoutFinalNewline is a file's text as a block of a spec holds it, which ends before the newline that ends the file.
 function withoutFinalNewline(text String) returns borrowed String
 	var finish = text.byteLength()
-	while finish > 0 and text.byteAt(try finish - 1 otherwise 0) == newlineByte 'trim'
-		finish = try finish - 1 otherwise 0
+	while finish > 0 and text.byteAt(finish - 1) == newlineByte 'trim'
+		finish = finish - 1
 	end 'trim'
 	return text.sliceBytes(0, endPos: finish)
 end 'withoutFinalNewline'
@@ -957,7 +967,7 @@ end 'specProgram'
 function fixSpecTest(libraries FixLibraries, test SpecTest, text String, display String, skips CodeSkips, expected table.Option with String, checkOnly bool, mutates result FixResult)
 	let source = text.sliceBytes(test.sourceStart, endPos: test.sourceFinish)
 	let sections = splitSections(source)
-	let outcome = fixProgram(specProgram(test, display: display, source: source, sections: sections), libraries: libraries, expected: expected, watches: haltCodes(skips, expected: expected))
+	let outcome = fixProgram(specProgram(test, display: display, source: source, sections: sections), libraries: libraries, expected: expected, watches: haltCodes(skips, expected: expected), only: table.Option.none)
 	result.say(outcome.said)
 	result.tally.count(outcome)
 	let caused = causeSkipLine(skips, cause: outcome.leftCause)

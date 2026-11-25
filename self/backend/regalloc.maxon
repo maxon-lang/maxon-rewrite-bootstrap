@@ -1262,7 +1262,7 @@ end 'Colourer'
 
 function resetMasks(mutates a Array with RegMask, n Count)
 	a.clear()
-	try a.resize(n) otherwise panic("backend: an analysis past memory")
+	a.resize(n)
 end 'resetMasks'
 
 function regNumOfCount(r Count) returns RegNum

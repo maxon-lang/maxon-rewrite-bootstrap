@@ -181,7 +181,7 @@ function mentions(text String, name String) returns bool
 		if text.sliceBytes(at, endPos: finish) == name 'candidate'
 			var before = false
 			if at > 0 'hasBefore'
-				before = isWordByte(text.byteAt(try at - 1 otherwise panic("fuzz: a position below 0")))
+				before = isWordByte(text.byteAt(at - 1))
 			end 'hasBefore'
 			var after = false
 			if finish < text.byteLength() 'hasAfter'

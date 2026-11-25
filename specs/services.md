@@ -2704,7 +2704,7 @@ kept s1
 ```
 
 <!-- test: error.a-throws-clause-over-a-send-whose-error-is-handled-never-throws -->
-<!-- skip: language difference: a throws or a try block that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
+<!-- skip: language difference: a throws that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
 <!-- positions: moved -->
 A send's error caught with `otherwise` leaves nothing for the declared clause to carry, so the clause is
 refused as one the body can never throw.
@@ -19110,7 +19110,7 @@ error E3057: <fragment>:25:10: throwing function requires try: 'Gate.create'
 ```
 
 <!-- test: error.try-on-a-spawn-of-a-non-throwing-factory-is-refused -->
-<!-- skip: language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program -->
+<!-- skip: language difference: a try that covers nothing that can fail is E3944 whatever it covers (a call that does not throw, a try block, an operation or an access the range analysis proves), where maxon names two of those with E3055 and E3083 -->
 A `try` needs a call that can fail: a factory that cannot throw makes `try spawn` the same E3055 `try` on any
 non-throwing call is.
 ```maxon

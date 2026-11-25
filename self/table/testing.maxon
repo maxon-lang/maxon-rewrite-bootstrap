@@ -15,7 +15,7 @@ export function contains(text String, fragment String) returns bool
 	if m > n 'longer'
 		return false
 	end 'longer'
-	let last = try n - m otherwise 0 as Count
+	let last = n - m
 	for start in 0 upto try last + 1 otherwise last 'starts'
 		var same = true
 		for i in 0 upto m 'bytes'

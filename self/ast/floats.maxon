@@ -209,7 +209,7 @@ function bigSub(mutates a Limbs, b Limbs)
 		end 'part'
 		let ai = a[i] as Count
 		if ai >= sub 'fits'
-			a[i] = try (ai - sub) as Limb otherwise panic("floats: a difference is past a limb")
+			a[i] = (ai - sub) as Limb
 			borrow = 0
 		end 'fits' else 'borrows'
 			a[i] = try (ai + limbMask + 1 - sub) as Limb otherwise panic("floats: a borrow is past a limb")
@@ -266,7 +266,7 @@ function bigDivSmall(mutates a Limbs, d NonZeroLimb) returns Limb
 		i = i - 1
 		let cur = ((rem as Count) shl limbBits) + (a[i] as Count)
 		a[i] = try (cur / divisor) as Limb otherwise panic("floats: a quotient is past a limb")
-		rem = try (cur mod divisor) as Limb otherwise panic("floats: a remainder is past a limb")
+		rem = (cur mod divisor) as Limb
 	end 'down'
 	bigTrim(a)
 	return rem
@@ -676,7 +676,7 @@ export function floatRound(bits Count, mode FloatRounding) returns Count
 		up gives not neg and rem != 0
 	end 'm'
 	if up 'bump'
-		r = try q + 1 otherwise panic("floats: a rounded significand is past the word")
+		r = q + 1
 	end 'bump'
 	if r == 0 'zero'
 		return signedZero(neg)
@@ -862,7 +862,7 @@ function roundedToLength(d Decimal, kept Count) returns Decimal
 		at = at - 1
 		let digit = prefix[at]
 		if digit != 9 'stops'
-			prefix[at] = try (digit + 1) as Digit otherwise panic("floats: a digit is past 9")
+			prefix[at] = (digit + 1) as Digit
 			var carried = Digits.create(0)
 			for i in 0 upto at + 1 'copy'
 				carried.push(prefix[i])

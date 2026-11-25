@@ -1,0 +1,39 @@
+// A try that covers nothing that can fail is removed with its handler, whatever the handler is and wherever the covered
+// expression has parentheses of its own or around it; a try block keeps its body.
+enum ParseError implements Error
+	empty
+end 'ParseError'
+
+typealias Digit = int(0 to 9)
+
+function plain(n Count) returns Count
+	return n
+end 'plain'
+
+function wrapped(a Digit, b Digit) returns Count
+	let x = (plain(1))
+	let y = (a + b) as Count
+	let w = plain(3)
+	print("{x} {w}\n")
+	return y
+end 'wrapped'
+
+function early(n Count) returns Count
+	let v = plain(n)
+	return v
+end 'early'
+
+function block()
+	print("a\n")
+	if true 'nested'
+		print("b\n")
+	end 'nested'
+end 'block'
+
+function relay() throws ParseError
+	print("d\n")
+end 'relay'
+
+function main() returns ExitCode
+	return 0
+end 'main'

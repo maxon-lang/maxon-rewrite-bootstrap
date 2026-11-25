@@ -223,7 +223,7 @@ function callLoopExpected(live Count) returns ExitCode
 		a.push(accStart(j))
 	end 'start'
 	for i in 0 upto colourIterations 'iterations'
-		var last = try (i * 2) as FullRangeInt otherwise panic("a counter past 64 bits")
+		var last = (i * 2) as FullRangeInt
 		for j in 0 upto accs 'update'
 			a[j] = wrapAdd(a[j], b: last)
 			last = a[j]
@@ -334,11 +334,11 @@ end 'mirDivShiftLoop'
 function divShiftExpected() returns ExitCode
 	var acc = 0 as FullRangeInt
 	for i in 0 upto colourIterations 'iterations'
-		let divisor = try (i + 1) as FullRangeInt otherwise panic("a counter past 64 bits")
+		let divisor = (i + 1) as FullRangeInt
 		let dividend = wrapAdd(acc, b: divisorBase)
 		let quotient = dividend / divisor
 		let remainder = dividend mod divisor
-		let shift = try (i and shiftMask) as Count otherwise panic("a shift below 0")
+		let shift = (i and shiftMask) as Count
 		var shifted = quotient as FullRangeInt
 		for _ in 0 upto shift 'shift'
 			shifted = wrapAdd(shifted, b: shifted)
@@ -407,7 +407,7 @@ function mirHallFixed(symbol String) returns MirFunction
 	let early = mirAdd(fn, left: pair, right: u2)
 	var confined = MRegList.create(0)
 	for k in 0 upto hallConfined 'confined'
-		confined.push(mirAddImm(fn, left: early, imm: try k as Imm32 otherwise panic("a step past 32 bits")))
+		confined.push(mirAddImm(fn, left: early, imm: k as Imm32))
 	end 'confined'
 	let dividend = mirAdd(fn, left: w, right: z)
 	let divisor = mirValue(fn, n: 2)
@@ -426,7 +426,7 @@ end 'mirHallFixed'
 function hallFixedExpected() returns ExitCode
 	var total = 4 as FullRangeInt
 	for k in 0 upto hallConfined 'sum'
-		total = wrapAdd(total, b: try (6 + k) as FullRangeInt otherwise panic("a step past 64 bits"))
+		total = wrapAdd(total, b: (6 + k) as FullRangeInt)
 	end 'sum'
 	return exitOf(total)
 end 'hallFixedExpected'
@@ -444,7 +444,7 @@ function mirHallCalls(symbol String) returns MirFunction
 	fn.emit(newFrameSetup())
 	var xs = MRegList.create(0)
 	for k in 0 upto hallKept 'xs'
-		xs.push(mirValue(fn, n: try (k + 1) as FullRangeInt otherwise panic("a value past 64 bits")))
+		xs.push(mirValue(fn, n: (k + 1) as FullRangeInt))
 	end 'xs'
 	var last = mirCallDouble(fn, value: xs[0])
 	var ys = MRegList.create(0)
@@ -485,7 +485,7 @@ function mirHallAcross(symbol String) returns MirFunction
 	fn.emit(newFrameSetup())
 	var held = MRegList.create(0)
 	for k in 0 upto hallHeld 'held'
-		held.push(mirValue(fn, n: try (k + 1) as FullRangeInt otherwise panic("a value past 64 bits")))
+		held.push(mirValue(fn, n: (k + 1) as FullRangeInt))
 	end 'held'
 	let base = mirValue(fn, n: 3)
 	mirOp(fn, form: X64Form.movRegImm32, a: mirPhys(X64Register.rcx), b: noMReg, c: noMReg, imm: shiftBy)
@@ -510,7 +510,7 @@ end 'mirHallAcross'
 function hallAcrossExpected() returns ExitCode
 	var sum = 6 as FullRangeInt
 	for k in 0 upto hallHeld 'sum'
-		sum = wrapAdd(sum, b: try (k + 1) as FullRangeInt otherwise panic("a value past 64 bits"))
+		sum = wrapAdd(sum, b: (k + 1) as FullRangeInt)
 	end 'sum'
 	return exitOf(wrapAdd(wrapAdd(sum, b: sum), b: 100))
 end 'hallAcrossExpected'
@@ -535,7 +535,7 @@ function mirSubLive(symbol String) returns MirFunction
 	fn.emit(newFrameSetup())
 	var held = MRegList.create(0)
 	for k in 0 upto subHeld 'held'
-		held.push(mirValue(fn, n: try (k + 1) as FullRangeInt otherwise panic("a value past 64 bits")))
+		held.push(mirValue(fn, n: (k + 1) as FullRangeInt))
 	end 'held'
 	let minuend = mirValue(fn, n: subMinuend)
 	let subtrahend = mirValue(fn, n: subSubtrahend)
@@ -552,7 +552,7 @@ end 'mirSubLive'
 function subLiveExpected() returns ExitCode
 	var sum = (subMinuend - subSubtrahend + subMinuend) as FullRangeInt
 	for k in 0 upto subHeld 'sum'
-		sum = wrapAdd(sum, b: try (k + 1) as FullRangeInt otherwise panic("a value past 64 bits"))
+		sum = wrapAdd(sum, b: (k + 1) as FullRangeInt)
 	end 'sum'
 	return exitOf(sum)
 end 'subLiveExpected'
@@ -674,7 +674,7 @@ function hallCallsExpected() returns ExitCode
 	var last = 2 as FullRangeInt
 	var ys = 0 as FullRangeInt
 	for k in 0 upto hallKept 'ys'
-		last = wrapAdd(last, b: try (k + 1) as FullRangeInt otherwise panic("a value past 64 bits"))
+		last = wrapAdd(last, b: (k + 1) as FullRangeInt)
 		ys = wrapAdd(ys, b: last)
 	end 'ys'
 	return exitOf(wrapAdd(12, b: ys))
