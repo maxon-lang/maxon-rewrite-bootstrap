@@ -230,11 +230,26 @@ export type Spiller
 	end 'start'
 
 	// analyze starts a round: the graph and liveness of fn as it stands, and no edits. A round that changed nothing
-	// leaves them as they were, and the next one starts from them.
-	function analyze(mutates self, fn MirFunction)
-		if current 'current'
-			return
-		end 'current'
+	// leaves them as they were, and the next one starts from them. A bracket whose value nothing reads after its restore
+	// is deleted first, with the analysis made again: a split whose cut lies past the restore reloads the value at every
+	// use after it, and a dead bracket's restore would put the value back in a register for the rest of its block, where
+	// no pressure counts it.
+	function analyze(mutates self, mutates fn MirFunction)
+		while not current 'rounds'
+			self.analyzeRound(fn)
+			if scan.deadCode.count() > 0 'dead'
+				for k in scan.deadCode 'code'
+					try deleted.set(k, value: true) otherwise panic("backend: a dead bracket past the function's instructions")
+				end 'code'
+				for v in scan.deadValues 'values'
+					touchValue(touched, v: v)
+				end 'values'
+				self.apply(fn)
+			end 'dead'
+		end 'rounds'
+	end 'analyze'
+
+	function analyzeRound(mutates self, fn MirFunction)
 		current = true
 		clock.lap(EmitPhase.spilling)
 		if shaped 'shaped'
@@ -286,7 +301,7 @@ export type Spiller
 		changed = false
 		splitThisRound.clear()
 		ir.resetFlags(fwdOut, n: regs)
-	end 'analyze'
+	end 'analyzeRound'
 
 	// startRounds sets up what the rounds of a function keep from one to the next: each value its own, the constants
 	// among the values, no value in registers, and the marks of the splits' walks and of the sweeps.

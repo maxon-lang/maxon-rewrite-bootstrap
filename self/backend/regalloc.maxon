@@ -601,7 +601,9 @@ export type Colourer
 	// and the definition may be in it, or of its other use when that one dies and the form commutes; otherwise another
 	// register, into which a copy before the instruction puts the operand, never the register of another operand,
 	// which the instruction still reads: where no use the definition may share dies (sharesDying), spilling left a
-	// register for it beside the dying ones.
+	// register for it beside the dying ones. The dying reused operand's register stays one the definition may start
+	// in when another value has it as its home (the operand was in a window there): the definition then takes a home
+	// of its own and starts in a window in that register, which spilling counted as the one the definition shares.
 	function colourReuse(mutates self, mutates fn MirFunction, v Count, b Count, k Count, useMask RegMask)
 		let operand = vregIndex(fn.instrs[k].b)
 		if self.takeDying(fn, v: v, k: k, operand: operand) 'shared'
@@ -613,7 +615,11 @@ export type Colourer
 				return
 			end 'swapped'
 		end 'commutes'
-		self.colourAt(fn, v: v, b: b, k: k, avail: allocatable(arch, class: fn.classes[v]) and not useMask, reads: useMask, operand: indexOfCount(operand), atEntry: false)
+		var shared = 0 as RegMask
+		if self.dyingAt(operand, k: k) 'dying'
+			shared = maskOfCount(try loc.get(operand) otherwise panic("backend: an operand past the function's registers"))
+		end 'dying'
+		self.colourAt(fn, v: v, b: b, k: k, avail: allocatable(arch, class: fn.classes[v]) and not (useMask and not shared), reads: useMask, operand: indexOfCount(operand), atEntry: false)
 		let from = loc[operand]
 		if loc[v] != from 'copy'
 			let r = loc[v]

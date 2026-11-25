@@ -1,0 +1,21 @@
+// A two-address definition whose reused operand dies there may start in that operand's register when the operand was
+// in a window, out of its home, and another value has the register as its home: the definition takes a home of its own
+// and starts in a window. Spilling counted that register as the one the definition shares, so refusing it left no
+// register on x64 (regalloc.maxon, "has no free register"), here at a string length of the panic's message.
+function numbered(v Count) returns String
+	return "#{v}"
+end 'numbered'
+
+function spread(a Count, b Count, c Count, d Count, e Count, f Count, why String) returns Count
+	if why != "" 'broken'
+		panic("rules: {numbered(a)} and {numbered(b)} and {numbered(c)} and {numbered(d)} and {numbered(e)} and {numbered(f)} and {numbered(a)}{why}")
+	end 'broken'
+	return f
+end 'spread'
+
+function main() returns ExitCode
+	print("{spread(1, b: 2, c: 3, d: 4, e: 5, f: 6, why: "")}\n")
+	return 0
+end 'main'
+
+//> 6

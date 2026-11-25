@@ -2400,7 +2400,9 @@ into an x64 Linux executable and not run.
   (see "E5001 and the optimizations"), or ask for alone (`HotLoops.test`); (6) everywhere, a point still over its free registers spills by
   farthest next use, constants first, then values already stored or defined outside the loop; in a cold block, a value
   live across a call, or one the loop's hot path reads, is bracketed instead: stored before the point and restored into
-  its own register after it, which lends its register to the instructions between, so the hot path keeps it.
+  its own register after it, which lends its register to the instructions between, so the hot path keeps it. A bracket
+  whose value nothing reads after its restore (a split whose cut lies past it reloads the value at every later use) is
+  dead, and each round's analysis deletes it before the round goes on.
 - **A split** stores the value once, after its definition, and gives each use the cut reaches a reload (or the constant
   made again), one per block and stretch of uses, hoisted to the preheader of every loop that holds neither the cut nor
   the definition. A reload defines a new value that dominates its uses, so the function stays SSA with no new
@@ -2410,9 +2412,9 @@ into an x64 Linux executable and not run.
   instruction no edit touched, and the live blocks of a value whose definition and uses no edit touched, are taken over;
   and only a block whose instructions or live-out values changed is surveyed for pressure again.
 - **The invariant** (`verifyPressure`, which `--verify-ir` holds every function to): every virtual register has one
-  definition; at every instruction each class's demand fits its free registers; and spill code in a hot block lies only
-  in loops that define or read its value (a slot is one value). So a store runs where the definition does and a reload
-  no deeper than its uses.
+  definition; at every instruction each class's demand fits its free registers; no bracket is dead; and spill code in a
+  hot block lies only in loops that define or read its value (a slot is one value). So a store runs where the definition
+  does and a reload no deeper than its uses.
 - **E5001** (`refuseHotLoops`, a `PressureRefusal` per loop nest and class, which the emit stage reports as a compile error
   at the function's declaration, since the IR keeps no place of a loop, and an instance's at its generic's): after tiers 1
   to 4, a point of a loop's hot path over its class's whole pool. It names the loop,
@@ -2446,7 +2448,9 @@ register and takes the function out of SSA form; `Allocator.allocate` runs both 
   fixed register, and only then a callee-saved one, which a value live across a call is confined to anyway.
 - **Two-address forms** (`colourReuse`): the definition takes the reused operand's register when that operand dies there; for
   a commutative form, the other use's when that one dies (the uses are swapped); otherwise another register, never one the
-  instruction reads, and a copy of the operand before it, which pressure has counted beside the dying operands.
+  instruction reads but the dying reused operand's, and a copy of the operand before it, which pressure has counted beside
+  the dying operands. The dying operand's register stays one to start in when the operand was in a window there and another
+  value has it as its home: the definition then gets a home of its own and starts in a window.
 - **The repair** (`repair`): when every register a value may be in is held (the count fits, but the values about it are
   confined to different sets: Hall's condition), first a breadth-first search from those registers to a free one, through
   values that die in this block, each of which may move to the next register for the rest of its life in the block and

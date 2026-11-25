@@ -11,7 +11,8 @@
 // instruction; and the values of T must also fit outside the registers the instruction writes. E5001 counts values, T and
 // the larger of D and F, as it does not count a fixed register: a two-address form's own register is spilled around. A
 // bracket (a spill of a value and, further down its block, a restore of it) lends the value's register to the instructions between,
-// which neither count the value nor may read it: the value comes back into that same register at the restore.
+// which neither count the value nor may read it: the value comes back into that same register at the restore. A bracket
+// whose value nothing reads after its restore is dead: it is no bracket, and the spiller deletes it (deadCode).
 
 // notLive is the liveStamp of a value no block's walk holds live: every walk's liveMark is above it.
 let notLive = 0 as Count
@@ -25,6 +26,13 @@ type BlockScan
 	var liveStamp as Array with Count
 	var liveMark as Count
 	var out as Array with bool
+	// dead is whether each value's restore further down the block closes a dead bracket, whose spill the walk has not met
+	// yet; deadOpen counts those values. deadCode is the spills and restores of the dead brackets of the blocks scanned
+	// since the scan was reset, and deadValues the value of each of those brackets.
+	var dead as Array with bool
+	var deadOpen as Count
+	var deadCode as CountList
+	var deadValues as CountList
 	var seen as Array with Count
 	var liveList as MRegList
 	var livePos as Array with Count
@@ -63,7 +71,7 @@ type BlockScan
 	var classMasks as RegMaskList
 
 	static function new() returns BlockScan
-		return BlockScan{liveStamp: Array.create(0), liveMark: 0, out: Array.create(0), seen: Array.create(0), liveList: MRegList.create(0), livePos: Array.create(0), liveCount: Array.create(0), outCount: Array.create(0), readCount: Array.create(0), writeCount: Array.create(0), liveWriteCount: Array.create(0), seenMark: 0, ops: Operands.new(), first: 0, demand: Array.create(0), kept: Array.create(0), physBefore: Array.create(0), physAfter: Array.create(0), written: Array.create(0), opens: Array.create(0), most: Array.create(0), fits: true, logging: false, logBlock: Array.create(0), logClass: Array.create(0), logT: Array.create(0), logD: Array.create(0), logF: Array.create(0), logStart: Array.create(0), logReg: MRegList.create(0), logKind: Array.create(0), webs: Array.create(0), pools: Array.create(0), classMasks: RegMaskList.create(0)}
+		return BlockScan{liveStamp: Array.create(0), liveMark: 0, out: Array.create(0), dead: Array.create(0), deadOpen: 0, deadCode: CountList.create(0), deadValues: CountList.create(0), seen: Array.create(0), liveList: MRegList.create(0), livePos: Array.create(0), liveCount: Array.create(0), outCount: Array.create(0), readCount: Array.create(0), writeCount: Array.create(0), liveWriteCount: Array.create(0), seenMark: 0, ops: Operands.new(), first: 0, demand: Array.create(0), kept: Array.create(0), physBefore: Array.create(0), physAfter: Array.create(0), written: Array.create(0), opens: Array.create(0), most: Array.create(0), fits: true, logging: false, logBlock: Array.create(0), logClass: Array.create(0), logT: Array.create(0), logD: Array.create(0), logF: Array.create(0), logStart: Array.create(0), logReg: MRegList.create(0), logKind: Array.create(0), webs: Array.create(0), pools: Array.create(0), classMasks: RegMaskList.create(0)}
 	end 'new'
 
 	// reset sizes the scan for a function's registers and empties the log.
@@ -71,6 +79,10 @@ type BlockScan
 		ir.resetCounts(liveStamp, n: regs)
 		liveMark = 0
 		ir.resetFlags(out, n: regs)
+		ir.resetFlags(dead, n: regs)
+		deadOpen = 0
+		deadCode.clear()
+		deadValues.clear()
 		ir.resetCounts(seen, n: regs)
 		ir.resetCounts(livePos, n: regs)
 		liveList.clear()
@@ -189,6 +201,9 @@ type BlockScan
 				panic("backend: a bracket in block {b} that no spill opens")
 			end 'open'
 		end 'classes'
+		if deadOpen != 0 'deadOpen'
+			panic("backend: a bracket in block {b} that no spill opens")
+		end 'deadOpen'
 	end 'scan'
 
 	// measure takes the i-th instruction's demand into the block's most, and whether it fits into the block's fits.
@@ -319,17 +334,34 @@ type BlockScan
 		return false
 	end 'writes'
 
-	// step moves the live set from after the instruction x to before it.
+	// step moves the live set from after the instruction x, the i-th of the block, to before it. The spill of a dead
+	// bracket goes with its restore, so it reads nothing: a bracket before it that only it read after its restore is dead
+	// too.
 	function step(mutates self, fn MirFunction, x MInstr, i Count)
 		for d in 0 upto ops.writeLen 'writes'
 			let r = ops.writes[d]
 			self.clearLive(fn, r: r)
 		end 'writes'
+		if x.kind == MKind.spill and self.closesDead(vregIndex(x.a)) 'opensDead'
+			self.markDead(vregIndex(x.a), open: false)
+			deadOpen = prevCount(deadOpen)
+			deadCode.push(addCounts(first, b: i))
+			return
+		end 'opensDead'
 		for u in 0 upto ops.readLen 'reads'
 			let r = ops.reads[u]
 			self.setLive(fn, r: r)
 		end 'reads'
-		if x.kind == MKind.restore 'restore'
+		if x.kind == MKind.restore and not self.isLive(x.a) 'deadRestore'
+			let v = vregIndex(x.a)
+			if self.closesDead(v) 'twice'
+				panic("backend: a value restored twice in one bracket")
+			end 'twice'
+			self.markDead(v, open: true)
+			deadOpen = nextCount(deadOpen)
+			deadCode.push(addCounts(first, b: i))
+			deadValues.push(v)
+		end 'deadRestore' else if x.kind == MKind.restore 'restore'
 			let v = vregIndex(x.a)
 			if out[v] 'twice'
 				panic("backend: a value restored twice in one bracket")
@@ -345,6 +377,15 @@ type BlockScan
 			outCount[c] = prevCount(outCount[c])
 		end 'opens'
 	end 'step'
+
+	// closesDead is whether a restore of v further down the block, which the walk has passed, closes a dead bracket.
+	function closesDead(v Count) returns bool
+		return try dead.get(v) otherwise panic("backend: a value past the scan's registers")
+	end 'closesDead'
+
+	function markDead(mutates self, v Count, open bool)
+		try dead.set(v, value: open) otherwise panic("backend: a value past the scan's registers")
+	end 'markDead'
 
 	function demandAt(i Count, c Count) returns Count
 		return demand[addCounts(pointSlots(i), b: c)]
@@ -432,9 +473,9 @@ function classDescription(class RegClass) returns String
 end 'classDescription'
 
 // verifyPressureUnder checks a spilled function whose calls follow convs: every virtual register has one definition, at
-// every instruction the values of each class fit its free registers, and no spill code stands on a loop's hot path where
-// the loop neither defines nor reads the value it moves. It gives what it finds wrong, nothing when the function is as
-// colouring needs it.
+// every instruction the values of each class fit its free registers, no bracket is dead, and no spill code stands on a
+// loop's hot path where the loop neither defines nor reads the value it moves. It gives what it finds wrong, nothing when
+// the function is as colouring needs it.
 export function verifyPressureUnder(fn MirFunction, convs Conventions) returns NameList
 	var problems = NameList.create(0)
 	var g = MirGraph.new()
@@ -460,6 +501,9 @@ export function verifyPressureUnder(fn MirFunction, convs Conventions) returns N
 			end 'classes'
 		end 'points'
 	end 'blocks'
+	for v in scan.deadValues 'dead'
+		problems.push("a bracket of virtual register {vregAt(v)} that nothing reads after its restore")
+	end 'dead'
 	checkPlacement(fn, g: g, convs: convs, problems: problems)
 	return problems
 end 'verifyPressureUnder'
