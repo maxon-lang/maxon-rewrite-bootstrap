@@ -56,6 +56,8 @@ export function sortStrings(mutates xs ast.StringList)
 	end 'ins'
 end 'sortStrings'
 
+// trimTrailingSlash is a path without the separators it ends in, except one that is the root, which a path joined to it
+// keeps so that it does not become relative to the working directory.
 function trimTrailingSlash(p String) returns borrowed String
 	var endPos = p.byteLength()
 	while endPos > 0 'trim'
@@ -64,9 +66,9 @@ function trimTrailingSlash(p String) returns borrowed String
 		if ch != 47 and ch != 92 'stop'
 			break 'trim'
 		end 'stop'
-		if endPos == 3 and p.byteAt(1 as Count) == 58 'driveRoot'
+		if endPos == 1 or (endPos == 3 and p.byteAt(1 as Count) == 58) 'root'
 			break 'trim'
-		end 'driveRoot'
+		end 'root'
 		endPos = lastIdx
 	end 'trim'
 	return p.sliceBytes(0 as Count, endPos: endPos)
@@ -230,6 +232,18 @@ function addLibrary(mutates p ast.Project, rootPath String, mutates errs diag.Er
 		none then return
 	end 'found'
 end 'addLibrary'
+
+// addLibraryFrom adds and parses the modules of the library's source at dir, for a loaded project that has no library: one
+// loaded by a program that is not a compiler, such as the executable of the compiler's own tests, which runs from the
+// temporary directory and so has no library beside it.
+export function addLibraryFrom(mutates p ast.Project, dir String, mutates errs diag.ErrorList)
+	if p.library.isSome() or not getsLibrary(p.root) 'none'
+		return
+	end 'none'
+	let first = p.modules.count()
+	_ = addLibraryAt(p, dir: dir, memory: SourceFiles.create(0), errs: errs)
+	parseModules(p, first: first, memory: SourceFiles.create(0), errs: errs)
+end 'addLibraryFrom'
 
 // getsLibrary is whether the program at rootPath is compiled with the standard library: any but the runtime's source, the
 // library's own and the compiler's.

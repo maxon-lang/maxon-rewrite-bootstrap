@@ -1,8 +1,14 @@
+// libraryOfTheCheckout is the library's source of the checkout whose tests these name, from the working directory as their
+// paths are: the executable of the tests has no library beside it.
+let libraryOfTheCheckout = "stdlib"
+
 function loadProjectAt(path String, mutates errs diag.ErrorList) returns ast.Project
-	return match consumes project.loadProject(path, errs: errs) 'pr'
+	var p = match consumes project.loadProject(path, errs: errs) 'pr'
 		some(pv) gives pv
 		none panic("{path}: cannot be loaded")
 	end 'pr'
+	project.addLibraryFrom(p, dir: libraryOfTheCheckout, errs: errs)
+	return p
 end 'loadProjectAt'
 
 function expectChecked(path String)
