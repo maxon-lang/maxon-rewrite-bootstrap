@@ -74,8 +74,13 @@ function dropAt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, ad
 	end 'managed'
 end 'dropAt'
 
-// storeField assigns a field of the type t at offset, dropping its old value first.
-function storeField(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, obj Reg, offset Count, t ast.TypeID, v Reg)
+// storeField assigns a field of the type t at offset, dropping its old value first; a field whose words are the record's
+// own (inline of them, fieldWords) is given a copy of v's words, and holds nothing to drop.
+function storeField(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, obj Reg, offset Count, inline Count, t ast.TypeID, v Reg)
+	if inline > 0 'inline'
+		copyWordsAt(l, dst: obj, at: offset, src: v, words: inline)
+		return
+	end 'inline'
 	let held = boxed(l, p: p, ms: ms, v: v, t: t)
 	if holderOwns(l, p: p, ms: ms, t: t) 'managed'
 		let addr = newReg(l, kind: IrKind.kindScalar)

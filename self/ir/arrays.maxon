@@ -436,14 +436,8 @@ end 'arrayAddress'
 // words, and for an array of bytes a slot that holds the element until writeBack stores it back.
 function arrayPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
 	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
-		// A place of a value held in place holds the address of its words, as a local's slot does: the words stay in the
-		// element, so nothing is written back.
 		let at = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
-		let held = l.b.f.newSlot(IrKind.kindScalar)
-		emit(l, i: newStoreSlot(held, src: at, borrow: false))
-		let place = newReg(l, kind: IrKind.kindScalar)
-		emit(l, i: newSlotAddr(place, slot: held))
-		return place
+		return heldPlace(l, words: at)
 	end 'inPlace'
 	if not arrayPacked(p, ms: ms, box: box) 'words'
 		return arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)

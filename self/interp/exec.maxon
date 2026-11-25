@@ -81,6 +81,20 @@ end 'execLoadParam'
 
 // fieldOf is the word of a box that an offset names.
 function fieldOf(mutates vm Vm, obj ir.Reg, offset Count, what String) returns Count throws Halt
+	if vm.address(obj) != 0 'inside'
+		// The address of a field whose words are its record's own, the words of a record held in place: its cells are the
+		// box's from that field on.
+		let c = try target(vm, addr: obj, what: what)
+		let holder = vm.h.cellHolder[c]
+		if holder == 0 or vm.h.oKind[holder] != kindBox or (offset mod wordBytes) != 0 'outside'
+			panic("interp: {what} reaches through an address that is no field of a box, at offset {offset}")
+		end 'outside'
+		let index = try c - vm.h.oData[holder] + offset / wordBytes otherwise panic("interp: {what} reaches before its box")
+		if index >= vm.h.oSize[holder] 'past'
+			panic("interp: {what} reaches outside {objectText(vm, o: holder)} at offset {offset}")
+		end 'past'
+		return vm.h.field(holder, i: index)
+	end 'inside'
 	let o = try live(vm, o: vm.ref(obj), what: what)
 	let kind = vm.h.oKind[o]
 	if (kind != kindBox and kind != kindClosure) or (offset mod wordBytes) != 0 or (offset / wordBytes) >= vm.h.oSize[o] 'outside'

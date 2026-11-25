@@ -53,13 +53,24 @@ export function valueForm(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) re
 	return ValueForm.formScalar
 end 'valueForm'
 
-// heldInPlace is whether a value of the type t is held in place where a function holds it: a record whose every field is a
-// word of nothing to drop, and which has no destructor. Its value in a register is the address of its words, which drops
-// nothing: a frame area of the function that made it, the caller's place for a parameter, or the box of a part. A local
-// holds it in a frame area of its own, a result is written to an area the caller passes, and any other holder (a field, an
-// element, a payload, a capture, the contents of an interface value, a frozen value or a cown) holds it as a managed word,
-// the address of a box of its words, which the holder owns, as before.
+// heldInPlace is whether a value of the type t is held in place where a function holds it: a record with no destructor
+// whose every field is a word of nothing to drop or a record held in place, whose words its own words hold (fieldInline).
+// Its value in a register is the address of its words, which drops nothing: a frame area of the function that made it, the
+// caller's place for a parameter, an element's room in an array's buffer, or the words of a part. A local holds it in a
+// frame area of its own, a result is written to an area the caller passes, a record holds its words among its own, and any
+// other holder (a payload, a capture, the contents of an interface value, a frozen value or a cown) holds it as a managed
+// word, the address of a box of its words, which the holder owns.
 export function heldInPlace(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns bool
+	return inPlaceWithin(tt, reads: reads, t: t, depth: deepestInline)
+end 'heldInPlace'
+
+// deepestInline is how many records held in place nest inside one another at most: a record nested deeper is a box. The
+// checker refuses a record that holds itself (E4014), whose nesting would never end; the bound keeps the walk finite
+// whatever type it is asked about, the field that would close such a circle being a box.
+let deepestInline = 16 as Count
+
+// inPlaceWithin is heldInPlace with at most depth more records nested inside t.
+function inPlaceWithin(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID, depth Count) returns bool
 	let kind = ast.typeKind(tt, reads: reads, t: t)
 	if kind != ast.TypeKind.record or ast.isTupleType(tt, reads: reads, t: t) 'record'
 		return false
@@ -70,17 +81,41 @@ export function heldInPlace(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) 
 	end 'destructor'
 	for i in 0 upto ast.typeEntry(tt, reads: reads, t: origin).fields.count() 'fields'
 		let field = boundType(tt, reads: reads, owner: t, declared: ast.typeEntry(tt, reads: reads, t: origin).fields[i].ty)
-		if valueForm(tt, reads: reads, t: field) != ValueForm.formScalar 'managed'
+		if valueForm(tt, reads: reads, t: field) == ValueForm.formScalar 'word'
+			continue 'fields'
+		end 'word'
+		if depth == 0 or not inPlaceWithin(tt, reads: reads, t: field, depth: pred(depth)) 'managed'
 			return false
 		end 'managed'
 	end 'fields'
 	return true
-end 'heldInPlace'
+end 'inPlaceWithin'
 
-// inPlaceWords is how many words a value held in place takes: one for each field, and one for a record of none, as its box.
+// inPlaceWords is how many words a value held in place takes: its fields', and one for a record of none, as its box.
 export function inPlaceWords(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Count
 	return boxBytes(fieldWordsBefore(tt, reads: reads, owner: t, index: fieldsOf(tt, reads: reads, owner: t)), tagged: false) / wordBytes
 end 'inPlaceWords'
+
+// inlineFieldWords is how many words the field at index of the record owner takes among the record's own words where it is
+// a record held in place, which a record of any kind other than a tuple holds that way, and 0 for a field held as a word or
+// a String. Its bound type decides it, so a field declared as an instance over the owner's type parameters (Pair with T) is
+// a box in every instance, as the layout of such a field cannot depend on what each instance binds.
+export function inlineFieldWords(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, index Count) returns Count
+	if ast.isTupleType(tt, reads: reads, t: owner) 'tuple'
+		return 0
+	end 'tuple'
+	let declared = ast.typeEntry(tt, reads: reads, t: ast.originOf(tt, reads: reads, t: owner)).fields[index].ty
+	return inlineWords(tt, reads: reads, field: boundType(tt, reads: reads, owner: owner, declared: declared))
+end 'inlineFieldWords'
+
+// inlineWords is how many words a field of the bound type field takes among its record's words where it is held in place,
+// and 0 otherwise.
+function inlineWords(tt ast.TypeSlot, reads ast.TypeTable, field ast.TypeID) returns Count
+	if ast.typeKind(tt, reads: reads, t: field) != ast.TypeKind.record or not heldInPlace(tt, reads: reads, t: field) 'other'
+		return 0
+	end 'other'
+	return inPlaceWords(tt, reads: reads, t: field)
+end 'inlineWords'
 
 // heldAsScalar is whether a union of the form is held as a word of nothing to drop.
 export function heldAsScalar(form UnionForm) returns bool
@@ -337,10 +372,18 @@ end 'payloadsOf'
 // fieldWordsBefore is how many words the fields of the record owner before index take.
 function fieldWordsBefore(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, index Count) returns Count
 	let origin = ast.originOf(tt, reads: reads, t: owner)
+	let tuple = ast.isTupleType(tt, reads: reads, t: owner)
 	var words = 0 as Count
 	for i in 0 upto index 'each'
 		let field = boundType(tt, reads: reads, owner: owner, declared: ast.typeEntry(tt, reads: reads, t: origin).fields[i].ty)
-		words = try words + valueWords(tt, reads: reads, t: field) otherwise panic("ir: a box past memory")
+		var n = valueWords(tt, reads: reads, t: field)
+		if not tuple 'record'
+			let inline = inlineWords(tt, reads: reads, field: field)
+			if inline > 0 'inline'
+				n = inline
+			end 'inline'
+		end 'record'
+		words = try words + n otherwise panic("ir: a box past memory")
 	end 'each'
 	return words
 end 'fieldWordsBefore'

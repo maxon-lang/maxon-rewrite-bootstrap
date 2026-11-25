@@ -151,14 +151,23 @@ function anyManagedPayload(mutates tt ast.TypeSlot, reads ast.TypeTable, owner a
 	return false
 end 'anyManagedPayload'
 
+// fieldHoldsManaged is whether the field at index of the record ty holds something to drop and to copy: a field whose words
+// are the record's own (ir.inlineFieldWords) holds none.
+function fieldHoldsManaged(p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID, index Count) returns bool
+	if ir.inlineFieldWords(ms.types, reads: p.types, owner: ty, index: index) > 0 'inline'
+		return false
+	end 'inline'
+	let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: index)
+	return ir.holdsManaged(ms.types, reads: p.types, t: fieldTy)
+end 'fieldHoldsManaged'
+
 // onlyFrees is whether dropping a value of the type is freeing its box and nothing else: a record with no managed field,
 // or a union that has no managed payload in any case.
 function onlyFrees(p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID) returns bool
 	let kind = ast.typeKind(ms.types, reads: p.types, t: ty)
 	if kind == ast.TypeKind.record 'record'
 		for i in 0 upto ir.fieldsOf(ms.types, reads: p.types, owner: ty) 'fields'
-			let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
-			if ir.holdsManaged(ms.types, reads: p.types, t: fieldTy) 'managed'
+			if fieldHoldsManaged(p, ms: ms, ty: ty, index: i) 'managed'
 				return false
 			end 'managed'
 		end 'fields'
@@ -552,9 +561,9 @@ function dropRecord(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates
 		end 'promise'
 	end 'promises'
 	for i in 0 upto ir.fieldsOf(ms.types, reads: p.types, owner: ty) 'fields'
-		let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
-		if ir.holdsManaged(ms.types, reads: p.types, t: fieldTy) 'managed'
+		if fieldHoldsManaged(p, ms: ms, ty: ty, index: i) 'managed'
 			let offset = ir.recordFieldOffset(ms.types, reads: p.types, owner: ty, index: i)
+			let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
 			dropWord(u, a: a, p: p, ms: ms, offset: offset, ty: fieldTy)
 		end 'managed'
 	end 'fields'
@@ -1457,8 +1466,16 @@ function copyRecord(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates
 	allocate(u, a: a, bytes: ir.recordBoxBytes(ms.types, reads: p.types, owner: ty))
 	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rWork)
 	for i in 0 upto fields 'fields'
-		let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
 		let offset = ir.recordFieldOffset(ms.types, reads: p.types, owner: ty, index: i)
+		let inline = ir.inlineFieldWords(ms.types, reads: p.types, owner: ty, index: i)
+		// The words of a record held in place, none of them to copy but as a word.
+		for w in 0 upto inline 'inline'
+			copyWord(u, a: a, p: p, ms: ms, offset: try offset + ir.wordOffset(w) otherwise panic("routines: a field past memory"), ty: p.builtins.countTy)
+		end 'inline'
+		if inline > 0 'placed'
+			continue 'fields'
+		end 'placed'
+		let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
 		copyWord(u, a: a, p: p, ms: ms, offset: offset, ty: fieldTy)
 	end 'fields'
 	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)

@@ -481,7 +481,8 @@ function visitNameExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		let obj = selfReg(l, p: p, ms: ms)
 		let owner = selfType(l, p: p, ms: ms)
 		let offset = fieldAt(l, p: p, ms: ms, owner: owner, index: name.fieldIndex)
-		loadField(l, p: p, ms: ms, d: d, obj: obj, e: e, offset: offset)
+		let inline = fieldWords(l, p: p, ms: ms, owner: owner, index: name.fieldIndex) > 0
+		loadField(l, p: p, ms: ms, d: d, obj: obj, e: e, offset: offset, inline: inline)
 		return d
 	end 'field'
 	if name.kind == ast.NameKind.nameConst 'const'
@@ -502,8 +503,13 @@ function visitNameExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 end 'visitNameExpr'
 
 // loadField is the value of a field of a record: a move out of it when the ownership pass found the expression consuming
-// it, which leaves 0 in the field for the drop of the record to skip, and a borrow otherwise.
-function loadField(mutates l Lowerer, p ast.Project, ms ast.ModuleState, d Reg, obj Reg, e ast.NodeID, offset Count)
+// it, which leaves 0 in the field for the drop of the record to skip, and a borrow otherwise. A field whose words are the
+// record's own (inline) is their address, which the record lends: whoever keeps the value copies the words.
+function loadField(mutates l Lowerer, p ast.Project, ms ast.ModuleState, d Reg, obj Reg, e ast.NodeID, offset Count, inline bool)
+	if inline 'inline'
+		emit(l, i: newFieldAddr(d, obj: obj, offset: offset))
+		return
+	end 'inline'
 	if movesOut(p, ms: ms, module: l.module, node: e) and owning(regKind(l, v: d)) 'move'
 		let addr = newReg(l, kind: IrKind.kindScalar)
 		emit(l, i: newFieldAddr(addr, obj: obj, offset: offset))
@@ -535,7 +541,7 @@ function address(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e
 			let owner = selfType(l, p: p, ms: ms)
 			let offset = fieldAt(l, p: p, ms: ms, owner: owner, index: name.fieldIndex)
 			emit(l, i: newFieldAddr(d, obj: obj, offset: offset))
-			return d
+			return fieldPlace(l, p: p, ms: ms, owner: owner, index: name.fieldIndex, addr: d)
 		end 'field'
 	end 'name'
 	if k == ast.NodeKind.memberExpr 'member'
@@ -547,9 +553,10 @@ function address(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e
 			let objExpr = ast.memberExprObj(p.modules[l.mi].tree, id: e)
 			let obj = lowerRead(l, p: p, ms: ms, e: objExpr)
 			let d = newReg(l, kind: IrKind.kindScalar)
-			let offset = fieldAt(l, p: p, ms: ms, owner: exprType(p, module: l.module, node: objExpr), index: member.fieldIndex)
+			let owner = exprType(p, module: l.module, node: objExpr)
+			let offset = fieldAt(l, p: p, ms: ms, owner: owner, index: member.fieldIndex)
 			emit(l, i: newFieldAddr(d, obj: obj, offset: offset))
-			return d
+			return fieldPlace(l, p: p, ms: ms, owner: owner, index: member.fieldIndex, addr: d)
 		end 'field'
 	end 'member'
 	if k == ast.NodeKind.indexExpr 'index'
@@ -979,14 +986,12 @@ function record(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t 
 		l.pending.push(PendingDrop.ofReg(box, ty: ty))
 	end 'owned'
 	for i in 0 upto count 'each'
-		let v = heldIn(l, p: p, ms: ms, e: values[i], holder: t)
-		var offset = 0 as Count
 		if tagged 'payload'
-			offset = payloadOffset(ms.types, reads: p.types, owner: applied, caseIndex: caseIndex, index: i)
+			let v = heldIn(l, p: p, ms: ms, e: values[i], holder: t)
+			emit(l, i: newStoreField(box, offset: payloadOffset(ms.types, reads: p.types, owner: applied, caseIndex: caseIndex, index: i), src: v, borrow: false))
 		end 'payload' else 'field'
-			offset = recordFieldOffset(ms.types, reads: p.types, owner: applied, index: i)
+			storeNewField(l, p: p, ms: ms, record: box, t: applied, index: i, value: values[i], holder: t)
 		end 'field'
-		emit(l, i: newStoreField(box, offset: offset, src: v, borrow: false))
 		popPending(l, n: succ(mark))
 	end 'each'
 	popPending(l, n: mark)
@@ -994,15 +999,28 @@ function record(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t 
 end 'record'
 
 // placedRecord is a new value of the record t, held in place, in a frame area of its own: values are the expression of each
-// field, every one a word of nothing to drop.
+// field, every one a word of nothing to drop or a record held in place.
 function placedRecord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, values ExprRefList) returns Reg
 	let area = newArea(l, words: inPlaceWords(ms.types, reads: p.types, t: t))
 	for i in 0 upto values.count() 'each'
-		let v = exprIn(l, p: p, ms: ms, e: values[i])
-		emit(l, i: newStoreField(area, offset: recordFieldOffset(ms.types, reads: p.types, owner: t, index: i), src: v, borrow: false))
+		storeNewField(l, p: p, ms: ms, record: area, t: t, index: i, value: values[i], holder: t)
 	end 'each'
 	return area
 end 'placedRecord'
+
+// storeNewField gives the field at index of the new record of the type t, whose box or words are at record, the value of
+// the expression value: a copy of its words where they are the record's own, and otherwise the value as the record holds it.
+function storeNewField(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, record Reg, t ast.TypeID, index Count, value ExprRef, holder ast.TypeID)
+	let offset = recordFieldOffset(ms.types, reads: p.types, owner: t, index: index)
+	let inline = inlineFieldWords(ms.types, reads: p.types, owner: t, index: index)
+	if inline > 0 'inline'
+		let v = exprIn(l, p: p, ms: ms, e: value)
+		copyWordsAt(l, dst: record, at: offset, src: v, words: inline)
+		return
+	end 'inline'
+	let v = heldIn(l, p: p, ms: ms, e: value, holder: holder)
+	emit(l, i: newStoreField(record, offset: offset, src: v, borrow: false))
+end 'storeNewField'
 
 // exprRefType is the type of the value that lowering the expression e gives, in the module it is in: the interface it is
 // boxed to, where it is (lowerExpr), and its own type otherwise.
@@ -1131,8 +1149,10 @@ function visitMemberExpr(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	if kind == ast.MemberKind.memberField 'field'
 		let base = lowerRead(l, p: p, ms: ms, e: obj)
 		let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e)))
-		let offset = fieldAt(l, p: p, ms: ms, owner: exprType(p, module: l.module, node: obj), index: member.fieldIndex)
-		loadField(l, p: p, ms: ms, d: d, obj: base, e: e, offset: offset)
+		let owner = exprType(p, module: l.module, node: obj)
+		let offset = fieldAt(l, p: p, ms: ms, owner: owner, index: member.fieldIndex)
+		let inline = fieldWords(l, p: p, ms: ms, owner: owner, index: member.fieldIndex) > 0
+		loadField(l, p: p, ms: ms, d: d, obj: base, e: e, offset: offset, inline: inline)
 		return d
 	end 'field'
 	if kind == ast.MemberKind.memberView 'view'
@@ -1216,9 +1236,20 @@ function rawFieldOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 	let recordTy = ast.rawTypeOf(p, ms: ms, t: origin)
 	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: ft))
 	let offset = fieldAt(l, p: p, ms: ms, owner: recordTy, index: field)
-	emit(l, i: newLoadField(d, obj: record, offset: offset))
+	let inline = fieldWords(l, p: p, ms: ms, owner: recordTy, index: field)
+	if inline > 0 'inline'
+		emit(l, i: newFieldAddr(d, obj: record, offset: offset))
+	end 'inline' else 'held'
+		emit(l, i: newLoadField(d, obj: record, offset: offset))
+	end 'held'
 	if not rawDatums(p, ms: ms, origin: origin).isSome() 'built'
+		// A value held in place is the address of words the record holds, which leave with it.
+		var value = d
+		if inline > 0 'copied'
+			value = placedCopy(l, words: inline, v: d)
+		end 'copied'
 		dropValue(l, p: p, ms: ms, v: record, t: recordTy)
+		return value
 	end 'built'
 	return d
 end 'rawFieldOf'

@@ -1730,8 +1730,8 @@ match reads the case from the word. A thrown error of such a union is its word p
 enum's case plus 1 is (`ir.errorBias`), and the debug info gives it the kind `unionWord`, each case without a payload at
 the word that stands for it.
 
-A record whose every field is a word of nothing to drop, and which has no destructor, is held in place (`ir.heldInPlace`,
-`self/ir/inplace.maxon`): a register holds the address of its words, a scalar of the IR that nothing drops, and every
+A record with no destructor whose every field is a word of nothing to drop or a record held in place is held in place
+(`ir.heldInPlace`, `self/ir/inplace.maxon`): a register holds the address of its words, a scalar of the IR that nothing drops, and every
 holder that keeps the value copies the words. A literal and a `.clone()` are a frame area of their own (`framearea`, the
 same words each time the frame reaches it) filled with `setfield`s, with no allocation. A local that owns its value keeps
 the words in a frame area of its own, which every store to it copies into (`Lowerer.emit` turns the store of a value into
@@ -1748,12 +1748,18 @@ array's drop and copy routines move its buffer's words and nothing else. The ele
 is given, is a slot that holds the address of the words; the array's primitives take what they consume as its address,
 with no box, and the backend writes an element's address in place, an index shifted or multiplied by the size, which
 lowering gives as a constant. An array literal of such records is built where it is read, not laid out as data.
+A record of any kind but a tuple keeps the words of a field held in place among its own, one after another in
+declaration order (`ir.inlineFieldWords`; `recordFieldOffset` counts them), so records nest at any depth up to
+`deepestInline`: a field read is the address of the field's words (`fieldaddr`, a borrow of the record), an assignment
+and a literal copy the words in, the field's place is a slot that holds their address, the record's drop routine skips
+them and its copy routine copies them as words, and a constant record with such a field is built where it is read. A field
+declared as an instance over its record's type parameters (`Wrapper with T`) is a box in every instance. The debug info
+still describes such a field as the address of a box.
 Every other holder keeps the value as a managed word, the address of a box of its words that it owns, as every record was
-held before: a field and a payload (the layout table's form and offsets, the drop and copy routines and the datums are
-unchanged), a half of a map's pair, a node of a list or a slot map, a capture of a closure or a
+held before: a payload, a half of a map's pair, a node of a list or a slot map, a capture of a closure or a
 behaviour, an argument of a message, the contents of an interface value, a frozen value or a cown, and an argument that a
 parameter consumes, since a callee may keep what it consumes past the caller's frame (a coroutine, a behaviour): the value
-goes into the holder as a `copy` into a new box (`boxed`), is read from it as the box's address, which is the address of
+goes into the holder as a copy of its words into a new box (`boxed`), is read from it as the box's address, which is the address of
 its words, and leaves it, by a remove, a take or the start of a function that consumes it, as a copy in a frame area and a
 drop of the box (`unboxed`, `adoptPlaced`). `exchange` copies the place's words out and the new ones in.
 
@@ -5261,9 +5267,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   static let for a generic type. One whose value names no parameter is one value, read through the type itself, as maxon's
   is.
 - **A record of words is not a heap allocation where a function holds it.** A record whose every field is a word of nothing
-  to drop, and which has no destructor, is held in place (see "The IR"): a literal, a
-  `.clone()`, a local, a parameter, a result and an element of an array allocate nothing (an array keeps the words in its
-  buffer), where maxon allocates every record that is not inline. A
+  to drop or such a record, and which has no destructor, is held in place (see "The IR"): a literal, a
+  `.clone()`, a local, a parameter, a result, an element of an array and a field of a record allocate nothing (an array
+  keeps the words in its buffer, a record among its own), where maxon allocates every record that is not inline. A
   program that counts its allocations sees fewer: two back-to-back `HeapStats.thread()` readings, whose `HeapActivity` is
   such a record, count the same.
 - **`Process.exit(code)` ends the process at once**, as Rust's `process::exit` and Go's `os.Exit` do: nothing is dropped,

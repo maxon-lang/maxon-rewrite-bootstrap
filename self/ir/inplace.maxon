@@ -25,12 +25,29 @@ end 'newArea'
 
 // copyWords copies words words from the address src to the address dst.
 function copyWords(mutates l Lowerer, dst Reg, src Reg, words Count)
+	copyWordsAt(l, dst: dst, at: 0, src: src, words: words)
+end 'copyWords'
+
+// copyWordsAt copies words words from the address src to the bytes at offset at of the address dst: a record's field whose
+// words are its own.
+function copyWordsAt(mutates l Lowerer, dst Reg, at Count, src Reg, words Count)
 	for i in 0 upto words 'words'
 		let w = newReg(l, kind: IrKind.kindScalar)
 		emit(l, i: newLoadField(w, obj: src, offset: wordOffset(i)))
-		emit(l, i: newStoreField(dst, offset: wordOffset(i), src: w, borrow: false))
+		emit(l, i: newStoreField(dst, offset: try at + wordOffset(i) otherwise panic("ir: a field past memory"), src: w, borrow: false))
 	end 'words'
-end 'copyWords'
+end 'copyWordsAt'
+
+// heldPlace is the place of a value held in place whose words are at the address words, as a callee given its address
+// takes it: a slot that holds that address, as a local's slot holds its frame area's. The words stay where they are, so
+// nothing is written back.
+function heldPlace(mutates l Lowerer, words Reg) returns Reg
+	let held = l.b.f.newSlot(IrKind.kindScalar)
+	emit(l, i: newStoreSlot(held, src: words, borrow: false))
+	let place = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newSlotAddr(place, slot: held))
+	return place
+end 'heldPlace'
 
 // placedCopy is a copy of the words words at v in a frame area of its own.
 function placedCopy(mutates l Lowerer, words Count, v Reg) returns Reg
@@ -40,14 +57,17 @@ function placedCopy(mutates l Lowerer, words Count, v Reg) returns Reg
 end 'placedCopy'
 
 // boxed is the value v of the type t as a holder other than a local or a result keeps it: for a value held in place, a new
-// box of its words, which the holder owns; any other value as it is.
+// box of its words, which the holder owns; any other value as it is. The words are copied in place rather than by the
+// type's copy routine, since v may be the address of words inside another record, which is no box.
 function boxed(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, v Reg, t ast.TypeID) returns Reg
 	let ty = applyType(l, p: p, ms: ms, t: t)
 	if not heldInPlace(ms.types, reads: p.types, t: ty) 'other'
 		return v
 	end 'other'
+	let words = inPlaceWords(ms.types, reads: p.types, t: ty)
 	let d = newReg(l, kind: IrKind.kindManaged)
-	emitCopy(l, dst: d, src: v, ty: ty)
+	emit(l, i: newAlloc(d, bytes: wordOffset(words)))
+	copyWords(l, dst: d, src: v, words: words)
 	return d
 end 'boxed'
 

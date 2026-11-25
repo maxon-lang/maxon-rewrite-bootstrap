@@ -1,0 +1,61 @@
+typealias Small = int(0 to 1000000)
+
+type Pair
+	var a as Small
+	var b as Small
+
+	static function make(a Small, b Small) returns Self
+		return Self{a: a, b: b}
+	end 'make'
+end 'Pair'
+
+// Wrapper with Pair holds the pair's words among its own.
+type Wrapper uses T
+	var inner as T
+	var count as Small
+
+	static function make(consumes inner T, count Small) returns Self
+		return Self{inner: inner, count: count}
+	end 'make'
+end 'Wrapper'
+
+// Outer's field is declared over its parameter, so it is a box in every instance.
+type Outer uses T
+	var wrapped as Wrapper with T
+	var tag as Small
+
+	static function make(consumes wrapped Wrapper with T, tag Small) returns Self
+		return Self{wrapped: wrapped, tag: tag}
+	end 'make'
+end 'Outer'
+
+union Maybe uses T
+	none
+	some(value T)
+end 'Maybe'
+
+function describe(m Maybe with Wrapper with Pair) returns String
+	return match m 'm'
+		some(w) gives "{w.inner.a} {w.inner.b} {w.count}"
+		none gives "none"
+	end 'm'
+end 'describe'
+
+function main() returns ExitCode
+	var w = Wrapper.make(Pair.make(5, b: 6), count: 1)
+	w.inner.a = 50
+	let base = w.clone()
+	let add = function(x Small) gives try base.inner.a + x otherwise 0
+	print("wrapped {w.inner.a} {w.inner.b} {w.count} {add(1)}\n")
+	var o = Outer.make(Wrapper.make(Pair.make(7, b: 8), count: 2), tag: 3)
+	o.wrapped.inner.b = 80
+	let copy = o.clone()
+	o.wrapped.inner.a = 70
+	print("outer {o.wrapped.inner.a} {o.wrapped.inner.b} {copy.wrapped.inner.a} {copy.tag}\n")
+	print("maybe {describe(Maybe.some(Wrapper.make(Pair.make(1, b: 2), count: 3)))} {describe(Maybe.none)}\n")
+	return 0
+end 'main'
+
+//> wrapped 50 6 1 51
+//> outer 70 80 7 3
+//> maybe 1 2 3 none

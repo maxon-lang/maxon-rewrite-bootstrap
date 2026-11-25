@@ -1,0 +1,165 @@
+typealias Small = int(0 to 1000000)
+
+type Point
+	var x as Small
+	var y as Small
+
+	static function make(x Small, y Small) returns Self
+		return Self{x: x, y: y}
+	end 'make'
+
+	function sum() returns Small
+		return try x + y otherwise 0
+	end 'sum'
+
+	function moved(mutates self, by Small)
+		x = try x + by otherwise 0
+		y = try y + by otherwise 0
+	end 'moved'
+end 'Point'
+
+type Box
+	var low as Point
+	var high as Point
+
+	static function make(low Point, high Point) returns Self
+		return Self{low: low.clone(), high: high.clone()}
+	end 'make'
+
+	function area() returns Small
+		return try (high.x - low.x) * (high.y - low.y) otherwise 0
+	end 'area'
+
+	function grown(by Small) returns Self
+		var b = self.clone()
+		b.high.moved(by)
+		return b
+	end 'grown'
+end 'Box'
+
+type Scene
+	var id as Small
+	var frame as Box
+	var origin as Point
+
+	static function make(id Small, frame Box, origin Point) returns Self
+		return Self{id: id, frame: frame.clone(), origin: origin.clone()}
+	end 'make'
+
+	function sum() returns Small
+		return try id + frame.area() + origin.sum() otherwise 0
+	end 'sum'
+end 'Scene'
+
+typealias Scenes = Array with Scene
+
+type Named
+	var name as String
+	var scene as Scene
+
+	static function make(consumes name String, scene Scene) returns Self
+		return Self{name: name, scene: scene.clone()}
+	end 'make'
+end 'Named'
+
+interface Summed
+	function sum() returns Small
+end 'Summed'
+
+extension Scene implements Summed
+end 'Scene'
+
+function printLine(s String)
+	print("{s}\n")
+end 'printLine'
+
+function showPoint(p Point) returns String
+	return "({p.x}, {p.y})"
+end 'showPoint'
+
+function showBox(b Box) returns String
+	return "[{showPoint(b.low)} {showPoint(b.high)}]"
+end 'showBox'
+
+function showScene(s Scene) returns String
+	return "#{s.id} {showBox(s.frame)} at {showPoint(s.origin)}"
+end 'showScene'
+
+function scene(id Small, size Small) returns Scene
+	return Scene.make(id, frame: Box.make(Point.make(0, y: 0), high: Point.make(size, y: size)), origin: Point.make(id, y: size))
+end 'scene'
+
+function shift(mutates p Point, by Small)
+	p.moved(by)
+end 'shift'
+
+function replace(mutates b Box)
+	b = Box.make(Point.make(1, y: 1), high: Point.make(2, y: 3))
+end 'replace'
+
+function keep(consumes s Scene) returns Scene
+	var kept = s
+	kept.origin.moved(100)
+	return kept
+end 'keep'
+
+function total(s Summed) returns Small
+	return s.sum()
+end 'total'
+
+function main() returns ExitCode
+	var b = Box.make(Point.make(1, y: 2), high: Point.make(4, y: 6))
+	var c = b.clone()
+	b.high.moved(1)
+	printLine("{showBox(b)} {showBox(c)} area {b.area()} {c.area()}")
+	printLine("grown {showBox(b.grown(10))} left {showBox(b)}")
+	shift(b.low, by: 5)
+	replace(c)
+	printLine("{showBox(b)} {showBox(c)}")
+	b.low = Point.make(0, y: 0)
+	let old = exchange(b.high, value: Point.make(9, y: 9))
+	printLine("{showBox(b)} old {showPoint(old)}")
+	var s = scene(7, size: 3)
+	s.frame.high.moved(1)
+	s.origin = s.frame.high.clone()
+	printLine(showScene(s))
+	var scenes = Scenes.create(0)
+	for i in 1 upto 4 'push'
+		scenes.push(scene(i as Small, size: (i * 2) as Small))
+	end 'push'
+	scenes.push(s.clone())
+	var count = 0 as Small
+	for one in scenes 'each'
+		printLine(showScene(one))
+		count = try count + one.frame.area() otherwise 0
+	end 'each'
+	printLine("areas {count}")
+	let last = try scenes.pop() otherwise scene(0, size: 0)
+	printLine("popped {showScene(last)} left {scenes.count()}")
+	var named = Named.make("n", scene: scene(5, size: 5))
+	named.scene.frame.low.moved(2)
+	shift(named.scene.origin, by: 1)
+	printLine("{named.name} {showScene(named.scene)}")
+	let copied = named.scene.clone()
+	named.scene = scene(6, size: 1)
+	printLine("copied {showScene(copied)} now {showScene(named.scene)}")
+	printLine("kept {showScene(keep(scene(8, size: 2)))}")
+	printLine("interface {total(scene(2, size: 2))}")
+	return 0
+end 'main'
+
+//> [(1, 2) (5, 7)] [(1, 2) (4, 6)] area 20 12
+//> grown [(1, 2) (15, 17)] left [(1, 2) (5, 7)]
+//> [(6, 7) (5, 7)] [(1, 1) (2, 3)]
+//> [(0, 0) (9, 9)] old (5, 7)
+//> #7 [(0, 0) (4, 4)] at (4, 4)
+//> #1 [(0, 0) (2, 2)] at (1, 2)
+//> #2 [(0, 0) (4, 4)] at (2, 4)
+//> #3 [(0, 0) (6, 6)] at (3, 6)
+//> #7 [(0, 0) (4, 4)] at (4, 4)
+//> areas 72
+//> popped #7 [(0, 0) (4, 4)] at (4, 4) left 3
+//> n #5 [(2, 2) (5, 5)] at (6, 6)
+//> copied #5 [(2, 2) (5, 5)] at (6, 6) now #6 [(0, 0) (1, 1)] at (6, 1)
+//> kept #8 [(0, 0) (2, 2)] at (108, 102)
+//> interface 10

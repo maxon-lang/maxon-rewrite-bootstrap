@@ -382,7 +382,14 @@ function datumRecord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, t 
 			// Its empty case is the word 0, which the data does not hold as a value; it is built where it is read.
 			return false
 		end 'null'
-	end 'union'
+	end 'union' else if not tagged 'record'
+		// A record whose field's words are its own is built where it is read: the data lays a value out as a word or a box.
+		for i in 0 upto fieldsOf(ms.types, reads: p.types, owner: t) 'fields'
+			if inlineFieldWords(ms.types, reads: p.types, owner: t, index: i) > 0 'inline'
+				return false
+			end 'inline'
+		end 'fields'
+	end 'record'
 	let at = b.d.boxes.count()
 	b.d.boxes.push(DatumBox.make(DatumShape.words, first: 0, count: 0))
 	var parts = DatumWordList.create(0)

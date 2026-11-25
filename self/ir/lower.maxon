@@ -253,6 +253,24 @@ function fieldAt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, o
 	return recordFieldOffset(ms.types, reads: p.types, owner: record, index: index)
 end 'fieldAt'
 
+// fieldWords is how many words the field at index of the record owner, a type the body names, takes among the record's own
+// words, where it is a record held in place that the record holds that way (inlineFieldWords), and 0 otherwise.
+function fieldWords(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, owner ast.TypeID, index Count) returns Count
+	let applied = applyType(l, p: p, ms: ms, t: owner)
+	let record = ast.contentType(ms.types, reads: p.types, t: applied)
+	return inlineFieldWords(ms.types, reads: p.types, owner: record, index: index)
+end 'fieldWords'
+
+// fieldPlace is the place of the field at index of the record owner, whose address is addr, as a call that takes it by
+// address is given it: the field itself, or, where its words are the record's own, a place that holds their address
+// (heldPlace), as every place of a value held in place does.
+function fieldPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, owner ast.TypeID, index Count, addr Reg) returns Reg
+	if fieldWords(l, p: p, ms: ms, owner: owner, index: index) == 0 'held'
+		return addr
+	end 'held'
+	return heldPlace(l, words: addr)
+end 'fieldPlace'
+
 function selfReg(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState) returns Reg
 	if l.selfOwner != noSlot 'owned'
 		return load(l, slot: slotIndex(l.selfOwner))
@@ -583,7 +601,8 @@ function visitAssignStmt(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 			let obj = selfReg(l, p: p, ms: ms)
 			let owner = selfType(l, p: p, ms: ms)
 			let offset = fieldAt(l, p: p, ms: ms, owner: owner, index: name.fieldIndex)
-			storeField(l, p: p, ms: ms, obj: obj, offset: offset, t: exprType(p, module: l.module, node: target), v: v)
+			let inline = fieldWords(l, p: p, ms: ms, owner: owner, index: name.fieldIndex)
+			storeField(l, p: p, ms: ms, obj: obj, offset: offset, inline: inline, t: exprType(p, module: l.module, node: target), v: v)
 			return
 		end 'field'
 	end 'name'
@@ -593,8 +612,10 @@ function visitAssignStmt(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 			let objExpr = ast.memberExprObj(p.modules[l.mi].tree, id: target)
 			let obj = lowerExpr(l, p: p, ms: ms, e: objExpr)
 			let v = lowerExpr(l, p: p, ms: ms, e: value)
-			let offset = fieldAt(l, p: p, ms: ms, owner: exprType(p, module: l.module, node: objExpr), index: member.fieldIndex)
-			storeField(l, p: p, ms: ms, obj: obj, offset: offset, t: exprType(p, module: l.module, node: target), v: v)
+			let owner = exprType(p, module: l.module, node: objExpr)
+			let offset = fieldAt(l, p: p, ms: ms, owner: owner, index: member.fieldIndex)
+			let inline = fieldWords(l, p: p, ms: ms, owner: owner, index: member.fieldIndex)
+			storeField(l, p: p, ms: ms, obj: obj, offset: offset, inline: inline, t: exprType(p, module: l.module, node: target), v: v)
 			return
 		end 'field'
 	end 'member'
