@@ -21,7 +21,7 @@ end 'DebugKind'
 
 // DebugEntry is an entry of the list: for debugSite, the callee and the span of the call, whose site field is the site the
 // call itself is in; for debugLocal, the name, the type, the place of the parameter it is (or noBinding) and the slot
-// lowering gave it (or noBinding); for debugValue, the binding and the register; for debugFramed, the binding and the slot,
+// lowering gave it (or noBinding) and whether the caller's place holds it (a parameter taken by mutates or sets, byRef); for debugValue, the binding and the register; for debugFramed, the binding and the slot,
 // numbered as the slots that stay in the frame are.
 export type DebugEntry
 	export var kind as DebugKind
@@ -33,21 +33,22 @@ export type DebugEntry
 	export var param as Count
 	export var slot as Count
 	export var reg as Reg
+	export var byRef as bool
 
 	export static function site(callee ast.FuncID, call Word) returns DebugEntry
-		return DebugEntry{kind: DebugKind.debugSite, callee: callee, call: call, name: "", ty: ast.noType, binding: noBinding, param: noBinding, slot: noBinding, reg: noReg}
+		return DebugEntry{kind: DebugKind.debugSite, callee: callee, call: call, name: "", ty: ast.noType, binding: noBinding, param: noBinding, slot: noBinding, reg: noReg, byRef: false}
 	end 'site'
 
-	export static function local(consumes name String, ty ast.TypeID, param Count, slot Count) returns DebugEntry
-		return DebugEntry{kind: DebugKind.debugLocal, callee: ast.noFunc, call: noSpan, name: name, ty: ty, binding: noBinding, param: param, slot: slot, reg: noReg}
+	export static function local(consumes name String, ty ast.TypeID, param Count, slot Count, byRef bool) returns DebugEntry
+		return DebugEntry{kind: DebugKind.debugLocal, callee: ast.noFunc, call: noSpan, name: name, ty: ty, binding: noBinding, param: param, slot: slot, reg: noReg, byRef: byRef}
 	end 'local'
 
 	export static function value(binding Count, reg Reg) returns DebugEntry
-		return DebugEntry{kind: DebugKind.debugValue, callee: ast.noFunc, call: noSpan, name: "", ty: ast.noType, binding: binding, param: noBinding, slot: noBinding, reg: reg}
+		return DebugEntry{kind: DebugKind.debugValue, callee: ast.noFunc, call: noSpan, name: "", ty: ast.noType, binding: binding, param: noBinding, slot: noBinding, reg: reg, byRef: false}
 	end 'value'
 
 	export static function framed(binding Count, slot Count) returns DebugEntry
-		return DebugEntry{kind: DebugKind.debugFramed, callee: ast.noFunc, call: noSpan, name: "", ty: ast.noType, binding: binding, param: noBinding, slot: slot, reg: noReg}
+		return DebugEntry{kind: DebugKind.debugFramed, callee: ast.noFunc, call: noSpan, name: "", ty: ast.noType, binding: binding, param: noBinding, slot: slot, reg: noReg, byRef: false}
 	end 'framed'
 end 'DebugEntry'
 

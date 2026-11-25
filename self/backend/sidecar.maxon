@@ -67,14 +67,17 @@ export function writeSidecar(mutates p ast.Project, lines CodeLines, out FilePat
 	try File.writeBinary(try FilePath.from(sidecarPathOf(out.toString())) otherwise panic("backend: the sidecar of {out.toString()} is not a path"), content: bytes)
 end 'writeSidecar'
 
-// writeLocal adds a local of the function added last: indirect where its type is the address of its value and it has a
-// place, and the second word of a String as such.
+// writeLocal adds a local of the function added last: indirect where the layout table says a variable of its type holds an
+// address and it has a place, by reference where the caller's place holds it, and the second word of a String as such.
 function writeLocal(mutates w mxdbg.MxdbgWriter, types DebugTypes, local DebugLocal)
 	var flags = 0 as mxdbg.MxdbgIndex
 	let placed = local.kind == mxdbg.MxdbgLocKindStackSlot or local.kind == mxdbg.MxdbgLocKindRegister
-	if placed and mxdbg.mxdbgTypeKindIsIndirect(types.kindOfType(local.ty)) 'indirect'
+	if placed and types.isAddressOfType(local.ty) 'indirect'
 		flags = flags or mxdbg.MxdbgLocalFlagIndirect
 	end 'indirect'
+	if local.byRef 'byRef'
+		flags = flags or mxdbg.MxdbgLocalFlagByRef
+	end 'byRef'
 	if local.second 'second'
 		flags = flags or mxdbg.MxdbgLocalFlagSecondWord
 	end 'second'

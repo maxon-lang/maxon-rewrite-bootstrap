@@ -531,7 +531,8 @@ function dumpSection(reader mxdbg.MxdbgReader, name String) returns String
 end 'dumpSection'
 
 // localLine is a local of a function as maxon's dump has it: its name, the code it holds over, where it is, and its type; a
-// register by its name, a slot by its displacement from the frame pointer, and an indirect value marked *.
+// register by its name, a slot by its displacement from the frame pointer, an indirect value marked * and a parameter that the
+// caller's place holds marked by reference.
 function localLine(reader mxdbg.MxdbgReader, k Count, arch ast.TargetArch) returns String
 	let kind = reader.localKind(k)
 	let value = reader.localValue(k)
@@ -553,6 +554,9 @@ function localLine(reader mxdbg.MxdbgReader, k Count, arch ast.TargetArch) retur
 	if (reader.localFlags(k) and mxdbg.MxdbgLocalFlagSecondWord) != 0 'second'
 		marks = "{marks} (second word)"
 	end 'second'
+	if (reader.localFlags(k) and mxdbg.MxdbgLocalFlagByRef) != 0 'byRef'
+		marks = "{marks} (by reference)"
+	end 'byRef'
 	return "        {reader.localName(k)}  [{hexOffset(reader.localStart(k))}, {hexOffset(reader.localEnd(k))})  {place}{marks}  : {reader.typeName(reader.localType(k) as Count)}\n"
 end 'localLine'
 
@@ -565,13 +569,21 @@ function typeLines(reader mxdbg.MxdbgReader, i Count) returns String
 	var out = ByteArray.create(0)
 	out.append("    [{i}] {reader.typeName(i)}  {mxdbg.mxdbgTypeKindName(reader.typeKind(i))}{signed}  size={reader.typeSize(i)} align={reader.typeAlign(i)}  fields={reader.typeFieldCount(i)}\n".toByteArray())
 	if reader.typeElement(i) != mxdbg.MxdbgNoElementType 'element'
-		out.append("        element : {reader.typeName(reader.typeElement(i) as Count)}\n".toByteArray())
+		out.append("        element : {typeNameHeld(reader, i: reader.typeElement(i) as Count)}\n".toByteArray())
 	end 'element'
 	for k in reader.typeFieldFirst(i) upto sumCounts(reader.typeFieldFirst(i), b: reader.typeFieldCount(i)) 'fields'
-		out.append("        +{hexOffset(reader.fieldOffset(k) as Count)}  {reader.fieldName(k)} : {reader.typeName(reader.fieldType(k) as Count)}\n".toByteArray())
+		out.append("        +{hexOffset(reader.fieldOffset(k) as Count)}  {reader.fieldName(k)} : {typeNameHeld(reader, i: reader.fieldType(k) as Count)}\n".toByteArray())
 	end 'fields'
 	return String.from(out)
 end 'typeLines'
+
+// typeNameHeld is the name of the type i, marked where its entry is of a record held in place among its holder's words.
+function typeNameHeld(reader mxdbg.MxdbgReader, i Count) returns String
+	if mxdbg.mxdbgTypeKindIsInPlace(reader.typeKind(i)) 'inPlace'
+		return "{reader.typeName(i)} (in place)"
+	end 'inPlace'
+	return reader.typeName(i)
+end 'typeNameHeld'
 
 // archOfTriple is the architecture of a target as the sidecar's header names it.
 function archOfTriple(triple String) returns ast.TargetArch

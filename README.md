@@ -1366,7 +1366,20 @@ where each local is, `debug --symbolize` and `--dump-info`, which read it, and t
   kind `string`, no fields: a reader takes its words by the layout's constants), a record, a union held in a box and an array the address of a box (`struct` with its fields at their
   offsets, `union` with a field per case at its case index typed by its payload, `array` with its element type), a union held as a word
   that word (`unionWord`, its cases without a payload at the word that stands for each: the case index, or the niche), an enum
-  its case index (its cases' offsets), an integer alias 8 bytes and signed when its range is, a bool one byte.
+  its case index (its cases' offsets), an integer alias 8 bytes and signed when its range is, a bool one byte. **The layout
+  table is the source of how every holder keeps a value, for the code generator and for the debug info alike**: the type
+  table asks `ir.holding` (`self/ir/layouts.maxon`) for a value of a type in a holder (`ir.Holder`: a variable, a field, an
+  element, a payload, a capture) and matches on every `ir.Holding` it answers (a word, a String's two words, the address of
+  a box, the address of the words of a record held in place, the words of one inline among the holder's, a packed byte), with
+  no default arm, so a new way of holding fails the build of the debug info until it is described. Offsets and sizes come
+  from the table's own functions (`ir.recordFieldOffset`, `ir.recordBoxBytes`, `ir.caseBoxBytes`, `ir.holdingBytes`). A
+  record held in place inline (a field of an in-place record type, an element of an array of them) has an entry of its own
+  beside the struct's, kind `inPlaceStruct` (shown as `Struct`, and `(in place)` in the dump): its fields are the bytes at its
+  place, where a struct's place holds the address of its box, which is what a variable of it holds as well. An array's size is
+  its elements' stride in its buffer (`ir.holdingBytes` of how the buffer holds an element: a word, a String's two words, the
+  words of a record held in place, one byte for a packed byte or small enum). A local is `indirect` when `ir.holding` says a
+  variable of its type holds an address, and `byRef` (minimaxon's flag) when it is a parameter taken by `mutates` or `sets`,
+  whose location holds the address of the caller's place that holds the value.
 - **The sidecar** has maxon's layout (`self/mxdbg/format.maxon`): a 160-byte header (the target, the build id, the root,
   the image base, the compiler), the files (the runtime's as `runtime/<file>`, the library's by its module's path, the
   program's relative to its root), the functions with their code ranges, frames, windows of rows and of locals and origin
@@ -1424,8 +1437,9 @@ where each local is, `debug --symbolize` and `--dump-info`, which read it, and t
     side, read from the sidecar's root) and its backtrace.
   - **Values** are read by the sidecar's locals and types: a local in a register of the stopped thread (an xmm register for a
     double) or a frame slot, one of a name with no record at the stop `not-live-here` and an optimized-out one
-    `optimized-out`; a String from its two words, as `"text" (len=N)`; a record's box with its fields as children, an
-    enum's case, a union's case with its payload, an array's count with its first 32 elements, a double from its bits.
+    `optimized-out`; a String from its two words, as `"text" (len=N)`; a record's box, or its words held in place, with its
+    fields as children, an enum's case, a union's case with its payload, an array's count with its first 32 elements each
+    at the array's stride, a double from its bits; a `byRef` parameter from the address its location holds.
 - **Verified.** `--verify-ir` on a build with the flag holds every span of every function to the source of the function it is
   in, from its header's line to its end, and a span in an inline site to its callee's (`verifySpans`). The gate's
   `debug info` step builds programs on the four targets with and without the flag, compares the executables, verifies the
@@ -1433,7 +1447,14 @@ where each local is, `debug --symbolize` and `--dump-info`, which read it, and t
   slot, a String's second word and a record's fields on each target, on x64 Windows holds a batch session of that program
   to its events (a breakpoint on a line and on a function, the backtrace, a local in a register and one in a slot, a step
   over a line, a String local, a record's fields, a step out and the run to the exit) and a conversation, fed from a file, to maxon's text of a breakpoint, a stop, its locals, a field, the frames, an unknown command and the program's end, and symbolizes the `rip=` of a stack overflow on x64
-  Windows, x64 Linux and arm64 Linux to its line.
+  Windows, x64 Linux and arm64 Linux to its line. A second program (the holdings program, `cmd/gate/debuginfo_holdings.go`)
+  has one value of each way `ir.holding` keeps a value in each holder: its dump on each target holds the in-place marks, the
+  offsets and the strides the table gives, and on x64 Windows the debugger reads back what a local, a field (two levels
+  deep), an array's element (a record held in place, a word, a String, a box, a packed enum), a union's payload, and a
+  parameter taken by value, `mutates`, `sets` and `consumes` and a result hold. The values are asserted, so a change of how a
+  holder keeps a value that the debug info does not follow fails the step. The debugger drives x64 Windows alone; the sidecar
+  of the other three targets is held by the dump alone. The sidecar is the only debug info any target writes (no PDB or
+  CodeView, no DWARF); a closure's capture, and the locals and parameters of an inlined callee, are not described.
 ## The IR
 
 The checker works on the AST, which mirrors what the author wrote. Everything after it works on the IR in `self/ir`, which is
@@ -1753,8 +1774,10 @@ declaration order (`ir.inlineFieldWords`; `recordFieldOffset` counts them), so r
 `deepestInline`: a field read is the address of the field's words (`fieldaddr`, a borrow of the record), an assignment
 and a literal copy the words in, the field's place is a slot that holds their address, the record's drop routine skips
 them and its copy routine copies them as words, and a constant record with such a field is built where it is read. A field
-declared as an instance over its record's type parameters (`Wrapper with T`) is a box in every instance. The debug info
-still describes such a field as the address of a box.
+declared as an instance over its record's type parameters (`Wrapper with T`) is a box in every instance. `ir.holding`
+(`Holder`, `Holding`) answers, in one place built from these predicates, how a holder keeps a value of a type, and the debug
+info takes every one of its answers from it by matching on all of them; the lowering still asks `heldInPlace`,
+`inlineFieldWords` and `ast.packsByte` directly, and must agree with it.
 Every other holder keeps the value as a managed word, the address of a box of its words that it owns, as every record was
 held before: a payload, a half of a map's pair, a node of a list or a slot map, a capture of a closure or a
 behaviour, an argument of a message, the contents of an interface value, a frozen value or a cown, and an argument that a

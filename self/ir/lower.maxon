@@ -100,9 +100,9 @@ function declareBindings(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 		end 'unnamed'
 		let ty = applyType(l, p: p, ms: ms, t: loc.ty)
 		if loc.isParam 'param'
-			l.b.f.debug.push(DebugEntry.local(loc.name.clone(), ty: ty, param: loc.paramIndex, slot: noBinding))
+			l.b.f.debug.push(DebugEntry.local(loc.name.clone(), ty: ty, param: loc.paramIndex, slot: noBinding, byRef: isByRef(loc)))
 		end 'param' else if loc.slot != ast.noSlot 'slotted'
-			l.b.f.debug.push(DebugEntry.local(loc.name.clone(), ty: ty, param: noBinding, slot: slotOf(loc)))
+			l.b.f.debug.push(DebugEntry.local(loc.name.clone(), ty: ty, param: noBinding, slot: slotOf(loc), byRef: false))
 		end 'slotted'
 	end 'each'
 end 'declareBindings'

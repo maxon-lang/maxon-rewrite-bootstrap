@@ -268,6 +268,10 @@ export let MxdbgTypeKindFunction = 9 as MxdbgIndex
 
 export let MxdbgTypeKindUnionWord = 10 as MxdbgIndex
 
+// inPlaceStruct is minimaxon's: a record held among the words of its holder (a field, an array's element), so that the bytes
+// at its place are its fields, where a struct's place holds the address of its box.
+export let MxdbgTypeKindInPlaceStruct = 11 as MxdbgIndex
+
 // mxdbgTypeKindName is how a dump spells a type kind, maxon's, or the word for one it does not know.
 export function mxdbgTypeKindName(kind MxdbgIndex) returns String
 	if kind == MxdbgTypeKindPrimitive 'primitive'
@@ -279,7 +283,7 @@ export function mxdbgTypeKindName(kind MxdbgIndex) returns String
 	if kind == MxdbgTypeKindFloatRanged 'floatRanged'
 		return "FloatRanged"
 	end 'floatRanged'
-	if kind == MxdbgTypeKindStruct 'struct'
+	if kind == MxdbgTypeKindStruct or kind == MxdbgTypeKindInPlaceStruct 'struct'
 		return "Struct"
 	end 'struct'
 	if kind == MxdbgTypeKindEnum 'enumeration'
@@ -303,10 +307,10 @@ export function mxdbgTypeKindName(kind MxdbgIndex) returns String
 	return "{kind}"
 end 'mxdbgTypeKindName'
 
-// mxdbgTypeKindIsIndirect is whether a value of the kind is the address of what it is, which a local's record then says.
-export function mxdbgTypeKindIsIndirect(kind MxdbgIndex) returns bool
-	return kind == MxdbgTypeKindStruct or kind == MxdbgTypeKindUnion or kind == MxdbgTypeKindArray or kind == MxdbgTypeKindManagedRecord or kind == MxdbgTypeKindFunction
-end 'mxdbgTypeKindIsIndirect'
+// mxdbgTypeKindIsInPlace is whether a value of the kind is its fields themselves at its place.
+export function mxdbgTypeKindIsInPlace(kind MxdbgIndex) returns bool
+	return kind == MxdbgTypeKindInPlaceStruct
+end 'mxdbgTypeKindIsInPlace'
 
 // MxdbgNoElementType is the element type of a type that has none.
 export let MxdbgNoElementType = 4294967295 as MxdbgIndex
@@ -350,12 +354,16 @@ function mxdbgLocKindIsKnown(kind MxdbgIndex) returns bool
 	return kind <= MxdbgLocKindFoldedAggregate
 end 'mxdbgLocKindIsKnown'
 
-// A local's flags: indirect, maxon's, says that its location holds the address of its value (a record, a union, an array);
-// secondWord, minimaxon's, that the record is of the second word of a String, the word of its length and bits, which is in a place of its
-// own, while the record without it is of the first, the address of its bytes.
+// A local's flags: indirect, maxon's, says that its location holds an address (of the box of a record, a union or an array,
+// or of the words of a record held in place); secondWord, minimaxon's, that the record is of the second word of a String, the
+// word of its length and bits, which is in a place of its own, while the record without it is of the first, the address of
+// its bytes; byRef, minimaxon's, that its location holds the address of the caller's place that holds the value, as a
+// parameter taken by `mutates` or `sets` does.
 export let MxdbgLocalFlagIndirect = 1 as MxdbgIndex
 
 export let MxdbgLocalFlagSecondWord = 2 as MxdbgIndex
+
+export let MxdbgLocalFlagByRef = 4 as MxdbgIndex
 
 let MxdbgLineCodeOffset = 0 as Count
 

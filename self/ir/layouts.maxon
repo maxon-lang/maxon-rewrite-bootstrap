@@ -117,6 +117,93 @@ function inlineWords(tt ast.TypeSlot, reads ast.TypeTable, field ast.TypeID) ret
 	return inPlaceWords(tt, reads: reads, t: field)
 end 'inlineWords'
 
+// Holder is where a value is held, which decides the way (holding): a variable (a local, a parameter or a result), the field
+// at index of the record owner, an element of an array's buffer, a payload of a union, or a capture of a closure or a
+// behaviour.
+export union Holder
+	inVariable
+	inField(owner ast.TypeID, index Count)
+	inElement
+	inPayload
+	inCapture
+end 'Holder'
+
+// Holding is the way a holder keeps a value of a type, the one answer that the code a function lowers to and the debug info
+// both take, each matching on every case: a word of nothing to drop (heldWord); a String's two words (heldString); the
+// address of a box the holder owns (heldBox); the address of words kept somewhere else, a frame area or the caller's
+// place, which is what a variable holds of a value held in place (heldAddress, with its words); the words of a value held
+// in place among the holder's own (heldInline, with its words); a byte of an array's buffer (heldPacked).
+export union Holding
+	heldWord
+	heldString
+	heldBox
+	heldAddress(words Count)
+	heldInline(words Count)
+	heldPacked
+end 'Holding'
+
+// packedBytes is what an element held as heldPacked takes in an array's buffer.
+let packedBytes = 1 as Count
+
+// holding is how the holder keeps a value of the type t, an instance's types as it is bound. It is built from the predicates
+// of the table (heldInPlace, inlineFieldWords, ast.packsByte) in this one place; a way of holding that the lowering takes
+// from the predicates directly must agree with it.
+export function holding(tt ast.TypeSlot, reads ast.TypeTable, b ast.Builtins, t ast.TypeID, holder Holder) returns Holding
+	return match holder 'holder'
+		inVariable gives addressOrForm(tt, reads: reads, t: t)
+		inField(owner, index) gives fieldHolding(tt, reads: reads, t: t, owner: owner, index: index)
+		inElement gives elementHolding(tt, reads: reads, b: b, t: t)
+		inPayload gives formHolding(tt, reads: reads, t: t)
+		inCapture gives formHolding(tt, reads: reads, t: t)
+	end 'holder'
+end 'holding'
+
+// holdingBytes is the bytes a value takes where it is held as h: an array's stride when h is how its buffer keeps an element.
+export function holdingBytes(h Holding) returns Count
+	return match h 'holding'
+		heldWord gives wordBytes
+		heldString gives stringValueBytes
+		heldBox gives wordBytes
+		heldAddress(_) gives wordBytes
+		heldInline(words) gives wordOffset(words)
+		heldPacked gives packedBytes
+	end 'holding'
+end 'holdingBytes'
+
+// formHolding is how a holder with no way of its own keeps a value: in the form of its type.
+function formHolding(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Holding
+	return match valueForm(tt, reads: reads, t: t) 'form'
+		formScalar gives Holding.heldWord
+		formManaged gives Holding.heldBox
+		formString gives Holding.heldString
+	end 'form'
+end 'formHolding'
+
+function addressOrForm(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Holding
+	if heldInPlace(tt, reads: reads, t: t) 'place'
+		return Holding.heldAddress(inPlaceWords(tt, reads: reads, t: t))
+	end 'place'
+	return formHolding(tt, reads: reads, t: t)
+end 'addressOrForm'
+
+function fieldHolding(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID, owner ast.TypeID, index Count) returns Holding
+	let words = inlineFieldWords(tt, reads: reads, owner: owner, index: index)
+	if words > 0 'inline'
+		return Holding.heldInline(words)
+	end 'inline'
+	return formHolding(tt, reads: reads, t: t)
+end 'fieldHolding'
+
+function elementHolding(tt ast.TypeSlot, reads ast.TypeTable, b ast.Builtins, t ast.TypeID) returns Holding
+	if heldInPlace(tt, reads: reads, t: t) 'place'
+		return Holding.heldInline(inPlaceWords(tt, reads: reads, t: t))
+	end 'place'
+	if ast.packsByte(tt, reads: reads, b: b, elem: t) 'packed'
+		return Holding.heldPacked
+	end 'packed'
+	return formHolding(tt, reads: reads, t: t)
+end 'elementHolding'
+
 // heldAsScalar is whether a union of the form is held as a word of nothing to drop.
 export function heldAsScalar(form UnionForm) returns bool
 	return match form 'form'

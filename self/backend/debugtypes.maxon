@@ -1,10 +1,13 @@
 // The type table of the debug info (README, "Debug info"), maxon's (maxon-bin/Compiler/Debug/MxdbgTypeTable.maxon): every
 // type a local of the program has, and every type a field, a case or an element of one of them has, closed by a worklist,
 // each by its kind, size, alignment, signedness, fields and element type as minimaxon lays it out, numbered in the order of
-// their names, which is the type id a field or a local names. A value takes a word, and a String two in place; a record, a
-// union and an array are the address of a box (ir.valuesBytes, ir.valueOffset), a union's first word its case index; an
-// enum is its case index, which its fields' offsets are. A field of an enum or a union is a case, typed by its payload: void
-// for none, the one value's type, and noType, described as a managed record, for several.
+// their names, which is the type id a field or a local names. How a holder keeps a value comes from the layout table alone
+// (ir.holding), matched on every case: a word or two in place; a record, a union and an array the address of a box (ir.recordBoxBytes,
+// a union's first word its case index); a record held in place its fields' words themselves where a field or an element
+// holds it (kind inPlaceStruct, its own entry beside the struct's, which a variable's address of the words is); an enum its
+// case index, which its fields' offsets are. A field of an enum or a union is a case, typed by its payload: void for none,
+// the one value's type, and noType, described as a managed record, for several. An array's size is its elements' stride in
+// its buffer.
 
 // Sizes and alignments of what the table describes.
 let wordSize = 8 as Count
@@ -15,102 +18,165 @@ let boolSize = 1 as Count
 // cannot name.
 let severalValuesName = "<values>"
 
+// An entry is told by its reference: the type shifted up one bit, and the bit that says the entry is of the type held in place.
+let inPlaceBit = 1 as Count
+
+// refOf is the reference of the entry of t, in place or as a variable holds it.
+function refOf(t ast.TypeID, inPlace bool) returns Count
+	let word = (t as Count) shl 1
+	return word or inPlaceBit if inPlace else word
+end 'refOf'
+
+function typeOfRef(ref Count) returns ast.TypeID
+	return try (ref shr 1) as ast.TypeID otherwise panic("backend: a type reference past a type")
+end 'typeOfRef'
+
+function isInPlaceRef(ref Count) returns bool
+	return (ref and inPlaceBit) != 0
+end 'isInPlaceRef'
+
+// entryOf is the reference of the entry that describes a value of t held as h: the words themselves where h is held in place
+// among the holder's, and the type's own entry where the holder's word is, or holds, the value or its address. Every way
+// of holding is named, so a new one is decided here before the table builds.
+function entryOf(h ir.Holding, t ast.TypeID) returns Count
+	return match h 'holding'
+		heldWord gives refOf(t, inPlace: false)
+		heldString gives refOf(t, inPlace: false)
+		heldBox gives refOf(t, inPlace: false)
+		heldAddress(_) gives refOf(t, inPlace: false)
+		heldInline(_) gives refOf(t, inPlace: true)
+		heldPacked gives refOf(t, inPlace: false)
+	end 'holding'
+end 'entryOf'
+
+// isAddress is whether a variable's word of the way h holds a value is an address, of its box or of its words.
+function isAddress(h ir.Holding) returns bool
+	return match h 'holding'
+		heldWord gives false
+		heldString gives false
+		heldBox gives true
+		heldAddress(_) gives true
+		heldInline(_) gives panic("backend: a variable that holds its words among its own")
+		heldPacked gives panic("backend: a variable that holds a byte of a buffer")
+	end 'holding'
+end 'isAddress'
+
 type DebugTypes
-	// By the place each was found at: the type, its name, kind, size, alignment, flags, its element type and whether it has
-	// one, and its fields from fieldFirst up to the next one's.
+	// By the place each was found at: the type, whether the entry is of it held in place, its name, kind, size, alignment,
+	// flags, whether a variable's word of it is an address, its element's reference and whether it has one, and its fields
+	// from fieldFirst up to the next one's.
 	var keys as ast.TypeIDList
+	var inPlace as BoolList
 	var found as table.IntMap with Count
 	var names as ast.StringList
 	var kinds as Array with mxdbg.MxdbgIndex
 	var sizes as CountList
 	var aligns as CountList
 	var flags as Array with mxdbg.MxdbgIndex
-	var elements as ast.TypeIDList
+	var addresses as BoolList
+	var elements as CountList
 	var hasElement as BoolList
 	var fieldFirst as CountList
 	var fieldNames as ast.StringList
 	var fieldOffsets as CountList
-	var fieldTypes as ast.TypeIDList
-	// pending are the types still to describe; order is the places in the order of their names, and idOf the type id of
+	var fieldRefs as CountList
+	// pending are the references still to describe; order is the places in the order of their names, and idOf the type id of
 	// each place, once sealed.
-	var pending as ast.TypeIDList
+	var pending as CountList
 	var order as CountList
 	var idOf as CountList
 
 	static function new() returns DebugTypes
-		return DebugTypes{keys: ast.TypeIDList.create(0), found: table.IntMap.new(), names: ast.StringList.create(0), kinds: Array.create(0), sizes: CountList.create(0), aligns: CountList.create(0), flags: Array.create(0), elements: ast.TypeIDList.create(0), hasElement: BoolList.create(0), fieldFirst: CountList.create(0), fieldNames: ast.StringList.create(0), fieldOffsets: CountList.create(0), fieldTypes: ast.TypeIDList.create(0), pending: ast.TypeIDList.create(0), order: CountList.create(0), idOf: CountList.create(0)}
+		return DebugTypes{keys: ast.TypeIDList.create(0), inPlace: BoolList.create(0), found: table.IntMap.new(), names: ast.StringList.create(0), kinds: Array.create(0), sizes: CountList.create(0), aligns: CountList.create(0), flags: Array.create(0), addresses: BoolList.create(0), elements: CountList.create(0), hasElement: BoolList.create(0), fieldFirst: CountList.create(0), fieldNames: ast.StringList.create(0), fieldOffsets: CountList.create(0), fieldRefs: CountList.create(0), pending: CountList.create(0), order: CountList.create(0), idOf: CountList.create(0)}
 	end 'new'
 
-	// close describes t and every type it refers to.
+	// close describes the type of a variable and every type it refers to.
 	function close(mutates self, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID)
-		if found.has(t as Count) 'known'
-			return
-		end 'known'
-		pending.push(t)
-		while pending.count() > 0 'work'
-			let next = try pending.pop() otherwise panic("backend: an empty worklist")
-			if found.has(next as Count) 'described'
-				continue 'work'
-			end 'described'
-			self.describe(p, ms: ms, t: next)
-		end 'work'
+		self.closeRef(p, ms: ms, ref: refOf(t, inPlace: false))
 	end 'close'
 
-	// begin starts the entry of t, which describe then completes.
-	function begin(mutates self, t ast.TypeID, consumes name String, kind mxdbg.MxdbgIndex, size Count, align Count, flag mxdbg.MxdbgIndex)
-		found.insert(t as Count, value: keys.count())
+	function closeRef(mutates self, p ast.Project, mutates ms ast.ModuleState, ref Count)
+		if found.has(ref) 'known'
+			return
+		end 'known'
+		pending.push(ref)
+		while pending.count() > 0 'work'
+			let next = try pending.pop() otherwise panic("backend: an empty worklist")
+			if found.has(next) 'described'
+				continue 'work'
+			end 'described'
+			self.describe(p, ms: ms, ref: next)
+		end 'work'
+	end 'closeRef'
+
+	// begin starts the entry of the reference ref, which describe then completes; a variable's word of the type is an address
+	// where ir.holding says so.
+	function begin(mutates self, p ast.Project, ms ast.ModuleState, ref Count, consumes name String, kind mxdbg.MxdbgIndex, size Count, align Count, flag mxdbg.MxdbgIndex)
+		let t = typeOfRef(ref)
+		var address = false
+		if not isInPlaceRef(ref) and t != ast.noType 'variable'
+			address = isAddress(ir.holding(ms.types, reads: p.types, b: p.builtins, t: t, holder: ir.Holder.inVariable))
+		end 'variable'
+		found.insert(ref, value: keys.count())
 		keys.push(t)
+		inPlace.push(isInPlaceRef(ref))
 		names.push(name)
 		kinds.push(kind)
 		sizes.push(size)
 		aligns.push(align)
 		flags.push(flag)
-		elements.push(ast.noType)
+		addresses.push(address)
+		elements.push(0)
 		hasElement.push(false)
 		fieldFirst.push(fieldNames.count())
 	end 'begin'
 
-	function addField(mutates self, consumes name String, offset Count, t ast.TypeID)
+	function addField(mutates self, consumes name String, offset Count, ref Count)
 		fieldNames.push(name)
 		fieldOffsets.push(offset)
-		fieldTypes.push(t)
-		if not found.has(t as Count) 'more'
-			pending.push(t)
+		fieldRefs.push(ref)
+		if not found.has(ref) 'more'
+			pending.push(ref)
 		end 'more'
 	end 'addField'
 
-	function setElement(mutates self, t ast.TypeID)
+	function setElement(mutates self, ref Count)
 		let last = try keys.count() - 1 otherwise panic("backend: an element of no type")
-		elements[last] = t
+		elements[last] = ref
 		hasElement[last] = true
-		if not found.has(t as Count) 'more'
-			pending.push(t)
+		if not found.has(ref) 'more'
+			pending.push(ref)
 		end 'more'
 	end 'setElement'
 
-	// describe adds the entry of t, as minimaxon lays a value of it out.
-	function describe(mutates self, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID)
+	// describe adds the entry of ref, as minimaxon lays a value of it out.
+	function describe(mutates self, p ast.Project, mutates ms ast.ModuleState, ref Count)
+		let t = typeOfRef(ref)
 		if t == ast.noType 'none'
-			self.begin(t, name: severalValuesName, kind: mxdbg.MxdbgTypeKindManagedRecord, size: wordSize, align: wordSize, flag: 0)
+			self.begin(p, ms: ms, ref: ref, name: severalValuesName, kind: mxdbg.MxdbgTypeKindManagedRecord, size: wordSize, align: wordSize, flag: 0)
 			return
 		end 'none'
 		let name = ast.typeName(ms.types, reads: p.types, t: t)
+		if isInPlaceRef(ref) 'place'
+			self.describeRecord(p, ms: ms, ref: ref, name: name)
+			return
+		end 'place'
 		match ast.typeKind(ms.types, reads: p.types, t: t) 'kind'
-			invalid then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindManagedRecord, size: wordSize, align: wordSize, flag: 0)
-			primBool then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: boolSize, align: boolSize, flag: 0)
-			primString then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindString, size: ir.stringValueBytes, align: wordSize, flag: 0)
-			primCharacter then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindString, size: ir.stringValueBytes, align: wordSize, flag: 0)
+			invalid then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindManagedRecord, size: wordSize, align: wordSize, flag: 0)
+			primBool then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: boolSize, align: boolSize, flag: 0)
+			primString then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindString, size: ir.stringValueBytes, align: wordSize, flag: 0)
+			primCharacter then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindString, size: ir.stringValueBytes, align: wordSize, flag: 0)
 			primVoid or
-			primNever then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: 0, align: 1, flag: 0)
+			primNever then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: 0, align: 1, flag: 0)
 			intRange or
-			constInt then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindIntRanged, size: wordSize, align: wordSize, flag: mxdbg.MxdbgTypeFlagSigned if ast.typeEntry(ms.types, reads: p.types, t: t).minVal.isNeg() else 0)
+			constInt then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindIntRanged, size: wordSize, align: wordSize, flag: mxdbg.MxdbgTypeFlagSigned if ast.typeEntry(ms.types, reads: p.types, t: t).minVal.isNeg() else 0)
 			floatRange or
-			constFloat then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindFloatRanged, size: wordSize, align: wordSize, flag: mxdbg.MxdbgTypeFlagSigned)
-			record then self.describeRecord(p, ms: ms, t: t, name: name)
-			enumTy then self.describeCases(p, ms: ms, t: t, name: name, kind: mxdbg.MxdbgTypeKindEnum)
-			unionTy then self.describeCases(p, ms: ms, t: t, name: name, kind: unionKind(p, ms: ms, t: t))
-			builtinArray then self.describeArray(p, ms: ms, t: t, name: name)
-			builtinSlotKey then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: wordSize, align: wordSize, flag: 0)
+			constFloat then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindFloatRanged, size: wordSize, align: wordSize, flag: mxdbg.MxdbgTypeFlagSigned)
+			record then self.describeRecord(p, ms: ms, ref: ref, name: name)
+			enumTy then self.describeCases(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindEnum)
+			unionTy then self.describeCases(p, ms: ms, ref: ref, name: name, kind: unionKind(p, ms: ms, t: t))
+			builtinArray then self.describeArray(p, ms: ms, ref: ref, name: name)
+			builtinSlotKey then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: wordSize, align: wordSize, flag: 0)
 			builtinList or
 			builtinSlotMap or
 			builtinFrozen or
@@ -120,20 +186,24 @@ type DebugTypes
 			builtinPromise or
 			builtinService or
 			typeParam or
-			interfaceTy then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindManagedRecord, size: wordSize, align: wordSize, flag: 0)
-			funcTy then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindFunction, size: wordSize, align: wordSize, flag: 0)
+			interfaceTy then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindManagedRecord, size: wordSize, align: wordSize, flag: 0)
+			funcTy then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindFunction, size: wordSize, align: wordSize, flag: 0)
 		end 'kind'
 	end 'describe'
 
-	// describeArray is an array: the address of its box, and its elements' type.
-	function describeArray(mutates self, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, name String)
-		self.begin(t, name: name.clone(), kind: mxdbg.MxdbgTypeKindArray, size: wordSize, align: wordSize, flag: 0)
-		self.setElement(ast.typeEntry(ms.types, reads: p.types, t: t).typeArgs[0])
+	// describeArray is an array: the address of its box, its elements' entry as its buffer holds them, and their stride as its
+	// size.
+	function describeArray(mutates self, p ast.Project, mutates ms ast.ModuleState, ref Count, name String)
+		let element = ast.typeEntry(ms.types, reads: p.types, t: typeOfRef(ref)).typeArgs[0]
+		let held = ir.holding(ms.types, reads: p.types, b: p.builtins, t: element, holder: ir.Holder.inElement)
+		self.begin(p, ms: ms, ref: ref, name: name.clone(), kind: mxdbg.MxdbgTypeKindArray, size: ir.holdingBytes(held), align: wordSize, flag: 0)
+		self.setElement(entryOf(held, t: element))
 	end 'describeArray'
 
-	// describeRecord is a record's box: its fields in their order, each after the words of the ones before it; a tuple's are
-	// named by their place.
-	function describeRecord(mutates self, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, name String)
+	// describeRecord is a record's box, or its words held in place: its fields in their order, each after the words of the
+	// ones before it; a tuple's are named by their place.
+	function describeRecord(mutates self, p ast.Project, mutates ms ast.ModuleState, ref Count, name String)
+		let t = typeOfRef(ref)
 		var types as ast.TypeIDList
 		var fieldNamesOf = ast.StringList.create(0)
 		if ast.isTupleType(ms.types, reads: p.types, t: t) 'tuple'
@@ -149,19 +219,27 @@ type DebugTypes
 				fieldNamesOf.push(ast.typeEntry(ms.types, reads: p.types, t: origin).fields[i].name.clone())
 			end 'fields'
 		end 'record'
-		self.begin(t, name: name.clone(), kind: mxdbg.MxdbgTypeKindStruct, size: ir.recordBoxBytes(ms.types, reads: p.types, owner: t), align: wordSize, flag: 0)
+		if isInPlaceRef(ref) 'place'
+			let words = ir.inPlaceWords(ms.types, reads: p.types, t: t)
+			self.begin(p, ms: ms, ref: ref, name: name.clone(), kind: mxdbg.MxdbgTypeKindInPlaceStruct, size: ir.holdingBytes(ir.Holding.heldInline(words)), align: wordSize, flag: 0)
+		end 'place' else 'box'
+			let bytes = ir.recordBoxBytes(ms.types, reads: p.types, owner: t)
+			self.begin(p, ms: ms, ref: ref, name: name.clone(), kind: mxdbg.MxdbgTypeKindStruct, size: bytes, align: wordSize, flag: 0)
+		end 'box'
 		for i in 0 upto types.count() 'fields'
-			self.addField(fieldNamesOf[i].clone(), offset: ir.recordFieldOffset(ms.types, reads: p.types, owner: t, index: i), t: types[i])
+			let held = ir.holding(ms.types, reads: p.types, b: p.builtins, t: types[i], holder: ir.Holder.inField(t, index: i))
+			self.addField(fieldNamesOf[i].clone(), offset: ir.recordFieldOffset(ms.types, reads: p.types, owner: t, index: i), ref: entryOf(held, t: types[i]))
 		end 'fields'
 	end 'describeRecord'
 
 	// describeCases is an enum, a word, or a union, a box as big as its largest case's: each case a field at its case index,
 	// typed by its payload.
-	function describeCases(mutates self, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, name String, kind mxdbg.MxdbgIndex)
+	function describeCases(mutates self, p ast.Project, mutates ms ast.ModuleState, ref Count, name String, kind mxdbg.MxdbgIndex)
+		let t = typeOfRef(ref)
 		let origin = ast.originOf(ms.types, reads: p.types, t: t)
 		let cases = ast.typeEntry(ms.types, reads: p.types, t: origin).cases.count()
 		var size = wordSize
-		var payloads = ast.TypeIDList.create(0)
+		var payloads = CountList.create(0)
 		for c in 0 upto cases 'cases'
 			let count = ast.typeEntry(ms.types, reads: p.types, t: origin).cases[c].payload.count()
 			if kind == mxdbg.MxdbgTypeKindUnion 'box'
@@ -171,16 +249,17 @@ type DebugTypes
 				end 'larger'
 			end 'box'
 			if count == 0 'none'
-				payloads.push(p.builtins.voidTy)
+				payloads.push(refOf(p.builtins.voidTy, inPlace: false))
 			end 'none' else if count == 1 'one'
-				payloads.push(ast.payloadType(ms.types, reads: p.types, owner: t, caseIndex: c, index: 0))
+				let payload = ast.payloadType(ms.types, reads: p.types, owner: t, caseIndex: c, index: 0)
+				payloads.push(entryOf(ir.holding(ms.types, reads: p.types, b: p.builtins, t: payload, holder: ir.Holder.inPayload), t: payload))
 			end 'one' else 'several'
-				payloads.push(ast.noType)
+				payloads.push(refOf(ast.noType, inPlace: false))
 			end 'several'
 		end 'cases'
-		self.begin(t, name: name.clone(), kind: kind, size: size, align: wordSize, flag: 0)
+		self.begin(p, ms: ms, ref: ref, name: name.clone(), kind: kind, size: size, align: wordSize, flag: 0)
 		for c in 0 upto cases 'fields'
-			self.addField(ast.typeEntry(ms.types, reads: p.types, t: origin).cases[c].name.clone(), offset: caseWord(p, ms: ms, t: t, kind: kind, caseIndex: c), t: payloads[c])
+			self.addField(ast.typeEntry(ms.types, reads: p.types, t: origin).cases[c].name.clone(), offset: caseWord(p, ms: ms, t: t, kind: kind, caseIndex: c), ref: payloads[c])
 		end 'fields'
 	end 'describeCases'
 
@@ -198,21 +277,26 @@ type DebugTypes
 		end 'ids'
 	end 'seal'
 
-	// idOfType is the type id of t, which close has described.
-	function idOfType(t ast.TypeID) returns mxdbg.MxdbgIndex
-		return match found.get(t as Count) 'found'
+	// idOfRef is the type id of the entry ref, which closeRef has described.
+	function idOfRef(ref Count) returns mxdbg.MxdbgIndex
+		return match found.get(ref) 'found'
 			some(place) gives mxdbg.mxdbgWord(idOf[place])
 			none gives panic("backend: the debug info names a type it did not describe")
 		end 'found'
+	end 'idOfRef'
+
+	// idOfType is the type id of t as a variable holds it, which close has described.
+	function idOfType(t ast.TypeID) returns mxdbg.MxdbgIndex
+		return self.idOfRef(refOf(t, inPlace: false))
 	end 'idOfType'
 
-	// kindOfType is the kind of t, which close has described.
-	function kindOfType(t ast.TypeID) returns mxdbg.MxdbgIndex
-		return match found.get(t as Count) 'found'
-			some(place) gives kinds[place]
+	// isAddressOfType is whether the word a variable of the type t holds is an address (ir.holding), which close has described.
+	function isAddressOfType(t ast.TypeID) returns bool
+		return match found.get(refOf(t, inPlace: false)) 'found'
+			some(place) gives addresses[place]
 			none gives panic("backend: the debug info names a type it did not describe")
 		end 'found'
-	end 'kindOfType'
+	end 'isAddressOfType'
 
 	// writeInto adds the sealed types and their fields to w, in the order of their ids.
 	function writeInto(mutates w mxdbg.MxdbgWriter)
@@ -220,7 +304,7 @@ type DebugTypes
 			let at = order[id]
 			var element = mxdbg.MxdbgNoElementType
 			if hasElement[at] 'element'
-				element = self.idOfType(elements[at])
+				element = self.idOfRef(elements[at])
 			end 'element'
 			w.addType(names[at], kind: kinds[at], size: mxdbg.mxdbgWord(sizes[at]), align: mxdbg.mxdbgWord(aligns[at]), elementTypeId: element, flags: flags[at])
 			var stop = fieldNames.count()
@@ -228,7 +312,7 @@ type DebugTypes
 				stop = fieldFirst[nextCount(at)]
 			end 'next'
 			for f in fieldFirst[at] upto stop 'fields'
-				w.addField(fieldNames[f], offset: mxdbg.mxdbgWord(fieldOffsets[f]), typeId: self.idOfType(fieldTypes[f]))
+				w.addField(fieldNames[f], offset: mxdbg.mxdbgWord(fieldOffsets[f]), typeId: self.idOfRef(fieldRefs[f]))
 			end 'fields'
 		end 'types'
 	end 'writeInto'

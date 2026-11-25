@@ -9,8 +9,8 @@
 // which is the order of dominance.
 
 // DebugLocal is a binding over a stretch of a unit's code, from start up to end: its name and type, where it is (a location
-// kind of the sidecar and its figure: a register's number, a displacement from the frame pointer), and whether it is the
-// second word of a String.
+// kind of the sidecar and its figure: a register's number, a displacement from the frame pointer), whether it is the
+// second word of a String, and whether it is a parameter the caller's place holds (byRef).
 export type DebugLocal
 	export var name as String
 	export var ty as ast.TypeID
@@ -19,9 +19,10 @@ export type DebugLocal
 	export var start as Count
 	export var stop as Count
 	export var second as bool
+	export var byRef as bool
 
-	static function make(consumes name String, ty ast.TypeID, kind mxdbg.MxdbgIndex, value mxdbg.MxdbgRecordFigure, start Count, stop Count, second bool) returns DebugLocal
-		return DebugLocal{name: name, ty: ty, kind: kind, value: value, start: start, stop: stop, second: second}
+	static function make(consumes name String, ty ast.TypeID, kind mxdbg.MxdbgIndex, value mxdbg.MxdbgRecordFigure, start Count, stop Count, second bool, byRef bool) returns DebugLocal
+		return DebugLocal{name: name, ty: ty, kind: kind, value: value, start: start, stop: stop, second: second, byRef: byRef}
 	end 'make'
 end 'DebugLocal'
 
@@ -697,12 +698,12 @@ type LocalHarvest
 			end 'nowhere'
 			let binding = outBinding[i]
 			placed[binding] = true
-			u.debugLocals.push(DebugLocal.make(f.debug[binding].name.clone(), ty: f.debug[binding].ty, kind: outKind[i], value: try outValue[i] as mxdbg.MxdbgRecordFigure otherwise panic("backend: a location past the sidecar's figure"), start: start, stop: stop, second: outWord[i] == secondWord))
+			u.debugLocals.push(DebugLocal.make(f.debug[binding].name.clone(), ty: f.debug[binding].ty, kind: outKind[i], value: try outValue[i] as mxdbg.MxdbgRecordFigure otherwise panic("backend: a location past the sidecar's figure"), start: start, stop: stop, second: outWord[i] == secondWord, byRef: f.debug[binding].byRef))
 		end 'records'
 		settleRecords(u.debugLocals, from: group)
 		for i in 0 upto f.debug.count() 'unplaced'
 			if f.debug[i].kind == ir.DebugKind.debugLocal and not placed[i] and not namePlaced(f, placed: placed, name: f.debug[i].name) and lay.codeStart < functionEnd 'gone'
-				u.debugLocals.push(DebugLocal.make(f.debug[i].name.clone(), ty: f.debug[i].ty, kind: mxdbg.MxdbgLocKindOptimizedOut, value: 0, start: lay.codeStart, stop: functionEnd, second: false))
+				u.debugLocals.push(DebugLocal.make(f.debug[i].name.clone(), ty: f.debug[i].ty, kind: mxdbg.MxdbgLocKindOptimizedOut, value: 0, start: lay.codeStart, stop: functionEnd, second: false, byRef: f.debug[i].byRef))
 			end 'gone'
 		end 'unplaced'
 	end 'finish'

@@ -1,7 +1,10 @@
 // Values read out of the stopped program by the sidecar's locals and types, maxon's DebugValue in minimaxon's layout
 // (README, "Debug info"): a word is its value, a String two words in place (the address of its bytes, then its length
 // shifted past its flags), a record, a union and an array the address of a box (a union's first word its case index, its
-// payload after it; an array's length first and its buffer's address third), an enum its case index.
+// payload after it; an array's length first and its buffer's address third), an enum its case index. A record held in place
+// among the words of a field or an element is its fields at that place, and a parameter taken by `mutates` or `sets` is
+// found at the address its location holds. How each is held is the layout table's (ir.holding); the sidecar's types and
+// local flags carry it here.
 
 let optimizedOutReason = "optimized-out"
 
@@ -43,7 +46,8 @@ let arrayLengthAt = 0 as Count
 
 let arrayDataAt = 16 as Count
 
-let stringValueBytes = 16 as Count
+// A packed array's elements, which its type's size (the stride) says by being one byte.
+let packedElementBytes = 1 as Count
 
 let unionPayloadAt = 8 as Count
 
@@ -128,10 +132,14 @@ export function renderLocal(mutates tree ValueTree, host WindowsHost, reader mxd
 		end 'gone'
 		return missing(tree, name: name, typeName: "", kind: "", reason: notLiveHereReason)
 	end 'missing'
-	let w1 = recordWord(host, record: held.unwrap(), reader: reader, reading: reading)
+	let record = held.unwrap()
+	let w1 = recordWord(host, record: record, reader: reader, reading: reading)
 	if not w1.isSome() 'unread'
 		return missing(tree, name: name, typeName: typeName, kind: "", reason: readFailedReason)
 	end 'unread'
+	if (reader.localFlags(record) and mxdbg.MxdbgLocalFlagByRef) != 0 'byRef'
+		return renderTyped(tree, host: host, reader: reader, name: name, typeId: typeId, source: Source.memory(w1.unwrap()))
+	end 'byRef'
 	var w2 = 0 as Count
 	if reader.typeKind(typeId) == mxdbg.MxdbgTypeKindString 'string'
 		if not second.isSome() 'noLength'
@@ -196,6 +204,9 @@ function renderTyped(mutates tree ValueTree, host WindowsHost, reader mxdbg.Mxdb
 	if kindWord == mxdbg.MxdbgTypeKindString 'string'
 		return renderString(tree, host: host, name: name, typeName: typeName, kind: kind, source: source)
 	end 'string'
+	if mxdbg.mxdbgTypeKindIsInPlace(kindWord) 'inPlace'
+		return renderInPlace(tree, host: host, reader: reader, name: name, typeId: typeId, source: source)
+	end 'inPlace'
 	let read = firstWord(host, source: source)
 	if not read.isSome() 'unread'
 		return missing(tree, name: name, typeName: typeName, kind: kind, reason: readFailedReason)
@@ -226,12 +237,7 @@ function renderTyped(mutates tree ValueTree, host WindowsHost, reader mxdbg.Mxdb
 		if raw == 0 'null'
 			return rendered(tree, name: name, typeName: typeName, kind: kind, display: nullDisplay)
 		end 'null'
-		var children = CountList.create(0)
-		let first = reader.typeFieldFirst(typeId)
-		for k in first upto plus(first, by: reader.typeFieldCount(typeId)) 'fields'
-			children.push(renderTyped(tree, host: host, reader: reader, name: reader.fieldName(k), typeId: reader.fieldType(k) as Count, source: Source.memory(plus(raw, by: reader.fieldOffset(k) as Count))))
-		end 'fields'
-		return withChildren(tree, name: name, typeName: typeName, kind: kind, display: structDisplay, children: children)
+		return renderFields(tree, host: host, reader: reader, name: name, typeId: typeId, at: raw)
 	end 'struct'
 	if kindWord == mxdbg.MxdbgTypeKindUnion 'union'
 		return renderUnion(tree, host: host, reader: reader, name: name, typeId: typeId, kind: kind, box: raw)
@@ -253,6 +259,28 @@ function renderTyped(mutates tree ValueTree, host WindowsHost, reader mxdbg.Mxdb
 	end 'function'
 	return missing(tree, name: name, typeName: typeName, kind: kind, reason: layoutNotDescribedReason)
 end 'renderTyped'
+
+// renderInPlace is a record held among the words of its holder: its fields are at its place, which the holder's field or
+// element gives.
+function renderInPlace(mutates tree ValueTree, host WindowsHost, reader mxdbg.MxdbgReader, name String, typeId Count, source Source) returns Count
+	let typeName = reader.typeName(typeId)
+	let kind = mxdbg.mxdbgTypeKindName(reader.typeKind(typeId))
+	return match source 'source'
+		words(_, _) gives missing(tree, name: name, typeName: typeName, kind: kind, reason: layoutNotDescribedReason)
+		memory(address) gives renderFields(tree, host: host, reader: reader, name: name, typeId: typeId, at: address)
+		nowhere gives missing(tree, name: name, typeName: typeName, kind: kind, reason: readFailedReason)
+	end 'source'
+end 'renderInPlace'
+
+// renderFields is a record whose fields are at the address at, each at its offset.
+function renderFields(mutates tree ValueTree, host WindowsHost, reader mxdbg.MxdbgReader, name String, typeId Count, at Count) returns Count
+	var children = CountList.create(0)
+	let first = reader.typeFieldFirst(typeId)
+	for k in first upto plus(first, by: reader.typeFieldCount(typeId)) 'fields'
+		children.push(renderTyped(tree, host: host, reader: reader, name: reader.fieldName(k), typeId: reader.fieldType(k) as Count, source: Source.memory(plus(at, by: reader.fieldOffset(k) as Count))))
+	end 'fields'
+	return withChildren(tree, name: name, typeName: reader.typeName(typeId), kind: mxdbg.mxdbgTypeKindName(reader.typeKind(typeId)), display: structDisplay, children: children)
+end 'renderFields'
 
 // renderString is a String's text, as maxon's display has it: quoted, with its length.
 function renderString(mutates tree ValueTree, host WindowsHost, name String, typeName String, kind String, source Source) returns Count
@@ -398,37 +426,30 @@ function renderArray(mutates tree ValueTree, host WindowsHost, reader mxdbg.Mxdb
 		return missing(tree, name: name, typeName: typeName, kind: kind, reason: layoutNotDescribedReason)
 	end 'noElement'
 	let element = reader.typeElement(typeId) as Count
+	let stride = reader.typeSize(typeId) as Count
 	let count = length.unwrap()
 	let buffer = data.unwrap()
 	let shown = count if count < mostChildren else mostChildren
 	var children = CountList.create(0)
 	for i in 0 upto shown 'elements'
-		children.push(renderElement(tree, host: host, reader: reader, element: element, at: plus(buffer, by: try i * strideOf(reader, element: element) otherwise 0), index: i))
+		children.push(renderElement(tree, host: host, reader: reader, element: element, at: plus(buffer, by: try i * stride otherwise 0), stride: stride, index: i))
 	end 'elements'
 	return withChildren(tree, name: name, typeName: typeName, kind: kind, display: "[{count}]", children: children)
 end 'renderArray'
 
-function renderElement(mutates tree ValueTree, host WindowsHost, reader mxdbg.MxdbgReader, element Count, at Count, index Count) returns Count
-	if reader.typeName(element) == byteTypeName 'byte'
-		let b = host.readMemory(at, count: 1)
+// renderElement is the element of an array at the address at: the byte that a packed buffer holds in place of a word, or the
+// value at its place in a buffer that keeps each element's words, which the array's stride (its type's size, from the layout
+// table) says.
+function renderElement(mutates tree ValueTree, host WindowsHost, reader mxdbg.MxdbgReader, element Count, at Count, stride Count, index Count) returns Count
+	if stride == packedElementBytes 'packed'
+		let b = host.readMemory(at, count: packedElementBytes)
 		if not b.isSome() 'unread'
-			return missing(tree, name: "[{index}]", typeName: byteTypeName, kind: mxdbg.mxdbgTypeKindName(reader.typeKind(element)), reason: readFailedReason)
+			return missing(tree, name: "[{index}]", typeName: reader.typeName(element), kind: mxdbg.mxdbgTypeKindName(reader.typeKind(element)), reason: readFailedReason)
 		end 'unread'
-		return rendered(tree, name: "[{index}]", typeName: byteTypeName, kind: mxdbg.mxdbgTypeKindName(reader.typeKind(element)), display: "{b.unwrap()[0]}")
-	end 'byte'
+		return renderTyped(tree, host: host, reader: reader, name: "[{index}]", typeId: element, source: Source.words(b.unwrap()[0] as Count, second: 0))
+	end 'packed'
 	return renderTyped(tree, host: host, reader: reader, name: "[{index}]", typeId: element, source: Source.memory(at))
 end 'renderElement'
-
-// strideOf is the bytes an element takes in an array's buffer: a String two words, a byte one, any other value a word.
-function strideOf(reader mxdbg.MxdbgReader, element Count) returns Count
-	if reader.typeKind(element) == mxdbg.MxdbgTypeKindString 'string'
-		return stringValueBytes
-	end 'string'
-	if reader.typeName(element) == byteTypeName 'byte'
-		return 1
-	end 'byte'
-	return wordBytes
-end 'strideOf'
 
 function caseName(reader mxdbg.MxdbgReader, typeId Count, tag Count) returns String
 	let first = reader.typeFieldFirst(typeId)

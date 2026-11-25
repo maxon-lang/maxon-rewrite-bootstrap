@@ -18,7 +18,9 @@ import (
 // registers, in frame slots and in two words (a String) must say so, with its record's fields. A stack overflow's fault
 // line, whose address is in a function of one statement, is then symbolized to that statement on every target the host
 // runs. On x64 Windows a batch session of the debugger drives the locals program (debug --batch) and its events are held
-// to sessionEvents, and a conversational session (debug, its commands as standard input) is held to conversationLines.
+// to sessionEvents, and a conversational session (debug, its commands as standard input) is held to conversationLines. The
+// holdings program (debuginfo_holdings.go) is built for every target too, its dump held to holdingsExpected, and on x64
+// Windows a batch session reads back the values that every holder keeps in every way the layout table has.
 var debugInfoPrograms = []string{
 	filepath.Join("tests", "run", "arithmetic.maxon"),
 	filepath.Join("tests", "run", "array-methods.maxon"),
@@ -157,6 +159,10 @@ func debugInfo(h host, compiler string) error {
 	if err := os.WriteFile(locals, []byte(localsSource), 0o644); err != nil {
 		return err
 	}
+	holdings := filepath.Join(root, "holdings.maxon")
+	if err := os.WriteFile(holdings, []byte(holdingsSource), 0o644); err != nil {
+		return err
+	}
 	// A Mach-O image is signed under its file's name, so both builds of a program have one.
 	plainRoot := filepath.Join(root, "plain")
 	if err := os.MkdirAll(plainRoot, 0o755); err != nil {
@@ -193,7 +199,7 @@ func debugInfo(h host, compiler string) error {
 		return fmt.Errorf("debug info: the sidecar of self cannot be walked: %.400s", walked)
 	}
 	for _, t := range targets {
-		for _, p := range append([]string{overflow, locals}, debugInfoPrograms...) {
+		for _, p := range append([]string{overflow, locals, holdings}, debugInfoPrograms...) {
 			name := strings.TrimSuffix(filepath.Base(p), filepath.Ext(p)) + "-" + t
 			if err := same(p, []string{"--target=" + t}, name); err != nil {
 				return err
@@ -205,9 +211,18 @@ func debugInfo(h host, compiler string) error {
 				return fmt.Errorf("debug info: the locals of the program built for %s do not match %s", t, expected)
 			}
 		}
+		held, _ := output(nil, "", compiler, "debug", "--dump-info", filepath.Join(root, "holdings-"+t+".exe"), "functions", "types")
+		for _, expected := range holdingsExpected {
+			if !expected.MatchString(held) {
+				return fmt.Errorf("debug info: the holdings of the program built for %s do not match %s", t, expected)
+			}
+		}
 	}
 	if h.windows() {
 		if err := debuggerSession(compiler, filepath.Join(root, "locals-x64-windows.exe")); err != nil {
+			return err
+		}
+		if err := batchSteps(compiler, filepath.Join(root, "holdings-x64-windows.exe"), holdingsSteps()); err != nil {
 			return err
 		}
 	} else {
@@ -238,23 +253,12 @@ func debugInfo(h host, compiler string) error {
 
 // debuggerSession runs the batch session of the locals program on x64 Windows, then the conversational one. The batch's program output goes to stderr.
 func debuggerSession(compiler, session string) error {
-	cmd := exec.Command(compiler, "debug", "--batch", sessionCommands, session)
-	out, err := cmd.Output()
-	events := strings.Split(strings.TrimRight(strings.ReplaceAll(string(out), "\r\n", "\n"), "\n"), "\n")
-	if err != nil {
-		return fmt.Errorf("debug info: the batch session of %s fails (%v): %s", session, err, out)
+	if err := batchEvents(compiler, session, sessionCommands, sessionEvents); err != nil {
+		return err
 	}
-	for i, expected := range sessionEvents {
-		if i >= len(events) || !expected.MatchString(events[i]) {
-			return fmt.Errorf("debug info: event %d of the batch session does not match %s: %s", i, expected, out)
-		}
-	}
-	if len(events) != len(sessionEvents) {
-		return fmt.Errorf("debug info: the batch session answered %d events, not %d: %s", len(events), len(sessionEvents), out)
-	}
-	cmd = exec.Command(compiler, "debug", session)
+	cmd := exec.Command(compiler, "debug", session)
 	cmd.Stdin = strings.NewReader(conversationInput)
-	out, err = cmd.Output()
+	out, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("debug info: the conversational session of %s fails (%v): %s", session, err, out)
 	}
@@ -262,6 +266,25 @@ func debuggerSession(compiler, session string) error {
 		if !expected.Match(out) {
 			return fmt.Errorf("debug info: the conversational session does not answer %s: %s", expected, out)
 		}
+	}
+	return nil
+}
+
+// batchEvents runs the batch session of the program at session with commands, and holds each event it answers to the one expected
+// of the command at its place.
+func batchEvents(compiler, session, commands string, expectedEvents []*regexp.Regexp) error {
+	out, err := exec.Command(compiler, "debug", "--batch", commands, session).Output()
+	events := strings.Split(strings.TrimRight(strings.ReplaceAll(string(out), "\r\n", "\n"), "\n"), "\n")
+	if err != nil {
+		return fmt.Errorf("debug info: the batch session of %s fails (%v): %s", session, err, out)
+	}
+	for i, expected := range expectedEvents {
+		if i >= len(events) || !expected.MatchString(events[i]) {
+			return fmt.Errorf("debug info: event %d of the batch session of %s does not match %s: %s", i, session, expected, out)
+		}
+	}
+	if len(events) != len(expectedEvents) {
+		return fmt.Errorf("debug info: the batch session of %s answered %d events, not %d: %s", session, len(events), len(expectedEvents), out)
 	}
 	return nil
 }

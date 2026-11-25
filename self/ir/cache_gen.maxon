@@ -399,6 +399,7 @@ function storeDebugEntry(mutates w table.CacheWriter, v DebugEntry)
 	w.word64(v.param as table.Word64)
 	w.word64(v.slot as table.Word64)
 	w.word64(v.reg as table.Word64)
+	w.flag(v.byRef)
 end 'storeDebugEntry'
 
 extension DebugEntry
@@ -412,7 +413,8 @@ extension DebugEntry
 		let theParam = r.word64() as Count
 		let theSlot = r.word64() as Count
 		let theReg = try (r.int64() as Reg) otherwise panic("cache: a stored Reg is out of its range")
-		return DebugEntry{kind: theKind, callee: theCallee, call: theCall, name: theName, ty: theTy, binding: theBinding, param: theParam, slot: theSlot, reg: theReg}
+		let theByRef = r.flag()
+		return DebugEntry{kind: theKind, callee: theCallee, call: theCall, name: theName, ty: theTy, binding: theBinding, param: theParam, slot: theSlot, reg: theReg, byRef: theByRef}
 	end 'cacheLoad'
 end 'DebugEntry'
 
