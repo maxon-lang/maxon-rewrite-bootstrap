@@ -27,6 +27,8 @@ let kwGives = "gives"
 
 let kwIf = "if"
 
+let kwIgnore = "ignore"
+
 let kwIn = "in"
 
 let kwLet = "let"
@@ -52,6 +54,8 @@ let kwSets = "sets"
 let kwStatic = "static"
 
 let kwThen = "then"
+
+let kwTo = "to"
 
 let kwTrue = "true"
 
@@ -115,20 +119,25 @@ function hasPrefix(text String, prefix String) returns bool
 	return text.sliceBytes(0, endPos: n) == prefix
 end 'hasPrefix'
 
-// containsText is whether needle stands anywhere in text.
-function containsText(text String, needle String) returns bool
+// textPosition is where needle first stands in text, when it does.
+function textPosition(text String, needle String) returns table.Option with Count
 	let n = needle.byteLength()
 	if text.byteLength() < n 'short'
-		return false
+		return table.Option.none
 	end 'short'
 	let last = (try text.byteLength() - n otherwise panic("fuzz: a needle longer than its text")) as Count
 	for at in 0 to last 'scan'
 		let finish = try at + n otherwise panic("fuzz: a needle past memory")
 		if text.sliceBytes(at, endPos: finish) == needle 'found'
-			return true
+			return table.Option.some(at)
 		end 'found'
 	end 'scan'
-	return false
+	return table.Option.none
+end 'textPosition'
+
+// containsText is whether needle stands anywhere in text.
+function containsText(text String, needle String) returns bool
+	return textPosition(text, needle: needle).isSome()
 end 'containsText'
 
 // joinStrings is the parts with the separator between each two.

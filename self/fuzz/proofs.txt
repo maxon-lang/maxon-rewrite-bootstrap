@@ -1,0 +1,129 @@
+typealias Counts = Array with Count
+
+typealias Names = Array with String
+
+typealias Quad = FixedArray with 4 Count
+
+typealias Slot = int(0 to 3)
+
+typealias Small = int(0 to 200)
+
+typealias Bump = function() returns Count mutates captures
+
+typealias Peek = function() returns Count
+
+type Holder
+	var items as Counts
+
+	static function make(consumes items Counts) returns Holder
+		return Holder{items: items}
+	end 'make'
+
+	function drain(mutates self)
+		items.clear()
+	end 'drain'
+
+	function dropLast(mutates self)
+		try items.pop() otherwise ignore
+	end 'dropLast'
+
+	function cutOne(mutates self) returns Count
+		try items.pop() otherwise ignore
+		return items.count()
+	end 'cutOne'
+
+	function refill(mutates self, n Count)
+		items = fresh(n, salt: 5)
+	end 'refill'
+end 'Holder'
+
+type Outer
+	var inner as Holder
+	var spare as Counts
+
+	static function make(consumes inner Holder, consumes spare Counts) returns Outer
+		return Outer{inner: inner, spare: spare}
+	end 'make'
+end 'Outer'
+
+type Cursor
+	var n as Count
+
+	static function make(n Count) returns Cursor
+		return Cursor{n: n}
+	end 'make'
+end 'Cursor'
+
+function mix(h Count, v Count) returns Count
+	return try (h * 31 + v) mod 1000003 otherwise panic("mix")
+end 'mix'
+
+function fresh(n Count, salt Count) returns Counts
+	var xs = Counts.create(0)
+	for i in 0 upto n 'each'
+		xs.push(try i * 7 + salt otherwise 0)
+	end 'each'
+	return xs
+end 'fresh'
+
+function wipe(mutates xs Counts) returns Count
+	xs.clear()
+	return 0
+end 'wipe'
+
+function shrink(mutates xs Counts) returns Count
+	try xs.pop() otherwise ignore
+	return xs.count()
+end 'shrink'
+
+function grow(mutates xs Counts) returns Count
+	xs.push(9)
+	return xs.count()
+end 'grow'
+
+function cut(mutates xs Counts, to Count) returns Count
+	xs.truncate(to)
+	return xs.count()
+end 'cut'
+
+function restart(mutates xs Counts) returns Count
+	xs = fresh(2, salt: 11)
+	return xs.count()
+end 'restart'
+
+function scribble(mutates q Quad) returns Count
+	q.set(0, value: 5)
+	return 5
+end 'scribble'
+
+function bump(mutates n Count) returns Count
+	n = try n + 2 otherwise 0
+	return n
+end 'bump'
+
+function setBig(mutates n Count) returns Count
+	n = 1000000
+	return n
+end 'setBig'
+
+function setZero(mutates n Count) returns Count
+	n = 0
+	return n
+end 'setZero'
+
+function setSlot(mutates s Slot) returns Count
+	s = 3
+	return 3
+end 'setSlot'
+
+function apply(mutates f Bump) returns Count
+	return f()
+end 'apply'
+
+function peek(f Peek) returns Count
+	return f()
+end 'peek'
+
+function idx(n Count) returns Count
+	return n
+end 'idx'

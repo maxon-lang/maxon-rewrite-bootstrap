@@ -24,6 +24,10 @@ const behaviourWorkers = "1,2,4"
 // setting it.
 const hashSeedPin = "1111111111111111"
 
+// proofSeeds is how many programs of the proof generator the gate runs, which is what fits in half a minute and is far more
+// than the few that find a hole in a proof the generator is aimed at (the closure that changes an index, a count effect).
+const proofSeeds = "180"
+
 // concurrentVariable, set to anything, has the gate run its lanes at once (--concurrent for suites).
 const concurrentVariable = "MINIMAXON_GATE_CONCURRENT"
 
@@ -123,6 +127,9 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 		// Every program the generator writes that the checker accepts must run clean under the interpreter: a violation is a
 		// hole in the checker.
 		{step{"fuzz", func() error { return mm("fuzz") }}, "checks"},
+		// The proof generator's programs aim at the range analysis's proofs of access and arithmetic: an access the analysis proved
+		// that lies outside its array is a violation under the interpreter, and the executable must print what the interpreter does.
+		{step{"fuzz proofs", func() error { return mm("fuzz", "--proofs", "--native", "--count="+proofSeeds) }}, "checks"},
 		{step{"benchmarks compile", func() error { return benchmarksCompile(r.compiler, r.testArgs) }}, "builds"},
 		{step{"self compiles for arm64", func() error { return selfCompilesForArm64(r.compiler) }}, "builds"},
 		{step{"cache", func() error { return cacheTest(r.h, r.compiler) }}, "builds"},

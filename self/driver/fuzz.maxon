@@ -2,7 +2,10 @@
 // and reports a program the checker accepted that the interpreter convicts of a memory-model violation or a leak (a hole in the
 // checker or in the lowering), a program that the checker refuses (a hole in the generator, when it does not parse) and, with
 // --native, one whose executable gives other output than the interpreter. A program is a pure function of its seed, so a failure
-// is reproduced by its seed alone.
+// is reproduced by its seed alone. With --proofs the programs are the proof generator's (self/fuzz/proofs.maxon), which aims at the
+// range analysis's proofs of access and arithmetic: each is fixed by the compiler's own fix pass, which removes the handler of an
+// access the analysis proves, and then every refusal is a hole in the generator, and an access the interpreter finds outside its
+// array, or an output that differs from the executable's, is a hole in a proof.
 
 let fuzzSeedFlag = "--seed="
 
@@ -15,6 +18,8 @@ let fuzzKeepFlag = "--keep="
 let fuzzDumpFlag = "--dump"
 
 let fuzzNativeFlag = "--native"
+
+let fuzzProofsFlag = "--proofs"
 
 let fuzzWorkerFlag = "--worker"
 
@@ -29,7 +34,7 @@ let workerMarker = "@"
 // then the rejected codes.
 let workerTally = "tally "
 
-let tallyWords = 9 as Count
+let tallyWords = 11 as Count
 
 let defaultGeneratedPrograms = 300 as Count
 
@@ -61,6 +66,21 @@ let generatedPath = "p.maxon"
 
 let libraryFileName = "library.txt"
 
+// proofsLibraryFileName is the library of the proof generator's programs.
+let proofsLibraryFileName = "proofs.txt"
+
+// proofsKeepDirName is where --proofs keeps the programs that fail when --keep names no directory, under the system's temporary
+// directory.
+let proofsKeepDirName = "minimaxon-fuzz-proofs"
+
+// maxRefusedDivisor is the share of the programs of a --proofs run that the checker may refuse for a fact it knows of the code
+// (isStaticRefusal), as 1 in this many.
+let maxRefusedDivisor = 4 as Count
+
+// minProvenDivisor is the share of the accesses of a --proofs run that the analysis must prove, as 1 in this many: a generator
+// whose programs the analysis proves nothing of tests no proof.
+let minProvenDivisor = 8 as Count
+
 let selfDirName = "self"
 
 let fuzzDirName = "fuzz"
@@ -84,15 +104,31 @@ function fuzzNumber(text String, flag String) returns table.Option with Count
 	return number
 end 'fuzzNumber'
 
-// libraryText is the generic code that every generated program starts with, which lives beside the generator's source.
-function libraryText() returns table.Option with String
+// libraryText is the generic code that every generated program starts with, which lives beside the generator's source: the file
+// of the generator the options choose.
+function libraryText(options FuzzOptions) returns table.Option with String
 	let selfDir = project.nearestDirectory(selfDirName)
 	if not selfDir.isSome() 'missing'
 		return table.Option.none
 	end 'missing'
 	let fuzzDir = project.joinPath(selfDir.unwrap(), name: fuzzDirName)
-	return project.readTextFile(project.joinPath(fuzzDir, name: libraryFileName))
+	return project.readTextFile(project.joinPath(fuzzDir, name: libraryFileOf(options)))
 end 'libraryText'
+
+function libraryFileOf(options FuzzOptions) returns String
+	if options.proofs 'proofs'
+		return proofsLibraryFileName.clone()
+	end 'proofs'
+	return libraryFileName.clone()
+end 'libraryFileOf'
+
+// generatedProgram is the program of a seed, from the generator the options choose.
+function generatedProgram(options FuzzOptions, seed Count, library String) returns fuzz.GeneratedProgram
+	if options.proofs 'proofs'
+		return fuzz.generateProof(seed, library: library)
+	end 'proofs'
+	return fuzz.generate(seed, library: library)
+end 'generatedProgram'
 
 // FuzzOptions are what the flags of the fuzz command say.
 type FuzzOptions
@@ -102,12 +138,14 @@ type FuzzOptions
 	var keep as String
 	var dump as bool
 	var native as bool
+	// proofs says that the programs are the proof generator's.
+	var proofs as bool
 	// worker says that this process is one that a run of the command started for some of its seeds, so that an internal compiler error
 	// on one program ends only that process.
 	var worker as bool
 
 	static function new() returns FuzzOptions
-		return FuzzOptions{first: 1, count: defaultGeneratedPrograms, schedules: defaultScheduleSeeds, keep: "", dump: false, native: false, worker: false}
+		return FuzzOptions{first: 1, count: defaultGeneratedPrograms, schedules: defaultScheduleSeeds, keep: "", dump: false, native: false, proofs: false, worker: false}
 	end 'new'
 end 'FuzzOptions'
 
@@ -143,18 +181,23 @@ function readFuzzOptions(args CommandNames) returns table.Option with FuzzOption
 			options.dump = true
 		end 'dump' else if args[i] == fuzzNativeFlag 'native'
 			options.native = true
-		end 'native' else if args[i] == fuzzWorkerFlag 'worker'
+		end 'native' else if args[i] == fuzzProofsFlag 'proofs'
+			options.proofs = true
+		end 'proofs' else if args[i] == fuzzWorkerFlag 'worker'
 			options.worker = true
 		end 'worker' else 'unknown'
 			printError("fuzz: unknown argument {args[i]}\n")
 			return table.Option.none
 		end 'unknown'
 	end 'args'
+	if options.proofs and options.keep == "" 'kept'
+		options.keep = ast.temporaryPath(proofsKeepDirName)
+	end 'kept'
 	return table.Option.some(options)
 end 'readFuzzOptions'
 
-// fuzzCommand is `fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]`: it runs the programs of the seeds from
-// --seed up, --count of them, and with --dump only prints the program of --seed.
+// fuzzCommand is `fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--proofs] [--dump]`: it runs the programs
+// of the seeds from --seed up, --count of them, and with --dump only prints the program of --seed.
 function fuzzCommand(args CommandNames) returns ExitCode
 	let read = readFuzzOptions(args)
 	if not read.isSome() 'invalid'
@@ -162,14 +205,14 @@ function fuzzCommand(args CommandNames) returns ExitCode
 		return usageExitCode
 	end 'invalid'
 	let options = read.unwrap()
-	let found = libraryText()
+	let found = libraryText(options)
 	if not found.isSome() 'noLibrary'
-		printError("fuzz: no {selfDirName}/{fuzzDirName}/{libraryFileName} in the compiler's directory or above it\n")
+		printError("fuzz: no {selfDirName}/{fuzzDirName}/{libraryFileOf(options)} in the compiler's directory or above it\n")
 		return usageExitCode
 	end 'noLibrary'
 	let library = found.unwrap()
 	if options.dump 'dump'
-		print(fuzz.program(options.first, library: library))
+		print(generatedProgram(options, seed: options.first, library: library).source)
 		return 0
 	end 'dump'
 	if options.worker 'worker'
@@ -177,6 +220,13 @@ function fuzzCommand(args CommandNames) returns ExitCode
 	end 'worker'
 	return fuzzSupervisor(options)
 end 'fuzzCommand'
+
+// isStaticRefusal is whether the code says that the checker knows an access or a division of the program to be wrong whatever
+// is run: an index that a condition made a known number outside a fixed array, or a divisor of 0. The generator cannot tell
+// which values a condition made known, so such a program is left out, as a refusal.
+function isStaticRefusal(code String) returns bool
+	return code == diag.errTypeMismatch or code == diag.errDivisionByZero
+end 'isStaticRefusal'
 
 // GeneratedRun is what happened to one generated program.
 type GeneratedRun
@@ -365,11 +415,14 @@ type FuzzTally
 	var comparedConcurrent as Count
 	var concurrent as Count
 	var behaviours as Count
+	// accesses is how many accesses the proof programs had, and proven how many of them the analysis proved.
+	var accesses as Count
+	var proven as Count
 	var rejectedCodes as ast.StringList
 	var rejectedCounts as table.StringMap with Count
 
 	static function new() returns FuzzTally
-		return FuzzTally{accepted: 0, trapped: 0, timedOut: 0, failures: 0, compared: 0, comparedConcurrent: 0, concurrent: 0, behaviours: 0, rejectedCodes: ast.StringList.create(0), rejectedCounts: table.StringMap.new()}
+		return FuzzTally{accepted: 0, trapped: 0, timedOut: 0, failures: 0, compared: 0, comparedConcurrent: 0, concurrent: 0, behaviours: 0, accesses: 0, proven: 0, rejectedCodes: ast.StringList.create(0), rejectedCounts: table.StringMap.new()}
 	end 'new'
 
 	// reject counts programs that the checker refused, by the code of the first diagnostic of each.
@@ -383,9 +436,15 @@ type FuzzTally
 		end 'first'
 	end 'reject'
 
+	// countAccesses adds the accesses of a proof program and the share the analysis proved: proofAccessTally's two numbers.
+	function countAccesses(mutates self, counts FuzzCounts)
+		accesses = try accesses + counts[0] otherwise panic("fuzz: more accesses than memory")
+		proven = try proven + counts[1] otherwise panic("fuzz: more accesses than memory")
+	end 'countAccesses'
+
 	// the counts of the worker's line, which ends a worker's output: its numbers in order, then the rejected codes with their counts.
 	function line() returns String
-		var text = "{workerTally}{accepted} {trapped} {timedOut} {failures} {compared} {comparedConcurrent} {concurrent} {behaviours}"
+		var text = "{workerTally}{accepted} {trapped} {timedOut} {failures} {compared} {comparedConcurrent} {concurrent} {behaviours} {accesses} {proven}"
 		for i in 0 upto rejectedCodes.count() 'codes'
 			let count = rejectedCounts.get(rejectedCodes[i]).unwrap()
 			text = "{text} {rejectedCodes[i]}:{count}"
@@ -415,6 +474,8 @@ type FuzzTally
 		comparedConcurrent = try comparedConcurrent + numbers[5] otherwise panic("fuzz: more programs than memory")
 		concurrent = try concurrent + numbers[6] otherwise panic("fuzz: more programs than memory")
 		behaviours = try behaviours + numbers[7] otherwise panic("fuzz: more programs than memory")
+		accesses = try accesses + numbers[8] otherwise panic("fuzz: more accesses than memory")
+		proven = try proven + numbers[9] otherwise panic("fuzz: more accesses than memory")
 		for i in tallyWords upto words.count() 'codes'
 			let split = findText(words[i], needle: ":")
 			if split.isSome() 'pair'
@@ -460,6 +521,31 @@ function fail(mutates tally FuzzTally, options FuzzOptions, seed Count, source S
 	end 'brief'
 end 'fail'
 
+// fixedProofProgram is the proof program after the compiler's own fix pass: it removes the handler of each access, and the
+// try of each piece of arithmetic, that the analysis proves cannot fail (E3944), and adds a try that panics to what the
+// generator wrote bare, so the program that is left is what the analysis accepts.
+function fixedProofProgram(source String, libraries FixLibraries) returns String
+	var files = project.SourceFiles.create(0)
+	files.push(project.SourceFile.make(generatedPath.clone(), text: source.clone()))
+	let prog = FixProgram.make(generatedPath.clone(), name: generatedPath.clone(), single: true, files: files, candidates: ast.knownTargets())
+	let outcome = fixProgram(prog, libraries: libraries, expected: table.Option.none, watches: ast.StringList.create(0))
+	return outcome.files[0].text.clone()
+end 'fixedProofProgram'
+
+// proofLibraries is the library that the fixes of a --proofs run share, prepared once: the first target's, which is the one a
+// program of one file is checked for. Another run has none to prepare.
+function proofLibraries(options FuzzOptions) returns FixLibraries
+	if not options.proofs 'none'
+		return noFixLibraries()
+	end 'none'
+	var needed = Flags.create(0)
+	let known = ast.knownTargets()
+	for i in 0 upto known.count() 'targets'
+		needed.push(i == 0)
+	end 'targets'
+	return prepareFixLibraries(needed)
+end 'proofLibraries'
+
 // nativeRuntime is the runtime that executables of generated programs link with, which only a run with --native makes, since
 // checking and compiling it is what no other run needs.
 function nativeRuntime(options FuzzOptions) returns SharedRuntime
@@ -475,16 +561,22 @@ end 'nativeRuntime'
 function fuzzWorker(options FuzzOptions, library String) returns ExitCode
 	var tally = FuzzTally.new()
 	var shared = nativeRuntime(options)
+	let libraries = proofLibraries(options)
 	let last = try options.first + options.count otherwise panic("fuzz: the seeds pass the largest number")
 	var seed = options.first
 	while seed < last 'seeds'
 		print("{workerMarker}{seed}\n")
-		let generated = fuzz.generate(seed, library: library)
-		let source = generated.source.clone()
+		let generated = generatedProgram(options, seed: seed, library: library)
+		var source = generated.source.clone()
+		if options.proofs 'proofs'
+			source = fixedProofProgram(source, libraries: libraries)
+		end 'proofs'
 		let outcome = runGenerated(source, schedules: options.schedules)
 		if outcome.syntaxFail 'syntax'
 			fail(tally, options: options, seed: seed, source: source, message: "the generator wrote a program that does not parse: {outcome.rejectedText}")
-		end 'syntax' else if outcome.rejected 'rejected'
+		end 'syntax' else if outcome.rejected and options.proofs and not isStaticRefusal(outcome.rejectedCode) 'refused'
+			fail(tally, options: options, seed: seed, source: source, message: "the checker refuses the program after the fix, which a proof program never needs: {outcome.rejectedText}")
+		end 'refused' else if outcome.rejected 'rejected'
 			tally.reject(outcome.rejectedCode, programs: 1)
 		end 'rejected' else if outcome.violations.count() > 0 'violated'
 			var report = ""
@@ -497,6 +589,9 @@ function fuzzWorker(options FuzzOptions, library String) returns ExitCode
 			keepSource(options.keep, name: "timeout{seed}.maxon", source: source)
 		end 'timedOut' else 'accepted'
 			tally.accepted = try tally.accepted + 1 otherwise panic("fuzz: more programs than memory")
+			if options.proofs 'counted'
+				tally.countAccesses(fuzz.proofAccessTally(source))
+			end 'counted'
 			if outcome.exitCode != 0 'trapped'
 				tally.trapped = try tally.trapped + 1 otherwise panic("fuzz: more programs than memory")
 			end 'trapped'
@@ -557,6 +652,9 @@ function workerArguments(options FuzzOptions, first Count, count Count) returns 
 	if options.native 'native'
 		args.push(fuzzNativeFlag)
 	end 'native'
+	if options.proofs 'proofs'
+		args.push(fuzzProofsFlag)
+	end 'proofs'
 	return args
 end 'workerArguments'
 
@@ -604,11 +702,11 @@ function runChunk(options FuzzOptions, first Count, count Count, mutates tally F
 	if not runChunk(options, first: first, count: before, tally: tally) 'beforeAborted'
 		return false
 	end 'beforeAborted'
-	let found = libraryText()
+	let found = libraryText(options)
 	if not found.isSome() 'noLibrary'
 		return false
 	end 'noLibrary'
-	let source = fuzz.program(current, library: found.unwrap())
+	let source = generatedProgram(options, seed: current, library: found.unwrap()).source.clone()
 	fail(tally, options: options, seed: current, source: source, message: "internal compiler error: {trimSpace(result.stderr)}")
 	let after = try (first + count) - (current + 1) otherwise panic("fuzz: a worker's marker is after its chunk")
 	return runChunk(options, first: try current + 1 otherwise panic("fuzz: the seeds pass the largest number"), count: after, tally: tally)
@@ -628,7 +726,11 @@ function fuzzSummary(mutates tally FuzzTally, options FuzzOptions) returns ExitC
 		print("{tally.compared} accepted programs also ran as executables with the same output and exit code, {tally.comparedConcurrent} of them scheduling behaviours, each run {nativeBehaviourRuns} times with {workerCountText()}\n")
 	end 'compared'
 	print("{options.count} programs: {tally.accepted} accepted and clean ({tally.trapped} of them ended in a trap, {tally.timedOut} ran out of steps), {total} rejected by the checker [{fuzz.joinStrings(parts, separator: " ")}], {tally.failures} failed\n")
-	print("{tally.concurrent} of the accepted programs scheduled behaviours ({tally.behaviours} in all), each under {options.schedules} schedules\n")
+	if options.proofs 'proofs'
+		print("{tally.accesses} accesses in the accepted programs, {tally.proven} of them proven by the analysis\n")
+	end 'proofs' else 'schedules'
+		print("{tally.concurrent} of the accepted programs scheduled behaviours ({tally.behaviours} in all), each under {options.schedules} schedules\n")
+	end 'schedules'
 	var failed = tally.failures > 0
 	let reached = try tally.accepted + tally.failures otherwise panic("fuzz: more programs than memory")
 	let wanted = try reached * minAcceptedDivisor otherwise panic("fuzz: more programs than memory")
@@ -636,7 +738,20 @@ function fuzzSummary(mutates tally FuzzTally, options FuzzOptions) returns ExitC
 		print("the checker accepted {reached} of {options.count} programs, fewer than 1 in {minAcceptedDivisor}: a run that accepts almost nothing tests nothing, so the generator or its library no longer follows the language\n")
 		failed = true
 	end 'few'
+	let refusedLimit = try total * maxRefusedDivisor otherwise panic("fuzz: more programs than memory")
+	if options.proofs and refusedLimit > options.count 'refused'
+		print("the checker refused {total} of {options.count} programs for what it knows of their code, more than 1 in {maxRefusedDivisor}: the generator writes too many accesses that the code makes wrong\n")
+		failed = true
+	end 'refused'
+	let provenWanted = try tally.proven * minProvenDivisor otherwise panic("fuzz: more accesses than memory")
+	if options.proofs and tally.accesses > 0 and provenWanted < tally.accesses 'unproven'
+		print("the analysis proved {tally.proven} of {tally.accesses} accesses, fewer than 1 in {minProvenDivisor}: a run whose programs prove almost nothing tests no proof, so the generator is biased toward what the analysis refuses\n")
+		failed = true
+	end 'unproven'
 	if failed 'failed'
+		if options.keep != "" and tally.failures > 0 'kept'
+			print("the programs that failed are in {options.keep}, each as seed<N>.maxon\n")
+		end 'kept'
 		return diagnosticsExitCode
 	end 'failed'
 	return 0

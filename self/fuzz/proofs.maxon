@@ -1,0 +1,1243 @@
+// The proof generator writes programs that aim at the range analysis's proofs of access and arithmetic: arrays and fixed arrays
+// read and written by index inside guards and loops, mixed with everything that must make the analysis forget what it knows (a
+// mutation of the array or of the index between the fact and its use, a closure that changes either, a call or a record's method
+// that changes the array, an assignment of the array, an early exit). Each access is written with its own handler, as
+// `try xs.get(i) otherwise 7`, so that a program the analysis cannot prove runs checked and never traps; the compiler's own
+// `fix` pass then removes the handler where the analysis proves the access (E3944), so the generator never needs to know what
+// the analysis proves. What is left runs under the interpreter, where an access that was proven and lies outside its array is a
+// violation, and natively, where the output must be the interpreter's.
+//
+// A program is the library of proofs.txt, a few scenario functions and a main that prints each scenario's checksum. A scenario
+// declares the same arrays, index variables and records, then writes a block of statements. The statements that are the point
+// follow a focus: a guard or a loop says that an index is below an array's count, and the statements in its body read that
+// array at that index, or forget it, more often than chance would.
+
+// proofMinScenarios is how many scenario functions a program has at least, and proofExtraScenarios how many more it may have.
+let proofMinScenarios = 4 as Count
+
+let proofExtraScenarios = 4 as Count
+
+// proofBudget is how many statements one scenario writes at most, counting the ones inside its blocks.
+let proofBudget = 40 as Count
+
+let proofDepth = 3 as Count
+
+let proofFocusPercent = 75 as Count
+
+// proofProbePercent is how often a fact is followed by a built-in change of an array and a read under the fact, and
+// proofOtherProbePercent how often the array it changes is another one, which leaves the fact true.
+let proofProbePercent = 40 as Count
+
+let proofOtherProbePercent = 15 as Count
+
+// proofClosureProbePercent is how often a fact is followed by a closure that changes what it is about and a read under it.
+let proofClosureProbePercent = 30 as Count
+
+// proofFirstUsePercent is how often a guard or a loop starts with a read under its own fact.
+let proofFirstUsePercent = 45 as Count
+
+// proofFuelLimit is how many times a while loop runs at most, whatever its body does to its condition.
+let proofFuelLimit = 12 as Count
+
+// proofFixedCount is how many elements the fixed array of the library has.
+let proofFixedCount = 4 as Count
+
+// The kinds of array a scenario has.
+let proofCounts = 0 as Count
+
+let proofNames = 1 as Count
+
+let proofFixed = 2 as Count
+
+// What owns an array, which says how the record that holds it changes it.
+let proofOwnerNone = 0 as Count
+
+let proofOwnerHolder = 1 as Count
+
+let proofOwnerInner = 2 as Count
+
+let proofOwnerOuter = 3 as Count
+
+// proofReadFallback is what a read that fails gives, and proofNameFallback is the same for an array of strings.
+let proofReadFallback = "7"
+
+let proofNameFallback = "\"\""
+
+// proofScenarioMarker is the comment that ends the library and starts the scenarios, whose accesses the tally counts.
+let proofScenarioMarker = "// scenarios"
+
+type ProofArray
+	var text as String
+	var kind as Count
+	// owner is the record variable that holds the array, whose methods change it and which a whole assignment replaces.
+	var owner as String
+	var holds as Count
+
+	static function make(consumes text String, kind Count, consumes owner String, holds Count) returns ProofArray
+		return ProofArray{text: text, kind: kind, owner: owner, holds: holds}
+	end 'make'
+end 'ProofArray'
+
+typealias ProofArrays = Array with ProofArray
+
+// ProofTarget is the array a statement reads or changes and the index it uses.
+type ProofTarget
+	var array as Count
+	var index as String
+
+	static function make(array Count, consumes index String) returns ProofTarget
+		return ProofTarget{array: array, index: index}
+	end 'make'
+end 'ProofTarget'
+
+// proofHandled is the expression with the handler that gives the fallback where it fails.
+function proofHandled(expr String, fallback String) returns String
+	return "{kwTry} {expr} {kwOtherwise} {fallback}"
+end 'proofHandled'
+
+function proofLower(depth Count) returns Count
+	return try depth - 1 otherwise panic("fuzz: a proof depth below 0")
+end 'proofLower'
+
+type ProofGen
+	var rng as Rand
+	var out as StringList
+	var indent as Count
+	var names as Count
+	var labels as Count
+	var budget as Count
+	var arrays as ProofArrays
+	var cursors as StringList
+	// readable are the places an index may be read from: the cursors, the snapshot n, and the variables of the loops around.
+	var readable as StringList
+	var loops as StringList
+	// The focus is the facts the guards and loops around the statement being written state: an array and the place that is below
+	// its count, in two lists of one length.
+	var focusArrays as CountList
+	var focusPlaces as StringList
+	// The last condition written, when it was one that gives a focus.
+	var condFocused as bool
+	var condArray as Count
+	var condPlace as String
+
+	static function new(seed Count) returns ProofGen
+		var arrays = ProofArrays.create(0)
+		arrays.push(ProofArray.make("xs", kind: proofCounts, owner: "", holds: proofOwnerNone))
+		arrays.push(ProofArray.make("ys", kind: proofCounts, owner: "", holds: proofOwnerNone))
+		arrays.push(ProofArray.make("ss", kind: proofNames, owner: "", holds: proofOwnerNone))
+		arrays.push(ProofArray.make("h.items", kind: proofCounts, owner: "h", holds: proofOwnerHolder))
+		arrays.push(ProofArray.make("o.inner.items", kind: proofCounts, owner: "o.inner", holds: proofOwnerInner))
+		arrays.push(ProofArray.make("o.spare", kind: proofCounts, owner: "o", holds: proofOwnerOuter))
+		arrays.push(ProofArray.make("q", kind: proofFixed, owner: "", holds: proofOwnerNone))
+		var cursors = StringList.create(0)
+		cursors.push("i")
+		cursors.push("j")
+		cursors.push("c.n")
+		cursors.push("m")
+		var readable = StringList.create(0)
+		readable.push("i")
+		readable.push("j")
+		readable.push("c.n")
+		readable.push("m")
+		readable.push("n")
+		return ProofGen{rng: Rand.new(seed), out: StringList.create(0), indent: 0, names: 0, labels: 0, budget: 0, arrays: arrays, cursors: cursors, readable: readable, loops: StringList.create(0), focusArrays: CountList.create(0), focusPlaces: StringList.create(0), condFocused: false, condArray: 0, condPlace: ""}
+	end 'new'
+
+	function pick(mutates self, n Count) returns Count
+		return rng.pick(n)
+	end 'pick'
+
+	function chance(mutates self, percent Count) returns bool
+		return rng.chance(percent)
+	end 'chance'
+
+	function fresh(mutates self, prefix String) returns String
+		names = try names + 1 otherwise panic("fuzz: more names than memory")
+		return "{prefix}{names}"
+	end 'fresh'
+
+	function label(mutates self) returns String
+		labels = try labels + 1 otherwise panic("fuzz: more labels than memory")
+		return "'l{labels}'"
+	end 'label'
+
+	function line(mutates self, text String)
+		out.push("{tabs(indent)}{text}")
+	end 'line'
+
+	function indentMore(mutates self)
+		indent = try indent + 1 otherwise panic("fuzz: an indent past memory")
+	end 'indentMore'
+
+	function indentLess(mutates self)
+		indent = try indent - 1 otherwise panic("fuzz: an indent below 0")
+	end 'indentLess'
+
+	function focusMark() returns Count
+		return focusArrays.count()
+	end 'focusMark'
+
+	function focusPush(mutates self, array Count, place String)
+		focusArrays.push(array)
+		focusPlaces.push(place.clone())
+	end 'focusPush'
+
+	function focusRelease(mutates self, mark Count)
+		while focusArrays.count() > mark 'drop'
+			try focusArrays.pop() otherwise ignore
+			try focusPlaces.pop() otherwise ignore
+		end 'drop'
+	end 'focusRelease'
+
+	// listedArray is an array that has an isEmpty: not the fixed one.
+	function listedArray(mutates self) returns Count
+		var at = self.randomArray()
+		while arrays[at].kind == proofFixed 'again'
+			at = self.randomArray()
+		end 'again'
+		return at
+	end 'listedArray'
+
+	// randomArray is any array of the scenario.
+	function randomArray(mutates self) returns Count
+		return self.pick(arrays.count())
+	end 'randomArray'
+
+	// countsArray is an array of numbers that has a length: not the fixed one.
+	function countsArray(mutates self) returns Count
+		var at = self.randomArray()
+		while arrays[at].kind != proofCounts 'again'
+			at = self.randomArray()
+		end 'again'
+		return at
+	end 'countsArray'
+
+	function isCursor(place String) returns bool
+		for i in 0 upto cursors.count() 'each'
+			if cursors[i] == place 'found'
+				return true
+			end 'found'
+		end 'each'
+		return false
+	end 'isCursor'
+
+	function cursorPlace(mutates self) returns String
+		let at1 = self.pick(cursors.count())
+		return cursors[at1].clone()
+	end 'cursorPlace'
+
+	// scalarPlace is a place that a closure copies, which is one that no record holds.
+	function scalarPlace(mutates self) returns String
+		var place = self.readPlace()
+		while containsText(place, needle: ".") 'again'
+			place = self.readPlace()
+		end 'again'
+		return place
+	end 'scalarPlace'
+
+	function readPlace(mutates self) returns String
+		let at2 = self.pick(readable.count())
+		return readable[at2].clone()
+	end 'readPlace'
+
+	// focusedCursor is the cursor of the focus when there is one that a statement may change, or any cursor.
+	function focusedCursor(mutates self) returns String
+		if focusPlaces.count() > 0 and self.chance(proofFocusPercent) 'focused'
+			let at3 = self.pick(focusPlaces.count())
+			let place = focusPlaces[at3].clone()
+			if self.isCursor(place) 'cursor'
+				return place
+			end 'cursor'
+		end 'focused'
+		return self.cursorPlace()
+	end 'focusedCursor'
+
+	// variant is the place itself, or the place a step to either side.
+	function variant(mutates self, place String) returns String
+		if hasPrefix(place, prefix: "(") 'written'
+			return place.clone()
+		end 'written'
+		let r = self.pick(100)
+		if r < 70 'same'
+			return place.clone()
+		end 'same'
+		if r < 82 'next'
+			return "({proofHandled("{place} + 1", fallback: "0")})"
+		end 'next'
+		if r < 92 'previous'
+			return "({proofHandled("{place} - 1", fallback: "0")})"
+		end 'previous'
+		return "({proofHandled("{place} + 2", fallback: "0")})"
+	end 'variant'
+
+	// countText is the count of an array, or the count less a small number.
+	function countText(mutates self, array Count) returns String
+		if self.chance(85) 'plain'
+			return "{arrays[array].text}.count()"
+		end 'plain'
+		return "({proofHandled("{arrays[array].text}.count() - {self.pickFrom(1, n: 2)}", fallback: "0")})"
+	end 'countText'
+
+	function pickFrom(mutates self, base Count, n Count) returns Count
+		return try base + self.pick(n) otherwise panic("fuzz: a pick past memory")
+	end 'pickFrom'
+
+	// looseIndex is an index into the array that no fact was written for. A literal past the end of a fixed array is refused by the
+	// checker at once, so the literals stay inside it.
+	function looseIndex(mutates self, array Count) returns String
+		let r = self.pick(100)
+		if r < 60 'place'
+			let place = self.readPlace()
+			return self.variant(place)
+		end 'place'
+		if r < 80 'constant'
+			if arrays[array].kind == proofFixed 'fixed'
+				return "{self.pick(proofFixedCount)}"
+			end 'fixed'
+			return "{self.pick(6)}"
+		end 'constant'
+		let array = self.randomArray()
+		return self.countText(array)
+	end 'looseIndex'
+
+	// accessTarget is the array and index of an access: those of a fact the statement is under, most of the time.
+	function accessTarget(mutates self) returns ProofTarget
+		if focusArrays.count() > 0 and self.chance(proofFocusPercent) 'focused'
+			let f = self.pick(focusArrays.count())
+			var array = focusArrays[f]
+			if self.chance(20) 'other'
+				array = self.randomArray()
+			end 'other'
+			let place = focusPlaces[f].clone()
+			return ProofTarget.make(array, index: self.variant(place))
+		end 'focused'
+		let array = self.randomArray()
+		let index = self.looseIndex(array)
+		return ProofTarget.make(array, index: index)
+	end 'accessTarget'
+
+	// mutationTarget is the array a statement changes: the one of a fact the statement is under, half of the time.
+	function mutationTarget(mutates self) returns Count
+		if focusArrays.count() > 0 and self.chance(50) 'focused'
+			let at4 = self.pick(focusArrays.count())
+			return focusArrays[at4]
+		end 'focused'
+		return self.randomArray()
+	end 'mutationTarget'
+
+	// atom is a comparison, and when it states something an access can use, it sets the focus.
+	function atom(mutates self) returns String
+		condFocused = false
+		let r = self.pick(100)
+		if r < 60 'against'
+			var array = self.randomArray()
+			if focusArrays.count() > 0 and self.chance(proofFocusPercent) 'focused'
+				let at5 = self.pick(focusArrays.count())
+				array = focusArrays[at5]
+			end 'focused'
+			let place = self.readPlace()
+			let text = arrays[array].text.clone()
+			condFocused = true
+			condArray = array
+			condPlace = place.clone()
+			let op = self.pick(100)
+			if op < 60 'below'
+				return "{place} < {text}.count()"
+			end 'below'
+			if op < 66 'belowOrAt'
+				return "{place} <= {text}.count()"
+			end 'belowOrAt'
+			if op < 76 'greater'
+				return "{text}.count() > {place}"
+			end 'greater'
+			if op < 80 'greaterOrAt'
+				return "{text}.count() >= {place}"
+			end 'greaterOrAt'
+			if op < 86 'other'
+				return "{place} != {text}.count()"
+			end 'other'
+			if op < 91 'same'
+				return "{place} == {text}.count()"
+			end 'same'
+			if op < 96 'less'
+				return "{place} < ({proofHandled("{text}.count() - {self.pickFrom(1, n: 2)}", fallback: "0")})"
+			end 'less'
+			return "{place} >= {text}.count()"
+		end 'against'
+		if r < 68 'emptiness'
+			let array = self.listedArray()
+			condFocused = true
+			condArray = array
+			condPlace = "0"
+			if self.chance(70) 'filled'
+				return "{kwNot} {arrays[array].text}.isEmpty()"
+			end 'filled'
+			return "{arrays[array].text}.isEmpty()"
+		end 'emptiness'
+		if r < 76 'counts'
+			let a = self.randomArray()
+			let b = self.randomArray()
+			let op = self.pick(4)
+			if op == 0 'equal'
+				return "{arrays[a].text}.count() == {arrays[b].text}.count()"
+			end 'equal'
+			if op == 1 'different'
+				return "{arrays[a].text}.count() != {arrays[b].text}.count()"
+			end 'different'
+			if op == 2 'fewer'
+				return "{arrays[a].text}.count() < {arrays[b].text}.count()"
+			end 'fewer'
+			return "{arrays[a].text}.count() > {arrays[b].text}.count()"
+		end 'counts'
+		if r < 84 'stepped'
+			let array = self.randomArray()
+			let place = self.readPlace()
+			let step = "({proofHandled("{place} + {self.pickFrom(1, n: 2)}", fallback: "0")})"
+			condFocused = true
+			condArray = array
+			condPlace = step.clone()
+			return "{step} < {arrays[array].text}.count()"
+		end 'stepped'
+		if r < 92 'constant'
+			let place = self.readPlace()
+			let limit = self.pick(8)
+			var bound = "{limit}"
+			if limit == 5 'hundred'
+				bound = "100"
+			end 'hundred'
+			if limit == 6 'twoHundred'
+				bound = "200"
+			end 'twoHundred'
+			if limit == 7 'past'
+				bound = "201"
+			end 'past'
+			condFocused = true
+			condArray = 6
+			condPlace = place.clone()
+			let op = self.pick(6)
+			if op == 0 'below'
+				return "{place} < {bound}"
+			end 'below'
+			if op == 1 'belowOrAt'
+				return "{place} <= {bound}"
+			end 'belowOrAt'
+			if op == 2 'other'
+				return "{place} != {bound}"
+			end 'other'
+			if op == 3 'greater'
+				return "{place} > {bound}"
+			end 'greater'
+			if op == 4 'greaterOrAt'
+				return "{place} >= {bound}"
+			end 'greaterOrAt'
+			return "{place} == {bound}"
+		end 'constant'
+		condFocused = true
+		condArray = 6
+		let slot = self.slotIndex()
+		condPlace = "({slot})"
+		return "s < {self.pickFrom(1, n: 4)}"
+	end 'atom'
+
+	// slotIndex is the slot variable as an index.
+	function slotIndex(mutates self) returns String
+		return "s {kwAs} ElementIndex"
+	end 'slotIndex'
+
+	// cond is an atom, or two of them joined, and the focus of the last.
+	function cond(mutates self, depth Count) returns String
+		let first = self.atom()
+		if depth > 0 and self.chance(18) 'joined'
+			let second = self.atom()
+			if self.chance(80) 'both'
+				return "{first} {kwAnd} {second}"
+			end 'both'
+			return "{first} {kwOr} {second}"
+		end 'joined'
+		return first
+	end 'cond'
+
+	// readStatement reads an element and mixes it into the checksum.
+	function readStatement(mutates self)
+		let t = self.accessTarget()
+		self.readAt(t.array, index: t.index)
+	end 'readStatement'
+
+	// focusedRead reads the array of the innermost fact at the place it says, as the first use of a guard or a loop would.
+	function focusedRead(mutates self)
+		let top = try focusArrays.count() - 1 otherwise panic("fuzz: a read of a fact that was never stated")
+		let array = focusArrays[top]
+		let place = focusPlaces[top].clone()
+		self.readAt(array, index: place)
+	end 'focusedRead'
+
+	// focusUses writes what may come first under a fact that was just stated: a read under it, and a change of an array followed by
+	// a read under it.
+	function focusUses(mutates self)
+		if self.chance(proofFirstUsePercent) 'use'
+			self.focusedRead()
+		end 'use'
+		if self.chance(proofProbePercent) 'probe'
+			self.probe()
+		end 'probe'
+		if self.chance(proofClosureProbePercent) 'closure'
+			self.closureProbe()
+		end 'closure'
+	end 'focusUses'
+
+	// closureProbe runs a closure that changes what the innermost fact is about, then reads under the fact: the closure may have
+	// changed the index or the array wherever it was made, and the fact is true afterwards only if nothing it did can matter.
+	function closureProbe(mutates self)
+		let top = try focusArrays.count() - 1 otherwise panic("fuzz: a probe of a fact that was never stated")
+		let array = focusArrays[top]
+		let place = focusPlaces[top].clone()
+		let changing = self.focusedEffect(array, place: place)
+		self.writeClosure(changing)
+		self.readAt(array, index: place)
+	end 'closureProbe'
+
+	// probe changes the array of the innermost fact by one of the built-in operations, or another array by one, then reads the array
+	// under the fact: what each operation does to the count decides whether the fact is still true, and the read is proven only when
+	// the analysis says it is.
+	function probe(mutates self)
+		let top = try focusArrays.count() - 1 otherwise panic("fuzz: a probe of a fact that was never stated")
+		let array = focusArrays[top]
+		let place = focusPlaces[top].clone()
+		if arrays[array].kind == proofFixed 'fixed'
+			return
+		end 'fixed'
+		var changed = array
+		if self.chance(proofOtherProbePercent) 'other'
+			changed = self.listedArray()
+		end 'other'
+		let text = arrays[changed].text.clone()
+		let isNames = arrays[changed].kind == proofNames
+		let r = self.pick(7)
+		if r == 0 'pop'
+			self.line("{kwTry} {text}.pop() {kwOtherwise} {kwIgnore}")
+		end 'pop' else if r == 1 'remove'
+			var fallback = "0"
+			if isNames 'names'
+				fallback = proofNameFallback
+			end 'names'
+			let removal = "_ = {proofHandled("{text}.remove({place})", fallback: fallback)}"
+			self.line(removal)
+		end 'remove' else if r == 2 'clear'
+			self.line("{text}.clear()")
+		end 'clear' else if r == 3 'truncate'
+			let cut = "{text}.truncate({self.pick(3)})"
+			self.line(cut)
+		end 'truncate' else if r == 4 'push'
+			if isNames 'names'
+				self.line("{text}.push(\"x\")")
+			end 'names' else 'numbers'
+				self.line("{text}.push(3)")
+			end 'numbers'
+		end 'push' else if r == 5 'insert'
+			if isNames 'names'
+				self.line("{text}.insert(0, value: \"x\")")
+			end 'names' else 'numbers'
+				self.line("{text}.insert(0, value: 4)")
+			end 'numbers'
+		end 'insert' else 'store'
+			var value = "4"
+			if isNames 'names'
+				value = "\"w\""
+			end 'names'
+			let store = "{kwTry} {text}.set({place}, value: {value}) {kwOtherwise} {kwIgnore}"
+			self.line(store)
+		end 'store'
+		self.readAt(array, index: place)
+	end 'probe'
+
+	function readAt(mutates self, array Count, index String)
+		let text = arrays[array].text.clone()
+		if arrays[array].kind == proofNames 'names'
+			let v = self.fresh("v")
+			self.line("{kwLet} {v} = {proofHandled("{text}.get({index})", fallback: proofNameFallback)}")
+			self.line("acc = mix(acc, v: {v}.byteLength())")
+			return
+		end 'names'
+		if self.chance(50) 'inline'
+			self.line("acc = mix(acc, v: {proofHandled("{text}.get({index})", fallback: proofReadFallback)})")
+			return
+		end 'inline'
+		let v = self.fresh("v")
+		self.line("{kwLet} {v} = {proofHandled("{text}.get({index})", fallback: proofReadFallback)}")
+		self.line("acc = mix(acc, v: {v})")
+	end 'readAt'
+
+	// writeStatement stores a number or a string at an index.
+	function writeStatement(mutates self)
+		let t = self.accessTarget()
+		let text = arrays[t.array].text.clone()
+		var value = "{self.pick(50)}"
+		if arrays[t.array].kind == proofNames 'names'
+			value = "\"w\""
+		end 'names'
+		self.line("{kwTry} {text}.set({t.index}, value: {value}) {kwOtherwise} {kwIgnore}")
+	end 'writeStatement'
+
+	// newArray is an expression for a new value of an array of numbers.
+	function newCounts(mutates self) returns String
+		return "fresh({self.pick(6)}, salt: {self.pick(20)})"
+	end 'newCounts'
+
+	// newHolder is an expression for a new Holder.
+	function newHolder(mutates self) returns String
+		return "Holder.make({self.newCounts()})"
+	end 'newHolder'
+
+	function mutateCounts(mutates self, at Count)
+		let text = arrays[at].text.clone()
+		let r = self.pick(100)
+		if r < 12 'push'
+			let row1 = "{text}.push({self.pick(9)})"
+			self.line(row1)
+			return
+		end 'push'
+		if r < 22 'pop'
+			self.line("{kwTry} {text}.pop() {kwOtherwise} {kwIgnore}")
+			return
+		end 'pop'
+		if r < 30 'remove'
+			let row2 = "_ = {proofHandled("{text}.remove({self.readPlace()})", fallback: "0")}"
+			self.line(row2)
+			return
+		end 'remove'
+		if r < 38 'clear'
+			self.line("{text}.clear()")
+			return
+		end 'clear'
+		if r < 46 'truncate'
+			let row3 = "{text}.truncate({self.looseConstantOrPlace()})"
+			self.line(row3)
+			return
+		end 'truncate'
+		if r < 52 'insert'
+			let row4 = "{text}.insert({self.looseConstantOrPlace()}, value: {self.pick(9)})"
+			self.line(row4)
+			return
+		end 'insert'
+		if r < 62 'assign'
+			let row5 = "{text} = {self.newCounts()}"
+			self.line(row5)
+			return
+		end 'assign'
+		if r < 78 'function'
+			let f = self.pick(5)
+			if f == 0 'shrink'
+				self.line("_ = shrink({text})")
+			end 'shrink' else if f == 1 'wipe'
+				self.line("_ = wipe({text})")
+			end 'wipe' else if f == 2 'grow'
+				self.line("_ = grow({text})")
+			end 'grow' else if f == 3 'cut'
+				let row6 = "_ = cut({text}, to: {self.pick(5)})"
+				self.line(row6)
+			end 'cut' else 'restart'
+				self.line("_ = restart({text})")
+			end 'restart'
+			return
+		end 'function'
+		self.mutateThroughOwner(at)
+	end 'mutateCounts'
+
+	function looseConstantOrPlace(mutates self) returns String
+		if self.chance(50) 'place'
+			return self.readPlace()
+		end 'place'
+		return "{self.pick(5)}"
+	end 'looseConstantOrPlace'
+
+	// mutateThroughOwner changes the array by a method of the record that holds it, or by assigning the record.
+	function mutateThroughOwner(mutates self, at Count)
+		let owner = arrays[at].owner.clone()
+		let holds = arrays[at].holds
+		if holds == proofOwnerOuter 'outer'
+			let row7 = "{owner} = Outer.make({self.newHolder()}, spare: {self.newCounts()})"
+			self.line(row7)
+			return
+		end 'outer'
+		if holds == proofOwnerNone 'none'
+			let row8 = "{arrays[at].text} = {self.newCounts()}"
+			self.line(row8)
+			return
+		end 'none'
+		let r = self.pick(4)
+		if r == 0 'drain'
+			self.line("{owner}.drain()")
+		end 'drain' else if r == 1 'dropLast'
+			self.line("{owner}.dropLast()")
+		end 'dropLast' else if r == 2 'refill'
+			let row9 = "{owner}.refill({self.pick(6)})"
+			self.line(row9)
+		end 'refill' else 'assign'
+			let row10 = "{owner} = {self.newHolder()}"
+			self.line(row10)
+		end 'assign'
+	end 'mutateThroughOwner'
+
+	function mutateNames(mutates self, at Count)
+		let text = arrays[at].text.clone()
+		let r = self.pick(5)
+		if r == 0 'push'
+			self.line("{text}.push(\"x\")")
+		end 'push' else if r == 1 'pop'
+			self.line("{kwTry} {text}.pop() {kwOtherwise} {kwIgnore}")
+		end 'pop' else if r == 2 'clear'
+			self.line("{text}.clear()")
+		end 'clear' else if r == 3 'remove'
+			let row11 = "_ = {proofHandled("{text}.remove({self.readPlace()})", fallback: proofNameFallback)}"
+			self.line(row11)
+		end 'remove' else 'assign'
+			let row12 = "{text} = Names.filled({self.pick(5)}, value: \"z\")"
+			self.line(row12)
+		end 'assign'
+	end 'mutateNames'
+
+	function mutateFixed(mutates self, at Count)
+		let text = arrays[at].text.clone()
+		if self.chance(50) 'scribble'
+			self.line("_ = scribble({text})")
+			return
+		end 'scribble'
+		let row13 = "{text} = Quad.create(value: {self.pick(9)})"
+		self.line(row13)
+	end 'mutateFixed'
+
+	// mutateStatement changes an array.
+	function mutateStatement(mutates self)
+		let at = self.mutationTarget()
+		let kind = arrays[at].kind
+		if kind == proofCounts 'counts'
+			self.mutateCounts(at)
+			return
+		end 'counts'
+		if kind == proofNames 'names'
+			self.mutateNames(at)
+			return
+		end 'names'
+		self.mutateFixed(at)
+	end 'mutateStatement'
+
+	// moveStatement changes an index.
+	function moveStatement(mutates self)
+		if self.chance(8) 'slot'
+			let row14 = "s = {self.pick(4)}"
+			self.line(row14)
+			return
+		end 'slot'
+		let place = self.focusedCursor()
+		let r = self.pick(100)
+		if r < 25 'constant'
+			let row15 = "{place} = idx({self.pick(6)})"
+			self.line(row15)
+			return
+		end 'constant'
+		if r < 50 'next'
+			self.line("{place} = {proofHandled("{place} + 1", fallback: "0")}")
+			return
+		end 'next'
+		if r < 62 'previous'
+			self.line("{place} = {proofHandled("{place} - 1", fallback: "0")}")
+			return
+		end 'previous'
+		if r < 72 'further'
+			let row16 = "{place} = {proofHandled("{place} + {self.pickFrom(2, n: 2)}", fallback: "0")}"
+			self.line(row16)
+			return
+		end 'further'
+		let array = self.randomArray()
+		if r < 88 'count'
+			self.line("{place} = {arrays[array].text}.count()")
+			return
+		end 'count'
+		self.line("{place} = {proofHandled("{arrays[array].text}.count() - 1", fallback: "0")}")
+	end 'moveStatement'
+
+	// indexEffect is an expression that changes an index and gives a count.
+	function indexEffect(mutates self, place String) returns String
+		let r = self.pick(3)
+		if r == 0 'bump'
+			return "bump({place})"
+		end 'bump'
+		if r == 1 'big'
+			return "setBig({place})"
+		end 'big'
+		return "setZero({place})"
+	end 'indexEffect'
+
+	// arrayEffect is an expression that changes an array and gives a count.
+	function arrayEffect(mutates self, at Count) returns String
+		let text = arrays[at].text.clone()
+		if arrays[at].kind == proofFixed 'fixed'
+			return "scribble({text})"
+		end 'fixed'
+		if arrays[at].kind == proofNames 'names'
+			return "shrink(ys)"
+		end 'names'
+		if (arrays[at].holds == proofOwnerHolder or arrays[at].holds == proofOwnerInner) and self.chance(40) 'method'
+			return "{arrays[at].owner}.cutOne()"
+		end 'method'
+		let r = self.pick(5)
+		if r == 0 'shrink'
+			return "shrink({text})"
+		end 'shrink'
+		if r == 1 'grow'
+			return "grow({text})"
+		end 'grow'
+		if r == 2 'wipe'
+			return "wipe({text})"
+		end 'wipe'
+		if r == 3 'cut'
+			return "cut({text}, to: {self.pick(5)})"
+		end 'cut'
+		return "restart({text})"
+	end 'arrayEffect'
+
+	// effect is an expression that changes an array or an index and gives a count, for a closure to run.
+	function effect(mutates self) returns String
+		if self.chance(8) 'slot'
+			return "setSlot(s)"
+		end 'slot'
+		if self.chance(35) 'index'
+			let place = self.focusedCursor()
+			return self.indexEffect(place)
+		end 'index'
+		let at = self.mutationTarget()
+		return self.arrayEffect(at)
+	end 'effect'
+
+	// focusedEffect is an expression that changes what a fact is about: the index it names, when that is a variable, or the array.
+	function focusedEffect(mutates self, array Count, place String) returns String
+		if self.isCursor(place) and self.chance(45) 'index'
+			return self.indexEffect(place)
+		end 'index'
+		return self.arrayEffect(array)
+	end 'focusedEffect'
+
+	// closureStatement makes a closure that changes an array or an index and runs it, or one that only reads.
+	function closureStatement(mutates self)
+		if self.chance(84) 'changes'
+			let changing = self.effect()
+			self.writeClosure(changing)
+			return
+		end 'changes'
+		let place = self.scalarPlace()
+		let row20 = "_ = peek(function() {kwGives} {proofHandled("{place} + 1", fallback: "0")})"
+		self.line(row20)
+	end 'closureStatement'
+
+	// writeClosure runs a closure with the effect, passed, bound to a variable, or nested in another.
+	function writeClosure(mutates self, changing String)
+		let r = self.pick(100)
+		if r < 62 'passed'
+			self.line("_ = apply(function() {kwGives} {changing})")
+			return
+		end 'passed'
+		if r < 85 'bound'
+			let scope = self.label()
+			let f = self.fresh("f")
+			self.line("{kwIf} {kwTrue} {scope}")
+			self.indentMore()
+			self.line("{kwVar} {f} = (function() {kwGives} {changing}) {kwAs} Bump")
+			self.line("_ = {f}()")
+			if self.chance(30) 'twice'
+				self.line("_ = {f}()")
+			end 'twice'
+			self.indentLess()
+			self.line("{kwEnd} {scope}")
+			return
+		end 'bound'
+		self.line("_ = apply(function() {kwGives} apply(function() {kwGives} {changing}))")
+	end 'writeClosure'
+
+	// block writes statements, which see the facts of the block's own guards and are not seen by what follows it.
+	function block(mutates self, depth Count, statements Count)
+		let mark = self.focusMark()
+		let start = out.count()
+		var written = 0 as Count
+		while written < statements and budget > 0 'each'
+			self.statement(depth)
+			written = try written + 1 otherwise panic("fuzz: more statements than memory")
+		end 'each'
+		if out.count() == start 'empty'
+			let row21 = "acc = mix(acc, v: {self.pick(9)})"
+			self.line(row21)
+		end 'empty'
+		self.focusRelease(mark)
+	end 'block'
+
+	function blockSize(mutates self) returns Count
+		return self.pickFrom(1, n: 4)
+	end 'blockSize'
+
+	// ifStatement writes a guard, whose body knows what the guard says, with an else sometimes.
+	function ifStatement(mutates self, depth Count)
+		let mark = self.focusMark()
+		let c = self.cond(depth)
+		let focused = condFocused
+		let array = condArray
+		let place = condPlace.clone()
+		let label = self.label()
+		self.line("{kwIf} {c} {label}")
+		self.indentMore()
+		if focused 'fact'
+			self.focusPush(array, place: place)
+			self.focusUses()
+		end 'fact'
+		let size = self.blockSize()
+		self.block(proofLower(depth), statements: size)
+		self.focusRelease(mark)
+		self.indentLess()
+		if self.chance(25) 'else'
+			let other = self.label()
+			self.line("{kwEnd} {label} {kwElse} {other}")
+			self.indentMore()
+			let more = self.blockSize()
+			self.block(proofLower(depth), statements: more)
+			self.indentLess()
+			self.line("{kwEnd} {other}")
+			return
+		end 'else'
+		self.line("{kwEnd} {label}")
+	end 'ifStatement'
+
+	// exitStatement leaves the function or a loop where a condition holds, which tells the statements after it the opposite.
+	function exitStatement(mutates self)
+		let c = self.cond(0)
+		if condFocused 'fact'
+			let array = condArray
+			let place = condPlace.clone()
+			self.focusPush(array, place: place)
+		end 'fact'
+		let label = self.label()
+		self.line("{kwIf} {c} {label}")
+		self.indentMore()
+		let r = self.pick(3)
+		if loops.count() == 0 or r == 0 'leave'
+			self.line("{kwReturn} acc")
+		end 'leave' else if r == 1 'break'
+			let at6 = self.pick(loops.count())
+			let row22 = "{kwBreak} {loops[at6]}"
+			self.line(row22)
+		end 'break' else 'continue'
+			let at7 = self.pick(loops.count())
+			let row23 = "{kwContinue} {loops[at7]}"
+			self.line(row23)
+		end 'continue'
+		self.indentLess()
+		self.line("{kwEnd} {label}")
+	end 'exitStatement'
+
+	// forStatement writes a loop over an array's count, or another bound, whose variable is below the bound.
+	function forStatement(mutates self, depth Count)
+		let v = self.fresh("k")
+		var array = self.randomArray()
+		if focusArrays.count() > 0 and self.chance(proofFocusPercent) 'focused'
+			let at8 = self.pick(focusArrays.count())
+			array = focusArrays[at8]
+		end 'focused'
+		var bound = "{arrays[array].text}.count()"
+		let r = self.pick(100)
+		if r >= 50 and r < 62 'less'
+			bound = self.countText(array)
+		end 'less' else if r >= 62 and r < 74 'place'
+			bound = self.readPlace()
+		end 'place' else if r >= 74 and r < 84 'constant'
+			bound = "{self.pickFrom(1, n: 6)}"
+		end 'constant'
+		var start = "0"
+		var word = kwUpto
+		let shape = self.pick(100)
+		if shape < 8 'second'
+			start = "1"
+		end 'second' else if shape < 16 'inclusive'
+			word = kwTo
+		end 'inclusive'
+		let label = self.label()
+		self.line("{kwFor} {v} {kwIn} {start} {word} {bound} {label}")
+		self.indentMore()
+		loops.push(label.clone())
+		readable.push(v.clone())
+		let mark = self.focusMark()
+		self.focusPush(array, place: v)
+		self.focusUses()
+		let size = self.blockSize()
+		self.block(proofLower(depth), statements: size)
+		self.focusRelease(mark)
+		try readable.pop() otherwise ignore
+		try loops.pop() otherwise ignore
+		self.indentLess()
+		self.line("{kwEnd} {label}")
+	end 'forStatement'
+
+	// whileStatement writes a loop over an index that steps, one that empties an array, or any condition, with a fuel counter that
+	// ends it however the body changes its condition.
+	function whileStatement(mutates self, depth Count)
+		let fuel = self.fresh("f")
+		let label = self.label()
+		let mark = self.focusMark()
+		let kind = self.pick(100)
+		var condition = ""
+		var place = ""
+		var array = self.randomArray()
+		var steps = false
+		var drains = false
+		if kind < 60 'stepping'
+			place = self.focusedCursor()
+			if focusArrays.count() > 0 and self.chance(proofFocusPercent) 'focused'
+				let at9 = self.pick(focusArrays.count())
+				array = focusArrays[at9]
+			end 'focused'
+			let row24 = "{place} = idx({self.pick(3)})"
+			self.line(row24)
+			if self.chance(85) 'below'
+				condition = "{place} < {arrays[array].text}.count()"
+			end 'below' else 'belowOrAt'
+				condition = "{place} <= {arrays[array].text}.count()"
+			end 'belowOrAt'
+			steps = true
+		end 'stepping' else if kind < 85 'draining'
+			array = self.countsArray()
+			condition = "{kwNot} {arrays[array].text}.isEmpty()"
+			place = "0"
+			drains = true
+		end 'draining' else 'any'
+			condition = self.cond(0)
+			if condFocused 'fact'
+				array = condArray
+				place = condPlace.clone()
+			end 'fact' else 'none'
+				place = self.readPlace()
+			end 'none'
+		end 'any'
+		self.line("{kwVar} {fuel} = 0 {kwAs} Count")
+		self.line("{kwWhile} {condition} {kwAnd} {fuel} < {proofFuelLimit} {label}")
+		self.indentMore()
+		self.line("{fuel} = {proofHandled("{fuel} + 1", fallback: "0")}")
+		loops.push(label.clone())
+		self.focusPush(array, place: place)
+		let stepsFirst = steps and self.chance(15)
+		if stepsFirst 'first'
+			self.line("{place} = {proofHandled("{place} + 1", fallback: "0")}")
+		end 'first'
+		self.focusUses()
+		let size = self.blockSize()
+		self.block(proofLower(depth), statements: size)
+		if drains and self.chance(80) 'drain'
+			self.line("{kwTry} {arrays[array].text}.pop() {kwOtherwise} {kwIgnore}")
+		end 'drain'
+		if steps and not stepsFirst and self.chance(85) 'step'
+			self.line("{place} = {proofHandled("{place} + 1", fallback: "0")}")
+		end 'step'
+		self.focusRelease(mark)
+		try loops.pop() otherwise ignore
+		self.indentLess()
+		self.line("{kwEnd} {label}")
+	end 'whileStatement'
+
+	// divideStatement divides by an index or a count, which is proven to be more than 0 only under the right guard.
+	function divideStatement(mutates self)
+		var divisor = self.readPlace()
+		if focusPlaces.count() > 0 and self.chance(proofFocusPercent) 'focused'
+			let at10 = self.pick(focusPlaces.count())
+			divisor = focusPlaces[at10].clone()
+			if divisor == "0" 'literal'
+				divisor = self.readPlace()
+			end 'literal'
+		end 'focused' else if self.chance(40) 'count'
+			let array = self.randomArray()
+			divisor = self.countText(array)
+		end 'count'
+		let d = self.fresh("d")
+		self.line("{kwLet} {d} = {proofHandled("1000 / {divisor}", fallback: "999")}")
+		self.line("acc = mix(acc, v: {d})")
+	end 'divideStatement'
+
+	// convertStatement converts a place to a small range, which is proven only under a guard on its size.
+	function convertStatement(mutates self)
+		var place = self.readPlace()
+		if focusPlaces.count() > 0 and self.chance(proofFocusPercent) 'focused'
+			let at11 = self.pick(focusPlaces.count())
+			place = focusPlaces[at11].clone()
+			if containsText(place, needle: " {kwAs} ") 'cast'
+				place = self.readPlace()
+			end 'cast'
+		end 'focused'
+		let r = self.fresh("r")
+		self.line("{kwLet} {r} = {proofHandled("{place} {kwAs} Small", fallback: "0 {kwAs} Small")}")
+		self.line("acc = mix(acc, v: {r} {kwAs} Count)")
+	end 'convertStatement'
+
+	// statement writes one statement, a block of them, or a loop, the weights favouring the accesses and what forgets them.
+	function statement(mutates self, depth Count)
+		budget = try budget - 1 otherwise 0
+		let r = self.pick(100)
+		if r < 36 'read'
+			self.readStatement()
+			return
+		end 'read'
+		if r < 44 'write'
+			self.writeStatement()
+			return
+		end 'write'
+		if r < 54 'mutate'
+			self.mutateStatement()
+			return
+		end 'mutate'
+		if r < 60 'move'
+			self.moveStatement()
+			return
+		end 'move'
+		if r < 68 'closure'
+			self.closureStatement()
+			return
+		end 'closure'
+		if depth > 0 and r < 82 'guard'
+			self.ifStatement(depth)
+			return
+		end 'guard'
+		if depth > 0 and r < 90 'loop'
+			self.forStatement(depth)
+			return
+		end 'loop'
+		if depth > 0 and r < 95 'while'
+			self.whileStatement(depth)
+			return
+		end 'while'
+		if r < 97 'exit'
+			self.exitStatement()
+			return
+		end 'exit'
+		if r < 99 'divide'
+			self.divideStatement()
+			return
+		end 'divide'
+		self.convertStatement()
+	end 'statement'
+
+	// scenario writes a function that declares the arrays, the index variables and the records, then a block over them.
+	function scenario(mutates self, number Count)
+		self.line("{kwFunction} s{number}() {kwReturns} Count")
+		self.indentMore()
+		self.line("{kwVar} acc = 1 {kwAs} Count")
+		let row25 = "{kwVar} xs = fresh({self.pick(7)}, salt: {self.pick(20)})"
+		self.line(row25)
+		let row26 = "{kwVar} ys = fresh({self.pick(7)}, salt: {self.pick(20)})"
+		self.line(row26)
+		let row27 = "{kwVar} ss = Names.filled({self.pick(5)}, value: \"ab\")"
+		self.line(row27)
+		let row28 = "{kwVar} h = Holder.make({self.newCounts()})"
+		self.line(row28)
+		let row29 = "{kwVar} o = Outer.make({self.newHolder()}, spare: {self.newCounts()})"
+		self.line(row29)
+		let row30 = "{kwVar} q = Quad.create(value: {self.pick(9)})"
+		self.line(row30)
+		let row31 = "{kwVar} i = idx({self.pick(5)})"
+		self.line(row31)
+		let row32 = "{kwVar} j = idx({self.pick(5)})"
+		self.line(row32)
+		let row33 = "{kwVar} c = Cursor.make(idx({self.pick(5)}))"
+		self.line(row33)
+		self.line("{kwVar} m = xs.count()")
+		let row34 = "{kwVar} s = {self.pick(4)} {kwAs} Slot"
+		self.line(row34)
+		self.line("{kwLet} n = xs.count()")
+		budget = proofBudget
+		let size = self.pickFrom(5, n: 5)
+		self.block(proofDepth, statements: size)
+		self.line("{kwReturn} acc")
+		self.indentLess()
+		self.line("{kwEnd} 's{number}'")
+		self.line("")
+	end 'scenario'
+
+	// mainFunction prints each scenario's checksum, then the checksum of them all.
+	function mainFunction(mutates self, scenarios Count)
+		self.line("{kwFunction} main() {kwReturns} ExitCode")
+		self.indentMore()
+		self.line("{kwVar} total = 1 {kwAs} Count")
+		for k in 0 upto scenarios 'each'
+			self.line("{kwLet} r{k} = s{k}()")
+			self.line(printed("r{k}"))
+			self.line("total = mix(total, v: r{k})")
+		end 'each'
+		self.line(printed("total"))
+		self.line("{kwReturn} 0")
+		self.indentLess()
+		self.line("{kwEnd} 'main'")
+	end 'mainFunction'
+
+	function start(mutates self)
+		self.line(proofScenarioMarker)
+		let scenarios = self.pickFrom(proofMinScenarios, n: proofExtraScenarios)
+		for k in 0 upto scenarios 'each'
+			self.scenario(k)
+		end 'each'
+		self.mainFunction(scenarios)
+	end 'start'
+
+	function finish(library String) returns String
+		return "{trimTrailingNewlines(library)}\n\n{joinStrings(out, separator: "\n")}\n"
+	end 'finish'
+end 'ProofGen'
+
+// generateProof writes the program of a seed, which schedules no behaviour, so its output is the same under every schedule.
+export function generateProof(seed Count, library String) returns GeneratedProgram
+	var g = ProofGen.new(seed)
+	g.start()
+	return GeneratedProgram.make(g.finish(library), scheduleIndependent: true)
+end 'generateProof'
+
+// proofAccessTally is how many accesses the scenarios of a proof program have, after the fix, and how many of them have lost
+// their handler because the analysis proves them: the lines of the scenarios that read or store at an index hold one access each,
+// and the handler is a `try` before it.
+export function proofAccessTally(source String) returns CountList
+	var accesses = 0 as Count
+	var proven = 0 as Count
+	let marker = textPosition(source, needle: proofScenarioMarker)
+	var tally = CountList.create(0)
+	if not marker.isSome() 'none'
+		tally.push(accesses)
+		tally.push(proven)
+		return tally
+	end 'none'
+	var start = marker.unwrap()
+	let n = source.byteLength()
+	for i in start upto n 'bytes'
+		if source.byteAt(i) == 10 'line'
+			let text = source.sliceBytes(start, endPos: i)
+			start = try i + 1 otherwise panic("fuzz: a line past memory")
+			let access = proofAccessAt(text)
+			if access.isSome() 'access'
+				accesses = try accesses + 1 otherwise panic("fuzz: more accesses than memory")
+				if not containsText(text.sliceBytes(0, endPos: access.unwrap()), needle: "{kwTry} ") 'bare'
+					proven = try proven + 1 otherwise panic("fuzz: more accesses than memory")
+				end 'bare'
+			end 'access'
+		end 'line'
+	end 'bytes'
+	tally.push(accesses)
+	tally.push(proven)
+	return tally
+end 'proofAccessTally'
+
+// proofAccessAt is where the access of a line begins, when it has one.
+function proofAccessAt(text String) returns table.Option with Count
+	let read = textPosition(text, needle: ".get(")
+	let write = textPosition(text, needle: ".set(")
+	if not write.isSome() 'reads'
+		return read
+	end 'reads'
+	if not read.isSome() 'writes'
+		return write
+	end 'writes'
+	let readAt = read.unwrap()
+	let writeAt = write.unwrap()
+	if readAt < writeAt 'first'
+		return table.Option.some(readAt)
+	end 'first'
+	return table.Option.some(writeAt)
+end 'proofAccessAt'
