@@ -1,0 +1,8 @@
+// expect-error: E3185 at 2:17
+function take(c cstring) returns Count
+	return 0
+end 'take'
+
+function main() returns ExitCode
+	return 0
+end 'main'

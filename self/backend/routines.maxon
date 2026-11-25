@@ -330,6 +330,10 @@ function emitDrop(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates m
 		dropString(u, a: a, checks: p.checksStrings)
 		return
 	end 'string'
+	if kind == ast.TypeKind.primCString 'cstring'
+		dropNothing(u, a: a)
+		return
+	end 'cstring'
 	if kind == ast.TypeKind.record 'record'
 		dropRecord(u, a: a, p: p, ms: ms, ty: ty)
 		return
@@ -386,6 +390,10 @@ function emitCopy(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates m
 		copyString(u, a: a, checks: p.checksStrings)
 		return
 	end 'string'
+	if kind == ast.TypeKind.primCString 'cstring'
+		copyWords(u, a: a)
+		return
+	end 'cstring'
 	if kind == ast.TypeKind.record 'record'
 		copyRecord(u, a: a, p: p, ms: ms, ty: ty)
 		return
@@ -1462,6 +1470,22 @@ function dropString(mutates u CodeUnit, a ast.TargetArch, checks bool)
 	u.asm.bind(done)
 	routineEpilogue(u, a: a)
 end 'dropString'
+
+// dropNothing is the drop of a cstring, which owns no bytes: it is two words laid out as a String is, held where a String is,
+// so a record or an array that holds one reaches a routine for it, which has nothing to give back.
+function dropNothing(mutates u CodeUnit, a ast.TargetArch)
+	routinePrologue(u, a: a, locals: 0)
+	routineEpilogue(u, a: a)
+end 'dropNothing'
+
+// copyWords is the copy of a cstring: the same two words, as the copy of a literal is.
+function copyWords(mutates u CodeUnit, a ast.TargetArch)
+	routinePrologue(u, a: a, locals: 1)
+	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rArgWord)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineArg)
+	rLoad(u, a: a, dst: rResultWord, base: rFrame, disp: routineLocal0)
+	routineReturn(u, a: a)
+end 'copyWords'
 
 function dropBytes(mutates u CodeUnit, a ast.TargetArch)
 	let done = u.asm.newLabel()

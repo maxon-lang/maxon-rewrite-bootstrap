@@ -166,6 +166,7 @@ type DebugTypes
 			primBool then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: boolSize, align: boolSize, flag: 0)
 			primString then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindString, size: ir.stringValueBytes, align: wordSize, flag: 0)
 			primCharacter then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindString, size: ir.stringValueBytes, align: wordSize, flag: 0)
+			primCString then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindString, size: ir.stringValueBytes, align: wordSize, flag: 0)
 			primVoid or
 			primNever then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: 0, align: 1, flag: 0)
 			intRange or

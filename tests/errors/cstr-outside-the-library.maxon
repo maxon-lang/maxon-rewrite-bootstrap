@@ -1,0 +1,9 @@
+// expect-error: E3185 at 5:15
+// expect-error: E3185 at 6:20
+function main() returns ExitCode
+	let text = "hello"
+	let c = text.cstr()
+	let back = String.fromCString(c)
+	print("{back}")
+	return 0
+end 'main'

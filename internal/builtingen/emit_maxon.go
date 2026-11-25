@@ -288,6 +288,11 @@ func emitMaxonRawSurface(sb *strings.Builder, t table) {
 				fmt.Fprintf(sb, "\tif origin == %s 'raw%s'\n\t\treturn %s\n\tend 'raw%s'\n", maxonOwner(bt.Key), bt.Key, some(door.of(*bt.Raw)), bt.Key)
 			}
 		}
+		for _, p := range rawPrimTypes {
+			if surface := door.of(rawType{Named: p.Named}); surface.What != "" {
+				fmt.Fprintf(sb, "\tif origin == %s 'raw%s'\n\t\treturn %s\n\tend 'raw%s'\n", maxonOwner(p.Key), p.Key, some(surface), p.Key)
+			}
+		}
 		fmt.Fprintf(sb, "\treturn table.Option.none\nend '%s'\n\n", door.name)
 	}
 	sb.WriteString("// rawCallInstead is what a program calls in place of a static function of a record of the table whose calls are raw, or\n// none for a function of any other owner.\n")

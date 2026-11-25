@@ -4125,9 +4125,12 @@ lexer-parser-robustness.md: unterminated-interp
 lexer-parser-robustness.md: unterminated-string-followed-by-code
 library-tier-surface.md: a-buffer-member-compiles-in-the-library-tier
 library-tier-surface.md: a-builtins-call-compiles-in-the-library-tier
+library-tier-surface.md: a-cstr-call-compiles-in-the-library-tier
+library-tier-surface.md: a-cstring-type-compiles-in-the-library-tier
 library-tier-surface.md: a-cursor-member-compiles-in-the-library-tier
 library-tier-surface.md: a-scalar-builtins-member-compiles-in-the-library-tier
 library-tier-surface.md: error.a-builtins-call-is-refused-outside-the-library-tiers
+library-tier-surface.md: error.a-cstring-type-is-refused-outside-the-library-tiers
 library-tier-surface.md: error.a-managed-memory-static-is-refused-outside-the-library-tiers
 library-tier-surface.md: error.a-managed-memory-type-is-refused-outside-the-library-tiers
 library-tier-surface.md: error.a-managed-read-is-refused-outside-the-library-tiers
@@ -7669,6 +7672,13 @@ string-conformance.md: string-conformance.hash-avalanches
 string-conformance.md: string-conformance.hash-in-loop-no-leak
 string-conformance.md: string-conformance.hash-values
 string-conformance.md: string-conformance.hashable-and-equatable
+string-cstr.md: terminates-a-packed-receiver-without-leaking
+string-cstr.md: terminates-an-exactly-full-receiver-without-leaking
+string-from-cstring.md: an-empty-source-round-trips-to-an-empty-string
+string-from-cstring.md: it-stops-at-an-embedded-nul
+string-from-cstring.md: round-trips-a-literal
+string-from-cstring.md: round-trips-a-packed-receiver
+string-from-cstring.md: the-result-is-independent-of-its-source
 string-index.md: a-slice-is-an-owned-copy
 string-index.md: an-index-inside-a-type-method
 string-index.md: ascii-index-and-byte-position-coincide

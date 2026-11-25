@@ -14,6 +14,17 @@ function flag(mutates l Lowerer, on bool) returns Reg
 	return konst(l, value: flagOff)
 end 'flag'
 
+// lowerStringCStr is the cstring of a String: the same two words, a type of its own that the checker keeps to the library
+// tiers, whose drop and copy own nothing, so the String must outlive it.
+function lowerStringCStr(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return runtime(l, symbol: Rt.rtStrCStr, kind: IrKind.kindString, args: argsOf1(recv))
+end 'lowerStringCStr'
+
+// lowerStringFromCString is a new String of the bytes of a cstring before its first zero byte.
+function lowerStringFromCString(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return runtime(l, symbol: Rt.rtStrFromCString, kind: IrKind.kindString, args: argsOf1(try args.get(0) otherwise panic("fromCString takes one argument, which the checker has seen")))
+end 'lowerStringFromCString'
+
 function lowerStringIsEmpty(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let n = runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(recv))
 	return isZero(l, v: n)

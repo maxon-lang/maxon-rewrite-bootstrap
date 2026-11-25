@@ -4889,6 +4889,13 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   (`E3900` from a `let` that holds one, or where the String is itself borrowed), a behaviour taking a `let` that holds one
   is `E3909`, and changing or moving the String while a `let` views it is `E3186`. Each names the copy, `.clone()`, which `fix` (that `specs.ps1` runs)
   writes at the place the message names, so converted maxon code keeps its meaning with one copy where maxon made one.
+- **A `cstring` costs a copy in each row that takes one.** `cstring` and `String.cstr()` are the library tiers' (`E3185` elsewhere), as in
+  maxon; `cstr()` is not mutating, as there. A `cstring` is the two words of the String it was made of, a type of its own whose
+  drop and copy own nothing (the String must outlive it), so `cstr()` costs nothing, but a String has no spare byte for a
+  terminator where it is a view, a literal or holds its bytes in its words, so each runtime row that takes one makes the
+  zero-terminated copy itself (`cStringOf`) and frees it before it returns, where maxon grows the String's own buffer by a
+  byte. The words carry the length, so a row of bytes takes it as it is. `String.fromCString(cs)` is a new String of the
+  bytes before the first zero byte, as maxon's. This is a cost, not a language difference.
 - `String` implements `Hashable` and `Equatable` through the library's extension, which the conversion writes from the header
   of maxon's `String.maxon`, with the methods that the built-in `String` lacks (`hash()`) from maxon's source; the built-in
   `equals` meets `Equatable` and is called in place through a bound. `Cloneable` is left out: `clone()` is the copy every
@@ -5355,7 +5362,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   changes nothing a program sees, `setLength` is `resize`, and `elementSize()` is what `sizeof` gives for the element, never
   maxon's negative bit width, since no element is bit-packed. Not provided, because no model-sound operation does the same:
   `setByte` (it writes a buffer under another type than its element's), a `__ManagedMemory` of no element type, `create`
-  with an element size, `fromCString`, `toCString` and `makeCharFromBytes` (there is no `cstring`, and a `Character` is no buffer),
+  with an element size, `fromCString`, `toCString` and `makeCharFromBytes` (a `String` has `cstr()` and `String.fromCString` instead, and a `Character` is no buffer),
   `shiftLeft` and `shiftRight`, `__ManagedList` and its nodes (a node carries its list by a reference count, where a `SlotKey`
   is an index into a list that the caller names), `__ManagedFile`, `__ManagedDirectory`, `__ManagedSocket`, `__ManagedPages`,
   `__ManagedHandle` and `__ManagedPin` (the OS records of the runtime take their place), and the four contracts of a counted

@@ -420,6 +420,31 @@ function copyForward(source Count, target Count, count Count)
 	end 'bytes'
 end 'copyForward'
 
+// stringCStr is the cstring of a String: its two words as they are, which a cstring's drop and copy leave alone.
+function stringCStr(text String) returns String
+	return __Raw.stringOfWords(__Raw.stringFirstWord(text), second: __Raw.stringSecondWord(text))
+end 'stringCStr'
+
+// stringFromCString is a new String of the bytes of a cstring before its first zero byte. A cstring is the two words of the
+// String it was made of, so its length bounds the walk, and a zero byte inside it ends the text there.
+function stringFromCString(cs String) returns String
+	let bytes = __Raw.stringBytes(cs)
+	let size = __Raw.stringLength(cs)
+	var length = 0 as Count
+	while length < size and __Raw.loadByte(bytes, offset: length) != 0 'scan'
+		length = __Raw.wrappingAdd(length, right: 1)
+	end 'scan'
+	if length == 0 'empty'
+		return ""
+	end 'empty'
+	if holdsInline(length) 'short'
+		return stringView(cs, from: 0, length: length)
+	end 'short'
+	let room = __Raw.stringRoom(length)
+	copyBytes(bytes, target: room, count: length)
+	return stringOfRoom(room, length: length)
+end 'stringFromCString'
+
 // cStringOf is a new zero-terminated copy of a string, which the caller frees: a path or an argument as the kernel reads
 // it, or a name as a Windows function of an A name reads it.
 function cStringOf(text String) returns Count
