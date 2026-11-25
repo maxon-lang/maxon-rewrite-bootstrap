@@ -1,0 +1,126 @@
+// takeSlot moves an element out and leaves its slot empty, and fillSlot moves one into an empty slot, neither dropping
+// anything, so a slot table holds an element without Droppable, here a transaction that must be committed. takeSlot fails
+// with emptySlot at an empty slot and indexOutOfBounds past the end; over a scalar an empty slot is the element 0.
+typealias Integer = int(i64.min to i64.max)
+
+type Txn
+	var id as Count
+
+	static function begin(id Count) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit {id}\n")
+	end 'commit'
+end 'Txn'
+
+type Point
+	var x as Integer
+	var y as Integer
+
+	static function make(x Integer, y Integer) returns Point
+		return Point{x: x, y: y}
+	end 'make'
+
+	function sum() returns Integer
+		return try x + y otherwise 0
+	end 'sum'
+end 'Point'
+
+type Table uses Element
+	typealias Column = Array with Element
+	var slots as Column
+
+	static function holding(consumes first Element, consumes second Element) returns Self
+		var slots = Column.create(0)
+		slots.push(first)
+		slots.push(second)
+		return Self{slots: slots}
+	end 'holding'
+
+	function take(mutates self, at Count) returns Element throws ArrayError
+		return try slots.takeSlot(at)
+	end 'take'
+
+	function fill(mutates self, at Count, consumes value Element)
+		slots.fillSlot(at, value: value)
+	end 'fill'
+
+	function end(consumes self)
+		slots.dropEmpty()
+	end 'end'
+end 'Table'
+
+typealias Txns = Table with Txn
+
+typealias Names = Table with String
+
+typealias Numbers = Table with Integer
+
+typealias Points = Table with Point
+
+typealias Bytes = Table with Byte
+
+function why(e ArrayError) returns String
+	return match e 'which'
+		emptySlot gives "empty"
+		indexOutOfBounds gives "outside"
+	end 'which'
+end 'why'
+
+function main() returns ExitCode
+	var txns = Txns.holding(Txn.begin(1), second: Txn.begin(2))
+	(try txns.take(0) otherwise panic("a full slot")).commit()
+	if let t = try txns.take(0) 'again'
+		t.commit()
+	end 'again' else (e) 'again'
+		print("{why(e)}\n")
+	end 'again'
+	txns.fill(0, value: Txn.begin(3))
+	(try txns.take(1) otherwise panic("a full slot")).commit()
+	(try txns.take(0) otherwise panic("a full slot")).commit()
+	if let t = try txns.take(2) 'past'
+		t.commit()
+	end 'past' else (e) 'past'
+		print("{why(e)}\n")
+	end 'past'
+	txns.end()
+	var names = Names.holding("ada", second: "bob")
+	let ada = try names.take(0) otherwise "none"
+	let gone = try names.take(0) otherwise "empty"
+	names.fill(0, value: "cy")
+	let cy = try names.take(0) otherwise "none"
+	let bob = try names.take(1) otherwise "none"
+	names.end()
+	print("{ada} {gone} {cy} {bob}\n")
+	var numbers = Numbers.holding(7, second: 8)
+	let seven = try numbers.take(0) otherwise 99
+	let zero = try numbers.take(0) otherwise 99
+	numbers.fill(0, value: 5)
+	print("{seven} {zero} {try numbers.take(0) otherwise 99} {try numbers.take(1) otherwise 99}\n")
+	numbers.end()
+	var points = Points.holding(Point.make(1, y: 2), second: Point.make(3, y: 4))
+	let first = try points.take(0) otherwise Point.make(0, y: 0)
+	points.fill(0, value: Point.make(5, y: 6))
+	let again = try points.take(0) otherwise Point.make(0, y: 0)
+	let second = try points.take(1) otherwise Point.make(0, y: 0)
+	points.end()
+	print("{first.sum()} {again.sum()} {second.sum()}\n")
+	var bytes = Bytes.holding(9, second: 10)
+	let nine = try bytes.take(0) otherwise 0
+	bytes.fill(0, value: 11)
+	print("{nine} {try bytes.take(0) otherwise 0} {try bytes.take(1) otherwise 0}\n")
+	bytes.end()
+	return 0
+end 'main'
+
+//> commit 1
+//> empty
+//> commit 2
+//> commit 3
+//> outside
+//> ada empty cy bob
+//> 7 0 5 8
+//> 3 11 7
+//> 9 11 10

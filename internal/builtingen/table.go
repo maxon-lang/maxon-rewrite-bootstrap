@@ -649,6 +649,12 @@ var tableFunctions = []function{
 	// clearSlot is maxon's tombstone of a slot table: the element at an index is dropped and its slot left empty, where
 	// remove would close the gap. An empty slot of a managed element is 0, which get reads as emptySlot.
 	{Owner: "Array", Name: "clearSlot", Self: "mutates", Params: []string{"at ElementIndex"}, Bounds: []string{"T Droppable"}, Throws: "ArrayError", Intrinsic: "ArrayClearSlot", Raw: &rawSurface{What: "an array's slot is emptied in place", Instead: "use 'remove(at)'"}},
+	// fillSlot and takeSlot are clearSlot's other halves, which a slot table needs for an element that has no Droppable: fillSlot
+	// moves a value into an empty slot and drops nothing, trapping where the index is past the end or the slot holds an
+	// element, and takeSlot moves the element out and leaves the slot empty, failing with indexOutOfBounds past the end and
+	// emptySlot at an empty slot.
+	{Owner: "Array", Name: "fillSlot", Self: "mutates", Params: []string{"at ElementIndex", "consumes value T"}, Intrinsic: "ArrayFillSlot", Raw: &rawSurface{What: "an array's empty slot is filled in place", Instead: "use 'set(i, value: v)'"}},
+	{Owner: "Array", Name: "takeSlot", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "T", Throws: "ArrayError", Intrinsic: "ArrayTakeSlot", Raw: &rawSurface{What: "an element is taken out of an array's slot, which is left empty", Instead: "use 'remove(at)'"}},
 	// contains, containsSequence and equals are maxon's for an element that is Equatable; the checker holds them to the
 	// elements this compiler compares itself (checkElementsComparable).
 	{Owner: "Array", Name: "contains", Params: []string{"element T"}, Result: "Bool", Intrinsic: "ArrayContains", Checked: true},

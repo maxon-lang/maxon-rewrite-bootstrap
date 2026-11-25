@@ -191,6 +191,13 @@ end 'requireFilled'
 
 // notZero is whether an element loaded from a slot of a word or a String is not the slot's zero, the empty slot.
 function notZero(mutates l Lowerer, p ast.Project, ms ast.ModuleState, elem ast.TypeID, element Reg) returns Reg
+	let word = slotWord(l, p: p, ms: ms, elem: elem, element: element)
+	let empty = konst(l, value: 0 as Word)
+	return compare(l, op: CmpOp.cmpNe, a: word, b: empty, unsigned: true)
+end 'notZero'
+
+// slotWord is a word that is 0 exactly where an element loaded from a slot of a word or a String is the empty slot.
+function slotWord(mutates l Lowerer, p ast.Project, ms ast.ModuleState, elem ast.TypeID, element Reg) returns Reg
 	var word = element
 	if valueForm(ms.types, reads: p.types, t: elem) == ValueForm.formString 'string'
 		// A String that holds its bytes in its words may have a first word of 0, but never a word of 0 then.
@@ -199,9 +206,8 @@ function notZero(mutates l Lowerer, p ast.Project, ms ast.ModuleState, elem ast.
 		let second = stringWord(l, text: element)
 		word = wrappingBin(l, op: BinOp.binOr, a: first, b: second, kind: IrKind.kindScalar)
 	end 'string'
-	let empty = konst(l, value: 0 as Word)
-	return compare(l, op: CmpOp.cmpNe, a: word, b: empty, unsigned: true)
-end 'notZero'
+	return word
+end 'slotWord'
 
 // slotFilled is whether the slot at index, which is inside the array, holds an element: a slot is empty where it is all 0,
 // as resize and clearSlot leave it, so over a scalar an empty slot and an element 0 are the same.
@@ -290,6 +296,70 @@ function arrayClearSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	let empty = konst(l, value: 0 as Word)
 	arrayWrite(l, p: p, ms: ms, box: box, arr: arr, index: index, v: empty, checked: false)
 end 'arrayClearSlot'
+
+// fillSlotMessage is the trap of a fillSlot of a slot that holds an element, which it would have to drop.
+let fillSlotMessage = "fillSlot of a slot that holds an element"
+
+// arrayFillSlot moves v into the empty slot at index and drops nothing, so it fills a slot of an element without Droppable:
+// it traps past the end, as a subscript does, and where the slot holds an element. Where the zero is a value of the
+// element, a scalar or a record held in place, no slot holds anything to drop, and it writes over what is there.
+function arrayFillSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, v Reg)
+	if arrayPacked(p, ms: ms, box: box) 'packed'
+		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: index, c: v))
+		return
+	end 'packed'
+	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
+	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
+		copyWords(l, dst: addr, src: v, words: elementWords(p, ms: ms, box: box))
+		return
+	end 'inPlace'
+	let elem = arrayElem(p, ms: ms, box: box)
+	if zeroIsEmpty(ms.types, reads: p.types, t: elem) 'mayHold'
+		let held = newReg(l, kind: kindOf(l, p: p, ms: ms, t: elem))
+		emit(l, i: newLoadAt(held, addr: addr))
+		let word = slotWord(l, p: p, ms: ms, elem: elem, element: held)
+		let none = konst(l, value: 0 as Word)
+		let empty = compare(l, op: CmpOp.cmpEq, a: word, b: none, unsigned: true)
+		requireOrTrap(l, cond: empty, message: fillSlotMessage)
+	end 'mayHold'
+	emit(l, i: newStoreAt(addr, src: v))
+end 'arrayFillSlot'
+
+// arrayTakeSlot moves the element at index out and leaves its slot empty, all 0, so a type without Droppable can be taken
+// out of a slot table. It fails with indexOutOfBounds past the end and with emptySlot at an empty slot.
+function arrayTakeSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+	arrayInBounds(l, p: p, ms: ms, box: box, arr: arr, index: index)
+	let zero = konst(l, value: 0 as Word)
+	if arrayPacked(p, ms: ms, box: box) 'packed'
+		let byte = elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: index), checked: false)
+		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: index, c: zero))
+		return byte
+	end 'packed'
+	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
+	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
+		let words = elementWords(p, ms: ms, box: box)
+		let taken = placedCopy(l, words: words, v: addr)
+		zeroWords(l, at: addr, words: words)
+		return taken
+	end 'inPlace'
+	let elem = arrayElem(p, ms: ms, box: box)
+	let kind = kindOf(l, p: p, ms: ms, t: elem)
+	if zeroIsEmpty(ms.types, reads: p.types, t: elem) 'mayBeEmpty'
+		let held = newReg(l, kind: kind)
+		emit(l, i: newLoadAt(held, addr: addr))
+		let filled = notZero(l, p: p, ms: ms, elem: elem, element: held)
+		failUnless(l, p: p, ms: ms, cond: filled, errorCase: ast.errorEmptySlot)
+	end 'mayBeEmpty'
+	if owning(kind) 'owned'
+		let moved = newReg(l, kind: kind)
+		emit(l, i: newMoveAt(moved, addr: addr))
+		return moved
+	end 'owned'
+	let value = newReg(l, kind: kind)
+	emit(l, i: newLoadAt(value, addr: addr))
+	emit(l, i: newStoreAt(addr, src: zero))
+	return value
+end 'arrayTakeSlot'
 
 // arraySwap exchanges the elements at two indexes where they are: each is loaded and stored into the other's slot, so neither
 // is copied or dropped, and a slot that is empty stays empty. An index past the end fails with indexOutOfBounds, as a read's does.

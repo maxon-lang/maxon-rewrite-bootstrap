@@ -1,0 +1,14 @@
+// expect-exit: 1
+// fillSlot drops nothing, so it traps at a slot that holds an element rather than lose it.
+typealias Names = Array with String
+
+function main() returns ExitCode
+	var names = Names.create(0)
+	names.push("ada")
+	print("before\n")
+	names.fillSlot(0, value: "bob")
+	print("after\n")
+	return 0
+end 'main'
+
+//> before
