@@ -117,9 +117,9 @@ function trimTrailingNewlines(text String) returns borrowed String
 	return text.sliceBytes(0, endPos: finish)
 end 'trimTrailingNewlines'
 
-// collectionSlot is the position of a collection's kind among the two that a program has: arrays and slot maps.
+// collectionSlot is the position of a collection's kind among the three that a program has: arrays, slot maps and lists.
 // collectionKinds is how many kinds of collection a program has.
-let collectionKinds = 2 as Count
+let collectionKinds = 3 as Count
 
 function collectionSlot(kind Kind) returns Count
 	if kind == Kind.kArray 'array'
@@ -128,6 +128,9 @@ function collectionSlot(kind Kind) returns Count
 	if kind == Kind.kSlotMap 'pool'
 		return 1
 	end 'pool'
+	if kind == Kind.kList 'list'
+		return 2
+	end 'list'
 	panic("fuzz: not a collection")
 end 'collectionSlot'
 
@@ -143,6 +146,7 @@ function allCollections() returns KindList
 	var kinds = KindList.create(0)
 	kinds.push(Kind.kArray)
 	kinds.push(Kind.kSlotMap)
+	kinds.push(Kind.kList)
 	return kinds
 end 'allCollections'
 
@@ -265,6 +269,7 @@ enum Action
 	actMatch
 	actArray
 	actSlotMap
+	actList
 	actReturn
 	actLoopJump
 	actElement
@@ -322,6 +327,7 @@ function actionTable() returns WeightedList
 	t.push(Weighted.make(5, action: Action.actMatch))
 	t.push(Weighted.make(9, action: Action.actArray))
 	t.push(Weighted.make(5, action: Action.actSlotMap))
+	t.push(Weighted.make(4, action: Action.actList))
 	t.push(Weighted.make(3, action: Action.actReturn))
 	t.push(Weighted.make(3, action: Action.actLoopJump))
 	t.push(Weighted.make(3, action: Action.actElement))
