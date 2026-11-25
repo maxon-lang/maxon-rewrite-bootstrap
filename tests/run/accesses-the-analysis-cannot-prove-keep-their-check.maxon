@@ -139,7 +139,7 @@ function guardThenPop() returns Count
 	var xs = threes()
 	var missed = 0 as Count
 	if 2 < xs.count() 'guarded'
-		try xs.pop() otherwise panic("empty")
+		xs.pop()
 		missed = try xs.get(2) otherwise 100
 	end 'guarded'
 	return missed
@@ -259,7 +259,7 @@ function poppedInCondition() returns Count
 	var xs = threes()
 	let i = two()
 	if xs.count() == 3 'known'
-		if i < xs.count() and (try xs.pop() otherwise 0) >= 0 'guarded'
+		if i < xs.count() and xs.pop() >= 0 'guarded'
 			return try xs.get(i) otherwise 100
 		end 'guarded'
 	end 'known'

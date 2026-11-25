@@ -739,9 +739,9 @@ function main() returns ExitCode
 	buf.push((value shr 8) and 0xFF)
 	buf.push((value shr 16) and 0xFF)
 	buf.push((value shr 24) and 0xFF)
-	let b0 = try buf.get(1) otherwise 0
-	let b1 = try buf.get(2) otherwise 0
-	let b2 = try buf.get(3) otherwise 0
+	let b0 = buf.get(1)
+	let b1 = buf.get(2)
+	let b2 = buf.get(3)
 	let b3 = try buf.get(4) otherwise 0
 	if b0 != 0xDD 'c0'
 		return 10

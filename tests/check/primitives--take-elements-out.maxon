@@ -90,8 +90,8 @@ function main() returns ExitCode
 	var a = CellArray.create(0)
 	a.push(Cell.make(1))
 	a.push(Cell.make(2))
-	let c = try a.remove(0) otherwise panic("index out of range")
-	let d = try a.pop() otherwise panic("the array is empty")
+	let c = a.remove(0)
+	let d = a.pop()
 	print("{c.n} {d.n}")
 	return 0
 end 'main'

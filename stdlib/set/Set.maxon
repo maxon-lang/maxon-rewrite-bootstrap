@@ -28,12 +28,12 @@ public type Set uses Element implements core.Iterable with (Element, SetIterator
 		var reversed = Elements.create(0)
 		reversed.reserve(pending.count())
 		while pending.count() > 0 'reverse'
-			reversed.push(try pending.pop() otherwise panic("Set.init: the pending elements are counted"))
+			reversed.push(pending.pop())
 		end 'reverse'
 		pending.dropEmpty()
 		var result = Self{}
 		while reversed.count() > 0 'insert'
-			result.insert(try reversed.pop() otherwise panic("Set.init: the reversed elements are counted"))
+			result.insert(reversed.pop())
 		end 'insert'
 		reversed.dropEmpty()
 		return result

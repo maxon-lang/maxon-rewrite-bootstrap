@@ -63,7 +63,7 @@ function main() returns ExitCode
 	var sum = 0 as ExitCode
 	var i = 0 as ElementIndex
 	while i < 5 'read'
-		sum = try sum + ((try a.get(i) otherwise 0) as ExitCode) otherwise panic("out of range")
+		sum = try sum + ((a.get(i)) as ExitCode) otherwise panic("out of range")
 		i = i + 1
 	end 'read'
 	return sum
@@ -88,7 +88,7 @@ function main() returns ExitCode
 	if a.managed.elementSize() != -4 'notPacked'
 		return 99
 	end 'notPacked'
-	return try a.get(2) otherwise 0
+	return a.get(2)
 end 'main'
 ```
 ```exitcode
@@ -110,7 +110,7 @@ function main() returns ExitCode
 	if a.managed.elementSize() != -1 'notPacked'
 		return 99
 	end 'notPacked'
-	return (try a.get(0) otherwise 0) + (try a.get(2) otherwise 0)
+	return (a.get(0)) + (a.get(2))
 end 'main'
 ```
 ```exitcode
@@ -130,7 +130,7 @@ function main() returns ExitCode
 	if a.managed.elementSize() != 1 'shouldBeByte'
 		return 99
 	end 'shouldBeByte'
-	return try a.get(0) otherwise 0
+	return a.get(0)
 end 'main'
 ```
 ```exitcode
@@ -150,7 +150,7 @@ function main() returns ExitCode
 	if a.managed.elementSize() != 1 'shouldBeByte'
 		return 99
 	end 'shouldBeByte'
-	return try (try a.get(0) otherwise 0) - 100 otherwise panic("out of range")
+	return try (a.get(0)) - 100 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -170,7 +170,7 @@ function main() returns ExitCode
 	if a.managed.elementSize() != 1 'shouldBeByte'
 		return 99
 	end 'shouldBeByte'
-	return try a.get(0) otherwise 1
+	return a.get(0)
 end 'main'
 ```
 ```exitcode

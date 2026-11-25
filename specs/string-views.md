@@ -589,8 +589,8 @@ function main() returns ExitCode
 	var a = OctetArray.create(0)
 	a.push(72)
 	a.push(105)
-	let x = try a.get(0) otherwise 0
-	let y = try a.get(1) otherwise 0
+	let x = a.get(0)
+	let y = a.get(1)
 	print("{readBack([x, y])}\n")
 	return 0
 end 'main'
@@ -644,8 +644,8 @@ function main() returns ExitCode
 	var a = ByteArray.create(0)
 	a.push(72)
 	a.push(105)
-	let x = try a.get(0) otherwise 0
-	let y = try a.get(1) otherwise 0
+	let x = a.get(0)
+	let y = a.get(1)
 	let pushed = String.from(a)
 	let literal = String.from([x, y])
 	print("pushed={pushed} literal={literal} len={pushed.byteLength()}")

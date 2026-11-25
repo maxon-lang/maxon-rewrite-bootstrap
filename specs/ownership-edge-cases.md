@@ -465,8 +465,8 @@ typealias ItemArray = Array with Item
 function main() returns ExitCode
 	var arr = ItemArray.create(0)
 	arr.push(Item.create(50))
-	try arr.set(0, value: Item.create(99)) otherwise panic("test invariant: set OOB")
-	let got = try arr.get(0) otherwise Item.create(-1)
+	arr.set(0, value: Item.create(99))
+	let got = arr.get(0)
 	return try got.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
@@ -558,9 +558,7 @@ function main() returns ExitCode
 	end 'push'
 	var total = 0 as Integer
 	while arr.count() > 0 'pop'
-		let e = try arr.remove(0) otherwise 'err'
-			return 99
-		end 'err'
+		let e = arr.remove(0)
 		total = try total + e.key otherwise panic("out of range")
 	end 'pop'
 	return try total as ExitCode otherwise panic("out of range")
@@ -590,9 +588,9 @@ function main() returns ExitCode
 	arr.push(Val.create(10))
 	arr.push(Val.create(30))
 	arr.insert(1, value: Val.create(20))
-	let a = try arr.get(0) otherwise Val.create(-1)
-	let b = try arr.get(1) otherwise Val.create(-1)
-	let c = try arr.get(2) otherwise Val.create(-1)
+	let a = arr.get(0)
+	let b = arr.get(1)
+	let c = arr.get(2)
 	return try a.n + b.n + c.n otherwise panic("out of range")
 end 'main'
 ```
@@ -620,9 +618,7 @@ function main() returns ExitCode
 	arr.push(Val.create(1))
 	arr.push(Val.create(2))
 	arr.push(Val.create(3))
-	let removed = try arr.remove(1) otherwise 'err'
-		return 99
-	end 'err'
+	let removed = arr.remove(1)
 	return try removed.n + (arr.count() as Integer) otherwise panic("out of range")
 end 'main'
 ```
@@ -2534,7 +2530,7 @@ typealias FallbackArray = Array with Fallback
 function main() returns ExitCode
 	var arr = FallbackArray.create(0)
 	arr.push(Fallback.create(10))
-	let a = try arr.get(0) otherwise Fallback.create(99)
+	let a = arr.get(0)
 	let b = try arr.get(5) otherwise Fallback.create(42)
 	return try a.n + b.n otherwise panic("out of range")
 end 'main'

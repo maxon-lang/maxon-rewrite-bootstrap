@@ -700,7 +700,7 @@ function main() returns ExitCode
 	let b = a.clone()
 	var e = try b.get(0) otherwise return 91
 	e.n = 9
-	let first = try a.get(0) otherwise return 92
+	let first = a.get(0)
 	let second = try b.get(0) otherwise return 93
 	print("{first.n} {second.n}\n")
 	return 0

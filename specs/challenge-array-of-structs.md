@@ -92,9 +92,9 @@ function main() returns ExitCode
 	items.push(Item.create(Color.green))
 	items.push(Item.create(Color.blue))
 	// Verify enum values are stored correctly (not pointers)
-	let item0 = try items.get(0) otherwise Item.create(Color.blue)
-	let item1 = try items.get(1) otherwise Item.create(Color.blue)
-	let item2 = try items.get(2) otherwise Item.create(Color.red)
+	let item0 = items.get(0)
+	let item1 = items.get(1)
+	let item2 = items.get(2)
 	// red=0, green=1, blue=2 — base-5 packing keeps the result inside ExitCode (0..125)
 	return try item0.color.rawValue + item1.color.rawValue * 5 + item2.color.rawValue * 25 otherwise panic("out of range")
 end 'main'

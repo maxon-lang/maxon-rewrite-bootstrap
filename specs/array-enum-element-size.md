@@ -59,7 +59,7 @@ function main() returns ExitCode
 	ops.push(Op.add(10))
 	ops.push(Op.sub(20))
 	ops.push(Op.add(30))
-	let first = try ops.get(0) otherwise Op.nop
+	let first = ops.get(0)
 	match first 'check'
 		add(v) then return try v as ExitCode otherwise panic("out of range")
 		sub then return 99
@@ -89,7 +89,7 @@ function main() returns ExitCode
 	ops.push(Op.add(10))
 	ops.push(Op.sub(20))
 	ops.push(Op.add(42))
-	let last = try ops.get(2) otherwise Op.nop
+	let last = ops.get(2)
 	match last 'check'
 		add(v) then return try v as ExitCode otherwise panic("out of range")
 		sub then return 99
@@ -603,8 +603,8 @@ function main() returns ExitCode
 	b.push(Byte.c299)
 	b.push(Byte.c0)
 	b.push(Byte.c260)
-	let first = try a.get(0) otherwise return 9
-	let last = try a.get(2) otherwise return 9
+	let first = a.get(0)
+	let last = a.get(2)
 	print("{first == Byte.c299} {last == Byte.c260} {a == b} {a.count()}\n")
 	return 0
 end 'main'
@@ -638,8 +638,8 @@ function main() returns ExitCode
 	b.push(Byte.high)
 	b.push(Byte.low)
 	b.push(Byte.mid)
-	let first = try a.get(0) otherwise return 9
-	let last = try a.get(2) otherwise return 9
+	let first = a.get(0)
+	let last = a.get(2)
 	print("{first == Byte.high} {last == Byte.mid} {a == b} {a.count()}\n")
 	return 0
 end 'main'

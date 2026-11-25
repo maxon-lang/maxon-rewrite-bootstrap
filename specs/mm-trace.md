@@ -711,7 +711,7 @@ function main() returns ExitCode
 	var all = HolderArray.create(0)
 	all.push(Holder.holding(Body.create(7)))
 	all.push(Holder.empty)
-	let first = try all.get(0) otherwise return 99
+	let first = all.get(0)
 	return match first 'probe'
 		holding(b) gives b.mass as ExitCode
 		empty gives 0

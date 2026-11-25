@@ -130,7 +130,7 @@ typealias SlotArray = Array with Slot
 function main() returns ExitCode
 	var arr = SlotArray.create(0)
 	arr.push(Slot.create(42))
-	let result = try arr.get(0) otherwise Slot.create(0)
+	let result = arr.get(0)
 	return try result.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```

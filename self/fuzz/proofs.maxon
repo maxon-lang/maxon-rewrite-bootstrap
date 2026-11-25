@@ -36,6 +36,14 @@ let proofClosureProbePercent = 30 as Count
 // proofStepProbePercent is how often a fact on an index is followed by a move of the index by a constant and a read at it.
 let proofStepProbePercent = 30 as Count
 
+// proofEndPercent is how often a fact is followed by a read of an end of its array, a first, a last or a pop, which the
+// analysis proves only where it knows the array is not empty, and how often a second follows the first, as a second pop
+// under a guard that the count is at least 2 is proven by the exact step of the first; proofEndReadPercent is how often a
+// read is one of those.
+let proofEndPercent = 30 as Count
+
+let proofEndReadPercent = 15 as Count
+
 // proofFirstUsePercent is how often a guard or a loop starts with a read under its own fact.
 let proofFirstUsePercent = 45 as Count
 
@@ -187,7 +195,7 @@ type ProofGen
 
 	function focusRelease(mutates self, mark Count)
 		while focusArrays.count() > mark 'drop'
-			try focusArrays.pop() otherwise ignore
+			table.dropLast(focusArrays)
 			try focusPlaces.pop() otherwise ignore
 		end 'drop'
 	end 'focusRelease'
@@ -386,6 +394,12 @@ type ProofGen
 			condFocused = true
 			condArray = array
 			condPlace = "0"
+			// The place stays at most 1, so a step from it stays inside the fixed array, which a read under the fact may take.
+			if self.chance(35) 'atLeast'
+				let k = self.pickFrom(1, n: 2)
+				condPlace = "{proofLower(k)}"
+				return "{arrays[array].text}.count() >= {k}"
+			end 'atLeast'
 			if self.chance(70) 'filled'
 				return "{kwNot} {arrays[array].text}.isEmpty()"
 			end 'filled'
@@ -477,8 +491,45 @@ type ProofGen
 	// readStatement reads an element and mixes it into the checksum.
 	function readStatement(mutates self)
 		let t = self.accessTarget()
+		if self.chance(proofEndReadPercent) 'end'
+			self.endRead(t.array)
+			return
+		end 'end'
 		self.readAt(t.array, index: t.index)
 	end 'readStatement'
+
+	// endRead reads the first or the last element of an array that is not the fixed one, or pops it, and mixes it into the
+	// checksum.
+	function endRead(mutates self, array Count)
+		if arrays[array].kind == proofFixed 'fixed'
+			return
+		end 'fixed'
+		let text = arrays[array].text.clone()
+		let r = self.pick(3)
+		var call = "{text}.first()"
+		if r == 1 'last'
+			call = "{text}.last()"
+		end 'last' else if r == 2 'pop'
+			call = "{text}.pop()"
+		end 'pop'
+		if arrays[array].kind == proofNames 'names'
+			let v = self.fresh("v")
+			self.line("{kwLet} {v} = {proofHandled(call, fallback: proofNameFallback)}")
+			self.line("acc = mix(acc, v: {v}.byteLength())")
+			return
+		end 'names'
+		self.line("acc = mix(acc, v: {proofHandled(call, fallback: proofReadFallback)})")
+	end 'endRead'
+
+	// endProbe reads an end of the array of the innermost fact, once or twice.
+	function endProbe(mutates self)
+		let top = try focusArrays.count() - 1 otherwise panic("fuzz: a probe of a fact that was never stated")
+		let array = focusArrays[top]
+		self.endRead(array)
+		if self.chance(40) 'again'
+			self.endRead(array)
+		end 'again'
+	end 'endProbe'
 
 	// focusedRead reads the array of the innermost fact at the place it says, as the first use of a guard or a loop would.
 	function focusedRead(mutates self)
@@ -503,6 +554,9 @@ type ProofGen
 		if self.chance(proofStepProbePercent) 'step'
 			self.stepProbe()
 		end 'step'
+		if self.chance(proofEndPercent) 'ends'
+			self.endProbe()
+		end 'ends'
 	end 'focusUses'
 
 	// stepProbe moves the index of the innermost fact by a constant, or binds a new local to it moved by one, then reads the array
@@ -1279,8 +1333,8 @@ export function generateProof(seed Count, library String) returns GeneratedProgr
 end 'generateProof'
 
 // proofAccessTally is how many accesses the scenarios of a proof program have, after the fix, and how many of them have lost
-// their handler because the analysis proves them: the lines of the scenarios that read or store at an index hold one access each,
-// and the handler is a `try` before it.
+// their handler because the analysis proves them: the lines of the scenarios that read or store at an index, read an end, pop or
+// remove hold one access each, and the handler is a `try` before it.
 export function proofAccessTally(source String) returns CountList
 	var accesses = 0 as Count
 	var proven = 0 as Count
@@ -1311,20 +1365,34 @@ export function proofAccessTally(source String) returns CountList
 	return tally
 end 'proofAccessTally'
 
-// proofAccessAt is where the access of a line begins, when it has one.
+// proofAccessAt is where the first access of a line begins, when it has one.
 function proofAccessAt(text String) returns table.Option with Count
-	let read = textPosition(text, needle: ".get(")
-	let write = textPosition(text, needle: ".set(")
-	if not write.isSome() 'reads'
-		return read
-	end 'reads'
-	if not read.isSome() 'writes'
-		return write
-	end 'writes'
-	let readAt = read.unwrap()
-	let writeAt = write.unwrap()
-	if readAt < writeAt 'first'
-		return table.Option.some(readAt)
-	end 'first'
-	return table.Option.some(writeAt)
+	var found = false
+	var first = 0 as Count
+	for needle in proofAccessNeedles() 'needles'
+		let at = textPosition(text, needle: needle)
+		if at.isSome() 'some'
+			let k = at.unwrap()
+			if not found or k < first 'earlier'
+				found = true
+				first = k
+			end 'earlier'
+		end 'some'
+	end 'needles'
+	if not found 'none'
+		return table.Option.none
+	end 'none'
+	return table.Option.some(first)
 end 'proofAccessAt'
+
+// proofAccessNeedles are how an access of a scenario is written: a get, a set, a first, a last, a pop and a remove.
+function proofAccessNeedles() returns StringList
+	var out = StringList.create(0)
+	out.push(".get(")
+	out.push(".set(")
+	out.push(".first()")
+	out.push(".last()")
+	out.push(".pop()")
+	out.push(".remove(")
+	return out
+end 'proofAccessNeedles'

@@ -1475,7 +1475,7 @@ typealias Bytes = Array with Byte
 function main() returns ExitCode
 	var made = Bytes.create(0)
 	made.push(300)
-	let first = try made.get(0) otherwise 0
+	let first = made.get(0)
 	let n = 48879
 	let neg = -42
 	let control = "a\u001Fb"

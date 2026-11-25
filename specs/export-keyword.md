@@ -204,7 +204,7 @@ export typealias IntArray = Array with Integer
 function main() returns ExitCode
 	var arr = api.IntArray.create(0)
 	arr.push(42)
-	return try (try arr.get(0) otherwise 0) as ExitCode otherwise panic("out of range")
+	return try (arr.get(0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -285,7 +285,7 @@ typealias IntArray = Array with Int
 function main() returns ExitCode
 	var arr = IntArray.create(0)
 	arr.push(42)
-	return try (try arr.get(0) otherwise 0) as ExitCode otherwise panic("out of range")
+	return try (arr.get(0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

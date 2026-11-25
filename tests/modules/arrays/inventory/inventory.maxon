@@ -57,7 +57,7 @@ end 'firstOr'
 export function drain(mutates shelf Shelf) returns Array with Item
 	var out = ItemArray.create(0)
 	while not shelf.items.isEmpty() 'each'
-		out.push(try shelf.items.remove(0) otherwise panic("index out of range"))
+		out.push(shelf.items.remove(0))
 	end 'each'
 	return out
 end 'drain'

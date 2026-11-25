@@ -142,7 +142,7 @@ typealias IntArray = Array with Int
 function main() returns ExitCode
 	var arr = IntArray.create(0)
 	arr.push(42)
-	let val = try arr.get(0) otherwise -1
+	let val = arr.get(0)
 	if val != 42 'check'
 		return 1
 	end 'check'
@@ -189,15 +189,15 @@ function main() returns ExitCode
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	let v0 = try arr.get(0) otherwise -1
+	let v0 = arr.get(0)
 	if v0 != 10 'c0'
 		return 1
 	end 'c0'
-	let v1 = try arr.get(1) otherwise -1
+	let v1 = arr.get(1)
 	if v1 != 20 'c1'
 		return 2
 	end 'c1'
-	let v2 = try arr.get(2) otherwise -1
+	let v2 = arr.get(2)
 	if v2 != 30 'c2'
 		return 3
 	end 'c2'
@@ -221,8 +221,8 @@ function main() returns ExitCode
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	try arr.set(1, value: 99) otherwise panic("test invariant: set OOB")
-	let val = try arr.get(1) otherwise -1
+	arr.set(1, value: 99)
+	let val = arr.get(1)
 	if val != 99 'check'
 		return 1
 	end 'check'
@@ -246,11 +246,11 @@ function main() returns ExitCode
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	let f = try arr.first() otherwise -1
+	let f = arr.first()
 	if f != 10 'fc'
 		return 1
 	end 'fc'
-	let l = try arr.last() otherwise -1
+	let l = arr.last()
 	if l != 30 'lc'
 		return 3
 	end 'lc'
@@ -274,7 +274,7 @@ function main() returns ExitCode
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	let val = try arr.pop() otherwise -1
+	let val = arr.pop()
 	if val != 30 'check'
 		return 1
 	end 'check'
@@ -420,7 +420,7 @@ function main() returns ExitCode
 	if arr.isEmpty() == true 'e2'
 		return 2
 	end 'e2'
-	_ = try arr.pop() otherwise 0
+	_ = arr.pop()
 	if arr.isEmpty() == false 'e3'
 		return 3
 	end 'e3'
@@ -665,8 +665,8 @@ function main() returns ExitCode
 	let s2 = "second"
 	arr.push(s1)
 	arr.push(s2)
-	let v0 = try arr.get(0) otherwise ""
-	let v1 = try arr.get(1) otherwise ""
+	let v0 = arr.get(0)
+	let v1 = arr.get(1)
 	print(v0)
 	print(v1)
 	return 0
@@ -714,7 +714,7 @@ function main() returns ExitCode
 	arr.push("one")
 	arr.push("two")
 	arr.push("three")
-	let val = try arr.get(1) otherwise ""
+	let val = arr.get(1)
 	print(val)
 	return 0
 end 'main'
@@ -1002,9 +1002,7 @@ function main() returns ExitCode
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	let removed = try arr.remove(0) otherwise 'err'
-		return 99
-	end 'err'
+	let removed = arr.remove(0)
 	if removed != 10 'val'
 		return 1
 	end 'val'
@@ -1039,9 +1037,7 @@ function main() returns ExitCode
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	let removed = try arr.remove(1) otherwise 'err'
-		return 99
-	end 'err'
+	let removed = arr.remove(1)
 	if removed != 20 'val'
 		return 1
 	end 'val'
@@ -1076,9 +1072,7 @@ function main() returns ExitCode
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	let removed = try arr.remove(2) otherwise 'err'
-		return 99
-	end 'err'
+	let removed = arr.remove(2)
 	if removed != 30 'val'
 		return 1
 	end 'val'
@@ -1113,9 +1107,7 @@ function main() returns ExitCode
 	arr.push(50)
 	var sum = 0 as Int
 	while arr.count() > 0 'drain'
-		let elem = try arr.remove(0) otherwise 'err'
-			return 99
-		end 'err'
+		let elem = arr.remove(0)
 		sum = try sum + elem otherwise panic("out of range")
 	end 'drain'
 	// 10+20+30+40+50 = 150, masked to wasi exit range: 150 and 125 = 20
@@ -1186,9 +1178,7 @@ function main() returns ExitCode
 	arr.push(20)
 	arr.push(30)
 	arr.insert(1, value: 99)
-	let removed = try arr.remove(1) otherwise 'err'
-		return 99
-	end 'err'
+	let removed = arr.remove(1)
 	if removed != 99 'val'
 		return 1
 	end 'val'
@@ -1297,7 +1287,7 @@ function main() returns ExitCode
 	arr.push("x")
 	arr.push("y")
 	arr.push("z")
-	let removed = try arr.remove(1) otherwise ""
+	let removed = arr.remove(1)
 	print(removed)
 	if arr.count() != 2 'cnt'
 		return 1
@@ -1337,9 +1327,7 @@ function main() returns ExitCode
 	arr.push(Item.create(1))
 	arr.push(Item.create(3))
 	arr.insert(1, value: Item.create(2))
-	let removed = try arr.remove(0) otherwise 'err'
-		return 99
-	end 'err'
+	let removed = arr.remove(0)
 	// removed.id==1, arr is now [Item{id:2}, Item{id:3}]
 	return try removed.id + (arr.count() as Int) otherwise panic("out of range")
 end 'main'

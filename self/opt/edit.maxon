@@ -292,7 +292,7 @@ export type Editor
 		reached[0] = true
 		work.push(0)
 		while work.count() > 0 'walk'
-			let b = try work.pop() otherwise panic("opt: an empty walk")
+			let b = table.popLast(work)
 			if b < original 'own'
 				for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
 					if not removed[k] 'kept'

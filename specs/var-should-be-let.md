@@ -1328,8 +1328,8 @@ function main() returns ExitCode
 	var pair = Pair.create()
 	pair.left.push(Point.create(3))
 	pair.right.push(Point.create(4))
-	let src = try pair.left.get(0) otherwise panic("an element was pushed")
-	var dst = try pair.right.get(0) otherwise panic("an element was pushed")
+	let src = pair.left.get(0)
+	var dst = pair.right.get(0)
 	dst.x = 9
 	return try src.x as ExitCode otherwise panic("out of range")
 end 'main'

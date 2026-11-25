@@ -69,7 +69,7 @@ function main() returns ExitCode
 	end 'fill'
 	print("{names(xs)}\n")
 	xs.insert(2, value: "new")
-	let popped = try xs.pop() otherwise "none"
+	let popped = xs.pop()
 	let removed = try xs.remove(0) otherwise "none"
 	print("{popped} {removed} {names(xs)}\n")
 	try xs.set(1, value: "set") otherwise panic("a slot inside the array")
@@ -86,9 +86,9 @@ function main() returns ExitCode
 	rs.push(Named.make("ada"))
 	rs.push(Named.make("bob"))
 	rs.insert(0, value: Named.make("cy"))
-	let gone = try rs.remove(1) otherwise Named.make("none")
+	let gone = rs.remove(1)
 	rs.push(Named.make("dee"))
-	let last = try rs.pop() otherwise Named.make("none")
+	let last = rs.pop()
 	print("{gone.name} {last.name} {records(rs)}\n")
 	var ms = Maybes.create(0)
 	ms.push(Maybe.some("x"))

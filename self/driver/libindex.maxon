@@ -286,7 +286,7 @@ function reachedQualifiers(index LibraryIndex, words WordSet, always String) ret
 		end 'words'
 	end 'modules'
 	while pending.count() > 0 'closure'
-		let q = try pending.pop() otherwise panic("driver: the pending library modules ran out")
+		let q = table.popLast(pending)
 		for i in 0 upto index.modules.count() 'modules'
 			if index.modules[i].key != q 'other'
 				continue 'modules'

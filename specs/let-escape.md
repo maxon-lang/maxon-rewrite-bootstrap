@@ -92,7 +92,7 @@ end 'register'
 
 function retag(mutates tags Tags)
 	tags.push(Tag.create(1))
-	var w = try tags.get(0) otherwise return
+	var w = tags.get(0)
 	w.t = 9
 end 'retag'
 

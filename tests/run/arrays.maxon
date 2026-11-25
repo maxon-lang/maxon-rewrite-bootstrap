@@ -53,7 +53,7 @@ function main() returns ExitCode
 	b.insert(2, value: 2)
 	b.insert(b.count(), value: 3)
 	print("{b[0]} {b[1]} {b[2]} {b[3]} {b[4]} {b[5]}\n")
-	print("{try b.remove(1) otherwise panic("index out of range")} {b.count()} {try b.remove(try b.count() - 1 otherwise 0) otherwise panic("index out of range")} {b.count()}\n")
+	print("{b.remove(1)} {b.count()} {try b.remove(try b.count() - 1 otherwise 0) otherwise panic("index out of range")} {b.count()}\n")
 	bump(b[0])
 	b[1] = try b[0] + b[1] otherwise b[1]
 	print("{b[0]} {b[1]} {b[2]} {b[3]}\n")
@@ -73,7 +73,7 @@ function main() returns ExitCode
 	var copied = points.clone()
 	copied[0].x = 100
 	print("{points[0].x} {points[0].y} {points[1].x} {points[1].y} {copied[0].x} {copied.count()}\n")
-	let taken = try points.remove(0) otherwise panic("index out of range")
+	let taken = points.remove(0)
 	print("{taken.y} {points.count()} {length(points)} {length(a)}\n")
 	duplicate(points, at: 0)
 	points[0].x = 5

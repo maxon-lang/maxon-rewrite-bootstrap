@@ -89,8 +89,8 @@ function main() returns ExitCode
 	var src = BoxArray.create(0)
 	src.push(StrBox.create("original boxed string, long enough to live on the heap", tag: 7))
 	let copy = src.clone()
-	try src.set(0, value: StrBox.create("replaced", tag: 99)) otherwise return 91
-	let theirs = try src.get(0) otherwise return 92
+	src.set(0, value: StrBox.create("replaced", tag: 99))
+	let theirs = src.get(0)
 	if theirs.tag != 99 'sourceNotReplaced'
 		return 93
 	end 'sourceNotReplaced'

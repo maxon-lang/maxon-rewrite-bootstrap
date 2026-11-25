@@ -2775,12 +2775,12 @@ end 'tyLen'
 function main() returns ExitCode
 	var arr = TyArray.create(0)
 	arr.push(Ty.concrete("an array element payload, long enough to be a real heap allocation"))
-	let borrowed = try arr.get(0) otherwise panic("get failed")
+	let borrowed = arr.get(0)
 	let first = match borrowed 'b'
 		concrete(name) gives try name.byteLength() as ExitCode otherwise panic("out of range")
 		stringy gives 0
 	end 'b'
-	let second = tyLen(try arr.get(0) otherwise panic("get failed"))
+	let second = tyLen(arr.get(0))
 	print("first={first} second={second}")
 	return 0
 end 'main'
@@ -3151,7 +3151,7 @@ end 'Ty'
 function steal(ty Ty) returns Integer
 	var arr = TyArray.create(0)
 	arr.push(ty.clone())
-	let got = try arr.remove(0) otherwise panic("remove failed")
+	let got = arr.remove(0)
 	return match got 'm'
 		concrete(name) gives try name.byteLength() as Integer otherwise panic("out of range")
 	end 'm'

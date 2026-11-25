@@ -306,7 +306,7 @@ export type Ssa
 			work.push(s)
 		end 'uses'
 		while work.count() > 0 'walk'
-			let s = try work.pop() otherwise panic("opt: an empty walk")
+			let s = table.popLast(work)
 			for e in analysis.flow.predStart[s] upto analysis.flow.predStart[plusOne(s)] 'preds'
 				let q = analysis.flow.pred[e]
 				if analysis.flow.reached[q] and liveMark[q] != stamp and defHere[q] != stamp 'through'
@@ -328,7 +328,7 @@ export type Ssa
 			work.push(d)
 		end 'defs'
 		while work.count() > 0 'walk'
-			let d = try work.pop() otherwise panic("opt: an empty walk")
+			let d = table.popLast(work)
 			for e in analysis.frontStart[d] upto analysis.frontStart[plusOne(d)] 'front'
 				let join = analysis.front[e]
 				if placed[join] == stamp or liveMark[join] != stamp 'skip'
@@ -390,10 +390,10 @@ export type Ssa
 			end 'child' else 'done'
 				let height = heights[top]
 				while undoSlot.count() > height 'undo'
-					let v = try undoSlot.pop() otherwise panic("opt: an empty undo")
+					let v = table.popLast(undoSlot)
 					cur[v] = try undoValue.pop() otherwise panic("opt: an empty undo")
 				end 'undo'
-				_ = try stack.pop() otherwise panic("opt: an empty walk")
+				_ = table.popLast(stack)
 				_ = try cursor.pop() otherwise panic("opt: an empty walk")
 				_ = try heights.pop() otherwise panic("opt: an empty walk")
 			end 'done'
@@ -664,7 +664,7 @@ export type Ssa
 			end 'stays'
 		end 'slots'
 		while f.slots.count() > stays 'trim'
-			_ = try f.slots.pop() otherwise panic("opt: an empty slot list")
+			_ = table.popLast(f.slots)
 		end 'trim'
 	end 'compact'
 end 'Ssa'

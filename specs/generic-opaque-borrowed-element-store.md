@@ -87,7 +87,7 @@ function main() returns ExitCode
 	source.push("a borrowed string long enough to force a heap allocation")
 	b.takeFirstOf(source)
 	let stored = try b.at(0) otherwise return 1
-	let original = try source.get(0) otherwise return 1
+	let original = source.get(0)
 	print("{stored}\n")
 	print("{original}\n")
 	return try b.count() as ExitCode otherwise panic("out of range")
@@ -259,7 +259,7 @@ function main() returns ExitCode
 	var source = Strs.create(0)
 	source.push("a scratch-stored string long enough to force a heap allocation")
 	let n = b.scratchCountOf(source)
-	let survivor = try source.get(0) otherwise return 1
+	let survivor = source.get(0)
 	print("{survivor}\n")
 	return try n as ExitCode otherwise panic("out of range")
 end 'main'

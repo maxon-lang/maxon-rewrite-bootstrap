@@ -121,50 +121,51 @@ function arrayPush(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box Arr
 	arrayInsert(l, p: p, ms: ms, box: box, arr: arr, index: n, v: v)
 end 'arrayPush'
 
-// arrayRemove moves the element at index out.
-function arrayRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+// arrayRemove moves the element at index out, which the caller checked is inside the array or the checker proved is (not
+// checked): then the entries it calls are proven, which the interpreter reports where the index is outside.
+function arrayRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool) returns Reg
 	return match elementWay(p, ms: ms, box: box) 'way'
-		heldPacked gives entry(l, p: p, site: box.site, symbol: Rt.rtBytesRemove, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
-		heldInline(words) gives removeWords(l, p: p, box: box, arr: arr, index: index, words: words)
-		heldString gives removeString(l, p: p, ms: ms, box: box, arr: arr, index: index)
-		heldWord gives removeWord(l, p: p, ms: ms, box: box, arr: arr, index: index)
-		heldBox gives removeWord(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		heldPacked gives accessEntry(l, p: p, site: box.site, symbol: Rt.rtBytesRemove, kind: IrKind.kindScalar, args: argsOf2(arr, b: index), checked: checked)
+		heldInline(words) gives removeWords(l, p: p, box: box, arr: arr, index: index, words: words, checked: checked)
+		heldString gives removeString(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
+		heldWord gives removeWord(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
+		heldBox gives removeWord(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
 		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
 	end 'way'
 end 'arrayRemove'
 
-// arrayPop moves the last element out, which the caller has checked there is: nothing follows it, so nothing moves. An
-// array of strings or of records held in place takes the element's address and then closes its room, which moves nothing
-// for the last.
-function arrayPop(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, last Reg) returns Reg
+// arrayPop moves the last element out, which the caller has checked there is, or the checker proved (not checked): nothing
+// follows it, so nothing moves. An array of strings or of records held in place takes the element's address and then closes
+// its room, which moves nothing for the last.
+function arrayPop(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, last Reg, checked bool) returns Reg
 	return match elementWay(p, ms: ms, box: box) 'way'
-		heldInline(_) gives arrayRemove(l, p: p, ms: ms, box: box, arr: arr, index: last)
-		heldString gives arrayRemove(l, p: p, ms: ms, box: box, arr: arr, index: last)
-		heldWord gives popWord(l, p: p, ms: ms, box: box, arr: arr)
-		heldBox gives popWord(l, p: p, ms: ms, box: box, arr: arr)
-		heldPacked gives popWord(l, p: p, ms: ms, box: box, arr: arr)
+		heldInline(_) gives arrayRemove(l, p: p, ms: ms, box: box, arr: arr, index: last, checked: checked)
+		heldString gives arrayRemove(l, p: p, ms: ms, box: box, arr: arr, index: last, checked: checked)
+		heldWord gives popWord(l, p: p, ms: ms, box: box, arr: arr, checked: checked)
+		heldBox gives popWord(l, p: p, ms: ms, box: box, arr: arr, checked: checked)
+		heldPacked gives popWord(l, p: p, ms: ms, box: box, arr: arr, checked: checked)
 		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
 	end 'way'
 end 'arrayPop'
 
 // popWord moves the last word of an array out.
-function popWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg) returns Reg
+function popWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, checked bool) returns Reg
 	let kind = kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box))
-	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayPop, kind: kind, args: argsOf1(arr))
+	return accessEntry(l, p: p, site: box.site, symbol: Rt.rtArrayPop, kind: kind, args: argsOf1(arr), checked: checked)
 end 'popWord'
 
 // removeWords moves the element of words words at index of an array held in place out, to a frame area of its own.
-function removeWords(mutates l Lowerer, p ast.Project, box ArrayBox, arr Reg, index Reg, words Count) returns Reg
+function removeWords(mutates l Lowerer, p ast.Project, box ArrayBox, arr Reg, index Reg, words Count, checked bool) returns Reg
 	let bytes = elementBytes(l, words: words)
-	let at = entry(l, p: p, site: box.site, symbol: Rt.rtRecsElem, kind: IrKind.kindScalar, args: argsOf3(arr, b: index, c: bytes))
+	let at = accessEntry(l, p: p, site: box.site, symbol: Rt.rtRecsElem, kind: IrKind.kindScalar, args: argsOf3(arr, b: index, c: bytes), checked: checked)
 	let d = placedCopy(l, words: words, v: at)
 	entryVoid(l, p: p, site: box.site, symbol: Rt.rtRecsClose, args: argsOf3(arr, b: index, c: bytes))
 	return d
 end 'removeWords'
 
 // removeString moves the String at index of an array of Strings out.
-function removeString(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
-	let at = entry(l, p: p, site: box.site, symbol: Rt.rtStrsElem, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
+function removeString(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool) returns Reg
+	let at = elementEntry(l, p: p, site: box.site, symbol: Rt.rtStrsElem, args: argsOf2(arr, b: index), checked: checked)
 	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box)))
 	emit(l, i: newMoveAt(d, addr: at))
 	entryVoid(l, p: p, site: box.site, symbol: Rt.rtStrsClose, args: argsOf2(arr, b: index))
@@ -172,9 +173,9 @@ function removeString(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 end 'removeString'
 
 // removeWord moves the word at index of an array of words out.
-function removeWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+function removeWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool) returns Reg
 	let kind = kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box))
-	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayRemove, kind: kind, args: argsOf2(arr, b: index))
+	return accessEntry(l, p: p, site: box.site, symbol: Rt.rtArrayRemove, kind: kind, args: argsOf2(arr, b: index), checked: checked)
 end 'removeWord'
 
 // arrayLoad reads the element at index: a byte, a scalar, or a managed element lent for as long as the array is not

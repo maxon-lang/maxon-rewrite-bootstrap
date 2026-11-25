@@ -407,9 +407,7 @@ function main() returns ExitCode
 	arr.push(Item.create(1))
 	arr.push(Item.create(2))
 	arr.push(Item.create(3))
-	let removed = try arr.remove(1) otherwise 'err'
-		return 99
-	end 'err'
+	let removed = arr.remove(1)
 	print("{removed.value}\n")
 	print("{arr.count()}\n")
 	return 0
@@ -447,9 +445,7 @@ function main() returns ExitCode
 	end 'push'
 	var total = 0 as Integer
 	while arr.count() > 0 'remove'
-		let elem = try arr.remove(0) otherwise 'err'
-			return 99
-		end 'err'
+		let elem = arr.remove(0)
 		total = try total + elem.value otherwise panic("out of range")
 	end 'remove'
 	print("{total}\n")
@@ -481,8 +477,8 @@ typealias ItemArray = Array with Item
 function main() returns ExitCode
 	var arr = ItemArray.create(0)
 	arr.push(Item.create(100))
-	try arr.set(0, value: Item.create(200)) otherwise panic("test invariant: set OOB")
-	let elem = try arr.get(0) otherwise Item.create(-1)
+	arr.set(0, value: Item.create(200))
+	let elem = arr.get(0)
 	print("{elem.value}\n")
 	return 0
 end 'main'
@@ -756,9 +752,7 @@ function main() returns ExitCode
 	var globalArr = ItemArray.create(0)
 	globalArr.push(Item.create(10))
 	globalArr.push(Item.create(20))
-	let removed = try globalArr.remove(0) otherwise 'err'
-		return 99
-	end 'err'
+	let removed = globalArr.remove(0)
 	print("{removed.value}\n")
 	print("{globalArr.count()}\n")
 	return 0
@@ -796,9 +790,7 @@ function main() returns ExitCode
 	end 'push'
 	var total = 0 as Integer
 	while globalArr.count() > 0 'remove'
-		let elem = try globalArr.remove(0) otherwise 'err'
-			return 99
-		end 'err'
+		let elem = globalArr.remove(0)
 		total = try total + elem.value otherwise panic("out of range")
 	end 'remove'
 	print("{total}\n")

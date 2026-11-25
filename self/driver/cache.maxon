@@ -232,7 +232,7 @@ function addPublicText(mutates h table.Hasher, text String, begin Count, finish 
 			h.addRange(text, begin: at, finish: lineEnd)
 			let content = afterModifiers(text, at: start, lineEnd: lineEnd)
 			if scopes.count() > 0 and tabs == scopes[ir.pred(scopes.count())] and startsWith(text, at: start, prefix: "end '") 'close'
-				_ = try scopes.pop() otherwise panic("driver: no scope to close")
+				_ = table.popLast(scopes)
 				_ = try copied.pop() otherwise panic("driver: no scope to close")
 			end 'close' else if opensScope(text, at: content) 'open'
 				scopes.push(tabs)
@@ -586,7 +586,7 @@ end 'planModules'
 // same set.
 function markNamedClosure(c Compile, p ast.Project, mutates marked Placed, mutates pending TaskIDs)
 	while pending.count() > 0 'closure'
-		let m = try pending.pop() otherwise panic("driver: the pending modules ran out")
+		let m = table.popLast(pending)
 		for j in 0 upto p.resolutions[m].deps.count() 'deps'
 			let d = ast.modIndex(p.resolutions[m].deps[j].module)
 			if d >= c.first and not marked[c.slotOf(d)] 'new'
@@ -917,7 +917,7 @@ function reachedFrom(p ast.Project, m Count) returns Placed
 	var pending = TaskIDs.create(0)
 	pending.push(m)
 	while pending.count() > 0 'closure'
-		let at = try pending.pop() otherwise panic("driver: the pending modules ran out")
+		let at = table.popLast(pending)
 		for j in 0 upto p.resolutions[at].deps.count() 'deps'
 			let d = ast.modIndex(p.resolutions[at].deps[j].module)
 			if not reached[d] 'new'

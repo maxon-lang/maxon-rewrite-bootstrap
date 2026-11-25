@@ -365,7 +365,7 @@ function main() returns ExitCode
 	var b = touch(a)
 	a = TallyArray.create(0)
 	b.push(4)
-	print("{a.count()} {b.count()} {try b.get(0) otherwise 0}\n")
+	print("{a.count()} {b.count()} {b.get(0)}\n")
 	return 0
 end 'main'
 ```
@@ -428,7 +428,7 @@ function main() returns ExitCode
 	a = TallyArray.create(0)
 	a.push(1)
 	a.push(2)
-	let kept = try holder.get(0) otherwise TallyArray.create(0)
+	let kept = holder.get(0)
 	print("{kept.count()} {try kept.get(0) otherwise 0} {a.count()}\n")
 	return 0
 end 'main'

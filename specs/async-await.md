@@ -1218,7 +1218,7 @@ end 'Cell'
 function main() returns ExitCode
 	var source = IntPromiseArray.create(0)
 	source.push(async work())
-	let popped = try source.pop() otherwise panic("one element was pushed")
+	let popped = source.pop()
 	var cell = Cell.of(async work())
 	cell.p = popped
 	print("{await cell.p}\n")
@@ -1291,7 +1291,7 @@ function main() returns ExitCode
 	var source = IntPromiseArray.create(0)
 	source.push(async work())
 	var sink = IntPromiseArray.create(0)
-	let moved = try source.pop() otherwise async work()
+	let moved = source.pop()
 	sink.push(moved)
 	var sum = 0 as Integer
 	for p in sink 'drain'
@@ -4567,7 +4567,7 @@ end 'poke'
 function main() returns ExitCode
 	var items = Boxes.create(0)
 	items.push(Box.create())
-	var a = try items.get(0) otherwise panic("no box")
+	var a = items.get(0)
 	print("{await async poke(a)}\n")
 	print("{items.count()}\n")
 	return 0
@@ -4611,7 +4611,7 @@ function main() returns ExitCode
 	items.push(Box.create())
 	let a = first(items)
 	print("{await async show(a)}\n")
-	let kept = try items.get(0) otherwise panic("no box")
+	let kept = items.get(0)
 	print("{items.count()} {kept.n}\n")
 	return 0
 end 'main'

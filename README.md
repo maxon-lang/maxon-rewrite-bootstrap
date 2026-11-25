@@ -718,7 +718,9 @@ and does to a count, per intrinsic (the rows of one intrinsic that say it agree)
 the receiver not empty), `Count` (kept, grown, shrunk, by one or by an unknown amount; a method that mutates its receiver
 and says nothing changes it), and `Measure` (a method that reads the count, or whether it is 0). `Proven` on a row names the
 row that does the same where the call has proved `Requires`, with no failure exit: `Array` and `FixedArray` each have one for
-`get` and `set`, which share an intrinsic each, and `ast.provenTwin` finds it. The generator holds a twin to its row.
+`get` and `set`, which share an intrinsic each, `Array` one for `first`, `last`, `pop` and `remove`, and `ast.provenTwin` finds
+it. The generator holds a twin to its row; a twin may say its row's `shrink` exactly, `shrinkOne`, since the row's failure
+exit changes nothing and the twin has none.
 
 **The error codes** are a table, `self/diag/codes.tsv`: each row is a constant, its code, the case of maxon's
 `ErrorCodeRegistry.maxon` that has that number (or `-` for a code of minimaxon's own, numbered from `E3900`) and what it
@@ -2283,7 +2285,8 @@ output and exit code are its own, a violation exits with 4 and a program that ou
 - **`fuzz --proofs`** writes another kind of program (`self/fuzz/proofs.maxon`, over the library `self/fuzz/proofs.txt`): a few
   scenario functions that read and store at an index of an array (of numbers and of strings, in a record two deep, and a
   `FixedArray`) under guards, in loops over a count or a bound, and in `while` loops that step or drain, each mixed, at the points
-  where a fact was just stated, with everything that must make the analysis forget it: a built-in that changes the count
+  where a fact was just stated, and reads of an end (`first`, `last`, `pop`, once or twice, under guards such as
+  `xs.count() >= 2`), with everything that must make the analysis forget it: a built-in that changes the count
   (`pop`, `remove`, `clear`, `truncate`, `push`, `insert`, `set`), an assignment of the array or of the index, a function or a
   method of the record that changes the array, a closure that changes the array or the index, passed, bound or nested, early
   exits, bounds from another array's count, and divisions and conversions under the same guards. Each access is written with
@@ -3103,9 +3106,13 @@ end 'forms'
 - A call of a function that throws, and of an interface's method that does, is covered by a `try` (`E3057`). A `try`
   covers its whole expression, and a `try` block its whole body, except what a `try` inside covers with an `otherwise`
   of its own. A `throw` needs no `try`: it goes to the handler of the `try` block around it, or out of the function.
-- **Proven accesses.** A `get` or a `set` of an `Array` or a `FixedArray` (a call whose built-in row says `Requires`)
-  whose index the range analysis proves below the collection's count cannot fail: it compiles to its twin that cannot
-  (`ast.provenTwin`), the read or the write with no compare and no failure block, and needs no `try`. The analysis follows
+- **Proven accesses.** A `get` or a `set` of an `Array` or a `FixedArray`, and a `remove` of an `Array` (a call whose built-in
+  row says `Requires`), whose index the range analysis proves below the collection's count, and a `first`, a `last` or a `pop`
+  of an `Array` the analysis proves is not empty, cannot fail: it compiles to its twin that cannot (`ast.provenTwin`), the
+  access with no compare and no failure block, and needs no `try`. A proven `pop` or `remove` moves the count down by exactly
+  one, so `if xs.count() >= 2` proves two pops and `while not xs.isEmpty()` a pop each iteration, and a `push` moves it up by
+  exactly one, so a count nothing bounds is at least 1 after one; a checked one moves it down by an amount not known, which is
+  true of both its exits. The analysis follows
   the count of an array that is a local, or a field of one to depth 2, as a place (`count(xs)`), which `xs.count()`
   reads, a comparison relates to an index (`i < xs.count()` gives `count(xs) - i >= 1`) and `isEmpty()` narrows; a call
   that changes the array moves or forgets it by the row's `Count` effect, and anything else that may change the array
@@ -3122,7 +3129,7 @@ end 'forms'
   loop is entered stays at its top unless the body may falsify it ("Checked arithmetic"). A state keeps at most 32 relations. Every rule is checked by brute force against what the operations do to
   values (`self/check/rules.maxtest`). An access that is not proven where no
   `try` covers it is `E3057`, which says what it needs (`'xs.get(i)' needs i < xs.count()`) and names the guard and the
-  `try` that would give it. A `try` that covers nothing that can fail, as one that covers only proven accesses, is `E3944` (see
+  `try` that would give it (`'xs.pop()' needs xs.count() > 0`). A `try` that covers nothing that can fail, as one that covers only proven accesses, is `E3944` (see
   "Checked arithmetic").
 - What leaves the function, through a `try` without `otherwise` or a `throw`, must be the error the function throws:
   `E3059` otherwise, also where the function throws nothing; convert another error with `otherwise throw`. Where what
@@ -3754,7 +3761,7 @@ function main() returns ExitCode
 	shapes.push(Square.create(2))
 	let sq = Square.create(3)
 	print("{describe(sq)}\n")
-	let back = try shapes.pop() otherwise panic("empty")
+	let back = shapes.pop()
 	let square = try back as Square otherwise panic("not a square")
 	return 0
 end 'main'
@@ -4135,7 +4142,8 @@ the type is known (`Shelf{items: Array.create(0)}`). An operation that changes t
 dropped, ends after every element was taken out. An array's is a test of its count, which is 0 once every element was
 taken out; a library slot array's (`__SlotArray`) makes no test, as the slot table that ends it tests its own count of elements. Nothing built in returns an `Option`, and there is none built in.
 - **Operations that fail throw.** `remove`, `pop`, `removeFirst`, `removeLast`, `first`, `last`, `next` and `prev` throw
-  maxon's error, so a call of one is covered by a `try` like any other that throws (`E3057`): `try a.pop() otherwise
+  maxon's error, so a call of one is covered by a `try` like any other that throws (`E3057`), unless the range analysis
+  proves it cannot fail (an `Array`'s `remove`, `pop`, `first` and `last`, see "Proven accesses"): `try a.pop() otherwise
   fallback`, or `try a.remove(i) otherwise panic("index out of range")` where a miss is a bug. The lowering tests first
   and fails as a compiled throwing function does, with the case plus 1 in the error register, so a failure allocates
   nothing.
@@ -5257,8 +5265,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   that expect `E3167` on a result are skipped with that reason.
 - A format specifier (see "Format specifiers") reads the integers, floats and Strings, and leaves any other value as it is:
   there is no `FormattedStringable`, so `{c:verbose}` of a type of the program is not interpolated. An empty specifier (`{x:}`) is no specifier.
-- A `get` or a `set` of an array at an index that the range analysis proves inside the count needs no `try` and runs with
-  no check, where maxon's throws and needs one; a `try` around such an access alone is `E3944`, as is any `try` that covers nothing that can fail, whose
+- A `get`, a `set` or a `remove` of an array at an index that the range analysis proves inside the count, and a `first`, a
+  `last` or a `pop` of an array it proves is not empty, needs no `try` and runs with no check, where maxon's throws and needs one; a `try` around such an access alone is `E3944`, as is any `try` that covers nothing that can fail, whose
   `fix` (and so the conversion of maxon's code, `specs.ps1` and `stdlib.ps1`) removes the `try` with its handler: maxon's
   `E3055` (a `try` on a call that does not throw) and `E3083` (a `try` block with nothing that throws) are two cases of it, and an
   operation the range analysis proves cannot fail, which maxon traps and so never covers, is another. `E3057` for an access that is not

@@ -360,7 +360,7 @@ function main() returns ExitCode
 	source.push("a second source string, also long enough to force a heap allocation")
 	b.copyFrom(source, upTo: 2)
 	let copied = try b.at(1) otherwise return 1
-	let original = try source.get(1) otherwise return 1
+	let original = source.get(1)
 	print("{copied}\n")
 	print("{original}\n")
 	return 0
@@ -744,7 +744,7 @@ function main() returns ExitCode
 	source.push("a second source string, also long enough to force a heap allocation")
 	b.copyFrom(source, upTo: 2, seed: "a seed string long enough to force a heap allocation")
 	let copied = try b.at(1) otherwise return 1
-	let original = try source.get(1) otherwise return 1
+	let original = source.get(1)
 	print("{copied}\n")
 	print("{original}\n")
 	return 0

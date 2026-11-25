@@ -1,7 +1,7 @@
 // The functions here are operations that this compiler's range analysis proves cannot fail and the seed's does not yet:
-// it knows that no collection holds more elements than memory has bytes, and keeps what it knows of a count or an index
-// through a loop whose body cannot change it. Each is written as a call the seed accepts, and the seed's next renewal
-// replaces each call with the operation.
+// it knows that no collection holds more elements than memory has bytes, keeps what it knows of a count or an index
+// through a loop whose body cannot change it, and proves a pop, a remove, a first and a last of a list it knows is long
+// enough. Each is written as a call the seed accepts, and the seed's next renewal replaces each call with the operation.
 
 // sum is a + b where a count could in principle reach the top of Count.
 export function sum(a Count, b Count) returns Count
@@ -17,3 +17,18 @@ end 'difference'
 export function countAt(xs Array with Count, i Count) returns Count
 	return try xs.get(i) otherwise panic("table: an index past the end of its list")
 end 'countAt'
+
+// popLast is xs.pop() where xs is not empty.
+export function popLast(mutates xs Array with T) uses T returns T
+	return try xs.pop() otherwise panic("table: a pop of an empty list")
+end 'popLast'
+
+// dropLast drops the last element of xs, which is not empty.
+export function dropLast(mutates xs Array with T) uses T where T implements Droppable
+	_ = try xs.pop() otherwise panic("table: a pop of an empty list")
+end 'dropLast'
+
+// dropAt drops the element at index at of xs, below xs's count.
+export function dropAt(mutates xs Array with T, at Count) uses T where T implements Droppable
+	_ = try xs.remove(at) otherwise panic("table: a remove past the end of its list")
+end 'dropAt'

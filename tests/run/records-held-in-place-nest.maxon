@@ -134,7 +134,7 @@ function main() returns ExitCode
 		count = try count + one.frame.area() otherwise 0
 	end 'each'
 	printLine("areas {count}")
-	let last = try scenes.pop() otherwise scene(0, size: 0)
+	let last = scenes.pop()
 	printLine("popped {showScene(last)} left {scenes.count()}")
 	var named = Named.make("n", scene: scene(5, size: 5))
 	named.scene.frame.low.moved(2)

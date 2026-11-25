@@ -74,10 +74,8 @@ function main() returns ExitCode
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	try arr.set(1, value: 99) otherwise panic("test invariant: set OOB")
-	let v = try arr.get(1) otherwise 'err'
-		return 0
-	end 'err'
+	arr.set(1, value: 99)
+	let v = arr.get(1)
 	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
@@ -117,9 +115,7 @@ function main() returns ExitCode
 	arr.push(10)
 	arr.push(30)
 	arr.insert(1, value: 20)
-	let removed = try arr.remove(0) otherwise 'err'
-		return 99
-	end 'err'
+	let removed = arr.remove(0)
 	return try removed + (arr.count() as Int) otherwise panic("out of range")
 end 'main'
 ```
@@ -664,7 +660,7 @@ function main() returns ExitCode
 	a.push(11)
 	a.push(22)
 	a.push(33)
-	let removed = try a.remove(0) otherwise -1
+	let removed = a.remove(0)
 	a.resize(3)
 	var i = 0 as Count
 	while i < 3 'read'
@@ -1310,7 +1306,7 @@ function main() returns ExitCode
 	var sub = try arr.slice(0, endIndex: 2) otherwise panic("slice: 0..2 of a length-3 array")
 	try sub.managed.set(1, value: 99) otherwise return 1
 	try sub.managed.set(2, value: 99) otherwise 'pastTheDetachedCapacity'
-		let parent = try arr.get(1) otherwise panic("get: index 1 of a length-3 array")
+		let parent = arr.get(1)
 		return try ((sub.managed.length() as Int) + parent) as ExitCode otherwise panic("out of range")
 	end 'pastTheDetachedCapacity'
 	return 5
@@ -1466,7 +1462,7 @@ function main() returns ExitCode
 	let sub = try arr.slice(0, endIndex: 2) otherwise panic("slice: 0..2 of a length-3 array")
 	try arr.managed.set(0, value: 99) otherwise panic("set: index 0 of a length-3 buffer")
 	let viewed = try sub.get(0) otherwise panic("get: index 0 of a length-2 view")
-	let owner = try arr.get(0) otherwise panic("get: index 0 of a length-3 array")
+	let owner = arr.get(0)
 	return try (viewed + owner) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
@@ -2060,8 +2056,8 @@ function main() returns ExitCode
 	arr.push(20)
 	try arr.managed.set(0, value: 12) otherwise return 1
 	arr.push(30)
-	let popped = try arr.pop() otherwise return 2
-	let head = try arr.first() otherwise return 3
+	let popped = arr.pop()
+	let head = arr.first()
 	return try ((arr.count() as Int) + popped + head) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
@@ -2598,7 +2594,7 @@ typealias BufArray = Array with ByteArray
 function main() returns ExitCode
 	var a = BufArray.create(0)
 	a.push("hello".toByteArray())
-	let m = try a.get(0) otherwise return 1
+	let m = a.get(0)
 	return try m.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```

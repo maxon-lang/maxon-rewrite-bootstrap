@@ -47,9 +47,15 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrArrayRemove 'intrArrayRemove'
 		return lowerArrayRemove(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayRemove'
+	if op == ast.Intrinsic.intrArrayRemoveProven 'intrArrayRemoveProven'
+		return lowerArrayRemoveProven(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArrayRemoveProven'
 	if op == ast.Intrinsic.intrArrayPop 'intrArrayPop'
 		return lowerArrayPop(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayPop'
+	if op == ast.Intrinsic.intrArrayPopProven 'intrArrayPopProven'
+		return lowerArrayPopProven(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArrayPopProven'
 	if op == ast.Intrinsic.intrArrayDropEmpty 'intrArrayDropEmpty'
 		return lowerArrayDropEmpty(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayDropEmpty'
@@ -86,9 +92,15 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrArrayFirst 'intrArrayFirst'
 		return lowerArrayFirst(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayFirst'
+	if op == ast.Intrinsic.intrArrayFirstProven 'intrArrayFirstProven'
+		return lowerArrayFirstProven(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArrayFirstProven'
 	if op == ast.Intrinsic.intrArrayLast 'intrArrayLast'
 		return lowerArrayLast(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayLast'
+	if op == ast.Intrinsic.intrArrayLastProven 'intrArrayLastProven'
+		return lowerArrayLastProven(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArrayLastProven'
 	if op == ast.Intrinsic.intrArrayEmptySlots 'intrArrayEmptySlots'
 		return lowerArrayEmptySlots(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayEmptySlots'
@@ -847,9 +859,15 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrArrayRemove 'intrArrayRemove'
 		return false
 	end 'intrArrayRemove'
+	if op == ast.Intrinsic.intrArrayRemoveProven 'intrArrayRemoveProven'
+		return false
+	end 'intrArrayRemoveProven'
 	if op == ast.Intrinsic.intrArrayPop 'intrArrayPop'
 		return false
 	end 'intrArrayPop'
+	if op == ast.Intrinsic.intrArrayPopProven 'intrArrayPopProven'
+		return false
+	end 'intrArrayPopProven'
 	if op == ast.Intrinsic.intrArrayDropEmpty 'intrArrayDropEmpty'
 		return false
 	end 'intrArrayDropEmpty'
@@ -886,9 +904,15 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrArrayFirst 'intrArrayFirst'
 		return false
 	end 'intrArrayFirst'
+	if op == ast.Intrinsic.intrArrayFirstProven 'intrArrayFirstProven'
+		return false
+	end 'intrArrayFirstProven'
 	if op == ast.Intrinsic.intrArrayLast 'intrArrayLast'
 		return false
 	end 'intrArrayLast'
+	if op == ast.Intrinsic.intrArrayLastProven 'intrArrayLastProven'
+		return false
+	end 'intrArrayLastProven'
 	if op == ast.Intrinsic.intrArrayEmptySlots 'intrArrayEmptySlots'
 		return false
 	end 'intrArrayEmptySlots'

@@ -360,7 +360,7 @@ typealias Steps = Array with Step
 function runA(start Tally) returns Tally
 	var steps = Steps.create(0)
 	steps.push(function(acc Tally, more Tally) gives try acc + more otherwise panic("out of range"))
-	let step = try steps.get(0) otherwise panic("no step")
+	let step = steps.get(0)
 	return step(start, 3)
 end 'runA'
 
@@ -376,7 +376,7 @@ typealias Steps = Array with Step
 export function runB(label String) returns String
 	var steps = Steps.create(0)
 	steps.push(function(text String) gives "{text}!")
-	let step = try steps.get(0) otherwise panic("no step")
+	let step = steps.get(0)
 	return step(label)
 end 'runB'
 

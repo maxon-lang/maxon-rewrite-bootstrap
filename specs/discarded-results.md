@@ -680,7 +680,7 @@ function removeFirst(mutates arr IntArray, value Integer) returns bool
 	while i < arr.count() 'scan'
 		let cur = arr.get(i)
 		if cur == value 'hit'
-			_ = try arr.remove(i) otherwise panic("remove failed")
+			_ = arr.remove(i)
 			return true
 		end 'hit'
 		i = i + 1
@@ -737,7 +737,7 @@ typealias TallyArray = Array with Tally
 function main() returns ExitCode
 	var arr = TallyArray.create(0)
 	arr.push(1)
-	_ = try arr.pop() otherwise 0
+	_ = arr.pop()
 	return try arr.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
@@ -872,7 +872,7 @@ function main() returns ExitCode
 	var src = TallyArray.create(0)
 	src.push(3)
 	var dst = TallyArray.create(0)
-	dst.push(try src.get(0) otherwise panic("src holds one element"))
+	dst.push(src.get(0))
 	return try dst.count() - 1 otherwise panic("out of range")
 end 'main'
 ```
@@ -1005,7 +1005,7 @@ typealias TallyArray = Array with Tally
 function main() returns ExitCode
 	var stack = TallyArray.create(0)
 	stack.push(7)
-	_ = try stack.pop() otherwise panic("pushed one element")
+	_ = stack.pop()
 	return 0
 end 'main'
 ```

@@ -101,7 +101,7 @@ function main() returns ExitCode
 	pairs.push(Pair.create(5, b: 6))
 	let sum = sumAll(pairs)
 	// After sumAll, elements should still be valid
-	let p1 = try pairs.get(1) otherwise Pair.create(0, b: 0)
+	let p1 = pairs.get(1)
 	if sum == 21 'ok'
 		return try p1.a + p1.b otherwise panic("out of range")
 	end 'ok'
@@ -137,7 +137,7 @@ function main() returns ExitCode
 	var items = ItemArray.create(0)
 	items.push(Item.create(21))
 	let result = readTwice(items)
-	let check = try items.get(0) otherwise Item.create(0)
+	let check = items.get(0)
 	return try check.id + result otherwise panic("out of range")
 end 'main'
 ```

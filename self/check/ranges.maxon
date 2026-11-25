@@ -322,7 +322,7 @@ end 'localAt'
 
 function truncatePlaces(mutates places PlaceList, count Count)
 	while places.count() > count 'pop'
-		try places.pop() otherwise panic("ranges: the places written are fewer than their mark")
+		table.dropLast(places)
 	end 'pop'
 end 'truncatePlaces'
 
@@ -395,7 +395,7 @@ function rangeAffect(mutates r Ranges, place Place, effect ast.CountEffect)
 		return
 	end 'dead'
 	let st = r.st
-	r.states.list[st].affect(place, effect: effect)
+	r.states.list[st].affectCollection(place, effect: effect)
 end 'rangeAffect'
 
 // rangeTouch notes that a place changes, in a state of its own to change, and says whether a path reaches the change.
@@ -752,7 +752,7 @@ function rangeForStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast
 	let breaks = rangePopFrame(r)
 	r.st = r.states.joined(top, b: breaks)
 	while r.bounds.count() > bounded 'unbind'
-		try r.bounds.pop() otherwise panic("ranges: the bounds are fewer than their mark")
+		table.dropLast(r.bounds)
 	end 'unbind'
 	rangeRestoreTimes(r, outer: times)
 end 'rangeForStmt'

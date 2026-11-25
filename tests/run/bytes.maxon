@@ -105,9 +105,9 @@ function main() returns ExitCode
 	print("inserted={String.from(h)}")
 	h.insert(99, value: 33 as Byte)
 	print(" clamped={String.from(h)}\n")
-	let removed = try h.remove(0) otherwise 0 as Byte
-	let popped = try h.pop() otherwise 0 as Byte
-	_ = try h.pop() otherwise 0 as Byte
+	let removed = h.remove(0)
+	let popped = h.pop()
+	_ = h.pop()
 	print("removed={removed} popped={popped} left={String.from(h)}\n")
 	var none = ByteArray.create(0)
 	print("failed remove={removeFails(none, index: 0)} pop={popFails(none)}\n")

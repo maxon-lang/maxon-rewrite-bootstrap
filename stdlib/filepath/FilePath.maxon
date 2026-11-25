@@ -430,9 +430,9 @@ extension FilePath
 			end 'noStep'
 			if cancelsParents and component == ParentDirectoryComponent 'climb'
 				if not kept.isEmpty() 'hasAPrevious'
-					let previous = try kept.last() otherwise panic("FilePath.folded: a non-empty array has a last component")
+					let previous = kept.last()
 					if previous != ParentDirectoryComponent 'cancelsAName'
-						_ = try kept.pop() otherwise panic("FilePath.folded: a non-empty array has a last component")
+						_ = kept.pop()
 						continue
 					end 'cancelsAName'
 				end 'hasAPrevious'

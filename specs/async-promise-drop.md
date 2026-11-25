@@ -1127,7 +1127,7 @@ end 'plain'
 function main() returns ExitCode
 	var s = IntPromiseArray.create(0)
 	s.push(async plain())
-	let p = try s.pop() otherwise panic("just pushed one")
+	let p = s.pop()
 	print("popped a thread complete={p.isComplete()}, array now {s.count()}")
 	p.cancel()
 	return 0
@@ -2238,7 +2238,7 @@ end 'plain'
 function main() returns ExitCode
 	var s = IntPromiseArray.create(0)
 	s.push(async plain())
-	let p = try s.pop() otherwise panic("has one")
+	let p = s.pop()
 	return try (await p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
@@ -4450,7 +4450,7 @@ end 'work'
 function main() returns ExitCode
 	var held = PairArray.create(0)
 	held.push((1, async work(1)))
-	let (tag, p) = try held.pop() otherwise panic("one pushed")
+	let (tag, p) = held.pop()
 	let v = await p
 	print("{tag} {v}\n")
 	return 0
@@ -4488,7 +4488,7 @@ function main() returns ExitCode
 	var held = PairArray.create(0)
 	let entry = entryFor(2)
 	held.push(entry)
-	let (tag, p) = try held.pop() otherwise panic("one pushed")
+	let (tag, p) = held.pop()
 	let v = await p
 	print("{tag} {v}\n")
 	return 0
@@ -4521,8 +4521,8 @@ end 'work'
 function main() returns ExitCode
 	var held = PairArray.create(0)
 	held.push((1, async work(1)))
-	try held.set(0, value: (5, async work(5))) otherwise panic("index 0 exists")
-	let (tag, p) = try held.pop() otherwise panic("one held")
+	held.set(0, value: (5, async work(5)))
+	let (tag, p) = held.pop()
 	let v = await p
 	print("{tag} {v}\n")
 	return 0
@@ -4589,7 +4589,7 @@ end 'work'
 function main() returns ExitCode
 	var held = TwinArray.create(0)
 	held.push((async work(1), async work(10)))
-	let (a, b) = try held.pop() otherwise panic("one pushed")
+	let (a, b) = held.pop()
 	let x = await a
 	let y = await b
 	print("{x} {y}\n")

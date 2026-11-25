@@ -705,7 +705,7 @@ export type Spiller
 			self.visitSuccessors(cutBlock)
 		end 'point'
 		while stack.count() > 0 'walk'
-			let b = try stack.pop() otherwise panic("backend: an empty walk")
+			let b = table.popLast(stack)
 			self.visitSuccessors(b)
 		end 'walk'
 		for e in lv.useStart[v] upto self.usesEnd(v) 'uses'

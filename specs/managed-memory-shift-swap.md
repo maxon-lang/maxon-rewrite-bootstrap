@@ -113,8 +113,8 @@ function main() returns ExitCode
 	xs.push("second heap string long enough to require an allocation")
 	xs.push("third heap string long enough to require an allocation")
 	let gone = try xs.managed.remove(0) otherwise return 99
-	let first = try xs.get(0) otherwise "missing"
-	let second = try xs.get(1) otherwise "missing"
+	let first = xs.get(0)
+	let second = xs.get(1)
 	print("{gone}\n")
 	print("{first}\n")
 	print("{second}\n")
@@ -688,7 +688,7 @@ function main() returns ExitCode
 	arr.push(20)
 	arr.push(30)
 	try arr.managed.swap(0, j: 2) otherwise return 99
-	return (try arr.get(0) otherwise 0) * 2 + (try arr.get(2) otherwise 0)
+	return (arr.get(0)) * 2 + (arr.get(2))
 end 'main'
 ```
 ```exitcode
@@ -707,7 +707,7 @@ function main() returns ExitCode
 	var xs = StrArray.create(0)
 	xs.push("only heap string long enough to require an allocation")
 	try xs.managed.swap(0, j: 0) otherwise return 99
-	let only = try xs.get(0) otherwise "missing"
+	let only = xs.get(0)
 	print("{only}\n")
 	return try xs.count() as ExitCode otherwise panic("out of range")
 end 'main'
@@ -754,8 +754,8 @@ function main() returns ExitCode
 	xs.push("alpha heap string long enough to require an allocation")
 	xs.push("beta heap string long enough to require an allocation")
 	try xs.managed.swap(0, j: 1) otherwise return 99
-	let first = try xs.get(0) otherwise "missing"
-	let second = try xs.get(1) otherwise "missing"
+	let first = xs.get(0)
+	let second = xs.get(1)
 	print("{first}\n")
 	print("{second}\n")
 	return try xs.count() as ExitCode otherwise panic("out of range")
@@ -820,8 +820,8 @@ function main() returns ExitCode
 	flags.push(false)
 	flags.push(false)
 	try flags.managed.swap(0, j: 1) otherwise return 99
-	let atZero = try flags.get(0) otherwise true
-	let atOne = try flags.get(1) otherwise false
+	let atZero = flags.get(0)
+	let atOne = flags.get(1)
 	var total = 0 as ExitCode
 	if atZero 'zero'
 		total = total + 1

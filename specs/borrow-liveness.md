@@ -58,7 +58,7 @@ function main() returns ExitCode
 	var arr = StringArray.create(0)
 	arr.push("first {3} long enough for the heap")
 	arr.push("second {4} long enough for the heap")
-	let first = try arr.get(0) otherwise "none"
+	let first = arr.get(0)
 	var i = 0 as Count
 	while i < 2 'loop'
 		print("{first}\n")
@@ -904,7 +904,7 @@ end 'Bag'
 function main() returns ExitCode
 	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
-	let s = try b.items.get(0) otherwise ""
+	let s = b.items.get(0)
 	b.wipe()
 	print("{s.byteLength()} [{s}] {b.items.count()}\n")
 	return 0
@@ -937,7 +937,7 @@ end 'Bag'
 function main() returns ExitCode
 	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
-	let s = try b.items.get(0) otherwise ""
+	let s = b.items.get(0)
 	b.wipe()
 	print("{s.byteLength()} [{s}] {b.items.count()}\n")
 	return 0
@@ -971,7 +971,7 @@ end 'Bag'
 function main() returns ExitCode
 	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
-	let s = try b.items.get(0) otherwise ""
+	let s = b.items.get(0)
 	b.wipe()
 	print("{s.byteLength()} [{s}] {b.items.count()}\n")
 	return 0
@@ -1051,7 +1051,7 @@ end 'Bag'
 function main() returns ExitCode
 	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
-	let s = try b.items.get(0) otherwise ""
+	let s = b.items.get(0)
 	b.wipe()
 	print("{s.byteLength()} [{s}] {b.items.count()}\n")
 	return 0
@@ -1084,7 +1084,7 @@ end 'Bag'
 function main() returns ExitCode
 	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
-	let s = try b.items.get(0) otherwise ""
+	let s = b.items.get(0)
 	b.wipe()
 	print("{s.byteLength()} [{s}] {b.items.count()}\n")
 	return 0
@@ -1117,7 +1117,7 @@ end 'wipe'
 function main() returns ExitCode
 	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
-	let s = try b.items.get(0) otherwise ""
+	let s = b.items.get(0)
 	wipe(b)
 	print("{s.byteLength()} [{s}] {b.items.count()}\n")
 	return 0
@@ -1152,7 +1152,7 @@ end 'Bag'
 function main() returns ExitCode
 	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation")
-	let s = try b.items.get(0) otherwise ""
+	let s = b.items.get(0)
 	let n = b.room()
 	print("{s.byteLength()} {n > 0}\n")
 	return 0
@@ -1187,7 +1187,7 @@ end 'Bag'
 function main() returns ExitCode
 	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation")
-	let s = try b.items.get(0) otherwise ""
+	let s = b.items.get(0)
 	let n = b.size()
 	print("{s.byteLength()} {n}\n")
 	return 0
@@ -1427,7 +1427,7 @@ end 'Bag'
 function main() returns ExitCode
 	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation")
-	let s = try b.items.get(0) otherwise ""
+	let s = b.items.get(0)
 	b.add(42)
 	print("{s.byteLength()} {b.total}\n")
 	return 0
@@ -1474,7 +1474,7 @@ end 'Bag'
 function main() returns ExitCode
 	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation")
-	let s = try b.items.get(0) otherwise ""
+	let s = b.items.get(0)
 	b.mark()
 	b.note(7)
 	print("{s.byteLength()} {b.name} {b.seenCount()}\n")
@@ -1510,7 +1510,7 @@ end 'wipe'
 function main() returns ExitCode
 	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
-	let s = try b.items.get(0) otherwise ""
+	let s = b.items.get(0)
 	wipe(b)
 	print("{s.byteLength()} [{s}] {b.items.count()}\n")
 	return 0
@@ -1542,7 +1542,7 @@ end 'Bag'
 function main() returns ExitCode
 	var b = Bag.create()
 	b.items.push("hello")
-	let s = try b.items.get(0) otherwise ""
+	let s = b.items.get(0)
 	b.n = 5
 	print("{s} {b.n}\n")
 	return 0
@@ -1616,7 +1616,7 @@ typealias HolderArray = Array with Holder
 function main() returns ExitCode
 	var arr = HolderArray.create(0)
 	arr.push(Holder.create())
-	var p = try arr.get(0) otherwise Holder.create()
+	var p = arr.get(0)
 	let s = try p.items.get(0) otherwise ""
 	p.items.clear()
 	print("[{s}] {p.items.count()}\n")
@@ -1792,7 +1792,7 @@ end 'Bag'
 function main() returns ExitCode
 	var b = Bag.create()
 	b.inner.items.push("alpha string long enough for heap allocation {40 + 2}")
-	let s = try b.inner.items.get(0) otherwise "none"
+	let s = b.inner.items.get(0)
 	b.reset()
 	print("[{s}] {b.inner.items.count()}\n")
 	return 0
@@ -1831,7 +1831,7 @@ end 'rename'
 function main() returns ExitCode
 	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation")
-	let s = try b.items.get(0) otherwise ""
+	let s = b.items.get(0)
 	b.retag()
 	rename(b)
 	print("{s.byteLength()} {b.name}\n")
@@ -1957,7 +1957,7 @@ end 'build'
 function main() returns ExitCode
 	var a = StringArray.create(0)
 	a.push(build(10))
-	let out = clobber(a, borrowed: try a.get(0) otherwise "")
+	let out = clobber(a, borrowed: a.get(0))
 	print("{out} {a.count()}\n")
 	return 0
 end 'main'
@@ -2647,7 +2647,7 @@ typealias Words = Array with String
 function main() returns ExitCode
 	var xs = Words.create(0)
 	xs.push("a word padded out long enough to heap allocate {1}")
-	let s = try xs.get(0) otherwise ""
+	let s = xs.get(0)
 	if s.byteLength() > 0 'nested'
 		let r = xs
 		print("{r.count()}\n")
@@ -2684,7 +2684,7 @@ end 'choose'
 function main() returns ExitCode
 	var xs = Words.create(0)
 	xs.push("a word padded out long enough to heap allocate {1}")
-	let s = try xs.get(0) otherwise ""
+	let s = xs.get(0)
 	var r = match choose(1) 'pick'
 		first gives xs
 		second gives Words.create(0)
@@ -2711,7 +2711,7 @@ typealias Words = Array with String
 function main() returns ExitCode
 	var xs = Words.create(0)
 	xs.push("a word padded out long enough to heap allocate {1}")
-	let s = try xs.get(0) otherwise ""
+	let s = xs.get(0)
 	var c = Words.create(0)
 	c = xs
 	c.clear()

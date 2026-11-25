@@ -29,7 +29,7 @@ typealias StringCountMap = Map with String, Count
 
 function moveFirst(mutates source Array with T, mutates target Array with T) uses T
 	if not source.isEmpty() 'some'
-		target.push(try source.remove(0) otherwise panic("index out of range"))
+		target.push(source.remove(0))
 	end 'some'
 end 'moveFirst'
 

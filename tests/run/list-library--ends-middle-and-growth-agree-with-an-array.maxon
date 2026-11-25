@@ -52,14 +52,14 @@ function main() returns ExitCode
 			end 'removed'
 		end 'remove' else if op == 5 and not model.isEmpty() 'first'
 			let a = try l.removeFirst() otherwise panic("an element")
-			let b = try model.remove(0) otherwise panic("an element")
+			let b = model.remove(0)
 			if a != b 'removed'
 				print("removeFirst differs at step {step}\n")
 				return 1
 			end 'removed'
 		end 'first' else if op == 6 and not model.isEmpty() 'last'
 			let a = try l.removeLast() otherwise panic("an element")
-			let b = try model.pop() otherwise panic("an element")
+			let b = model.pop()
 			if a != b 'removed'
 				print("removeLast differs at step {step}\n")
 				return 1

@@ -17,8 +17,8 @@ function main() returns ExitCode
 	w.push("b")
 	var n = Counts.create(1)
 	try n.set(0, value: 7) otherwise return 1
-	let first = try w.get(0) otherwise "none"
-	print("{first} {try w.get(1) otherwise "none"} {try n.get(0) otherwise 0}\n")
+	let first = w.get(0)
+	print("{first} {w.get(1)} {try n.get(0) otherwise 0}\n")
 	_ = setOrRefuse(w, index: 0, value: "x")
 	let refused = setOrRefuse(w, index: 2, value: "lost")
 	print("{w[0]} {w[1]} missing={try w.get(2) otherwise "fallback"} refused={refused}\n")

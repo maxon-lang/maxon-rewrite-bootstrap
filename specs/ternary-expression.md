@@ -1057,7 +1057,7 @@ function main() returns ExitCode
 	var out = KindArray.create(0)
 	let identity = true
 	out.push(e.kind if identity else remapKind(e.kind))
-	print("{record(try out.get(0) otherwise Kind.none)}")
+	print("{record(out.get(0))}")
 	return 0
 end 'main'
 ```

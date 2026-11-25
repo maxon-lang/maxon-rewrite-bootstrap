@@ -25,7 +25,7 @@ function main() returns ExitCode
 	rows.push(4)
 	rows.push(9)
 	let head = 1 as LoopHead
-	let r = try rows.get(head) otherwise 0
+	let r = rows.get(head)
 	let other = 3 as VarId
 	let joined = head if r > 5 else (2 as BlockId)
 	let hi = rows.count() as ElementIndex

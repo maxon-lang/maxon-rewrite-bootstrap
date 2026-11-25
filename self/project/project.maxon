@@ -397,7 +397,7 @@ end 'absolutePath'
 function addPathPart(mutates parts ast.StringList, consumes part String)
 	if part == ".." 'back'
 		if parts.count() > 1 'below'
-			_ = try parts.pop() otherwise ""
+			_ = table.popLast(parts)
 		end 'below'
 		return
 	end 'back'

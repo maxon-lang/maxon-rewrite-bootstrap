@@ -1649,7 +1649,7 @@ end 'Window'
 function main() returns ExitCode
 	var names = NameList.create(0)
 	names.push(b"outer")
-	let first = try names.get(0) otherwise panic("main: one name was pushed")
+	let first = names.get(0)
 	let window = Window.create(freeze(first), depth: 1)
 	print("{window.label.count()} {window.depth}\n")
 	return 0
@@ -1696,7 +1696,7 @@ end 'Holder'
 function main() returns ExitCode
 	var names = NameList.create(0)
 	names.push(b"unit")
-	let first = try names.get(0) otherwise panic("main: one name was pushed")
+	let first = names.get(0)
 	var holder = Holder.create()
 	holder.keep(freeze(first))
 	print("{holder.size()}\n")
@@ -1733,8 +1733,8 @@ function main() returns ExitCode
 	var names = NameList.create(0)
 	names.push(b"ab")
 	names.push(b"cde")
-	let first = try names.get(0) otherwise panic("main: two names were pushed")
-	let second = try names.get(1) otherwise panic("main: two names were pushed")
+	let first = names.get(0)
+	let second = names.get(1)
 	let shape = Shape.pair(first, right: second)
 	print("{weigh(shape)}\n")
 	return 0

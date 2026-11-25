@@ -528,14 +528,22 @@ function rangeCallExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e as
 			end 'first'
 		end 'given'
 	end 'args'
-	let access = receiver != 0 and rangeAccess(r, p: p, ms: ms, e: e, info: call, receiver: receiver, index: first, since: afterFirst)
+	var chosen = ast.Intrinsic.intrNone
+	if receiver != 0 'receiver'
+		chosen = rangeAccess(r, p: p, ms: ms, e: e, info: call, receiver: receiver, index: first, since: afterFirst)
+	end 'receiver'
+	let access = chosen != ast.Intrinsic.intrNone
 	for i in 0 upto call.ordered.count() 'changes'
 		if argumentChanges(call, i: i) 'byAddress'
 			rangeChangedAt(r, p: p, ms: ms, e: call.ordered[i])
 		end 'byAddress'
 	end 'changes'
 	if receiverChanges(call, receiver: receiver) 'receiverChanges'
-		rangeReceiverChanged(r, p: p, ms: ms, e: receiver, effect: receiverEffect(p, ms: ms, info: call, receiverType: typeOf(r, e: receiver)))
+		var effect = ast.intrinsicCountEffect(chosen)
+		if not access 'other'
+			effect = receiverEffect(p, ms: ms, info: call, receiverType: typeOf(r, e: receiver))
+		end 'other'
+		rangeReceiverChanged(r, p: p, ms: ms, e: receiver, effect: effect)
 	end 'receiverChanges'
 	if access 'judged'
 		return rangeTyped(r, p: p, ms: ms, e: e)
@@ -592,14 +600,15 @@ function rangeAwait(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.N
 end 'rangeAwait'
 
 // rangeAccess judges a call of a built-in whose only failure is a precondition on the count of its receiver, a collection
-// whose count the analysis follows, and says whether the call was one: a get or a set at an index. Where the analysis
-// proves the precondition, the call becomes the twin that cannot fail, which reads or writes with no check; elsewhere it
+// whose count the analysis follows: a get, a set or a remove at an index, or a first, a last or a pop. Where the analysis
+// proves the precondition, the call becomes the twin that cannot fail, which has no check; elsewhere it
 // stays the checked call, whose failure a try must cover. A constant index outside a fixed array that states its count is
-// an error of its own.
-function rangeAccess(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, info ast.CallInfo, receiver ast.NodeID, index Span, since Count) returns bool
+// an error of its own. It gives the intrinsic of the row this walk chose, whose count effect is the call's, an exact one
+// only where the twin was chosen, or intrNone for a call that is no access.
+function rangeAccess(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, info ast.CallInfo, receiver ast.NodeID, index Span, since Count) returns ast.Intrinsic
 	let requirement = ast.intrinsicRequires(info.intrinsic)
 	if requirement == ast.Precondition.requiresNone or not isMeasuredType(p, ms: ms, t: typeOf(r, e: receiver)) 'other'
-		return false
+		return ast.Intrinsic.intrNone
 	end 'other'
 	let checked = checkedAccessFunc(p, ms: ms, info: info, receiverType: typeOf(r, e: receiver))
 	let twin = match consumes ast.provenTwin(p.builtins, f: checked) 'twin'
@@ -618,21 +627,22 @@ function rangeAccess(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.
 	end 'record'
 	if proven 'inside'
 		rangeProvenCovered(r, e: e)
-		return true
+		return ast.funcEntry(ms.funcs, funcReads: p.funcs, f: twin).intrinsic
 	end 'inside'
+	let checkedIntrinsic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: checked).intrinsic
 	let t = ast.contentType(ms.types, reads: p.types, t: typeOf(r, e: receiver))
 	if requirement == ast.Precondition.requiresIndexBelow and statesItsCount(p, ms: ms, t: t) 'stated'
 		let count = ast.statedCount(ms.types, reads: p.types, t: t)
 		let last = ast.I128.fromCount(count).sub(ast.I128.one())
 		if index.lo.eq(index.hi) and index.lo.gt(last) and not r.probing 'constant'
 			rangeRaise(r, p: p, ms: ms, node: info.ordered[0], code: diag.errTypeMismatch, msg: "Value {index.lo.toString()} is outside the range of the indices of 'FixedArray with {count}' (int(0 to {last.toString()}))")
-			return true
+			return checkedIntrinsic
 		end 'constant'
 		rangeFallible(r, p: p, ms: ms, site: e, err: p.builtins.arrayErrorTy, why: Unchecked.index(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: checked).name.clone(), count: count))
-		return true
+		return checkedIntrinsic
 	end 'stated'
 	rangeFallible(r, p: p, ms: ms, site: e, err: p.builtins.arrayErrorTy, why: Unchecked.access(receiver, index: indexArgument(info), requirement: requirement))
-	return true
+	return checkedIntrinsic
 end 'rangeAccess'
 
 // rangeProvenCovered notes the proven access e in the try that covers it, if one does.
@@ -687,11 +697,7 @@ function rangeProves(r Ranges, p ast.Project, ms ast.ModuleState, info ast.CallI
 		some(q) then least = rangeCountAbove(r, p: p, ms: ms, count: placeCount(q), stated: count, index: at, at: indexArgument(info), since: since)
 		none then _ = 0
 	end 'collection'
-	return match requirement 'requirement'
-		requiresNone gives panic("ranges: an access with no precondition")
-		requiresNonEmpty gives least.ge(ast.I128.one())
-		requiresIndexBelow gives not at.lo.isNeg() and least.ge(ast.I128.one())
-	end 'requirement'
+	return provesPrecondition(requirement, least: least, lowest: at.lo)
 end 'rangeProves'
 
 // rangeCountAbove is the least that the count of a collection lies above the index of the span index, which the
@@ -1187,7 +1193,7 @@ function needlessTryText(t ast.Tree, site ast.NodeID, access ast.NodeID) returns
 		return "{why}, so this 'try' handles a failure that never happens; remove the 'try' and its handler"
 	end 'expression'
 	if kind == ast.NodeKind.tryStmt 'block'
-		let why = "nothing in this 'try' block can fail" if access == 0 else "its only access, '{exprText(t, e: access)}', is proven inside the collection, and nothing else in this 'try' block can fail"
+		let why = "nothing in this 'try' block can fail" if access == 0 else "its only access, '{exprText(t, e: access)}', is proven: {provenText(t, access: access)}, and nothing else in this 'try' block can fail"
 		if ast.tryStmtHasOtherwise(t, id: site) 'handled'
 			return "{why}, so its handler never runs; remove the 'try' and the 'end' around the body, and the handler"
 		end 'handled'
@@ -1203,10 +1209,19 @@ end 'needlessTryText'
 // needlessReason says that the expression a try covers cannot fail.
 function needlessReason(t ast.Tree, covered ast.NodeID, access ast.NodeID) returns String
 	if access != 0 'proven'
-		return "'{exprText(t, e: access)}' cannot fail here: its index is proven inside the collection"
+		return "'{exprText(t, e: access)}' cannot fail here: {provenText(t, access: access)}"
 	end 'proven'
 	return "'{exprText(t, e: covered)}' cannot fail here"
 end 'needlessReason'
+
+// provenText says what the analysis proved of a proven access: an access at an index has its index, the argument, inside
+// the collection, and one with no argument (first, last, pop) has a collection that is not empty.
+function provenText(t ast.Tree, access ast.NodeID) returns String
+	if t.listLen(ast.callExprArgsRef(t, id: access)) == 0 'noIndex'
+		return "the collection is proven not empty"
+	end 'noIndex'
+	return "its index is proven inside the collection"
+end 'provenText'
 
 // rangeFail records how the operation e can fail, if it can, and that the innermost try covers it. The probe of a loop
 // records nothing, as the real walk of the loop will.

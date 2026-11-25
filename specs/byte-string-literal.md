@@ -500,7 +500,7 @@ function main() returns ExitCode
 	var a = b"hey".clone()
 	a.clear()
 	a.push(65)
-	let z = try a.get(0) otherwise 0
+	let z = a.get(0)
 	print("{a.count()} {z}")
 	return 0
 end 'main'
@@ -564,7 +564,7 @@ function main() returns ExitCode
 	try a.set(0, value: 88) otherwise panic("test invariant: index 0 is in bounds")
 	try a.set(2, value: 90) otherwise panic("test invariant: index 2 is in bounds")
 	a.push(89)
-	let v0 = try a.get(0) otherwise 0
+	let v0 = a.get(0)
 	let v1 = try a.get(1) otherwise 0
 	let v2 = try a.get(2) otherwise 0
 	let v3 = try a.get(3) otherwise 0

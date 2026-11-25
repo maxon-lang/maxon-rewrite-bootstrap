@@ -241,15 +241,15 @@ function main() returns ExitCode
 	if a.managed.elementSize() != -2 'stamp'
 		return 1
 	end 'stamp'
-	try a.set(4, value: 1) otherwise panic("set: index out of range")
+	a.set(4, value: 1)
 	var seen = 0 as Count
 	for i in 0 upto 5 'read'
-		seen = seen + ((try a.get(i) otherwise panic("get: index out of range")) as Count)
+		seen = seen + ((a.get(i)) as Count)
 	end 'read'
 	if seen != 7 'sum'
 		return 2
 	end 'sum'
-	if (try a.get(3) otherwise panic("get: index out of range")) != 3 'acrossTheByte'
+	if (a.get(3)) != 3 'acrossTheByte'
 		return 3
 	end 'acrossTheByte'
 	return 0
@@ -327,7 +327,7 @@ function main() returns ExitCode
 	// The same element width reached DIRECTLY, where the stride is known and the fork is gone.
 	var direct = WordArray.create(0)
 	direct.push(9)
-	if (try direct.get(0) otherwise return 1) != 9 'directWord'
+	if (direct.get(0)) != 9 'directWord'
 		return 6
 	end 'directWord'
 	return 0

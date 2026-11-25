@@ -154,7 +154,7 @@ function main() returns ExitCode
 	let w0 = try wc.get(0) otherwise 0
 	// Mutating a clone must not disturb the original (COW at the element's own stride).
 	try nc.set(0, value: 15) otherwise panic("index 0 is in bounds")
-	let nOrig = try n.get(0) otherwise 0
+	let nOrig = n.get(0)
 	let nClone = try nc.get(0) otherwise 0
 	let nNeighbour = try nc.get(1) otherwise 0
 	let ok = n0 == 1 and m0 == 3 and w0 == 5 and nOrig == 1 and nClone == 15 and nNeighbour == 2

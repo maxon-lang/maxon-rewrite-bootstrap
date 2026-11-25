@@ -326,7 +326,7 @@ type Board
 		while running < bench.width.executables and waiting.count() > 0 'start'
 			let at = earliestWaiting(waiting)
 			running = offsetBy(running, by: 1)
-			let last = try waiting.pop() otherwise panic("test: no test waits for its run")
+			let last = table.popLast(waiting)
 			if at < waiting.count() 'inside'
 				startRun(bench, pending: exchange(waiting[at], value: last))
 			end 'inside' else 'last'

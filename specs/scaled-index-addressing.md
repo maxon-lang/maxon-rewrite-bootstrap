@@ -272,7 +272,7 @@ function main() returns ExitCode
 	if total(a) != 7.75 'sum'
 		return 1
 	end 'sum'
-	if (try a.get(1) otherwise panic("get: index out of range")) != 2.25 'middle'
+	if (a.get(1)) != 2.25 'middle'
 		return 2
 	end 'middle'
 	return 0

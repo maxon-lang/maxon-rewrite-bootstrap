@@ -1510,7 +1510,7 @@ end 'fieldStore'
 function elementStore() returns Wide
 	var a = Wides.create(0)
 	a.push(small() as Wide)
-	return try a.get(0) otherwise panic("no slot")
+	return a.get(0)
 end 'elementStore'
 
 function main() returns ExitCode

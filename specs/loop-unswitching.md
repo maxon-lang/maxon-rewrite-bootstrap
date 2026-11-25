@@ -183,7 +183,7 @@ function grow(mutates a WordArray, n Count) returns Word
 	var t = 0 as Word
 	for i in 0 upto n 'each'
 		a.push(try i as Word otherwise panic("out of range"))
-		t = try t + (try a.get(0) otherwise panic("grow: a holds an element on entry")) otherwise panic("out of range")
+		t = try t + (a.get(0)) otherwise panic("out of range")
 	end 'each'
 	return t
 end 'grow'

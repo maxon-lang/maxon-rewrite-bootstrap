@@ -174,7 +174,7 @@ export type Copies
 		var seen = 0 as Count
 		var budget = maxLentWindow
 		while pendingBlock.count() > 0 'paths'
-			let b = try pendingBlock.pop() otherwise panic("opt: an empty walk")
+			let b = table.popLast(pendingBlock)
 			let from = try pendingFrom.pop() otherwise panic("opt: an empty walk")
 			var dropped = false
 			// A block that ends in a trap ends the program, so what it changes matters only to its own later reads.

@@ -2278,8 +2278,8 @@ function main() returns ExitCode
 	let label = "a label padded long enough to heap allocate {3}"
 	var ops = OpArray.create(0)
 	ops.push(function(n Integer) gives try n + (label.byteLength() as Integer) otherwise panic("out of range"))
-	try ops.set(0, value: function(n Integer) gives try n * 2 otherwise panic("out of range")) otherwise panic("one element")
-	let op = try ops.get(0) otherwise panic("one element")
+	ops.set(0, value: function(n Integer) gives try n * 2 otherwise panic("out of range"))
+	let op = ops.get(0)
 	print("{op(4)}\n")
 	return 0
 end 'main'

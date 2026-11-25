@@ -105,7 +105,7 @@ function skipWindows(mutates vm Vm, f ir.IrFunction, target Count)
 	var i = 0 as Count
 	while i < vm.windows.count() 'each'
 		if vm.windows[i].frame == vm.top and not pathEnters(f, start: target, goal: vm.windows[i].block, avoid: vm.windows[i].def) 'skipped'
-			try vm.windows.remove(i) otherwise ignore
+			table.dropAt(vm.windows, at: i)
 		end 'skipped' else 'kept'
 			i = i + 1
 		end 'kept'
@@ -117,7 +117,7 @@ function endWindows(mutates vm Vm)
 	var i = 0 as Count
 	while i < vm.windows.count() 'each'
 		if vm.windows[i].frame == vm.top 'ended'
-			try vm.windows.remove(i) otherwise ignore
+			table.dropAt(vm.windows, at: i)
 		end 'ended' else 'kept'
 			i = i + 1
 		end 'kept'
@@ -137,7 +137,7 @@ function pathEnters(f ir.IrFunction, start Count, goal Count, avoid Count) retur
 	work.push(start)
 	reached[start] = true
 	while work.count() > 0 'walk'
-		let b = try work.pop() otherwise panic("interp: an empty work list")
+		let b = table.popLast(work)
 		var next = CountList.create(0)
 		for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
 			match consumes ir.instrFail(f.instrs[k]) 'fail'
@@ -168,7 +168,7 @@ function closeWindows(mutates vm Vm, call Count)
 		n = n - 1
 	end 'closing'
 	while vm.windows.count() > n 'drop'
-		try vm.windows.pop() otherwise ignore
+		table.dropLast(vm.windows)
 	end 'drop'
 end 'closeWindows'
 

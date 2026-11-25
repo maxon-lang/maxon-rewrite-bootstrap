@@ -705,9 +705,12 @@ var tableFunctions = []function{
 	{Owner: "Array", Name: "push", Self: "mutates", Params: []string{"consumes value T"}, Intrinsic: "ArrayPush", Count: countGrowOne},
 	{Owner: "Array", Name: "append", Self: "mutates", Params: []string{"other Self"}, Bounds: []string{"T Copyable"}, Intrinsic: "ArrayAppend", Count: countGrow},
 	{Owner: "Array", Name: "insert", Self: "mutates", Params: []string{"at ElementIndex", "consumes value T"}, Intrinsic: "ArrayInsert", Count: countGrowOne},
-	// remove and pop shrink the count where they succeed and change nothing where they fail, so shrink is true of both exits.
-	{Owner: "Array", Name: "remove", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "T", Throws: "ArrayError", Intrinsic: "ArrayRemove", Count: countShrink},
-	{Owner: "Array", Name: "pop", Self: "mutates", Result: "T", Throws: "ArrayError", Intrinsic: "ArrayPop", Count: countShrink},
+	// remove and pop shrink the count where they succeed and change nothing where they fail, so shrink is true of both exits;
+	// their twins, which only succeed, shrink it by exactly one.
+	{Owner: "Array", Name: "remove", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "T", Throws: "ArrayError", Intrinsic: "ArrayRemove", Requires: requiresIndexBelow, Count: countShrink, Proven: "ArrayRemoveProven"},
+	{Owner: "Array", Name: "remove", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "T", Intrinsic: "ArrayRemoveProven", Field: "ArrayRemoveProven", Requires: requiresIndexBelow, Count: countShrinkOne},
+	{Owner: "Array", Name: "pop", Self: "mutates", Result: "T", Throws: "ArrayError", Intrinsic: "ArrayPop", Requires: requiresNonEmpty, Count: countShrink, Proven: "ArrayPopProven"},
+	{Owner: "Array", Name: "pop", Self: "mutates", Result: "T", Intrinsic: "ArrayPopProven", Field: "ArrayPopProven", Requires: requiresNonEmpty, Count: countShrinkOne},
 	// dropEmpty ends an array of count 0, the one whose every slot below its count is empty, and traps otherwise.
 	{Owner: "Array", Name: "dropEmpty", Self: "consumes", Intrinsic: "ArrayDropEmpty"},
 	// clear and truncate drop the elements they remove; reserve makes the buffer hold a count, which no part of the array's value
@@ -723,8 +726,11 @@ var tableFunctions = []function{
 	// elements this compiler compares itself (checkElementsComparable).
 	{Owner: "Array", Name: "contains", Params: []string{"element T"}, Result: "Bool", Intrinsic: "ArrayContains", Checked: true},
 	{Owner: "Array", Name: "containsSequence", Params: []string{"sequence Self"}, Result: "Bool", Intrinsic: "ArrayContainsSequence", Checked: true},
-	{Owner: "Array", Name: "equals", Params: []string{"other Self"}, Result: "Bool", Intrinsic: "ArrayEquals", Checked: true}, {Owner: "Array", Name: "first", Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayFirst"},
-	{Owner: "Array", Name: "last", Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayLast"},
+	{Owner: "Array", Name: "equals", Params: []string{"other Self"}, Result: "Bool", Intrinsic: "ArrayEquals", Checked: true},
+	{Owner: "Array", Name: "first", Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayFirst", Requires: requiresNonEmpty, Proven: "ArrayFirstProven"},
+	{Owner: "Array", Name: "first", Result: "T", Bounds: []string{"T Copyable"}, Intrinsic: "ArrayFirstProven", Field: "ArrayFirstProven", Requires: requiresNonEmpty},
+	{Owner: "Array", Name: "last", Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayLast", Requires: requiresNonEmpty, Proven: "ArrayLastProven"},
+	{Owner: "Array", Name: "last", Result: "T", Bounds: []string{"T Copyable"}, Intrinsic: "ArrayLastProven", Field: "ArrayLastProven", Requires: requiresNonEmpty},
 
 	// A slot array's count, get, push and clear are the array's, at the same intrinsics. Its own are the operations that leave
 	// or meet an empty slot, which an array, whose every slot below its count is filled, does not have: create(n), whose n

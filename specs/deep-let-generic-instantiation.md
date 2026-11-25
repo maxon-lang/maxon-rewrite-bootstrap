@@ -279,7 +279,7 @@ end 'Box'
 function main() returns ExitCode
 	var counters = CounterArray.create(0)
 	counters.push(Counter.create(1))
-	let box = CounterBox.create(try counters.get(0) otherwise panic("empty"))
+	let box = CounterBox.create(counters.get(0))
 	return try box.peek().n as ExitCode otherwise panic("out of range")
 end 'main'
 ```

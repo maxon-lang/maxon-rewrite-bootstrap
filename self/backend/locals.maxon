@@ -502,7 +502,7 @@ type LocalHarvest
 			end 'read'
 		end 'reads'
 		while work.count() > 0 'walk'
-			let b = try work.pop() otherwise panic("backend: an empty walk")
+			let b = table.popLast(work)
 			if stamp[b] == mark 'seen'
 				continue 'walk'
 			end 'seen'

@@ -2194,7 +2194,7 @@ function main() returns ExitCode
 	try h.add(5) otherwise panic("an open mailbox with room takes the send")
 	ps.push(try h.value() otherwise panic("an open mailbox with room takes the send"))
 	while ps.count() > 0 'drain'
-		let p = try ps.remove(0) otherwise panic("the loop runs while a promise is left")
+		let p = ps.remove(0)
 		let v = try await p otherwise (e) 'failed'
 			match e 'why'
 				empty then print("empty\n")
@@ -4618,7 +4618,7 @@ function main() returns ExitCode
 	hs.push(spawn Counter.create())
 	var replies = BumpReplyArray.create(0)
 	for step in 1 to 3 'eachSend'
-		let h = try hs.get(0) otherwise panic("hs.get(0)")
+		let h = hs.get(0)
 		replies.push(try h.bump(step) otherwise panic("an open mailbox with room takes the send"))
 	end 'eachSend'
 	var total = 0 as Integer
@@ -11309,7 +11309,7 @@ function main() returns ExitCode
 	let h = spawn Counter.create()
 	var ps = TallyReplyArray.create(0)
 	ps.push(try h.bumped(4) otherwise panic("a running service with room takes the send"))
-	let p = try ps.remove(0) otherwise panic("the reply was pushed into slot 0")
+	let p = ps.remove(0)
 	let tally = await p
 	return try tally.n as ExitCode otherwise panic("out of range")
 end 'main'

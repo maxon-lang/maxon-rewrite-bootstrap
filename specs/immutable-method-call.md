@@ -248,7 +248,7 @@ typealias IntArray = Array with Integer
 function main() returns ExitCode
 	var arr = IntArray.create(0)
 	arr.push(42)
-	let x = try arr.get(0) otherwise 0
+	let x = arr.get(0)
 	return try x as ExitCode otherwise panic("out of range")
 end 'main'
 ```

@@ -504,7 +504,7 @@ function main() returns ExitCode
 	items.push(Item.value(10))
 	items.push(Item.value(20))
 	items.push(Item.empty)
-	let first = try items.get(0) otherwise Item.empty
+	let first = items.get(0)
 	match first 'check'
 		empty then return 0
 		value(n) then return try n as ExitCode otherwise panic("out of range")

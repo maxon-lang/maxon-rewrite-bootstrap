@@ -25,9 +25,9 @@ function main() returns ExitCode
 	arr.push(true)
 	arr.push(false)
 	arr.push(true)
-	let v0 = try arr.get(0) otherwise false
-	let v1 = try arr.get(1) otherwise true
-	let v2 = try arr.get(2) otherwise false
+	let v0 = arr.get(0)
+	let v1 = arr.get(1)
+	let v2 = arr.get(2)
 	var sum = 0 as ExitCode
 	if v0 'c0'
 		sum = sum + 1
@@ -54,8 +54,8 @@ function main() returns ExitCode
 	arr.push(false)
 	arr.push(false)
 	arr.push(false)
-	try arr.set(1, value: true) otherwise panic("test invariant: set OOB")
-	let v = try arr.get(1) otherwise false
+	arr.set(1, value: true)
+	let v = arr.get(1)
 	if v 'check'
 		return 1
 	end 'check'
@@ -131,9 +131,9 @@ function main() returns ExitCode
 	arr.push(true)
 	arr.push(true)
 	arr.insert(1, value: false)
-	let v0 = try arr.get(0) otherwise false
-	let v1 = try arr.get(1) otherwise true
-	let v2 = try arr.get(2) otherwise false
+	let v0 = arr.get(0)
+	let v1 = arr.get(1)
+	let v2 = arr.get(2)
 	var sum = 0 as ExitCode
 	if v0 'c0'
 		sum = sum + 1
@@ -160,9 +160,9 @@ function main() returns ExitCode
 	arr.push(true)
 	arr.push(false)
 	arr.push(true)
-	let removed = try arr.remove(1) otherwise true
-	let v0 = try arr.get(0) otherwise false
-	let v1 = try arr.get(1) otherwise false
+	let removed = arr.remove(1)
+	let v0 = arr.get(0)
+	let v1 = arr.get(1)
 	var sum = 0 as ExitCode
 	if removed 'r'
 		sum = sum + 10
@@ -286,7 +286,7 @@ function main() returns ExitCode
 	arr.push(true)
 	arr.push(false)
 	arr.push(true)
-	let popped = try arr.pop() otherwise false
+	let popped = arr.pop()
 	var sum = 0 as Count
 	if popped 'p'
 		sum = sum + 1
@@ -308,7 +308,7 @@ function main() returns ExitCode
 	arr.push(false)
 	var copy = arr.clone()
 	try copy.set(0, value: false) otherwise panic("test invariant: set OOB")
-	let orig = try arr.get(0) otherwise false
+	let orig = arr.get(0)
 	let cloned = try copy.get(0) otherwise true
 	var sum = 0 as ExitCode
 	if orig 'o'

@@ -56,6 +56,7 @@ func TestTwinsOfTheTable(t *testing.T) {
 	}
 	for key, want := range map[string]string{
 		"Array.get": "ArrayGetProven", "Array.set": "ArraySetProven", "FixedArray.get": "FixedArrayGetProven", "FixedArray.set": "FixedArraySetProven",
+		"Array.pop": "ArrayPopProven", "Array.remove": "ArrayRemoveProven", "Array.first": "ArrayFirstProven", "Array.last": "ArrayLastProven",
 	} {
 		if twins[key] != want {
 			t.Errorf("%s has the twin %q, want %q", key, twins[key], want)
@@ -77,7 +78,10 @@ func TestColumnsOfTheTable(t *testing.T) {
 		{"FixedArrayCount", requiresNone, countKeep, measureCount},
 		{"ArrayIsEmpty", requiresNone, countKeep, measureIsEmpty},
 		{"ArrayPush", requiresNone, countGrowOne, measureNone},
-		{"ArrayPop", requiresNone, countShrink, measureNone},
+		{"ArrayPop", requiresNonEmpty, countShrink, measureNone},
+		{"ArrayPopProven", requiresNonEmpty, countShrinkOne, measureNone},
+		{"ArrayRemoveProven", requiresIndexBelow, countShrinkOne, measureNone},
+		{"ArrayLastProven", requiresNonEmpty, countKeep, measureNone},
 		{"ArrayResize", requiresNone, countChange, measureNone},
 		{"ArrayDropEmpty", requiresNone, countChange, measureNone},
 		{"EnumHash", requiresNone, countKeep, measureNone},

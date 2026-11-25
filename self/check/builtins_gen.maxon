@@ -88,182 +88,185 @@ function checkIntrinsicArgs(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	if op == ast.Intrinsic.intrArraySetProven or op == ast.Intrinsic.intrArrayPush or op == ast.Intrinsic.intrArrayAppend or op == ast.Intrinsic.intrArrayInsert 'signature2'
 		return
 	end 'signature2'
-	if op == ast.Intrinsic.intrArrayRemove or op == ast.Intrinsic.intrArrayPop or op == ast.Intrinsic.intrArrayDropEmpty or op == ast.Intrinsic.intrArrayClear 'signature3'
+	if op == ast.Intrinsic.intrArrayRemove or op == ast.Intrinsic.intrArrayRemoveProven or op == ast.Intrinsic.intrArrayPop or op == ast.Intrinsic.intrArrayPopProven 'signature3'
 		return
 	end 'signature3'
-	if op == ast.Intrinsic.intrArrayTruncate or op == ast.Intrinsic.intrArrayReserve or op == ast.Intrinsic.intrArraySlice or op == ast.Intrinsic.intrArrayGrowFilled 'signature4'
+	if op == ast.Intrinsic.intrArrayDropEmpty or op == ast.Intrinsic.intrArrayClear or op == ast.Intrinsic.intrArrayTruncate or op == ast.Intrinsic.intrArrayReserve 'signature4'
 		return
 	end 'signature4'
-	if op == ast.Intrinsic.intrArrayRefill or op == ast.Intrinsic.intrArrayFirst or op == ast.Intrinsic.intrArrayLast or op == ast.Intrinsic.intrArrayEmptySlots 'signature5'
+	if op == ast.Intrinsic.intrArraySlice or op == ast.Intrinsic.intrArrayGrowFilled or op == ast.Intrinsic.intrArrayRefill or op == ast.Intrinsic.intrArrayFirst 'signature5'
 		return
 	end 'signature5'
-	if op == ast.Intrinsic.intrArrayIsFilled or op == ast.Intrinsic.intrArrayClearSlot or op == ast.Intrinsic.intrArrayFillSlot or op == ast.Intrinsic.intrArrayTakeSlot 'signature6'
+	if op == ast.Intrinsic.intrArrayFirstProven or op == ast.Intrinsic.intrArrayLast or op == ast.Intrinsic.intrArrayLastProven or op == ast.Intrinsic.intrArrayEmptySlots 'signature6'
 		return
 	end 'signature6'
-	if op == ast.Intrinsic.intrArrayLendSlot or op == ast.Intrinsic.intrCursorCreate or op == ast.Intrinsic.intrSlotArrayDropEmpty or op == ast.Intrinsic.intrFixedArrayFilled 'signature7'
+	if op == ast.Intrinsic.intrArrayIsFilled or op == ast.Intrinsic.intrArrayClearSlot or op == ast.Intrinsic.intrArrayFillSlot or op == ast.Intrinsic.intrArrayTakeSlot 'signature7'
 		return
 	end 'signature7'
-	if op == ast.Intrinsic.intrFixedArrayCount or op == ast.Intrinsic.intrFixedArrayRefill or op == ast.Intrinsic.intrArrayElementSize or op == ast.Intrinsic.intrArraySwap 'signature8'
+	if op == ast.Intrinsic.intrArrayLendSlot or op == ast.Intrinsic.intrCursorCreate or op == ast.Intrinsic.intrSlotArrayDropEmpty or op == ast.Intrinsic.intrFixedArrayFilled 'signature8'
 		return
 	end 'signature8'
-	if op == ast.Intrinsic.intrCursorCurrent or op == ast.Intrinsic.intrCursorIndex or op == ast.Intrinsic.intrCursorAdvance or op == ast.Intrinsic.intrCursorRetreat 'signature9'
+	if op == ast.Intrinsic.intrFixedArrayCount or op == ast.Intrinsic.intrFixedArrayRefill or op == ast.Intrinsic.intrArrayElementSize or op == ast.Intrinsic.intrArraySwap 'signature9'
 		return
 	end 'signature9'
-	if op == ast.Intrinsic.intrCursorSeek or op == ast.Intrinsic.intrCursorPeek or op == ast.Intrinsic.intrStringCursorCreate or op == ast.Intrinsic.intrStringCursorCurrent 'signature10'
+	if op == ast.Intrinsic.intrCursorCurrent or op == ast.Intrinsic.intrCursorIndex or op == ast.Intrinsic.intrCursorAdvance or op == ast.Intrinsic.intrCursorRetreat 'signature10'
 		return
 	end 'signature10'
-	if op == ast.Intrinsic.intrStringCursorAdvance or op == ast.Intrinsic.intrGroupsCreate or op == ast.Intrinsic.intrGroupsCount or op == ast.Intrinsic.intrGroupsControl 'signature11'
+	if op == ast.Intrinsic.intrCursorSeek or op == ast.Intrinsic.intrCursorPeek or op == ast.Intrinsic.intrStringCursorCreate or op == ast.Intrinsic.intrStringCursorCurrent 'signature11'
 		return
 	end 'signature11'
-	if op == ast.Intrinsic.intrGroupsSetControl or op == ast.Intrinsic.intrGroupsFirst or op == ast.Intrinsic.intrGroupsSecond or op == ast.Intrinsic.intrGroupsPut 'signature12'
+	if op == ast.Intrinsic.intrStringCursorAdvance or op == ast.Intrinsic.intrGroupsCreate or op == ast.Intrinsic.intrGroupsCount or op == ast.Intrinsic.intrGroupsControl 'signature12'
 		return
 	end 'signature12'
-	if op == ast.Intrinsic.intrGroupsSetSecond or op == ast.Intrinsic.intrGroupsTakeFirst or op == ast.Intrinsic.intrGroupsTakeSecond or op == ast.Intrinsic.intrGroupsClear 'signature13'
+	if op == ast.Intrinsic.intrGroupsSetControl or op == ast.Intrinsic.intrGroupsFirst or op == ast.Intrinsic.intrGroupsSecond or op == ast.Intrinsic.intrGroupsPut 'signature13'
 		return
 	end 'signature13'
-	if op == ast.Intrinsic.intrSlotKeyFromWord or op == ast.Intrinsic.intrSlotKeyWord or op == ast.Intrinsic.intrStringByteLength or op == ast.Intrinsic.intrStringByteAt 'signature14'
+	if op == ast.Intrinsic.intrGroupsSetSecond or op == ast.Intrinsic.intrGroupsTakeFirst or op == ast.Intrinsic.intrGroupsTakeSecond or op == ast.Intrinsic.intrGroupsClear 'signature14'
 		return
 	end 'signature14'
-	if op == ast.Intrinsic.intrStringSliceBytes or op == ast.Intrinsic.intrStringToByteArray or op == ast.Intrinsic.intrStringFrom or op == ast.Intrinsic.intrStringCStr 'signature15'
+	if op == ast.Intrinsic.intrSlotKeyFromWord or op == ast.Intrinsic.intrSlotKeyWord or op == ast.Intrinsic.intrStringByteLength or op == ast.Intrinsic.intrStringByteAt 'signature15'
 		return
 	end 'signature15'
-	if op == ast.Intrinsic.intrStringFromCString or op == ast.Intrinsic.intrStringBytes or op == ast.Intrinsic.intrStringCodepoints or op == ast.Intrinsic.intrStringUtf16 'signature16'
+	if op == ast.Intrinsic.intrStringSliceBytes or op == ast.Intrinsic.intrStringToByteArray or op == ast.Intrinsic.intrStringFrom or op == ast.Intrinsic.intrStringCStr 'signature16'
 		return
 	end 'signature16'
-	if op == ast.Intrinsic.intrByteViewCreateIterator or op == ast.Intrinsic.intrByteViewCount or op == ast.Intrinsic.intrByteIteratorCurrent or op == ast.Intrinsic.intrByteIteratorAdvance 'signature17'
+	if op == ast.Intrinsic.intrStringFromCString or op == ast.Intrinsic.intrStringBytes or op == ast.Intrinsic.intrStringCodepoints or op == ast.Intrinsic.intrStringUtf16 'signature17'
 		return
 	end 'signature17'
-	if op == ast.Intrinsic.intrCodepointViewCreateIterator or op == ast.Intrinsic.intrCodepointViewCount or op == ast.Intrinsic.intrCodepointIteratorCurrent or op == ast.Intrinsic.intrCodepointIteratorAdvance 'signature18'
+	if op == ast.Intrinsic.intrByteViewCreateIterator or op == ast.Intrinsic.intrByteViewCount or op == ast.Intrinsic.intrByteIteratorCurrent or op == ast.Intrinsic.intrByteIteratorAdvance 'signature18'
 		return
 	end 'signature18'
-	if op == ast.Intrinsic.intrUtf16ViewCreateIterator or op == ast.Intrinsic.intrUtf16ViewCount or op == ast.Intrinsic.intrUtf16IteratorCurrent or op == ast.Intrinsic.intrUtf16IteratorAdvance 'signature19'
+	if op == ast.Intrinsic.intrCodepointViewCreateIterator or op == ast.Intrinsic.intrCodepointViewCount or op == ast.Intrinsic.intrCodepointIteratorCurrent or op == ast.Intrinsic.intrCodepointIteratorAdvance 'signature19'
 		return
 	end 'signature19'
-	if op == ast.Intrinsic.intrStringIsEmpty or op == ast.Intrinsic.intrStringEquals or op == ast.Intrinsic.intrStringCount or op == ast.Intrinsic.intrStringContains 'signature20'
+	if op == ast.Intrinsic.intrUtf16ViewCreateIterator or op == ast.Intrinsic.intrUtf16ViewCount or op == ast.Intrinsic.intrUtf16IteratorCurrent or op == ast.Intrinsic.intrUtf16IteratorAdvance 'signature20'
 		return
 	end 'signature20'
-	if op == ast.Intrinsic.intrStringStartsWith or op == ast.Intrinsic.intrStringEndsWith or op == ast.Intrinsic.intrStringFindFirst or op == ast.Intrinsic.intrStringFindLast 'signature21'
+	if op == ast.Intrinsic.intrStringIsEmpty or op == ast.Intrinsic.intrStringEquals or op == ast.Intrinsic.intrStringCount or op == ast.Intrinsic.intrStringContains 'signature21'
 		return
 	end 'signature21'
-	if op == ast.Intrinsic.intrStringIndexAfter or op == ast.Intrinsic.intrStringStartIndex or op == ast.Intrinsic.intrStringEndIndex or op == ast.Intrinsic.intrStringSlice 'signature22'
+	if op == ast.Intrinsic.intrStringStartsWith or op == ast.Intrinsic.intrStringEndsWith or op == ast.Intrinsic.intrStringFindFirst or op == ast.Intrinsic.intrStringFindLast 'signature22'
 		return
 	end 'signature22'
-	if op == ast.Intrinsic.intrStringSliceLength or op == ast.Intrinsic.intrStringReplace or op == ast.Intrinsic.intrStringReplaceFirst or op == ast.Intrinsic.intrStringToLower 'signature23'
+	if op == ast.Intrinsic.intrStringIndexAfter or op == ast.Intrinsic.intrStringStartIndex or op == ast.Intrinsic.intrStringEndIndex or op == ast.Intrinsic.intrStringSlice 'signature23'
 		return
 	end 'signature23'
-	if op == ast.Intrinsic.intrStringToUpper or op == ast.Intrinsic.intrCharacterByteLength or op == ast.Intrinsic.intrCharacterBytes or op == ast.Intrinsic.intrCharacterCodepoints 'signature24'
+	if op == ast.Intrinsic.intrStringSliceLength or op == ast.Intrinsic.intrStringReplace or op == ast.Intrinsic.intrStringReplaceFirst or op == ast.Intrinsic.intrStringToLower 'signature24'
 		return
 	end 'signature24'
-	if op == ast.Intrinsic.intrCharacterCodepoint or op == ast.Intrinsic.intrCharacterAsciiValue or op == ast.Intrinsic.intrCharacterEquals or op == ast.Intrinsic.intrCharacterAdvanceBy 'signature25'
+	if op == ast.Intrinsic.intrStringToUpper or op == ast.Intrinsic.intrCharacterByteLength or op == ast.Intrinsic.intrCharacterBytes or op == ast.Intrinsic.intrCharacterCodepoints 'signature25'
 		return
 	end 'signature25'
-	if op == ast.Intrinsic.intrCharacterFromCodepoint or op == ast.Intrinsic.intrStringCharAt or op == ast.Intrinsic.intrStringContainsCharacter or op == ast.Intrinsic.intrStringIndexCharIndex 'signature26'
+	if op == ast.Intrinsic.intrCharacterCodepoint or op == ast.Intrinsic.intrCharacterAsciiValue or op == ast.Intrinsic.intrCharacterEquals or op == ast.Intrinsic.intrCharacterAdvanceBy 'signature26'
 		return
 	end 'signature26'
-	if op == ast.Intrinsic.intrStringIndexBytePos or op == ast.Intrinsic.intrCown or op == ast.Intrinsic.intrFloatTrunc or op == ast.Intrinsic.intrFloatRound 'signature27'
+	if op == ast.Intrinsic.intrCharacterFromCodepoint or op == ast.Intrinsic.intrStringCharAt or op == ast.Intrinsic.intrStringContainsCharacter or op == ast.Intrinsic.intrStringIndexCharIndex 'signature27'
 		return
 	end 'signature27'
-	if op == ast.Intrinsic.intrFloatFloor or op == ast.Intrinsic.intrFloatCeil or op == ast.Intrinsic.intrFloatSqrt or op == ast.Intrinsic.intrFloatAbs 'signature28'
+	if op == ast.Intrinsic.intrStringIndexBytePos or op == ast.Intrinsic.intrCown or op == ast.Intrinsic.intrFloatTrunc or op == ast.Intrinsic.intrFloatRound 'signature28'
 		return
 	end 'signature28'
-	if op == ast.Intrinsic.intrFloatMin or op == ast.Intrinsic.intrFloatMax or op == ast.Intrinsic.intrExchange or op == ast.Intrinsic.intrCommandLineArgs 'signature29'
+	if op == ast.Intrinsic.intrFloatFloor or op == ast.Intrinsic.intrFloatCeil or op == ast.Intrinsic.intrFloatSqrt or op == ast.Intrinsic.intrFloatAbs 'signature29'
 		return
 	end 'signature29'
-	if op == ast.Intrinsic.intrProcessEnvironmentVariable or op == ast.Intrinsic.intrProcessExecutablePath or op == ast.Intrinsic.intrProcessId or op == ast.Intrinsic.intrProcessSetExitCode 'signature30'
+	if op == ast.Intrinsic.intrFloatMin or op == ast.Intrinsic.intrFloatMax or op == ast.Intrinsic.intrExchange or op == ast.Intrinsic.intrCommandLineArgs 'signature30'
 		return
 	end 'signature30'
-	if op == ast.Intrinsic.intrProcessExitAtOnce or op == ast.Intrinsic.intrProcessEnterBackgroundPriority or op == ast.Intrinsic.intrClockNowNanos or op == ast.Intrinsic.intrSchedulerProcessorCount 'signature31'
+	if op == ast.Intrinsic.intrProcessEnvironmentVariable or op == ast.Intrinsic.intrProcessExecutablePath or op == ast.Intrinsic.intrProcessId or op == ast.Intrinsic.intrProcessSetExitCode 'signature31'
 		return
 	end 'signature31'
-	if op == ast.Intrinsic.intrSchedulerYield or op == ast.Intrinsic.intrSchedulerPinToMachine or op == ast.Intrinsic.intrSchedulerUnpinFromMachine or op == ast.Intrinsic.intrSleep 'signature32'
+	if op == ast.Intrinsic.intrProcessExitAtOnce or op == ast.Intrinsic.intrProcessEnterBackgroundPriority or op == ast.Intrinsic.intrClockNowNanos or op == ast.Intrinsic.intrSchedulerProcessorCount 'signature32'
 		return
 	end 'signature32'
-	if op == ast.Intrinsic.intrServiceShutdown or op == ast.Intrinsic.intrPromiseCancel or op == ast.Intrinsic.intrPromiseIsComplete or op == ast.Intrinsic.intrFilePathFrom 'signature33'
+	if op == ast.Intrinsic.intrSchedulerYield or op == ast.Intrinsic.intrSchedulerPinToMachine or op == ast.Intrinsic.intrSchedulerUnpinFromMachine or op == ast.Intrinsic.intrSleep 'signature33'
 		return
 	end 'signature33'
-	if op == ast.Intrinsic.intrFilePathInit or op == ast.Intrinsic.intrFilePathToString or op == ast.Intrinsic.intrFileReadText or op == ast.Intrinsic.intrFileWriteText 'signature34'
+	if op == ast.Intrinsic.intrServiceShutdown or op == ast.Intrinsic.intrPromiseCancel or op == ast.Intrinsic.intrPromiseIsComplete or op == ast.Intrinsic.intrFilePathFrom 'signature34'
 		return
 	end 'signature34'
-	if op == ast.Intrinsic.intrFileWriteBinary or op == ast.Intrinsic.intrFileRename or op == ast.Intrinsic.intrFileDelete or op == ast.Intrinsic.intrFileExists 'signature35'
+	if op == ast.Intrinsic.intrFilePathInit or op == ast.Intrinsic.intrFilePathToString or op == ast.Intrinsic.intrFileReadText or op == ast.Intrinsic.intrFileWriteText 'signature35'
 		return
 	end 'signature35'
-	if op == ast.Intrinsic.intrFileInfo or op == ast.Intrinsic.intrDirectoryIsDirectory or op == ast.Intrinsic.intrDirectoryCreate or op == ast.Intrinsic.intrDirectoryCurrentPath 'signature36'
+	if op == ast.Intrinsic.intrFileWriteBinary or op == ast.Intrinsic.intrFileRename or op == ast.Intrinsic.intrFileDelete or op == ast.Intrinsic.intrFileExists 'signature36'
 		return
 	end 'signature36'
-	if op == ast.Intrinsic.intrDirectoryDelete or op == ast.Intrinsic.intrDirectoryList or op == ast.Intrinsic.intrSubprocessRun or op == ast.Intrinsic.intrSubprocessRunWithDeadline 'signature37'
+	if op == ast.Intrinsic.intrFileInfo or op == ast.Intrinsic.intrDirectoryIsDirectory or op == ast.Intrinsic.intrDirectoryCreate or op == ast.Intrinsic.intrDirectoryCurrentPath 'signature37'
 		return
 	end 'signature37'
-	if op == ast.Intrinsic.intrSubprocessRunInDirectory or op == ast.Intrinsic.intrCollectedOutputExitCode or op == ast.Intrinsic.intrDebuggeeLaunch or op == ast.Intrinsic.intrDebuggeeWaitEvent 'signature38'
+	if op == ast.Intrinsic.intrDirectoryDelete or op == ast.Intrinsic.intrDirectoryList or op == ast.Intrinsic.intrSubprocessRun or op == ast.Intrinsic.intrSubprocessRunWithDeadline 'signature38'
 		return
 	end 'signature38'
-	if op == ast.Intrinsic.intrDebuggeeContinueEvent or op == ast.Intrinsic.intrDebuggeeReadMemory or op == ast.Intrinsic.intrDebuggeeWriteCode or op == ast.Intrinsic.intrDebuggeeReadContext 'signature39'
+	if op == ast.Intrinsic.intrSubprocessRunInDirectory or op == ast.Intrinsic.intrCollectedOutputExitCode or op == ast.Intrinsic.intrDebuggeeLaunch or op == ast.Intrinsic.intrDebuggeeWaitEvent 'signature39'
 		return
 	end 'signature39'
-	if op == ast.Intrinsic.intrDebuggeeWriteContext or op == ast.Intrinsic.intrDebuggeeSuspend or op == ast.Intrinsic.intrDebuggeeResume or op == ast.Intrinsic.intrDebuggeeBreakIn 'signature40'
+	if op == ast.Intrinsic.intrDebuggeeContinueEvent or op == ast.Intrinsic.intrDebuggeeReadMemory or op == ast.Intrinsic.intrDebuggeeWriteCode or op == ast.Intrinsic.intrDebuggeeReadContext 'signature40'
 		return
 	end 'signature40'
-	if op == ast.Intrinsic.intrDebuggeeDetach or op == ast.Intrinsic.intrDebuggeeCloseHandle or op == ast.Intrinsic.intrDebuggeeTerminate or op == ast.Intrinsic.intrCollectedOutputSucceeded 'signature41'
+	if op == ast.Intrinsic.intrDebuggeeWriteContext or op == ast.Intrinsic.intrDebuggeeSuspend or op == ast.Intrinsic.intrDebuggeeResume or op == ast.Intrinsic.intrDebuggeeBreakIn 'signature41'
 		return
 	end 'signature41'
-	if op == ast.Intrinsic.intrClockNowMillis or op == ast.Intrinsic.intrClockTickMillis or op == ast.Intrinsic.intrClockThreadCpuTicks or op == ast.Intrinsic.intrClockUnixSeconds 'signature42'
+	if op == ast.Intrinsic.intrDebuggeeDetach or op == ast.Intrinsic.intrDebuggeeCloseHandle or op == ast.Intrinsic.intrDebuggeeTerminate or op == ast.Intrinsic.intrCollectedOutputSucceeded 'signature42'
 		return
 	end 'signature42'
-	if op == ast.Intrinsic.intrClockUnixNanos or op == ast.Intrinsic.intrReadStdin or op == ast.Intrinsic.intrOsEnvironmentEntry or op == ast.Intrinsic.intrSubprocessRunWithInput 'signature43'
+	if op == ast.Intrinsic.intrClockNowMillis or op == ast.Intrinsic.intrClockTickMillis or op == ast.Intrinsic.intrClockThreadCpuTicks or op == ast.Intrinsic.intrClockUnixSeconds 'signature43'
 		return
 	end 'signature43'
-	if op == ast.Intrinsic.intrStdoutWantsColor or op == ast.Intrinsic.intrFloatToBits or op == ast.Intrinsic.intrRandomFill or op == ast.Intrinsic.intrBitsToFloat 'signature44'
+	if op == ast.Intrinsic.intrClockUnixNanos or op == ast.Intrinsic.intrReadStdin or op == ast.Intrinsic.intrOsEnvironmentEntry or op == ast.Intrinsic.intrSubprocessRunWithInput 'signature44'
 		return
 	end 'signature44'
-	if op == ast.Intrinsic.intrTrailingZeros or op == ast.Intrinsic.intrHeapProcessAllocs or op == ast.Intrinsic.intrHeapProcessLive or op == ast.Intrinsic.intrHeapProcessBytes 'signature45'
+	if op == ast.Intrinsic.intrStdoutWantsColor or op == ast.Intrinsic.intrFloatToBits or op == ast.Intrinsic.intrRandomFill or op == ast.Intrinsic.intrBitsToFloat 'signature45'
 		return
 	end 'signature45'
-	if op == ast.Intrinsic.intrHeapByTag or op == ast.Intrinsic.intrHeapThreadAllocs or op == ast.Intrinsic.intrHeapThreadFrees or op == ast.Intrinsic.intrHeapThreadBytes 'signature46'
+	if op == ast.Intrinsic.intrTrailingZeros or op == ast.Intrinsic.intrHeapProcessAllocs or op == ast.Intrinsic.intrHeapProcessLive or op == ast.Intrinsic.intrHeapProcessBytes 'signature46'
 		return
 	end 'signature46'
-	if op == ast.Intrinsic.intrHeapProcessFrees or op == ast.Intrinsic.intrHeapScavenge or op == ast.Intrinsic.intrHashSeed or op == ast.Intrinsic.intrHashSeedDraw 'signature47'
+	if op == ast.Intrinsic.intrHeapByTag or op == ast.Intrinsic.intrHeapThreadAllocs or op == ast.Intrinsic.intrHeapThreadFrees or op == ast.Intrinsic.intrHeapThreadBytes 'signature47'
 		return
 	end 'signature47'
-	if op == ast.Intrinsic.intrHashWord or op == ast.Intrinsic.intrHashBytes or op == ast.Intrinsic.intrHashStringBytes or op == ast.Intrinsic.intrHashCharacter 'signature48'
+	if op == ast.Intrinsic.intrHeapProcessFrees or op == ast.Intrinsic.intrHeapScavenge or op == ast.Intrinsic.intrHashSeed or op == ast.Intrinsic.intrHashSeedDraw 'signature48'
 		return
 	end 'signature48'
-	if op == ast.Intrinsic.intrRawLoad8 or op == ast.Intrinsic.intrRawLoad16 or op == ast.Intrinsic.intrRawLoad32 or op == ast.Intrinsic.intrRawLoad64 'signature49'
+	if op == ast.Intrinsic.intrHashWord or op == ast.Intrinsic.intrHashBytes or op == ast.Intrinsic.intrHashStringBytes or op == ast.Intrinsic.intrHashCharacter 'signature49'
 		return
 	end 'signature49'
-	if op == ast.Intrinsic.intrRawStore8 or op == ast.Intrinsic.intrRawStore16 or op == ast.Intrinsic.intrRawStore32 or op == ast.Intrinsic.intrRawStore64 'signature50'
+	if op == ast.Intrinsic.intrRawLoad8 or op == ast.Intrinsic.intrRawLoad16 or op == ast.Intrinsic.intrRawLoad32 or op == ast.Intrinsic.intrRawLoad64 'signature50'
 		return
 	end 'signature50'
-	if op == ast.Intrinsic.intrRawLoadAcquire or op == ast.Intrinsic.intrRawStoreRelease or op == ast.Intrinsic.intrRawWrappingAdd or op == ast.Intrinsic.intrRawWrappingSub 'signature51'
+	if op == ast.Intrinsic.intrRawStore8 or op == ast.Intrinsic.intrRawStore16 or op == ast.Intrinsic.intrRawStore32 or op == ast.Intrinsic.intrRawStore64 'signature51'
 		return
 	end 'signature51'
-	if op == ast.Intrinsic.intrRawMulHigh or op == ast.Intrinsic.intrRawAddressOf or op == ast.Intrinsic.intrRawStringBytes or op == ast.Intrinsic.intrRawStringLength 'signature52'
+	if op == ast.Intrinsic.intrRawLoadAcquire or op == ast.Intrinsic.intrRawStoreRelease or op == ast.Intrinsic.intrRawWrappingAdd or op == ast.Intrinsic.intrRawWrappingSub 'signature52'
 		return
 	end 'signature52'
-	if op == ast.Intrinsic.intrRawStringAscii or op == ast.Intrinsic.intrRawStringRoom or op == ast.Intrinsic.intrRawFreeStringRoom or op == ast.Intrinsic.intrRawStringOf 'signature53'
+	if op == ast.Intrinsic.intrRawMulHigh or op == ast.Intrinsic.intrRawAddressOf or op == ast.Intrinsic.intrRawStringBytes or op == ast.Intrinsic.intrRawStringLength 'signature53'
 		return
 	end 'signature53'
-	if op == ast.Intrinsic.intrRawStringSize or op == ast.Intrinsic.intrRawStoreString or op == ast.Intrinsic.intrRawStringBytesAt or op == ast.Intrinsic.intrRawStringLengthAt 'signature54'
+	if op == ast.Intrinsic.intrRawStringAscii or op == ast.Intrinsic.intrRawStringRoom or op == ast.Intrinsic.intrRawFreeStringRoom or op == ast.Intrinsic.intrRawStringOf 'signature54'
 		return
 	end 'signature54'
-	if op == ast.Intrinsic.intrRawStringFirstWord or op == ast.Intrinsic.intrRawStringSecondWord or op == ast.Intrinsic.intrRawStringOfWords or op == ast.Intrinsic.intrRawHeapAddress 'signature55'
+	if op == ast.Intrinsic.intrRawStringSize or op == ast.Intrinsic.intrRawStoreString or op == ast.Intrinsic.intrRawStringBytesAt or op == ast.Intrinsic.intrRawStringLengthAt 'signature55'
 		return
 	end 'signature55'
-	if op == ast.Intrinsic.intrRawStdoutAddress or op == ast.Intrinsic.intrRawStderrAddress or op == ast.Intrinsic.intrRawAtomicAdd or op == ast.Intrinsic.intrRawAtomicExchange 'signature56'
+	if op == ast.Intrinsic.intrRawStringFirstWord or op == ast.Intrinsic.intrRawStringSecondWord or op == ast.Intrinsic.intrRawStringOfWords or op == ast.Intrinsic.intrRawHeapAddress 'signature56'
 		return
 	end 'signature56'
-	if op == ast.Intrinsic.intrRawCompareExchange or op == ast.Intrinsic.intrRawSpinPause or op == ast.Intrinsic.intrRawCopyBytes or op == ast.Intrinsic.intrRawThreadContext 'signature57'
+	if op == ast.Intrinsic.intrRawStdoutAddress or op == ast.Intrinsic.intrRawStderrAddress or op == ast.Intrinsic.intrRawAtomicAdd or op == ast.Intrinsic.intrRawAtomicExchange 'signature57'
 		return
 	end 'signature57'
-	if op == ast.Intrinsic.intrRawCallCode or op == ast.Intrinsic.intrRawCallHost or op == ast.Intrinsic.intrRawThreadStartAddress or op == ast.Intrinsic.intrRawStackSwitchAddress 'signature58'
+	if op == ast.Intrinsic.intrRawCompareExchange or op == ast.Intrinsic.intrRawSpinPause or op == ast.Intrinsic.intrRawCopyBytes or op == ast.Intrinsic.intrRawThreadContext 'signature58'
 		return
 	end 'signature58'
-	if op == ast.Intrinsic.intrRawGreenStartAddress or op == ast.Intrinsic.intrRawAsyncPreemptAddress or op == ast.Intrinsic.intrRawPreemptibleCodeAddress or op == ast.Intrinsic.intrRawSyscall 'signature59'
+	if op == ast.Intrinsic.intrRawCallCode or op == ast.Intrinsic.intrRawCallHost or op == ast.Intrinsic.intrRawThreadStartAddress or op == ast.Intrinsic.intrRawStackSwitchAddress 'signature59'
 		return
 	end 'signature59'
-	if op == ast.Intrinsic.intrRawProcessStartAddress or op == ast.Intrinsic.intrRawPreemptHandlerAddress or op == ast.Intrinsic.intrRawSignalReturnAddress or op == ast.Intrinsic.intrEnumHash 'signature60'
+	if op == ast.Intrinsic.intrRawGreenStartAddress or op == ast.Intrinsic.intrRawAsyncPreemptAddress or op == ast.Intrinsic.intrRawPreemptibleCodeAddress or op == ast.Intrinsic.intrRawSyscall 'signature60'
 		return
 	end 'signature60'
-	if op == ast.Intrinsic.intrEnumEquals or op == ast.Intrinsic.intrEnumFromRawValue 'signature61'
+	if op == ast.Intrinsic.intrRawProcessStartAddress or op == ast.Intrinsic.intrRawPreemptHandlerAddress or op == ast.Intrinsic.intrRawSignalReturnAddress or op == ast.Intrinsic.intrEnumHash 'signature61'
 		return
 	end 'signature61'
+	if op == ast.Intrinsic.intrEnumEquals or op == ast.Intrinsic.intrEnumFromRawValue 'signature62'
+		return
+	end 'signature62'
 	panic("check: {op.name} is no intrinsic")
 end 'checkIntrinsicArgs'

@@ -502,16 +502,9 @@ function main() returns ExitCode
 	arr.push(7)
 	arr.push(11)
 	var sum = 0 as Score
-	try 'work'
-		let a = arr.get(0)
-		let b = arr.get(1)
-		sum = try a + b otherwise panic("out of range")
-	end 'work' otherwise (e) 'h'
-		match e 'k'
-			indexOutOfBounds then sum = 99
-			emptySlot then sum = 99
-		end 'k'
-	end 'h'
+	let a = arr.get(0)
+	let b = arr.get(1)
+	sum = try a + b otherwise panic("out of range")
 	return sum
 end 'main'
 ```
@@ -991,20 +984,13 @@ function main() returns ExitCode
 	arr.push(0)
 	arr.push(0)
 	var sum = 0 as Score
-	try 'work'
-		arr.set(0, value: 10)
-		arr.set(1, value: 20)
-		arr.set(2, value: 30)
-		let a = arr.get(0)
-		let b = arr.get(1)
-		let c = arr.get(2)
-		sum = try a + b + c otherwise panic("out of range")
-	end 'work' otherwise (e) 'h'
-		match e 'k'
-			indexOutOfBounds then sum = 99
-			emptySlot then sum = 99
-		end 'k'
-	end 'h'
+	arr.set(0, value: 10)
+	arr.set(1, value: 20)
+	arr.set(2, value: 30)
+	let a = arr.get(0)
+	let b = arr.get(1)
+	let c = arr.get(2)
+	sum = try a + b + c otherwise panic("out of range")
 	return sum
 end 'main'
 ```
@@ -1026,17 +1012,10 @@ function main() returns ExitCode
 	arr.push(11)
 	arr.push(-25)
 	var sum = 100 as FullRangeInt
-	try 'work'
-		let a = arr.get(0)
-		let b = arr.get(1)
-		let c = arr.get(2)
-		sum = sum + a as FullRangeInt + b as FullRangeInt + c as FullRangeInt
-	end 'work' otherwise (e) 'h'
-		match e 'k'
-			indexOutOfBounds then sum = 999
-			emptySlot then sum = 999
-		end 'k'
-	end 'h'
+	let a = arr.get(0)
+	let b = arr.get(1)
+	let c = arr.get(2)
+	sum = sum + a as FullRangeInt + b as FullRangeInt + c as FullRangeInt
 	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
@@ -1236,16 +1215,9 @@ function main() returns ExitCode
 	var outer = Outer.create(0)
 	outer.push(Inner.create(0))
 	outer.push(Inner.create(0))
-	try 'work'
-		var inner = outer.get(0)
-		inner.push(7)
-	end 'work' otherwise (e) 'h'
-		match e 'k'
-			indexOutOfBounds then panic("oob")
-			emptySlot then panic("empty")
-		end 'k'
-	end 'h'
-	let first = try outer.get(0) otherwise Inner.create(0)
+	var inner = outer.get(0)
+	inner.push(7)
+	let first = outer.get(0)
 	let v = try first.get(0) otherwise -1
 	return try v as ExitCode otherwise panic("out of range")
 end 'main'
@@ -1270,18 +1242,11 @@ function main() returns ExitCode
 	var outer = Outer.create(0)
 	outer.push(Inner.create(0))
 	outer.push(Inner.create(0))
-	try 'wrap'
-		if true 'gate'
-			var inner = outer.get(0)
-			inner.push(7)
-		end 'gate'
-	end 'wrap' otherwise (e) 'h'
-		match e 'k'
-			indexOutOfBounds then panic("oob")
-			emptySlot then panic("empty")
-		end 'k'
-	end 'h'
-	let first = try outer.get(0) otherwise Inner.create(0)
+	if true 'gate'
+		var inner = outer.get(0)
+		inner.push(7)
+	end 'gate'
+	let first = outer.get(0)
 	let v = try first.get(0) otherwise -1
 	return try v as ExitCode otherwise panic("out of range")
 end 'main'

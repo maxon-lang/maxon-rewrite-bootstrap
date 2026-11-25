@@ -1,0 +1,111 @@
+// A pop, a first, a last and a remove that the analysis proves cannot fail are written with no try and run with no check:
+// a drain of a stack while it is not empty, two pops under a guard that the count is at least 2, whose first pop leaves it
+// at least 1, the first and the last of an array a push left not empty, a remove at an index below the count, a pop and a
+// last in a loop that runs while more than one element is left, and pops of arrays of bytes, strings and records, each of
+// which moves its element out its own way.
+typealias Counts = Array with Count
+
+typealias Bytes = Array with Byte
+
+typealias Strings = Array with String
+
+type Pair
+	var left as Count
+	var right as Count
+
+	static function make(left Count, right Count) returns Pair
+		return Pair{left: left, right: right}
+	end 'make'
+end 'Pair'
+
+typealias Pairs = Array with Pair
+
+function threes() returns Counts
+	return Counts.filled(3, value: 3)
+end 'threes'
+
+function drained() returns Count
+	var stack = Counts.create(0)
+	for i in 0 upto 5 'fill'
+		stack.push(i)
+	end 'fill'
+	var total = 0 as Count
+	while not stack.isEmpty() 'drain'
+		let top = stack.pop()
+		total = try total + top otherwise panic("total overflowed")
+	end 'drain'
+	return total
+end 'drained'
+
+function twoPops() returns Count
+	var xs = threes()
+	xs.push(4)
+	if xs.count() >= 2 'guarded'
+		let a = xs.pop()
+		let b = xs.pop()
+		return try a + b + xs.count() otherwise panic("sum overflowed")
+	end 'guarded'
+	return 0
+end 'twoPops'
+
+function ends() returns Count
+	var xs = threes()
+	xs.push(5)
+	return try xs.first() + xs.last() otherwise panic("sum overflowed")
+end 'ends'
+
+function removedBelow(i Count) returns Count
+	var xs = threes()
+	xs.push(7)
+	if i < xs.count() 'inside'
+		let v = xs.remove(i)
+		return try v + xs.count() otherwise panic("sum overflowed")
+	end 'inside'
+	return 0
+end 'removedBelow'
+
+function popsWhileMoreThanOne() returns Count
+	var xs = threes()
+	xs.push(1)
+	var total = 0 as Count
+	while xs.count() > 1 'pops'
+		let top = xs.pop()
+		total = try total + top + xs.last() otherwise panic("total overflowed")
+	end 'pops'
+	return total
+end 'popsWhileMoreThanOne'
+
+function bytes() returns Count
+	var bs = Bytes.create(0)
+	bs.push(2 as Byte)
+	bs.push(9 as Byte)
+	let last = bs.pop()
+	let first = bs.first()
+	return (last as Count) * 10 + (first as Count)
+end 'bytes'
+
+function strings() returns String
+	var names = Strings.create(0)
+	names.push("ab")
+	names.push("cd")
+	names.push("ef")
+	let popped = names.pop()
+	let removed = names.remove(0)
+	return "{popped}{removed}{names.last()}"
+end 'strings'
+
+function records() returns Count
+	var pairs = Pairs.create(0)
+	pairs.push(Pair.make(1, right: 2))
+	pairs.push(Pair.make(3, right: 4))
+	let p = pairs.pop()
+	let q = pairs.first()
+	return try p.left * 1000 + p.right * 100 + q.left * 10 + q.right otherwise panic("records overflowed")
+end 'records'
+
+function main() returns ExitCode
+	print("{drained()} {twoPops()} {ends()} {removedBelow(1)} {removedBelow(9)} {popsWhileMoreThanOne()} {bytes()} {strings()} {records()}\n")
+	return 0
+end 'main'
+
+//> 10 9 8 6 0 16 92 efabcd 3412

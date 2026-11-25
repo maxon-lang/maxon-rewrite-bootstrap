@@ -3054,7 +3054,7 @@ end 'total'
 function main() returns ExitCode
 	var goods = Goods.create(0)
 	goods.push(Good.create(40, second: 2))
-	let g = try goods.get(0) otherwise panic("one pair was pushed")
+	let g = goods.get(0)
 	return total(g)
 end 'main'
 ```
@@ -3444,7 +3444,7 @@ function main() returns ExitCode
 	a.push(1.5)
 	var v = Vec2.create()
 	v.set(0, value: 3.5)
-	return try trunc((try a.get(0) otherwise 0.0) + v.get(0)) as ExitCode otherwise panic("out of range")
+	return try trunc((a.get(0)) + v.get(0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3622,7 +3622,7 @@ function main() returns ExitCode
 	let b = IntBox.create(42)
 	var a = IntArray.create(0)
 	a.push(b.get())
-	return try (try a.get(0) otherwise 0) - 42 otherwise panic("out of range")
+	return try (a.get(0)) - 42 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -101,7 +101,7 @@ type DebugTypes
 		end 'known'
 		pending.push(ref)
 		while pending.count() > 0 'work'
-			let next = try pending.pop() otherwise panic("backend: an empty worklist")
+			let next = table.popLast(pending)
 			if found.has(next) 'described'
 				continue 'work'
 			end 'described'

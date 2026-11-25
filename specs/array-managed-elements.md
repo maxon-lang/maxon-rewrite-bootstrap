@@ -44,7 +44,7 @@ function main() returns ExitCode
 	var items = ItemArray.create(0)
 	items.push(Item.create("hello world that needs heap allocation", value: 1))
 	items.push(Item.create("another long string for heap allocation", value: 2))
-	let first = try items.get(0) otherwise Item.create("", value: 0)
+	let first = items.get(0)
 	print("{first.name}\n")
 	return try first.value as ExitCode otherwise panic("out of range")
 end 'main'

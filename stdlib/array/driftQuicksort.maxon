@@ -37,7 +37,7 @@ export extension Array
 		scratch.truncate(0)
 		pivotHold.clear()
 		pivotHold.push(try self.managed.get(pivotIndex) otherwise panic("stablePartition: get OOB at pivot"))
-		let pv = try pivotHold.get(0) otherwise panic("stablePartition: pivotHold is empty one line after a push into it")
+		let pv = pivotHold.get(0)
 		// Count the `< pivot` class so we can pick the smaller class to buffer.
 		var lessCount = 0 as ElementIndex
 		var scan = lo

@@ -29,7 +29,7 @@ function main() returns ExitCode
 	inner.push(20)
 	inner.push(30)
 	outer.push(inner)
-	let retrieved = try outer.get(0) otherwise ByteArray.create(0)
+	let retrieved = outer.get(0)
 	print("{retrieved.count()}\n")
 	return 0
 end 'main'

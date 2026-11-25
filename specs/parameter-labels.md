@@ -526,8 +526,8 @@ function main() returns ExitCode
 	xs.push(7)
 	xs.push(8)
 	xs.push(9)
-	let first = try xs.get(0) otherwise 0
-	let last = try xs.get(2) otherwise 0
+	let first = xs.get(0)
+	let last = xs.get(2)
 	print("{first} {last} {xs.count()}\n")
 	return 0
 end 'main'

@@ -493,7 +493,7 @@ typealias Slots = Array with High
 export function fromHigh() returns High
 	var w = Slots.create(0)
 	w.push(1500)
-	return try w.get(0) otherwise 1000
+	return w.get(0)
 end 'fromHigh'
 
 // --- file: main.maxon
@@ -504,7 +504,7 @@ typealias Slots = Array with Low
 function main() returns ExitCode
 	var w = Slots.create(0)
 	w.push(40)
-	return (((high.fromHigh() / 100) as Low) + (try w.get(0) otherwise 0)) as ExitCode
+	return (((high.fromHigh() / 100) as Low) + (w.get(0))) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -530,7 +530,7 @@ typealias Bytes = Array with Byte
 export function wide(v Integer) returns Integer
 	var b = Bytes.create(0)
 	b.push(try v as Byte otherwise panic("out of range"))
-	return try b.get(0) otherwise 300
+	return b.get(0)
 end 'wide'
 
 export typealias Integer = int(i64.min to i64.max)
@@ -544,7 +544,7 @@ function main() returns ExitCode
 	var b = Bytes.create(0)
 	let two = 200 as Byte
 	b.push(two)
-	return try (try b.get(0) otherwise 0) + ((wide.wide(900) / 100) as Byte) otherwise panic("out of range")
+	return try (b.get(0)) + ((wide.wide(900) / 100) as Byte) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -617,7 +617,7 @@ typealias Counts = Array with Tally
 export function fromA() returns Tally
 	var c = Counts.create(0)
 	c.push(40)
-	return try c.get(0) otherwise 0
+	return c.get(0)
 end 'fromA'
 
 // --- file: main.maxon
@@ -626,7 +626,7 @@ typealias Counts = Array with a.Tally
 function main() returns ExitCode
 	var c = Counts.create(0)
 	c.push(2)
-	return a.fromA() + (try c.get(0) otherwise 0)
+	return a.fromA() + (c.get(0))
 end 'main'
 ```
 ```exitcode
@@ -653,7 +653,7 @@ export function fromHigh() returns High
 	var row = Slots.create(0)
 	row.push(1500)
 	g.push(row)
-	let back = try g.get(0) otherwise Slots.create(0)
+	let back = g.get(0)
 	return try back.get(0) otherwise 1000
 end 'fromHigh'
 
@@ -669,7 +669,7 @@ function main() returns ExitCode
 	var row = Slots.create(0)
 	row.push(40)
 	g.push(row)
-	let back = try g.get(0) otherwise Slots.create(0)
+	let back = g.get(0)
 	return (((high.fromHigh() / 100) as Low) + (try back.get(0) otherwise 0)) as ExitCode
 end 'main'
 ```
@@ -1617,7 +1617,7 @@ export function alphaSide()
 	let h = HolderA.create()
 	var xs = PairsA.create(0)
 	xs.push((4, 1))
-	let e = try xs.get(0) otherwise return
+	let e = xs.get(0)
 	let b = BoxA.create((6, 3))
 	let s = SlotA.some((8, 5))
 	let ys = xs.clone()
@@ -1654,7 +1654,7 @@ export function gammaSide()
 	let h = HolderG.create()
 	var xs = PairsG.create(0)
 	xs.push(("c", "d"))
-	let e = try xs.get(0) otherwise return
+	let e = xs.get(0)
 	let b = BoxG.create(("e", "f"))
 	let s = SlotG.some(("g", "h"))
 	let ys = xs.clone()
@@ -1724,7 +1724,7 @@ export function gammaSide()
 	let h = HolderG.create()
 	var xs = PairsG.create(0)
 	xs.push(("c", "d"))
-	let e = try xs.get(0) otherwise return
+	let e = xs.get(0)
 	let b = BoxG.create(("e", "f"))
 	let s = SlotG.some(("g", "h"))
 	let ys = xs.clone()
@@ -1761,7 +1761,7 @@ export function alphaSide()
 	let h = HolderA.create()
 	var xs = PairsA.create(0)
 	xs.push((4, 1))
-	let e = try xs.get(0) otherwise return
+	let e = xs.get(0)
 	let b = BoxA.create((6, 3))
 	let s = SlotA.some((8, 5))
 	let ys = xs.clone()

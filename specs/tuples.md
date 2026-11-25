@@ -953,7 +953,7 @@ function main() returns ExitCode
 	var xs = TaggedArray.create(0)
 	xs.push((1, "hello"))
 	xs.push((2, "world"))
-	let r = try xs.get(1) otherwise panic("pushed")
+	let r = xs.get(1)
 	print("{r.1}\n")
 	return try (r.0 as Count) + xs.count() otherwise panic("out of range")
 end 'main'
@@ -1564,7 +1564,7 @@ function main() returns ExitCode
 	let h = Holder.create()
 	var xs = PairArray.create(0)
 	xs.push((14, 0))
-	let e = try xs.get(0) otherwise return 1
+	let e = xs.get(0)
 	let n = nested()
 	let s = Slot.some((16, 0))
 	let sv = match s 'm'
@@ -1613,7 +1613,7 @@ function main() returns ExitCode
 	let h = Holder.create()
 	var xs = PairArray.create(0)
 	xs.push((14, 0))
-	let e = try xs.get(0) otherwise return 1
+	let e = xs.get(0)
 	let n = nested()
 	let s = Slot.some((16, 0))
 	let sv = match s 'm'
@@ -2083,7 +2083,7 @@ function main() returns ExitCode
 	sb = "{sb}record"
 	xs.push((sb, 3))
 	let ys = xs.clone()
-	let original = try xs.get(0) otherwise panic("pushed")
+	let original = xs.get(0)
 	let copied = try ys.get(0) otherwise panic("cloned")
 	print("{original.0}|{copied.0}\n")
 	return try original.1 + copied.1 + xs.count() as Integer + ys.count() as Integer otherwise panic("out of range")

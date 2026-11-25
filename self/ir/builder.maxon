@@ -516,7 +516,7 @@ export type Builder
 		reached[0] = true
 		var next = SuccessorVisitor.new()
 		while work.count() > 0 'walk'
-			let blk = blockIndex(try work.pop() otherwise panic("ir: the work list is empty"))
+			let blk = blockIndex(table.popLast(work))
 			next.clear()
 			visitTerm(next, f: f, t: terms[blk])
 			let after = try blk + 1 otherwise panic("ir: too many blocks")

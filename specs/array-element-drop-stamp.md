@@ -246,7 +246,7 @@ typealias CellArray = Array with Cell
 function main() returns ExitCode
 	var held = CellArray.create(0)
 	held.push(Cell.of(3, high: 4))
-	let cell = try held.get(0) otherwise panic("one was pushed")
+	let cell = held.get(0)
 	return cell.total() as ExitCode
 end 'main'
 ```

@@ -194,7 +194,7 @@ function calleesFirst(fns ir.IrFunctionList, slot Count) returns Array with Coun
 			if next == noPlace 'done'
 				state[i] = doneFunction
 				order.push(i)
-				_ = try stack.pop() otherwise panic("opt: an empty walk")
+				_ = table.popLast(stack)
 				_ = try cursor.pop() otherwise panic("opt: an empty walk")
 			end 'done' else 'deeper'
 				let j = linkIndex(next)

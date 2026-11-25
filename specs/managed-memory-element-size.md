@@ -22,8 +22,8 @@ function main() returns ExitCode
 	arr.push(65)
 	arr.push(66)
 	arr.push(67)
-	let b0 = try arr.get(1) otherwise 0
-	let b1 = try arr.get(2) otherwise 0
+	let b0 = arr.get(1)
+	let b1 = arr.get(2)
 	let b2 = try arr.get(3) otherwise 0
 	if b0 != 65 'check0'
 		return 1
@@ -51,10 +51,10 @@ function main() returns ExitCode
 	arr.push(30)
 	arr.push(40)
 	arr.push(50)
-	var sum = try arr.get(1) otherwise 0
-	sum = try sum + (try arr.get(2) otherwise 0) otherwise panic("out of range")
-	sum = try sum + (try arr.get(3) otherwise 0) otherwise panic("out of range")
-	sum = try sum + (try arr.get(4) otherwise 0) otherwise panic("out of range")
+	var sum = arr.get(1)
+	sum = try sum + (arr.get(2)) otherwise panic("out of range")
+	sum = try sum + (arr.get(3)) otherwise panic("out of range")
+	sum = try sum + (arr.get(4)) otherwise panic("out of range")
 	sum = try sum + (try arr.get(5) otherwise 0) otherwise panic("out of range")
 	// 10 + 20 + 30 + 40 + 50 = 150 (printed, not returned: 150 > the
 	// valid ExitCode range of 0..125 on the wasm target)

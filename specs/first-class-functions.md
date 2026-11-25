@@ -6106,7 +6106,7 @@ end 'nine'
 function main() returns ExitCode
 	var a = ThunkArray.create(0)
 	a.push(nine)
-	let f = try a.get(0) otherwise panic("a.get(0) on a one-element array")
+	let f = a.get(0)
 	return f()
 end 'main'
 ```
@@ -7265,9 +7265,9 @@ function main() returns ExitCode
 	t.0 = nine
 	var xs = ThunkArray from [seven, seven]
 	xs.push(nine)
-	try xs.set(0, value: nine) otherwise panic("set")
+	xs.set(0, value: nine)
 	let fromTuple = t.0
-	let fromArray = try xs.get(0) otherwise panic("get")
+	let fromArray = xs.get(0)
 	let pushed = try xs.get(2) otherwise panic("get")
 	print("{h.op()} {fromTuple()} {fromArray()} {pushed()}\n")
 	return 0

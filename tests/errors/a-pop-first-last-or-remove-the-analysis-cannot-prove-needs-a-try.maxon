@@ -1,0 +1,63 @@
+// expect-error: E3057 at 17:16
+// expect-error: E3057 at 27:16
+// expect-error: E3057 at 33:17
+// expect-error: E3057 at 40:17
+// expect-error: E3057 at 47:18
+// expect-error: E3057 at 55:20
+// A pop, a first, a last or a remove that the analysis cannot prove needs a try: a pop after a clear, which leaves the
+// count at most what it was and so no longer at least 1; a third pop under a guard that the count is at least 2, since each
+// proven pop takes exactly one; a first of an array nothing is known of; a last after a pop of the one element a guard
+// proved; a remove at an index nothing compares with the count; and a pop in a loop whose body pops after the guard.
+typealias Counts = Array with Count
+
+function afterClear() returns Count
+	var xs = Counts.filled(3, value: 1)
+	if xs.count() >= 2 'guarded'
+		xs.clear()
+		return xs.pop()
+	end 'guarded'
+	return 0
+end 'afterClear'
+
+function thirdPop() returns Count
+	var xs = Counts.filled(3, value: 1)
+	if xs.count() >= 2 'guarded'
+		_ = xs.pop()
+		_ = xs.pop()
+		return xs.pop()
+	end 'guarded'
+	return 0
+end 'thirdPop'
+
+function firstOf(xs Counts) returns Count
+	return xs.first()
+end 'firstOf'
+
+function lastAfterPop() returns Count
+	var xs = Counts.filled(3, value: 1)
+	if xs.count() >= 1 'guarded'
+		_ = xs.pop()
+		return xs.last()
+	end 'guarded'
+	return 0
+end 'lastAfterPop'
+
+function removeAt(i Count) returns Count
+	var xs = Counts.filled(3, value: 1)
+	return xs.remove(i)
+end 'removeAt'
+
+function poppedTwice() returns Count
+	var xs = Counts.filled(3, value: 1)
+	var total = 0 as Count
+	while not xs.isEmpty() 'drain'
+		_ = xs.pop()
+		let next = xs.pop()
+		total = try total + next otherwise panic("total overflowed")
+	end 'drain'
+	return total
+end 'poppedTwice'
+
+function main() returns ExitCode
+	return 0
+end 'main'

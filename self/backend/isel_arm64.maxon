@@ -449,7 +449,7 @@ export type WordSharing
 			walk.clear()
 			walk.push(latch)
 			while walk.count() > 0 'body'
-				let s = try walk.pop() otherwise panic("backend: a walk of a loop past its stack")
+				let s = table.popLast(walk)
 				if seen[s] == stamp 'reached'
 					continue 'body'
 				end 'reached'

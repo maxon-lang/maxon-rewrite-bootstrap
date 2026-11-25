@@ -50,7 +50,7 @@ function main() returns ExitCode
 	end 'each'
 	print("{names.count()} {kept.count()} {try kept.get(3) otherwise "none"}\n")
 	names.push("again")
-	print("{names.count()} {try names.get(0) otherwise "none"}\n")
+	print("{names.count()} {names.get(0)}\n")
 	names = filled(5)
 	for name in names.drain() 'each'
 		if name == "name 1" 'skip'

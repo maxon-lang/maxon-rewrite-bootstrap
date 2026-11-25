@@ -4654,7 +4654,7 @@ function main() returns ExitCode
 	var xs = Slots.create(0)
 	xs.push(Slot.held(Box.create(2)))
 	var i = 0 as ElementIndex
-	match try xs.get(i) otherwise panic("none") 'm'
+	match xs.get(i) 'm'
 		empty then break
 		held then i = i + 1
 	end 'm'

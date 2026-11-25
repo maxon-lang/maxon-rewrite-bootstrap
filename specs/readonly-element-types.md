@@ -56,11 +56,11 @@ function main() returns ExitCode
 	for entry in roster 'each'
 		total = try total + entry.n otherwise panic("out of range")
 	end 'each'
-	let head = try roster.first() otherwise return 1
-	let second = try roster.get(1) otherwise return 1
+	let head = roster.first()
+	let second = roster.get(1)
 	total = try total + head.n + second.n otherwise panic("out of range")
-	try roster.set(0, value: thaw(freeze(Counter.create(10)))) otherwise return 1
-	let removed = try roster.remove(2) otherwise return 1
+	roster.set(0, value: thaw(freeze(Counter.create(10))))
+	let removed = roster.remove(2)
 	total = try total + removed.n otherwise panic("out of range")
 	roster.insert(0, value: thaw(shared))
 	total = try total + (roster.count() as Integer) otherwise panic("out of range")

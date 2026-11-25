@@ -5,8 +5,8 @@ function main() returns ExitCode
 	a.push("e{1}")
 	a.push("e{2}")
 	a.push("e{3}")
-	let taken = try a.remove(1) otherwise panic("index out of range")
-	_ = try a.remove(0) otherwise panic("index out of range")
+	let taken = a.remove(1)
+	_ = a.remove(0)
 	let last = "z{4}"
 	return 0
 end 'main'

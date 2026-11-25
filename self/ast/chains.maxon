@@ -27,7 +27,7 @@ export function nextOperator(mutates chain NodeList, e NodeID) returns NodeID
 	if chain.count() == 0 'outermost'
 		return e
 	end 'outermost'
-	return try chain.pop() otherwise panic("the chain of operators ran out")
+	return table.popLast(chain)
 end 'nextOperator'
 
 // trimFolded ends a chain above the first operator whose value is a folded constant. A pass takes the value of such an
@@ -43,6 +43,6 @@ export function trimFolded(p Project, ms ModuleState, typing Typing, mutates cha
 		end 'folded'
 	end 'scan'
 	while chain.count() > keep 'trim'
-		_ = try chain.pop() otherwise panic("the chain of operators ran out")
+		_ = table.popLast(chain)
 	end 'trim'
 end 'trimFolded'

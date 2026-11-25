@@ -217,7 +217,9 @@ export enum Intrinsic
 	intrArrayAppend
 	intrArrayInsert
 	intrArrayRemove
+	intrArrayRemoveProven
 	intrArrayPop
+	intrArrayPopProven
 	intrArrayDropEmpty
 	intrArrayClear
 	intrArrayTruncate
@@ -230,7 +232,9 @@ export enum Intrinsic
 	intrArrayContainsSequence
 	intrArrayEquals
 	intrArrayFirst
+	intrArrayFirstProven
 	intrArrayLast
+	intrArrayLastProven
 	intrArrayEmptySlots
 	intrArrayIsFilled
 	intrArrayClearSlot
@@ -647,8 +651,6 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrArrayPush or
 		intrArrayAppend or
 		intrArrayInsert or
-		intrArrayRemove or
-		intrArrayPop or
 		intrArrayDropEmpty or
 		intrArrayClear or
 		intrArrayTruncate or
@@ -660,8 +662,6 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrArrayContains or
 		intrArrayContainsSequence or
 		intrArrayEquals or
-		intrArrayFirst or
-		intrArrayLast or
 		intrArrayEmptySlots or
 		intrArrayIsFilled or
 		intrArrayClearSlot or
@@ -901,7 +901,15 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrArrayGet or
 		intrArrayGetProven or
 		intrArraySet or
-		intrArraySetProven gives Precondition.requiresIndexBelow
+		intrArraySetProven or
+		intrArrayRemove or
+		intrArrayRemoveProven gives Precondition.requiresIndexBelow
+		intrArrayPop or
+		intrArrayPopProven or
+		intrArrayFirst or
+		intrArrayFirstProven or
+		intrArrayLast or
+		intrArrayLastProven gives Precondition.requiresNonEmpty
 	end 'op'
 end 'intrinsicRequires'
 
@@ -936,7 +944,9 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrArrayContainsSequence or
 		intrArrayEquals or
 		intrArrayFirst or
+		intrArrayFirstProven or
 		intrArrayLast or
+		intrArrayLastProven or
 		intrArrayEmptySlots or
 		intrArrayIsFilled or
 		intrArrayLendSlot or
@@ -1161,6 +1171,8 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrArrayPop or
 		intrArrayClear or
 		intrArrayTruncate gives CountEffect.countShrink
+		intrArrayRemoveProven or
+		intrArrayPopProven gives CountEffect.countShrinkOne
 		intrArrayDropEmpty or
 		intrArrayResize or
 		intrArrayGrowFilled or
@@ -1211,7 +1223,9 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrArrayAppend or
 		intrArrayInsert or
 		intrArrayRemove or
+		intrArrayRemoveProven or
 		intrArrayPop or
+		intrArrayPopProven or
 		intrArrayDropEmpty or
 		intrArrayClear or
 		intrArrayTruncate or
@@ -1224,7 +1238,9 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrArrayContainsSequence or
 		intrArrayEquals or
 		intrArrayFirst or
+		intrArrayFirstProven or
 		intrArrayLast or
+		intrArrayLastProven or
 		intrArrayEmptySlots or
 		intrArrayIsFilled or
 		intrArrayClearSlot or
@@ -1475,6 +1491,18 @@ export function provenTwin(b Builtins, f FuncID) returns table.Option with FuncI
 	if f == b.arraySetFunc 'arraySet'
 		return table.Option.some(b.arraySetProvenFunc)
 	end 'arraySet'
+	if f == b.arrayRemoveFunc 'arrayRemove'
+		return table.Option.some(b.arrayRemoveProvenFunc)
+	end 'arrayRemove'
+	if f == b.arrayPopFunc 'arrayPop'
+		return table.Option.some(b.arrayPopProvenFunc)
+	end 'arrayPop'
+	if f == b.arrayFirstFunc 'arrayFirst'
+		return table.Option.some(b.arrayFirstProvenFunc)
+	end 'arrayFirst'
+	if f == b.arrayLastFunc 'arrayLast'
+		return table.Option.some(b.arrayLastProvenFunc)
+	end 'arrayLast'
 	if f == b.fixedArrayGetFunc 'fixedArrayGet'
 		return table.Option.some(b.fixedArrayGetProvenFunc)
 	end 'fixedArrayGet'
@@ -2082,70 +2110,92 @@ function declareArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft Fu
 	ps40.push(ParamSpec.make("at", ty: b.elementIndexTy, conv: Convention.convLet))
 	let f41 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayRemove, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: p39, params: ps40, listed: true)
 	ft.lists[funcList(ft, f: f41)][funcIndex(ft, f: f41)].errTy = b.arrayErrorTy
+	b.arrayRemoveFunc = f41
 	let p42 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	let f43 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayPop, name: "pop", isStatic: false, selfConv: Convention.convMutates, ret: p42, params: ParamSpecList.create(0), listed: true)
-	ft.lists[funcList(ft, f: f43)][funcIndex(ft, f: f43)].errTy = b.arrayErrorTy
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
-	let f44 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayClear, name: "clear", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
+	var ps43 = ParamSpecList.create(0)
+	ps43.push(ParamSpec.make("at", ty: b.elementIndexTy, conv: Convention.convLet))
+	let f44 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayRemoveProven, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: p42, params: ps43, listed: false)
+	b.arrayRemoveProvenFunc = f44
 	let p45 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f44)][funcIndex(ft, f: f44)].bounds.push(ParamBound.make(p45, ifaceTy: b.droppableTy))
-	var ps46 = ParamSpecList.create(0)
-	ps46.push(ParamSpec.make("newLength", ty: b.elementIndexTy, conv: Convention.convLet))
-	let f47 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayTruncate, name: "truncate", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps46, listed: true)
-	let p48 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f47)][funcIndex(ft, f: f47)].bounds.push(ParamBound.make(p48, ifaceTy: b.droppableTy))
-	var ps49 = ParamSpecList.create(0)
-	ps49.push(ParamSpec.make("minCapacity", ty: b.elementIndexTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayReserve, name: "reserve", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps49, listed: true)
-	var ps50 = ParamSpecList.create(0)
-	ps50.push(ParamSpec.make("newLength", ty: b.elementIndexTy, conv: Convention.convLet))
-	let f51 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayResize, name: "resize", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps50, listed: true)
-	let p52 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f51)][funcIndex(ft, f: f51)].bounds.push(ParamBound.make(p52, ifaceTy: b.droppableTy))
-	let ty53 = selfType(tt, reads: reads, declTy: b.arrayOrigin)
+	let f46 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayPop, name: "pop", isStatic: false, selfConv: Convention.convMutates, ret: p45, params: ParamSpecList.create(0), listed: true)
+	ft.lists[funcList(ft, f: f46)][funcIndex(ft, f: f46)].errTy = b.arrayErrorTy
+	b.arrayPopFunc = f46
+	let p47 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	let f48 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayPopProven, name: "pop", isStatic: false, selfConv: Convention.convMutates, ret: p47, params: ParamSpecList.create(0), listed: false)
+	b.arrayPopProvenFunc = f48
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
+	let f49 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayClear, name: "clear", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
+	let p50 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f49)][funcIndex(ft, f: f49)].bounds.push(ParamBound.make(p50, ifaceTy: b.droppableTy))
+	var ps51 = ParamSpecList.create(0)
+	ps51.push(ParamSpec.make("newLength", ty: b.elementIndexTy, conv: Convention.convLet))
+	let f52 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayTruncate, name: "truncate", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps51, listed: true)
+	let p53 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f52)][funcIndex(ft, f: f52)].bounds.push(ParamBound.make(p53, ifaceTy: b.droppableTy))
 	var ps54 = ParamSpecList.create(0)
-	ps54.push(ParamSpec.make("start", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps54.push(ParamSpec.make("endIndex", ty: b.elementIndexTy, conv: Convention.convLet))
-	let f55 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArraySlice, name: "slice", isStatic: false, selfConv: Convention.convLet, ret: ty53, params: ps54, listed: true)
-	let p56 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f55)][funcIndex(ft, f: f55)].bounds.push(ParamBound.make(p56, ifaceTy: b.copyableTy))
-	ft.lists[funcList(ft, f: f55)][funcIndex(ft, f: f55)].errTy = b.arrayErrorTy
+	ps54.push(ParamSpec.make("minCapacity", ty: b.elementIndexTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayReserve, name: "reserve", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps54, listed: true)
+	var ps55 = ParamSpecList.create(0)
+	ps55.push(ParamSpec.make("newLength", ty: b.elementIndexTy, conv: Convention.convLet))
+	let f56 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayResize, name: "resize", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps55, listed: true)
 	let p57 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	var ps58 = ParamSpecList.create(0)
-	ps58.push(ParamSpec.make("newLength", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps58.push(ParamSpec.make("value", ty: p57, conv: Convention.convLet))
-	let f59 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayGrowFilled, name: "growFilled", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps58, listed: true)
-	let p60 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f59)][funcIndex(ft, f: f59)].bounds.push(ParamBound.make(p60, ifaceTy: b.copyableTy))
+	ft.lists[funcList(ft, f: f56)][funcIndex(ft, f: f56)].bounds.push(ParamBound.make(p57, ifaceTy: b.droppableTy))
+	let ty58 = selfType(tt, reads: reads, declTy: b.arrayOrigin)
+	var ps59 = ParamSpecList.create(0)
+	ps59.push(ParamSpec.make("start", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps59.push(ParamSpec.make("endIndex", ty: b.elementIndexTy, conv: Convention.convLet))
+	let f60 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArraySlice, name: "slice", isStatic: false, selfConv: Convention.convLet, ret: ty58, params: ps59, listed: true)
 	let p61 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	var ps62 = ParamSpecList.create(0)
-	ps62.push(ParamSpec.make("newLength", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps62.push(ParamSpec.make("value", ty: p61, conv: Convention.convLet))
-	let f63 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayRefill, name: "refill", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps62, listed: true)
-	let p64 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f63)][funcIndex(ft, f: f63)].bounds.push(ParamBound.make(p64, ifaceTy: b.copyableTy))
+	ft.lists[funcList(ft, f: f60)][funcIndex(ft, f: f60)].bounds.push(ParamBound.make(p61, ifaceTy: b.copyableTy))
+	ft.lists[funcList(ft, f: f60)][funcIndex(ft, f: f60)].errTy = b.arrayErrorTy
+	let p62 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	var ps63 = ParamSpecList.create(0)
+	ps63.push(ParamSpec.make("newLength", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps63.push(ParamSpec.make("value", ty: p62, conv: Convention.convLet))
+	let f64 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayGrowFilled, name: "growFilled", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps63, listed: true)
 	let p65 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	var ps66 = ParamSpecList.create(0)
-	ps66.push(ParamSpec.make("element", ty: p65, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayContains, name: "contains", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps66, listed: true)
-	let ty67 = selfType(tt, reads: reads, declTy: b.arrayOrigin)
-	var ps68 = ParamSpecList.create(0)
-	ps68.push(ParamSpec.make("sequence", ty: ty67, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayContainsSequence, name: "containsSequence", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps68, listed: true)
-	let ty69 = selfType(tt, reads: reads, declTy: b.arrayOrigin)
-	var ps70 = ParamSpecList.create(0)
-	ps70.push(ParamSpec.make("other", ty: ty69, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayEquals, name: "equals", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps70, listed: true)
-	let p71 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	let f72 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayFirst, name: "first", isStatic: false, selfConv: Convention.convLet, ret: p71, params: ParamSpecList.create(0), listed: true)
-	let p73 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f72)][funcIndex(ft, f: f72)].bounds.push(ParamBound.make(p73, ifaceTy: b.copyableTy))
-	ft.lists[funcList(ft, f: f72)][funcIndex(ft, f: f72)].errTy = b.arrayErrorTy
-	let p74 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	let f75 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayLast, name: "last", isStatic: false, selfConv: Convention.convLet, ret: p74, params: ParamSpecList.create(0), listed: true)
+	ft.lists[funcList(ft, f: f64)][funcIndex(ft, f: f64)].bounds.push(ParamBound.make(p65, ifaceTy: b.copyableTy))
+	let p66 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	var ps67 = ParamSpecList.create(0)
+	ps67.push(ParamSpec.make("newLength", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps67.push(ParamSpec.make("value", ty: p66, conv: Convention.convLet))
+	let f68 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayRefill, name: "refill", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps67, listed: true)
+	let p69 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f68)][funcIndex(ft, f: f68)].bounds.push(ParamBound.make(p69, ifaceTy: b.copyableTy))
+	let p70 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	var ps71 = ParamSpecList.create(0)
+	ps71.push(ParamSpec.make("element", ty: p70, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayContains, name: "contains", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps71, listed: true)
+	let ty72 = selfType(tt, reads: reads, declTy: b.arrayOrigin)
+	var ps73 = ParamSpecList.create(0)
+	ps73.push(ParamSpec.make("sequence", ty: ty72, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayContainsSequence, name: "containsSequence", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps73, listed: true)
+	let ty74 = selfType(tt, reads: reads, declTy: b.arrayOrigin)
+	var ps75 = ParamSpecList.create(0)
+	ps75.push(ParamSpec.make("other", ty: ty74, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayEquals, name: "equals", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps75, listed: true)
 	let p76 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f75)][funcIndex(ft, f: f75)].bounds.push(ParamBound.make(p76, ifaceTy: b.copyableTy))
-	ft.lists[funcList(ft, f: f75)][funcIndex(ft, f: f75)].errTy = b.arrayErrorTy
+	let f77 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayFirst, name: "first", isStatic: false, selfConv: Convention.convLet, ret: p76, params: ParamSpecList.create(0), listed: true)
+	let p78 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f77)][funcIndex(ft, f: f77)].bounds.push(ParamBound.make(p78, ifaceTy: b.copyableTy))
+	ft.lists[funcList(ft, f: f77)][funcIndex(ft, f: f77)].errTy = b.arrayErrorTy
+	b.arrayFirstFunc = f77
+	let p79 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	let f80 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayFirstProven, name: "first", isStatic: false, selfConv: Convention.convLet, ret: p79, params: ParamSpecList.create(0), listed: false)
+	let p81 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f80)][funcIndex(ft, f: f80)].bounds.push(ParamBound.make(p81, ifaceTy: b.copyableTy))
+	b.arrayFirstProvenFunc = f80
+	let p82 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	let f83 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayLast, name: "last", isStatic: false, selfConv: Convention.convLet, ret: p82, params: ParamSpecList.create(0), listed: true)
+	let p84 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f83)][funcIndex(ft, f: f83)].bounds.push(ParamBound.make(p84, ifaceTy: b.copyableTy))
+	ft.lists[funcList(ft, f: f83)][funcIndex(ft, f: f83)].errTy = b.arrayErrorTy
+	b.arrayLastFunc = f83
+	let p85 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	let f86 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayLastProven, name: "last", isStatic: false, selfConv: Convention.convLet, ret: p85, params: ParamSpecList.create(0), listed: false)
+	let p87 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f86)][funcIndex(ft, f: f86)].bounds.push(ParamBound.make(p87, ifaceTy: b.copyableTy))
+	b.arrayLastProvenFunc = f86
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayAwaitAny, name: "awaitAny", isStatic: false, selfConv: Convention.convLet, ret: b.elementIndexTy, params: ParamSpecList.create(0), listed: true)
 end 'declareArrayMethods'
 

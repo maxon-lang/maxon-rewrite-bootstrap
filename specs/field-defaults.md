@@ -64,7 +64,7 @@ end 'Bag'
 function main() returns ExitCode
 	var b = Bag.create()
 	b.items.push(42)
-	let v = try b.items.get(0) otherwise 0
+	let v = b.items.get(0)
 	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
@@ -93,7 +93,7 @@ end 'Bag'
 function main() returns ExitCode
 	var b = Bag.create()
 	b.items.push(42)
-	let v = try b.items.get(0) otherwise 0
+	let v = b.items.get(0)
 	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```

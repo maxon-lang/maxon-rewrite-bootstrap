@@ -254,7 +254,7 @@ function main() returns ExitCode
 	var arr = IntArray.create(0)
 	arr.reserve(5)
 	arr.push(42)
-	return try (try arr.get(0) otherwise 0) as ExitCode otherwise panic("out of range")
+	return try (arr.get(0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -314,9 +314,9 @@ function main() returns ExitCode
 	arr.push(10 as Byte)
 	arr.push(20 as Byte)
 	arr.push(30 as Byte)
-	let v0 = try arr.get(0) otherwise 0 as Byte
-	let v1 = try arr.get(1) otherwise 0 as Byte
-	let v2 = try arr.get(2) otherwise 0 as Byte
+	let v0 = arr.get(0)
+	let v1 = arr.get(1)
+	let v2 = arr.get(2)
 	return v0 + v1 + v2
 end 'main'
 ```
@@ -338,9 +338,9 @@ function main() returns ExitCode
 	arr.push(1 as Byte)
 	arr.push(2 as Byte)
 	arr.push(3 as Byte)
-	let v0 = try arr.get(0) otherwise 0 as Byte
-	let v1 = try arr.get(1) otherwise 0 as Byte
-	let v2 = try arr.get(2) otherwise 0 as Byte
+	let v0 = arr.get(0)
+	let v1 = arr.get(1)
+	let v2 = arr.get(2)
 	return v0 + v1 + v2
 end 'main'
 ```
@@ -362,8 +362,8 @@ function main() returns ExitCode
 	arr.push(10 as Byte)
 	arr.push(20 as Byte)
 	arr.push(30 as Byte)
-	try arr.set(1, value: 99 as Byte) otherwise panic("test invariant: set OOB")
-	let val = try arr.get(1) otherwise 0 as Byte
+	arr.set(1, value: 99 as Byte)
+	let val = arr.get(1)
 	return val
 end 'main'
 ```
@@ -385,9 +385,9 @@ function main() returns ExitCode
 	arr.push(255 as Byte)
 	arr.push(0 as Byte)
 	arr.push(128 as Byte)
-	let v0 = try arr.get(0) otherwise 0 as Byte
-	let v1 = try arr.get(1) otherwise 99 as Byte
-	let v2 = try arr.get(2) otherwise 0 as Byte
+	let v0 = arr.get(0)
+	let v1 = arr.get(1)
+	let v2 = arr.get(2)
 	if v0 != 255 'c0'
 		return 1
 	end 'c0'
@@ -1171,7 +1171,7 @@ function main() returns ExitCode
 	dest.append(src)
 	var moved = try dest.get(1) otherwise Cell.create(-1)
 	moved.value = 99
-	let seen = try src.get(0) otherwise Cell.create(-1)
+	let seen = src.get(0)
 	print("dest {moved.value} src {seen.value}\n")
 	return 0
 end 'main'
@@ -1208,7 +1208,7 @@ function main() returns ExitCode
 	dest.appendMemory(src.managed)
 	var moved = try dest.get(1) otherwise Cell.create(-1)
 	moved.value = 99
-	let seen = try src.get(0) otherwise Cell.create(-1)
+	let seen = src.get(0)
 	print("dest {moved.value} src {seen.value}\n")
 	return 0
 end 'main'
@@ -1349,7 +1349,7 @@ function main() returns ExitCode
 	var arr = ["hello world {40 + 2} this is a long string for heap allocation"]
 	let s = try arr.first() otherwise ""
 	arr.insert(0, value: "a second long string that also lives on the heap")
-	let head = try arr.first() otherwise ""
+	let head = arr.first()
 	print("[{s}]\n")
 	print("[{head}]\n")
 	return 0
@@ -1864,7 +1864,7 @@ function main() returns ExitCode
 	let empty = IntArray.create(0)
 	var e = try empty.slice(0, endIndex: 0) otherwise return 1
 	e.push(5)
-	let v = try e.get(0) otherwise 0
+	let v = e.get(0)
 	if v == 5 and e.count() == 1 and empty.count() == 0 'ok'
 		return 0
 	end 'ok'
@@ -2288,7 +2288,7 @@ typealias IntArray = Array with Integer
 function main() returns ExitCode
 	var arr = IntArray.create(0)
 	arr.push(42)
-	return try (try arr.get(0) otherwise 0) as ExitCode otherwise panic("out of range")
+	return try (arr.get(0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2303,7 +2303,7 @@ typealias StringArray = Array with String
 function main() returns ExitCode
 	var arr = StringArray.create(0)
 	arr.push("hi")
-	let s = try arr.get(0) otherwise ""
+	let s = arr.get(0)
 	if s == "hi" 'match'
 		return 7
 	end 'match'
@@ -2332,7 +2332,7 @@ typealias ItemArray = Array with Item
 function main() returns ExitCode
 	var arr = ItemArray.create(0)
 	arr.push(Item.create(9))
-	let first = try arr.get(0) otherwise Item.create(0)
+	let first = arr.get(0)
 	return try first.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
@@ -2351,8 +2351,8 @@ function main() returns ExitCode
 	var arr = ByteSlots.create(0)
 	arr.push(65)
 	arr.insert(0, value: 12)
-	try arr.set(1, value: 77) otherwise panic("test invariant: set OOB")
-	return try arr.get(1) otherwise 0
+	arr.set(1, value: 77)
+	return arr.get(1)
 end 'main'
 ```
 ```exitcode
@@ -2827,7 +2827,7 @@ function main() returns ExitCode
 	var b = Bytes.create(0)
 	b.push(9)
 	a.append(b)
-	let first = try a.get(0) otherwise 0
+	let first = a.get(0)
 	let second = try a.get(1) otherwise 0
 	return first + second
 end 'main'
@@ -2909,7 +2909,7 @@ function main() returns ExitCode
 	var b = Bs.create(0)
 	b.push(9)
 	a.append(b as As)
-	return ((try a.get(0) otherwise 0) + (try a.get(1) otherwise 0)) as ExitCode
+	return ((a.get(0)) + (try a.get(1) otherwise 0)) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -3073,7 +3073,7 @@ function main() returns ExitCode
 	var a = Reals.create(0)
 	a.push(1.5)
 	a.push(2.5)
-	return try trunc((try a.get(0) otherwise 0.0) + (try a.get(1) otherwise 0.0)) as ExitCode otherwise panic("out of range")
+	return try trunc((a.get(0)) + (a.get(1))) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3374,7 +3374,7 @@ typealias Grid = Array with Items
 function main() returns ExitCode
 	var g = Grid.create(0)
 	g.push([23, 24])
-	let row = try g.get(0) otherwise Items.create(0)
+	let row = g.get(0)
 	return try row.get(1) otherwise 0
 end 'main'
 ```
@@ -4529,7 +4529,7 @@ function main() returns ExitCode
 	var words = Words.create(2, zeroed: false)
 	words.push("ab")
 	words.push("cde")
-	return try (words.count() * 10 + (try words.get(1) otherwise "").byteLength()) as ExitCode otherwise panic("out of range")
+	return try (words.count() * 10 + (words.get(1)).byteLength()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4761,7 +4761,7 @@ function main() returns ExitCode
 	let second = spawn Worker.create()
 	handles.push(first)
 	handles.push(second)
-	let picked = try handles.get(1) otherwise panic("two were pushed")
+	let picked = handles.get(1)
 	let reply = try await picked.ping() otherwise 9
 	return 0 if reply == 3 and handles.count() == 2 else 1
 end 'main'
@@ -4885,8 +4885,8 @@ function main() returns ExitCode
 	var promises = DigitPromises.create(2, zeroed: false)
 	promises.push(async three())
 	promises.push(async three())
-	let second = try promises.pop() otherwise panic("two were pushed")
-	let first = try promises.pop() otherwise panic("two were pushed")
+	let second = promises.pop()
+	let first = promises.pop()
 	let sum = await first + await second
 	return sum as ExitCode
 end 'main'
@@ -5705,7 +5705,7 @@ typealias Words = Array with String
 function main() returns ExitCode
 	var words = Words.create(0)
 	words.push("abc")
-	return try (words.count() * 10 + (try words.get(0) otherwise "").byteLength()) as ExitCode otherwise panic("out of range")
+	return try (words.count() * 10 + (words.get(0)).byteLength()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

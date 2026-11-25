@@ -287,7 +287,7 @@ function main() returns ExitCode
 	var a = WordArray.create(0)
 	a.push(-1)
 	a.push(7)
-	let v = try a.get(0) otherwise 0
+	let v = a.get(0)
 	if v >= 0 'nonNegative'
 		return 2
 	end 'nonNegative'

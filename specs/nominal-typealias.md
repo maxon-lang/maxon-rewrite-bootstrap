@@ -414,7 +414,7 @@ function main() returns ExitCode
 	rows.push(4)
 	rows.push(9)
 	let last = 1 as BlockId
-	let r = try rows.get(last) otherwise 0
+	let r = rows.get(last)
 	print("{r}")
 	return 0
 end 'main'
@@ -836,7 +836,7 @@ function main() returns ExitCode
 	rows.push(9)
 	let foo = 1 as FooId
 	let i = takesIndex(foo)
-	let r = try rows.get(foo) otherwise 0
+	let r = rows.get(foo)
 	print("{i} {r}")
 	return 0
 end 'main'

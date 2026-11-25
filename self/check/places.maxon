@@ -360,6 +360,18 @@ type RangeState
 		end 'effect'
 	end 'affect'
 
+	// affectCollection is affect on a collection, whose count lies from 0 to maxElementCount where nothing bounds it: a step
+	// up from there leaves the count at least 1, which a pop, a first or a last after a push needs.
+	function affectCollection(mutates self, holder Place, effect ast.CountEffect)
+		if effect == ast.CountEffect.countGrowOne and not dead 'grows'
+			let measure = placeCount(holder)
+			if not self.at(measure).isSome() 'unbounded'
+				self.refine(measure, v: Span.make(ast.I128.zero(), hi: ast.I128.fromCount(maxElementCount)))
+			end 'unbounded'
+		end 'grows'
+		self.affect(holder, effect: effect)
+	end 'affectCollection'
+
 	// widenCount is a count that grows, or shrinks, by an amount not known: a relation that has the count on the side it
 	// moves away from stays, and its bound on that side.
 	function widenCount(mutates self, holder Place, grows bool)
@@ -610,6 +622,17 @@ function fallsOnly(e ast.CountEffect) returns bool
 	return e == ast.CountEffect.countKeep or e == ast.CountEffect.countShrink
 end 'fallsOnly'
 
+// provesPrecondition is whether an access's precondition is proved, where least is the least that the collection's count
+// lies above the index, or above 0 for an access with no index, and lowest the index's lowest value: then the call is the
+// twin that cannot fail, and its count effect, an exact step, holds.
+function provesPrecondition(requirement ast.Precondition, least ast.I128, lowest ast.I128) returns bool
+	return match requirement 'requirement'
+		requiresNone gives panic("ranges: an access with no precondition")
+		requiresNonEmpty gives least.ge(ast.I128.one())
+		requiresIndexBelow gives not lowest.isNeg() and least.ge(ast.I128.one())
+	end 'requirement'
+end 'provesPrecondition'
+
 // boundGap is how far a for loop's bound place lies above its counter on every iteration, for a bound written as the place
 // plus by, where the body only raises the place or leaves it (risesOnly): 'bound > counter', or 'bound >= counter' for a
 // loop that reaches its bound, held by the value the loop evaluated once, which the place never falls under.
@@ -738,7 +761,7 @@ type States
 
 	function release(mutates self, m Count)
 		while list.count() > m 'pop'
-			try list.pop() otherwise panic("ranges: the arena of the states is below its mark")
+			table.dropLast(list)
 		end 'pop'
 	end 'release'
 

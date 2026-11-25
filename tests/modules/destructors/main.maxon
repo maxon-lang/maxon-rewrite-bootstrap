@@ -7,7 +7,7 @@ function main() returns ExitCode
 	TxnBox.of(ledger.Txn.begin(2)).take().rollback()
 	var pending = TxnArray.create(0)
 	pending.push(ledger.Txn.begin(3))
-	(try pending.remove(0) otherwise panic("index out of range")).commit()
+	(pending.remove(0)).commit()
 	pending.dropEmpty()
 	let held = cown(ledger.Txn.begin(4), dropWith: rollback)
 	return 0

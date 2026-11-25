@@ -52,7 +52,7 @@ public type SlotMap uses T implements core.Iterable with (T, SlotMapIterator)
 			generations.push(firstGeneration)
 			return keyOf(slot, generation: firstGeneration)
 		end 'grow'
-		let slot = try free.pop() otherwise panic("SlotMap: a free slot")
+		let slot = free.pop()
 		elements.fillSlot(slot, value: value)
 		let generation = try (try generations.get(slot) otherwise panic("SlotMap: a slot's generation")) + 1 otherwise panic("SlotMap: a free slot past the last generation")
 		try generations.set(slot, value: generation) otherwise panic("SlotMap: a slot's generation")

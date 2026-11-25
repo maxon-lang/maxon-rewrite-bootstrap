@@ -129,7 +129,7 @@ function main() returns ExitCode
 	var arr = ItemArray.create(0)
 	let item = Item.create(7)
 	arr.push(item)
-	let got = try arr.get(0) otherwise Item.create(0)
+	let got = arr.get(0)
 	return try got.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```

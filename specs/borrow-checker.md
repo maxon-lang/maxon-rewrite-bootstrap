@@ -46,7 +46,7 @@ typealias IntArray = Array with Integer
 function main() returns ExitCode
 	var arr = IntArray.create(0)
 	arr.push(42)
-	let v = try arr.get(0) otherwise 0
+	let v = arr.get(0)
 	print("{v}\n")
 	arr.push(99)
 	return 0

@@ -679,7 +679,7 @@ function build() returns Count
 	var a = CharArray.create(0)
 	a.push('e')
 	a.insert(0, value: 'z')
-	try a.set(1, value: 'q') otherwise panic("test invariant: set OOB")
+	a.set(1, value: 'q')
 	return try a.count() as Count otherwise panic("out of range")
 end 'build'
 

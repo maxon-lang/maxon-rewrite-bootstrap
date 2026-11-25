@@ -16,12 +16,19 @@ end 'entryVoid'
 // elementEntry calls an entry that reads or addresses one element, proven where the index is proved inside the collection
 // (not checked).
 function elementEntry(mutates l Lowerer, p ast.Project, site diag.Site, symbol Rt, args RegList, checked bool) returns Reg
-	let d = newReg(l, kind: IrKind.kindScalar)
+	return accessEntry(l, p: p, site: site, symbol: symbol, kind: IrKind.kindScalar, args: args, checked: checked)
+end 'elementEntry'
+
+// accessEntry calls an entry that reads, addresses or moves out one element, of a result of kind, which the code before it
+// checked is there or the checker proved is (not checked): a proven call, which the interpreter reports where the proof
+// is wrong.
+function accessEntry(mutates l Lowerer, p ast.Project, site diag.Site, symbol Rt, kind IrKind, args RegList, checked bool) returns Reg
+	let d = newReg(l, kind: resultKind(symbol, kind: kind))
 	noteEntry(l, site: site, symbol: symbol)
 	let instr = l.b.callRuntime(d, symbol: symbol, args: args, routine: ast.noFunc, proven: not checked)
 	emit(l, i: instr)
 	return d
-end 'elementEntry'
+end 'accessEntry'
 
 function emitEntry(mutates l Lowerer, p ast.Project, site diag.Site, dst Reg, symbol Rt, args RegList, routine ast.FuncID)
 	noteEntry(l, site: site, symbol: symbol)
@@ -440,9 +447,14 @@ end 'lowerFixedArrayCount'
 // fail, of an array or a fixed array, which reads as any read of the array does (arrayRead).
 function lowerArrayGetProven(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
-	let element = arrayRead(l, p: p, ms: ms, box: a, arr: recv, index: args[0], checked: false, read: SlotRead.slotLent)
-	return copyValue(l, p: p, ms: ms, site: a.site, v: element, t: arrayElem(p, ms: ms, box: a))
+	return provenCopyAt(l, p: p, ms: ms, box: a, arr: recv, index: args[0])
 end 'lowerArrayGetProven'
+
+// provenCopyAt is a copy of the element at an index that the checker proved inside the count.
+function provenCopyAt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+	let element = arrayRead(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false, read: SlotRead.slotLent)
+	return copyValue(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
+end 'provenCopyAt'
 
 // lowerArraySetProven replaces the element at an index that the checker proved inside the count.
 function lowerArraySetProven(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
@@ -555,8 +567,14 @@ end 'lowerArrayInsert'
 function lowerArrayRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
 	arrayInBounds(l, p: p, ms: ms, box: a, arr: recv, index: args[0])
-	return arrayRemove(l, p: p, ms: ms, box: a, arr: recv, index: args[0])
+	return arrayRemove(l, p: p, ms: ms, box: a, arr: recv, index: args[0], checked: true)
 end 'lowerArrayRemove'
+
+// lowerArrayRemoveProven moves out the element at an index that the checker proved inside the count, with no test.
+function lowerArrayRemoveProven(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	return arrayRemove(l, p: p, ms: ms, box: a, arr: recv, index: args[0], checked: false)
+end 'lowerArrayRemoveProven'
 
 // lowerArrayDropEmpty ends an array of count 0: an array has no empty slot below its count, so its count is what is left.
 function lowerArrayDropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
@@ -576,14 +594,33 @@ function lowerArrayPop(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	let n = arrayLength(l, p: p, ms: ms, box: a, arr: recv)
 	let present = nonZero(l, v: n)
 	failUnless(l, p: p, ms: ms, cond: present, errorCase: ast.errorIndexOutOfBounds)
+	return popLast(l, p: p, ms: ms, box: a, arr: recv, n: n, checked: true)
+end 'lowerArrayPop'
+
+// lowerArrayPopProven moves out the last element of an array that the checker proved is not empty: the length, one less,
+// and the move, with no test.
+function lowerArrayPopProven(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let n = arrayLength(l, p: p, ms: ms, box: a, arr: recv)
+	return popLast(l, p: p, ms: ms, box: a, arr: recv, n: n, checked: false)
+end 'lowerArrayPopProven'
+
+// popLast moves out the element below n, the length of an array that is not empty, as arrayPop says.
+function popLast(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, n Reg, checked bool) returns Reg
+	let last = lastIndex(l, n: n)
+	if arrayPacked(p, ms: ms, box: box) 'packed'
+		return arrayRemove(l, p: p, ms: ms, box: box, arr: arr, index: last, checked: checked)
+	end 'packed'
+	return arrayPop(l, p: p, ms: ms, box: box, arr: arr, last: last, checked: checked)
+end 'popLast'
+
+// lastIndex is n - 1 as a word, which wraps above every index where n is 0.
+function lastIndex(mutates l Lowerer, n Reg) returns Reg
 	let last = newReg(l, kind: IrKind.kindScalar)
 	let one = konst(l, value: 1 as Word)
 	emit(l, i: newBin(last, op: BinOp.binSub, left: n, right: one, unsigned: true, fail: noBlock))
-	if arrayPacked(p, ms: ms, box: a) 'packed'
-		return arrayRemove(l, p: p, ms: ms, box: a, arr: recv, index: last)
-	end 'packed'
-	return arrayPop(l, p: p, ms: ms, box: a, arr: recv, last: last)
-end 'lowerArrayPop'
+	return last
+end 'lastIndex'
 
 // lowerArrayClear drops every element and keeps the buffer.
 function lowerArrayClear(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
@@ -674,11 +711,24 @@ end 'lowerArrayFirst'
 function lowerArrayLast(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
 	let n = arrayLength(l, p: p, ms: ms, box: a, arr: recv)
-	let last = newReg(l, kind: IrKind.kindScalar)
-	let one = konst(l, value: 1 as Word)
-	emit(l, i: newBin(last, op: BinOp.binSub, left: n, right: one, unsigned: true, fail: noBlock))
+	let last = lastIndex(l, n: n)
 	return arrayCopyAt(l, p: p, ms: ms, box: a, arr: recv, index: last)
 end 'lowerArrayLast'
+
+// lowerArrayFirstProven is a copy of the first element of an array that the checker proved is not empty.
+function lowerArrayFirstProven(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let first = konst(l, value: 0 as Word)
+	return provenCopyAt(l, p: p, ms: ms, box: a, arr: recv, index: first)
+end 'lowerArrayFirstProven'
+
+// lowerArrayLastProven is a copy of the last element of an array that the checker proved is not empty.
+function lowerArrayLastProven(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let n = arrayLength(l, p: p, ms: ms, box: a, arr: recv)
+	let last = lastIndex(l, n: n)
+	return provenCopyAt(l, p: p, ms: ms, box: a, arr: recv, index: last)
+end 'lowerArrayLastProven'
 
 function lowerArrayContains(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)

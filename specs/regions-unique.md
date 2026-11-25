@@ -849,7 +849,7 @@ end 'keep'
 function main() returns ExitCode
 	var tokens = TokenArray.create(0)
 	tokens.push(Token.create(1))
-	let moved = keep(try tokens.pop() otherwise panic("one element"))
+	let moved = keep(tokens.pop())
 	print("{moved} {tokens.count()}\n")
 	return 0
 end 'main'

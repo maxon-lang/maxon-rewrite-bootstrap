@@ -189,8 +189,8 @@ function main() returns ExitCode
 	var cloned = try b.get(0) otherwise panic("no leaf")
 	cloned.label = "mutated"
 	b.push(Leaf.create("second label long enough for a heap record", value: 20))
-	let kept = try a.get(0) otherwise panic("no leaf")
-	let reread = try b.get(0) otherwise panic("no leaf")
+	let kept = a.get(0)
+	let reread = b.get(0)
 	print("{a.count()}:{kept.label}\n")
 	print("{b.count()}:{reread.label}\n")
 	return 0
@@ -223,7 +223,7 @@ function main() returns ExitCode
 	let b = a.clone()
 	var clonedRow = try b.get(0) otherwise panic("no row")
 	clonedRow.push(2)
-	let keptRow = try a.get(0) otherwise panic("no row")
+	let keptRow = a.get(0)
 	print("{keptRow.count()} {clonedRow.count()}\n")
 	return 0
 end 'main'
@@ -262,7 +262,7 @@ function main() returns ExitCode
 	let c = b.clone()
 	var cloned = try c.get(0) otherwise panic("no leaf")
 	cloned.label = "mutated"
-	let fromA = try a.get(0) otherwise panic("no leaf")
+	let fromA = a.get(0)
 	let fromB = try b.get(0) otherwise panic("no leaf")
 	print("{fromA.label}\n{fromB.label}\n{cloned.label}\n")
 	return 0
@@ -290,7 +290,7 @@ function main() returns ExitCode
 	let b = a.clone()
 	var cloned = try b.get(0) otherwise panic("no word")
 	cloned = "{cloned} and a tail"
-	let kept = try a.get(0) otherwise panic("no word")
+	let kept = a.get(0)
 	print("{kept}\n{cloned}\n")
 	return 0
 end 'main'
@@ -377,7 +377,7 @@ function main() returns ExitCode
 	var a = Words.create(0)
 	a.push(Word.spelled("original word long enough for a heap record"))
 	let b = a.clone()
-	let wa = try a.get(0) otherwise Word.blank
+	let wa = a.get(0)
 	let wb = try b.get(0) otherwise Word.blank
 	if payloadOf(wa) is payloadOf(wb) 'shared'
 		print("shared\n")
@@ -419,7 +419,7 @@ function main() returns ExitCode
 	a.push(Slot.filled("filled with a heap record"))
 	a.push(Slot.empty)
 	let b = a.clone()
-	let a0 = try a.get(0) otherwise Slot.empty
+	let a0 = a.get(0)
 	let b0 = try b.get(0) otherwise Slot.empty
 	let b1 = try b.get(1) otherwise Slot.filled("wrong")
 	if textOf(a0) is textOf(b0) 'shared'
@@ -1073,7 +1073,7 @@ function main() returns ExitCode
 		out = "{out}|"
 	end 'each'
 	print("{out}\n")
-	let a0 = try a.get(0) otherwise Outer.blank
+	let a0 = a.get(0)
 	let b0 = try b.get(0) otherwise Outer.blank
 	if nestedTextOf(a0) is nestedTextOf(b0) 'shared'
 		print("nested payload SHARED\n")

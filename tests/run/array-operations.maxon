@@ -33,7 +33,7 @@ function main() returns ExitCode
 	zeros.append(zeros.clone())
 	zeros.insert(1, value: 5)
 	print("{show(zeros)}\n")
-	print("{try zeros.pop() otherwise 99} {try takeAt(zeros, at: 0) otherwise 99} {try takeAt(zeros, at: 40) otherwise 99}\n")
+	print("{zeros.pop()} {try takeAt(zeros, at: 0) otherwise 99} {try takeAt(zeros, at: 40) otherwise 99}\n")
 	var empty = CountArray.create(0)
 	try 'drain'
 		let v = empty.pop()

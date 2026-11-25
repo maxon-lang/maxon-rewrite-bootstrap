@@ -189,8 +189,8 @@ function main() returns ExitCode
 	var xs = CellArray.create(0)
 	xs.push(4)
 	xs.push(5)
-	let a = try xs.get(0) otherwise 200
-	let b = try xs.get(1) otherwise 200
+	let a = xs.get(0)
+	let b = xs.get(1)
 	var hits = 0 as Count
 	if a < b 'lo'
 		hits = hits + 1

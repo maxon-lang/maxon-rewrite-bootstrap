@@ -379,6 +379,15 @@ function provenOutside(mutates vm Vm, what String, index Count, count Count) ret
 	return violation(vm, kind: provenAccess, message: "{what} at index {index}, count {count}: the access has no check, and the checker's proof that the index is in range is wrong")
 end 'provenOutside'
 
+// outsideAccess is what an entry that reads or moves out an element does at an index past the end: the violation of a
+// proof that is wrong, for a call the checker proved (ir.callRuntimeProven), and the entry's trap otherwise.
+function outsideAccess(mutates vm Vm, x ir.Instr, what String, index Count, count Count) returns Halt
+	if ir.callRuntimeProven(x) 'proven'
+		return provenOutside(vm, what: what, index: index, count: count)
+	end 'proven'
+	return trap(vm, message: indexOutOfRangeMessage)
+end 'outsideAccess'
+
 // requireFilledCell goes on when the cell of an element that a read takes to be filled holds one: the read has no test for
 // an empty slot, since no slot below the count of an array of its type is empty, so a cell that holds nothing is that
 // invariant broken.
@@ -504,7 +513,7 @@ function entryArrayRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Hal
 	let i = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
 	let data = vm.h.oData[a]
 	if i >= vm.h.elements[data].count() 'outside'
-		throw trap(vm, message: indexOutOfRangeMessage)
+		throw outsideAccess(vm, x: x, what: "a remove", index: i, count: vm.h.elements[data].count())
 	end 'outside'
 	try restructure(vm, o: a)
 	let e = try vm.h.elements[data].remove(i) otherwise panic("interp: an element that was there is gone")
@@ -512,12 +521,12 @@ function entryArrayRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Hal
 	vm.h.givePlaceUp(a, c: e)
 end 'entryArrayRemove'
 
-// entryArrayPop moves the last element out, which the code checked there is.
+// entryArrayPop moves the last element out, which the code checked there is, or the checker proved.
 function entryArrayPop(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "a pop")
 	let data = vm.h.oData[a]
 	if vm.h.elements[data].count() == 0 'empty'
-		throw trap(vm, message: indexOutOfRangeMessage)
+		throw outsideAccess(vm, x: x, what: "a pop", index: 0, count: 0)
 	end 'empty'
 	try restructure(vm, o: a)
 	let e = try vm.h.elements[data].pop() otherwise panic("interp: an element that was there is gone")
@@ -584,7 +593,7 @@ function entryRecsElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let i = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
 	let data = vm.h.oData[a]
 	if i >= vm.h.elements[data].count() 'outside'
-		throw trap(vm, message: indexOutOfRangeMessage)
+		throw outsideAccess(vm, x: x, what: "an element address", index: i, count: vm.h.elements[data].count())
 	end 'outside'
 	let element = vm.h.elements[data][i]
 	giveCell(vm, x: x, c: element)
@@ -766,7 +775,7 @@ function entryBytesRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Hal
 	let i = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
 	let data = vm.h.oData[b]
 	if i >= vm.h.buffers[data].count() 'outside'
-		throw trap(vm, message: indexOutOfRangeMessage)
+		throw outsideAccess(vm, x: x, what: "a byte remove", index: i, count: vm.h.buffers[data].count())
 	end 'outside'
 	try restructure(vm, o: b)
 	let removed = try vm.h.buffers[data].remove(i) otherwise panic("interp: a byte that was there is gone")

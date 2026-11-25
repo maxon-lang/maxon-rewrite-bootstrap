@@ -654,7 +654,7 @@ end 'execIsType'
 // clearArguments empties the arguments of the call being made.
 function clearArguments(mutates vm Vm)
 	while vm.argN.count() > 0 'each'
-		try vm.argN.pop() otherwise ignore
+		table.dropLast(vm.argN)
 		try vm.argR.pop() otherwise ignore
 	end 'each'
 end 'clearArguments'

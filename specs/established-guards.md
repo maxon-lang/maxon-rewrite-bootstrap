@@ -136,13 +136,13 @@ function main() returns ExitCode
 	var a = WordArray.create(0)
 	a.push(1)
 	a.push(2)
-	try a.set(0, value: 10) otherwise panic("main: a holds two elements")
+	a.set(0, value: 10)
 	let b = a.clone()
-	try a.set(0, value: 20) otherwise panic("main: a holds two elements")
+	a.set(0, value: 20)
 	if (try b.get(0) otherwise 0) != 10 'bKeepsTheFirstWrite'
 		return 1
 	end 'bKeepsTheFirstWrite'
-	if (try a.get(0) otherwise 0) != 20 'aTakesTheSecond'
+	if (a.get(0)) != 20 'aTakesTheSecond'
 		return 2
 	end 'aTakesTheSecond'
 	return 0
@@ -165,13 +165,13 @@ function main() returns ExitCode
 	a.push(1)
 	a.push(2)
 	a.push(3)
-	try a.set(1, value: 10) otherwise panic("main: a holds three elements")
+	a.set(1, value: 10)
 	let view = try a.slice(0, endIndex: 2) otherwise panic("main: 0..2 is within a")
-	try a.set(1, value: 20) otherwise panic("main: a holds three elements")
+	a.set(1, value: 20)
 	if (try view.get(1) otherwise 0) != 10 'viewKeepsTheFirstWrite'
 		return 1
 	end 'viewKeepsTheFirstWrite'
-	if (try a.get(1) otherwise 0) != 20 'aTakesTheSecond'
+	if (a.get(1)) != 20 'aTakesTheSecond'
 		return 2
 	end 'aTakesTheSecond'
 	return 0
@@ -232,11 +232,11 @@ function main() returns ExitCode
 	a.push(2)
 	let b = a.clone()
 	try a.set(99, value: 5) otherwise ignore
-	try a.set(0, value: 9) otherwise panic("main: a holds two elements")
+	a.set(0, value: 9)
 	if (try b.get(0) otherwise 0) != 1 'bUntouched'
 		return 1
 	end 'bUntouched'
-	if (try a.get(0) otherwise 0) != 9 'aRewritten'
+	if (a.get(0)) != 9 'aRewritten'
 		return 2
 	end 'aRewritten'
 	return 0

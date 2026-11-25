@@ -3958,9 +3958,9 @@ function main() returns ExitCode
 	var nodes = Nodes.create(0)
 	nodes.push(Node.create(7))
 	var marks = Marks.create()
-	let held = try nodes.get(0) otherwise panic("get")
+	let held = nodes.get(0)
 	marks.set(0, value: 1)
-	try nodes.set(0, value: Node.create(9)) otherwise panic("set")
+	nodes.set(0, value: Node.create(9))
 	marks.set(1, value: 2)
 	print("{held.weight} {marks.get(0)} {marks.get(1)}\n")
 	return 0
@@ -4002,9 +4002,9 @@ end 'Ledger'
 function main() returns ExitCode
 	var ledger = Ledger.create()
 	ledger.nodes.push(Node.create(7))
-	let held = try ledger.nodes.get(0) otherwise panic("get")
+	let held = ledger.nodes.get(0)
 	ledger.marks.set(0, value: 1)
-	try ledger.nodes.set(0, value: Node.create(9)) otherwise panic("set")
+	ledger.nodes.set(0, value: Node.create(9))
 	ledger.marks.set(1, value: 2)
 	print("{held.weight} {ledger.marks.get(0)} {ledger.marks.get(1)}\n")
 	return 0
@@ -4880,9 +4880,9 @@ function main() returns ExitCode
 	var bufs = Bufs.create(0)
 	bufs.push(Buf.create(launder(2)))
 	bufs.push(Buf.create(4))
-	var second = try bufs.get(1) otherwise panic("second")
+	var second = bufs.get(1)
 	try second.set(3, value: 7) otherwise panic("set")
-	let first = try bufs.get(0) otherwise panic("first")
+	let first = bufs.get(0)
 	let written = try second.get(3) otherwise panic("get")
 	print("{first.count()} {second.count()} {written}\n")
 	return 0

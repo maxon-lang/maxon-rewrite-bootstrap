@@ -254,7 +254,7 @@ export type Rotator
 		stack.clear()
 		stack.push(root)
 		while stack.count() > 0 'walk'
-			let s = try stack.pop() otherwise panic("opt: an empty walk")
+			let s = table.popLast(stack)
 			regs.clear()
 			for k in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
 				ir.instrReads(f, x: f.instrs[k], out: regs)
@@ -276,7 +276,7 @@ export type Rotator
 		stack.clear()
 		stack.push(root)
 		while stack.count() > 0 'walk'
-			let s = try stack.pop() otherwise panic("opt: an empty walk")
+			let s = table.popLast(stack)
 			for k in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
 				ir.renameInstrReads(f.instrs[k], args: f.args, names: names)
 			end 'instrs'
