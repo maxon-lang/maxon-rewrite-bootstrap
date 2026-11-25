@@ -134,6 +134,11 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 		}}, "native"},
 		{step{"behaviours", func() error { return r.behaviours() }}, "native-behaviours"},
 	}
+	// What is never run here is compiled here: a compile that panics or fails for a target only another host runs would
+	// otherwise show only on that host.
+	for _, t := range foreignTargets(r.h) {
+		steps = append(steps, laneStep{step{"compiles for " + t, func() error { return compilesFor(r.h, r.compiler, t, r.testArgs) }}, "builds"})
+	}
 	first := []string{"checks", "builds", "specs", "native"}
 	second := []string{"native-behaviours"}
 	for _, t := range targets {
@@ -412,6 +417,54 @@ func (r suiteRun) otherBehaviours(t string) error {
 		return err
 	}
 	return r.behaviours("--target=" + t)
+}
+
+// foreignTargets are the targets whose executables the host does not run: those runsTarget gives a reason for, and macOS's
+// off the Mac, where only the Windows gate's Mac lane runs them, on the Mac, when it is reachable. A host that should run a
+// target and cannot (Windows without WSL) fails that target's lanes instead.
+func foreignTargets(h host) []string {
+	var foreign []string
+	for _, t := range targets {
+		if t == h.target {
+			continue
+		}
+		if t == "arm64-macos" {
+			if !h.macos() {
+				foreign = append(foreign, t)
+			}
+			continue
+		}
+		if why, err := runsTarget(h, t); err == nil && why != "" {
+			foreign = append(foreign, t)
+		}
+	}
+	return foreign
+}
+
+// specsCompiledFor is, for each host, the one foreign target its gate compiles every spec test for, the one that no other
+// lane holds the spec tests to; a host not listed compiles none. Compiling the spec tests costs about three minutes of the
+// Mac's time for each target, so each target is paid for once, where it is seen least: the Mac takes x64-windows, whose
+// register set and calling convention no lane but Windows's sees, while CI runs the x64-linux spec tests natively on every
+// push; Windows takes arm64-macos, which only the Mac runs, and only when it is reached; Linux takes none, as its foreign
+// targets are the other two hosts' own. The corpus, which is cheap, is compiled for every foreign target (compilesFor).
+var specsCompiledFor = map[string]string{
+	"arm64-macos": "x64-windows",
+	"x64-windows": "arm64-macos",
+}
+
+// compilesFor compiles the corpus for a target, and every spec test where specsCompiledFor names the target for the host,
+// runs nothing, and fails at a compiler panic or a compile that does not go as it should: a program of the corpus must
+// compile, or give the error it expects, and a spec test must compile as its blocks say wherever the host's compile of it
+// does (`test specs --compile-only`).
+func compilesFor(h host, compiler, t string, testArgs []string) error {
+	flags := append([]string{"--compile-only"}, corpusFlags(t)...)
+	if err := quiet(nil, compiler, slices.Concat([]string{"test"}, flags, testArgs)...); err != nil {
+		return err
+	}
+	if specsCompiledFor[h.target] != t {
+		return nil
+	}
+	return quiet(nil, compiler, slices.Concat([]string{"test", "specs"}, flags)...)
 }
 
 // benchmarksCompile compiles every program of tests/bench, and runs none, for every target, with the IR and the allocation of

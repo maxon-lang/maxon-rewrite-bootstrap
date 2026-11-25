@@ -1128,8 +1128,9 @@ end 'specFiles'
 // runSpecs runs the tests of the spec files at path as behaviours (startTests), which report the failures in the order of
 // the tests as they go and the counts at the end, and set the code the process exits with. A run that skips the passed tests
 // leaves out those the list has; one that requires them fails when one of them does not pass; one that records writes the
-// list again, with the tests that passed in this run, and starts it when there is none.
-function runSpecs(path String, options SpecOptions, width RunWidth) returns ExitCode
+// list again, with the tests that passed in this run, and starts it when there is none. compiling says the target the tests
+// are compiled for and whether they are only compiled; a run that runs them is for the host.
+function runSpecs(path String, options SpecOptions, compiling CorpusOptions, width RunWidth) returns ExitCode
 	let root = project.absolutePath(path)
 	let listPath = project.joinPath(root, name: passedListName)
 	var before = ast.StringList.create(0)
@@ -1167,9 +1168,15 @@ function runSpecs(path String, options SpecOptions, width RunWidth) returns Exit
 		printError("test: cannot make the run's directory {directory}\n")
 		return diagnosticsExitCode
 	end 'unmade'
-	var corpus = CorpusOptions.new()
+	var corpus = compiling.clone()
 	corpus.workingDirectory = directory.clone()
-	startTests(prepareCachedRuntime(hostTarget(), cacheDir: specCacheDirectory(directory)), jobs: jobs, files: files, corpus: corpus, verbose: options.verbose, scratch: Scratch.make("spec", suffix: executableExtension(hostTarget())), width: width, tally: Tally.spec(tally))
+	let cacheDir = specCacheDirectory(directory)
+	var host = SharedRuntime.none()
+	if corpus.target.name() != hostTarget().name() 'foreign'
+		host = prepareCachedRuntime(hostTarget(), cacheDir: cacheDir)
+	end 'foreign'
+	let target = corpus.target.clone()
+	startTests(prepareCachedRuntime(target, cacheDir: cacheDir), host: host, jobs: jobs, files: files, corpus: corpus, verbose: options.verbose, scratch: Scratch.make("spec", suffix: executableExtension(target)), width: width, tally: Tally.spec(tally))
 	return compiledByBehaviours
 end 'runSpecs'
 
@@ -1240,8 +1247,9 @@ end 'fileStem'
 
 // stageSpecTest stages the test of job, test index of the run, of the spec file file: it is skipped for a reason of the runner,
 // or compiled to the executable at exe and checked against its result blocks as far as it can be before the executable runs.
-function stageSpecTest(shared SharedRuntime, job SpecJob, file SpecFile, index Count, exe String) returns Staged
-	let reason = skipReason(job.test, text: file.text)
+// A run that only compiles stops there (compiledOnly).
+function stageSpecTest(shared SharedRuntime, host SharedRuntime, job SpecJob, file SpecFile, index Count, exe String, options CorpusOptions) returns Staged
+	let reason = skipReasonFor(job.test, text: file.text, target: options.target)
 	if reason.isSome() 'skipped'
 		return Staged.done(Finished.make(TestResult.unsupported(reason.unwrap())))
 	end 'skipped'
@@ -1251,8 +1259,22 @@ function stageSpecTest(shared SharedRuntime, job SpecJob, file SpecFile, index C
 	let source = file.text.sliceBytes(job.test.sourceStart, endPos: job.test.sourceFinish)
 	let sections = splitSections(source)
 	var errs = diag.ErrorList.create(0)
-	compileSpecSource(shared, exe: exe, test: job.test, source: source, sections: sections, errs: errs)
+	compileSpecSource(shared, exe: exe, test: job.test, source: source, sections: sections, verifies: options.verifiesIr, errs: errs)
 	let checked = checkSpecTest(job.test, text: file.text, stem: file.stem, errs: errs, sections: sections)
+	if options.compilesOnly 'compiledOnly'
+		if buildsDebugInfo(job.test) and errs.count() == 0 'sidecar'
+			discardSidecar(exe)
+		end 'sidecar'
+		let built = errs.count() == 0
+		if not checked.isSome() 'compiled'
+			return doneBuilt(TestResult.passed(), exe: exe, built: built)
+		end 'compiled'
+		let result = checked.unwrap()
+		if result.outcome == TestOutcome.testFailed 'failed'
+			return compiledOnlyFailure(host, test: job.test, file: file, exe: exe, built: built, source: source, sections: sections, failure: result, options: options)
+		end 'failed'
+		return doneBuilt(result, exe: exe, built: built)
+	end 'compiledOnly'
 	if checked.isSome() 'checked'
 		return doneBuilt(checked.unwrap(), exe: exe, built: errs.count() == 0)
 	end 'checked'
@@ -1266,10 +1288,37 @@ function stageSpecTest(shared SharedRuntime, job SpecJob, file SpecFile, index C
 	return Staged.needsRun(PendingRun.spec(SpecPending.make(index, exe: exe.clone(), test: job.test.clone(), file: job.file)))
 end 'stageSpecTest'
 
+// compiledOnlyFailure is what a spec test that a compile-only run compiled for another target than the host, and that did not
+// compile as its blocks say (failure), comes to: a failure when the host's compile of it does compile as they say, since a
+// compile for another target may not fail where the host's does not, and else a skip, as the host fails it too. A run for
+// the host has no other compile to hold the test to, so there the failure is the host's. The executable is at exe, which
+// the compile for the target made when built, as the host's may.
+function compiledOnlyFailure(host SharedRuntime, test SpecTest, file SpecFile, exe String, built bool, source String, sections SourceSections, failure TestResult, options CorpusOptions) returns Staged
+	if options.target.name() == hostTarget().name() 'host'
+		return doneBuilt(TestResult.unsupported(hostFailsReason), exe: exe, built: built)
+	end 'host'
+	var errs = diag.ErrorList.create(0)
+	compileSpecSource(host, exe: exe, test: test, source: source, sections: sections, verifies: false, errs: errs)
+	let hostBuilt = errs.count() == 0
+	if buildsDebugInfo(test) and hostBuilt 'sidecar'
+		discardSidecar(exe)
+	end 'sidecar'
+	let checked = checkSpecTest(test, text: file.text, stem: file.stem, errs: errs, sections: sections)
+	if checked.isSome() and checked.unwrap().outcome == TestOutcome.testFailed 'hostFails'
+		return doneBuilt(TestResult.unsupported(hostFailsReason), exe: exe, built: built or hostBuilt)
+	end 'hostFails'
+	return doneBuilt(TestResult.failed("compiles as expected for {hostTarget().name()} and not for {options.target.name()}: {failure.detail}"), exe: exe, built: built or hostBuilt)
+end 'compiledOnlyFailure'
+
+// hostFailsReason is the skip of a spec test that a compile-only run found compiling as its blocks say for no target.
+let hostFailsReason = "does not compile as its blocks say for the host either"
+
 // compileSpecSource compiles the maxon block of a test, split into sections, as the runner does: a fragment under maxon's
-// header line, or the files of a multi-file block. An executable is made at exe when there is no error.
-function compileSpecSource(shared SharedRuntime, exe String, test SpecTest, source String, sections SourceSections, mutates errs diag.ErrorList)
+// header line, or the files of a multi-file block. An executable is made at exe when there is no error; verifies checks
+// the IR and the allocation of every function (--verify-ir).
+function compileSpecSource(shared SharedRuntime, exe String, test SpecTest, source String, sections SourceSections, verifies bool, mutates errs diag.ErrorList)
 	var options = testOptions()
+	options.verifyIr = verifies
 	options.stagesInLibrary = stagedInLibrary(test)
 	options.debugInfo = buildsDebugInfo(test)
 	if not options.debugInfo 'cached'

@@ -117,10 +117,12 @@ end 'SpecFile'
 
 typealias SpecFiles = Array with SpecFile
 
-// Bench is what every behaviour of a run of tests reads, frozen: the runtime that every compile shares, the tests, the spec
-// files they are tests of, how the run goes, where the executables are made, and the board.
+// Bench is what every behaviour of a run of tests reads, frozen: the runtime that every compile shares, the host's runtime
+// that a spec test compiled only, for another target, is compiled on again when it does not compile as it should (none
+// otherwise), the tests, the spec files they are tests of, how the run goes, where the executables are made, and the board.
 type Bench
 	var shared as SharedRuntime
+	var host as SharedRuntime
 	var jobs as Jobs
 	var files as SpecFiles
 	var corpus as CorpusOptions
@@ -129,8 +131,8 @@ type Bench
 	var width as RunWidth
 	var board as cown with Board
 
-	static function make(consumes shared SharedRuntime, consumes jobs Jobs, consumes files SpecFiles, consumes corpus CorpusOptions, verbose bool, consumes scratch Scratch, width RunWidth, consumes board cown with Board) returns Bench
-		return Bench{shared: shared, jobs: jobs, files: files, corpus: corpus, verbose: verbose, scratch: scratch, width: width.clone(), board: board}
+	static function make(consumes shared SharedRuntime, consumes host SharedRuntime, consumes jobs Jobs, consumes files SpecFiles, consumes corpus CorpusOptions, verbose bool, consumes scratch Scratch, width RunWidth, consumes board cown with Board) returns Bench
+		return Bench{shared: shared, host: host, jobs: jobs, files: files, corpus: corpus, verbose: verbose, scratch: scratch, width: width.clone(), board: board}
 	end 'make'
 end 'Bench'
 
@@ -432,10 +434,11 @@ function isLeftOut(job Job) returns bool
 end 'isLeftOut'
 
 // startTests runs the jobs as behaviours, files being the spec files they are tests of, and ends the run in the last of
-// them, which sets the code the process exits with.
-function startTests(consumes shared SharedRuntime, consumes jobs Jobs, consumes files SpecFiles, consumes corpus CorpusOptions, verbose bool, consumes scratch Scratch, width RunWidth, consumes tally Tally)
+// them, which sets the code the process exits with. host is the host's runtime of a compile-only spec run for another
+// target (Bench), and none in any other run.
+function startTests(consumes shared SharedRuntime, consumes host SharedRuntime, consumes jobs Jobs, consumes files SpecFiles, consumes corpus CorpusOptions, verbose bool, consumes scratch Scratch, width RunWidth, consumes tally Tally)
 	let board = cown(Board.make(jobs.count(), tally: tally, scratch: scratch.clone()))
-	let bench = freeze(Bench.make(shared, jobs: jobs, files: files, corpus: corpus, verbose: verbose, scratch: scratch, width: width, board: share(board)))
+	let bench = freeze(Bench.make(shared, host: host, jobs: jobs, files: files, corpus: corpus, verbose: verbose, scratch: scratch, width: width, board: share(board)))
 	when board as b 'start'
 		b.fill(bench)
 	end 'start'
@@ -490,7 +493,7 @@ function stageJob(bench frozen with Bench, index Count) returns Staged
 	let exe = bench.scratch.executableAt(index)
 	return match bench.jobs[index] 'job'
 		corpus(value) gives stageProgram(bench.shared, job: value, index: index, exe: exe, options: bench.corpus)
-		spec(value) gives stageSpecTest(bench.shared, job: value, file: bench.files[value.file], index: index, exe: exe)
+		spec(value) gives stageSpecTest(bench.shared, host: bench.host, job: value, file: bench.files[value.file], index: index, exe: exe, options: bench.corpus)
 	end 'job'
 end 'stageJob'
 

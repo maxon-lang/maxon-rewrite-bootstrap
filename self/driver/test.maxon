@@ -420,8 +420,10 @@ let behavioursFlag = "--behaviours"
 
 let repeatFlag = "--repeat="
 
-// compileOnlyFlag compiles every program of the corpus and runs none, as the programs of tests/check are: it is how the
-// gate holds the benchmarks, which the runner leaves out of the corpus, to the compiler for every target.
+// compileOnlyFlag compiles every program of the corpus, or every spec test, and runs none, as the programs of tests/check
+// are: it is how the gate holds the benchmarks, which the runner leaves out of the corpus, and the corpus and the spec tests
+// for the targets the host cannot run, to the compiler. A spec test so compiled must compile as the host's compile of it
+// does (stageSpecTest).
 let compileOnlyFlag = "--compile-only"
 
 // runnerFlag names the command that starts each executable of the corpus, in place of the target's runner.
@@ -532,7 +534,6 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 			corpusFlags = true
 		end 'behaviours' else if rest[i] == compileOnlyFlag 'compileOnly'
 			corpus.compilesOnly = true
-			corpusFlags = true
 		end 'compileOnly' else if hasPrefix(rest[i], prefix: repeatFlag) 'repeat'
 			let runs = match consumes parseCount(afterPrefix(rest[i], prefix: repeatFlag)) 'runs'
 				some(n) gives n
@@ -575,10 +576,21 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 	let width = RunWidth.of(runWorkers(), executables: executables)
 	if hasPath and isSpecPath(path) 'specs'
 		if corpusFlags 'corpusFlags'
-			printError("test: {behavioursFlag}, {compileOnlyFlag} and {repeatFlag}N are for the corpus, not the spec files\n")
+			printError("test: {behavioursFlag}, {repeatFlag}N, {workerCountsFlag} and {envRunnerFlag} are for the corpus, not the spec files\n")
 			return usageExitCode
 		end 'corpusFlags'
-		return runSpecs(path, options: options, width: width)
+		if corpus.compilesOnly and (options.needsList() or options.results != ResultsMode.resultsOff) 'compileOnlyList'
+			printError("test: {compileOnlyFlag} holds each spec test to the host's compile of it, not to {passedListName} or kept results\n")
+			return usageExitCode
+		end 'compileOnlyList'
+		// The spec tests' executables run only on the host, so a run for another target only compiles them.
+		if not corpus.compilesOnly and given.target.name() != hostTarget().name() 'foreign'
+			printError("test: the spec tests run on {hostTarget().name()} only: {compileOnlyFlag} compiles them for {given.target.name()}\n")
+			return usageExitCode
+		end 'foreign'
+		corpus.target = given.target.clone()
+		corpus.verifiesIr = given.verifyIr
+		return runSpecs(path, options: options, compiling: corpus, width: width)
 	end 'specs'
 	if corpus.workerCounts.count() > 0 and corpus.envRunner == "" 'envRunnerMissing'
 		printError("test: {workerCountsFlag} needs {envRunnerFlag}, the program that sets the worker count of one executable\n")
@@ -641,7 +653,7 @@ function runTests(dir String, options CorpusOptions, width RunWidth) returns Exi
 		jobs.push(Job.corpus(CorpusJob.make(file, name: name, expect: expect, leftOut: leftOut)))
 	end 'tests'
 	let tests = jobs.count()
-	startTests(prepareSharedRuntime(options.target), jobs: jobs, files: SpecFiles.create(0), corpus: options.clone(), verbose: options.verbose, scratch: Scratch.make("test", suffix: executableExtension(options.target)), width: width, tally: Tally.corpus(CorpusTally.make(tests)))
+	startTests(prepareSharedRuntime(options.target), host: SharedRuntime.none(), jobs: jobs, files: SpecFiles.create(0), corpus: options.clone(), verbose: options.verbose, scratch: Scratch.make("test", suffix: executableExtension(options.target)), width: width, tally: Tally.corpus(CorpusTally.make(tests)))
 	return compiledByBehaviours
 end 'runTests'
 
