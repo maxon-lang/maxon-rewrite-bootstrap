@@ -1,0 +1,33 @@
+// A call of a small function that calls nothing is replaced by a copy of its body, so the caller has no call of it, and a
+// method that is a leaf is inlined the same way.
+// expect-ir: addTwice does not call twice
+// expect-ir: bumpCounter does not call Counter.bump
+
+function twice(n Count) returns Count
+	return try n + n otherwise 0
+end 'twice'
+
+function addTwice(n Count) returns Count
+	return twice(n)
+end 'addTwice'
+
+type Counter
+	export var n as Count
+
+	static function make() returns Self
+		return Self{n: 1}
+	end 'make'
+
+	function bump(by Count) returns Count
+		return try n + by otherwise 0
+	end 'bump'
+end 'Counter'
+
+function bumpCounter(c Counter) returns Count
+	return c.bump(2)
+end 'bumpCounter'
+
+function main() returns ExitCode
+	print("{addTwice(4)} {bumpCounter(Counter.make())}\n")
+	return 0
+end 'main'

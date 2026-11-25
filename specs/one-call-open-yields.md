@@ -14,7 +14,7 @@ A call that passes an `isolated` value in an unmarked position, as receiver or a
 ## Tests
 
 <!-- test: error.a-one-call-open-around-a-method-that-awaits-a-coroutine-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `spin` awaits its helper coroutine, which could not run while `slot` is open.
 
@@ -58,7 +58,7 @@ error E3205: <fragment>:27:14: cannot call 'spin' inside 'slot'; it may yield (i
 ```
 
 <!-- test: error.a-one-call-open-reaches-an-await-through-a-helper -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The await is one call down: `spin` calls `relay`, which awaits.
 

@@ -377,7 +377,11 @@ var layouts = []layoutConst{
 		"where the scheduler's record holds the first free event entry, linked through entryLinkOffset, under the lock: an entry is never given back to the system, so an event the event queue took for one before it was freed finds an entry still, as Go keeps its pollDescs."},
 	{"schedPipeSerialOffset", 40, false, toRuntime,
 		"where the scheduler's record holds the serial of the next pipe that eventPipe names, on Windows, stepped atomically."},
-	{"schedProcessorsOffset", 41, false, toRuntime,
+	{"schedHandlesOffset", 41, false, toRuntime,
+		"where the scheduler's record holds the address of the table that names the children and the results of subprocess spawns (a word that a handle packs a slot and the slot's generation into), 0 until the first spawn."},
+	{"schedProcessEntryFreeOffset", 42, false, toRuntime,
+		"where the scheduler's record holds the first free event entry that was a process's, linked through entryLinkOffset, under the lock: such an entry is taken again only as a process's, since a system may still hold a notification keyed by it that no other kind of entry could tell from its own."},
+	{"schedProcessorsOffset", 43, false, toRuntime,
 		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made."},
 
 	// A processor (Go's P): what a thread must hold to run green threads, its local run queue (a ring that its owner puts

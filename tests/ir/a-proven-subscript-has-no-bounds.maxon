@@ -1,0 +1,21 @@
+// A subscript whose index a guard proves below the count reads its element with no check, as a proven get does: no `bounds`.
+// expect-ir: neighbours has no bounds
+
+function neighbours(xs Array with Count, i Count) returns Count
+	if i < xs.count() 'inside'
+		let here = xs[i]
+		if i + 1 < xs.count() 'next'
+			return try here + xs[i + 1] otherwise 0
+		end 'next'
+		return here
+	end 'inside'
+	return 0
+end 'neighbours'
+
+function main() returns ExitCode
+	var xs = Array.create(0) as Array with Count
+	xs.push(4)
+	xs.push(5)
+	print("{neighbours(xs, i: 0)} {neighbours(xs, i: 1)} {neighbours(xs, i: 7)}\n")
+	return 0
+end 'main'

@@ -659,6 +659,62 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryOsRunInput(vm, f: f, x: x)
 		return
 	end 'rtOsRunInput'
+	if symbol == ir.Rt.rtSubprocessSpawn 'rtSubprocessSpawn'
+		try entrySubprocessSpawn(vm, f: f, x: x)
+		return
+	end 'rtSubprocessSpawn'
+	if symbol == ir.Rt.rtSubprocessGetPid 'rtSubprocessGetPid'
+		try entrySubprocessGetPid(vm, f: f, x: x)
+		return
+	end 'rtSubprocessGetPid'
+	if symbol == ir.Rt.rtSubprocessWaitCollect 'rtSubprocessWaitCollect'
+		try entrySubprocessWaitCollect(vm, f: f, x: x)
+		return
+	end 'rtSubprocessWaitCollect'
+	if symbol == ir.Rt.rtSubprocessResultStatusKind 'rtSubprocessResultStatusKind'
+		try entrySubprocessResultStatusKind(vm, f: f, x: x)
+		return
+	end 'rtSubprocessResultStatusKind'
+	if symbol == ir.Rt.rtSubprocessResultStatusCode 'rtSubprocessResultStatusCode'
+		try entrySubprocessResultStatusCode(vm, f: f, x: x)
+		return
+	end 'rtSubprocessResultStatusCode'
+	if symbol == ir.Rt.rtSubprocessResultStdout 'rtSubprocessResultStdout'
+		try entrySubprocessResultStdout(vm, f: f, x: x)
+		return
+	end 'rtSubprocessResultStdout'
+	if symbol == ir.Rt.rtSubprocessResultStderr 'rtSubprocessResultStderr'
+		try entrySubprocessResultStderr(vm, f: f, x: x)
+		return
+	end 'rtSubprocessResultStderr'
+	if symbol == ir.Rt.rtSubprocessResultDurationMs 'rtSubprocessResultDurationMs'
+		try entrySubprocessResultDurationMs(vm, f: f, x: x)
+		return
+	end 'rtSubprocessResultDurationMs'
+	if symbol == ir.Rt.rtSubprocessResultRelease 'rtSubprocessResultRelease'
+		try entrySubprocessResultRelease(vm, f: f, x: x)
+		return
+	end 'rtSubprocessResultRelease'
+	if symbol == ir.Rt.rtSubprocessReleaseHandle 'rtSubprocessReleaseHandle'
+		try entrySubprocessReleaseHandle(vm, f: f, x: x)
+		return
+	end 'rtSubprocessReleaseHandle'
+	if symbol == ir.Rt.rtSubprocessEndTree 'rtSubprocessEndTree'
+		try entrySubprocessEndTree(vm, f: f, x: x)
+		return
+	end 'rtSubprocessEndTree'
+	if symbol == ir.Rt.rtSubprocessLastErrorCode 'rtSubprocessLastErrorCode'
+		try entrySubprocessLastErrorCode(vm, f: f, x: x)
+		return
+	end 'rtSubprocessLastErrorCode'
+	if symbol == ir.Rt.rtSubprocessLastErrorMessage 'rtSubprocessLastErrorMessage'
+		try entrySubprocessLastErrorMessage(vm, f: f, x: x)
+		return
+	end 'rtSubprocessLastErrorMessage'
+	if symbol == ir.Rt.rtSubprocessResolveOnPath 'rtSubprocessResolveOnPath'
+		try entrySubprocessResolveOnPath(vm, f: f, x: x)
+		return
+	end 'rtSubprocessResolveOnPath'
 	if symbol == ir.Rt.rtOsReadStdin 'rtOsReadStdin'
 		entryOsReadStdin(vm, f: f, x: x)
 		return

@@ -18,7 +18,7 @@ function readRoot(mutates o Ownership, p ast.Project, ms ast.ModuleState, l ast.
 		return without(s, l: l)
 	end 'awaited'
 	if fact.kind == OwnFactKind.factMoved 'moved'
-		if site <= fact.site 'loop'
+		if site <= fact.site and fact.aroundLoop 'loop'
 			fail(o, p: p, site: site, code: diag.errUseAfterMove, msg: diag.movedInEarlierIteration(name))
 		end 'loop' else 'later'
 			let fix = movedCloneFix(ms.tree(), fact: fact)

@@ -446,6 +446,7 @@ error E3102: <fragment>:25:3: use of moved value 'holder': it is lent to the cor
 ```
 
 <!-- test: a-read-in-a-loop-that-reassigns-the-lent-holder-is-refused -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 Inside a loop that assigns the lent variable, a read before the assignment is refused as well.

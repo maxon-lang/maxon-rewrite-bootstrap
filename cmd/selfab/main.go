@@ -87,11 +87,11 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	reportA, err := a.inspect()
+	reportA, err := a.inspect(b.compiler)
 	if err != nil {
 		return err
 	}
-	reportB, err := b.inspect()
+	reportB, err := b.inspect(b.compiler)
 	if err != nil {
 		return err
 	}

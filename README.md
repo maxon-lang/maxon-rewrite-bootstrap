@@ -64,8 +64,8 @@ Linux host can: the corpus natively for `x64-linux` and, when a `qemu-aarch64` i
 own executables; and it says of each step it skips that it skips it and why: the `x64-windows` corpus, the debugger's batch
 session and the fault line of an x64 Windows program (Windows only), the `arm64-linux` lanes without qemu, and the Mac lane,
 which reaches the Mac through a share only the Windows machine mounts. The compiler reads the directory of temporary files
-from `TMPDIR`, as maxon does, and refuses to guess one, so the gate sets it to the system's (`/tmp`) where a container sets
-none; the build cache is under `MINIMAXON_CACHE` when that names a directory, and off otherwise. A Linux host never renews
+from `TMPDIR`, and uses `/tmp` when that is unset or empty, as maxon does (the gate's step "TMPDIR unset" holds it to that);
+the build cache is under `MINIMAXON_CACHE` when that names a directory, and off otherwise. A Linux host never renews
 the seeds, which needs the Windows seed run (see `seed/README.md`). The host's kernel is Linux 5.3 or later (WSL 2's is), which the corpus's runs of child processes need.
 
 Go is the one that `go.mod` names: an older installed Go fetches it itself (`GOTOOLCHAIN=auto`, Go's default) from the
@@ -96,8 +96,8 @@ that Windows runs through the share is not a step here. The gate says of each st
 `x64-windows`, `x64-linux` and `arm64-linux` selftest, corpus and reruns, which macOS has no way to run, the debugger's batch session,
 and the fault lines of those three targets' programs. `selftest` runs the tests that build and run a program on the host
 with the arm64 test runtime (`arm64RuntimeUnit`); the machine IR's tests of hand-written x64 functions are linked into an
-x64 Linux executable and not run. The compiler reads the directory of temporary files from `TMPDIR`, which macOS sets; a
-Mac never renews the seeds, but proves the macOS one when they are renewed (see `seed/README.md`).
+x64 Linux executable and not run. The compiler reads the directory of temporary files from `TMPDIR`, or `/tmp` when that is
+unset or empty; a Mac never renews the seeds, but proves the macOS one when they are renewed (see `seed/README.md`).
 
 ### Continuous integration
 
@@ -112,10 +112,20 @@ compiler finds `runtime/` and `stdlib/` by walking up from its executable, which
 (`macos-latest`) runs `./check.sh`, the arm64 macOS gate. There is no Windows job, since the Windows gate needs WSL. A job fails on
 the step that fails, with the gate's own output.
 
+`.github/workflows/nightly-fuzz.yml` runs `fuzz --native` every night, and on demand over a range given as `start` and `count`, on
+arm64 macOS and arm64 Linux. By default a night runs 20,000 seeds from the days since 2026-01-01 times 20,000, so no two nights
+run the same seeds. Its `prepare` job (`macos-latest`) decides the range, which it prints in its log and summary, and builds the
+arm64 Linux compiler as `linux-x64` does in `ci.yml`. Then `macos-arm64` builds its compiler from the seed and `linux-arm64` takes
+that one, and each runs `bash cmd/fuzzshards/run.sh bin/minimaxon <start> <count> --native`. The script splits the range into one
+`fuzz --seed=S --count=M --keep=DIR` process per core (`FUZZ_SHARDS`, `FUZZ_OUT`) and waits for all of them. It fails when one
+does, and names the lowest failing seed and the command that reproduces it in the job's summary. The job keeps the failing
+programs as an artifact. The workflow reads the repository and writes nothing to it, and it runs the same locally, as in
+`FUZZ_SHARDS=2 bash cmd/fuzzshards/run.sh bin/minimaxon 1 100 --native`.
+
 | Command | What it does |
 |---|---|
 | `minimaxon build <file\|dir> [-o out.exe] [--target=<arch>-<os>]` | compile; the path given is the project's root, and a directory is a project, one module per directory (see "Modules"); `--target` names the target, `x64-windows`, `x64-linux` or `arm64-linux` (see "Targets"), the system the compiler runs on by default |
-| `minimaxon run <file\|dir>` | compile to the compiler's directory of the temporary directory (`minimaxon`, under `TEMP` on Windows and `TMPDIR` elsewhere, where every executable the compiler and its tests build goes, so that a scanner can be told to leave that one directory alone), as `minimaxon-run-<process id>-<name>.exe`, and run; exits with the program's code |
+| `minimaxon run <file\|dir>` | compile to the compiler's directory of the temporary directory (`minimaxon`, under `TEMP` on Windows and `TMPDIR`, or `/tmp` when that is unset or empty, elsewhere, where every executable the compiler and its tests build goes, so that a scanner can be told to leave that one directory alone), as `minimaxon-run-<process id>-<name>.exe`, and run; exits with the program's code |
 | `minimaxon check [--tests] <file\|dir>` | diagnostics only, exit code 1 when there are any; `check runtime` checks the runtime's source and holds it to the functions the compiler calls (see "The runtime"); `--tests` checks every module's files of tests (`.maxtest`) with its source |
 | `minimaxon test [--update-positions] [--behaviours] [--repeat=N] [--worker-counts=N,N,...] [--env-runner=path] [--executables=N] [--target=<arch>-<os>] [dir]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests"), compiled for the target and run through its runner |
 | `minimaxon test <specs-dir\|file.md> [--verbose] [--interpret] [--require-passed\|--skip-passed] [--record-passed] [--executables=N]` | run maxon's spec tests (see "Tests") |
@@ -127,6 +137,7 @@ the step that fails, with the gate's own output.
 | `minimaxon debug [--stop-timeout=<seconds>] <exe> [-- <args>...]` | debug it in a conversation, maxon's: the commands are read from standard input after maxon's prompt, `(maxon debug) `, and each is answered in maxon's text (see "Debug info") |
 | `minimaxon cache [trim\|clear]` | say where the build cache is and how many files and bytes it holds; `trim` deletes what a trim would (the files unused for five days) whether one is due or not, `clear` every file the cache wrote (see "Build cache") |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
+| `minimaxon ircount <file.ir> (op=NAME\|call=SYMBOL)...` | development only: print how many lines of an `--emit-ir` file are the operation NAME or a call of SYMBOL, as `op=bounds 3`; the counting of the corpus's IR expectations (see "Tests") |
 | `minimaxon qualify <dir>...` | write the module's path before each bare name of another module's declaration in the projects (see "Changing the language") |
 | `minimaxon rename [--prelude=f,...] [--rules=file] <rule>... <program>...` | rename a built-in type or rewrite the calls of a built-in method by the declaration the checker resolved, never by text: `Array.append=push`, `Array.insert=insert({at}, value: {item})`, `Array.pop.unwrap=try {call} otherwise panic("empty")`, and a free function's whole call: `readFile().unwrap=try File.readText({path}) otherwise panic("unread")` (the rules are in `self/driver/rename.maxon`) |
 | `minimaxon fmt [--check] <path>...` | put the `.maxon` files and the Maxon code blocks of the `.md` files under the paths in the one layout; `--check` changes nothing and exits 1 listing the files that are not in it (see "Layout" and "Changing the language") |
@@ -134,7 +145,7 @@ the step that fails, with the gate's own output.
 | `minimaxon fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--proofs] [--dump]` | development only: write random programs, check them and run them under the interpreter (`self/fuzz`); `--native` also runs the executable of each that compiles and compares it with the interpreter; `--proofs` writes programs that aim at the range analysis's proofs instead (see "Tests") |
 | `go run ./cmd/convert [--specs] [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules); `--specs` converts maxon's spec files, which is how `specs/` is made. A source file's top-level declaration of a name that minimaxon has built in (`internal/builtingen`'s table, which writes `cmd/convert/builtins_gen.go`) is left out, with the comment above it, since the built-in is the declaration every other module uses; a spec test's program keeps one, as a program may declare such a name. A source file's declaration of a record type that minimaxon builds in and that has members the built-in lacks (`Clock`, `Directory`) is kept as an extension of the built-in, with the members the built-in declares and the fields left out, and maxon's `WaitDeadlineMs` is written `Count`. A capability word before a type argument (`Array with immutable Key`) is left out (see "Where it differs from Maxon"). A block that is the first operand inside brackets (`let n = (try f() otherwise 'e' ... end 'e') as T`, `xs.push(match x 'm' ... end 'm')`) is bound on lines of its own before the line, since minimaxon reads no line break inside brackets. It lays out what it converts with the compiler's `fmt`: the gate's, `bin\minimaxon.exe` in the repository, or the compiler the environment variable `MINIMAXON` names |
 | `go run ./cmd/sample [-interval D] [-threads] [-top N] [-callers N] [-focus TEXT,...] [-o FILE] <exe> [arg...]` | profile an executable that `build --emit-map` made: runs it, samples its main thread's instruction pointer and its `rbp` frames (1 ms by default), and prints the functions by self and by total samples, with the callers of the top ones and of those whose symbol contains a `-focus` text, and the wall time; code outside the image (a Windows DLL) is charged to the function that called it, found by scanning the stack, and exits with the program's code |
-| `go run ./cmd/selfab [--base=REV] [--base-compiler=EXE] [--runs=N] [--note=TEXT]` | compare the self-build of two versions of the compiler: A (`--base`, a git revision, `HEAD` by default, checked out in a temporary worktree; or `--base-compiler`, a C1 made of its sources) and B (the working tree). Each is built as C1 by its own seed, then `<C1> build self --no-cache` is timed N times (11 by default) on both, interleaved with the order alternating after one run of each that is not counted, and the tool prints the medians, their ratio and the range of the ratio over the pairs of runs. It also prints the share of a build that `--timings` gives the `bodies` and `verify` stages (the check of function bodies), and the count in the IR that `--emit-ir` writes (after the optimizer) of the `bounds` operations and of the calls of `rt.panicEmptySlot`, the run-time tests that a compiler made by each version still holds; the failures that a `try xs.get(i)` takes to its handler are not among them. `--note` also prints a row for `docs/self-compile-times.md`. It takes the machine-wide lock and works on Windows, Linux and macOS |
+| `go run ./cmd/selfab [--base=REV] [--base-compiler=EXE] [--runs=N] [--note=TEXT]` | compare the self-build of two versions of the compiler: A (`--base`, a git revision, `HEAD` by default, checked out in a temporary worktree; or `--base-compiler`, a C1 made of its sources) and B (the working tree). Each is built as C1 by its own seed, then `<C1> build self --no-cache` is timed N times (11 by default) on both, interleaved with the order alternating after one run of each that is not counted, and the tool prints the medians, their ratio and the range of the ratio over the pairs of runs. It also prints the share of a build that `--timings` gives the `bodies` and `verify` stages (the check of function bodies), and the count in the IR that `--emit-ir` writes (after the optimizer) of the `bounds` operations and of the calls of `rt.panicEmptySlot` (counted for both versions by the working tree's `ircount`), the run-time tests that a compiler made by each version still holds; the failures that a `try xs.get(i)` takes to its handler are not among them. `--note` also prints a row for `docs/self-compile-times.md`. It takes the machine-wide lock and works on Windows, Linux and macOS |
 
 `build` and `test <module dir>` keep each module's code in the build cache and link the code of a module whose key did not
 change from it (see "Build cache"); `--no-cache` compiles without it, and `--verify-cache` (development only) compiles every module
@@ -165,8 +176,8 @@ IEEE's). A test that expects a compile error and is first refused under another 
 (arithmetic that needs a `try`, an integer cast, a clone, `mutates`, `var`, a bare name of another module) gets the fixes of the errors that are not the
 expected one, round by round, until the first error is the expected one, and a `<!-- positions: moved -->` line, since the
 fixes move text; if that is never reached, it is skipped when the code left after the fixes and the expected one are a
-pair of the table, or when the first code left after the fixes is one of the table's `first` rows (`E3057`: arithmetic
-that needs a proof is asked for before what maxon reports), and otherwise left as it was; a program that checks clean after the fixes is never skipped: it gets the fixes and a `<!-- positions: moved -->` line, and the test fails for the diagnostic that minimaxon lacks. A test whose first diagnostic left after the fixes has a cause that the table's `cause` rows name, and is not the
+pair of the table, or when the first code left after the fixes is one of the table's `first` rows (`E3008`: a name
+that Go's module rules keep from another module is refused before what maxon reports), and otherwise left as it was; a program that checks clean after the fixes is never skipped: it gets the fixes and a `<!-- positions: moved -->` line, and the test fails for the diagnostic that minimaxon lacks. A test whose first diagnostic left after the fixes has a cause that the table's `cause` rows name, and is not the
 code it expects, is skipped with that row's reason: a program that changes the collection its `for` walks (a loop holds
 the collection it walks), or a handler that binds a payload of `SendError` or `SubprocessError`. `fix` over spec files fixes
 each test as a behaviour, on every core, as the runner runs them (`self/driver/fixrun.maxon`); each check adds the test to a
@@ -316,7 +327,7 @@ executables run under WSL, to which `MAXON_MAX_PROCS` is passed by `WSLENV`; a m
 steps with what it lacks, and never skips them), and again for the `arm64-linux` target (`test --target=arm64-linux --verify-ir`,
 every program compiled with arm64's selection and allocation held to their invariants, and its static executable run under WSL by
 the `qemu-aarch64` that WSL has registered with binfmt_misc), every program of `tests/bench/` compiled, and none run, with `--verify-ir` for each of the four targets (`test testsench --target=<target> --verify-ir --compile-only`), the compiler's own source
-built, and not run, for `arm64-linux` and `arm64-macos` (`build self --target=<target> --verify-ir --no-cache`), the corpus compiled, and none run, for each target whose executables the host does not run (on the Mac `x64-windows`, `x64-linux` and `arm64-linux`; `test --compile-only --target=<target>`, with `--verify-ir` for arm64: a compiler panic fails it), the compiler's own tests built for each of those targets with `--verify-ir`, and none run (`selftest --compile-only --target=<target> --verify-ir`, about two seconds a target on the Mac: the host's `selftest` compiles them for the host alone, and x64's allocator once panicked on a file of tests that arm64 compiled), and every spec test compiled, and none run, for the one foreign target that `specsCompiledFor` in `cmd/gate` names for the host, the one no other lane runs them for (`x64-windows` on the Mac, `arm64-macos` on Windows, none on Linux; `test specs --compile-only --target=<target>`: a spec test must compile as its blocks say wherever the host's compile of it does), the build cache (a project whose main inlines a leaf of the module it names, built cold, warm and after
+built, and not run, for `arm64-linux` and `arm64-macos` (`build self --target=<target> --verify-ir --no-cache`), the corpus compiled, and none run, for each target whose executables the host does not run (on the Mac `x64-windows`, `x64-linux` and `arm64-linux`; `test --compile-only --target=<target>`, with `--verify-ir` for arm64: a compiler panic fails it), the compiler's own tests built for each of those targets with `--verify-ir`, and none run (`selftest --compile-only --target=<target> --verify-ir`, about two seconds a target on the Mac: the host's `selftest` compiles them for the host alone, and x64's allocator once panicked on a file of tests that arm64 compiled), and every spec test compiled, and none run, for the one foreign target that `specsCompiledFor` in `cmd/gate` names for the host, the one no other lane runs them for (`x64-windows` on the Mac, none on Windows or Linux, since the Mac's gate and CI run `arm64-macos`'s spec tests natively on every push; `test specs --compile-only --target=<target>`: a spec test must compile as its blocks say wherever the host's compile of it does), the build cache (a project whose main inlines a leaf of the module it names, built cold, warm and after
 an edit of the leaf that the order mispredicts, on every worker and on one, each executable held to the uncached build of the same
 source, and `--verify-cache`), the debug info (programs built for each target and `self` for x64 Windows with and without `--debug-info`, each executable the same and every span verified, and a stack overflow's `rip=` symbolized to its line on x64 Windows, x64 Linux and arm64 Linux; see "Debug info"), every spec test (`test specs --interpret --require-passed`, which fails when a test that `specs/passed.txt` lists does not pass,
 counts the new passes, and runs each test that passes under the interpreter too, for a proven access out of range alone), `fuzz` (300 generated programs, each one the checker accepts run clean under the interpreter), and `fuzz --proofs --native` (180 programs that aim at the range analysis's proofs, run under the interpreter and as executables). It stops at the
@@ -355,7 +366,7 @@ follow in `bin\spec-results.stamp`: the compiler executable's bytes, every file 
 file (`--replay-results=`) and counts them against the current `specs/passed.txt`, so it fails exactly when a run would, and it
 prints `replayed:` and the stamp's id. A missing stamp, any input that differs, a run that did not end, or a file that is not of
 the same tests in the same order (the runner refuses it with code 3) runs every test. So the cycle of a merge, `gate specs` and
-then the gate on the compiler it built, runs the spec tests once. `gate specs` itself skips the conversion and the fix when the stamp of what they read (maxon's spec files, `cmd/convert`, the compiler, the runtime and library beside it, the skip table) and of what they wrote (`specs/`, but `passed.txt`) is the one of the last time they ended (`bin\specs-conversion.stamp`), and then only runs the tests, replayed when it can; any difference runs the conversion again. Neither file is under version control (`bin\` is ignored).
+then the gate on the compiler it built, runs the spec tests once. `gate specs` and the gate pin `MAXON_HASH_SEED` the same way (`pinHashSeed`), since the stamp holds it. `check --record-specs=<maxon specs dir>` is that cycle in one command, the one a landing runs: its first suites step converts the specs from maxon's as `gate specs` does, and its spec step passes `--require-passed` and `--record-passed` together, so a single run (or the replay of one) fails when a listed test does not pass, drops a listed test that the conversion now skips (`DROPPED`), adds the new passes, and keeps a listed test that fails; the plain `check` leaves `specs/passed.txt` as it is. `gate specs` itself skips the conversion and the fix when the stamp of what they read (maxon's spec files, `cmd/convert`, the compiler, the runtime and library beside it, the skip table) and of what they wrote (`specs/`, but `passed.txt`) is the one of the last time they ended (`bin\specs-conversion.stamp`), and then only runs the tests, replayed when it can; any difference runs the conversion again. Neither file is under version control (`bin\` is ignored).
 
 There are three kinds of test. **Corpus tests** run whole programs through `minimaxon test`. **The compiler's own
 tests** belong to the modules they test, so a change to one module is tested by compiling that module, the modules it names
@@ -418,6 +429,24 @@ ordered by a cown).
 A program under `tests/library/` is staged in the library tier, as maxon's spec runner stages a case marked `tier: stdlib`,
 so it may go through the doors of maxon's raw surface (see "Modules"), the buffer cursor of "Borrowing values" among them;
 it is run as any other program is, natively and under the interpreter.
+
+A program under `tests/ir/` holds the optimized IR of its functions to claims, so that a regression in generated code fails the
+gate (`self/driver/irexpect.maxon`). It must compile clean and is never run. Its `// expect-ir:` directives each name a function by
+the symbol the IR text gives it (`sum`, `Counter.bump`, `first[Count]`) and say one of `<function> has no <op>`, `<function> has some <op>`,
+`<function> has <N> <op>`, `<function> calls <symbol>` or `<function> does not call <symbol>`, where `<op>` is an IR operation as
+`--emit-ir` prints it after the optimizer (`bounds`, `length.array`, `add.u`; written without its dotted ending, as `add` or `cmp`, it
+is every operation that begins so) and `<symbol>` a function of the program or a runtime entry (`rt.array.elem`). The runner reads the text
+of the IR that the program's own compile made, in memory (`Options.keepsIrText`, `ir.moduleIrText`), with no file written, and always
+for the host's target, so that no result depends on the target: a run for another target leaves these programs out as not yet supported.
+A directive that names a function that the IR does not have, an operation that the printer has no name for (`ir.printedOpNames`,
+generated from the IR table), or a symbol that is neither a function of the program nor a runtime entry (`ir.rtTexts`) fails the test,
+as does a program with no directive, or a directive outside `tests/ir/`. A directive reads only the names of operations and symbols, never a
+register, a block, the order of the lines or their layout, so that a change in how code is generated that keeps what a test is about does not
+fail it: a test says `has no`, `has some`, `calls` or `does not call` where it can, and an exact count only where the number is the property,
+which a comment in the test says. The gate needs no step of its own, since `test` runs every program under `tests/`. `minimaxon ircount <file.ir>
+(op=NAME|call=SYMBOL)...` counts operations and calls in an `--emit-ir` file by the same code, which `cmd/selfab` uses for its counts of `bounds` and of calls of
+`rt.panicEmptySlot`. Run alone (`test tests/ir`) the directory is the corpus root, so its programs are not those of `tests/ir/` and fail as misplaced:
+run the whole corpus.
 
 A program under `tests/runtime/` is a test of the runtime: it is
 compiled as one more file of the runtime's module (`compileRuntimeTest`), so it may call the runtime's functions and the
@@ -1835,11 +1864,19 @@ and read from there (`ir.Datum`, the `datum` instruction). `ir.datumOf` (`self/i
 it: it lays out integers and floats that the checker knows, `bool`s, enum cases, plain strings, records and tuples (with
 their fields' defaults), cases of a union with no payload, array literals (a packed one as bytes), `.clone()` of these, the
 other constants they name (laid out again inside this one) and calls of a literal factory, whose body is read with its
-parameters bound to the arguments. Everything else is built where it is read, as before: a number, a string or a function value
+parameters bound to the arguments. An empty or fixed-length array that a module-level or `static let` makes with `create` of an
+`Array` or a `FixedArray` (`Names.create(0)`, `Nums.create(3)`, `Buf.create(4)`, `Buf.create(3, value: 7)`), or with an empty
+literal (`Names{}`), and a case of a union with a payload (`Op.add(1)`, `Hold.owned(9)`) are static data too, as maxon's
+initializer may make them: neither calls a function the program or the library declares, so the array is laid out as
+lowering would make it (a count of zero elements, or of copies of the value, each laid out again; `create(n, zeroed: false)` is
+the empty array with room for `n`, zeros in the data, so its `capacity()` is `n`) and the case as its box, with nothing run
+before `main`. Everything else is built where it is read, as before: a number, a string or a function value
 as the whole constant (a number is a constant of the code and a string a literal already), and a constant that holds an
 interpolated string, a byte string, a map or a list, a function value or a closure, a value boxed into an interface, a
 conditional or a match, or an operator or a cast the checker does not fold. The raw values of an enum or a union are data
 only when every case's is, so a read has the same owner whatever the case.
+Not yet: a module-level or `static let` that calls `create` of a `Set`, a `Map` or a `List`, as maxon's initializer may: here it
+is refused with `E3220`, since it needs a static layout of a hashed collection.
 
 A datum is one piece of the data, its boxes laid out as lowering would build them on the heap (a record's words padded as
 `boxBytes` pads them, an array's header and buffer) followed by its strings, named `const <module>::<name>` or
@@ -2935,7 +2972,7 @@ edit to `runtime/` rebuilds everything.
 - Tuples (see "Tuples"): the type `(A, B)`, the value `(a, b)`, `t.0`, `typealias Span = (A, B)`, a tuple as a parameter, a result or a
   field, `let (a, b) = t`, `(a, let b) = t` and `for (a, b) in xs`.
 - Integer, float, bool, string and byte string literals (`b"..."`, a new `ByteArray` of the characters up to U+00FF, one byte each, with `\xNN` for a raw byte; a character above U+00FF is `E1004`), array literals `[a, b]`, map literals `[k: v, k: w]` and `Type from value` over a literal (see "Primitives"), interpolation, arithmetic and bitwise operators, `shl`/`shr`,
-  comparisons, `a is b` and `a is not b` (see "Identity"), `and`/`or`/`xor`/`not`, `x if c else y`, range values `a to b`
+  comparisons, `and`/`or`/`xor`/`not`, `x if c else y`, range values `a to b`
   and `a upto b` (see "Iteration"), `as` casts, error enums, `throw`, `throws E`, `try e`,
   `try e otherwise ...` and `try` blocks (see "Errors of the program"), calls with Maxon's
   positional-then-labelled arguments (a label may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.clone()`,
@@ -4111,7 +4148,7 @@ one anywhere.
 | `__ManagedMemory with T` | maxon's raw buffer, which only the library tiers name (`E3185`): the box of an array, seen through maxon's buffer operations, each the array operation that does the same, so there is one implementation of each on either target. `length()`, `capacity()`; `get(i)`, a copy of the element, where `T` is `Copyable`, throwing `__ManagedMemoryError.indexOutOfBounds` past the end (a buffer is only ever an array's, which has no empty slot below its count); `set(i, value:)`, `swap(i, j: j)` (an exchange in place, no copy), `append(other)`, `remove(at)`, `clear()`, `slice(start, endIndex:)` (a copy), `grow(n)` (`reserve`) and `setLength(n)` (`resize`), which are the array operations of the same name (see "Where it differs from Maxon" for what is not provided). `xs.managed` is the buffer of an array: the array itself seen as one, so it is borrowed, moved and dropped as `xs` is (`let m = xs.managed` moves `xs`) |
 | `__SlotArray with T` | the slot array of the library's slot tables, which only the library tiers name (`E3185`): an array whose slots below its count may be empty. It is `Array with T` under another name, the same box and drop and copy, and each operation is the array operation of the same name at the same intrinsic: `count()`, `push(value)`, `get(i)` (a copy, where `T` is `Copyable`, throwing `ArrayError.emptySlot` at an empty slot) and `clear()`, as an array's. Its own are the operations that leave or meet an empty slot: `create(n)`, `n` empty slots, legal for every element; `adopt(array)`, the slot array of an array, every slot filled, which consumes the array and takes its box as it is, with no copy, for a library collection that takes an array literal as its slots; `clear()`, which drops the element of each filled slot, skipping the empty ones, and keeps the buffer; `dropEmpty()`, which ends a slot array whose every slot is empty and, unlike an array's, tests nothing, as the slot table that calls it tests its own count of elements; and `isFilled(at)`, whether a slot holds an element, which traps past the end as a subscript does (over a scalar an empty slot is the element 0); `clearSlot(at)`, which drops the element at an index and leaves the slot empty, a hash table's tombstone, and its two other halves, which drop nothing, so a slot table holds an element without `Droppable`: `fillSlot(at, value: v)` moves a value into an empty slot and traps past the end or at a slot that holds an element, and `takeSlot(at)` moves the element out, leaves the slot empty and throws `indexOutOfBounds` past the end and `emptySlot` at an empty slot; `lendSlot(at)`, provisional until the subscript goes and `get` lends, lends the element at an index with the access its caller has to the slot array (a place in it, see "Ownership"), trapping past the end and at an empty slot as a subscript does, the one unchecked access that a SlotMap's and a List's `get` lend through (of byte-sized elements, which it packs, the element's byte, see "Ownership", the bytes lent by address); and `createCursor()`, a `__SlotArrayCursor with T` at its first slot, which a SlotMap's and a List's iterators walk. A slot array has no `.managed`: a buffer is only ever an array's. An empty slot of a managed element is 0, maxon's, the empty place a drop does nothing with, so dropping a slot array drops only the full slots, and a copy keeps an empty slot empty; `get` and a cursor's `peek` of an empty slot throw `emptySlot`, and a read that lends it (`lendSlot`, a cursor's `current()`) panics with maxon's `empty slot: element N of the array was never filled`, so no element that is not there is ever lent. A plain `Array` has none of these operations, so it never has an empty slot below its count |
 | `__GroupMemory with (A, B)` | minimaxon's raw buffer of the groups of a swiss table, which only the library tiers name (`E3185`), laid out as Go's map lays out its groups: each group is a control word and then eight pairs, the first half of a pair beside its second. `create(groups, control: w)` makes the groups, each control word `w` and each pair empty; `groups()`; `control(g)` and `setControl(g, value: w)` read and write a group's word as it is; a pair is named by its index over every group, eight to a group: `first(at)` and `second(at)` lend a half (a lent managed half that is empty panics, as an array's empty slot does), `put(at, first: a, second: b)` and `setSecond(at, value: b)` move halves in and drop what they held, `takeFirst(at)` and `takeSecond(at)` move one out and leave it empty, and `clear(at)` drops both. A group or a pair past the end traps. It is an array box of the words (`ir/groups.maxon`), so a read is a load; its drop and its copy go through each half by its type, an empty managed half being 0 |
-| `__Builtins` | maxon's raw intrinsics, which only the library tiers call (`E3185`), each the built-in that does the same: `currentProcessId()` is `Process.id()`, `currentTimeNanos()` `Clock.nowNanos()`, `currentTimeMs()` `Clock.nowMs()`, `tickCountMs()` `Clock.osTickMs()`, `threadCpuTicks()` `Clock.threadCpuTicks()` (the calling green thread's CPU time, on whichever threads it ran, as maxon's: cycles on Windows, nanoseconds elsewhere), `currentUnixTimeSeconds()` and `currentUnixTimeNanos()` `WallClock.nowUnixSeconds()` and `WallClock.nowUnixNanos()` (the calendar, signed, from `GetSystemTimePreciseAsFileTime` and `CLOCK_REALTIME`; the interpreter's starts at a fixed second and moves by its clock's steps); `floatToBits(x)` is the 64 bits of a double as a `FullRangeInt`, a reinterpretation that the library's float hash folds, and `bitsToFloat(bits)` the double of 64 bits, the only way to make an infinity or a NaN, which `Math` uses; `fillRandom(buffer)` overwrites every byte of a buffer of bytes with the system's entropy (`rt.random.fill`, drawn as the hash seed is, a word at a time) and gives 0, which `Random` uses, a refusal of the system a panic where maxon's answers non-zero; `trailingZeros(word)` is the count of 0 bits below a `Count`'s lowest 1 bit, 64 for 0, the IR's `ctz`, by which `Map` reads the first match of a control word; `hashWord(word, seed)` and `hashBytes(bytes, at, count, seed)` are maxon's seeded hash, its software fold of a word or of a span of a `ByteArray` under a `HashDigest` seed (`runtime/hashfold.maxon`, which the interpreter runs too, as `hashfold_gen.maxon`), a span past the end a panic; `readBigEndian(bytes, at, width)` and `readLittleEndian` the `OrderedWord` of the 2, 4 or 8 bytes at an index, the first the most or the least significant, throwing `ArrayError.indexOutOfBounds` when they are not all inside, and `appendBigEndian(bytes, word, width)` and `appendLittleEndian` the append of a word's low bytes in that order; the width is the literal 2, 4 or 8 (`E3005` otherwise, in maxon's words). `OrderedWord` and `HashDigest` are built-in `bits(64)` aliases, as maxon's library declares them (`stdlib/Builtins.maxon`, `Hasher.maxon`). `hashSeed()` is the fold of no bytes under the process's secret, which a `Hasher` starts from, and `drawHashSeed()` a fresh secret (`HashSeed.random()`): the first call makes the process's hash state, as maxon's runtime does, from the 16 hexadecimal digits that `MAXON_HASH_SEED` pins (a pin that is not exits 1 with maxon's message, an empty one is none) or from 8 bytes of the system's entropy (Windows' `ProcessPrng`, loaded by name only then, and Linux's `getrandom`), and a pinned process draws a fixed sequence of seeds from it; the interpreter draws an unpinned secret from its own random numbers, so a run stays deterministic. A program that never asks for the seed reads neither the variable nor the entropy. The gate pins `MAXON_HASH_SEED` for every program the test runners start (`cmd/gate`), as maxon's harness hands its programs the run's seed |
+| `__Builtins` | maxon's raw intrinsics, which only the library tiers call (`E3185`), each the built-in that does the same: `currentProcessId()` is `Process.id()`, `currentTimeNanos()` `Clock.nowNanos()`, `currentTimeMs()` `Clock.nowMs()`, `tickCountMs()` `Clock.osTickMs()`, `threadCpuTicks()` `Clock.threadCpuTicks()` (the calling green thread's CPU time, on whichever threads it ran, as maxon's: cycles on Windows, nanoseconds elsewhere), `currentUnixTimeSeconds()` and `currentUnixTimeNanos()` `WallClock.nowUnixSeconds()` and `WallClock.nowUnixNanos()` (the calendar, signed, from `GetSystemTimePreciseAsFileTime` and `CLOCK_REALTIME`; the interpreter's starts at a fixed second and moves by its clock's steps); `floatToBits(x)` is the 64 bits of a double as a `FullRangeInt`, a reinterpretation that the library's float hash folds, and `bitsToFloat(bits)` the double of 64 bits, the only way to make an infinity or a NaN, which `Math` uses; `fillRandom(buffer)` overwrites every byte of a buffer of bytes with the system's entropy (`rt.random.fill`, drawn as the hash seed is, a word at a time) and gives 0, which `Random` uses, a refusal of the system a panic where maxon's answers non-zero; `trailingZeros(word)` is the count of 0 bits below a `Count`'s lowest 1 bit, 64 for 0, the IR's `ctz`, by which `Map` reads the first match of a control word; `hashWord(word, seed)` and `hashBytes(bytes, at, count, seed)` are maxon's seeded hash, its software fold of a word or of a span of a `ByteArray` under a `HashDigest` seed (`runtime/hashfold.maxon`, which the interpreter runs too, as `hashfold_gen.maxon`), a span past the end a panic; `readBigEndian(bytes, at, width)` and `readLittleEndian` the `OrderedWord` of the 2, 4 or 8 bytes at an index, the first the most or the least significant, throwing `ArrayError.indexOutOfBounds` when they are not all inside, and `appendBigEndian(bytes, word, width)` and `appendLittleEndian` the append of a word's low bytes in that order; the width is the literal 2, 4 or 8 (`E3005` otherwise, in maxon's words). `OrderedWord` and `HashDigest` are built-in `bits(64)` aliases, as maxon's library declares them (`stdlib/Builtins.maxon`, `Hasher.maxon`). `hashSeed()` is the fold of no bytes under the process's secret, which a `Hasher` starts from, and `drawHashSeed()` a fresh secret (`HashSeed.random()`): the first call makes the process's hash state, as maxon's runtime does, from the 16 hexadecimal digits that `MAXON_HASH_SEED` pins (a pin that is not exits 1 with maxon's message, an empty one is none) or from 8 bytes of the system's entropy (Windows' `ProcessPrng`, loaded by name only then, and Linux's `getrandom`), and a pinned process draws a fixed sequence of seeds from it; the interpreter draws an unpinned secret from its own random numbers, so a run stays deterministic. A program that never asks for the seed reads neither the variable nor the entropy. The gate pins `MAXON_HASH_SEED` for every program the test runners start (`cmd/gate`), as maxon's harness hands its programs the run's seed. The subprocess rows are maxon's `subprocess*` (`specs/subprocess-builtins.md`), the floor of its `Subprocess.maxon`, as far as their first step goes (`runtime/spawn.maxon`): `subprocessSpawn` takes fifteen words (the argv blob of NUL-ended tokens and `argc`, the working directory as a cstring, the environment block and `envInherit`, the kind and data of the standard input with its length, the kind, data and limit of the output and of the error, and the flags) and gives a handle, or -1 with `subprocessLastErrorCode` (the failed step above 32 bits, a code in Win32's words in the low ones, a POSIX errno mapped to 2, 3, 4, 5 or 31 as maxon's runtime does) and `subprocessLastErrorMessage` (`os error N`, empty while nothing has failed) saying why; `subprocessGetPid(handle)`; `subprocessWaitCollect(handle, ms)`, which parks until the child has exited and its output has ended, or until `ms` milliseconds (0 for none) have passed, which ends the child and keeps the output it had written; the readers of the result it gives, `subprocessResultStatusKind` (exited 0, signalled 1, timedOut 2, treeNotEnded 3, reapedElsewhere 4), `subprocessResultStatusCode`, `subprocessResultStdout` and `subprocessResultStderr` (a fresh buffer each), `subprocessResultDurationMs` and `subprocessResultRelease`; `subprocessReleaseHandle`; and `subprocessResolveOnPath`. A handle and a result are each a word that names a slot of the runtime's table and the generation that slot is in, as a `SlotKey` of the library's `SlotMap` does, so a word that names nothing live (`-1`, one never given, a released one, a child's where a result's is asked for) answers -1 (0 and an empty buffer for the readers of a result), never a fault. A spawn that this step does not serve (see "Where it differs from Maxon") is refused as a spawn that fails, and one whose words are malformed (a blob that is not `argc` tokens, a NUL in the working directory) as `spawnFailed` |
 | `__ManagedMemoryCursor with T` | maxon's position in a raw buffer, which only the library tiers name (`E3185`), made by a buffer's `createCursor()` at its first element, which fails with `__ManagedMemoryError.indexOutOfBounds` on an empty buffer. It holds a borrow of the buffer (see "Borrowing values"), so the buffer cannot change while it lives and it always names an element: `current()` lends it, `index()` is its index, `advance()`, `retreat()` and `seek(index)` move it (`mutates self`) and fail, leaving it where it was, past either end, and `peek(ahead)` is a copy of the element so many places on, where `T` is `Copyable` |
 | `__SlotArrayCursor with T` | a position in a slot array, which only the library tiers name (`E3185`), made by a slot array's `createCursor()`: a buffer's cursor under the slot array's name, with the same operations, whose `current()` and `peek(ahead)` meet an empty slot as the slot array's `lendSlot` and `get` do |
 | `ArrayError`, `IterationError`, `__ManagedMemoryError` | maxon's error enums: `indexOutOfBounds` and `emptySlot`; `exhausted` and `atStart`, which the iteration protocol throws; a buffer's, whose first two cases are an array's |
@@ -4336,8 +4373,12 @@ A case of an enum, and of a union, may write a raw value after `=`: an integer, 
 The first case settles what they are and every later one agrees (`E3032`: `raw value type mismatch: 'expected int, got
 float'`), where a case that writes none is an integer, the one after the case before it, from 0; no two cases have the same
 value (`E3031`). `.rawValue` has the type of the values: a `Count` or a `FullRangeInt` for integers, a `FullRangeFloat`, a
-`String`. An enum is stored as its case's index, so a raw value is found by a switch on it, and a union value's tag is its
-case's index while its `.rawValue` is the tag the case writes (`add(dest Id) = 5`), and its `.ordinal` the index.
+`String`; but the `.rawValue` of a case written out (`Flag.first.rawValue`) of an enum or a union whose raw values are
+integers is that integer as a constant with no alias, as maxon types it, so it takes the alias of the operand it meets
+(`flags or Flag.first.rawValue` is a `Flags` where `Flags = int(0 to 15)`, and the value must fit it), while the
+`.rawValue` of a value that runs stays a `Count` or a `FullRangeInt`. A float or a string raw value is read when the program
+runs in maxon too, so it stays a `FullRangeFloat` or a `String`. An enum is stored as its case's index, so a raw value is
+found by a switch on it, and a union value's tag is its case's index while its `.rawValue` is the tag the case writes (`add(dest Id) = 5`), and its `.ordinal` the index.
 Interpolating an enum value that has raw values writes the raw value, and an enum with none the name of the case.
 
 **`fromRawValue`.** `Color.fromRawValue(raw)` is the case of an enum that writes `raw`, as maxon's is: a call of the type's
@@ -4558,8 +4599,8 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
   kept so that a `match` is the one maxon needs.
 - **`Subprocess.run`** takes an `Executable`, maxon's union: `Executable.name(n)`, searched for as Windows searches the
   first word of a command line, or `Executable.path(p)`. Each argument is quoted as the C runtime's
-  `CommandLineToArgvW` splits it back: one with a space or a tab is quoted, and a quote is escaped with a backslash
-  after doubling the backslashes before it (`runtime/commandline.maxon`). The child's standard output and error are pipes,
+  `CommandLineToArgvW` splits it back: one that is empty or has a space, a tab or a quote is quoted, as maxon's runtime
+  decides it, and a quote is escaped with a backslash after doubling the backslashes before it (`runtime/commandline.maxon`). The child's standard output and error are pipes,
   which the run drains in turn without waiting on either, so a child that fills one cannot block; its standard input is
   the program's. A name that is not found is `executableNotFound`.
 - **`Debuggee`** is the host's debug interface that the compiler's debugger drives a program through from outside it (maxon's
@@ -4573,7 +4614,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
   default argument is the case of an enum (`mode:` of the writes). When the deadline passes the run ends the child with `TerminateProcess` and throws `timeout`; it
   ends the child alone, not the process tree it started (maxon's ends the tree), and the output the child had written is
   lost with it.
-- **Natively**, the entries are Maxon source in `runtime/` (`os.maxon`, `subprocess.maxon`), which calls the `W` Win32
+- **Natively**, the entries are Maxon source in `runtime/` (`os.maxon`, `subprocess.maxon` and `spawn.maxon`), which calls the `W` Win32
   functions, converting the program's UTF-8 to UTF-16 and back (`text.maxon`; a byte that is not UTF-8 and a lone surrogate
   become U+FFFD), and splits the command line by the C runtime's rules (`commandline.maxon`): 2n backslashes before a quote
   are n, 2n+1 are n and a literal quote, a doubled quote inside quotes is a literal one, and the program's own name is split by
@@ -4789,17 +4830,6 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   interpreter`, so a test that starts one is `// native-only`.
 - Not yet: see "Where it differs from Maxon".
 
-### Identity
-
-`a is b` is true when two names stand for one object, and `a is not b` when they do not (maxon's reference identity; the
-operator ranks with the comparisons, below them and above `and`). It takes two operands of one type that has an object: a
-`type` or a tuple, a `String`, an `Array`, a `Map` or a `List`. A number, a `bool`, an enum case, a union, a function, a
-type parameter and anything else is `E3068` at the `is` (`'is' requires reference types (structs), not primitive values`), and
-two operands of different types are `E3005`. What it compares is the two objects' addresses. A record has one owner, so
-two names stand for one record only where one is a borrow of the other, or both borrow one owner: `a is a` and a
-parameter handed `a` twice are true, two records built alike and a `.clone()` are not, and `let b = a` is a move
-(`E3102` where `a` is used again), so nothing like maxon's alias made by `let b = a` exists to compare.
-
 ### Source text
 
 A source file is UTF-8, by Zig's rules and two more, each refused where it is:
@@ -4903,7 +4933,8 @@ parser makes it a constant of the module named `Type.name`, as it does a `typeal
 `Type.name` into a name bound to it, so it is typed, ranged, ordered (`E2012` for a cycle) and lowered as a module-level `let`:
 its value is read from the data section when it is a box known before the program runs and inlined at each use otherwise
 (see "Constants in the data section"), and a call in its initializer is `E3220` unless it is a literal factory (see "Raw
-values"), which the initializer may call by its bare name as one of the type's methods may. One that an extension adds is filed, as its typealiases are, under the type it extends in the module that writes the
+values"), which the initializer may call by its bare name as one of the type's methods may, `create` of an `Array` or a
+`FixedArray`, or a case of a union (see "Constants in the data section"). One that an extension adds is filed, as its typealiases are, under the type it extends in the module that writes the
 extension (`ast.ExtAlias`), and found as its methods are, where the module sees the extension: the check makes `Type.name` a
 name bound to it (`readTypeStatic`), as it does one of the type's body written after a typealias of the type. In the
 initializer of a constant, which the constants stage types on a tree it shares, the read is typed there and made a name by
@@ -5174,10 +5205,6 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   (`typealias Pair = (int, int)`, `typealias Op = function(int) returns int`); anywhere else it is `E3005`, and as the
   target of a cast it has the cast's own wording. `int.fromString` and the other static functions of `int` are library, as
   `float.fromString` is (below).
-- `a is b` (see "Identity") does not refuse a record that packs into one word (maxon's inline record, `E3068`): every
-  record here has an address, of its box or, for a record held in place, of its words. A literal is not interned, so two equal literals are two objects, and the
-  tests that read an alias made by `let b = a`, a string's identity after `.clone()` or the identity of a constant do not
-  hold here (`.clone()` of a `String` is the same object).
 - A keyword is not a case name: maxon's `end` as the case of an enum, a union or an arm is a syntax error here.
 - Interface values (see "Interface values"): maxon's interface value refers to the value it was made from, which the
   program shares; here the box owns the value, which moves into it (a borrowed one takes `.clone()` or `consumes`), and a
@@ -5276,8 +5303,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   An enum whose cases write raw values interpolates its raw value, as maxon's does, and one that writes none its name.
   A record or function raw value is a constant, as maxon's is, where a call of a literal factory is the literal filled by its
   arguments (maxon reads `Meta.create(1)` so too, never running `create`); here the factory is declared and its body must be
-  one `return` of a record literal over its parameters and constants, which a constant of the module may call too where maxon
-  refuses every call in a module `let` (`E3220`), and a call of a function that is no such factory is `E2045` or `E3220`.
+  one `return` of a record literal over its parameters and constants, which a constant of the module may call too, and a call
+  of a function that is no such factory is `E2045` or `E3220`, where a raw value's `create` of an array is too (a module-level
+  or `static let` may call it, as maxon's may: see "Constants in the data section").
   Maxon refuses a raw value its constant evaluator cannot hold with `E2015` (a `String` or an array in the record, a field
   left out or given twice, a factory with more arguments than fields), `E3095` for a bare function name that two modules
   declare, and `E3155` for a reserved one; here the ordinary rules say what is wrong (`E3005`, `E3086`, `E3006`, `E3036`,
@@ -5369,7 +5397,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   A send's error is the built-in `SendError` (`mailboxFull`, `serviceStopped`) and gives the arguments no way back,
   where maxon's `<Service>.<message>.sendError` carries them (the spec tests whose handler binds them are skipped with
   that reason). Not yet: `sendTimeout:`, interface handles (`I.handle`),
-  `T.request`, `acquire`, `reply.later()`, `SharedValue`, `default`, a generic service, a message with type parameters,
+  `T.request`, `acquire` (maxon's one block of that name, which takes the states of several services at once; a spec
+  test of it that expects one of maxon's region codes is skipped as a region test, since the rule it pins does not exist
+  here, and the others as the block not yet built), `reply.later()`, `SharedValue`, `default`, a generic service, a message with type parameters,
   one `try await h.m()` over a message that throws, and services in the interpreter.
 - `stdlib/stream/Stream.maxon` and `stdlib/console/Console.maxon` (`Console.stdin()`, a `StreamReader` over a `StdinSource`) are minimaxon's own,
   written from maxon's (with `helpers/stream/streamBytes.maxon`) until they convert: maxon's name the network's, TLS's, files'
@@ -5456,7 +5486,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   the word a type declares conformance with, rather than `where T is Shape`; a union can be generic; and a call whose
   arguments leave a type argument open takes it from where its result goes (`return Option.none`).
 - A type or a union opts out of copying with `is noncopyable`, and declares a destructor to opt out of dropping, where
-  Maxon has `unique` (so `is`, `noncopyable` and `destructs` are reserved). `unique` is replaced by this: every owned
+  Maxon has `unique` (so `is`, which only this header uses here, `noncopyable` and `destructs` are reserved). `unique` is replaced by this: every owned
   value is already moved and never aliased here, so what is left of it is a value that cannot be copied or forgotten.
   `Copyable` and `Droppable` are structural bounds, not interfaces a declaration implements (see "Capabilities and
   destructors"). `exchange(place, value: v)` takes the label `value`.
@@ -5602,9 +5632,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `panic` does: code after it in its block is `E3071`, and a function that ends with it needs no return. The ordinary way to end
   a program is still to return from `main`, with `Process.setExitCode` for the code when behaviours run after it. maxon's
   library has none.
-- **`is` on a record is `E3068`.** A record is a value with one owner whose words may be held in place, so the address of
-  its words says nothing of which value it is; maxon compares the references of two heap records, and refuses `is` only on
-  an inline record. Compare the fields instead.
+- **There is no identity operator.** maxon's `a is b` and `a is not b` are not in the grammar, so after an operand `is`
+  is a syntax error (`E2010`). A value has one owner here, so whether two names stand for one object says nothing a
+  program can use; compare the values instead (`==`, or the fields of a record).
 - **maxon's `Slot` is `Cell`.** The library type that holds one value or none (`fill`, `replace`, `held`, `take`) is
   `Cell with T` (`stdlib/cell`); `cmd/convert` writes maxon's `Slot` as `Cell` where a program or the library names it, and
   keeps a program's own type of that name.
@@ -5631,6 +5661,38 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   node is O(n) and the link O(1). `get`, `first` and `last` lend the element (a copy is `.clone()`) where maxon's copy it
   out; `clear()` and `insert` need elements that can be dropped, and `dropEmpty()` ends an empty list of values with
   destructors.
+- **The subprocess rows are the attached run of maxon's, and stdlib/Subprocess.maxon is not converted over them.** The rows
+  (`runtime/spawn.maxon`, "Primitives": `__Builtins`) serve a spawn whose environment is this process's or a block of
+  `NAME=VALUE` entries (`envInherit` 0, all of the child's environment, a block that is not one refused as Win32's 87), whose standard
+  input is none (the null device), inherited, bytes or a file, whose output and error are discarded, inherited, collected (a limit
+  caps what is kept, never what is read) or a file (made or emptied), and whose flags are the hidden window (Windows only) and the new
+  process group. They refuse, as a spawn that fails with Win32's 50 (not supported), the flags detach and traced and an input that is
+  held open; `subprocessDetach` and the streaming rows are not there. A deadline ends the child and the tree it started and keeps the
+  output it had written (the result's kind is `timedOut`, or `treeNotEnded` when part of the tree still ran five seconds after the
+  kill), and `subprocessEndTree` does the same for a child that is not waited for (0, -3 for a tree still running after the bound, -1
+  for a word that names no child that no wait has taken, so after a wait it is -1). The tree is a Windows job object that holds the
+  child and every process it starts but those started with `CREATE_BREAKAWAY_FROM_JOB`, which escape the kill, and on Linux and macOS
+  the child's process group (the child leads one of its own), so that a descendant that leads a group of its own (`setsid`,
+  `setpgid`) escapes it. A POSIX child that a signal ended is `signalled` (the code is the
+  signal's number) in a result, whose record keeps the raw wait status, while `Subprocess.run` goes on giving 128 plus the signal;
+  a child whose tree was killed and that the kill ended reports the kill's code (1). `Subprocess.run`'s deadline ends the tree too.
+  A handle and a result are `generation * 2^32 + slot`, a `SlotKey`'s word, where maxon's handle is `generation * 64 + slot`, and the
+  last failure is one word for the process, as maxon's. A spawn copies the input's bytes into the child's record, where maxon borrows
+  the caller's until the wait ends: a cstring of a short `String` is two words that hold its bytes, which are gone once the row has
+  returned. `subprocessResolveOnPath` on Windows looks where `CreateProcessW` looks, as maxon's does (the directory of the
+  program, the working directory unless `NoDefaultCurrentDirectoryInExePath` is set, the system directory, `System` of the Windows
+  directory, the Windows directory, `PATH`, each name with the extensions of `PATHEXT` unless its last component has one), and on
+  Linux and macOS walks `PATH` as `execvp` does. The interpreter halts at each row (`// native-only`). maxon's `Subprocess.maxon`
+  does not convert yet, since its `SubprocessError` is a union whose cases carry the output and the code (`timeout(elapsedMs,
+  stdout:, stderr:)`), which minimaxon has as the built-in enum without payloads until a seed that compiles union errors, and the
+  file reads the codes of `helpers/file/osErrorCodes.maxon`, which is not converted, and ors a `SpawnFlag`'s `rawValue`
+  (a `Count`) into an integer of another alias, which minimaxon refuses (`E3005`).
+- **A Windows argument is quoted as maxon's runtime decides it, but its backslashes are written as the C runtime reads them back.**
+  An argument is in quotes when it is empty or has a space, a tab or a quote (it was in quotes for a space or a tab alone, a bare
+  quote written as `\"`), and a quote is written `\"`; the backslashes before a quote and before the closing quote are doubled,
+  where maxon's runtime writes them as they are: its bytes for the argument `C:\my dir\` are `"C:\my dir\"`, whose last quote the C
+  runtime reads as a literal one, a broken argument that takes the rest of the line, where these write `"C:\my dir\\"`. This is
+  the quoting of `Subprocess.run` and of the debug port's launch too (`tests/runtime/arguments-round-trip-through-a-child.maxon`).
 
 ## Changing the language
 

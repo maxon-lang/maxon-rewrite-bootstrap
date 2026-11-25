@@ -96,6 +96,7 @@ end 'main'
 ```
 
 <!-- test: refill-packed-ranged-int -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 <!-- tier: stdlib -->
 ### refill writes every field of a 2-bit ranged-int array
 `int(0 to 3)` packs 4 elements per byte, so the same field-granular write has to hold at a width
@@ -106,14 +107,14 @@ typealias Quarter = int(0 to 3)
 typealias QuarterArray = Array with Quarter
 
 function main() returns ExitCode
-	var arr = QuarterArray.create(0)
+	let arr = QuarterArray.create(0)
 	arr.push(1 as Quarter)
 	arr.refill(7, value: 3 as Quarter)
 	var total = 0 as FullRangeInt
 	for q in arr 'sum'
-		total = try total + q as FullRangeInt otherwise panic("out of range")
+		total = total + q as FullRangeInt
 	end 'sum'
-	return try total + arr.managed.elementSize() otherwise panic("out of range")
+	return total + arr.managed.elementSize()
 end 'main'
 ```
 ```exitcode

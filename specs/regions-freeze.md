@@ -55,7 +55,7 @@ end 'main'
 ```
 
 <!-- test: freeze-of-a-mutable-local-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `cursor` is read as ordinary mutable data before the `freeze`, so other code may still name it: it belongs to the current region and cannot be frozen in place.
 
@@ -1149,6 +1149,7 @@ note: <fragment>:64:40: `Stepper` is converted to `Shape` here
 ```
 
 <!-- test: error.freeze-in-a-generic-type-body-whose-instance-holds-a-function-value -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -1163,7 +1164,7 @@ typealias Step = function(Tally) returns Tally
 type Stepper
 	export let step as Step
 
-	static function create(consumes step Step) returns Self
+	static function create(step Step) returns Self
 		return Self{step: step}
 	end 'create'
 end 'Stepper'
@@ -1175,23 +1176,23 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(mutates self, n Tally)
-		self.seen = try self.seen + n otherwise panic("out of range")
+	export function look(n Tally)
+		self.seen = self.seen + n
 	end 'look'
 end 'Door'
 
 type Cell uses T
 	export let item as T
 
-	static function create(item T) returns Self where T implements Copyable
-		return Self{item: item.clone()}
+	static function create(item T) returns Self
+		return Self{item: item}
 	end 'create'
 end 'Cell'
 
 type Froze uses T
 	typealias TCell = Cell with T
 
-	static function run(x T) returns Tally where T implements Copyable
+	static function run(x T) returns Tally
 		let f = freeze(TCell.create(x).clone())
 		_ = f
 		return 1
@@ -1203,7 +1204,7 @@ typealias StepperFroze = Froze with Stepper
 function main() returns ExitCode
 	let h = spawn Door.create()
 	h.shutdown()
-	print("{StepperFroze.run(Stepper.create(function(n Tally) gives try n + 1 otherwise panic("out of range")))}\n")
+	print("{StepperFroze.run(Stepper.create(function(n Tally) gives n + 1))}\n")
 	return 0
 end 'main'
 ```

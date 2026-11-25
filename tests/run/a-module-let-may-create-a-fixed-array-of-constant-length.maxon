@@ -1,0 +1,22 @@
+typealias Int = int(0 to 1000)
+
+typealias Buf = FixedArray with Int
+
+typealias Flags = FixedArray with 3 bool
+
+typealias Words = FixedArray with String
+
+let TABLE = Buf.create(4)
+
+let SEVENS = Buf.create(3, value: 7)
+
+let FLAGS = Flags.create(value: true)
+
+let WORDS = Words.create(2, value: "hi")
+
+function main() returns ExitCode
+	print("{TABLE.count()} {TABLE.get(3)} {SEVENS.get(0) + SEVENS.get(2)} {FLAGS.get(1)} {WORDS.get(1)} {WORDS.count()}\n")
+	return 0
+end 'main'
+
+//> 4 0 14 true hi 2

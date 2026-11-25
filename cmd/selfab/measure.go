@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"os"
@@ -16,10 +15,10 @@ import (
 const (
 	irSuffix = ".ir"
 
-	// boundsPrefix starts the line of the IR operation that tests an index against a length (irtable's Bounds), and
-	// emptySlotCall the line that fails a read of an empty slot of an array (the runtime's panicEmptySlot).
-	boundsPrefix  = "bounds "
-	emptySlotCall = "runtime rt.panicEmptySlot("
+	// The IR operation that tests an index against a length (irtable's Bounds), and the runtime entry that fails a read of an
+	// empty slot of an array (panicEmptySlot): what the compiler's ircount command counts in an IR file.
+	boundsArgument    = "op=bounds"
+	emptySlotArgument = "call=rt.panicEmptySlot"
 
 	// The stages of --timings that are the check of function bodies, the range analysis among them, and the line that
 	// ends the stage table.
@@ -27,9 +26,6 @@ const (
 	timingsHeader     = "compile timings"
 	timingsHeaderRow  = "stage"
 	timingsStageCols  = 3
-
-	// scannerLimit is the longest line of an IR file that the scanner takes.
-	scannerLimit = 1 << 20
 )
 
 // checkStages are the stages of --timings whose time is the compiler checking function bodies.
@@ -52,8 +48,10 @@ type report struct {
 	emptySlots int
 }
 
-// inspect compiles self/ twice more with the side's compiler: once for the time of its stages and once for its IR.
-func (s side) inspect() (report, error) {
+// inspect compiles self/ twice more with the side's compiler: once for the time of its stages and once for its IR, whose
+// operations the counter, a compiler that has the ircount command (the working tree's), counts: one way of counting for both
+// sides, the one the corpus's IR expectations use.
+func (s side) inspect(counter string) (report, error) {
 	timings, err := capture(s.tree, s.compiler, "build", "self", "--no-cache", "--timings", "-o", s.output())
 	if err != nil {
 		return report{}, err
@@ -65,7 +63,7 @@ func (s side) inspect() (report, error) {
 	if err := execute(s.tree, nil, s.compiler, "build", "self", "--no-cache", "--emit-ir", "-o", s.output()); err != nil {
 		return report{}, err
 	}
-	bounds, emptySlots, err := countChecks(s.output() + irSuffix)
+	bounds, emptySlots, err := countChecks(counter, s.output()+irSuffix)
 	if err != nil {
 		return report{}, err
 	}
@@ -102,25 +100,36 @@ func checkShare(timings string) (float64, error) {
 	return 100 * check / total, nil
 }
 
-// countChecks counts the lines of an IR file that are a bounds test or the failure of an empty slot.
-func countChecks(path string) (bounds, emptySlots int, err error) {
-	file, err := os.Open(path)
+// countChecks counts the lines of an IR file that are a bounds test or the failure of an empty slot, as the counter's ircount
+// command does.
+func countChecks(counter, path string) (bounds, emptySlots int, err error) {
+	out, err := capture(".", counter, "ircount", path, boundsArgument, emptySlotArgument)
 	if err != nil {
 		return 0, 0, err
 	}
-	defer file.Close()
-	scanner := bufio.NewScanner(file)
-	scanner.Buffer(nil, scannerLimit)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		switch {
-		case strings.HasPrefix(line, boundsPrefix):
-			bounds++
-		case strings.HasPrefix(line, emptySlotCall):
-			emptySlots++
+	return parseCounts(out)
+}
+
+// parseCounts reads the lines of ircount's output, `<argument> <count>`.
+func parseCounts(out string) (bounds, emptySlots int, err error) {
+	counts := map[string]int{}
+	for line := range strings.Lines(out) {
+		fields := strings.Fields(line)
+		if len(fields) != 2 {
+			return 0, 0, fmt.Errorf("ircount: unexpected line %q", line)
+		}
+		n, err := strconv.Atoi(fields[1])
+		if err != nil {
+			return 0, 0, fmt.Errorf("ircount: the count in %q is not a number", line)
+		}
+		counts[fields[0]] = n
+	}
+	for _, want := range []string{boundsArgument, emptySlotArgument} {
+		if _, ok := counts[want]; !ok {
+			return 0, 0, fmt.Errorf("ircount: no count of %s in\n%s", want, out)
 		}
 	}
-	return bounds, emptySlots, scanner.Err()
+	return counts[boundsArgument], counts[emptySlotArgument], nil
 }
 
 func median(times []time.Duration) time.Duration {

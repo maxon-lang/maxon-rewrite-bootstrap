@@ -67,7 +67,7 @@ function intTextRead(text String, at Count) returns IntTextRead throws ParseErro
 		if c < ParseByte.zero.rawValue or c > ParseByte.nine.rawValue 'stop'
 			break 'digits'
 		end 'stop'
-		let digit = try (c - ParseByte.zero.rawValue) as IntTextMagnitude otherwise panic("IntText: a digit is below 10")
+		let digit = (c - ParseByte.zero.rawValue) as IntTextMagnitude
 		if magnitude > intTextMagnitudeTenth or (magnitude == intTextMagnitudeTenth and digit > intTextMagnitudeLastDigit) 'past'
 			pastRange = true
 			magnitude = u64.max

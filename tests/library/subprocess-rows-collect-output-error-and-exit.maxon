@@ -1,0 +1,206 @@
+// The subprocess rows of the raw surface (maxon's `__Builtins.subprocess*`) start a child, wait for it and read what became of
+// it: a spawn gives a handle, a wait a result of how the child ended (the kind and the code), what it wrote to its output and
+// error and how long it ran, and each is released. The child is this program run again, so the same program runs on every system.
+// Its standard input is none, inherited or bytes that hold a NUL, which reach it whole; its output and error are collected, capped
+// (a limit caps what is kept and never what is read, so a child that writes much more still ends), discarded or, for the output,
+// inherited, where it is this program's own; a deadline ends a child that goes on and keeps what it had written; and a child that
+// ended abnormally says so.
+// native-only
+//> kind=0 code=3 pid=true
+//> stdout=out:one two
+//> stderr=err:one two
+//> timed=true
+//> released=true
+//> none: kind=0 code=0 stdout=[read=0] stderr=[]
+//> inherited input: kind=0 code=0 stdout=[read=0] stderr=[]
+//> bytes: kind=0 code=0 stdout=[read=5 nul=true] stderr=[]
+//> discarded: kind=0 code=3 stdout=[] stderr=[]
+//> from the child
+//> inherited: kind=0 code=0 stdout=[] stderr=[err:one two]
+//> capped: kind=0 code=0 stdout=10 whole=true
+//> deadline: kind=2 stdout=partial timed=true
+//> abnormal=true
+
+typealias Blob = Array with Byte
+
+let terminator = 0 as Byte
+
+let stdinNone = 0
+
+let stdinInherit = 1
+
+let stdinBytes = 2
+
+let outputDiscard = 0
+
+let outputInherit = 1
+
+let outputCollect = 2
+
+let unlimited = 0
+
+let noFlags = 0
+
+let parentEnvironment = 1
+
+function appendToken(mutates out Blob, token String)
+	for b in token.bytes() 'each'
+		out.push(b)
+	end 'each'
+	out.push(terminator)
+end 'appendToken'
+
+// selfBlob is this program and the arguments that make it a child of a mode, as the rows take them: each text and a NUL.
+function selfBlob(mode String) returns Blob
+	var argv = Blob.create(0)
+	let executable = try Process.executablePath() otherwise return argv
+	appendToken(argv, token: executable.path)
+	appendToken(argv, token: "child")
+	appendToken(argv, token: mode)
+	return argv
+end 'selfBlob'
+
+// spawnSelf starts this program as a child of a mode, and gives its handle, or -1.
+function spawnSelf(mode String, stdinKind Count, input String, stdoutKind Count, stdoutLimit Count, stderrKind Count) returns FullRangeInt
+	let argv = selfBlob(mode)
+	var env = Blob.create(1)
+	env.push(terminator)
+	let empty = ""
+	return __Builtins.subprocessSpawn(argv.managed, 3, empty.cstr(), env.managed, parentEnvironment, stdinKind, input.cstr(), stdoutKind, empty.cstr(), stdoutLimit, stderrKind, empty.cstr(), unlimited, noFlags, input.byteLength())
+end 'spawnSelf'
+
+// describe runs a child to its end and prints how it ended and what it wrote, as one line.
+function describe(label String, mode String, stdinKind Count, input String, stdoutKind Count, stdoutLimit Count, stderrKind Count)
+	let handle = spawnSelf(mode, stdinKind: stdinKind, input: input, stdoutKind: stdoutKind, stdoutLimit: stdoutLimit, stderrKind: stderrKind)
+	if handle == -1 'failed'
+		print("{label} spawn failed: {String.init(__Builtins.subprocessLastErrorMessage())}\n")
+		return
+	end 'failed'
+	let result = __Builtins.subprocessWaitCollect(handle, 0)
+	let out = String.init(__Builtins.subprocessResultStdout(result))
+	let err = String.init(__Builtins.subprocessResultStderr(result))
+	print("{label}: kind={__Builtins.subprocessResultStatusKind(result)} code={__Builtins.subprocessResultStatusCode(result)}")
+	if mode == "capped" 'capped'
+		print(" stdout={out.byteLength()} whole={out.byteLength() == 10}\n")
+	end 'capped' else 'text'
+		print(" stdout=[{out}] stderr=[{err}]\n")
+	end 'text'
+	__Builtins.subprocessResultRelease(result)
+	__Builtins.subprocessReleaseHandle(handle)
+end 'describe'
+
+function child(mode String) returns ExitCode
+	if mode == "plain" 'plain'
+		print("out:one two")
+		printError("err:one two")
+		return 3
+	end 'plain'
+	if mode == "echo" 'echo'
+		var total = 0 as Count
+		var nul = false
+		var reading = true
+		while reading 'reads'
+			let got = __Builtins.readStdin(65536)
+			if got.length() == 0 'end'
+				reading = false
+			end 'end' else 'more'
+				if total == 0 and got.length() > 2 'second'
+					nul = (try got.byteAt(2) otherwise 1) == 0
+				end 'second'
+				total = try total + got.length() otherwise total
+			end 'more'
+		end 'reads'
+		print("read={total}")
+		if nul 'holdsNul'
+			print(" nul=true")
+		end 'holdsNul'
+		return 0
+	end 'echo'
+	if mode == "inherited" 'inherited'
+		print("from the child\n")
+		printError("err:one two")
+		return 0
+	end 'inherited'
+	if mode == "capped" 'capped'
+		var text = "0123456789"
+		for i in 0 upto 14 'grow'
+			text = "{text}{text}"
+		end 'grow'
+		print(text)
+		return 0
+	end 'capped'
+	if mode == "sleeper" 'sleeper'
+		print("partial")
+		sleep(60000)
+		return 0
+	end 'sleeper'
+	return 9
+end 'child'
+
+// abnormal is whether a child that ends other than by returning says how: a signal's number where the system has signals, and the
+// code it exited with where it has none.
+function abnormal() returns bool
+	var argv = Blob.create(0)
+	#if os(Windows)
+		appendToken(argv, token: "cmd.exe")
+		appendToken(argv, token: "/c")
+		appendToken(argv, token: "exit 9")
+	#else
+		appendToken(argv, token: "/bin/sh")
+		appendToken(argv, token: "-c")
+		appendToken(argv, token: "kill -9 $$")
+	#endif
+	var env = Blob.create(1)
+	env.push(terminator)
+	let empty = ""
+	let handle = __Builtins.subprocessSpawn(argv.managed, 3, empty.cstr(), env.managed, parentEnvironment, stdinNone, empty.cstr(), outputCollect, empty.cstr(), unlimited, outputCollect, empty.cstr(), unlimited, noFlags, 0)
+	if handle == -1 'failed'
+		return false
+	end 'failed'
+	let result = __Builtins.subprocessWaitCollect(handle, 0)
+	let kind = __Builtins.subprocessResultStatusKind(result)
+	let code = __Builtins.subprocessResultStatusCode(result)
+	__Builtins.subprocessResultRelease(result)
+	__Builtins.subprocessReleaseHandle(handle)
+	#if os(Windows)
+		return kind == 0 and code == 9
+	#else
+		return kind == 1 and code == 9
+	#endif
+end 'abnormal'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() > 1 'child'
+		return child(try args.get(2) otherwise "")
+	end 'child'
+	let handle = spawnSelf("plain", stdinKind: stdinNone, input: "", stdoutKind: outputCollect, stdoutLimit: unlimited, stderrKind: outputCollect)
+	if handle == -1 'failed'
+		print("spawn failed: {String.init(__Builtins.subprocessLastErrorMessage())}\n")
+		return 1
+	end 'failed'
+	let pid = __Builtins.subprocessGetPid(handle)
+	let result = __Builtins.subprocessWaitCollect(handle, 0)
+	print("kind={__Builtins.subprocessResultStatusKind(result)} code={__Builtins.subprocessResultStatusCode(result)} pid={pid > 0}\n")
+	print("stdout={String.init(__Builtins.subprocessResultStdout(result))}\n")
+	print("stderr={String.init(__Builtins.subprocessResultStderr(result))}\n")
+	print("timed={__Builtins.subprocessResultDurationMs(result) < 60000}\n")
+	__Builtins.subprocessResultRelease(result)
+	__Builtins.subprocessReleaseHandle(handle)
+	print("released={__Builtins.subprocessResultStatusKind(result) == 0 and __Builtins.subprocessGetPid(handle) == -1}\n")
+	describe("none", mode: "echo", stdinKind: stdinNone, input: "", stdoutKind: outputCollect, stdoutLimit: unlimited, stderrKind: outputDiscard)
+	describe("inherited input", mode: "echo", stdinKind: stdinInherit, input: "", stdoutKind: outputCollect, stdoutLimit: unlimited, stderrKind: outputDiscard)
+	describe("bytes", mode: "echo", stdinKind: stdinBytes, input: "he\0lo", stdoutKind: outputCollect, stdoutLimit: unlimited, stderrKind: outputDiscard)
+	describe("discarded", mode: "plain", stdinKind: stdinNone, input: "", stdoutKind: outputDiscard, stdoutLimit: unlimited, stderrKind: outputDiscard)
+	describe("inherited", mode: "inherited", stdinKind: stdinNone, input: "", stdoutKind: outputInherit, stdoutLimit: unlimited, stderrKind: outputCollect)
+	describe("capped", mode: "capped", stdinKind: stdinNone, input: "", stdoutKind: outputCollect, stdoutLimit: 10, stderrKind: outputDiscard)
+	let sleeper = spawnSelf("sleeper", stdinKind: stdinNone, input: "", stdoutKind: outputCollect, stdoutLimit: unlimited, stderrKind: outputDiscard)
+	let late = __Builtins.subprocessWaitCollect(sleeper, 400)
+	let partial = String.init(__Builtins.subprocessResultStdout(late))
+	let ran = __Builtins.subprocessResultDurationMs(late)
+	print("deadline: kind={__Builtins.subprocessResultStatusKind(late)} stdout={partial} timed={ran >= 300 and ran < 30000}\n")
+	__Builtins.subprocessResultRelease(late)
+	__Builtins.subprocessReleaseHandle(sleeper)
+	print("abnormal={abnormal()}\n")
+	return 0
+end 'main'

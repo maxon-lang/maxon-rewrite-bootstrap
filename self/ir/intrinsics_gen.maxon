@@ -578,6 +578,48 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrOsEnvironmentEntry 'intrOsEnvironmentEntry'
 		return lowerOsEnvironmentEntry(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrOsEnvironmentEntry'
+	if op == ast.Intrinsic.intrSubprocessSpawn 'intrSubprocessSpawn'
+		return lowerSubprocessSpawn(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessSpawn'
+	if op == ast.Intrinsic.intrSubprocessGetPid 'intrSubprocessGetPid'
+		return lowerSubprocessGetPid(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessGetPid'
+	if op == ast.Intrinsic.intrSubprocessWaitCollect 'intrSubprocessWaitCollect'
+		return lowerSubprocessWaitCollect(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessWaitCollect'
+	if op == ast.Intrinsic.intrSubprocessResultStatusKind 'intrSubprocessResultStatusKind'
+		return lowerSubprocessResultStatusKind(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessResultStatusKind'
+	if op == ast.Intrinsic.intrSubprocessResultStatusCode 'intrSubprocessResultStatusCode'
+		return lowerSubprocessResultStatusCode(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessResultStatusCode'
+	if op == ast.Intrinsic.intrSubprocessResultStdout 'intrSubprocessResultStdout'
+		return lowerSubprocessResultStdout(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessResultStdout'
+	if op == ast.Intrinsic.intrSubprocessResultStderr 'intrSubprocessResultStderr'
+		return lowerSubprocessResultStderr(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessResultStderr'
+	if op == ast.Intrinsic.intrSubprocessResultDurationMs 'intrSubprocessResultDurationMs'
+		return lowerSubprocessResultDurationMs(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessResultDurationMs'
+	if op == ast.Intrinsic.intrSubprocessResultRelease 'intrSubprocessResultRelease'
+		return lowerSubprocessResultRelease(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessResultRelease'
+	if op == ast.Intrinsic.intrSubprocessReleaseHandle 'intrSubprocessReleaseHandle'
+		return lowerSubprocessReleaseHandle(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessReleaseHandle'
+	if op == ast.Intrinsic.intrSubprocessEndTree 'intrSubprocessEndTree'
+		return lowerSubprocessEndTree(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessEndTree'
+	if op == ast.Intrinsic.intrSubprocessLastErrorCode 'intrSubprocessLastErrorCode'
+		return lowerSubprocessLastErrorCode(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessLastErrorCode'
+	if op == ast.Intrinsic.intrSubprocessLastErrorMessage 'intrSubprocessLastErrorMessage'
+		return lowerSubprocessLastErrorMessage(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessLastErrorMessage'
+	if op == ast.Intrinsic.intrSubprocessResolveOnPath 'intrSubprocessResolveOnPath'
+		return lowerSubprocessResolveOnPath(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessResolveOnPath'
 	if op == ast.Intrinsic.intrSubprocessRunWithInput 'intrSubprocessRunWithInput'
 		return lowerSubprocessRunWithInput(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSubprocessRunWithInput'
@@ -1390,6 +1432,48 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrOsEnvironmentEntry 'intrOsEnvironmentEntry'
 		return false
 	end 'intrOsEnvironmentEntry'
+	if op == ast.Intrinsic.intrSubprocessSpawn 'intrSubprocessSpawn'
+		return false
+	end 'intrSubprocessSpawn'
+	if op == ast.Intrinsic.intrSubprocessGetPid 'intrSubprocessGetPid'
+		return false
+	end 'intrSubprocessGetPid'
+	if op == ast.Intrinsic.intrSubprocessWaitCollect 'intrSubprocessWaitCollect'
+		return false
+	end 'intrSubprocessWaitCollect'
+	if op == ast.Intrinsic.intrSubprocessResultStatusKind 'intrSubprocessResultStatusKind'
+		return false
+	end 'intrSubprocessResultStatusKind'
+	if op == ast.Intrinsic.intrSubprocessResultStatusCode 'intrSubprocessResultStatusCode'
+		return false
+	end 'intrSubprocessResultStatusCode'
+	if op == ast.Intrinsic.intrSubprocessResultStdout 'intrSubprocessResultStdout'
+		return false
+	end 'intrSubprocessResultStdout'
+	if op == ast.Intrinsic.intrSubprocessResultStderr 'intrSubprocessResultStderr'
+		return false
+	end 'intrSubprocessResultStderr'
+	if op == ast.Intrinsic.intrSubprocessResultDurationMs 'intrSubprocessResultDurationMs'
+		return false
+	end 'intrSubprocessResultDurationMs'
+	if op == ast.Intrinsic.intrSubprocessResultRelease 'intrSubprocessResultRelease'
+		return false
+	end 'intrSubprocessResultRelease'
+	if op == ast.Intrinsic.intrSubprocessReleaseHandle 'intrSubprocessReleaseHandle'
+		return false
+	end 'intrSubprocessReleaseHandle'
+	if op == ast.Intrinsic.intrSubprocessEndTree 'intrSubprocessEndTree'
+		return false
+	end 'intrSubprocessEndTree'
+	if op == ast.Intrinsic.intrSubprocessLastErrorCode 'intrSubprocessLastErrorCode'
+		return false
+	end 'intrSubprocessLastErrorCode'
+	if op == ast.Intrinsic.intrSubprocessLastErrorMessage 'intrSubprocessLastErrorMessage'
+		return false
+	end 'intrSubprocessLastErrorMessage'
+	if op == ast.Intrinsic.intrSubprocessResolveOnPath 'intrSubprocessResolveOnPath'
+		return false
+	end 'intrSubprocessResolveOnPath'
 	if op == ast.Intrinsic.intrSubprocessRunWithInput 'intrSubprocessRunWithInput'
 		return false
 	end 'intrSubprocessRunWithInput'

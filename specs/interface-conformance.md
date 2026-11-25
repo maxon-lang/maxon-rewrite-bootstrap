@@ -381,6 +381,7 @@ error E3016: beta/<fragment>:13:13: Partial interface implementation: type 'Stor
 ```
 
 <!-- test: error.an-impl-over-another-files-same-named-alias-of-another-range-does-not-conform -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 <!-- positions: moved -->
 The ranged form, over two RANGES. `a/` and `b/` each export `Score`, `a/`'s over `int(0 to 10)` and `b/`'s
 over `int(0 to 100)`; a type is its declaration, not its name, so the requirement's `a.Score` is not met by
@@ -399,14 +400,14 @@ end 'Rater'
 // --- file: b/judge.maxon
 export typealias Score = int(0 to 100)
 
-export type Judge implements a.Rater
-	var bias as a.Integer
+export type Judge implements Rater
+	var bias as Integer
 
 	export static function create() returns Judge
 		return Judge{bias: 1}
 	end 'create'
 
-	export function rate(s b.Score) returns a.Integer
+	export function rate(s b.Score) returns Integer
 		return self.bias + (s as Integer)
 	end 'rate'
 end 'Judge'
@@ -543,6 +544,7 @@ end 'main'
 ### A type implementing a compiler builtin interface
 
 <!-- test: builtin-interface-conformer-in-the-library-tier -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `stdlib/Builtins.maxon`'s `BuiltinArrayLiteral` is a MARKER: the compiler finds the type implementing it and
 uses that declaration as the record a `[…]` literal builds. A conformer's record holds a `__ManagedMemory`,
@@ -572,6 +574,7 @@ end 'main'
 ```
 
 <!-- test: error.builtin-array-conformer-over-the-wrong-element -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⭐⭐ **The compiler REFUSES A CONFORMER WHOSE BUFFER IS NOT OVER ITS OWN TYPE PARAMETER.**

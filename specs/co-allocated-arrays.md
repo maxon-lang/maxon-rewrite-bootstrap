@@ -183,6 +183,7 @@ end 'main'
 ```
 
 <!-- test: a-clone-and-a-slice-of-a-large-fixed-array-copy-their-window -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A clone of a record holding a fixed array, and a slice of the fixed array, copy rather than view, at 400 bytes and at
 40000: writing or clearing either side leaves the other alone, and the slice outlives the array it was cut from.
@@ -846,6 +847,7 @@ end 'main'
 ```
 
 <!-- test: a-deep-clone-of-managed-elements-is-one-allocation-plus-its-elements -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 The deep copy of an array of Strings is its record, its buffer and one record per String; the first two are one
 allocation. The clone owns its Strings: replacing one leaves the original's untouched, and every String is released
 once.
@@ -853,7 +855,7 @@ once.
 typealias Names = Array with String
 
 function build() returns Names
-	var names = Names.create(0)
+	let names = Names.create(0)
 	var index = 0 as ElementIndex
 	while index < 6 'each'
 		names.push("name number {index}")
@@ -865,8 +867,8 @@ end 'build'
 function main() returns ExitCode
 	let original = build()
 	let allocsBefore = HeapStats.threadAllocations()
-	var copy = original.clone()
-	let allocs = try HeapStats.threadAllocations() - allocsBefore otherwise panic("out of range")
+	let copy = original.clone()
+	let allocs = HeapStats.threadAllocations() - allocsBefore
 	if allocs != 7 'allocs'
 		return 1
 	end 'allocs'
@@ -1136,6 +1138,7 @@ end 'main'
 ```
 
 <!-- test: a-packed-fixed-array-slice-and-clone-copy-their-window -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A slice of a sub-byte-packed fixed array is a copy, and so is the clone that is a slice of the whole: writing
 either leaves the fixed array's bits alone.

@@ -310,7 +310,12 @@ export function exprStart(t Tree, e NodeID) returns Count
 	if k == NodeKind.rangeExpr 'range'
 		return exprStart(t, e: rangeExprLow(t, id: e))
 	end 'range'
-	return t.startOf(e) as Count
+	let start = t.startOf(e) as Count
+	if k == NodeKind.charLit and start > 0 and t.text.byteAt(stepBack(start)) == apostropheByte 'character'
+		// A character literal's text starts after its opening quote (characterEnd), and the expression at the quote.
+		return stepBack(start)
+	end 'character'
+	return start
 end 'exprStart'
 
 // exprEnd is past the expression's last token, or nothing for an expression whose end it does not know, such as the read of
@@ -524,30 +529,56 @@ function holdsWord(list String, word String) returns bool
 	return false
 end 'holdsWord'
 
-// arithmeticParent is the operation or the cast that takes e as an operand, or 0 when e is not one: a failure of e is
-// covered by a try around the whole arithmetic expression it is part of, as a person writes one.
+// arithmeticParent is the operation or the cast that takes e as an operand, or the spawn that e is the call of, or 0 when e
+// is none of them: a failure of e is covered by a try around the whole arithmetic expression it is part of, as a person
+// writes one, and a spawn's call by a try around the spawn, since a try cannot be the call that a spawn names. The parser
+// makes a binary operation or a cast once its left operand is made, and a negation, a spawn or a binary operation before
+// its right operand, so the parent is next to the operand's subtree, before or after it: the walk goes out from e both
+// ways, and the climb of outermostArithmetic up a long chain of operations takes a step for each, where a walk from the
+// start of the tree took the whole tree for each.
 export function arithmeticParent(t Tree, e NodeID) returns NodeID
-	for id in 1 upto t.records.count() 'records'
-		let k = t.records[id].kind
-		let node = try id as NodeID otherwise panic("extents: more nodes than a NodeID holds")
-		if k == NodeKind.binaryExpr and isArithmetic(binaryExprOp(t, id: node)) and (binaryExprL(t, id: node) == e or binaryExprR(t, id: node) == e) 'binary'
-			return node
-		end 'binary'
-		if k == NodeKind.unaryExpr and unaryExprOp(t, id: node) == "-" and unaryExprE(t, id: node) == e 'negation'
-			return node
-		end 'negation'
-		if k == NodeKind.castExpr and castExprE(t, id: node) == e 'cast'
-			return node
-		end 'cast'
-	end 'records'
+	let n = t.records.count()
+	var before = e as Count
+	var after = e as Count
+	while before > 1 or stepOn(after) < n 'out'
+		if before > 1 'down'
+			before = stepBack(before)
+			let node = try before as NodeID otherwise panic("extents: more nodes than a NodeID holds")
+			if takesOperand(t, node: node, e: e) 'below'
+				return node
+			end 'below'
+		end 'down'
+		if stepOn(after) < n 'up'
+			after = stepOn(after)
+			let node = try after as NodeID otherwise panic("extents: more nodes than a NodeID holds")
+			if takesOperand(t, node: node, e: e) 'above'
+				return node
+			end 'above'
+		end 'up'
+	end 'out'
 	return 0 as NodeID
 end 'arithmeticParent'
+
+// takesOperand is whether node is an arithmetic operation or a cast that takes e as an operand, or a spawn whose call e is.
+function takesOperand(t Tree, node NodeID, e NodeID) returns bool
+	let k = t.kindOf(node)
+	if k == NodeKind.spawnExpr 'spawn'
+		return spawnExprCall(t, id: node) == e
+	end 'spawn'
+	if k == NodeKind.binaryExpr 'binary'
+		return (binaryExprL(t, id: node) == e or binaryExprR(t, id: node) == e) and isArithmetic(binaryExprOp(t, id: node))
+	end 'binary'
+	if k == NodeKind.unaryExpr 'negation'
+		return unaryExprE(t, id: node) == e and unaryExprOp(t, id: node) == "-"
+	end 'negation'
+	return k == NodeKind.castExpr and castExprE(t, id: node) == e
+end 'takesOperand'
 
 function isArithmetic(op String) returns bool
 	return op == "+" or op == "-" or op == "*" or op == "/" or op == "mod" or op == "shl" or op == "shr"
 end 'isArithmetic'
 
-// outermostArithmetic is the whole arithmetic expression that e is part of.
+// outermostArithmetic is the whole arithmetic expression that e is part of, with the spawn around it if e is a spawn's call.
 export function outermostArithmetic(t Tree, e NodeID) returns NodeID
 	var at = e
 	var parent = arithmeticParent(t, e: at)

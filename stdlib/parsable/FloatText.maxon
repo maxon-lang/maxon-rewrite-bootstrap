@@ -120,7 +120,7 @@ function floatTextRead(text String, at Count) returns FloatTextRead throws Parse
 			if pastPoint 'fraction'
 				fractionDigits = try fractionDigits + 1 otherwise throw ParseError.invalidFormat
 			end 'fraction'
-			let d = try (c - ParseByte.zero.rawValue) as FloatTextLimb otherwise panic("FloatText: a digit is below 10")
+			let d = (c - ParseByte.zero.rawValue) as FloatTextLimb
 			if significant > 0 or d != 0 'counted'
 				significant = try significant + 1 otherwise throw ParseError.invalidFormat
 				floatTextMulAdd(digits, m: 10, add: d)

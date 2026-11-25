@@ -153,6 +153,7 @@ The program's own answer comes through the compiler's `Array` surface, which is 
 record it describes is destroyed exactly once.
 
 <!-- test: a-self-is-its-own-instance-record-keeps-its-parameter-opaque -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 enum BagError implements Error

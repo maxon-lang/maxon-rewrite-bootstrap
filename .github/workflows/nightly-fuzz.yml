@@ -1,0 +1,133 @@
+# The nightly fuzz: `fuzz --native` over 20,000 new seeds a night on arm64 macOS and arm64 Linux, sharded over the runner's cores
+# by cmd/fuzzshards/run.sh (README, "Continuous integration"). A night's first seed is the days since 2026-01-01 times 20,000, so
+# each night runs seeds no night ran before; a manual run may name its own range. A job fails when a shard finds a failure, names
+# the lowest failing seed and the command that reproduces it in its summary, and keeps the failing programs as an artifact. It
+# writes nothing to the repository and opens no issue.
+#
+# When the proven-access branch merges into main, each fuzz job also runs `fuzz --proofs` over a rotating range in the same way:
+# a second step of cmd/fuzzshards/run.sh with --proofs, its first seed rotated from the night's like the one below.
+name: nightly-fuzz
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      start:
+        description: "First seed (default: the night's, the days since 2026-01-01 times 20000)"
+        required: false
+        default: ""
+        type: string
+      count:
+        description: "Number of seeds (default: 20000)"
+        required: false
+        default: ""
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  SEEDS_PER_NIGHT: "20000"
+  # 2026-01-01 in days since 1970-01-01.
+  EPOCH_DAY: "20454"
+
+jobs:
+  # The range, decided once so that both hosts run the same seeds, and the arm64 Linux compiler, which only a compiler built
+  # from a seed can build, as arm64 Linux has no seed: the macOS seed builds self/, and that compiler builds itself for
+  # arm64-linux, as the linux-x64 job of ci.yml does.
+  prepare:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    outputs:
+      start: ${{ steps.range.outputs.start }}
+      count: ${{ steps.range.outputs.count }}
+    steps:
+      - name: Range
+        id: range
+        env:
+          START: ${{ inputs.start }}
+          COUNT: ${{ inputs.count }}
+        run: |
+          day=$(( $(date -u +%s) / 86400 - EPOCH_DAY ))
+          start=${START:-$(( day * SEEDS_PER_NIGHT ))}
+          count=${COUNT:-$SEEDS_PER_NIGHT}
+          case "$start$count" in
+            *[!0-9]*) echo "::error::start and count are numbers: start '$start', count '$count'"; exit 1 ;;
+          esac
+          [ "$count" -gt 0 ] || { echo "::error::count is at least 1"; exit 1; }
+          echo "seeds $start to $(( start + count - 1 )) ($count seeds), commit $GITHUB_SHA"
+          echo "start=$start" >> "$GITHUB_OUTPUT"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Seeds **$start** to **$(( start + count - 1 ))** ($count seeds), commit \`$GITHUB_SHA\`." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/checkout@v4
+      - name: Build the compiler from the seed
+        run: |
+          mkdir -p bin
+          ./seed/minimaxon-arm64-macos build self -o bin/minimaxon
+      - name: Cross-build the compiler for arm64 Linux
+        run: ./bin/minimaxon build self --target=arm64-linux --no-cache -o bin/minimaxon-arm64-linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: minimaxon-arm64-linux
+          path: bin/minimaxon-arm64-linux
+          if-no-files-found: error
+          retention-days: 1
+
+  macos-arm64:
+    needs: prepare
+    runs-on: macos-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the compiler from the seed
+        run: |
+          mkdir -p bin
+          ./seed/minimaxon-arm64-macos build self -o bin/minimaxon
+      - name: Fuzz
+        env:
+          START: ${{ needs.prepare.outputs.start }}
+          COUNT: ${{ needs.prepare.outputs.count }}
+          FUZZ_OUT: ${{ runner.temp }}/fuzz
+        run: bash cmd/fuzzshards/run.sh bin/minimaxon "$START" "$COUNT" --native
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fuzz-failures-macos-arm64
+          path: ${{ runner.temp }}/fuzz/failures
+          if-no-files-found: ignore
+          retention-days: 30
+
+  linux-arm64:
+    needs: prepare
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: minimaxon-arm64-linux
+          path: bin
+      # An artifact keeps no file mode. The compiler takes the name it has on every other host, so that the reproduction command
+      # is the same; it finds runtime/ and stdlib/ by walking up from bin/.
+      - name: Make the compiler executable
+        run: |
+          mv bin/minimaxon-arm64-linux bin/minimaxon
+          chmod +x bin/minimaxon
+      - name: Fuzz
+        env:
+          START: ${{ needs.prepare.outputs.start }}
+          COUNT: ${{ needs.prepare.outputs.count }}
+          FUZZ_OUT: ${{ runner.temp }}/fuzz
+        run: bash cmd/fuzzshards/run.sh bin/minimaxon "$START" "$COUNT" --native
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fuzz-failures-linux-arm64
+          path: ${{ runner.temp }}/fuzz/failures
+          if-no-files-found: ignore
+          retention-days: 30

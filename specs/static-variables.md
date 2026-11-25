@@ -591,7 +591,7 @@ hi3
 ```
 
 <!-- test: error.static-let-array-mutate -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 ⭐⭐ **THE WRITE-THROUGH-AN-IMMUTABLE-STATIC GUARD.** A receiver-writing method
 on a `static let` array is E3207 — the SAME rule
 `error.top-level-let-array-mutate` pins for a file-scope `let`, naming the qualified binding.
@@ -706,7 +706,7 @@ abcde
 ```
 
 <!-- test: error.top-level-let-array-mutate -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 A receiver-writing method on a `let`-bound array is E3207 — the SAME rule a `let`-bound String or Set
 receiver gets, because the array is immutable data. Without it a `let` array would be writable, since
 it has a real slot.
@@ -769,7 +769,7 @@ end 'main'
 ```
 
 <!-- test: error.top-level-let-array-var-alias -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 A `let` array's record cannot be laundered into a mutable ALIAS. A borrowed managed aggregate bound to a
 `var` is promoted to owned by an INCREF of the same box — reference semantics, deliberately, because the
 alias is observable — so without this refusal `var b = A` then `b.push(9)` would grow `A`. A `var` is a
@@ -801,7 +801,7 @@ error E3207: <fragment>:6:4: 'push' needs a writable receiver; 'b' is immutable
 ```
 
 <!-- test: error.top-level-let-array-var-reassign-alias -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 The same refusal through the other door — a REASSIGNMENT of an already-owned `var`, which promotes a
 borrowed value through the identical single-sourced path and so CARRIES the mark through the identical
 one. `b = A` is refused at the reassignment, as `var b = A` is at the binding.
@@ -929,7 +929,7 @@ error E3207: <fragment>:24:2: 'upsert' writes its receiver (line 170: `try value
 ```
 
 <!-- test: error.top-level-let-array-ternary-alias -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 And through a value MERGE, which is the door that costs one extra keyword. The mark that refuses the two
 above rides the VALUE, and a merge mints a NEW value — so the phi has to inherit it, or `var pick = A if c
@@ -951,7 +951,7 @@ error E3207: <fragment>:7:7: 'push' needs a writable receiver; 'pick' is immutab
 ```
 
 <!-- test: error.top-level-let-array-match-arm-alias -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same merge, through the `match`-expression door rather than the ternary — one `finalizeMatchMerge`
 serves both, so a phi that inherits the mark for one inherits it for the other by construction.
@@ -1003,7 +1003,7 @@ function main() returns ExitCode
 	index.upsert(1, value: stored)
 	var mine = pick(index, k: 9)
 	mine.push(3)
-	return Empty.count() as ExitCode
+	return try Empty.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -1421,7 +1421,7 @@ error E3220: <fragment>:12:9: the initializer of 'G' calls 'Box.make': a module-
 ```
 
 <!-- test: error.let-global-given-out-of-a-closure -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 A closure hands out a read of a module-level `let`, and a write through the name bound to what the closure returns is
 refused as a write through immutable data, as it is for a named function.
 ```maxon
@@ -1439,7 +1439,7 @@ error E3207: <fragment>:7:4: 'push' needs a writable receiver; 'b' is immutable
 ```
 
 <!-- test: error.let-global-alias-captured-by-a-closure -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ⛔⛔ **A CLOSURE MUST NOT LAUNDER THE TAINT.** A closure body is its own SSA space, so the per-value marks are
 swapped out at its boundary — correctly, since an id means nothing there — and the read of the module-level `let`
@@ -1479,7 +1479,7 @@ error E3207: <fragment>:21:42: 'grow' writes 'xs' (line 12: `xs.push("zz")`); 'e
 ```
 
 <!-- test: error.let-global-alias-across-an-if-merge -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ⛔ **A MERGE THAT REBINDS A NAME MUST CARRY THE MARK, NOT ONLY THE MERGES THAT PRODUCE A VALUE.**
 The ternary and `match … gives` merges carry it
@@ -1517,7 +1517,7 @@ error E3207: <fragment>:20:15: 'grow' writes 'xs' (line 11: `xs.push("zz")`); 'b
 ```
 
 <!-- test: error.let-global-alias-carried-by-a-loop -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ⛔ **AND A LOOP IS THE SAME MERGE WITH THE EDGE PUSHED BEFORE THE PHI IS NAMED.** On a back edge the binding's own value IS the pushed value, so
 the header phi — which is what every read of `b` after the loop resolves to — is a THIRD name for the
@@ -1631,7 +1631,7 @@ Ada
 ### A `let` initializer may not reach a managed `var`
 
 <!-- test: error.a-let-initializer-may-read-another-let -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1671,7 +1671,7 @@ function that hands it back declares `returns immutable` (E3209); a write throug
 carried through calls, witness dispatches and calls through function values.
 
 <!-- test: error.a-local-var-may-not-write-through-a-lets-record-a-call-hands-back -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1705,7 +1705,7 @@ error E3197: <fragment>:18:2: cannot write 'n' through 'w', which is immutable
 ```
 
 <!-- test: error.a-lets-record-a-call-handed-back-may-not-go-to-a-writing-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1746,7 +1746,7 @@ error E3207: <fragment>:25:7: 'bump' writes 'b' (line 17: `b.n = 9`); 'Box.curre
 ```
 
 <!-- test: error.a-local-var-may-not-write-through-a-lets-record-an-await-hands-back -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1987,7 +1987,7 @@ error E3006: <fragment>:3:5: duplicate definition of 'A' — already declared as
 ```
 
 <!-- test: error.top-level-let-array-owned-merge-alias -->
-<!-- positions: moved -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 The FOURTH door onto the same guard. The three above all reach it as a `var`
 BINDING; this one reaches it as a MERGE that must be OWNED because its other arm gives a fresh record —
 so the borrowed arm is promoted, and for an aggregate a promotion is an INCREF of the same box. That is
@@ -2009,7 +2009,7 @@ function main() returns ExitCode
 	let c = true
 	var pick = A if c else fresh()
 	pick.push("qq")
-	return try A.count() as ExitCode otherwise panic("out of range")
+	return A.count()
 end 'main'
 ```
 ```maxoncstderr
@@ -2032,13 +2032,13 @@ typealias Names = Array with Integer
 let sharedEmptyNames = Names.create(0)
 
 function pairable(bound Names, wanted Names) returns Names
-	return sharedEmptyNames if bound.count() < wanted.count() else wanted
+	return sharedEmptyNames if bound.count() < wanted.count() else wanted.clone()
 end 'pairable'
 
 function main() returns ExitCode
-	let a = Names.create(0)
+	var a = Names.create(0)
 	a.push(1)
-	let b = Names.create(0)
+	var b = Names.create(0)
 	b.push(2)
 	b.push(3)
 	let short = pairable(a, wanted: b)
@@ -2072,8 +2072,8 @@ typealias Bits = Array with Integer
 let sharedEmptyBits = Bits.create(0)
 
 function withRootBits(base Bits, bits Integer) returns Bits
-	let out = Bits.create(0)
-	out.push((base.count() as Integer) + bits)
+	var out = Bits.create(0)
+	out.push(try (base.count() as Integer) + bits otherwise panic("out of range"))
 	return out
 end 'withRootBits'
 
@@ -2112,14 +2112,14 @@ typealias Bits = Array with Integer
 let bits = Bits.create(0)
 
 function localWins() returns Bits
-	let bits = Bits.create(0)
+	var bits = Bits.create(0)
 	bits.push(7)
 	bits.push(9)
 	return bits
 end 'localWins'
 
 function main() returns ExitCode
-	let got = localWins()
+	var got = localWins()
 	got.push(11)
 	print("global={bits.count()} local={got.count()}")
 	return 0
@@ -2152,11 +2152,11 @@ typealias Names = Array with Integer
 let sharedEmptyNames = Names.create(0)
 
 function describe(names Names = sharedEmptyNames) returns Integer
-	return names.count()
+	return try names.count() as Integer otherwise panic("out of range")
 end 'describe'
 
 function main() returns ExitCode
-	let given = Names.create(0)
+	var given = Names.create(0)
 	given.push(7)
 	given.push(9)
 	print("omitted={describe()} written={describe(sharedEmptyNames)} given={describe(given)}")
@@ -2180,11 +2180,11 @@ typealias Names = Array with Integer
 let sharedEmptyNames = Names.create(0)
 
 function shared() returns frozen with Names
-	return sharedEmptyNames
+	return freeze(sharedEmptyNames)
 end 'shared'
 
-function describe(names Names = shared()) returns Integer
-	return names.count()
+function describe(names Names = thaw(shared())) returns Integer
+	return try names.count() as Integer otherwise panic("out of range")
 end 'describe'
 
 function main() returns ExitCode
@@ -2200,7 +2200,7 @@ omitted=0
 ```
 
 <!-- test: a-defaulted-global-may-not-reach-a-mutating-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ⭐ **THE CONTROL FOR THE NAME, AND IT IS THE HALF THAT MUST NOT BREAK.** Admitting the default is only
 half of the rule; the other half is that the refusal is at the write rather than dropped. The
@@ -2229,7 +2229,7 @@ error E3207: <fragment>:13:12: 'grow' writes 'names' (line 8: `names.push(1)`); 
 ```
 
 <!-- test: a-defaulted-accessor-call-may-not-reach-a-mutating-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ⭐⭐ **THE CONTROL FOR THE ACCESSOR — AND ITS FAILURE WOULD BE A WRONG ANSWER, NOT A REFUSAL.** Identical to
 the case above but for the default naming the global through `shared()`: accepted, the `push` would mutate
@@ -2264,7 +2264,7 @@ error E3207: <fragment>:17:12: 'grow' writes 'names' (line 12: `names.push(1)`);
 ```
 
 <!-- test: a-field-default-naming-a-let-global-is-still-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ⛔⛔ **A FIELD DEFAULT THAT NAMES A MODULE-LEVEL `let` STORES THE GLOBAL'S RECORD INTO A MUTABLE FIELD, AND IS
 REFUSED.** A parameter default hands the record to a call argument, where a mutating callee is refused. A

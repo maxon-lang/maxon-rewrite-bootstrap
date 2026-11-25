@@ -317,7 +317,7 @@ read=closed write=closed copy=closed
 ```
 
 <!-- test: shared-memory-builtins.a-clone-of-a-segment-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ⛔ **A SEGMENT HAS ONE OWNER, SO IT HAS NO COPY.** A copy of a segment record would be a second name for one mapping, and closing the original would unmap it under the copy. `SharedSegment` is unique, so `clone()` is refused (E3214) and no program holds a handle whose mapping another handle can close.
 ```maxon

@@ -2907,6 +2907,7 @@ end 'main'
 ```
 
 <!-- test: a-closure-capturing-a-borrowed-field-is-run-by-a-coroutine-after-its-block -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 ### A coroutine runs a closure capturing a field read after the closure's block
 The coroutine owns the closure, whose environment holds `inner` past the rebind of `b`.
 ```maxon
@@ -2945,7 +2946,7 @@ function main() returns ExitCode
 	let inner = b.inner
 	var p = async nothing()
 	if inner.label.byteLength() > 0 'nested'
-		let peek = function() gives try inner.label.byteLength() as Integer otherwise panic("out of range")
+		let peek = function() gives inner.label.byteLength() as Integer
 		p.cancel()
 		p = async later(peek)
 	end 'nested'

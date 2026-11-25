@@ -1,0 +1,25 @@
+// A loop that pops while the array is not empty is proven by the range analysis: each pop is the twin with no test of the
+// count, so the function has no `bounds` and never calls the panic of an empty slot. Its compares are the loop's test of
+// emptiness, where it is entered and at the end of its rotated body: the count is the property, since a checked pop would add
+// its own test of the count.
+// expect-ir: drainAll has no bounds
+// expect-ir: drainAll has 2 cmp
+// expect-ir: drainAll does not call rt.panicEmptySlot
+
+function drainAll(mutates stack Array with Count) returns Count
+	var total = 0 as Count
+	while not stack.isEmpty() 'drain'
+		let top = stack.pop()
+		total = try total + top otherwise 0
+	end 'drain'
+	return total
+end 'drainAll'
+
+function main() returns ExitCode
+	var stack = Array.create(0) as Array with Count
+	for i in 0 upto 5 'fill'
+		stack.push(i)
+	end 'fill'
+	print("{drainAll(stack)} {stack.count()}\n")
+	return 0
+end 'main'

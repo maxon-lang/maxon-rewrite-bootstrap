@@ -584,7 +584,7 @@ function checkFieldMember(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	return ast.fieldType(ms.types, reads: p.types, owner: rt, index: index)
 end 'checkFieldMember'
 
-function builtinMemberType(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, t ast.TypeID, member String, mutates errs diag.ErrorList) returns ast.TypeID
+function builtinMemberType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, t ast.TypeID, member String, mutates errs diag.ErrorList) returns ast.TypeID
 	let isEnum = kindOfType(p, ms: ms, t: t) == ast.TypeKind.enumTy
 	var kind = ast.MemberKind.memberUnionName
 	var result = p.builtins.stringTy
@@ -596,13 +596,19 @@ function builtinMemberType(mutates c Checker, p ast.Project, ms ast.ModuleState,
 		end 'enumOrdinal'
 	end 'ordinal' else if member == "rawValue" 'raw'
 		kind = ast.MemberKind.memberUnionRaw
+		var caseKind = ast.MemberKind.memberUnionCase
 		if isEnum 'enumRaw'
 			kind = ast.MemberKind.memberEnumRaw
+			caseKind = ast.MemberKind.memberEnumCase
 		end 'enumRaw'
 		result = rawValueType(p, ms: ms, t: t)
 		if result == ast.noType 'untyped'
 			return failRawUntyped(c, p: p, ms: ms, e: e, t: t, errs: errs)
 		end 'untyped'
+		let constant = caseRawConstant(c, p: p, ms: ms, e: ast.memberExprObj(ms.tree(), id: e), kind: caseKind)
+		if constant != ast.noType 'constant'
+			result = constant
+		end 'constant'
 	end 'raw' else if isEnum 'enumName'
 		kind = ast.MemberKind.memberEnumName
 	end 'enumName'

@@ -537,7 +537,7 @@ let NoItems = Items.create(0)
 let NoMoreItems = Items.create(0, zeroed: false)
 
 function main() returns ExitCode
-	return (NoItems.count() + NoMoreItems.count()) as ExitCode
+	return try (NoItems.count() + NoMoreItems.count()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

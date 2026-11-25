@@ -724,6 +724,16 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			wantTodo: "a use of withIterator()'s iterator other than its index()",
 		},
 		{
+			name:     "the identity operator",
+			in:       "function f(a String, b String) returns bool\n\treturn a is not b\nend 'f'\n",
+			wantTodo: "minimaxon has no identity operator",
+		},
+		{
+			name:     "the identity operator in an interpolation",
+			in:       "function f(a String, b String)\n\tprint(\"{a is b}\")\nend 'f'\n",
+			wantTodo: "minimaxon has no identity operator",
+		},
+		{
 			name:     "reserved word collision",
 			in:       "function f(when Count)\n\tlet sets = when\nend 'f'\n",
 			wantTodo: "keyword in minimaxon",

@@ -21,7 +21,7 @@ over as an owned value, which goes anywhere an `isolated` value goes.
 ## Tests
 
 <!-- test: error.a-plain-union-lends-its-isolated-payload-where-an-isolated-value-is-wanted -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `u` is a plain union built from an `isolated` value, and the arm hands the payload to an `isolated` parameter.
 
@@ -60,7 +60,7 @@ error E3198: <fragment>:27:20: 'o' is isolated and cannot be read outside a bloc
 ```
 
 <!-- test: error.two-names-for-a-plain-union-cannot-give-its-isolated-payload-two-owners -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `v` is a second name for the union `u` holds, so each `match` would hand the one payload to its own owner.
 
@@ -104,7 +104,7 @@ error E3198: <fragment>:28:21: 'oa' is isolated and cannot be read outside a blo
 ```
 
 <!-- test: error.an-alias-of-a-plain-union-read-after-a-hand-over-is-refused-at-the-hand-over -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The second `match` only reads the payload, and the first still hands it over, which is where the refusal is.
 
@@ -148,7 +148,7 @@ error E3198: <fragment>:28:21: 'oa' is isolated and cannot be read outside a blo
 ```
 
 <!-- test: error.a-call-that-keeps-a-plain-union-leaves-its-isolated-payload-lent -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `keepU` stores the union in a holder, which then names the payload the `match` over `u` would hand away.
 
@@ -205,7 +205,7 @@ error E3198: <fragment>:42:21: 'oa' is isolated and cannot be read outside a blo
 ```
 
 <!-- test: error.a-call-that-returns-a-plain-union-leaves-its-isolated-payload-lent -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `idU` answers the union it was given, so `v` and `u` name one union.
 
@@ -396,7 +396,7 @@ error E3102: <fragment>:27:25: use of moved value 'o': its ownership moved to an
 ```
 
 <!-- test: error.a-box-union-lends-its-isolated-payload-where-an-isolated-value-is-wanted -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A case with a second payload makes the union a heap box rather than one word, and the payload is lent all the same.
 
@@ -597,7 +597,7 @@ error E3102: <fragment>:29:20: cannot lend 'uV' to parameter 'u' of 'Tk.absorb',
 ```
 
 <!-- test: a-by-reference-pass-of-the-matched-variable-to-a-function-value-in-a-binding-arm-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `BothFn` declares its first parameter `mutable`, so a call through `f` passes `uV` by reference, and `uV` stays put in the `have(tV)` arm that binds its payload.
 ```maxon
@@ -733,7 +733,7 @@ end 'main'
 ```
 
 <!-- test: a-by-reference-pass-of-the-matched-variable-to-an-interface-method-in-a-binding-arm-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Both.both` declares its first parameter `mutable`, so a call through the interface value `w` passes `uV` by reference, whichever conformer `w` holds, and `uV` stays put in the `have(tV)` arm that binds its payload.
 ```maxon
@@ -972,7 +972,7 @@ error E3197: <fragment>:31:16: cannot write 'n' through 'h', which is read-only 
 ```
 
 <!-- test: the-holder-of-a-matched-field-passed-to-a-writing-parameter-in-the-arm-that-lends-it-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `bump` writes `h`, which is read-only in the arm that `match h.u` lends from.
 ```maxon
@@ -1371,7 +1371,7 @@ error E3197: <fragment>:31:14: cannot write 'n' through 'h', which is read-only 
 ```
 
 <!-- test: error.a-cond-subjects-roots-stay-put-over-a-plain-union -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Over a union with only plain payloads the roots of a `cond` subject stay put in every arm: `first` is not reassigned there.
 ```maxon
@@ -1456,7 +1456,7 @@ end 'main'
 ```
 
 <!-- test: error.an-arm-that-binds-a-plain-payload-may-not-reassign-the-matched-variable -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The `held(b)` arm binds a payload of `s`, so `s` stays put there even though `Slot` holds only plain data (ruling 29).
 ```maxon
@@ -1489,7 +1489,7 @@ error E3203: <fragment>:22:16: 's' roots what 'which' lends or iterates and cann
 ```
 
 <!-- test: error.an-arm-that-binds-a-plain-payload-may-not-pass-the-matched-variable-by-reference -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `refill` may replace `s`, so `s` is not passed by reference inside the `held(b)` arm that binds its payload.
 ```maxon
@@ -2029,7 +2029,7 @@ end 'main'
 ```
 
 <!-- test: error.a-tuple-rebind-of-a-cond-subjects-root-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A tuple assignment rebinds `first` as a plain assignment does, so it may not rebind a root of the `cond` subject inside an arm.
 ```maxon
@@ -2069,7 +2069,7 @@ error E3203: <fragment>:24:14: 'first' roots what 'which' lends or iterates and 
 ```
 
 <!-- test: error.a-by-reference-pass-of-a-cond-subjects-root-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `mutable` parameter may replace `first`, so `first` is not passed by reference inside an arm of a `match` whose `cond` subject it roots.
 ```maxon
@@ -2237,7 +2237,7 @@ error E3102: <fragment>:29:8: use of moved value 's': its ownership moved to the
 ```
 
 <!-- test: error.a-held-matched-variable-is-not-sent-from-a-binding-arm -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `u` is held by its `match` in every arm, so it is not a send's argument there (ruling 49).
 ```maxon
@@ -2290,7 +2290,7 @@ error E3214: <fragment>:42:39: cannot hand 'u' to the service it is sent to: 'u'
 ```
 
 <!-- test: error.a-held-matched-variable-is-not-sent-from-an-arm-that-binds-nothing -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An arm that binds nothing may move `u` in this thread (ruling 45), but `u` is still held by its `match`, so it is not a send's argument (ruling 49).
 ```maxon
@@ -2343,7 +2343,7 @@ error E3214: <fragment>:41:37: cannot hand 'u' to the service it is sent to: 'u'
 ```
 
 <!-- test: error.a-held-matched-variable-is-not-a-spawn-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `u` is held by its `match` in every arm, so it is not a `spawn` factory's argument there (ruling 49).
 ```maxon
@@ -2393,7 +2393,7 @@ error E3214: <fragment>:38:40: cannot hand 'u' to the service the `spawn` starts
 ```
 
 <!-- test: error.a-call-result-that-may-be-the-held-matched-variable-is-not-sent -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `idSlot(u)` may hand back `u`, which its `match` still holds, so the result is not the whole of its region at the send (ruling 49).
 ```maxon
@@ -2450,7 +2450,7 @@ error E3200: <fragment>:45:37: 'idSlot(u)' crosses to the service it is sent to 
 ```
 
 <!-- test: error.a-call-result-that-may-be-the-held-matched-variable-is-not-sent-from-a-binding-arm -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The binding arm sends `idSlot(u)`, which may hand back `u` while its `match` holds it, so the result is not the whole of its region at the send (ruling 49, the model's AI a7).
 ```maxon
@@ -2508,7 +2508,7 @@ error E3200: <fragment>:46:39: 'idSlot(u)' crosses to the service it is sent to 
 ```
 
 <!-- test: error.an-element-read-subject-holds-its-container -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `match try a.get(0) otherwise panic("one")` reads an element of `a`, so the `match` holds `a` itself, and a binding arm does not send it (rulings 49 and 50).
 ```maxon
@@ -2560,7 +2560,7 @@ error E3214: <fragment>:40:43: cannot hand 'a' to the service it is sent to: 'a'
 ```
 
 <!-- test: error.a-pop-from-an-element-read-subject-is-not-sent -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `a.pop()` in an arm that binds nothing is legal (ruling 45.1), but its result is taken out of `a`, which the `match` holds, so it is not the whole of its region at the send (ruling 50 point 2).
 ```maxon
@@ -2616,7 +2616,7 @@ error E3200: <fragment>:45:36: 'try a.pop() otherwise panic("one")' crosses to t
 ```
 
 <!-- test: error.a-swap-out-of-a-matched-self-field-is-not-sent -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `match h.u` holds `h`, the root of the path, so what `swap h.u with Slot.empty` takes out of the matched field is held and is not sent (ruling 50 points 1 and 2).
 ```maxon
@@ -2677,7 +2677,7 @@ error E3200: <fragment>:50:36: 'swap h.u with Slot.empty' crosses to the service
 ```
 
 <!-- test: error.a-held-pop-result-is-not-a-spawn-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 What `a.pop()` takes out of `a` is held by the `match` over `a.get(0)`, so it is not a `spawn` factory's argument (ruling 50 point 2).
 ```maxon
@@ -2730,7 +2730,7 @@ error E3200: <fragment>:41:37: 'try a.pop() otherwise panic("one")' crosses to t
 ```
 
 <!-- test: error.a-held-pop-result-is-not-a-reply -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 What `a.pop()` takes out of `a` is held by the `match` over `a.get(0)`, so a service method does not return it to its sender from the arm (ruling 50 point 2).
 ```maxon
@@ -2786,7 +2786,7 @@ error E3200: <fragment>:33:21: 'try a.pop() otherwise panic("one")' crosses to t
 ```
 
 <!-- test: error.a-held-pop-result-is-not-in-an-isolated-position -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 What `a.pop()` takes out of `a` is held by the `match` over `a.get(0)`, so it is not an `isolated` parameter's argument (ruling 50 point 2).
 ```maxon
@@ -2831,7 +2831,7 @@ error E3200: <fragment>:33:27: 'try a.pop() otherwise panic("one")' crosses to a
 ```
 
 <!-- test: error.a-held-swap-result-is-not-an-isolated-factory-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 What `swap h.u with Slot.empty` takes out of the matched field is held by the `match` over `h.u`, so it is not an `isolated` factory parameter's argument (ruling 50 point 2).
 ```maxon
@@ -2889,7 +2889,7 @@ error E3200: <fragment>:46:37: 'swap h.u with Slot.empty' crosses to an `isolate
 ```
 
 <!-- test: error.a-held-swap-result-is-not-an-isolated-reply -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 What `swap h.u with Slot.empty` takes out of the matched field is held by the `match` over `h.u`, so a method that `returns isolated` does not return it from the arm (ruling 50 point 2).
 ```maxon
@@ -2950,7 +2950,7 @@ error E3200: <fragment>:38:21: 'swap h.u with Slot.empty' crosses to an `isolate
 ```
 
 <!-- test: error.a-held-swap-result-is-not-in-an-isolated-position -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 What `swap h.u with Slot.empty` takes out of the matched field is held by the `match` over `h.u`, so it is not an `isolated` parameter's argument (ruling 50 point 2).
 ```maxon
@@ -3000,7 +3000,7 @@ error E3200: <fragment>:38:27: 'swap h.u with Slot.empty' crosses to an `isolate
 ```
 
 <!-- test: error.a-held-call-result-is-not-a-spawn-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `idSlot(u)` may hand back `u`, which its `match` still holds, so the result is not a `spawn` factory's argument (ruling 50 point 1).
 ```maxon
@@ -3054,7 +3054,7 @@ error E3200: <fragment>:41:38: 'idSlot(u)' crosses to the service the `spawn` st
 ```
 
 <!-- test: error.a-held-call-result-is-not-a-reply -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `idSlot(u)` may hand back `u`, which its `match` still holds, so a service method does not return it to its sender from the arm (ruling 50 point 1).
 ```maxon
@@ -3111,7 +3111,7 @@ error E3200: <fragment>:29:22: 'idSlot(u)' crosses to the sender awaiting the re
 ```
 
 <!-- test: error.a-held-call-result-is-not-in-an-isolated-position -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `idSlot(u)` may hand back `u`, which its `match` still holds, so the result is not an `isolated` parameter's argument (ruling 50 point 1).
 ```maxon
@@ -3157,7 +3157,7 @@ error E3200: <fragment>:33:28: 'idSlot(u)' crosses to an `isolated` position onl
 ```
 
 <!-- test: error.a-renamed-held-result-is-not-sent -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `r` is assigned what `a.pop()` took out of `a`, which the `match` holds, so `r` is held too and is not sent (ruling 50 point 1: a binding a held value is moved into).
 ```maxon
@@ -3214,7 +3214,7 @@ error E3200: <fragment>:46:36: 'r' crosses to the service it is sent to only as 
 ```
 
 <!-- test: error.a-holder-that-stored-a-held-value-is-not-sent -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `box` is a holder that `a.pop()`'s held result was stored into a field of, so `box` is held too and is not sent (ruling 50 point 1: a holder a held value is stored into).
 ```maxon
@@ -3279,7 +3279,7 @@ error E3200: <fragment>:54:39: 'box' crosses to the service it is sent to only a
 ```
 
 <!-- test: error.a-root-whose-field-alias-stored-a-held-value-is-not-sent -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `inner` is a destructured alias of the tuple field `crate.pr`, and what `a.pop()` took out of `a` was stored into it, so `crate`, the root the alias names, is held too and is not sent (ruling H-10: a holder chain through a destructured alias).
 ```maxon
@@ -3356,7 +3356,7 @@ error E3200: <fragment>:66:41: 'crate' crosses to the service it is sent to only
 ```
 
 <!-- test: error.a-root-whose-field-alias-is-matched-is-not-sent -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `inner` is a destructured alias of the tuple field `crate.pr` and the `match` holds it across its arms, so `crate`, the root the alias names, is held and is not sent from an arm (ruling H-10: the subject's alias chain).
 ```maxon
@@ -3430,7 +3430,7 @@ error E3214: <fragment>:63:41: cannot hand 'crate' to the service it is sent to:
 ```
 
 <!-- test: error.a-root-two-holders-up-whose-field-alias-stored-a-held-value-is-not-sent -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `inner` aliases a tuple field of `shelf.cr`, a holder two hops below `shelf`, and what `a.pop()` took out of `a` was stored into it, so `shelf` is held too and is not sent (ruling H-10: the chain is followed to the root).
 ```maxon
@@ -3594,7 +3594,7 @@ end 'main'
 
 
 <!-- test: error.a-root-whose-plain-field-alias-stored-a-held-value-is-not-an-isolated-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `inner` is a plain alias of the field `crate.bag`, whose `Bag` holds no unique value, and what `a.pop()` took out of `a` was stored through it, so `crate`, the root the alias names, is held and is not an `isolated` parameter's argument (ruling H-11). The case pins the order of two refusals: without the holder chain the same program is refused as "'crate' is not isolated".
 ```maxon
@@ -3655,7 +3655,7 @@ error E3200: <fragment>:49:24: 'crate' crosses to an `isolated` position only as
 ```
 
 <!-- test: error.a-root-whose-plain-field-alias-is-matched-is-not-an-isolated-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `inner` is a plain alias of the field `crate.bag`, whose `Bag` holds no unique value, and the `match` holds `inner.item` across its arms, so `crate`, the root the alias names, is matched by the arm too and is not an `isolated` parameter's argument from it (ruling H-11). The case pins the order of two refusals: without the holder chain the same program is refused as "'crate' is not isolated".
 ```maxon
@@ -3795,7 +3795,7 @@ end 'main'
 ```
 
 <!-- test: error.a-held-value-crosses-from-a-subject-that-is-a-var -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `var` is held like a `let`: what `a.pop()` takes out of the `var` `a` is held by the `match` over `a.get(0)`, so it is not sent, and `a` is reassigned only after the `match` (ruling 50 point 2).
 ```maxon
@@ -3852,7 +3852,7 @@ error E3200: <fragment>:45:36: 'try a.pop() otherwise panic("one")' crosses to t
 ```
 
 <!-- test: error.a-held-value-crosses-from-a-subject-that-is-a-mutable-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `mutable` parameter is held like a local: what `a.pop()` takes out of the `mutable` parameter `a` is held by the `match` over `a.get(0)`, so it is not sent (ruling 50 point 2).
 ```maxon
@@ -3912,7 +3912,7 @@ error E3200: <fragment>:42:36: 'try a.pop() otherwise panic("one")' crosses to t
 ```
 
 <!-- test: error.a-held-value-crosses-from-a-subject-that-is-a-self-field -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `match self.u` in a method holds `self`, the root of the path, so what `swap self.u with Slot.empty` takes out of the matched field is not sent (ruling 48 point 1; ruling 50 point 2).
 ```maxon
@@ -4043,7 +4043,7 @@ error E3200: <fragment>:53:42: 'try a.pop() otherwise panic("one")' crosses to t
 ```
 
 <!-- test: error.a-held-value-crosses-from-a-subject-that-is-an-acquired-state-inside-acquire -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 Inside `acquire`, the name `s` is the acquired state and resolves to the binding it shadows, so what `s.a.pop()` takes out of the state is held by the `match` over `s.a.get(0)` and is not a `spawn` factory's argument (#235; ruling 50 point 2).
 ```maxon
@@ -4092,7 +4092,7 @@ end 'Keeper'
 
 function main() returns ExitCode
 	let s = spawn Vault.create(Slot.held(Token.create(2)))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match try s.a.get(0) otherwise panic("one") 'm'
 			empty then break
@@ -4168,7 +4168,7 @@ error E3200: <fragment>:44:42: 'try a.pop() otherwise panic("one")' crosses to t
 ```
 
 <!-- test: error.a-held-swap-result-is-not-a-spawn-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A crossing door is chosen by the parameter's declaration, so a held `swap` result handed to an unmarked `spawn` factory parameter meets the `spawn` door, which refuses it because it may still name the holder the `match` holds (ruling 50 point 2). The case pins the order of two refusals: without the hold the same `swap` result is refused at the unmarked factory parameter as "'create' hands back mutable data of the isolated region it opens", as `error.an-unheld-swap-result-is-opened-by-an-unmarked-spawn-parameter` shows.
 ```maxon
@@ -4226,7 +4226,7 @@ error E3200: <fragment>:46:37: 'swap h.u with Slot.empty' crosses to the service
 ```
 
 <!-- test: error.an-unheld-swap-result-is-opened-by-an-unmarked-spawn-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A swap result is isolated, so an unmarked `spawn` factory parameter opens it rather than crossing it, and this pin goes red if a swap result ever slips through the unmarked spawn door.
 ```maxon
@@ -4281,7 +4281,7 @@ error E3201: <fragment>:44:19: 'create' hands back mutable data of the isolated 
 ```
 
 <!-- test: error.a-held-swap-result-is-not-a-reply -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 What `swap h.u with Slot.empty` takes out of the matched field is held by the `match` over `h.u`, so a service method does not return it to its sender from the arm through an unmarked return (ruling 50 point 2; #282). The case pins the order of two refusals: without the hold the same `return` is refused as "'swap h.u with Slot.empty' is isolated, the result is not `isolated`".
 ```maxon
@@ -4342,7 +4342,7 @@ error E3200: <fragment>:38:21: 'swap h.u with Slot.empty' crosses to the sender 
 ```
 
 <!-- test: error.a-call-subjects-argument-stays-put-in-a-binding-arm -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A call subject holds the arguments that can reach its result, so `match next(v)` holds `v` and the `held(x)` arm may not reassign it (ruling 50 point 4, the roots a call subject adds stay put).
 ```maxon
@@ -4385,7 +4385,7 @@ error E3203: <fragment>:30:17: 'v' roots what 'm' lends or iterates and cannot b
 ```
 
 <!-- test: error.an-element-read-subjects-container-stays-put-in-a-binding-arm -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An element read subject `match try xs.get(i) otherwise …` holds `xs` (the container it reads, not the index `i`), so the `held(b)` arm may not reassign it (ruling 50 point 4, the roots a call subject adds stay put).
 ```maxon
@@ -4670,7 +4670,7 @@ end 'main'
 ```
 
 <!-- test: error.a-copy-of-a-matched-root-is-not-sent-after-the-statement -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `w = a` copies the root `a` of the holding `match` in one statement, and the copy is sent in the next, so it is held too (ruling 1: a value's hold is decided when it is minted).
 ```maxon
@@ -4723,7 +4723,7 @@ error E3200: <fragment>:41:40: 'w' crosses to the service it is sent to only as 
 ```
 
 <!-- test: error.a-held-closures-call-result-is-not-sent -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `f` captures `u`, which the `match` holds, so what `f()` returns may still name `u` and is not sent to a service (ruling 50 points 3 and 1).
 ```maxon
@@ -4781,7 +4781,7 @@ error E3200: <fragment>:47:36: 'f()' crosses to the service it is sent to only a
 ```
 
 <!-- test: error.a-held-closures-call-result-is-not-a-spawn-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `f` captures `u`, which the `match` holds, so what `f()` returns may still name `u` and is not a `spawn` factory's argument (ruling 50 points 3 and 1).
 ```maxon
@@ -4834,7 +4834,7 @@ error E3200: <fragment>:41:37: 'f()' crosses to the service the `spawn` starts o
 ```
 
 <!-- test: error.a-held-closures-call-result-is-not-a-reply -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `f` captures `u`, which the `match` holds, so what `f()` returns may still name `u` and a service method does not return it to its sender (ruling 50 points 3 and 1).
 ```maxon

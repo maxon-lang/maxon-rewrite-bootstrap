@@ -254,7 +254,7 @@ function main() returns ExitCode
 	try n.items.set(1, value: "delta") otherwise return 1
 	let first = try n.at(0) otherwise return 1
 	let second = try n.items.get(1) otherwise return 1
-	if first.byteLength() + second.byteLength() != 10 'names'
+	if (try first.byteLength() + second.byteLength() otherwise panic("out of range")) != 10 'names'
 		return 3
 	end 'names'
 	return 0

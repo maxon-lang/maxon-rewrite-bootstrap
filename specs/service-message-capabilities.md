@@ -22,7 +22,7 @@ factory that `spawn` names. A message parameter that is a promise, a function va
 ## Tests
 
 <!-- test: error.an-unmarked-record-parameter-is-refused -->
-<!-- positions: moved -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 `plot` takes a `Point` with no capability word.
 
 ```maxon
@@ -44,8 +44,8 @@ type Plotter
 		return Self{total: 0}
 	end 'create'
 
-	export function plot(mutates self, point Point)
-		self.total = try self.total + point.x + point.y otherwise panic("out of range")
+	export function plot(point Point)
+		self.total = self.total + point.x + point.y
 	end 'plot'
 end 'Plotter'
 
@@ -60,6 +60,7 @@ error E3217: <fragment>:26:16: parameter `point` of the message `Plotter.plot` i
 ```
 
 <!-- test: error.an-unmarked-record-reply-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 `origin` returns a `Point` with no capability word.
 
 ```maxon
@@ -97,7 +98,7 @@ error E3217: <fragment>:26:16: the message `Plotter.origin` returns a `Point` wi
 ```
 
 <!-- test: error.an-unmarked-union-reply-is-refused -->
-<!-- positions: moved -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 A union that carries a `ByteArray` is data of the region like a record.
 
 ```maxon
@@ -115,8 +116,8 @@ type Finder
 		return Self{calls: 0}
 	end 'create'
 
-	export function find(mutates self, key Integer) returns Outcome
-		self.calls = try self.calls + key otherwise panic("out of range")
+	export function find(key Integer) returns Outcome
+		self.calls = self.calls + key
 		return Outcome.missing
 	end 'find'
 end 'Finder'
@@ -132,6 +133,7 @@ error E3217: <fragment>:23:15: the message `Finder.find` returns a `Outcome` wit
 ```
 
 <!-- test: error.an-unmarked-union-parameter-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same union as a parameter.
 
@@ -150,12 +152,12 @@ type Finder
 		return Self{calls: 0}
 	end 'create'
 
-	export function record(mutates self, outcome Outcome)
+	export function record(outcome Outcome)
 		let weight = match outcome 'weight'
-			found(name) gives try name.count() as Integer otherwise panic("out of range")
+			found(name) gives name.count() as Integer
 			missing gives 0 as Integer
 		end 'weight'
-		self.calls = try self.calls + weight otherwise panic("out of range")
+		self.calls = self.calls + weight
 	end 'record'
 end 'Finder'
 
@@ -170,6 +172,7 @@ error E3217: <fragment>:27:15: parameter `outcome` of the message `Finder.record
 ```
 
 <!-- test: error.an-unmarked-array-of-records-parameter-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An array is data of the region whatever its element.
 
@@ -193,8 +196,8 @@ type Plotter
 		return Self{total: 0}
 	end 'create'
 
-	export function plotAll(mutates self, points PointArray)
-		self.total = try self.total + (points.count() as Integer) otherwise panic("out of range")
+	export function plotAll(points PointArray)
+		self.total = self.total + (points.count() as Integer)
 	end 'plotAll'
 end 'Plotter'
 
@@ -209,6 +212,7 @@ error E3217: <fragment>:26:16: parameter `points` of the message `Plotter.plotAl
 ```
 
 <!-- test: error.an-unmarked-array-of-numbers-parameter-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An array of numbers is still an array: the elements are values, the array is not.
 
@@ -224,8 +228,8 @@ type Summer
 		return Self{total: 0}
 	end 'create'
 
-	export function add(mutates self, numbers IntegerArray)
-		self.total = try self.total + (numbers.count() as Integer) otherwise panic("out of range")
+	export function add(numbers IntegerArray)
+		self.total = self.total + (numbers.count() as Integer)
 	end 'add'
 end 'Summer'
 
@@ -284,6 +288,7 @@ error E3217: <fragment>:33:16: parameter `shape` of the message `Painter.paint` 
 ```
 
 <!-- test: error.an-unmarked-factory-parameter-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 `create` takes a `Point` with no capability word, and the `spawn` names `create`.
 
 ```maxon

@@ -113,5 +113,5 @@ copy with its bounds. The compiler's `.text` falls from 5,500,151 to 5,385,463 b
 
 At P10 the range analysis judges the 11,858 subscripts of `self/` and proves 2,616 of them (22%); `stdlib/` has 55, 13
 proven, and `runtime/` none. The bounds in the compiler's own IR fall from 11744 to 10248 (-12.7%), and its `.text` from
-5,480,887 to 4,558,890 bytes (-16.8%). From the merge base with main (e9db0f07, 11321 bounds and 3779 empty-slot) to P10 the
-self-build is 4.4% faster.
+5,480,887 to 5,455,735 bytes (-25,152 bytes, -0.46%, about 17 bytes per removed check). From the merge base with main
+(e9db0f07, 11321 bounds and 3779 empty-slot) to P10 the self-build is 4.4% faster.

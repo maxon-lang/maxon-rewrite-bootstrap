@@ -5,7 +5,7 @@
 // apart in what they check. A step that cannot run on the host says so and why, and is skipped; every other step that fails
 // stops the command.
 //
-//	go run ./cmd/gate check [test args...]
+//	go run ./cmd/gate check [--record-specs=<maxon specs dir>] [test args...]
 //	go run ./cmd/gate suites <compiler> [test args...]
 //	go run ./cmd/gate seed [--staged]
 //	go run ./cmd/gate specs <maxon specs dir>
@@ -31,7 +31,9 @@ import (
 )
 
 const usage = `usage:
-  gate check [test args...]          the gate: Go checks, generators, a compiler from the seed and the suites on it
+  gate check [--record-specs=<maxon specs dir>] [test args...]
+                                     the gate: Go checks, generators, a compiler from the seed and the suites on it; with the
+                                     flag it first converts the specs from maxon's and its spec step also writes specs/passed.txt
   gate suites <compiler> [args...]   the suites a compiler must pass (on arm64 Linux, which has no seed, the lanes it runs natively)
   gate seed [--staged]               renew the seeds, each proven to reproduce itself; --staged for a change of a layout\n                                     the seed bakes in, which it cannot compile the runtime of: run before committing it
   gate specs <maxon specs dir>       regenerate specs/ from maxon's spec tests and write specs/passed.txt again
@@ -66,11 +68,6 @@ func gate() {
 	h, err := currentHost()
 	if err != nil {
 		fail(err)
-	}
-	// The compiler finds the directory of temporary files by the variable maxon reads (TEMP on Windows, TMPDIR elsewhere),
-	// and refuses to guess one; a container that sets none gets the system's, which Go knows.
-	if !h.windows() && os.Getenv("TMPDIR") == "" {
-		os.Setenv("TMPDIR", os.TempDir())
 	}
 	args := os.Args[2:]
 	if h.seed == "" && os.Args[1] != "suites" {

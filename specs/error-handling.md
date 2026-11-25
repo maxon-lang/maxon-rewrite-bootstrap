@@ -415,6 +415,7 @@ end 'main'
 ```
 
 <!-- test: error.propagate-from-non-throwing-function -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 // A bare `try` (the PROPAGATE form) needs somewhere to re-publish the caught flag, and a function
 // declaring no `throws` has nowhere: `propagateError` writes an error register the caller never reads,

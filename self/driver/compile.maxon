@@ -173,13 +173,15 @@ type Generated
 	var entry as ast.FuncID
 	var modules as backend.FunctionLists
 	var scheduled as bool
+	// irText is the text of the optimized IR of every module, when the options asked to keep it, and nothing otherwise.
+	var irText as String
 
-	static function make(entry ast.FuncID, consumes modules backend.FunctionLists, scheduled bool) returns Generated
-		return Generated{entry: entry, modules: modules, scheduled: scheduled}
+	static function make(entry ast.FuncID, consumes modules backend.FunctionLists, scheduled bool, consumes irText String) returns Generated
+		return Generated{entry: entry, modules: modules, scheduled: scheduled, irText: irText}
 	end 'make'
 
 	static function nothing() returns Generated
-		return Generated{entry: ast.noFunc, modules: backend.FunctionLists.create(0), scheduled: false}
+		return Generated{entry: ast.noFunc, modules: backend.FunctionLists.create(0), scheduled: false, irText: ""}
 	end 'nothing'
 end 'Generated'
 
@@ -363,14 +365,19 @@ function verifyFunctions(p ast.Project, ms ast.ModuleState, fns ir.IrFunctionLis
 	end 'functions'
 end 'verifyFunctions'
 
-// writeIr writes the IR of every module's functions, in module order, as --emit-ir asks.
-function writeIr(p ast.Project, lowered opt.LoweredLists, path String)
+// programIrText is the text of the IR of every module's functions, in module order, as --emit-ir writes it.
+function programIrText(p ast.Project, lowered opt.LoweredLists) returns String
 	var text = ByteArray.create(0)
 	for m in 0 upto lowered.count() 'modules'
 		text.append(ir.moduleIrText(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, functions: lowered[m]).toByteArray())
 	end 'modules'
+	return String.from(text)
+end 'programIrText'
+
+// writeIr writes the IR of every module's functions, in module order, as --emit-ir asks.
+function writeIr(p ast.Project, lowered opt.LoweredLists, path String)
 	let file = try FilePath.from(path) otherwise panic("driver: {path} is not a path")
-	try File.writeText(file, content: String.from(text)) otherwise panic("driver: cannot write {path}")
+	try File.writeText(file, content: programIrText(p, lowered: lowered)) otherwise panic("driver: cannot write {path}")
 end 'writeIr'
 
 // refusals are the places in the modules' functions where a program needs something the backend cannot run yet, such as

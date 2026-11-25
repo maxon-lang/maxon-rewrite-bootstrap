@@ -284,6 +284,7 @@ end 'main'
 ```
 
 <!-- test: sizeof.the-corpus-byte-record-embeds-the-buffer-record -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 ### A `managed` field of a builtin-literal conformer is embedded whole
 
 THE ENVELOPE COLLAPSE. A type whose `implements` clause names one of `stdlib/Builtins.maxon`'s three
@@ -478,6 +479,7 @@ error E3005: <fragment>:9:2: argument type mismatch for 'v': expected 'Score', g
 Each parameter's block of the descriptor holds that parameter's own size.
 
 <!-- test: sizeof-of-each-parameter-of-a-two-parameter-generic -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 ```maxon
 typealias Small = int(0 to 255)
 
@@ -485,8 +487,8 @@ type Holder uses T, U
 	var tag as T
 	var held as U
 
-	static function create(t T, u U) returns Self where T implements Copyable, U implements Copyable
-		return Self{tag: t.clone(), held: u.clone()}
+	static function create(t T, u U) returns Self
+		return Self{tag: t, held: u}
 	end 'create'
 
 	function sizeOfFirst() returns Count
@@ -498,7 +500,7 @@ type Holder uses T, U
 	end 'sizeOfSecond'
 
 	function bothSizes() returns Count
-		return try sizeof(T) * 1000 + sizeof(U) otherwise panic("out of range")
+		return sizeof(T) * 1000 + sizeof(U)
 	end 'bothSizes'
 end 'Holder'
 
@@ -522,6 +524,7 @@ end 'main'
 A sibling call forwards the whole descriptor, and a nested instance over a run of the caller's parameters forwards the block the run begins at.
 
 <!-- test: sizeof-of-a-two-parameter-generic-through-forwarded-descriptors -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 ```maxon
 typealias Small = int(0 to 255)
 
@@ -529,12 +532,12 @@ type Probe uses A, B
 	var a as A
 	var b as B
 
-	static function create(a A, b B) returns Self where A implements Copyable, B implements Copyable
-		return Self{a: a.clone(), b: b.clone()}
+	static function create(a A, b B) returns Self
+		return Self{a: a, b: b}
 	end 'create'
 
 	function sizes() returns Count
-		return try sizeof(A) * 1000 + sizeof(B) otherwise panic("out of range")
+		return sizeof(A) * 1000 + sizeof(B)
 	end 'sizes'
 end 'Probe'
 
@@ -542,7 +545,7 @@ type Holder uses T, U
 	typealias Straight = Probe with (T, U)
 	var straight as Straight
 
-	static function create(t T, u U) returns Self where T implements Copyable, U implements Copyable
+	static function create(t T, u U) returns Self
 		return Self{straight: Straight.create(t, b: u)}
 	end 'create'
 
@@ -577,6 +580,7 @@ end 'main'
 ### `sizeof` of a two-parameter generic's parameter through a permuted instance, a closure and a static
 
 <!-- test: sizeof-of-a-two-parameter-generic-through-a-permutation-a-closure-and-a-static -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 ```maxon
 typealias Small = int(0 to 255)
 
@@ -584,12 +588,12 @@ type Probe uses A, B
 	var a as A
 	var b as B
 
-	static function create(a A, b B) returns Self where A implements Copyable, B implements Copyable
-		return Self{a: a.clone(), b: b.clone()}
+	static function create(a A, b B) returns Self
+		return Self{a: a, b: b}
 	end 'create'
 
 	function sizes() returns Count
-		return try sizeof(A) * 1000 + sizeof(B) otherwise panic("out of range")
+		return sizeof(A) * 1000 + sizeof(B)
 	end 'sizes'
 end 'Probe'
 
@@ -597,12 +601,12 @@ type Holder uses T, U
 	typealias Swapped = Probe with (U, T)
 	var swapped as Swapped
 
-	static function create(t T, u U) returns Self where U implements Copyable, T implements Copyable
+	static function create(t T, u U) returns Self
 		return Self{swapped: Swapped.create(u, b: t)}
 	end 'create'
 
 	static function widthOfSecond(n Count) returns Count
-		return try sizeof(U) + n otherwise panic("out of range")
+		return sizeof(U) + n
 	end 'widthOfSecond'
 
 	function viaSwapped() returns Count

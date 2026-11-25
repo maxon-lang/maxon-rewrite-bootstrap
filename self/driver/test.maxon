@@ -19,6 +19,10 @@ let runtimeTierDir = "runtime"
 // that they may go through the doors of maxon's raw surface (README, "Modules"), the buffer cursor among them.
 let libraryTierDir = "library"
 
+// The programs of this directory are held to claims about the optimized IR of their functions (self/driver/irexpect.maxon): each
+// must compile clean and carry expect-ir directives, and none is run. The IR is the host's, so a run for another target leaves them out.
+let irTierDir = "ir"
+
 let sourceExtension = ".maxon"
 
 let expectErrorPrefix = "// expect-error:"
@@ -68,6 +72,12 @@ let fixCaseExtension = ".fix"
 
 let fixedExtension = ".fixed"
 
+// fixCaseRounds is the most rounds of fixes a fix case may take: a round makes every fix that the diagnostics name and that
+// can be made together, and the check names every missing try of a function at once, so only a fix that another one's
+// makes needed takes a second round. A case that takes more fixes one thing a round, as a check that stops at the first
+// failure of a function made fix do once.
+let fixCaseRounds = 2 as Count
+
 let errorLocationSplit = " at "
 
 // The UTF-8 byte order mark: EF BB BF.
@@ -109,6 +119,9 @@ type Expectation
 	var checkOnly as bool
 	var runtimeTier as bool
 	var libraryTier as bool
+	// irClaims are the texts of the program's expect-ir directives, and irTier is whether the program is one that those hold.
+	var irClaims as ast.StringList
+	var irTier as bool
 	// schedules is how many schedules of its behaviours the interpreter runs the program under, which a program that
 	// schedules so many that every seed would cost seconds lowers.
 	var schedules as Count
@@ -122,7 +135,7 @@ type Expectation
 	var scheduled as bool
 
 	static function new() returns Expectation
-		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", stdin: "", memoryLimitMB: 0, nativeOnly: false, frees: ast.StringList.create(0), checkOnly: false, runtimeTier: false, libraryTier: false, schedules: scheduleSeeds, mentionsConcurrency: false, unsupportedTargets: "", saysScheduler: false, scheduled: false}
+		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", stdin: "", memoryLimitMB: 0, nativeOnly: false, frees: ast.StringList.create(0), checkOnly: false, runtimeTier: false, libraryTier: false, irClaims: ast.StringList.create(0), irTier: false, schedules: scheduleSeeds, mentionsConcurrency: false, unsupportedTargets: "", saysScheduler: false, scheduled: false}
 	end 'new'
 end 'Expectation'
 
@@ -311,7 +324,9 @@ end 'afterMarkerSpace'
 function applyDirective(mutates expect Expectation, mutates stdout ByteArray, mutates stdin ByteArray, line String, file String)
 	if hasPrefix(line, prefix: expectErrorPrefix) 'error'
 		expect.errors.push(trimSpace(afterPrefix(line, prefix: expectErrorPrefix)).clone())
-	end 'error' else if hasPrefix(line, prefix: expectFreePrefix) 'free'
+	end 'error' else if hasPrefix(line, prefix: expectIrPrefix) 'ir'
+		expect.irClaims.push(trimSpace(afterPrefix(line, prefix: expectIrPrefix)).clone())
+	end 'ir' else if hasPrefix(line, prefix: expectFreePrefix) 'free'
 		expect.frees.push(afterMarkerSpace(afterPrefix(line, prefix: expectFreePrefix)))
 	end 'free' else if hasPrefix(line, prefix: expectExitPrefix) 'exit'
 		let n = directiveNumber(afterPrefix(line, prefix: expectExitPrefix), file: file, directive: "expect-exit")
@@ -651,6 +666,7 @@ function runTests(dir String, options CorpusOptions, width RunWidth) returns Exi
 	let checkOnlyPrefix = project.joinPath(project.joinPath(root, name: checkOnlyDir), name: "")
 	let runtimeTierPrefix = project.joinPath(project.joinPath(root, name: runtimeTierDir), name: "")
 	let libraryTierPrefix = project.joinPath(project.joinPath(root, name: libraryTierDir), name: "")
+	let irTierPrefix = project.joinPath(project.joinPath(root, name: irTierDir), name: "")
 	var jobs = Jobs.create(0)
 	for i in 0 upto files.count() 'tests'
 		let file = files[i].clone()
@@ -663,6 +679,7 @@ function runTests(dir String, options CorpusOptions, width RunWidth) returns Exi
 			expect.nativeOnly = true
 		end 'runtimeTier'
 		expect.libraryTier = hasPrefix(file, prefix: libraryTierPrefix)
+		expect.irTier = hasPrefix(file, prefix: irTierPrefix)
 		let leftOut = options.behavioursOnly and not mayScheduleBehaviours(expect, file: file)
 		jobs.push(Job.corpus(CorpusJob.make(file, name: name, expect: expect, leftOut: leftOut)))
 	end 'tests'
@@ -713,9 +730,10 @@ end 'interpretedTestOptions'
 // compileForTest makes the executable of file at output, as the driver does for every test, so that a test that expects
 // an error the generate stage raises gets it. What it lowered is kept for the interpreter, which runs it as the executable
 // is made from it.
-function compileForTest(shared SharedRuntime, file String, output String, inLibrary bool, verifies bool, mutates errs diag.ErrorList) returns CompiledProgram
+function compileForTest(shared SharedRuntime, file String, output String, inLibrary bool, verifies bool, keepsIr bool, mutates errs diag.ErrorList) returns CompiledProgram
 	var options = interpretedTestOptions()
 	options.verifyIr = verifies
+	options.keepsIrText = keepsIr
 	options.stagesInLibrary = inLibrary
 	let compiled = compileProjectWith(shared, path: file, output: output, options: options, errs: errs)
 	diag.sortErrors(errs)
@@ -753,6 +771,9 @@ function stageProgram(shared SharedRuntime, job CorpusJob, index Count, exe Stri
 	if listsTarget(job.expect.unsupportedTargets, target: options.target.name()) 'unsupported'
 		return Staged.done(Finished.make(TestResult.unsupported("unsupported on {options.target.name()}")))
 	end 'unsupported'
+	if job.expect.irTier and options.target.name() != hostTarget().name() 'foreign'
+		return Staged.done(Finished.make(TestResult.unsupported("the IR expectations are held to the host's IR: {hostTarget().name()}, not {options.target.name()}")))
+	end 'foreign'
 	if endsWithText(job.file, suffix: fixCaseExtension) 'fix'
 		let stem = job.file.sliceBytes(0, endPos: try job.file.byteLength() - fixCaseExtension.byteLength() otherwise 0 as Count)
 		return Staged.done(Finished.make(runFixTest(job.file, expected: "{stem}{fixedExtension}")))
@@ -766,7 +787,7 @@ function stageProgram(shared SharedRuntime, job CorpusJob, index Count, exe Stri
 		compiled = compileRuntimeTest(job.file, output: exe, options: runtimeOptions, errs: errs)
 		diag.sortErrors(errs)
 	end 'runtimeTier' else 'program'
-		compiled = compileForTest(shared, file: job.file, output: exe, inLibrary: job.expect.libraryTier, verifies: options.verifiesIr, errs: errs)
+		compiled = compileForTest(shared, file: job.file, output: exe, inLibrary: job.expect.libraryTier, verifies: options.verifiesIr, keepsIr: job.expect.irTier, errs: errs)
 	end 'program'
 	return checkTest(job.expect, file: job.file, compiled: compiled, errs: errs, index: index, exe: exe, options: options)
 end 'stageProgram'
@@ -777,6 +798,15 @@ end 'stageProgram'
 // times, each under another schedule.
 function checkTest(expect Expectation, file String, consumes compiled CompiledProgram, errs diag.ErrorList, index Count, exe String, options CorpusOptions) returns Staged
 	let built = errs.count() == 0
+	if expect.irTier 'ir'
+		if errs.count() > 0 'broken'
+			return doneBuilt(TestResult.failed(joinErrors(errs)), exe: exe, built: built)
+		end 'broken'
+		return doneBuilt(checkIrClaims(expect, irText: compiled.generated.irText), exe: exe, built: built)
+	end 'ir'
+	if expect.irClaims.count() > 0 'misplaced'
+		return doneBuilt(TestResult.failed("{expectIrPrefix} is for the programs of tests/{irTierDir}"), exe: exe, built: built)
+	end 'misplaced'
 	if expect.errors.count() > 0 'expected'
 		return doneBuilt(checkExpectedErrors(expect, file: file, errs: errs, updatePositions: options.updatePositions), exe: exe, built: built)
 	end 'expected'
@@ -1047,11 +1077,15 @@ function runFixTest(file String, expected String) returns TestResult
 	return fixedResult(outcome, expected: expected, wanted: wanted, actual: outcome.files[0].text)
 end 'runFixTest'
 
-// fixedResult is whether the fixed program checks clean and its text is the wanted text of the file named expected.
+// fixedResult is whether the fixed program checks clean, in at most fixCaseRounds rounds, and its text is the wanted text of
+// the file named expected.
 function fixedResult(outcome FixOutcome, expected String, wanted String, actual String) returns TestResult
 	if outcome.left != "" 'left'
 		return TestResult.failed("fixed, it still has an error {outcome.left}")
 	end 'left'
+	if outcome.rounds > fixCaseRounds 'slow'
+		return TestResult.failed("fixed in {outcome.rounds} rounds, more than {fixCaseRounds}")
+	end 'slow'
 	if actual != wanted 'differs'
 		return TestResult.failed("fixed, it is not {expected}: {firstDifference(wanted, actual: actual)}")
 	end 'differs'

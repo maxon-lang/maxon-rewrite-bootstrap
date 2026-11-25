@@ -25,7 +25,7 @@ accepts nothing but frozen elements.
 ## Tests
 
 <!-- test: a-frozen-value-appended-to-a-mutable-list-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `BoxList` holds mutable boxes, so the frozen `pinned` cannot be appended to it.
 
@@ -57,7 +57,7 @@ error E3196: <fragment>:16:14: cannot store an immutable 'Box' into 'List.append
 ```
 
 <!-- test: a-frozen-argument-to-a-parameter-map-upsert-stores-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `keep` stores `item` into a map of mutable boxes, so it takes mutable data and the frozen `pinned` is refused at the call.
 
@@ -91,7 +91,7 @@ error E3207: <fragment>:20:12: 'keep' writes 'item' (line 14: 'Map.upsert' keeps
 ```
 
 <!-- test: a-declared-generic-method-that-stores-t-refuses-a-frozen-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Stack.push` stores its `T` into the stack's own array, and `JobStack` fixes `T` to a mutable `Job`.
 
@@ -138,7 +138,7 @@ error E3196: <fragment>:35:12: cannot store an immutable 'Job' into 'Stack.push.
 ```
 
 <!-- test: array-insert-of-a-frozen-value-into-a-mutable-array-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `insert` is an ordinary library method with an opaque `T`, and it is judged like `push`.
 
@@ -253,7 +253,7 @@ end 'main'
 ```
 
 <!-- test: a-mutable-value-pushed-into-a-declared-generic-with-an-immutable-argument-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `FrozenJobStack` fixes `T` to a frozen `Job`, so the mutable `loose` is refused by the same method that took `pinned`.
 
@@ -300,7 +300,7 @@ error E3196: <fragment>:35:14: cannot store a mutable 'Job' into 'Stack.push.ite
 ```
 
 <!-- test: a-mutable-local-pushed-into-an-immutable-array-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Array with immutable Box` holds frozen boxes: a mutable local cannot be stored, even though it is read again.
 
@@ -331,7 +331,7 @@ error E3196: <fragment>:16:13: cannot store a mutable 'Box' into 'an element of 
 ```
 
 <!-- test: a-fresh-value-pushed-into-an-immutable-array-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A fresh value is mutable data too: the element must be frozen first.
 
@@ -360,7 +360,7 @@ error E3196: <fragment>:15:13: cannot store a mutable 'Box' into 'an element of 
 ```
 
 <!-- test: a-moved-local-pushed-into-an-immutable-array-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `moved` is not read again, but moving mutable data into a frozen element does not freeze it.
 
@@ -390,7 +390,7 @@ error E3196: <fragment>:16:13: cannot store a mutable 'Box' into 'an element of 
 ```
 
 <!-- test: a-mutable-value-reaching-an-immutable-element-through-a-parameter-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `stash` stores `item` into frozen elements, so it needs frozen data and the call with the mutable `loose` is refused.
 
@@ -425,7 +425,7 @@ error E3207: <fragment>:21:15: 'stash' needs 'item' frozen (line 14: `items.push
 ```
 
 <!-- test: a-mutable-value-upserted-into-an-immutable-map-value-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The value type of `Map with (String, immutable Box)` is frozen, and `upsert` is judged by the same rule as `push`.
 
@@ -455,7 +455,7 @@ error E3196: <fragment>:16:25: cannot store a mutable 'Box' into 'Map.upsert.val
 ```
 
 <!-- test: a-mutable-value-set-into-an-immutable-array-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `set` is the indexed store door, and it holds an `immutable` element to the same rule.
 
@@ -487,7 +487,7 @@ error E3196: <fragment>:18:26: cannot store a mutable 'Box' into 'an element of 
 ```
 
 <!-- test: an-array-literal-of-fresh-values-into-an-immutable-array-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The literal's elements are stores into the instance's slots like any other.
 
@@ -515,7 +515,7 @@ error E3196: <fragment>:14:32: cannot store a mutable 'Box' into 'an element of 
 ```
 
 <!-- test: a-static-factory-of-an-immutable-instance-refuses-a-mutable-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `FrozenHolder.wrap` has no receiver, and the alias fixes `T` to a frozen `Job`.
 
@@ -556,7 +556,7 @@ error E3196: <fragment>:28:33: cannot store a mutable 'Job' into 'Holder.wrap.it
 ```
 
 <!-- test: a-static-factory-of-a-mutable-instance-refuses-a-frozen-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `PlainHolder.wrap` holds mutable jobs, so the frozen `pinned` is refused there too.
 
@@ -597,7 +597,7 @@ error E3196: <fragment>:28:32: cannot store an immutable 'Job' into 'Holder.wrap
 ```
 
 <!-- test: a-fresh-value-passed-to-an-immutable-parameter-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A fresh call result is mutable data: an `immutable` parameter takes only a frozen value, so it is written `freeze Box.create(1)`.
 
@@ -696,7 +696,7 @@ end 'main'
 ```
 
 <!-- test: a-fresh-value-reaching-an-immutable-element-through-a-parameter-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `stash` stores `item` into frozen elements, so it needs frozen data and a fresh value is refused at the call like a mutable local.
 
@@ -729,7 +729,7 @@ error E3207: <fragment>:19:15: 'stash' needs 'item' frozen (line 14: `items.push
 ```
 
 <!-- test: a-mutable-local-read-again-reaching-an-immutable-element-through-a-parameter-is-reported-once -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The refusal names the call and `immutable`; the read-again local gets no second sentence.
 
@@ -764,7 +764,7 @@ error E3207: <fragment>:20:15: 'stash' needs 'item' frozen (line 14: `items.push
 ```
 
 <!-- test: a-frozen-field-of-a-parameter-held-by-a-let-into-a-mutable-list-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `first` is the parameter's data held by a `let`; the frozen crate's item cannot go into a list of mutable boxes, so `load` needs a mutable `crate`.
 
@@ -851,7 +851,7 @@ end 'main'
 ```
 
 <!-- test: a-mutable-argument-for-a-parameter-held-by-a-let-into-an-immutable-list-refused-at-the-call -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `load` is correct for a frozen `crate`, so the refusal is at the call that passes a mutable one.
 
@@ -895,7 +895,7 @@ error E3207: <fragment>:30:7: 'load' needs 'crate' frozen (line 23: 'List.append
 ```
 
 <!-- test: a-receiverless-generic-call-refuses-a-frozen-argument-for-the-inferred-instance -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Holder.wrap(pinned)` names no alias, so `T` is inferred as the plain `Job`; a frozen argument needs the alias `Holder with immutable Job`.
 
@@ -974,6 +974,7 @@ end 'main'
 ```
 
 <!-- test: a-frozen-item-of-a-tuple-is-not-writable -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- positions: moved -->
 The literal `(a, b)` is typed `(immutable Box, Box)`, so `pair.1` is writable and `pair.0` is not.
 
@@ -1069,6 +1070,7 @@ error E3197: <fragment>:13:2: cannot write 'n' through 'pair.0', which is immuta
 ```
 
 <!-- test: a-destructured-frozen-item-is-not-writable -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- positions: moved -->
 Destructuring binds each name at its item's capability, so `x` is frozen and `y` is writable.
 
@@ -1166,7 +1168,7 @@ end 'main'
 ```
 
 <!-- test: a-frozen-item-into-a-list-of-plain-tuples-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `List with (Box, Box)` holds mutable items only, so the tuple with a frozen first item is refused where it is stored.
 
@@ -1304,6 +1306,7 @@ end 'main'
 ```
 
 <!-- test: a-nested-tuple-item-capability-is-compared-and-not-writable -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- positions: moved -->
 Item capabilities nest: the first item of the inner tuple is frozen, so writing through `pair.0.0` is refused.
 
@@ -1395,7 +1398,7 @@ error E2010: <fragment>:12:22: Expected 'a type' but got 'isolated'
 ```
 
 <!-- test: a-frozen-tuple-handed-to-a-generic-method-that-stores-its-items-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `absorb` stores both items of its `(T, T)` argument, and `BoxBag` fixes `T` to a mutable `Box`; the tuple cannot be built from frozen boxes.
 
@@ -1494,7 +1497,7 @@ end 'main'
 ```
 
 <!-- test: an-isolated-value-in-a-tuple-literal-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is merged before it joins a tuple.
 
@@ -1523,7 +1526,7 @@ error E3196: <fragment>:15:14: cannot store an isolated 'Box' into 'an item of t
 ```
 
 <!-- test: an-isolated-value-in-a-map-literal-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is merged before it becomes a map value.
 
@@ -1584,7 +1587,7 @@ error E3197: <fragment>:19:2: cannot write 'n' through 'pair.0', which is immuta
 ```
 
 <!-- test: an-immutable-element-in-a-map-literal-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `held` is read out of an `immutable` element, and the map would keep it where something may write it.
 
@@ -1690,7 +1693,7 @@ error E3005: <fragment>:20:9: argument type mismatch for 'value': expected 'BoxL
 ```
 
 <!-- test: a-frozen-value-in-a-map-literal-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A map literal stores its values into the map's value slots, and an inferred map holds mutable values.
 
@@ -1873,7 +1876,7 @@ end 'main'
 ```
 
 <!-- test: a-declared-generic-over-a-tuple-of-its-parameter-refuses-a-frozen-argument-for-a-mutable-instance -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `BoxPairs.add` stores its arguments into the mutable items of a `(Box, Box)` tuple, so a frozen first argument is refused.
 
@@ -2026,7 +2029,7 @@ error E3005: <fragment>:13:2: Cannot return '(immutable Box, Box)' from function
 ```
 
 <!-- test: a-frozen-item-copied-into-a-plain-result-tuple-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Building `(pair.0, pair.1)` for a `(Box, Box)` result stores the frozen first item into a mutable item.
 
@@ -2207,7 +2210,7 @@ end 'main'
 ```
 
 <!-- test: a-fresh-value-returned-through-a-local-from-an-immutable-result-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A fresh value is mutable, so a `returns immutable` function freezes it before returning it, through a local too.
 
@@ -2238,7 +2241,7 @@ error E3209: <fragment>:14:9: a return does not fit the declared result: 'fresh'
 ```
 
 <!-- test: a-fresh-value-in-an-immutable-field-initializer-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `immutable` field holds frozen data, so its initializer is frozen first.
 
@@ -2272,7 +2275,7 @@ error E3196: <fragment>:16:21: cannot store a mutable 'Box' into 'Shelf.held', w
 ```
 
 <!-- test: a-fresh-value-assigned-to-an-immutable-field-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 So is a later assignment to it.
 
@@ -2307,7 +2310,7 @@ error E3196: <fragment>:22:15: cannot store a mutable 'Box' into 'held', which h
 ```
 
 <!-- test: a-fresh-value-sent-to-an-immutable-message-parameter-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A message takes a frozen argument in an `immutable` parameter, so the fresh `Leaf` is frozen first.
 
@@ -2346,7 +2349,7 @@ error E3207: <fragment>:24:31: 'weigh' takes `immutable` 'leaf'; a fresh value i
 ```
 
 <!-- test: a-fresh-value-replied-from-an-immutable-message-result-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A reply declared `returns immutable` is frozen where it is returned.
 
@@ -2382,7 +2385,7 @@ error E3209: <fragment>:18:10: a return does not fit the declared result: 'Leaf.
 ```
 
 <!-- test: a-field-assignment-into-an-immutable-instance-refuses-a-mutable-value -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `FrozenHolder` fixes `T` to a frozen `Job`, so the public field `held` is an immutable slot and `loose` cannot be assigned to it.
 
@@ -2467,7 +2470,7 @@ end 'main'
 ```
 
 <!-- test: a-method-of-the-library-that-stores-its-record-parameter-refuses-frozen-data -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `HttpServer.setLimits` keeps `caps` in a mutable field, so the frozen `limits` is refused at the call whatever the program spells.
 
@@ -2484,7 +2487,7 @@ error E3207: <fragment>:5:19: 'setLimits' writes 'caps' (line 390: `self.limits 
 ```
 
 <!-- test: a-factory-of-the-library-that-stores-its-record-parameter-refuses-frozen-data -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `TlsCertificateEntry.create` builds a record around the certificate it is given, so the frozen `der` is refused at the call whatever the program spells.
 
@@ -2502,7 +2505,7 @@ error E3208: <fragment>:5:34: 'create' returns 'certificate' or 'extensions'; th
 ```
 
 <!-- test: a-generic-function-declared-to-return-immutable-hands-back-frozen-data -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `frozenRow` is generic and declares `returns immutable`, so a call to it gives frozen data that `bump`, which writes its parameter, refuses.
 

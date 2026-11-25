@@ -379,6 +379,7 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.a-generic-born-byte-array-reads-and-appends-as-bytes -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 <!-- tier: stdlib -->
 `Bag with Byte`'s `items` is created inside a shared generic body, and its record strides one byte (`elementSize()`
 is 1) as a `ByteArray` created in a concrete body does. The built-ins see the bytes the array holds: a four-byte read
@@ -392,15 +393,15 @@ type Bag uses Element
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function add(mutates self, value Element) where Element implements Copyable
-		items.push(value.clone())
+	function add(value Element)
+		items.push(value)
 	end 'add'
 end 'Bag'
 
 typealias ByteBag = Bag with Byte
 
 function main() returns ExitCode
-	var bag = ByteBag.create()
+	let bag = ByteBag.create()
 	for byte in [1, 2, 3, 4, 5, 6, 7, 8] 'fill'
 		bag.add(byte)
 	end 'fill'

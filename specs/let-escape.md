@@ -509,7 +509,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-pushed-into-a-global-container-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `static let` is `immutable` image data, and an element of a plain `Array with Box` is a place something may write, so pushing the `let`'s record into one is refused; declare the element `immutable Box`, or push a `clone()`.
 
@@ -549,7 +549,7 @@ error E3196: <fragment>:16:16: cannot store an immutable 'Box' into 'an element 
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-handed-to-a-callee-that-keeps-it-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `stash` keeps its parameter in a container and in a field, so handing it a `static let` is refused; pass a `clone()`.
 
@@ -636,7 +636,7 @@ error E3197: <fragment>:25:2: cannot write 'n' through 'h.box', which is read-on
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-pushed-into-a-local-array-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A local array's element is a mutable place, so pushing a `static let`'s record into it is refused.
 
@@ -668,7 +668,7 @@ error E3196: <fragment>:18:13: cannot store an immutable 'Box' into 'an element 
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-in-a-literal-a-map-and-a-global-field-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An array literal's element and a field of a `var` holder are each a mutable place, so storing a `static let`'s record into either is refused.
 
@@ -723,7 +723,7 @@ error E3196: <fragment>:33:13: cannot store an immutable 'Box' into 'an element 
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-in-a-literal-and-a-map-value-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An array literal's element is a mutable place, so storing a `static let`'s record into it is refused.
 
@@ -758,7 +758,7 @@ error E3196: <fragment>:17:13: cannot store an immutable 'Box' into 'an element 
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-in-a-map-value-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A value handed to `upsert` is stored in a mutable place, so storing a `static let`'s record into a map value is refused.
 
@@ -3046,7 +3046,7 @@ a7
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-a-call-hands-back-cannot-be-stored-where-it-is-written -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pick` returns a `static let`, which is `immutable`, so its result is declared `immutable`; storing the call's result into a `var` field is refused and asks for a `clone()`.
 

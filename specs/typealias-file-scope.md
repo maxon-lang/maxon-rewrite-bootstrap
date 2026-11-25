@@ -137,6 +137,7 @@ error E3005: <fragment>:5:14: Value 500 is outside the range of 'Milliseconds' (
 
 
 <!-- test: narrow-file-cast-still-rejected -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 `a.maxon`'s unmarked `Limit` is `int(0 to 200)` and `b.maxon`'s unmarked one is `int(0 to 2000)`, so each
 file sees only its own. The cast in `a.maxon` is checked against `a.maxon`'s range and rejected. This is
 the direction where the WIDER alias would erase a guard the author wrote.
@@ -2769,6 +2770,7 @@ error E2028: <fragment>:18:18: ternary expression type mismatch: true branch is 
 ```
 
 <!-- test: error.two-same-range-declarations-do-not-join-in-a-match -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 ```maxon
 // --- file: alpha/a.maxon
 export typealias Integer = int(0 to 1000)

@@ -1,0 +1,64 @@
+// The subprocess rows run children of their own, through handles of the runtime's table, which the interpreter has none of: a program that
+// calls one says `// native-only`.
+
+// haltSubprocessRow is the halt of the interpreter at a subprocess row: what it does not model, which a run of the spec tests
+// under the interpreter meets in a test that passes natively.
+function haltSubprocessRow(mutates vm Vm, row String) returns Halt
+	return unmodelled(vm, what: "{row} is not run by the interpreter: mark the program native-only")
+end 'haltSubprocessRow'
+
+function entrySubprocessSpawn(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSubprocessRow(vm, row: "__Builtins.subprocessSpawn")
+end 'entrySubprocessSpawn'
+
+function entrySubprocessGetPid(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSubprocessRow(vm, row: "__Builtins.subprocessGetPid")
+end 'entrySubprocessGetPid'
+
+function entrySubprocessWaitCollect(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSubprocessRow(vm, row: "__Builtins.subprocessWaitCollect")
+end 'entrySubprocessWaitCollect'
+
+function entrySubprocessResultStatusKind(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSubprocessRow(vm, row: "__Builtins.subprocessResultStatusKind")
+end 'entrySubprocessResultStatusKind'
+
+function entrySubprocessResultStatusCode(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSubprocessRow(vm, row: "__Builtins.subprocessResultStatusCode")
+end 'entrySubprocessResultStatusCode'
+
+function entrySubprocessResultStdout(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSubprocessRow(vm, row: "__Builtins.subprocessResultStdout")
+end 'entrySubprocessResultStdout'
+
+function entrySubprocessResultStderr(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSubprocessRow(vm, row: "__Builtins.subprocessResultStderr")
+end 'entrySubprocessResultStderr'
+
+function entrySubprocessResultDurationMs(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSubprocessRow(vm, row: "__Builtins.subprocessResultDurationMs")
+end 'entrySubprocessResultDurationMs'
+
+function entrySubprocessResultRelease(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSubprocessRow(vm, row: "__Builtins.subprocessResultRelease")
+end 'entrySubprocessResultRelease'
+
+function entrySubprocessReleaseHandle(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSubprocessRow(vm, row: "__Builtins.subprocessReleaseHandle")
+end 'entrySubprocessReleaseHandle'
+
+function entrySubprocessLastErrorCode(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSubprocessRow(vm, row: "__Builtins.subprocessLastErrorCode")
+end 'entrySubprocessLastErrorCode'
+
+function entrySubprocessLastErrorMessage(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSubprocessRow(vm, row: "__Builtins.subprocessLastErrorMessage")
+end 'entrySubprocessLastErrorMessage'
+
+function entrySubprocessResolveOnPath(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSubprocessRow(vm, row: "__Builtins.subprocessResolveOnPath")
+end 'entrySubprocessResolveOnPath'
+
+function entrySubprocessEndTree(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSubprocessRow(vm, row: "__Builtins.subprocessEndTree")
+end 'entrySubprocessEndTree'

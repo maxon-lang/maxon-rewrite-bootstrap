@@ -1,0 +1,806 @@
+// The subprocess rows of the raw surface, maxon's `__Builtins.subprocess*` (specs/subprocess-builtins.md, its Subprocess.maxon's
+// floor), as far as the attached run goes: a spawn that starts a child and gives a handle, a wait that collects the child's
+// output into a result, a kill of the child's tree, the readers of that result, and the helpers. The work of starting a child, and of ending one that is not
+// waited for, is each system's (subprocess.maxon, linux_subprocess.maxon, macos_subprocess.maxon), over the same run: the record
+// of the child's pipes and of the wait that awaitChild serves, which osRun, osRunIn and osRunInput start and wait for in one call.
+//
+// A handle and a result are each a word that names a slot of the table below and the generation the slot was in, as a SlotKey
+// of the library's SlotMap does (stdlib/slotmap): the slot in the low 32 bits and the generation above them, odd while the slot
+// holds a record and even while it is free, so that a word that names nothing live, a released one, one never given and -1, is
+// found out and answered as a failure, never read as a record. A slot whose generation would pass the most a word holds is
+// retired.
+
+// The kinds of the spawn contract: what each of the three standard streams is, which a stream's kind says.
+let spawnStdinNone = 0 as Count
+
+let spawnStdinInherit = 1 as Count
+
+let spawnStdinBytes = 2 as Count
+
+let spawnStdinFile = 3 as Count
+
+let spawnStdinHold = 4 as Count
+
+let spawnOutputDiscard = 0 as Count
+
+let spawnOutputInherit = 1 as Count
+
+let spawnOutputCollect = 2 as Count
+
+let spawnOutputFile = 3 as Count
+
+// The flags of the spawn: each a bit.
+let spawnFlagHideWindow = 1 as Count
+
+let spawnFlagNewGroup = 2 as Count
+
+let spawnFlagDetach = 4 as Count
+
+let spawnFlagTraced = 8 as Count
+
+let spawnFlagsKnown = 15 as Count
+
+// envInherit's values: a child whose environment is a block the caller made, and one that inherits this process's.
+let spawnEnvironmentBlock = 0 as Count
+
+let spawnEnvironmentParent = 1 as Count
+
+// How a child ended, as the result says.
+let resultExited = 0 as Count
+
+let resultSignalled = 1 as Count
+
+let resultTimedOut = 2 as Count
+
+let resultTreeNotEnded = 3 as Count
+
+// A word that names no live child or result, which every row that answers a word answers.
+let noHandle = 0xFFFFFFFFFFFFFFFF as Count
+
+// A spawn that fails says so in a word: the code in its low 32 bits, the step of the spawn that failed above them, and what
+// the code is, in the bits above the step. A code of a system (a Win32 error, or an errno) is what the system's call failed with;
+// the others are codes of the contract's own, for a spawn that is refused before anything starts, and for one that could not set
+// up what it needs. The step tells a failure of the working directory or of a stream's file from one of the program, which
+// answer the same codes.
+let failureCodeMask = 0xFFFFFFFF as Count
+
+let failureStepShift = 32 as Count
+
+let failureStepMask = 0xFF as Count
+
+let failureClassShift = 40 as Count
+
+let failureClassSystem = 0 as Count
+
+let failureClassRefused = 1 as Count
+
+let failureClassSetup = 2 as Count
+
+// The steps: the program, the standard streams (which a file kind opens) and the working directory.
+let failureStepProgram = 0 as Count
+
+let failureStepStream = 1 as Count
+
+let failureStepDirectory = 2 as Count
+
+// The Win32 codes of the failures the contract has no system call for: a spawn it does not serve (ERROR_NOT_SUPPORTED), one whose
+// words are malformed (ERROR_INVALID_PARAMETER), one it could not set up (ERROR_GEN_FAILURE) and a word that names no child
+// or result (ERROR_INVALID_HANDLE).
+let codeNotSupported = 50 as Count
+
+let codeInvalidParameter = 87 as Count
+
+let codeGeneralFailure = 31 as Count
+
+let codeInvalidHandle = 6 as Count
+
+// The Win32 codes that maxon's runtime says an errno is on a system that has no Win32: a file or a directory that is not there,
+// access that is refused and a table of files that is full.
+let codeFileNotFound = 2 as Count
+
+let codePathNotFound = 3 as Count
+
+let codeAccessDenied = 5 as Count
+
+let codeTooManyOpenFiles = 4 as Count
+
+function failureWord(failureClass Count, step Count, code Count) returns Count
+	return __Raw.wrappingAdd(__Raw.wrappingAdd(try failureClass shl failureClassShift otherwise panic("a failure class past a word"), right: try step shl failureStepShift otherwise panic("a failure step past a word")), right: code)
+end 'failureWord'
+
+function failureClassOf(failure Count) returns Count
+	return failure shr failureClassShift
+end 'failureClassOf'
+
+function failureStepOf(failure Count) returns Count
+	return (failure shr failureStepShift) and failureStepMask
+end 'failureStepOf'
+
+function failureCodeOf(failure Count) returns Count
+	return failure and failureCodeMask
+end 'failureCodeOf'
+
+// systemFailure is the failure of a system's call, its error and the step it was taken in.
+function systemFailure(step Count, code Count) returns Count
+	return failureWord(failureClassSystem, step: step, code: code)
+end 'systemFailure'
+
+function refusedFailure(code Count) returns Count
+	return failureWord(failureClassRefused, step: failureStepProgram, code: code)
+end 'refusedFailure'
+
+function setupFailure() returns Count
+	return failureWord(failureClassSetup, step: failureStepProgram, code: codeGeneralFailure)
+end 'setupFailure'
+
+// reportRunFailure ends an entry that runs a child, osRun and its kin, with the failure that its start gave: the case of
+// SubprocessError that the system's error is for a call of the system that failed in the program's step, and a spawn that failed
+// anywhere else.
+function reportRunFailure(errorAddress Count, failure Count)
+	if failureClassOf(failure) == failureClassSystem and failureStepOf(failure) == failureStepProgram 'program'
+		endWithError(errorAddress, osError: failureCodeOf(failure), table: spawnFailures())
+		return
+	end 'program'
+	if failureClassOf(failure) == failureClassSetup 'setup'
+		failWith(errorAddress, errorCase: ioFailed)
+		return
+	end 'setup'
+	failWith(errorAddress, errorCase: spawnFailed)
+end 'reportRunFailure'
+
+// lastErrorOf is the word that subprocessLastErrorCode answers for a failure: the failed step above 32 bits, and the code of
+// the failure in Win32's vocabulary on every system, as maxon's does.
+function lastErrorOf(failure Count) returns Count
+	var code = failureCodeOf(failure)
+	if failureClassOf(failure) == failureClassSystem 'system'
+		code = win32CodeOf(code)
+	end 'system'
+	return failureWord(failureClassSystem, step: failureStepOf(failure), code: code)
+end 'lastErrorOf'
+
+// The request of a start: what the child is to be, in words that the rows and osRun alike make and each system's start reads. The
+// program and the arguments are the tokens of a blob, each ended by a NUL, which a pointer and a length hold and argc counts; the
+// bytes a request names are the caller's, borrowed until the start returns, except the input's, which are kept until the child's
+// wait ends. A request has every word 0 that its maker does not set (newRequest).
+let requestArgvOffset = 0 as Count
+
+let requestArgvLengthOffset = 8 as Count
+
+let requestArgcOffset = 16 as Count
+
+let requestDirectoryOffset = 24 as Count
+
+let requestDirectoryLengthOffset = 32 as Count
+
+let requestInputKindOffset = 40 as Count
+
+let requestInputOffset = 48 as Count
+
+let requestInputLengthOffset = 56 as Count
+
+let requestOutputKindOffset = 64 as Count
+
+let requestOutputLimitOffset = 72 as Count
+
+let requestErrorKindOffset = 80 as Count
+
+let requestErrorLimitOffset = 88 as Count
+
+let requestFlagsOffset = 96 as Count
+
+// The paths of the streams whose kind is a file, and the block of the environment of a child that has its own: each an address
+// and a length, the caller's, borrowed until the start returns.
+let requestInputPathOffset = 104 as Count
+
+let requestInputPathLengthOffset = 112 as Count
+
+let requestOutputPathOffset = 120 as Count
+
+let requestOutputPathLengthOffset = 128 as Count
+
+let requestErrorPathOffset = 136 as Count
+
+let requestErrorPathLengthOffset = 144 as Count
+
+let requestEnvironmentOffset = 152 as Count
+
+let requestEnvironmentLengthOffset = 160 as Count
+
+// Whether the child has an environment of its own, the block above, where 0 is the caller's.
+let requestEnvironmentOwnOffset = 168 as Count
+
+let requestBytes = 176 as Count
+
+// A child: the record that a handle names. It holds whether a wait has taken it, the run that the child's system record is (its
+// pipes, its exit and its wait), and the copy of the input that the child reads, which the run's input stream points into.
+let childKind = 1 as Count
+
+let childKindOffset = 0 as Count
+
+let childStateOffset = 8 as Count
+
+let childRunOffset = 16 as Count
+
+let childInputOffset = 24 as Count
+
+let childBytes = 32 as Count
+
+// A child's states: not waited for, being waited for by a green thread, and waited for, its output in a result, and having its
+// tree ended, which only the caller of subprocessEndTree is in.
+let childIdle = 0 as Count
+
+let childCollecting = 1 as Count
+
+let childCollected = 2 as Count
+
+let childEnding = 3 as Count
+
+// A result: what became of the child and the output it wrote, kept until the result is released. The texts are rooms of
+// __Raw.stringRoom, which the result owns, each with its length; the raw status is the system's word, which a POSIX wait status
+// keeps whole.
+let resultKind = 2 as Count
+
+let resultKindOffset = 0 as Count
+
+let resultStatusKindOffset = 8 as Count
+
+let resultStatusCodeOffset = 16 as Count
+
+let resultDurationOffset = 24 as Count
+
+let resultRawStatusOffset = 32 as Count
+
+let resultOutputOffset = 40 as Count
+
+let resultOutputLengthOffset = 48 as Count
+
+let resultErrorOffset = 56 as Count
+
+let resultErrorLengthOffset = 64 as Count
+
+let resultBytes = 72 as Count
+
+// The handle table: one per process, its record made with the first spawn and hung on the scheduler's, and kept for good. It holds
+// its lock, the slots (kept, and moved to a larger run when they are full), how many slots have been taken, the first free slot
+// plus 1 (0 for none), linked through the free slots' records, and the last failure of a spawn, which subprocessLastErrorCode
+// answers, a word for the whole process as maxon's is.
+let tableLockOffset = 0 as Count
+
+let tableSlotsOffset = 8 as Count
+
+let tableCapacityOffset = 16 as Count
+
+let tableUsedOffset = 24 as Count
+
+let tableFreeOffset = 32 as Count
+
+let tableLastErrorOffset = 40 as Count
+
+let tableBytes = 48 as Count
+
+// A slot holds its generation and its record, or the link of the free list.
+let slotGenerationOffset = 0 as Count
+
+let slotRecordOffset = 8 as Count
+
+let slotBytes = 16 as Count
+
+let firstSlotCount = 16 as Count
+
+// A word is the slot in the low slotBits bits and the generation above them. A slot's first generation is 1, the last it is
+// given is lastGeneration, and a slot whose record of that generation is taken out is retired at retiredGeneration, which is
+// even and no word's, so it is never given again.
+let slotBits = 32 as Count
+
+let maxSlot = 0xFFFFFFFF as Count
+
+let firstGeneration = 1 as Count
+
+let lastGeneration = 2147483647 as Count
+
+let retiredGeneration = 2147483648 as Count
+
+// handleTable is the table of the process, which the first call makes.
+function handleTable() returns Count
+	let scheduler = schedulerOf(__Raw.threadContext())
+	let made = __Raw.loadAcquire(scheduler, offset: schedHandlesOffset)
+	if made != 0 'made'
+		return made
+	end 'made'
+	lockScheduler(scheduler)
+	var table = __Raw.loadWord(scheduler, offset: schedHandlesOffset)
+	if table == 0 'first'
+		table = keep(tableBytes)
+		__Raw.storeRelease(scheduler, offset: schedHandlesOffset, value: table)
+	end 'first'
+	unlockScheduler(scheduler)
+	return table
+end 'handleTable'
+
+function slotAddress(table Count, slot Count) returns Count
+	return __Raw.wrappingAdd(__Raw.loadWord(table, offset: tableSlotsOffset), right: try slot * slotBytes otherwise panic("a slot past the table's memory"))
+end 'slotAddress'
+
+// growSlots moves the slots to a run of twice the room, which a table that has none gets the first room for, under the lock.
+function growSlots(table Count)
+	let capacity = __Raw.loadWord(table, offset: tableCapacityOffset)
+	let old = __Raw.loadWord(table, offset: tableSlotsOffset)
+	var grown = firstSlotCount
+	if capacity != 0 'doubled'
+		grown = try capacity * 2 otherwise panic("a table of more slots than memory")
+	end 'doubled'
+	let slots = keep(try grown * slotBytes otherwise panic("a table of more slots than memory"))
+	if capacity != 0 'moved'
+		let oldBytes = try capacity * slotBytes otherwise panic("a table of more slots than memory")
+		copyBytes(old, target: slots, count: oldBytes)
+		unkeep(old, bytes: oldBytes)
+	end 'moved'
+	__Raw.storeWord(table, offset: tableSlotsOffset, value: slots)
+	__Raw.storeWord(table, offset: tableCapacityOffset, value: grown)
+end 'growSlots'
+
+// wordOf is the word of a slot and the generation it holds a record in.
+function wordOf(slot Count, generation Count) returns Count
+	return __Raw.wrappingAdd(try generation shl slotBits otherwise panic("a generation past a word"), right: slot)
+end 'wordOf'
+
+// handleInsert stores a record and gives the word that names it.
+function handleInsert(record Count) returns Count
+	let table = handleTable()
+	spinLock(table, offset: tableLockOffset)
+	var slot = 0 as Count
+	var generation = firstGeneration
+	let free = __Raw.loadWord(table, offset: tableFreeOffset)
+	if free != 0 'reused'
+		slot = __Raw.wrappingSub(free, right: 1)
+		let at = slotAddress(table, slot: slot)
+		__Raw.storeWord(table, offset: tableFreeOffset, value: __Raw.loadWord(at, offset: slotRecordOffset))
+		generation = __Raw.wrappingAdd(__Raw.loadWord(at, offset: slotGenerationOffset), right: 1)
+	end 'reused' else 'taken'
+		slot = __Raw.loadWord(table, offset: tableUsedOffset)
+		if slot > maxSlot 'full'
+			panic("the table of children holds more slots than a handle names")
+		end 'full'
+		if slot == __Raw.loadWord(table, offset: tableCapacityOffset) 'grow'
+			growSlots(table)
+		end 'grow'
+		__Raw.storeWord(table, offset: tableUsedOffset, value: __Raw.wrappingAdd(slot, right: 1))
+	end 'taken'
+	let at = slotAddress(table, slot: slot)
+	__Raw.storeWord(at, offset: slotGenerationOffset, value: generation)
+	__Raw.storeWord(at, offset: slotRecordOffset, value: record)
+	spinUnlock(table, offset: tableLockOffset)
+	return wordOf(slot, generation: generation)
+end 'handleInsert'
+
+// handleFind is the record of a kind that a word names, or 0 when it names none that is live, and takes it out of the table where
+// remove is set, which makes every word of it stale. The lock is held for the lookup alone: a record is the caller's to use until
+// it takes it out.
+function handleFind(word Count, kind Count, remove bool) returns Count
+	let table = handleTable()
+	spinLock(table, offset: tableLockOffset)
+	let slot = word and failureCodeMask
+	let generation = word shr slotBits
+	var record = 0 as Count
+	if slot < __Raw.loadWord(table, offset: tableUsedOffset) 'inside'
+		let at = slotAddress(table, slot: slot)
+		let held = __Raw.loadWord(at, offset: slotGenerationOffset)
+		if held == generation and held mod 2 == 1 and __Raw.loadWord(__Raw.loadWord(at, offset: slotRecordOffset), offset: 0) == kind 'live'
+			record = __Raw.loadWord(at, offset: slotRecordOffset)
+			if remove 'taken'
+				if generation < lastGeneration 'reusable'
+					__Raw.storeWord(at, offset: slotGenerationOffset, value: __Raw.wrappingAdd(generation, right: 1))
+					__Raw.storeWord(at, offset: slotRecordOffset, value: __Raw.loadWord(table, offset: tableFreeOffset))
+					__Raw.storeWord(table, offset: tableFreeOffset, value: __Raw.wrappingAdd(slot, right: 1))
+				end 'reusable' else 'retired'
+					__Raw.storeWord(at, offset: slotGenerationOffset, value: retiredGeneration)
+					__Raw.storeWord(at, offset: slotRecordOffset, value: 0)
+				end 'retired'
+			end 'taken'
+		end 'live'
+	end 'inside'
+	spinUnlock(table, offset: tableLockOffset)
+	return record
+end 'handleFind'
+
+// setLastError records the failure of a spawn, which subprocessLastErrorCode and subprocessLastErrorMessage answer from.
+function setLastError(word Count)
+	__Raw.storeWord(handleTable(), offset: tableLastErrorOffset, value: word)
+end 'setLastError'
+
+// terminatedLength is the length of the zero-terminated bytes at an address.
+function terminatedLength(address Count) returns Count
+	var length = 0 as Count
+	while __Raw.loadByte(address, offset: length) != 0 'each'
+		length = __Raw.wrappingAdd(length, right: 1)
+	end 'each'
+	return length
+end 'terminatedLength'
+
+// blobHoldsTokens is whether the length bytes of a blob are exactly argc tokens, at least one, each ended by a NUL: a token that
+// holds a NUL of its own would be two, and a blob of fewer tokens than it says would be read past its end.
+function blobHoldsTokens(blob Count, length Count, argc Count) returns bool
+	if argc == 0 or length == 0 'none'
+		return false
+	end 'none'
+	var tokens = 0 as Count
+	for i in 0 upto length 'bytes'
+		if __Raw.loadByte(blob, offset: i) == 0 'end'
+			tokens = __Raw.wrappingAdd(tokens, right: 1)
+		end 'end'
+	end 'bytes'
+	return tokens == argc and __Raw.loadByte(blob, offset: __Raw.wrappingSub(length, right: 1)) == 0
+end 'blobHoldsTokens'
+
+// argvBlobBytes is how many bytes the blob of an executable and its arguments takes: each text and a NUL.
+function argvBlobBytes(executable String, arguments Count) returns Count
+	var bytes = __Raw.wrappingAdd(__Raw.stringLength(executable), right: 1)
+	let count = wordAt(arguments, offset: osArrayLengthOffset)
+	for i in 0 upto count 'arguments'
+		bytes = __Raw.wrappingAdd(bytes, right: __Raw.wrappingAdd(__Raw.stringLengthAt(argumentAt(arguments, index: i), offset: 0), right: 1))
+	end 'arguments'
+	return bytes
+end 'argvBlobBytes'
+
+// fillArgvBlob writes the blob of an executable and its arguments, each text and a NUL, at an address that has room for
+// argvBlobBytes.
+function fillArgvBlob(executable String, arguments Count, dst Count)
+	var at = 0 as Count
+	if __Raw.stringLength(executable) != 0 'executable'
+		copyBytes(__Raw.stringBytes(executable), target: dst, count: __Raw.stringLength(executable))
+		at = __Raw.stringLength(executable)
+	end 'executable'
+	at = storeNextByte(dst, offset: at, value: 0)
+	let count = wordAt(arguments, offset: osArrayLengthOffset)
+	for i in 0 upto count 'arguments'
+		let argument = argumentAt(arguments, index: i)
+		let length = __Raw.stringLengthAt(argument, offset: 0)
+		if length != 0 'some'
+			copyBytes(__Raw.stringBytesAt(argument, offset: 0), target: __Raw.wrappingAdd(dst, right: at), count: length)
+			at = __Raw.wrappingAdd(at, right: length)
+		end 'some'
+		at = storeNextByte(dst, offset: at, value: 0)
+	end 'arguments'
+end 'fillArgvBlob'
+
+// environmentIsWhole is whether the words of an environment block that a caller made are a block: a buffer, empty or ended by a NUL,
+// as the entries of NAME=VALUE that each end in one and the NUL after the last are.
+function environmentIsWhole(env Count) returns bool
+	if env == 0 'none'
+		return false
+	end 'none'
+	let length = collectionLength(env)
+	return length == 0 or __Raw.loadByte(collectionData(env), offset: __Raw.wrappingSub(length, right: 1)) == 0
+end 'environmentIsWhole'
+
+// pathHoldsNul is whether the path of a stream's file, a cstring's two words, holds a NUL, which ends the text the system reads.
+function pathHoldsNul(path String) returns bool
+	return bytesHoldNul(__Raw.stringBytes(path), length: __Raw.stringLength(path))
+end 'pathHoldsNul'
+
+// spawnRefusal is the failure of a spawn that is not served or whose words are malformed, which is refused before anything starts
+// or is allocated, and 0 for one that is neither. A stream held open (the streaming child's), a detach and a trace are the ones it
+// does not serve; an environment block that is not a block, a path or a working directory that holds a NUL and the words that name
+// no kind or flag are the malformed ones.
+function spawnRefusal(argv Count, argc Count, cwd String, env Count, envInherit Count, stdinKind Count, stdinData String, stdoutKind Count, stdoutData String, stderrKind Count, stderrData String, flags Count, stdinLength Count) returns Count
+	if envInherit > spawnEnvironmentParent or (envInherit == spawnEnvironmentBlock and not environmentIsWhole(env)) 'environment'
+		return refusedFailure(codeInvalidParameter)
+	end 'environment'
+	if stdinKind == spawnStdinHold 'inputUnserved'
+		return refusedFailure(codeNotSupported)
+	end 'inputUnserved'
+	if stdinKind > spawnStdinHold 'inputKind'
+		return refusedFailure(codeInvalidParameter)
+	end 'inputKind'
+	if stdoutKind > spawnOutputFile or stderrKind > spawnOutputFile 'outputKind'
+		return refusedFailure(codeInvalidParameter)
+	end 'outputKind'
+	if (flags and spawnFlagsKnown) != flags 'flags'
+		return refusedFailure(codeInvalidParameter)
+	end 'flags'
+	if (flags and (spawnFlagDetach or spawnFlagTraced)) != 0 'unserved'
+		return refusedFailure(codeNotSupported)
+	end 'unserved'
+	if not blobHoldsTokens(collectionData(argv), length: collectionLength(argv), argc: argc) 'tokens'
+		return refusedFailure(codeInvalidParameter)
+	end 'tokens'
+	if pathHoldsNul(cwd) or (stdinKind == spawnStdinFile and pathHoldsNul(stdinData)) or (stdoutKind == spawnOutputFile and pathHoldsNul(stdoutData)) or (stderrKind == spawnOutputFile and pathHoldsNul(stderrData)) 'paths'
+		return refusedFailure(codeInvalidParameter)
+	end 'paths'
+	if stdinKind == spawnStdinBytes and stdinLength > __Raw.stringLength(stdinData) 'inputLength'
+		return refusedFailure(codeInvalidParameter)
+	end 'inputLength'
+	return 0
+end 'spawnRefusal'
+
+// prepareRun fills what a start leaves in the run's wait that awaitChild serves: the caps of the two streams and the input's
+// bytes. The wait is new (waitNew).
+function prepareRun(wait Count, request Count)
+	__Raw.storeWord(fieldAt(wait, offset: waitOutputOffset), offset: streamLimitOffset, value: wordAt(request, offset: requestOutputLimitOffset))
+	__Raw.storeWord(fieldAt(wait, offset: waitErrorOffset), offset: streamLimitOffset, value: wordAt(request, offset: requestErrorLimitOffset))
+	__Raw.storeWord(fieldAt(wait, offset: waitInputOffset), offset: inputTextOffset, value: wordAt(request, offset: requestInputOffset))
+	__Raw.storeWord(fieldAt(wait, offset: waitInputOffset), offset: inputLengthOffset, value: wordAt(request, offset: requestInputLengthOffset))
+end 'prepareRun'
+
+// newRequest is a new request with every word 0.
+function newRequest() returns Count
+	let request = alloc(requestBytes)
+	zeroRange(request, from: 0, to: requestBytes)
+	return request
+end 'newRequest'
+
+// storePath puts the bytes and the length of a cstring, the path of a stream's file, in a request at the offsets of its two words.
+function storePath(request Count, offset Count, path String)
+	__Raw.storeWord(request, offset: offset, value: __Raw.stringBytes(path))
+	__Raw.storeWord(request, offset: __Raw.wrappingAdd(offset, right: wordBytes), value: __Raw.stringLength(path))
+end 'storePath'
+
+// subprocessSpawn starts the child that its words describe and gives its handle, or -1 with the failure recorded. The program is
+// the first token of the argv blob, which is searched for on PATH where it holds no separator; the child's directory is cwd, the
+// caller's own where it is empty; its environment is this process's, or with envInherit 0 the block of NAME=VALUE entries that env
+// holds, which is all of it; its standard input is none (the null device), inherited, the stdinLength bytes of stdinData, which the
+// child's record keeps a copy of, or the file that stdinData names; and its standard output and error are discarded, inherited,
+// collected up to a limit, or the file that stdoutData and stderrData name, made or emptied. A kind, a flag or an environment that
+// is not served is refused. The cstrings are the two words of Strings: each system's start makes the zero-terminated copy it passes
+// the system and frees it before it returns.
+function subprocessSpawn(argv Count, argc Count, cwd String, env Count, envInherit Count, stdinKind Count, stdinData String, stdoutKind Count, stdoutData String, stdoutLimit Count, stderrKind Count, stderrData String, stderrLimit Count, flags Count, stdinLength Count) returns Count
+	let refused = spawnRefusal(argv, argc: argc, cwd: cwd, env: env, envInherit: envInherit, stdinKind: stdinKind, stdinData: stdinData, stdoutKind: stdoutKind, stdoutData: stdoutData, stderrKind: stderrKind, stderrData: stderrData, flags: flags, stdinLength: stdinLength)
+	if refused != 0 'refused'
+		setLastError(lastErrorOf(refused))
+		return noHandle
+	end 'refused'
+	var held = 0 as Count
+	var heldLength = 0 as Count
+	if stdinKind == spawnStdinBytes and stdinLength != 0 'copy'
+		held = alloc(stdinLength)
+		heldLength = stdinLength
+		copyBytes(__Raw.stringBytes(stdinData), target: held, count: stdinLength)
+	end 'copy'
+	let request = newRequest()
+	__Raw.storeWord(request, offset: requestArgvOffset, value: collectionData(argv))
+	__Raw.storeWord(request, offset: requestArgvLengthOffset, value: collectionLength(argv))
+	__Raw.storeWord(request, offset: requestArgcOffset, value: argc)
+	__Raw.storeWord(request, offset: requestDirectoryOffset, value: __Raw.stringBytes(cwd))
+	__Raw.storeWord(request, offset: requestDirectoryLengthOffset, value: __Raw.stringLength(cwd))
+	__Raw.storeWord(request, offset: requestInputKindOffset, value: stdinKind)
+	__Raw.storeWord(request, offset: requestInputOffset, value: held)
+	__Raw.storeWord(request, offset: requestInputLengthOffset, value: heldLength)
+	__Raw.storeWord(request, offset: requestOutputKindOffset, value: stdoutKind)
+	__Raw.storeWord(request, offset: requestOutputLimitOffset, value: stdoutLimit)
+	__Raw.storeWord(request, offset: requestErrorKindOffset, value: stderrKind)
+	__Raw.storeWord(request, offset: requestErrorLimitOffset, value: stderrLimit)
+	__Raw.storeWord(request, offset: requestFlagsOffset, value: flags)
+	if stdinKind == spawnStdinFile 'inputFile'
+		storePath(request, offset: requestInputPathOffset, path: stdinData)
+	end 'inputFile'
+	if stdoutKind == spawnOutputFile 'outputFile'
+		storePath(request, offset: requestOutputPathOffset, path: stdoutData)
+	end 'outputFile'
+	if stderrKind == spawnOutputFile 'errorFile'
+		storePath(request, offset: requestErrorPathOffset, path: stderrData)
+	end 'errorFile'
+	if envInherit == spawnEnvironmentBlock 'block'
+		__Raw.storeWord(request, offset: requestEnvironmentOffset, value: collectionData(env))
+		__Raw.storeWord(request, offset: requestEnvironmentLengthOffset, value: collectionLength(env))
+		__Raw.storeWord(request, offset: requestEnvironmentOwnOffset, value: set)
+	end 'block'
+	let run = newRun()
+	let failure = startChild(request, run: run)
+	free(request)
+	if failure != 0 'failed'
+		if held != 0 'kept'
+			free(held)
+		end 'kept'
+		free(run)
+		setLastError(lastErrorOf(failure))
+		return noHandle
+	end 'failed'
+	__Raw.storeWord(waitOf(run), offset: waitStartedOffset, value: osClockNanos())
+	let child = alloc(childBytes)
+	__Raw.storeWord(child, offset: childKindOffset, value: childKind)
+	__Raw.storeWord(child, offset: childStateOffset, value: childIdle)
+	__Raw.storeWord(child, offset: childRunOffset, value: run)
+	__Raw.storeWord(child, offset: childInputOffset, value: held)
+	return handleInsert(child)
+end 'subprocessSpawn'
+
+// subprocessGetPid is the process id that the spawn recorded for a child.
+function subprocessGetPid(handle Count) returns Count
+	let child = handleFind(handle, kind: childKind, remove: false)
+	if child == 0 'none'
+		return noHandle
+	end 'none'
+	return wordAt(waitOf(wordAt(child, offset: childRunOffset)), offset: waitPidOffset)
+end 'subprocessGetPid'
+
+// subprocessWaitCollect parks until the child has exited and its output has ended, or until ms milliseconds (0 for none) have
+// passed, which ends the child and every process it started and keeps the output it had written, and gives the result: what became
+// of the child and its output. A deadline that passed is timedOut, or treeNotEnded when part of the tree was still running after the
+// kill; the code is the child's own, which is the kill's for a child that it ended. A word that names no child that no wait has taken
+// is -1, with ERROR_INVALID_HANDLE recorded.
+function subprocessWaitCollect(handle Count, ms Count) returns Count
+	let child = handleFind(handle, kind: childKind, remove: false)
+	if child == 0 'none'
+		setLastError(systemFailure(failureStepProgram, code: codeInvalidHandle))
+		return noHandle
+	end 'none'
+	if __Raw.compareExchange(child, offset: childStateOffset, expected: childIdle, desired: childCollecting) != childIdle 'taken'
+		setLastError(systemFailure(failureStepProgram, code: codeInvalidHandle))
+		return noHandle
+	end 'taken'
+	let run = wordAt(child, offset: childRunOffset)
+	let wait = waitOf(run)
+	let expired = awaitChild(wait, deadlineMs: ms)
+	finishRun(run)
+	let status = wordAt(wait, offset: waitStatusOffset)
+	let result = alloc(resultBytes)
+	__Raw.storeWord(result, offset: resultKindOffset, value: resultKind)
+	if expired 'late'
+		var lateKind = resultTimedOut
+		if wordAt(wait, offset: waitSurvivedOffset) != 0 'survived'
+			lateKind = resultTreeNotEnded
+		end 'survived'
+		__Raw.storeWord(result, offset: resultStatusKindOffset, value: lateKind)
+		__Raw.storeWord(result, offset: resultStatusCodeOffset, value: killedCodeOf(status))
+	end 'late' else 'ended'
+		__Raw.storeWord(result, offset: resultStatusKindOffset, value: statusKindOf(status))
+		__Raw.storeWord(result, offset: resultStatusCodeOffset, value: statusCodeOf(status))
+	end 'ended'
+	let started = wordAt(wait, offset: waitStartedOffset)
+	__Raw.storeWord(result, offset: resultDurationOffset, value: __Raw.wrappingSub(osClockNanos(), right: started) / nanosPerMilli)
+	__Raw.storeWord(result, offset: resultRawStatusOffset, value: status)
+	takeStream(result, offset: resultOutputOffset, stream: fieldAt(wait, offset: waitOutputOffset))
+	takeStream(result, offset: resultErrorOffset, stream: fieldAt(wait, offset: waitErrorOffset))
+	__Raw.storeWord(child, offset: childStateOffset, value: childCollected)
+	return handleInsert(result)
+end 'subprocessWaitCollect'
+
+// takeStream moves the text a stream read into a result, which owns its room from then on: the room at offset, then its length.
+function takeStream(result Count, offset Count, stream Count)
+	__Raw.storeWord(result, offset: offset, value: wordAt(stream, offset: streamTextOffset))
+	__Raw.storeWord(result, offset: __Raw.wrappingAdd(offset, right: wordBytes), value: wordAt(stream, offset: streamLengthOffset))
+end 'takeStream'
+
+// resultWord is the word of a result at an offset, or 0 for a word that names none.
+function resultWord(result Count, offset Count) returns Count
+	let record = handleFind(result, kind: resultKind, remove: false)
+	if record == 0 'none'
+		return 0
+	end 'none'
+	return wordAt(record, offset: offset)
+end 'resultWord'
+
+function subprocessResultStatusKind(result Count) returns Count
+	return resultWord(result, offset: resultStatusKindOffset)
+end 'subprocessResultStatusKind'
+
+function subprocessResultStatusCode(result Count) returns Count
+	return resultWord(result, offset: resultStatusCodeOffset)
+end 'subprocessResultStatusCode'
+
+function subprocessResultDurationMs(result Count) returns Count
+	return resultWord(result, offset: resultDurationOffset)
+end 'subprocessResultDurationMs'
+
+// resultText is a new byte array of the text a result holds at an offset, which is empty for a word that names no result.
+function resultText(result Count, offset Count) returns Count
+	let bytes = bytesNew()
+	let record = handleFind(result, kind: resultKind, remove: false)
+	if record == 0 'none'
+		return bytes
+	end 'none'
+	appendBytesOf(bytes, address: wordAt(record, offset: offset), length: wordAt(record, offset: __Raw.wrappingAdd(offset, right: wordBytes)))
+	return bytes
+end 'resultText'
+
+function subprocessResultStdout(result Count) returns Count
+	return resultText(result, offset: resultOutputOffset)
+end 'subprocessResultStdout'
+
+function subprocessResultStderr(result Count) returns Count
+	return resultText(result, offset: resultErrorOffset)
+end 'subprocessResultStderr'
+
+// subprocessResultRelease gives back a result and the text it owns; a word that names no result is skipped.
+function subprocessResultRelease(result Count)
+	let record = handleFind(result, kind: resultKind, remove: true)
+	if record == 0 'none'
+		return
+	end 'none'
+	__Raw.freeStringRoom(wordAt(record, offset: resultOutputOffset))
+	__Raw.freeStringRoom(wordAt(record, offset: resultErrorOffset))
+	free(record)
+end 'subprocessResultRelease'
+
+// The word that subprocessEndTree answers for a tree that is still running after the kill, -3.
+let endTreeSurvived = 0xFFFFFFFFFFFFFFFD as Count
+
+// subprocessEndTree ends the child and every process it started, and gives 0 once none is left running, -3 when part of the tree
+// still runs after the bound that the end is given (the failure recorded as ERROR_GEN_FAILURE), and -1 for a word that names no child
+// that no wait has taken, or for a kill that the system refused (its error recorded). A child whose tree is ended and that is waited
+// for after answers what became of it as any other.
+function subprocessEndTree(handle Count) returns Count
+	let child = handleFind(handle, kind: childKind, remove: false)
+	if child == 0 or __Raw.compareExchange(child, offset: childStateOffset, expected: childIdle, desired: childEnding) != childIdle 'none'
+		setLastError(systemFailure(failureStepProgram, code: codeInvalidHandle))
+		return noHandle
+	end 'none'
+	let wait = waitOf(wordAt(child, offset: childRunOffset))
+	var answer = 0 as Count
+	let refused = endTree(wait)
+	if refused != 0 'refused'
+		setLastError(systemFailure(failureStepProgram, code: win32CodeOf(refused)))
+		answer = noHandle
+	end 'refused' else if not treeEnded(wait) 'survived'
+		setLastError(systemFailure(failureStepProgram, code: codeGeneralFailure))
+		answer = endTreeSurvived
+	end 'survived'
+	__Raw.storeRelease(child, offset: childStateOffset, value: childIdle)
+	return answer
+end 'subprocessEndTree'
+
+// subprocessReleaseHandle gives back a child's slot and what it still holds; a word that names no child is skipped. A child that
+// no wait has taken is ended with its tree and given up, with the pipes it holds closed. A handle that a wait is parked on, or that
+// subprocessEndTree is ending, is a program error, which stops the program as it does in maxon.
+function subprocessReleaseHandle(handle Count)
+	let child = handleFind(handle, kind: childKind, remove: false)
+	if child == 0 'none'
+		return
+	end 'none'
+	let state = wordAt(child, offset: childStateOffset)
+	if state == childCollecting or state == childEnding 'busy'
+		panic("subprocessReleaseHandle: the handle is released while a wait is parked on it")
+	end 'busy'
+	if handleFind(handle, kind: childKind, remove: true) == 0 'gone'
+		return
+	end 'gone'
+	let run = wordAt(child, offset: childRunOffset)
+	if state == childIdle 'abandoned'
+		abandonRun(run)
+	end 'abandoned'
+	free(run)
+	if wordAt(child, offset: childInputOffset) != 0 'input'
+		free(wordAt(child, offset: childInputOffset))
+	end 'input'
+	free(child)
+end 'subprocessReleaseHandle'
+
+// subprocessLastErrorCode is the failure the last spawn recorded: its step above 32 bits and its code, in Win32's vocabulary, in
+// them. 0 means that nothing has failed.
+function subprocessLastErrorCode() returns Count
+	return wordAt(handleTable(), offset: tableLastErrorOffset)
+end 'subprocessLastErrorCode'
+
+// The text of subprocessLastErrorMessage: the prefix, then the code in decimal.
+let errorMessagePrefix = "os error "
+
+// subprocessLastErrorMessage is a new byte array of `os error N` for the code of the last failure, empty when nothing has failed.
+function subprocessLastErrorMessage() returns Count
+	let bytes = bytesNew()
+	let code = failureCodeOf(subprocessLastErrorCode())
+	if code == 0 'clean'
+		return bytes
+	end 'clean'
+	let digits = itoa(code, unsigned: true)
+	appendBytesOf(bytes, address: __Raw.stringBytes(errorMessagePrefix), length: __Raw.stringLength(errorMessagePrefix))
+	appendBytesOf(bytes, address: __Raw.stringBytes(digits), length: __Raw.stringLength(digits))
+	return bytes
+end 'subprocessLastErrorMessage'
+
+// subprocessResolveOnPath is a new byte array of the path of the program that a name asks for, as the system's lookup finds it
+// (resolveProgram), or the name itself where there is none, which a name that holds a NUL never has.
+function subprocessResolveOnPath(name String) returns Count
+	let bytes = bytesNew()
+	let length = __Raw.stringLength(name)
+	var found = 0 as Count
+	if not bytesHoldNul(__Raw.stringBytes(name), length: length) 'searchable'
+		found = resolveProgram(__Raw.stringBytes(name), length: length)
+	end 'searchable'
+	if found == 0 'missing'
+		appendBytesOf(bytes, address: __Raw.stringBytes(name), length: length)
+		return bytes
+	end 'missing'
+	appendBytesOf(bytes, address: found, length: terminatedLength(found))
+	free(found)
+	return bytes
+end 'subprocessResolveOnPath'

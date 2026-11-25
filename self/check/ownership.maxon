@@ -79,18 +79,21 @@ export type OwnFact
 	// moved is the expression a whole local moved out at into a consumes parameter, a field or a binding, where its type can
 	// be copied, and 0 for any other fact: a later use's fix copies it there (movedCloneFix).
 	export var moved as ast.NodeID
+	// aroundLoop is whether the fact reached where it is over a loop's back edge, from a later iteration's code: a use that
+	// comes before the move in the source then meets the move of an earlier iteration.
+	export var aroundLoop as bool
 
 	export static function make(local ast.LocalID, site diag.U32, kind OwnFactKind, consumes dest OwnDest) returns OwnFact
-		return OwnFact{local: local, site: site, kind: kind, dest: dest, moves: OwnMoves.create(0), moved: 0}
+		return OwnFact{local: local, site: site, kind: kind, dest: dest, moves: OwnMoves.create(0), moved: 0, aroundLoop: false}
 	end 'make'
 
 	// movedAt is the fact of a whole local moved out into dest, at the expression e that a later use's fix copies, or 0.
 	export static function movedAt(local ast.LocalID, site diag.U32, e ast.NodeID, consumes dest OwnDest) returns OwnFact
-		return OwnFact{local: local, site: site, kind: OwnFactKind.factMoved, dest: dest, moves: OwnMoves.create(0), moved: e}
+		return OwnFact{local: local, site: site, kind: OwnFactKind.factMoved, dest: dest, moves: OwnMoves.create(0), moved: e, aroundLoop: false}
 	end 'movedAt'
 
 	export static function partly(local ast.LocalID, site diag.U32, consumes moves OwnMoves) returns OwnFact
-		return OwnFact{local: local, site: site, kind: OwnFactKind.factPartlyMoved, dest: OwnDest.of(OwnDestKind.destVariable), moves: moves, moved: 0}
+		return OwnFact{local: local, site: site, kind: OwnFactKind.factPartlyMoved, dest: OwnDest.of(OwnDestKind.destVariable), moves: moves, moved: 0, aroundLoop: false}
 	end 'partly'
 
 	export function isPartial() returns bool
@@ -805,8 +808,24 @@ function joinPaths(mutates o Ownership, p ast.Project, mutates ms ast.ModuleStat
 			lostOnOnePath(o, p: p, ms: ms, ob: ob, lost: b, other: a)
 		end 'each'
 	end 'obliged'
+	if loopBack 'back'
+		return mergeOwn(a, b: aroundLoop(b))
+	end 'back'
 	return mergeOwn(a, b: b)
 end 'joinPaths'
+
+// aroundLoop is a state that reaches the top of a loop over its back edge, each fact marked as come from a later
+// iteration.
+function aroundLoop(consumes s OwnState) returns OwnState
+	var out = s
+	let facts = exchange(out.facts, value: OwnFacts.create(0))
+	for fact in facts 'each'
+		var marked = fact.clone()
+		marked.aroundLoop = true
+		out.facts.push(marked)
+	end 'each'
+	return out
+end 'aroundLoop'
 
 // disagreeWhole is E3919 for a local that holds nothing on one path only; fact is that path's.
 function disagreeWhole(mutates o Ownership, p ast.Project, ms ast.ModuleState, ob OwnObliged, fact OwnFact)

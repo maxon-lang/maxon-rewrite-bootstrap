@@ -1448,6 +1448,7 @@ error E3167: api/<fragment>:5:12: exported constant 'api.CAP' names unexported t
 ```
 
 <!-- test: error.an-exported-let-built-through-a-file-private-generic-alias-is-refused -->
+<!-- positions: moved -->
 The alias the initializer was spelled through is the binding's own spelling of its type. `Array with ExitCode` is
 nameable by anyone, `Tallies` is not, and the binding is read under that name.
 ```maxon
@@ -1458,7 +1459,7 @@ export let EMPTY = Tallies.create(0)
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return EMPTY.count() as ExitCode
+	return try api.EMPTY.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

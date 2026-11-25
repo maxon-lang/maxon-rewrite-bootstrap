@@ -360,8 +360,14 @@ let schedEntryFreeOffset = 312 as Count
 // schedPipeSerialOffset is where the scheduler's record holds the serial of the next pipe that eventPipe names, on Windows, stepped atomically.
 let schedPipeSerialOffset = 320 as Count
 
+// schedHandlesOffset is where the scheduler's record holds the address of the table that names the children and the results of subprocess spawns (a word that a handle packs a slot and the slot's generation into), 0 until the first spawn.
+let schedHandlesOffset = 328 as Count
+
+// schedProcessEntryFreeOffset is where the scheduler's record holds the first free event entry that was a process's, linked through entryLinkOffset, under the lock: such an entry is taken again only as a process's, since a system may still hold a notification keyed by it that no other kind of entry could tell from its own.
+let schedProcessEntryFreeOffset = 336 as Count
+
 // schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made.
-let schedProcessorsOffset = 328 as Count
+let schedProcessorsOffset = 344 as Count
 
 // procIdOffset is where a processor holds its index among the processors.
 let procIdOffset = 0 as Count
@@ -846,6 +852,9 @@ let linuxOpenCloseOnExec = 524288 as Count
 // linuxOpenNonblock is O_NONBLOCK: a write that would wait writes what fits, or fails with EAGAIN.
 let linuxOpenNonblock = 2048 as Count
 
+// linuxFcntlSetDescriptorFlags is F_SETFD: with 0, an fd that an execve keeps.
+let linuxFcntlSetDescriptorFlags = 2 as Count
+
 // linuxFcntlGetFlags is F_GETFL.
 let linuxFcntlGetFlags = 3 as Count
 
@@ -914,6 +923,9 @@ let linuxEperm = 1 as Count
 
 // linuxEnoent is ENOENT.
 let linuxEnoent = 2 as Count
+
+// linuxEsrch is ESRCH: a signal to a process or a group that has no member left.
+let linuxEsrch = 3 as Count
 
 // linuxEintr is EINTR: a call that a signal broke off, which is made again.
 let linuxEintr = 4 as Count
@@ -1062,7 +1074,7 @@ let macosEperm = 1 as Count
 // macosEnoent is ENOENT.
 let macosEnoent = 2 as Count
 
-// macosEsrch is ESRCH: a kevent of EVFILT_PROC for a process that has ended or is ending, which the filter cannot watch.
+// macosEsrch is ESRCH: a kevent of EVFILT_PROC for a process that has ended or is ending, which the filter cannot watch, and a signal to a process or a group that has no member left.
 let macosEsrch = 3 as Count
 
 // macosEintr is EINTR: a call that a signal broke off, which is made again.
@@ -1182,6 +1194,9 @@ let macosSpawnObjectBytes = 8 as Count
 // macosSpawnCloexecDefault is POSIX_SPAWN_CLOEXEC_DEFAULT: the child has only the fds the file actions give it, so no other run's pipe stays open in it.
 let macosSpawnCloexecDefault = 16384 as Count
 
+// macosSpawnSetPgroup is POSIX_SPAWN_SETPGROUP: the child joins the process group that posix_spawnattr_setpgroup names, 0 being a group of its own.
+let macosSpawnSetPgroup = 2 as Count
+
 #if arch(arm64)
 	// linuxSysRead is read(fd, buffer, count).
 	let linuxSysRead = 63 as Count
@@ -1231,8 +1246,11 @@ let macosSpawnCloexecDefault = 16384 as Count
 	// linuxSysWait4 is wait4(pid, status, options, usage).
 	let linuxSysWait4 = 260 as Count
 
-	// linuxSysKill is kill(pid, signal).
+	// linuxSysKill is kill(pid, signal): a negative pid names the process group of its absolute value.
 	let linuxSysKill = 129 as Count
+
+	// linuxSysSetpgid is setpgid(pid, group): 0 and 0 make the calling process the leader of a process group of its own.
+	let linuxSysSetpgid = 154 as Count
 
 	// linuxSysGetcwd is getcwd(buffer, size).
 	let linuxSysGetcwd = 17 as Count
@@ -1381,8 +1399,11 @@ let macosSpawnCloexecDefault = 16384 as Count
 	// linuxSysWait4 is wait4(pid, status, options, usage).
 	let linuxSysWait4 = 61 as Count
 
-	// linuxSysKill is kill(pid, signal).
+	// linuxSysKill is kill(pid, signal): a negative pid names the process group of its absolute value.
 	let linuxSysKill = 62 as Count
+
+	// linuxSysSetpgid is setpgid(pid, group): 0 and 0 make the calling process the leader of a process group of its own.
+	let linuxSysSetpgid = 109 as Count
 
 	// linuxSysGetcwd is getcwd(buffer, size).
 	let linuxSysGetcwd = 79 as Count

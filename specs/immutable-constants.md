@@ -34,7 +34,7 @@ carries `isolated` or `immutable` (E3217).
 ## Tests
 
 <!-- test: error.a-constant-module-let-stored-into-a-plain-field-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 `Name` is image data, and `value` is a plain `ByteArray` field, where something may write it.
 
 ```maxon
@@ -196,7 +196,7 @@ end 'main'
 ```
 
 <!-- test: error.a-record-built-from-a-constant-static-let-is-refused-by-a-mutable-array -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 The `Tok` holds the constant `Alpha`, so it is read-only and the mutable array refuses it.
 
 ```maxon
@@ -310,7 +310,7 @@ end 'main'
 ```
 
 <!-- test: error.a-constant-module-let-pushed-into-a-plain-array-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 The element is a plain `ByteArray`, so a reader of the array may write what it holds.
 
 ```maxon
@@ -330,7 +330,7 @@ error E3196: <fragment>:8:13: cannot store an immutable 'ByteArray' into 'an ele
 ```
 
 <!-- test: error.a-write-through-a-constant-module-let-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 ```maxon
 let Name = b"abc"
 
@@ -345,7 +345,7 @@ error E3207: <fragment>:5:7: 'push' needs a writable receiver; 'Name' is immutab
 ```
 
 <!-- test: error.a-write-through-a-constant-local-let-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 A `let` no longer freezes what it names, but this one names image data.
 
 ```maxon
@@ -361,7 +361,7 @@ error E3207: <fragment>:4:7: 'push' needs a writable receiver; 'name' is immutab
 ```
 
 <!-- test: error.a-write-through-a-let-bound-to-a-constant-let-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 `copy` names what `Name` names, which is image data.
 
 ```maxon
@@ -379,7 +379,7 @@ error E3207: <fragment>:6:7: 'push' needs a writable receiver; 'copy' is immutab
 ```
 
 <!-- test: error.a-write-through-a-constant-field-of-an-immutable-holder-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `value` is `immutable`, so what it holds is not writable through any name that reads it.
 
@@ -459,7 +459,7 @@ end 'main'
 ```
 
 <!-- test: error.a-fresh-name-is-refused-by-an-immutable-field-until-it-is-frozen -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 type Tok
@@ -570,7 +570,7 @@ end 'main'
 ```
 
 <!-- test: error.a-constant-module-let-passed-to-a-parameter-the-callee-writes-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 ```maxon
 let Name = b"abc"
 
@@ -588,7 +588,7 @@ error E3207: <fragment>:9:7: 'grow' writes 'name' (line 5: `name.push(100)`); 'N
 ```
 
 <!-- test: error.an-unmarked-result-returning-a-constant-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 The result is read by a caller that may write it, so it is declared `immutable`.
 
 ```maxon
@@ -692,7 +692,7 @@ end 'main'
 ```
 
 <!-- test: error.a-record-built-from-an-inline-byte-literal-is-refused-by-a-mutable-array -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 The `Tok` holds the literal, so it is read-only and the mutable array refuses it.
 
 ```maxon
@@ -718,7 +718,7 @@ error E3196: <fragment>:14:12: cannot store a read-only 'Tok' into 'an element o
 ```
 
 <!-- test: error.an-inline-byte-literal-is-refused-by-a-parameter-the-callee-writes -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 ```maxon
 function grow(name ByteArray)
 	name.push(100)
@@ -734,7 +734,7 @@ error E3207: <fragment>:7:7: 'grow' writes 'name' (line 3: `name.push(100)`); a 
 ```
 
 <!-- test: error.a-var-bound-to-a-byte-literal-and-written-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 `var` allows rebinding, not writing a literal: `.clone()` is the mutable copy.
 
 ```maxon
@@ -766,7 +766,7 @@ end 'main'
 ```
 
 <!-- test: error.an-unmarked-result-returning-a-byte-literal-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 ```maxon
 function nameOf() returns ByteArray
 	return b"abc"
@@ -885,7 +885,7 @@ end 'main'
 ```
 
 <!-- test: error.a-fresh-key-is-refused-by-a-map-until-it-is-frozen -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 ```maxon
 typealias CountMap = Map with (ByteArray, Count)
 
@@ -901,7 +901,7 @@ error E3207: <fragment>:6:16: 'upsert' takes `immutable` 'key'; a fresh value is
 ```
 
 <!-- test: error.a-fresh-element-is-refused-by-a-set-until-it-is-frozen -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 ```maxon
 typealias NameSet = Set with ByteArray
 
@@ -917,7 +917,7 @@ error E3207: <fragment>:6:15: 'insert' takes `immutable` 'element'; a fresh valu
 ```
 
 <!-- test: error.a-map-literal-key-built-by-a-call-is-refused-until-it-is-frozen -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 `pick` hands back the array it was given, so the key of the literal is mutable, as it is for `upsert`.
 
 ```maxon
@@ -952,7 +952,7 @@ end 'main'
 ```
 
 <!-- test: error.a-union-holding-a-record-is-refused-by-an-immutable-parameter-until-it-is-frozen -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A union with a payload carries a capability whether it is the parameter or the argument, so a mutable `Slot` is refused by `keep`.
 
@@ -1050,7 +1050,7 @@ end 'main'
 ```
 
 <!-- test: error.a-map-key-read-is-refused-by-a-plain-field -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The key a `for` reads is `immutable`, so a plain `ByteArray` field cannot hold it.
 
@@ -1128,7 +1128,7 @@ end 'main'
 ```
 
 <!-- test: error.a-var-bound-to-frozen-data-and-written-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `var` can be rebound, but what it holds is frozen: its capability is fixed where it is bound.
 
@@ -1145,7 +1145,7 @@ error E3207: <fragment>:4:9: 'push' needs a writable receiver; 'frozen' is immut
 ```
 
 <!-- test: error.a-write-through-an-immutable-field-of-a-var-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `data` is an `immutable` field, so no name that reads it may write it, whatever binds the holder.
 
@@ -1170,7 +1170,7 @@ error E3207: <fragment>:12:9: 'push' needs a writable receiver; 'data' is immuta
 ```
 
 <!-- test: error.a-write-through-an-immutable-parameter-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 function grow(name frozen with ByteArray)
@@ -1220,7 +1220,7 @@ end 'main'
 ```
 
 <!-- test: error.a-constant-name-stored-into-a-plain-union-payload-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 ```maxon
 let Alpha = b"alpha"
 
@@ -1240,7 +1240,7 @@ error E3196: <fragment>:10:26: cannot store an immutable 'ByteArray' into 'Label
 ```
 
 <!-- test: error.a-write-through-an-immutable-union-payload-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 union Label
@@ -1594,7 +1594,7 @@ end 'main'
 ```
 
 <!-- test: error.a-mutable-field-read-passed-to-an-immutable-parameter-still-freezes-its-holder -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `plain` is a mutable field, so `sigs.plain` is frozen only if `sigs` is, and `a3` also writes `sigs`: the parameter
 cannot be both.
@@ -1795,7 +1795,7 @@ end 'main'
 ```
 
 <!-- test: error.a-mutable-field-read-off-a-parameter-arrays-element-is-refused-by-a-set -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `name` is a plain `ByteArray` field, so the element's name is data another name may write.
 
@@ -1953,7 +1953,7 @@ end 'main'
 ```
 
 <!-- test: error.a-parameter-inferred-frozen-refuses-a-mutable-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The refusal is at the caller that passes mutable data, not inside `wrap`.
 
@@ -2146,6 +2146,7 @@ end 'main'
 ```
 
 <!-- test: error.an-all-let-record-holding-an-array-still-needs-a-capability-word -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An array is writable state, so a record that holds one is not a value even when every field is a `let`.
 
@@ -2169,8 +2170,8 @@ type Meter
 		return Self{total: 0}
 	end 'create'
 
-	export function add(mutates self, readings Readings) returns Total
-		self.total = try self.total + (readings.amounts.count() as Total) otherwise panic("out of range")
+	export function add(readings Readings) returns Total
+		self.total = self.total + (readings.amounts.count() as Total)
 		return self.total
 	end 'add'
 end 'Meter'

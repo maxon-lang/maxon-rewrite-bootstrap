@@ -24,7 +24,7 @@ bound by a plain `let` is ordinary mutable data. These cases compile in the libr
 ## Tests
 
 <!-- test: a-field-store-of-a-call-result-sourced-from-a-parameter-pins-the-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pick` may hand back `p`, so storing its result into a mutable field makes `p` mutable only and the frozen argument is refused.
 
@@ -116,7 +116,7 @@ error E3207: <fragment>:31:11: 'viaParam' writes 'q'; 'frozen' is immutable
 ```
 
 <!-- test: a-mixed-result-given-a-frozen-argument-is-not-immutable-for-an-immutable-field -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `choose` hands back `p` or a box it also pushed into `spare`, so given a frozen `p` its result is read-only, not immutable, and cannot enter an `immutable` field.
 
@@ -175,7 +175,7 @@ error E3196: <fragment>:32:14: cannot store a mutable 'Box' into 'box', which ho
 ```
 
 <!-- test: a-mixed-join-stored-into-an-immutable-field-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A join of a parameter with fresh data is mutable data, so it cannot enter an `immutable` field, and the caller's mutable box stays unaliased by the field.
 
@@ -221,7 +221,7 @@ error E3196: <fragment>:20:15: cannot store a mutable 'Box' into 'held', which h
 ```
 
 <!-- test: data-of-an-immutable-slot-returned-by-a-plain-result-stays-immutable -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `part` returns data of an `immutable` slot; the result stays immutable whatever the receiver, so writing through it is refused.
 
@@ -518,7 +518,7 @@ error E3197: <fragment>:35:2: cannot write 'n' through 'wrapper.row', which is r
 ```
 
 <!-- test: an-immutable-parameter-fed-a-call-result-pins-the-parameter-it-may-hand-back -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `take` declares `immutable`, and `pick` may hand back `p`, a parameter `relay` has not decided is frozen, so the result is read-only and `take` refuses it.
 
@@ -557,7 +557,7 @@ error E3207: <fragment>:26:16: 'relay' needs 'p' frozen (it calls 'take', which 
 ```
 
 <!-- test: an-immutable-parameter-fed-a-call-result-is-read-only-even-for-a-frozen-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pick` may hand back `p`, which `relay` has not decided is frozen, so its result is read-only to `take`'s `immutable` parameter whatever `main` passes.
 
@@ -595,7 +595,7 @@ error E3207: <fragment>:21:14: 'take' takes `immutable` 'item'; 'pick(p)' is rea
 ```
 
 <!-- test: a-closure-that-writes-a-captured-call-result-pins-the-parameter-it-may-hand-back -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `step` writes `r`, which `pick` may take from `p`, so `relay` needs `p` writable and the frozen argument is refused.
 
@@ -639,7 +639,7 @@ error E3207: <fragment>:33:16: 'relay' writes 'p' (line 27: a result read from i
 ```
 
 <!-- test: a-mixed-join-pushed-into-an-array-of-immutable-elements-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `FrozenBoxes` holds `immutable Box`, and `p if flag else Box.create(1)` may be the caller's mutable `p`, so the push is refused.
 
@@ -674,7 +674,7 @@ error E3196: <fragment>:14:15: cannot store a mutable 'Box' into 'an element of 
 ```
 
 <!-- test: a-function-value-result-stored-into-an-immutable-field-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `getPart()` may hand back a record a mutable closure holds, so it cannot enter `Pinned`'s `immutable` field, and the closure over mutable `held` is refused.
 
@@ -721,6 +721,7 @@ error E3207: <fragment>:33:15: 'adopt' needs 'getPart' frozen (line 21: `self.pa
 ```
 
 <!-- test: an-async-over-a-clone-of-mutable-data-is-not-tied -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 `items.clone()` is a deep copy that shares nothing with `items`, so the promise keeps no hold on the caller's data and may be stored in an array while the caller goes on writing `items`.
 
 ```maxon
@@ -734,13 +735,13 @@ typealias TallyPromiseArray = Array with TallyPromise
 
 function countAfterYield(items TallyArray) returns Tally
 	sleep(1)
-	return try items.count() as Tally otherwise panic("out of range")
+	return items.count() as Tally
 end 'countAfterYield'
 
 function main() returns ExitCode
-	var items = TallyArray.create(0)
+	let items = TallyArray.create(0)
 	items.push(1)
-	var promises = TallyPromiseArray.create(0)
+	let promises = TallyPromiseArray.create(0)
 	promises.push(async countAfterYield(items.clone()))
 	items.push(2)
 	items.push(3)
@@ -795,7 +796,7 @@ true
 ```
 
 <!-- test: a-declared-clone-that-shares-data-is-not-a-fresh-copy -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Ledger.clone` is the author's own and hands back the same array, so its result is not a deep copy: freezing it would freeze data `live` still writes.
 
@@ -872,6 +873,7 @@ error E3212: <fragment>:23:2: the promise of this `async` call is tied to the mu
 ```
 
 <!-- test: a-closure-over-the-callers-data-handed-to-a-coroutine-ties-its-promise -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The closure reads the caller's `counter`, which is not a clean input, so the promise of the `async` call is tied and may not be returned.
@@ -914,6 +916,7 @@ error E3212: <fragment>:21:2: the promise of this `async` call is tied to the mu
 ```
 
 <!-- test: a-closure-over-a-value-handed-to-a-coroutine-stays-untied -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 <!-- unsupported-targets: wasm32-wasi -->
 The closure captures only a value, so nothing the caller can write reaches the coroutine, and the promise may be returned.
 
@@ -930,7 +933,7 @@ function later(measure Measure) returns Tally
 end 'later'
 
 function start(base Tally) returns TallyPromise
-	return async later(function() gives try base + 1 otherwise panic("out of range"))
+	return async later(function() gives base + 1)
 end 'start'
 
 function main() returns ExitCode
@@ -1088,7 +1091,7 @@ end 'main'
 ```
 
 <!-- test: a-call-result-of-an-undecided-source-pushed-into-a-plain-array-is-judged -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `same(box)` hands `box` back, and `items.push` stores it into an array whose elements are plain, so `keep` needs `box` mutable and the frozen argument is refused.
 
@@ -1127,7 +1130,7 @@ error E3207: <fragment>:23:7: 'keep' writes 'box' (line 18: a result read from i
 ```
 
 <!-- test: an-immutable-only-parameter-as-the-sole-source-gives-a-read-only-result -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `same(p)` returns only `p`, and `relay` needs `p` frozen for `take`, but the result of a call is read-only while its source is the caller's own undecided parameter, so `take`'s `immutable` parameter refuses it inside `relay`.
 
@@ -1165,7 +1168,7 @@ error E3207: <fragment>:21:14: 'take' takes `immutable` 'item'; 'same(p)' is rea
 ```
 
 <!-- test: a-fresh-argument-and-a-frozen-argument-mixed-in-a-return-are-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pick` may hand back either argument, `Box.create(0)` is mutable data and `frozen` is not, so the two sources disagree.
 
@@ -1283,6 +1286,7 @@ error E3212: <fragment>:21:2: the promise of this `async` call is tied to the mu
 ```
 
 <!-- test: a-named-function-handed-to-a-coroutine-stays-untied -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 <!-- unsupported-targets: wasm32-wasi -->
 `seven` captures nothing, so the coroutine holds nothing the caller can write and the promise may be returned.
 
@@ -1816,7 +1820,7 @@ error E3197: <fragment>:20:2: cannot write 'n' through 'r', which is read-only
 ```
 
 <!-- test: error.a-refused-constructor-body-does-not-refuse-its-callers-writes -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The literal in `Tracer.create` stores a mutable `Cols` into an `immutable` slot, which refuses the body. `build` writes through the record it gets back; that write is judged against a body that never finished, so it is not refused as well. Only the store is reported.
 
@@ -1947,7 +1951,7 @@ end 'main'
 ```
 
 <!-- test: error.a-managed-slice-is-not-fresh -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 `slice` may view the buffer it is given rather than copy it, so an array over a slice is not a fresh region even when the sliced buffer is an `isolated` parameter, and it is refused as an `isolated` result.
@@ -1971,7 +1975,7 @@ error E3200: <fragment>:6:9: 'ByteArray.init(try raw.slice(0, n) otherwise panic
 ```
 
 <!-- test: error.a-named-mutable-runtime-buffer-is-not-isolated -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 A fresh buffer bound by a plain `let` is ordinary mutable data of the function's region, so `ByteArray.init` over it is refused as an `isolated` result; binding it `as isolated __ManagedMemory` keeps it fresh.
@@ -2215,7 +2219,7 @@ error E3102: <fragment>:18:6: use of moved value 'raw': its ownership moved to a
 ```
 
 <!-- test: error.array-init-cannot-read-an-isolated-field-outside-a-block -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An argument to `ByteArray.init` is a read like any other, so an `isolated` field handed to it outside a `modify` or `swap` is refused as the bare read `shelf.bytes` is, inside a method as well as from the field's owner.
 
@@ -2281,7 +2285,7 @@ error E3200: <fragment>:13:28: 'ByteArray.init(text.addressableBytes())' is not 
 ```
 
 <!-- test: error.a-string-view-is-not-fresh -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 The buffer `addressableBytes` answers is the string's own, so it is not a clean call's fresh result even though its receiver is a value, and it is refused where an `isolated` value is wanted.
@@ -3032,7 +3036,7 @@ error E3198: <fragment>:28:21: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.array-init-over-a-named-buffer-leaves-no-live-alias -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 `ByteArray.init(buf)` builds the array over `buf`'s storage, so a buffer bound by a plain `let` is still named after the array exists: two names reach one region. The array is therefore not fresh, and handing it to an `isolated` parameter is refused rather than letting the `setByte` through `buf` write into a region the callee owns.
@@ -3627,7 +3631,7 @@ end 'main'
 ```
 
 <!-- test: error.an-isolated-part-read-through-a-join-cannot-reach-an-isolated-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An argument to an `isolated` parameter moves its value into the callee, so an `isolated` part of a holder that a join hands to one is refused as the bare read is: otherwise the callee and the holder would own one region.
 
@@ -3903,7 +3907,7 @@ end 'main'
 ```
 
 <!-- test: error.an-isolated-part-read-through-a-join-cannot-reach-an-isolated-return -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A function that returns `isolated` hands its caller a region of its own, so an `isolated` part of a holder that a join returns is refused as the bare read is: otherwise the caller and the holder would own one region.
 
@@ -4042,7 +4046,7 @@ end 'main'
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-reach-an-async-isolated-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `async` call to an `isolated` parameter moves its argument into the coroutine as a plain call does, so an `isolated` part of a holder, bare or through a join, is refused there as it is at a plain call: otherwise the coroutine and the holder would own one region.
 
@@ -4159,7 +4163,7 @@ error E3200: <fragment>:24:27: 'p' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: error.an-isolated-part-read-captured-by-a-closure-is-not-a-clean-input -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A closure that captures an `isolated` part of a holder hands that region back from every call, so it is no clean input: the result of a call over it cannot go where an isolated value is wanted, bare or through a join.
 
@@ -4217,7 +4221,7 @@ error E3198: <fragment>:37:56: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.an-isolated-part-read-through-a-join-with-a-parameter-arm-cannot-reach-an-isolated-field-store -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A join that has an `isolated` parameter as one arm, or a call result whose capability is settled by its arguments, is still a join: an `isolated` part of a holder on its other arm is refused at a store into an `isolated` field, whichever arm it is on.
 
@@ -4347,7 +4351,7 @@ end 'main'
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-reach-a-union-constructors-isolated-payload -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A union case whose payload is `isolated` takes an `isolated` value, so an `isolated` part of a holder handed to its constructor, bare, as a field or through a join, is refused as the bare read is: otherwise the new union and the holder would own one region.
 
@@ -4410,7 +4414,7 @@ error E3198: <fragment>:38:19: 'shelf.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-through-an-otherwise-arm-cannot-reach-an-isolated-slot -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The fallback of `try … otherwise` is a second arm of the value, so an `isolated` part of a holder given as the fallback is refused at an `isolated` field store and an `isolated` parameter as the bare read is.
 
@@ -4464,7 +4468,7 @@ error E3198: <fragment>:34:46: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-in-the-middle-arm-of-a-match-expression-cannot-reach-an-isolated-slot -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `match` expression joins all its arms, so an `isolated` part of a holder on its middle arm alone, between two fresh arms, is refused at an `isolated` field store, an `isolated` parameter and an `isolated` return.
 
@@ -4531,7 +4535,7 @@ error E3198: <fragment>:42:16: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-captured-by-a-nested-closure-is-not-a-clean-input -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A closure that builds another closure over an `isolated` part of a holder captures that part too, so the result of a call over the outer closure is no clean input to an `isolated` parameter.
 
@@ -4581,7 +4585,7 @@ error E3198: <fragment>:30:79: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.an-awaited-result-over-an-isolated-part-read-is-not-a-clean-input -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A coroutine is never given an `isolated` part of a holder through a plain parameter, directly or captured by a closure: the spawn is refused (E3207) before its awaited result could reach an `isolated` parameter.
 
@@ -4683,7 +4687,7 @@ error E3102: <fragment>:25:17: use of moved value 'mine': its ownership moved to
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-reach-a-service-message-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A service message's `isolated` argument crosses to the service's thread, so an `isolated` part of a holder sent as one, bare, parenthesized or through a join, is refused as the bare read is.
 
@@ -4756,7 +4760,7 @@ error E3198: <fragment>:51:31: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-replace-an-isolated-field-by-swap -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The replacement `swap` stores into an `isolated` field takes an `isolated` value, so an `isolated` part of a holder given as the replacement, bare, as a field or through a join, is refused as the bare read is.
 
@@ -4798,7 +4802,7 @@ error E3198: <fragment>:22:38: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-be-frozen -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `freeze` makes its operand's region immutable for good, so an `isolated` part of a holder, bare, as a field or through a join, cannot be frozen while the holder still writes it.
 
@@ -4857,7 +4861,7 @@ error E3198: <fragment>:38:17: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-enter-a-tuple -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A tuple element is a second path to what it holds, so an `isolated` part of a holder placed in a tuple literal, kept whole or destructured, does not become a clean input to an `isolated` parameter.
 
@@ -4900,7 +4904,7 @@ error E3198: <fragment>:23:18: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-be-cast-as-isolated -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `as isolated` claims a fresh region, so an `isolated` part of a holder, bare or through a join, cast to one is refused as the bare read is.
 
@@ -4958,7 +4962,7 @@ error E3198: <fragment>:38:16: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-assigned-to-an-isolated-var-in-a-loop-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` local reassigned on a loop's back edge carries every value assigned to it into the next lap, so an `isolated` part of a holder assigned to it, bare or through a join, is refused where it is assigned.
 
@@ -5015,7 +5019,7 @@ error E3198: <fragment>:38:9: 'donor.bytes' is isolated and cannot be read outsi
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-reach-a-plain-parameter-that-keeps-it -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A plain parameter whose callee keeps it in a record or hands it back gives the caller a writable path into the region the holder still owns, so an `isolated` part of a holder passed to one is refused as the bare read is.
 
@@ -5089,7 +5093,7 @@ error E3201: <fragment>:50:9: 'echo' hands back mutable data of the isolated reg
 ```
 
 <!-- test: error.an-isolated-part-read-through-a-generic-identity-cannot-reach-an-isolated-slot -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A generic function that hands back its argument hands back the region it was given, so an `isolated` part of a holder passed through one is still that part: it is refused at an `isolated` parameter and at an `isolated` field store.
 
@@ -5159,7 +5163,7 @@ error E3201: <fragment>:49:15: 'ident' hands back mutable data of the isolated r
 ```
 
 <!-- test: error.a-function-value-or-interface-result-is-not-a-clean-input -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A function value can hand back what it captured and a `mutable self` requirement can hand back its receiver's data, so a call through a function-typed parameter or an interface value is no clean call: its result is refused at an `isolated` field store.
 
@@ -5224,7 +5228,7 @@ error E3200: <fragment>:43:15: 'source.make()' is not isolated: only a clean cal
 ```
 
 <!-- test: error.an-isolated-part-read-reaches-a-callee-declared-later-as-one-declared-earlier -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Whether a callee is declared before or after its caller does not change what its `isolated` parameter takes: an `isolated` part of a holder given to one declared later, by a plain or an `async` call, directly or through a helper that hands its argument back, is refused exactly as for one declared earlier.
 
@@ -5324,7 +5328,7 @@ error E3201: <fragment>:65:49: 'echoLate' hands back mutable data of the isolate
 ```
 
 <!-- test: error.a-field-read-through-an-isolated-field-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A field of the record an `isolated` field holds lives in that field's region, so reading one through the holder outside a `modify` block, to bind it, store it in a plain field or return it, lets it outlive the statement that opens the part, and each is refused.
 
@@ -5386,7 +5390,7 @@ error E3202: <fragment>:40:9: 'crate.blob.data' is mutable and cannot leave the 
 ```
 
 <!-- test: error.an-element-got-from-an-isolated-array-field-cannot-be-returned-as-plain-data -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An element of an array an `isolated` field holds lives in that field's region, so returning one that `get` read through the field outside a `modify` block as plain data is a read of the `isolated` part.
 
@@ -5428,7 +5432,7 @@ error E3198: <fragment>:23:9: 'try bin.blobs.get(0) otherwise Blob.create()' is 
 ```
 
 <!-- test: error.an-isolated-part-read-handed-back-by-a-closure-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A closure that hands back an `isolated` field of a holder makes the part readable wherever the closure is called, so the closure's body reading the field outside a `modify` block is refused as a direct read is.
 
@@ -5547,7 +5551,7 @@ error E3198: <fragment>:52:13: 'rack.shelf.bytes' is isolated and cannot be read
 ```
 
 <!-- test: error.a-call-result-of-a-parameters-data-is-judged-alike-whichever-order-the-callee-is-declared -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A call result whose callee hands back its parameter's plain field is that parameter's data, so it is refused at an `isolated` field store, an `isolated` parameter and an `isolated` return, whether the callee is declared before its caller or after.
 
@@ -5620,7 +5624,7 @@ error E3200: <fragment>:43:9: 'takeLate(src)' is not isolated: only a clean call
 ```
 
 <!-- test: error.an-element-of-an-isolated-array-field-cannot-leave-a-for-loop-into-outside-data -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `for` loop over an `isolated` array field outside a `modify` block reads the field's region, so an element it hands to data outside the region, a plain array or a parameter's plain field, is a second path into that region and is refused.
 
@@ -5758,7 +5762,7 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-over-an-isolated-payload-cannot-hand-it-out-as-plain-data -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A closure that captures an `isolated` payload of a holder's union hands that region back from every call, so returning the call's result as plain data or returning the closure itself gives a second path into the region the holder still owns, and each is refused.
 
@@ -5901,7 +5905,7 @@ end 'main'
 ```
 
 <!-- test: error.an-isolated-part-read-cannot-be-stored-into-a-plain-field-or-a-plain-variable -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A part of a holder read outside a `modify` block is a second path into the region the holder still owns, so storing it into a plain field or reassigning a plain variable with it is refused as a part read, as a store into an `isolated` slot is.
 
@@ -6048,7 +6052,7 @@ end 'main'
 ```
 
 <!-- test: error.an-element-reached-by-an-iterator-over-an-isolated-array-field-cannot-leave-into-outside-data -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An iterator made over an `isolated` array field outside a `modify` block reads the field's region, so an element it hands out, by `current` or by a `withIterator` loop, pushed into an array outside the region is a second path into it.
 
@@ -6103,7 +6107,7 @@ error E3201: <fragment>:28:29: 'withIterator' hands back mutable data of the iso
 ```
 
 <!-- test: error.an-element-of-an-isolated-list-or-map-field-cannot-leave-into-outside-data -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `for` loop over an `isolated` `List` or `Map` field, and a `get` from the map, read the field's region outside a `modify` block, so an element pushed into an outside array or returned as plain data is refused.
 
@@ -6159,7 +6163,7 @@ error E3201: <fragment>:32:23: 'get' hands back mutable data of the isolated reg
 ```
 
 <!-- test: error.a-value-of-an-isolated-map-field-cannot-leave-a-for-loop-into-outside-data -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `for` loop over an `isolated` `Map` field outside a `modify` block reads the field's region as a loop over an `isolated` array or `List` field does, so a value it hands out pushed into an outside array, stored into a plain field or returned from inside the loop is a second path into that region and is refused.
 
@@ -6292,7 +6296,7 @@ end 'main'
 ```
 
 <!-- test: error.a-method-of-an-isolated-part-that-hands-back-its-own-data-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A method that hands back data of its receiver, called on an `isolated` field or payload of a holder outside a `modify` block, hands back that part's region, so returning its result as plain data or storing it into a plain field is refused.
 
@@ -6502,7 +6506,7 @@ end 'main'
 ```
 
 <!-- test: error.an-isolated-payload-read-through-two-nested-helpers-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A helper that may hand back its argument hands back the part it was given however many times it is applied, so an `isolated` payload passed through two nested ones is refused at a plain return and an `isolated` parameter.
 
@@ -6704,7 +6708,7 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-over-an-isolated-payload-given-by-a-match-expression-cannot-be-bound -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A closure that a `match` expression's arm builds over an `isolated` payload of a holder is that payload at every exit, so binding it to a local, for another closure to capture and a call to hand on, is refused at the payload's read.
 
@@ -6825,7 +6829,7 @@ end 'main'
 ```
 
 <!-- test: error.an-isolated-payload-given-by-a-match-expression-in-a-loop-cannot-reach-a-plain-variable -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `match` expression whose arm gives an `isolated` payload of a holder, assigned to a plain variable on each lap of a loop and returned after it, hands the part out as plain data.
 
@@ -6869,7 +6873,7 @@ error E3198: <fragment>:23:22: 'bytes' is isolated and cannot be read outside a 
 ```
 
 <!-- test: error.an-unclean-argument-is-quoted-whole-across-nested-parens-strings-and-named-arguments -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A refused argument is quoted from its first token to the comma or parenthesis that ends it at its own depth, so nested calls, string literals holding commas and parentheses, a closure with two parameters and named arguments neither cut it short nor run it on.
 
@@ -6926,7 +6930,7 @@ error E3198: <fragment>:40:33: 'shelf.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-through-a-generic-helpers-second-parameter-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A generic helper that may hand back either argument hands back the part given at its second parameter, so an `isolated` payload or field given there is refused at an `isolated` parameter and an `isolated` field store.
 
@@ -6996,7 +7000,7 @@ error E3201: <fragment>:49:15: 'either' hands back mutable data of the isolated 
 ```
 
 <!-- test: error.an-isolated-payload-read-through-a-try-otherwise-call-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A throwing helper that may hand back its argument, called under `try … otherwise` with an `isolated` payload of a holder, hands back the part, so returning the result as plain data is refused.
 
@@ -7048,7 +7052,7 @@ error E3201: <fragment>:32:31: 'echoOrFail' hands back mutable data of the isola
 
 
 <!-- test: error.a-field-of-an-element-a-for-loop-hands-out-over-an-isolated-array-field-cannot-leave -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An element a `for` loop hands out over an `isolated` array field outside a `modify` block is in the field's region, and so is a field of that element, so pushing the field into an outside array, storing it into a plain field or returning it from inside the loop is a second path into the region and is refused, as the element itself is.
 
@@ -7197,7 +7201,7 @@ end 'main'
 ```
 
 <!-- test: error.an-element-returned-from-inside-a-for-loop-over-an-isolated-array-field-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Returning an element from inside a `for` loop over an `isolated` array field outside a `modify` block hands the field's region out as plain data.
 
@@ -7244,7 +7248,7 @@ error E3198: <fragment>:23:14: 'bin.blobs' is isolated and cannot be read outsid
 ```
 
 <!-- test: error.an-isolated-field-read-in-parentheses-cannot-be-iterated-into-outside-data -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `for` loop over an `isolated` array field written in parentheses reads the field as the bare spelling does, so an element it pushes into an outside array is refused.
 
@@ -7292,7 +7296,7 @@ error E3198: <fragment>:23:14: '(bin.blobs)' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-element-of-an-isolated-array-field-captured-by-a-closure-in-a-for-loop-cannot-leave -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A closure built inside a `for` loop over an `isolated` array field captures the element the loop hands out, so the closure stored into a plain field, or what a call over it hands back pushed into an outside array, is a second path into the region.
 
@@ -7363,7 +7367,7 @@ error E3198: <fragment>:44:34: 'blob' is isolated and cannot be read outside a b
 ```
 
 <!-- test: error.an-isolated-payload-read-through-a-helper-cannot-enter-a-tuple-or-a-union -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A helper that may hand back its argument hands back an `isolated` payload it is given, so its result placed in a tuple bound to a local or in a plain union payload returned is a read of the part.
 
@@ -7425,7 +7429,7 @@ error E3201: <fragment>:36:28: 'echo' hands back mutable data of the isolated re
 ```
 
 <!-- test: error.a-closure-over-an-isolated-payload-given-to-an-async-call-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `async` call is no door out of the part rule: a closure over an `isolated` payload of a holder, the payload itself and an `isolated` field are each refused at the spawn (E3207) when they reach a plain parameter, because an `async` call takes an isolated value only in an `isolated` parameter, which moves it.
 
@@ -7489,6 +7493,7 @@ error E3207: <fragment>:44:26: 'echo' is spawned with `async`, and 'holder' is i
 ```
 
 <!-- test: a-coroutine-over-a-fresh-isolated-payload-hands-it-out-as-plain-data -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 The payload a `match` moves out of a local `isolated` union is that call's own region, so what a coroutine hands back from a closure over it is returned as plain data without a refusal.
 
 ```maxon
@@ -7514,7 +7519,7 @@ end 'apply'
 function returnFromCoroutine() returns ByteArray
 	let made = makeSlot()
 	match made 'take'
-		full(bytes) then return await async apply(function() gives bytes.clone())
+		full(bytes) then return await async apply(function() gives bytes)
 		empty then return ByteArray.create(0)
 	end 'take'
 end 'returnFromCoroutine'
@@ -7532,7 +7537,7 @@ end 'main'
 ```
 
 <!-- test: error.a-mutable-receiver-beside-an-isolated-payload-argument-is-named-whole-when-chained -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A method call given an `isolated` payload of a holder opens that payload, so a mutable outside record as its receiver is refused beside it, and the refusal names the receiver as written, a chained call included.
 
@@ -7598,7 +7603,7 @@ error E3201: <fragment>:43:33: 'relay' is mutable outside 'bytes'; a call into a
 ```
 
 <!-- test: error.an-isolated-part-read-through-a-join-of-two-helper-calls-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A conditional whose arms are two helpers that may hand back their arguments, one given an `isolated` payload and one given fresh data, is a read of the part at a plain return.
 
@@ -7642,7 +7647,7 @@ error E3201: <fragment>:24:66: 'echo' hands back mutable data of the isolated re
 ```
 
 <!-- test: error.an-element-a-for-loop-hands-out-over-an-isolated-array-field-cannot-be-kept-by-a-call -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An element a `for` loop hands out over an `isolated` array field outside a `modify` block is data of the field's region, so it is no more an ordinary argument than the field itself: given to a parameter that keeps it, to a constructor that stores it in the record it builds, or to an `async` call, it is refused.
 
@@ -7800,7 +7805,7 @@ end 'main'
 ```
 
 <!-- test: error.a-call-given-two-handed-back-results-cannot-store-one-region-into-the-other -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A call whose result is a clean count, given what methods of two `isolated` fields hand back so that it may store the first field's data into the second field's region, reaches through two isolated values in one statement and is refused.
 
@@ -7861,7 +7866,7 @@ error E3201: <fragment>:46:42: one statement reaches through two isolated values
 ```
 
 <!-- test: error.a-handed-back-result-given-to-an-async-call-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `async` call whose argument is what a method of an `isolated` field hands back would run beside the caller with the field's data, so it is refused although its promise answers a count.
 
@@ -7906,7 +7911,7 @@ error E3207: <fragment>:31:30: 'countOf' is spawned with `async`, and 'holder' i
 ```
 
 <!-- test: error.a-handed-back-result-joined-with-fresh-data-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A conditional whose one arm is what a method of an `isolated` field hands back and whose other arm is fresh data is the field's data in the arm that hands it back, so binding the join is refused.
 
@@ -7951,7 +7956,7 @@ error E3201: <fragment>:26:57: 'inner' hands back mutable data of the isolated r
 ```
 
 <!-- test: error.a-handed-back-result-given-by-a-closure-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A closure that gives what a method of an `isolated` field hands back carries the field's data out of the statement it is read in, so its body is refused.
 
@@ -8099,7 +8104,7 @@ true false
 ```
 
 <!-- test: error.a-slice-of-a-handed-back-result-bound-by-try-otherwise-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A slice of what a method of an `isolated` field hands back may view the field's data, so binding it through `try … otherwise` is refused.
 
@@ -8144,7 +8149,7 @@ error E3201: <fragment>:26:28: 'inner' hands back mutable data of the isolated r
 ```
 
 <!-- test: error.a-handed-back-result-through-three-nested-helpers-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 What a method of an `isolated` field hands back, passed through three helpers that may each hand back their argument, is still the field's data at a plain return.
 
@@ -8249,7 +8254,7 @@ end 'main'
 ```
 
 <!-- test: error.an-element-of-an-elements-own-array-field-cannot-leave-a-nested-for-loop -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A nested `for` loop over the array field of an element an outer loop hands out over an `isolated` array field iterates data of that field's region, so its element returned as plain data is refused.
 
@@ -8398,7 +8403,7 @@ end 'main'
 ```
 
 <!-- test: error.a-method-of-an-isolated-part-reached-by-an-index-or-parentheses-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A method that hands back its receiver's data, called on an `isolated` field of a holder reached by an index into an array of holders or by a parenthesised holder, hands back the part's data, so returning it as plain data is refused.
 
@@ -8500,7 +8505,7 @@ end 'main'
 ```
 
 <!-- test: error.an-element-a-user-defined-cursor-hands-out-over-an-isolated-field-cannot-leave-a-for-loop -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An element a `for` loop hands out through a user-defined `Iterable` held by an `isolated` field outside a `modify` block is data of the field's region, so returning it as plain data is refused.
 
@@ -8579,7 +8584,7 @@ error E3198: <fragment>:58:14: 'holder.rack' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-element-of-an-isolated-fixed-array-field-cannot-leave-a-for-loop -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An element a `for` loop hands out over an `isolated` `FixedArray` field outside a `modify` block is data of the field's region, so returning it as plain data is refused.
 
@@ -8624,7 +8629,7 @@ error E3198: <fragment>:23:14: 'holder.trio' is isolated and cannot be read outs
 ```
 
 <!-- test: error.a-handed-back-result-kept-by-a-fresh-local-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A method of a fresh local that keeps its argument and answers a count, given what a method of an `isolated` field hands back, would leave the local holding the field's data: the local is mutable data outside the region the call opens, so the call is refused.
 
@@ -8683,7 +8688,7 @@ error E3201: <fragment>:40:6: 'keeper' is mutable outside 'holder'; a call into 
 ```
 
 <!-- test: error.a-handed-back-result-kept-by-a-helper-into-a-fresh-local-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A helper that answers a count and stores what a method of an `isolated` field hands back into a fresh local it is also given would leave the local holding the field's data: the local is mutable data outside the region the call opens, so the call is refused.
 
@@ -8742,7 +8747,7 @@ error E3201: <fragment>:40:15: 'keeper' is mutable outside 'holder'; a call into
 ```
 
 <!-- test: error.a-handed-back-result-given-by-a-match-expression-arm-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `match` expression whose arm gives what a method of an `isolated` field hands back is the field's data, so binding it is refused.
 
@@ -8844,7 +8849,7 @@ end 'main'
 ```
 
 <!-- test: error.a-handed-back-result-in-a-tuple-or-a-union-a-helper-builds-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A helper that puts its argument into a tuple or a union payload hands back what a method of an `isolated` field hands back inside it, so binding either result is refused.
 
@@ -8912,7 +8917,7 @@ error E3201: <fragment>:45:32: 'inner' hands back mutable data of the isolated r
 ```
 
 <!-- test: error.a-handed-back-result-is-refused-alike-when-its-types-are-declared-after-their-use -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The handed-back refusal does not depend on declaration order: with the holder, the part and its method declared after the functions that call it, a plain return and a binding of what the method hands back are refused at the same sites.
 
@@ -9048,7 +9053,7 @@ end 'main'
 ```
 
 <!-- test: error.an-element-a-for-loop-hands-out-over-a-handed-back-result-cannot-leave -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `for` loop whose source is what a method of an `isolated` field hands back hands out elements of the field's data, so returning one as plain data is refused.
 
@@ -9099,7 +9104,7 @@ error E3201: <fragment>:29:27: 'inner' hands back mutable data of the isolated r
 ```
 
 <!-- test: error.a-part-handed-back-through-a-chain-of-three-receiver-methods-is-a-read-of-the-part -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Three chained methods that each hand back their receiver, called on an `isolated` field, hand back the part itself, so returning the chain's result as plain data is refused while a count read through the same chain leaves as a value.
 
@@ -9343,7 +9348,7 @@ error E3197: <fragment>:32:15: cannot write 'n' through 'bx', which is read-only
 ```
 
 <!-- test: error.a-match-arm-over-a-union-with-an-isolated-payload-cannot-wait-once-it-has-read-the-payload -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Reading `b.n` opens the payload's region for the statement, and `waits(s)` in the same statement may park the coroutine while it is open.
 ```maxon

@@ -1,0 +1,16 @@
+// A value moved at the bottom of a loop's body is gone at the top of the next iteration, where it is read before the line
+// that moved it: the message says the move was in an earlier iteration (self/driver/moves.maxtest holds it to that).
+function swallow(consumes s String) returns String
+	return s
+end 'swallow'
+
+function main() returns ExitCode
+	var a = "{1}-held-past-its-two-words"
+	for i in 0 upto 2 'each'
+		print("{a.byteLength()}\n")
+		let kept = swallow(a)
+	end 'each'
+	return 0
+end 'main'
+
+// expect-error: E3102 at 10:11

@@ -46,6 +46,7 @@ refcount model the hazard lives in. Keep them in step with it.
 ## Tests
 
 <!-- test: a-partition-parks-its-pivot-out-of-its-own-write-range -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### Both buffering branches, with a pivot no store can displace
 `stablePartition` transcribed whole. `bufferGe` buffers the `>= pivot` class and compacts `< pivot`
@@ -203,6 +204,7 @@ less p=1 lens= 1 20 10 30 40 50
 ```
 
 <!-- test: a-parked-pivot-keeps-the-partition-stable -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### … and the two classes keep their input order
 Soundness is not enough on its own: `sort()` is the STABLE entry, and the partition is where its

@@ -18,7 +18,7 @@ cannot write through the returned value (E3197). A copy made with `clone()` is a
 ## Tests
 
 <!-- test: error.a-method-returning-an-immutable-element-declares-its-result-immutable -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `at` returns `try self.items.get(i)`, an element of the `immutable` array `items`. A plain `Counter` result would hand
 the caller a writable name for the record the shelf holds.
@@ -159,7 +159,7 @@ error E3197: <fragment>:35:2: cannot write 'n' through 'first', which is read-on
 
 
 <!-- test: error.a-method-returning-an-immutable-map-value-declares-its-result-immutable -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The value side of `Map with String, immutable Counter` is `immutable` when a method returns it.
 
@@ -250,6 +250,7 @@ end 'main'
 
 
 <!-- test: error.an-immutable-result-is-not-written-by-its-caller -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 The result is declared `immutable`, so a write through the caller's binding is E3197.
 

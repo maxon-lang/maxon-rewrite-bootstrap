@@ -2192,6 +2192,7 @@ error E3006: <fragment>:6:11: Duplicate method 'remove' in type 'Array'
 ```
 
 <!-- test: async-promise-drop.a-cursor-over-a-container-of-promises-names-its-slot -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 A cursor over an array stands at an index, so a promise read through its `current()` has a slot exactly as
 one read through `get(i)` does: awaiting it empties that slot, and the array's own element walk has nothing
 left to reclaim.
@@ -2208,11 +2209,11 @@ function plain() returns Integer
 end 'plain'
 
 function main() returns ExitCode
-	var s = IntPromiseArray.create(0)
+	let s = IntPromiseArray.create(0)
 	s.push(async plain())
 	let c = try s.cursor() otherwise panic("has one")
 	let p = c.current()
-	return try (await p) as ExitCode otherwise panic("out of range")
+	return (await p) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -2583,6 +2584,7 @@ error E3141: <fragment>:15:6: a promise cannot be borrowed through 'current': it
 ```
 
 <!-- test: async-promise-drop.a-cursor-read-twice-without-moving-aborts -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 Two `current()` reads through a cursor that does not move between them name one slot, so both values name one
 green thread. The compiler cannot prove a cursor's position unchanged, so the first await empties the slot and
 the second finds it empty at run time and aborts with **118** (`RuntimeAbort.promiseSlotConsumedTwice`) rather
@@ -2600,12 +2602,12 @@ function plain(n Integer) returns Integer
 end 'plain'
 
 function main() returns ExitCode
-	var s = IntPromiseArray.create(0)
+	let s = IntPromiseArray.create(0)
 	s.push(async plain(4))
 	let c = try s.cursor() otherwise panic("has one")
 	let a = c.current()
 	let b = c.current()
-	return try ((await a) + (await b)) as ExitCode otherwise panic("out of range")
+	return ((await a) + (await b)) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -3710,6 +3712,7 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.error.a-ternary-of-promise-parameters-is-returned -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 <!-- positions: moved -->
 ⭐⭐ **A `return` IS A CONSUME DOOR, SO IT ASKS THE OWNERSHIP QUESTION EVERY OTHER DOOR ASKS.** A ternary over
 two promises is a merge, and a merge has no owner — `await` and `cancel` refuse the same value with this same
@@ -3722,7 +3725,7 @@ typealias IntPromise = Promise with Integer
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return try n + 1 otherwise panic("out of range")
+	return n + 1
 end 'work'
 
 function pick(a IntPromise, b IntPromise, c bool) returns IntPromise
@@ -3891,6 +3894,7 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.error.a-promise-handed-to-peeking-parameters-of-an-async-call -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 <!-- positions: moved -->
 A coroutine can still be running after the frame that started it has ended, and that frame reclaims the threads
 it owns when it ends. A promise the coroutine only reads would then name a reclaimed thread, so an `async` call
@@ -3902,7 +3906,7 @@ typealias IntPromise = Promise with Integer
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return try n + 1 otherwise panic("out of range")
+	return n + 1
 end 'work'
 
 function watch(p IntPromise, q IntPromise, n Integer) returns Integer
@@ -3925,6 +3929,7 @@ error E3141: <fragment>:21:22: a promise cannot be borrowed through 'watch': it 
 ```
 
 <!-- test: async-promise-drop.error.one-promise-handed-to-two-awaiting-parameters-of-an-async-call -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 <!-- positions: moved -->
 Both parameters would reclaim the one thread, so exactly one of them may be handed it. The second argument
 names a promise the first already gave away, which is the ordinary use-after-move.
@@ -3935,11 +3940,11 @@ typealias IntPromise = Promise with Integer
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return try n + 1 otherwise panic("out of range")
+	return n + 1
 end 'work'
 
-function both(consumes p IntPromise, consumes q IntPromise) returns Integer
-	return try (await q) + (await p) otherwise panic("out of range")
+function both(p IntPromise, q IntPromise) returns Integer
+	return (await q) + (await p)
 end 'both'
 
 function main() returns ExitCode
@@ -3954,6 +3959,7 @@ error E3102: <fragment>:16:24: use of moved value 'p': it is passed at two argum
 ```
 
 <!-- test: async-promise-drop.error.one-promise-handed-to-two-awaiting-parameters-of-a-call -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 <!-- positions: moved -->
 The ordinary call refuses the same program for the same reason: the callee would await the one thread twice.
 ```maxon
@@ -3963,11 +3969,11 @@ typealias IntPromise = Promise with Integer
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return try n + 1 otherwise panic("out of range")
+	return n + 1
 end 'work'
 
-function both(consumes p IntPromise, consumes q IntPromise) returns Integer
-	return try (await q) + (await p) otherwise panic("out of range")
+function both(p IntPromise, q IntPromise) returns Integer
+	return (await q) + (await p)
 end 'both'
 
 function main() returns ExitCode
@@ -4132,6 +4138,7 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.error.a-record-holding-a-promise-handed-to-a-peeking-coroutine -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 <!-- positions: moved -->
 A record that holds a promise is a promise's holder: the coroutine reads the field after the caller has
 awaited it out of the record, and the slot is empty.
@@ -4150,7 +4157,7 @@ end 'Holder'
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return try n + 1 otherwise panic("out of range")
+	return n + 1
 end 'work'
 
 function slow(n Integer) returns Integer

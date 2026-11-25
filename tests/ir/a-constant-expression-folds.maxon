@@ -1,0 +1,18 @@
+// An expression of constants is computed by the compiler, also when a call that is inlined gives one of them: the function
+// returns the one constant, with no multiplication or addition left.
+// expect-ir: area has no mul
+// expect-ir: area has no add
+// expect-ir: area has some const
+
+function width() returns Count
+	return 4
+end 'width'
+
+function area() returns Count
+	return try width() * 3 + 2 otherwise 0
+end 'area'
+
+function main() returns ExitCode
+	print("{area()}\n")
+	return 0
+end 'main'

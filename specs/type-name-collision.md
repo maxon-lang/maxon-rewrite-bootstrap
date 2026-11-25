@@ -2634,7 +2634,7 @@ enum Status
 end 'Status'
 
 export function widest() returns ExitCode
-	return try Status.big.rawValue as ExitCode otherwise panic("out of range")
+	return Status.big.rawValue as ExitCode
 end 'widest'
 
 // --- file: main.maxon
@@ -3008,6 +3008,7 @@ end 'main'
 
 
 <!-- test: error.crossfile-ranged-alias-beside-a-float-backed-enum-is-not-a-float -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 <!-- positions: moved -->
 ⭐ **A NAME HELD BY A RANGED ALIAS IN ONE FILE AND A FLOAT-BACKED ENUM IN ANOTHER IS AN INTEGER IN THE FIRST.**
 `b.maxon`'s unmarked `enum W` is float-backed and `a.maxon`'s `W` is `int(0 to 5)`, so `3 as W` in
@@ -4682,7 +4683,7 @@ export union ParseError
 end 'ParseError'
 
 // --- file: app/main.maxon
-let h = ParseError.malformed(7)
+let h = lib.ParseError.malformed(7)
 
 function main() returns ExitCode
 	match h 'which'

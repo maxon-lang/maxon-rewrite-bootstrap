@@ -1,0 +1,18 @@
+// Every operation of a function that can fail where no try covers it has its error, in one compile and in the order of the
+// source: the analysis goes on past the first as if a try covered it, so each missing try is reported, and once.
+typealias Integer = int(i64.min to i64.max)
+
+function total(a Integer, b Integer) returns Integer
+	let x = a + b
+	let y = a * b
+	return x - y
+end 'total'
+
+function main() returns ExitCode
+	print("{total(1, b: 2)}\n")
+	return 0
+end 'main'
+
+// expect-error: E3057 at 6:12
+// expect-error: E3057 at 7:12
+// expect-error: E3057 at 8:11

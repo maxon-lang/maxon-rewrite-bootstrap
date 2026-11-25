@@ -492,6 +492,7 @@ error E3018: sub/deep/<fragment>:27:20: type 'sub.deep.Box' has no field named '
 ```
 
 <!-- test: error.a-diagnostic-names-a-nested-directorys-type-declared-before-the-leaf-directorys -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 The same pair with the nested directory sorting first (`a/deep/` before `deep/`), so the two orders of one program say
 the same thing.
 ```maxon

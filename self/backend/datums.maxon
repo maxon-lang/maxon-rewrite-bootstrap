@@ -7,8 +7,8 @@ function datumBoxBytes(d ir.Datum, box ir.DatumBox) returns Count
 	let words = ir.datumWordsOf(d.words, first: box.first, count: box.count)
 	return match box.shape 'shape'
 		words gives try words * wordBytes otherwise panic("backend: a constant past memory")
-		array gives try arrayHeaderBytes + words * wordBytes otherwise panic("backend: a constant past memory")
-		bytes gives try arrayHeaderBytes + alignUp(box.count * byteBytes, alignment: wordBytes) otherwise panic("backend: a constant past memory")
+		array gives try arrayHeaderBytes + words * wordBytes + box.roomBytes otherwise panic("backend: a constant past memory")
+		bytes gives try arrayHeaderBytes + alignUp(box.count * byteBytes + box.roomBytes, alignment: wordBytes) otherwise panic("backend: a constant past memory")
 	end 'shape'
 end 'datumBoxBytes'
 
@@ -37,8 +37,8 @@ function layOutDatum(mutates data DataSection, d ir.Datum) returns Count
 		end 'words'
 		let buffer = try boxAt[i] + arrayHeaderBytes otherwise panic("backend: a constant past memory")
 		pushU64(data.bytes, v: box.count)
-		pushU64(data.bytes, v: box.count)
-		if box.count == 0 'empty'
+		pushU64(data.bytes, v: box.capacity)
+		if box.capacity == 0 'empty'
 			// An array that never grew has no buffer, as a new one on the heap has none.
 			pushU64(data.bytes, v: 0)
 		end 'empty' else 'buffer'
@@ -48,10 +48,12 @@ function layOutDatum(mutates data DataSection, d ir.Datum) returns Count
 			for w in box.first upto finish 'each'
 				pushDatumWord(data, d: d, w: w, boxAt: boxAt, textAt: textAt)
 			end 'each'
+			pushZeros(data.bytes, n: box.roomBytes)
 		end 'array' else 'bytes'
 			for w in box.first upto finish 'each'
 				data.bytes.push(try ir.bitsOfWord(d.words[w].value) as Byte otherwise panic("backend: an element of a packed constant is no byte"))
 			end 'each'
+			pushZeros(data.bytes, n: box.roomBytes)
 			data.align8()
 		end 'bytes'
 	end 'write'

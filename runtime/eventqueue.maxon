@@ -19,8 +19,8 @@
 // - A process's (eventProcessNew), which an exit of a process the caller started readies in the mode eventRead, the kernel
 //   telling the event queue, with no thread of the runtime's to wait on the process: on Linux the process's pidfd
 //   (pidfd_open, the kernel's from 5.3), which an entry of a handle holds and epoll reports readable once the process has
-//   ended; on macOS a kqueue's EVFILT_PROC with NOTE_EXIT; on Windows a job object that holds the process alone, whose
-//   notification that no process is left in it is a completion posted to the port, keyed by the entry.
+//   ended; on macOS a kqueue's EVFILT_PROC with NOTE_EXIT; on Windows a job object that holds the process and the tree it starts, whose
+//   notification of the process's own exit is a completion posted to the port, keyed by the entry.
 //
 // An event that comes while no green thread waits is kept in the state word (eventQueued), and the next wait takes it
 // at once. A wait (eventWait) ends with a status: eventReady, or, its wake claimed in the state word before an event's,
@@ -293,12 +293,23 @@ function eventQueuedInto(entry Count, mode Count, list Count) returns Count
 	return waiter
 end 'eventQueuedInto'
 
-// entryTake is an entry of a kind from the free list, or a new one, carved for good.
+// freeListOf is the offset in the scheduler's record of the free list that an entry of a kind is taken from and given back to: a
+// process's entries have a list of their own, since a notification that the system keeps for one of them may arrive after the
+// entry is free, and it would be taken for an event of another kind of entry if one of those were made of it.
+function freeListOf(kind Count) returns Count
+	if kind == entryKindProcess 'process'
+		return schedProcessEntryFreeOffset
+	end 'process'
+	return schedEntryFreeOffset
+end 'freeListOf'
+
+// entryTake is an entry of a kind from its free list, or a new one, carved for good.
 function entryTake(scheduler Count, kind Count, handle Count) returns Count
+	let list = freeListOf(kind)
 	lockScheduler(scheduler)
-	var entry = __Raw.loadWord(scheduler, offset: schedEntryFreeOffset)
+	var entry = __Raw.loadWord(scheduler, offset: list)
 	if entry != noEntry 'reused'
-		__Raw.storeWord(scheduler, offset: schedEntryFreeOffset, value: __Raw.loadWord(entry, offset: entryLinkOffset))
+		__Raw.storeWord(scheduler, offset: list, value: __Raw.loadWord(entry, offset: entryLinkOffset))
 	end 'reused'
 	unlockScheduler(scheduler)
 	if entry == noEntry 'carved'
@@ -315,10 +326,11 @@ end 'entryTake'
 // entryGive puts an entry on the free list. Its state words keep what came: a wait of its next owner may take an
 // event of its last as a wake whose call finds nothing.
 function entryGive(scheduler Count, entry Count)
+	let list = freeListOf(__Raw.loadWord(entry, offset: entryKindOffset))
 	__Raw.storeRelease(entry, offset: entryKindOffset, value: entryKindFree)
 	lockScheduler(scheduler)
-	__Raw.storeWord(entry, offset: entryLinkOffset, value: __Raw.loadWord(scheduler, offset: schedEntryFreeOffset))
-	__Raw.storeWord(scheduler, offset: schedEntryFreeOffset, value: entry)
+	__Raw.storeWord(entry, offset: entryLinkOffset, value: __Raw.loadWord(scheduler, offset: list))
+	__Raw.storeWord(scheduler, offset: list, value: entry)
 	unlockScheduler(scheduler)
 end 'entryGive'
 
@@ -372,10 +384,12 @@ end 'tookBreak'
 
 	let overlappedBytes = 32 as Count
 
-	// The values of a job object that reports a process's exit to the port: JobObjectAssociateCompletionPortInformation and
-	// JobObjectExtendedLimitInformation, whose JOBOBJECT_EXTENDED_LIMIT_INFORMATION is 144 bytes with its LimitFlags, 32 bits, at
-	// 16; JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK, which keeps the process's own children out of the job, so that it holds the
-	// process alone; and JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO, the message that says no process is left in it.
+	// The values of a job object that holds a process and the tree it starts, and reports each exit of a process in it to the port:
+	// JobObjectAssociateCompletionPortInformation and JobObjectExtendedLimitInformation, whose JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+	// is 144 bytes with its LimitFlags, 32 bits, at 16; JOB_OBJECT_LIMIT_BREAKAWAY_OK, which lets a process of the job start one
+	// that leaves it (CREATE_BREAKAWAY_FROM_JOB) and keeps every other child of its processes in it; and the messages
+	// JOB_OBJECT_MSG_EXIT_PROCESS and JOB_OBJECT_MSG_ABNORMAL_EXIT_PROCESS, whose OVERLAPPED word is the id of the process that ended, and
+	// JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO, the message that says no process is left in it, which is how a kill of the job is reported (it sends no exit message for a process it ends).
 	let jobAssociateCompletionPort = 7 as Count
 
 	let jobExtendedLimitInformation = 9 as Count
@@ -384,9 +398,19 @@ end 'tookBreak'
 
 	let jobLimitFlagsOffset = 16 as Count
 
-	let jobSilentBreakawayOk = 0x1000 as Count
+	let jobBreakawayOk = 0x800 as Count
 
 	let jobMessageActiveProcessZero = 4 as Count
+
+	let jobMessageExitProcess = 7 as Count
+
+	let jobMessageAbnormalExitProcess = 8 as Count
+
+	// A process's entry on Windows holds, where a handle's holds the OVERLAPPED of a read, the id of the process it watches and
+	// whether that process has been reported as ended.
+	let processIdWordOffset = entryReadOverlappedOffset
+
+	let processExitedWordOffset = (entryReadOverlappedOffset + wordBytes) as Count
 
 	// JobObjectBasicAccountingInformation, whose JOBOBJECT_BASIC_ACCOUNTING_INFORMATION holds the count of the processes active
 	// in the job at 40, 32 bits.
@@ -430,20 +454,46 @@ end 'tookBreak'
 			let key = __Raw.loadWord(entry, offset: windowsEntryKeyOffset)
 			if key == eventBreakKey 'break'
 				tookBreak(scheduler, delay: delay)
-			end 'break' else if __Raw.loadAcquire(key, offset: entryKindOffset) == entryKindProcess 'process'
-				// A job's other notifications (a process added to it or exiting) are no exit of the process it holds alone.
-				if dword(__Raw.loadWord32(entry, offset: windowsEntryTransferredOffset)) == jobMessageActiveProcessZero 'exited'
-					list = eventQueuedInto(key, mode: eventRead, list: list)
-				end 'exited'
-			end 'process' else if __Raw.loadWord(entry, offset: windowsEntryOverlappedOffset) == __Raw.wrappingAdd(key, right: entryWriteOverlappedOffset) 'write'
-				list = eventQueuedInto(key, mode: eventWrite, list: list)
-			end 'write' else 'read'
-				list = eventQueuedInto(key, mode: eventRead, list: list)
-			end 'read'
+			end 'break' else 'completion'
+				list = eventQueuedForCompletion(entry, key: key, list: list)
+			end 'completion'
 			entry = __Raw.wrappingAdd(entry, right: windowsEntryBytes)
 		end 'entries'
 		return list
 	end 'takeEvents'
+
+	// eventQueuedForCompletion is what a completion that the port gave, an OVERLAPPED_ENTRY at an address, keyed by an event entry,
+	// does: it signals the mode that it completes, and joins the green thread that waits there to the list, which it gives back. A
+	// completion that the entry's kind does not say is its own is left out: the system may hold one for an entry that is free or
+	// that another kind of entry was made of since.
+	function eventQueuedForCompletion(entry Count, key Count, list Count) returns Count
+		let kind = __Raw.loadAcquire(key, offset: entryKindOffset)
+		let overlapped = __Raw.loadWord(entry, offset: windowsEntryOverlappedOffset)
+		if kind == entryKindProcess 'process'
+			// A job's other notifications, and the exit of a process of the tree that is not the one the entry watches, say
+			// nothing of that process. The exit of the process itself is reported as its own, and a job that a kill ended
+			// reports only that no process is left in it, which is the process's exit too.
+			let message = dword(__Raw.loadWord32(entry, offset: windowsEntryTransferredOffset))
+			if (message == jobMessageExitProcess or message == jobMessageAbnormalExitProcess) and overlapped == __Raw.loadWord(key, offset: processIdWordOffset) 'exited'
+				__Raw.storeRelease(key, offset: processExitedWordOffset, value: set)
+				return eventQueuedInto(key, mode: eventRead, list: list)
+			end 'exited'
+			if message == jobMessageActiveProcessZero 'empty'
+				return eventQueuedInto(key, mode: eventRead, list: list)
+			end 'empty'
+			return list
+		end 'process'
+		if kind == entryKindUser 'user'
+			return eventQueuedInto(key, mode: eventRead, list: list)
+		end 'user'
+		if kind == entryKindHandle and overlapped == __Raw.wrappingAdd(key, right: entryWriteOverlappedOffset) 'write'
+			return eventQueuedInto(key, mode: eventWrite, list: list)
+		end 'write'
+		if kind == entryKindHandle and overlapped == __Raw.wrappingAdd(key, right: entryReadOverlappedOffset) 'read'
+			return eventQueuedInto(key, mode: eventRead, list: list)
+		end 'read'
+		return list
+	end 'eventQueuedForCompletion'
 
 	// sendBreak breaks the wait of the thread in the event queue.
 	function sendBreak(scheduler Count)
@@ -518,14 +568,21 @@ end 'tookBreak'
 		postCompletion(__Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset), key: entry)
 	end 'eventSignal'
 
-	// processWatch makes a job object that holds the process alone and posts a completion keyed by the entry when it is
-	// empty, whose handle the entry holds, or gives noEntry.
+	// processWatch makes a job object that holds the process and every process it starts (but one that breaks away from it) and
+	// posts a completion keyed by the entry as each of them exits, whose handle the entry holds, or gives noEntry. The entry
+	// is reported ready once the process itself has exited (processHasExited), whatever the rest of the tree does.
 	function processWatch(scheduler Count, process Count) returns Count
+		let id = dword(__Raw.callImport1("GetProcessId", arg1: process))
+		if id == 0 'unnamed'
+			return noEntry
+		end 'unnamed'
 		let job = __Raw.callImport2("CreateJobObjectW", arg1: noSecurity, arg2: noName)
 		if job == 0 'refused'
 			return noEntry
 		end 'refused'
 		let entry = entryTake(scheduler, kind: entryKindProcess, handle: job)
+		__Raw.storeWord(entry, offset: processIdWordOffset, value: id)
+		__Raw.storeRelease(entry, offset: processExitedWordOffset, value: unset)
 		if not jobHolds(job, process: process, entry: entry, port: __Raw.loadWord(scheduler, offset: schedEventQueueOffset)) 'unheld'
 			entryGive(scheduler, entry: entry)
 			closeHandle(job)
@@ -534,12 +591,17 @@ end 'tookBreak'
 		return entry
 	end 'processWatch'
 
-	// jobHolds has a job's limits keep the children of its processes out of it, its notifications go to the port with the
-	// entry as their key, and the process in it, and says whether each took.
+	// processHasExited is whether the process of an entry has been reported as exited by its job.
+	function processHasExited(entry Count) returns bool
+		return __Raw.loadAcquire(entry, offset: processExitedWordOffset) == set
+	end 'processHasExited'
+
+	// jobHolds has a job's limits let a process of it start one that leaves it and no other, its notifications go to the port with
+	// the entry as their key, and the process in it, and says whether each took.
 	function jobHolds(job Count, process Count, entry Count, port Count) returns bool
 		let record = alloc(jobRecordBytes)
 		zeroRange(record, from: 0, to: jobRecordBytes)
-		__Raw.storeWord32(record, offset: jobLimitFlagsOffset, value: jobSilentBreakawayOk)
+		__Raw.storeWord32(record, offset: jobLimitFlagsOffset, value: jobBreakawayOk)
 		var held = dword(__Raw.callImport4("SetInformationJobObject", arg1: job, arg2: jobExtendedLimitInformation, arg3: record, arg4: jobRecordBytes)) != 0
 		if held 'associate'
 			zeroRange(record, from: 0, to: jobRecordBytes)

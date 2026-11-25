@@ -221,7 +221,7 @@ Stack trace:
 ```
 
 <!-- test: a-container-lends-a-unique-element-it-keeps-and-the-element-is-never-bound -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Slot.held`, `List.first` and `Map.get` hand back an element the container goes on owning, so a unique one is read through the call and never bound. `take` and `removeFirst` move the element out and the caller owns it.
 ```maxon

@@ -407,6 +407,7 @@ error E3010: specs/raw-bit-patterns/error.a-cast-to-a-values-own-pattern-alias-i
 ```
 
 <!-- test: every-width-rides-the-storage-ladder -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 <!-- tier: stdlib -->
 ### Storage is the existing ladder — 8/4/2/1 bytes, then 4/2/1 packed bits
 `bits(n)` adds no storage rule of its own: it lands on the same ladder a ranged `int` of the same
@@ -463,6 +464,7 @@ end 'main'
 ```
 
 <!-- test: a-pattern-and-the-range-with-its-value-set-share-a-slot -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 <!-- tier: stdlib -->
 ### `bits(4)` and `int(0 to 15)` are one slot
 The control for the case above: the ladder is asked about the VALUE SET, so the two spellings cannot

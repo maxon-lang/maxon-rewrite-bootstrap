@@ -1,0 +1,67 @@
+let sampleIr = "function sum params 1\nb0:\n  %0 = param 0\n  %1 = length.array %0\n  bounds %2, %1 else b3\n  %4 = add.u %0, %1 else b2\n  %5 = call helper[Array with Count](%0) error %6\n  runtime rt.array.elem(%0, %2)\n  ret %4\n\nfunction helper[Array with Count] params 1\nb0:\n  ret %0\n\n"
+
+function failsWith(claim String, because String)
+	var expect = Expectation.new()
+	expect.irClaims.push(claim.clone())
+	let result = checkIrClaims(expect, irText: sampleIr)
+	if result.outcome != TestOutcome.testFailed 'passed'
+		panic("irexpect: `{claim}` passes, and should fail")
+	end 'passed'
+	if findText(result.detail, needle: because).isSome() == false 'reason'
+		panic("irexpect: `{claim}` fails with `{result.detail}`, which does not say `{because}`")
+	end 'reason'
+end 'failsWith'
+
+function holds(claim String)
+	var expect = Expectation.new()
+	expect.irClaims.push(claim.clone())
+	let result = checkIrClaims(expect, irText: sampleIr)
+	if result.outcome != TestOutcome.testPassed 'failed'
+		panic("irexpect: `{claim}` fails with `{result.detail}`, and should pass")
+	end 'failed'
+end 'holds'
+
+test 'an expect-ir claim reads names, not places'
+	holds("sum has 1 bounds")
+	holds("sum has no mul")
+	holds("sum has some add")
+	holds("sum has 1 add.u")
+	holds("sum calls helper[Array with Count]")
+	holds("sum calls rt.array.elem")
+	holds("sum does not call rt.panicEmptySlot")
+	holds("helper[Array with Count] does not call sum")
+end 'an expect-ir claim reads names, not places'
+
+test 'an expect-ir claim that is wrong fails'
+	failsWith("sum has no bounds", because: "has 1 bounds")
+	failsWith("sum has 2 bounds", because: "has 1 bounds")
+	failsWith("sum has some mul", because: "has no mul")
+	failsWith("sum does not call helper[Array with Count]", because: "calls helper")
+	failsWith("sum calls rt.free", because: "does not call rt.free")
+end 'an expect-ir claim that is wrong fails'
+
+test 'an expect-ir claim that names what does not exist fails'
+	failsWith("missing has no bounds", because: "no function missing")
+	failsWith("sum has no bound", because: "no operation of the IR")
+	failsWith("sum has no cmp.lt.x", because: "no operation of the IR")
+	failsWith("sum does not call nothing", because: "neither a function of the program nor a runtime entry")
+	failsWith("sum calls rt.nothing", because: "neither a function of the program nor a runtime entry")
+end 'an expect-ir claim that names what does not exist fails'
+
+test 'a malformed expect-ir claim fails'
+	failsWith("sum", because: "write")
+	failsWith("has no bounds", because: "write")
+	failsWith("sum has bounds", because: "write")
+	failsWith("sum has many bounds", because: "neither")
+	failsWith("sum has no ", because: "write")
+	failsWith("sum has 1 two words", because: "one IR operation")
+	failsWith("sum calls ", because: "write")
+end 'a malformed expect-ir claim fails'
+
+test 'a program of tests/ir with no claim fails'
+	let expect = Expectation.new()
+	let result = checkIrClaims(expect, irText: sampleIr)
+	if result.outcome != TestOutcome.testFailed 'passed'
+		panic("irexpect: a program with no claim passes")
+	end 'passed'
+end 'a program of tests/ir with no claim fails'

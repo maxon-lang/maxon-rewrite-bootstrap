@@ -1,0 +1,201 @@
+// The subprocess rows of the raw surface name a child or a result by a word of a slot and its generation, as a SlotKey does, so
+// a word that names nothing live (-1, one never given, a released one, a child's where a result's is asked for) is a failure of
+// the row, never a fault. A spawn that is refused, malformed or fails answers -1 and says why through the last error, whose
+// message is `os error N` for a code in Win32's words; what a failing spawn copied for the system (the working directory, the
+// environment's vector, the paths of the files of its streams) is freed on that way out as on any, which the heap's live count
+// shows, as the descriptors of the files it opened are closed. A step that is not served is refused, never ignored.
+// native-only
+//> clean=true
+//> getPid=-1 waitCollect=-1 reader=0 text=0 0 released=true
+//> a result's word is no child's: pid=-1 kind=0
+//> a second wait: -1
+//> stale after the release: pid=-1 wait=-1 kind=0 stdout=0
+//> the slot is reused under a new generation: true old=-1 new=true
+//> missing program: -1 os error 2
+//> refused: stdin hold 50 detach 50 traced 50
+//> files that cannot be opened: stdin file true at step 1, stdout file true at step 1
+//> malformed: kind 87 flags 87 environment 87 nul in directory 87 token with a NUL 87 no end 87 too few 87 block 87 nul in a path 87 output kind 87
+//> no leak: refused true malformed true missing true unmoved true stdin file true stdout file true block true file and block true
+//> all of them answered -1: true
+
+typealias Blob = Array with Byte
+
+let terminator = 0 as Byte
+
+let parentEnvironment = 1
+
+function appendToken(mutates out Blob, token String)
+	for b in token.bytes() 'each'
+		out.push(b)
+	end 'each'
+	out.push(terminator)
+end 'appendToken'
+
+function selfBlob(mode String) returns Blob
+	var argv = Blob.create(0)
+	let executable = try Process.executablePath() otherwise return argv
+	appendToken(argv, token: executable.path)
+	appendToken(argv, token: "child")
+	appendToken(argv, token: mode)
+	return argv
+end 'selfBlob'
+
+function nameBlob(name String) returns Blob
+	var argv = Blob.create(0)
+	appendToken(argv, token: name)
+	return argv
+end 'nameBlob'
+
+function environmentBlock() returns Blob
+	var env = Blob.create(1)
+	env.push(terminator)
+	return env
+end 'environmentBlock'
+
+// spawn is the spawn row of a blob of argc tokens with the words that a test varies and every other as a plain run asks.
+function spawn(argv Blob, argc Count, cwd String, envInherit Count, stdinKind Count, stdoutKind Count, flags Count) returns FullRangeInt
+	let env = environmentBlock()
+	let empty = ""
+	return __Builtins.subprocessSpawn(argv.managed, argc, cwd.cstr(), env.managed, envInherit, stdinKind, empty.cstr(), stdoutKind, empty.cstr(), 0, 2, empty.cstr(), 0, flags, 0)
+end 'spawn'
+
+// spawnWith is the spawn row of a blob of argc tokens in which a test also varies the environment block and the files of the
+// streams: stdinData and stdoutData are the path of a stream whose kind is a file.
+function spawnWith(argv Blob, argc Count, env Blob, envInherit Count, stdinKind Count, stdinData String, stdoutKind Count, stdoutData String) returns FullRangeInt
+	let empty = ""
+	return __Builtins.subprocessSpawn(argv.managed, argc, empty.cstr(), env.managed, envInherit, stdinKind, stdinData.cstr(), stdoutKind, stdoutData.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
+end 'spawnWith'
+
+// step is the step of the spawn that the last failure names, above the 32 bits of its code.
+function step() returns FullRangeInt
+	return __Builtins.subprocessLastErrorCode() / 4294967296
+end 'step'
+
+// notThere is whether the code of the last failure says that a file or a directory is not there: Windows's 3 for a path and 2
+// for a file, which a Linux or macOS errno of ENOENT is told as.
+function notThere() returns bool
+	return code() == 2 or code() == 3
+end 'notThere'
+
+function plainSpawn() returns FullRangeInt
+	return spawn(selfBlob("plain"), argc: 3, cwd: "", envInherit: parentEnvironment, stdinKind: 0, stdoutKind: 2, flags: 0)
+end 'plainSpawn'
+
+// code is the code of the last failure, in the low 32 bits of the word that the row answers.
+function code() returns FullRangeInt
+	return __Builtins.subprocessLastErrorCode() and 4294967295
+end 'code'
+
+function message() returns String
+	return String.init(__Builtins.subprocessLastErrorMessage())
+end 'message'
+
+function child(mode String) returns ExitCode
+	return 0
+end 'child'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() > 1 'child'
+		return child(try args.get(2) otherwise "")
+	end 'child'
+	print("clean={message().byteLength() == 0 and __Builtins.subprocessLastErrorCode() == 0}\n")
+	print("getPid={__Builtins.subprocessGetPid(-1)} waitCollect={__Builtins.subprocessWaitCollect(3, 0)} reader={__Builtins.subprocessResultStatusCode(64)} text={String.init(__Builtins.subprocessResultStdout(9999)).byteLength()} {String.init(__Builtins.subprocessResultStderr(-1)).byteLength()}")
+	__Builtins.subprocessReleaseHandle(-1)
+	__Builtins.subprocessReleaseHandle(64)
+	__Builtins.subprocessResultRelease(-1)
+	__Builtins.subprocessResultRelease(9999)
+	print(" released=true\n")
+	let first = plainSpawn()
+	let firstWait = __Builtins.subprocessWaitCollect(first, 0)
+	print("a result's word is no child's: pid={__Builtins.subprocessGetPid(firstWait)} kind={__Builtins.subprocessResultStatusKind(first)}\n")
+	print("a second wait: {__Builtins.subprocessWaitCollect(first, 0)}\n")
+	__Builtins.subprocessResultRelease(firstWait)
+	__Builtins.subprocessReleaseHandle(first)
+	print("stale after the release: pid={__Builtins.subprocessGetPid(first)} wait={__Builtins.subprocessWaitCollect(first, 0)} kind={__Builtins.subprocessResultStatusKind(firstWait)} stdout={String.init(__Builtins.subprocessResultStdout(firstWait)).byteLength()}\n")
+	__Builtins.subprocessReleaseHandle(first)
+	let second = plainSpawn()
+	let lowHalf = 4294967295
+	print("the slot is reused under a new generation: {(second and lowHalf) == (first and lowHalf) and second != first} old={__Builtins.subprocessGetPid(first)} new={__Builtins.subprocessGetPid(second) > 0}\n")
+	__Builtins.subprocessReleaseHandle(second)
+	let missing = spawn(nameBlob("definitely-not-a-real-executable-xyz"), argc: 1, cwd: "", envInherit: parentEnvironment, stdinKind: 0, stdoutKind: 2, flags: 0)
+	print("missing program: {missing} {message()}\n")
+	let held = spawn(selfBlob("plain"), argc: 3, cwd: "", envInherit: parentEnvironment, stdinKind: 4, stdoutKind: 2, flags: 0)
+	let heldCode = code()
+	let detach = spawn(selfBlob("plain"), argc: 3, cwd: "", envInherit: parentEnvironment, stdinKind: 0, stdoutKind: 2, flags: 4)
+	let detachCode = code()
+	let traced = spawn(selfBlob("plain"), argc: 3, cwd: "", envInherit: parentEnvironment, stdinKind: 0, stdoutKind: 2, flags: 8)
+	let tracedCode = code()
+	print("refused: stdin hold {heldCode} detach {detachCode} traced {tracedCode}\n")
+	let noSuchFile = "no-such-directory/nope.txt"
+	let stdinFile = spawnWith(selfBlob("plain"), argc: 3, env: environmentBlock(), envInherit: parentEnvironment, stdinKind: 3, stdinData: noSuchFile, stdoutKind: 2, stdoutData: "")
+	let stdinFileUnopened = notThere() and step() == 1
+	let stdoutFile = spawnWith(selfBlob("plain"), argc: 3, env: environmentBlock(), envInherit: parentEnvironment, stdinKind: 0, stdinData: "", stdoutKind: 3, stdoutData: noSuchFile)
+	let stdoutFileUnopened = notThere() and step() == 1
+	print("files that cannot be opened: stdin file {stdinFileUnopened} at step {step()}, stdout file {stdoutFileUnopened} at step {step()}\n")
+	let kindWord = spawn(selfBlob("plain"), argc: 3, cwd: "", envInherit: parentEnvironment, stdinKind: 7, stdoutKind: 2, flags: 0)
+	let kindCode = code()
+	let flagsWord = spawn(selfBlob("plain"), argc: 3, cwd: "", envInherit: parentEnvironment, stdinKind: 0, stdoutKind: 2, flags: 16)
+	let flagsCode = code()
+	let environmentWord = spawn(selfBlob("plain"), argc: 3, cwd: "", envInherit: 2, stdinKind: 0, stdoutKind: 2, flags: 0)
+	let environmentWordCode = code()
+	let directoryNul = spawn(selfBlob("plain"), argc: 3, cwd: "a\0b", envInherit: parentEnvironment, stdinKind: 0, stdoutKind: 2, flags: 0)
+	let directoryCode = code()
+	let tokenNul = spawn(selfBlob("plain"), argc: 2, cwd: "", envInherit: parentEnvironment, stdinKind: 0, stdoutKind: 2, flags: 0)
+	let tokenCode = code()
+	var unended = selfBlob("plain")
+	_ = try unended.pop() otherwise 0
+	let noEnd = spawn(unended, argc: 3, cwd: "", envInherit: parentEnvironment, stdinKind: 0, stdoutKind: 2, flags: 0)
+	let noEndCode = code()
+	let tooFew = spawn(selfBlob("plain"), argc: 4, cwd: "", envInherit: parentEnvironment, stdinKind: 0, stdoutKind: 2, flags: 0)
+	let tooFewCode = code()
+	var unendedBlock = Blob.create(1)
+	unendedBlock.push(65)
+	let blockWord = spawnWith(selfBlob("plain"), argc: 3, env: unendedBlock, envInherit: 0, stdinKind: 0, stdinData: "", stdoutKind: 2, stdoutData: "")
+	let blockCode = code()
+	let pathNul = spawnWith(selfBlob("plain"), argc: 3, env: environmentBlock(), envInherit: parentEnvironment, stdinKind: 3, stdinData: "a\0b", stdoutKind: 2, stdoutData: "")
+	let pathCode = code()
+	let outputKind = spawnWith(selfBlob("plain"), argc: 3, env: environmentBlock(), envInherit: parentEnvironment, stdinKind: 0, stdinData: "", stdoutKind: 4, stdoutData: "")
+	let outputKindCode = code()
+	print("malformed: kind {kindCode} flags {flagsCode} environment {environmentWordCode} nul in directory {directoryCode} token with a NUL {tokenCode} no end {noEndCode} too few {tooFewCode} block {blockCode} nul in a path {pathCode} output kind {outputKindCode}\n")
+	let refusedAll = held == -1 and detach == -1 and traced == -1 and stdinFile == -1 and stdoutFile == -1
+	let malformedAll = kindWord == -1 and flagsWord == -1 and environmentWord == -1 and directoryNul == -1 and tokenNul == -1 and noEnd == -1 and tooFew == -1 and blockWord == -1 and pathNul == -1 and outputKind == -1
+	let refusedBlob = selfBlob("plain")
+	let before = HeapStats.allocationsLive()
+	let refusedAgain = spawn(refusedBlob, argc: 3, cwd: "x", envInherit: parentEnvironment, stdinKind: 4, stdoutKind: 2, flags: 0)
+	let afterRefused = HeapStats.allocationsLive()
+	let malformedBlob = selfBlob("plain")
+	let beforeMalformed = HeapStats.allocationsLive()
+	let malformedAgain = spawn(malformedBlob, argc: 3, cwd: "a\0b", envInherit: parentEnvironment, stdinKind: 0, stdoutKind: 2, flags: 0)
+	let afterMalformed = HeapStats.allocationsLive()
+	let missingBlob = nameBlob("definitely-not-a-real-executable-xyz")
+	let beforeMissing = HeapStats.allocationsLive()
+	let missingAgain = spawn(missingBlob, argc: 1, cwd: "no-such-directory", envInherit: parentEnvironment, stdinKind: 0, stdoutKind: 2, flags: 0)
+	let afterMissing = HeapStats.allocationsLive()
+	let unmovedBlob = selfBlob("plain")
+	let beforeUnmoved = HeapStats.allocationsLive()
+	let unmovedAgain = spawn(unmovedBlob, argc: 3, cwd: "no-such-directory", envInherit: parentEnvironment, stdinKind: 2, stdoutKind: 2, flags: 0)
+	let afterUnmoved = HeapStats.allocationsLive()
+	let inputBlob = selfBlob("plain")
+	let inputEnvironment = environmentBlock()
+	let beforeInput = HeapStats.allocationsLive()
+	let inputAgain = spawnWith(inputBlob, argc: 3, env: inputEnvironment, envInherit: 0, stdinKind: 3, stdinData: noSuchFile, stdoutKind: 2, stdoutData: "")
+	let afterInput = HeapStats.allocationsLive()
+	let outputBlob = selfBlob("plain")
+	let outputEnvironment = environmentBlock()
+	let beforeOutput = HeapStats.allocationsLive()
+	let outputAgain = spawnWith(outputBlob, argc: 3, env: outputEnvironment, envInherit: 0, stdinKind: 0, stdinData: "", stdoutKind: 3, stdoutData: noSuchFile)
+	let afterOutput = HeapStats.allocationsLive()
+	let blockBlob = selfBlob("plain")
+	let beforeBlock = HeapStats.allocationsLive()
+	let blockAgain = spawnWith(blockBlob, argc: 3, env: unendedBlock, envInherit: 0, stdinKind: 0, stdinData: "", stdoutKind: 2, stdoutData: "")
+	let afterBlock = HeapStats.allocationsLive()
+	let filedBlob = nameBlob("definitely-not-a-real-executable-xyz")
+	let filedEnvironment = environmentBlock()
+	let beforeFiled = HeapStats.allocationsLive()
+	let filedAgain = spawnWith(filedBlob, argc: 1, env: filedEnvironment, envInherit: 0, stdinKind: 0, stdinData: "", stdoutKind: 3, stdoutData: noSuchFile)
+	let afterFiled = HeapStats.allocationsLive()
+	print("no leak: refused {refusedAgain == -1 and afterRefused == before} malformed {malformedAgain == -1 and afterMalformed == beforeMalformed} missing {missingAgain == -1 and afterMissing == beforeMissing} unmoved {unmovedAgain == -1 and afterUnmoved == beforeUnmoved} stdin file {inputAgain == -1 and afterInput == beforeInput} stdout file {outputAgain == -1 and afterOutput == beforeOutput} block {blockAgain == -1 and afterBlock == beforeBlock} file and block {filedAgain == -1 and afterFiled == beforeFiled}\n")
+	print("all of them answered -1: {refusedAll and malformedAll}\n")
+	return 0
+end 'main'

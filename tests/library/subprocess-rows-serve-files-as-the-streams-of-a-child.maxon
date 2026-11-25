@@ -1,0 +1,121 @@
+// A stream of a child can be a file: its standard input the file that the spawn names, which the child reads to its end, and its
+// output and its error each a file that is made where it is not there and emptied where it is, as maxon's runtime does. The child
+// is this program run again. Nothing of such a stream is collected, a stream that is not a file still is, and the child leaves no
+// file open, which the program shows by deleting each file after (a system that keeps a file open refuses that).
+// native-only
+//> files: kind=0 code=0 collected=[] [] written out=[got:from a file] err=[err:from a file]
+//> emptied: out=[got:from a file] longer text was there before=true
+//> mixed: err collected=[err:from a file] out=[got:from a file]
+//> every file was deleted: true
+
+typealias Blob = Array with Byte
+
+let terminator = 0 as Byte
+
+let stdinFile = 3
+
+let stdinNone = 0
+
+let outputFile = 3
+
+let outputCollect = 2
+
+let noFlags = 0
+
+let parentEnvironment = 1
+
+let inputText = "from a file"
+
+function appendToken(mutates out Blob, token String)
+	for b in token.bytes() 'each'
+		out.push(b)
+	end 'each'
+	out.push(terminator)
+end 'appendToken'
+
+// child reads its standard input to the end, says what it read on its output, and says it on its error with another word.
+function child() returns ExitCode
+	var text = ""
+	var reading = true
+	while reading 'reads'
+		let got = __Builtins.readStdin(65536)
+		if got.length() == 0 'end'
+			reading = false
+		end 'end' else 'more'
+			text = "{text}{String.init(got)}"
+		end 'more'
+	end 'reads'
+	print("got:{text}")
+	printError("err:{text}")
+	return 0
+end 'child'
+
+// pathOf is a file path of a text, for the files of the test.
+function pathOf(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("not a path")
+end 'pathOf'
+
+// spawnSelf starts this program as the child, the streams as the kinds and the paths say, and gives its handle, or -1.
+function spawnSelf(inputKind Count, input String, outputKind Count, output String, errorKind Count, error String) returns FullRangeInt
+	var argv = Blob.create(0)
+	let executable = try Process.executablePath() otherwise return -1
+	appendToken(argv, token: executable.path)
+	appendToken(argv, token: "child")
+	var env = Blob.create(1)
+	env.push(terminator)
+	let empty = ""
+	return __Builtins.subprocessSpawn(argv.managed, 2, empty.cstr(), env.managed, parentEnvironment, inputKind, input.cstr(), outputKind, output.cstr(), 0, errorKind, error.cstr(), 0, noFlags, 0)
+end 'spawnSelf'
+
+// ran waits for a child and gives how it ended and what it collected of its output and its error, as the text of a line.
+function ran(handle FullRangeInt) returns String
+	let result = __Builtins.subprocessWaitCollect(handle, 0)
+	let line = "kind={__Builtins.subprocessResultStatusKind(result)} code={__Builtins.subprocessResultStatusCode(result)} collected=[{String.init(__Builtins.subprocessResultStdout(result))}] [{String.init(__Builtins.subprocessResultStderr(result))}]"
+	__Builtins.subprocessResultRelease(result)
+	__Builtins.subprocessReleaseHandle(handle)
+	return line
+end 'ran'
+
+function text(path String) returns String
+	return try File.readText(pathOf(path)) otherwise "unreadable"
+end 'text'
+
+// removed deletes a file, and says whether it could.
+function removed(path String) returns bool
+	if not File.exists(pathOf(path)) 'absent'
+		return false
+	end 'absent'
+	try File.delete(pathOf(path)) otherwise return false
+	return not File.exists(pathOf(path))
+end 'removed'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() > 1 'child'
+		return child()
+	end 'child'
+	let stem = "rows-streams-{Process.id()}"
+	let input = "{stem}-in.tmp"
+	let output = "{stem}-out.tmp"
+	let error = "{stem}-err.tmp"
+	try File.writeText(pathOf(input), content: inputText) otherwise return 2
+	let first = spawnSelf(stdinFile, input: input, outputKind: outputFile, output: output, errorKind: outputFile, error: error)
+	if first == -1 'unstarted'
+		print("the spawn failed: {String.init(__Builtins.subprocessLastErrorMessage())}\n")
+		return 3
+	end 'unstarted'
+	let firstLine = ran(first)
+	print("files: {firstLine} written out=[{text(output)}] err=[{text(error)}]\n")
+	let longer = "text that is longer than what the child writes, which a file that is made again must not keep"
+	try File.writeText(pathOf(output), content: longer) otherwise return 2
+	let second = spawnSelf(stdinFile, input: input, outputKind: outputFile, output: output, errorKind: 0, error: "")
+	_ = ran(second)
+	print("emptied: out=[{text(output)}] longer text was there before={longer.byteLength() > text(output).byteLength()}\n")
+	let third = spawnSelf(stdinFile, input: input, outputKind: outputFile, output: output, errorKind: outputCollect, error: "")
+	let thirdResult = __Builtins.subprocessWaitCollect(third, 0)
+	print("mixed: err collected=[{String.init(__Builtins.subprocessResultStderr(thirdResult))}] out=[{text(output)}]\n")
+	__Builtins.subprocessResultRelease(thirdResult)
+	__Builtins.subprocessReleaseHandle(third)
+	print("every file was deleted: {removed(input) and removed(output) and removed(error)}\n")
+	return 0
+end 'main'

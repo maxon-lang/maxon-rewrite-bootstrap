@@ -518,9 +518,6 @@ function checkOperator(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	let l = codepointTyped(c, p: p, ms: ms, e: lNode, t: caseL, retype: unaliased)
 	let r = codepointTyped(c, p: p, ms: ms, e: rNode, t: caseR, retype: unaliased)
 	let off = offsetOf(c, p: p, ms: ms, node: e)
-	if op == "is" 'identity'
-		return checkIdentity(c, p: p, ms: ms, e: e, l: l, r: r, errs: errs)
-	end 'identity'
 	if ast.isFloatType(ms.types, reads: p.types, t: l) or ast.isFloatType(ms.types, reads: p.types, t: r) 'floats'
 		if isComparisonOp(op) 'comparison'
 			return checkFloatComparison(c, p: p, ms: ms, e: e, op: op, l: l, r: r, errs: errs)
@@ -611,19 +608,39 @@ end 'rawValueSpan'
 // passed, stored or returned as one. It is noType for any other e, and for a value of such an enum that is no case written
 // out, whose case is not known before it runs.
 function rawCaseConstant(c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns ast.TypeID
+	let owner = caseOwner(c, e: e, kind: ast.MemberKind.memberEnumCase)
+	if owner == ast.noType or not ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: owner)).hasExplicitRaw 'unwritten'
+		return ast.noType
+	end 'unwritten'
+	return caseRawConstant(c, p: p, ms: ms, e: e, kind: ast.MemberKind.memberEnumCase)
+end 'rawCaseConstant'
+
+// caseRawConstant is the constant type of the raw value of the case (of the member kind) that e writes, whose cases write
+// integers or none: unnamed, so it takes the integer alias of the operand it meets as maxon's does. It is noType for any other e.
+function caseRawConstant(c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, kind ast.MemberKind) returns ast.TypeID
+	let owner = caseOwner(c, e: e, kind: kind)
+	if owner == ast.noType 'notCase'
+		return ast.noType
+	end 'notCase'
+	let orig = ast.originOf(ms.types, reads: p.types, t: owner)
+	if ast.typeEntry(ms.types, reads: p.types, t: orig).rawKind != ast.RawKind.integer 'notInteger'
+		return ast.noType
+	end 'notInteger'
+	let info = c.typing.members.get(e as Count).unwrap()
+	return ast.internConstInt(ms.types, reads: p.types, val: ast.typeEntry(ms.types, reads: p.types, t: orig).cases[info.enumCase].rawValue.clone())
+end 'caseRawConstant'
+
+// caseOwner is the enum or union that the case e names belongs to, where e names a case of that kind of type, and noType otherwise.
+function caseOwner(c Checker, e ast.NodeID, kind ast.MemberKind) returns ast.TypeID
 	if not c.typing.members.has(e as Count) 'notMember'
 		return ast.noType
 	end 'notMember'
 	let info = c.typing.members.get(e as Count).unwrap()
-	if info.kind != ast.MemberKind.memberEnumCase 'notCase'
+	if info.kind != kind 'notCase'
 		return ast.noType
 	end 'notCase'
-	let orig = ast.originOf(ms.types, reads: p.types, t: info.ownerTy)
-	if ast.typeEntry(ms.types, reads: p.types, t: orig).rawKind != ast.RawKind.integer or not ast.typeEntry(ms.types, reads: p.types, t: orig).hasExplicitRaw 'unwritten'
-		return ast.noType
-	end 'unwritten'
-	return ast.internConstInt(ms.types, reads: p.types, val: ast.typeEntry(ms.types, reads: p.types, t: orig).cases[info.enumCase].rawValue.clone())
-end 'rawCaseConstant'
+	return info.ownerTy
+end 'caseOwner'
 
 // codepointTyped is the type of the operand e, of type t: a Codepoint where retype says so and e is a character literal that
 // integerized made its code point, and t otherwise.
@@ -634,62 +651,6 @@ function codepointTyped(mutates c Checker, p ast.Project, ms ast.ModuleState, e 
 	recordType(c, e: e, t: p.builtins.codepointTy)
 	return p.builtins.codepointTy
 end 'codepointTyped'
-
-// hasIdentity is whether a value of the type is an object that two names can stand for: a string or a collection. A
-// number, a bool, an enum case, a union, a function and a type parameter are values with no object to name, and so is a
-// record, whose words may be held in place, where an address says nothing of which value it is.
-function hasIdentity(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
-	return match ast.typeKind(ms.types, reads: p.types, t: t) 'kind'
-		record gives false
-		primString gives true
-		primCharacter gives false
-		primCString gives false
-		builtinArray gives true
-		invalid gives false
-		primBool gives false
-		primVoid gives false
-		primNever gives false
-		intRange gives false
-		constInt gives false
-		floatRange gives false
-		constFloat gives false
-		enumTy gives false
-		unionTy gives false
-		builtinSlotKey gives false
-		builtinFrozen gives false
-		builtinCown gives false
-		builtinCursor gives false
-		builtinGroups gives false
-		builtinPromise gives false
-		builtinService gives false
-		typeParam gives false
-		interfaceTy gives false
-		funcTy gives false
-	end 'kind'
-end 'hasIdentity'
-
-// checkIdentity types 'a is b' and 'a is not b': whether two names stand for one object.
-function checkIdentity(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let off = offsetOf(c, p: p, ms: ms, node: e)
-	var op = "is"
-	if ast.binaryExprNegated(ms.tree(), id: e) 'negated'
-		op = "is not"
-	end 'negated'
-	if ast.typeKind(ms.types, reads: p.types, t: l) == ast.TypeKind.record or ast.typeKind(ms.types, reads: p.types, t: r) == ast.TypeKind.record 'record'
-		checkFail(c.modID, off: off, code: diag.errRefIdentityOnPrimitive, msg: "'{op}' has no meaning for a record, which is a value with no identity: compare its fields instead", errs: errs)
-		return ast.noType
-	end 'record'
-	if not hasIdentity(p, ms: ms, t: l) or not hasIdentity(p, ms: ms, t: r) 'primitive'
-		checkFail(c.modID, off: off, code: diag.errRefIdentityOnPrimitive, msg: diag.refIdentityOnPrimitive(op), errs: errs)
-		return ast.noType
-	end 'primitive'
-	if l != r 'different'
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.refIdentityTypeMismatch(op, left: gotName(p, ms: ms, t: l), right: gotName(p, ms: ms, t: r)), errs: errs)
-		return ast.noType
-	end 'different'
-	setOperand(c, node: e, operand: l)
-	return p.builtins.boolTy
-end 'checkIdentity'
 
 // isWordOp is whether an operator works on the bits of its operands, which must then be two bools or two integers.
 function isWordOp(op String) returns bool

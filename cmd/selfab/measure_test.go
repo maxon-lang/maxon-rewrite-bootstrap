@@ -2,8 +2,6 @@ package main
 
 import (
 	"math"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 )
@@ -46,18 +44,21 @@ func TestCheckShareRefusesATableWithNoTotal(t *testing.T) {
 	}
 }
 
-func TestCountChecksCountsBoundsAndEmptySlotCalls(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "out.ir")
-	ir := "b1:\n  bounds %3, %20 else b5\n  %21 = buffer %9\nb3:\n  runtime rt.panicEmptySlot(%15, %3)\n  trap\n  bounds %1, %2 else b6\n  call rt.panicIndex()\n"
-	if err := os.WriteFile(path, []byte(ir), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	bounds, emptySlots, err := countChecks(path)
+func TestParseCountsReadsWhatIrcountPrints(t *testing.T) {
+	bounds, emptySlots, err := parseCounts("op=bounds 2\ncall=rt.panicEmptySlot 1\n")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if bounds != 2 || emptySlots != 1 {
 		t.Fatalf("bounds %d, empty slots %d, want 2 and 1", bounds, emptySlots)
+	}
+}
+
+func TestParseCountsRefusesWhatIsMissingOrMalformed(t *testing.T) {
+	for _, out := range []string{"op=bounds 2\n", "op=bounds two\ncall=rt.panicEmptySlot 1\n", "op=bounds\n"} {
+		if _, _, err := parseCounts(out); err == nil {
+			t.Fatalf("%q was read", out)
+		}
 	}
 }
 

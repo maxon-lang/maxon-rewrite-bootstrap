@@ -1,0 +1,269 @@
+// Hundreds of children run one after another through the subprocess rows (spawn, wait, the readers of the result, the releases),
+// some with input bytes that the child never reads, some with their error discarded, some with an environment block of their own,
+// some with the null device as the file of a stream, some ended with their tree before any wait and some at a deadline of 50 ms,
+// leave the process with the descriptors it had before them (fds on Linux and macOS, handles on Windows), and with no box of the
+// program's left, which the count of the live boxes at the end of the run says by exiting 99: neither the child's record, the
+// run's record, the copy of the input, the vector of the environment, the result nor the text it holds is kept after its release.
+// A word that named a child before its release names nothing after it.
+//> 300 children through the rows left the descriptors as they were
+//> a released word names nothing
+
+// The host's program that exits with 0 at once, as a blob of NUL-ended tokens, and how many tokens it holds.
+#if os(Windows)
+	let rowsProgram = "cmd.exe\0/c\0exit 0\0"
+
+	let rowsTokens = 3 as Count
+
+	// The host's program that runs for a minute, and the null device, which a stream's file is.
+	let rowsSleeper = "cmd.exe\0/c\0ping -n 60 127.0.0.1 > nul\0"
+
+	let rowsSleeperTokens = 3 as Count
+
+	let rowsNullDevice = "NUL"
+
+	// A child ended by the kill of its tree exits with the kill's code.
+	let rowsEndedKind = 0 as Count
+
+	let rowsEndedCode = 1 as Count
+#else
+	let rowsProgram = "true\0"
+
+	let rowsTokens = 1 as Count
+
+	let rowsSleeper = "sleep\0600\0"
+
+	let rowsSleeperTokens = 2 as Count
+
+	let rowsNullDevice = "/dev/null"
+
+	// A child ended by the kill of its tree is ended by SIGKILL.
+	let rowsEndedKind = 1 as Count
+
+	let rowsEndedCode = 9 as Count
+#endif
+
+// The index of a run that has its own environment block, one whose stream is the null device as a file, one whose tree is ended
+// before any wait, and one that is ended at its deadline: each every so many runs.
+let rowsBlockEvery = 4 as Count
+
+// An index of a run that has no block of its own.
+let rowsNoBlock = 0 as Count
+
+let rowsFileEvery = 5 as Count
+
+let rowsEndEvery = 7 as Count
+
+let rowsLateEvery = 11 as Count
+
+let rowsDeadlineMs = 50 as Count
+
+let rowsTimedOut = 2 as Count
+
+let rowsSequential = 300 as Count
+
+let rowsWarmup = 4 as Count
+
+// rowsMostFd is past every fd the runs could have left open, on Linux and macOS.
+let rowsMostFd = 4096 as Count
+
+// fcntlGetFd is F_GETFD on Linux and macOS: it fails with EBADF for an fd that is not open.
+let rowsGetFd = 1 as Count
+
+// rowsHandleSlack is how far the process's count of handles may move on Windows over the runs, for what the system opens and
+// closes of its own; a run that kept a handle would move it by rowsSequential.
+let rowsHandleSlack = 16 as Count
+
+let rowsNoHandle = 0xFFFFFFFFFFFFFFFF as Count
+
+function main() returns ExitCode
+	greenReady(greenSpawn(__Raw.codeAddress("rowsCoordinator")))
+	return 0
+end 'main'
+
+function rowsCoordinator(g Count) returns Count
+	for i in 0 upto rowsWarmup 'warmup'
+		rowsRunOne(i)
+	end 'warmup'
+	let descriptors = rowsDescriptors()
+	for i in 0 upto rowsSequential 'runs'
+		rowsRunOne(i)
+	end 'runs'
+	let afterDescriptors = rowsDescriptors()
+	#if os(Windows)
+		if afterDescriptors > __Raw.wrappingAdd(descriptors, right: rowsHandleSlack) 'leaked'
+			panic("the runs of children left the process with {afterDescriptors} handles open, and it had {descriptors}")
+		end 'leaked'
+	#else
+		if afterDescriptors != descriptors 'leaked'
+			panic("the runs of children left the process with {afterDescriptors} fds open, and it had {descriptors}")
+		end 'leaked'
+	#endif
+	rowsWrite("{rowsSequential} children through the rows left the descriptors as they were\n")
+	let handle = rowsSpawn(0, input: "")
+	if handle == rowsNoHandle 'refused'
+		panic("a spawn after the runs failed")
+	end 'refused'
+	let result = subprocessWaitCollect(handle, ms: 0)
+	subprocessResultRelease(result)
+	subprocessReleaseHandle(handle)
+	let stale = subprocessResultStdout(result)
+	let staleLength = collectionLength(stale)
+	rowsFreeBlob(stale)
+	if subprocessGetPid(handle) != rowsNoHandle or subprocessWaitCollect(handle, ms: 0) != rowsNoHandle or subprocessResultStatusKind(result) != 0 or staleLength != 0 'alive'
+		panic("a released word still names something")
+	end 'alive'
+	rowsWrite("a released word names nothing\n")
+	return 0
+end 'rowsCoordinator'
+
+// rowsSpawnProgram starts a child of the blob of a program, with the streams as its kinds and paths say, and the environment that
+// the block gives where the index is 1 more than a multiple of rowsBlockEvery, and gives its handle.
+function rowsSpawnProgram(program String, tokens Count, index Count, inputKind Count, input String, outputKind Count, output String, errorKind Count) returns Count
+	let blob = bytesNew()
+	appendBytesOf(blob, address: __Raw.stringBytes(program), length: __Raw.stringLength(program))
+	var envKind = spawnEnvironmentParent
+	var block = 0 as Count
+	if index mod rowsBlockEvery == 1 'own'
+		envKind = spawnEnvironmentBlock
+		block = bytesNew()
+		let entry = "ROWS_PROBE=1\0\0"
+		appendBytesOf(block, address: __Raw.stringBytes(entry), length: __Raw.stringLength(entry))
+	end 'own'
+	let handle = subprocessSpawn(blob, argc: tokens, cwd: "", env: block, envInherit: envKind, stdinKind: inputKind, stdinData: input, stdoutKind: outputKind, stdoutData: output, stdoutLimit: 0, stderrKind: errorKind, stderrData: "", stderrLimit: 0, flags: 0, stdinLength: __Raw.stringLength(input))
+	rowsFreeBlob(blob)
+	if block != 0 'freeBlock'
+		rowsFreeBlob(block)
+	end 'freeBlock'
+	return handle
+end 'rowsSpawnProgram'
+
+// rowsEndOne starts a child that would run for a minute, ends its tree before any wait, and waits for what became of it: the
+// child ended by the kill, with no output.
+function rowsEndOne()
+	let handle = rowsSpawnProgram(rowsSleeper, tokens: rowsSleeperTokens, index: rowsNoBlock, inputKind: spawnStdinNone, input: "", outputKind: spawnOutputCollect, output: "", errorKind: spawnOutputDiscard)
+	if handle == rowsNoHandle 'failed'
+		panic("a spawn of a child that runs long failed")
+	end 'failed'
+	if subprocessEndTree(handle) != 0 'unended'
+		panic("the end of a child's tree was not confirmed")
+	end 'unended'
+	let result = subprocessWaitCollect(handle, ms: 0)
+	if result == rowsNoHandle or subprocessResultStatusKind(result) != rowsEndedKind or subprocessResultStatusCode(result) != rowsEndedCode 'ended'
+		panic("a child whose tree was ended did not say it was ended by the kill")
+	end 'ended'
+	subprocessResultRelease(result)
+	if subprocessEndTree(handle) != rowsNoHandle 'again'
+		panic("the end of a tree after its wait was not -1")
+	end 'again'
+	subprocessReleaseHandle(handle)
+end 'rowsEndOne'
+
+// rowsLateOne starts a child that would run for a minute and waits for it under a deadline of rowsDeadlineMs, which ends it with
+// its tree and says timedOut.
+function rowsLateOne()
+	let handle = rowsSpawnProgram(rowsSleeper, tokens: rowsSleeperTokens, index: rowsNoBlock, inputKind: spawnStdinNone, input: "", outputKind: spawnOutputCollect, output: "", errorKind: spawnOutputDiscard)
+	if handle == rowsNoHandle 'failed'
+		panic("a spawn of a child that runs long failed")
+	end 'failed'
+	let result = subprocessWaitCollect(handle, ms: rowsDeadlineMs)
+	if result == rowsNoHandle or subprocessResultStatusKind(result) != rowsTimedOut 'late'
+		panic("a child that a deadline ended did not say timedOut")
+	end 'late'
+	subprocessResultRelease(result)
+	subprocessReleaseHandle(handle)
+end 'rowsLateOne'
+
+// rowsSpawn starts the child, its standard input the given bytes where the index is odd and none where it is even, its output
+// collected and its error discarded where the index is divisible by three, and gives its handle.
+function rowsSpawn(index Count, input String) returns Count
+	var inputKind = spawnStdinNone
+	var inputPath = input.clone()
+	if index mod 2 == 1 'bytes'
+		inputKind = spawnStdinBytes
+	end 'bytes'
+	var outputKind = spawnOutputCollect
+	var outputPath = ""
+	if index mod rowsFileEvery == 2 'files'
+		inputKind = spawnStdinFile
+		inputPath = rowsNullDevice.clone()
+		outputKind = spawnOutputFile
+		outputPath = rowsNullDevice.clone()
+	end 'files'
+	var errorKind = spawnOutputCollect
+	if index mod 3 == 0 'discard'
+		errorKind = spawnOutputDiscard
+	end 'discard'
+	return rowsSpawnProgram(rowsProgram, tokens: rowsTokens, index: index, inputKind: inputKind, input: inputPath, outputKind: outputKind, output: outputPath, errorKind: errorKind)
+end 'rowsSpawn'
+
+function rowsFreeBlob(blob Count)
+	free(collectionData(blob))
+	free(blob)
+end 'rowsFreeBlob'
+
+// rowsRunOne starts the child, waits for it and reads its result, which must be a clean exit with no output, and releases both.
+function rowsRunOne(index Count)
+	if index mod rowsEndEvery == 3 'ended'
+		rowsEndOne()
+		return
+	end 'ended'
+	if index mod rowsLateEvery == 4 'late'
+		rowsLateOne()
+		return
+	end 'late'
+	let handle = rowsSpawn(index, input: "input the child never reads\n")
+	if handle == rowsNoHandle 'failed'
+		panic("a spawn of a child that exits at once failed")
+	end 'failed'
+	if subprocessGetPid(handle) == 0 or subprocessGetPid(handle) == rowsNoHandle 'pid'
+		panic("a spawned child has no process id")
+	end 'pid'
+	let result = subprocessWaitCollect(handle, ms: 0)
+	if result == rowsNoHandle or subprocessResultStatusKind(result) != 0 or subprocessResultStatusCode(result) != 0 'ended'
+		panic("a child that exits at once did not end with 0")
+	end 'ended'
+	let out = subprocessResultStdout(result)
+	let err = subprocessResultStderr(result)
+	if collectionLength(out) != 0 or collectionLength(err) != 0 'wrote'
+		panic("a child that writes nothing wrote")
+	end 'wrote'
+	rowsFreeBlob(out)
+	rowsFreeBlob(err)
+	subprocessResultRelease(result)
+	subprocessReleaseHandle(handle)
+end 'rowsRunOne'
+
+// rowsDescriptors is how many descriptors the process has open: the fds below rowsMostFd that fcntl finds on Linux and macOS, and
+// the process's count of handles on Windows.
+function rowsDescriptors() returns Count
+	var count = 0 as Count
+	#if os(Windows)
+		if __Raw.callImport2("GetProcessHandleCount", arg1: __Raw.callImport0("GetCurrentProcess"), arg2: __Raw.addressOf(count)) == 0 'refused'
+			panic("cannot count the process's handles")
+		end 'refused'
+		return dword(count)
+	#else
+		for fd in 0 upto rowsMostFd 'fds'
+			if rowsFdOpen(fd) 'open'
+				count = __Raw.wrappingAdd(count, right: 1)
+			end 'open'
+		end 'fds'
+		return count
+	#endif
+end 'rowsDescriptors'
+
+#if os(Linux)
+	function rowsFdOpen(fd Count) returns bool
+		return not failed(__Raw.syscall3(linuxSysFcntl, arg1: fd, arg2: rowsGetFd, arg3: 0))
+	end 'rowsFdOpen'
+#endif
+
+#if os(macOS)
+	function rowsFdOpen(fd Count) returns bool
+		return not failed(checkedInt(__Raw.callImport3("fcntl", arg1: fd, arg2: rowsGetFd, arg3: 0)))
+	end 'rowsFdOpen'
+#endif
+
+function rowsWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'rowsWrite'

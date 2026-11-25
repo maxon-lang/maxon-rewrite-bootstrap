@@ -1,0 +1,15 @@
+// A subscript whose index nothing compares with the count is not proven, so its read keeps the test against the length:
+// some `bounds`.
+// expect-ir: at has some bounds
+
+function at(xs Array with Count, i Count) returns Count
+	return xs[i]
+end 'at'
+
+function main() returns ExitCode
+	var xs = Array.create(0) as Array with Count
+	xs.push(4)
+	xs.push(5)
+	print("{at(xs, i: 1)}\n")
+	return 0
+end 'main'

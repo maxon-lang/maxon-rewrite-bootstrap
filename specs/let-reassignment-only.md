@@ -318,7 +318,7 @@ end 'main'
 ```
 
 <!-- test: error.a-frozen-argument-is-refused-where-the-parameter-is-written-through-a-let-alias -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The write through the alias counts as a write of `p`, so a frozen record cannot be passed.
 
@@ -586,7 +586,7 @@ error E2013: <fragment>:10:2: 'n' is a let and cannot be passed to the `mutable`
 ```
 
 <!-- test: error.a-module-let-array-is-still-read-only -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 ```maxon
 let fixed = [4, 5, 6]
 
@@ -600,6 +600,7 @@ error E3207: <fragment>:5:8: 'push' needs a writable receiver; 'fixed' is immuta
 ```
 
 <!-- test: error.a-stored-map-key-is-still-read-only -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 <!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 1000)
@@ -610,7 +611,7 @@ function main() returns ExitCode
 	let m = Counted.create()
 	m.upsert("a", value: 1)
 	for (k, _) in m 'each'
-		k = "{k}x"
+		k.append("x")
 	end 'each'
 	return 0
 end 'main'
@@ -758,7 +759,7 @@ end 'main'
 ```
 
 <!-- test: error.an-all-let-record-holding-an-array-is-not-immutable -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Every field of `Bag` is a `let`, but `items` is an array: the record is not frozen data, so it is not sent as `immutable` without `freeze`.
 

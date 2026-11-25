@@ -1,0 +1,14 @@
+typealias Words = FixedArray with String
+
+function greeting() returns String
+	print("made\n")
+	return "hi"
+end 'greeting'
+
+let WORDS = Words.create(2, value: greeting())
+
+function main() returns ExitCode
+	return WORDS.count() as ExitCode
+end 'main'
+
+// expect-error: E3220 at 8:36

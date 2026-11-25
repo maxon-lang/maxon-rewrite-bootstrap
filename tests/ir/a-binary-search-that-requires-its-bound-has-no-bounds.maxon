@@ -1,0 +1,27 @@
+// A binary search whose `while` requires that its upper end stays at most the count reads the array at the midpoint
+// lo + (hi - lo) / 2 of a range known not to be empty, which the range analysis proves inside it, so its subscript there has
+// no `bounds`.
+// expect-ir: search has no bounds
+
+function search(xs Array with Count, wanted Count) returns Count
+	var lo = 0 as Count
+	var hi = xs.count()
+	while lo < hi requires hi <= xs.count() 'halve'
+		let mid = lo + (hi - lo) / 2
+		if xs[mid] < wanted 'below'
+			lo = mid + 1
+		end 'below' else 'atOrAbove'
+			hi = mid
+		end 'atOrAbove'
+	end 'halve'
+	return lo
+end 'search'
+
+function main() returns ExitCode
+	var xs = Array.create(0) as Array with Count
+	for i in 0 upto 9 'fill'
+		xs.push(i * 3)
+	end 'fill'
+	print("{search(xs, wanted: 12)} {search(xs, wanted: 13)} {search(xs, wanted: 99)}\n")
+	return 0
+end 'main'

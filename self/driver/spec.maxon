@@ -842,6 +842,13 @@ function minCount(a Count, b Count) returns Count
 	return b
 end 'minCount'
 
+function maxCount(a Count, b Count) returns Count
+	if a > b 'more'
+		return a
+	end 'more'
+	return b
+end 'maxCount'
+
 // SpecRun is the tally of a run over spec files, and what it knows of the list of the tests that passed before.
 type SpecRun
 	var options as SpecOptions

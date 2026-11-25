@@ -81,8 +81,9 @@ builds a C3 identical to it).
   of the compiler is a `test 'name'` declaration in a `.maxtest` file of its module's directory, run by
   `minimaxon test self/<module>` (all of them by `selftest`); a Go test is for a generator or a tool.
 - **Corpus tests** under `tests/` run whole programs (`tests/run/`), diagnostics (`tests/errors/`, with
-  `// expect-error: CODE [at L:C]`), programs that must only compile clean (`tests/check/`) and multi-module projects
-  (`tests/modules/<case>/`). Maxon's spec tests (`specs/`) are the corpus that measures progress: the count that passes
+  `// expect-error: CODE [at L:C]`), programs that must only compile clean (`tests/check/`), claims about the optimized IR
+  of a program's functions (`tests/ir/`, with `// expect-ir: <function> has no|has some|has N <op>` and `calls|does not call
+  <symbol>`, names only, README "Tests") and multi-module projects (`tests/modules/<case>/`). Maxon's spec tests (`specs/`) are the corpus that measures progress: the count that passes
   may only go up. The gate runs every spec test (`test specs --require-passed`) and fails when a test that
   `specs/passed.txt` lists does not pass, so a regression in one stops the commit that makes it; a test that passes and
   is not listed is counted as new. `specs.ps1` writes the list again (`--record-passed`): it adds the new passes, drops

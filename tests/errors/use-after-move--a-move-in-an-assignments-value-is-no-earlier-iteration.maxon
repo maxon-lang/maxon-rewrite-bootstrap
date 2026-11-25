@@ -1,0 +1,24 @@
+// The value of an assignment is computed before its target is reached, so a target that names what the value moved is a
+// use after the move, although it is written before it: with no loop around it, that is no earlier iteration
+// (self/driver/moves.maxtest holds the message to it).
+type Rec
+	export var s as String
+
+	static function make(consumes s String) returns Rec
+		return Rec{s: s}
+	end 'make'
+end 'Rec'
+
+function swallow(consumes r Rec) returns String
+	return r.s.clone()
+end 'swallow'
+
+function main() returns ExitCode
+	var r = Rec.make("a")
+	r.s = swallow(r)
+	print("{r.s}\n")
+	return 0
+end 'main'
+
+// expect-error: E3102 at 18:2
+// expect-error: E3186 at 18:16

@@ -1,0 +1,22 @@
+// The length that a `while` tests on every pass does not change in the loop, so the function reads it once: the test is copied to
+// the loop's end by rotation and the check of the `get` in its body asks for it again, and the merging of what is computed twice
+// (with loop-invariant code motion, which moves the read out of the loop) leaves one read. The count is the property: one read,
+// whatever the number of places that asked for it.
+// expect-ir: countWhile has 1 length.array
+
+function countWhile(xs Array with Count) returns Count
+	var total = 0 as Count
+	var i = 0 as Count
+	while i < xs.count() 'each'
+		total = try total + (xs.get(i)) otherwise 0
+		i = i + 1
+	end 'each'
+	return total
+end 'countWhile'
+
+function main() returns ExitCode
+	var xs = Array.create(0) as Array with Count
+	xs.push(1)
+	print("{countWhile(xs)}\n")
+	return 0
+end 'main'

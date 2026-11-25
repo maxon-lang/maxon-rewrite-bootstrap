@@ -1064,21 +1064,26 @@ end 'modulesFrom'
 
 // holdProgram holds the runtime's source to the functions the compiler calls in it; then a compile that makes code writes
 // --emit-ir and reports what only the interpreter runs. It reads the project whole, which holds the modules' homes while it
-// runs, and the code of each module, which it knows.
-function holdProgram(c Compile, p ast.Project, known Known, mutates errs diag.ErrorList)
+// runs, and the code of each module, which it knows. It gives the text of the IR when the options keep it (keepsIrText), and
+// nothing otherwise.
+function holdProgram(c Compile, p ast.Project, known Known, mutates errs diag.ErrorList) returns String
 	let mark = errs.count()
 	checkRuntimeFunctions(p, first: c.first, errs: errs)
 	if c.goal == Goal.instances or errs.count() > mark 'nothingToMake'
-		return
+		return ""
 	end 'nothingToMake'
 	var lowered as opt.LoweredLists
 	lowered = Array.create(0)
 	for k in 0 upto known.count() 'modules'
 		lowered.push(share(known[k].code))
 	end 'modules'
+	var irText = ""
 	if c.goal == Goal.executable and c.options.emitIr 'emitIr'
 		writeIr(p, lowered: lowered, path: "{c.output}{irExtension}")
 	end 'emitIr'
+	if c.goal == Goal.executable and c.options.keepsIrText 'keepsIrText'
+		irText = programIrText(p, lowered: lowered)
+	end 'keepsIrText'
 	if c.goal == Goal.executable and c.options.verifyIr 'verifyIr'
 		verifyIr(p, lowered: lowered)
 		if p.keepsSpans 'spans'
@@ -1086,6 +1091,7 @@ function holdProgram(c Compile, p ast.Project, known Known, mutates errs diag.Er
 		end 'spans'
 	end 'verifyIr'
 	refusals(p, lowered: lowered, errs: errs)
+	return irText
 end 'holdProgram'
 
 // linkUnits links the modules' units with the ready ones into the executable at the compile's output, and gives whether it

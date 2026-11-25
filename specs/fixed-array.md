@@ -973,6 +973,7 @@ error E3004: <fragment>:7:3: call to undefined function 'push'
 ```
 
 <!-- test: error.the-buffer-under-a-fixed-array-is-still-the-buffer -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⛔ **THE THIRD ENTRANCE.** `bufferSurfaceOfDeclaredRecord` deliberately RETYPES a sized container's
@@ -1098,7 +1099,7 @@ end 'main'
 ```
 
 <!-- test: error.a-write-through-a-let-fixed-array-literal-is-refused-off-the-declaration -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -2989,6 +2990,7 @@ cannot produce; this refusal costs nothing at runtime and closes the seam one le
 `push` is already refused on this surface.
 
 <!-- test: error.a-sized-containers-buffer-may-not-be-cleared -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 **ENTRANCE A — the bare `managed` read inside an `extension FixedArray`**, the primary shape. `managed` is
@@ -3015,6 +3017,7 @@ error E2015: <fragment>:7:11: Unsupported: `__ManagedMemory` member 'clear' — 
 ```
 
 <!-- test: error.a-sized-containers-buffer-may-not-be-relengthened -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 `setLength` is the member the measurement caught moving the length furthest — `grow(64)` then
@@ -3041,6 +3044,7 @@ error E2015: <fragment>:7:15: Unsupported: `__ManagedMemory` member 'setLength' 
 ```
 
 <!-- test: error.a-sized-containers-buffer-may-not-lose-an-element -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 `remove` shrinks by one and slides the tail — 5 to 4.
@@ -3066,6 +3070,7 @@ error E2015: <fragment>:7:15: Unsupported: `__ManagedMemory` member 'remove' —
 ```
 
 <!-- test: error.a-sized-containers-buffer-may-not-be-appended-to -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⭐ **THIS CASE ALSO PRE-EMPTS A COMPILER PANIC, AND THAT IS A CONSEQUENCE OF THE REFUSAL RATHER THAN ITS
@@ -3107,6 +3112,7 @@ error E2015: <fragment>:7:15: Unsupported: `__ManagedMemory` member 'append' —
 ```
 
 <!-- test: error.the-chained-self-managed-reaches-the-same-refusal -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 **ENTRANCE B — `self.managed`, which mints NO value to mark** and passes the surface along the dispatch
@@ -3134,6 +3140,7 @@ error E2015: <fragment>:7:16: Unsupported: `__ManagedMemory` member 'clear' — 
 ```
 
 <!-- test: error.a-local-bound-to-the-buffer-reaches-the-same-refusal -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 **ENTRANCE C — the buffer bound to a local first.** The compiler has no stack slots, so `m` binds to the
@@ -3163,6 +3170,7 @@ error E2015: <fragment>:8:5: Unsupported: `__ManagedMemory` member 'clear' — t
 ```
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-return-it -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 ⛔⛔ **ENTRANCE D — THE RECORD LEAVING BY `return`, FROM A USER FILE.** A user extension cannot reach a
 fixed array's record at all, so it cannot hand it out either. The first raw door in this program is the
@@ -3189,6 +3197,7 @@ error E3185: <fragment>:6:25: 'ElementMemory' named outside the library tiers: t
 ```
 
 <!-- test: the-length-preserving-buffer-members-are-still-served -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE OVER-REFUSAL CONTROL, AND IT IS THE HALF A REFUSAL USUALLY FORGETS.** Everything on the
 buffer surface that does NOT write the length word is still served on a sized container's buffer. Each
@@ -3250,6 +3259,7 @@ end 'main'
 ```
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-pass-it-to-a-helper -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 ⛔⛔ **ENTRANCE E — THE ARGUMENT DIRECTION OF D.** An `extension FixedArray` whose `bust()` is `wipe(managed)`
 and whose `wipe(m ElementMemory)` is `m.clear()` would leave the type saying 3 while the walk finds nothing
@@ -3282,6 +3292,7 @@ error E3185: <fragment>:10:18: 'ElementMemory' named outside the library tiers: 
 ```
 
 <!-- test: the-slice-a-member-hands-to-a-helper-is-served -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **A SLICE IS A VIEW WITH A LENGTH OF ITS OWN.** `managed.slice(0, 2)` is not the fixed array's record —
 `__managed_slice` mints a fresh view whose `length@8` is its own — so a helper that takes it as an
@@ -3315,6 +3326,7 @@ end 'main'
 ```
 
 <!-- test: the-slice-a-member-returns-is-served -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **… AND A MEMBER MAY RETURN A SLICE, WHICH ITS CALLER MAY CHANGE FREELY.** The caller clears the view
 it was handed (0); the fixed array's own record keeps its three elements (3).
@@ -3351,6 +3363,7 @@ tiers. A user extension cannot read `managed` or name the raw buffer type, so ea
 at its first raw door by **E3185**, before any value of the record exists to carry.
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-push-it-into-a-container -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 **ROUTE F — THE RECORD AS A CONTAINER'S ELEMENT.** `Array with ElementMemory` would hold the record, and
 `get` would hand it back with no mark. The first raw door is the element type in the extension's
@@ -3382,6 +3395,7 @@ error E3185: <fragment>:6:30: 'ElementMemory' named outside the library tiers: t
 ```
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-put-it-in-a-tuple -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 **ROUTE G — THE RECORD AS A TUPLE SLOT**, which needs no container type spelled anywhere: two tokens of
 punctuation would launder the mark. The only raw door is the bare `managed` inside the tuple, and it is
@@ -3439,6 +3453,7 @@ error E3185: <fragment>:10:5: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-hand-it-to-a-generic -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 ⛔⛔ **ROUTE I — THE RECORD THROUGH A USER'S OWN GENERIC.** A nine-line `Box uses T` would take the record
 in and hand it straight back out with no mark on it. From a user file the extension cannot spell the
@@ -3481,6 +3496,7 @@ error E3185: <fragment>:18:30: 'ElementMemory' named outside the library tiers: 
 ```
 
 <!-- test: a-slice-may-be-stored-passed-and-returned-freely -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **EVERY ROUTE ABOVE IS LEGAL ON A `slice`, IN THE LIBRARY TIER.** A view's `length@8` is its own, so no
 answer about it can contradict the fixed array's type. The slice here is stored into a container, put in a
@@ -3546,6 +3562,7 @@ facts:
   third case here pins it.
 
 <!-- test: error.a-buffer-through-a-ternary-reaches-the-same-refusal -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 **ROUTE J — THE TERNARY MERGE.** The degenerate `x if c else x` is deliberate: both edges are the same
@@ -3573,6 +3590,7 @@ error E2015: <fragment>:8:5: Unsupported: `__ManagedMemory` member 'clear' — t
 ```
 
 <!-- test: error.a-buffer-through-a-try-fallback-reaches-the-same-refusal -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 **ROUTE K — THE `try … otherwise` MERGE**, which needs no second spelling of the record at all: the ok
@@ -3835,6 +3853,7 @@ reply false true
 ```
 
 <!-- test: error.a-fixed-array-from-head-another-file-keeps-private-is-refused -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 A `FixedArray` instance alias at the head of `from […]` is a type name, and another directory's unexported one is
 refused.
 ```maxon
@@ -3902,7 +3921,7 @@ error E3005: <fragment>:11:10: Value 2000 is outside the range of 'Small' (int(0
 ```
 
 <!-- test: error.a-let-fixed-array-mutation-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 A `let` fixed array literal is immutable, so a write through it is refused as a `let` array's is.
 ```maxon
 function main() returns ExitCode
@@ -5389,6 +5408,7 @@ end 'main'
 ## A Sized Fixed Array Strides By Its Element, Not By The Machine Word
 
 <!-- test: a-sized-fixed-array-strides-by-its-element-and-reads-back-every-element -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A fixed array whose type states its length lays its elements out at the element's own width, exactly as the runtime-sized form does: one byte for a `Byte` or a `bits(8)`, two for a 16-bit element, four for a 32-bit one, and a packed 1, 2 or 4 bits for a `bool`, an `int(0 to 3)` and an `int(0 to 15)`. Every element written through `set` reads back through `get`, through `for` and through a `clone`.
 ```maxon
@@ -5627,6 +5647,7 @@ nibble -4 -4 2238 2238 2238
 ```
 
 <!-- test: a-second-type-parameter-strides-by-its-own-instantiation -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A generic type holding a fixed array over its SECOND parameter lays the elements out at that parameter's instantiation, whatever the first parameter is: one byte for `Byte` beside an `Integer`, a packed bit for `bool` beside a `String`. Every element reads back through `get` and through `for`.
 ```maxon
@@ -5701,6 +5722,7 @@ flag -1 3 8
 ```
 
 <!-- test: a-nested-generic-passes-its-instantiation-to-the-fixed-array-it-holds -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A generic `Outer uses T` holding an `Inner with T`, whose `create` builds a `FixedArray with 6 T`, reaches that array through the descriptor table: the elements still stride at `T`'s own width, one byte for `Byte` and a packed bit for `bool`.
 ```maxon
@@ -5785,6 +5807,7 @@ flag -1 3
 ```
 
 <!-- test: a-user-generic-over-a-packed-element-strides-by-its-bits -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A user generic over a packed element passes a negative stride through its own body: forty `bool` elements pack into five bytes, and 40 `int(0 to 3)` elements into ten, and every element written through the body reads back.
 ```maxon

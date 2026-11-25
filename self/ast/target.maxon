@@ -70,14 +70,30 @@ export function hostSeparator() returns String
 	return pathSeparator(hostSystem())
 end 'hostSeparator'
 
+// temporaryDirectory is the directory of temporary files of the system the compiler runs on, as maxon finds it: the one the
+// system's variable names, or, when that is unset or empty, the system's default (/tmp on Linux and macOS, as a GitHub
+// runner leaves TMPDIR unset). Windows has no default, and a TEMP that names nothing is an environment it cannot run in. It
+// is the one place the compiler decides this.
+export function temporaryDirectory() returns String
+	let system = hostSystem()
+	let variable = temporaryVariable(system)
+	let named = try Process.environmentVariable(variable) otherwise ""
+	if named != "" 'named'
+		return named
+	end 'named'
+	let fallback = temporaryDefault(system)
+	if fallback == "" 'none'
+		panic("{variable} is not set, which names the directory of temporary files")
+	end 'none'
+	return fallback
+end 'temporaryDirectory'
+
 // temporaryPath is the path of a file called name in the compiler's own directory, temporaryFolder, of the directory of
-// temporary files of the system the compiler runs on, which the system's variable names, as maxon reads it. Everything the
-// compiler writes there is in one directory of its own, so that a scanner that holds the executables a test run builds to be
-// threats can be told to leave that directory alone, and not every program's temporary files.
+// temporary files of the system the compiler runs on (temporaryDirectory). Everything the compiler writes there is in one
+// directory of its own, so that a scanner that holds the executables a test run builds to be threats can be told to leave
+// that directory alone, and not every program's temporary files.
 export function temporaryPath(name String) returns String
-	let variable = temporaryVariable(hostSystem())
-	let temporary = try Process.environmentVariable(variable) otherwise panic("{variable} is not set, which names the directory of temporary files")
-	let dir = "{temporary}{hostSeparator()}{temporaryFolder}"
+	let dir = "{temporaryDirectory()}{hostSeparator()}{temporaryFolder}"
 	let made = try FilePath.from(dir) otherwise panic("the directory of temporary files {dir} is no path")
 	if not Directory.create(made) 'unmade'
 		panic("cannot make the directory of temporary files {dir}")

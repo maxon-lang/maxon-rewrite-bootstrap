@@ -1,0 +1,23 @@
+// A counted `for` up to an array's count that reads it with `get` and no `try` is proven by the range analysis: the index lies
+// below the count of an array the loop cannot change, so the read is the twin with no check. The function has no `bounds`, and
+// its compares are the loop's own two, the test where it is entered and the one at the end of its rotated body: the count is
+// the property, since a checked read would add the compare of its index with the length.
+// expect-ir: sum has no bounds
+// expect-ir: sum has 2 cmp
+// expect-ir: sum has some elemat
+
+function sum(xs Array with Count) returns Count
+	var total = 0 as Count
+	for i in 0 upto xs.count() 'each'
+		total = try total + xs.get(i) otherwise 0
+	end 'each'
+	return total
+end 'sum'
+
+function main() returns ExitCode
+	var xs = Array.create(0) as Array with Count
+	xs.push(1)
+	xs.push(2)
+	print("{sum(xs)}\n")
+	return 0
+end 'main'

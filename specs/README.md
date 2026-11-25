@@ -54,8 +54,9 @@ expected one, in rounds as a run test does, until the first reported code is the
 `<!-- positions: moved -->` line, since the fixes moved the text the expected positions name, and the runner compares the
 diagnostics without them. A test whose first error has no fix, or whose fixes never make the expected code first, gets a
 skip line when the code left after the fixes makes a pair of `codeSkipTable` with the expected one, or when the code it was
-first refused under is one of the table's `first` rows (`language difference: arithmetic that can fail needs a proof or a
-try, which minimaxon asks for before what maxon reports`, for E3057), and is otherwise left as it was. A test that runs a program but whose `for` loop changes the array it walks (minimaxon's loop holds its
+first refused under is one of the table's `first` rows (`language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches
+the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole
+project`, for E3008), and is otherwise left as it was. A test that runs a program but whose `for` loop changes the array it walks (minimaxon's loop holds its
 collection, E3186) gets `<!-- skip: language difference: a loop holds the collection it walks -->`. Prose and expectation
 blocks are not touched.
 

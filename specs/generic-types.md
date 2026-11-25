@@ -7231,6 +7231,7 @@ error E3102: <fragment>:16:21: use of moved value 'item': its ownership moved to
 ```
 
 <!-- test: error.a-concrete-factory-stores-a-promise-argument-twice -->
+<!-- skip: language difference: a promise owns the coroutine that one owner awaits, so it is not Droppable and no Map holds one as a value -->
 <!-- positions: moved -->
 The concrete twin of the case above, refused with the same sentence.
 ```maxon
@@ -7247,9 +7248,9 @@ type Holder
 	public var slot as IntPromise
 	var origin as Whole
 
-	static function create(consumes item IntPromise) returns Self
+	static function create(item IntPromise) returns Self
 		let first = Self{slot: item, origin: 1}
-		return Self{slot: item, origin: try first.origin + 1 otherwise panic("out of range")}
+		return Self{slot: item, origin: first.origin + 1}
 	end 'create'
 end 'Holder'
 

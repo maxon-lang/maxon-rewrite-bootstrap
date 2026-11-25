@@ -189,11 +189,11 @@ function apply(f Fn1, x Integer) returns Integer
 end 'apply'
 
 function main() returns ExitCode
-	let a = '0' + apply(function(n Integer) gives try n + 1 otherwise panic("out of range"), x: 1)
+	let a = try '0' + apply(function(n Integer) gives try n + 1 otherwise panic("out of range"), x: 1) otherwise panic("out of range")
 	let p0 = 0
 	let p1 = 1
-	let b = 'A' + apply(function(n Integer) gives n + '0', x: 1)
-	let c = apply(function(n Integer) gives n + 2, x: 1) + '0'
+	let b = try 'A' + apply(function(n Integer) gives try n + '0' otherwise panic("out of range"), x: 1) otherwise panic("out of range")
+	let c = try apply(function(n Integer) gives try n + 2 otherwise panic("out of range"), x: 1) + '0' otherwise panic("out of range")
 	print("a={a} b={b} c={c} pad={p0}{p1}\n")
 	return 0
 end 'main'

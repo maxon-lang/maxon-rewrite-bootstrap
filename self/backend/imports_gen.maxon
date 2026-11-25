@@ -67,6 +67,7 @@ export function macosImports() returns NameList
 	names.push("posix_spawn_file_actions_destroy")
 	names.push("posix_spawnattr_init")
 	names.push("posix_spawnattr_setflags")
+	names.push("posix_spawnattr_setpgroup")
 	names.push("posix_spawnattr_destroy")
 	return names
 end 'macosImports'

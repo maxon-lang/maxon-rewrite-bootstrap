@@ -365,6 +365,7 @@ end 'main'
 ```
 
 <!-- test: error.a-set-from-head-another-file-keeps-private-is-refused -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 A `Set` instance alias at the head of `from […]` is a type name, and another directory's unexported one is refused.
 ```maxon
 // --- file: probe/probe.maxon

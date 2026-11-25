@@ -89,6 +89,7 @@ var macosImports = []libSystemFunction{
 	{name: "posix_spawn_file_actions_destroy"},
 	{name: "posix_spawnattr_init"},
 	{name: "posix_spawnattr_setflags"},
+	{name: "posix_spawnattr_setpgroup"},
 	{name: "posix_spawnattr_destroy"},
 }
 

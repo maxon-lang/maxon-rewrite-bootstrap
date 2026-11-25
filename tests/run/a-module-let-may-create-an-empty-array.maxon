@@ -1,0 +1,29 @@
+typealias Num = int(0 to 1000)
+
+typealias Nums = Array with Num
+
+typealias Names = Array with String
+
+type Shelf
+	static let empty = Names.create(0)
+	static let reserved = Nums.create(8, zeroed: false)
+end 'Shelf'
+
+let EMPTY = Nums.create(0)
+
+function total(xs Nums) returns Num
+	var sum = 0 as Num
+	for x in xs 'each'
+		sum = try sum + x otherwise 1000
+	end 'each'
+	return sum
+end 'total'
+
+function main() returns ExitCode
+	var copy = EMPTY.clone()
+	copy.push(4)
+	print("{EMPTY.count()} {copy.count()} {total(EMPTY)} {Shelf.empty.count()} {Shelf.reserved.count()}\n")
+	return 0
+end 'main'
+
+//> 0 1 0 0 0

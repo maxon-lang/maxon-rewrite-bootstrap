@@ -2217,6 +2217,7 @@ value=5
 ```
 
 <!-- test: error.a-bare-send-requires-try -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A send can fail, so a send with no `try` is the ordinary refusal of a throwing call made without one.
 ```maxon
@@ -5188,7 +5189,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-borrowed-parameter-the-sender-writes-may-not-be-sent -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `forward` writes `p`, so the record is not read-only for the thread that sends it: the service would read it
 while `forward` changes it.
@@ -5416,6 +5417,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-module-let-record-the-handler-writes-may-not-be-sent -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 <!-- positions: moved -->
 The handler writes its parameter, so a record both threads reach would be written by the service while the sender
 and every other reader of the module-level `let` see it. A read-only value is shared only with a handler that reads.
@@ -5436,8 +5438,8 @@ type Store
 	end 'create'
 
 	export function bump(p frozen with Payload) returns Integer
-		p.n = try p.n + 1 otherwise panic("out of range")
-		self.seen = try self.seen + 1 otherwise panic("out of range")
+		p.n = p.n + 1
+		self.seen = self.seen + 1
 		return p.n
 	end 'bump'
 end 'Store'
@@ -5445,7 +5447,7 @@ end 'Store'
 function main() returns ExitCode
 	let h = spawn Store.create()
 	let shared = freeze(Payload.create(7))
-	return try (try await h.bump(shared) otherwise 0) as ExitCode otherwise panic("out of range")
+	return (try await h.bump(shared) otherwise 0) as ExitCode
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -5773,7 +5775,7 @@ note 4
 ```
 
 <!-- test: deepmove.error.a-reply-holding-a-shared-record-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -5876,7 +5878,7 @@ sum 2
 ```
 
 <!-- test: deepmove.error.a-container-holding-a-shared-record-is-refused-at-the-send -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -6258,7 +6260,7 @@ svc b 2
 ```
 
 <!-- test: deepmove.error.a-chain-holding-a-shared-record-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -6344,7 +6346,7 @@ got x 2
 ```
 
 <!-- test: deepmove.error.a-map-holding-a-shared-value-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -6688,7 +6690,7 @@ labelled heap 2
 ```
 
 <!-- test: deepmove.error.a-union-payload-with-a-second-owner-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -7604,7 +7606,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: deepmove.dag.an-outside-owner-of-a-record-reached-twice-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -7874,7 +7876,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: deepmove.dag.an-outside-owner-among-many-records-reached-twice-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -8596,7 +8598,7 @@ service read 1
 ```
 
 <!-- test: borrow.dag.an-outside-owner-of-a-record-reached-twice-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -8702,7 +8704,7 @@ n=20
 ```
 
 <!-- test: borrow.dag.an-outside-owner-of-a-viewed-string-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -8747,7 +8749,7 @@ error E3200: <fragment>:28:27: 'holder' is not isolated: only a clean call, a `s
 ```
 
 <!-- test: borrow.dag.an-outside-owner-of-a-string-its-bytes-reach-first-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -10062,7 +10064,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-reply-may-not-alias-service-state -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A handler must not return a value this frame does not solely own, or the caller ends up aliasing a box the
 service still names — two green threads naming one box, with a plain refcount between them. `return self` is
@@ -10138,7 +10140,7 @@ end 'main'
 ```
 
 <!-- test: error.a-read-of-the-field-between-the-swap-load-and-store-keeps-the-reply-aliased -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A read of `self.items` between the load and the store may hand the record to a second holder, so the swap no
 longer proves `old` is the only one and the reply is refused.
@@ -10782,7 +10784,7 @@ end 'Calc'
 function main() returns ExitCode
 	let h = spawn Calc.create()
 	let n = await h.total()
-	return n as ExitCode
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -13298,7 +13300,7 @@ end 'main'
 ```
 
 <!-- test: error.reply-forwarded-from-a-sibling-that-returns-state-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A reply forwarded from a sibling is only as fresh as what the sibling returns, and `current` returns the
 service's own `report` — the caller would hold a second reference to it.
@@ -13342,7 +13344,7 @@ error E3209: <fragment>:20:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-forwarded-through-a-function-returning-its-parameter-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pass` builds nothing: it hands back the record it was given, which is the service's own `report`.
 ```maxon
@@ -13385,7 +13387,7 @@ error E3209: <fragment>:24:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-forwarded-from-a-sibling-that-keeps-the-record-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `build` constructs the record but also stores it in the service's `history`, so the record it returns has
 a second owner.
@@ -13433,7 +13435,7 @@ error E3209: <fragment>:21:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-forwarded-to-a-local-closure-named-like-a-fresh-function-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The `buildReport` that `build` calls is its own local closure, which hands back the service's `report`,
 not the free function of that name that builds one — so `build` is not fresh, and neither is the reply.
@@ -13721,7 +13723,7 @@ end 'main'
 ```
 
 <!-- test: error.reply-forwarded-through-a-local-named-like-a-type-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Inside `build`, `Report` is a local holding the service's own record, so `Report.echo(1)` calls the INSTANCE
 `echo` on it — which returns that record — and not the static `make` that builds one.
@@ -14198,7 +14200,7 @@ end 'main'
 ```
 
 <!-- test: error.reply-a-sibling-builds-in-a-local-it-also-keeps-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `summarize` builds its record in a local but pushes the local into the service's `history` before
 returning it, so the record has a second owner.
@@ -14246,7 +14248,7 @@ error E3209: <fragment>:21:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-a-sibling-returns-a-local-another-local-aliases-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `copy` names the same record as `report`, so returning `report` does not hand back the only reference.
 ```maxon
@@ -14292,7 +14294,7 @@ error E3209: <fragment>:20:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-a-sibling-returns-a-local-its-own-method-stored-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `keepIn` is an instance method, so it is handed the record itself — and it pushes `self` into the service's
 `history`. A method called on the local may keep it, so the local is not fresh.
@@ -14344,7 +14346,7 @@ error E3209: <fragment>:25:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-a-sibling-returns-a-local-it-keys-a-map-with-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `summarize` writes its local as a KEY of the map literal it stores in the service's `ranks`. After a `,` a key
 is spelled exactly like a named argument's label, but it stores the record, so the local is not fresh.
@@ -14401,7 +14403,7 @@ error E3209: <fragment>:29:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: services.a-reply-whose-local-shares-a-field-with-the-state-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -14607,7 +14609,7 @@ end 'main'
 ```
 
 <!-- test: services.a-second-owner-inside-a-conformer-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -15254,7 +15256,7 @@ error E3217: <fragment>:33:10: parameter `s` of the message `Calc.measure` is a 
 ```
 
 <!-- test: error.a-reply-may-not-alias-an-interface-value-the-state-holds -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A reply held at an interface type that the service's state still holds would hand the caller a second
 reference to the conformer's box on another green thread, exactly as returning a state record would.
@@ -16044,7 +16046,7 @@ error E3102: <fragment>:33:23: use of moved value 'b': its ownership moved to an
 ```
 
 <!-- test: error.a-var-the-loop-iterates-is-not-sent-inside-the-loop -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The loop holds a counted reference to the array it iterates, so the `var` `items` is no longer the record's only
 owner inside the loop body, and the send, which would move it to the service while the loop still reads it, is
@@ -17343,7 +17345,7 @@ end 'main'
 ```
 
 <!-- test: services.error.a-viewed-var-sent-and-read-afterwards-reports-the-send -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `w` views the array that holds `b`'s record, so the send is refused; the read of `b` after it is not reported as a use of a moved value, because a refused send moves nothing.
 

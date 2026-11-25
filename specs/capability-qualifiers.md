@@ -111,6 +111,7 @@ end 'main'
 ```
 
 <!-- test: capability-qualifiers.error.a-function-value-whose-result-is-not-declared-isolated-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Make` promises an isolated result, and `build` does not declare one, so a caller could not rely on it.
 
@@ -193,6 +194,7 @@ end 'main'
 ```
 
 <!-- test: capability-qualifiers.error.a-function-value-whose-result-is-not-declared-immutable-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Frozen` promises an immutable result, and `current` hands back a mutable field.
 

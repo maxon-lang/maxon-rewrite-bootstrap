@@ -1,0 +1,30 @@
+typealias Flags = int(0 to 15)
+
+typealias Narrow = int(0 to 3) implements Flags
+
+enum E
+	a = 1
+	b = 2
+	c = 4
+end 'E'
+
+union U
+	p(x Count) = 2
+	q = 4
+end 'U'
+
+function main() returns ExitCode
+	let f = 8 as Flags
+	let g = 3 as Flags
+	let n = 2 as Narrow
+	let withCase = f or E.a.rawValue
+	let masked = f and 6
+	let same = f xor g
+	let narrow = f or n
+	let nested = f or (E.a.rawValue and 3)
+	let viaUnion = f or U.q.rawValue
+	print("{withCase} {masked} {same} {narrow} {nested} {E.c.rawValue} {viaUnion}\n")
+	return 0
+end 'main'
+
+//> 9 0 11 10 9 4 12

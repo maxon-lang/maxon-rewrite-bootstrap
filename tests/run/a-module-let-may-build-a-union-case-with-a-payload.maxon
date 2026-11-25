@@ -1,0 +1,36 @@
+typealias Int = int(i64.min to i64.max)
+
+union Op
+	add(n Int)
+	label(text String, at Int)
+	neg
+end 'Op'
+
+type Program
+	static let first = Op.label("start", at: 1)
+end 'Program'
+
+let STEP = Op.add(9)
+
+let OPS = [Op.add(1), Op.neg, Op.label("x", at: 2)]
+
+function show(o Op) returns String
+	return match o 'o'
+		add(n) gives "add {n}"
+		label(text, at) gives "{text}@{at}"
+		neg gives "neg"
+	end 'o'
+end 'show'
+
+function main() returns ExitCode
+	print("{show(STEP)} {show(Program.first)} {OPS.count()}\n")
+	for o in OPS 'each'
+		print("{show(o)}\n")
+	end 'each'
+	return 0
+end 'main'
+
+//> add 9 start@1 3
+//> add 1
+//> neg
+//> x@2
