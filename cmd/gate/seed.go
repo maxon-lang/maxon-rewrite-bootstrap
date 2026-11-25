@@ -219,16 +219,30 @@ func wslCommand(compiler string, args ...string) (string, []string) {
 // as they are (currentCompiler). The run at the end runs every test (replayed when it can, specRun) and writes specs/passed.txt again: the
 // new passes are added, a listed test that the conversion now skips is dropped (the line "DROPPED"), and a listed test that
 // fails stays, so the gate goes on failing until it is fixed.
+func regenerateSpecs(h host, maxonSpecs string) error {
+	pinHashSeed()
+	compiler, err := currentCompiler(h)
+	if err != nil {
+		return err
+	}
+	if err := convertSpecsIfStale(compiler, maxonSpecs); err != nil {
+		return err
+	}
+	out, replayed, err := specRun(compiler, "--record-passed")
+	fmt.Print(out)
+	if replayed != "" {
+		fmt.Println(replayed)
+	}
+	return err
+}
+
+// convertSpecsIfStale converts maxon's spec tests and fixes them with the compiler (convertSpecs).
 //
 // The conversion and the fix are skipped when what they read and what they wrote are as they were when they last ended:
 // maxon's spec files, the converter's source, and the compiler that formats and fixes with the runtime and the library it
 // finds beside itself and the skip table, and the specs they wrote, which anything may have edited since. Whatever differs,
 // or if the last conversion did not end, they run, and the stamp is written last.
-func regenerateSpecs(h host, maxonSpecs string) error {
-	compiler, err := currentCompiler(h)
-	if err != nil {
-		return err
-	}
+func convertSpecsIfStale(compiler, maxonSpecs string) error {
 	conversionStamp := filepath.Join("bin", "specs-conversion.stamp")
 	inputs := []string{maxonSpecs, filepath.Join("cmd", "convert"), "go.mod", compiler, "runtime", "stdlib", filepath.Join("self", "driver", "skips.tsv")}
 	stampOf := func() (string, string, error) {
@@ -248,28 +262,21 @@ func regenerateSpecs(h host, maxonSpecs string) error {
 	}
 	if stampHolds(conversionStamp, stamp) {
 		fmt.Printf("specs: conversion and fix skipped, the inputs and the specs are those of the last ones (stamp %s)\n", stampID(stamp))
-	} else {
-		os.Remove(conversionStamp)
-		if err := convertSpecs(compiler, maxonSpecs); err != nil {
-			return err
-		}
-		// The inputs are read again: a change while the conversion ran leaves it with no stamp.
-		readAfter, after, err := stampOf()
-		if err != nil {
-			return err
-		}
-		if readAfter == read {
-			if err := os.WriteFile(conversionStamp, []byte(after), 0o644); err != nil {
-				return err
-			}
-		}
+		return nil
 	}
-	out, replayed, err := specRun(compiler, "--record-passed")
-	fmt.Print(out)
-	if replayed != "" {
-		fmt.Println(replayed)
+	os.Remove(conversionStamp)
+	if err := convertSpecs(compiler, maxonSpecs); err != nil {
+		return err
 	}
-	return err
+	// The inputs are read again: a change while the conversion ran leaves it with no stamp.
+	readAfter, after, err := stampOf()
+	if err != nil {
+		return err
+	}
+	if readAfter == read {
+		return os.WriteFile(conversionStamp, []byte(after), 0o644)
+	}
+	return nil
 }
 
 // convertSpecs writes specs/ again: maxon's spec files converted, then fixed.

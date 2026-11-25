@@ -24,6 +24,22 @@ const behaviourWorkers = "1,2,4"
 // setting it.
 const hashSeedPin = "1111111111111111"
 
+// pinHashSeed sets the hash seed of the programs the gate starts, for the suites and for the regeneration of the specs alike:
+// the spec results are kept under a stamp that holds the seed, so a run under another one is not the run that the gate
+// replays.
+func pinHashSeed() {
+	if os.Getenv("MAXON_HASH_SEED") == "" {
+		os.Setenv("MAXON_HASH_SEED", hashSeedPin)
+	}
+	// WSL passes on only the variables that WSLENV names.
+	passToWsl("MAXON_HASH_SEED")
+}
+
+// recordSpecsFlag, with maxon's specs directory after it, has a run convert the specs from maxon's (as `gate specs` does)
+// and record the list of the tests that pass in the same run that requires it: `gate check --record-specs=<dir>`. It is the
+// one run of the spec tests that a landing needs.
+const recordSpecsFlag = "--record-specs="
+
 // concurrentVariable, set to anything, has the gate run its lanes at once (--concurrent for suites).
 const concurrentVariable = "MINIMAXON_GATE_CONCURRENT"
 
@@ -41,6 +57,9 @@ type suiteRun struct {
 	compiler string
 	testArgs []string
 	lane     string
+	// recordSpecs is maxon's specs directory when the run converts the specs and records the list of the tests that pass
+	// (recordSpecsFlag), and empty for a run that only requires the list.
+	recordSpecs string
 }
 
 // laneStep is a step and the lane it runs in.
@@ -70,17 +89,15 @@ func suites(h host, compilerPath string, args []string) error {
 		switch {
 		case strings.HasPrefix(a, "--lane="):
 			run.lane = strings.TrimPrefix(a, "--lane=")
+		case strings.HasPrefix(a, recordSpecsFlag):
+			run.recordSpecs = strings.TrimPrefix(a, recordSpecsFlag)
 		case a == "--concurrent":
 			concurrent = true
 		default:
 			run.testArgs = append(run.testArgs, a)
 		}
 	}
-	if os.Getenv("MAXON_HASH_SEED") == "" {
-		os.Setenv("MAXON_HASH_SEED", hashSeedPin)
-	}
-	// WSL passes on only the variables that WSLENV names.
-	passToWsl("MAXON_HASH_SEED")
+	pinHashSeed()
 	steps, phases := run.steps()
 	if h.lanes != nil && run.lane == "" {
 		fmt.Printf("%s runs the lanes %s only: the compiler is another host's build, and the other lanes are that host's\n", h.target, strings.Join(h.lanes, ", "))
@@ -127,7 +144,7 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 		{step{"self compiles for arm64", func() error { return selfCompilesForArm64(r.compiler) }}, "builds"},
 		{step{"cache", func() error { return cacheTest(r.h, r.compiler) }}, "builds"},
 		{step{"debug info", func() error { return debugInfo(r.h, r.compiler) }}, "builds"},
-		{step{"specs", func() error { return specsRequired(r.compiler) }}, "specs"},
+		{step{"specs", func() error { return specsRequired(r.compiler, r.recordSpecs != "") }}, "specs"},
 		// Test programs inherit stdin, so one that reads it would wait until the runner's deadline ends it: run gives none.
 		{step{"corpus", func() error {
 			return quiet(nil, r.compiler, slices.Concat([]string{"test"}, verifyFlags(r.h.target), r.testArgs)...)
@@ -140,6 +157,10 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 		steps = append(steps,
 			laneStep{step{"compiles for " + t, func() error { return compilesFor(r.h, r.compiler, t, r.testArgs) }}, "builds"},
 			laneStep{step{"self tests compile for " + t, func() error { return selfTestsCompileFor(r.compiler, t) }}, "builds"})
+	}
+	// The conversion writes specs/, which the other lanes read: it runs before any of them.
+	if r.recordSpecs != "" {
+		steps = append(steps, laneStep{step{"specs conversion", func() error { return convertSpecsIfStale(r.compiler, r.recordSpecs) }}, "prelude"})
 	}
 	first := []string{"checks", "builds", "specs", "native"}
 	second := []string{"native-behaviours"}
@@ -213,6 +234,9 @@ func (r suiteRun) lanesAtOnce(phases [][]string) error {
 				return err
 			}
 			args := append([]string{"suites", r.compiler, "--lane=" + name}, r.testArgs...)
+			if r.recordSpecs != "" {
+				args = append(args, recordSpecsFlag+r.recordSpecs)
+			}
 			cmd := exec.Command(self, args...)
 			cmd.Stdout, cmd.Stderr = out, out
 			cmd.Env = append(os.Environ(), laneTimesVariable+"="+filepath.Join(root, name+".times"), concurrentVariable+"=1")
@@ -447,11 +471,11 @@ func foreignTargets(h host) []string {
 // lane holds the spec tests to; a host not listed compiles none. Compiling the spec tests costs about three minutes of the
 // Mac's time for each target, so each target is paid for once, where it is seen least: the Mac takes x64-windows, whose
 // register set and calling convention no lane but Windows's sees, while CI runs the x64-linux spec tests natively on every
-// push; Windows takes arm64-macos, which only the Mac runs, and only when it is reached; Linux takes none, as its foreign
-// targets are the other two hosts' own. The corpus, which is cheap, is compiled for every foreign target (compilesFor).
+// push. Windows and Linux take none: arm64 macOS's spec tests are run natively by the Mac's gate and by CI on every push, so
+// compiling them on Windows as well repeated that work for 140 seconds a gate, and Linux's foreign targets are the other two
+// hosts' own. The corpus, which is cheap, is compiled for every foreign target (compilesFor).
 var specsCompiledFor = map[string]string{
 	"arm64-macos": "x64-windows",
-	"x64-windows": "arm64-macos",
 }
 
 // compilesFor compiles the corpus for a target, and every spec test where specsCompiledFor names the target for the host,
@@ -504,16 +528,23 @@ func selfCompilesForArm64(compiler string) error {
 }
 
 var (
-	specCounts = regexp.MustCompile(`(?m)^(\d+) passed, \d+ failed, \d+ skipped`)
-	specNew    = regexp.MustCompile(`(?m)^NEW `)
-	specLost   = regexp.MustCompile(`(?m)^(LOST [^\r\n]*|\d+ tests of [^\r\n]* did not pass)`)
+	specCounts  = regexp.MustCompile(`(?m)^(\d+) passed, \d+ failed, \d+ skipped`)
+	specNew     = regexp.MustCompile(`(?m)^NEW `)
+	specDropped = regexp.MustCompile(`(?m)^DROPPED `)
+	specLost    = regexp.MustCompile(`(?m)^(LOST [^\r\n]*|\d+ tests of [^\r\n]* did not pass)`)
 )
 
 // specsRequired runs every spec test (or replays the results of an earlier run of the same inputs, specRun), and fails when
 // a test that specs/passed.txt lists does not pass (the line "LOST file.md: test: what"). The tests that pass and are not
-// listed are counted (the line "NEW file.md: test"), so that the list can be extended.
-func specsRequired(compiler string) error {
-	out, replayed, runErr := specRun(compiler, "--require-passed")
+// listed are counted (the line "NEW file.md: test"), so that the list can be extended. A run that records also writes the
+// list again in the same run, as `gate specs` does: the new passes are added, a listed test that the conversion now skips is
+// dropped (the line "DROPPED"), and a listed test that fails stays, so the gate fails on it until it is fixed.
+func specsRequired(compiler string, record bool) error {
+	flags := []string{"--require-passed"}
+	if record {
+		flags = append(flags, "--record-passed")
+	}
+	out, replayed, runErr := specRun(compiler, flags...)
 	if replayed != "" {
 		defer fmt.Println(replayed)
 	}
@@ -525,7 +556,12 @@ func specsRequired(compiler string) error {
 		lost := specLost.FindAllString(out, -1)
 		return fmt.Errorf("%s\nspecs: %s", strings.Join(lost, "\n"), counts)
 	}
-	fmt.Printf("specs: %s; %d new, to add to specs/passed.txt with: %s test specs --record-passed\n", counts, len(specNew.FindAllString(out, -1)), filepath.Join("bin", "minimaxon"))
+	news := len(specNew.FindAllString(out, -1))
+	if record {
+		fmt.Printf("specs: %s; %d added to and %d dropped from specs/passed.txt\n", counts, news, len(specDropped.FindAllString(out, -1)))
+		return nil
+	}
+	fmt.Printf("specs: %s; %d new, to add to specs/passed.txt with: %s test specs --record-passed\n", counts, news, filepath.Join("bin", "minimaxon"))
 	return nil
 }
 
@@ -567,16 +603,16 @@ func specStampOf(compiler string) (string, error) {
 	return fmt.Sprintf("compiler %s\ninputs %s\nflags \nenvironment %s", compilerSum, inputs, strings.Join(env, " ")), nil
 }
 
-// specRun runs every spec test with the flag that says what the run makes of the results (--require-passed or
-// --record-passed), replaying the kept results when their stamp is the current one, and gives what the runner wrote, the
+// specRun runs every spec test with the flags that say what the run makes of the results (--require-passed, --record-passed
+// or both), replaying the kept results when their stamp is the current one, and gives what the runner wrote, the
 // line that says it replayed, and whether it ended as required.
-func specRun(compiler, classifying string) (string, string, error) {
+func specRun(compiler string, classifying ...string) (string, string, error) {
 	stamp, err := specStampOf(compiler)
 	if err != nil {
 		return "", "", err
 	}
 	if isFile(specResults) && stampHolds(specStamp, stamp) {
-		out, err := output(nil, "", compiler, "test", "specs", "--replay-results="+abs(specResults), classifying)
+		out, err := output(nil, "", compiler, slices.Concat([]string{"test", "specs", "--replay-results=" + abs(specResults)}, classifying)...)
 		var exit *exec.ExitError
 		if !errors.As(err, &exit) || exit.ExitCode() != replayRefusedCode {
 			return out, fmt.Sprintf("replayed: the results of the run that stamp %s was written for, kept in %s", stampID(stamp), specResults), err
@@ -588,7 +624,7 @@ func specRun(compiler, classifying string) (string, string, error) {
 	if err := os.MkdirAll("bin", 0o755); err != nil {
 		return "", "", err
 	}
-	out, runErr := output(nil, "", compiler, "test", "specs", "--save-results="+abs(specResults), classifying)
+	out, runErr := output(nil, "", compiler, slices.Concat([]string{"test", "specs", "--save-results=" + abs(specResults)}, classifying)...)
 	// A run ends with the runner's code 0 (all as required) or 1 (a test did not pass); another code is a crash or a refusal.
 	var exit *exec.ExitError
 	ended := runErr == nil || errors.As(runErr, &exit) && exit.ExitCode() == 1
