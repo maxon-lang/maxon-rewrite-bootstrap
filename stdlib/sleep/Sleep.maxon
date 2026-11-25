@@ -1,0 +1,4 @@
+/// A `sendTimeout:` that waits for room in a full mailbox as long as it takes, untimed, and a `sleep` that only a cancel
+/// ends. maxon's Sleep.maxon declares it beside `sleep`, which is built in here until the file converts.
+/// @category System
+public let ForeverMs = u64.max as Milliseconds

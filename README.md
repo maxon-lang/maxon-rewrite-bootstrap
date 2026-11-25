@@ -553,7 +553,8 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   The library is converted from maxon's `stdlib/` by `cmd/convert` but for the files that are minimaxon's own (`Map.maxon`,
   `Set.maxon`, `Stream.maxon`, `Console.maxon`, `Character.maxon`, `StringSplit.maxon`, `StringTrim.maxon`, `Parsable.maxon`,
   `IntText.maxon`, `FloatText.maxon`, `BoolText.maxon`, `CharacterText.maxon`, `StringIterator.maxon`,
-  `InitableFromArrayLiteral.maxon` and the generated `unicodeCategory_gen.maxon`; see "Where it differs from Maxon"), which no
+  `InitableFromArrayLiteral.maxon`, `Sleep.maxon`, which holds maxon's `ForeverMs` until `sleep` leaves the built-ins and maxon's
+  file converts, and the generated `unicodeCategory_gen.maxon`; see "Where it differs from Maxon"), which no
   conversion touches; maxon's `StringBuilder.maxon` is left out, since an interpolation builds a String here.
   `stdlib/files.txt` lists the files converted so far, each with the library module it goes to (its directory under
   `stdlib/`) and, where two files of one module would share a name, the name it takes (`StringHash.maxon`); `stdlib/split.txt`
