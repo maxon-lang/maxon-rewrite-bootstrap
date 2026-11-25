@@ -820,15 +820,6 @@ function valuationText(v Ints) returns String
 	return "a = {v[0]}, count(c) = {v[1]}, count(g.0) = {v[2]}, g.0 = {v[3]}, n = {v[second]}"
 end 'valuationText'
 
-function reportBroken(before RangeState, op Op, from Ints, to Ints, after RangeState, why String)
-	let step = stepText(before, op: op, after: after)
-	panic("rules: {step}{why}, but {valuationText(from)} can become {valuationText(to)}")
-end 'reportBroken'
-
-function stepText(before RangeState, op Op, after RangeState) returns String
-	return "from {stateText(before)}, {opText(op)} gives {stateText(after)}"
-end 'stepText'
-
 // Bounds are what a state says of the values of the quantities, as small integers that a valuation is checked against
 // fast: the spans and relations it holds, and, where it is derived, what the analysis derives from them beyond its facts,
 // least for each ordered pair of quantities where it finds a chain and the tightened span of each quantity. A bound past
@@ -967,7 +958,7 @@ function checkReached(before RangeState, op Op, from Ints, reaches Reaches, afte
 	while more 'each'
 		let why = bounds.broken(v)
 		if why != "" 'broken'
-			reportBroken(before, op: op, from: from, to: v, after: after, why: why)
+			panic("rules: from {stateText(before)}, {opText(op)} gives {stateText(after)}{why}, but {valuationText(from)} can become {valuationText(v)}")
 		end 'broken'
 		more = nextValuation(v, lo: lo, hi: hi)
 	end 'each'
