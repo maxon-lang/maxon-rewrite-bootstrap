@@ -453,6 +453,11 @@ export type FuncEntry
 	export var retTy as TypeID
 	// result says whether the function gives a value of retTy or a place of it that it borrows from its arguments.
 	export var result as ResultConv
+	// lendsPlace is, for a built-in method with a let receiver that returns a borrowed place, whether the place lies in self
+	// and has a word of its own, as the table says: it lends that place with the access its caller has to the receiver, at
+	// its address (lendsByAddress). A function of a program or of the library is proven so by the checker instead, which
+	// records it in its module's typing (Typing.lendsPlace).
+	export var lendsPlace as bool
 	export var errTy as TypeID
 	export var genericOrigin as FuncID
 	export var typeArgs as TypeIDList
@@ -470,7 +475,7 @@ export type FuncEntry
 	export var conditionalBounds as Count
 
 	export static function make(consumes name String, consumes visibility String, module diag.ModuleID, nodeID NodeID) returns FuncEntry
-		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), retTy: noType, result: ResultConv.resultOwned, errTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false, extendedIface: noType, conditionalBounds: 0 as Count}
+		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), retTy: noType, result: ResultConv.resultOwned, lendsPlace: false, errTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false, extendedIface: noType, conditionalBounds: 0 as Count}
 	end 'make'
 end 'FuncEntry'
 
@@ -2653,11 +2658,35 @@ export function lendsToChange(result ResultConv, selfConv Convention) returns bo
 	return result == ResultConv.resultBorrowed and selfConv == Convention.convMutates
 end 'lendsToChange'
 
-// isChangingProjectionCall is whether the call at call gives a borrowed place that the caller may change (lendsToChange).
-export function isChangingProjectionCall(typing Typing, call NodeID) returns bool
-	var slot as Count
-	return typing.calls.find(call as Count, slot: slot) and lendsToChange(typing.calls.valueAt(slot).result, selfConv: typing.calls.valueAt(slot).selfConv)
-end 'isChangingProjectionCall'
+// lendsByAddress is whether a call of the function f is given the address of the place it lends rather than the value
+// there: a method that lends a place to be changed (lendsToChange), and one whose every lent place lies in self
+// (FuncEntry.lendsPlace, an instance asking its generic), whose caller may write the place where it may change the
+// receiver. Lowering, the interpreter (through the function's lendsResult) and the tables of interface values ask it, and
+// nothing else decides how a lent place comes back.
+// typing is the typing of the module module, for the check of that module, whose typing is not the project's yet.
+export function lendsByAddress(p Project, typing Typing, module diag.ModuleID, ft FuncSlot, funcReads FuncTable, f FuncID) returns bool
+	if f == noFunc 'none'
+		return false
+	end 'none'
+	let entry = funcEntry(ft, funcReads: funcReads, f: f)
+	if entry.result != ResultConv.resultBorrowed 'value'
+		return false
+	end 'value'
+	if lendsToChange(entry.result, selfConv: entry.selfConv) or entry.lendsPlace 'address'
+		return true
+	end 'address'
+	var origin = f
+	if entry.genericOrigin != noFunc 'instance'
+		origin = entry.genericOrigin
+	end 'instance'
+	let home = funcEntry(ft, funcReads: funcReads, f: origin).module
+	let node = funcEntry(ft, funcReads: funcReads, f: origin).nodeID
+	if home == module 'own'
+		return typing.lendsPlace.has(node as Count)
+	end 'own'
+	// A built-in's module is none (below 0), and its table says what it lends (lendsPlace above).
+	return home >= 0 and modIndex(home) < p.typings.count() and p.typings[modIndex(home)].lendsPlace.has(node as Count)
+end 'lendsByAddress'
 
 // isPromiseType is whether a type is a `Promise with ...`: what an async call gives, which an await consumes.
 export function isPromiseType(tt TypeSlot, reads TypeTable, t TypeID) returns bool

@@ -793,6 +793,7 @@ function storeFuncEntry(mutates w table.CacheWriter, v FuncEntry)
 	storeArrayOfTypeID(w, v: v.paramTypes)
 	w.word64(v.retTy as table.Word64)
 	w.word8(v.result.ordinal as table.Word64)
+	w.flag(v.lendsPlace)
 	w.word64(v.errTy as table.Word64)
 	w.word64(v.genericOrigin as table.Word64)
 	storeArrayOfTypeID(w, v: v.typeArgs)
@@ -826,6 +827,7 @@ extension FuncEntry
 		let theParamTypes = loadArrayOfTypeID(r)
 		let theRetTy = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
 		let theResult = ResultConv.allCases[r.word8() as Count]
+		let theLendsPlace = r.flag()
 		let theErrTy = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
 		let theGenericOrigin = try (r.word64() as FuncID) otherwise panic("cache: a stored FuncID is out of its range")
 		let theTypeArgs = loadArrayOfTypeID(r)
@@ -836,7 +838,7 @@ extension FuncEntry
 		let theIsTest = r.flag()
 		let theExtendedIface = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
 		let theConditionalBounds = r.word64() as Count
-		return FuncEntry{id: theId, name: theName, visibility: theVisibility, hasDecl: theHasDecl, decl: theDecl, module: theModule, nodeID: theNodeID, isStatic: theIsStatic, isDestructor: theIsDestructor, hasReceiver: theHasReceiver, isClosure: theIsClosure, ownerTy: theOwnerTy, selfConv: theSelfConv, generics: theGenerics, bounds: theBounds, params: theParams, paramTypes: theParamTypes, retTy: theRetTy, result: theResult, errTy: theErrTy, genericOrigin: theGenericOrigin, typeArgs: theTypeArgs, witnesses: theWitnesses, intrinsic: theIntrinsic, linkName: theLinkName, bodyRef: theBodyRef, isTest: theIsTest, extendedIface: theExtendedIface, conditionalBounds: theConditionalBounds}
+		return FuncEntry{id: theId, name: theName, visibility: theVisibility, hasDecl: theHasDecl, decl: theDecl, module: theModule, nodeID: theNodeID, isStatic: theIsStatic, isDestructor: theIsDestructor, hasReceiver: theHasReceiver, isClosure: theIsClosure, ownerTy: theOwnerTy, selfConv: theSelfConv, generics: theGenerics, bounds: theBounds, params: theParams, paramTypes: theParamTypes, retTy: theRetTy, result: theResult, lendsPlace: theLendsPlace, errTy: theErrTy, genericOrigin: theGenericOrigin, typeArgs: theTypeArgs, witnesses: theWitnesses, intrinsic: theIntrinsic, linkName: theLinkName, bodyRef: theBodyRef, isTest: theIsTest, extendedIface: theExtendedIface, conditionalBounds: theConditionalBounds}
 	end 'cacheLoad'
 end 'FuncEntry'
 
@@ -2165,6 +2167,7 @@ export function storeTyping(mutates w table.CacheWriter, v Typing)
 	storeIntMapOfArrayOfNodeID(w, v: v.fieldUses)
 	storeIntMapOfBool(w, v: v.consumed)
 	storeIntMapOfBool(w, v: v.slotTakes)
+	storeIntMapOfBool(w, v: v.lendsPlace)
 	storeIntMapOfBool(w, v: v.lentTries)
 	storeIntMapOfTypeID(w, v: v.boxes)
 	storeIntMapOfTypeID(w, v: v.staticInstances)
@@ -2198,13 +2201,14 @@ extension Typing
 		let theFieldUses = loadIntMapOfArrayOfNodeID(r)
 		let theConsumed = loadIntMapOfBool(r)
 		let theSlotTakes = loadIntMapOfBool(r)
+		let theLendsPlace = loadIntMapOfBool(r)
 		let theLentTries = loadIntMapOfBool(r)
 		let theBoxes = loadIntMapOfTypeID(r)
 		let theStaticInstances = loadIntMapOfTypeID(r)
 		let theRawReads = loadIntMapOfBool(r)
 		let theWaiting = loadIntMapOfWaiting(r)
 		let theDeclared = r.flag()
-		return Typing{module: theModule, types: theTypes, arith: theArith, names: theNames, members: theMembers, calls: theCalls, structLits: theStructLits, patterns: thePatterns, arms: theArms, whens: theWhens, closures: theClosures, iterations: theIterations, hooks: theHooks, jumps: theJumps, locals: theLocals, nodeLocals: theNodeLocals, indexes: theIndexes, expansions: theExpansions, funcLocals: theFuncLocals, funcUses: theFuncUses, fieldUses: theFieldUses, consumed: theConsumed, slotTakes: theSlotTakes, lentTries: theLentTries, boxes: theBoxes, staticInstances: theStaticInstances, rawReads: theRawReads, waiting: theWaiting, declared: theDeclared}
+		return Typing{module: theModule, types: theTypes, arith: theArith, names: theNames, members: theMembers, calls: theCalls, structLits: theStructLits, patterns: thePatterns, arms: theArms, whens: theWhens, closures: theClosures, iterations: theIterations, hooks: theHooks, jumps: theJumps, locals: theLocals, nodeLocals: theNodeLocals, indexes: theIndexes, expansions: theExpansions, funcLocals: theFuncLocals, funcUses: theFuncUses, fieldUses: theFieldUses, consumed: theConsumed, slotTakes: theSlotTakes, lendsPlace: theLendsPlace, lentTries: theLentTries, boxes: theBoxes, staticInstances: theStaticInstances, rawReads: theRawReads, waiting: theWaiting, declared: theDeclared}
 	end 'cacheLoad'
 end 'Typing'
 

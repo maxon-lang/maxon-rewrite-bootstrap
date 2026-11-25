@@ -13,7 +13,7 @@ export function begin(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	end 'inPlace'
 	l.b.keepsSpans = p.keepsSpans
 	l.b.start(fn, name: name, paramCount: paramCount)
-	l.b.f.lendsResult = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).result == ast.ResultConv.resultBorrowed
+	l.b.f.lendsResult = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).result == ast.ResultConv.resultBorrowed and not ast.lendsByAddress(p, typing: p.typings[l.mi], module: l.module, ft: ms.funcs, funcReads: p.funcs, f: fn)
 	l.fn = fn
 	l.origin = fn
 	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).genericOrigin != ast.noFunc 'instance'
@@ -471,7 +471,7 @@ function visitReturnStmt(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 		v = konst(l, value: 0 as Word)
 	end 'none' else if l.lentElements > 0 'lentTuple'
 		v = lentTuple(l, p: p, ms: ms, value: value)
-	end 'lentTuple' else if ast.lendsToChange(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).result, selfConv: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).selfConv) 'changing'
+	end 'lentTuple' else if ast.lendsByAddress(p, typing: p.typings[l.mi], module: l.module, ft: ms.funcs, funcReads: p.funcs, f: l.fn) 'changing'
 		// A place lent to be changed is the address of its word, in 'self' (check.requireLentToChange), or for a value held
 		// in place the address of its words, which is its value.
 		v = match held(l, p: p, ms: ms, t: exprType(p, module: l.module, node: value)) 'holding'

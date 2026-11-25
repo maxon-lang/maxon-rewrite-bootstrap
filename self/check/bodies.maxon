@@ -196,11 +196,108 @@ function checkFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		return
 	end 'badParams'
 	checkBlock(c, p: p, ms: ms, body: f.body, errs: errs)
+	if not failedSince(errs, mark: mark) and lendsInSelf(c, p: p, ms: ms, f: f, fid: fid) 'lendsPlace'
+		c.typing.lendsPlace.insert(f.id as Count, value: true)
+	end 'lendsPlace'
 	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).retTy != p.builtins.voidTy and not bodyTerminates(ms.tree(), body: f.body) and not endsInEndlessLoop(c, tree: ms.tree(), body: f.body) 'missingReturn'
 		failAt(c, p: p, ms: ms, node: f.id, code: diag.errMissingReturn, msg: diag.missingReturn(f.name), errs: errs)
 	end 'missingReturn'
 	finishFunction(c, node: f.id)
 end 'checkFunction'
+
+// lendsInSelf is whether f, a method with a let receiver that returns a borrowed place, lends at every return a place that
+// lies in self: a field of self at any depth, or what a call that lends by address (ast.lendsByAddress) gives of such a
+// place. Such a method lends with the access its caller has to the receiver, at the place's address. It is decided once
+// here, from the body's typing, which the verify of every module that calls it waits on. A receiver passed in registers (a
+// scalar, a String), a String or a tuple lent (a view of bytes, a box of borrows), an element of a collection (a byte of a
+// byte array and a record held in place have no word of their own), the contents of a frozen value, and a method that meets
+// an interface's requirement (whose table calls it as the requirement lends) keep lending the value.
+function lendsInSelf(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncDecl, fid ast.FuncID) returns bool
+	let entry = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid)
+	if entry.result != ast.ResultConv.resultBorrowed or not entry.hasReceiver or entry.selfConv != ast.Convention.convLet 'notLetLender'
+		return false
+	end 'notLetLender'
+	if ast.typeKind(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: entry.ownerTy)) != ast.TypeKind.record 'notRecord'
+		return false
+	end 'notRecord'
+	if ast.isStringType(ms.types, reads: p.types, t: entry.retTy) or ast.isTupleType(ms.types, reads: p.types, t: entry.retTy) or ast.typeKind(ms.types, reads: p.types, t: entry.retTy) == ast.TypeKind.builtinFrozen 'view'
+		return false
+	end 'view'
+	if meetsRequirement(p, ms: ms, owner: entry.ownerTy, name: entry.name) 'witness'
+		return false
+	end 'witness'
+	let from = ms.tree().startOf(f.id)
+	let until = ms.tree().startOf(f.endRef)
+	var lent = 0 as Count
+	for n in 1 upto ms.tree().records.count() 'nodes'
+		let id = try n as ast.NodeID otherwise panic("check: more nodes than a node id holds")
+		let at = ms.tree().startOf(id)
+		if at < from or at >= until or ms.tree().kindOf(id) != ast.NodeKind.returnStmt 'other'
+			continue 'nodes'
+		end 'other'
+		let value = ast.returnStmtValue(ms.tree(), id: id)
+		if value == 0 or not placeInSelf(c, p: p, ms: ms, e: value) 'notPlace'
+			return false
+		end 'notPlace'
+		lent = try lent + 1 otherwise lent
+	end 'nodes'
+	return lent > 0
+end 'lendsInSelf'
+
+// placeInSelf is whether e is a place inside self that has a word of its own: a field of self or of such a place, or what a
+// call that lends by address gives of one. Self itself is the caller's, passed as a value.
+function placeInSelf(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns bool
+	var at = ast.through(ms.tree(), e: e)
+	var steps = 0 as Count
+	while true 'walk'
+		if ast.typeKind(ms.types, reads: p.types, t: ast.nodeType(c.typing, node: at)) == ast.TypeKind.builtinFrozen 'frozen'
+			return false
+		end 'frozen'
+		let k = ms.tree().kindOf(at)
+		if k == ast.NodeKind.nameExpr 'name'
+			return c.typing.names.has(at as Count) and nameInfoOf(c.typing, node: at).kind == ast.NameKind.nameSelfField
+		end 'name'
+		if k == ast.NodeKind.memberExpr 'member'
+			if not c.typing.members.has(at as Count) or c.typing.members.get(at as Count).unwrap().kind != ast.MemberKind.memberField 'notField'
+				return false
+			end 'notField'
+			at = ast.through(ms.tree(), e: ast.memberExprObj(ms.tree(), id: at))
+			steps = try steps + 1 otherwise steps
+		end 'member' else if k == ast.NodeKind.selfExpr 'self'
+			return steps > 0
+		end 'self' else if k == ast.NodeKind.callExpr and c.typing.calls.has(at as Count) 'call'
+			let info = c.typing.calls.get(at as Count).unwrap()
+			if info.kind == ast.CallKind.callBound or not ast.lendsByAddress(p, typing: c.typing, module: c.modID, ft: ms.funcs, funcReads: p.funcs, f: info.fn) 'value'
+				return false
+			end 'value'
+			let receiver = ast.callReceiver(ms.tree(), e: at, kind: info.kind)
+			if receiver == 0 'static'
+				return false
+			end 'static'
+			at = ast.through(ms.tree(), e: receiver)
+			steps = try steps + 1 otherwise steps
+		end 'call' else 'other'
+			return false
+		end 'other'
+	end 'walk'
+	return false
+end 'placeInSelf'
+
+// meetsRequirement is whether a method called name of the type owner meets a requirement of an interface the type
+// implements, whose table calls it as the requirement lends.
+function meetsRequirement(p ast.Project, ms ast.ModuleState, owner ast.TypeID, name String) returns bool
+	let origin = ast.originOf(ms.types, reads: p.types, t: owner)
+	let conforms = ast.typeEntry(ms.types, reads: p.types, t: origin).conforms.clone()
+	for i in 0 upto conforms.count() 'interfaces'
+		let reqs = ast.requirementsOf(ms.types, reads: p.types, iface: conforms[i])
+		for r in 0 upto reqs.count() 'requirements'
+			if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: reqs[r].sig).name == name 'met'
+				return true
+			end 'met'
+		end 'requirements'
+	end 'interfaces'
+	return false
+end 'meetsRequirement'
 
 // finishFunction keeps what the check of a function recorded with the function.
 function finishFunction(mutates c Checker, node ast.NodeID)

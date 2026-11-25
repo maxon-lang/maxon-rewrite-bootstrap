@@ -1,0 +1,74 @@
+// expect-error: E2013 at 63:2
+// expect-error: E2013 at 64:17
+// expect-error: E2013 at 65:10
+// expect-error: E3186 at 67:22
+// expect-error: E3186 at 69:9
+// expect-error: E2013 at 72:9
+// A place lent from a receiver the caller may only read is read-only, a method that changes self before it lends needs a
+// receiver that may change, a receiver passed in registers lends no place to change, and a place lent to be changed holds
+// its receiver as any change does.
+typealias Integer = int(i64.min to i64.max)
+
+type Cell
+	export var n as Integer
+
+	static function make(n Integer) returns Cell
+		return Cell{n: n}
+	end 'make'
+end 'Cell'
+
+type Pair
+	var left as Cell
+	var reads as Integer
+
+	static function make() returns Pair
+		return Pair{left: Cell.make(1), reads: 0}
+	end 'make'
+
+	function first() returns borrowed Cell
+		return left
+	end 'first'
+
+	function counted(mutates self) returns borrowed Cell
+		reads = try reads + 1 otherwise reads
+		return left
+	end 'counted'
+end 'Pair'
+
+extension String
+	function itself() returns borrowed String
+		return self
+	end 'itself'
+end 'String'
+
+function change(mutates p Pair)
+	p.first().n = 9
+end 'change'
+
+function grow(mutates s String)
+	s = "{s}!"
+end 'grow'
+
+function bump(mutates n Integer)
+	n = try n + 1 otherwise n
+end 'bump'
+
+function reset(mutates p Pair) returns Integer
+	p = Pair.make()
+	return 0
+end 'reset'
+
+function main() returns ExitCode
+	let p = Pair.make()
+	p.first().n = 3
+	bump(p.first().n)
+	print("{p.counted().n}\n")
+	var q = Pair.make()
+	q.first().n = reset(q)
+	let held = q.first()
+	change(q)
+	print("{held.n}\n")
+	var t = "a"
+	grow(t.itself())
+	return 0
+end 'main'

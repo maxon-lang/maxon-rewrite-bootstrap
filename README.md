@@ -3226,6 +3226,20 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
   subscript holds its collection (an argument while later ones are evaluated, an operand, a for over it, a match binding
   of it) it holds each of those, and an argument passed `mutates`, `consumes` or `sets` beside it that overlaps one is
   `E3186`. A scalar argument lends nothing to a result that is not a scalar.
+- **A lending method lends with the access its caller has to the receiver**, as Hylo's subscript has a `let` and an
+  `inout` accessor, here one body. A method with a `let` receiver whose every returned place lies in `self`, a field of it
+  at any depth or what another such call gives of one, which the checker proves from the body (`check.lendsInSelf`, kept in
+  the module's typing), lends that place at its address (`ast.lendsByAddress`, the one function that lowering, the
+  interpreter and the tables of interface values ask). Called on a receiver the caller may change (a `var`, a `mutates`
+  parameter, a writable part of either, a place lent to be changed), the place may be assigned through and passed
+  `mutates`, and the receiver is held for as long as the place is used, as any change holds it (`check.lendsWritably`);
+  called on a receiver the caller may only read (a `let`, a `let` parameter, a `let` receiver), the place is read-only
+  and the receiver is shared, so several such reads may be live at once. The others stay read-only and give the value
+  where they lend, as before: a method that meets an interface's requirement (its table calls it as the requirement
+  lends), one whose receiver is passed in registers (a scalar, a String: what it lends is a copy, and a change through it
+  is `E2013`, saying so), one that lends a String (a view of bytes) or a tuple (a box of borrows), the contents of a
+  frozen value, an element of a collection (a byte of a byte array and a record held in place have no word of their own),
+  a place in a parameter, and a built-in that lends a view. A read through the address is the load the value's read was.
 - **A `mutates self` method lends a place to be changed** (`ast.lendsToChange`), as Hylo's `inout` accessor does: `function
   first(mutates self) returns borrowed Cell` gives a place that the caller assigns through (`p.first().n = 10`), passes to
   a `mutates` parameter (`bump(p.first().n)`), calls a `mutates self` method on, and reads as the form above lets it. The

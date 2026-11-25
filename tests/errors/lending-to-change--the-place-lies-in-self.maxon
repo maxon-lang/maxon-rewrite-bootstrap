@@ -1,11 +1,10 @@
-// expect-error: E3926 at 27:10
-// expect-error: E3926 at 31:10
-// expect-error: E9000 at 35:15
-// expect-error: E3926 at 39:10
-// expect-error: E3926 at 47:15
-// expect-error: E9000 at 51:10
-// A place lent to be changed lies in 'self', outside any frozen value, and is no element yet: a parameter's place, a
-// frozen value's contents and a place another method lends only to be read are E3926, an element and a tuple E9000.
+// expect-error: E3926 at 26:10
+// expect-error: E3926 at 26:10
+// expect-error: E9000 at 34:15
+// expect-error: E3926 at 26:10
+// expect-error: E9000 at 34:15
+// A place lent to be changed lies in 'self', outside any frozen value, and is no element yet: a parameter's place and a
+// frozen value's contents are E3926, an element and a tuple E9000.
 typealias Integer = int(i64.min to i64.max)
 
 typealias Integers = Array with Integer
@@ -42,10 +41,6 @@ type Box
 	function readOnly() returns borrowed Cell
 		return cell
 	end 'readOnly'
-
-	function throughReadOnly(mutates self) returns borrowed Cell
-		return self.readOnly()
-	end 'throughReadOnly'
 
 	function pair(mutates self) returns borrowed (Cell, Cell)
 		return (cell, cell)

@@ -513,9 +513,11 @@ export type Ownership
 	// receiver or parameters even where a write would otherwise be refused at the place it is made: an equals or compare
 	// method, or a method that a conformance requires (refusesGuardedWrite). None in any other function.
 	export var guarded as ast.FuncID
+	// probing is whether requireMutable only answers, reporting nothing (mayChangeReceiver).
+	export var probing as bool
 
 	export static function make(consumes c Checker, consumes errs diag.ErrorList) returns Ownership
-		return Ownership{c: c, errs: errs, fn: ast.noFunc, frames: OwnFrames.create(0), projections: OwnProjections.create(0), setParams: ast.LocalIDList.create(0), initialising: ast.LocalIDList.create(0), accesses: CallAccesses.create(0), obliged: OwnObligedList.create(0), partials: 0 as Count, catches: OwnCatches.create(0), inFlight: ast.NodeIDList.create(0), lenders: OwnLenders.create(0), borrowingMatches: ast.NodeIDList.create(0), holders: OwnHolders.create(0), mutableHeld: false, closureTy: ast.noType, borrowing: BoolIntMap.new(), guarded: ast.noFunc}
+		return Ownership{c: c, errs: errs, fn: ast.noFunc, frames: OwnFrames.create(0), projections: OwnProjections.create(0), setParams: ast.LocalIDList.create(0), initialising: ast.LocalIDList.create(0), accesses: CallAccesses.create(0), obliged: OwnObligedList.create(0), partials: 0 as Count, catches: OwnCatches.create(0), inFlight: ast.NodeIDList.create(0), lenders: OwnLenders.create(0), borrowingMatches: ast.NodeIDList.create(0), holders: OwnHolders.create(0), mutableHeld: false, closureTy: ast.noType, borrowing: BoolIntMap.new(), guarded: ast.noFunc, probing: false}
 	end 'make'
 end 'Ownership'
 

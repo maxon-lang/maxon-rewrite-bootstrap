@@ -220,7 +220,7 @@ end 'moveOfProjection'
 // caller's, and refuses the change where the function lends the place only to be read. One that lends it to be changed
 // (lendsToChange) took its receiver mutates at the call, which the call's own checks hold to a writable, unlent place, and
 // whatever the change overlaps meets the holds of its lenders (lentPaths). what is how the change is said.
-function changesProjection(mutates o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID, site diag.U32, what String) returns bool
+function changesProjection(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, site diag.U32, what String) returns bool
 	let call = projectionOf(o, ms: ms, e: e)
 	if call == 0 'notProjection'
 		return false
@@ -229,13 +229,58 @@ function changesProjection(mutates o Ownership, p ast.Project, ms ast.ModuleStat
 		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "a try that gives a value on a failure lends the place, or its fallback, only to be read, so what it gives cannot be {what}; change the place inside a try that leaves on a failure, as a try block does")
 		return true
 	end 'fallback'
-	if ast.isChangingProjectionCall(o.c.typing, call: call) 'changing'
+	if lendsWritably(o, p: p, ms: ms, call: call) 'changing'
 		return true
 	end 'changing'
 	let name = projectionName(o, p: p, ms: ms, call: call)
+	let receiver = ast.callReceiver(ms.tree(), e: call, kind: ownCall(o, node: call).kind)
+	if receiver != 0 and (ast.isStringType(ms.types, reads: p.types, t: ownType(o, node: receiver)) or not isManagedOwn(p, ms: ms, t: ownType(o, node: receiver))) 'registers'
+		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{name}' lends from a receiver passed in registers, a copy of the caller's value, so what it gives is no place to change and cannot be {what}; change the value itself")
+		return true
+	end 'registers'
+	let info = ownCall(o, node: call).clone()
+	if receiver != 0 and info.kind != ast.CallKind.callBound and ast.lendsByAddress(p, typing: o.c.typing, module: o.c.modID, ft: ms.funcs, funcReads: p.funcs, f: info.fn) 'readOnly'
+		let text = placeText(ms.tree(), e: receiver)
+		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{name}' lends with the access its caller has to '{text}', which may only be read here, so what it gives cannot be {what}; call it on a 'var' or a 'mutates' parameter to change what it lends")
+		return true
+	end 'readOnly'
 	fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{name}' returns a borrowed place to be read, so what it gives cannot be {what}; change the place it borrows from instead, or change a copy: 'var x = {name}(...).clone()'")
 	return true
 end 'changesProjection'
+
+// lendsWritably is whether the call, which returns a borrowed place, lends it to be changed: a method that changes self
+// before it lends (ast.lendsToChange), whose receiver must be one the caller may change, or one whose place lies in self
+// (FuncEntry.lendsPlace) called on a receiver the caller may change. A lending method lends with the access its caller
+// has to the receiver; any other lend is read-only.
+function lendsWritably(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID) returns bool
+	let info = ownCall(o, node: call).clone()
+	if ast.lendsToChange(info.result, selfConv: info.selfConv) 'changing'
+		return true
+	end 'changing'
+	if info.kind == ast.CallKind.callBound or not ast.lendsByAddress(p, typing: o.c.typing, module: o.c.modID, ft: ms.funcs, funcReads: p.funcs, f: info.fn) 'value'
+		return false
+	end 'value'
+	let receiver = ast.callReceiver(ms.tree(), e: call, kind: info.kind)
+	return receiver != 0 and mayChangeReceiver(o, p: p, ms: ms, receiver: receiver)
+end 'lendsWritably'
+
+// mayChangeReceiver is whether the receiver of a call is a place the caller may change: a var, a mutates parameter, a
+// writable part of either, or a place lent to be changed.
+function mayChangeReceiver(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, receiver ast.NodeID) returns bool
+	let call = projectionOf(o, ms: ms, e: receiver)
+	if call != 0 'lent'
+		return not readsLentTry(o, ms: ms, e: receiver) and lendsWritably(o, p: p, ms: ms, call: call)
+	end 'lent'
+	let path = pathOf(o, p: p, ms: ms, e: receiver)
+	if not path.isPlace() or not isManagedOwn(p, ms: ms, t: ownType(o, node: receiver)) 'notPlace'
+		return false
+	end 'notPlace'
+	let was = o.probing
+	o.probing = true
+	let ok = requireMutable(o, p: p, ms: ms, site: 0 as diag.U32, path: path, call: ast.noType)
+	o.probing = was
+	return ok
+end 'mayChangeReceiver'
 
 // borrowedMoveFix is the change that lets a borrowed value be stored: a copy when its type can be copied, the bound that
 // lets it be copied when only a type parameter's lack of one stops it, which keeps maxon's copy and the caller's value, for
@@ -435,6 +480,9 @@ end 'requireMutable'
 // mutableFail reports why the place text cannot be changed: for a call of a value whose type mutates its captures, as why
 // that call needs it mutable.
 function mutableFail(mutates o Ownership, p ast.Project, ms ast.ModuleState, site diag.U32, call ast.TypeID, text String, consumes fix diag.Fix, code String, consumes msg String)
+	if o.probing 'probe'
+		return
+	end 'probe'
 	if call == ast.noType 'change'
 		failFixed(o, p: p, site: site, code: code, msg: msg, fix: fix)
 		return

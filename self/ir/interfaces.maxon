@@ -53,6 +53,9 @@ export function witnessTable(p ast.Project, mutates ms ast.ModuleState, module d
 			some(fid) then methods.push(fid)
 			none then return table.Option.none
 		end 'method'
+		if lendsByAddressIn(p, ms: ms, f: methods[pred(methods.count())]) != lendsByAddressIn(p, ms: ms, f: reqs[i].sig) 'lending'
+			panic("lower: '{name}' lends by address and its requirement does not, or the other way about (check.lendsInSelf)")
+		end 'lending'
 		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: methods[pred(methods.count())]).intrinsic != ast.Intrinsic.intrNone 'builtin'
 			pushInstanceError(p, module: module, site: site, code: diag.errUnsupported, message: "Unsupported: an interface value of a '{ast.typeName(ms.types, reads: p.types, t: concrete)}', whose '{name}' is built in, has no code to call through its table; call it on the value, or through a bound of a type parameter", errs: errs)
 			return table.Option.none

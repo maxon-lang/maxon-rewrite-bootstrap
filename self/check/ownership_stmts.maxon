@@ -370,7 +370,7 @@ end 'assignToOwn'
 // lends it; a place lent only to be read was refused already.
 function changedThroughProjection(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, target ast.NodeID, of ast.NodeID, consumes s OwnState) returns OwnState
 	let call = projectionOf(o, ms: ms, e: target)
-	if not ast.isChangingProjectionCall(o.c.typing, call: call) 'read'
+	if not lendsWritably(o, p: p, ms: ms, call: call) 'read'
 		return s
 	end 'read'
 	requireOverwriteDroppable(o, p: p, ms: ms, st: st, target: target, s: s)
@@ -693,7 +693,7 @@ function requireLentByParameters(mutates o Ownership, p ast.Project, mutates ms 
 	let changing = ast.lendsToChange(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).result, selfConv: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).selfConv)
 	let call = projectionOf(o, ms: ms, e: e)
 	if call != 0 'projection'
-		if changing and not ast.isChangingProjectionCall(o.c.typing, call: call) 'readOnly'
+		if changing and not lendsWritably(o, p: p, ms: ms, call: call) 'readOnly'
 			let inner = projectionName(o, p: p, ms: ms, call: call)
 			fail(o, p: p, site: site, code: diag.errBorrowedReturn, msg: "'{fnName}' lends a place to be changed, and '{inner}' lends this one only to be read; lend a place in 'self', or one that a 'mutates self' method lends")
 			return

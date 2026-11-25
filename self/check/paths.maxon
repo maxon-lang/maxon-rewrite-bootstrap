@@ -302,11 +302,12 @@ function lenders(o Ownership, p ast.Project, ms ast.ModuleState, call ast.NodeID
 	let managed = isManagedOwn(p, ms: ms, t: ownType(o, node: call))
 	var out = ast.NodeIDList.create(0)
 	let receiver = ast.callReceiver(ms.tree(), e: call, kind: info.kind)
-	if ast.lendsToChange(info.result, selfConv: info.selfConv) 'changing'
-		// A place lent to be changed lies in the receiver alone (requireLentByParameters).
+	if ast.lendsToChange(info.result, selfConv: info.selfConv) or (info.kind != ast.CallKind.callBound and ast.lendsByAddress(p, typing: o.c.typing, module: o.c.modID, ft: ms.funcs, funcReads: p.funcs, f: info.fn)) 'inSelf'
+		// A place lent to be changed, or one that lies in self, lies in the receiver alone (requireLentByParameters,
+		// check.lendsInSelf).
 		out.push(receiver)
 		return out
-	end 'changing'
+	end 'inSelf'
 	if receiver != 0 and lends(info.selfConv) and mayLend(o, p: p, ms: ms, arg: receiver, managed: managed) 'receiver'
 		out.push(receiver)
 	end 'receiver'

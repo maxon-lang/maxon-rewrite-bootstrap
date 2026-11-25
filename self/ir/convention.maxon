@@ -124,11 +124,11 @@ end 'passesString'
 // has one, then its parameters, and its result unless it lends a place. An instance of a generic function has its types
 // substituted in its declaration, so the declaration is what both the function and every call of it read.
 export function funcSignature(p ast.Project, ms ast.ModuleState, fid ast.FuncID) returns FloatSignature
-	return funcSignatureIn(ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: fid)
+	return funcSignatureIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: fid)
 end 'funcSignature'
 
 // funcSignatureIn is funcSignature read through a module's slots of the tables.
-function funcSignatureIn(tt ast.TypeSlot, reads ast.TypeTable, ft ast.FuncSlot, funcReads ast.FuncTable, fid ast.FuncID) returns FloatSignature
+function funcSignatureIn(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, ft ast.FuncSlot, funcReads ast.FuncTable, fid ast.FuncID) returns FloatSignature
 	var args = 0 as FloatMask
 	var strings = 0 as FloatMask
 	let first = ast.leadingParams(ast.funcEntry(ft, funcReads: funcReads, f: fid))
@@ -155,9 +155,25 @@ function funcSignatureIn(tt ast.TypeSlot, reads ast.TypeTable, ft ast.FuncSlot, 
 	let lends = ast.funcEntry(ft, funcReads: funcReads, f: fid).result == ast.ResultConv.resultBorrowed
 	let retTy = ast.funcEntry(ft, funcReads: funcReads, f: fid).retTy
 	// A place lent to be changed is the address of its word, whatever it holds.
-	let address = ast.lendsToChange(ast.funcEntry(ft, funcReads: funcReads, f: fid).result, selfConv: ast.funcEntry(ft, funcReads: funcReads, f: fid).selfConv)
+	let address = lendsByAddressOf(p, ft: ft, funcReads: funcReads, f: fid)
 	return FloatSignature.make(args, result: not lends and ast.isFloatType(tt, reads: reads, t: retTy)).withStrings(strings, givesString: not address and ast.isStringType(tt, reads: reads, t: retTy))
 end 'funcSignatureIn'
+
+// lendsByAddressOf is ast.lendsByAddress for code made after every module's check, whose typings are the project's.
+export function lendsByAddressOf(p ast.Project, ft ast.FuncSlot, funcReads ast.FuncTable, f ast.FuncID) returns bool
+	let home = ast.funcEntry(ft, funcReads: funcReads, f: f).module
+	if home < 0 or ast.modIndex(home) >= p.typings.count() 'builtin'
+		// A built-in has no typing; its table says what it lends.
+		let entry = ast.funcEntry(ft, funcReads: funcReads, f: f)
+		return entry.result == ast.ResultConv.resultBorrowed and (entry.lendsPlace or ast.lendsToChange(entry.result, selfConv: entry.selfConv))
+	end 'builtin'
+	return ast.lendsByAddress(p, typing: p.typings[ast.modIndex(home)], module: home, ft: ft, funcReads: funcReads, f: f)
+end 'lendsByAddressOf'
+
+// lendsByAddressIn is lendsByAddressOf through a module's slots of the tables.
+export function lendsByAddressIn(p ast.Project, ms ast.ModuleState, f ast.FuncID) returns bool
+	return lendsByAddressOf(p, ft: ms.funcs, funcReads: p.funcs, f: f)
+end 'lendsByAddressIn'
 
 // valueSignature is the float signature of a call of a function value of the function type t, whose type arguments the
 // caller has applied, and of the body of a closure of that type: the closure first, a word, then the parameters.

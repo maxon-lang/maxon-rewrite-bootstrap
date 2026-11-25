@@ -1,5 +1,6 @@
-// expect-error: E2013 at 41:2
-// A place that a 'let self' method lends is lent only to be read, with a try before the target as without.
+// expect-error: E2013 at 42:2
+// A place lent from a receiver the caller may only read is lent only to be read, with a try before the target as
+// without.
 typealias Integer = int(i64.min to i64.max)
 
 type Node
@@ -37,7 +38,7 @@ type Graph
 	end 'get'
 end 'Graph'
 
-function poke(mutates g Graph) throws ArrayError
+function poke(g Graph) throws ArrayError
 	try g.look(0).weight = 4
 end 'poke'
 
