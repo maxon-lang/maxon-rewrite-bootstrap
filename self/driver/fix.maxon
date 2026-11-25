@@ -948,12 +948,16 @@ function fixTargetOf(test SpecTest) returns Count
 	panic("fix: {target} is no target of the compiler")
 end 'fixTargetOf'
 
+// gateSetsEnvironment is that the runner the gate runs sets the environment a test's directives ask for, so a test that has one
+// is run, and fixed.
+let gateSetsEnvironment = true
+
 // codeMismatchOf is the mismatch of a test that the runner would run, that expects a compile error, and whose first error
 // minimaxon reports under another code, compiled for the test's fix target to the executable at exe; nothing for any other
 // test. left is that executable when the system kept it from being deleted.
 function codeMismatchOf(shared SharedRuntimes, exe String, test SpecTest, text String, mutates left LeftExecutable) returns table.Option with CodeMismatch
 	let at = fixTargetOf(test)
-	if not test.hasSource or skipReasonFor(test, text: text, target: ast.knownTargets()[at]).isSome() 'unrun'
+	if not test.hasSource or skipReasonFor(test, text: text, target: ast.knownTargets()[at], setsEnvironment: gateSetsEnvironment).isSome() 'unrun'
 		return table.Option.none
 	end 'unrun'
 	let expected = expectedFirstCode(test, text: text)
@@ -976,7 +980,7 @@ end 'codeMismatchOf'
 // expectedRuleSkip is the skip line of a test that the runner would run and that the skip table names, or whose first
 // expected code it skips whatever minimaxon reports; nothing for any other test. file is the name of the test's spec file.
 function expectedRuleSkip(skips CodeSkips, file String, test SpecTest, text String) returns table.Option with String
-	if not test.hasSource or skipReasonFor(test, text: text, target: ast.knownTargets()[fixTargetOf(test)]).isSome() 'unrun'
+	if not test.hasSource or skipReasonFor(test, text: text, target: ast.knownTargets()[fixTargetOf(test)], setsEnvironment: gateSetsEnvironment).isSome() 'unrun'
 		return table.Option.none
 	end 'unrun'
 	let named = namedSkipLine(skips, file: file, test: test.name)

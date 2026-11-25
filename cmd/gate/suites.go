@@ -625,8 +625,13 @@ func specStampOf(compiler string) (string, error) {
 
 // specRun runs every spec test with the flags that say what the run makes of the results (--require-passed, --record-passed
 // or both), replaying the kept results when their stamp is the current one, and gives what the runner wrote, the
-// line that says it replayed, and whether it ended as required.
+// line that says it replayed, and whether it ended as required. cmd/envrun sets the environment a test's directives ask for
+// (procs, preempt) for its program alone.
 func specRun(compiler string, classifying ...string) (string, string, error) {
+	if err := buildEnvRunner(); err != nil {
+		return "", "", err
+	}
+	classifying = append(classifying, "--env-runner="+abs(envRunnerPath()))
 	stamp, err := specStampOf(compiler)
 	if err != nil {
 		return "", "", err

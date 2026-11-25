@@ -396,9 +396,25 @@ function discardSidecar(exe String)
 	try File.delete(path) otherwise ignore
 end 'discardSidecar'
 
-// directiveSkip is why a directive keeps this runner from running the test, or nothing when the runner can honour it. Each
-// names a feature of maxon's runtime or of its runner that this compiler does not have yet.
-function directiveSkip(directive String) returns table.Option with String
+// procsDirective and preemptDirective set a variable of the scheduler's for the test's program alone (environmentOf), which the
+// runner does through cmd/envrun; processDirective keeps a test out of a process that runs others, as every test's program here
+// is already; runsDirective asks for a run with no other test's program beside it.
+let procsDirective = "procs"
+
+let preemptDirective = "preempt"
+
+let processDirective = "process"
+
+let runsDirective = "runs"
+
+let maxProcsVariable = "MAXON_MAX_PROCS"
+
+let preemptVariable = "MAXON_PREEMPT"
+
+// directiveSkip is why a directive keeps this runner from running the test, or nothing when the runner can honour it: a
+// directive that sets the program's environment only when the runner can set it (setsEnvironment). Each reason names a
+// feature of maxon's runtime or of its runner that this compiler does not have yet.
+function directiveSkip(directive String, setsEnvironment bool) returns table.Option with String
 	let key = directiveKey(directive)
 	if key == targetsDirective 'targets'
 		return table.Option.none
@@ -409,9 +425,18 @@ function directiveSkip(directive String) returns table.Option with String
 		end 'library'
 		return table.Option.some("stages the program in a module of the library (tier)")
 	end 'tier'
-	if key == "procs" or key == "preempt" or key == "runs" or key == "process" 'scheduler'
-		return table.Option.some("needs maxon's scheduler or process isolation ({key})")
-	end 'scheduler'
+	if key == procsDirective or key == preemptDirective 'environment'
+		if setsEnvironment 'set'
+			return table.Option.none
+		end 'set'
+		return table.Option.some("needs cmd/envrun to set the program's environment ({envRunnerFlag}) ({key})")
+	end 'environment'
+	if key == processDirective 'process'
+		return table.Option.none
+	end 'process'
+	if key == runsDirective 'runs'
+		return table.Option.some("needs a run with no other test's program beside it (runs)")
+	end 'runs'
 	if key == "network" or key == "stdin" or key == "Args" or key == "env" 'environment'
 		return table.Option.some("needs a runner feature that is not written yet ({key})")
 	end 'environment'
@@ -423,6 +448,21 @@ function directiveSkip(directive String) returns table.Option with String
 	end 'debugInfo'
 	return table.Option.some("unknown directive {key}")
 end 'directiveSkip'
+
+// environmentOf is the assignments (NAME=VALUE) that the test's directives make for its program alone: maxon's runner sets
+// MAXON_MAX_PROCS for procs and MAXON_PREEMPT for preempt, with the directive's value.
+function environmentOf(test SpecTest) returns CommandNames
+	var environment = CommandNames.create(0)
+	for directive in test.directives 'directives'
+		let key = directiveKey(directive)
+		if key == procsDirective 'procs'
+			environment.push("{maxProcsVariable}={directiveValue(directive)}")
+		end 'procs' else if key == preemptDirective 'preempt'
+			environment.push("{preemptVariable}={directiveValue(directive)}")
+		end 'preempt'
+	end 'directives'
+	return environment
+end 'environmentOf'
 
 // fenceBase is the name of a result fence without its target, in small letters; fenceTarget is the target or nothing.
 function fenceBase(name String) returns String
@@ -497,14 +537,10 @@ function runTargets(test SpecTest) returns ast.TargetList
 	return runs
 end 'runTargets'
 
-// skipReason is why the runner does not run a test, or nothing when it runs it: the conversion's skip, a directive or a
-// block that needs more than this compiler has yet, or a source that stages maxon's own library.
-function skipReason(test SpecTest, text String) returns table.Option with String
-	return skipReasonFor(test, text: text, target: hostTarget())
-end 'skipReason'
-
-// skipReasonFor is skipReason for a run of the test's program for a target.
-function skipReasonFor(test SpecTest, text String, target ast.Target) returns table.Option with String
+// skipReasonFor is why the runner does not run a test's program for a target, or nothing when it runs it: the conversion's
+// skip, a directive or a block that needs more than this compiler has yet (or an environment the runner cannot set, unless
+// setsEnvironment), or a source that stages maxon's own library.
+function skipReasonFor(test SpecTest, text String, target ast.Target, setsEnvironment bool) returns table.Option with String
 	if test.skips.count() > 0 'converted'
 		return table.Option.some(test.skips[0].clone())
 	end 'converted'
@@ -513,7 +549,7 @@ function skipReasonFor(test SpecTest, text String, target ast.Target) returns ta
 		return onTarget
 	end 'target'
 	for i in 0 upto test.directives.count() 'directives'
-		let reason = directiveSkip(test.directives[i])
+		let reason = directiveSkip(test.directives[i], setsEnvironment: setsEnvironment)
 		if reason.isSome() 'skipped'
 			return reason
 		end 'skipped'
@@ -1256,7 +1292,7 @@ end 'fileStem'
 // or compiled to the executable at exe and checked against its result blocks as far as it can be before the executable runs.
 // A run that only compiles stops there (compiledOnly).
 function stageSpecTest(shared SharedRuntime, host SharedRuntime, job SpecJob, file SpecFile, index Count, exe String, options CorpusOptions) returns Staged
-	let reason = skipReasonFor(job.test, text: file.text, target: options.target)
+	let reason = skipReasonFor(job.test, text: file.text, target: options.target, setsEnvironment: options.envRunner != "")
 	if reason.isSome() 'skipped'
 		return Staged.done(Finished.make(TestResult.unsupported(reason.unwrap())))
 	end 'skipped'
@@ -1421,10 +1457,11 @@ function joinLines(lines ast.StringList) returns String
 	return String.from(out)
 end 'joinLines'
 
-// checkSpecRun runs the compiled program in directory, the run's (specRunDirectory), and checks its exit code, when the test
-// gives one, and its output, which must be what the blocks say or else nothing.
-function checkSpecRun(test SpecTest, text String, exe String, directory String) returns TestResult
-	match consumes runExecutable(exe, runner: TargetRunner.native, directory: directory, workers: 0, envRunner: "", input: "") 'run'
+// checkSpecRun runs the compiled program in directory, the run's (specRunDirectory), with the environment its directives set
+// (environmentOf) through envRunner, and checks its exit code, when the test gives one, and its output, which must be what
+// the blocks say or else nothing.
+function checkSpecRun(test SpecTest, text String, exe String, directory String, envRunner String) returns TestResult
+	match consumes runExecutable(exe, runner: TargetRunner.native, directory: directory, environment: environmentOf(test), envRunner: envRunner, input: "") 'run'
 		ran(out) then return checkSpecOutput(test, text: text, out: out)
 		cannotStart(reason) then return TestResult.failed("cannot run the executable: {reason}")
 		timedOut then return TestResult.failed("timed out")

@@ -122,15 +122,17 @@ end 'commandArguments'
 // running when the runner ends envrun.
 let envRunnerGraceMs = 1000 as Count
 
-// envRunnerArguments are the arguments of a run through cmd/envrun of what started would start with arguments, under the worker
-// count workers for it alone.
-function envRunnerArguments(workers Count, consumes started Executable, arguments CommandNames) returns CommandNames
+// envRunnerArguments are the arguments of a run through cmd/envrun of what started would start with arguments, with the
+// environment's assignments (NAME=VALUE) for it alone.
+function envRunnerArguments(environment CommandNames, consumes started Executable, arguments CommandNames) returns CommandNames
 	var wrapped = CommandNames.create(0)
 	wrapped.push("--deadline={testRunDeadlineMs - envRunnerGraceMs}")
-	wrapped.push("{workerCountVariable}={workers}")
+	for assignment in environment 'environment'
+		wrapped.push(assignment.clone())
+	end 'environment'
 	wrapped.push(executableText(started))
-	for i in 0 upto arguments.count() 'arguments'
-		wrapped.push(arguments[i].clone())
+	for argument in arguments 'arguments'
+		wrapped.push(argument.clone())
 	end 'arguments'
 	return wrapped
 end 'envRunnerArguments'
