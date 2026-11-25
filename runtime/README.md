@@ -110,8 +110,12 @@ goroutine's is. Where it differs from Go, and why:
   (`reaskFirstNanos`, `reaskLongestNanos`), until the tick moves: a green thread that spends nearly all its time in the
   runtime's code gives way within a few slices, one that takes its first ask costs one signal a slice
   (`schedPreemptAsksOffset` counts the asks, `schedPreemptStopsOffset` every signal or suspension), and one in a call that
-  no signal ends gets at most about 1,000 signals a second. On Windows the monitor sleeps on a high-resolution waitable
-  timer (Go's usleep2HighRes), without which its sleeps and asks again would come no faster than 15.6 ms apart.
+  no signal ends gets at most about 1,000 signals a second. A thread is not asked again before it has answered: on Linux
+  and macOS while its signal is pending (Go's `m.signalPending`), on Windows while its cycle count has not moved since the
+  monitor last suspended it (`preemptThread`), since a suspension waits until the system runs the thread and spends that
+  turn, so that asking again a thread that a loaded machine runs seldom would keep it from running at all. On Windows the
+  monitor sleeps on a high-resolution waitable timer (Go's usleep2HighRes), without which its sleeps and asks again would
+  come no faster than 15.6 ms apart.
 - **Park and ready carry a permit.** A ready that comes before its green thread has parked makes the next park return at
   once, where Go's gopark relies on the waker finding the waiter under a lock its unlockf releases: the runtime's waits
   (await, sleep, an event entry) and a test's own then need no lock of their own.

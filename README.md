@@ -2648,7 +2648,9 @@ so the code at `run` must have released and freed what the behaviour holds by th
   does not move the monitor asks again 100 µs later, then after twice as long each time up to 1 ms (Go re-signals every
   round, its sleep growing): a green thread that spends nearly all its time in the runtime's calls still gives up its
   processor within a few slices, a thread that takes its first ask costs one signal a slice, and one in a long call that
-  no signal ends gets at most about 1,000 a second. A program's clock read is a system call on Linux (a signal that comes
+  no signal ends gets at most about 1,000 a second; a thread whose last ask is unanswered is not asked again (its signal
+  pending, on Windows its cycle count unmoved since it was suspended, a suspension waiting for the system to run the
+  thread and spending that turn). A program's clock read is a system call on Linux (a signal that comes
   during one is handled as it returns, in the runtime's code, so a loop of them takes about one ask in thousands) and a call
   into kernel32 or libSystem elsewhere, so the runtime brackets it and the monitor takes the processor instead (Go's
   sysretake). On Windows it holds the exit claim

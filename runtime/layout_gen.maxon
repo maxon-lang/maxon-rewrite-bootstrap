@@ -147,7 +147,7 @@ let contextSpinningOffset = 96 as Count
 // contextDrainsOffset is where a thread's context holds 1 on the main thread while it runs the scheduler after main, whose search for work ends once no behaviour or green thread is left.
 let contextDrainsOffset = 104 as Count
 
-// contextSignalPendingOffset is where a thread's context holds 1 while a preemption the monitor sent it is not yet answered (Go's m.signalPending).
+// contextSignalPendingOffset is where a thread's context holds 1 while a preemption the monitor sent it is not yet answered (Go's m.signalPending), on Linux and macOS; on Windows the thread's cycle count when the monitor last suspended it, which the thread must pass before the monitor suspends it again.
 let contextSignalPendingOffset = 112 as Count
 
 // contextThreadOffset is where a thread's context holds what the monitor stops the thread by: on Windows a handle that may suspend it and read and set its registers, on Linux its thread id.

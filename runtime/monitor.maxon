@@ -272,15 +272,21 @@ end 'takeExitClaim'
 	let suspendFailed = 0xFFFFFFFF as Count
 
 	// preemptThread stops a thread on Windows: it suspends it while it holds the exit claim, reads its registers, and when
-	// it may stop the green thread there has it return into rt.asyncPreempt, then resumes it. GetThreadContext returns
-	// only once the thread is suspended.
+	// it may stop the green thread there has it return into rt.asyncPreempt, then resumes it, unless the thread has not
+	// run since the monitor last suspended it (its cycle count has not moved), as Go's preemptM sends no signal while one
+	// is pending. GetThreadContext returns only once the thread is suspended, which a thread the system is not running
+	// is only when the system runs it again, and the suspension spends that turn: a thread that has not run is where the
+	// last ask found it, so asking again would only keep a thread that a loaded machine runs seldom from ever running.
 	function preemptThread(scheduler Count, context Count, g Count)
+		let handle = __Raw.loadWord(context, offset: contextThreadOffset)
+		if handle == 0 or not ranSinceSuspended(context, handle: handle) 'unanswered'
+			return
+		end 'unanswered'
 		let monitor = __Raw.loadWord(scheduler, offset: schedMonitorOffset)
 		if __Raw.compareExchange(scheduler, offset: schedExitClaimOffset, expected: noThread, desired: monitor) != noThread 'exiting'
 			return
 		end 'exiting'
-		let handle = __Raw.loadWord(context, offset: contextThreadOffset)
-		if handle != 0 and dword(__Raw.callImport1("SuspendThread", arg1: handle)) != suspendFailed 'suspended'
+		if dword(__Raw.callImport1("SuspendThread", arg1: handle)) != suspendFailed 'suspended'
 			countMonitorWord(scheduler, offset: schedPreemptStopsOffset)
 			let buffer = __Raw.loadWord(scheduler, offset: schedRegistersOffset)
 			let registers = __Raw.wrappingAdd(buffer, right: __Raw.wrappingSub(windowsContextAlignment, right: buffer mod windowsContextAlignment))
@@ -296,10 +302,18 @@ end 'takeExitClaim'
 					end 'set'
 				end 'stop'
 			end 'read'
+			__Raw.storeWord(context, offset: contextSignalPendingOffset, value: threadCycles(handle))
 			_ = __Raw.callImport1("ResumeThread", arg1: handle)
 		end 'suspended'
 		_ = __Raw.atomicExchange(scheduler, offset: schedExitClaimOffset, value: noThread)
 	end 'preemptThread'
+
+	// ranSinceSuspended is whether a thread has run since the monitor last suspended it: its cycle count has moved from
+	// the one kept then, or the system counts none.
+	function ranSinceSuspended(context Count, handle Count) returns bool
+		let cycles = threadCycles(handle)
+		return cycles == noCycles or cycles != __Raw.loadWord(context, offset: contextSignalPendingOffset)
+	end 'ranSinceSuspended'
 
 	// createWaitableTimerHighResolution is CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, and timerAllAccess TIMER_ALL_ACCESS.
 	let createWaitableTimerHighResolution = 2 as Count

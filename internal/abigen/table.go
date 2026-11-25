@@ -204,7 +204,7 @@ var layouts = []layoutConst{
 	{"contextDrainsOffset", 13, false, toRuntime,
 		"where a thread's context holds 1 on the main thread while it runs the scheduler after main, whose search for work ends once no behaviour or green thread is left."},
 	{"contextSignalPendingOffset", 14, false, toRuntime,
-		"where a thread's context holds 1 while a preemption the monitor sent it is not yet answered (Go's m.signalPending)."},
+		"where a thread's context holds 1 while a preemption the monitor sent it is not yet answered (Go's m.signalPending), on Linux and macOS; on Windows the thread's cycle count when the monitor last suspended it, which the thread must pass before the monitor suspends it again."},
 	{"contextThreadOffset", 15, false, toRuntime,
 		"where a thread's context holds what the monitor stops the thread by: on Windows a handle that may suspend it and read and set its registers, on Linux its thread id."},
 	{"contextPreemptCodeOffset", 16, false, toRuntime | toSelfBack,

@@ -5,14 +5,14 @@
 // and frees every round, the runtime's own code, where an ask is taken only when it finds the spinner between two calls,
 // so that the monitor asks again until it is.
 //
-// The test never assumes how long a sleep or a slice takes: each half gives up only at testDeadlineNanos, and then fails
-// when the ticker did not run testTicks times, and otherwise when the monitor asked more than testAsksPerTick times a
+// The test never assumes how long a sleep or a slice takes, nor how much of the machine the system gives it: it counts
+// what the scheduler does. Every time a processor's slice ends it runs the timers that are due before anything else, so
+// the ticker wakes at the first slice end after its sleep is over. A half fails when the processors have run more than
+// testRunsPerTick green threads for each wake of the ticker and it has not woken testTicks times, which a scheduler that
+// left a due timer behind a slice end would; and otherwise when the monitor asked more than testAsksPerTick times a
 // processor for each wake, which a monitor that asks once a slice and does not ask again or take the processor does for a
 // spinner that takes one ask in tens or thousands.
 //> the ticker ran while every processor spun in the clock and in allocations
-
-// testDeadlineNanos is how long each half waits for the ticker before the test fails, within the runner's 10 seconds.
-let testDeadlineNanos = 4000000000 as Count
 
 let testTicks = 20 as Count
 
@@ -22,25 +22,27 @@ let testTickNanos = 1000000 as Count
 // before its sleep does, and room for a monitor or a ticker that the machine's load holds up.
 let testAsksPerTick = 4 as Count
 
-// testSpinsPerClock is how many rounds the allocating spinner makes between two reads of the clock, so that it spends
-// nearly all its time allocating.
-let testSpinsPerClock = 4096 as Count
+// testSpinsPerCheck is how many rounds a spinner makes between two looks at how many green threads the processors have
+// run, so that the allocating spinner spends nearly all its time allocating.
+let testSpinsPerCheck = 4096 as Count
 
 let testAllocationBytes = 48 as Count
 
-// The record the green threads share: the flag that ends the spinners, how many spin, how many times the ticker woke, the
-// time the half gives up at, and how the spinners spin.
+// The record the green threads share: the flag that ends the spinners, how many spin, how many times the ticker woke, how
+// many green threads the processors had run when every spinner spun (testNotCounting before), and how the spinners spin.
 let testFlagOffset = 0 as Count
 
 let testSpinningOffset = 8 as Count
 
 let testTicksOffset = 16 as Count
 
-let testGiveUpOffset = 24 as Count
+let testRunsOffset = 24 as Count
 
 let testModeOffset = 32 as Count
 
 let testRecordBytes = 40 as Count
+
+let testNotCounting = 0 as Count
 
 let testModeClock = 0 as Count
 
@@ -65,11 +67,11 @@ function testHalf(mode Count, what String)
 	__Raw.storeWord(shared, offset: testFlagOffset, value: 0)
 	__Raw.storeWord(shared, offset: testSpinningOffset, value: 0)
 	__Raw.storeWord(shared, offset: testTicksOffset, value: 0)
+	__Raw.storeWord(shared, offset: testRunsOffset, value: testNotCounting)
 	__Raw.storeWord(shared, offset: testModeOffset, value: mode)
 	let spinners = osProcessorCount()
 	let list = alloc(try spinners * wordBytes otherwise panic("too many processors"))
 	let asks = __Raw.loadAcquire(scheduler, offset: schedPreemptAsksOffset)
-	__Raw.storeWord(shared, offset: testGiveUpOffset, value: __Raw.wrappingAdd(osClockNanos(), right: testDeadlineNanos))
 	for i in 0 upto spinners 'spawn'
 		let spinner = greenSpawn(__Raw.codeAddress("testSpinner"))
 		greenSetArgument(spinner, index: 0, value: shared)
@@ -86,7 +88,7 @@ function testHalf(mode Count, what String)
 	let made = __Raw.wrappingSub(__Raw.loadAcquire(scheduler, offset: schedPreemptAsksOffset), right: asks)
 	let ticks = __Raw.loadWord(shared, offset: testTicksOffset)
 	if ticks != testTicks 'starved'
-		panic("the ticker ran {ticks} of {testTicks} times in {testDeadlineNanos / nanosPerMilli} ms while every processor {what} every round")
+		panic("the ticker ran {ticks} of {testTicks} times while the processors ran {testRunsMost(scheduler)} green threads and every processor {what} every round")
 	end 'starved'
 	let most = try procCount(scheduler) * testTicks * testAsksPerTick otherwise panic("too many processors")
 	if made > most 'untaken'
@@ -96,41 +98,62 @@ function testHalf(mode Count, what String)
 	free(shared)
 end 'testHalf'
 
+// testRunsMost is how many green threads the processors may run while the ticker wakes testTicks times: for each wake the
+// ticker and the spinner it put off, and a slice end on every processor before its sleep is over.
+function testRunsMost(scheduler Count) returns Count
+	return try (procCount(scheduler) + 2) * testTicks otherwise panic("too many processors")
+end 'testRunsMost'
+
+// testRuns is how many green threads the processors have run (each processor's schedule tick).
+function testRuns(scheduler Count) returns Count
+	var runs = 0 as Count
+	for i in 0 upto madeProcs(scheduler) 'procs'
+		runs = __Raw.wrappingAdd(runs, right: __Raw.loadWord(procAt(scheduler, index: i), offset: procSchedTickOffset))
+	end 'procs'
+	return runs
+end 'testRuns'
+
+// testSpinner spins until the ticker is done, or until the processors have run more green threads than the ticker's
+// wakes may take, when it ends the spinners itself.
 function testSpinner(g Count) returns Count
 	let shared = greenArgument(g, index: 0)
-	let giveUp = __Raw.loadWord(shared, offset: testGiveUpOffset)
+	let scheduler = __Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset)
 	let allocates = __Raw.loadWord(shared, offset: testModeOffset) == testModeAllocate
 	_ = __Raw.atomicAdd(shared, offset: testSpinningOffset, value: 1)
 	var spins = 0 as Count
 	while __Raw.loadWord(shared, offset: testFlagOffset) == 0 'spin'
 		if allocates 'allocate'
 			free(alloc(testAllocationBytes))
-			spins = __Raw.wrappingAdd(spins, right: 1)
-			if spins != testSpinsPerClock 'more'
-				continue 'spin'
-			end 'more'
-			spins = 0
-		end 'allocate'
-		if osClockNanos() >= giveUp 'late'
-			break 'spin'
-		end 'late'
+		end 'allocate' else 'clock'
+			_ = osClockNanos()
+		end 'clock'
+		spins = __Raw.wrappingAdd(spins, right: 1)
+		if spins != testSpinsPerCheck 'more'
+			continue 'spin'
+		end 'more'
+		spins = 0
+		let base = __Raw.loadWord(shared, offset: testRunsOffset)
+		if base != testNotCounting and __Raw.wrappingSub(testRuns(scheduler), right: base) > testRunsMost(scheduler) 'starved'
+			__Raw.storeWord(shared, offset: testFlagOffset, value: 1)
+		end 'starved'
 	end 'spin'
 	return 0
 end 'testSpinner'
 
 // testTicker sleeps until every spinner spins, then testTicks times more, each wake one that only a spinner giving way
-// lets it run, and ends the spinners. It counts its wakes, and stops counting at the time to give up, when the spinners end.
+// lets it run, and ends the spinners. It counts its wakes, and stops counting when the spinners have ended themselves.
 function testTicker(g Count) returns Count
 	let shared = greenArgument(g, index: 0)
-	let giveUp = __Raw.loadWord(shared, offset: testGiveUpOffset)
-	while __Raw.loadWord(shared, offset: testSpinningOffset) != osProcessorCount() and osClockNanos() < giveUp 'started'
+	let scheduler = __Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset)
+	while __Raw.loadWord(shared, offset: testSpinningOffset) != osProcessorCount() 'started'
 		greenSleep(testTickNanos)
 	end 'started'
+	__Raw.storeWord(shared, offset: testRunsOffset, value: testRuns(scheduler))
 	for i in 0 upto testTicks 'ticks'
 		greenSleep(testTickNanos)
-		if osClockNanos() >= giveUp 'late'
+		if __Raw.loadWord(shared, offset: testFlagOffset) != 0 'ended'
 			break 'ticks'
-		end 'late'
+		end 'ended'
 		__Raw.storeWord(shared, offset: testTicksOffset, value: __Raw.wrappingAdd(__Raw.loadWord(shared, offset: testTicksOffset), right: 1))
 	end 'ticks'
 	__Raw.storeWord(shared, offset: testFlagOffset, value: 1)
