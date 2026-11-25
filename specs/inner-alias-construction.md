@@ -63,6 +63,7 @@ with Element` inside `type Holder uses Element`, constructed by `Holder`'s own `
 OPAQUE-element array `ElementArray.create(0)` builds, so it resizes and counts exactly as that one does.
 
 <!-- test: generic-inner-array-alias -->
+<!-- skip: language difference: no tier grows an array of a type parameter with resize, since a grown slot holds no element and an array has no empty slot below its count, where maxon's library may -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 

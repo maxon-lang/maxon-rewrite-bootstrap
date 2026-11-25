@@ -387,7 +387,7 @@ Stack trace:
 ```
 
 <!-- test: for-over-an-empty-slot-in-a-generic-body-panics -->
-<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
+<!-- skip: language difference: no tier grows an array of a type parameter with resize, since a grown slot holds no element and an array has no empty slot below its count, where maxon's library may -->
 <!-- tier: stdlib -->
 ### A `for` element read of an empty slot panics in a body compiled once for every element type
 `Bag` is generic, so `visit` is one compiled body for every `Element`, and its loop cannot ask at compile time
@@ -439,6 +439,7 @@ Stack trace:
 ```
 
 <!-- test: a-zero-is-an-element-in-a-generic-body-over-scalars -->
+<!-- skip: language difference: no tier grows an array of a type parameter with resize, since a grown slot holds no element and an array has no empty slot below its count, where maxon's library may -->
 The twin: the same body instantiated at `Integer`, where a zeroed slot is the element 0 and nothing is empty, so the
 loop visits both.
 ```maxon

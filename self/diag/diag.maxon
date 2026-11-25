@@ -62,6 +62,8 @@ export enum ErrorCause
 	payloadOfBuiltinError
 	// rawSurface is an error about a type or a function of maxon's raw memory surface that minimaxon provides no counterpart of.
 	rawSurface
+	// growsTypeParameter is a resize of an array of a type parameter that has no zero value, which no tier may make.
+	growsTypeParameter
 end 'ErrorCause'
 
 // rawSurfacePrefix starts the name of each type of maxon's raw memory surface (`__ManagedMemory`, `__ManagedList`, `__ManagedFile`...).

@@ -5479,6 +5479,7 @@ error E3005: <fragment>:40:11: argument type mismatch for 'other': expected 'Num
 ```
 
 <!-- test: an-inner-alias-field-crosses-into-a-parameter-of-its-own-instance -->
+<!-- skip: language difference: no tier grows an array of a type parameter with resize, since a grown slot holds no element and an array has no empty slot below its count, where maxon's library may -->
 ⭐⭐ **THE LEGAL COUNTERPART OF THE PAIR ABOVE.** The two cases above pin that
 `HoldA`'s `Items` and `HoldB`'s `Items` are DIFFERENT types and a diagnostic must say which. This one pins
 the other half of that sentence: **`HoldA`'s `Items` and `HoldA`'s `Items` are the SAME type**, so a value

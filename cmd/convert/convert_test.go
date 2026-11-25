@@ -861,3 +861,13 @@ func TestConvertMergeScratchGrowsByPush(t *testing.T) {
 		t.Fatalf("got:\n%q\nwant:\n%q", got, want)
 	}
 }
+
+// TestConvertFilledPrefixGrowsByPush covers an array that is resized and then filled from 0 by a loop: the resize empties
+// it and gives it the room, and each store becomes a push.
+func TestConvertFilledPrefixGrowsByPush(t *testing.T) {
+	in := "function fill(n Count, v T)\n\titems.resize(n)\n\n\tvar i = 0\n\twhile i < n 'fill'\n\t\ttry items.set(i, value: v) otherwise 'e'\n\t\t\tpanic(\"set\")\n\t\tend 'e'\n\t\ti = i + 1\n\tend 'fill'\nend 'fill'\n\nfunction keep(n Count, v T)\n\titems.resize(n)\n\tvar i = 0\n\twhile i < n 'fill'\n\t\ttry items.set(n - i, value: v) otherwise panic(\"set\")\n\t\ti = i + 1\n\tend 'fill'\nend 'keep'\n"
+	want := "function fill(n Count, v T)\n\titems.truncate(0)\n\titems.reserve(n)\n\tvar i = 0\n\twhile i < n 'fill'\n\t\titems.push(v)\n\t\ti = i + 1\n\tend 'fill'\nend 'fill'\n\nfunction keep(n Count, v T)\n\titems.resize(n)\n\tvar i = 0\n\twhile i < n 'fill'\n\t\ttry items.set(n - i, value: v) otherwise panic(\"set\")\n\t\ti = i + 1\n\tend 'fill'\nend 'keep'\n"
+	if got := Convert("test.maxon", in, sourceFile).Text; got != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", got, want)
+	}
+}

@@ -1,20 +1,19 @@
-// A slot table of the library tier, as maxon's Map keeps its columns: resize grows an array of a type parameter over empty
-// slots, get reads one as emptySlot, set fills it, clearSlot drops what a slot holds and empties it again, a copy keeps
-// the empty slots empty, and dropping the table drops only the full ones. Over a scalar a grown slot is the element 0.
+// A slot table of the library tier, as maxon's Map keeps its columns: a slot array of a type parameter is made of empty
+// slots, get reads one as emptySlot, fillSlot fills it, clearSlot drops what a slot holds and empties it again, a copy
+// keeps the empty slots empty, and dropping the table drops only the full ones. Over a scalar an empty slot is the
+// element 0.
 typealias Integer = int(i64.min to i64.max)
 
 type Table uses Element where Element implements Copyable
-	typealias Column = Array with Element
+	typealias Column = __SlotArray with Element
 	var slots as Column
 
 	static function sized(n Count) returns Self
-		var slots = Column.create(0)
-		slots.resize(n)
-		return Self{slots: slots}
+		return Self{slots: Column.create(n)}
 	end 'sized'
 
 	function put(mutates self, at Count, consumes value Element)
-		try slots.set(at, value: value) otherwise panic("put: a slot inside the table")
+		slots.fillSlot(at, value: value)
 	end 'put'
 
 	function clear(mutates self, at Count)

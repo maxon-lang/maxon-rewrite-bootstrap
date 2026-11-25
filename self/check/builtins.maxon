@@ -104,13 +104,8 @@ function checkArrayResizeArgs(mutates c Checker, p ast.Project, ms ast.ModuleSta
 		return
 	end 'zero'
 	let name = nameOfType(p, ms: ms, t: elem)
-	// The library tiers keep slot tables, whose slots of a managed element are empty until filled (ir.SlotRead), as maxon's
-	// library body is the one generic body that may grow an array of its type parameter.
-	if typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.typeParam) and p.modules[c.modIdx].inLibraryTier() 'slotTable'
-		return
-	end 'slotTable'
 	if typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.typeParam) 'parameter'
-		failAt(c, p: p, ms: ms, node: call, code: diag.errZeroOutsideElement, msg: "'resize' cannot grow an array of a type parameter: '{name}' is instantiated with a type that has no zero value (a managed type, an enum or union whose raw values include no 0, or a ranged alias that excludes 0), so the grown slots are zero and zero is not a value of it. Append with 'push(value)' or 'growFilled(n, value:)'", errs: errs)
+		checkFailCaused(c.modID, off: offsetOf(c, p: p, ms: ms, node: call), code: diag.errZeroOutsideElement, msg: "'resize' cannot grow an array of a type parameter: '{name}' is instantiated with a type that has no zero value (a managed type, an enum or union whose raw values include no 0, or a ranged alias that excludes 0), so the grown slots are zero and zero is not a value of it. Append with 'push(value)' or 'growFilled(n, value:)'", cause: diag.ErrorCause.growsTypeParameter, errs: errs)
 		return
 	end 'parameter'
 	if ast.isManagedType(ms.types, reads: p.types, t: elem) 'managed'

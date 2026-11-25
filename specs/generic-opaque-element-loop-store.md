@@ -67,12 +67,11 @@ type Bag uses Element
 	end 'count'
 
 	function fillTo(mutates self, newLength Idx, value Element) where Element implements Droppable and Copyable
-		items.resize(newLength)
+		items.truncate(0)
+		items.reserve(newLength)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			try items.set(n, value: value.clone()) otherwise 'setErr'
-				panic("Bag.fillTo: set OOB — the length was just resized to newLength")
-			end 'setErr'
+			items.push(value.clone())
 			n = n + 1
 		end 'fill'
 	end 'fillTo'
@@ -127,12 +126,11 @@ type Bag uses Element
 	end 'count'
 
 	function fillTo(mutates self, newLength Idx, value Element) where Element implements Droppable and Copyable
-		items.resize(newLength)
+		items.truncate(0)
+		items.reserve(newLength)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			try items.set(n, value: value.clone()) otherwise 'setErr'
-				panic("Bag.fillTo: set OOB — the length was just resized to newLength")
-			end 'setErr'
+			items.push(value.clone())
 			n = n + 1
 		end 'fill'
 	end 'fillTo'
@@ -179,12 +177,11 @@ type Bag uses Element
 	end 'count'
 
 	function fillTo(mutates self, newLength Idx, value Element) where Element implements Droppable and Copyable
-		items.resize(newLength)
+		items.truncate(0)
+		items.reserve(newLength)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			try items.set(n, value: value.clone()) otherwise 'setErr'
-				panic("Bag.fillTo: set OOB — the length was just resized to newLength")
-			end 'setErr'
+			items.push(value.clone())
 			n = n + 1
 		end 'fill'
 	end 'fillTo'
@@ -235,18 +232,17 @@ type Bag uses Element
 		return items.count()
 	end 'count'
 
-	function fillTo(newLength Idx, value Element)
-		items.resize(newLength)
+	function fillTo(mutates self, newLength Idx, value Element) where Element implements Droppable and Copyable
+		items.truncate(0)
+		items.reserve(newLength)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			try items.set(n, value: value) otherwise 'setErr'
-				panic("Bag.fillTo: set OOB — the length was just resized to newLength")
-			end 'setErr'
+			items.push(value.clone())
 			n = n + 1
 		end 'fill'
 	end 'fillTo'
 
-	function at(i Idx) returns Element throws ArrayError
+	function at(i Idx) returns Element throws ArrayError where Element implements Copyable
 		return try items.get(i)
 	end 'at'
 end 'Bag'
@@ -254,7 +250,7 @@ end 'Bag'
 typealias NumBag = Bag with Num
 
 function main() returns ExitCode
-	let b = NumBag.create()
+	var b = NumBag.create()
 	b.fillTo(4, value: 9 as Num)
 	let third = try b.at(3) otherwise return 1
 	return third
@@ -287,12 +283,11 @@ type Bag uses Element
 	end 'count'
 
 	function fillTo(mutates self, newLength Idx, value Element) returns Element where Element implements Droppable and Copyable
-		items.resize(newLength)
+		items.truncate(0)
+		items.reserve(newLength)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			try items.set(n, value: value.clone()) otherwise 'setErr'
-				panic("Bag.fillTo: set OOB — the length was just resized to newLength")
-			end 'setErr'
+			items.push(value.clone())
 			n = n + 1
 		end 'fill'
 		return value.clone()
@@ -339,15 +334,14 @@ type Bag uses Element
 	end 'create'
 
 	function copyFrom(mutates self, other Items, upTo Idx) where Element implements Droppable and Copyable
-		items.resize(upTo)
+		items.truncate(0)
+		items.reserve(upTo)
 		var n = 0 as Idx
 		while n < upTo 'copy'
 			let borrowed = try other.get(n) otherwise 'getErr'
 				break
 			end 'getErr'
-			try items.set(n, value: borrowed) otherwise 'setErr'
-				panic("Bag.copyFrom: set OOB — the length was just resized")
-			end 'setErr'
+			items.push(borrowed)
 			n = n + 1
 		end 'copy'
 	end 'copyFrom'

@@ -49,6 +49,7 @@ is confined and nothing there moves.
 ## Tests
 
 <!-- test: generic-hash-table-regalloc.rehash-loop-forwards-hidden-parameters -->
+<!-- skip: language difference: no tier grows an array of a type parameter with resize, since a grown slot holds no element and an array has no empty slot below its count, where maxon's library may -->
 <!-- tier: stdlib -->
 The reproducer, and the reason this file exists. `Tbl.grow`'s rehash loop holds 16 GPR values at
 one op against a pool of 14; two of them are the `Hashable` and `Equatable` witness parameters,
@@ -95,39 +96,39 @@ type Tbl uses Key where Key implements Hashable and Equatable
 		return count
 	end 'entries'
 
-	function insertAtSlot(mutates self, slotIndex Cap, key Key, value Integer, hash HashValue) where Key implements Droppable and Copyable
-		try keys.set(slotIndex, value: key.clone()) otherwise panic("k")
+	function insertAtSlot(slotIndex Cap, key Key, value Integer, hash HashValue)
+		try keys.set(slotIndex, value: key) otherwise panic("k")
 		try values.set(slotIndex, value: value) otherwise panic("v")
 		try states.set(slotIndex, value: SlotState.Occupied) otherwise panic("s")
 		try hashes.set(slotIndex, value: hash) otherwise panic("h")
-		count = try count + 1 otherwise panic("out of range")
+		count = count + 1
 	end 'insertAtSlot'
 
-	function grow(mutates self) where Key implements Droppable and Copyable
+	function grow()
 		let oldCapacity = capacity
-		var newCapacity = try (oldCapacity * 2) as Cap otherwise panic("out of range")
+		var newCapacity = oldCapacity * 2
 		if newCapacity == 0 'handle_zero'
 			newCapacity = 16
 		end 'handle_zero'
-		var newKeys = KeyArray{}
+		let newKeys = KeyArray{}
 		newKeys.resize(newCapacity)
-		var newValues = ValueArray{}
+		let newValues = ValueArray{}
 		newValues.resize(newCapacity)
-		var newStates = StateArray{}
+		let newStates = StateArray{}
 		newStates.resize(newCapacity)
-		var newHashes = HashSlotArray{}
+		let newHashes = HashSlotArray{}
 		newHashes.resize(newCapacity)
-		let oldKeys = keys.clone()
-		let oldValues = values.clone()
-		let oldStates = states.clone()
-		let oldHashes = hashes.clone()
+		let oldKeys = keys
+		let oldValues = values
+		let oldStates = states
+		let oldHashes = hashes
 		keys = newKeys
 		values = newValues
 		states = newStates
 		hashes = newHashes
 		capacity = newCapacity
 		count = 0
-		let mask = try (newCapacity - 1) as HashValue otherwise panic("out of range")
+		let mask = (newCapacity - 1) as HashValue
 		for i in 0 upto oldCapacity 'rehash'
 			let state = try oldStates.get(i) otherwise SlotState.Empty
 			let isOccupied = match state 'so1'
@@ -170,7 +171,7 @@ end 'Tbl'
 typealias T = Tbl with String
 
 function main() returns ExitCode
-	var t = T.create()
+	let t = T.create()
 	t.grow()
 	if t.slots() != 16 'wrongCapacity'
 		return 90

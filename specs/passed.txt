@@ -3021,7 +3021,6 @@ generic-functions.md: error.an-undeclared-argument-is-reported-once
 generic-functions.md: error.two-files-of-one-directory-declare-a-generic-beside-another-directorys-generic-of-one-name
 generic-functions.md: error.two-files-of-one-directory-each-declare-a-private-generic-of-one-name
 generic-functions.md: infers-element-index-from-count-and-a-literal
-generic-hash-table-regalloc.md: generic-hash-table-regalloc.rehash-loop-forwards-hidden-parameters
 generic-hash-table-regalloc.md: generic-hash-table-regalloc.witness-dispatch-inside-a-pressured-loop
 generic-instance-clone.md: a-struct-owning-a-set-instance-clones
 generic-instance-clone.md: a-trivial-instantiation-of-the-same-nested-shape-still-clones
@@ -3090,6 +3089,7 @@ generic-opaque-element-loop-store.md: a-borrowed-element-stored-in-a-loop-takes-
 generic-opaque-element-loop-store.md: a-consuming-sibling-called-in-a-loop-takes-a-reference-per-call
 generic-opaque-element-loop-store.md: a-consuming-sibling-loop-that-never-runs-still-releases-the-value
 generic-opaque-element-loop-store.md: a-loop-that-never-runs-still-releases-the-value
+generic-opaque-element-loop-store.md: a-trivial-element-loop-store-is-inert
 generic-opaque-element-loop-store.md: a-user-written-copy-stores-a-borrowed-element-with-a-reference-per-slot
 generic-opaque-element-loop-store.md: a-user-written-fill-leaves-the-value-readable-after-the-loop
 generic-opaque-element-loop-store.md: a-user-written-fill-stores-one-opaque-value-into-a-hundred-slots
