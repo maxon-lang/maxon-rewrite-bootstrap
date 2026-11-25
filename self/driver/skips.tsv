@@ -90,12 +90,9 @@ run	ErrCapabilityConversion	language difference: a closure writes what it captur
 cause	loopHoldsCollection	language difference: a loop holds the collection it walks
 cause	payloadOfBuiltinError	language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back
 cause	rawSurface	language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced
-first	ErrUncheckedFailure	language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports
 run	ErrNotExported,ErrFieldNotExported	language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project
 first	ErrNotExported,ErrFieldNotExported	language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project
 run	ErrClosureBorrow	language difference: a closure that borrows what it captures does not escape
-run	ErrLentToCoroutine	language difference: an async call lends its coroutine what it reads until the await, so the caller does not change it while the call is pending
-first	ErrLentToCoroutine	language difference: an async call lends its coroutine what it reads until the await, so the caller does not change it while the call is pending
 run	ErrHolderMayWait	language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service
 run	ErrValueNotShareable	language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value at an interface type, whose conformer the check does not know, is refused there
 run	ErrRefIdentityOnPrimitive	language difference: a record is a value whose words may be held in place, so it has no identity for 'is' to compare

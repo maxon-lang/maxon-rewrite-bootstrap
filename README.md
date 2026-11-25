@@ -175,8 +175,8 @@ IEEE's). A test that expects a compile error and is first refused under another 
 (arithmetic that needs a `try`, an integer cast, a clone, `mutates`, `var`, a bare name of another module) gets the fixes of the errors that are not the
 expected one, round by round, until the first error is the expected one, and a `<!-- positions: moved -->` line, since the
 fixes move text; if that is never reached, it is skipped when the code left after the fixes and the expected one are a
-pair of the table, or when the first code left after the fixes is one of the table's `first` rows (`E3057`: arithmetic
-that needs a proof is asked for before what maxon reports), and otherwise left as it was; a program that checks clean after the fixes is never skipped: it gets the fixes and a `<!-- positions: moved -->` line, and the test fails for the diagnostic that minimaxon lacks. A test whose first diagnostic left after the fixes has a cause that the table's `cause` rows name, and is not the
+pair of the table, or when the first code left after the fixes is one of the table's `first` rows (`E3220`: a constant
+that calls what is no literal factory is refused before what maxon reports), and otherwise left as it was; a program that checks clean after the fixes is never skipped: it gets the fixes and a `<!-- positions: moved -->` line, and the test fails for the diagnostic that minimaxon lacks. A test whose first diagnostic left after the fixes has a cause that the table's `cause` rows name, and is not the
 code it expects, is skipped with that row's reason: a program that changes the collection its `for` walks (a loop holds
 the collection it walks), or a handler that binds a payload of `SendError` or `SubprocessError`. `fix` over spec files fixes
 each test as a behaviour, on every core, as the runner runs them (`self/driver/fixrun.maxon`); each check adds the test to a
