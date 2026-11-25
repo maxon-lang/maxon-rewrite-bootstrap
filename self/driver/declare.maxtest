@@ -18,6 +18,19 @@ end 'loadParsed'
 function expectDeclared(path String)
 	var errs = diag.ErrorList.create(0)
 	var p = loadParsed(path, errs: errs)
+	expectDeclaredProject(p, path: path, errs: errs)
+end 'expectDeclared'
+
+// expectCompilerDeclared is expectDeclared of the compiler's own source, which the executable of the tests, in the temporary
+// directory, does not find beside it.
+function expectCompilerDeclared(path String)
+	var errs = diag.ErrorList.create(0)
+	var p = loadParsed(path, errs: errs)
+	project.markCompiler(p)
+	expectDeclaredProject(p, path: path, errs: errs)
+end 'expectCompilerDeclared'
+
+function expectDeclaredProject(mutates p ast.Project, path String, mutates errs diag.ErrorList)
 	let entry = declareProject(p, errs: errs)
 	if errs.count() > 0 'de'
 		ast.locateAllErrors(p.modules, errs: errs)
@@ -26,7 +39,7 @@ function expectDeclared(path String)
 	if entry == ast.noFunc or ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: entry).retTy != p.builtins.exitCodeTy 'main'
 		panic("{path}: main is not declared with the return type ExitCode")
 	end 'main'
-end 'expectDeclared'
+end 'expectDeclaredProject'
 
 function expectDeclareError(path String, code String, line Count, col Count)
 	var errs = diag.ErrorList.create(0)
@@ -42,7 +55,7 @@ function expectDeclareError(path String, code String, line Count, col Count)
 end 'expectDeclareError'
 
 test 'declare'
-	expectDeclared("self")
+	expectCompilerDeclared("self")
 	expectDeclared("tests/run/constant-depends-through-match.maxon")
 	expectDeclared("tests/modules/constants")
 	expectDeclared("tests/modules/generics")

@@ -218,6 +218,15 @@ function isCompilerDirectory(path String) returns bool
 	end 'found'
 end 'isCompilerDirectory'
 
+// markCompiler makes every module of p a module of the compiler's own source, which is in the library tiers. A project is
+// so by where it lies (isCompilerDirectory), and a test that loads the compiler's source from an executable that does not
+// lie beside it says so.
+export function markCompiler(mutates p ast.Project)
+	for m in 0 upto p.modules.count() 'modules'
+		p.modules[m].isCompiler = true
+	end 'modules'
+end 'markCompiler'
+
 // addLibrary adds the modules of the standard library's source to p, after the program's, which name its root's public
 // declarations bare (resolve.bareLookup). The library's root has the path of the stdlib qualifier and each module under it a
 // path below that one, so no program module, which may not be called so (E3182), shares a path with it. A program that is the
@@ -1020,9 +1029,7 @@ function discoverDirectory(mutates p ast.Project, rootPath String, memory Source
 		p.rootModule = rootMid
 		p.modules[ast.modIndex(rootMid)].isRuntime = isRuntimeDirectory(rootPath)
 		if isCompilerDirectory(rootPath) 'compiler'
-			for m in 0 upto p.modules.count() 'modules'
-				p.modules[m].isCompiler = true
-			end 'modules'
+			markCompiler(p)
 		end 'compiler'
 		addLibrary(p, rootPath: rootPath, errs: errs)
 	end 'collect'

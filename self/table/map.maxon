@@ -52,20 +52,20 @@ export function mapSlotOccupied(state Count) returns bool
 	return state == SlotState.occupied.ordinal
 end 'mapSlotOccupied'
 
-// A map holds its values in an array of slot states' length whose slots that hold no entry are empty (slots.maxon), so that
-// neither a slot nor a lookup boxes an Option, and a reader is lent the value where it lies (find and valueAt) rather than
-// given a copy.
+// A map holds its values in a slot array of slot states' length whose slots that hold no entry are empty, so that neither a
+// slot nor a lookup boxes an Option, and a reader is lent the value where it lies (find and valueAt) rather than given a
+// copy.
 
 // restoredSlots is the values of a map's slots from those of its occupied slots in slot order, as the build cache stores them.
-function restoredSlots(states ByteArray, consumes filled Array with V) uses V returns Array with V where V implements Droppable
+function restoredSlots(states ByteArray, consumes filled Array with V) uses V returns __SlotArray with V where V implements Droppable
 	var rest = filled
-	var slots as Array with V
-	slots = emptySlots(states.count())
+	var slots as __SlotArray with V
+	slots = __SlotArray.create(states.count())
 	var i = states.count()
 	while i > 0 'slots'
 		i = try i - 1 otherwise 0 as Count
 		if mapSlotOccupied(states[i] as Count) 'filled'
-			slots[i] = try rest.pop() otherwise panic("table: a stored map has fewer values than occupied slots")
+			slots.fillSlot(i, value: try rest.pop() otherwise panic("table: a stored map has fewer values than occupied slots"))
 		end 'filled'
 	end 'slots'
 	return slots
@@ -75,12 +75,12 @@ end 'restoredSlots'
 export type StringMap uses V
 	var states as States
 	var keys as Strings
-	var vals as Array with V
+	var vals as __SlotArray with V
 	var len as Count
 	var used as Count
 
 	export static function new() returns Self
-		return Self{states: States.create(0), keys: Strings.create(0), vals: Array.create(0), len: 0 as Count, used: 0 as Count}
+		return Self{states: States.create(0), keys: Strings.create(0), vals: __SlotArray.create(0), len: 0 as Count, used: 0 as Count}
 	end 'new'
 
 	export function count() returns Count
@@ -107,7 +107,7 @@ export type StringMap uses V
 
 	// valueAt is the value of an occupied slot: one that find gave, or whose stateAt is occupied.
 	export function valueAt(index Count) returns borrowed V
-		return vals[index]
+		return vals.lendSlot(index)
 	end 'valueAt'
 
 	export function usedSlots() returns Count
@@ -156,7 +156,7 @@ export type StringMap uses V
 	export function get(key String) returns Option with V where V implements Copyable
 		var slot as Count
 		if self.find(key, slot: slot) 'hit'
-			return Option.some(vals[slot].clone())
+			return Option.some(vals.lendSlot(slot).clone())
 		end 'hit'
 		return Option.none
 	end 'get'
@@ -165,7 +165,7 @@ export type StringMap uses V
 	export function getOr(key String, fallback V) returns V where V implements Copyable
 		var slot as Count
 		if self.find(key, slot: slot) 'hit'
-			return vals[slot].clone()
+			return vals.lendSlot(slot).clone()
 		end 'hit'
 		return fallback.clone()
 	end 'getOr'
@@ -176,8 +176,8 @@ export type StringMap uses V
 		end 'zero'
 		var nextStates = States.filled(newCap, value: SlotState.empty)
 		var nextKeys = Strings.filled(newCap, value: "")
-		var nextVals as Array with V
-		nextVals = emptySlots(newCap)
+		var nextVals as __SlotArray with V
+		nextVals = __SlotArray.create(newCap)
 		let oldCap = states.count()
 		let mask = newCap - 1
 		for i in 0 upto oldCap 'rehash'
@@ -189,7 +189,7 @@ export type StringMap uses V
 				end 'probe'
 				nextStates[idx] = SlotState.occupied
 				nextKeys[idx] = k
-				nextVals[idx] = takeAt(vals, at: i)
+				nextVals.fillSlot(idx, value: try vals.takeSlot(i) otherwise panic("table: an occupied slot of a map holds no value"))
 			end 'move'
 		end 'rehash'
 		states = nextStates
@@ -218,7 +218,8 @@ export type StringMap uses V
 				break 'probe'
 			end 'stop'
 			if st == SlotState.occupied and keys[idx] == key 'replace'
-				vals[idx] = value
+				try vals.clearSlot(idx) otherwise panic("table: an occupied slot of a map holds no value")
+				vals.fillSlot(idx, value: value)
 				return
 			end 'replace'
 			if st == SlotState.deleted and firstDeleted == curCap 'mark'
@@ -232,7 +233,7 @@ export type StringMap uses V
 		end 'bumpUsed'
 		states[target] = SlotState.occupied
 		keys[target] = key.clone()
-		vals[target] = value
+		vals.fillSlot(target, value: value)
 		len = try len + 1 otherwise len
 	end 'insert'
 
@@ -242,7 +243,7 @@ export type StringMap uses V
 			states[slot] = SlotState.deleted
 			keys[slot] = ""
 			len = try len - 1 otherwise 0 as Count
-			return Option.some(takeAt(vals, at: slot))
+			return Option.some(try vals.takeSlot(slot) otherwise panic("table: an occupied slot of a map holds no value"))
 		end 'hit'
 		return Option.none
 	end 'remove'
@@ -252,12 +253,12 @@ end 'StringMap'
 export type IntMap uses V
 	var states as States
 	var keys as Counts
-	var vals as Array with V
+	var vals as __SlotArray with V
 	var len as Count
 	var used as Count
 
 	export static function new() returns Self
-		return Self{states: States.create(0), keys: Counts.create(0), vals: Array.create(0), len: 0 as Count, used: 0 as Count}
+		return Self{states: States.create(0), keys: Counts.create(0), vals: __SlotArray.create(0), len: 0 as Count, used: 0 as Count}
 	end 'new'
 
 	export function count() returns Count
@@ -284,7 +285,7 @@ export type IntMap uses V
 
 	// valueAt is the value of an occupied slot: one that find gave, or whose stateAt is occupied.
 	export function valueAt(index Count) returns borrowed V
-		return vals[index]
+		return vals.lendSlot(index)
 	end 'valueAt'
 
 	export function usedSlots() returns Count
@@ -335,7 +336,7 @@ export type IntMap uses V
 		if not self.find(key, slot: slot) 'missing'
 			panic("table: no {what} was recorded for key {key}")
 		end 'missing'
-		return vals[slot]
+		return vals.lendSlot(slot)
 	end 'expect'
 
 	// get is a copy of the value of key, for a caller that keeps it; a caller that only reads it reads it in place with find
@@ -343,7 +344,7 @@ export type IntMap uses V
 	export function get(key Count) returns Option with V where V implements Copyable
 		var slot as Count
 		if self.find(key, slot: slot) 'hit'
-			return Option.some(vals[slot].clone())
+			return Option.some(vals.lendSlot(slot).clone())
 		end 'hit'
 		return Option.none
 	end 'get'
@@ -352,7 +353,7 @@ export type IntMap uses V
 	export function getOr(key Count, fallback V) returns V where V implements Copyable
 		var slot as Count
 		if self.find(key, slot: slot) 'hit'
-			return vals[slot].clone()
+			return vals.lendSlot(slot).clone()
 		end 'hit'
 		return fallback.clone()
 	end 'getOr'
@@ -363,8 +364,8 @@ export type IntMap uses V
 		end 'zero'
 		var nextStates = States.filled(newCap, value: SlotState.empty)
 		var nextKeys = Counts.filled(newCap, value: 0 as Count)
-		var nextVals as Array with V
-		nextVals = emptySlots(newCap)
+		var nextVals as __SlotArray with V
+		nextVals = __SlotArray.create(newCap)
 		let oldCap = states.count()
 		let mask = newCap - 1
 		for i in 0 upto oldCap 'rehash'
@@ -376,7 +377,7 @@ export type IntMap uses V
 				end 'probe'
 				nextStates[idx] = SlotState.occupied
 				nextKeys[idx] = k
-				nextVals[idx] = takeAt(vals, at: i)
+				nextVals.fillSlot(idx, value: try vals.takeSlot(i) otherwise panic("table: an occupied slot of a map holds no value"))
 			end 'move'
 		end 'rehash'
 		states = nextStates
@@ -405,7 +406,8 @@ export type IntMap uses V
 				break 'probe'
 			end 'stop'
 			if st == SlotState.occupied and keys[idx] == key 'replace'
-				vals[idx] = value
+				try vals.clearSlot(idx) otherwise panic("table: an occupied slot of a map holds no value")
+				vals.fillSlot(idx, value: value)
 				return
 			end 'replace'
 			if st == SlotState.deleted and firstDeleted == curCap 'mark'
@@ -419,7 +421,7 @@ export type IntMap uses V
 		end 'bumpUsed'
 		states[target] = SlotState.occupied
 		keys[target] = key
-		vals[target] = value
+		vals.fillSlot(target, value: value)
 		len = try len + 1 otherwise len
 	end 'insert'
 
@@ -428,7 +430,7 @@ export type IntMap uses V
 		if self.find(key, slot: slot) 'hit'
 			states[slot] = SlotState.deleted
 			len = try len - 1 otherwise 0 as Count
-			return Option.some(takeAt(vals, at: slot))
+			return Option.some(try vals.takeSlot(slot) otherwise panic("table: an occupied slot of a map holds no value"))
 		end 'hit'
 		return Option.none
 	end 'remove'
