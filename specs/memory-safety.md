@@ -195,8 +195,8 @@ function main() returns ExitCode
 	let cloned = try b.get(0) otherwise panic("no leaf")
 	cloned.label = "mutated"
 	b.push(Leaf.create("second label long enough for a heap record", value: 20))
-	let kept = a.get(0)
-	let reread = b.get(0)
+	let kept = try a.get(0) otherwise panic("no leaf")
+	let reread = try b.get(0) otherwise panic("no leaf")
 	print("{a.count()}:{kept.label}\n")
 	print("{b.count()}:{reread.label}\n")
 	return 0
@@ -384,7 +384,7 @@ function main() returns ExitCode
 	let a = Words.create(0)
 	a.push(Word.spelled("original word long enough for a heap record"))
 	let b = a.clone()
-	let wa = a.get(0)
+	let wa = try a.get(0) otherwise Word.blank
 	let wb = try b.get(0) otherwise Word.blank
 	// TODO: minimaxon has no identity operator
 	if payloadOf(wa) is payloadOf(wb) 'shared'
@@ -428,7 +428,7 @@ function main() returns ExitCode
 	a.push(Slot.filled("filled with a heap record"))
 	a.push(Slot.empty)
 	let b = a.clone()
-	let a0 = a.get(0)
+	let a0 = try a.get(0) otherwise Slot.empty
 	let b0 = try b.get(0) otherwise Slot.empty
 	let b1 = try b.get(1) otherwise Slot.filled("wrong")
 	// TODO: minimaxon has no identity operator
@@ -1084,7 +1084,7 @@ function main() returns ExitCode
 		out.append("|")
 	end 'each'
 	print("{out}\n")
-	let a0 = a.get(0)
+	let a0 = try a.get(0) otherwise Outer.blank
 	let b0 = try b.get(0) otherwise Outer.blank
 	// TODO: minimaxon has no identity operator
 	if nestedTextOf(a0) is nestedTextOf(b0) 'shared'

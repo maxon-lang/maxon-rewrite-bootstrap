@@ -1090,6 +1090,7 @@ challenge-struct-lifetime.md: return-struct-with-computed-fields
 char-literal-to-int.md: char-literal-arithmetic
 char-literal-to-int.md: char-literal-both-sides-still-character
 char-literal-to-int.md: char-literal-codepoint-iteration
+char-literal-to-int.md: char-literal-coerces-across-a-closure-body
 char-literal-to-int.md: char-literal-eq-codepoint
 char-literal-to-int.md: char-literal-escape-coercion
 char-literal-to-int.md: char-literal-ge-le-codepoint

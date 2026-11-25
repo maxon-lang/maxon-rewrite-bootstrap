@@ -242,15 +242,15 @@ function main() returns ExitCode
 	if a.managed.elementSize() != -2 'stamp'
 		return 1
 	end 'stamp'
-	a.set(4, value: 1)
+	try a.set(4, value: 1) otherwise panic("set: index out of range")
 	var seen = 0 as Count
 	for i in 0 upto 5 'read'
-		seen = seen + ((a.get(i)) as Count)
+		seen = seen + ((try a.get(i) otherwise panic("get: index out of range")) as Count)
 	end 'read'
 	if seen != 7 'sum'
 		return 2
 	end 'sum'
-	if (a.get(3)) != 3 'acrossTheByte'
+	if (try a.get(3) otherwise panic("get: index out of range")) != 3 'acrossTheByte'
 		return 3
 	end 'acrossTheByte'
 	return 0
