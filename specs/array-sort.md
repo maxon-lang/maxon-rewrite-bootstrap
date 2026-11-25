@@ -492,7 +492,7 @@ function isSorted(a IntArray) returns bool
 	var i = 1 as Count
 	while i < n 'scan'
 		let prev = try a.get(i - 1) otherwise return false
-		let curr = try a.get(i) otherwise return false
+		let curr = a.get(i)
 		if prev > curr 'oop'
 			return false
 		end 'oop'

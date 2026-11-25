@@ -18,7 +18,7 @@ end 'touch'
 function f(a Count, b Count) returns Count
 	var x = a
 	if x >= b 'ok'
-		x = b + 0
+		x = a - 0
 		return b - x
 	end 'ok'
 	return 0

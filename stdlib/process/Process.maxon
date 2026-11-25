@@ -87,7 +87,7 @@ extension Process
 	static function envEntrySeparatorAt(bytes ByteArray) returns ElementIndex
 		let n = bytes.count()
 		for i in 1 upto n 'eachByte'
-			let b = try bytes.get(i) otherwise panic("envEntrySeparatorAt: i < n = bytes.count() but get({i}) failed")
+			let b = bytes.get(i)
 			if b == EnvNameValueSeparator 'atSeparator'
 				return i
 			end 'atSeparator'

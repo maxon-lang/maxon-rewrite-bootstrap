@@ -134,7 +134,7 @@ end 'PemScanner'
 
 function pemBoundaryLength(line ByteArray) returns Count
 	var kept = line.count()
-	if kept > 0 and (try line.get(kept - 1) otherwise panic("kept never exceeds the line length")) == PemCarriageReturn 'carriageReturn'
+	if kept > 0 and (line.get(kept - 1)) == PemCarriageReturn 'carriageReturn'
 		kept = kept - 1
 	end 'carriageReturn'
 	while kept > 0 'trim'

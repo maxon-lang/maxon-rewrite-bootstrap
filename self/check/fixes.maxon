@@ -103,9 +103,9 @@ end 'tryFix'
 // try that covers only proven accesses is told to do. A try statement, or a try whose handler is a block, has no fix:
 // where it ends is not found from its nodes.
 export function untryFix(t ast.Tree, site ast.NodeID) returns diag.Fix
-	if t.kindOf(site) != ast.NodeKind.tryExpr or ast.tryExprHandler(t, id: site) != 0 'block'
+	if t.kindOf(site) != ast.NodeKind.tryExpr 'other'
 		return diag.Fix.none()
-	end 'block'
+	end 'other'
 	let inner = ast.exprExtent(t, e: ast.tryExprE(t, id: site))
 	let finish = tryEnd(t, e: site)
 	if not inner.isSome() or not finish.isSome() 'unknown'
@@ -118,9 +118,17 @@ export function untryFix(t ast.Tree, site ast.NodeID) returns diag.Fix
 	return fixOf(fixKindUntry, edits: edits)
 end 'untryFix'
 
-// tryEnd is where a try expression whose handler is no block ends: after its fallback or its expression, after the
-// statement its handler is, or after the word ignore.
+// tryEnd is where a try expression ends: after the end of its handler's block, after its fallback or its expression, after
+// the statement its handler is, or after the word ignore.
 function tryEnd(t ast.Tree, e ast.NodeID) returns table.Option with Count
+	let handler = ast.tryExprHandler(t, id: e)
+	if handler != 0 'block'
+		let closing = ast.handlerBlockEnd(t, id: handler)
+		if closing == 0 'unclosed'
+			return table.Option.none
+		end 'unclosed'
+		return table.Option.some(ast.jumpEnd(t.text, at: t.startOf(closing) as Count))
+	end 'block'
 	let ret = ast.tryExprRet(t, id: e)
 	if ret != 0 and ast.returnStmtValue(t, id: ret) != 0 'returns'
 		return ast.exprEnd(t, e: ast.returnStmtValue(t, id: ret))

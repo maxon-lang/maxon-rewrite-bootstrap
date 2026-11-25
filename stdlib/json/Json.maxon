@@ -258,9 +258,7 @@ end 'Json'
 function findKeyInNode(node JsonNode, key String) returns JsonNodeId throws JsonAccessError
 	let n = node.keys.count()
 	for i in 0 upto n 'scan'
-		let k = try node.keys.get(i) otherwise 'kErr'
-			panic("findKeyInNode: keys.get OOB — i < count by loop bound")
-		end 'kErr'
+		let k = node.keys.get(i)
 		if k.equals(key) 'hit'
 			return try node.children.get(i) otherwise 'cErr'
 				panic("findKeyInNode: children.get OOB — parallel arrays out of sync")
@@ -368,9 +366,7 @@ type JsonParser
 	function matchLiteral(mutates self, expected ByteArray) throws JsonError
 		let n = expected.count()
 		for i in 0 upto n 'cmp'
-			let want = try expected.get(i) otherwise 'wErr'
-				panic("matchLiteral: literal table get OOB")
-			end 'wErr'
+			let want = expected.get(i)
 			let got = try peek()
 			if got != want 'ne'
 				throw JsonError.unexpectedChar
@@ -728,9 +724,7 @@ function writeArrayPretty(doc JsonDoc, ids JsonNodeIdArray, depth IndentDepth, m
 	out.push(JsonByte.newline)
 	for i in 0 upto n 'each'
 		writeIndent(try depth + 1 otherwise panic("out of range"), out: out)
-		let childId = try ids.get(i) otherwise 'gErr'
-			panic("writeArrayPretty: ids.get OOB — i < n by loop bound")
-		end 'gErr'
+		let childId = ids.get(i)
 		writeNodePretty(doc, id: childId, depth: try depth + 1 otherwise panic("out of range"), out: out)
 		if i + 1 < n 'sep'
 			out.push(JsonByte.comma)
@@ -758,9 +752,7 @@ function writeObjectPretty(doc JsonDoc, keys StringArray, ids JsonNodeIdArray, d
 		writeJsonString(key, out: out)
 		out.push(JsonByte.colon)
 		out.push(JsonByte.space)
-		let childId = try ids.get(i) otherwise 'cErr'
-			panic("writeObjectPretty: ids.get OOB — parallel arrays out of sync")
-		end 'cErr'
+		let childId = ids.get(i)
 		writeNodePretty(doc, id: childId, depth: try depth + 1 otherwise panic("out of range"), out: out)
 		if i + 1 < n 'sep'
 			out.push(JsonByte.comma)
@@ -785,9 +777,7 @@ function writeArray(doc JsonDoc, ids JsonNodeIdArray, mutates out ByteArray)
 		if i > 0 'sep'
 			out.push(JsonByte.comma)
 		end 'sep'
-		let childId = try ids.get(i) otherwise 'gErr'
-			panic("writeArray: ids.get OOB — i < n by loop bound")
-		end 'gErr'
+		let childId = ids.get(i)
 		writeNode(doc, id: childId, out: out)
 	end 'each'
 	out.push(JsonByte.rBracket)
@@ -805,9 +795,7 @@ function writeObject(doc JsonDoc, keys StringArray, ids JsonNodeIdArray, mutates
 		end 'kErr'
 		writeJsonString(key, out: out)
 		out.push(JsonByte.colon)
-		let childId = try ids.get(i) otherwise 'cErr'
-			panic("writeObject: ids.get OOB — parallel arrays out of sync")
-		end 'cErr'
+		let childId = ids.get(i)
 		writeNode(doc, id: childId, out: out)
 	end 'each'
 	out.push(JsonByte.rBrace)
@@ -818,9 +806,7 @@ function writeJsonString(s String, mutates out ByteArray)
 	let bytes = s.toByteArray()
 	let n = bytes.count()
 	for i in 0 upto n 'each'
-		let b = try bytes.get(i) otherwise 'bErr'
-			panic("writeString: bytes.get OOB — i < n by loop bound")
-		end 'bErr'
+		let b = bytes.get(i)
 		writeStringByte(b, out: out)
 	end 'each'
 	out.push(JsonByte.quote)
@@ -925,9 +911,7 @@ end 'writeNumber'
 function writeBytes(mutates out ByteArray, src ByteArray)
 	let n = src.count()
 	for i in 0 upto n 'each'
-		let b = try src.get(i) otherwise 'bErr'
-			panic("writeBytes: src.get OOB — i < n by loop bound")
-		end 'bErr'
+		let b = src.get(i)
 		out.push(b)
 	end 'each'
 end 'writeBytes'

@@ -1,0 +1,78 @@
+// The range analysis follows a count through a local bound to it, through two arrays of equal counts, and through an index
+// moved by a constant, so each access below is written with no try and runs with no check: a loop to a local that holds the
+// count, the neighbour before and after the loop's index, the last element by the count less one, an array read at the
+// indices of another of the same count, and a chain of three facts from the counter to the count.
+typealias Counts = Array with Count
+
+function upToLocal(xs Counts) returns Count
+	let n = xs.count()
+	var total = 0 as Count
+	for i in 0 upto n 'each'
+		total = try total + xs.get(i) otherwise panic("total overflowed")
+	end 'each'
+	return total
+end 'upToLocal'
+
+function neighbours(xs Counts) returns Count
+	var total = 0 as Count
+	for i in 1 upto xs.count() 'each'
+		total = try total + xs.get(i - 1) * xs.get(i) otherwise panic("total overflowed")
+	end 'each'
+	return total
+end 'neighbours'
+
+function ahead(xs Counts) returns Count
+	var total = 0 as Count
+	for i in 0 upto xs.count() 'each'
+		if i + 1 < xs.count() 'inside'
+			total = try total + xs.get(i + 1) otherwise panic("total overflowed")
+		end 'inside'
+	end 'each'
+	return total
+end 'ahead'
+
+function last(xs Counts) returns Count
+	if xs.isEmpty() 'empty'
+		return 0
+	end 'empty'
+	let n = xs.count()
+	return xs.get(n - 1)
+end 'last'
+
+function dot(a Counts, b Counts) returns Count
+	if a.count() != b.count() 'apart'
+		return 0
+	end 'apart'
+	var total = 0 as Count
+	for i in 0 upto a.count() 'each'
+		total = try total + a.get(i) * b.get(i) otherwise panic("total overflowed")
+	end 'each'
+	return total
+end 'dot'
+
+function chained(a Counts, b Counts) returns Count
+	if a.count() < b.count() 'shorter'
+		return 0
+	end 'shorter'
+	let n = b.count()
+	var total = 0 as Count
+	for i in 0 upto n 'each'
+		total = try total + a.get(i) otherwise panic("total overflowed")
+	end 'each'
+	return total
+end 'chained'
+
+function main() returns ExitCode
+	var xs = Counts.create(0)
+	for k in 1 to 4 'fill'
+		xs.push(k)
+	end 'fill'
+	let ys = Counts.filled(4, value: 2)
+	let zs = Counts.filled(3, value: 5)
+	print("{upToLocal(xs)} {neighbours(xs)} {ahead(xs)} {last(xs)} {last(Counts.create(0))}\n")
+	print("{dot(xs, b: ys)} {dot(xs, b: zs)} {chained(xs, b: zs)} {chained(zs, b: xs)}\n")
+	return 0
+end 'main'
+
+//> 10 20 9 4 0
+//> 20 0 6 0

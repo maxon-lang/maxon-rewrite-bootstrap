@@ -145,11 +145,136 @@ function guardThenPop() returns Count
 	return missed
 end 'guardThenPop'
 
+function two() returns Count
+	return 2
+end 'two'
+
+function grow(mutates i Count)
+	i = try i + 1 otherwise panic("overflowed")
+end 'grow'
+
+// The local n holds the count of xs only until xs changes: each function below changes xs after binding n, then reads xs
+// below n.
+function staleAfterPop() returns Count
+	var xs = threes()
+	let n = xs.count()
+	let i = two()
+	try xs.pop() otherwise panic("empty")
+	if i < n 'guarded'
+		return try xs.get(i) otherwise 100
+	end 'guarded'
+	return 0
+end 'staleAfterPop'
+
+function staleAfterClear() returns Count
+	var xs = threes()
+	let n = xs.count()
+	let i = two()
+	xs.clear()
+	if i < n 'guarded'
+		return try xs.get(i) otherwise 100
+	end 'guarded'
+	return 0
+end 'staleAfterClear'
+
+function staleAfterAssign() returns Count
+	var xs = threes()
+	let n = xs.count()
+	let i = two()
+	xs = Counts.filled(1, value: 3)
+	if i < n 'guarded'
+		return try xs.get(i) otherwise 100
+	end 'guarded'
+	return 0
+end 'staleAfterAssign'
+
+function staleAfterCall() returns Count
+	var xs = threes()
+	let n = xs.count()
+	let i = two()
+	shrink(xs)
+	if i < n 'guarded'
+		return try xs.get(i) otherwise 100
+	end 'guarded'
+	return 0
+end 'staleAfterCall'
+
+function staleAfterClosure() returns Count
+	var xs = threes()
+	let n = xs.count()
+	let i = two()
+	_ = apply(function() gives cutOnce(xs))
+	if i < n 'guarded'
+		return try xs.get(i) otherwise 100
+	end 'guarded'
+	return 0
+end 'staleAfterClosure'
+
+// staleBound assigns the local that held the count.
+function staleBound() returns Count
+	let xs = threes()
+	var n = xs.count()
+	let i = two()
+	n = 9
+	if i < n 'guarded'
+		return try xs.get(i + 1) otherwise 100
+	end 'guarded'
+	return 0
+end 'staleBound'
+
+// nextOfGuarded reads one past an index that only the index itself was guarded for.
+function nextOfGuarded() returns Count
+	let xs = threes()
+	let i = two()
+	if i < xs.count() 'guarded'
+		return try xs.get(i + 1) otherwise 100
+	end 'guarded'
+	return 0
+end 'nextOfGuarded'
+
+// movedTerm guards i + 1, then moves i, so the sum it reads is past the guard.
+function movedTerm() returns Count
+	let xs = threes()
+	var i = 1 as Count
+	if i + 1 < xs.count() 'guarded'
+		grow(i)
+		return try xs.get(i + 1) otherwise 100
+	end 'guarded'
+	return 0
+end 'movedTerm'
+
+// boundOne binds j to i + 1 under a guard on i, which leaves j at most the count.
+function boundOne() returns Count
+	let xs = threes()
+	let i = two()
+	if i < xs.count() 'guarded'
+		let j = i + 1
+		return try xs.get(j) otherwise 100
+	end 'guarded'
+	return 0
+end 'boundOne'
+
+// poppedInCondition pops in the condition after reading the count, which the guard compared with the count before the pop.
+function poppedInCondition() returns Count
+	var xs = threes()
+	let i = two()
+	if xs.count() == 3 'known'
+		if i < xs.count() and (try xs.pop() otherwise 0) >= 0 'guarded'
+			return try xs.get(i) otherwise 100
+		end 'guarded'
+	end 'known'
+	return 0
+end 'poppedInCondition'
+
 function main() returns ExitCode
 	print("{popped()} {cleared()} {removed()} {assigned()} {passed()}\n")
 	print("{captured()} {stepped()} {other()} {viaHolder()} {guardThenPop()}\n")
+	print("{staleAfterPop()} {staleAfterClear()} {staleAfterAssign()} {staleAfterCall()} {staleAfterClosure()}\n")
+	print("{staleBound()} {nextOfGuarded()} {movedTerm()} {boundOne()} {poppedInCondition()}\n")
 	return 0
 end 'main'
 
 //> 106 203 106 203 106
 //> 103 103 109 100 100
+//> 100 100 100 100 100
+//> 100 100 100 100 100

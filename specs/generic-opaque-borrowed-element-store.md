@@ -127,9 +127,7 @@ type Bag uses Element
 	function copyFrom(mutates self, other Items) where Element implements Copyable
 		let n = other.count()
 		for i in 0 upto n 'copy'
-			let value = try other.get(i) otherwise 'getErr'
-				panic("Bag.copyFrom: get OOB — i < the count just read")
-			end 'getErr'
+			let value = other.get(i)
 			items.push(value)
 		end 'copy'
 	end 'copyFrom'
@@ -351,9 +349,7 @@ type Bag uses Element
 	function copyFrom(mutates self, other Items) where Element implements Copyable
 		let n = other.count()
 		for i in 0 upto n 'copy'
-			let value = try other.get(i) otherwise 'getErr'
-				panic("Bag.copyFrom: get OOB — i < the count just read")
-			end 'getErr'
+			let value = other.get(i)
 			items.push(value)
 		end 'copy'
 	end 'copyFrom'

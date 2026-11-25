@@ -33,6 +33,9 @@ let proofOtherProbePercent = 15 as Count
 // proofClosureProbePercent is how often a fact is followed by a closure that changes what it is about and a read under it.
 let proofClosureProbePercent = 30 as Count
 
+// proofStepProbePercent is how often a fact on an index is followed by a move of the index by a constant and a read at it.
+let proofStepProbePercent = 30 as Count
+
 // proofFirstUsePercent is how often a guard or a loop starts with a read under its own fact.
 let proofFirstUsePercent = 45 as Count
 
@@ -278,6 +281,19 @@ type ProofGen
 		return "({proofHandled("{arrays[array].text}.count() - {self.pickFrom(1, n: 2)}", fallback: "0")})"
 	end 'countText'
 
+	// boundLocal binds a new local to the count of an array, or to the count less one, and gives its name: the analysis relates
+	// the local to the count until either changes, so a loop or a guard on the local is one on the count.
+	function boundLocal(mutates self, array Count) returns String
+		let b = self.fresh("b")
+		if self.chance(80) 'count'
+			self.line("{kwLet} {b} = {arrays[array].text}.count()")
+			return b
+		end 'count'
+		let less = "{kwLet} {b} = {proofHandled("{arrays[array].text}.count() - 1", fallback: "0")}"
+		self.line(less)
+		return b
+	end 'boundLocal'
+
 	function pickFrom(mutates self, base Count, n Count) returns Count
 		return try base + self.pick(n) otherwise panic("fuzz: a pick past memory")
 	end 'pickFrom'
@@ -483,7 +499,37 @@ type ProofGen
 		if self.chance(proofClosureProbePercent) 'closure'
 			self.closureProbe()
 		end 'closure'
+		if self.chance(proofStepProbePercent) 'step'
+			self.stepProbe()
+		end 'step'
 	end 'focusUses'
+
+	// stepProbe moves the index of the innermost fact by a constant, or binds a new local to it moved by one, then reads the array
+	// at the index: the analysis moves what it knows of the index by as much, and the read is proven only if the fact still holds.
+	function stepProbe(mutates self)
+		let top = try focusArrays.count() - 1 otherwise panic("fuzz: a probe of a fact that was never stated")
+		let array = focusArrays[top]
+		let place = focusPlaces[top].clone()
+		if not self.isCursor(place) 'notCursor'
+			return
+		end 'notCursor'
+		if self.chance(40) 'bound'
+			let b = self.fresh("b")
+			let row = "{kwLet} {b} = {proofHandled("{place} + 1", fallback: "0")}"
+			self.line(row)
+			self.readAt(array, index: b)
+			return
+		end 'bound'
+		var step = "{place} + 1"
+		let r = self.pick(100)
+		if r < 25 'back'
+			step = "{place} - 1"
+		end 'back' else if r < 40 'two'
+			step = "{place} + 2"
+		end 'two'
+		self.line("{place} = {proofHandled(step, fallback: "0")}")
+		self.readAt(array, index: place)
+	end 'stepProbe'
 
 	// closureProbe runs a closure that changes what the innermost fact is about, then reads under the fact: the closure may have
 	// changed the index or the array wherever it was made, and the fact is true afterwards only if nothing it did can matter.
@@ -876,10 +922,20 @@ type ProofGen
 	// ifStatement writes a guard, whose body knows what the guard says, with an else sometimes.
 	function ifStatement(mutates self, depth Count)
 		let mark = self.focusMark()
-		let c = self.cond(depth)
-		let focused = condFocused
-		let array = condArray
-		let place = condPlace.clone()
+		var c = self.cond(depth)
+		var focused = condFocused
+		var array = condArray
+		var place = condPlace.clone()
+		if self.chance(15) 'local'
+			array = self.randomArray()
+			let b = self.boundLocal(array)
+			place = self.readPlace()
+			if self.chance(30) 'stepped'
+				place = "({proofHandled("{place} + {self.pickFrom(1, n: 2)}", fallback: "0")})"
+			end 'stepped'
+			c = "{place} < {b}"
+			focused = true
+		end 'local'
 		let label = self.label()
 		self.line("{kwIf} {c} {label}")
 		self.indentMore()
@@ -947,7 +1003,9 @@ type ProofGen
 			bound = self.readPlace()
 		end 'place' else if r >= 74 and r < 84 'constant'
 			bound = "{self.pickFrom(1, n: 6)}"
-		end 'constant'
+		end 'constant' else if r >= 84 and r < 96 'local'
+			bound = self.boundLocal(array)
+		end 'local'
 		var start = "0"
 		var word = kwUpto
 		let shape = self.pick(100)
@@ -993,7 +1051,10 @@ type ProofGen
 			end 'focused'
 			let row24 = "{place} = idx({self.pick(3)})"
 			self.line(row24)
-			if self.chance(85) 'below'
+			if self.chance(25) 'local'
+				let b = self.boundLocal(array)
+				condition = "{place} < {b}"
+			end 'local' else if self.chance(85) 'below'
 				condition = "{place} < {arrays[array].text}.count()"
 			end 'below' else 'belowOrAt'
 				condition = "{place} <= {arrays[array].text}.count()"

@@ -138,12 +138,15 @@ union Gone
 	assignable(mutable ByteArray)
 	// besides are the places that overlap a collection but its count, which a count effect adjusts instead.
 	besides(collection Place)
+	// apart are the places that overlap a place but the place itself, whose facts a move by a known amount keeps.
+	apart(place Place)
 
 	function isGone(p Place) returns bool
 		return match self 'rule'
 			overlapping(q) gives q.overlaps(p)
 			assignable(mutable) gives mutable[p.root] != 0
 			besides(q) gives q.overlaps(p) and not p.isCountOf(q)
+			apart(q) gives q.overlaps(p) and not q.same(p)
 		end 'rule'
 	end 'isGone'
 end 'Gone'
@@ -195,7 +198,8 @@ type RangeState
 		fields.push(PlaceSpan.make(p.clone(), span: v.clone()))
 	end 'refine'
 
-	// relate records that hi - lo >= gap.
+	// relate records that hi - lo >= gap. A state that holds maxRelations already forgets the new one, which knowing less
+	// allows.
 	function relate(mutates self, hi Place, lo Place, gap ast.I128)
 		for i in 0 upto relations.count() 'each'
 			if relations[i].hi.same(hi) and relations[i].lo.same(lo) 'found'
@@ -204,8 +208,16 @@ type RangeState
 				return
 			end 'found'
 		end 'each'
-		relations.push(Relation.make(hi.clone(), lo: lo.clone(), gap: gap.clone()))
+		if relations.count() < maxRelations 'room'
+			relations.push(Relation.make(hi.clone(), lo: lo.clone(), gap: gap.clone()))
+		end 'room'
 	end 'relate'
+
+	// equate records that v is w + by, as a binding or an assignment of 'w + by' leaves it.
+	function equate(mutates self, v Place, w Place, by ast.I128)
+		self.relate(v, lo: w, gap: by)
+		self.relate(w, lo: v, gap: by.neg())
+	end 'equate'
 
 	// gap is how far hi is known to lie above lo, if anything is known of it.
 	function gap(hi Place, lo Place) returns table.Option with ast.I128
@@ -216,6 +228,95 @@ type RangeState
 		end 'each'
 		return table.Option.none
 	end 'gap'
+
+	// least is the least that hi - lo can be by the relations, along a chain of at most three of them from hi down to lo:
+	// each says one place lies at least its gap above the next, so the gaps add. Gaps are bounded by the spans of the
+	// words and counts they relate, so three of them add far inside an I128.
+	function least(hi Place, lo Place) returns table.Option with ast.I128
+		var found = false
+		var best = ast.I128.zero()
+		for i in 0 upto relations.count() 'first'
+			if relations[i].hi.same(hi) 'fromHi'
+				if relations[i].lo.same(lo) 'one'
+					best = betterGap(found, best: best, gap: relations[i].gap)
+					found = true
+				end 'one'
+				for j in 0 upto relations.count() 'second'
+					if relations[j].hi.same(relations[i].lo) 'next'
+						let two = relations[i].gap.add(relations[j].gap)
+						if relations[j].lo.same(lo) 'two'
+							best = betterGap(found, best: best, gap: two)
+							found = true
+						end 'two'
+						for k in 0 upto relations.count() 'third'
+							if relations[k].hi.same(relations[j].lo) and relations[k].lo.same(lo) 'three'
+								best = betterGap(found, best: best, gap: two.add(relations[k].gap))
+								found = true
+							end 'three'
+						end 'third'
+					end 'next'
+				end 'second'
+			end 'fromHi'
+		end 'first'
+		if not found 'none'
+			return table.Option.none
+		end 'none'
+		return table.Option.some(best)
+	end 'least'
+
+	// knownSpan is what the state knows of a place that a relation names, for bounding another through it: a local's span
+	// is always held, and a count lies between 0 and maxElementCount where nothing else is known.
+	function knownSpan(p Place) returns table.Option with Span
+		if p.isLocal() 'local'
+			return table.Option.some(spans[p.root].clone())
+		end 'local'
+		match consumes self.at(p) 'known'
+			some(s) then return table.Option.some(s)
+			none then _ = 0
+		end 'known'
+		if p.counted 'count'
+			return table.Option.some(Span.make(ast.I128.zero(), hi: ast.I128.fromCount(maxElementCount)))
+		end 'count'
+		return table.Option.none
+	end 'knownSpan'
+
+	// tightened is the span cur of the place p, cut by each relation that bounds p by a place whose span is known: q - p >= g
+	// puts p at most q's highest less g, and p - q >= g at least q's lowest plus g.
+	function tightened(p Place, cur Span) returns Span
+		var lo = cur.lo.clone()
+		var hi = cur.hi.clone()
+		for i in 0 upto relations.count() 'each'
+			if relations[i].lo.same(p) 'below'
+				match consumes self.knownSpan(relations[i].hi) 'hi'
+					some(s) then hi = ast.minI128(hi, b: s.hi.sub(relations[i].gap))
+					none then _ = 0
+				end 'hi'
+			end 'below'
+			if relations[i].hi.same(p) 'above'
+				match consumes self.knownSpan(relations[i].lo) 'lo'
+					some(s) then lo = ast.maxI128(lo, b: s.lo.add(relations[i].gap))
+					none then _ = 0
+				end 'lo'
+			end 'above'
+		end 'each'
+		var out = Span.make(lo, hi: hi)
+		out.nonZero = cur.nonZero
+		return out
+	end 'tightened'
+
+	// shiftPlace moves what is known of how p compares with other places by exactly by, as 'p = p + by' does where the sum is
+	// exact; what names a place inside p or holding it goes. The caller gives p its new span.
+	function shiftPlace(mutates self, p Place, by ast.I128)
+		self.drop(Gone.apart(p.clone()))
+		for i in 0 upto relations.count() 'each'
+			if relations[i].hi.same(p) 'above'
+				relations[i].gap = relations[i].gap.add(by)
+			end 'above'
+			if relations[i].lo.same(p) 'below'
+				relations[i].gap = relations[i].gap.sub(by)
+			end 'below'
+		end 'each'
+	end 'shiftPlace'
 
 	// drop forgets the fields and relations that name a place gone says is gone. A local's own span stays: whoever changed
 	// it sets the new one.
@@ -345,6 +446,46 @@ function narrowedSpan(cur Span, op String, other Span) returns Span
 	end 'unknownOp'
 	return next
 end 'narrowedSpan'
+
+// betterGap is the larger of the best gap found so far and gap, or gap where none was found.
+function betterGap(found bool, best ast.I128, gap ast.I128) returns ast.I128
+	if not found 'first'
+		return gap.clone()
+	end 'first'
+	return ast.maxI128(best, b: gap)
+end 'betterGap'
+
+// maxRelations is how many relations a state holds at most, which bounds the chains least follows.
+let maxRelations = 32 as Count
+
+// shiftedSpan is the values of s moved by by.
+function shiftedSpan(s Span, by ast.I128) returns Span
+	if by.isZero() 'same'
+		return s.clone()
+	end 'same'
+	return Span.make(s.lo.add(by), hi: s.hi.add(by))
+end 'shiftedSpan'
+
+// comparedGap is what 'x + dx op y + dy' says of x - y, if it says something: the comparison's gap, moved by the offsets.
+// Only a sum computed exactly says anything of its operand: one that fails past its word never gets to the comparison, and
+// one computed modulo the word (exact is false) may have wrapped.
+function comparedGap(op String, dx ast.I128, dy ast.I128, exact bool) returns table.Option with ast.I128
+	if not exact and not (dx.isZero() and dy.isZero()) 'wraps'
+		return table.Option.none
+	end 'wraps'
+	return match consumes relationGap(op) 'gap'
+		some(g) gives table.Option.some(g.sub(dx).add(dy))
+		none gives table.Option.none
+	end 'gap'
+end 'comparedGap'
+
+// comparedSpan is what 'x + dx op y' leaves of x's span cur, where y's side has the span other, if the sum is exact.
+function comparedSpan(cur Span, op String, other Span, dx ast.I128, exact bool) returns table.Option with Span
+	if not exact and not dx.isZero() 'wraps'
+		return table.Option.none
+	end 'wraps'
+	return table.Option.some(narrowedSpan(cur, op: op, other: shiftedSpan(other, by: dx.neg())))
+end 'comparedSpan'
 
 // rulesOut is whether a span holds no value, so that no path reaches where it is known.
 function rulesOut(s Span) returns bool

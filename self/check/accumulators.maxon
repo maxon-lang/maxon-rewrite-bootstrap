@@ -150,9 +150,10 @@ end 'namesPlace'
 // move it.
 function rangeAccumulate(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, a Accumulation)
 	let l = rangeEval(r, p: p, ms: ms, e: ast.binaryExprL(ms.tree(), id: a.sum))
+	let rightFrom = r.written.count()
 	let rs = rangeEval(r, p: p, ms: ms, e: ast.binaryExprR(ms.tree(), id: a.sum))
 	let bound = rangeBoundOf(r, local: a.place.root)
-	let v = rangeOperate(r, p: p, ms: ms, e: a.sum, l: l, rs: rs, bound: bound)
+	let v = rangeOperate(r, p: p, ms: ms, e: a.sum, l: l, rs: rs, rightFrom: rightFrom, bound: bound)
 	if r.probing and not isDead(r, s: r.st) 'probed'
 		if a.eIsLeft 'left'
 			r.probe.record(a, e: l)
@@ -160,7 +161,7 @@ function rangeAccumulate(mutates r Ranges, p ast.Project, ms ast.ModuleState, s 
 			r.probe.record(a, e: rs)
 		end 'right'
 	end 'probed'
-	rangeWrite(r, p: p, ms: ms, place: a.place, s: v, t: typeOf(r, e: ast.assignStmtTarget(ms.tree(), id: s)))
+	rangeAssignTo(r, p: p, ms: ms, place: a.place, value: a.sum, v: v, t: typeOf(r, e: ast.assignStmtTarget(ms.tree(), id: s)))
 end 'rangeAccumulate'
 
 // Accumulated is what the probe of a loop learned of an accumulator: how its statements can move it in one iteration of

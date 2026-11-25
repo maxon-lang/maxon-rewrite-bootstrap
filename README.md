@@ -3083,8 +3083,17 @@ end 'forms'
   the count of an array that is a local, or a field of one to depth 2, as a place (`count(xs)`), which `xs.count()`
   reads, a comparison relates to an index (`i < xs.count()` gives `count(xs) - i >= 1`) and `isEmpty()` narrows; a call
   that changes the array moves or forgets it by the row's `Count` effect, and anything else that may change the array
-  forgets it. A `for i in a upto b` whose bound `b` is a count or a local that nothing in the function may change (its
-  root is no `var` and no parameter taken to change) gives its body `b - i >= 1`. An access that is not proven where no
+  forgets it. A side of a comparison may be a place moved by a constant (`i + 1 < xs.count()` gives `count(xs) - i >= 2`
+  and narrows `i`), a binding or an assignment of one relates the local to it (`let n = xs.count()` makes `n` equal to the
+  count until either changes, `j = i + 1` puts `j` one above `i`), and `i = i + 1` moves what is known of `i` by one instead
+  of forgetting it; none of this holds of a `bits(64)` pattern, whose sums wrap. A question of how far apart two places are
+  follows chains of up to three relations (two places between), adding their gaps, and an operand of an arithmetic or an
+  index is cut by its relations to places whose spans are known: an index below a count is below 2^62, so `i + 1` cannot
+  overflow, and `n - 1` cannot go below 0 where `n` lies above an index. An index may be a place moved by a constant
+  (`xs.get(i + 1)`, `xs.get(n - 1)`). A `for i in a upto b` whose bound `b` is a count or a local, or one moved by a
+  constant, that nothing in the function may change (its root is no `var` and no parameter taken to change) gives its body
+  `b - i >= 1`. A state keeps at most 32 relations. Every rule is checked by brute force against what the operations do to
+  values (`self/check/rules.maxtest`). An access that is not proven where no
   `try` covers it is `E3057`, which says what it needs (`'xs.get(i)' needs i < xs.count()`) and names the guard and the
   `try` that would give it. A `try` that covers nothing that can fail but proven accesses is `E3944`: the code would say
   the access is checked where it is not; `fix` removes the `try` and its handler.

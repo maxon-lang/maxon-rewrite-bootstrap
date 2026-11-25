@@ -573,13 +573,17 @@ function rangeLetStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast
 	end 'local'
 	let ty = r.typing.locals[local as Count].ty
 	let init = ast.letStmtInit(ms.tree(), id: s)
-	var v = Span.make(ast.I128.zero(), hi: ast.I128.zero())
+	let place = Place.local(slotOf(r, local: local))
 	if init != 0 'init'
-		v = rangeEval(r, p: p, ms: ms, e: init)
-	end 'init' else if ast.isIntType(ms.types, reads: p.types, t: ty) 'declared'
+		let v = rangeEval(r, p: p, ms: ms, e: init)
+		rangeAssignTo(r, p: p, ms: ms, place: place, value: init, v: v, t: ty)
+		return
+	end 'init'
+	var v = Span.make(ast.I128.zero(), hi: ast.I128.zero())
+	if ast.isIntType(ms.types, reads: p.types, t: ty) 'declared'
 		v = typeSpan(ms.types, reads: p.types, t: ty)
 	end 'declared'
-	rangeWrite(r, p: p, ms: ms, place: Place.local(slotOf(r, local: local)), s: v, t: ty)
+	rangeWrite(r, p: p, ms: ms, place: place, s: v, t: ty)
 end 'rangeLetStmt'
 
 function rangeAssignStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
@@ -600,8 +604,44 @@ end 'rangeAssign'
 
 function rangeAssignPlace(mutates r Ranges, p ast.Project, ms ast.ModuleState, place Place, target ast.NodeID, value ast.NodeID)
 	let v = rangeEval(r, p: p, ms: ms, e: value)
-	rangeWrite(r, p: p, ms: ms, place: place, s: v, t: typeOf(r, e: target))
+	rangeAssignTo(r, p: p, ms: ms, place: place, value: value, v: v, t: typeOf(r, e: target))
 end 'rangeAssignPlace'
+
+// rangeAssignTo gives a place of the type t the value of the expression value, which has the span v. Where the value is a
+// place moved by a constant and the sum is exact, the place is that much above it afterwards: 'n = xs.count()' leaves n equal
+// to the count, and 'i = i + 1' moves what was known of i by one instead of forgetting it. A bits(64) pattern is not followed
+// this way, since its sums wrap.
+function rangeAssignTo(mutates r Ranges, p ast.Project, ms ast.ModuleState, place Place, value ast.NodeID, v Span, t ast.TypeID)
+	if not ast.isIntType(ms.types, reads: p.types, t: t) or ast.isWordPattern(ms.types, reads: p.types, t: t) 'other'
+		rangeWrite(r, p: p, ms: ms, place: place, s: v, t: t)
+		return
+	end 'other'
+	match consumes rangeOffsetOf(r, p: p, ms: ms, e: value) 'offset'
+		some(o) then rangeAssignOffset(r, p: p, ms: ms, place: place, o: o, v: v, t: t)
+		none then rangeWrite(r, p: p, ms: ms, place: place, s: v, t: t)
+	end 'offset'
+end 'rangeAssignTo'
+
+function rangeAssignOffset(mutates r Ranges, p ast.Project, ms ast.ModuleState, place Place, o Offset, v Span, t ast.TypeID)
+	if not o.exact 'wraps'
+		rangeWrite(r, p: p, ms: ms, place: place, s: v, t: t)
+		return
+	end 'wraps'
+	if o.at.same(place) 'moved'
+		if not rangeTouch(r, place: place) 'dead'
+			return
+		end 'dead'
+		let st = r.st
+		r.states.list[st].shiftPlace(place, by: o.by)
+		r.states.list[st].refine(place, v: v.clamp(typeSpan(ms.types, reads: p.types, t: t)))
+		return
+	end 'moved'
+	rangeWrite(r, p: p, ms: ms, place: place, s: v, t: t)
+	if not isDead(r, s: r.st) and not o.at.overlaps(place) 'related'
+		let st = r.st
+		r.states.list[st].equate(place, w: o.at, by: o.by)
+	end 'related'
+end 'rangeAssignOffset'
 
 function rangeAssignOther(mutates r Ranges, p ast.Project, ms ast.ModuleState, target ast.NodeID, value ast.NodeID)
 	_ = rangeEval(r, p: p, ms: ms, e: target)
@@ -761,28 +801,37 @@ function rangeLoopBody(mutates r Ranges, p ast.Project, ms ast.ModuleState, s as
 		let counter = Place.local(slotOf(r, local: local))
 		r.states.list[body].refine(counter, v: v)
 		match consumes rangeFixedBound(r, p: p, ms: ms, e: ast.forStmtTo(ms.tree(), id: s)) 'bound'
-			some(bound) then r.states.list[body].relate(bound, lo: counter, gap: ast.I128.zero() if ast.forStmtInclusive(ms.tree(), id: s) else ast.I128.one())
+			some(bound) then rangeRelateBound(r, body: body, bound: bound, counter: counter, inclusive: ast.forStmtInclusive(ms.tree(), id: s))
 			none then _ = 0
 		end 'bound'
 	end 'runs'
 	return body
 end 'rangeLoopBody'
 
-// rangeFixedBound is the place the bound e of a for loop names, if nothing in the function can change it: its root is no
-// var and no parameter taken to change. The loop evaluated the bound once, so the counter stays below a bound that cannot
-// change on every iteration.
-function rangeFixedBound(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns table.Option with Place
-	return match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
-		some(place) gives rangeUnassignable(r, place: place)
+// rangeRelateBound records that the counter of a for loop is below its bound, a place moved by a constant: 'bound > counter',
+// or 'bound >= counter' for a loop that reaches its bound.
+function rangeRelateBound(mutates r Ranges, body Count, bound Offset, counter Place, inclusive bool)
+	match consumes comparedGap(">=" if inclusive else ">", dx: bound.by, dy: ast.I128.zero(), exact: bound.exact) 'gap'
+		some(gap) then r.states.list[body].relate(bound.at, lo: counter, gap: gap)
+		none then _ = 0
+	end 'gap'
+end 'rangeRelateBound'
+
+// rangeFixedBound is the place moved by a constant that the bound e of a for loop is, if nothing in the function can change
+// the place: its root is no var and no parameter taken to change. The loop evaluated the bound once, so the counter stays
+// below a bound that cannot change on every iteration.
+function rangeFixedBound(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns table.Option with Offset
+	return match consumes rangeOffsetOf(r, p: p, ms: ms, e: e) 'place'
+		some(o) gives rangeUnassignable(r, o: o)
 		none gives table.Option.none
 	end 'place'
 end 'rangeFixedBound'
 
-function rangeUnassignable(r Ranges, consumes place Place) returns table.Option with Place
-	if r.mutable[place.root] != 0 'assignable'
+function rangeUnassignable(r Ranges, consumes o Offset) returns table.Option with Offset
+	if r.mutable[o.at.root] != 0 'assignable'
 		return table.Option.none
 	end 'assignable'
-	return table.Option.some(place)
+	return table.Option.some(o)
 end 'rangeUnassignable'
 
 // rangeWhenStmt analyses the body of a behaviour as a function of its own: it runs later, so neither what is known here

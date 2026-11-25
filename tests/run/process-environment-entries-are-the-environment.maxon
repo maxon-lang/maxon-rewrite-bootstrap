@@ -24,7 +24,7 @@ function sameEntries(first StringArray, second StringArray) returns bool
 	end 'counts'
 	for i in 0 upto first.count() 'each'
 		let a = first.get(i)
-		let b = try second.get(i) otherwise panic("an entry of the second walk is inside it")
+		let b = second.get(i)
 		if a != b 'differs'
 			return false
 		end 'differs'

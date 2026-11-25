@@ -99,26 +99,120 @@ function flippedComparison(op String) returns String
 	end 'op'
 end 'flippedComparison'
 
-// rangeCompare narrows x, if it is a place, by 'x op y', and records how x and y compare when both are places.
+// Offset is an expression whose value is a place moved by a constant: the place itself, 'p + c', 'p - c' or 'c + p'. node
+// is the operand that names the place. exact is whether the sum is computed exactly, so that wherever its value is reached
+// it is the place's moved by the constant: checked arithmetic fails past its word instead, and a bits(64) pattern wraps.
+type Offset
+	export var at as Place
+	export var node as ast.NodeID
+	export var by as ast.I128
+	export var exact as bool
+
+	static function make(consumes at Place, node ast.NodeID, consumes by ast.I128, exact bool) returns Offset
+		return Offset{at: at, node: node, by: by, exact: exact}
+	end 'make'
+end 'Offset'
+
+// rangeOffsetOf is the place and the constant an expression is, if it is a place moved by a constant.
+function rangeOffsetOf(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns table.Option with Offset
+	match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
+		some(place) then return table.Option.some(Offset.make(place, node: e, by: ast.I128.zero(), exact: true))
+		none then _ = 0
+	end 'place'
+	if ms.tree().kindOf(e) != ast.NodeKind.binaryExpr or not r.typing.arith.has(e as Count) 'other'
+		return table.Option.none
+	end 'other'
+	let op = ast.binaryExprOp(ms.tree(), id: e)
+	if op != "+" and op != "-" 'notSum'
+		return table.Option.none
+	end 'notSum'
+	let exact = not ast.isWordPattern(ms.types, reads: p.types, t: arithOf(r, e: e).operand)
+	let l = ast.binaryExprL(ms.tree(), id: e)
+	let right = ast.binaryExprR(ms.tree(), id: e)
+	match consumes rangeConstantOf(r, p: p, ms: ms, e: right) 'right'
+		some(c) then return offsetBy(rangePlaceOf(r, p: p, ms: ms, e: l), node: l, by: c.neg() if op == "-" else c, exact: exact)
+		none then _ = 0
+	end 'right'
+	if op == "-" 'difference'
+		return table.Option.none
+	end 'difference'
+	return match consumes rangeConstantOf(r, p: p, ms: ms, e: l) 'left'
+		some(c) gives offsetBy(rangePlaceOf(r, p: p, ms: ms, e: right), node: right, by: c, exact: exact)
+		none gives table.Option.none
+	end 'left'
+end 'rangeOffsetOf'
+
+function offsetBy(consumes place table.Option with Place, node ast.NodeID, consumes by ast.I128, exact bool) returns table.Option with Offset
+	return match consumes place 'place'
+		some(at) gives table.Option.some(Offset.make(at, node: node, by: by, exact: exact))
+		none gives table.Option.none
+	end 'place'
+end 'offsetBy'
+
+// rangeConstantOf is the value of an integer expression that is a constant: a literal or the name of a constant.
+function rangeConstantOf(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns table.Option with ast.I128
+	let t = typeOf(r, e: e)
+	if not ast.isIntType(ms.types, reads: p.types, t: t) 'notInt'
+		return table.Option.none
+	end 'notInt'
+	var v = noSpan()
+	if isConstInt(p, ms: ms, t: t) 'literalType'
+		v = typeSpan(ms.types, reads: p.types, t: t)
+	end 'literalType' else if ms.tree().kindOf(e) == ast.NodeKind.intLit 'literal'
+		v = Span.exactly(ast.intLitValue(ms.tree(), id: e))
+	end 'literal' else if ms.tree().kindOf(e) == ast.NodeKind.nameExpr and nameInfoOf(r.typing, node: e).kind == ast.NameKind.nameConst 'constant'
+		v = constSpan(p, ms: ms, ref: nameInfoOf(r.typing, node: e).decl)
+	end 'constant' else 'other'
+		return table.Option.none
+	end 'other'
+	if not isOneValue(v) 'many'
+		return table.Option.none
+	end 'many'
+	return table.Option.some(v.lo.clone())
+end 'rangeConstantOf'
+
+// rangeCompare narrows the place of x, if x is a place or a place moved by a constant, by 'x op y', and records how the
+// places of x and y compare when y is one too.
 function rangeCompare(mutates r Ranges, p ast.Project, ms ast.ModuleState, mutates st Count, from Count, x ast.NodeID, op String, y ast.NodeID, since Count)
-	match consumes rangePlaceOf(r, p: p, ms: ms, e: x) 'x'
-		some(px) then rangeCompareAt(r, p: p, ms: ms, st: st, from: from, px: px, x: x, op: op, y: y, since: since)
+	match consumes rangeOffsetOf(r, p: p, ms: ms, e: x) 'x'
+		some(ox) then rangeCompareAt(r, p: p, ms: ms, st: st, from: from, ox: ox, op: op, y: y, since: since)
 		none then _ = 0
 	end 'x'
 end 'rangeCompare'
 
-function rangeCompareAt(mutates r Ranges, p ast.Project, ms ast.ModuleState, mutates st Count, from Count, px Place, x ast.NodeID, op String, y ast.NodeID, since Count)
-	if isDead(r, s: st) or changedIn(px, written: r.written, since: since) 'unknown'
+function rangeCompareAt(mutates r Ranges, p ast.Project, ms ast.ModuleState, mutates st Count, from Count, ox Offset, op String, y ast.NodeID, since Count)
+	if isDead(r, s: st) or changedIn(ox.at, written: r.written, since: since) 'unknown'
 		return
 	end 'unknown'
-	match consumes rangePlaceOf(r, p: p, ms: ms, e: y) 'y'
-		some(py) then rangeRelateUnchanged(r, st: st, from: from, x: px, op: op, y: py, since: since)
+	let oy = rangeOffsetOf(r, p: p, ms: ms, e: y)
+	match oy 'y'
+		some(o) then rangeRelateUnchanged(r, st: st, from: from, x: ox, op: op, y: o, since: since)
 		none then _ = 0
 	end 'y'
-	let cur = rangeSpanAt(r, p: p, ms: ms, s: st, place: px, t: typeOf(r, e: x))
-	let other = rangePeek(r, p: p, ms: ms, s: st, e: y)
-	rangeRefineAt(r, st: st, from: from, place: px, cur: cur, next: narrowedSpan(cur, op: op, other: other))
+	let cur = rangeSpanAt(r, p: p, ms: ms, s: st, place: ox.at, t: typeOf(r, e: ox.node))
+	let other = rangeSidePeek(r, p: p, ms: ms, s: st, e: y, side: oy, since: since)
+	match consumes comparedSpan(cur, op: op, other: other, dx: ox.by, exact: ox.exact) 'narrowed'
+		some(next) then rangeRefineAt(r, st: st, from: from, place: ox.at, cur: cur, next: next)
+		none then _ = 0
+	end 'narrowed'
 end 'rangeCompareAt'
+
+// rangeSidePeek is the span of the operand y of a comparison as the comparison read it: its place's moved by its constant
+// when it is an exact offset, its type's when the condition changed its place after reading it, and what rangePeek knows
+// otherwise.
+function rangeSidePeek(r Ranges, p ast.Project, ms ast.ModuleState, s Count, e ast.NodeID, side table.Option with Offset, since Count) returns Span
+	match side 'side'
+		some(o) then return rangeOffsetSpan(r, p: p, ms: ms, s: s, e: e, o: o, since: since)
+		none then return rangePeek(r, p: p, ms: ms, s: s, e: e)
+	end 'side'
+end 'rangeSidePeek'
+
+function rangeOffsetSpan(r Ranges, p ast.Project, ms ast.ModuleState, s Count, e ast.NodeID, o Offset, since Count) returns Span
+	if changedIn(o.at, written: r.written, since: since) or not o.exact 'unknown'
+		return typeSpan(ms.types, reads: p.types, t: typeOf(r, e: e))
+	end 'unknown'
+	return shiftedSpan(rangeSpanAt(r, p: p, ms: ms, s: s, place: o.at, t: typeOf(r, e: o.node)), by: o.by)
+end 'rangeOffsetSpan'
 
 // rangeRefineAt gives a place the span next in st, where it had cur: a span that holds no value means no path gets here.
 function rangeRefineAt(mutates r Ranges, mutates st Count, from Count, place Place, cur Span, next Span)
@@ -153,19 +247,17 @@ function countSpanAt(r Ranges, s Count, count Place) returns Span
 	end 'known'
 end 'countSpanAt'
 
-function rangeRelateUnchanged(mutates r Ranges, mutates st Count, from Count, x Place, op String, y Place, since Count)
-	if not changedIn(y, written: r.written, since: since) 'unchanged'
-		rangeRelate(r, st: st, from: from, x: x, op: op, y: y)
-	end 'unchanged'
-end 'rangeRelateUnchanged'
-
-// rangeRelate records what 'x op y' says of the difference of two places, which a subtraction of them reads.
-function rangeRelate(mutates r Ranges, mutates st Count, from Count, x Place, op String, y Place)
-	match consumes relationGap(op) 'gap'
-		some(gap) then rangeRelateBy(r, st: st, from: from, x: x, y: y, gap: gap)
+// rangeRelateUnchanged records what 'x op y' says of the difference of the places of two offsets, which a subtraction of
+// them reads, unless the condition changed y's place after reading it.
+function rangeRelateUnchanged(mutates r Ranges, mutates st Count, from Count, x Offset, op String, y Offset, since Count)
+	if changedIn(y.at, written: r.written, since: since) or x.at.same(y.at) 'unknown'
+		return
+	end 'unknown'
+	match consumes comparedGap(op, dx: x.by, dy: y.by, exact: x.exact and y.exact) 'gap'
+		some(gap) then rangeRelateBy(r, st: st, from: from, x: x.at, y: y.at, gap: gap)
 		none then _ = 0
 	end 'gap'
-end 'rangeRelate'
+end 'rangeRelateUnchanged'
 
 function rangeRelateBy(mutates r Ranges, mutates st Count, from Count, x Place, y Place, gap ast.I128)
 	if st == from 'first'
@@ -573,15 +665,19 @@ function rangeProves(r Ranges, p ast.Project, ms ast.ModuleState, info ast.CallI
 	if statesItsCount(p, ms: ms, t: t) 'stated'
 		count = Span.exactly(ast.I128.fromCount(ast.statedCount(ms.types, reads: p.types, t: t)))
 	end 'stated'
-	var least = count.lo.sub(index.hi)
+	var at = index.clone()
+	if indexArgument(info) != 0 'indexed'
+		at = rangeTightened(r, p: p, ms: ms, e: indexArgument(info), v: index, since: since)
+	end 'indexed'
+	var least = count.lo.sub(at.hi)
 	match consumes rangePlaceOf(r, p: p, ms: ms, e: receiver) 'collection'
-		some(q) then least = rangeCountAbove(r, p: p, ms: ms, count: placeCount(q), stated: count, index: index, at: indexArgument(info), since: since)
+		some(q) then least = rangeCountAbove(r, p: p, ms: ms, count: placeCount(q), stated: count, index: at, at: indexArgument(info), since: since)
 		none then _ = 0
 	end 'collection'
 	return match requirement 'requirement'
 		requiresNone gives panic("ranges: an access with no precondition")
 		requiresNonEmpty gives least.ge(ast.I128.one())
-		requiresIndexBelow gives not index.lo.isNeg() and least.ge(ast.I128.one())
+		requiresIndexBelow gives not at.lo.isNeg() and least.ge(ast.I128.one())
 	end 'requirement'
 end 'rangeProves'
 
@@ -598,18 +694,22 @@ function rangeCountAbove(r Ranges, p ast.Project, ms ast.ModuleState, count Plac
 	if at == 0 'noIndex'
 		return least
 	end 'noIndex'
-	match consumes rangePlaceOf(r, p: p, ms: ms, e: at) 'index'
+	match consumes rangeOffsetOf(r, p: p, ms: ms, e: at) 'index'
 		some(i) then return rangeGapSince(r, hi: count, lo: i, since: since, least: least)
 		none then return least
 	end 'index'
 end 'rangeCountAbove'
 
-// rangeGapSince is the least of hi - lo by a relation between them, or least where none is known or lo changed since.
-function rangeGapSince(r Ranges, hi Place, lo Place, since Count, least ast.I128) returns ast.I128
-	if changedIn(lo, written: r.written, since: since) 'changed'
+// rangeGapSince is the least of hi - lo, where lo is a place moved by a constant, by the relations of the place, or least
+// where none is known, the sum may have wrapped, or the place changed since.
+function rangeGapSince(r Ranges, hi Place, lo Offset, since Count, least ast.I128) returns ast.I128
+	if changedIn(lo.at, written: r.written, since: since) or not lo.exact 'changed'
 		return least.clone()
 	end 'changed'
-	return gapOrLow(r.states.list[r.st].gap(hi, lo: lo), low: least)
+	return match consumes r.states.list[r.st].least(hi, lo: lo.at) 'gap'
+		some(g) gives ast.maxI128(least, b: g.sub(lo.by))
+		none gives least.clone()
+	end 'gap'
 end 'rangeGapSince'
 
 // isMeasuredType is whether the count of a collection of the type t is a place the analysis follows: an Array's or a
@@ -751,13 +851,14 @@ function rangeOperator(mutates r Ranges, p ast.Project, ms ast.ModuleState, e as
 		r.st = r.states.joined(start, b: ended)
 		return noSpan()
 	end 'logical'
+	let rightFrom = r.written.count()
 	let rs = rangeEval(r, p: p, ms: ms, e: right)
-	return rangeOperate(r, p: p, ms: ms, e: e, l: l, rs: rs, bound: table.Option.none)
+	return rangeOperate(r, p: p, ms: ms, e: e, l: l, rs: rs, rightFrom: rightFrom, bound: table.Option.none)
 end 'rangeOperator'
 
-// rangeOperate is the span of an operator on operands of the spans l and rs. An exact result outside bound, if there is
-// one, is one the code cannot reach.
-function rangeOperate(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, l Span, rs Span, bound table.Option with Span) returns Span
+// rangeOperate is the span of an operator on operands of the spans l and rs, where rightFrom is where the places that the
+// right operand changes begin in written. An exact result outside bound, if there is one, is one the code cannot reach.
+function rangeOperate(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, l Span, rs Span, rightFrom Count, bound table.Option with Span) returns Span
 	let op = ast.binaryExprOp(ms.tree(), id: e)
 	if isComparisonOp(op) or not ast.isIntType(ms.types, reads: p.types, t: typeOf(r, e: e)) 'noSpan'
 		return noSpan()
@@ -766,7 +867,9 @@ function rangeOperate(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast
 	if ast.isUnsignedInt(ms.types, reads: p.types, t: arithOf(r, e: e).operand) 'unsigned'
 		word = unsignedWord()
 	end 'unsigned'
-	let computed = arithmetic(op, l: l, r: rs, word: word)
+	let lt = rangeTightened(r, p: p, ms: ms, e: ast.binaryExprL(ms.tree(), id: e), v: l, since: rightFrom)
+	let rt = rangeTightened(r, p: p, ms: ms, e: ast.binaryExprR(ms.tree(), id: e), v: rs, since: r.written.count())
+	let computed = arithmetic(op, l: lt, r: rt, word: word)
 	var exact = computed.span.clone()
 	var fails = computed.fails
 	if ast.isWordPattern(ms.types, reads: p.types, t: arithOf(r, e: e).operand) and wraps(op) 'wrapping'
@@ -796,6 +899,29 @@ function wraps(op String) returns bool
 	return op == "+" or op == "-" or op == "*" or op == "shl"
 end 'wraps'
 
+// rangeTightened is the span v of an operand e, cut by the relations of its place where it names one that nothing changed
+// since it was read: an index below a count is below the count's highest, which keeps 'i + 1' inside the word.
+function rangeTightened(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, v Span, since Count) returns Span
+	if isDead(r, s: r.st) or r.states.list[r.st].relations.count() == 0 or not ast.isIntType(ms.types, reads: p.types, t: typeOf(r, e: e)) 'nothing'
+		return v.clone()
+	end 'nothing'
+	match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
+		some(place) then return rangeTightenedAt(r, place: place, v: v, since: since)
+		none then return v.clone()
+	end 'place'
+end 'rangeTightened'
+
+function rangeTightenedAt(r Ranges, place Place, v Span, since Count) returns Span
+	if changedIn(place, written: r.written, since: since) 'changed'
+		return v.clone()
+	end 'changed'
+	let out = r.states.list[r.st].tightened(place, cur: v)
+	if out.isEmpty() 'never'
+		return v.clone()
+	end 'never'
+	return out
+end 'rangeTightenedAt'
+
 // withinBound is an exact result cut to a bound, unless no value of it lies within the bound.
 function withinBound(exact Span, bound Span) returns Span
 	let within = exact.clamp(bound)
@@ -817,7 +943,7 @@ end 'rangeDifferenceLow'
 
 function gapLow(r Ranges, x Place, y table.Option with Place, low ast.I128) returns ast.I128
 	match y 'y'
-		some(lo) then return gapOrLow(r.states.list[r.st].gap(x, lo: lo), low: low)
+		some(lo) then return gapOrLow(r.states.list[r.st].least(x, lo: lo), low: low)
 		none then return low.clone()
 	end 'y'
 end 'gapLow'
