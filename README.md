@@ -684,7 +684,12 @@ their signatures and the intrinsic each lowers to, the runtime entries with the 
 (`self/ast/builtins_gen.maxon`), the `Intrinsic` and `Rt` enums, and the dispatch from each intrinsic and entry to its
 hand-written body: `checkIntrinsicArgs` in `self/check` calls `check<Intrinsic>Args` for an intrinsic the table marks checked,
 `ir.intrinsicCall` calls `lower<Intrinsic>`, and `interp`'s `runtimeEntry` calls `entry<Entry>`. A dispatch names a function
-for every row, so a row added to the table fails the build wherever its body is missing.
+for every row, so a row added to the table fails the build wherever its body is missing. Three columns say what a call needs
+and does to a count, per intrinsic (the rows of one intrinsic that say it agree): `Requires` (argument 0 below the count, or
+the receiver not empty), `Count` (kept, grown, shrunk, by one or by an unknown amount; a method that mutates its receiver
+and says nothing changes it), and `Measure` (a method that reads the count, or whether it is 0). `Proven` on a row names the
+row that does the same where the call has proved `Requires`, with no failure exit: `Array` and `FixedArray` each have one for
+`get` and `set`, which share an intrinsic each, and `ast.provenTwin` finds it. The generator holds a twin to its row.
 
 **The error codes** are a table, `self/diag/codes.tsv`: each row is a constant, its code, the case of maxon's
 `ErrorCodeRegistry.maxon` that has that number (or `-` for a code of minimaxon's own, numbered from `E3900`) and what it

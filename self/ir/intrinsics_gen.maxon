@@ -26,9 +26,15 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrArrayGet 'intrArrayGet'
 		return lowerArrayGet(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayGet'
+	if op == ast.Intrinsic.intrArrayGetProven 'intrArrayGetProven'
+		return lowerArrayGetProven(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArrayGetProven'
 	if op == ast.Intrinsic.intrArraySet 'intrArraySet'
 		return lowerArraySet(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArraySet'
+	if op == ast.Intrinsic.intrArraySetProven 'intrArraySetProven'
+		return lowerArraySetProven(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArraySetProven'
 	if op == ast.Intrinsic.intrArrayPush 'intrArrayPush'
 		return lowerArrayPush(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayPush'
@@ -113,12 +119,6 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrFixedArrayCount 'intrFixedArrayCount'
 		return lowerFixedArrayCount(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFixedArrayCount'
-	if op == ast.Intrinsic.intrFixedArrayGetProven 'intrFixedArrayGetProven'
-		return lowerFixedArrayGetProven(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrFixedArrayGetProven'
-	if op == ast.Intrinsic.intrFixedArraySetProven 'intrFixedArraySetProven'
-		return lowerFixedArraySetProven(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrFixedArraySetProven'
 	if op == ast.Intrinsic.intrFixedArrayRefill 'intrFixedArrayRefill'
 		return lowerFixedArrayRefill(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFixedArrayRefill'
@@ -862,9 +862,15 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrArrayGet 'intrArrayGet'
 		return false
 	end 'intrArrayGet'
+	if op == ast.Intrinsic.intrArrayGetProven 'intrArrayGetProven'
+		return false
+	end 'intrArrayGetProven'
 	if op == ast.Intrinsic.intrArraySet 'intrArraySet'
 		return false
 	end 'intrArraySet'
+	if op == ast.Intrinsic.intrArraySetProven 'intrArraySetProven'
+		return false
+	end 'intrArraySetProven'
 	if op == ast.Intrinsic.intrArrayPush 'intrArrayPush'
 		return false
 	end 'intrArrayPush'
@@ -949,12 +955,6 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrFixedArrayCount 'intrFixedArrayCount'
 		return false
 	end 'intrFixedArrayCount'
-	if op == ast.Intrinsic.intrFixedArrayGetProven 'intrFixedArrayGetProven'
-		return false
-	end 'intrFixedArrayGetProven'
-	if op == ast.Intrinsic.intrFixedArraySetProven 'intrFixedArraySetProven'
-		return false
-	end 'intrFixedArraySetProven'
 	if op == ast.Intrinsic.intrFixedArrayRefill 'intrFixedArrayRefill'
 		return false
 	end 'intrFixedArrayRefill'

@@ -151,6 +151,7 @@ func emitMaxon(t table) string {
 		}
 	}
 	sb.WriteString("\treturn false\nend 'intrinsicMayOverlap'\n\n")
+	emitMaxonColumns(&sb, t)
 	emitMaxonRawSurface(&sb, t)
 
 	var groups []string
@@ -264,6 +265,52 @@ func emitMaxon(t table) string {
 	return sb.String()
 }
 
+// maxonColumnCase is the case of the enum of a column that a value of it is: the column's prefix and the value.
+func maxonColumnCase(prefix, value string) string { return prefix + upperFirst(value) }
+
+// emitMaxonColumns writes what the table says of what a call needs and does to a count: the three enums, a function from
+// each intrinsic to its value of each, which names every intrinsic so that a new one fails the build until the table
+// gives it a value, and provenTwin.
+func emitMaxonColumns(sb *strings.Builder, t table) {
+	for _, c := range []struct {
+		enum, prefix, doc string
+		values            []string
+		of                func(intrinsic) string
+		function          string
+	}{
+		{"Precondition", "requires", "what a call of an intrinsic must have proved for it to leave through no failure exit", requirements, func(in intrinsic) string { return in.requires }, "intrinsicRequires"},
+		{"CountEffect", "count", "what a call of an intrinsic does to its receiver's count", countEffects, func(in intrinsic) string { return in.count }, "intrinsicCountEffect"},
+		{"MeasureKind", "measure", "what a call of an intrinsic reads of its receiver's count", measures, func(in intrinsic) string { return in.measure }, "intrinsicMeasure"},
+	} {
+		fmt.Fprintf(sb, "// %s is %s.\nexport enum %s\n", c.enum, c.doc, c.enum)
+		for _, v := range c.values {
+			fmt.Fprintf(sb, "\t%s\n", maxonColumnCase(c.prefix, v))
+		}
+		fmt.Fprintf(sb, "end '%s'\n\n", c.enum)
+		fmt.Fprintf(sb, "// %s is %s.\nexport function %s(op Intrinsic) returns %s\n\treturn match op 'op'\n", c.function, c.doc, c.function, c.enum)
+		// intrNone is no row's, and takes the value of a row that says nothing.
+		byValue := map[string][]string{c.values[0]: {"intrNone"}}
+		for _, in := range t.intrinsics {
+			byValue[c.of(in)] = append(byValue[c.of(in)], "intr"+in.name)
+		}
+		for _, v := range c.values {
+			if len(byValue[v]) > 0 {
+				fmt.Fprintf(sb, "\t\t%s gives %s.%s\n", strings.Join(byValue[v], " or\n\t\t"), c.enum, maxonColumnCase(c.prefix, v))
+			}
+		}
+		fmt.Fprintf(sb, "\tend 'op'\nend '%s'\n\n", c.function)
+	}
+	sb.WriteString("// provenTwin is the row that does what a built-in row does where the checker proved what the row requires, with no failure\n// exit, or none for a row that has no such twin.\nexport function provenTwin(b Builtins, f FuncID) returns table.Option with FuncID\n")
+	for _, f := range t.fns {
+		if f.Proven == "" {
+			continue
+		}
+		label := lowerFirst(f.provenCheckedField())
+		fmt.Fprintf(sb, "\tif f == b.%sFunc '%s'\n\t\treturn table.Option.some(b.%sFunc)\n\tend '%s'\n", label, label, lowerFirst(f.Proven), label)
+	}
+	sb.WriteString("\treturn table.Option.none\nend 'provenTwin'\n\n")
+}
+
 // emitMaxonRawSurface writes what the checker refuses outside the library tiers (E3185): the types of maxon's raw surface,
 // the static functions of the records whose calls are raw, and the views.
 func emitMaxonRawSurface(sb *strings.Builder, t table) {
@@ -339,7 +386,7 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 		ps := m.params(f, "")
 		call := fmt.Sprintf("registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: %s, op: %s, name: %q, isStatic: %v, selfConv: %s, ret: %s, params: %s, listed: %v)",
 			maxonOwner(f.Owner), op, f.Name, f.Static, maxonConv(f.Self), ret, ps, f.Field == "")
-		if len(f.bounds) == 0 && f.Throws == "" && f.Field == "" && !f.Lends {
+		if len(f.bounds) == 0 && f.Throws == "" && f.Field == "" && f.Proven == "" && !f.Lends {
 			m.line("_ = %s", call)
 			return
 		}
@@ -353,6 +400,9 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 		m.errorType(f, id)
 		if f.Field != "" {
 			m.line("b.%sFunc = %s", lowerFirst(f.Field), id)
+		}
+		if f.Proven != "" {
+			m.line("b.%sFunc = %s", lowerFirst(f.provenCheckedField()), id)
 		}
 		return
 	}
@@ -624,6 +674,9 @@ func builtinsFields(t table) []builtinsField {
 	for _, f := range t.fns {
 		if f.Field != "" {
 			add(lowerFirst(f.Field)+"Func", "FuncID", "noFunc")
+		}
+		if f.Proven != "" {
+			add(lowerFirst(f.provenCheckedField())+"Func", "FuncID", "noFunc")
 		}
 	}
 	for _, f := range extraFields {

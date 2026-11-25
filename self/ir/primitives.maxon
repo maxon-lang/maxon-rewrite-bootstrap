@@ -487,20 +487,21 @@ function lowerFixedArrayCount(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	return arrayLength(l, p: p, ms: ms, box: a, arr: recv)
 end 'lowerFixedArrayCount'
 
-// lowerFixedArrayGetProven is a copy of the element at an index that the checker proved inside the count, which cannot
-// fail: nothing empties a slot of a fixed array, so one that is empty is a broken invariant, which panics.
-function lowerFixedArrayGetProven(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+// lowerArrayGetProven is a copy of the element at an index that the checker proved inside the count, which cannot
+// fail, of an array or a fixed array. A slot that is empty is a broken invariant, which panics: nothing empties a slot of
+// a fixed array.
+function lowerArrayGetProven(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
 	let element = arrayRead(l, p: p, ms: ms, box: a, arr: recv, index: args[0], checked: false, read: SlotRead.slotLent)
 	return copyValue(l, p: p, ms: ms, site: a.site, v: element, t: arrayElem(p, ms: ms, box: a))
-end 'lowerFixedArrayGetProven'
+end 'lowerArrayGetProven'
 
-// lowerFixedArraySetProven replaces the element at an index that the checker proved inside the count.
-function lowerFixedArraySetProven(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+// lowerArraySetProven replaces the element at an index that the checker proved inside the count.
+function lowerArraySetProven(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
 	arrayWrite(l, p: p, ms: ms, box: a, arr: recv, index: args[0], v: args[1], checked: false)
 	return konst(l, value: 0 as Word)
-end 'lowerFixedArraySetProven'
+end 'lowerArraySetProven'
 
 // lowerFixedArrayRefill writes copies of the value over every element, which keeps the count.
 function lowerFixedArrayRefill(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg

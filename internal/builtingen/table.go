@@ -503,7 +503,47 @@ type function struct {
 	Instead string
 	// Raw makes a method a door of maxon's raw surface, which only the library tiers may call (E3185).
 	Raw *rawSurface
+	// Requires is what a call must have proved for it to leave through no failure exit: one of requirements, argument 0
+	// below the receiver's count or the receiver not empty. Like Count and Measure it is a fact about the intrinsic, so the
+	// rows of one intrinsic that say it say the same, and a row that leaves it out takes what another row of the intrinsic
+	// says, or none.
+	Requires string
+	// Count is what the call does to the receiver's count, one of countEffects. Left out, a method that mutates or consumes
+	// its receiver changes the count in a way nothing is known of, and any other row keeps it; so an omission costs a
+	// proof and never soundness. A row that does not mutate its receiver may not say it changes the count.
+	Count string
+	// Measure is what the call reads of the receiver's count, one of measures: its value, or whether it is 0.
+	Measure string
+	// Proven is the Field of the row that does what this row does where the call has proved Requires: the same method of
+	// the same type, with no Throws.
+	Proven string
 }
+
+// The values of the columns of a function row that say what a call needs and does to a count. Each is the lowerCamelCase
+// spelling of a case of the enum the generator writes for it, with the column's prefix.
+const (
+	requiresNone       = "none"
+	requiresIndexBelow = "indexBelow"
+	requiresNonEmpty   = "nonEmpty"
+
+	countKeep      = "keep"
+	countGrow      = "grow"
+	countGrowOne   = "growOne"
+	countShrink    = "shrink"
+	countShrinkOne = "shrinkOne"
+	countChange    = "change"
+
+	measureNone    = "none"
+	measureCount   = "count"
+	measureIsEmpty = "isEmpty"
+)
+
+// requirements, countEffects and measures are the values of the columns, in the order of their enums.
+var (
+	requirements = []string{requiresNone, requiresIndexBelow, requiresNonEmpty}
+	countEffects = []string{countKeep, countGrow, countGrowOne, countShrink, countShrinkOne, countChange}
+	measures     = []string{measureNone, measureCount, measureIsEmpty}
+)
 
 // synthesizedIntrinsics are what the methods that the checker gives a declaration of the program lower to, which no row
 // declares: a payload-free enum's hash() and equals(other), on its ordinal (check/enums.maxon).
@@ -640,22 +680,26 @@ var tableFunctions = []function{
 	// type is, which only the library tiers name.
 	{Owner: "Array", Name: "init", Static: true, Params: []string{"consumes managed ManagedMemory with T"}, Result: "Self", Intrinsic: "ArrayFromMemory"},
 	{Owner: "Array", Name: "filled", Static: true, Params: []string{"count ElementIndex", "consumes value T"}, Result: "Self", Bounds: []string{"T Copyable"}, Intrinsic: "ArrayFilled"},
-	{Owner: "Array", Name: "count", Result: "Count", Intrinsic: "ArrayCount"},
-	{Owner: "Array", Name: "isEmpty", Result: "Bool", Intrinsic: "ArrayIsEmpty"},
+	{Owner: "Array", Name: "count", Result: "Count", Intrinsic: "ArrayCount", Measure: measureCount},
+	{Owner: "Array", Name: "isEmpty", Result: "Bool", Intrinsic: "ArrayIsEmpty", Measure: measureIsEmpty},
 	{Owner: "Array", Name: "capacity", Result: "ReportedCapacity", Intrinsic: "ArrayCapacity"},
-	{Owner: "Array", Name: "get", Params: []string{"index ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayGet"},
-	{Owner: "Array", Name: "set", Self: "mutates", Params: []string{"index ElementIndex", "consumes value T"}, Bounds: []string{"T Droppable"}, Throws: "ArrayError", Intrinsic: "ArraySet"},
-	{Owner: "Array", Name: "push", Self: "mutates", Params: []string{"consumes value T"}, Intrinsic: "ArrayPush"},
-	{Owner: "Array", Name: "append", Self: "mutates", Params: []string{"other Self"}, Bounds: []string{"T Copyable"}, Intrinsic: "ArrayAppend"},
-	{Owner: "Array", Name: "insert", Self: "mutates", Params: []string{"at ElementIndex", "consumes value T"}, Intrinsic: "ArrayInsert"},
-	{Owner: "Array", Name: "remove", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "T", Throws: "ArrayError", Intrinsic: "ArrayRemove"},
-	{Owner: "Array", Name: "pop", Self: "mutates", Result: "T", Throws: "ArrayError", Intrinsic: "ArrayPop"},
+	// get and set have a twin that cannot fail, for the call whose index the checker proved below the count.
+	{Owner: "Array", Name: "get", Params: []string{"index ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayGet", Requires: requiresIndexBelow, Proven: "ArrayGetProven"},
+	{Owner: "Array", Name: "get", Params: []string{"index ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Intrinsic: "ArrayGetProven", Field: "ArrayGetProven", Requires: requiresIndexBelow},
+	{Owner: "Array", Name: "set", Self: "mutates", Params: []string{"index ElementIndex", "consumes value T"}, Bounds: []string{"T Droppable"}, Throws: "ArrayError", Intrinsic: "ArraySet", Requires: requiresIndexBelow, Count: countKeep, Proven: "ArraySetProven"},
+	{Owner: "Array", Name: "set", Self: "mutates", Params: []string{"index ElementIndex", "consumes value T"}, Bounds: []string{"T Droppable"}, Intrinsic: "ArraySetProven", Field: "ArraySetProven", Requires: requiresIndexBelow, Count: countKeep},
+	{Owner: "Array", Name: "push", Self: "mutates", Params: []string{"consumes value T"}, Intrinsic: "ArrayPush", Count: countGrowOne},
+	{Owner: "Array", Name: "append", Self: "mutates", Params: []string{"other Self"}, Bounds: []string{"T Copyable"}, Intrinsic: "ArrayAppend", Count: countGrow},
+	{Owner: "Array", Name: "insert", Self: "mutates", Params: []string{"at ElementIndex", "consumes value T"}, Intrinsic: "ArrayInsert", Count: countGrowOne},
+	// remove and pop shrink the count where they succeed and change nothing where they fail, so shrink is true of both exits.
+	{Owner: "Array", Name: "remove", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "T", Throws: "ArrayError", Intrinsic: "ArrayRemove", Count: countShrink},
+	{Owner: "Array", Name: "pop", Self: "mutates", Result: "T", Throws: "ArrayError", Intrinsic: "ArrayPop", Count: countShrink},
 	{Owner: "Array", Name: "dropEmpty", Self: "consumes", Intrinsic: "ArrayDropEmpty"},
 	// clear and truncate drop the elements they remove; reserve makes the buffer hold a count, which no part of the array's value
 	// shows; resize grows with zero elements, which the checker holds to an element that has one.
-	{Owner: "Array", Name: "clear", Self: "mutates", Bounds: []string{"T Droppable"}, Intrinsic: "ArrayClear"},
-	{Owner: "Array", Name: "truncate", Self: "mutates", Params: []string{"newLength ElementIndex"}, Bounds: []string{"T Droppable"}, Intrinsic: "ArrayTruncate"},
-	{Owner: "Array", Name: "reserve", Self: "mutates", Params: []string{"minCapacity ElementIndex"}, Intrinsic: "ArrayReserve"},
+	{Owner: "Array", Name: "clear", Self: "mutates", Bounds: []string{"T Droppable"}, Intrinsic: "ArrayClear", Count: countShrink},
+	{Owner: "Array", Name: "truncate", Self: "mutates", Params: []string{"newLength ElementIndex"}, Bounds: []string{"T Droppable"}, Intrinsic: "ArrayTruncate", Count: countShrink},
+	{Owner: "Array", Name: "reserve", Self: "mutates", Params: []string{"minCapacity ElementIndex"}, Intrinsic: "ArrayReserve", Count: countKeep},
 	{Owner: "Array", Name: "resize", Self: "mutates", Params: []string{"newLength ElementIndex"}, Bounds: []string{"T Droppable"}, Intrinsic: "ArrayResize", Checked: true},
 	{Owner: "Array", Name: "slice", Params: []string{"start ElementIndex", "endIndex ElementIndex"}, Result: "Self", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArraySlice"},
 	{Owner: "Array", Name: "growFilled", Self: "mutates", Params: []string{"newLength ElementIndex", "value T"}, Bounds: []string{"T Copyable"}, Intrinsic: "ArrayGrowFilled"},
@@ -698,17 +742,17 @@ var tableFunctions = []function{
 	// A FixedArray is an array's box of its count of elements, which never grows. create() makes the count its type states,
 	// zeroed, and create(value:) copies of the value; a runtime-sized one takes the count, create(n) and create(n, value:),
 	// which the checker chooses for a call of create by its arguments. get and set at an index the checker proves inside
-	// the count are the rows that cannot fail.
+	// the count are the rows that cannot fail, which an array's get and set share.
 	{Owner: "FixedArray", Name: "create", Static: true, Result: "Self", Intrinsic: "FixedArrayCreate", Checked: true},
 	{Owner: "FixedArray", Name: "create", Static: true, Params: []string{"consumes value: T"}, Result: "Self", Bounds: []string{"T Copyable"}, Intrinsic: "FixedArrayFilled", Field: "FixedArrayCreateFilled"},
 	{Owner: "FixedArray", Name: "create", Static: true, Params: []string{"count ElementIndex"}, Result: "Self", Intrinsic: "FixedArrayCreateCounted", Field: "FixedArrayCreateCounted", Checked: true},
 	{Owner: "FixedArray", Name: "create", Static: true, Params: []string{"count ElementIndex", "consumes value T"}, Result: "Self", Bounds: []string{"T Copyable"}, Intrinsic: "ArrayFilled", Field: "FixedArrayCreateCountedFilled"},
-	{Owner: "FixedArray", Name: "count", Result: "Count", Intrinsic: "FixedArrayCount"},
-	{Owner: "FixedArray", Name: "get", Params: []string{"index ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayGet"},
-	{Owner: "FixedArray", Name: "get", Params: []string{"index ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Intrinsic: "FixedArrayGetProven", Field: "FixedArrayGetProven"},
-	{Owner: "FixedArray", Name: "set", Self: "mutates", Params: []string{"index ElementIndex", "consumes value T"}, Bounds: []string{"T Droppable"}, Throws: "ArrayError", Intrinsic: "ArraySet"},
-	{Owner: "FixedArray", Name: "set", Self: "mutates", Params: []string{"index ElementIndex", "consumes value T"}, Bounds: []string{"T Droppable"}, Intrinsic: "FixedArraySetProven", Field: "FixedArraySetProven"},
-	{Owner: "FixedArray", Name: "refill", Self: "mutates", Params: []string{"value T"}, Bounds: []string{"T Copyable"}, Intrinsic: "FixedArrayRefill"},
+	{Owner: "FixedArray", Name: "count", Result: "Count", Intrinsic: "FixedArrayCount", Measure: measureCount},
+	{Owner: "FixedArray", Name: "get", Params: []string{"index ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayGet", Requires: requiresIndexBelow, Proven: "FixedArrayGetProven"},
+	{Owner: "FixedArray", Name: "get", Params: []string{"index ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Intrinsic: "ArrayGetProven", Field: "FixedArrayGetProven", Requires: requiresIndexBelow},
+	{Owner: "FixedArray", Name: "set", Self: "mutates", Params: []string{"index ElementIndex", "consumes value T"}, Bounds: []string{"T Droppable"}, Throws: "ArrayError", Intrinsic: "ArraySet", Requires: requiresIndexBelow, Count: countKeep, Proven: "FixedArraySetProven"},
+	{Owner: "FixedArray", Name: "set", Self: "mutates", Params: []string{"index ElementIndex", "consumes value T"}, Bounds: []string{"T Droppable"}, Intrinsic: "ArraySetProven", Field: "FixedArraySetProven", Requires: requiresIndexBelow, Count: countKeep},
+	{Owner: "FixedArray", Name: "refill", Self: "mutates", Params: []string{"value T"}, Bounds: []string{"T Copyable"}, Intrinsic: "FixedArrayRefill", Count: countKeep},
 
 	// A buffer's length is the count of its elements, and get gives a copy of the one at an index below it, as an array's do.
 	{Owner: "ManagedMemory", Name: "length", Result: "Count", Intrinsic: "ArrayCount"},

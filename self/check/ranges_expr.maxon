@@ -479,7 +479,7 @@ end 'rangeAwait'
 // index outside it.
 function isCountedAccess(r Ranges, p ast.Project, ms ast.ModuleState, info ast.CallInfo, receiver ast.NodeID) returns bool
 	let op = info.intrinsic
-	if op != ast.Intrinsic.intrArrayGet and op != ast.Intrinsic.intrArraySet and op != ast.Intrinsic.intrFixedArrayGetProven and op != ast.Intrinsic.intrFixedArraySetProven 'other'
+	if op != ast.Intrinsic.intrArrayGet and op != ast.Intrinsic.intrArraySet and op != ast.Intrinsic.intrArrayGetProven and op != ast.Intrinsic.intrArraySetProven 'other'
 		return false
 	end 'other'
 	let t = ast.contentType(ms.types, reads: p.types, t: typeOf(r, e: receiver))
@@ -493,7 +493,7 @@ function rangeCountedAccess(mutates r Ranges, p ast.Project, ms ast.ModuleState,
 	let t = ast.contentType(ms.types, reads: p.types, t: typeOf(r, e: receiver))
 	let count = ast.statedCount(ms.types, reads: p.types, t: t)
 	let last = ast.I128.fromCount(count).sub(ast.I128.one())
-	let isGet = info.intrinsic == ast.Intrinsic.intrArrayGet or info.intrinsic == ast.Intrinsic.intrFixedArrayGetProven
+	let isGet = info.intrinsic == ast.Intrinsic.intrArrayGet or info.intrinsic == ast.Intrinsic.intrArrayGetProven
 	var method = "set"
 	if isGet 'get'
 		method = "get"

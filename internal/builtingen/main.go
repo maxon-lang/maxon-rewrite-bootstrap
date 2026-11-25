@@ -172,6 +172,11 @@ type fn struct {
 type intrinsic struct {
 	name                                           string
 	checked, ownsOperands, runtimeOnly, mayOverlap bool
+	// requires, count and measure are the columns of the same names, given by the rows of the intrinsic and, once they are
+	// all read, the default where none gave one.
+	requires, count, measure string
+	// changesSelf is whether a row of the intrinsic mutates or consumes its receiver, which decides the default of count.
+	changesSelf bool
 }
 
 type table struct {
@@ -182,10 +187,43 @@ type table struct {
 }
 
 func load() table {
+	t := loadFunctions(functions)
+	for _, name := range synthesizedIntrinsics {
+		for _, in := range t.intrinsics {
+			if in.name == name {
+				fail("the synthesized intrinsic %s is also a row's", name)
+			}
+		}
+		t.intrinsics = append(t.intrinsics, intrinsic{name: name, requires: requiresNone, count: countKeep, measure: measureNone})
+	}
+	for _, a := range typeAliases {
+		fn{Name: a.Name}.checkType(parseType(a.Type))
+	}
+	for _, v := range views {
+		owner, of := builtinTypeOf(v.Owner), builtinTypeOf(v.Type)
+		if owner == nil || of == nil || len(owner.Params) == 0 || len(owner.Params) != len(of.Params) {
+			fail("view %s.%s: a view is of a generic built-in type, as another built-in type of as many parameters", v.Owner, v.Name)
+		}
+	}
+	for _, e := range entries {
+		if unitOf(e.Unit) == nil {
+			fail("entry %s is in unit %s, which the table does not have", e.Name, e.Unit)
+		}
+		if e.Role != roleCall && e.Role != roleInternal && e.Role != roleGlobal {
+			fail("entry %s has the role %q", e.Name, e.Role)
+		}
+	}
+	t.rtFuncs = loadRuntimeFunctions()
+	return t
+}
+
+// loadFunctions parses the rows and makes the intrinsics of them, holding the rows to each other where they share an
+// intrinsic or are each other's twins.
+func loadFunctions(rows []function) table {
 	var t table
 	seen := map[string]int{}
 	names := map[string]bool{}
-	for _, f := range functions {
+	for _, f := range rows {
 		if f.Throws != "" && enumOf(f.Throws) == nil {
 			fail("%s throws %s, which is no enum row of the table", f.Name, f.Throws)
 		}
@@ -225,42 +263,160 @@ func load() table {
 		if rawCalls(f.Owner) != (f.Instead != "") || (f.Instead != "" && !f.Static) {
 			fail("%s: a row names what a program calls instead exactly where it is a static function of a record whose calls are raw", key)
 		}
+		r.checkColumns()
 		t.fns = append(t.fns, r)
+		changesSelf := f.Self == "mutates" || f.Self == "consumes"
 		if i, ok := seen[f.Intrinsic]; ok {
-			if t.intrinsics[i].checked != f.Checked || t.intrinsics[i].ownsOperands != f.OwnsOperands || t.intrinsics[i].runtimeOnly != f.RuntimeOnly || t.intrinsics[i].mayOverlap != f.MayOverlap {
+			in := &t.intrinsics[i]
+			if in.checked != f.Checked || in.ownsOperands != f.OwnsOperands || in.runtimeOnly != f.RuntimeOnly || in.mayOverlap != f.MayOverlap {
 				fail("the rows of intrinsic %s disagree on how it is checked or lowered, or where it may be called", f.Intrinsic)
 			}
+			in.requires = mergeColumn(f.Intrinsic, "Requires", in.requires, f.Requires)
+			in.count = mergeColumn(f.Intrinsic, "Count", in.count, f.Count)
+			in.measure = mergeColumn(f.Intrinsic, "Measure", in.measure, f.Measure)
+			in.changesSelf = in.changesSelf || changesSelf
 			checkSharedFailure(t.fns, f)
 			continue
 		}
 		seen[f.Intrinsic] = len(t.intrinsics)
-		t.intrinsics = append(t.intrinsics, intrinsic{f.Intrinsic, f.Checked, f.OwnsOperands, f.RuntimeOnly, f.MayOverlap})
+		t.intrinsics = append(t.intrinsics, intrinsic{name: f.Intrinsic, checked: f.Checked, ownsOperands: f.OwnsOperands, runtimeOnly: f.RuntimeOnly, mayOverlap: f.MayOverlap,
+			requires: f.Requires, count: f.Count, measure: f.Measure, changesSelf: changesSelf})
 	}
-	for _, name := range synthesizedIntrinsics {
-		if _, ok := seen[name]; ok {
-			fail("the synthesized intrinsic %s is also a row's", name)
-		}
-		t.intrinsics = append(t.intrinsics, intrinsic{name: name})
+	for i := range t.intrinsics {
+		t.intrinsics[i].resolveColumns()
 	}
-	for _, a := range typeAliases {
-		fn{Name: a.Name}.checkType(parseType(a.Type))
-	}
-	for _, v := range views {
-		owner, of := builtinTypeOf(v.Owner), builtinTypeOf(v.Type)
-		if owner == nil || of == nil || len(owner.Params) == 0 || len(owner.Params) != len(of.Params) {
-			fail("view %s.%s: a view is of a generic built-in type, as another built-in type of as many parameters", v.Owner, v.Name)
-		}
-	}
-	for _, e := range entries {
-		if unitOf(e.Unit) == nil {
-			fail("entry %s is in unit %s, which the table does not have", e.Name, e.Unit)
-		}
-		if e.Role != roleCall && e.Role != roleInternal && e.Role != roleGlobal {
-			fail("entry %s has the role %q", e.Name, e.Role)
-		}
-	}
-	t.rtFuncs = loadRuntimeFunctions()
+	t.checkTwins()
 	return t
+}
+
+// mergeColumn is the value of a column of an intrinsic after one more of its rows: the rows that say it say the same.
+func mergeColumn(intrinsicName, column, have, row string) string {
+	switch {
+	case row == "":
+		return have
+	case have == "" || have == row:
+		return row
+	}
+	panic(&tableError{fmt.Sprintf("the rows of intrinsic %s disagree on %s: %s and %s", intrinsicName, column, have, row)})
+}
+
+// refinesCount is whether a twin's count effect says what its checked row's does, or says it exactly: where the checked
+// row fails nothing changed, so shrink is true of both of its exits and the twin, which has only the success, shrinks by one.
+func refinesCount(twin, checked string) bool {
+	return twin == checked || (checked == countShrink && twin == countShrinkOne)
+}
+
+// resolveColumns gives a column that no row of the intrinsic said its default, and refuses a count effect on an intrinsic
+// that no row calls on a receiver it may change.
+func (in *intrinsic) resolveColumns() {
+	if in.requires == "" {
+		in.requires = requiresNone
+	}
+	if in.measure == "" {
+		in.measure = measureNone
+	}
+	switch {
+	case in.count == "" && in.changesSelf:
+		in.count = countChange
+	case in.count == "":
+		in.count = countKeep
+	case in.count != countKeep && !in.changesSelf:
+		fail("intrinsic %s says it %s the count, and no row of it mutates or consumes its receiver", in.name, in.count)
+	}
+}
+
+// checkColumns refuses a value that is no value of its column, and a column on a row that has nothing for it to describe.
+func (f fn) checkColumns() {
+	key := f.Owner + "." + f.Name
+	for _, c := range []struct {
+		name, value string
+		values      []string
+	}{{"Requires", f.Requires, requirements}, {"Count", f.Count, countEffects}, {"Measure", f.Measure, measures}} {
+		if c.value != "" && !slices.Contains(c.values, c.value) {
+			fail("%s: %s is %q, which is none of %v", key, c.name, c.value, c.values)
+		}
+	}
+	hasReceiver := f.Owner != "" && !f.Static && !isPrimOwner(f.Owner)
+	describesReceiver := f.Requires != "" || f.Count != "" || f.Measure != "" || f.Proven != ""
+	if describesReceiver && !hasReceiver {
+		fail("%s: Requires, Count, Measure and Proven describe a method of a type of the table on its receiver", key)
+	}
+	switch f.Requires {
+	case requiresIndexBelow:
+		if len(f.params) == 0 || f.params[0].ty.name != "ElementIndex" {
+			fail("%s: Requires %s names argument 0, which is no ElementIndex", key, f.Requires)
+		}
+	case "", requiresNone, requiresNonEmpty:
+	default:
+		panic("builtingen: a requirement that checkColumns does not handle: " + f.Requires)
+	}
+	switch f.Measure {
+	case measureCount:
+		if len(f.params) != 0 || f.result.name != "Count" {
+			fail("%s: Measure %s is a method with no arguments that gives a Count", key, f.Measure)
+		}
+	case measureIsEmpty:
+		if len(f.params) != 0 || f.result.name != "Bool" {
+			fail("%s: Measure %s is a method with no arguments that gives a Bool", key, f.Measure)
+		}
+	case "", measureNone:
+	default:
+		panic("builtingen: a measure that checkColumns does not handle: " + f.Measure)
+	}
+	if f.Proven != "" && f.Throws == "" {
+		fail("%s: Proven names the row that cannot fail where this one can, and this one throws nothing", key)
+	}
+}
+
+// provenCheckedField is the field of the Builtins record that holds the row that has a twin, which provenTwin looks it up
+// by, as Field is for the twin.
+func (f fn) provenCheckedField() string { return f.Owner + upperFirst(f.Name) }
+
+// checkTwins holds each row that names its twin to what makes the twin a stand-in for it: the same method of the same type,
+// taking and giving the same, that cannot fail, and the same fact needed and the same effect on the count.
+func (t table) checkTwins() {
+	intrinsicOf := func(name string) intrinsic {
+		for _, in := range t.intrinsics {
+			if in.name == name {
+				return in
+			}
+		}
+		panic("builtingen: a row names the intrinsic " + name + ", which no row declares")
+	}
+	for _, checked := range t.fns {
+		if checked.Proven == "" {
+			continue
+		}
+		key := checked.Owner + "." + checked.Name
+		var twin *fn
+		for i := range t.fns {
+			if t.fns[i].Field != checked.Proven {
+				continue
+			}
+			if twin != nil {
+				fail("%s: Proven names the Field %s, which two rows have", key, checked.Proven)
+			}
+			twin = &t.fns[i]
+		}
+		if twin == nil {
+			fail("%s: Proven names the Field %s, which no row has", key, checked.Proven)
+		}
+		same := twin.Owner == checked.Owner && twin.Name == checked.Name && twin.Self == checked.Self && twin.Static == checked.Static &&
+			slices.Equal(twin.Params, checked.Params) && twin.Result == checked.Result && slices.Equal(twin.Bounds, checked.Bounds)
+		if !same {
+			fail("%s: its twin %s differs in its owner, name, receiver, parameters, result or bounds", key, checked.Proven)
+		}
+		if twin.Throws != "" {
+			fail("%s: its twin %s throws, which a twin that cannot fail does not", key, checked.Proven)
+		}
+		want, got := intrinsicOf(checked.Intrinsic), intrinsicOf(twin.Intrinsic)
+		if want.requires == requiresNone {
+			fail("%s: it has a twin and Requires nothing for the twin to rely on", key)
+		}
+		if want.requires != got.requires || !refinesCount(got.count, want.count) {
+			fail("%s: its twin %s needs %s and has the count effect %s, where it needs %s and has %s", key, checked.Proven, got.requires, got.count, want.requires, want.count)
+		}
+	}
 }
 
 // primOwners are the Owners of methods of a primitive, which is no type the table declares, each with the lowerCamelCase
