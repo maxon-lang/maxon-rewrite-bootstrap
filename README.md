@@ -2284,14 +2284,16 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   not quiet is not compared.
 - **`fuzz --proofs`** writes another kind of program (`self/fuzz/proofs.maxon`, over the library `self/fuzz/proofs.txt`): a few
   scenario functions that read and store at an index of an array (of numbers and of strings, in a record two deep, and a
-  `FixedArray`) under guards, in loops over a count or a bound, and in `while` loops that step or drain, each mixed, at the points
+  `FixedArray`) under guards, in loops over a count or a bound, in `while` loops that step or drain, some of them requiring
+  that the index stays at most its bound, and at midpoints of two places with and without a guard, each mixed, at the points
   where a fact was just stated, and reads of an end (`first`, `last`, `pop`, once or twice, under guards such as
   `xs.count() >= 2`), with everything that must make the analysis forget it: a built-in that changes the count
   (`pop`, `remove`, `clear`, `truncate`, `push`, `insert`, `set`), an assignment of the array or of the index, a function or a
   method of the record that changes the array, a closure that changes the array or the index, passed, bound or nested, early
   exits, bounds from another array's count, and divisions and conversions under the same guards. Each access is written with
   its own handler (`try xs.get(i) otherwise 7`) so that a program the analysis does not prove still runs, and the compiler's own
-  `fix` pass then removes the handler wherever the analysis proves the access (E3944), so the generator needs no model of what
+  `fix` pass then removes the handler wherever the analysis proves the access (E3944), and an invariant wherever it cannot
+  prove it (E3945), so the generator needs no model of what
   the analysis proves. Each program prints a checksum; an access the analysis proved that the interpreter finds outside its array
   (`proven access out of range`), or an executable whose output is not the interpreter's, is a failure, which names the seed and
   keeps the program under `--keep=DIR` (the compiler's temporary directory, in `minimaxon-fuzz-proofs`, without it). The checker
@@ -3260,8 +3262,24 @@ body writes has its type's span again; a count the body only grows keeps its low
 it only shrinks its highest and the relations it lies below; anything else the body touches, or that holds or lies inside
 what it touches, is forgotten. The effects are summed over every statement whatever path runs it, so what is kept holds
 at the start of every iteration, after the body's end and after a `continue`: one scan decides the top, with no
-iteration. A
-divisor that is not 0 may still be -1, so a signed `a / b` needs `b > 0`, or `b != 0` and `b != -1`. Proven code is
+iteration.
+
+A `while` loop may state an invariant after its condition, `while lo < hi requires hi <= xs.count() 'search'`: comparisons
+joined by `and`, each with `<`, `<=`, `>`, `>=` or `==` between sides that are an integer place or a count, moved by a
+constant or not, or a constant (anything else is `E3945`). The analysis proves it where the loop is entered, at the end of
+the body and at each `continue` that repeats the loop, from what it knows there; a comparison it cannot prove is `E3945`,
+which names it and the point, and whose fix takes the invariant out. So it holds at every top, which knows it beside what
+the body cannot falsify, and so do the body and the code after a loop that ends by its condition (a `break` leaves with
+what it knows where it breaks). It is never evaluated when the program runs. A midpoint `lo + (hi - lo) / 2` of two places
+that the analysis knows have `hi - lo >= 1` lies from `lo` to `hi - 1`, so its sum cannot fail, and a binding or an
+assignment of it is at least `lo` and below `hi`; `(lo + hi) / 2` is not one, as its sum may overflow where the midpoint's
+does not. A write of a place keeps what two relations through it said of the places on either side (`hi = mid` keeps how
+far `mid` lay below a count that `hi` was at most), and a binding or an assignment `v = w + c` gives `v` each relation of
+`w`, moved by `c`. A count nothing else bounds is below 2^62 on either side of a comparison, so `i + 3` cannot overflow
+where `i < xs.count()`. A binary search, a reverse from both ends, two pointers and a stride need no `try`
+(`tests/run/while-loops-that-require-an-invariant-and-midpoints-run-with-no-check.maxon`).
+
+A divisor that is not 0 may still be -1, so a signed `a / b` needs `b > 0`, or `b != 0` and `b != -1`. Proven code is
 faster than it was before checked arithmetic, when every operation was checked.
 
 **Accumulators.** A `for i in a upto b` (or `to b`) loop runs at most `max(0, b.hi - a.lo)` times (one more for `to`),
@@ -5454,6 +5472,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   lacks is an ordinary name, and a word that could be read by context, such as `mutates`, `consumes` or `sets`, is
   reserved where Maxon reserves it, except `from` and `to`, which Maxon's programs use as names and are names wherever a
   name is.
+- A `while` loop may state an invariant, `while i < n requires n <= xs.count() 'walk'`, which the range analysis proves
+  where the loop is entered, at the end of its body and at each `continue`, and then knows inside the loop and after it
+  (see "Checked arithmetic"); one it cannot prove, or that compares something it does not follow, is `E3945`, a code of
+  minimaxon's own. Maxon has no loop invariants, so `requires` is a reserved word here and not in Maxon: the conversion
+  warns of a Maxon name `requires`, as of any name minimaxon reserves.
 - A parameter convention is a verb written before the parameter's name, with the function as its subject:
   `push(consumes item T)`, `swap(mutates a T, mutates b T)`, `parse(sets result Ast)`, and `mutates self` or
   `consumes self` for a receiver, and `destructs self` for a destructor.

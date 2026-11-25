@@ -1,0 +1,86 @@
+// expect-error: E3945 at 18:34
+// expect-error: E3945 at 28:34
+// expect-error: E3945 at 41:4
+// expect-error: E3945 at 51:25
+// expect-error: E3945 at 59:34
+// expect-error: E3945 at 67:30
+// expect-error: E3057 at 79:16
+// A while loop's invariant must hold where the loop is entered, at the end of the body and at each continue, and must be
+// comparisons of integer places, counts and constants joined by 'and': an invariant false on entry, one a step of three
+// breaks at the end of the body, one a continue breaks, one that says '!=', one that compares a call that is no count, and one
+// joined by 'or' are refused. A midpoint written '(lo + hi) / 2' is no midpoint the analysis follows, so its access needs a
+// try.
+typealias Counts = Array with Count
+
+function falseOnEntry(xs Counts) returns Count
+	var total = 0 as Count
+	var i = 1 as Count
+	while i < xs.count() requires i <= xs.count() 'walk'
+		total = try total + xs.get(i) otherwise panic("total overflowed")
+		i = i + 1
+	end 'walk'
+	return total
+end 'falseOnEntry'
+
+function brokenInTheBody(xs Counts) returns Count
+	var total = 0 as Count
+	var i = 0 as Count
+	while i < xs.count() requires i <= xs.count() 'stride'
+		total = try total + xs.get(i) otherwise panic("total overflowed")
+		i = i + 3
+	end 'stride'
+	return total
+end 'brokenInTheBody'
+
+function brokenAtAContinue(xs Counts) returns Count
+	var total = 0 as Count
+	var i = 0 as Count
+	while i < xs.count() requires i <= xs.count() 'skip'
+		if xs.get(i) == 0 'zero'
+			i = i + 2
+			continue 'skip'
+		end 'zero'
+		total = try total + xs.get(i) otherwise panic("total overflowed")
+		i = i + 1
+	end 'skip'
+	return total
+end 'brokenAtAContinue'
+
+function notEqual(xs Counts, n Count) returns Count
+	var i = 0 as Count
+	while i < n requires n != xs.count() 'walk'
+		i = i + 1
+	end 'walk'
+	return i
+end 'notEqual'
+
+function aCallThatIsNoCount(xs Counts) returns Count
+	var i = 0 as Count
+	while i < xs.count() requires i <= half(xs.count()) 'walk'
+		i = i + 1
+	end 'walk'
+	return i
+end 'aCallThatIsNoCount'
+
+function eitherSide(xs Counts, n Count) returns Count
+	var i = 0 as Count
+	while i < n requires i <= n or i <= xs.count() 'walk'
+		i = i + 1
+	end 'walk'
+	return i
+end 'eitherSide'
+
+function half(n Count) returns Count
+	return n / 2
+end 'half'
+
+function sumMidpoint(xs Counts, lo Count, hi Count) returns Count
+	if lo < hi and hi <= xs.count() 'inside'
+		return xs.get((lo + hi) / 2)
+	end 'inside'
+	return 0
+end 'sumMidpoint'
+
+function main() returns ExitCode
+	return 0
+end 'main'

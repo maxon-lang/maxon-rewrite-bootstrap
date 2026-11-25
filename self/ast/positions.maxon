@@ -17,7 +17,7 @@ export function findFileIndex(files FileSpanList, offset diag.U32) returns Count
 	var lo = 0 as Count
 	var hi = n
 	while lo < hi 'bs'
-		let mid = try lo + (hi - lo) / 2 otherwise lo
+		let mid = table.midpoint(lo, high: hi)
 		if files[mid].start <= offset 'le'
 			lo = try mid + 1 otherwise n
 		end 'le' else 'gt'
@@ -81,7 +81,7 @@ export function locateInFile(text String, files FileSpanList, file Count, offset
 	var lo = 0 as Count
 	var hi = files[file].lineStarts.count()
 	while hi > lo and hi - lo > 1 'search'
-		let mid = try lo + (hi - lo) / 2 otherwise panic("positions: a search past its bounds")
+		let mid = table.midpoint(lo, high: hi)
 		if files[file].lineStarts[mid] <= target 'atOrBefore'
 			lo = mid
 		end 'atOrBefore' else 'after'

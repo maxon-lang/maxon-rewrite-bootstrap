@@ -369,6 +369,10 @@ function checkWhile(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	if not requireBool(c, p: p, ms: ms, e: ast.whileStmtCond(ms.tree(), id: s), keyword: "while", errs: errs) 'badCond'
 		return
 	end 'badCond'
+	let invariant = ast.whileStmtInvariant(ms.tree(), id: s)
+	if invariant != 0 and not requireBool(c, p: p, ms: ms, e: invariant, keyword: "requires", errs: errs) 'badInvariant'
+		return
+	end 'badInvariant'
 	pushBlock(c, label: ast.whileStmtLabel(ms.tree(), id: s).clone(), isLoop: true, node: s)
 	checkBlock(c, p: p, ms: ms, body: ast.whileStmtBodyRef(ms.tree(), id: s), errs: errs)
 	popBlock(c)

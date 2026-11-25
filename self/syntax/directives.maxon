@@ -285,7 +285,7 @@ type DirectiveWalker
 		if not self.atLineStart(at) 'inLine'
 			throw self.refuse(diag.errExpectedToken, message: diag.expectedToken("a directive at the start of a line", got: hashEndifText), at: at)
 		end 'inLine'
-		_ = try frames.pop() otherwise panic("the directive frames ran out at an #endif")
+		table.dropLast(frames)
 		pos = after(pos)
 		try self.endLine(at, opens: false)
 	end 'close'

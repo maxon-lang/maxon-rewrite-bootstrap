@@ -52,9 +52,10 @@ let heldAtCollection = 8 as Count
 let heldSecond = 16 as Count
 
 // Op is an operation on the universe: a guard that holds, a call's count effect on a collection, a write, an assignment,
-// the top of a loop where what may be assigned is forgotten, or the success of a pop or of a remove at the index the
-// quantity index holds, which the analysis proves or not. A guard with offsets says 'x + dx op y + dy', its sums
-// computed modulo wrapWord where wraps says so; a binding gives target the value of source + k.
+// the top of a loop where what may be assigned is forgotten, the success of a pop or of a remove at the index the quantity
+// index holds, which the analysis proves or not, or a binding of target to the midpoint 'low + (high - low) / 2'. A guard
+// with offsets says 'x + dx op y + dy', its sums computed modulo wrapWord where wraps says so; a binding gives target the
+// value of source + k.
 union Op
 	compare(x Count, op String, y Count)
 	constant(x Count, op String, k Count)
@@ -68,6 +69,7 @@ union Op
 	forget(mask Count)
 	pop(holder Count)
 	removeAt(holder Count, index Count)
+	midpoint(target Count, low Count, high Count)
 end 'Op'
 
 typealias Ops = Array with Op
@@ -290,6 +292,7 @@ function opText(op Op) returns String
 		forget(mask) gives "loop top forgetting roots {mask}"
 		pop(h) gives "pop of {holders[h]}"
 		removeAt(h, i) gives "remove of {holders[h]} at {names[i]}"
+		midpoint(t, low, high) gives "{names[t]} = {quantityText(quantityPlace(low))} + ({quantityText(quantityPlace(high))} - {quantityText(quantityPlace(low))}) / 2"
 	end 'op'
 end 'opText'
 
@@ -587,6 +590,7 @@ function applied(st RangeState, op Op) returns RangeState
 		forget(mask) then forgetRoots(out, mask: mask)
 		pop(h) then accessOn(out, holder: h, index: table.Option.none, checked: ast.Intrinsic.intrArrayPop, twin: ast.Intrinsic.intrArrayPopProven)
 		removeAt(h, i) then accessOn(out, holder: h, index: table.Option.some(i), checked: ast.Intrinsic.intrArrayRemove, twin: ast.Intrinsic.intrArrayRemoveProven)
+		midpoint(t, low, high) then bindMidpoint(out, target: t, low: low, high: high)
 	end 'op'
 	return out
 end 'applied'
@@ -700,6 +704,34 @@ function bindShifted(mutates st RangeState, target Count, source Count, k FullRa
 	end 'related'
 end 'bindShifted'
 
+// bindMidpoint gives the local quantity target the value 'low + (high - low) / 2', as the walk's rangeOperate and
+// rangeAssignComputed take it: where the state proves the midpoint, its span and the relations relateMidpoint records, and
+// elsewhere what an operation the rule does not bound may give, here any value.
+function bindMidpoint(mutates st RangeState, target Count, low Count, high Count)
+	let l = quantitySide(st, q: low)
+	let h = quantitySide(st, q: high)
+	if not st.provesMidpoint(l, high: h) 'unproven'
+		assignLocal(st, target: target, v: countSpan())
+		return
+	end 'unproven'
+	let v = st.midpointSpan(l, high: h).clamp(countSpan())
+	assignLocal(st, target: target, v: v)
+	st.relateMidpoint(quantityPlace(target), low: quantityPlace(low), high: quantityPlace(high))
+end 'bindMidpoint'
+
+// quantitySide is the quantity q as a side of a comparison, with the span the state knows of it, as the walk's rangeSideOf
+// makes it of a place.
+function quantitySide(st RangeState, q Count) returns CompareSide
+	let p = quantityPlace(q)
+	return CompareSide.placed(p.clone(), span: spanOf(st, p: p), by: ast.I128.zero())
+end 'quantitySide'
+
+// midpointOf is what 'low + (high - low) / 2' computes, whose division truncates.
+function midpointOf(low Count, high Count) returns FullRangeInt
+	let l = signed(low)
+	return try l + (signed(high) - l) / 2 otherwise panic("rules: a midpoint past the word")
+end 'midpointOf'
+
 // forgetRoots is the top of a loop whose body is opaque, where the roots of mask may be assigned, as the walk's keepThrough
 // makes it: the span of an assignable integer local is its type's again, and every fact on an assignable root is gone.
 function forgetRoots(mutates st RangeState, mask Count)
@@ -804,6 +836,7 @@ function concrete(op Op, v Ints) returns Reaches
 		forget(mask) then forgetOf(out, mask: mask)
 		pop(h) then effectOn(out, v: v, holder: holderPaths()[h], effect: ast.CountEffect.countShrinkOne)
 		removeAt(h, i) then removedAt(out, v: v, holder: h, i: i)
+		midpoint(t, low, high) then bindOf(out, target: t, value: midpointOf(v[low], high: v[high]))
 	end 'op'
 	return out
 end 'concrete'
@@ -877,6 +910,7 @@ function checkProof(st RangeState, op Op, v Ints)
 	let broken = match op 'op'
 		pop(h) gives provenAccess(st, holder: h, index: table.Option.none, requirement: ast.intrinsicRequires(ast.Intrinsic.intrArrayPop)) and v[countQuantity(h)] == 0
 		removeAt(h, i) gives provenAccess(st, holder: h, index: table.Option.some(i), requirement: ast.intrinsicRequires(ast.Intrinsic.intrArrayRemove)) and v[i] >= v[countQuantity(h)]
+		midpoint(t, low, high) gives st.provesMidpoint(quantitySide(st, q: low), high: quantitySide(st, q: high)) and v[high] <= v[low]
 		compare(x, cmp, y) gives false
 		constant(x, cmp, k) gives false
 		shifted(x, dx, cmp, y, dy, wraps) gives false
@@ -1293,7 +1327,8 @@ end 'stepFrom'
 // relationOps are every guard between two of a, count(c) and n with offsets on either side, computed exactly and modulo the
 // word, every guard of n with a constant, the tests of emptiness of c, the count effects on c and on g, a write of c, g and
 // g.0, every assignment of a and n, every binding of a or n to a, count(c), count(g.0) or n plus -2 to 2, the top of a
-// loop for each set of assignable roots, and a pop of c and of g.0 and a remove from each at a and at n.
+// loop for each set of assignable roots, a pop of c and of g.0 and a remove from each at a and at n, and the midpoint of
+// every two of a, count(c), count(g.0) and n given to a or n.
 function relationOps() returns Ops
 	let cmps = comparisons()
 	let effects = countEffects()
@@ -1342,6 +1377,17 @@ function relationOps() returns Ops
 	var indices = Ints.filled(1, value: 0)
 	indices.push(second)
 	appendAccesses(out, indices: indices)
+	for t in 0 upto sides.count() 'midpointTargets'
+		if isLocalQuantity(sides[t]) 'local'
+			for low in 0 upto qs.count() 'low'
+				for high in 0 upto qs.count() 'high'
+					if low != high 'apart'
+						out.push(Op.midpoint(sides[t], low: qs[low], high: qs[high]))
+					end 'apart'
+				end 'high'
+			end 'low'
+		end 'local'
+	end 'midpointTargets'
 	return out
 end 'relationOps'
 
@@ -1686,6 +1732,7 @@ function noteOp(mutates scans LoopScans, o Op)
 		forget(mask) then panic("rules: a loop top is no statement of a body")
 		pop(h) then scans.change(holderPlace(h), effect: ast.intrinsicCountEffect(ast.Intrinsic.intrArrayPop))
 		removeAt(h, i) then scans.change(holderPlace(h), effect: ast.intrinsicCountEffect(ast.Intrinsic.intrArrayRemove))
+		midpoint(t, low, high) then scans.change(quantityPlace(t), effect: ast.CountEffect.countChange)
 	end 'o'
 end 'noteOp'
 
@@ -1983,3 +2030,117 @@ test 'the top of a loop keeps only what no iteration of its body can falsify'
 		checkCounter(bodies[b], starts: starts, reached: reached)
 	end 'bodies'
 end 'the top of a loop keeps only what no iteration of its body can falsify'
+
+// ClaimSide is a side of a comparison a loop invariant states: a quantity moved by a constant, or a constant.
+union ClaimSide
+	quantity(q Count, by FullRangeInt)
+	fixed(k Count)
+end 'ClaimSide'
+
+typealias ClaimSides = Array with ClaimSide
+
+// claimSide is the side as the walk's rangeSideOf makes it, with the span the state knows of its quantity.
+function claimSide(st RangeState, side ClaimSide) returns CompareSide
+	return match side 'side'
+		quantity(q, by) gives CompareSide.placed(quantityPlace(q), span: spanOf(st, p: quantityPlace(q)), by: ast.I128.fromInt(by))
+		fixed(k) gives CompareSide.constant(ast.I128.fromCount(k))
+	end 'side'
+end 'claimSide'
+
+function claimValue(side ClaimSide, v Ints) returns FullRangeInt
+	return match side 'side'
+		quantity(q, by) gives try signed(v[q]) + by otherwise panic("rules: a side past the word")
+		fixed(k) gives signed(k)
+	end 'side'
+end 'claimValue'
+
+function claimText(side ClaimSide) returns String
+	return match side 'side'
+		quantity(q, by) gives "{quantityText(quantityPlace(q))} + {by}"
+		fixed(k) gives "{k}"
+	end 'side'
+end 'claimText'
+
+function isFixed(side ClaimSide) returns bool
+	return match side 'side'
+		quantity(q, by) gives false
+		fixed(k) gives true
+	end 'side'
+end 'isFixed'
+
+// claimLefts are the left sides of the claims: a, count(c), count(g.0) and n moved by -1 to 1, and the constants 0 to 3;
+// claimRights the same quantities moved by 0 or 1, and the constants.
+function claimLefts() returns ClaimSides
+	return claimSides(-1, past: 2)
+end 'claimLefts'
+
+function claimRights() returns ClaimSides
+	return claimSides(0, past: 2)
+end 'claimRights'
+
+function claimSides(from FullRangeInt, past FullRangeInt) returns ClaimSides
+	let qs = relationQuantities()
+	var out = ClaimSides.create(0)
+	for i in 0 upto qs.count() 'quantities'
+		for by in from upto past 'by'
+			out.push(ClaimSide.quantity(qs[i], by: by))
+		end 'by'
+	end 'quantities'
+	for k in 0 upto universeTop + 2 'constants'
+		out.push(ClaimSide.fixed(k))
+	end 'constants'
+	return out
+end 'claimSides'
+
+// invariantComparisons are the comparisons a loop invariant may state, every one but '!='.
+function invariantComparisons() returns Strings
+	var out = Strings.create(0)
+	let cmps = comparisons()
+	for i in 0 upto cmps.count() 'each'
+		if cmps[i] != "!=" 'bounds'
+			out.push(cmps[i].clone())
+		end 'bounds'
+	end 'each'
+	return out
+end 'invariantComparisons'
+
+// checkClaims fails where the state proves a comparison, as provesCompared decides an invariant at the top of a loop, the end
+// of its body or a continue, that a valuation it describes breaks.
+function checkClaims(st RangeState, values Ints, lefts ClaimSides, rights ClaimSides, cmps Strings)
+	var v = Ints.create(quantities)
+	for x in 0 upto lefts.count() 'lefts'
+		for y in 0 upto rights.count() 'rights'
+			if isFixed(lefts[x]) and isFixed(rights[y]) 'constants'
+				continue 'rights'
+			end 'constants'
+			let sx = claimSide(st, side: lefts[x])
+			let sy = claimSide(st, side: rights[y])
+			for c in 0 upto cmps.count() 'cmps'
+				if st.provesCompared(sx, op: cmps[c], y: sy) 'proven'
+					for i in 0 upto values.count() / quantities 'values'
+						for q in 0 upto quantities 'value'
+							v[q] = values[i * quantities + q]
+						end 'value'
+						if not comparesSigned(claimValue(lefts[x], v: v), op: cmps[c], y: claimValue(rights[y], v: v)) 'broken'
+							panic("rules: {stateText(st)} proves {claimText(lefts[x])} {cmps[c]} {claimText(rights[y])}, which {valuationText(v)} breaks")
+						end 'broken'
+					end 'values'
+				end 'proven'
+			end 'cmps'
+		end 'rights'
+	end 'lefts'
+end 'checkClaims'
+
+test 'a loop invariant is proven only where every value the state describes keeps it'
+	let lefts = claimLefts()
+	let rights = claimRights()
+	let cmps = invariantComparisons()
+	let u = Universe.holding(heldAtCollection)
+	let states = relationStates()
+	for s in 0 upto states.count() 'states'
+		let values = described(states[s], u: u)
+		if values.count() > 0 'reached'
+			checkClaims(states[s], values: values, lefts: lefts, rights: rights, cmps: cmps)
+		end 'reached'
+	end 'states'
+end 'a loop invariant is proven only where every value the state describes keeps it'

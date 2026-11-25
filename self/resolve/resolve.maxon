@@ -738,6 +738,9 @@ function resolveStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState, id a
 	end 'sIfTry' else if k == ast.NodeKind.whileStmt 'sWh'
 		checkEnd(r, label: ast.whileStmtLabel(r.tree, id: id), endNode: ast.whileStmtEnd(r.tree, id: id), errs: errs)
 		resolveExpr(r, p: p, ms: ms, id: ast.whileStmtCond(r.tree, id: id), errs: errs)
+		if ast.whileStmtInvariant(r.tree, id: id) != 0 'invariant'
+			resolveExpr(r, p: p, ms: ms, id: ast.whileStmtInvariant(r.tree, id: id), errs: errs)
+		end 'invariant'
 		openBlock(r, p: p, labelRef: ast.whileStmtLabelRef(r.tree, id: id), errs: errs)
 		resolveBlock(r, p: p, ms: ms, listRef: ast.whileStmtBodyRef(r.tree, id: id), errs: errs)
 		closeBlock(r, labelRef: ast.whileStmtLabelRef(r.tree, id: id))

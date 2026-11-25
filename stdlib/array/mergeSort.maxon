@@ -129,10 +129,10 @@ export extension Array
 		var l = lo
 		var h = hi
 		while l < h 'binSearch'
-			let m = try l + (h - l) / 2 otherwise panic("out of range")
+			let m = l + (h - l) / 2
 			let v = try self.managed.get(m) otherwise panic("lowerBound: get OOB at m")
 			if cmp(v, target) == core.Ordering.lessThan 'goRight'
-				l = try m + 1 otherwise panic("out of range")
+				l = m + 1
 			end 'goRight' else 'goLeft'
 				h = m
 			end 'goLeft'
@@ -187,12 +187,12 @@ export extension Array
 		var l = lo
 		var h = hi
 		while l < h 'binSearch'
-			let m = try l + (h - l) / 2 otherwise panic("out of range")
+			let m = l + (h - l) / 2
 			let v = try self.managed.get(m) otherwise panic("upperBound: get OOB at m")
 			if cmp(v, target) == core.Ordering.greaterThan 'goLeft'
 				h = m
 			end 'goLeft' else 'goRight'
-				l = try m + 1 otherwise panic("out of range")
+				l = m + 1
 			end 'goRight'
 		end 'binSearch'
 		return l

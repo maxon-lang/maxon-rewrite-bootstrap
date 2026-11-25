@@ -104,7 +104,7 @@ function stepped() returns Count
 	var missed = 0 as Count
 	var i = 0 as Count
 	while i < xs.count() 'each'
-		i = try i + 2 otherwise panic("overflowed")
+		i = i + 2
 		missed = try missed + (try xs.get(i) otherwise 100) otherwise panic("overflowed")
 	end 'each'
 	return missed

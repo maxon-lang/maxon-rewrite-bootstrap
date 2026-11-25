@@ -26,6 +26,8 @@ export let fixKindMatchConsumes = "match consumes"
 
 export let fixKindUntry = "no try"
 
+let fixKindUnrequire = "no requires"
+
 let fixKindThaw = "thaw"
 
 let fixKindFreeze = "freeze"
@@ -118,6 +120,19 @@ export function untryFix(t ast.Tree, site ast.NodeID) returns diag.Fix
 	end 'conditional'
 	panic("fixes: a try fix for a node that is no try")
 end 'untryFix'
+
+// unrequireFix removes the invariant of the while loop s with its 'requires', which is the change a loop invariant that the
+// analysis cannot prove, or does not follow, names: what needed it is then refused where it is not known.
+function unrequireFix(t ast.Tree, s ast.NodeID) returns diag.Fix
+	let cond = ast.exprExtent(t, e: ast.whileStmtCond(t, id: s))
+	let invariant = ast.exprExtent(t, e: ast.whileStmtInvariant(t, id: s))
+	if not cond.isSome() or not invariant.isSome() 'unknown'
+		return diag.Fix.none()
+	end 'unknown'
+	var edits = diag.FixEdits.create(0)
+	edits.push(diag.FixEdit.make(t.module, begin: cond.unwrap().until, until: invariant.unwrap().until, text: ""))
+	return fixOf(fixKindUnrequire, edits: edits)
+end 'unrequireFix'
 
 // untryExprFix removes the 'try' of a try expression and its handler, whichever of the forms of handler it has, and leaves
 // the parentheses around what it covered.

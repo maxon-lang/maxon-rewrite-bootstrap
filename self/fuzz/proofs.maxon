@@ -50,6 +50,9 @@ let proofFirstUsePercent = 45 as Count
 // proofFuelLimit is how many times a while loop runs at most, whatever its body does to its condition.
 let proofFuelLimit = 12 as Count
 
+// proofInvariantPercent is how often a loop over a stepping index states that the index stays at most its bound.
+let proofInvariantPercent = 40 as Count
+
 // proofFixedCount is how many elements the fixed array of the library has.
 let proofFixedCount = 4 as Count
 
@@ -105,6 +108,16 @@ end 'ProofTarget'
 function proofHandled(expr String, fallback String) returns String
 	return "{kwTry} {expr} {kwOtherwise} {fallback}"
 end 'proofHandled'
+
+// isWrittenNumber is whether a place is a number written as one, which starts with a digit.
+function isWrittenNumber(place String) returns bool
+	let first = place.byteAt(0)
+	return first >= digitZero and first <= digitNine
+end 'isWrittenNumber'
+
+let digitZero = 48 as Byte
+
+let digitNine = 57 as Byte
 
 function proofLower(depth Count) returns Count
 	return try depth - 1 otherwise panic("fuzz: a proof depth below 0")
@@ -263,8 +276,10 @@ type ProofGen
 		return self.cursorPlace()
 	end 'focusedCursor'
 
-	// variant is the place itself, or the place a step to either side.
-	function variant(mutates self, place String) returns String
+	// variant is the place itself, or the place a step to either side. An index the checker knows is one number outside its
+	// collection is refused at once, where no fix can help, so a step up never indexes the fixed array, where a guard may have
+	// made the place a known number, and a step down never leaves a number written as one.
+	function variant(mutates self, array Count, place String) returns String
 		if hasPrefix(place, prefix: "(") 'written'
 			return place.clone()
 		end 'written'
@@ -272,13 +287,18 @@ type ProofGen
 		if r < 70 'same'
 			return place.clone()
 		end 'same'
-		if r < 82 'next'
-			return "({proofHandled("{place} + 1", fallback: "0")})"
+		let up = arrays[array].kind != proofFixed
+		let down = not isWrittenNumber(place)
+		if up and (r < 82 or not down) 'next'
+			if r < 92 'one'
+				return "({proofHandled("{place} + 1", fallback: "0")})"
+			end 'one'
+			return "({proofHandled("{place} + 2", fallback: "0")})"
 		end 'next'
-		if r < 92 'previous'
+		if down 'previous'
 			return "({proofHandled("{place} - 1", fallback: "0")})"
 		end 'previous'
-		return "({proofHandled("{place} + 2", fallback: "0")})"
+		return place.clone()
 	end 'variant'
 
 	// countText is the count of an array, or the count less a small number.
@@ -313,7 +333,7 @@ type ProofGen
 		let r = self.pick(100)
 		if r < 60 'place'
 			let place = self.readPlace()
-			return self.variant(place)
+			return self.variant(array, place: place)
 		end 'place'
 		if r < 80 'constant'
 			if arrays[array].kind == proofFixed 'fixed'
@@ -334,7 +354,7 @@ type ProofGen
 				array = self.randomArray()
 			end 'other'
 			let place = focusPlaces[f].clone()
-			return ProofTarget.make(array, index: self.variant(place))
+			return ProofTarget.make(array, index: self.variant(array, place: place))
 		end 'focused'
 		let array = self.randomArray()
 		let index = self.looseIndex(array)
@@ -461,7 +481,8 @@ type ProofGen
 			if op == 4 'greaterOrAt'
 				return "{place} >= {bound}"
 			end 'greaterOrAt'
-			return "{place} == {bound}"
+			// The fact is on the fixed array, so a place it makes one number stays inside it.
+			return "{place} == {self.pick(proofFixedCount)}"
 		end 'constant'
 		condFocused = true
 		condArray = 6
@@ -1123,6 +1144,7 @@ type ProofGen
 		var array = self.randomArray()
 		var steps = false
 		var drains = false
+		var invariant = ""
 		if kind < 60 'stepping'
 			place = self.focusedCursor()
 			if focusArrays.count() > 0 and self.chance(proofFocusPercent) 'focused'
@@ -1131,14 +1153,20 @@ type ProofGen
 			end 'focused'
 			let row24 = "{place} = idx({self.pick(3)})"
 			self.line(row24)
+			var bound = "{arrays[array].text}.count()"
 			if self.chance(25) 'local'
-				let b = self.boundLocal(array)
-				condition = "{place} < {b}"
+				bound = self.boundLocal(array)
+				condition = "{place} < {bound}"
 			end 'local' else if self.chance(85) 'below'
-				condition = "{place} < {arrays[array].text}.count()"
+				condition = "{place} < {bound}"
 			end 'below' else 'belowOrAt'
-				condition = "{place} <= {arrays[array].text}.count()"
+				condition = "{place} <= {bound}"
 			end 'belowOrAt'
+			// An invariant that a step of one keeps, unless the body moves the place or the bound otherwise: one it cannot prove is
+			// taken out by the fix, and the accesses that needed it are refused.
+			if self.chance(proofInvariantPercent) 'invariant'
+				invariant = "{place} <= {bound}"
+			end 'invariant'
 			steps = true
 		end 'stepping' else if kind < 85 'draining'
 			array = self.countsArray()
@@ -1155,7 +1183,11 @@ type ProofGen
 			end 'none'
 		end 'any'
 		self.line("{kwVar} {fuel} = 0 {kwAs} Count")
-		self.line("{kwWhile} {condition} {kwAnd} {fuel} < {proofFuelLimit} {label}")
+		if invariant != "" 'requires'
+			self.line("{kwWhile} {condition} {kwAnd} {fuel} < {proofFuelLimit} {kwRequires} {invariant} {label}")
+		end 'requires' else 'plain'
+			self.line("{kwWhile} {condition} {kwAnd} {fuel} < {proofFuelLimit} {label}")
+		end 'plain'
 		self.indentMore()
 		self.line("{fuel} = {proofHandled("{fuel} + 1", fallback: "0")}")
 		loops.push(label.clone())
@@ -1178,6 +1210,35 @@ type ProofGen
 		self.indentLess()
 		self.line("{kwEnd} {label}")
 	end 'whileStatement'
+
+	// midpointStatement binds a new local to the midpoint of two places and reads an array there, and a step past it: under a
+	// guard that the first is below the second and the second at most the count, the midpoint lies inside and below the second,
+	// its sum cannot fail, and the step stays inside too.
+	function midpointStatement(mutates self)
+		var array = self.listedArray()
+		if focusArrays.count() > 0 and self.chance(proofFocusPercent) 'focused'
+			let at12 = self.pick(focusArrays.count())
+			array = focusArrays[at12]
+		end 'focused'
+		let low = self.readPlace()
+		let high = self.readPlace()
+		let guarded = self.chance(75)
+		let label = self.label()
+		if guarded 'guard'
+			self.line("{kwIf} {low} < {high} {kwAnd} {high} <= {arrays[array].text}.count() {label}")
+			self.indentMore()
+		end 'guard'
+		let m = self.fresh("mid")
+		self.line("{kwLet} {m} = {proofHandled("{low} + ({high} - {low}) / 2", fallback: "0")}")
+		self.readAt(array, index: m)
+		if self.chance(40) 'next'
+			self.readAt(array, index: "({proofHandled("{m} + 1", fallback: "0")})")
+		end 'next'
+		if guarded 'close'
+			self.indentLess()
+			self.line("{kwEnd} {label}")
+		end 'close'
+	end 'midpointStatement'
 
 	// divideStatement divides by an index or a count, which is proven to be more than 0 only under the right guard.
 	function divideStatement(mutates self)
@@ -1216,10 +1277,14 @@ type ProofGen
 	function statement(mutates self, depth Count)
 		budget = try budget - 1 otherwise 0
 		let r = self.pick(100)
-		if r < 36 'read'
+		if r < 33 'read'
 			self.readStatement()
 			return
 		end 'read'
+		if r < 36 'midpoint'
+			self.midpointStatement()
+			return
+		end 'midpoint'
 		if r < 44 'write'
 			self.writeStatement()
 			return

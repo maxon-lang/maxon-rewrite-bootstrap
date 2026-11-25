@@ -131,6 +131,30 @@ type Relation
 	end 'make'
 end 'Relation'
 
+// CompareSide is a side of a comparison that a state may prove: a place moved by a constant, with the span the place has
+// where it is compared, or a constant, its value the span and at none.
+type CompareSide
+	export var at as table.Option with Place
+	export var span as Span
+	export var by as ast.I128
+
+	static function placed(consumes at Place, consumes span Span, consumes by ast.I128) returns CompareSide
+		return CompareSide{at: table.Option.some(at), span: span, by: by}
+	end 'placed'
+
+	static function constant(value ast.I128) returns CompareSide
+		return CompareSide{at: table.Option.none, span: Span.exactly(value), by: ast.I128.zero()}
+	end 'constant'
+
+	// place is the place of a side that has one.
+	function place() returns Place
+		return match at 'at'
+			some(p) gives p.clone()
+			none panic("ranges: a constant side has no place")
+		end 'at'
+	end 'place'
+end 'CompareSide'
+
 // Gone says which places a state forgets: those that overlap a place that changed, or all but some of them.
 union Gone
 	overlapping(place Place)
@@ -210,10 +234,24 @@ type RangeState
 		end 'room'
 	end 'relate'
 
-	// equate records that v is w + by, as a binding or an assignment of 'w + by' leaves it.
+	// equate records that v is w + by, as a binding or an assignment of 'w + by' leaves it, which nothing else known names
+	// yet: v is as far from every place w is related to as w is, moved by by, so 'hi = mid' keeps a relation of hi itself
+	// that a join with a path where hi did not change can find.
 	function equate(mutates self, v Place, w Place, by ast.I128)
+		let n = relations.count()
 		self.relate(v, lo: w, gap: by)
 		self.relate(w, lo: v, gap: by.neg())
+		for i in 0 upto n 'copies'
+			if relations[i].lo.same(w) and not relations[i].hi.overlaps(v) 'above'
+				let hi = relations[i].hi.clone()
+				let gap = relations[i].gap.sub(by)
+				self.relate(hi, lo: v, gap: gap)
+			end 'above' else if relations[i].hi.same(w) and not relations[i].lo.overlaps(v) 'below'
+				let lo = relations[i].lo.clone()
+				let gap = relations[i].gap.add(by)
+				self.relate(v, lo: lo, gap: gap)
+			end 'below'
+		end 'copies'
 	end 'equate'
 
 	// gap is how far hi is known to lie above lo, if anything is known of it.
@@ -301,6 +339,76 @@ type RangeState
 		return out
 	end 'tightened'
 
+	// sideSpan is the span of a side's place, cut by its relations, or the constant of a side with none.
+	function sideSpan(side CompareSide) returns Span
+		return match side.at 'at'
+			some(p) gives self.tightened(p, cur: side.span)
+			none gives side.span.clone()
+		end 'at'
+	end 'sideSpan'
+
+	// sidesGap is the least that the place of hi lies above the place of lo along a chain of relations, 0 for one place, or
+	// none where either side has no place or no chain relates them.
+	function sidesGap(hi CompareSide, lo CompareSide) returns table.Option with ast.I128
+		if not hi.at.isSome() or not lo.at.isSome() 'constant'
+			return table.Option.none
+		end 'constant'
+		let h = hi.place()
+		let l = lo.place()
+		if h.same(l) 'same'
+			return table.Option.some(ast.I128.zero())
+		end 'same'
+		return self.least(h, lo: l)
+	end 'sidesGap'
+
+	// provesAbove is whether every value the state describes has hi - lo >= gap, for two sides moved by their constants: by
+	// the spans of their places, or by the relations between them.
+	function provesAbove(hi CompareSide, lo CompareSide, gap ast.I128) returns bool
+		var least = self.sideSpan(hi).lo.sub(self.sideSpan(lo).hi)
+		match consumes self.sidesGap(hi, lo: lo) 'chain'
+			some(g) then least = ast.maxI128(least, b: g)
+			none then _ = 0
+		end 'chain'
+		return least.add(hi.by).sub(lo.by).ge(gap)
+	end 'provesAbove'
+
+	// provesCompared is whether every value the state describes has 'x op y', a comparison that bounds the difference of its
+	// sides, as a loop invariant states one.
+	function provesCompared(x CompareSide, op String, y CompareSide) returns bool
+		let zero = ast.I128.zero()
+		let one = ast.I128.one()
+		return match op 'op'
+			">" gives self.provesAbove(x, lo: y, gap: one)
+			">=" gives self.provesAbove(x, lo: y, gap: zero)
+			"<" gives self.provesAbove(y, lo: x, gap: one)
+			"<=" gives self.provesAbove(y, lo: x, gap: zero)
+			"==" gives self.provesAbove(x, lo: y, gap: zero) and self.provesAbove(y, lo: x, gap: zero)
+			default panic("ranges: '{op}' bounds no difference")
+		end 'op'
+	end 'provesCompared'
+
+	// provesMidpoint is whether 'low + (high - low) / 2' lies from low to high - 1 for every value the state describes: where
+	// high - low >= 1, half a difference d >= 1, truncated, is from 0 to d - 1. Then its sum cannot pass its type.
+	function provesMidpoint(low CompareSide, high CompareSide) returns bool
+		return self.provesAbove(high, lo: low, gap: ast.I128.one())
+	end 'provesMidpoint'
+
+	// midpointSpan is the span of the midpoint that provesMidpoint proves: from low's lowest to one under high's highest.
+	function midpointSpan(low CompareSide, high CompareSide) returns Span
+		return Span.make(self.sideSpan(low).lo.clone(), hi: self.sideSpan(high).hi.sub(ast.I128.one()))
+	end 'midpointSpan'
+
+	// relateMidpoint records what a place m that was just given a proven midpoint of low and high knows: m - low >= 0 and
+	// high - m >= 1, each only where m is not the place of the other side, which the write changed.
+	function relateMidpoint(mutates self, m Place, low Place, high Place)
+		if not m.overlaps(low) 'low'
+			self.relate(m, lo: low, gap: ast.I128.zero())
+		end 'low'
+		if not m.overlaps(high) 'high'
+			self.relate(high, lo: m, gap: ast.I128.one())
+		end 'high'
+	end 'relateMidpoint'
+
 	// shiftPlace moves what is known of how p compares with other places by exactly by, as 'p = p + by' does where the sum is
 	// exact; what names a place inside p or holding it goes. The caller gives p its new span.
 	function shiftPlace(mutates self, p Place, by ast.I128)
@@ -331,6 +439,7 @@ type RangeState
 			end 'stays'
 		end 'fields'
 		fields.truncate(keptFields)
+		self.bridge(gone)
 		var keptRelations = 0 as Count
 		for i in 0 upto relations.count() 'relations'
 			if not gone.isGone(relations[i].hi) and not gone.isGone(relations[i].lo) 'stays'
@@ -342,6 +451,25 @@ type RangeState
 		end 'relations'
 		relations.truncate(keptRelations)
 	end 'drop'
+
+	// bridge keeps what two relations through a place that is gone said of the places on either side of it, which stay: x - d
+	// >= g1 and d - y >= g2 give x - y >= g1 + g2, true before d changed and so after. 'hi = mid' in a search then keeps how
+	// far the old hi, and so mid, lay below the count.
+	function bridge(mutates self, gone Gone)
+		let n = relations.count()
+		for i in 0 upto n 'above'
+			if gone.isGone(relations[i].lo) and not gone.isGone(relations[i].hi) 'through'
+				for j in 0 upto n 'below'
+					if relations[j].hi.same(relations[i].lo) and not gone.isGone(relations[j].lo) and not relations[j].lo.same(relations[i].hi) 'bridged'
+						let hi = relations[i].hi.clone()
+						let lo = relations[j].lo.clone()
+						let gap = relations[i].gap.add(relations[j].gap)
+						self.relate(hi, lo: lo, gap: gap)
+					end 'bridged'
+				end 'below'
+			end 'through'
+		end 'above'
+	end 'bridge'
 
 	// affect applies what a call that changes nothing else the state follows inside the collection at holder does to its
 	// count: a fact on the count that the effect cannot falsify stays, moved by an exact amount, and the others go, as does

@@ -434,8 +434,10 @@ ifTryStmt
 	Local Slot[Local]
 }
 
+// A while loop's invariant, after 'requires', holds where the loop is entered and wherever an iteration goes back to the
+// top, which the range analysis proves; inside the body and after the loop it is known.
 whileStmt
-    : 'while' cond=expr label=Label
+    : 'while' cond=expr ('requires' invariant=expr)? label=Label
       body=block
       'end' end=endLabel?
     ;

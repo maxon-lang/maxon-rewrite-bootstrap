@@ -1,0 +1,107 @@
+// A while loop's invariant, after 'requires', is proven where the loop is entered, at the end of its body and at each
+// continue, and is known at the top of every iteration and after the loop; a midpoint 'lo + (hi - lo) / 2' of a range the
+// analysis knows is not empty lies inside it. Each access below is written with no try and runs with no check: a reverse in
+// place from both ends, a stride by two that knows afterwards how far it stopped short of the end, a binary search, two
+// pointers that close in on a sum, and a walk that skips with continue.
+typealias Counts = Array with Count
+
+function reverse(mutates ys Counts)
+	if ys.count() < 2 'short'
+		return
+	end 'short'
+	var lo = 0 as Count
+	var hi = ys.count()
+	hi = hi - 1
+	while lo < hi requires hi < ys.count() 'swap'
+		let a = ys.get(lo)
+		let b = ys.get(hi)
+		ys.set(lo, value: b)
+		ys.set(hi, value: a)
+		lo = lo + 1
+		hi = hi - 1
+	end 'swap'
+end 'reverse'
+
+function pairSums(xs Counts) returns Count
+	var total = 0 as Count
+	var i = 0 as Count
+	while i + 1 < xs.count() requires i <= xs.count() 'stride'
+		total = try total + xs.get(i) * xs.get(i + 1) otherwise panic("total overflowed")
+		i = i + 2
+	end 'stride'
+	let left = xs.count() - i
+	return try total * 10 + left otherwise panic("total overflowed")
+end 'pairSums'
+
+function search(xs Counts, wanted Count) returns Count
+	var lo = 0 as Count
+	var hi = xs.count()
+	while lo < hi requires hi <= xs.count() 'halve'
+		let mid = lo + (hi - lo) / 2
+		if xs.get(mid) < wanted 'below'
+			lo = mid + 1
+		end 'below' else 'atOrAbove'
+			hi = mid
+		end 'atOrAbove'
+	end 'halve'
+	return lo
+end 'search'
+
+function sumsTo(xs Counts, target Count) returns bool
+	if xs.count() == 0 'empty'
+		return false
+	end 'empty'
+	var lo = 0 as Count
+	var hi = xs.count()
+	hi = hi - 1
+	while lo < hi requires hi < xs.count() 'pointers'
+		let sum = try xs.get(lo) + xs.get(hi) otherwise panic("sum overflowed")
+		if sum == target 'found'
+			return true
+		end 'found'
+		if sum < target 'small'
+			lo = lo + 1
+		end 'small' else 'large'
+			hi = hi - 1
+		end 'large'
+	end 'pointers'
+	return false
+end 'sumsTo'
+
+function oddsBelow(xs Counts, n Count) returns Count
+	var total = 0 as Count
+	var i = 0 as Count
+	var stop = n
+	if stop > xs.count() 'clamp'
+		stop = xs.count()
+	end 'clamp'
+	while i < stop requires stop <= xs.count() 'walk'
+		let x = xs.get(i)
+		i = i + 1
+		if x mod 2 == 0 'even'
+			continue 'walk'
+		end 'even'
+		total = try total + x otherwise panic("total overflowed")
+	end 'walk'
+	return total
+end 'oddsBelow'
+
+function main() returns ExitCode
+	var ys = Counts.create(0)
+	for k in 1 upto 6 'fill'
+		ys.push(k)
+	end 'fill'
+	reverse(ys)
+	let sorted = Counts.filled(1, value: 1)
+	var steps = sorted.clone()
+	steps.push(3)
+	steps.push(4)
+	steps.push(8)
+	steps.push(9)
+	let first = try ys.get(0) otherwise 0
+	let last = try ys.get(4) otherwise 0
+	print("{first}{last} {pairSums(ys)} {search(steps, wanted: 4)} {search(steps, wanted: 10)} {sumsTo(steps, target: 12)} {sumsTo(steps, target: 6)} {oddsBelow(steps, n: 4)}\n")
+	return 0
+end 'main'
+
+//> 51 261 2 5 true false 4

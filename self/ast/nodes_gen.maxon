@@ -119,6 +119,7 @@ export function isReserved(word String) returns bool
 		"else" or
 		"try" or
 		"while" or
+		"requires" or
 		"for" or
 		"in" or
 		"otherwise" or
@@ -1116,7 +1117,7 @@ end 'setIfTryStmtElseEnd'
 
 export function newWhileStmt(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.whileStmt, start: start)
-	let blk = t.reserve(3 as Count)
+	let blk = t.reserve(4 as Count)
 	t.records[id as Count].b = blk
 	return id
 end 'newWhileStmt'
@@ -1129,32 +1130,40 @@ export function setWhileStmtCond(mutates t Tree, id NodeID, value NodeID)
 	t.records[id as Count].a = value as diag.U32
 end 'setWhileStmtCond'
 
+export function whileStmtInvariant(t Tree, id NodeID) returns NodeID
+	return t.blockWordAt(id, offset: 0 as Count) as NodeID
+end 'whileStmtInvariant'
+
+export function setWhileStmtInvariant(mutates t Tree, id NodeID, value NodeID)
+	t.setBlockWordAt(id, offset: 0 as Count, value: value as diag.U32)
+end 'setWhileStmtInvariant'
+
 export function whileStmtLabel(t Tree, id NodeID) returns borrowed String
-	return t.labelAt(t.blockWordAt(id, offset: 0 as Count))
+	return t.labelAt(t.blockWordAt(id, offset: 1 as Count))
 end 'whileStmtLabel'
 
 export function whileStmtLabelRef(t Tree, id NodeID) returns diag.U32
-	return t.blockWordAt(id, offset: 0 as Count)
+	return t.blockWordAt(id, offset: 1 as Count)
 end 'whileStmtLabelRef'
 
 export function setWhileStmtLabelRef(mutates t Tree, id NodeID, ref diag.U32)
-	t.setBlockWordAt(id, offset: 0 as Count, value: ref)
+	t.setBlockWordAt(id, offset: 1 as Count, value: ref)
 end 'setWhileStmtLabelRef'
 
 export function whileStmtBodyRef(t Tree, id NodeID) returns diag.U32
-	return t.blockWordAt(id, offset: 1 as Count)
+	return t.blockWordAt(id, offset: 2 as Count)
 end 'whileStmtBodyRef'
 
 export function setWhileStmtBodyRef(mutates t Tree, id NodeID, ref diag.U32)
-	t.setBlockWordAt(id, offset: 1 as Count, value: ref)
+	t.setBlockWordAt(id, offset: 2 as Count, value: ref)
 end 'setWhileStmtBodyRef'
 
 export function whileStmtEnd(t Tree, id NodeID) returns NodeID
-	return t.blockWordAt(id, offset: 2 as Count) as NodeID
+	return t.blockWordAt(id, offset: 3 as Count) as NodeID
 end 'whileStmtEnd'
 
 export function setWhileStmtEnd(mutates t Tree, id NodeID, value NodeID)
-	t.setBlockWordAt(id, offset: 2 as Count, value: value as diag.U32)
+	t.setBlockWordAt(id, offset: 3 as Count, value: value as diag.U32)
 end 'setWhileStmtEnd'
 
 export function newForStmt(mutates t Tree, start diag.U32) returns NodeID

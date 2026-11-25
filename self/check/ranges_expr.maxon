@@ -774,10 +774,10 @@ function rangeCondExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e as
 	let since = rangeCondition(r, p: p, ms: ms, c: cond)
 	let start = rangeKeep(r)
 	let whenTrue = rangeNarrowed(r, p: p, ms: ms, from: start, c: cond, truth: true, since: since)
+	let whenFalse = rangeNarrowed(r, p: p, ms: ms, from: start, c: cond, truth: false, since: since)
 	r.st = whenTrue
 	let thenSpan = rangeEval(r, p: p, ms: ms, e: ast.condExprThen(ms.tree(), id: e))
 	let thenEnd = r.st
-	let whenFalse = rangeNarrowed(r, p: p, ms: ms, from: start, c: cond, truth: false, since: since)
 	r.st = whenFalse
 	let els = rangeEval(r, p: p, ms: ms, e: ast.condExprElse(ms.tree(), id: e))
 	let elseEnd = r.st
@@ -825,7 +825,7 @@ function rangeTryExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast
 	end 'return' else if brk != 0 'break'
 		rangeBreakStmt(r, s: brk)
 	end 'break' else if ast.tryExprCont(ms.tree(), id: e) != 0 'continue'
-		r.st = deadState
+		rangeContinueStmt(r, p: p, ms: ms, s: ast.tryExprCont(ms.tree(), id: e))
 	end 'continue' else if thr != 0 'throw'
 		rangeThrowStmt(r, p: p, ms: ms, s: thr)
 	end 'throw'
@@ -873,8 +873,75 @@ function rangeOperator(mutates r Ranges, p ast.Project, ms ast.ModuleState, e as
 	end 'logical'
 	let rightFrom = r.written.count()
 	let rs = rangeEval(r, p: p, ms: ms, e: right)
-	return rangeOperate(r, p: p, ms: ms, e: e, l: l, rs: rs, rightFrom: rightFrom, bound: table.Option.none)
+	return rangeOperate(r, p: p, ms: ms, e: e, l: l, rs: rs, rightFrom: rightFrom, bound: rangeMidpointBound(r, p: p, ms: ms, e: e, since: since))
 end 'rangeOperator'
+
+// Midpoint is 'low + (high - low) / 2' of two places, which the state proves lies from low to high - 1.
+type Midpoint
+	export var low as CompareSide
+	export var high as CompareSide
+
+	static function make(consumes low CompareSide, consumes high CompareSide) returns Midpoint
+		return Midpoint{low: low, high: high}
+	end 'make'
+end 'Midpoint'
+
+// rangeMidpointOf is the midpoint the expression e is, if it is one, written so, of places the analysis follows that nothing
+// changed since, and the state proves high - low >= 1 (provesMidpoint). '(low + high) / 2' is not one: its sum may pass the
+// type where the midpoint does not.
+function rangeMidpointOf(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, since Count) returns table.Option with Midpoint
+	let t = ms.tree()
+	if isDead(r, s: r.st) or not isOperation(r, t: t, e: e, op: "+") or ast.isWordPattern(ms.types, reads: p.types, t: arithOf(r, e: e).operand) 'other'
+		return table.Option.none
+	end 'other'
+	let half = ast.binaryExprR(t, id: e)
+	if not isOperation(r, t: t, e: half, op: "/") or not isTwo(r, p: p, ms: ms, e: ast.binaryExprR(t, id: half)) 'notHalf'
+		return table.Option.none
+	end 'notHalf'
+	let gap = ast.binaryExprL(t, id: half)
+	if not isOperation(r, t: t, e: gap, op: "-") 'notGap'
+		return table.Option.none
+	end 'notGap'
+	let low = rangePlaceOf(r, p: p, ms: ms, e: ast.binaryExprL(t, id: e))
+	let again = rangePlaceOf(r, p: p, ms: ms, e: ast.binaryExprR(t, id: gap))
+	let high = rangePlaceOf(r, p: p, ms: ms, e: ast.binaryExprL(t, id: gap))
+	if not low.isSome() or not again.isSome() or not high.isSome() 'notPlaces'
+		return table.Option.none
+	end 'notPlaces'
+	let a = low.unwrap()
+	let b = high.unwrap()
+	if not a.same(again.unwrap()) or changedIn(a, written: r.written, since: since) or changedIn(b, written: r.written, since: since) 'apart'
+		return table.Option.none
+	end 'apart'
+	let lowSpan = rangeSpanAt(r, p: p, ms: ms, s: r.st, place: a, t: typeOf(r, e: ast.binaryExprL(t, id: e)))
+	let highSpan = rangeSpanAt(r, p: p, ms: ms, s: r.st, place: b, t: typeOf(r, e: ast.binaryExprL(t, id: gap)))
+	let lowSide = CompareSide.placed(a, span: lowSpan, by: ast.I128.zero())
+	let highSide = CompareSide.placed(b, span: highSpan, by: ast.I128.zero())
+	if not r.states.list[r.st].provesMidpoint(lowSide, high: highSide) 'unproven'
+		return table.Option.none
+	end 'unproven'
+	return table.Option.some(Midpoint.make(lowSide, high: highSide))
+end 'rangeMidpointOf'
+
+// isOperation is whether e is the integer operation op.
+function isOperation(r Ranges, t ast.Tree, e ast.NodeID, op String) returns bool
+	return t.kindOf(e) == ast.NodeKind.binaryExpr and ast.binaryExprOp(t, id: e) == op and r.typing.arith.has(e as Count)
+end 'isOperation'
+
+function isTwo(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns bool
+	return match consumes rangeConstantOf(r, p: p, ms: ms, e: e) 'constant'
+		some(c) gives c.eq(ast.I128.fromCount(2 as Count))
+		none gives false
+	end 'constant'
+end 'isTwo'
+
+// rangeMidpointBound is the span a proven midpoint lies in, which bounds the sum e, or none where e is no proven midpoint.
+function rangeMidpointBound(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, since Count) returns table.Option with Span
+	return match consumes rangeMidpointOf(r, p: p, ms: ms, e: e, since: since) 'midpoint'
+		some(m) gives table.Option.some(r.states.list[r.st].midpointSpan(m.low, high: m.high))
+		none gives table.Option.none
+	end 'midpoint'
+end 'rangeMidpointBound'
 
 // rangeOperate is the span of an operator on operands of the spans l and rs, where rightFrom is where the places that the
 // right operand changes begin in written. An exact result outside bound, if there is one, is one the code cannot reach.

@@ -489,9 +489,9 @@ function sum(limit Count) returns Count
 	if total > 20 'check'
 		total = try total + 5 otherwise panic("out of range")
 	end 'check' else if total > 10 'check'
-		total = try total + 1 otherwise panic("out of range")
+		total = total + 1
 	end 'check' else 'check'
-		total = try total + 3 otherwise panic("out of range")
+		total = total + 3
 	end 'check'
 	return total
 end 'sum'

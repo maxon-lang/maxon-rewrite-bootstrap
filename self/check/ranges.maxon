@@ -37,14 +37,20 @@ type RangeTry
 	end 'make'
 end 'RangeTry'
 
-// RangeFrame is a loop or a match being walked, which a break leaves for the state after it.
+// RangeFrame is a loop or a match being walked, which a break leaves for the state after it. invariant is what a while loop
+// requires, which every continue of it must keep, or 0.
 type RangeFrame
 	export var node as ast.NodeID
 	export var breaks as Count
+	export var invariant as ast.NodeID
 
 	static function make(node ast.NodeID) returns RangeFrame
-		return RangeFrame{node: node, breaks: deadState}
+		return RangeFrame{node: node, breaks: deadState, invariant: 0 as ast.NodeID}
 	end 'make'
+
+	static function requiring(node ast.NodeID, invariant ast.NodeID) returns RangeFrame
+		return RangeFrame{node: node, breaks: deadState, invariant: invariant}
+	end 'requiring'
 end 'RangeFrame'
 
 typealias RangeFrameList = Array with RangeFrame
@@ -484,14 +490,15 @@ function nodeLocalOf(r Ranges, node ast.NodeID) returns table.Option with ast.Lo
 	return r.typing.nodeLocals.get(node as Count)
 end 'nodeLocalOf'
 
-// rangeSpanAt is what is known of an integer place in the state s.
+// rangeSpanAt is what is known of an integer place in the state s: a count nothing else bounds lies below maxElementCount.
 function rangeSpanAt(r Ranges, p ast.Project, ms ast.ModuleState, s Count, place Place, t ast.TypeID) returns Span
+	let typed = typeSpan(ms.types, reads: p.types, t: t)
 	if isDead(r, s: s) 'dead'
-		return typeSpan(ms.types, reads: p.types, t: t)
+		return typed
 	end 'dead'
 	return match consumes r.states.list[s].at(place) 'known'
 		some(v) gives v
-		none gives typeSpan(ms.types, reads: p.types, t: t)
+		none gives typed.clamp(Span.make(ast.I128.zero(), hi: ast.I128.fromCount(maxElementCount))) if place.counted else typed
 	end 'known'
 end 'rangeSpanAt'
 
@@ -561,7 +568,7 @@ function rangeStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.No
 		return
 	end 'break'
 	if k == ast.NodeKind.continueStmt 'continue'
-		r.st = deadState
+		rangeContinueStmt(r, p: p, ms: ms, s: s)
 		return
 	end 'continue'
 	panic("ranges: the node {s} of kind {k.name} is no statement")
@@ -619,9 +626,27 @@ function rangeAssignTo(mutates r Ranges, p ast.Project, ms ast.ModuleState, plac
 	end 'other'
 	match consumes rangeOffsetOf(r, p: p, ms: ms, e: value) 'offset'
 		some(o) then rangeAssignOffset(r, p: p, ms: ms, place: place, o: o, v: v, t: t)
-		none then rangeWrite(r, p: p, ms: ms, place: place, s: v, t: t)
+		none then rangeAssignComputed(r, p: p, ms: ms, place: place, value: value, v: v, t: t)
 	end 'offset'
 end 'rangeAssignTo'
+
+// rangeAssignComputed gives a place a value computed some other way, which a proven midpoint relates to its two sides.
+function rangeAssignComputed(mutates r Ranges, p ast.Project, ms ast.ModuleState, place Place, value ast.NodeID, v Span, t ast.TypeID)
+	let midpoint = rangeMidpointOf(r, p: p, ms: ms, e: value, since: r.written.count())
+	rangeWrite(r, p: p, ms: ms, place: place, s: v, t: t)
+	if isDead(r, s: r.st) 'dead'
+		return
+	end 'dead'
+	match consumes midpoint 'midpoint'
+		some(m) then rangeRelateMidpoint(r, place: place, m: m)
+		none then _ = 0
+	end 'midpoint'
+end 'rangeAssignComputed'
+
+function rangeRelateMidpoint(mutates r Ranges, place Place, m Midpoint)
+	let st = r.st
+	r.states.list[st].relateMidpoint(place, low: m.low.place(), high: m.high.place())
+end 'rangeRelateMidpoint'
 
 function rangeAssignOffset(mutates r Ranges, p ast.Project, ms ast.ModuleState, place Place, o Offset, v Span, t ast.TypeID)
 	if not o.exact 'wraps'
@@ -662,10 +687,10 @@ function rangeIfStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.
 	let since = rangeCondition(r, p: p, ms: ms, c: cond)
 	let start = rangeKeep(r)
 	let whenTrue = rangeNarrowed(r, p: p, ms: ms, from: start, c: cond, truth: true, since: since)
+	let whenFalse = rangeNarrowed(r, p: p, ms: ms, from: start, c: cond, truth: false, since: since)
 	r.st = whenTrue
 	rangeBlock(r, p: p, ms: ms, body: ast.ifStmtThenRef(ms.tree(), id: s))
 	let thenEnd = r.st
-	let whenFalse = rangeNarrowed(r, p: p, ms: ms, from: start, c: cond, truth: false, since: since)
 	r.st = whenFalse
 	if ast.ifStmtHasElse(ms.tree(), id: s) 'else'
 		rangeBlock(r, p: p, ms: ms, body: ast.ifStmtElseRef(ms.tree(), id: s))
@@ -708,19 +733,39 @@ function rangeIfTryStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s a
 	r.st = r.states.joined(succeeded, b: failed)
 end 'rangeIfTryStmt'
 
+// rangeWhileStmt walks a while loop. Its invariant, where it states one, is proven where the loop is entered and wherever an
+// iteration goes back to the top, at the end of the body and at each continue, so it holds at every top: the top knows it
+// beside what the body cannot falsify, and so do the body and the exit through the condition.
 function rangeWhileStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
+	let invariant = ast.whileStmtInvariant(ms.tree(), id: s)
+	if invariant != 0 'entered'
+		if not rangeInvariantForm(r, p: p, ms: ms, e: invariant) 'form'
+			rangeRaiseFixed(r, p: p, ms: ms, node: invariant, code: diag.errLoopInvariant, msg: invariantFormText(ms.tree(), e: invariant), fix: unrequireFix(ms.tree(), s: s))
+			return
+		end 'form'
+		rangeRequireInvariant(r, p: p, ms: ms, loop: s, at: 0 as ast.NodeID, where: "where the loop is entered: establish it before the loop")
+	end 'entered'
 	rangeLoopTop(r, p: p, ms: ms, s: s)
+	if invariant != 0 'assumed'
+		let entered = r.st
+		let since = r.written.count()
+		let assumed = rangeNarrowed(r, p: p, ms: ms, from: entered, c: invariant, truth: true, since: since)
+		r.st = assumed
+	end 'assumed'
 	let cond = ast.whileStmtCond(ms.tree(), id: s)
 	let since = rangeCondition(r, p: p, ms: ms, c: cond)
 	let top = rangeKeep(r)
-	r.frames.push(RangeFrame.make(s))
+	r.frames.push(RangeFrame.requiring(s, invariant: invariant))
 	let times = rangeScaleTimes(r, trips: pastEveryWord())
 	let whenTrue = rangeNarrowed(r, p: p, ms: ms, from: top, c: cond, truth: true, since: since)
+	var exit = rangeNarrowed(r, p: p, ms: ms, from: top, c: cond, truth: false, since: since)
 	r.st = whenTrue
 	rangeBlock(r, p: p, ms: ms, body: ast.whileStmtBodyRef(ms.tree(), id: s))
+	if invariant != 0 'ended'
+		rangeRequireInvariant(r, p: p, ms: ms, loop: s, at: 0 as ast.NodeID, where: "at the end of the body: keep it true on every path through the body")
+	end 'ended'
 	rangeRestoreTimes(r, outer: times)
 	let breaks = rangePopFrame(r)
-	var exit = rangeNarrowed(r, p: p, ms: ms, from: top, c: cond, truth: false, since: since)
 	if isTrue(ms.tree(), e: cond) 'forever'
 		exit = deadState
 	end 'forever'
@@ -1007,6 +1052,23 @@ function rangeBreakStmt(mutates r Ranges, s ast.NodeID)
 	end 'frames'
 	r.st = deadState
 end 'rangeBreakStmt'
+
+// rangeContinueStmt goes back to the top of the loop it repeats, which must keep the loop's invariant if it states one.
+function rangeContinueStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
+	let target = r.typing.jumps.expect(s as Count, what: "jump target")
+	var i = r.frames.count()
+	while i > 0 'frames'
+		i = i - 1
+		if r.frames[i].node == target 'found'
+			let invariant = r.frames[i].invariant
+			if invariant != 0 'requires'
+				rangeRequireInvariant(r, p: p, ms: ms, loop: target, at: s, where: "at this 'continue': keep it true on every path back to the top of the loop")
+			end 'requires'
+			break 'frames'
+		end 'found'
+	end 'frames'
+	r.st = deadState
+end 'rangeContinueStmt'
 
 // rangeMatch walks each arm from the state after the subject, narrowed by the arm's patterns when the subject is an
 // integer place, and gives the span of the values the arms give.

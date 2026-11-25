@@ -319,7 +319,7 @@ function sortByName(mutates order CountList, mutates scratch CountList, names as
 	if from >= to or nextCount(from) >= to 'sorted'
 		return
 	end 'sorted'
-	let mid = try from + (to - from) / 2 otherwise panic("backend: a sort past its bounds")
+	let mid = table.midpoint(from, high: to)
 	sortByName(order, scratch: scratch, names: names, from: from, to: mid)
 	sortByName(order, scratch: scratch, names: names, from: mid, to: to)
 	var i = from as Count

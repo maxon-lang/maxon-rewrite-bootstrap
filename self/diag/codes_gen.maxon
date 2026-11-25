@@ -480,6 +480,9 @@ export let errLentToCoroutine = "E3943"
 // A 'try', a 'try' block or an 'if try' covers nothing that can fail: an operation the range analysis proves cannot, an access it proves inside its collection, or a call of a function that does not throw (README, "Where it differs from Maxon").
 export let errNeedlessTry = "E3944"
 
+// A while loop's invariant, after 'requires', is not a conjunction of comparisons of integer places, counts and constants, or the range analysis cannot prove it where the loop is entered, at the end of its body or at a 'continue' (README, "Where it differs from Maxon").
+export let errLoopInvariant = "E3945"
+
 // A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 export let errInvalidFieldAccess = "E4006"
 

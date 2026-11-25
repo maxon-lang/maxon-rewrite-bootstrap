@@ -43,6 +43,8 @@ let kwOr = "or"
 
 let kwOtherwise = "otherwise"
 
+let kwRequires = "requires"
+
 let kwReturn = "return"
 
 let kwReturns = "returns"

@@ -816,7 +816,7 @@ function sortCounts(mutates list CountList, mutates scratch CountList, from Coun
 	while scratch.count() < to 'room'
 		scratch.push(0)
 	end 'room'
-	let mid = try from + (to - from) / 2 otherwise panic("backend: a sort past its bounds")
+	let mid = table.midpoint(from, high: to)
 	sortCounts(list, scratch: scratch, from: from, to: mid)
 	sortCounts(list, scratch: scratch, from: mid, to: to)
 	var i = from as Count

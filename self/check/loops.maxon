@@ -452,3 +452,86 @@ function effectsOfCaptures(r Ranges, captures ast.CaptureList, mutates scans Loo
 		end 'changes'
 	end 'captures'
 end 'effectsOfCaptures'
+
+// rangeInvariantForm is whether e is what a loop invariant may say: comparisons joined by 'and', each bounding the difference
+// of two sides ('!=' bounds none), a side being an integer place or a count, moved by a constant or not, or a constant.
+function rangeInvariantForm(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns bool
+	if ms.tree().kindOf(e) != ast.NodeKind.binaryExpr 'other'
+		return false
+	end 'other'
+	let op = ast.binaryExprOp(ms.tree(), id: e)
+	let l = ast.binaryExprL(ms.tree(), id: e)
+	let right = ast.binaryExprR(ms.tree(), id: e)
+	if op == "and" and typeOf(r, e: e) == p.builtins.boolTy 'conjunction'
+		return rangeInvariantForm(r, p: p, ms: ms, e: l) and rangeInvariantForm(r, p: p, ms: ms, e: right)
+	end 'conjunction'
+	if not isComparisonOp(op) or op == "!=" 'noBound'
+		return false
+	end 'noBound'
+	return rangeSideOf(r, p: p, ms: ms, e: l, s: r.st).isSome() and rangeSideOf(r, p: p, ms: ms, e: right, s: r.st).isSome()
+end 'rangeInvariantForm'
+
+// invariantFormText is the error for a loop invariant that says what the analysis does not follow.
+function invariantFormText(t ast.Tree, e ast.NodeID) returns String
+	return "a loop invariant compares integer places, counts and constants, each side one of them moved by a constant or not, with '<', '<=', '>', '>=' or '==', and joins the comparisons with 'and': '{exprText(t, e: e)}' says something else; state it in that form, or test it with 'if' in the body"
+end 'invariantFormText'
+
+// rangeSideOf is the side of a comparison that the integer expression e is, with the span its place has in the state s: a
+// constant, or a place moved by a constant whose sum is exact. A sum that may wrap says nothing of its place.
+function rangeSideOf(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, s Count) returns table.Option with CompareSide
+	if not ast.isIntType(ms.types, reads: p.types, t: typeOf(r, e: e)) 'notInt'
+		return table.Option.none
+	end 'notInt'
+	match consumes rangeConstantOf(r, p: p, ms: ms, e: e) 'constant'
+		some(c) then return table.Option.some(CompareSide.constant(c))
+		none then _ = 0
+	end 'constant'
+	match consumes rangeOffsetOf(r, p: p, ms: ms, e: e) 'offset'
+		some(o) then return rangeOffsetSide(r, p: p, ms: ms, o: o, s: s)
+		none then return table.Option.none
+	end 'offset'
+end 'rangeSideOf'
+
+function rangeOffsetSide(r Ranges, p ast.Project, ms ast.ModuleState, o Offset, s Count) returns table.Option with CompareSide
+	if not o.exact 'wraps'
+		return table.Option.none
+	end 'wraps'
+	let span = rangeSpanAt(r, p: p, ms: ms, s: s, place: o.at, t: typeOf(r, e: o.node))
+	return table.Option.some(CompareSide.placed(o.at.clone(), span: span, by: o.by.clone()))
+end 'rangeOffsetSide'
+
+// rangeUnproven is the first comparison of the invariant e, whose form rangeInvariantForm accepted, that the state s does not
+// prove, or 0 where it proves them all.
+function rangeUnproven(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, s Count) returns ast.NodeID
+	let op = ast.binaryExprOp(ms.tree(), id: e)
+	let l = ast.binaryExprL(ms.tree(), id: e)
+	let right = ast.binaryExprR(ms.tree(), id: e)
+	if op == "and" 'conjunction'
+		let first = rangeUnproven(r, p: p, ms: ms, e: l, s: s)
+		if first != 0 'broken'
+			return first
+		end 'broken'
+		return rangeUnproven(r, p: p, ms: ms, e: right, s: s)
+	end 'conjunction'
+	let x = rangeSideOf(r, p: p, ms: ms, e: l, s: s).unwrap()
+	let y = rangeSideOf(r, p: p, ms: ms, e: right, s: s).unwrap()
+	if r.states.list[s].provesCompared(x, op: op, y: y) 'proven'
+		return 0 as ast.NodeID
+	end 'proven'
+	return e
+end 'rangeUnproven'
+
+// rangeRequireInvariant reports the first comparison of the invariant of the while loop at loop that the current state does
+// not prove, at the node at, or at the comparison where at is 0. where says which point of the loop it is and how to keep
+// the invariant there.
+function rangeRequireInvariant(mutates r Ranges, p ast.Project, ms ast.ModuleState, loop ast.NodeID, at ast.NodeID, where String)
+	if r.probing or r.failed or isDead(r, s: r.st) 'unjudged'
+		return
+	end 'unjudged'
+	let broken = rangeUnproven(r, p: p, ms: ms, e: ast.whileStmtInvariant(ms.tree(), id: loop), s: r.st)
+	if broken == 0 'kept'
+		return
+	end 'kept'
+	let node = broken if at == 0 else at
+	rangeRaiseFixed(r, p: p, ms: ms, node: node, code: diag.errLoopInvariant, msg: "the loop invariant '{exprText(ms.tree(), e: broken)}' is not known {where}, or leave it out of 'requires'", fix: unrequireFix(ms.tree(), s: loop))
+end 'rangeRequireInvariant'
