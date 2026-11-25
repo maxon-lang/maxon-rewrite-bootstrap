@@ -2823,7 +2823,8 @@ type Generator
 	end 'elementStatement2'
 
 	// actList does something with a list through maxon's value API: adds an element at either end or at an index, takes one
-	// out of either end or of an index, does something with the first element, which get lends, or prints the count.
+	// out of either end or of an index, writes a field of an element that get lends, does something with the first element,
+	// or prints the count.
 	function actList(mutates self, depth Depth) returns bool
 		let found = self.collectionVar(kindsOf(Kind.kList))
 		if not found.isSome() 'none'
@@ -2835,7 +2836,7 @@ type Generator
 		end 'immutable'
 		let name = vars[v].name.clone()
 		let element = tys[vars[v].t].args[0]
-		let n = self.pick(8)
+		let n = self.pick(9)
 		if n < 2 'add'
 			var adder = "append"
 			if self.pick(2) == 1 'prepend'
@@ -2858,7 +2859,10 @@ type Generator
 			let fallback = self.owned(element, depth: 2)
 			self.line("{kwLet} {kept} = {kwTry} {name}.{taker} {kwOtherwise} {fallback}")
 			_ = self.declare(kept, t: element, owned: true, mutable: false)
-		end 'take' else if n < 7 'element'
+		end 'take' else if n < 8 'element'
+			if n == 4 and self.lentWrite(v) 'written'
+				return true
+			end 'written'
 			let mark = self.guardedBegin()
 			self.elementStatement2(v)
 			self.guardedEnd(mark)
@@ -2867,6 +2871,59 @@ type Generator
 		end 'count'
 		return true
 	end 'actList'
+
+	// lentWrite writes a field of an element of the list v as the statement `try l.get(i).f = value`, whose try covers the get
+	// that lends the place and passes its failure on: to the handler of a try block around it, its own or one that encloses
+	// it. The count guards it, so the handler does not run, and a field that is a count is printed after. It writes nothing,
+	// and is false, where the element is no record with a field to assign.
+	function lentWrite(mutates self, v Count) returns bool
+		let ri = self.recordIndex(tys[vars[v].t].args[0])
+		if not ri.isSome() 'plain'
+			return false
+		end 'plain'
+		let r = ri.unwrap()
+		var assignable = CountList.create(0)
+		for k in 0 upto records[r].fields.count() 'fields'
+			if records[r].fields[k].isVar 'var'
+				assignable.push(k)
+			end 'var'
+		end 'fields'
+		if assignable.count() == 0 'none'
+			return false
+		end 'none'
+		let f = assignable[self.pick(assignable.count())]
+		let fieldName = records[r].fields[f].name.clone()
+		let fieldT = records[r].fields[f].t
+		let name = vars[v].name.clone()
+		var at = "0"
+		if self.pick(2) == 1 'middle'
+			at = "{name}.count() / 2"
+		end 'middle'
+		let mark = self.guardedBegin()
+		guards.push("{name}.count() > 0")
+		let value = self.owned(fieldT, depth: 2)
+		let write = "{kwTry} {name}.get({at}).{fieldName} = {value}"
+		if tries > 0 and self.chance(50) 'enclosed'
+			self.line(write)
+		end 'enclosed' else 'own'
+			let label = self.label()
+			self.line("{kwTry} {label}")
+			self.indentMore()
+			self.line(write)
+			self.indentLess()
+			let handler = self.label()
+			self.line("{kwEnd} {label} {kwOtherwise} {handler}")
+			self.indentMore()
+			self.say(printedText("no element"))
+			self.indentLess()
+			self.line("{kwEnd} {handler}")
+		end 'own'
+		if fieldT == tCount 'shown'
+			self.say(printed("({kwTry} {name}.get({at}) {kwOtherwise} panic(\"the list is empty\")).{fieldName}"))
+		end 'shown'
+		self.guardedEnd(mark)
+		return true
+	end 'lentWrite'
 
 	function actBox(mutates self, depth Depth) returns bool
 		var boxes = CountList.create(0)
