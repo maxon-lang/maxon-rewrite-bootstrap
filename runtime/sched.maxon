@@ -1136,6 +1136,7 @@ function makeScheduler(mainContext Count) returns Count
 	__Raw.storeWord(scheduler, offset: schedMainThreadOffset, value: mainContext)
 	__Raw.storeWord(scheduler, offset: schedLastTakeOffset, value: 1)
 	__Raw.storeWord(scheduler, offset: schedIdleProcCountOffset, value: __Raw.wrappingSub(procs, right: 1))
+	__Raw.storeWord(scheduler, offset: schedPreemptOffOffset, value: set if preemptSwitchedOff() else unset)
 	let main = makeProc(scheduler)
 	initThread(scheduler, context: mainContext)
 	setThreadIdentity(mainContext)
@@ -1259,6 +1260,32 @@ end 'machineCpuCount'
 function osProcessorCount() returns Count
 	return workerCount()
 end 'osProcessorCount'
+
+// MAXON_PREEMPT=off has the monitor take no processor from the thread holding it, neither asking a green thread that has
+// run for preemptNanos to stop nor taking a processor from a blocking call, as maxon's runtime reads it; unset, empty or on
+// is the ordinary monitor, and any other value is maxon's runtime abort, since a switch read as its default would run a
+// program that asked for no preemption under it.
+let preemptVariable = "MAXON_PREEMPT"
+
+let preemptOff = "off"
+
+let preemptOn = "on"
+
+let preemptSwitchUnreadable = 116 as Count
+
+// preemptSwitchedOff is whether MAXON_PREEMPT is off.
+function preemptSwitchedOff() returns bool
+	var failed = 0 as Count
+	let text = osEnvironmentVariable(preemptVariable, errorAddress: __Raw.addressOf(failed))
+	if failed != 0 or text == "" or text == preemptOn 'on'
+		return false
+	end 'on'
+	if text == preemptOff 'off'
+		return true
+	end 'off'
+	runtimeAbort(preemptSwitchUnreadable, name: "schedulerPreemptSwitchUnreadable")
+	return false
+end 'preemptSwitchedOff'
 
 // requestedWorkers is the count MAXON_MAX_PROCS asks for, or noRequest when it is unset or asks for none it may.
 function requestedWorkers() returns Count

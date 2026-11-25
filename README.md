@@ -2740,7 +2740,9 @@ so the code at `run` must have released and freed what the behaviour holds by th
   on the green thread's stack and not in a blocking call; takes a processor from a thread in a bracketed blocking call
   (`enterBlocking`, `exitBlocking`, Go's entersyscall and exitsyscall, around file I/O, path and directory calls, `write`,
   the wait for a child and the clocks a program reads)
-  and hands it to another thread; and takes the events no thread has taken for 10 ms. A stop asked while the thread is in
+  and hands it to another thread; and takes the events no thread has taken for 10 ms. With `MAXON_PREEMPT=off`, read once
+  before `main` runs as maxon's runtime reads it, it does neither the stop nor the taking of a processor (unset, empty and
+  `on` are the ordinary monitor; any other value is maxon's runtime abort 116, `schedulerPreemptSwitchUnreadable`). A stop asked while the thread is in
   the runtime's code, a DLL's or libSystem's is not taken, and nothing in the compiled code takes it later, so while the tick
   does not move the monitor asks again 100 µs later, then after twice as long each time up to 1 ms (Go re-signals every
   round, its sleep growing): a green thread that spends nearly all its time in the runtime's calls still gives up its

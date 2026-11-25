@@ -383,7 +383,9 @@ var layouts = []layoutConst{
 		"where the scheduler's record holds the first free event entry that was a process's, linked through entryLinkOffset, under the lock: such an entry is taken again only as a process's, since a system may still hold a notification keyed by it that no other kind of entry could tell from its own."},
 	{"schedMachinesOffset", 43, false, toRuntime,
 		"where the scheduler's record holds how many threads it has started, the last one's number, under the scheduler's lock."},
-	{"schedProcessorsOffset", 44, false, toRuntime,
+	{"schedPreemptOffOffset", 44, false, toRuntime,
+		"where the scheduler's record holds 1 when MAXON_PREEMPT is off, so the monitor takes no processor from the thread holding it, resolved before main runs."},
+	{"schedProcessorsOffset", 45, false, toRuntime,
 		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made."},
 
 	// A processor (Go's P): what a thread must hold to run green threads, its local run queue (a ring that its owner puts

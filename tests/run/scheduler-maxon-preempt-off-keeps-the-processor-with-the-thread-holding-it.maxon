@@ -1,0 +1,65 @@
+// native-only
+// unsupported-targets: x64-windows
+// MAXON_PREEMPT=off has the monitor take no processor from the thread holding it, as maxon's runtime reads it, and any
+// value but off, on and empty is maxon's runtime abort 116. The program runs itself as a child at one processor under each
+// switch, through sh, which sets the variables: main spins for spinMs, reading the clock, while a behaviour it scheduled
+// first waits to run. With preemption the monitor stops main after its slice and the behaviour runs during the spin; with
+// it off the behaviour runs only once main parks.
+typealias Arguments = Array with String
+
+// spinMs is how long the child's main holds its processor, well past the monitor's 10 ms slice.
+let spinMs = 200 as Count
+
+let nanosPerMilli = 1000000 as Count
+
+type Times
+	export var ranAt as InstantNanos
+	export var spinEnd as InstantNanos
+
+	static function make() returns Times
+		return Times{ranAt: 0, spinEnd: 0}
+	end 'make'
+end 'Times'
+
+function child() returns ExitCode
+	let times = cown(Times.make())
+	let first = share(times)
+	when first as t 'ran'
+		t.ranAt = Clock.nowNanos()
+	end 'ran'
+	let start = Clock.nowNanos()
+	var now = start
+	let until = try start + spinMs * nanosPerMilli otherwise panic("the clock is past its end")
+	while now < until 'spin'
+		now = Clock.nowNanos()
+	end 'spin'
+	let spinEnd = now
+	when times as t 'report'
+		t.spinEnd = spinEnd
+		print("ran during the spin {t.ranAt < t.spinEnd}\n")
+	end 'report'
+	return 0
+end 'child'
+
+function runChild(switch String)
+	let me = try Process.executablePath() otherwise panic("no executable path")
+	var script = Arguments.create(0)
+	script.push("-c")
+	script.push("MAXON_MAX_PROCS=1 MAXON_PREEMPT={switch} exec '{me.toString()}' child")
+	let out = try Subprocess.run(Executable.name("sh"), arguments: script) otherwise panic("cannot run sh")
+	print("{switch}: {out.stdout.trim()}{out.stderr.trim()}, exit {out.exitCode()}\n")
+end 'runChild'
+
+//> off: ran during the spin false, exit 0
+//> on: ran during the spin true, exit 0
+//> bogus: fatal error: runtime abort 116 (schedulerPreemptSwitchUnreadable), exit 116
+
+function main() returns ExitCode
+	if CommandLine.args().count() > 1 'child'
+		return child()
+	end 'child'
+	runChild("off")
+	runChild("on")
+	runChild("bogus")
+	return 0
+end 'main'
