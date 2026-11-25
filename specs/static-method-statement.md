@@ -257,7 +257,7 @@ error E3004: <fragment>:14:11: call to undefined function 'Pair.nope'
 ```
 
 <!-- test: static-method-statement.error.a-method-writing-a-field-of-a-static-let-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same statement over a `static let`: the receiver chain `Registry.current.items` is immutable (a module-level or `static` `let` holds immutable data), so a method that writes the field is refused as writing through immutable storage (E3207).
 ```maxon

@@ -719,7 +719,7 @@ end 'main'
 ```
 
 <!-- test: error.return-a-let-declared-global -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The negative control, and the one thing the widened door must still refuse — **at the BINDING**.
 RETURNING a `let`-declared global's record is legal when the result is declared `returns immutable` (from an

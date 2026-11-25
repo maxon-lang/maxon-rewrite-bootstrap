@@ -3008,6 +3008,7 @@ end 'main'
 
 
 <!-- test: error.crossfile-ranged-alias-beside-a-float-backed-enum-is-not-a-float -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 <!-- positions: moved -->
 ⭐ **A NAME HELD BY A RANGED ALIAS IN ONE FILE AND A FLOAT-BACKED ENUM IN ANOTHER IS AN INTEGER IN THE FIRST.**
 `b.maxon`'s unmarked `enum W` is float-backed and `a.maxon`'s `W` is `int(0 to 5)`, so `3 as W` in
@@ -4672,6 +4673,7 @@ error E3008: <fragment>:8:9: type 'OverlayPrivateMode' is not exported
 ```
 
 <!-- test: a-union-case-construction-beside-the-librarys-type-names-the-authors-at-top-level -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 A directory exports a union `ParseError` beside the library's enum; a top-level construction of one of its cases
 in another directory builds the user's union.
 ```maxon

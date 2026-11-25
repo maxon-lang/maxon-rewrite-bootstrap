@@ -73,7 +73,7 @@ end 'main'
 ```
 
 <!-- test: error.a-parameter-kept-in-a-var-field-of-a-pushed-record-refuses-an-immutable-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `name` is a `var` field here, so the pushed entry holds a mutable `ByteArray`, and the `immutable` `source.title` is refused for it.
 
@@ -227,7 +227,7 @@ end 'main'
 ```
 
 <!-- test: error.a-union-case-with-a-payload-in-a-module-let-is-refused-at-every-door -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same three doors as the case above with a module-level `let` that holds a case with a payload. `Target` has a plain `ByteArray` payload, but the value is `immutable` image data, so the case is refused where it is built, the `immutable` result that returns it is refused, and the pass to a `var` field that would keep it as a second holder is refused.
 
@@ -278,7 +278,7 @@ error E3207: <fragment>:35:13: 'aim' writes 'next' (line 17: `self.target = next
 ```
 
 <!-- test: error.a-payload-written-through-a-match-in-a-callee-refuses-a-frozen-union -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `match` binding is a payload of its scrutinee's box, so the callee that pushes onto `label` writes the box it was handed, and the frozen value cannot be handed to it.
 

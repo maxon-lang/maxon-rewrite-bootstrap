@@ -114,6 +114,7 @@ That works for any type that is `Equatable` (for `==`) and `Stringable` (for the
 ## Tests
 
 <!-- test: every-matcher-passes -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 Every matcher on its holding path: nothing is printed and nothing is thrown.
 ```maxon
 // --- file: main.maxon
@@ -151,6 +152,7 @@ all held
 ```
 
 <!-- test: every-matcher-reports-its-failure -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 Every matcher on its failing path, in roster order. Its `stderr` block pins the format.
 ```maxon
 // --- file: main.maxon
@@ -284,6 +286,7 @@ FAIL helper.maxon:2: Expect.equal
 ```
 
 <!-- test: equal-accepts-each-argument-type -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 One name, accepting each argument type — including from a method call, which is the shape
 that makes `equalInt`/`equalText` unnecessary. The rendering proves which type was compared: integers
 and bools are bare, `String`s are quoted.
@@ -321,6 +324,7 @@ FAIL main.maxon:11: Expect.equal
 ```
 
 <!-- test: message-is-appended -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 `message` is optional on every matcher and appends one line; omitting it omits the line.
 ```maxon
 // --- file: main.maxon
@@ -349,6 +353,7 @@ FAIL main.maxon:4: Expect.isTrue
 ```
 
 <!-- test: the-thrown-error-is-testfailure-assertion -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 The thrown value is `TestFailure.assertion` — the error is an enum to `match`, which is why the
 report is printed rather than carried on it.
 ```maxon
@@ -407,6 +412,7 @@ FAIL main.maxon:3: Expect.equal
 ```
 
 <!-- test: isTrue-carries-any-equatable-stringable -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 The escape hatch for a type the roster does not name: `==` supplies the predicate and
 interpolation supplies the rendering, so one line reports both values.
 ```maxon
@@ -479,6 +485,7 @@ FAIL main.maxon:5: Expect.fail
 ```
 
 <!-- test: equal-infers-its-type-with-no-cast -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 `equal` is one generic matcher over any `Equatable` type, so an `ElementIndex`, a plain integer
 expression and an author's own alias all reach it without a cast.
 ```maxon
@@ -509,6 +516,7 @@ all held
 ```
 
 <!-- test: a-failing-equal-on-an-alias-prints-both-values -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 ```maxon
 // --- file: main.maxon
 typealias Integer = int(i64.min to i64.max)

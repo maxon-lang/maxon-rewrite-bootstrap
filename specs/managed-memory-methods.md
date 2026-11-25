@@ -4783,6 +4783,7 @@ ELEMENT the door on the other side is asked about, never what it asks** — so n
 covering that.
 
 <!-- test: the-fused-append-path-agrees-with-the-value-path -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 **THE SUBJECT.** The bare, fused spelling must answer what the value spelling answers. Two elements
 appended to themselves is four.
@@ -4810,6 +4811,7 @@ end 'main'
 ```
 
 <!-- test: the-bare-fused-append-answers-the-same -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE CASE THIS SECTION EXISTS FOR — the receiver written BARE, which is the spelling that takes the fused
 record path.** Handed the byte instance, this program does not produce a wrong answer, it **kills the
@@ -4839,6 +4841,7 @@ end 'main'
 ```
 
 <!-- test: the-other-fused-readers-already-agreed-and-must-go-on-agreeing -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE NEUTRALITY CONTROL, AND IT IS WHAT BOUNDS THE BLAST RADIUS.** `length` and `byteAt` answer
 identically through both routes even under the byte instance

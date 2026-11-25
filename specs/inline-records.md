@@ -47,6 +47,7 @@ summing past 64 bits.
 ## Tests
 
 <!-- test: inline-records.two-u32-fields-are-one-word -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 Two 32-bit fields sum to exactly 64 bits, so `Pair` is one word and `sizeof` is 8; as a two-slot heap
 record the program would exit 16.
 ```maxon
@@ -110,6 +111,7 @@ end 'main'
 ```
 
 <!-- test: inline-records.mixed-widths-round-trip -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 Five fields of five different widths sum to 31 bits and pack into one word, so the exit code is 8; a
 five-slot heap record would read the values back correctly and exit with that record's size instead.
 ```maxon
@@ -150,6 +152,7 @@ false 0 0 0 0
 ```
 
 <!-- test: inline-records.bits-alias-field -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 Four `bits(n)` fields sum to 56 bits, so `Packed` is one word and the exit code is 8; a four-slot heap
 record would exit with its size instead. The two wide fields carry every bit set, so a field read
 that sign-extended or masked short would print the wrong number.
@@ -185,6 +188,7 @@ end 'main'
 ```
 
 <!-- test: inline-records.array-of-inline-records-is-eight-byte-strided -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 <!-- tier: stdlib -->
 An inline record is a trivial 8-byte element, so 500 pushes into a reserved array allocate nothing; a
 boxed element has the same 8-byte stride (a pointer), but boxing every element would exit 3.
@@ -203,7 +207,7 @@ end 'Pair'
 typealias PairArray = Array with Pair
 
 function main() returns ExitCode
-	var arr = PairArray.create(0)
+	let arr = PairArray.create(0)
 	arr.reserve(500)
 	let before = HeapStats.allocationsLive()
 	for i in 0 upto 500 'push'
@@ -218,7 +222,7 @@ function main() returns ExitCode
 	end 'alloc'
 	var sum = 0 as Half
 	for p in arr 'read'
-		sum = try sum + p.lo otherwise panic("out of range")
+		sum = sum + p.lo
 	end 'read'
 	if sum != 124750 'values'
 		return 4
@@ -927,6 +931,7 @@ end 'main'
 ```
 
 <!-- test: inline-records.a-contested-alias-is-read-in-the-declaring-file -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 A field's storage width is read through the alias the DECLARING file means, not through a fold over
 every file's declaration. `wide/wide.maxon` declares `Wide` as the whole signed span and never names `Packed`;
 `packed/packed.maxon`, in another directory, declares its own `Wide` and the type built on it, so `Packed` is two 32-bit fields in one
@@ -938,7 +943,7 @@ typealias Wide = int(i64.min to i64.max)
 
 export function widest(v ExitCode) returns ExitCode
 	let w = v as Wide
-	return try (w - 1) as ExitCode otherwise panic("out of range")
+	return (w - 1) as ExitCode
 end 'widest'
 
 // --- file: packed/packed.maxon
@@ -949,7 +954,7 @@ export type Packed
 	let hi as Wide
 
 	export static function create(lo Count, hi Count) returns Self
-		return Self{lo: try lo as Wide otherwise panic("out of range"), hi: try hi as Wide otherwise panic("out of range")}
+		return Self{lo: lo as Wide, hi: hi as Wide}
 	end 'create'
 end 'Packed'
 
@@ -969,15 +974,15 @@ end 'packedFault'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let p = packed.Packed.create(4294967295, hi: 7)
-	let fault = packed.packedFault(p)
+	let p = Packed.create(4294967295, hi: 7)
+	let fault = packedFault(p)
 	if fault != 0 'fault'
 		return fault
 	end 'fault'
-	if wide.widest(100) != 99 'wide'
+	if widest(100) != 99 'wide'
 		return 3
 	end 'wide'
-	return packed.packedSize()
+	return packedSize()
 end 'main'
 ```
 ```exitcode

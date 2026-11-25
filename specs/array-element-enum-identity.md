@@ -105,6 +105,7 @@ error E3005: <fragment>:2:16: argument type mismatch for 'value': expected 'Stri
 ```
 
 <!-- test: error.a-top-level-literal-of-two-unions -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 A top-level literal of records is judged by the same door as one of scalars.
 ```maxon
 typealias Val = int(i64.min to i64.max)

@@ -216,7 +216,7 @@ error E3207: <fragment>:37:20: 'bumpFirst' writes 'boxes' (it calls the closure 
 ```
 
 <!-- test: error.a-mutates-captures-closure-over-an-iterator-of-a-records-collection-is-refused-for-a-frozen-record -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The iterator runs over the `items` field of the parameter record, so the closure writes the record's data and the frozen record is refused.
 
@@ -273,7 +273,7 @@ error E3207: <fragment>:45:20: 'bumpFirst' writes 'coll' (it calls the closure a
 ```
 
 <!-- test: error.a-returned-mutates-captures-closure-over-an-iterator-through-a-holder-is-refused-for-a-frozen-record -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `makeBump` reaches the collection through a `Cur` that holds its parameter and returns a closure over the iterator, so the frozen record is refused where `makeBump` is called.
 
@@ -449,7 +449,7 @@ error E3207: <fragment>:50:20: 'bumpFirst' writes 'boxes' (line 38: a result rea
 ```
 
 <!-- test: error.a-plain-closure-hands-an-element-of-a-captured-iterator-to-an-immutable-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `peekFirst` is handed a mutable array, and the closure passes the element its iterator reads to an `immutable` parameter, which would share mutable data as frozen data; the element is refused where the closure uses it, and the call that hands `peekFirst` the mutable array is refused because `peekFirst` needs it frozen.
 

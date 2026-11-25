@@ -16,6 +16,7 @@ side of every guard, and an element type that owes a destructor on the arm that 
 ## Tests
 
 <!-- test: a-proven-store-through-a-viewed-owner-detaches-first -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The owner of a viewed buffer is written at a proven index. The view keeps what it read (11 and 22) and the
 owner sees the new words (99 and 98): the store went to a private copy.
@@ -44,6 +45,7 @@ end 'main'
 ```
 
 <!-- test: a-view-taken-between-two-proven-stores-forces-the-second-to-detach -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The first store establishes that the buffer is private; the view taken after it takes that away, so the
 second store must detach again. A store that trusted the first would write through the view.

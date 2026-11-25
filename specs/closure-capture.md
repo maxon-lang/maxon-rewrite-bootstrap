@@ -1236,6 +1236,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-closure-passed-to-async -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 The coroutine owns the closure it was handed and runs it after the block that built it has ended.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1251,12 +1252,12 @@ end 'later'
 
 function spawnIt() returns Pending
 	let text = "a text padded long enough to heap allocate {1}"
-	return async later(function() gives try text.byteLength() as Integer otherwise panic("out of range"))
+	return async later(function() gives text.byteLength() as Integer)
 end 'spawnIt'
 
 function main() returns ExitCode
 	let p = spawnIt()
-	return try (await p) as ExitCode otherwise panic("out of range")
+	return (await p) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -2533,6 +2534,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-captured-promise-is-released-with-the-closure -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 A closure that never runs releases the promise it captured when it is dropped.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3891,6 +3893,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.error.a-closure-stored-into-the-local-it-captured -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 <!-- positions: moved -->
 Capturing a local moves it into the closure, so storing the closure into that local's record afterwards uses a moved value.
 ```maxon
@@ -3914,7 +3917,7 @@ end 'Counter'
 function main() returns ExitCode
 	var h = Counter.create()
 	h.read = function() gives h.n
-	return try h.n as ExitCode otherwise panic("out of range")
+	return h.n as ExitCode
 end 'main'
 ```
 ```maxoncstderr
@@ -4046,7 +4049,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.error.a-closure-writing-within-a-captured-parameter-writes-a-frozen-record -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A closure that writes the record a captured parameter's field holds writes the graph the parameter denotes, which a frozen record is refused by.
 
@@ -4091,7 +4094,7 @@ error E3207: <fragment>:32:15: 'bump' writes 'o' (line 26: `let f = function() g
 ```
 
 <!-- test: closure-capture.error.a-captured-parameter-written-within-by-a-closure-handed-to-a-callee-writes-a-frozen-record -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The closure is handed to a callee that calls it; the write is the same wherever the closure runs.
 
@@ -4786,7 +4789,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.error.a-call-through-a-local-closure-that-writes-its-parameter-refuses-a-frozen-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `writer` writes through its parameter, so handing it the frozen `box` is refused at the call.
 ```maxon
@@ -4860,7 +4863,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.error.a-call-through-a-reassigned-closure-value-is-judged-against-every-closure-of-its-shape -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `f` names `reader` or `writer` depending on the branch, so the call through it is judged against both.
 ```maxon
@@ -4898,7 +4901,7 @@ error E3207: <fragment>:26:11: the closure at <fragment>:20:15 writes 'b' (it ca
 ```
 
 <!-- test: closure-capture.error.a-call-through-a-loop-carried-closure-value-is-judged-against-every-closure-of-its-shape -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The loop assigns a writing closure to `f`, so the call at the top of the next trip may reach it.
 ```maxon
@@ -4936,7 +4939,7 @@ error E3207: <fragment>:24:20: the closure at <fragment>:25:7 writes 'b' (it cal
 ```
 
 <!-- test: closure-capture.error.a-call-through-a-merged-closure-value-is-judged-against-the-whole-shape-even-when-only-readers-reach-it -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Every closure `f` is assigned in the loop only reads, but the value is merged across the loop's back edge, so it is judged against the whole shape, including the `writer` that is called elsewhere.
 ```maxon
@@ -4980,7 +4983,7 @@ error E3207: <fragment>:26:20: the closure at <fragment>:21:15 writes 'b' (it ca
 A closure that hands its parameter to a `Holder` keeps it in an `immutable` field. A call that lands on such a closure and hands it a mutable value is refused, and the message names the closure the call reaches that keeps the argument, in the lifted closure's own name: the first closure in source order that keeps it when several do. A closure that only reads the argument is not named.
 
 <!-- test: closure-capture.error.a-refused-kept-argument-of-a-local-closure-call-names-that-closure -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `reader(v)` reaches only `reader`, which keeps nothing. `keeper(v)` reaches only `keeper`, the second closure literal of `main`, which keeps `b` in an `immutable` field of a `Holder`, so only it is refused and the refusal names it.
 ```maxon
@@ -5023,7 +5026,7 @@ error E3207: <fragment>:30:16: the closure at <fragment>:27:15 needs 'b' frozen 
 ```
 
 <!-- test: closure-capture.error.a-refused-kept-argument-of-a-merged-closure-call-names-the-closure-that-keeps-it -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `f` names `reader` or `keeper`. Only `keeper` keeps `b`, so the refusal names `keeper`, the second closure literal, though `reader` is the first member of the shape.
 ```maxon
@@ -5069,7 +5072,7 @@ error E3207: <fragment>:33:11: the closure at <fragment>:27:15 needs 'b' frozen 
 ```
 
 <!-- test: closure-capture.error.a-refused-kept-argument-of-a-merged-closure-call-names-the-first-closure-that-keeps-it -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `f` names `reader`, `keeperA` or `keeperB`. Both keepers keep `b`, and the refusal names the first of them in source order.
 ```maxon
@@ -5123,7 +5126,7 @@ error E3207: <fragment>:39:11: the closure at <fragment>:27:16 needs 'b' frozen 
 Two closures of one shape reach one call through a parameter. One of them also pushes onto a module-level `let` array, which is refused for the write, and the cycle the other closure closes through the parameter is reported once, at the call.
 
 <!-- test: closure-capture.error.a-closure-pushing-onto-a-module-let-beside-a-plain-closure-of-its-shape -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `storePlain` and `storeAndStash` share the shape `Wire`; `storeAndStash` also pushes onto the module-level `Hub` array. The cycle both close when `drive` hands them one record twice is found at the call in `drive`.
 ```maxon
@@ -5178,7 +5181,7 @@ error E3183: <fragment>:34:10: this value holds a closure that captures 'c' and 
 ```
 
 <!-- test: closure-capture.error.a-closure-pushing-onto-a-module-let-before-a-plain-closure-of-its-shape -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same two closures called in the other order.
 ```maxon

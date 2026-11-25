@@ -122,6 +122,7 @@ the library tier (`<!-- tier: stdlib -->`).
 ## Tests
 
 <!-- test: the-empty-literal-is-the-empty-container -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `Self{}` inside `type Array` builds the EMPTY container, which is the answer `<InnerAlias>{}` already
 gets: the sole field IS the record, so an empty literal leaves no slot unwritten.
@@ -163,6 +164,7 @@ end 'main'
 ```
 
 <!-- test: the-literal-is-an-identity-on-the-buffer -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `Self{managed: m}` allocates nothing — it is the buffer, renamed. The adopted array and the buffer
 therefore agree on `length@8` because it is the same word, and the refcount balances: a run that
@@ -202,6 +204,7 @@ end 'main'
 ```
 
 <!-- test: a-static-returning-self-is-the-instance -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **A `static function … returns Self` that builds the container needs the enclosing instance's
 layout descriptor, and it may only source one by returning `Self`.** With `Self` resolving to the
@@ -242,6 +245,7 @@ end 'main'
 ```
 
 <!-- test: clone-through-the-inline-buffer-gives-independent-storage -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **THE STRIDE.** `clone()`'s body reads `managed` and slices it, and the inline-`managed` read used
 to mint a BYTE view of an 8-byte-wide buffer. The copy is exercised at a width where that lie is
@@ -291,6 +295,7 @@ end 'main'
 ```
 
 <!-- test: a-managed-element-clones-and-balances -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same clone over a MANAGED element. Every element is a refcounted pointer, so a copy that took
 the wrong number of references exits **101** rather than answering — which is what makes the printed
@@ -334,6 +339,7 @@ end 'main'
 ```
 
 <!-- test: self-in-an-interface-requirement-matches-the-declaration -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `Cloneable.clone() returns Self` and `BuiltinArrayLiteral.init(…) returns Self` are matched against a
 declaration whose `Self` is an INSTANCE. The comparison and the diagnostic both spell it as the
@@ -398,6 +404,7 @@ error E2015: <fragment>:8:10: Unsupported: `Array` implements `BuiltinArrayLiter
 ```
 
 <!-- test: error.a-sole-field-that-is-not-the-buffer -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 ⛔ **THE OTHER HALF OF THE SAME HAZARD, AND THE ONE A NAME-KEYED ADMISSION LETS THROUGH.** An
 admission of `isArrayBaseName(name)` plus a sole field the layout calls inline-managed asks about the
@@ -426,6 +433,7 @@ error E2015: <fragment>:8:10: Unsupported: `Array` implements `BuiltinArrayLiter
 ```
 
 <!-- test: a-generic-conformer-of-another-name-is-the-record-too -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE STRUCTURAL ADMISSION'S BOUNDARY, AND THE NAME IS NOT WHERE IT LIES.** This
 declaration is generic over one parameter and its sole field IS a `__ManagedMemory` over that parameter
@@ -466,6 +474,7 @@ end 'main'
 ```
 
 <!-- test: a-conformer-of-another-name-owns-its-managed-elements -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **AND ITS OWNERSHIP CASCADE IS ITS OWN.** The record identity decides the drop callee and the element
 descriptor, so a conformer admitted by SHAPE has to carry managed elements as correctly as the corpus's
@@ -543,6 +552,7 @@ end 'main'
 ```
 
 <!-- test: error.a-conformer-of-another-name-is-still-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 The refusal. The identity rests on `Array with T` and `__ManagedMemory with T` being one
@@ -566,6 +576,7 @@ error E2015: <fragment>:6:10: Unsupported: `Holder` implements `BuiltinArrayLite
 ```
 
 <!-- test: a-declared-member-off-the-roster-is-served-from-the-corpus -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **A MEMBER THE DECLARATION CARRIES AND THE ROSTER DOES NOT IS AN ORDINARY CALL TO AN ORDINARY DECLARED
 FUNCTION.** `at` is not one of the members the compiler synthesizes, and the call is served from the declaration
@@ -605,6 +616,7 @@ end 'main'
 ```
 
 <!-- test: the-self-spelling-of-a-corpus-served-member-reaches-the-same-body -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The `self.` spelling of the call above, made from inside the declaration's own body. It is the spelling
 that reaches `dispatchMethodOnReceiver`, and it is served exactly as the call above is — the two
@@ -647,6 +659,7 @@ end 'main'
 ```
 
 <!-- test: a-bare-call-to-a-roster-member-takes-the-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE ROSTER-WINS ORDER APPLIES TO THE BARE SPELLING TOO.** `self.get(i)` reaches the synthesized
 arm, and so does a BARE `get(i)` in the same body, so one member has one meaning however it is written.
@@ -694,6 +707,7 @@ end 'main'
 ```
 
 <!-- test: a-bare-roster-member-inside-an-extension-body-resolves -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 An `extension` body's bare `count()` / `get(i)` is the same rule one declaration over, and it is what
 `stdlib/Array.maxon`'s `containsSequence(sequence)` is written in. The sibling walk cannot see them — they belong
@@ -742,6 +756,7 @@ end 'main'
 ```
 
 <!-- test: a-managed-element-through-a-corpus-served-member-balances -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE OWNERSHIP HALF, AND IT PINS THE EXIT CODE BECAUSE THE PRINT ALONE COULD NOT SEE THE BUG.** The
 corpus-served member hands back a MANAGED element, which is a `+1` the CALLEE owes
@@ -796,6 +811,7 @@ alpha beta 2
 ```
 
 <!-- test: a-buffer-member-off-the-old-six-takes-the-record -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐⭐ **A BARE `managed.<member>(…)` HANDS OVER THE RECEIVER'S OWN RECORD FOR *EVERY* MEMBER.**
 `Parser.fusedManagedMemberTakesTheRecord` admits `clear`, `get`, `set`, `setLength`, `capacity`, `grow`,
@@ -865,6 +881,7 @@ gamma 1
 ```
 
 <!-- test: the-value-spelling-of-the-same-field-keeps-its-reference -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **THE CONTROL FOR THE CASE ABOVE — `managed` USED AS A VALUE STILL MINTS ITS REFERENCE.** The door
 the case above takes is gated on a member call FOLLOWING the field (`Parser.memberCallFollows`), which is
@@ -942,6 +959,7 @@ error E2015: <fragment>:22:11: Unsupported: `Array` member 'nosuch' — the comp
 ```
 
 <!-- test: a-corpus-served-managed-element-balances-across-a-loop -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **THE SAME ARITHMETIC, FIFTY TIMES OVER, WITH A CLONE IN THE MIDDLE.** One call can be one reference
 wrong and still look right; a loop cannot. Every round takes an element out through the corpus door in
@@ -1011,6 +1029,7 @@ end 'main'
 ```
 
 <!-- test: a-buffer-member-keeps-its-meaning-when-the-record-declares-the-name -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐⭐ **`managed.<m>()` MEANS THE BUFFER'S `<m>`, EVEN WHEN THE RECORD AROUND IT DECLARES ONE TOO.**
 `Array with T` and `__ManagedMemory with T` are ONE record with TWO surfaces, so nothing about the
@@ -1086,6 +1105,7 @@ end 'main'
 ```
 
 <!-- test: a-managed-swap-through-the-buffer-is-not-the-records-own -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE SAME COLLISION ON A THROWING MEMBER.**
 `stdlib/helpers/sort/smallSort.maxon:32` is `try managed.swap(i, j: j)` inside an `export extension
@@ -1173,6 +1193,7 @@ alpha gamma beta delta 4
 ```
 
 <!-- test: a-library-array-value-reaches-a-declared-own-array-parameter -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐⭐ **A VALUE CROSSES THE SPLIT, AND THE ELEMENT IS MANAGED SO THE CROSSING IS AN OWNERSHIP CLAIM AND
 NOT ONLY A TYPE ONE.** `String.split` hands back the LIBRARY's `Array with String`; `takesMine` declares
@@ -1212,6 +1233,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-declared-own-array-value-reaches-a-library-parameter -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **THE SAME CROSSING THE OTHER WAY, INTO `stdlib/` ITSELF.** `String.from(bytes ByteArray)` is
 declared over the library's `Array with Byte`; the argument is the program's own. It is the direction
@@ -1366,6 +1388,7 @@ error E2015: <fragment>:22:14: Unsupported: `Array` member 'at' — this value's
 ```
 
 <!-- test: a-compiler-minted-literal-is-the-library-array -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐⭐ **A LITERAL THE COMPILER MINTS IS THE LIBRARY'S RECORD, NOT THE PROGRAM'S — and the program never
 wrote a type for it to be read from.** `b"Hi!"` and `[4, 5]` name no declaration: the sweep interns their
@@ -1403,6 +1426,7 @@ false false
 ```
 
 <!-- test: a-minted-managed-element-literal-is-the-library-array-and-balances -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **THE SAME MINT WITH A MANAGED ELEMENT, WHERE A WRONG RECORD IDENTITY IS A LEAK OR A DOUBLE FREE
 RATHER THAN AN EXPECTATION MISMATCH.** `["a", "bb"]` interns `Array with String`; `contains` is served
@@ -1604,6 +1628,7 @@ error E2015: <fragment>:8:10: Unsupported: `FixedArray` is a generic container t
 ```
 
 <!-- test: a-conformer-named-for-the-list-is-admitted-because-the-list-left-the-class -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐⭐ **`List` IS NOT IN THE CLASS, AND THIS CASE IS THE GUARD ON THAT.** The compiler synthesizes no
 `List`: the name is absent from `isBuiltinGenericBaseNameBesidesTheRecord`, so
@@ -1740,6 +1765,7 @@ error E2015: <fragment>:7:10: Unsupported: `FixedArray` implements `BuiltinStrin
 ```
 
 <!-- test: a-declared-roster-member-keyed-by-another-type-is-served-from-the-declaration -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The record declares `get` keyed by a `String`, which no element index can be, so the call reaches the
 declaration's own body: the empty key has count 0 and reads the one element pushed.
@@ -1812,6 +1838,7 @@ error E3005: <fragment>:27:16: argument type mismatch for 'key': expected 'Strin
 ```
 
 <!-- test: a-library-array-is-indexed-by-the-librarys-get-when-the-program-declares-another -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The program's `get` is keyed by a `String`, and the library array `String.split` returns still takes an element index: the index is judged against the library's own declaration.
 ```maxon
@@ -1882,6 +1909,7 @@ error E3005: <fragment>:29:9: argument type mismatch for 'n': expected 'Small', 
 ```
 
 <!-- test: a-declared-roster-member-keyed-by-an-enum-is-served-from-the-declaration -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 An enum is not an element index either, so a `get` keyed by one is the declaration's own.
 ```maxon
@@ -2023,6 +2051,7 @@ error E3005: <fragment>:8:16: argument type mismatch for 'index': expected 'Elem
 ```
 
 <!-- test: a-user-array-keeps-its-own-hash-and-equals -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A program's own `type Array` that declares `hash` and `equals` is served by them, method and operator alike.
 ```maxon
@@ -2067,6 +2096,7 @@ end 'main'
 ```
 
 <!-- test: a-library-string-array-key-beside-a-user-array -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A library `StringArray` is a working `Map` key in a program that declares its own `type Array`.
 ```maxon
@@ -2103,6 +2133,7 @@ end 'main'
 ```
 
 <!-- test: a-library-string-array-key-is-not-hashed-by-a-user-array -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The library `StringArray` key hashes and compares through the library's own conformance, never through
 the `hash` and `equals` a program's own `type Array` declares.

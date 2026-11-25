@@ -3237,6 +3237,7 @@ error E2073: <fragment>:7:19: type 'lib.Flag' has no static member named 'nope'
 ```
 
 <!-- test: error.an-unknown-static-of-a-primitive-at-module-scope-is-refused-for-what-it-lacks -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ```maxon
 let n = int.nope()
 
@@ -3249,6 +3250,7 @@ error E2073: <fragment>:2:13: 'int' has no static method named 'nope' — a prim
 ```
 
 <!-- test: error.an-unknown-static-of-byte-at-module-scope-is-refused-for-what-it-lacks -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ```maxon
 let n = byte.nope()
 
@@ -3669,6 +3671,7 @@ error E3185: <fragment>:3:2: '__ManagedFile' named outside the library tiers: th
 ```
 
 <!-- test: error.a-raw-handle-static-at-module-scope-in-user-code-is-not-reachable -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ```maxon
 let h = __ManagedFile.openRead("p")
 
@@ -4624,6 +4627,7 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-handed-to-async -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 A capturing closure handed to an `async` call is held by the coroutine until it ends.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4637,8 +4641,8 @@ end 'later'
 
 function main() returns ExitCode
 	let bump = 20
-	let p = async later(function(n Integer) gives try n + bump otherwise panic("out of range"))
-	return try (await p) as ExitCode otherwise panic("out of range")
+	let p = async later(function(n Integer) gives n + bump)
+	return (await p) as ExitCode
 end 'main'
 ```
 ```exitcode

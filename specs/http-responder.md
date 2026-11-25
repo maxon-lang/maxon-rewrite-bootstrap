@@ -652,7 +652,7 @@ status=500 fallback
 ```
 
 <!-- test: a-handler-cannot-keep-its-exchange-in-a-container -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A handler borrows its exchange for one call, and the exchange holds the connection, so it cannot be pushed anywhere that outlives the call. `request()`, `security()` and `respond()` can therefore never meet an exchange the worker has taken.
 ```maxon

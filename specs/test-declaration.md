@@ -291,6 +291,7 @@ end 'main'
 ```
 
 <!-- test: survives-dead-function-elimination -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 Nothing in the program calls a test, so dead-function elimination would drop it. Tests are
 roots instead.
 

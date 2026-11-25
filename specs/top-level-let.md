@@ -651,6 +651,7 @@ end 'main'
 ```
 
 <!-- test: a-top-level-let-of-an-unstated-tuple-holding-an-empty-container -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 A column that is an empty container built by its alias keeps the alias in the tuple's identity, as it does in a body.
 ```maxon
 typealias Item = int(0 to 1000)
@@ -770,6 +771,7 @@ error E3220: <fragment>:13:9: the initializer of 'p' calls 'Pair.create': a modu
 ```
 
 <!-- test: a-tuple-payload-of-a-top-level-union-case -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 A union case whose payload is a tuple takes a tuple literal in a file-scope construction.
 ```maxon
 typealias Num = int(0 to 1000)
@@ -2396,6 +2398,7 @@ error E3220: <fragment>:2:9: the initializer of 'G' calls 'nothere': a module-le
 ```
 
 <!-- test: error.a-static-initializer-calling-a-sibling-instance-method-bare-has-no-receiver -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 `fresh` is an instance method, so a `static let` initializer calling it bare has no receiver to call it on,
 and is refused as the same call in a static method's body is.
@@ -2660,6 +2663,7 @@ error E3220: <fragment>:5:20: the initializer of 'Registry.seed' calls 'Registry
 ```
 
 <!-- test: error.a-top-level-initializer-call-to-a-hidden-generic-is-not-exported -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The only `larger` is an unmarked generic in `other/`, so `main.maxon`, outside it, cannot name it.
 ```maxon

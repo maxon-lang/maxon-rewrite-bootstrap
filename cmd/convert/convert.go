@@ -2125,7 +2125,7 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 			}
 		case "acquire":
 			if toks[len(toks)-1].kind == tokLabel {
-				warn(line, "acquire blocks are not supported in minimaxon; use when with cowns")
+				warn(line, serviceAcquireWarning)
 			}
 		case "for":
 			if !hasRangeKeyword(toks) && !iteratesSupported(toks) {

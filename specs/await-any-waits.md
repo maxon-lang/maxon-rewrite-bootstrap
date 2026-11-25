@@ -109,7 +109,7 @@ error E3205: <fragment>:24:18: cannot wait inside 'edit'; another coroutine coul
 ```
 
 <!-- test: await-any-waits.error.a-one-call-open-around-a-method-that-selects-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `spin` selects over its helper coroutines, which could not run while `slot` is open for the call.
 
@@ -158,7 +158,7 @@ error E3205: <fragment>:31:14: cannot call 'spin' inside 'slot'; it may wait (it
 ```
 
 <!-- test: await-any-waits.error.a-select-inside-an-acquire-block-is-refused -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 An `acquire` block holds its services, so it may not park on a select.
 
@@ -185,7 +185,7 @@ function delayed() returns Tally
 end 'delayed'
 
 function work(s Ledger.handle) returns Tally
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'held'
 		let jobs = Jobs.create(0)
 		jobs.push(async delayed())

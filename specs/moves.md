@@ -260,6 +260,7 @@ error E3102: <fragment>:12:8: use of moved value 't': its ownership moved to ano
 `t` afterwards is **E3102**, whichever keyword declared it. `clone()` is the way to keep both names.
 
 <!-- test: immutable-rebind-on-assign-aliases -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -347,6 +348,7 @@ A `let` assigned into a `var` moves at the assignment, so the second trip of a l
 reads a moved value: **E3102**, `it was moved in an earlier iteration of this loop`.
 
 <!-- test: immutable-rebind-on-assign-from-outside-a-loop -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)

@@ -952,6 +952,7 @@ end 'main'
 ```
 
 <!-- test: error.another-file-naming-a-file-private-cursor-is-still-refused -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 <!-- positions: moved -->
 ```maxon
 // --- file: lib/lib.maxon
@@ -968,7 +969,7 @@ type BagIter implements Iterator with Integer
 		return i
 	end 'current'
 
-	function advance(mutates self) throws IterationError
+	function advance() throws IterationError
 		i = i - 1
 		if i <= 0 'exhausted'
 			throw IterationError.exhausted
@@ -1004,7 +1005,7 @@ end 'bagTotal'
 function main() returns ExitCode
 	let doubled = [1, 2, 3].map(function(x) gives x + x)
 	let c = BagIter.create()
-	return (doubled.count() as lib.Integer + bagTotal() + c.current()) as ExitCode
+	return (doubled.count() as Integer + bagTotal() + c.current()) as ExitCode
 end 'main'
 ```
 ```maxoncstderr

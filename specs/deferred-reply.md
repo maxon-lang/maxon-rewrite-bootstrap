@@ -1004,7 +1004,7 @@ error E3222: <fragment>:12:22: `async answerLater(…)` takes a parameter that c
 ```
 
 <!-- test: error.a-reply-cannot-leave-an-acquire-block -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A `Reply` taken out of an acquired state is mutable data the statement that opens the state hands back, which the window rule
@@ -1034,7 +1034,7 @@ end 'Gate'
 function main() returns ExitCode
 	let gate = spawn Gate.create()
 	let sink = TallyReplyArray.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire gate 'held'
 		let moved = try gate.waiting.pop() otherwise return 1
 		sink.push(moved)

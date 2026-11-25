@@ -5149,7 +5149,7 @@ error E3009: <fragment>:10:12: Cannot cast from a tuple of 2 elements to a tuple
 ```
 
 <!-- test: error.a-tuple-cast-refuses-to-freeze-an-element -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A tuple cast keeps each element's capability: changing one would let a write through the other name reach a frozen element, or a frozen element be written.
 ```maxon
@@ -5183,7 +5183,7 @@ error E3226: <fragment>:16:22: Cannot cast element 0 of a tuple from 'Box' to 'i
 ```
 
 <!-- test: error.a-tuple-cast-refuses-to-thaw-an-element -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5216,7 +5216,7 @@ error E3226: <fragment>:16:22: Cannot cast element 0 of a tuple from 'immutable 
 ```
 
 <!-- test: error.a-tuple-cast-refuses-to-freeze-an-element-of-a-nested-tuple -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5249,7 +5249,7 @@ error E3226: <fragment>:16:22: Cannot cast element 0.1 of a tuple from 'Box' to 
 ```
 
 <!-- test: error.a-tuple-literal-cast-refuses-to-freeze-a-mutable-element -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5339,7 +5339,7 @@ end 'main'
 ```
 
 <!-- test: error.a-tuple-literal-cast-refuses-to-freeze-a-freshly-built-element -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5453,7 +5453,7 @@ end 'main'
 ```
 
 <!-- test: error.a-tuple-cast-refuses-to-freeze-a-generic-service-handle-element -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5492,7 +5492,7 @@ error E3226: <fragment>:20:22: Cannot cast element 0 of a tuple from 'WideBoxHan
 ```
 
 <!-- test: error.a-tuple-cast-refuses-to-freeze-a-shared-value-element -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)

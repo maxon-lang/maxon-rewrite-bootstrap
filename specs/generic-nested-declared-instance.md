@@ -368,14 +368,15 @@ end 'main'
 `Wrapper with (Small, String)` hands `Slot with U` the block of `U`, so `sizeof(V)` inside `Slot` is `String`'s.
 
 <!-- test: an-instance-over-the-second-parameter-of-two-reads-that-parameters-size -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 ```maxon
 typealias Small = int(0 to 255)
 
 type Slot uses V
 	export var v as V
 
-	static function create(first V) returns Self where V implements Copyable
-		return Self{v: first.clone()}
+	static function create(first V) returns Self
+		return Self{v: first}
 	end 'create'
 
 	function slotSize() returns Count
@@ -388,8 +389,8 @@ type Wrapper uses T, U
 	var tag as T
 	var inner as Inner
 
-	static function create(t T, u U) returns Self where T implements Copyable, U implements Copyable
-		return Self{tag: t.clone(), inner: Inner.create(u)}
+	static function create(t T, u U) returns Self
+		return Self{tag: t, inner: Inner.create(u)}
 	end 'create'
 
 	function ownSize() returns Count
@@ -715,12 +716,13 @@ end 'main'
 `Pairs with (bool, String)` reaches `Slot with W` through its iterator, which `map` builds from a body that carries no descriptor of its own. The read of `sizeof(V)` is `String`'s, never a blank block's.
 
 <!-- test: a-forwarded-size-read-through-a-cursor-of-a-two-parameter-instance -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 ```maxon
 public type Slot uses V
 	var v as V
 
-	public static function create(x V) returns Self where V implements Copyable
-		return Self{v: x.clone()}
+	public static function create(x V) returns Self
+		return Self{v: x}
 	end 'create'
 
 	public static function measure() returns Count
@@ -740,7 +742,7 @@ public type PairIter uses K, W implements Iterator with Count
 		return Held.measure()
 	end 'current'
 
-	public function advance(mutates self) throws IterationError
+	public function advance() throws IterationError
 		if done 'finished'
 			throw IterationError.exhausted
 		end 'finished'
@@ -753,8 +755,8 @@ public type Pairs uses Key, Value implements Iterable with (Count, PIter)
 	var tag as Key
 	var value as Value
 
-	public static function create(tag Key, value Value) returns Self where Key implements Copyable, Value implements Copyable
-		return Self{tag: tag.clone(), value: value.clone()}
+	public static function create(tag Key, value Value) returns Self
+		return Self{tag: tag, value: value}
 	end 'create'
 
 	public function createIterator() returns PIter throws IterationError

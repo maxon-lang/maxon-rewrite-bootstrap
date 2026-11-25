@@ -161,6 +161,7 @@ end 'main'
 ```
 
 <!-- test: error.the-common-ancestor-is-neither-argument -->
+<!-- skip: language difference: a generic body is checked once against its bounds, never per instance, so what its bounds do not give is refused in the body (README, Where it differs from Maxon: Generics are checked once against their bounds, never per instantiation) -->
 <!-- positions: moved -->
 ```maxon
 typealias Distance = int(0 to 1000)
@@ -1070,6 +1071,7 @@ end 'main'
 ```
 
 <!-- test: error.expect-close-takes-floats -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 ```maxon
 function main() returns ExitCode
 	try Expect.close("a", expected: "b", within: 0.1) otherwise ignore
@@ -1467,6 +1469,7 @@ error E3193: <fragment>:16:10: 'describe' is an instance method of 'Tally' and n
 ```
 
 <!-- test: a-generic-in-another-file-compares-and-quotes-the-callers-file-private-enum -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 `Expect.equal` is declared in `stdlib/` and renders both values with `:q`. Rendering an enum value is a
 conversion the language makes, not a name the generic's author wrote, so the caller's unmarked
 `Shade` is no visibility question.

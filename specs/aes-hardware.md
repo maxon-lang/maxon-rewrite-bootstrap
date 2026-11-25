@@ -330,7 +330,7 @@ true true 51
 ```
 
 <!-- test: aes-hardware.error.a-literal-array-is-refused-as-an-output -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 A `var` bound to a literal still names the program's constant data, so the block cannot be stored into it.
@@ -1303,7 +1303,7 @@ true false 102
 ```
 
 <!-- test: aes-hardware.error.a-literal-key-block-is-refused-as-the-gcm-init-target -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 A key block that names a literal cannot be filled by `aesGcmInit`.

@@ -392,7 +392,7 @@ end 'main'
 ```
 
 <!-- test: error.an-immutable-result-choosing-a-parameter-or-a-constant-refuses-mutable-data -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pick` may hand back `name` itself, and its result is `immutable`, so the caller's `live` has to be frozen: otherwise the result would change when `live` does.
 
@@ -414,7 +414,7 @@ error E3207: <fragment>:8:20: 'pick' needs 'name' frozen (line 3: `return name i
 ```
 
 <!-- test: error.an-immutable-result-rebinding-a-parameter-in-a-loop-refuses-mutable-data -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same holds when the choice is a variable rebound in a loop.
 
@@ -560,7 +560,7 @@ error E3197: <fragment>:31:2: cannot write 'n' through 'picked', which is read-o
 ```
 
 <!-- test: a-getter-returning-only-its-own-frozen-data-must-declare-the-result-immutable -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -721,7 +721,7 @@ end 'main'
 ```
 
 <!-- test: a-mixed-getter-result-is-refused-for-a-mutable-parameter-through-a-local-var -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1136,7 +1136,7 @@ error E3197: <fragment>:29:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-mixed-result-passed-straight-to-a-writing-function-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -1163,6 +1163,7 @@ error E3207: <fragment>:16:10: 'writeIt' takes `mutable` 'd' (line 12: `d.push(1
 ```
 
 <!-- test: a-mixed-result-bound-to-a-var-is-not-writable-for-its-caller -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -1187,7 +1188,7 @@ error E3197: <fragment>:13:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-mixed-result-is-not-isolated -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A fresh clean call may become `isolated`; the result of `get` may be image data, so it may not.
 
@@ -1416,7 +1417,7 @@ end 'main'
 ```
 
 <!-- test: a-result-mixing-a-module-let-closure-with-a-fresh-one-is-not-callable-for-its-caller -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pick` hands back a module `let` closure on one path and a closure `make` builds on the other, so its result is read-only for every caller and a `mutates captures` function cannot be called through it.
 

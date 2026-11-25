@@ -169,7 +169,7 @@ instead, and so does a test that expects a compile error which minimaxon reports
 (the pairs of `self/driver/skips.tsv`, generated into `codeSkipTable`: ownership refused by another rule, the syntax error, operand
 types), a test that expects a code whose rule minimaxon changed, whatever it reports (the table's `expect` rows: `E3220`, since a
 constant may call a literal factory), and a test that runs a program which minimaxon refuses, after the fixes, by a rule it
-changed (its `run` rows: `E3925`, a closure that borrows does not escape), and a test that the table names by its file and
+changed (its `run` rows: `E3925`, a closure that borrows does not escape, and `E3220`, a constant that calls what is no literal factory), and a test that the table names by its file and
 name (its `test` rows), whose program minimaxon runs to another answer by a language change (a float division by 0 is
 IEEE's). A test that expects a compile error and is first refused under another code by a fixable language difference
 (arithmetic that needs a `try`, an integer cast, a clone, `mutates`, `var`, a bare name of another module) gets the fixes of the errors that are not the
@@ -5233,7 +5233,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   A send's error is the built-in `SendError` (`mailboxFull`, `serviceStopped`) and gives the arguments no way back,
   where maxon's `<Service>.<message>.sendError` carries them (the spec tests whose handler binds them are skipped with
   that reason). Not yet: `sendTimeout:`, interface handles (`I.handle`),
-  `T.request`, `acquire`, `reply.later()`, `SharedValue`, `default`, a generic service, a message with type parameters,
+  `T.request`, `acquire` (maxon's one block of that name, which takes the states of several services at once; a spec
+  test of it that expects one of maxon's region codes is skipped as a region test, since the rule it pins does not exist
+  here, and the others as the block not yet built), `reply.later()`, `SharedValue`, `default`, a generic service, a message with type parameters,
   one `try await h.m()` over a message that throws, and services in the interpreter.
 - `stdlib/stream/Stream.maxon` and `stdlib/console/Console.maxon` (`Console.stdin()`, a `StreamReader` over a `StdinSource`) are minimaxon's own,
   written from maxon's (with `helpers/stream/streamBytes.maxon`) until they convert: maxon's name the network's, TLS's, files'

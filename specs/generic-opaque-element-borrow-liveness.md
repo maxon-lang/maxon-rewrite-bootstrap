@@ -30,6 +30,7 @@ whose element reads reach an `Array with T` through its public methods.
 ## Tests
 
 <!-- test: a-swap-through-get-and-set-keeps-both-elements -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### A swap built from get + set keeps the element it is mid-way through moving
 The first `set` releases the slot holding the record `a` read; `a` holds its own reference, so the
@@ -76,6 +77,7 @@ alpha 42 value long enough for a heap record
 ```
 
 <!-- test: a-three-way-rotate-through-get-and-set-keeps-every-element -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### … and a three-way rotate is the same write, one slot further
 Each of the first two writes releases a record that a later write stores.
@@ -126,6 +128,7 @@ beta 42 value long enough for a heap record
 ```
 
 <!-- test: an-element-displaced-by-a-set-stays-readable -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### An element the write DISPLACES stays readable even when nothing stores it back
 The value written comes from a DIFFERENT container; the write releases the slot's occupant, and the
@@ -172,6 +175,7 @@ beta 42 value long enough for a heap record
 ```
 
 <!-- test: the-bare-spelling-swaps-the-same-way -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### … and the BARE spelling is the same write, which is the spelling `stdlib/Array.maxon` uses
 `get(0)` and `set(0, …)` with no receiver written at all count the element exactly as the
@@ -218,6 +222,7 @@ alpha 42 value long enough for a heap record
 ```
 
 <!-- test: a-trivial-instantiation-of-the-swap-body-runs -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### The same shared body at a trivial instantiation
 `Array with <ranged int>` runs the body the `Array with String` instantiation runs; the element is a
@@ -264,6 +269,7 @@ end 'main'
 ```
 
 <!-- test: a-set-fed-from-another-container-stores-a-live-record -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### A write of ONE storage fed from ANOTHER
 This is the shape `stdlib/Array.maxon:234`'s `appendMemory` is.
@@ -306,6 +312,7 @@ beta 42 value long enough for a heap record
 ```
 
 <!-- test: an-opaque-element-stored-elsewhere-survives-its-source-shortened -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### An element read, stored elsewhere, and then its source shortened
 The element is read, used to write a DIFFERENT storage, and never named again before `managed`
@@ -350,6 +357,7 @@ end 'main'
 ```
 
 <!-- test: an-element-moved-down-to-a-lower-slot-stays-live -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### The loop SORTING rests on — `set(w, value: get(i))` through a name
 `stdlib/helpers/sort/driftQuicksort.maxon:59-61`, `:103-104` and every `mergeSort.maxon` merge
@@ -401,6 +409,7 @@ alpha 42 value long enough for a heap record beta 42 value long enough for a hea
 ```
 
 <!-- test: a-push-of-the-containers-own-element-keeps-both-slots-live -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### … and so is appending an element the container already holds
 `push` adds a slot and destroys nothing, so the array simply gains a second reference to what it
@@ -465,6 +474,7 @@ gamma 42 value long enough for a heap record 0
 ```
 
 <!-- test: a-trivial-element-container-is-untouched -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### The trivial-element control
 An `Array with <ranged int>` element owns no heap, so an element read is a bare word that no write

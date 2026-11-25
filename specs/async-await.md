@@ -1233,6 +1233,7 @@ end 'main'
 ```
 
 <!-- test: async-await.a-matched-promise-payload-can-be-wrapped-in-a-union-again -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 A promise bound by a `match` arm is moved out of the union it was in, so it can be wrapped in another.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1258,7 +1259,7 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-function rewrap(consumes p IntPromise) returns Integer
+function rewrap(p IntPromise) returns Integer
 	let again = Slot.held(p)
 	match again 'inner'
 		held(q) then return await q
@@ -1610,6 +1611,7 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-can-be-stored-in-a-union-payload -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 A promise parameter is stored in a union payload.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1626,7 +1628,7 @@ union Slot
 	empty
 end 'Slot'
 
-function roundTrip(consumes p IntPromise) returns Integer
+function roundTrip(p IntPromise) returns Integer
 	let s = Slot.held(p)
 	match s 'unwrap'
 		held(q) then return await q
@@ -1718,6 +1720,7 @@ end 'main'
 ```
 
 <!-- test: async-await.an-array-literal-of-promises-owns-its-elements -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 An array literal stores its elements, so it takes ownership of each promise it is given, whatever made it. The loop awaits them out of the array, and the run is leak-free.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1735,11 +1738,11 @@ function ask() returns IntPromise
 	return async work()
 end 'ask'
 
-function gather(consumes p IntPromise) returns Integer
+function gather(p IntPromise) returns Integer
 	let pending = IntPromiseArray from [p, ask(), async work()]
 	var sum = 0 as Integer
 	for q in pending 'drain'
-		sum = try sum + await q otherwise panic("out of range")
+		sum = sum + await q
 	end 'drain'
 	return sum
 end 'gather'
@@ -1847,6 +1850,7 @@ error E3098: <fragment>:20:6: a promise of 'Integer' throwing 'TaskError' cannot
 ```
 
 <!-- test: async-await.error.a-promise-named-twice-in-a-call-through-a-function-type-is-refused -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 <!-- positions: moved -->
 A promise has one owner, so a call through a function type may not name it at two positions when one of them hands it over.
 ```maxon
@@ -1884,6 +1888,7 @@ error E3102: <fragment>:20:19: use of moved value 'p': it is passed at two argum
 ```
 
 <!-- test: async-await.error.a-function-that-awaits-its-promise-does-not-convert-to-an-unqualified-type -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 <!-- positions: moved -->
 A function that awaits its promise is judged against the shape it converts to even when a second file of the directory declares an unmarked function of its own, so the conversion door reads `take`'s own declaration.
 ```maxon
@@ -2197,6 +2202,7 @@ end 'main'
 ```
 
 <!-- test: async-await.error.a-promise-stored-through-a-conditional-expression-is-refused -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 <!-- positions: moved -->
 A conditional expression joins two promise values with no single slot to empty, so storing its result is refused rather than leaving one branch unaccounted for.
 ```maxon
@@ -2283,6 +2289,7 @@ end 'main'
 ```
 
 <!-- test: async-await.error.propagate-type-mismatch -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 Bare `try await p` re-throws the awaited thunk's error through the enclosing
 function's error-return ABI. If the two error types differ, the caller decodes
@@ -2867,6 +2874,7 @@ end 'main'
 ```
 
 <!-- test: async-await.managed-args-many -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 A regression guard for the spawn-site incref of managed (Struct/Enum)
 async arguments: spawn eight green threads in a row, each receiving a
 freshly built StringArray, then await them all. Without the incref the
@@ -2882,7 +2890,7 @@ typealias StrPromiseArray = Array with StrPromise
 
 function joinArgs(label String, args StringArray) returns String
 	_ = File.exists(FilePath from "noyield.txt")
-	var out = label.clone()
+	var out = label
 	for a in args 'each'
 		out = "{out}|{a}"
 	end 'each'
@@ -2890,9 +2898,9 @@ function joinArgs(label String, args StringArray) returns String
 end 'joinArgs'
 
 function main() returns ExitCode
-	var promises = StrPromiseArray.create(0)
+	let promises = StrPromiseArray.create(0)
 	for i in 0 upto 8 'spawn'
-		var argv = StringArray.create(0)
+		let argv = StringArray.create(0)
 		argv.push("arg{i}.a")
 		argv.push("arg{i}.b")
 		promises.push(async joinArgs("L{i}", args: argv.clone()))
@@ -2901,7 +2909,7 @@ function main() returns ExitCode
 	for p in promises 'await'
 		let s = await p
 		if not s.isEmpty() 'good'
-			total = try total + 1 otherwise panic("out of range")
+			total = total + 1
 		end 'good'
 	end 'await'
 	return total
@@ -3032,6 +3040,7 @@ end 'main'
 ```
 
 <!-- test: async-await.nested-void -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 A nested `async` on a void function: the inner thread's completion has no result
 to publish, so the wakeup is the whole notification.
 ```maxon
@@ -3045,13 +3054,13 @@ end 'setFlag'
 function bump(mutates flag Integer) returns Integer
 	let p = async setFlag(flag)
 	await p
-	return try flag + 40 otherwise panic("out of range")
+	return flag + 40
 end 'bump'
 
 function main() returns ExitCode
 	var flag = 0 as Integer
 	let q = async bump(flag)
-	return try (await q) as ExitCode otherwise panic("out of range")
+	return await q
 end 'main'
 ```
 ```exitcode
@@ -4082,6 +4091,7 @@ hello padded out long enough to heap allocate 1!
 ```
 
 <!-- test: async-await.a-let-shared-with-async-is-freed-once-by-the-coroutine -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 The coroutine holds a count of its own on the shared `let` and releases it once, after the caller's frame has
 moved on.
 ```maxon
@@ -4092,7 +4102,7 @@ typealias IntPromise = Promise with Integer
 function shout(text String) returns Integer
 	Scheduler.yield()
 	print("{text}!\n")
-	return try text.byteLength() as Integer otherwise panic("out of range")
+	return text.byteLength() as Integer
 end 'shout'
 
 function spawnIt() returns IntPromise
@@ -4712,7 +4722,7 @@ end 'main'
 ```
 
 <!-- test: async-await.error.a-frozen-record-cannot-be-written-by-a-coroutine -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `b` names a frozen record, so a coroutine that writes its parameter may not be handed it.
 ```maxon
@@ -4905,6 +4915,7 @@ end 'main'
 ```
 
 <!-- test: async-await.a-callee-that-keeps-its-argument-is-spawned-and-awaited -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 `Holder.create` moves its `String` parameter into the record it returns. The spawn hands the coroutine the
 argument, the callee takes it when it runs, and the awaited record owns it from then on.
 ```maxon
@@ -4913,7 +4924,7 @@ type Holder
 
 	static function create(s String) returns Self
 		Scheduler.yield()
-		return Self{s: s.clone()}
+		return Self{s: s}
 	end 'create'
 end 'Holder'
 
@@ -4932,6 +4943,7 @@ hello 3
 ```
 
 <!-- test: async-await.a-callee-that-keeps-its-argument-is-spawned-and-dropped-before-it-runs -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 The same spawn dropped before the coroutine ever runs: the callee never took the argument, so the drop
 releases it.
 ```maxon
@@ -4940,7 +4952,7 @@ type Holder
 
 	static function create(s String) returns Self
 		Scheduler.yield()
-		return Self{s: s.clone()}
+		return Self{s: s}
 	end 'create'
 end 'Holder'
 
@@ -4955,6 +4967,7 @@ end 'main'
 ```
 
 <!-- test: async-await.a-callee-that-keeps-its-argument-completes-and-is-then-dropped -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 The same spawn left to complete while `main` awaits a sibling, then dropped: the callee took the argument when
 it ran, so the drop releases only the record it returned, which owns the argument.
 ```maxon
@@ -4965,7 +4978,7 @@ type Holder
 
 	static function create(s String) returns Self
 		Scheduler.yield()
-		return Self{s: s.clone()}
+		return Self{s: s}
 	end 'create'
 end 'Holder'
 

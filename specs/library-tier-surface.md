@@ -567,6 +567,7 @@ error E2015: <fragment>:3:27: Unsupported: `async __Builtins.currentProcessId(â€
 ```
 
 <!-- test: error.a-bare-managed-in-a-user-array-extension-is-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 Inside an `extension Array`, `managed` names the receiver's buffer field without a `self.`; it is the same
 door as `.managed`.
@@ -594,6 +595,7 @@ error E3185: <fragment>:7:10: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: a-bare-managed-in-an-array-extension-compiles-in-the-library-tier -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon
@@ -960,6 +962,7 @@ error E3185: <fragment>:4:15: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: error.a-bare-managed-read-in-an-array-extension-is-refused-at-the-field -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 The bare spelling of the same field.
 
 ```maxon
@@ -980,6 +983,7 @@ error E3185: <fragment>:4:11: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: error.a-self-managed-read-in-a-string-extension-is-refused-at-the-field -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 A `String`'s buffer is the same raw surface.
 
 ```maxon

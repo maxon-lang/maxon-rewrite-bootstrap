@@ -510,7 +510,7 @@ end 'main'
 ```
 
 <!-- test: view-binding.error.a-let-sent-to-a-service-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `let` names data its own green thread may write, so it is mutable data of its region: it cannot be frozen for a
 message that takes `immutable` data, and it cannot be given away to one that takes `isolated` data.

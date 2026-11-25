@@ -144,6 +144,7 @@ end 'main'
 ```
 
 <!-- test: yielding-closure-to-function-type-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `slow` awaits a coroutine, and a function type never yields, so a call through `Step` inside a `modify` block could not be proven safe.
 
@@ -154,7 +155,7 @@ typealias Step = function(Tally) returns Tally
 
 function work(n Tally) returns Tally
 	sleep(1)
-	return try n + 1 otherwise panic("out of range")
+	return n + 1
 end 'work'
 
 function slow(n Tally) returns Tally
@@ -177,7 +178,7 @@ error E3210: <fragment>:20:16: function value for 'Step' may yield (it awaits a 
 ```
 
 <!-- test: mutable-function-called-through-frozen -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `mutable function` may write what it captured, so it cannot be called through frozen data.
 
@@ -207,7 +208,7 @@ error E3211: <fragment>:14:23: 'Tallier' mutates captures and cannot be called t
 ```
 
 <!-- test: frozen-argument-to-a-mutable-function-parameter-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Edit` declares its parameter `mutable`, so the call `edit(pinned)` with a frozen box is refused where it is written.
 
@@ -243,7 +244,7 @@ error E3207: <fragment>:19:6: 'Edit' takes `mutable` parameter; 'pinned' is immu
 ```
 
 <!-- test: isolated-requirement-parameter-refuses-a-mutable-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Sink.take` declares `items` isolated, so `spare`, a mutable array of this region, cannot be passed to it.
 
@@ -288,7 +289,7 @@ error E3200: <fragment>:27:7: 'spare' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: isolated-function-type-parameter-refuses-a-mutable-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Take` declares its parameter isolated, so `spare`, a mutable array of this region, cannot be passed through it.
 
@@ -317,7 +318,7 @@ error E3200: <fragment>:12:6: 'spare' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: alias-capability-reaches-the-call-whichever-declaration-comes-first -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `IsoBox` is declared after `consume` and names an `isolated` box, so `consume(spare)` with a mutable local is refused as if the parameter were written `isolated Box`.
 
@@ -428,7 +429,7 @@ error E3197: <fragment>:23:37: cannot write 'e' through the closure that capture
 ```
 
 <!-- test: mutable-function-closure-writing-frozen-data-it-captured-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Bump` is a `mutable function`, but `e` holds frozen data, so the closure would write through it.
 
@@ -588,6 +589,7 @@ lessThan
 ```
 
 <!-- test: function-value-storing-its-parameter-to-plain-function-type-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `adopt` keeps `box` in the `Holder` it returns, so its result holds data reached from its read-only parameter, and `Keep` promises nothing about what a result shares with its argument.
 
@@ -608,7 +610,7 @@ type Holder
 	export var held as Box
 
 	static function build(item Box) returns Self
-		return Self{held: item.clone()}
+		return Self{held: item}
 	end 'build'
 end 'Holder'
 

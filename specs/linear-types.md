@@ -836,6 +836,7 @@ error E3223: <fragment>:25:2: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: reading-a-linear-value-after-its-finalizer-is-refused -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -938,6 +939,7 @@ error E3102: <fragment>:23:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: a-linear-value-consumed-in-a-loop-body-is-refused -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1177,7 +1179,7 @@ error E3224: <fragment>:33:8: this linear value is only lent to this code (a par
 ```
 
 <!-- test: a-linear-value-cannot-be-cloned -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1564,6 +1566,7 @@ error E3005: <fragment>:22:2: type mismatch: 'leak' declares no return type, so 
 ```
 
 <!-- test: a-message-reply-cannot-be-a-linear-value -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 
 ```maxon
@@ -2342,7 +2345,7 @@ error E3223: <fragment>:25:2: this drops 'cell', a linear value that was never c
 ```
 
 <!-- test: a-linear-value-live-across-an-acquire-is-refused -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 
@@ -2378,7 +2381,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, r Resp) returns Code
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'held'
 		print("inside\n")
 	end 'held' otherwise 'stopped'
@@ -3602,6 +3605,7 @@ error E3009: <fragment>:26:11: Cannot cast from Resp to interface
 ```
 
 <!-- test: a-conformer-that-waits-is-refused-so-a-call-through-an-interface-is-no-wait -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A requirement never waits, so a conformer whose method awaits a reply is refused where it is declared, and a call through an interface is never a wait a live linear value must not cross.
 ```maxon
@@ -3643,7 +3647,7 @@ type Waiting implements Asker
 	var d as Doubler.handle
 
 	static function create(d Doubler.handle) returns Self
-		return Self{d: d.clone()}
+		return Self{d: d}
 	end 'create'
 
 	function ask(x Code) returns Code
@@ -3651,7 +3655,7 @@ type Waiting implements Asker
 	end 'ask'
 end 'Waiting'
 
-function viaInterface(a Asker, consumes r Resp) returns Code
+function viaInterface(a Asker, r Resp) returns Code
 	let n = a.ask(1)
 	r.fin()
 	return n
@@ -5283,7 +5287,7 @@ nothing
 ```
 
 <!-- test: an-isolated-value-is-not-merged-into-a-variable-one-branch-leaves-holding-the-linear-case -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The `then` branch leaves `m` holding the linear case, so `m` may hold a linear value when `filled` is assigned to it.
 ```maxon
@@ -5335,7 +5339,7 @@ error E3196: <fragment>:43:6: cannot store an isolated 'Maybe' into 'm', which h
 ```
 
 <!-- test: an-isolated-value-is-not-merged-into-a-variable-the-previous-lap-left-holding-it -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The lap ends with `m` holding the `filled` it was given, so the next lap's `filled` is assigned to a variable that may hold a linear value.
 ```maxon
@@ -5685,6 +5689,7 @@ error E3102: <fragment>:38:9: use of moved value 'm': it was moved in an earlier
 ```
 
 <!-- test: a-loop-continues-before-refilling-the-union-it-matched -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The `continue` leaves the lap with `m` consumed, and the refill below it is skipped.
 ```maxon
@@ -5707,8 +5712,8 @@ union Maybe
 	nothing
 end 'Maybe'
 
-function settle(consumes m Maybe)
-	match consumes m 'which'
+function settle(m Maybe)
+	match m 'which'
 		some(r) then r.fin()
 		nothing then print("nothing\n")
 	end 'which'
@@ -5717,7 +5722,7 @@ end 'settle'
 function main() returns ExitCode
 	var m = Maybe.some(Resp.create(1))
 	for i in 0 upto 3 'lap'
-		match consumes m 'm'
+		match m 'm'
 			some(r) then r.fin()
 			nothing then print("nothing\n")
 		end 'm'
@@ -6494,7 +6499,7 @@ error E3224: <fragment>:17:27: this linear value is only lent to this code (a pa
 ```
 
 <!-- test: a-union-carrying-a-linear-value-cannot-be-cloned -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A union with a linear payload is linear and unique, so `clone()` is refused as it is for the record.
 ```maxon
@@ -7147,7 +7152,7 @@ end 'main'
 ```
 
 <!-- test: a-non-linear-isolated-local-into-an-unmarked-parameter-beside-an-opened-receiver-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An unmarked parameter of a record type lends its argument, so `v` would be a second region opened by the call.
 ```maxon
@@ -7206,7 +7211,7 @@ error E3201: <fragment>:49:9: one statement reaches through two isolated values,
 ```
 
 <!-- test: a-plain-linear-local-beside-an-opened-receiver-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `v` is ordinary data of the caller's region, which a call into `bx`'s region does not take.
 ```maxon
@@ -7375,7 +7380,7 @@ poke 3
 ```
 
 <!-- test: a-linear-factory-argument-of-a-type-that-is-not-closed-does-not-cross -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Mp` holds the plain payload `y`, which `b` still names after the spawn.
 ```maxon
@@ -7473,7 +7478,7 @@ end 'main'
 ```
 
 <!-- test: a-local-refilled-with-an-alias-is-not-recovered-in-the-loop -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 After `takeIso` recovers `w`, the variable takes only isolated values, and `keep` is a record another name holds.
 ```maxon
@@ -7509,7 +7514,7 @@ error E3200: <fragment>:22:7: 'keep' is not isolated: only a clean call, a `swap
 ```
 
 <!-- test: a-unique-local-sent-on-every-lap-is-refused-when-a-lap-reads-the-value-it-refills -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `t` crosses whole only because the value it holds at the header is fresh, and the value each lap assigns is read by `h.k = t.b` before the next lap sends it, so `h` would still name a part of what the service holds.
 ```maxon
@@ -7571,7 +7576,7 @@ error E3200: <fragment>:47:15: 't' is recovered into an isolated position inside
 ```
 
 <!-- test: a-unique-local-sent-in-an-inner-loop-is-refused-when-an-outer-lap-reads-the-value-it-refills -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The inner loop's header holds the value the outer loop's header holds, so relying on it in the inner loop relies on the outer header too: `h.k = t.b` reads what the last inner lap assigned, and the next outer lap sends it.
 ```maxon
@@ -7706,7 +7711,7 @@ end 'main'
 ```
 
 <!-- test: a-unique-local-sent-on-every-lap-of-a-for-loop-is-refused-when-a-lap-reads-the-value-it-refills -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `for` loop's header joins `t` the way a `while` loop's does.
 ```maxon

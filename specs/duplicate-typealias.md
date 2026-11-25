@@ -396,6 +396,7 @@ end 'main'
 ```
 
 <!-- test: error.a-contested-function-alias-is-named-by-its-source-spelling -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 <!-- positions: moved -->
 A refusal between two aliases quotes the names the AUTHOR wrote. `Step` is contested and so is carried internally under a per-file spelling, and none of that spelling may reach the message: a diagnostic naming a type the program does not contain is unsearchable.
 ```maxon

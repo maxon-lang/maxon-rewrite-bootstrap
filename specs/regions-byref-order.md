@@ -1218,6 +1218,7 @@ ok
 ```
 
 <!-- test: sibling-by-reference-calls-before -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 <!-- positions: moved -->
 Two sibling calls rewrite the local, with another read around them. The read runs before the write.
 
@@ -1233,11 +1234,11 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum(a Tally, b Tally) returns Tally
-	return try a + b otherwise panic("out of range")
+	return a + b
 end 'sum'
 
 function two(text String, k Tally) returns Tally
-	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
+	return (text.byteLength() as Tally) + k
 end 'two'
 
 function main() returns ExitCode
@@ -3434,6 +3435,7 @@ error E3186: <fragment>:44:34: argument 'e.f' is read by another operand of this
 ```
 
 <!-- test: for-binding-field-cell-after -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 <!-- positions: moved -->
 The twin with the read after the write.
 
@@ -3451,11 +3453,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
+		return (text.byteLength() as Tally) + k
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
+		return (text.byteLength() as Tally) + k
 	end 'mix2'
 end 'Holder'
 
@@ -3464,7 +3466,7 @@ type PB
 	export var second as String
 
 	static function build(first Tally, second String) returns Self
-		return Self{first: first, second: second.clone()}
+		return Self{first: first, second: second}
 	end 'build'
 end 'PB'
 
@@ -6609,6 +6611,7 @@ error E3186: app/<fragment>:11:14: argument 's' is read by another operand of th
 ```
 
 <!-- test: write-based-async-callee-never-writes -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 An `async` call lends its cell only if the coroutine writes the parameter.
 
 ```maxon
@@ -6616,12 +6619,12 @@ typealias Tally = int(0 to u64.max)
 
 function look(mutates a String, b String) returns Tally
 	sleep(1)
-	return try (a.byteLength() as Tally) + (b.byteLength() as Tally) otherwise panic("out of range")
+	return (a.byteLength() as Tally) + (b.byteLength() as Tally)
 end 'look'
 
 function main() returns ExitCode
 	var s = "abc"
-	let promise = async look(s, b: s.clone())
+	let promise = async look(s, b: s)
 	let k = await promise
 	print("{k}\n")
 	return 0

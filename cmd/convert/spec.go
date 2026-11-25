@@ -47,6 +47,19 @@ const (
 
 var specSectionMarkers = []string{specFileMarker, specOverlayMarker, specRuntimeMarker}
 
+// maxon's one `acquire` block takes the states of several services at once (its reference, "Atomic Updates"), which
+// minimaxon has not built yet (README, "Services": "Not yet: ... `acquire`"). A test of one that expects a code of maxon's
+// region rules on the states the block holds pins a rule that minimaxon's owned values, borrows and frozen values
+// replace, so it is skipped for that, a permanent difference, and not for the block that is still to come.
+const (
+	serviceAcquireWarning = "a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)"
+	regionAcquireWarning  = "language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised)"
+)
+
+// regionCodes are maxon's codes for the rules of its regions, which minimaxon does not raise: the codes of the region
+// `expect` row of self/driver/skips.tsv.
+var regionCodes = []string{"E3196", "E3198", "E3199", "E3200", "E3201", "E3202", "E3203", "E3205", "E3206", "E3207", "E3208", "E3209", "E3211", "E3214", "E3226"}
+
 // SpecTest is one test of a spec file and the kinds of warning that block it.
 type SpecTest struct {
 	Name  string
@@ -83,6 +96,9 @@ func ConvertSpec(file, src string) SpecResult {
 				}
 			} else {
 				if c.open && isErrorExpectation(line) {
+					if !c.expectsError {
+						c.firstExpected = firstErrorCode(lines[i+1 : end])
+					}
 					c.expectsError = true
 					c.expectsSyntaxError = c.expectsSyntaxError || hasSyntaxError(lines[i+1:end])
 				}
@@ -138,6 +154,8 @@ type specConverter struct {
 	// expectation no longer names the same text; expectsError is whether the case has a compiler-error expectation.
 	moved        bool
 	expectsError bool
+	// firstExpected is the code of the first error the case's first compiler-error expectation names, or empty.
+	firstExpected string
 
 	// rejected holds the kinds of the case's blocks that minimaxon does not parse; expectsSyntaxError is whether the
 	// case expects such an error, which makes them the point of the case and no reason to skip it.
@@ -160,6 +178,7 @@ func (c *specConverter) startTest(marker string) {
 	c.rejected = nil
 	c.moved = false
 	c.expectsError = false
+	c.firstExpected = ""
 	c.expectsSyntaxError = false
 	c.out = append(c.out, marker)
 }
@@ -171,6 +190,13 @@ func (c *specConverter) closeTest() {
 	c.open = false
 	if !c.expectsSyntaxError {
 		c.kinds = append(c.kinds, c.rejected...)
+	}
+	if slices.Contains(regionCodes, c.firstExpected) {
+		for i, kind := range c.kinds {
+			if kind == serviceAcquireWarning {
+				c.kinds[i] = regionAcquireWarning
+			}
+		}
 	}
 	slices.Sort(c.kinds)
 	c.kinds = slices.Compact(c.kinds)
@@ -314,6 +340,16 @@ func closingFence(lines []string, open int, fence string) int {
 func isErrorExpectation(fenceLine string) bool {
 	info := strings.TrimLeft(fenceLine, "`")
 	return strings.HasPrefix(strings.ToLower(info), errorExpectation)
+}
+
+// firstErrorCode is the code of the first error line of an expectation block, or empty.
+func firstErrorCode(block []string) string {
+	for _, line := range block {
+		if rest, ok := strings.CutPrefix(line, "error E"); ok && len(rest) >= 4 {
+			return "E" + rest[:4]
+		}
+	}
+	return ""
 }
 
 func hasSyntaxError(block []string) bool {

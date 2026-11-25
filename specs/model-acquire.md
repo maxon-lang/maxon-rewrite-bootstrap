@@ -19,7 +19,7 @@ the day the compiler stops agreeing with a verdict the model pinned. The rule se
 
 <!-- test: model-finding-n-c2-no-wrapper -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `C2-no-wrapper` of redteamN/cand2.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -58,7 +58,7 @@ function idb(bV Bt) returns Bt
 end 'idb'
 
 function g(s Sv.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		_ = idb(s.r.bytes)
 		s.r.bytes.b = 1
@@ -79,7 +79,7 @@ error E3202: <fragment>:36:11: 'idb(s.r.bytes)' is mutable and cannot leave the 
 
 <!-- test: model-finding-n-c2-no-write-after -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `C2-no-write-after` of redteamN/cand2.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -118,7 +118,7 @@ function idb(bV Bt) returns Bt
 end 'idb'
 
 function g(s Sv.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		_ = idb(s.r.bytes)
 	end 'a1' otherwise 's2'
@@ -138,7 +138,7 @@ error E3202: <fragment>:36:11: 'idb(s.r.bytes)' is mutable and cannot leave the 
 
 <!-- test: model-finding-n-c2-read-instead -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `C2-read-instead` of redteamN/cand2.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -177,7 +177,7 @@ function idb(bV Bt) returns Bt
 end 'idb'
 
 function g(s Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		_ = idb(s.r.bytes)
 		return s.r.bytes.b
@@ -198,7 +198,7 @@ error E3202: <fragment>:36:11: 'idb(s.r.bytes)' is mutable and cannot leave the 
 
 <!-- test: model-finding-n-c2-write-via-m -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `C2-write-via-m` of redteamN/cand2.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -237,7 +237,7 @@ function idb(bV Bt) returns Bt
 end 'idb'
 
 function g(s Sv.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let m = idb(s.r.bytes)
 		m.b = 1
@@ -258,7 +258,7 @@ error E3202: <fragment>:36:11: 'idb(s.r.bytes)' is mutable and cannot leave the 
 
 <!-- test: model-finding-n-c2-plain-fn-no-result-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `C2-plain-fn-no-result-use` of redteamN/cand2.txt, in capmodel `reggio/REPORTRTN.txt`.
 
 ```maxon
@@ -296,7 +296,7 @@ function rd(bV Bt) returns Num
 end 'rd'
 
 function g(s Sv.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		_ = rd(s.r.bytes)
 		s.r.bytes.b = 1
@@ -317,7 +317,7 @@ end 'main'
 
 <!-- test: model-finding-n-c2-mutself-no-wrapper-send -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `C2-mutself-no-wrapper-send` of redteamN/cand2.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -356,7 +356,7 @@ function idb(bV Bt) returns Bt
 end 'idb'
 
 function g(s Sv.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		_ = idb(s.r.bytes)
 		s.k = 1
@@ -377,7 +377,7 @@ error E3202: <fragment>:36:11: 'idb(s.r.bytes)' is mutable and cannot leave the 
 
 <!-- test: model-finding-n-d1-direct-alias-then-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `D1-direct-alias-then-write` of redteamN/cand2b.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -412,7 +412,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		_ = s.r.bytes
 		s.r.bytes.b = 1
@@ -433,7 +433,7 @@ error E3202: <fragment>:32:11: 's.r.bytes' is mutable and cannot leave the state
 
 <!-- test: model-finding-n-d2-direct-alias-read-after -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `D2-direct-alias-read-after` of redteamN/cand2b.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -468,7 +468,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let m = s.r.bytes
 		s.r.bytes.b = 1
@@ -490,7 +490,7 @@ error E3202: <fragment>:32:11: 's.r.bytes' is mutable and cannot leave the state
 
 <!-- test: model-finding-n-d3-call-alias-then-write-read-after -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `D3-call-alias-then-write-read-after` of redteamN/cand2b.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -529,7 +529,7 @@ function idb(bV Bt) returns Bt
 end 'idb'
 
 function g(s Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let m = idb(s.r.bytes)
 		s.r.bytes.b = 1
@@ -551,7 +551,7 @@ error E3202: <fragment>:36:11: 'idb(s.r.bytes)' is mutable and cannot leave the 
 
 <!-- test: model-finding-n-d4-method-alias -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `D4-method-alias` of redteamN/cand2b.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -590,7 +590,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		_ = s.r.data()
 		s.r.bytes.b = 1
@@ -611,7 +611,7 @@ error E3202: <fragment>:36:11: 's.r.data()' is mutable and cannot leave the stat
 
 <!-- test: model-finding-n-d5-param-alias -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `D5-param-alias` of redteamN/cand2b.txt, in capmodel `reggio/REPORTRTN.txt`.
 
 ```maxon
@@ -645,7 +645,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle, p Bt)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		_ = p
 		s.r.bytes.b = 1
@@ -667,7 +667,7 @@ end 'main'
 
 <!-- test: model-finding-n-d6-state-field-alias-two -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `D6-state-field-alias-two` of redteamN/cand2b.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -703,7 +703,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		_ = s.o.bytes
 		s.r.bytes.b = 1
@@ -724,7 +724,7 @@ error E3202: <fragment>:33:11: 's.o.bytes' is mutable and cannot leave the state
 
 <!-- test: model-finding-n-e1-replace-then-read-alias -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `E1-replace-then-read-alias` of redteamN/cand2c.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -759,7 +759,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let m = s.r.bytes
 		s.r.bytes = Bt.create(2)
@@ -781,7 +781,7 @@ error E3202: <fragment>:32:11: 's.r.bytes' is mutable and cannot leave the state
 
 <!-- test: model-finding-n-e2-method-write-then-read-alias -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `E2-method-write-then-read-alias` of redteamN/cand2c.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -820,7 +820,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let m = s.r.bytes
 		s.wr()
@@ -842,7 +842,7 @@ error E3202: <fragment>:36:11: 's.r.bytes' is mutable and cannot leave the state
 
 <!-- test: model-finding-n-e3-alias-of-whole-row -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `E3-alias-of-whole-row` of redteamN/cand2c.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -877,7 +877,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let m = s.r
 		s.r.pos = 3
@@ -899,7 +899,7 @@ error E3202: <fragment>:32:11: 's.r' is mutable and cannot leave the statement t
 
 <!-- test: model-finding-n-e4-modify-state-field-block -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `E4-modify-state-field-block` of redteamN/cand2c.txt, in capmodel `reggio/REPORTRTN.txt`.
@@ -935,7 +935,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let m = s.r.bytes
 		// TODO: modify blocks are not supported in minimaxon
@@ -960,7 +960,7 @@ error E3202: <fragment>:32:11: 's.r.bytes' is mutable and cannot leave the state
 
 <!-- test: model-finding-n-e5-int-field-write-alias-of-other-field -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `E5-int-field-write-alias-of-other-field` of redteamN/cand2c.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -995,7 +995,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let m = s.r.bytes
 		s.k = 3
@@ -1017,7 +1017,7 @@ error E3202: <fragment>:32:11: 's.r.bytes' is mutable and cannot leave the state
 
 <!-- test: model-finding-n-e6-two-states-alias-of-first-write-second-field-of-first -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `E6-two-states-alias-of-first-write-second-field-of-first` of redteamN/cand2c.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -1052,7 +1052,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle, t Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		let m = s.r.bytes
 		t.r.bytes.b = 1
@@ -1074,7 +1074,7 @@ error E3202: <fragment>:32:11: 's.r.bytes' is mutable and cannot leave the state
 
 <!-- test: model-finding-n-e7-different-states-same -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `E7-different-states-same` of redteamN/cand2c.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -1109,7 +1109,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle, t Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		let m = s.r.bytes
 		t.r.bytes.b = 1
@@ -1132,7 +1132,7 @@ error E3202: <fragment>:32:11: 's.r.bytes' is mutable and cannot leave the state
 
 <!-- test: model-finding-n-rtn-h1-minimal -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `RTN-H1-minimal` of redteamN/hole1min.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -1157,7 +1157,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		_ = s.r
 		s.r.b = 1
@@ -1178,7 +1178,7 @@ error E3202: <fragment>:22:11: 's.r' is mutable and cannot leave the statement t
 
 <!-- test: model-finding-n-rtn-h1-visible -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `RTN-H1-visible` of redteamN/hole1min.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -1203,7 +1203,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let m = s.r
 		s.r.b = 1
@@ -1225,7 +1225,7 @@ error E3202: <fragment>:22:11: 's.r' is mutable and cannot leave the statement t
 
 <!-- test: model-finding-n-rtn-h1-via-m1-mixed-call -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `RTN-H1-via-m1-mixed-call` of redteamN/hole1min.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -1258,7 +1258,7 @@ function pick(bV Bt, c Num) returns Bt
 end 'pick'
 
 function g(s Sv.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		_ = pick(s.r, c: 0)
 		s.r.b = 1
@@ -1279,7 +1279,7 @@ error E3202: <fragment>:30:11: 'pick(s.r, c: 0)' is mutable and cannot leave the
 
 <!-- test: model-finding-n-rtn-h1-control-no-alias -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `RTN-H1-control-no-alias` of redteamN/hole1min.txt, in capmodel `reggio/REPORTRTN.txt`.
 
 ```maxon
@@ -1303,7 +1303,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		_ = 5 as Num
 		s.r.b = 1
@@ -1324,7 +1324,7 @@ end 'main'
 
 <!-- test: model-finding-n-rtn-h1-control-alias-dead-before-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `RTN-H1-control-alias-dead-before-write` of redteamN/hole1min.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -1349,7 +1349,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let m = s.r
 		let x = m.b
@@ -1372,7 +1372,7 @@ error E3202: <fragment>:22:11: 's.r' is mutable and cannot leave the statement t
 
 <!-- test: model-finding-n-rtn-h1-two-names -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `RTN-H1-two-names` of redteamN/hole1min.txt, in capmodel `reggio/REPORTRTN.txt`.
 
@@ -1397,7 +1397,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle, t Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		let m = s.r
 		t.r.b = 1
@@ -1419,7 +1419,7 @@ error E3202: <fragment>:22:11: 's.r' is mutable and cannot leave the statement t
 
 <!-- test: model-finding-w-w1-minimal-method-view -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `W1-minimal-method-view` of redteamW/min1.txt, in capmodel `reggio/REPORTRTW.txt`.
 
@@ -1448,7 +1448,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let m = s.peekR()
 		s.r.b = 1
@@ -1470,7 +1470,7 @@ error E3202: <fragment>:26:11: 's.peekR()' is mutable and cannot leave the state
 
 <!-- test: model-finding-w-w1-minimal-method-view-unused -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `W1-minimal-method-view-unused` of redteamW/min1.txt, in capmodel `reggio/REPORTRTW.txt`.
 
@@ -1499,7 +1499,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		_ = s.peekR()
 		s.r.b = 1
@@ -1520,7 +1520,7 @@ error E3202: <fragment>:26:11: 's.peekR()' is mutable and cannot leave the state
 
 <!-- test: model-finding-w-w1-control-fieldread -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `W1-control-fieldread` of redteamW/min1.txt, in capmodel `reggio/REPORTRTW.txt`.
 
@@ -1549,7 +1549,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let m = s.r
 		s.r.b = 1
@@ -1571,7 +1571,7 @@ error E3202: <fragment>:26:11: 's.r' is mutable and cannot leave the statement t
 
 <!-- test: model-finding-w-w1-two-names-same-service -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `W1-two-names-same-service` of redteamW/min1.txt, in capmodel `reggio/REPORTRTW.txt`.
 
@@ -1600,7 +1600,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle, t Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		let m = s.peekR()
 		t.r.b = 1
@@ -1622,7 +1622,7 @@ error E3202: <fragment>:26:11: 's.peekR()' is mutable and cannot leave the state
 
 <!-- test: model-finding-w-w1-two-names-same-service-fieldread-control -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `W1-two-names-same-service-fieldread-control` of redteamW/min1.txt, in capmodel `reggio/REPORTRTW.txt`.
 
@@ -1651,7 +1651,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle, t Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		let m = s.r
 		t.r.b = 1
@@ -1673,7 +1673,7 @@ error E3202: <fragment>:26:11: 's.r' is mutable and cannot leave the statement t
 
 <!-- test: model-finding-w-x1-readonly-view-no-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `X1-readonly-view-no-write` of redteamW/min2.txt, in capmodel `reggio/REPORTRTW.txt`.
 
@@ -1707,7 +1707,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let m = s.rd
 		return m.pos
@@ -1728,7 +1728,7 @@ error E3202: <fragment>:31:11: 's.rd' is mutable and cannot leave the statement 
 
 <!-- test: model-finding-w-x2-clone-across -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `X2-clone-across` of redteamW/min2.txt, in capmodel `reggio/REPORTRTW.txt`.
 
@@ -1753,7 +1753,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle, t Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		t.r = s.r.clone()
 		return 0
@@ -1775,7 +1775,7 @@ error E3197: <fragment>:22:3: cannot write 'r' through 't', which is read-only w
 
 <!-- test: model-finding-w-x3-two-statement-clone-across -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `X3-two-statement-clone-across` of redteamW/min2.txt, in capmodel `reggio/REPORTRTW.txt`.
 
@@ -1800,7 +1800,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle, t Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		let c = s.r.clone()
 		t.r = c
@@ -1823,7 +1823,7 @@ error E3201: <fragment>:23:9: 'c' is mutable outside 't'; a store into an isolat
 
 <!-- test: model-finding-w-x4-two-statement-value-across -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `X4-two-statement-value-across` of redteamW/min3.txt, in capmodel `reggio/REPORTRTW.txt`.
 
 ```maxon
@@ -1848,7 +1848,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle, t Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		let v = s.k
 		t.k = v
@@ -1871,7 +1871,7 @@ end 'main'
 
 <!-- test: model-finding-w-x5-one-statement-value-across -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `X5-one-statement-value-across` of redteamW/min3.txt, in capmodel `reggio/REPORTRTW.txt`.
 
@@ -1897,7 +1897,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle, t Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		t.k = s.k
 		return 0
@@ -1919,7 +1919,7 @@ error E3197: <fragment>:23:3: cannot write 'k' through 't', which is read-only w
 
 <!-- test: model-finding-w-x6-clone-across-core-m3w-check -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `X6-clone-across-core-m3w-check` of redteamW/min3.txt, in capmodel `reggio/REPORTRTW.txt`.
 
@@ -1945,7 +1945,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle, t Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		t.r = s.r.clone()
 		return 0
@@ -1967,7 +1967,7 @@ error E3197: <fragment>:23:3: cannot write 'r' through 't', which is read-only w
 
 <!-- test: model-finding-x-x1-minimal-call-operands -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `X1-minimal-call-operands` of redteamX/min1.txt, in capmodel `reggio/REPORTRTX.txt`.
 
@@ -1997,7 +1997,7 @@ function wb2(a Bt, bV Bt) returns Num
 end 'wb2'
 
 function g(s Sv.handle, t Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		let n = wb2(s.r, bV: t.r)
 		return n
@@ -2018,7 +2018,7 @@ error E3201: <fragment>:27:24: one statement reaches through two acquired states
 
 <!-- test: model-finding-x-x1-minimal-call-operands-distinct-services -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `X1-minimal-call-operands-distinct-services` of redteamX/min1.txt, in capmodel `reggio/REPORTRTX.txt`.
 
@@ -2048,7 +2048,7 @@ function wb2(a Bt, bV Bt) returns Num
 end 'wb2'
 
 function g(s Sv.handle, t Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		let n = wb2(s.r, bV: t.r)
 		return n
@@ -2070,7 +2070,7 @@ error E3201: <fragment>:27:24: one statement reaches through two acquired states
 
 <!-- test: model-finding-x-x1-view-kept-in-callee -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `X1-view-kept-in-callee` of redteamX/min1.txt, in capmodel `reggio/REPORTRTX.txt`.
 
@@ -2101,7 +2101,7 @@ function wbk(a Bt, bV Bt) returns Num
 end 'wbk'
 
 function g(s Sv.handle, t Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		let n = wbk(s.r, bV: t.r)
 		return n
@@ -2122,7 +2122,7 @@ error E3201: <fragment>:28:24: one statement reaches through two acquired states
 
 <!-- test: model-finding-x-x1-receiver -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `X1-receiver` of redteamX/min1.txt, in capmodel `reggio/REPORTRTX.txt`.
 
@@ -2152,7 +2152,7 @@ type Sv
 end 'Sv'
 
 function g(s Sv.handle, t Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		let n = t.r.giveTo(s.r)
 		return n
@@ -2173,7 +2173,7 @@ error E3201: <fragment>:27:22: one statement reaches through two acquired states
 
 <!-- test: model-finding-x-x1-m1-pick -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `X1-m1-pick` of redteamX/min1.txt, in capmodel `reggio/REPORTRTX.txt`.
 
@@ -2211,7 +2211,7 @@ function pick(bV Bt, c Num) returns Bt
 end 'pick'
 
 function g(s Sv.handle, t Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		let n = wb2(s.r, bV: pick(t.r, c: 0))
 		return n
@@ -2232,7 +2232,7 @@ error E3201: <fragment>:35:29: one statement reaches through two acquired states
 
 <!-- test: model-finding-y-y1-unique-array-store -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `Y1-unique-array-store` of redteamY/min1.txt, in capmodel `reggio/REPORTRTY.txt`.
 
 ```maxon
@@ -2258,7 +2258,7 @@ type Hs
 end 'Hs'
 
 function g(s Hs.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		s.ar = TkArray.create(0)
 	end 'a1' otherwise 's2'
@@ -2278,7 +2278,7 @@ end 'main'
 
 <!-- test: model-finding-y-y1-union-store -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `Y1-union-store` of redteamY/min1.txt, in capmodel `reggio/REPORTRTY.txt`.
 
 ```maxon
@@ -2307,7 +2307,7 @@ type Hs
 end 'Hs'
 
 function g(s Hs.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		s.u = UT.none
 	end 'a1' otherwise 's2'
@@ -2327,7 +2327,7 @@ end 'main'
 
 <!-- test: model-finding-y-y1-plain-record-reaching-unique-store -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `Y1-plain-record-reaching-unique-store` of redteamY/min1.txt, in capmodel `reggio/REPORTRTY.txt`.
 
 ```maxon
@@ -2359,7 +2359,7 @@ type Hs
 end 'Hs'
 
 function g(s Hs.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		s.ho = Hold.create(Tk.create(1))
 	end 'a1' otherwise 's2'
@@ -2379,7 +2379,7 @@ end 'main'
 
 <!-- test: model-finding-y-y1-ctl-declared-unique-record-store -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `Y1-ctl-declared-unique-record-store` of redteamY/min1.txt, in capmodel `reggio/REPORTRTY.txt`.
 
 ```maxon
@@ -2403,7 +2403,7 @@ type Hs
 end 'Hs'
 
 function g(s Hs.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		s.tk = Tk.create(5)
 	end 'a1' otherwise 's2'
@@ -2422,7 +2422,7 @@ end 'main'
 ```
 
 <!-- test: model-finding-y-y1-ctl-isolated-slot-store -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `Y1-ctl-isolated-slot-store` of redteamY/min1.txt, in capmodel `reggio/REPORTRTY.txt`.
 
 ```maxon
@@ -2445,7 +2445,7 @@ type Hs
 end 'Hs'
 
 function g(s Hs.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		s.i = Bt.create(5)
 	end 'a1' otherwise 's2'
@@ -2465,7 +2465,7 @@ end 'main'
 
 <!-- test: model-finding-z-send-view -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R3-SEND`; the compiler refuses it with E3217. Model program `send-view` of redteamZ/p2.txt, in capmodel `reggio/REPORTRTZ.txt`.
 
@@ -2503,7 +2503,7 @@ type Sk
 end 'Sk'
 
 function g(s Sv.handle, k Sk.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		try k.take(s.r) otherwise ignore
 	end 'a1' otherwise 's2'
@@ -2525,7 +2525,7 @@ error E3217: <fragment>:44:10: parameter `bV` of the message `Sk.take` is a `Bt`
 
 <!-- test: model-finding-z-send-view-clone -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R3-SEND`; the compiler refuses it with E3217. Model program `send-view-clone` of redteamZ/p2.txt, in capmodel `reggio/REPORTRTZ.txt`.
 
@@ -2563,7 +2563,7 @@ type Sk
 end 'Sk'
 
 function g(s Sv.handle, k Sk.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		try k.take(s.r.clone()) otherwise ignore
 	end 'a1' otherwise 's2'
@@ -2585,7 +2585,7 @@ error E3217: <fragment>:44:10: parameter `bV` of the message `Sk.take` is a `Bt`
 
 <!-- test: model-finding-z-spawn-view -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R3-SEND`; the compiler refuses it with E3200. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `spawn-view` of redteamZ/p2.txt, in capmodel `reggio/REPORTRTZ.txt`.
 
@@ -2621,7 +2621,7 @@ type Sk
 end 'Sk'
 
 function g(s Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		_ = spawn Sk.create(0, b: s.r)
 	end 'a1' otherwise 's2'
@@ -2642,7 +2642,7 @@ error E3200: <fragment>:32:33: 's.r' is not isolated: only a clean call, a `swap
 
 <!-- test: model-finding-z-cp-store-iso-local -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `cp-store-iso-local` of redteamZ/p3.txt, in capmodel `reggio/REPORTRTZ.txt`.
 
@@ -2674,7 +2674,7 @@ type Acc
 end 'Acc'
 
 function mix(first Acc.handle, second Acc.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire first, second 'a1'
 		let c = second.entries().clone() as BtArray
 		first.hist = c
@@ -2697,7 +2697,7 @@ error E3196: <fragment>:29:16: cannot store an isolated 'BtArray' into 'hist', w
 
 <!-- test: model-finding-z-cp-modify-store-iso-local -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `cp-modify-store-iso-local` of redteamZ/p3.txt, in capmodel `reggio/REPORTRTZ.txt`.
@@ -2730,7 +2730,7 @@ type Acc
 end 'Acc'
 
 function mix(first Acc.handle, second Acc.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire first, second 'a1'
 		let c = second.entries().clone() as BtArray
 		// TODO: modify blocks are not supported in minimaxon
@@ -2756,7 +2756,7 @@ error E3196: <fragment>:30:17: cannot store an isolated 'BtArray' into 'hist', w
 
 <!-- test: model-finding-z-cp-merge -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `cp-merge` of redteamZ/p3.txt, in capmodel `reggio/REPORTRTZ.txt`.
 
 ```maxon
@@ -2787,7 +2787,7 @@ type Acc
 end 'Acc'
 
 function mix(first Acc.handle, second Acc.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire first, second 'a1'
 		let c = second.entries().clone() as BtArray
 		// TODO: 'merge' region expressions are not supported in minimaxon
@@ -2811,7 +2811,7 @@ end 'main'
 
 <!-- test: model-finding-z-cp-record-slot-clone-inline -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `cp-record-slot-clone-inline` of redteamZ/p3.txt, in capmodel `reggio/REPORTRTZ.txt`.
 
@@ -2837,7 +2837,7 @@ type Acc
 end 'Acc'
 
 function mix(first Acc.handle, second Acc.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire first, second 'a1'
 		first.r = second.r.clone()
 	end 'a1' otherwise 's2'
@@ -2859,7 +2859,7 @@ error E3197: <fragment>:23:3: cannot write 'r' through 'first', which is read-on
 
 <!-- test: model-finding-z-cp-record-slot-new -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `cp-record-slot-new` of redteamZ/p3.txt, in capmodel `reggio/REPORTRTZ.txt`.
 
 ```maxon
@@ -2884,7 +2884,7 @@ type Acc
 end 'Acc'
 
 function mix(first Acc.handle, second Acc.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire first, second 'a1'
 		let v = second.r.b
 		first.r = Bt.create(v)
@@ -2907,7 +2907,7 @@ end 'main'
 
 <!-- test: model-finding-z-cp-record-slot-clone-two-lets -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `cp-record-slot-clone-two-lets` of redteamZ/p3.txt, in capmodel `reggio/REPORTRTZ.txt`.
 
@@ -2933,7 +2933,7 @@ type Acc
 end 'Acc'
 
 function mix(first Acc.handle, second Acc.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire first, second 'a1'
 		let c = second.r.clone()
 		first.r = c
@@ -2956,7 +2956,7 @@ error E3201: <fragment>:24:13: 'c' is mutable outside 'first'; a store into an i
 
 <!-- test: model-finding-z-cp-record-slot-clone-iso-two-lets -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `cp-record-slot-clone-iso-two-lets` of redteamZ/p3.txt, in capmodel `reggio/REPORTRTZ.txt`.
 
@@ -2982,7 +2982,7 @@ type Acc
 end 'Acc'
 
 function mix(first Acc.handle, second Acc.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire first, second 'a1'
 		let c = second.r.clone() as Bt
 		first.r = c
@@ -3005,7 +3005,7 @@ error E3196: <fragment>:24:13: cannot store an isolated 'Bt' into 'r', which hol
 
 <!-- test: model-finding-z-cp-record-slot-clone-same-service-ctl -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `cp-record-slot-clone-same-service-ctl` of redteamZ/p3.txt, in capmodel `reggio/REPORTRTZ.txt`.
 
 ```maxon
@@ -3031,7 +3031,7 @@ type Acc
 end 'Acc'
 
 function mix(first Acc.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire first 'a1'
 		first.q = first.r.clone()
 	end 'a1' otherwise 's2'
@@ -3051,7 +3051,7 @@ end 'main'
 ```
 
 <!-- test: model-finding-z-modify-iso-swap-then-read-other-state-view -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3199. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `modify-iso-swap-then-read-other-state-view` of redteamZ/p9.txt, in capmodel `reggio/REPORTRTZ.txt`.
@@ -3089,7 +3089,7 @@ type Sk
 end 'Sk'
 
 function g(s Sv.handle, t Sv.handle, k Sk.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s.i 'm3'
@@ -3115,7 +3115,7 @@ error E3199: <fragment>:36:12: 's.i' cannot be swapped: the value that holds it 
 ```
 
 <!-- test: model-finding-z-modify-iso-read-view-first-then-swap-other -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3199. Model program `modify-iso-read-view-first-then-swap-other` of redteamZ/p9.txt, in capmodel `reggio/REPORTRTZ.txt`.
@@ -3153,7 +3153,7 @@ type Sk
 end 'Sk'
 
 function g(s Sv.handle, t Sv.handle, k Sk.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify t.i 'm3'
@@ -3179,7 +3179,7 @@ error E3199: <fragment>:36:12: 's.i' cannot be swapped: the value that holds it 
 ```
 
 <!-- test: model-finding-aa-send-state-swap-iso -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `send-state-swap-iso` of redteamAA/p10.txt, in capmodel `reggio/REPORTRTAA.txt`.
 
 ```maxon
@@ -3215,7 +3215,7 @@ type Sv
 end 'Sv'
 
 function g(r Rc.handle, s Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		try r.put(exchange(s.t, value: Bt.create(5))) otherwise ignore
 	end 'a1' otherwise 's2'
@@ -3237,7 +3237,7 @@ end 'main'
 
 <!-- test: model-finding-aa-acq-three-same -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `acq-three-same` of redteamAA/p8.txt, in capmodel `reggio/REPORTRTAA.txt`.
 
 ```maxon
@@ -3263,7 +3263,7 @@ end 'Sv'
 
 function main() returns ExitCode
 	let s = spawn Sv.create(0, r: Bt.create(1))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, s, s 'a1'
 		s.k = 1
 		s.r.b = 2
@@ -3279,7 +3279,7 @@ end 'main'
 
 <!-- test: model-finding-aa-acq-in-main-shadow -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `acq-in-main-shadow` of redteamAA/p8.txt, in capmodel `reggio/REPORTRTAA.txt`.
 
 ```maxon
@@ -3306,7 +3306,7 @@ end 'Sv'
 function main() returns ExitCode
 	let s = spawn Sv.create(0, r: Bt.create(1))
 	let t = s
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		let m = s.r.b
 		t.k = m
@@ -3322,7 +3322,7 @@ end 'main'
 
 <!-- test: model-finding-aa-acq-var-handle-reassigned -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `acq-var-handle-reassigned` of redteamAA/p8.txt, in capmodel `reggio/REPORTRTAA.txt`.
 
 ```maxon
@@ -3349,14 +3349,14 @@ end 'Sv'
 function main() returns ExitCode
 	var s = spawn Sv.create(0, r: Bt.create(1))
 	let u = spawn Sv.create(1, r: Bt.create(2))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		s.k = 1
 	end 'a1' otherwise 's2'
 		_ = 0 as Num
 	end 's2'
 	s = u
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a3'
 		s.k = 2
 	end 'a3' otherwise 's4'
@@ -3371,7 +3371,7 @@ end 'main'
 
 <!-- test: model-finding-aa-acq-outer-handle-use-inside -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `acq-outer-handle-use-inside` of redteamAA/p8.txt, in capmodel `reggio/REPORTRTAA.txt`.
 
 ```maxon
@@ -3401,7 +3401,7 @@ end 'Sv'
 
 function g(s Sv.handle) returns Num
 	let t = s
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		try t.poke() otherwise ignore
 		s.k = 2
@@ -3423,7 +3423,7 @@ end 'main'
 
 <!-- test: model-finding-aa-send-state-slot-read -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `send-state-slot-read` of redteamAA/p9.txt, in capmodel `reggio/REPORTRTAA.txt`.
 
@@ -3462,7 +3462,7 @@ type Sv
 end 'Sv'
 
 function g(r Rc.handle, s Sv.handle) returns Num
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		try r.put(s.t) otherwise ignore
 	end 'a1' otherwise 's2'
@@ -3483,7 +3483,7 @@ error E3214: <fragment>:35:13: cannot hand 's.t' to argument `tV` of the message
 ```
 
 <!-- test: model-finding-ad-acq-state-method-discard -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3202. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `acq-state-method-discard` of redteamAD/t11.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -3516,7 +3516,7 @@ end 'Ck'
 
 function main() returns ExitCode
 	let a = spawn Ck.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		_ = a.mk()
 	end 'a1' otherwise 's2'
@@ -3530,7 +3530,7 @@ error E3202: <fragment>:32:11: 'a.mk()' is mutable and cannot leave the statemen
 ```
 
 <!-- test: model-finding-ad-acq-state-method-fin-direct -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `acq-state-method-fin-direct` of redteamAD/t11.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -3562,7 +3562,7 @@ end 'Ck'
 
 function main() returns ExitCode
 	let a = spawn Ck.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		a.mk().fin(1)
 	end 'a1' otherwise 's2'
@@ -3576,7 +3576,7 @@ end 'main'
 ```
 
 <!-- test: model-finding-ad-acq-state-method-fin-direct-twice -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `acq-state-method-fin-direct-twice` of redteamAD/t11.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -3608,7 +3608,7 @@ end 'Ck'
 
 function main() returns ExitCode
 	let a = spawn Ck.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		a.mk().fin(1)
 		a.mk().fin(2)
@@ -3623,7 +3623,7 @@ end 'main'
 ```
 
 <!-- test: model-finding-ad-acq-state-method-pass-through -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `acq-state-method-pass-through` of redteamAD/t11.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -3656,7 +3656,7 @@ end 'Ck'
 
 function main() returns ExitCode
 	let a = spawn Ck.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		let r = Rl.create(0)
 		let q = a.pass(r)
@@ -3672,7 +3672,7 @@ error E3201: <fragment>:33:18: 'r' is mutable outside 'a'; a call into an isolat
 ```
 
 <!-- test: model-finding-ad-acq-state-method-pass-through-iso -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `acq-state-method-pass-through-iso` of redteamAD/t11.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -3705,7 +3705,7 @@ end 'Ck'
 
 function main() returns ExitCode
 	let a = spawn Ck.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		let r = Rl.create(0) as Rl
 		let q = a.pass(r)
@@ -3721,7 +3721,7 @@ error E3201: <fragment>:33:18: one statement reaches through two isolated values
 ```
 
 <!-- test: model-finding-ad-acq-state-method-pass-through-iso-then -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `acq-state-method-pass-through-iso-then` of redteamAD/t11.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -3754,7 +3754,7 @@ end 'Ck'
 
 function main() returns ExitCode
 	let a = spawn Ck.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		let r = Rl.create(0) as Rl
 		let q = a.pass(r)
@@ -3771,7 +3771,7 @@ error E3201: <fragment>:33:18: one statement reaches through two isolated values
 ```
 
 <!-- test: model-finding-ad-acq-two-states-linear -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `acq-two-states-linear` of redteamAD/t11.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -3805,7 +3805,7 @@ end 'Ck'
 function main() returns ExitCode
 	let a = spawn Ck.create(0)
 	let b = spawn Ck.create(1)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a, b 'a1'
 		let r = Rl.create(0) as Rl
 		a.eat(r)
@@ -3820,7 +3820,7 @@ error E3201: <fragment>:34:9: one statement reaches through two isolated values,
 ```
 
 <!-- test: model-finding-ad-acq-two-states-linear-two -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `acq-two-states-linear-two` of redteamAD/t11.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -3854,7 +3854,7 @@ end 'Ck'
 function main() returns ExitCode
 	let a = spawn Ck.create(0)
 	let b = spawn Ck.create(1)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a, b 'a1'
 		let r = Rl.create(0) as Rl
 		let s = Rl.create(1) as Rl
@@ -3871,7 +3871,7 @@ error E3201: <fragment>:35:9: one statement reaches through two isolated values,
 ```
 
 <!-- test: model-finding-ad-acq-two-states-same-twice -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `acq-two-states-same-twice` of redteamAD/t11.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -3904,7 +3904,7 @@ end 'Ck'
 
 function main() returns ExitCode
 	let a = spawn Ck.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a, a 'a1'
 		let r = Rl.create(0) as Rl
 		a.eat(r)
@@ -3919,7 +3919,7 @@ error E3201: <fragment>:33:9: one statement reaches through two isolated values,
 ```
 
 <!-- test: model-finding-ad-acq-two-states-same-twice-eat-twice -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `acq-two-states-same-twice-eat-twice` of redteamAD/t11.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -3952,7 +3952,7 @@ end 'Ck'
 
 function main() returns ExitCode
 	let a = spawn Ck.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a, a 'a1'
 		let r = Rl.create(0) as Rl
 		a.eat(r)
@@ -3968,7 +3968,7 @@ error E3201: <fragment>:33:9: one statement reaches through two isolated values,
 ```
 
 <!-- test: model-finding-ad-recv-wrap-in-acquire-modify -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `recv-wrap-in-acquire-modify` of redteamAD/t12.txt, in capmodel `reggio/REPORTRTAD.txt`.
@@ -4023,7 +4023,7 @@ end 'useS'
 
 function main() returns ExitCode
 	let s = spawn S.create(0, b: Bx.create(0))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let v = Rl.create(0) as Rl
 		// TODO: modify blocks are not supported in minimaxon
@@ -4041,7 +4041,7 @@ error E3201: <fragment>:55:9: an isolated value from outside 'm3' cannot be move
 ```
 
 <!-- test: model-finding-ad-l-state-method-acquire-window -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `l-state-method-acquire-window` of redteamAD/t6.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -4090,7 +4090,7 @@ end 'useS'
 
 function main() returns ExitCode
 	let s = spawn S.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let v = Rl.create(0) as Rl
 		s.go(v)
@@ -4105,7 +4105,7 @@ error E3201: <fragment>:49:8: one statement reaches through two isolated values,
 ```
 
 <!-- test: model-finding-ad-l-state-method-acquire-window-modify -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `l-state-method-acquire-window-modify` of redteamAD/t6.txt, in capmodel `reggio/REPORTRTAD.txt`.
@@ -4160,7 +4160,7 @@ end 'useS'
 
 function main() returns ExitCode
 	let s = spawn S.create(0, b: Bx.create(0))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let v = Rl.create(0) as Rl
 		// TODO: modify blocks are not supported in minimaxon
@@ -4179,7 +4179,7 @@ error E3201: <fragment>:55:15: an isolated value from outside 'm3' cannot be mov
 
 <!-- test: model-finding-ae-outer-plain-union-match-in-acquire -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3207, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `outer-plain-union-match-in-acquire` of redteamAE/p13.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -4232,7 +4232,7 @@ end 'useS'
 function main() returns ExitCode
 	let s = spawn S.create(0, keep: Sn.ok)
 	let u = Sn.notSent(Rl.create(1))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			ok then break
@@ -4250,7 +4250,7 @@ error E3207: <fragment>:51:3: this linear value comes from outside 'a1', where i
 ```
 
 <!-- test: model-finding-ae-w-match-consume-acquire -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3207. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `w-match-consume-acquire` of redteamAE/p14.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -4300,7 +4300,7 @@ end 'useS'
 function main() returns ExitCode
 	let s = spawn S.create(0)
 	let u = Sn.notSent(Rl.create(1))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			ok then break
@@ -4318,7 +4318,7 @@ error E3207: <fragment>:49:3: this linear value comes from outside 'a1', where i
 
 <!-- test: model-finding-ae-state-union-iso-arm-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `state-union-iso-arm-write` of redteamAE/p16.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
 ```maxon
@@ -4365,7 +4365,7 @@ end 'S'
 
 function main() returns ExitCode
 	let s = spawn S.create(0, u: Ub.u1(Bx.create(0)), c: Cnt.create(0))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		s.go()
 	end 'a1' otherwise 's2'
@@ -4380,7 +4380,7 @@ end 'main'
 
 <!-- test: model-finding-ae-acquire-union-iso-arm-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `acquire-union-iso-arm-write` of redteamAE/p16.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -4421,7 +4421,7 @@ end 'S'
 
 function main() returns ExitCode
 	let s = spawn S.create(0, u: Ub.u1(Bx.create(0)), c: Cnt.create(0))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'm3'
@@ -4441,7 +4441,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-w-acq-moves-outer -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `w-acq-moves-outer` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
@@ -4497,7 +4497,7 @@ end 'Kp'
 function main() returns ExitCode
 	let a = spawn Kp.create(Box.create(0), n: 0)
 	let r = Resp.create(0) as Resp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		r.fin(1)
 	end 'a1' otherwise 's2'
@@ -4511,7 +4511,7 @@ error E3223: <fragment>:53:2: the linear value 'r' is live across this wait: a w
 ```
 
 <!-- test: model-hand-ab-w-acq-two-values -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `w-acq-two-values` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
@@ -4567,7 +4567,7 @@ end 'Kp'
 function main() returns ExitCode
 	let a = spawn Kp.create(Box.create(0), n: 0)
 	let r = Resp.create(0) as Resp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		_ = 0 as Num
 	end 'a1' otherwise 's2'
@@ -4582,7 +4582,7 @@ error E3223: <fragment>:53:2: the linear value 'r' is live across this wait: a w
 ```
 
 <!-- test: model-hand-ab-w-acq-return-in-body -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `w-acq-return-in-body` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
@@ -4637,7 +4637,7 @@ end 'Kp'
 
 function f()
 	let a = spawn Kp.create(Box.create(0), n: 0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		_ = Resp.create(0)
 		return
@@ -4656,7 +4656,7 @@ error E3223: <fragment>:54:3: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-w-acq-return-after-consume -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-acq-return-after-consume` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -4709,7 +4709,7 @@ end 'Kp'
 
 function f()
 	let a = spawn Kp.create(Box.create(0), n: 0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		let r = Resp.create(0)
 		r.fin(1)
@@ -4729,7 +4729,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-w-acq-body-consumes-outer-refill -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `w-acq-body-consumes-outer-refill` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
@@ -4785,7 +4785,7 @@ end 'Kp'
 function main() returns ExitCode
 	let a = spawn Kp.create(Box.create(0), n: 0)
 	var r = Resp.create(0) as Resp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		r.fin(1)
 	end 'a1' otherwise 's2'
@@ -4802,7 +4802,7 @@ error E3223: <fragment>:53:2: the linear value 'r' is live across this wait: a w
 ```
 
 <!-- test: model-hand-ab-w-acq-handback-send-in-block -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-acq-handback-send-in-block` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -4856,7 +4856,7 @@ end 'Kp'
 function main() returns ExitCode
 	let a = spawn(capacity: 1) Kp.create(Box.create(0), n: 0)
 	let bV = spawn(capacity: 1) Kp.create(Box.create(0), n: 0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		let r = Resp.create(0) as Resp
 		try bV.take(r) otherwise (sendFailure) 'h3'
@@ -4876,7 +4876,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-w-acq-state-method-open1 -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `w-acq-state-method-open1` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -4931,7 +4931,7 @@ end 'Kp'
 function main() returns ExitCode
 	let a = spawn Kp.create(Box.create(0), n: 0)
 	let r = Resp.create(0) as Resp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		a.open1(r)
 	end 'a1' otherwise 's2'
@@ -4945,7 +4945,7 @@ error E3201: <fragment>:54:11: one statement reaches through two isolated values
 ```
 
 <!-- test: model-hand-ab-w-acq-state-method-open1-both -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `w-acq-state-method-open1-both` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5000,7 +5000,7 @@ end 'Kp'
 function main() returns ExitCode
 	let a = spawn Kp.create(Box.create(0), n: 0)
 	let r = Resp.create(0) as Resp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		a.open1(r)
 	end 'a1' otherwise 's2'
@@ -5014,7 +5014,7 @@ error E3201: <fragment>:54:11: one statement reaches through two isolated values
 ```
 
 <!-- test: model-hand-ab-w-acq-two-names-one-service -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3207. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `w-acq-two-names-one-service` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5069,7 +5069,7 @@ end 'Kp'
 function main() returns ExitCode
 	let a = spawn Kp.create(Box.create(0), n: 0)
 	let r = Resp.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a, a 'a1'
 		r.fin(1)
 	end 'a1' otherwise 's2'
@@ -5083,7 +5083,7 @@ error E3207: <fragment>:54:5: this linear value comes from outside 'a1', where i
 ```
 
 <!-- test: model-hand-ab-w-acq-nested -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R13-NESTED`; the compiler refuses it with E3205. Model program `w-acq-nested` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5138,10 +5138,10 @@ end 'Kp'
 function main() returns ExitCode
 	let a = spawn Kp.create(Box.create(0), n: 0)
 	let bV = spawn Kp.create(Box.create(0), n: 0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		let r = Resp.create(0)
-		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+		// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 		acquire bV 'a3'
 			r.fin(1)
 		end 'a3' otherwise 's4'
@@ -5158,7 +5158,7 @@ error E3205: <fragment>:55:3: cannot wait inside 'a1'; an acquire block holds it
 ```
 
 <!-- test: model-hand-ab-w-acq-loop-consume -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-acq-loop-consume` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -5217,7 +5217,7 @@ function main() returns ExitCode
 	let a = spawn Kp.create(Box.create(0), n: 0)
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+		// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 		acquire a 'a2'
 			let r = Resp.create(0)
 			r.fin(1)
@@ -5234,7 +5234,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-w-acq-yield -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `w-acq-yield` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
@@ -5292,7 +5292,7 @@ function main() returns ExitCode
 	let r = Resp.create(0)
 	var i = 1 as Num
 	while i != 0 'w1'
-		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+		// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 		acquire a 'a2'
 			_ = 0 as Num
 		end 'a2' otherwise 's3'
@@ -5309,7 +5309,7 @@ error E3223: <fragment>:55:3: the linear value 'r' is live across this wait: a w
 ```
 
 <!-- test: model-hand-ab-s-state-method-mk-drop -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3202. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `s-state-method-mk-drop` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5394,7 +5394,7 @@ end 'Sv'
 
 function main() returns ExitCode
 	let a = spawn Sv.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		_ = a.mk()
 	end 'a1' otherwise 's2'
@@ -5408,7 +5408,7 @@ error E3202: <fragment>:84:11: 'a.mk()' is mutable and cannot leave the statemen
 ```
 
 <!-- test: model-hand-ab-s-acquire-state-mk -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `s-acquire-state-mk` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5493,7 +5493,7 @@ end 'Sv'
 
 function main() returns ExitCode
 	let a = spawn Sv.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		let r = a.mk()
 		r.fin(1)
@@ -5508,7 +5508,7 @@ error E3202: <fragment>:84:11: 'a.mk()' is mutable and cannot leave the statemen
 ```
 
 <!-- test: model-hand-ab-s-acquire-state-eat-fresh -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s-acquire-state-eat-fresh` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -5592,7 +5592,7 @@ end 'Sv'
 
 function main() returns ExitCode
 	let a = spawn Sv.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		a.eat(Resp.create(0))
 	end 'a1' otherwise 's2'
@@ -5606,7 +5606,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-s-acquire-state-mk-leaves -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-OUTER`; the compiler refuses it with E3204. Model program `s-acquire-state-mk-leaves` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5693,7 +5693,7 @@ function main() returns ExitCode
 	let a = spawn Sv.create(0)
 	var keep = Resp.create(9)
 	keep.fin(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		keep = a.mk()
 	end 'a1' otherwise 's2'
@@ -5708,7 +5708,7 @@ error E3204: <fragment>:86:3: 'keep' holds a linear value from outside 'a1' and 
 ```
 
 <!-- test: model-hand-ab-s-acquire-state-mk-leaves-drop -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-OUTER`; the compiler refuses it with E3204. Model program `s-acquire-state-mk-leaves-drop` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5795,7 +5795,7 @@ function main() returns ExitCode
 	let a = spawn Sv.create(0)
 	var keep = Resp.create(9)
 	keep.fin(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		keep = a.mk()
 	end 'a1' otherwise 's2'
@@ -5809,7 +5809,7 @@ error E3204: <fragment>:86:3: 'keep' holds a linear value from outside 'a1' and 
 ```
 
 <!-- test: model-hand-ab-s-acquire-state-mk-in-otherwise -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-OUTER`; the compiler refuses it with E3204. Model program `s-acquire-state-mk-in-otherwise` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5896,7 +5896,7 @@ function main() returns ExitCode
 	let a = spawn Sv.create(0)
 	var keep = Resp.create(9)
 	keep.fin(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		keep = a.mk()
 	end 'a1' otherwise 's2'
@@ -5911,7 +5911,7 @@ error E3204: <fragment>:86:3: 'keep' holds a linear value from outside 'a1' and 
 ```
 
 <!-- test: model-hand-ac-hb-send-in-acquire-body -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-send-in-acquire-body` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -5956,7 +5956,7 @@ end 'Kq'
 function main() returns ExitCode
 	let a = spawn(capacity: 1) Hq.create(0)
 	let k = spawn Kq.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire k 'a1'
 		try a.take(Resp.create(0)) otherwise (sendFailure) 'h3'
 			match sendFailure 'x4'
@@ -5975,7 +5975,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-li-state-method -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `li-state-method` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -6013,7 +6013,7 @@ end 'Kp'
 function main() returns ExitCode
 	let a = spawn Kp.create(0)
 	let r = Resp.create(0) as Resp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		a.open1(r)
 		r.fin(2)
@@ -6028,7 +6028,7 @@ error E3201: <fragment>:37:11: one statement reaches through two isolated values
 ```
 
 <!-- test: model-hand-ac-li-state-method-twice -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `li-state-method-twice` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -6066,7 +6066,7 @@ end 'Kp'
 function main() returns ExitCode
 	let a = spawn Kp.create(0)
 	let r = Resp.create(0) as Resp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		a.open1(r)
 		a.open1(r)
@@ -6081,7 +6081,7 @@ error E3201: <fragment>:37:11: one statement reaches through two isolated values
 ```
 
 <!-- test: model-hand-ac-min-h1-acquire -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `min-h1-acquire` of redteamAC.hand_ac20, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -6118,7 +6118,7 @@ end 'useR'
 
 function main() returns ExitCode
 	let k = spawn Kq.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire k 'a1'
 		let r = Resp.create(0) as Resp
 		useR(r)
@@ -6134,7 +6134,7 @@ error E3102: <fragment>:38:3: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ld-acquire-lend -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `ld-acquire-lend` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -6172,7 +6172,7 @@ end 'useR'
 function main() returns ExitCode
 	let k = spawn Kq.create(0)
 	let r = Resp.create(0) as Resp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire k 'a1'
 		useR(r)
 	end 'a1' otherwise 's2'
@@ -6186,7 +6186,7 @@ error E3201: <fragment>:37:8: an isolated value from outside 'a1' cannot be move
 ```
 
 <!-- test: model-hand-ac-x-acquire-same-two -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `x-acquire-same-two` of redteamAC.hand_ac4, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -6202,7 +6202,7 @@ end 'Sa'
 
 function main() returns ExitCode
 	let a = spawn Sa.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a, a 'a1'
 		_ = 0 as Num
 	end 'a1' otherwise 's2'
@@ -6216,7 +6216,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-sm-acquire-local-iso -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3201. Model program `sm-acquire-local-iso` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -6253,7 +6253,7 @@ end 'Kq'
 
 function main() returns ExitCode
 	let k = spawn Kq.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire k 'a1'
 		let r = Resp.create(0) as Resp
 		k.eatM(r)
@@ -6269,7 +6269,7 @@ error E3201: <fragment>:37:10: one statement reaches through two isolated values
 ```
 
 <!-- test: model-hand-ac-sm-acquire-local-iso-fn -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `sm-acquire-local-iso-fn` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -6310,7 +6310,7 @@ end 'useR'
 
 function main() returns ExitCode
 	let k = spawn Kq.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire k 'a1'
 		let r = Resp.create(0) as Resp
 		useR(r)
@@ -6326,7 +6326,7 @@ error E3102: <fragment>:42:3: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ad-a-acquire-consume-body -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3207. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `a-acquire-consume-body` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -6376,7 +6376,7 @@ end 'lg'
 function main() returns ExitCode
 	let a = spawn Auth.create(0)
 	let r = Resp.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		r.fin(1)
 	end 'a1' otherwise 's2'
@@ -6390,7 +6390,7 @@ error E3207: <fragment>:49:5: this linear value comes from outside 'a1', where i
 ```
 
 <!-- test: model-hand-ad-a-acquire-consume-both -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3207. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `a-acquire-consume-both` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -6440,7 +6440,7 @@ end 'lg'
 function main() returns ExitCode
 	let a = spawn Auth.create(0)
 	let r = Resp.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		r.fin(1)
 	end 'a1' otherwise 's2'
@@ -6454,7 +6454,7 @@ error E3207: <fragment>:49:5: this linear value comes from outside 'a1', where i
 ```
 
 <!-- test: model-hand-ad-a-acquire-consume-handler-only -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `a-acquire-consume-handler-only` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
@@ -6505,7 +6505,7 @@ end 'lg'
 function main() returns ExitCode
 	let a = spawn Auth.create(0)
 	let r = Resp.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		_ = 0 as Num
 	end 'a1' otherwise 's2'
@@ -6520,7 +6520,7 @@ error E3223: <fragment>:48:2: the linear value 'r' is live across this wait: a w
 ```
 
 <!-- test: model-hand-ad-a-acquire-return -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `a-acquire-return` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
@@ -6570,7 +6570,7 @@ end 'lg'
 
 function f(a Auth.handle)
 	let r = Resp.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		return
 	end 'a1' otherwise 's2'
@@ -6591,7 +6591,7 @@ error E3223: <fragment>:48:3: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ad-a-acquire-local-create -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-acquire-local-create` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -6639,7 +6639,7 @@ end 'lg'
 
 function main() returns ExitCode
 	let a = spawn Auth.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		let r = Resp.create(0)
 		r.fin(1)
@@ -6654,7 +6654,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-a-acquire-in-loop -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3207. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `a-acquire-in-loop` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -6706,7 +6706,7 @@ function main() returns ExitCode
 	let r = Resp.create(0)
 	var i = 2 as Num
 	while i != 0 'w1'
-		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+		// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 		acquire a 'a2'
 			r.fin(1)
 		end 'a2' otherwise 's3'
@@ -6722,7 +6722,7 @@ error E3207: <fragment>:51:6: this linear value comes from outside 'a2', where i
 ```
 
 <!-- test: model-hand-ad-a-acquire-state-method-consume -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `a-acquire-state-method-consume` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -6768,7 +6768,7 @@ end 'lg'
 function main() returns ExitCode
 	let a = spawn Ck.create(0)
 	let r = Resp.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		a.eat(r)
 	end 'a1' otherwise 's2'
@@ -6782,7 +6782,7 @@ error E3201: <fragment>:45:9: 'r' is mutable outside 'a'; a call into an isolate
 ```
 
 <!-- test: model-hand-ad-a-acquire-state-method-consume-then -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `a-acquire-state-method-consume-then` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -6828,7 +6828,7 @@ end 'lg'
 function main() returns ExitCode
 	let a = spawn Ck.create(0)
 	let r = Resp.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		a.eat(r)
 		r.fin(2)
@@ -6843,7 +6843,7 @@ error E3201: <fragment>:45:9: 'r' is mutable outside 'a'; a call into an isolate
 ```
 
 <!-- test: model-hand-ad-a-acquire-state-method-result -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `a-acquire-state-method-result` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -6888,7 +6888,7 @@ end 'lg'
 
 function main() returns ExitCode
 	let a = spawn Ck.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		let r = a.mk()
 		r.fin(1)
@@ -6903,7 +6903,7 @@ error E3202: <fragment>:44:11: 'a.mk()' is mutable and cannot leave the statemen
 ```
 
 <!-- test: model-hand-ad-a-acquire-state-method-result-drop -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `a-acquire-state-method-result-drop` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -6948,7 +6948,7 @@ end 'lg'
 
 function main() returns ExitCode
 	let a = spawn Ck.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		_ = a.mk()
 	end 'a1' otherwise 's2'
@@ -6962,7 +6962,7 @@ error E3202: <fragment>:44:11: 'a.mk()' is mutable and cannot leave the statemen
 ```
 
 <!-- test: model-hand-ad-a-acquire-state-method-result-leak-out -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3204. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `a-acquire-state-method-result-leak-out` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -7008,7 +7008,7 @@ end 'lg'
 function main() returns ExitCode
 	let a = spawn Ck.create(0)
 	var out = Resp.create(5)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		out = a.mk()
 	end 'a1' otherwise 's2'
@@ -7023,7 +7023,7 @@ error E3204: <fragment>:45:3: 'out' holds a linear value from outside 'a1' and c
 ```
 
 <!-- test: model-hand-ad-y-state-method-await-reply -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R2-BLOCKWAIT`; the compiler refuses it with E3205. Model program `y-state-method-await-reply` of redteamAD.hand_ad8, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -7063,7 +7063,7 @@ end 'Sm'
 function main() returns ExitCode
 	let s = spawn Sm.create(0)
 	let pl = spawn Pl.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		_ = s.y(pl)
 	end 'a1' otherwise 's2'
@@ -7078,7 +7078,7 @@ error E3205: <fragment>:38:13: cannot call 'y' inside 'a1'; it may wait (it awai
 
 <!-- test: model-hand-ae-w-for-state-array -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-for-state-array` of redteamAE.hand_ae3, in capmodel `reggio/REPORTRTAE.txt`.
 
 ```maxon
@@ -7102,7 +7102,7 @@ end 'Ar'
 
 function main() returns ExitCode
 	let a = spawn Ar.create(NumArray.create(0), n: 0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		for _ in a.xs 'f3'
 			a.add(1)
@@ -7118,7 +7118,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ae-h-msg-acquire -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R13-NESTED`; the compiler refuses it with E3221. Model program `h-msg-acquire` of redteamAE.hand_ae3, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -7149,7 +7149,7 @@ type Mw
 	end 'create'
 
 	export function go(o Q.handle) returns Num
-		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+		// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 		acquire o 'a1'
 			_ = 0 as Num
 		end 'a1' otherwise 's2'
@@ -7173,7 +7173,7 @@ error E3221: <fragment>:27:18: the message 'go' may wait (it acquires services a
 
 <!-- test: model-hand-af-p1-acquire-cross-state -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `p1-acquire-cross-state` of redteamAF.hand_af6, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -7231,7 +7231,7 @@ end 'Ka'
 function main() returns ExitCode
 	let a = spawn Ka.create(0, k: Bx.create(0), l: Bx.create(1))
 	let b = spawn Ka.create(0, k: Bx.create(2), l: Bx.create(3))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a, b 'a1'
 		let u = Mp.m1(a.k)
 		match u 'x3'
@@ -7250,7 +7250,7 @@ error E3202: <fragment>:56:11: 'Mp.m1(a.k)' is mutable and cannot leave the stat
 
 <!-- test: model-hand-af-p2-acquire-cross-state-direct -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `p2-acquire-cross-state-direct` of redteamAF.hand_af6, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -7291,7 +7291,7 @@ end 'Ka'
 function main() returns ExitCode
 	let a = spawn Ka.create(0, k: Bx.create(0), l: Bx.create(1))
 	let b = spawn Ka.create(0, k: Bx.create(2), l: Bx.create(3))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a, b 'a1'
 		b.k = a.k
 	end 'a1' otherwise 's2'
@@ -7306,7 +7306,7 @@ error E3197: <fragment>:38:3: cannot write 'k' through 'b', which is read-only w
 
 <!-- test: model-hand-af-p3-acquire-cross-state-local -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `p3-acquire-cross-state-local` of redteamAF.hand_af6, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -7347,7 +7347,7 @@ end 'Ka'
 function main() returns ExitCode
 	let a = spawn Ka.create(0, k: Bx.create(0), l: Bx.create(1))
 	let b = spawn Ka.create(0, k: Bx.create(2), l: Bx.create(3))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a, b 'a1'
 		let w = a.k
 		b.k = w
@@ -7363,7 +7363,7 @@ error E3202: <fragment>:38:11: 'a.k' is mutable and cannot leave the statement t
 
 <!-- test: model-hand-af-p4-acquire-cross-state-call -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STATE`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `p4-acquire-cross-state-call` of redteamAF.hand_af6, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -7404,7 +7404,7 @@ end 'Ka'
 function main() returns ExitCode
 	let a = spawn Ka.create(0, k: Bx.create(0), l: Bx.create(1))
 	let b = spawn Ka.create(0, k: Bx.create(2), l: Bx.create(3))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a, b 'a1'
 		b.setK(a.k)
 	end 'a1' otherwise 's2'
@@ -7419,7 +7419,7 @@ error E3201: <fragment>:38:10: 'a.k' is mutable outside 'b'; a call into an isol
 
 <!-- test: model-hand-af-p5-acquire-cross-state-via-union-call -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `p5-acquire-cross-state-via-union-call` of redteamAF.hand_af6, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -7477,7 +7477,7 @@ end 'Ka'
 function main() returns ExitCode
 	let a = spawn Ka.create(0, k: Bx.create(0), l: Bx.create(1))
 	let b = spawn Ka.create(0, k: Bx.create(2), l: Bx.create(3))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a, b 'a1'
 		let u = Mp.m1(a.k)
 		match u 'x3'
@@ -7496,7 +7496,7 @@ error E3202: <fragment>:56:11: 'Mp.m1(a.k)' is mutable and cannot leave the stat
 
 <!-- test: model-hand-af-p8-acquire-state-into-outer-plain -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `p8-acquire-state-into-outer-plain` of redteamAF.hand_af6, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -7564,7 +7564,7 @@ function main() returns ExitCode
 	let a = spawn Ka.create(0, k: Bx.create(0), l: Bx.create(1))
 	_ = spawn Ka.create(0, k: Bx.create(2), l: Bx.create(3))
 	let h = Hp.create(Bx.create(0), q: Bx.create(1))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		let u = Mp.m1(a.k)
 		match u 'x3'
@@ -7583,7 +7583,7 @@ error E3202: <fragment>:66:11: 'Mp.m1(a.k)' is mutable and cannot leave the stat
 
 <!-- test: model-hand-af-p9-acquire-state-into-outer-var -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `p9-acquire-state-into-outer-var` of redteamAF.hand_af6, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -7642,7 +7642,7 @@ function main() returns ExitCode
 	let a = spawn Ka.create(0, k: Bx.create(0), l: Bx.create(1))
 	_ = spawn Ka.create(0, k: Bx.create(2), l: Bx.create(3))
 	var o = Bx.create(5)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		let u = Mp.m1(a.k)
 		match u 'x3'
@@ -7662,7 +7662,7 @@ error E3202: <fragment>:57:11: 'Mp.m1(a.k)' is mutable and cannot leave the stat
 
 <!-- test: model-hand-af-p10-acquire-state-keeping-fn -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-EXIT`; the compiler refuses it with E3202. Model program `p10-acquire-state-keeping-fn` of redteamAF.hand_af6, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -7734,7 +7734,7 @@ function main() returns ExitCode
 	let a = spawn Ka.create(0, k: Bx.create(0), l: Bx.create(1))
 	_ = spawn Ka.create(0, k: Bx.create(2), l: Bx.create(3))
 	let h = Hp.create(Bx.create(0), q: Bx.create(1))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		let u = Mp.m1(a.k)
 		match u 'x3'
@@ -7753,7 +7753,7 @@ error E3202: <fragment>:70:11: 'Mp.m1(a.k)' is mutable and cannot leave the stat
 
 <!-- test: model-hand-af-p11-acquire-state-fn-built-union -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `p11-acquire-state-fn-built-union` of redteamAF.hand_af6, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -7815,7 +7815,7 @@ end 'mkMp'
 function main() returns ExitCode
 	let a = spawn Ka.create(0, k: Bx.create(0), l: Bx.create(1))
 	let b = spawn Ka.create(0, k: Bx.create(2), l: Bx.create(3))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a, b 'a1'
 		match mkMp(a.k) 'x3'
 			m0(x) then x.fin(1)
@@ -7833,7 +7833,7 @@ error E3197: <fragment>:62:15: cannot write 'k' through 'b', which is read-only 
 
 <!-- test: model-hand-af-p24-lent-form-state-plain-store-then-use -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `p24-lent-form-state-plain-store-then-use` of redteamAF.hand_af6, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -7875,7 +7875,7 @@ function main() returns ExitCode
 	let a = spawn Ka.create(0, k: Bx.create(0), l: Bx.create(1))
 	_ = spawn Ka.create(0, k: Bx.create(2), l: Bx.create(3))
 	let y = Bx.create(7)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		a.k = y
 	end 'a1' otherwise 's2'
@@ -7890,7 +7890,7 @@ error E3201: <fragment>:39:9: 'y' is mutable outside 'a'; a store into an isolat
 ```
 
 <!-- test: model-hand-af-m6-param-union-state-method -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m6-param-union-state-method` of redteamAF.hand_af9, in capmodel `reggio/REPORTRTAF.txt`.
 
 ```maxon
@@ -7947,7 +7947,7 @@ end 'Kx'
 
 function main() returns ExitCode
 	let a = spawn Kx.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		a.eat(Sh.held(Rl.create(1)))
 	end 'a1' otherwise 's2'
@@ -7962,7 +7962,7 @@ end 'main'
 
 <!-- test: model-hand-ag-t11-payload-into-acquire-state-iso -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `t11-payload-into-acquire-state-iso` of redteamAG.hand_ag1, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -8040,7 +8040,7 @@ end 'Ac'
 function main() returns ExitCode
 	let s = spawn Ac.create(0, item: Bx.create(0), plain: Bx.create(1))
 	let u = Mx.m1(Bx.create(1)) as Mx
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			m0(x) then x.fin(1)
@@ -8058,7 +8058,7 @@ end 'main'
 
 <!-- test: model-hand-ag-ac-modify-slot-keep -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `ac-modify-slot-keep` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -8144,7 +8144,7 @@ end 'Ab'
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s.item 'm3'
@@ -8168,7 +8168,7 @@ end 'main'
 
 <!-- test: model-hand-ag-ac-body-keep -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `ac-body-keep` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -8254,7 +8254,7 @@ end 'Ab'
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			m0(x) then x.fin(1)
@@ -8275,7 +8275,7 @@ error E3201: <fragment>:86:29: 'y' is mutable outside 's.item'; a store into an 
 
 <!-- test: model-hand-ag-ac-modify-slot-plain -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `ac-modify-slot-plain` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
@@ -8362,7 +8362,7 @@ end 'Ab'
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s.item 'm3'
@@ -8386,7 +8386,7 @@ error E3197: <fragment>:87:16: cannot write 'plain' through 's', which is read-o
 
 <!-- test: model-hand-ag-ac-body-plain -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `ac-body-plain` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -8472,7 +8472,7 @@ end 'Ab'
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			m0(x) then x.fin(1)
@@ -8493,7 +8493,7 @@ error E3201: <fragment>:86:25: 'y' is mutable outside 's'; a store into an isola
 
 <!-- test: model-hand-ag-ac-modify-slot-iso-slot -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `ac-modify-slot-iso-slot` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -8579,7 +8579,7 @@ end 'Ab'
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s.item 'm3'
@@ -8603,7 +8603,7 @@ end 'main'
 
 <!-- test: model-hand-ag-ac-body-iso-slot -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `ac-body-iso-slot` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -8689,7 +8689,7 @@ end 'Ab'
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			m0(x) then x.fin(1)
@@ -8710,7 +8710,7 @@ error E3201: <fragment>:86:29: 'y' is mutable outside 's.item'; a store into an 
 
 <!-- test: model-hand-ag-ac-modify-slot-none -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `ac-modify-slot-none` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -8796,7 +8796,7 @@ end 'Ab'
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s.item 'm3'
@@ -8820,7 +8820,7 @@ end 'main'
 
 <!-- test: model-hand-ag-ac-body-none -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `ac-body-none` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -8905,7 +8905,7 @@ end 'Ab'
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			m0(x) then x.fin(1)
@@ -8926,7 +8926,7 @@ end 'main'
 
 <!-- test: model-hand-ag-acr-modify-slot-keep-p -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `acr-modify-slot-keep-p` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -9012,7 +9012,7 @@ end 'Ab'
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as Mr
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s.item 'm3'
@@ -9036,7 +9036,7 @@ end 'main'
 
 <!-- test: model-hand-ag-acr-modify-slot-plain-p -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `acr-modify-slot-plain-p` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
@@ -9123,7 +9123,7 @@ end 'Ab'
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as Mr
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s.item 'm3'
@@ -9147,7 +9147,7 @@ error E3197: <fragment>:87:16: cannot write 'plain' through 's', which is read-o
 
 <!-- test: model-hand-ag-acr-modify-slot-hq -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `acr-modify-slot-hq` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
@@ -9234,7 +9234,7 @@ end 'Ab'
 function main() returns ExitCode
 	let s = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as Mr
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s.item 'm3'
@@ -9258,7 +9258,7 @@ error E3197: <fragment>:87:16: cannot write 'hq' through 's', which is read-only
 
 <!-- test: model-hand-ag-bm-acquire-other -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R13-NESTED`; the compiler refuses it with E3207. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `bm-acquire-other` of redteamAG.hand_ag12, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -9349,7 +9349,7 @@ type Bn
 	end 'create'
 
 	export function eat(u Mr, t Ab.handle)
-		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+		// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 		acquire t 'a1'
 			match u 'x3'
 				m0(x) then x.fin(1)
@@ -9389,7 +9389,7 @@ error E3207: <fragment>:89:4: this linear value comes from outside 'a1', where i
 
 <!-- test: model-hand-ag-f1-control-acquire -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `f1-control-acquire` of redteamAG.hand_ag16, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -9454,7 +9454,7 @@ end 'eatMp'
 function main() returns ExitCode
 	let s = spawn Ac.create(0, plain: Bx.create(0))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			m0(x) then x.fin(1)
@@ -9472,7 +9472,7 @@ error E3201: <fragment>:65:23: 'y' is mutable outside 's'; a call into an isolat
 
 <!-- test: model-hand-ag-acq-mp-store -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `acq-mp-store` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -9561,7 +9561,7 @@ end 'Ac'
 function main() returns ExitCode
 	let s = spawn Ac.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			m0(x) then x.fin(1)
@@ -9582,7 +9582,7 @@ error E3201: <fragment>:89:25: 'y' is mutable outside 's'; a store into an isola
 
 <!-- test: model-hand-ag-acq-mp-keepp -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `acq-mp-keepP` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -9671,7 +9671,7 @@ end 'Ac'
 function main() returns ExitCode
 	let s = spawn Ac.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			m0(x) then x.fin(1)
@@ -9692,7 +9692,7 @@ error E3201: <fragment>:89:23: 'y' is mutable outside 's'; a call into an isolat
 
 <!-- test: model-hand-ag-acq-mp-keepi -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `acq-mp-keepI` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -9780,7 +9780,7 @@ end 'Ac'
 function main() returns ExitCode
 	let s = spawn Ac.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			m0(x) then x.fin(1)
@@ -9801,7 +9801,7 @@ end 'main'
 
 <!-- test: model-hand-ag-acq-mr-store-hq -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `acq-mr-store-hq` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -9890,7 +9890,7 @@ end 'Ac'
 function main() returns ExitCode
 	let s = spawn Ac.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as Mr
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			m0(x) then x.fin(1)
@@ -9911,7 +9911,7 @@ error E3201: <fragment>:89:22: 'y' is mutable outside 's'; a store into an isola
 
 <!-- test: model-hand-ag-acq-mr-store-part -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `acq-mr-store-part` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -10000,7 +10000,7 @@ end 'Ac'
 function main() returns ExitCode
 	let s = spawn Ac.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as Mr
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			m0(x) then x.fin(1)
@@ -10021,7 +10021,7 @@ error E3201: <fragment>:89:25: 'y.p' is mutable outside 's'; a store into an iso
 
 <!-- test: model-hand-ag-acq-mr-keeph -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `acq-mr-keepH` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -10110,7 +10110,7 @@ end 'Ac'
 function main() returns ExitCode
 	let s = spawn Ac.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as Mr
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			m0(x) then x.fin(1)
@@ -10131,7 +10131,7 @@ error E3201: <fragment>:89:23: 'y' is mutable outside 's'; a call into an isolat
 
 <!-- test: model-hand-ag-acq-mr-keepp-part -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `acq-mr-keepP-part` of redteamAG.hand_ag2, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -10220,7 +10220,7 @@ end 'Ac'
 function main() returns ExitCode
 	let s = spawn Ac.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	let u = Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))) as Mr
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			m0(x) then x.fin(1)
@@ -10241,7 +10241,7 @@ error E3201: <fragment>:89:23: 'y.p' is mutable outside 's'; a call into an isol
 
 <!-- test: model-hand-ag-c7-acquire-nested-inner-calls-method -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `c7-acquire-nested-inner-calls-method` of redteamAG.hand_ag5, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -10280,7 +10280,7 @@ end 'Sm'
 
 function main() returns ExitCode
 	let sm = spawn Sm.create(0, u: Ub.u1(Bx.create(0)))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire sm 'a1'
 		match sm.u 'x3'
 			u0 then break
@@ -10298,7 +10298,7 @@ end 'main'
 
 <!-- test: model-hand-ah-f2-acq-call-no -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-acq-call-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -10355,7 +10355,7 @@ end 'Sn'
 
 function main() returns ExitCode
 	let s = spawn Sn.create(0, u: UT.have(Tk.create(1)))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match s.u 'x3'
 			none then break
@@ -10373,7 +10373,7 @@ end 'main'
 
 <!-- test: model-hand-ah-f2-acq-assignslot-no -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-acq-assignslot-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -10430,7 +10430,7 @@ end 'Sn'
 
 function main() returns ExitCode
 	let s = spawn Sn.create(0, u: UT.have(Tk.create(1)))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match s.u 'x3'
 			none then break
@@ -10448,7 +10448,7 @@ end 'main'
 
 <!-- test: model-hand-ah-f2-acq-copyslot-no -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-acq-copyslot-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -10506,7 +10506,7 @@ end 'Sn'
 
 function main() returns ExitCode
 	let s = spawn Sn.create(0, u: UT.have(Tk.create(1)))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match s.u 'x3'
 			none then break
@@ -10524,7 +10524,7 @@ error E3214: <fragment>:57:18: cannot bind '_' to a unique value read out of a f
 
 <!-- test: model-hand-ah-f2-acq-nothing-rd -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-acq-nothing-rd` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -10581,7 +10581,7 @@ end 'Sn'
 
 function main() returns ExitCode
 	let s = spawn Sn.create(0, u: UT.have(Tk.create(1)))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match s.u 'x3'
 			none then break
@@ -10599,7 +10599,7 @@ end 'main'
 
 <!-- test: model-hand-ah-f2-acq-nothing-wr -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-acq-nothing-wr` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -10656,7 +10656,7 @@ end 'Sn'
 
 function main() returns ExitCode
 	let s = spawn Sn.create(0, u: UT.have(Tk.create(1)))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match s.u 'x3'
 			none then break
@@ -10674,7 +10674,7 @@ end 'main'
 
 <!-- test: model-hand-ah-f2-acq-nothing-no -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-acq-nothing-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -10731,7 +10731,7 @@ end 'Sn'
 
 function main() returns ExitCode
 	let s = spawn Sn.create(0, u: UT.have(Tk.create(1)))
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match s.u 'x3'
 			none then break
@@ -10749,7 +10749,7 @@ end 'main'
 
 <!-- test: model-hand-ah-m-acq-keepp -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `m-acq-keepP` of redteamAH.hand_ah3, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -10844,7 +10844,7 @@ end 'eatMp'
 function main() returns ExitCode
 	let s = spawn Hld.create(0, plain: Bx.create(0), item: Bx.create(1), w: Wo.create(Bx.create(0), item: Bx.create(1)))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			m0(x) then x.fin(1)
@@ -10862,7 +10862,7 @@ error E3201: <fragment>:95:23: 'y' is mutable outside 's'; a call into an isolat
 
 <!-- test: model-hand-ah-m-acq-mod-keepp -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-acq-mod-keepP` of redteamAH.hand_ah3, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -10957,7 +10957,7 @@ end 'eatMp'
 function main() returns ExitCode
 	let s = spawn Hld.create(0, plain: Bx.create(0), item: Bx.create(1), w: Wo.create(Bx.create(0), item: Bx.create(1)))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'm3'
@@ -10978,7 +10978,7 @@ end 'main'
 
 <!-- test: model-hand-ah-m-acq-mod-item -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-acq-mod-item` of redteamAH.hand_ah3, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -11073,7 +11073,7 @@ end 'eatMp'
 function main() returns ExitCode
 	let s = spawn Hld.create(0, plain: Bx.create(0), item: Bx.create(1), w: Wo.create(Bx.create(0), item: Bx.create(1)))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'm3'
@@ -11094,7 +11094,7 @@ end 'main'
 
 <!-- test: model-hand-ah-m-acq-plain -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `m-acq-plain` of redteamAH.hand_ah3, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -11189,7 +11189,7 @@ end 'eatMp'
 function main() returns ExitCode
 	let s = spawn Hld.create(0, plain: Bx.create(0), item: Bx.create(1), w: Wo.create(Bx.create(0), item: Bx.create(1)))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			m0(x) then x.fin(1)
@@ -11207,7 +11207,7 @@ error E3201: <fragment>:95:25: 'y' is mutable outside 's'; a store into an isola
 
 <!-- test: model-hand-ah-m-acq-mod-plain -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-acq-mod-plain` of redteamAH.hand_ah3, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -11302,7 +11302,7 @@ end 'eatMp'
 function main() returns ExitCode
 	let s = spawn Hld.create(0, plain: Bx.create(0), item: Bx.create(1), w: Wo.create(Bx.create(0), item: Bx.create(1)))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'm3'
@@ -11322,7 +11322,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-w-acq-slot-store -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-acq-slot-store` of redteamAH.hand_ah4, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -11430,7 +11430,7 @@ function main() returns ExitCode
 	let s = spawn Sw.create(0, w: Wo.create(Bx.create(0), item: Bx.create(1)), h: Hq.create(Bx.create(1), q: Bx.create(2)))
 	_ = spawn Sk.create(0)
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s.w 'm3'
@@ -11450,7 +11450,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-w-acq-slot-keepfn -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-acq-slot-keepfn` of redteamAH.hand_ah4, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -11562,7 +11562,7 @@ function main() returns ExitCode
 	let s = spawn Sw.create(0, w: Wo.create(Bx.create(0), item: Bx.create(1)), h: Hq.create(Bx.create(1), q: Bx.create(2)))
 	_ = spawn Sk.create(0)
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s.w 'm3'
@@ -11582,7 +11582,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-w-acq-slot-store-iso-slot -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-acq-slot-store-iso-slot` of redteamAH.hand_ah4, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -11690,7 +11690,7 @@ function main() returns ExitCode
 	let s = spawn Sw.create(0, w: Wo.create(Bx.create(0), item: Bx.create(1)), h: Hq.create(Bx.create(1), q: Bx.create(2)))
 	_ = spawn Sk.create(0)
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s.w 'm3'
@@ -11710,7 +11710,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-w-acq-slot-take -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w-acq-slot-take` of redteamAH.hand_ah4, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -11822,7 +11822,7 @@ function main() returns ExitCode
 	let s = spawn Sw.create(0, w: Wo.create(Bx.create(0), item: Bx.create(1)), h: Hq.create(Bx.create(1), q: Bx.create(2)))
 	_ = spawn Sk.create(0)
 	let u = Mp.m1(Bx.create(1)) as Mp
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s.w 'm3'
@@ -11843,7 +11843,7 @@ end 'main'
 
 <!-- test: model-hand-ah-wg-recover-outer-in-acquire -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3201. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `wg-recover-outer-in-acquire` of redteamAH.hand_ah6, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -11898,7 +11898,7 @@ end 'Ac'
 function main() returns ExitCode
 	let s = spawn Ac.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	let w = Bx.create(2)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		s.keepI(w)
 	end 'a1' otherwise 's2'
@@ -11913,7 +11913,7 @@ error E3201: <fragment>:52:11: 'w' is mutable outside 's'; a call into an isolat
 
 <!-- test: model-hand-ai-q1-acquire-consume-outer -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `q1-acquire-consume-outer` of redteamAI.hand_ai4, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -11989,7 +11989,7 @@ end 'takeB'
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
 	let u = Ub.u1(Bx.create(1)) as Ub
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			u0 then break
@@ -12007,7 +12007,7 @@ error E3196: <fragment>:75:21: cannot store an isolated 'Bx' into 'b', which hol
 
 <!-- test: model-hand-ai-q3-acquire-handler-reads-var -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `q3-acquire-handler-reads-var` of redteamAI.hand_ai4, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -12089,7 +12089,7 @@ end 'eatUb'
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
 	let u = Ub.u1(Bx.create(1)) as Ub
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			u0 then break
@@ -12107,7 +12107,7 @@ end 'main'
 
 <!-- test: model-hand-ai-q4-acquire-state-match -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `q4-acquire-state-match` of redteamAI.hand_ai4, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -12143,7 +12143,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	let s = spawn Su.create(Ub.u1(Bx.create(1)), n: 0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match s.u 'x3'
 			u0 then break
@@ -12161,7 +12161,7 @@ error E3198: <fragment>:35:21: 'o' is isolated and cannot be read outside a bloc
 
 <!-- test: model-hand-ai-q5-acquire-payload-frame-ref -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `q5-acquire-payload-frame-ref` of redteamAI.hand_ai4, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -12235,7 +12235,7 @@ function main() returns ExitCode
 	let s = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	let fb = Bx.create(5)
 	let u = Pc.u1(Bx.create(1)) as Pc
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			u0 then break
@@ -12254,7 +12254,7 @@ error E3201: <fragment>:73:24: 'o' is mutable outside 's'; a store into an isola
 
 <!-- test: model-hand-ai-a3-body-consumes-handler-consumes -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a3-body-consumes-handler-consumes` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -12329,7 +12329,7 @@ end 'takeB'
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
 	let u = Ub.u1(Bx.create(5)) as Ub
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			u0 then break
@@ -12350,7 +12350,7 @@ end 'main'
 
 <!-- test: model-hand-ai-a4-body-consumes-after-read-after -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a4-body-consumes-after-read-after` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -12433,7 +12433,7 @@ end 'eatUb'
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
 	let u = Ub.u1(Bx.create(5)) as Ub
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			u0 then break
@@ -12452,7 +12452,7 @@ error E3102: <fragment>:87:8: use of moved value 'u': its ownership moved to ano
 
 <!-- test: model-hand-ai-a5-handler-only-consumes-read-after -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a5-handler-only-consumes-read-after` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -12535,7 +12535,7 @@ end 'eatUb'
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
 	let u = Ub.u1(Bx.create(5)) as Ub
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		_ = 1 as Num
 	end 'a1' otherwise 's2'
@@ -12554,7 +12554,7 @@ error E3102: <fragment>:87:8: use of moved value 'u': its ownership moved to ano
 
 <!-- test: model-hand-ai-a6-handler-consumes-var-refill -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a6-handler-consumes-var-refill` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -12629,7 +12629,7 @@ end 'takeB'
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
 	var u = Ub.u1(Bx.create(5)) as Ub
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		_ = 1 as Num
 	end 'a1' otherwise 's2'
@@ -12652,7 +12652,7 @@ end 'main'
 
 <!-- test: model-hand-ai-a7-body-consumes-var-handler-refills -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a7-body-consumes-var-handler-refills` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -12728,7 +12728,7 @@ end 'takeB'
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
 	var u = Ub.u1(Bx.create(5)) as Ub
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			u0 then break
@@ -12750,7 +12750,7 @@ error E3102: <fragment>:80:8: use of moved value 'u': its ownership moved to ano
 
 <!-- test: model-hand-ai-a8-body-consumes-and-refills -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-OUTER`; the compiler refuses it with E3204. Model program `a8-body-consumes-and-refills` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -12826,7 +12826,7 @@ end 'takeB'
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
 	var u = Ub.u1(Bx.create(5)) as Ub
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			u0 then break
@@ -12849,7 +12849,7 @@ error E3204: <fragment>:77:3: 'u' holds an isolated value from outside 'a1' and 
 
 <!-- test: model-hand-ai-a9-two-vars-acquire -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a9-two-vars-acquire` of redteamAI.hand_ai5, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -12925,7 +12925,7 @@ function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
 	let t = spawn Kz.create(0, b: Bx.create(0))
 	let u = Ub.u1(Bx.create(5)) as Ub
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s, t 'a1'
 		match u 'x3'
 			u0 then break
@@ -12942,7 +12942,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-aj-acquire-state-slot -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-HOLDER`; the compiler refuses it with E3199. Model program `acquire-state-slot` of redteamAJ.hand_aj2, in capmodel `reggio/REPORTRTAJ.txt`.
@@ -12987,7 +12987,7 @@ end 'takeWo'
 
 function scn(s Sw6.handle)
 	let h = Wo6.create(Bx6.create(0), item: Bx6.create(1)) as Wo6
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let p = exchange(s.w, value: Wo6.create(Bx6.create(0), item: Bx6.create(1)))
 		// TODO: modify blocks are not supported in minimaxon
@@ -13016,7 +13016,7 @@ error E3199: <fragment>:43:10: 'h' cannot be opened: the value that holds it is 
 
 <!-- test: model-hand-ao-h6-acquire-inside-lend -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `h6-acquire-inside-lend` of redteamAO/hand_ao1.txt, in capmodel `reggio/REPORTRTAO.txt`.
 
 ```maxon
@@ -13056,7 +13056,7 @@ function main() returns ExitCode
 	h.xs.push(Tk.create(1))
 	let s = spawn Sv.create(Ha.create(TkArray.create(0)), k: 0)
 	for e in (h if 1 != 0 else g).xs 'f1'
-		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+		// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 		acquire s 'a2'
 			s.k = 1
 		end 'a2' otherwise 's3'
@@ -13073,7 +13073,7 @@ end 'main'
 
 <!-- test: model-hand-ao-k6-acquire-state-cond-path-match-nb -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `k6-acquire-state-cond-path-match-nb` of redteamAO/hand_ao4.txt, in capmodel `reggio/REPORTRTAO.txt`.
 
@@ -13114,7 +13114,7 @@ type Sv
 end 'Sv'
 
 function f(s Sv.handle)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match (s.a if 1 != 0 else s.b).u 'x3'
 			none then break
@@ -13136,7 +13136,7 @@ error E3214: <fragment>:38:14: cannot join a unique value read out of a field or
 ```
 
 <!-- test: model-hand-ap-w1-acquire-inner -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w1-acquire-inner` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
 
 ```maxon
@@ -13216,7 +13216,7 @@ end 'Sy'
 function main() returns ExitCode
 	let s = spawn Sy.create(0)
 	let a = spawn S.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		let u = UT.have(Tk.create(1))
 		try s.take(u) otherwise ignore
@@ -13231,7 +13231,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ap-w1-acquire-handler -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w1-acquire-handler` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
 
 ```maxon
@@ -13312,7 +13312,7 @@ function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
 	let s = spawn Sy.create(0)
 	let a = spawn S.create(0)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire a 'a1'
 		_ = 0 as Num
 	end 'a1' otherwise 's2'
@@ -13327,7 +13327,7 @@ end 'main'
 
 <!-- test: model-hand-fa14-m-state-method-param -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `m-state-method-param` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -13358,7 +13358,7 @@ end 'Zm4'
 function main() returns ExitCode
 	let r = spawn Zm4.create(Bx.create(0))
 	let bV = Bx.create(1) as Bx
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire r 'a1'
 		r.keep(bV)
 	end 'a1' otherwise 's2'
@@ -13373,7 +13373,7 @@ error E3196: <fragment>:20:12: cannot store an isolated 'Bx' into 'b', which hol
 
 <!-- test: model-hand-fa15-n-acquire-body -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `n-acquire-body` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
 ```maxon
@@ -13448,7 +13448,7 @@ end 'takeB'
 function main() returns ExitCode
 	let s = spawn Kz.create(0, b: Bx.create(0))
 	let u = Ub.u1(Bx.create(1)) as Ub
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		match u 'x3'
 			u0 then break
@@ -13466,7 +13466,7 @@ end 'main'
 
 <!-- test: model-hand-fa19-for-local-acquire-reads-binding -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-local-acquire-reads-binding` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
 
 ```maxon
@@ -13516,7 +13516,7 @@ function main() returns ExitCode
 	let xs = TqArray.create(0)
 	xs.push(Tq.create(1, b: Bx.create(2)))
 	for t in xs 'f1'
-		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+		// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 		acquire s 'a2'
 			s.n = t.n
 		end 'a2' otherwise 's3'
@@ -13533,7 +13533,7 @@ end 'main'
 
 <!-- test: model-hand-fa19-for-local-acquire-stores-plain-part -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `for-local-acquire-stores-plain-part` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
 
@@ -13584,7 +13584,7 @@ function main() returns ExitCode
 	let xs = TqArray.create(0)
 	xs.push(Tq.create(1, b: Bx.create(2)))
 	for t in xs 'f1'
-		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+		// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 		acquire s 'a2'
 			s.keep = t.b
 		end 'a2' otherwise 's3'
@@ -13601,7 +13601,7 @@ error E3201: <fragment>:47:13: 't.b' is mutable outside 's'; a store into an iso
 
 <!-- test: model-hand-fa19-for-param-acquire-reads-binding -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-param-acquire-reads-binding` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
 
 ```maxon
@@ -13648,7 +13648,7 @@ end 'Sac'
 function f(xs TqArray, o Ko, s Sac.handle)
 	_ = o
 	for t in xs 'f1'
-		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+		// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 		acquire s 'a2'
 			s.n = t.n
 		end 'a2' otherwise 's3'
@@ -13673,7 +13673,7 @@ end 'main'
 
 <!-- test: model-hand-fa19-for-param-acquire-stores-plain-part -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `for-param-acquire-stores-plain-part` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
 
@@ -13721,7 +13721,7 @@ end 'Sac'
 function f(xs TqArray, o Ko, s Sac.handle)
 	_ = o
 	for t in xs 'f1'
-		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+		// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 		acquire s 'a2'
 			s.keep = t.b
 		end 'a2' otherwise 's3'
@@ -13746,7 +13746,7 @@ error E3201: <fragment>:44:13: 't.b' is mutable outside 's'; a store into an iso
 
 <!-- test: model-hand-fa19-for-field-acquire-reads-binding -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `for-field-acquire-reads-binding` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
 
 ```maxon
@@ -13811,7 +13811,7 @@ function main() returns ExitCode
 	let h = Hq.create(UQ.none, xs: TqArray.create(0), n: 0)
 	h.xs.push(Tq.create(1, b: Bx.create(2)))
 	for t in h.xs 'f1'
-		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+		// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 		acquire s 'a2'
 			s.n = t.n
 		end 'a2' otherwise 's3'
@@ -13828,7 +13828,7 @@ end 'main'
 
 <!-- test: model-hand-fa19-for-field-acquire-stores-plain-part -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3201. Model program `for-field-acquire-stores-plain-part` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
 
@@ -13894,7 +13894,7 @@ function main() returns ExitCode
 	let h = Hq.create(UQ.none, xs: TqArray.create(0), n: 0)
 	h.xs.push(Tq.create(1, b: Bx.create(2)))
 	for t in h.xs 'f1'
-		// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+		// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 		acquire s 'a2'
 			s.keep = t.b
 		end 'a2' otherwise 's3'
@@ -13911,7 +13911,7 @@ error E3201: <fragment>:62:13: 't.b' is mutable outside 's'; a store into an iso
 
 <!-- test: model-hand-fa19-n-acquire-arm-state-write -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
+<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `n-acquire-arm-state-write` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
 
@@ -13953,7 +13953,7 @@ end 'Sac'
 function main() returns ExitCode
 	let s = spawn Sac.create(Bx.create(0), n: 0)
 	let o = Bx.create(1)
-	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
+	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
 	acquire s 'a1'
 		let u = UQ.have(Tq.create(1, b: Bx.create(2)))
 		match u 'x3'

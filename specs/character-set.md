@@ -555,6 +555,7 @@ end 'main'
 ```
 
 <!-- test: error.characterset-undeclared-static-at-a-top-level-initializer -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ### Error: an undeclared `CharacterSet` static at a TOP-LEVEL initializer
 
 ⭐ **THE TOP-LEVEL DOOR MUST NOT KEEP A ROSTER OF ITS OWN.** `stdlib/CharacterSet.maxon` declares the

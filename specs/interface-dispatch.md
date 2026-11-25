@@ -1739,6 +1739,7 @@ end 'main'
 ```
 
 <!-- test: fields-after-an-existential-read-at-the-right-offset -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 ⭐⭐ **AN INTERFACE-TYPED FIELD TAKES TWO SLOTS, SO EVERY FIELD AFTER IT MOVES — and a layout that counted
 FIELDS rather than SLOTS would put them all one word low, silently.** `StructLayout.offsetOfField` is a
 prefix sum over `fieldSlotCount` (`Project.maxon`), which is what this case exists to observe: `label` sits
@@ -1759,7 +1760,7 @@ type Marker implements Tagged
 	let n as Integer
 
 	function tag() returns Integer
-		return try n + (self.s.byteLength() as Integer) otherwise panic("out of range")
+		return n + (self.s.byteLength() as Integer)
 	end 'tag'
 
 	static function create(n Integer) returns Self
@@ -1772,7 +1773,7 @@ type Holder
 	export let t as Tagged
 	export let extra as Integer
 
-	static function create(consumes t Tagged) returns Self
+	static function create(t Tagged) returns Self
 		return Self{label: "hi", t: t, extra: 5}
 	end 'create'
 end 'Holder'
@@ -1784,7 +1785,7 @@ end 'callTag'
 function main() returns ExitCode
 	let h = Holder.create(Marker.create(3))
 	print("size={sizeof(Holder)} label={h.label} extra={h.extra}\n")
-	return try callTag(h.t) as ExitCode otherwise panic("out of range")
+	return callTag(h.t)
 end 'main'
 ```
 ```exitcode

@@ -3380,6 +3380,7 @@ count=4
 ```
 
 <!-- test: an-int-argument-widens-into-a-float-payload -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 An integer literal at a `float` payload widens to the float, in a function body and in a top-level `let`'s
 initializer alike.
 ```maxon

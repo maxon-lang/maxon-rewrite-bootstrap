@@ -145,7 +145,7 @@ error E3197: <fragment>:21:2: cannot write 'count' through 'h.box', which is rea
 ```
 
 <!-- test: error.a-returned-holder-whose-parameter-is-also-written-needs-a-mutable-argument -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `reset` writes the box it also holds in the record it returns, so the frozen argument is refused.
 
@@ -936,7 +936,7 @@ end 'main'
 ```
 
 <!-- test: error.write-through-a-returned-holder-built-from-a-callee-result-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The `Outer` holds the frozen `Box` through the `Inner` it was built from, so a method that writes the box through it is refused.
 
@@ -986,7 +986,7 @@ error E3207: <fragment>:37:2: 'bump' writes its receiver (it calls 'bump', which
 ```
 
 <!-- test: error.a-local-holder-built-from-a-callee-result-pins-the-parameter-it-writes -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A holder built from a callee result and written through in the same function writes the parameter, so the frozen argument is refused.
 
@@ -1090,7 +1090,7 @@ end 'main'
 ```
 
 <!-- test: error.a-parameter-held-by-a-record-and-written-through-it-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Without the `clone()` the record holds the parameter itself, so writing through it writes the frozen argument.
 
@@ -1383,7 +1383,7 @@ error E3211: <fragment>:34:12: 'Probe' mutates captures and cannot be called thr
 ```
 
 <!-- test: error.a-mutable-function-held-in-a-frozen-holder-is-refused-when-called -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 M3V: a `mutates captures` function value read out of frozen data cannot be called, whatever the closure does.
 

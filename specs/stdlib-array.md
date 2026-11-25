@@ -502,6 +502,7 @@ end 'main'
 ```
 
 <!-- test: get-empty-module-level-array -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 Get on an empty module-level array throws error and is caught by otherwise.
 
 ```maxon

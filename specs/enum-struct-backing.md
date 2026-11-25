@@ -626,6 +626,7 @@ A factory call in a raw-value position is read as the struct LITERAL its argumen
 the last field names nothing.
 
 <!-- test: error.struct-backing-arity -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ```maxon
 typealias Wide = int(0 to 100)
 

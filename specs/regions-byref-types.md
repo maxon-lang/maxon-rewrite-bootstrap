@@ -509,6 +509,7 @@ error E3005: <fragment>:13:22: argument type mismatch for 'slot': expected 'Wide
 ```
 
 <!-- test: a-mutable-type-parameter-handed-on-to-a-wider-formal-is-refused-at-the-caller-sync -->
+<!-- skip: language difference: a generic body is checked once against its bounds, never per instance, so what its bounds do not give is refused in the body (README, Where it differs from Maxon: Generics are checked once against their bounds, never per instantiation) -->
 <!-- positions: moved -->
 `pass` hands its `slot` on to `widen`, whose formal is `mutable Wide`, so the instance `pass` with `T` as `Wide` may write any `Wide` through the `Narrow` variable.
 
@@ -538,6 +539,7 @@ error E3005: <fragment>:16:7: argument type mismatch for 'slot': expected 'Wide'
 ```
 
 <!-- test: a-mutable-type-parameter-handed-on-to-a-wider-formal-is-refused-at-the-caller-async -->
+<!-- skip: language difference: a generic body is checked once against its bounds, never per instance, so what its bounds do not give is refused in the body (README, Where it differs from Maxon: Generics are checked once against their bounds, never per instantiation) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The coroutine twin of the relay above.
@@ -905,6 +907,7 @@ error E3006: <fragment>:8:10: duplicate definition of 'bump' — already declare
 ```
 
 <!-- test: a-private-generic-function-of-another-file-is-refused-as-not-exported-before-its-instance-is-judged -->
+<!-- skip: language difference: a generic body is checked once against its bounds, never per instance, so what its bounds do not give is refused in the body (README, Where it differs from Maxon: Generics are checked once against their bounds, never per instantiation) -->
 <!-- positions: moved -->
 The instance of `relay` is declared in `lib/lib.maxon` and the call names it from `app/main.maxon`, outside `lib/`, so the call is refused as naming a function that is not exported.
 
@@ -927,7 +930,7 @@ end 'inside'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	var x = lib.inside()
+	var x = inside()
 	relay(x, other: 5)
 	print("{x}\n")
 	return 0

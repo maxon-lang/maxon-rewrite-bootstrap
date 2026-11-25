@@ -217,6 +217,7 @@ end 'main'
 ```
 
 <!-- test: a-packed-element-is-read-and-written-through-its-field-arm -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 <!-- tier: stdlib -->
 A NEGATIVE `element_size@24` IS A WIDTH, NOT AN ERROR. `int(0 to 3)` packs four elements to the byte
 and stamps `-2`, which selects the two-bit arm — so the pass emits that one arm and nothing else. The
@@ -232,7 +233,7 @@ typealias Q = int(0 to 3)
 typealias QArray = Array with Q
 
 function main() returns ExitCode
-	var a = QArray.create(0)
+	let a = QArray.create(0)
 	a.push(0)
 	a.push(1)
 	a.push(2)
@@ -338,6 +339,7 @@ end 'main'
 ```
 
 <!-- test: a-substituted-container-field-is-byte-strided-as-it-is-typed -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 <!-- tier: stdlib -->
 ⛔⛔ **THE RED-GATE CONTROL, AND THE PROGRAM THAT PINS THE RULE.** `Bag with Byte`'s `items` is
 declared `Array with Element` inside a SHARED generic body, and its record stamps `element_size@24` with the
@@ -360,15 +362,15 @@ type Bag uses Element
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function add(mutates self, value Element) where Element implements Copyable
-		items.push(value.clone())
+	function add(value Element)
+		items.push(value)
 	end 'add'
 end 'Bag'
 
 typealias ByteBag = Bag with Byte
 
 function main() returns ExitCode
-	var b = ByteBag.create()
+	let b = ByteBag.create()
 	b.add(200)
 	b.add(7)
 	if b.items.managed.elementSize() != 1 'theRecordIsByteStrided'

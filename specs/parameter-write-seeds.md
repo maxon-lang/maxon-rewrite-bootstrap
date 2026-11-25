@@ -16,7 +16,7 @@ A parameter the function writes takes a mutable argument: a `freeze` result, a c
 ## Tests
 
 <!-- test: error.a-receiver-write-through-a-local-alias-writes-the-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `alias` names the record `d` names, so the push writes `d`, and a constant array cannot be handed to a function that writes its parameter.
 
@@ -41,7 +41,7 @@ error E3207: <fragment>:12:7: 'grow' writes 'd' (line 7: `alias.push(9)`); 'a' i
 ```
 
 <!-- test: error.a-receiver-write-through-a-call-result-writes-the-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pick` may hand back its parameter, so the record `c` names may be `b`, and the field store writes it.
 
@@ -79,7 +79,7 @@ error E3207: <fragment>:27:7: 'edit' writes 'b'; 'frozen' is immutable
 ```
 
 <!-- test: error.a-receiver-write-through-a-merge-writes-the-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `target` is the parameter on one path and a fresh array on the other, so what the push writes may be `d`.
 
@@ -107,7 +107,7 @@ error E3207: <fragment>:17:7: 'grow' writes 'd' (line 12: `target.push(9)`); 'a'
 ```
 
 <!-- test: error.a-write-through-a-field-chain-of-the-parameter-writes-it -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The array `s.items` lies within `s`, so pushing onto it writes the shelf `s` names.
 
@@ -139,7 +139,7 @@ error E3207: <fragment>:19:8: 'stock' writes 's' (line 14: `s.items.push(9)`); '
 ```
 
 <!-- test: error.a-field-store-through-an-alias-writes-the-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `alias` names the record `b` names, so assigning its field writes `b`.
 
@@ -170,7 +170,7 @@ error E3207: <fragment>:19:7: 'bump' writes 'b' (line 14: `alias.n = 5`); 'froze
 ```
 
 <!-- test: error.an-argument-within-a-parameter-handed-to-a-writing-callee-writes-the-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `grow` writes the array it is handed, and `s.items` lies within `s`, so `feed` writes the shelf it was handed.
 
@@ -206,7 +206,7 @@ error E3207: <fragment>:23:7: 'feed' writes 's' (it calls 'grow', which writes '
 ```
 
 <!-- test: error.an-argument-within-a-parameter-handed-to-a-function-value-that-writes-writes-the-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The function value `f` is `grow`, which writes the array it is handed, so `feed` writes the shelf whose array it passes.
 
@@ -243,7 +243,7 @@ error E3207: <fragment>:24:7: 'feed' writes 's' (it calls 'grow', which writes '
 ```
 
 <!-- test: error.a-method-the-requirement-declares-mutable-writes-the-parameter-it-is-called-on -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Grows.grow` declares `mutable self`, so `stretch` writes the conformer it was handed through the interface, and a frozen bag cannot be handed to it.
 
@@ -303,7 +303,7 @@ error E3207: <fragment>:9:9: 'retire' writes 's' (it calls 'close', which writes
 ```
 
 <!-- test: error.a-write-through-a-match-binding-of-a-payload-of-the-parameter-writes-it -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `label` is the array the union `t` holds, so the push writes the union `t` names, and a frozen union cannot be handed to `poke`.
 
@@ -331,7 +331,7 @@ error E3207: <fragment>:16:7: 'poke' writes 't' (line 10: `label.push(65)`); 'fr
 ```
 
 <!-- test: error.a-write-through-an-array-that-is-the-parameters-on-one-path-and-fresh-on-the-other-writes-the-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `list` holds the array inside `t` on one path and a fresh array on the other, so what the push writes may lie within `t`.
 
@@ -491,7 +491,7 @@ end 'main'
 ```
 
 <!-- test: error.a-caller-of-a-keeper-reached-through-a-chain-of-keepers-writes-the-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `inner` stores `v` into the box `b` names, `middle` forwards its `v` to `inner`, and `outer` hands `middle` the item `src.item` holds, so `outer` keeps a value read from `src` in a writable slot and takes a mutable `src`.
 

@@ -361,7 +361,7 @@ red green blue | green | 3
 ```
 
 <!-- test: a-durable-store-of-a-constant-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ⭐ **BINDING A CONSTANT KEEPS ITS IDENTITY; STORING ONE INTO A MUTABLE CONTAINER IS REFUSED, AND THE
 DIFFERENCE IS THE POINT.** A module-level `let` is image data on a read-only page. `let b = A` is a borrow
@@ -395,6 +395,7 @@ error E3196: <fragment>:10:9: cannot store an immutable 'NumArray' into 'an elem
 ```
 
 <!-- test: a-durable-store-of-a-cloned-constant-is-its-own-object -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ⭐ **A CLONE OF A CONSTANT IS A DIFFERENT OBJECT, AND THE STORE TAKES IT.** `let b = A` shares the one
 record, so `b is A`; the container's element is the private copy `.clone()` made, so it is not `A`. `is` is
 where the representation choice becomes visible, and this case is where the compiler says which answer is
@@ -428,6 +429,7 @@ end 'main'
 ```
 
 <!-- test: an-immutable-container-accepts-a-constant -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ⭐ **AN `immutable` ELEMENT TYPE TAKES A FROZEN VALUE.** Nothing can write through the container's elements,
 so the image is never written and the store the case above refuses is accepted: the container holds the
 constant and reads it back.
@@ -452,6 +454,7 @@ end 'main'
 ```
 
 <!-- test: an-immutable-container-keeps-the-constants-identity -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ⭐ **AN `immutable` ELEMENT NEEDS NO PRIVATE COPY OF AN IMMORTAL IMAGE.** The container shares the constant's own
 record, so the element read back IS the constant: `stored is Anchor`, where a container of writable elements
 holds a private copy and `is` answers false (`a-durable-store-of-a-cloned-constant-is-its-own-object`).

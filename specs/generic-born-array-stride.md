@@ -29,6 +29,7 @@ bytes it holds.
 
 
 <!-- test: a-generic-born-byte-array-strides-by-its-element -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 <!-- tier: stdlib -->
 A `Bag uses Element` creates its `Array with Element` inside a body shared by every instantiation. At `Bag with Byte` the record strides 1, exactly as the same array created in a concrete body does, and every access path of the shared body reads and writes elements at that stride: `push`, `set`, `get`, `last`, `pop`, `insert`, `remove`, iteration, `clone`, `slice`, `append`, `appendMemory`, `growFilled`, `refill` and `reserve`. The caller reads the same array through its substituted type, with the stride the type states, and the two agree.
 ```maxon
@@ -42,67 +43,67 @@ type Bag uses Element
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function add(mutates self, value Element) where Element implements Copyable
-		items.push(value.clone())
+	function add(value Element)
+		items.push(value)
 	end 'add'
 
-	function put(mutates self, i ElementIndex, value Element) where Element implements Droppable and Copyable
-		try items.set(i, value: value.clone()) otherwise panic("Bag.put: index out of range")
+	function put(i ElementIndex, value Element)
+		try items.set(i, value: value) otherwise panic("Bag.put: index out of range")
 	end 'put'
 
-	function at(i ElementIndex) returns Element where Element implements Copyable
+	function at(i ElementIndex) returns Element
 		return try items.get(i) otherwise panic("Bag.at: index out of range")
 	end 'at'
 
-	function lastOne() returns Element where Element implements Copyable
+	function lastOne() returns Element
 		return try items.last() otherwise panic("Bag.lastOne: empty")
 	end 'lastOne'
 
-	function dropLast(mutates self) returns Element
+	function dropLast() returns Element
 		return try items.pop() otherwise panic("Bag.dropLast: empty")
 	end 'dropLast'
 
-	function insertAt(mutates self, i ElementIndex, value Element) where Element implements Copyable
-		items.insert(i, value: value.clone())
+	function insertAt(i ElementIndex, value Element)
+		items.insert(i, value: value)
 	end 'insertAt'
 
-	function removeAt(mutates self, i ElementIndex) returns Element
+	function removeAt(i ElementIndex) returns Element
 		return try items.remove(i) otherwise panic("Bag.removeAt: index out of range")
 	end 'removeAt'
 
-	function cloned() returns Self where Element implements Copyable
+	function cloned() returns Self
 		return Self{items: items.clone()}
 	end 'cloned'
 
-	function window(start ElementIndex, endIndex ElementIndex) returns Self where Element implements Copyable
+	function window(start ElementIndex, endIndex ElementIndex) returns Self
 		return Self{items: try items.slice(start, endIndex: endIndex) otherwise panic("Bag.window: range out of bounds")}
 	end 'window'
 
-	function addAll(mutates self, other Self) where Element implements Copyable
+	function addAll(other Self)
 		items.append(other.items)
 	end 'addAll'
 
-	function addMemory(mutates self, other Self) where Element implements Copyable
+	function addMemory(other Self)
 		items.appendMemory(other.items.managed)
 	end 'addMemory'
 
-	function replayed() returns Self where Element implements Copyable
-		var out = Self{items: Items.create(0)}
+	function replayed() returns Self
+		let out = Self{items: Items.create(0)}
 		for value in items 'each'
 			out.add(value)
 		end 'each'
 		return out
 	end 'replayed'
 
-	function grownTo(mutates self, length ElementIndex, value Element) where Element implements Copyable
+	function grownTo(length ElementIndex, value Element)
 		items.growFilled(length, value: value)
 	end 'grownTo'
 
-	function refilled(mutates self, length ElementIndex, value Element) where Element implements Copyable
+	function refilled(length ElementIndex, value Element)
 		items.refill(length, value: value)
 	end 'refilled'
 
-	function reserved(mutates self, capacity ElementIndex)
+	function reserved(capacity ElementIndex)
 		items.reserve(capacity)
 	end 'reserved'
 end 'Bag'
@@ -110,13 +111,13 @@ end 'Bag'
 typealias ByteBag = Bag with Byte
 
 function value(i Count) returns Byte
-	return try ((i * 37 + 11) mod 251) as Byte otherwise panic("out of range")
+	return ((i * 37 + 11) mod 251) as Byte
 end 'value'
 
 function sumOf(bag ByteBag) returns Total
 	var total = 0 as Total
 	for element in bag.items 'walk'
-		total = try total + (element as Total) otherwise panic("out of range")
+		total = total + (element as Total)
 	end 'walk'
 	return total
 end 'sumOf'
@@ -124,7 +125,7 @@ end 'sumOf'
 function sumDirect(bag ByteBag) returns Total
 	var total = 0 as Total
 	for at in 0 upto bag.items.count() 'each'
-		total = try total + ((try bag.items.get(at) otherwise panic("sumDirect: index out of range")) as Total) otherwise panic("out of range")
+		total = total + ((try bag.items.get(at) otherwise panic("sumDirect: index out of range")) as Total)
 	end 'each'
 	return total
 end 'sumDirect'
@@ -132,13 +133,13 @@ end 'sumDirect'
 function sumAt(bag ByteBag) returns Total
 	var total = 0 as Total
 	for at in 0 upto bag.items.count() 'each'
-		total = try total + (bag.at(at) as Total) otherwise panic("out of range")
+		total = total + (bag.at(at) as Total)
 	end 'each'
 	return total
 end 'sumAt'
 
 function main() returns ExitCode
-	var bag = ByteBag.create()
+	let bag = ByteBag.create()
 	for i in 0 upto 300 'fill'
 		bag.add(value(i))
 	end 'fill'
@@ -158,23 +159,23 @@ function main() returns ExitCode
 	print("clone {snapshot.items.managed.elementSize()} count {snapshot.items.count()} sum {sumOf(snapshot)} first {(snapshot.at(0) as Total)} source first {(bag.at(0) as Total)}\n")
 	let part = bag.window(100, endIndex: 200)
 	print("window {part.items.managed.elementSize()} count {part.items.count()} sum {sumOf(part)}\n")
-	var joined = part.cloned()
+	let joined = part.cloned()
 	joined.addAll(part)
 	print("append {joined.items.managed.elementSize()} count {joined.items.count()} sum {sumOf(joined)}\n")
-	var memory = part.cloned()
+	let memory = part.cloned()
 	memory.addMemory(part)
 	print("appendMemory {memory.items.managed.elementSize()} count {memory.items.count()} sum {sumOf(memory)}\n")
 	let replay = bag.replayed()
 	print("replay {replay.items.managed.elementSize()} count {replay.items.count()} sum {sumOf(replay)}\n")
-	var grown = ByteBag.create()
+	let grown = ByteBag.create()
 	grown.add(value(0))
 	grown.grownTo(70, value: 9)
 	print("grow {grown.items.managed.elementSize()} count {grown.items.count()} sum {sumOf(grown)} first {(grown.at(0) as Total)} last {(grown.lastOne() as Total)}\n")
-	var filled = ByteBag.create()
+	let filled = ByteBag.create()
 	filled.add(value(1))
 	filled.refilled(40, value: 3)
 	print("refill {filled.items.managed.elementSize()} count {filled.items.count()} sum {sumOf(filled)}\n")
-	var roomy = ByteBag.create()
+	let roomy = ByteBag.create()
 	roomy.add(value(1))
 	roomy.add(value(2))
 	roomy.add(value(3))
@@ -203,6 +204,7 @@ reserve 1 count 3 capacity-ok true
 
 
 <!-- test: a-generic-born-array-strides-by-its-element-at-every-narrow-and-wide-width -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 <!-- tier: stdlib -->
 The same `Bag uses Element` at `Bag with 16-bit`, `Bag with 32-bit`, `Bag with bool`, `Bag with int(0 to 3)` and `Bag with int(0 to 15)`: each record strides 2, 4, and a packed -1, -2 and -4, exactly as the same array created in a concrete body does. An element of the wrong stride is a different wrong answer at every width, so each instantiation pushes, sets, inserts, removes, pops, clones, slices, appends, iterates and grows through the shared body and reads the same elements back through its substituted type.
 ```maxon
@@ -231,67 +233,67 @@ type Bag uses Element
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function add(mutates self, value Element) where Element implements Copyable
-		items.push(value.clone())
+	function add(value Element)
+		items.push(value)
 	end 'add'
 
-	function put(mutates self, i ElementIndex, value Element) where Element implements Droppable and Copyable
-		try items.set(i, value: value.clone()) otherwise panic("Bag.put: index out of range")
+	function put(i ElementIndex, value Element)
+		try items.set(i, value: value) otherwise panic("Bag.put: index out of range")
 	end 'put'
 
-	function at(i ElementIndex) returns Element where Element implements Copyable
+	function at(i ElementIndex) returns Element
 		return try items.get(i) otherwise panic("Bag.at: index out of range")
 	end 'at'
 
-	function lastOne() returns Element where Element implements Copyable
+	function lastOne() returns Element
 		return try items.last() otherwise panic("Bag.lastOne: empty")
 	end 'lastOne'
 
-	function dropLast(mutates self) returns Element
+	function dropLast() returns Element
 		return try items.pop() otherwise panic("Bag.dropLast: empty")
 	end 'dropLast'
 
-	function insertAt(mutates self, i ElementIndex, value Element) where Element implements Copyable
-		items.insert(i, value: value.clone())
+	function insertAt(i ElementIndex, value Element)
+		items.insert(i, value: value)
 	end 'insertAt'
 
-	function removeAt(mutates self, i ElementIndex) returns Element
+	function removeAt(i ElementIndex) returns Element
 		return try items.remove(i) otherwise panic("Bag.removeAt: index out of range")
 	end 'removeAt'
 
-	function cloned() returns Self where Element implements Copyable
+	function cloned() returns Self
 		return Self{items: items.clone()}
 	end 'cloned'
 
-	function window(start ElementIndex, endIndex ElementIndex) returns Self where Element implements Copyable
+	function window(start ElementIndex, endIndex ElementIndex) returns Self
 		return Self{items: try items.slice(start, endIndex: endIndex) otherwise panic("Bag.window: range out of bounds")}
 	end 'window'
 
-	function addAll(mutates self, other Self) where Element implements Copyable
+	function addAll(other Self)
 		items.append(other.items)
 	end 'addAll'
 
-	function addMemory(mutates self, other Self) where Element implements Copyable
+	function addMemory(other Self)
 		items.appendMemory(other.items.managed)
 	end 'addMemory'
 
-	function replayed() returns Self where Element implements Copyable
-		var out = Self{items: Items.create(0)}
+	function replayed() returns Self
+		let out = Self{items: Items.create(0)}
 		for value in items 'each'
 			out.add(value)
 		end 'each'
 		return out
 	end 'replayed'
 
-	function grownTo(mutates self, length ElementIndex, value Element) where Element implements Copyable
+	function grownTo(length ElementIndex, value Element)
 		items.growFilled(length, value: value)
 	end 'grownTo'
 
-	function refilled(mutates self, length ElementIndex, value Element) where Element implements Copyable
+	function refilled(length ElementIndex, value Element)
 		items.refill(length, value: value)
 	end 'refilled'
 
-	function reserved(mutates self, capacity ElementIndex)
+	function reserved(capacity ElementIndex)
 		items.reserve(capacity)
 	end 'reserved'
 end 'Bag'
@@ -299,13 +301,13 @@ end 'Bag'
 typealias HalfBag = Bag with Half
 
 function halfValue(i Count) returns Half
-	return try ((i * 1237 + 11) mod 65521) as Half otherwise panic("out of range")
+	return ((i * 1237 + 11) mod 65521) as Half
 end 'halfValue'
 
 function halfSum(bag HalfBag) returns Total
 	var total = 0 as Total
 	for element in bag.items 'walk'
-		total = try total + (element as Total) otherwise panic("out of range")
+		total = total + (element as Total)
 	end 'walk'
 	return total
 end 'halfSum'
@@ -313,13 +315,13 @@ end 'halfSum'
 typealias WideBag = Bag with Wide
 
 function wideValue(i Count) returns Wide
-	return try ((i * 2654435 + 11) mod 4294967291) as Wide otherwise panic("out of range")
+	return ((i * 2654435 + 11) mod 4294967291) as Wide
 end 'wideValue'
 
 function wideSum(bag WideBag) returns Total
 	var total = 0 as Total
 	for element in bag.items 'walk'
-		total = try total + (element as Total) otherwise panic("out of range")
+		total = total + (element as Total)
 	end 'walk'
 	return total
 end 'wideSum'
@@ -333,7 +335,7 @@ end 'flagValue'
 function flagSum(bag FlagBag) returns Total
 	var total = 0 as Total
 	for element in bag.items 'walk'
-		total = try total + bit(element) otherwise panic("out of range")
+		total = total + bit(element)
 	end 'walk'
 	return total
 end 'flagSum'
@@ -341,13 +343,13 @@ end 'flagSum'
 typealias CrumbBag = Bag with Crumb
 
 function crumbValue(i Count) returns Crumb
-	return try ((i * 5 + 1) mod 4) as Crumb otherwise panic("out of range")
+	return ((i * 5 + 1) mod 4) as Crumb
 end 'crumbValue'
 
 function crumbSum(bag CrumbBag) returns Total
 	var total = 0 as Total
 	for element in bag.items 'walk'
-		total = try total + (element as Total) otherwise panic("out of range")
+		total = total + (element as Total)
 	end 'walk'
 	return total
 end 'crumbSum'
@@ -355,19 +357,19 @@ end 'crumbSum'
 typealias NibbleBag = Bag with Nibble
 
 function nibbleValue(i Count) returns Nibble
-	return try ((i * 7 + 3) mod 16) as Nibble otherwise panic("out of range")
+	return ((i * 7 + 3) mod 16) as Nibble
 end 'nibbleValue'
 
 function nibbleSum(bag NibbleBag) returns Total
 	var total = 0 as Total
 	for element in bag.items 'walk'
-		total = try total + (element as Total) otherwise panic("out of range")
+		total = total + (element as Total)
 	end 'walk'
 	return total
 end 'nibbleSum'
 
 function main() returns ExitCode
-	var half = HalfBag.create()
+	let half = HalfBag.create()
 	for i in 0 upto 300 'fillHalf'
 		half.add(halfValue(i))
 	end 'fillHalf'
@@ -383,15 +385,15 @@ function main() returns ExitCode
 	let halfCopy = half.cloned()
 	half.put(0, value: 1)
 	let halfPart = half.window(100, endIndex: 200)
-	var halfJoined = halfPart.cloned()
+	let halfJoined = halfPart.cloned()
 	halfJoined.addAll(halfPart)
 	let halfReplay = half.replayed()
 	print("half clone {halfCopy.items.managed.elementSize()} {halfSum(halfCopy)} window {halfPart.items.managed.elementSize()} {halfSum(halfPart)} append {halfJoined.items.managed.elementSize()} {halfSum(halfJoined)} replay {halfReplay.items.managed.elementSize()} {halfSum(halfReplay)}\n")
-	var halfGrown = HalfBag.create()
+	let halfGrown = HalfBag.create()
 	halfGrown.add(halfValue(0))
 	halfGrown.grownTo(70, value: 777)
 	print("half grow {halfGrown.items.managed.elementSize()} count {halfGrown.items.count()} sum {halfSum(halfGrown)}\n")
-	var wide = WideBag.create()
+	let wide = WideBag.create()
 	for i in 0 upto 300 'fillWide'
 		wide.add(wideValue(i))
 	end 'fillWide'
@@ -407,15 +409,15 @@ function main() returns ExitCode
 	let wideCopy = wide.cloned()
 	wide.put(0, value: 1)
 	let widePart = wide.window(100, endIndex: 200)
-	var wideJoined = widePart.cloned()
+	let wideJoined = widePart.cloned()
 	wideJoined.addAll(widePart)
 	let wideReplay = wide.replayed()
 	print("wide clone {wideCopy.items.managed.elementSize()} {wideSum(wideCopy)} window {widePart.items.managed.elementSize()} {wideSum(widePart)} append {wideJoined.items.managed.elementSize()} {wideSum(wideJoined)} replay {wideReplay.items.managed.elementSize()} {wideSum(wideReplay)}\n")
-	var wideGrown = WideBag.create()
+	let wideGrown = WideBag.create()
 	wideGrown.add(wideValue(0))
 	wideGrown.grownTo(70, value: 777777)
 	print("wide grow {wideGrown.items.managed.elementSize()} count {wideGrown.items.count()} sum {wideSum(wideGrown)}\n")
-	var flag = FlagBag.create()
+	let flag = FlagBag.create()
 	for i in 0 upto 300 'fillFlag'
 		flag.add(flagValue(i))
 	end 'fillFlag'
@@ -431,15 +433,15 @@ function main() returns ExitCode
 	let flagCopy = flag.cloned()
 	flag.put(0, value: false)
 	let flagPart = flag.window(100, endIndex: 200)
-	var flagJoined = flagPart.cloned()
+	let flagJoined = flagPart.cloned()
 	flagJoined.addAll(flagPart)
 	let flagReplay = flag.replayed()
 	print("flag clone {flagCopy.items.managed.elementSize()} {flagSum(flagCopy)} window {flagPart.items.managed.elementSize()} {flagSum(flagPart)} append {flagJoined.items.managed.elementSize()} {flagSum(flagJoined)} replay {flagReplay.items.managed.elementSize()} {flagSum(flagReplay)}\n")
-	var flagGrown = FlagBag.create()
+	let flagGrown = FlagBag.create()
 	flagGrown.add(flagValue(0))
 	flagGrown.grownTo(70, value: true)
 	print("flag grow {flagGrown.items.managed.elementSize()} count {flagGrown.items.count()} sum {flagSum(flagGrown)}\n")
-	var crumb = CrumbBag.create()
+	let crumb = CrumbBag.create()
 	for i in 0 upto 300 'fillCrumb'
 		crumb.add(crumbValue(i))
 	end 'fillCrumb'
@@ -455,15 +457,15 @@ function main() returns ExitCode
 	let crumbCopy = crumb.cloned()
 	crumb.put(0, value: 0)
 	let crumbPart = crumb.window(100, endIndex: 200)
-	var crumbJoined = crumbPart.cloned()
+	let crumbJoined = crumbPart.cloned()
 	crumbJoined.addAll(crumbPart)
 	let crumbReplay = crumb.replayed()
 	print("crumb clone {crumbCopy.items.managed.elementSize()} {crumbSum(crumbCopy)} window {crumbPart.items.managed.elementSize()} {crumbSum(crumbPart)} append {crumbJoined.items.managed.elementSize()} {crumbSum(crumbJoined)} replay {crumbReplay.items.managed.elementSize()} {crumbSum(crumbReplay)}\n")
-	var crumbGrown = CrumbBag.create()
+	let crumbGrown = CrumbBag.create()
 	crumbGrown.add(crumbValue(0))
 	crumbGrown.grownTo(70, value: 2)
 	print("crumb grow {crumbGrown.items.managed.elementSize()} count {crumbGrown.items.count()} sum {crumbSum(crumbGrown)}\n")
-	var nibble = NibbleBag.create()
+	let nibble = NibbleBag.create()
 	for i in 0 upto 300 'fillNibble'
 		nibble.add(nibbleValue(i))
 	end 'fillNibble'
@@ -479,11 +481,11 @@ function main() returns ExitCode
 	let nibbleCopy = nibble.cloned()
 	nibble.put(0, value: 2)
 	let nibblePart = nibble.window(100, endIndex: 200)
-	var nibbleJoined = nibblePart.cloned()
+	let nibbleJoined = nibblePart.cloned()
 	nibbleJoined.addAll(nibblePart)
 	let nibbleReplay = nibble.replayed()
 	print("nibble clone {nibbleCopy.items.managed.elementSize()} {nibbleSum(nibbleCopy)} window {nibblePart.items.managed.elementSize()} {nibbleSum(nibblePart)} append {nibbleJoined.items.managed.elementSize()} {nibbleSum(nibbleJoined)} replay {nibbleReplay.items.managed.elementSize()} {nibbleSum(nibbleReplay)}\n")
-	var nibbleGrown = NibbleBag.create()
+	let nibbleGrown = NibbleBag.create()
 	nibbleGrown.add(nibbleValue(0))
 	nibbleGrown.grownTo(70, value: 5)
 	print("nibble grow {nibbleGrown.items.managed.elementSize()} count {nibbleGrown.items.count()} sum {nibbleSum(nibbleGrown)}\n")
@@ -601,6 +603,7 @@ crumb after remove count 2 has three false has one true
 ```
 
 <!-- test: a-generic-born-array-of-a-narrow-signed-enum-strides-its-slot-and-keeps-its-sign -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 <!-- tier: stdlib -->
 An enum with negative raw values is stored in a signed one-, two- or four-byte slot, and an array a shared generic body creates over it strides that slot like every other array. The array's record says the slot is signed, so every element the shared body reads comes out sign-extended: the value `-1` that goes in comes out as `-1` through `get`, `first`, `last`, `pop`, `remove`, `peek`, iteration, `clone` and the substituted type, and the signed arms of `insert`, `growFilled`, `refill` and `append` (of a constant literal and of a concrete array) store and read the same value at every width. The extension has to happen inside the shared body: a `Map` and a `Set` keyed by the enum find a key they inserted and iterate the keys they hold only because `Map.findSlot`'s `existing == key` compares the key it reads out of the column, sign-extended, with the key the caller passes; zero-extended, the stored `-1` would read `255` and no inserted key would be found.
 ```maxon
@@ -632,66 +635,66 @@ type Bag uses Element
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	static function wrapping(source Items) returns Self where Element implements Copyable
-		var own = Items.create(0)
+	static function wrapping(source Items) returns Self
+		let own = Items.create(0)
 		own.append(source)
 		return Self{items: own}
 	end 'wrapping'
 
-	function add(mutates self, value Element) where Element implements Copyable
-		items.push(value.clone())
+	function add(value Element)
+		items.push(value)
 	end 'add'
 
-	function at(i ElementIndex) returns Element where Element implements Copyable
+	function at(i ElementIndex) returns Element
 		return try items.get(i) otherwise panic("Bag.at: index out of range")
 	end 'at'
 
-	function cloned() returns Self where Element implements Copyable
+	function cloned() returns Self
 		return Self{items: items.clone()}
 	end 'cloned'
 
-	function firstOne() returns Element where Element implements Copyable
+	function firstOne() returns Element
 		return try items.first() otherwise panic("Bag.firstOne: empty")
 	end 'firstOne'
 
-	function lastOne() returns Element where Element implements Copyable
+	function lastOne() returns Element
 		return try items.last() otherwise panic("Bag.lastOne: empty")
 	end 'lastOne'
 
-	function peekedAt(ahead ElementIndex) returns Element where Element implements Copyable
+	function peekedAt(ahead ElementIndex) returns Element
 		let cursor = try items.cursor() otherwise panic("Bag.peekedAt: empty")
 		return try cursor.peek(ahead) otherwise panic("Bag.peekedAt: past the end")
 	end 'peekedAt'
 
-	function dropLast(mutates self) returns Element
+	function dropLast() returns Element
 		return try items.pop() otherwise panic("Bag.dropLast: empty")
 	end 'dropLast'
 
-	function removeAt(mutates self, i ElementIndex) returns Element
+	function removeAt(i ElementIndex) returns Element
 		return try items.remove(i) otherwise panic("Bag.removeAt: index out of range")
 	end 'removeAt'
 
-	function replayed() returns Self where Element implements Copyable
-		var out = Self{items: Items.create(0)}
+	function replayed() returns Self
+		let out = Self{items: Items.create(0)}
 		for value in items 'each'
 			out.add(value)
 		end 'each'
 		return out
 	end 'replayed'
 
-	function insertAt(mutates self, i ElementIndex, value Element) where Element implements Copyable
-		items.insert(i, value: value.clone())
+	function insertAt(i ElementIndex, value Element)
+		items.insert(i, value: value)
 	end 'insertAt'
 
-	function grownTo(mutates self, length ElementIndex, value Element) where Element implements Copyable
+	function grownTo(length ElementIndex, value Element)
 		items.growFilled(length, value: value)
 	end 'grownTo'
 
-	function refilled(mutates self, length ElementIndex, value Element) where Element implements Copyable
+	function refilled(length ElementIndex, value Element)
 		items.refill(length, value: value)
 	end 'refilled'
 
-	function addAll(mutates self, other Self) where Element implements Copyable
+	function addAll(other Self)
 		items.append(other.items)
 	end 'addAll'
 end 'Bag'
@@ -715,7 +718,7 @@ typealias SignalSet = Set with Signal
 function sumOf(bag SignalBag) returns Integer
 	var total = 0 as Integer
 	for signal in bag.items 'walk'
-		total = try total + (signal.rawValue as Integer) otherwise panic("out of range")
+		total = total + (signal.rawValue as Integer)
 	end 'walk'
 	return total
 end 'sumOf'
@@ -724,7 +727,7 @@ function sumOfArray(items SignalArray) returns Integer
 	var total = 0 as Integer
 	for at in 0 upto items.count() 'each'
 		let signal = try items.get(at) otherwise panic("sumOfArray: index out of range")
-		total = try total + (signal.rawValue as Integer) otherwise panic("out of range")
+		total = total + (signal.rawValue as Integer)
 	end 'each'
 	return total
 end 'sumOfArray'
@@ -732,13 +735,13 @@ end 'sumOfArray'
 function sumSignal(bag SignalBag) returns Integer
 	var total = 0 as Integer
 	for element in bag.items 'walk'
-		total = try total + (element.rawValue as Integer) otherwise panic("out of range")
+		total = total + (element.rawValue as Integer)
 	end 'walk'
 	return total
 end 'sumSignal'
 
 function probeSignal()
-	var bag = SignalBag.create()
+	let bag = SignalBag.create()
 	bag.add(Signal.plus)
 	bag.insertAt(0, value: Signal.minus)
 	bag.grownTo(4, value: Signal.minus)
@@ -747,12 +750,12 @@ function probeSignal()
 	print("signal refilled count {bag.items.count()} sum {sumSignal(bag)}\n")
 	bag.addAll(SignalBag.wrapping([Signal.minus, Signal.plus]))
 	print("signal appended literal count {bag.items.count()} third {bag.at(2).rawValue as Integer} sum {sumSignal(bag)}\n")
-	var concrete = SignalArray.create(0)
+	let concrete = SignalArray.create(0)
 	concrete.push(Signal.plus)
 	concrete.append([Signal.minus, Signal.plus])
 	var total = 0 as Integer
 	for element in concrete 'walkConcrete'
-		total = try total + (element.rawValue as Integer) otherwise panic("out of range")
+		total = total + (element.rawValue as Integer)
 	end 'walkConcrete'
 	print("signal appended onto concrete count {concrete.count()} sum {total}\n")
 end 'probeSignal'
@@ -760,13 +763,13 @@ end 'probeSignal'
 function sumMid(bag MidBag) returns Integer
 	var total = 0 as Integer
 	for element in bag.items 'walk'
-		total = try total + (element.rawValue as Integer) otherwise panic("out of range")
+		total = total + (element.rawValue as Integer)
 	end 'walk'
 	return total
 end 'sumMid'
 
 function probeMid()
-	var bag = MidBag.create()
+	let bag = MidBag.create()
 	bag.add(Mid.high)
 	bag.insertAt(0, value: Mid.low)
 	bag.grownTo(4, value: Mid.low)
@@ -775,12 +778,12 @@ function probeMid()
 	print("mid refilled count {bag.items.count()} sum {sumMid(bag)}\n")
 	bag.addAll(MidBag.wrapping([Mid.low, Mid.high]))
 	print("mid appended literal count {bag.items.count()} third {bag.at(2).rawValue as Integer} sum {sumMid(bag)}\n")
-	var concrete = MidArray.create(0)
+	let concrete = MidArray.create(0)
 	concrete.push(Mid.high)
 	concrete.append([Mid.low, Mid.high])
 	var total = 0 as Integer
 	for element in concrete 'walkConcrete'
-		total = try total + (element.rawValue as Integer) otherwise panic("out of range")
+		total = total + (element.rawValue as Integer)
 	end 'walkConcrete'
 	print("mid appended onto concrete count {concrete.count()} sum {total}\n")
 end 'probeMid'
@@ -788,13 +791,13 @@ end 'probeMid'
 function sumBig(bag BigBag) returns Integer
 	var total = 0 as Integer
 	for element in bag.items 'walk'
-		total = try total + (element.rawValue as Integer) otherwise panic("out of range")
+		total = total + (element.rawValue as Integer)
 	end 'walk'
 	return total
 end 'sumBig'
 
 function probeBig()
-	var bag = BigBag.create()
+	let bag = BigBag.create()
 	bag.add(Big.high)
 	bag.insertAt(0, value: Big.low)
 	bag.grownTo(4, value: Big.low)
@@ -803,18 +806,18 @@ function probeBig()
 	print("big refilled count {bag.items.count()} sum {sumBig(bag)}\n")
 	bag.addAll(BigBag.wrapping([Big.low, Big.high]))
 	print("big appended literal count {bag.items.count()} third {bag.at(2).rawValue as Integer} sum {sumBig(bag)}\n")
-	var concrete = BigArray.create(0)
+	let concrete = BigArray.create(0)
 	concrete.push(Big.high)
 	concrete.append([Big.low, Big.high])
 	var total = 0 as Integer
 	for element in concrete 'walkConcrete'
-		total = try total + (element.rawValue as Integer) otherwise panic("out of range")
+		total = total + (element.rawValue as Integer)
 	end 'walkConcrete'
 	print("big appended onto concrete count {concrete.count()} sum {total}\n")
 end 'probeBig'
 
 function main() returns ExitCode
-	var bag = SignalBag.create()
+	let bag = SignalBag.create()
 	bag.add(Signal.minus)
 	bag.add(Signal.zero)
 	bag.add(Signal.plus)
@@ -824,7 +827,7 @@ function main() returns ExitCode
 	let replay = bag.replayed()
 	print("signal {bag.items.managed.elementSize()} first {first.rawValue as Integer} sum {sumOf(bag)} clone {sumOf(copy)} replay {sumOf(replay)}\n")
 	print("first {bag.firstOne().rawValue as Integer} peek {bag.peekedAt(3).rawValue as Integer} {bag.peekedAt(2).rawValue as Integer}\n")
-	var concrete = SignalArray.create(0)
+	let concrete = SignalArray.create(0)
 	concrete.push(Signal.minus)
 	concrete.push(Signal.plus)
 	try bag.items.set(2, value: Signal.minus) otherwise return 3
@@ -836,7 +839,7 @@ function main() returns ExitCode
 	let popped = bag.dropLast()
 	let removed = bag.removeAt(1)
 	print("ends {last.rawValue as Integer} {popped.rawValue as Integer} {removed.rawValue as Integer} count {bag.items.count()}\n")
-	var map = SignalMap.create()
+	let map = SignalMap.create()
 	map.upsert(Signal.minus, value: 10)
 	map.upsert(Signal.plus, value: 20)
 	map.upsert(Signal.zero, value: 30)
@@ -847,11 +850,11 @@ function main() returns ExitCode
 	var keySum = 0 as Integer
 	var valueSum = 0 as Integer
 	for (key, value) in map 'entries'
-		keySum = try keySum + (key.rawValue as Integer) otherwise panic("out of range")
-		valueSum = try valueSum + value otherwise panic("out of range")
+		keySum = keySum + (key.rawValue as Integer)
+		valueSum = valueSum + value
 	end 'entries'
 	print("entries keys {keySum} values {valueSum}\n")
-	var set = SignalSet.create()
+	let set = SignalSet.create()
 	set.insert(Signal.minus)
 	set.insert(Signal.minus)
 	set.insert(Signal.plus)
@@ -889,6 +892,7 @@ big appended onto concrete count 3 sum 70000
 ```
 
 <!-- test: a-generic-born-array-of-records-stays-pointer-strided -->
+<!-- skip: language difference: sizeof and a buffer's elementSize() give minimaxon's layout, which packs no element narrower than a byte, holds a String of up to 15 bytes in its two words, an interface value in one word and each field of a record in a word of its own, where maxon bit-packs and inlines (README, Where it differs from Maxon: sizeof gives minimaxon's layout; elementSize() is what sizeof gives for the element) -->
 <!-- tier: stdlib -->
 An element that is a record is stored in an array as a pointer, so a `Bag` of `String` or of a struct creates its array at the machine word, as the same array created in a concrete body does. Elements move through `push`, `get`, `clone`, `slice` and iteration, and the records are released once.
 ```maxon
@@ -899,7 +903,7 @@ type Stamp
 	export let label as String
 
 	static function create(tick Integer, label String) returns Self
-		return Self{tick: tick, label: label.clone()}
+		return Self{tick: tick, label: label}
 	end 'create'
 end 'Stamp'
 
@@ -911,19 +915,19 @@ type Bag uses Element
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function add(mutates self, value Element) where Element implements Copyable
-		items.push(value.clone())
+	function add(value Element)
+		items.push(value)
 	end 'add'
 
-	function at(i ElementIndex) returns Element where Element implements Copyable
+	function at(i ElementIndex) returns Element
 		return try items.get(i) otherwise panic("Bag.at: index out of range")
 	end 'at'
 
-	function cloned() returns Self where Element implements Copyable
+	function cloned() returns Self
 		return Self{items: items.clone()}
 	end 'cloned'
 
-	function window(start ElementIndex, endIndex ElementIndex) returns Self where Element implements Copyable
+	function window(start ElementIndex, endIndex ElementIndex) returns Self
 		return Self{items: try items.slice(start, endIndex: endIndex) otherwise panic("Bag.window: range out of bounds")}
 	end 'window'
 end 'Bag'
@@ -933,8 +937,8 @@ typealias TextBag = Bag with String
 typealias StampBag = Bag with Stamp
 
 function main() returns ExitCode
-	var texts = TextBag.create()
-	var stamps = StampBag.create()
+	let texts = TextBag.create()
+	let stamps = StampBag.create()
 	for i in 0 upto 40 'fill'
 		texts.add("text {i}")
 		stamps.add(Stamp.create(i, label: "stamp {i}"))
@@ -943,7 +947,7 @@ function main() returns ExitCode
 	let part = stamps.window(10, endIndex: 20)
 	var tickSum = 0 as Integer
 	for stamp in part.items 'walk'
-		tickSum = try tickSum + stamp.tick otherwise panic("out of range")
+		tickSum = tickSum + stamp.tick
 	end 'walk'
 	print("strides {texts.items.managed.elementSize()} {stamps.items.managed.elementSize()} {copy.items.managed.elementSize()} {part.items.managed.elementSize()}\n")
 	print("text {texts.at(7)} {copy.at(39)} stamp {stamps.at(12).label} {part.at(0).tick} ticks {tickSum} count {part.items.count()}\n")

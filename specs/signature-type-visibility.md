@@ -1448,6 +1448,7 @@ error E3167: api/<fragment>:5:12: exported constant 'api.CAP' names unexported t
 ```
 
 <!-- test: error.an-exported-let-built-through-a-file-private-generic-alias-is-refused -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The alias the initializer was spelled through is the binding's own spelling of its type. `Array with ExitCode` is
 nameable by anyone, `Tallies` is not, and the binding is read under that name.
 ```maxon

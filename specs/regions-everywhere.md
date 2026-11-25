@@ -17,6 +17,7 @@ it writes, keeps or returns is marked, and a function type never waits or yields
 ## Tests
 
 <!-- test: a-function-value-keeping-its-parameter-in-a-container-does-not-convert-to-a-plain-function-type -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `stash` pushes `thing` into the shelf it was handed, so it keeps `thing`. `Stasher` declares nothing about its
 second parameter, so a caller holding that argument read-only would have it written through.
@@ -49,7 +50,7 @@ end 'Shelf'
 typealias Stasher = function(mutates Shelf, Thing)
 
 function stash(mutates shelf Shelf, thing Thing)
-	shelf.things.push(thing.clone())
+	shelf.things.push(thing)
 end 'stash'
 
 function apply(stasher Stasher, mutates shelf Shelf, thing Thing)
@@ -59,7 +60,7 @@ end 'apply'
 function main() returns ExitCode
 	var shelf = Shelf.create()
 	apply(stash, shelf: shelf, thing: Thing.create(1))
-	return try shelf.count() as ExitCode otherwise panic("out of range")
+	return shelf.count() as ExitCode
 end 'main'
 ```
 ```maxoncstderr
@@ -116,7 +117,7 @@ end 'main'
 ```
 
 <!-- test: a-result-through-an-interface-over-frozen-data-cannot-be-written -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Bag.open` returns a `Cursor` that holds the bag's `items`, and `first` answers through the `Cursors` interface, so its
 result is never fresh: it takes the capability of the interface value it was reached through. A bag frozen before it
@@ -224,7 +225,7 @@ end 'main'
 ```
 
 <!-- test: a-result-through-an-interface-written-in-its-function-pins-the-interface-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `poke` writes the cursor `source.open()` handed back, so `source` is mutable-only and the frozen bag cannot be passed.
 
@@ -277,7 +278,7 @@ error E3207: <fragment>:40:7: 'poke' writes 'source' (it calls 'grow', which wri
 ```
 
 <!-- test: a-result-through-an-interface-passed-to-a-writing-function-pins-the-interface-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `grower` writes the cursor it is handed, so `poke` passing it `source.open()` makes `source` mutable-only.
 
@@ -389,7 +390,7 @@ end 'main'
 ```
 
 <!-- test: a-conformer-returning-its-receiver-field-hands-back-read-only-data-through-an-interface -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Shelf.part` returns a bare field of its receiver. `through` answers through the `Parts` interface, so the part a frozen
 shelf hands back is read-only and `bump` would write the frozen shelf's field.
@@ -590,7 +591,7 @@ end 'main'
 ```
 
 <!-- test: a-function-value-returning-its-read-only-parameter-does-not-convert-to-a-plain-function-type -->
-<!-- positions: moved -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 `same` returns data reached from its read-only parameter, and a function type promises nothing about what its
 result shares with its argument.
 
@@ -599,7 +600,7 @@ type Key
 	var text as String
 
 	static function create(text String) returns Self
-		return Self{text: text.clone()}
+		return Self{text: text}
 	end 'create'
 
 	function length() returns Count
@@ -610,7 +611,7 @@ end 'Key'
 typealias KeyOf = function(Key) returns Key
 
 function same(key Key) returns Key
-	return key.clone()
+	return key
 end 'same'
 
 function apply(keyOf KeyOf, key Key) returns Key
@@ -619,7 +620,7 @@ end 'apply'
 
 function main() returns ExitCode
 	let key = Key.create("abc")
-	return try apply(same, key: key).length() as ExitCode otherwise panic("out of range")
+	return apply(same, key: key).length() as ExitCode
 end 'main'
 ```
 ```maxoncstderr
@@ -662,7 +663,7 @@ end 'main'
 ```
 
 <!-- test: a-function-value-throwing-its-parameter-in-a-payload-does-not-convert-to-a-plain-function-type -->
-<!-- positions: moved -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 A thrown payload stores its argument, so `find` keeps `key`, and `lookup`, which hands `key` to it, keeps `key` too.
 
 ```maxon
@@ -670,7 +671,7 @@ type Key
 	export var text as String
 
 	static function create(text String) returns Self
-		return Self{text: text.clone()}
+		return Self{text: text}
 	end 'create'
 end 'Key'
 
@@ -682,7 +683,7 @@ typealias Lookup = function(Key) returns Count
 
 function find(key Key) returns Count throws Missing
 	if key.text.count() == 0 'empty'
-		throw Missing.absent(key.clone())
+		throw Missing.absent(key)
 	end 'empty'
 	return key.text.count()
 end 'find'
@@ -697,7 +698,7 @@ end 'apply'
 
 function main() returns ExitCode
 	let key = Key.create("abc")
-	return try apply(lookup, key: key) as ExitCode otherwise panic("out of range")
+	return apply(lookup, key: key) as ExitCode
 end 'main'
 ```
 ```maxoncstderr
@@ -747,7 +748,7 @@ end 'main'
 ```
 
 <!-- test: a-function-value-that-awaits-a-service-does-not-convert-to-a-plain-function-type -->
-<!-- positions: moved -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 `viaService` calls `ask`, which awaits a reply, so it may wait; a function type never waits or yields.
 
 ```maxon
@@ -760,9 +761,9 @@ type Doubler
 		return Self{calls: 0}
 	end 'create'
 
-	export function twice(mutates self, n Tally) returns Tally
-		self.calls = try self.calls + 1 otherwise panic("out of range")
-		return try n * 2 otherwise panic("out of range")
+	export function twice(n Tally) returns Tally
+		self.calls = self.calls + 1
+		return n * 2
 	end 'twice'
 end 'Doubler'
 
@@ -782,7 +783,7 @@ end 'apply'
 
 function main() returns ExitCode
 	let doubler = spawn Doubler.create()
-	return try apply(viaService, doubler: doubler) as ExitCode otherwise panic("out of range")
+	return apply(viaService, doubler: doubler) as ExitCode
 end 'main'
 ```
 ```maxoncstderr

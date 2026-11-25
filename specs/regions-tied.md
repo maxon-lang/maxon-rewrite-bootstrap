@@ -132,7 +132,7 @@ error E3212: <fragment>:29:21: the promise of this `async` call is tied to the m
 ```
 
 <!-- test: a-mutable-isolated-parameter-moved-out-of-the-callee-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `mutable isolated` parameter is by reference, so the callee may not move it out: the caller's variable would name a region another owner holds.
 
@@ -400,7 +400,7 @@ error E3212: <fragment>:22:2: this exit leaves the tied promise of the `async` c
 ```
 
 <!-- test: a-function-that-writes-the-drained-array-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `grow` pushes to the array `drain` is draining, so the call inside the body is refused.
 
@@ -436,7 +436,7 @@ error E3207: <fragment>:20:8: 'grow' needs a writable parameter 'items' at line 
 ```
 
 <!-- test: clearing-the-drained-array-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The body clears the array it drains, which is a write the loop does not allow.
 
@@ -468,7 +468,7 @@ error E3207: <fragment>:16:3: 'clear' needs a writable receiver at line 306; 'pe
 ```
 
 <!-- test: a-mutable-isolated-parameter-aliased-by-a-let-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `mutable isolated` parameter is by reference, so binding it to a second name aliases a region the caller still owns.
 
@@ -499,7 +499,7 @@ error E3202: <fragment>:13:14: a `mutable isolated` parameter is by reference: t
 ```
 
 <!-- test: a-mutable-isolated-parameter-pushed-into-an-array-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Pushing the `mutable isolated` parameter into an array moves it out of the caller's variable.
 
@@ -532,7 +532,7 @@ error E3202: <fragment>:15:11: a `mutable isolated` parameter is by reference: t
 ```
 
 <!-- test: a-mutable-isolated-parameter-passed-to-a-keeping-parameter-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `adopt` takes its `isolated` parameter by move, so handing it the caller's by-reference region would give two owners.
 
@@ -566,7 +566,7 @@ error E3202: <fragment>:17:15: a `mutable isolated` parameter is by reference: t
 ```
 
 <!-- test: a-mutable-isolated-parameter-stored-in-a-field-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Storing the `mutable isolated` parameter in a field leaves the caller's variable naming a region the field now owns.
 
@@ -711,7 +711,7 @@ end 'main'
 ```
 
 <!-- test: a-mutable-isolated-method-parameter-passed-to-an-isolated-method-parameter-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A method parameter that is not by reference takes the region, so the caller's variable would then name a region another owner holds.
 
@@ -966,6 +966,7 @@ error E3212: <fragment>:32:14: this exit leaves 'later' neither awaited nor canc
 ```
 
 <!-- test: an-early-return-cancels-the-tied-coroutine-and-waits-for-it -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 `leave` starts `bump`, lets it begin, then `.cancel()`s it before returning early. The cancel ends `bump`'s sleep and waits for it to finish, so `main`, the caller's caller, reads the completed write.
 
 ```maxon
@@ -979,13 +980,13 @@ type Row
 	end 'create'
 end 'Row'
 
-function bump(mutates row Row) returns Tally
+function bump(row Row) returns Tally
 	sleep(1)
-	row.n = try row.n + 1 otherwise panic("out of range")
+	row.n = row.n + 1
 	return row.n
 end 'bump'
 
-function leave(mutates row Row, early bool) returns Tally
+function leave(row Row, early bool) returns Tally
 	let later = async bump(row)
 	Scheduler.yield()
 	if early 'leavingEarly'
@@ -996,7 +997,7 @@ function leave(mutates row Row, early bool) returns Tally
 end 'leave'
 
 function main() returns ExitCode
-	var row = Row.create(1)
+	let row = Row.create(1)
 	_ = leave(row, early: true)
 	print("{row.n}\n")
 	return 0
@@ -1010,6 +1011,7 @@ end 'main'
 ```
 
 <!-- test: a-throw-exit-cancels-the-tied-coroutine-and-waits-for-it -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 `leave` cancels the started coroutine before it throws, so the error reaches `main` only after `bump` finished its write.
 
 ```maxon
@@ -1027,13 +1029,13 @@ type Row
 	end 'create'
 end 'Row'
 
-function bump(mutates row Row) returns Tally
+function bump(row Row) returns Tally
 	sleep(1)
-	row.n = try row.n + 1 otherwise panic("out of range")
+	row.n = row.n + 1
 	return row.n
 end 'bump'
 
-function leave(mutates row Row, fail bool) returns Tally throws Refusal
+function leave(row Row, fail bool) returns Tally throws Refusal
 	let later = async bump(row)
 	Scheduler.yield()
 	if fail 'failing'
@@ -1044,7 +1046,7 @@ function leave(mutates row Row, fail bool) returns Tally throws Refusal
 end 'leave'
 
 function main() returns ExitCode
-	var row = Row.create(1)
+	let row = Row.create(1)
 	let attempt = try leave(row, fail: true) otherwise 0
 	print("{attempt} {row.n}\n")
 	return 0
@@ -1058,6 +1060,7 @@ end 'main'
 ```
 
 <!-- test: cancelling-a-tied-coroutine-that-never-started-leaves-the-data-unwritten -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 The coroutine is queued and `later.cancel()` runs before it was ever switched in, so it never runs: the write is not made then, and not after the cancel returned either, however long the caller waits.
 
 ```maxon
@@ -1071,19 +1074,19 @@ type Row
 	end 'create'
 end 'Row'
 
-function bump(mutates row Row) returns Tally
+function bump(row Row) returns Tally
 	sleep(1)
-	row.n = try row.n + 1 otherwise panic("out of range")
+	row.n = row.n + 1
 	return row.n
 end 'bump'
 
-function leave(mutates row Row)
+function leave(row Row)
 	let later = async bump(row)
 	later.cancel()
 end 'leave'
 
 function main() returns ExitCode
-	var row = Row.create(1)
+	let row = Row.create(1)
 	leave(row)
 	print("{row.n}\n")
 	sleep(20)
@@ -1101,6 +1104,7 @@ end 'main'
 ```
 
 <!-- test: cancelling-a-tied-coroutine-that-yielded-waits-for-it-to-finish -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 The coroutine ran up to its own `Scheduler.yield()` and is ready again when `later.cancel()` runs. The cancel waits for it to run out, so the write is complete when the cancel returns and nothing is written afterwards.
 
 ```maxon
@@ -1114,20 +1118,20 @@ type Row
 	end 'create'
 end 'Row'
 
-function bump(mutates row Row) returns Tally
+function bump(row Row) returns Tally
 	Scheduler.yield()
-	row.n = try row.n + 1 otherwise panic("out of range")
+	row.n = row.n + 1
 	return row.n
 end 'bump'
 
-function leave(mutates row Row)
+function leave(row Row)
 	let later = async bump(row)
 	Scheduler.yield()
 	later.cancel()
 end 'leave'
 
 function main() returns ExitCode
-	var row = Row.create(1)
+	let row = Row.create(1)
 	leave(row)
 	print("{row.n}\n")
 	sleep(20)
@@ -1145,6 +1149,7 @@ end 'main'
 ```
 
 <!-- test: many-tied-coroutines-cancelled-before-and-after-they-start-never-write-late -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 Alternate laps cancel the coroutine before it starts and after it ran once and yielded. After every cancel returns the counter holds exactly the writes of the laps that let it start, and a final wait adds nothing.
 
 ```maxon
@@ -1158,13 +1163,13 @@ type Row
 	end 'create'
 end 'Row'
 
-function bump(mutates row Row) returns Tally
+function bump(row Row) returns Tally
 	Scheduler.yield()
-	row.n = try row.n + 1 otherwise panic("out of range")
+	row.n = row.n + 1
 	return row.n
 end 'bump'
 
-function lap(mutates row Row, started bool)
+function lap(row Row, started bool)
 	let later = async bump(row)
 	if started 'letItStart'
 		Scheduler.yield()
@@ -1173,7 +1178,7 @@ function lap(mutates row Row, started bool)
 end 'lap'
 
 function main() returns ExitCode
-	var row = Row.create(0)
+	let row = Row.create(0)
 	var expected = 0 as Tally
 	var started = false
 	for i in 0 upto 200 'laps'
@@ -1288,6 +1293,7 @@ end 'main'
 ```
 
 <!-- test: an-async-over-a-reader-taken-from-a-field-is-tied -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 <!-- positions: moved -->
 `take` is a method of `slot.child`, which the caller can still reach and write, so the `Reader` it builds is not a clean input: the promise is tied and may not be stored in `wakes`.
 
@@ -1559,6 +1565,7 @@ error E3212: <fragment>:16:3: this exit leaves the tied promise of the `async` c
 ```
 
 <!-- test: a-tied-promise-reassigned-through-a-branch-is-awaited-after-the-join -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 <!-- unsupported-targets: wasm32-wasi -->
 The promise `await` reads is the join of the two the branch chose, and it is the one the scope's drop reaches too.
 
@@ -1567,7 +1574,7 @@ typealias Tally = int(0 to u64.max)
 
 function bump(mutates n Tally, k Tally) returns Tally
 	sleep(5)
-	n = try n + 1 otherwise panic("out of range")
+	n = n + 1
 	return k
 end 'bump'
 

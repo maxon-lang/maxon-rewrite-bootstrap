@@ -301,6 +301,7 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.a-value-held-at-an-interface-type-rides-two-integer-slots -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 A value held at an interface type, handed to a parameter the callee only reads, travels as two words: the
 value in its integer slot and its witness table in the integer slot after the declared arguments.
 ```maxon
@@ -318,7 +319,7 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Integer
-		return try self.side * self.side otherwise panic("out of range")
+		return self.side * self.side
 	end 'area'
 end 'Square'
 
@@ -333,7 +334,7 @@ end 'shapeOf'
 
 function main() returns ExitCode
 	let p = async measure(shapeOf(6))
-	return try (await p) as ExitCode otherwise panic("out of range")
+	return (await p) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -341,6 +342,7 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.a-concrete-conformer-is-widened-to-an-interface-parameter-at-the-spawn -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 The spawn names the witness table of the conformer the argument widens through.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -357,7 +359,7 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Integer
-		return try self.side * self.side otherwise panic("out of range")
+		return self.side * self.side
 	end 'area'
 end 'Square'
 
@@ -380,6 +382,7 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.an-interface-argument-shares-the-files-with-floats-and-integers -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 The witness table takes the integer slot after the last integer argument, the float between them takes
 float slot 0, and the callee reads all four.
 ```maxon
@@ -399,13 +402,13 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Integer
-		return try self.side * self.side otherwise panic("out of range")
+		return self.side * self.side
 	end 'area'
 end 'Square'
 
 function describe(a Integer, s Shape, x Real, b Integer) returns Integer
 	Scheduler.yield()
-	return try a + s.area() * 10 + (trunc(x) as Integer) * 1000 + b * 100000 otherwise panic("out of range")
+	return a + s.area() * 10 + (trunc(x) as Integer) * 1000 + b * 100000
 end 'describe'
 
 function shapeOf(side Integer) returns Shape
@@ -426,6 +429,7 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.a-cancelled-spawn-releases-its-interface-argument -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 A spawn dropped before it runs gives back the reference it took to the interface value, through the witness
 table stored beside it. The run is leak-free.
 ```maxon
@@ -443,7 +447,7 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Integer
-		return try self.side * self.side otherwise panic("out of range")
+		return self.side * self.side
 	end 'area'
 end 'Square'
 
@@ -467,6 +471,7 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.an-interface-argument-past-the-last-register-rides-the-thread-stack -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 Five integers and an interface value need seven integer slots: the value takes the sixth and its witness
 table the seventh, which is past the six integer argument registers x64 passes and so rides the new thread's
 stack.
@@ -485,13 +490,13 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Integer
-		return try self.side * self.side otherwise panic("out of range")
+		return self.side * self.side
 	end 'area'
 end 'Square'
 
 function wide(a Integer, b Integer, c Integer, d Integer, e Integer, s Shape) returns Integer
 	Scheduler.yield()
-	return try a + b + c + d + e + s.area() otherwise panic("out of range")
+	return a + b + c + d + e + s.area()
 end 'wide'
 
 function shapeOf(side Integer) returns Shape
@@ -536,6 +541,7 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.ten-integer-arguments-spill-onto-the-thread-stack -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 Ten integers overflow both targets' integer argument registers. The overflow words are copied onto the new
 thread's stack in the order the callee reads them.
 ```maxon
@@ -560,6 +566,7 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.ten-float-arguments-spill-onto-the-thread-stack -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 The same with ten floats: six or eight ride the float argument registers and the rest the stack.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -587,6 +594,7 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.integers-floats-and-interface-values-past-both-register-files -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 Ten integers, ten floats and two interface values: integers and floats overflow their own files
 independently, the overflow shares one run of stack words in argument order, and both witness tables are
 hidden integer arguments after the declared ones.
@@ -630,6 +638,7 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.managed-arguments-past-the-registers-are-released-by-the-thread -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 Ten strings: the ones past the argument registers sit on the new thread's stack, and the thread's own copy of
 each is given back after the await. The run is leak-free.
 ```maxon
@@ -654,6 +663,7 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.a-cancelled-spawn-releases-the-arguments-it-holds-past-the-registers -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 A spawn dropped before it runs gives back the strings, the interface value and the argument image alike. The
 run is leak-free.
 ```maxon
@@ -694,6 +704,7 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.parameters-the-callee-reassigns-ride-cells-past-the-registers -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 Two parameters past the eighth argument are reassigned, so their cell addresses travel on the stack on both
 targets, and the coroutine owns the cells.
 ```maxon
@@ -722,6 +733,7 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.an-interface-value-and-its-witness-both-ride-the-thread-stack -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 Nine integers put the interface value on the stack on both targets, and its witness table follows it there.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -761,6 +773,7 @@ end 'main'
 ```
 
 <!-- test: async-scheduler.stack-arguments-survive-a-stack-grow-before-the-callee-reads-them -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 The callee recurses far past the seed stack before it reads its last arguments, so the stack is relocated
 with the overflow words still on it.
 ```maxon

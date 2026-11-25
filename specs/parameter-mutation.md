@@ -208,6 +208,7 @@ end 'main'
 ```
 
 <!-- test: async-transitive-let-array-ok -->
+<!-- skip: language difference: an async call lends its coroutine what it passes instead of sharing it, so it takes a local by reference, no temporary at a let parameter, at most eight argument words and a promise only at a consumes parameter, and its promise is tied to what it lent (README, Where it differs from Maxon: An async call lends its coroutine what it passes, instead of sharing it) -->
 The same mutation, one `async` further away: a spawn hands the coroutine a reference to what its caller was
 handed, so `outer` writes `d` whether the write runs before the await or after it.
 
@@ -216,20 +217,20 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function inner(mutates d IntArray) returns Integer
+function inner(d IntArray) returns Integer
 	Scheduler.yield()
 	d.push(7)
-	return try d.count() as Integer otherwise panic("out of range")
+	return d.count() as Integer
 end 'inner'
 
-function outer(mutates d IntArray) returns Integer
+function outer(d IntArray) returns Integer
 	let pending = async inner(d)
 	return await pending
 end 'outer'
 
 function main() returns ExitCode
-	var a = IntArray.create(0)
-	return try outer(a) as ExitCode otherwise panic("out of range")
+	let a = IntArray.create(0)
+	return outer(a) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1255,7 +1256,7 @@ end 'main'
 ```
 
 <!-- test: error.function-value-call-with-a-literal-container-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A call through a function VALUE may still not carry a LITERAL container: `a` is a `let` array literal, a
 constant the compiler read its range columns from, and the call may write it.
@@ -1921,7 +1922,7 @@ abXY
 ```
 
 <!-- test: constant-let-array-to-mutating-param-error -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `let` bound to an array literal is immutable image data, so a callee that pushes onto its parameter is refused.
 

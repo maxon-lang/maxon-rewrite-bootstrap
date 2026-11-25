@@ -392,7 +392,7 @@ end 'main'
 ```
 
 <!-- test: error.push-through-a-field-chain-off-a-static-let -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A chain through a `static let` reaches immutable image data: `Facts.shared.counts` is a chain, so
 the receiver of the push is the field's own record rather than the binding. The push would write a page mapped
@@ -525,7 +525,7 @@ abXY
 ```
 
 <!-- test: error.append-to-a-string-field-off-a-static-let -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 type Holder

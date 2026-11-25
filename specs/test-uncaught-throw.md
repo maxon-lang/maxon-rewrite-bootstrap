@@ -510,6 +510,7 @@ end 'main'
 ```
 
 <!-- test: implied-try-argument-of-explicit-try -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 An explicit `try` covers its own target call only. A throwing call in that target's ARGUMENT list is a
 separate call, so its foreign error goes to the test body's implied handler.
 ```maxon
@@ -541,6 +542,7 @@ end 'main'
 ```
 
 <!-- test: implied-try-operand-of-a-parenthesized-target -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 A parenthesized `try` target claims the operation that produces the group's value, which here is the
 division. The throwing call that is an OPERAND of that division is a separate call, so its foreign
 error goes to the test body's implied handler.
@@ -578,6 +580,7 @@ end 'main'
 ```
 
 <!-- test: implied-try-iteration-error-in-a-for-range-bound -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 A `for` loop absorbs the `IterationError` of the call that hands it its cursor, and nothing else. Here the
 source is a RANGE whose lower bound is `peek`, which throws `IterationError` but hands the loop no cursor, so
 the loop has nothing to absorb and the call takes the test body's implied handler like any other.
@@ -603,6 +606,7 @@ end 'main'
 ```
 
 <!-- test: implied-try-await-as-a-for-range-bound -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 An `await` that is a range's lower bound hands the loop no cursor, so the loop absorbs nothing and the
 awaited error takes the test body's implied handler, as a bare `await` does anywhere else in the body.
 ```maxon
@@ -687,6 +691,7 @@ end 'main'
 ```
 
 <!-- test: implied-try-true-arm-of-a-for-source-ternary -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 A ternary `for` source hands the loop the value of whichever arm ran. Neither arm's call is the loop's
 cursor, so the TRUE arm's throwing call takes the test body's implied handler exactly as the false arm's does.
 ```maxon
@@ -728,6 +733,7 @@ end 'main'
 ```
 
 <!-- test: implied-try-bounds-of-a-parenthesized-range-target -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 An explicit `try` on `(a upto b).createIterator()` covers the chain's last call. The range's BOUNDS are
 operands of the range operator, so a throwing call in either takes the test body's implied handler.
 ```maxon
@@ -765,6 +771,7 @@ end 'main'
 ```
 
 <!-- test: implied-try-reinterpreted-element-as-a-for-range-bound -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 A narrow signed enum element is read back through a sign extension the accessor appends after its call.
 That extension is part of the call's result, so when the element read is the receiver of `.rawValue` in a
 range's lower bound, the receiver is still the throwing call and it takes the test body's implied handler.
@@ -797,6 +804,7 @@ end 'main'
 ```
 
 <!-- test: implied-try-for-source-iteration-error-is-absorbed -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 The call that hands a `for` loop its cursor throws `IterationError` for an EMPTY collection, and the loop
 absorbs it: the loop runs zero trips and the test goes on. The implied handler must not claim that call.
 ```maxon
@@ -849,6 +857,7 @@ end 'main'
 ```
 
 <!-- test: implied-try-cast-operand-as-a-for-range-bound -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 A cast that emits an op makes its operand an operand like any other. The throwing call under the cast is a
 range's lower bound, so it takes the test body's implied handler.
 ```maxon
@@ -966,6 +975,7 @@ end 'main'
 error E3057: specs/test-uncaught-throw/error.implied-try-closure-still-needs-try.maxon:19:36: throwing function requires try: 'lookup'
 ```
 <!-- test: implied-try-explicit-try-of-a-rebranded-call -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 An explicit `try` on a parenthesized call renamed to another brand of the same instance claims the call:
 the rebrand emits no op, so the call IS the value the group produces, and the author's `otherwise` owns its
 error.
@@ -1006,6 +1016,7 @@ end 'main'
 ```
 
 <!-- test: implied-try-explicit-try-of-a-range-checked-division -->
+<!-- skip: language difference: there is no maxon test and no Expect or TestFailure, so a test block is checked and left out of the program (README, Where it differs from Maxon: Conditional compilation, tests and annotations) -->
 An explicit `try` on a parenthesized checked division narrowed to a ranged alias whose representation is
 the division's own: the cast emits no op and only records its range site, so the division IS the value the
 group produces and the author's `otherwise` owns its divide-by-zero.

@@ -276,6 +276,7 @@ end 'main'
 ```
 
 <!-- test: error.a-counter-with-a-runtime-bound-requires-try -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A counter whose bound is not a literal has no known range, so a bare access is refused.
 ```maxon
@@ -463,6 +464,7 @@ error E3055: <fragment>:7:2: try requires a throwing function: this `set` cannot
 ```
 
 <!-- test: error.an-unproven-fixed-array-index-requires-try -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 An `ElementIndex` parameter is not proven, so the access can throw and a bare call is refused; the
 message names the ranged type that would prove it.

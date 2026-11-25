@@ -73,7 +73,7 @@ error E3197: <fragment>:8:10: cannot write through a read-only value while 'inne
 ```
 
 <!-- test: a-result-through-an-interface-requirement-is-read-only -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `h.part()` answers the interface value's own data, and `h` is inferred read-only for a frozen `Shelf`, so writing through the result is refused.
 
@@ -157,7 +157,7 @@ error E3205: <fragment>:22:7: cannot wait inside 'edit'; another coroutine could
 ```
 
 <!-- test: a-mutable-argument-to-an-immutable-type-parameter-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `look` declares `immutable T`, so a record another name may still write cannot be handed to it.
 
@@ -187,7 +187,7 @@ error E3207: <fragment>:18:15: 'look' takes `immutable` '_'; 'row' is mutable. F
 ```
 
 <!-- test: a-spawn-argument-that-is-mutable-to-an-immutable-factory-parameter-is-refused -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Sorter.create` declares its parameter `immutable`, so `spawn` refuses a mutable record, as a call does.
 
@@ -226,7 +226,7 @@ error E3207: <fragment>:26:30: 'create' takes `immutable` 'settings'; 's' is mut
 ```
 
 <!-- test: a-closure-that-captures-a-parameter-pins-it-mutable-only -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `wrap` captures its parameter `r` in a closure, so `r` is mutable only and the frozen row is refused at the call.
 
@@ -331,7 +331,7 @@ error E3205: <fragment>:20:14: cannot call the closure at <fragment>:17:12 insid
 ```
 
 <!-- test: a-result-through-a-function-value-is-read-only -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `getPart()` answers through a function value, so its result is never fresh and cannot be written when the function value was built over frozen data.
 
@@ -468,7 +468,7 @@ end 'main'
 ```
 
 <!-- test: a-result-stored-through-a-function-typed-parameter-pins-it-mutable-only -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `collect` stores what the function value hands back into a mutable array, so a closure over frozen data is refused at the call.
 
@@ -505,7 +505,7 @@ error E3207: <fragment>:23:22: 'collect' writes 'getPart' (line 16: `parts.push(
 ```
 
 <!-- test: a-by-reference-argument-is-not-a-clean-input-to-freeze -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pin` takes `part` by reference, so `Wrapper.around(part)` is not built from clean inputs and cannot be frozen.
 

@@ -81,7 +81,7 @@ end 'main'
 ```
 
 <!-- test: error.a-generic-body-keeping-its-type-parameter-refuses-a-writable-record -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same type instantiated with a record that has a `var` field is refused at the call to `Registry.remember`: a `Set` keeps `immutable` elements, so `remember` needs `keys` frozen, and `counters` is mutable.
 
@@ -141,7 +141,7 @@ error E3207: <fragment>:47:20: 'remember' needs 'keys' frozen (it calls 'insert'
 ```
 
 <!-- test: error.a-set-of-writable-records-is-refused-for-an-element-another-array-still-holds -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A record read out of an array the program still holds is mutable, so it is not handed to a `Set`, whose elements are `immutable`; the refusal is at the `insert` in the program's own loop.
 

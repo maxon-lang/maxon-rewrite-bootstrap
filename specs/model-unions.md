@@ -281,7 +281,7 @@ end 'main'
 ```
 
 <!-- test: model-finding-ae-varpayload-nonlinear-iso-param -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `varpayload-nonlinear-iso-param` of redteamAE/p8.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1509,7 +1509,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-f2-rec-slot-copy-no -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-rec-slot-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -2070,7 +2070,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-f2-urec-slot-copy-no -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-urec-slot-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -2676,7 +2676,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-f2-nest-slot-copy-no -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-nest-slot-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -3336,7 +3336,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-f2-nest2-slot-copy-no -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-nest2-slot-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -4406,7 +4406,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-f2-for-assign-no -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `f2-for-assign-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -4445,7 +4445,7 @@ error E3203: <fragment>:24:14: 'a' roots what 'f1' lends or iterates and cannot 
 ```
 
 <!-- test: model-hand-ah-f2-for-copy-elem-no -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-for-copy-elem-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -4721,7 +4721,7 @@ error E3102: <fragment>:26:21: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: model-hand-ah-cond3-copy-no -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `cond3-copy-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -4960,7 +4960,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-cond3-copy-w-no -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `cond3-copy-w-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -5779,7 +5779,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-i2-for-plain-array-match -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `i2-for-plain-array-match` of redteamAI.hand_ai4, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -6709,7 +6709,7 @@ error E3197: <fragment>:31:13: cannot write 'u' through 'h', which is read-only 
 ```
 
 <!-- test: model-hand-an-c1-cond-field-move -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c1-cond-field-move` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
 
@@ -6753,7 +6753,7 @@ error E3214: <fragment>:31:21: cannot move or copy the unique value matched by '
 ```
 
 <!-- test: model-hand-an-c1-cond-field-byref -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `c1-cond-field-byref` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
 
@@ -6801,7 +6801,7 @@ error E3207: <fragment>:35:22: 'clearHd2' needs a writable parameter 'x' at line
 ```
 
 <!-- test: model-hand-an-c1-cond-nested-local -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `c1-cond-nested-local` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
 
@@ -6986,7 +6986,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-an-f1-for-elems-nb-byref-root -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `f1-for-elems-nb-byref-root` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
 
@@ -7046,7 +7046,7 @@ error E3207: <fragment>:43:20: 'clrXs' needs a writable parameter 'h' at line 35
 ```
 
 <!-- test: model-hand-an-f1-for-local-arr-nb -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `f1-for-local-arr-nb` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
 
@@ -7157,7 +7157,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-an-n2-nb-iso-root-to-isoparam -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `n2-nb-iso-root-to-isoparam` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
 
@@ -7353,7 +7353,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ao-n3-for-cond-elem-match-cond-binding-two -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `n3-for-cond-elem-match-cond-binding-two` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
 
@@ -7457,7 +7457,7 @@ error E3207: <fragment>:36:23: 'two' needs a writable parameter 'b' at line 27; 
 ```
 
 <!-- test: model-hand-ao-n5-match-cond-binding-plus-cond-holder-call -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `n5-match-cond-binding-plus-cond-holder-call` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
 
@@ -7748,7 +7748,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ao-p1pc-pin-match-bare-cond-plain-union-nb-write-outer -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `p1pc-pin-match-bare-cond-plain-union-nb-write-outer` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
 
 ```maxon
@@ -8163,7 +8163,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ap-a1-param-idcall-iso -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3102, E3200. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `a1-param-idcall-iso` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8379,7 +8379,7 @@ error E3102: <fragment>:45:17: use of moved value 'v': its ownership moved to th
 ```
 
 <!-- test: model-hand-ap-m1-cond-lend-leaf-iso -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3200. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `m1-cond-lend-leaf-iso` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8476,6 +8476,7 @@ error E3102: <fragment>:41:17: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: model-hand-ap-k1-cond-arg-beside-var -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k1-cond-arg-beside-var` of redteamAP.hand_ap5, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8498,7 +8499,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(consumes u UT) returns Self
+	static function create(u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -8514,7 +8515,7 @@ function peekUT(x UT) returns Num
 	end 'x1'
 end 'peekUT'
 
-function bothUT(consumes x UT, y UT, mutates h Hd)
+function bothUT(x UT, y UT, h Hd)
 	h.u = x
 	_ = peekUT(y)
 end 'bothUT'
@@ -8531,6 +8532,7 @@ error E3102: <fragment>:44:40: 'uV' is passed at two arguments of this call, and
 ```
 
 <!-- test: model-hand-ap-k1-plain-arg-beside-var -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k1-plain-arg-beside-var` of redteamAP.hand_ap5, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8553,7 +8555,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(consumes u UT) returns Self
+	static function create(u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -8565,7 +8567,7 @@ function peekUT(x UT) returns Num
 	end 'x1'
 end 'peekUT'
 
-function bothUT(consumes x UT, y UT, mutates h Hd)
+function bothUT(x UT, y UT, h Hd)
 	h.u = x
 	_ = peekUT(y)
 end 'bothUT'
@@ -8582,6 +8584,7 @@ error E3102: <fragment>:40:16: 'uV' is passed at two arguments of this call, and
 ```
 
 <!-- test: model-hand-ap-k1-cond-arg-keep-twice -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k1-cond-arg-keep-twice` of redteamAP.hand_ap5, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8604,7 +8607,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(consumes u UT) returns Self
+	static function create(u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -8613,7 +8616,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function keep2(consumes x UT, consumes y UT, mutates h Hd, mutates g Hd)
+function keep2(x UT, y UT, h Hd, g Hd)
 	h.u = x
 	g.u = y
 end 'keep2'
@@ -8631,6 +8634,7 @@ error E3102: <fragment>:38:39: 'uV' is passed at two arguments of this call, and
 ```
 
 <!-- test: model-hand-ap-k1-cond-two-args-same -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k1-cond-two-args-same` of redteamAP.hand_ap5, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8653,7 +8657,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(consumes u UT) returns Self
+	static function create(u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -8662,7 +8666,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function keep2(consumes x UT, consumes y UT, mutates h Hd, mutates g Hd)
+function keep2(x UT, y UT, h Hd, g Hd)
 	h.u = x
 	g.u = y
 end 'keep2'
@@ -8729,7 +8733,7 @@ error E3102: <fragment>:38:8: use of moved value 'uV': its ownership moved to th
 ```
 
 <!-- test: model-hand-ar-z-implicit-store-main -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `z-implicit-store-main` of redteamAR.hand_ar0, in capmodel `reggio/REPORTRTAR.txt`.
 
@@ -9495,7 +9499,7 @@ error E3102: <fragment>:30:8: use of moved value 'u': its ownership moved to ano
 ```
 
 <!-- test: model-hand-fa15-l2-slot -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `l2-slot` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -9543,7 +9547,7 @@ error E3198: <fragment>:35:20: 'o' is isolated and cannot be read outside a bloc
 ```
 
 <!-- test: model-hand-fa15-l3-plain-var -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `l3-plain-var` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -9581,7 +9585,7 @@ error E3198: <fragment>:25:20: 'o' is isolated and cannot be read outside a bloc
 ```
 
 <!-- test: model-hand-fa15-l4-plain-param -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `l4-plain-param` of redteamFA15.hand_fa15a, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -9863,6 +9867,7 @@ error E3102: <fragment>:29:9: use of moved value 'u': it was moved in an earlier
 ```
 
 <!-- test: model-hand-fa15-n-cond-subject -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `n-cond-subject` of redteamFA15.hand_fa15b, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -10107,7 +10112,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa15-c13-slot-union-lent -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `c13-slot-union-lent` of redteamFA15.hand_fa15c, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -10155,7 +10160,7 @@ error E3198: <fragment>:35:20: 'o' is isolated and cannot be read outside a bloc
 ```
 
 <!-- test: model-hand-fa15-c15-for-element -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `c15-for-element` of redteamFA15.hand_fa15c, in capmodel `reggio/REPORTFA15.txt`.
 
@@ -10860,7 +10865,7 @@ error E3102: <fragment>:47:16: cannot lend 'u' to parameter 'u' of 'both', which
 ```
 
 <!-- test: model-hand-fa19-x-arm-stored-then-holder-isolated -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `x-arm-stored-then-holder-isolated` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
 
@@ -10922,7 +10927,7 @@ error E3200: <fragment>:49:11: 'u' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-fa19-x-arm-callee-local-holder-isolated -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `x-arm-callee-local-holder-isolated` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
 
@@ -11063,7 +11068,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa20-p5-for-root-writer -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `p5-for-root-writer` of redteamFA20.hand_fa20, in capmodel `reggio/REPORTFA20.txt`.
 
@@ -13234,7 +13239,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p1-plain-cond-reassign-nb -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `p1-plain-cond-reassign-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -13577,7 +13582,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p1-iso-cond-reassign-nb -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `p1-iso-cond-reassign-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -13889,7 +13894,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p1-unique-cond-reassign-nb -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `p1-unique-cond-reassign-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -14030,7 +14035,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p1-unique-cond-move-nb -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `p1-unique-cond-move-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -14150,7 +14155,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p1-none-cond-reassign-nb -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `p1-none-cond-reassign-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -14706,6 +14711,7 @@ error E3102: <fragment>:43:10: use of moved value 'q': its ownership moved to an
 ```
 
 <!-- test: model-hand-fa23-p2-cond-moves-in-arm -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `p2-cond-moves-in-arm` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -14759,7 +14765,7 @@ error E3102: <fragment>:40:19: use of moved value 'p': its ownership moved to an
 ```
 
 <!-- test: model-hand-fa23-p2-cond-slot-arm -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ISOREAD`; the compiler refuses it with E3198. Model program `p2-cond-slot-arm` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -14854,7 +14860,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p2-slot-lends -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3198. Model program `p2-slot-lends` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -14951,7 +14957,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p2-fresh-plain-lends -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `p2-fresh-plain-lends` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -15283,7 +15289,7 @@ error E3197: <fragment>:39:13: cannot write 'u' through 'hV.h', which is read-on
 ```
 
 <!-- test: model-hand-fa24-c5-match-cond-path-nb-byref -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `c5-match-cond-path-nb-byref` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
 
@@ -15331,7 +15337,7 @@ error E3207: <fragment>:35:17: 'clr' needs a writable parameter 'x' at line 27; 
 ```
 
 <!-- test: model-hand-fa24-c6-match-cond-path-nb-move -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c6-match-cond-path-nb-move` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
 
@@ -15375,7 +15381,7 @@ error E3214: <fragment>:31:21: cannot move or copy the unique value matched by '
 ```
 
 <!-- test: model-hand-fa24-d1-match-cond-path-plain-union-nb-reassign-root -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `d1-match-cond-path-plain-union-nb-reassign-root` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
 
@@ -15411,7 +15417,7 @@ error E3203: <fragment>:23:13: 'h' roots what 'x1' lends or iterates and cannot 
 ```
 
 <!-- test: model-hand-fa24-d2-match-cond-path-plain-union-nb-move-root -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `d2-match-cond-path-plain-union-nb-move-root` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
 
@@ -15791,7 +15797,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-c-plain-part-isoparam -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `c-plain-part-isoparam` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -15843,7 +15849,7 @@ error E3200: <fragment>:40:8: 'u' is not isolated: only a clean call, a `swap` o
 ```
 
 <!-- test: model-hand-fa25-c-plain-part-isodecl -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `c-plain-part-isodecl` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -15890,7 +15896,7 @@ error E3200: <fragment>:35:10: 'u as isolated UQ' is not isolated: only a clean 
 ```
 
 <!-- test: model-hand-fa25-c-arm-binding-isoparam -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c-arm-binding-isoparam` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -15929,7 +15935,7 @@ error E3214: <fragment>:26:19: cannot hand 'u' to an `isolated` position: 'u' is
 ```
 
 <!-- test: model-hand-fa25-c-arm-nobind-isodecl -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c-arm-nobind-isodecl` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -15998,7 +16004,7 @@ error E3200: <fragment>:21:21: 'u' is not an isolated value; `merge` moves an is
 ```
 
 <!-- test: model-hand-fa25-c-arm-nobind-slot -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c-arm-nobind-slot` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -16512,6 +16518,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-a-cond-in-loop-no-refill -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-cond-in-loop-no-refill` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
