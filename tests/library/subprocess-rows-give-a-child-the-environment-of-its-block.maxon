@@ -1,0 +1,113 @@
+// The environment of a spawn is the block that the caller made when envInherit is 0, and all of it: NAME=VALUE entries each ended
+// by a NUL and one more NUL after the last, as maxon's runtime hands it to the child, which is this program run again and reads
+// its own variables. The child has the variables of the block and not one that the program has itself (HOME, or SystemRoot on
+// Windows), an empty block leaves it none, an entry with text that is not ASCII arrives whole, and with envInherit 1 the block is
+// not read and the child has the program's own environment.
+// native-only
+//> block: probe=seen other=two witness=unset
+//> empty block: probe=unset other=unset witness=unset
+//> text: probe=héllo wörld other=unset witness=unset
+//> inherited: probe=unset other=unset witness=set
+//> every child exited: true
+
+typealias Blob = Array with Byte
+
+typealias Entries = Array with String
+
+let terminator = 0 as Byte
+
+let stdinNone = 0
+
+let outputCollect = 2
+
+let noFlags = 0
+
+let blockEnvironment = 0
+
+let parentEnvironment = 1
+
+// witness is a variable that every program has and the blocks of this test lack.
+#if os(Windows)
+	let witness = "SystemRoot"
+#else
+	let witness = "HOME"
+#endif
+
+function appendToken(mutates out Blob, token String)
+	for b in token.bytes() 'each'
+		out.push(b)
+	end 'each'
+	out.push(terminator)
+end 'appendToken'
+
+// blockOf is a block of the entries it is given and the NUL that ends it.
+function blockOf(entries Entries) returns Blob
+	var block = Blob.create(0)
+	for entry in entries 'each'
+		appendToken(block, token: entry)
+	end 'each'
+	block.push(terminator)
+	return block
+end 'blockOf'
+
+// valueOf is a variable of this program's environment as a line of the report says it: its value, or unset.
+function valueOf(name String) returns String
+	return try Process.environmentVariable(name) otherwise "unset"
+end 'valueOf'
+
+// presence says whether a variable is set, which the report does not give the value of.
+function presence(name String) returns String
+	if valueOf(name) == "unset" 'unset'
+		return "unset"
+	end 'unset'
+	return "set"
+end 'presence'
+
+function child() returns ExitCode
+	print("probe={valueOf("MAXON_ROW_PROBE")} other={valueOf("MAXON_ROW_OTHER")} witness={presence(witness)}")
+	return 0
+end 'child'
+
+// report runs this program as a child with the environment that a block and envInherit say, and gives what it printed.
+function report(block Blob, envInherit Count) returns String
+	var argv = Blob.create(0)
+	let executable = try Process.executablePath() otherwise return "no path"
+	appendToken(argv, token: executable.path)
+	appendToken(argv, token: "child")
+	let empty = ""
+	let handle = __Builtins.subprocessSpawn(argv.managed, 2, empty.cstr(), block.managed, envInherit, stdinNone, empty.cstr(), outputCollect, empty.cstr(), 0, outputCollect, empty.cstr(), 0, noFlags, 0)
+	if handle == -1 'failed'
+		return "spawn failed: {String.init(__Builtins.subprocessLastErrorMessage())}"
+	end 'failed'
+	let result = __Builtins.subprocessWaitCollect(handle, 0)
+	let text = String.init(__Builtins.subprocessResultStdout(result))
+	let exited = __Builtins.subprocessResultStatusKind(result) == 0 and __Builtins.subprocessResultStatusCode(result) == 0
+	__Builtins.subprocessResultRelease(result)
+	__Builtins.subprocessReleaseHandle(handle)
+	if not exited 'ended'
+		return "the child did not exit"
+	end 'ended'
+	return text
+end 'report'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() > 1 'child'
+		return child()
+	end 'child'
+	var entries = Entries.create(0)
+	entries.push("MAXON_ROW_PROBE=seen")
+	entries.push("MAXON_ROW_OTHER=two")
+	let block = report(blockOf(entries), envInherit: blockEnvironment)
+	print("block: {block}\n")
+	let empty = report(blockOf(Entries.create(0)), envInherit: blockEnvironment)
+	print("empty block: {empty}\n")
+	var text = Entries.create(0)
+	text.push("MAXON_ROW_PROBE=héllo wörld")
+	let spoken = report(blockOf(text), envInherit: blockEnvironment)
+	print("text: {spoken}\n")
+	let inherited = report(blockOf(entries), envInherit: parentEnvironment)
+	print("inherited: {inherited}\n")
+	print("every child exited: {block.startsWith("probe=") and empty.startsWith("probe=") and spoken.startsWith("probe=") and inherited.startsWith("probe=")}\n")
+	return 0
+end 'main'

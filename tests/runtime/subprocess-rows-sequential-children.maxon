@@ -1,8 +1,10 @@
 // Hundreds of children run one after another through the subprocess rows (spawn, wait, the readers of the result, the releases),
-// some with input bytes that the child never reads, some with their error discarded, leave the process with the descriptors it had
-// before them (fds on Linux and macOS, handles on Windows), and with no box of the program's left, which the count of the live boxes
-// at the end of the run says by exiting 99: neither the child's record, the run's record, the copy of the input, the result nor the
-// text it holds is kept after its release. A word that named a child before its release names nothing after it.
+// some with input bytes that the child never reads, some with their error discarded, some with an environment block of their own,
+// some with the null device as the file of a stream, some ended with their tree before any wait and some at a deadline of 50 ms,
+// leave the process with the descriptors it had before them (fds on Linux and macOS, handles on Windows), and with no box of the
+// program's left, which the count of the live boxes at the end of the run says by exiting 99: neither the child's record, the
+// run's record, the copy of the input, the vector of the environment, the result nor the text it holds is kept after its release.
+// A word that named a child before its release names nothing after it.
 //> 300 children through the rows left the descriptors as they were
 //> a released word names nothing
 
@@ -11,11 +13,51 @@
 	let rowsProgram = "cmd.exe\0/c\0exit 0\0"
 
 	let rowsTokens = 3 as Count
+
+	// The host's program that runs for a minute, and the null device, which a stream's file is.
+	let rowsSleeper = "cmd.exe\0/c\0ping -n 60 127.0.0.1 > nul\0"
+
+	let rowsSleeperTokens = 3 as Count
+
+	let rowsNullDevice = "NUL"
+
+	// A child ended by the kill of its tree exits with the kill's code.
+	let rowsEndedKind = 0 as Count
+
+	let rowsEndedCode = 1 as Count
 #else
 	let rowsProgram = "true\0"
 
 	let rowsTokens = 1 as Count
+
+	let rowsSleeper = "sleep\0600\0"
+
+	let rowsSleeperTokens = 2 as Count
+
+	let rowsNullDevice = "/dev/null"
+
+	// A child ended by the kill of its tree is ended by SIGKILL.
+	let rowsEndedKind = 1 as Count
+
+	let rowsEndedCode = 9 as Count
 #endif
+
+// The index of a run that has its own environment block, one whose stream is the null device as a file, one whose tree is ended
+// before any wait, and one that is ended at its deadline: each every so many runs.
+let rowsBlockEvery = 4 as Count
+
+// An index of a run that has no block of its own.
+let rowsNoBlock = 0 as Count
+
+let rowsFileEvery = 5 as Count
+
+let rowsEndEvery = 7 as Count
+
+let rowsLateEvery = 11 as Count
+
+let rowsDeadlineMs = 50 as Count
+
+let rowsTimedOut = 2 as Count
 
 let rowsSequential = 300 as Count
 
@@ -74,30 +116,85 @@ function rowsCoordinator(g Count) returns Count
 	return 0
 end 'rowsCoordinator'
 
+// rowsSpawnProgram starts a child of the blob of a program, with the streams as its kinds and paths say, and the environment that
+// the block gives where the index is 1 more than a multiple of rowsBlockEvery, and gives its handle.
+function rowsSpawnProgram(program String, tokens Count, index Count, inputKind Count, input String, outputKind Count, output String, errorKind Count) returns Count
+	let blob = bytesNew()
+	appendBytesOf(blob, address: __Raw.stringBytes(program), length: __Raw.stringLength(program))
+	var envKind = spawnEnvironmentParent
+	var block = 0 as Count
+	if index mod rowsBlockEvery == 1 'own'
+		envKind = spawnEnvironmentBlock
+		block = bytesNew()
+		let entry = "ROWS_PROBE=1\0\0"
+		appendBytesOf(block, address: __Raw.stringBytes(entry), length: __Raw.stringLength(entry))
+	end 'own'
+	let handle = subprocessSpawn(blob, argc: tokens, cwd: "", env: block, envInherit: envKind, stdinKind: inputKind, stdinData: input, stdoutKind: outputKind, stdoutData: output, stdoutLimit: 0, stderrKind: errorKind, stderrData: "", stderrLimit: 0, flags: 0, stdinLength: __Raw.stringLength(input))
+	rowsFreeBlob(blob)
+	if block != 0 'freeBlock'
+		rowsFreeBlob(block)
+	end 'freeBlock'
+	return handle
+end 'rowsSpawnProgram'
+
+// rowsEndOne starts a child that would run for a minute, ends its tree before any wait, and waits for what became of it: the
+// child ended by the kill, with no output.
+function rowsEndOne()
+	let handle = rowsSpawnProgram(rowsSleeper, tokens: rowsSleeperTokens, index: rowsNoBlock, inputKind: spawnStdinNone, input: "", outputKind: spawnOutputCollect, output: "", errorKind: spawnOutputDiscard)
+	if handle == rowsNoHandle 'failed'
+		panic("a spawn of a child that runs long failed")
+	end 'failed'
+	if subprocessEndTree(handle) != 0 'unended'
+		panic("the end of a child's tree was not confirmed")
+	end 'unended'
+	let result = subprocessWaitCollect(handle, ms: 0)
+	if result == rowsNoHandle or subprocessResultStatusKind(result) != rowsEndedKind or subprocessResultStatusCode(result) != rowsEndedCode 'ended'
+		panic("a child whose tree was ended did not say it was ended by the kill")
+	end 'ended'
+	subprocessResultRelease(result)
+	if subprocessEndTree(handle) != rowsNoHandle 'again'
+		panic("the end of a tree after its wait was not -1")
+	end 'again'
+	subprocessReleaseHandle(handle)
+end 'rowsEndOne'
+
+// rowsLateOne starts a child that would run for a minute and waits for it under a deadline of rowsDeadlineMs, which ends it with
+// its tree and says timedOut.
+function rowsLateOne()
+	let handle = rowsSpawnProgram(rowsSleeper, tokens: rowsSleeperTokens, index: rowsNoBlock, inputKind: spawnStdinNone, input: "", outputKind: spawnOutputCollect, output: "", errorKind: spawnOutputDiscard)
+	if handle == rowsNoHandle 'failed'
+		panic("a spawn of a child that runs long failed")
+	end 'failed'
+	let result = subprocessWaitCollect(handle, ms: rowsDeadlineMs)
+	if result == rowsNoHandle or subprocessResultStatusKind(result) != rowsTimedOut 'late'
+		panic("a child that a deadline ended did not say timedOut")
+	end 'late'
+	subprocessResultRelease(result)
+	subprocessReleaseHandle(handle)
+end 'rowsLateOne'
+
 // rowsSpawn starts the child, its standard input the given bytes where the index is odd and none where it is even, its output
 // collected and its error discarded where the index is divisible by three, and gives its handle.
 function rowsSpawn(index Count, input String) returns Count
-	let blob = rowsBlob()
-	let discarded = index mod 3 == 0
 	var inputKind = spawnStdinNone
+	var inputPath = input.clone()
 	if index mod 2 == 1 'bytes'
 		inputKind = spawnStdinBytes
 	end 'bytes'
+	var outputKind = spawnOutputCollect
+	var outputPath = ""
+	if index mod rowsFileEvery == 2 'files'
+		inputKind = spawnStdinFile
+		inputPath = rowsNullDevice.clone()
+		outputKind = spawnOutputFile
+		outputPath = rowsNullDevice.clone()
+	end 'files'
 	var errorKind = spawnOutputCollect
-	if discarded 'discard'
+	if index mod 3 == 0 'discard'
 		errorKind = spawnOutputDiscard
 	end 'discard'
-	let handle = subprocessSpawn(blob, argc: rowsTokens, cwd: "", env: 0, envInherit: spawnEnvironmentParent, stdinKind: inputKind, stdinData: input, stdoutKind: spawnOutputCollect, stdoutData: "", stdoutLimit: 0, stderrKind: errorKind, stderrData: "", stderrLimit: 0, flags: 0, stdinLength: __Raw.stringLength(input))
-	rowsFreeBlob(blob)
-	return handle
+	return rowsSpawnProgram(rowsProgram, tokens: rowsTokens, index: index, inputKind: inputKind, input: inputPath, outputKind: outputKind, output: outputPath, errorKind: errorKind)
 end 'rowsSpawn'
-
-// rowsBlob is a new byte array of the program's blob.
-function rowsBlob() returns Count
-	let blob = bytesNew()
-	appendBytesOf(blob, address: __Raw.stringBytes(rowsProgram), length: __Raw.stringLength(rowsProgram))
-	return blob
-end 'rowsBlob'
 
 function rowsFreeBlob(blob Count)
 	free(collectionData(blob))
@@ -106,6 +203,14 @@ end 'rowsFreeBlob'
 
 // rowsRunOne starts the child, waits for it and reads its result, which must be a clean exit with no output, and releases both.
 function rowsRunOne(index Count)
+	if index mod rowsEndEvery == 3 'ended'
+		rowsEndOne()
+		return
+	end 'ended'
+	if index mod rowsLateEvery == 4 'late'
+		rowsLateOne()
+		return
+	end 'late'
 	let handle = rowsSpawn(index, input: "input the child never reads\n")
 	if handle == rowsNoHandle 'failed'
 		panic("a spawn of a child that exits at once failed")

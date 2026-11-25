@@ -699,6 +699,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entrySubprocessReleaseHandle(vm, f: f, x: x)
 		return
 	end 'rtSubprocessReleaseHandle'
+	if symbol == ir.Rt.rtSubprocessEndTree 'rtSubprocessEndTree'
+		try entrySubprocessEndTree(vm, f: f, x: x)
+		return
+	end 'rtSubprocessEndTree'
 	if symbol == ir.Rt.rtSubprocessLastErrorCode 'rtSubprocessLastErrorCode'
 		try entrySubprocessLastErrorCode(vm, f: f, x: x)
 		return

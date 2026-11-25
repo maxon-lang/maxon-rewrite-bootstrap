@@ -341,14 +341,19 @@
 		return ownedString(dest, length: length, ascii: __Raw.stringAscii(path))
 	end 'osPathFrom'
 
-	// openPath is the fd of the file a path names, opened with flags, or -errno.
-	function openPath(path String, flags Count, mode Count) returns Count
-		let cPath = cStringOf(path)
+	// openPathBytes is the fd of the file that the bytes of a path name, opened with flags, or -errno.
+	function openPathBytes(path Count, length Count, flags Count, mode Count) returns Count
+		let cPath = cStringOfBytes(path, length: length)
 		enterBlocking()
 		let fd = __Raw.syscall4(linuxSysOpenat, arg1: atCwd(), arg2: cPath, arg3: flags, arg4: mode)
 		exitBlocking()
 		free(cPath)
 		return fd
+	end 'openPathBytes'
+
+	// openPath is the fd of the file a path names, opened with flags, or -errno.
+	function openPath(path String, flags Count, mode Count) returns Count
+		return openPathBytes(__Raw.stringBytes(path), length: __Raw.stringLength(path), flags: flags, mode: mode)
 	end 'openPath'
 
 	// statPath fills a struct stat of the file a path names and gives 0, or gives -errno, as statCString does for a

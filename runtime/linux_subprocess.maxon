@@ -8,16 +8,18 @@
 // the execve failed and with what errno: a child that executed the program closes it unwritten. The run reads both
 // output pipes as the child goes on, through the event queue, so that a child that fills one cannot block waiting for the run to
 // read the other, and watches for the child's exit through the pidfd of the child (eventProcessNew), which epoll reports
-// readable once it has ended; the child is then waited for, which returns at once. The child's environment is the run's own. Its
-// standard input is the run's, none (the null device) or a fourth pipe, which the run writes the input into as the child reads it,
-// through the event queue too, and its output and error are pipes, the null device or the run's own (subprocess.maxon).
+// readable once it has ended; the child is then waited for, which returns at once. The child's environment is the run's own, or a
+// block of the caller's. It leads a process group of its own, which ends the tree it starts (subprocess.maxon: endTree). Its
+// standard input is the run's, none (the null device), a file or a fourth pipe, which the run writes the input into as the child
+// reads it, through the event queue too, and its output and error are pipes, the null device, files or the run's own
+// (subprocess.maxon).
 
 #if os(Linux)
 	// The run's record, one allocation: the ends of the three pipes as eventChildPipe makes them (the read end then the write
 	// end, a word each), the status pipe as pipe2 writes it (the read end then the write end, 32 bits each), the errno a failed
 	// execve wrote, the run's wait (subprocess.maxon), and what the clone reads: every signal as a
 	// set, the thread's mask from before the clone blocked them, a struct sigaction of SIG_DFL, all zero, which the child gives
-	// the preemption signal, and the fds the child puts at its standard streams.
+	// the preemption signal, the fds the child puts at its standard streams, and the fds opened for the streams that are files.
 	let runOutputPipeOffset = 0 as Count
 
 	let runErrorPipeOffset = (runOutputPipeOffset + pipeEndBytes) as Count
@@ -41,7 +43,9 @@
 
 	let runErrorFdOffset = (runOutputFdOffset + wordBytes) as Count
 
-	let runWaitOffset = (runErrorFdOffset + wordBytes) as Count
+	let runStreamFilesOffset = (runErrorFdOffset + wordBytes) as Count
+
+	let runWaitOffset = (runStreamFilesOffset + streamFilesBytes) as Count
 
 	let runRecordBytes = (runWaitOffset + waitBytes) as Count
 
@@ -68,21 +72,6 @@
 
 	// execFailedExitCode is what a child whose execve failed exits with, as a shell's does.
 	let execFailedExitCode = 127
-
-	// Decoding a wait status: the low seven bits are the signal that ended the child, 0 when it exited, with its code in
-	// the eight bits after them; a child that a signal ended reports 128 plus the signal, the POSIX shell's convention, as
-	// maxon's runtime does.
-	let waitSignalMask = 0x7F
-
-	let waitExitShift = 8
-
-	let waitExitMask = 0xFF
-
-	let signalExitCodeBase = 128
-
-	let noWaitOptions = 0
-
-	let waitNoHang = 1
 
 	let noUsage = 0
 
@@ -149,18 +138,6 @@
 		return 0
 	end 'programPath'
 
-	// argumentVector is a new null-ended vector of the addresses of the argc tokens of a blob, each already ended by a NUL, as
-	// execve reads it; it is the caller's to free, and holds no copy of the blob, which must stay until the child has executed.
-	function argumentVector(blob Count, argc Count) returns Count
-		let vector = alloc(try (argc + 1) * wordBytes otherwise panic("too many arguments for memory"))
-		var offset = 0 as Count
-		for i in 0 upto argc 'tokens'
-			__Raw.storeWord(vector, offset: try i * wordBytes otherwise panic("too many arguments for memory"), value: __Raw.wrappingAdd(blob, right: offset))
-			offset = __Raw.wrappingAdd(offset, right: __Raw.wrappingAdd(terminatedLength(__Raw.wrappingAdd(blob, right: offset)), right: 1))
-		end 'tokens'
-		return vector
-	end 'argumentVector'
-
 	// closePipe closes both ends of the status pipe, which pipe2 made.
 	function closePipe(pipes Count)
 		closeFd(pipeFd(pipes, writeEnd: false))
@@ -185,9 +162,10 @@
 		return true
 	end 'openPipes'
 
-	// execChild is the child of a run: it puts the fds that the run names (an end of a pipe, or the null device) in place of
-	// its standard input, output and error, which dup3 leaves open on exec, moves to the zero-terminated directory unless that is
-	// noDirectory, and executes the program. When a step fails it writes the errno down the status pipe and exits.
+	// execChild is the child of a run: it leads a process group of its own, puts the fds that the run names (an end of a pipe, a
+	// file or the null device) in place of its standard input, output and error, which dup3 leaves open on exec, moves to the
+	// zero-terminated directory unless that is noDirectory, and executes the program with the environment that the vector of its
+	// entries is. When a step fails it writes the errno down the status pipe and exits.
 	//
 	// The child shares the run's memory and runs on the run's stack below the frame of runChild, while the run's thread
 	// waits in the clone, as Go's forkAndExecInChild1 does. So it makes only raw system calls and reads what the run made
@@ -200,16 +178,17 @@
 	// actions, which clone without CLONE_SIGHAND copies, and gives itself the run's mask back just before the execve, which
 	// keeps the mask, as a forked child had it. qemu-user, which runs arm64-linux under WSL, makes such a clone a fork, in
 	// which the same steps are as safe as they were.
-	function execChild(run Count, path Count, vector Count, directory Count)
-		_ = __Raw.syscall4(linuxSysRtSigaction, arg1: linuxSigurg, arg2: fieldAt(run, offset: runDefaultActionOffset), arg3: 0, arg4: linuxSignalMaskBytes)
+	function execChild(run Count, path Count, vector Count, directory Count, envp Count)
+		failChildUnless(run, result: __Raw.syscall4(linuxSysRtSigaction, arg1: linuxSigurg, arg2: fieldAt(run, offset: runDefaultActionOffset), arg3: 0, arg4: linuxSignalMaskBytes))
+		failChildUnless(run, result: __Raw.syscall2(linuxSysSetpgid, arg1: 0, arg2: 0))
 		if wordAt(run, offset: runInputFdOffset) != noFd 'input'
-			_ = __Raw.syscall3(linuxSysDup3, arg1: wordAt(run, offset: runInputFdOffset), arg2: stdinFd, arg3: noFlags)
+			failChildUnless(run, result: placeFd(wordAt(run, offset: runInputFdOffset), at: stdinFd))
 		end 'input'
 		if wordAt(run, offset: runOutputFdOffset) != noFd 'output'
-			_ = __Raw.syscall3(linuxSysDup3, arg1: wordAt(run, offset: runOutputFdOffset), arg2: stdoutFd, arg3: noFlags)
+			failChildUnless(run, result: placeFd(wordAt(run, offset: runOutputFdOffset), at: stdoutFd))
 		end 'output'
 		if wordAt(run, offset: runErrorFdOffset) != noFd 'errors'
-			_ = __Raw.syscall3(linuxSysDup3, arg1: wordAt(run, offset: runErrorFdOffset), arg2: stderrFd, arg3: noFlags)
+			failChildUnless(run, result: placeFd(wordAt(run, offset: runErrorFdOffset), at: stderrFd))
 		end 'errors'
 		if directory != noDirectory 'directory'
 			let moved = __Raw.syscall1(linuxSysChdir, arg1: directory)
@@ -217,10 +196,27 @@
 				failChild(run, errno: errnoOf(moved) or unmovedMark)
 			end 'unmoved'
 		end 'directory'
-		_ = __Raw.syscall4(linuxSysRtSigprocmask, arg1: linuxSigSetMask, arg2: fieldAt(run, offset: runCloneMaskOffset), arg3: 0, arg4: linuxSignalMaskBytes)
-		let result = __Raw.syscall3(linuxSysExecve, arg1: path, arg2: vector, arg3: environment())
+		failChildUnless(run, result: __Raw.syscall4(linuxSysRtSigprocmask, arg1: linuxSigSetMask, arg2: fieldAt(run, offset: runCloneMaskOffset), arg3: 0, arg4: linuxSignalMaskBytes))
+		let result = __Raw.syscall3(linuxSysExecve, arg1: path, arg2: vector, arg3: envp)
 		failChild(run, errno: errnoOf(result))
 	end 'execChild'
+
+	// placeFd makes an fd the one at a standard stream that an execve keeps, and gives 0 or -errno. dup3 refuses an fd that is the
+	// stream already (the run's own standard stream was closed, so that the fd it opened took the number), whose close-on-exec flag
+	// is cleared instead.
+	function placeFd(fd Count, at Count) returns Count
+		if fd == at 'placed'
+			return __Raw.syscall3(linuxSysFcntl, arg1: fd, arg2: linuxFcntlSetDescriptorFlags, arg3: 0)
+		end 'placed'
+		return __Raw.syscall3(linuxSysDup3, arg1: fd, arg2: at, arg3: noFlags)
+	end 'placeFd'
+
+	// failChildUnless is failChild for the result of a system call of the child that failed, which is -errno.
+	function failChildUnless(run Count, result Count)
+		if failed(result) 'failed'
+			failChild(run, errno: errnoOf(result))
+		end 'failed'
+	end 'failChildUnless'
 
 	// failChild writes the errno of the step of the child that failed down the status pipe and exits.
 	function failChild(run Count, errno Count)
@@ -266,31 +262,50 @@
 		return 0
 	end 'reap'
 
-	// childExited is whether the child has exited, which it waits for if so, its wait status kept in the wait then. It never waits
-	// otherwise: the entry that its pidfd is may hold an event of its last owner, so a wake of the entry is no proof.
-	function childExited(wait Count, child Count) returns bool
+	// childWaited waits for the child with the options of wait4, its wait status kept in the wait, and gives whether it had ended
+	// (and it is waited for then): a child that has not been waited for may always be.
+	function childWaited(wait Count, child Count, options Count) returns bool
 		let status = fieldAt(wait, offset: waitStatusOffset)
 		while true 'wait'
-			let result = __Raw.syscall4(linuxSysWait4, arg1: child, arg2: status, arg3: waitNoHang, arg4: noUsage)
+			let result = __Raw.syscall4(linuxSysWait4, arg1: child, arg2: status, arg3: options, arg4: noUsage)
 			if failed(result) and errnoOf(result) == linuxEintr 'again'
 				continue 'wait'
 			end 'again'
 			if failed(result) 'refused'
 				panic("cannot wait for a child that has not been waited for")
 			end 'refused'
+			if result == child 'ended'
+				markReaped(wait)
+			end 'ended'
 			return result == child
 		end 'wait'
 		return false
+	end 'childWaited'
+
+	// childExited is whether the child has exited, which it waits for if so, its wait status kept in the wait then. It never waits
+	// otherwise: the entry that its pidfd is may hold an event of its last owner, so a wake of the entry is no proof.
+	function childExited(wait Count, child Count) returns bool
+		return isReaped(wait) or childWaited(wait, child: child, options: waitNoHang)
 	end 'childExited'
 
-	// exitCodeOf is the exit code that a wait status says.
-	function exitCodeOf(status Count) returns Count
-		let signal = status and waitSignalMask
-		if signal != 0 'signalled'
-			return signalExitCodeBase + signal
-		end 'signalled'
-		return (status shr waitExitShift) and waitExitMask
-	end 'exitCodeOf'
+	// signalGroup sends a signal to the process group that the child leads, which the child's pid names, and gives 0 or -errno.
+	function signalGroup(pid Count, signal Count) returns Count
+		return __Raw.syscall2(linuxSysKill, arg1: __Raw.wrappingSub(0, right: pid), arg2: signal)
+	end 'signalGroup'
+
+	// noSuchGroup is whether the result of signalGroup says that the group has no member.
+	function noSuchGroup(result Count) returns bool
+		return failed(result) and errnoOf(result) == linuxEsrch
+	end 'noSuchGroup'
+
+	// openStreamFile is the fd of the file that the bytes of a path name, open to read an existing file, or made or emptied for
+	// writing, closed on exec, or -errno.
+	function openStreamFile(path Count, length Count, forWrite bool) returns Count
+		if forWrite 'write'
+			return openPathBytes(path, length: length, flags: linuxOpenReplace, mode: linuxFileMode)
+		end 'write'
+		return openPathBytes(path, length: length, flags: linuxOpenReadOnly, mode: 0)
+	end 'openStreamFile'
 
 	// prepareClone fills what the clone and its child read of the run's record: the set of every signal, and SIG_DFL's
 	// struct sigaction.
@@ -300,11 +315,6 @@
 			__Raw.storeWord(fieldAt(run, offset: runDefaultActionOffset), offset: try at * wordBytes otherwise panic("a sigaction past the run's record"), value: 0)
 		end 'action'
 	end 'prepareClone'
-
-	// killChild ends a child that is still running when its deadline passes.
-	function killChild(pid Count)
-		_ = __Raw.syscall2(linuxSysKill, arg1: pid, arg2: linuxSigkill)
-	end 'killChild'
 
 	// reapChild waits for a child that has not run, or that is ended, and gives its wait status.
 	function reapChild(run Count, pid Count) returns Count
@@ -334,20 +344,25 @@
 		return fd
 	end 'openNullDevice'
 
-	// streamFd is the fd that the child puts at a stream whose kind is given: an end of the run's pipe for a collected stream,
-	// the null device for one that is none or discarded, and noFd for one that the child inherits.
-	function streamFd(kind Count, collected Count, pipeEnd Count, nullFd Count, inherited Count) returns Count
+	// streamFd is the fd that the child puts at a stream whose kind is given: an end of the run's pipe for a collected stream, the
+	// fd of the file of one that is a file, the null device for one that is none or discarded, and noFd for one that the child
+	// inherits.
+	function streamFd(kind Count, collected Count, pipeEnd Count, nullFd Count, inherited Count, file Count, fileFd Count) returns Count
 		if kind == collected 'collected'
 			return pipeEnd
 		end 'collected'
 		if kind == inherited 'inherited'
 			return noFd
 		end 'inherited'
+		if kind == file 'file'
+			return fileFd
+		end 'file'
 		return nullFd
 	end 'streamFd'
 
 	// startChild starts the child that a request describes in the run, and gives 0, or the failure of the step that failed, with
-	// every pipe and fd it made closed. The zero-terminated copy of the directory is freed before it returns, on every way out.
+	// every pipe and fd it made closed. The zero-terminated copy of the directory and the vector of the environment are freed
+	// before it returns, on every way out.
 	function startChild(request Count, run Count) returns Count
 		let wait = fieldAt(run, offset: runWaitOffset)
 		let blob = wordAt(request, offset: requestArgvOffset)
@@ -364,11 +379,21 @@
 			free(program)
 			return setupFailure()
 		end 'pipes'
+		let files = fieldAt(run, offset: runStreamFilesOffset)
+		let unfiled = openStreamFiles(request, files: files)
+		if unfiled != 0 'unfiled'
+			closePipe(fieldAt(run, offset: runStatusPipeOffset))
+			closeChildEnds(fieldAt(run, offset: runOutputPipeOffset), errors: fieldAt(run, offset: runErrorPipeOffset), input: fieldAt(run, offset: runInputPipeOffset), pipes: pipes)
+			closeOurEnds(wait)
+			free(program)
+			return unfiled
+		end 'unfiled'
 		var nullFd = noFd
 		if inputKind == spawnStdinNone or outputKind == spawnOutputDiscard or errorKind == spawnOutputDiscard 'nulled'
 			nullFd = openNullDevice()
 			if failed(nullFd) 'unopened'
 				let failure = systemFailure(failureStepStream, code: errnoOf(nullFd))
+				closeStreamFiles(files)
 				closePipe(fieldAt(run, offset: runStatusPipeOffset))
 				closeChildEnds(fieldAt(run, offset: runOutputPipeOffset), errors: fieldAt(run, offset: runErrorPipeOffset), input: fieldAt(run, offset: runInputPipeOffset), pipes: pipes)
 				closeOurEnds(wait)
@@ -376,10 +401,15 @@
 				return failure
 			end 'unopened'
 		end 'nulled'
-		__Raw.storeWord(run, offset: runInputFdOffset, value: streamFd(inputKind, collected: spawnStdinBytes, pipeEnd: endOf(fieldAt(run, offset: runInputPipeOffset), writeEnd: false), nullFd: nullFd, inherited: spawnStdinInherit))
-		__Raw.storeWord(run, offset: runOutputFdOffset, value: streamFd(outputKind, collected: spawnOutputCollect, pipeEnd: endOf(fieldAt(run, offset: runOutputPipeOffset), writeEnd: true), nullFd: nullFd, inherited: spawnOutputInherit))
-		__Raw.storeWord(run, offset: runErrorFdOffset, value: streamFd(errorKind, collected: spawnOutputCollect, pipeEnd: endOf(fieldAt(run, offset: runErrorPipeOffset), writeEnd: true), nullFd: nullFd, inherited: spawnOutputInherit))
+		__Raw.storeWord(run, offset: runInputFdOffset, value: streamFd(inputKind, collected: spawnStdinBytes, pipeEnd: endOf(fieldAt(run, offset: runInputPipeOffset), writeEnd: false), nullFd: nullFd, inherited: spawnStdinInherit, file: spawnStdinFile, fileFd: wordAt(files, offset: streamInputFileOffset)))
+		__Raw.storeWord(run, offset: runOutputFdOffset, value: streamFd(outputKind, collected: spawnOutputCollect, pipeEnd: endOf(fieldAt(run, offset: runOutputPipeOffset), writeEnd: true), nullFd: nullFd, inherited: spawnOutputInherit, file: spawnOutputFile, fileFd: wordAt(files, offset: streamOutputFileOffset)))
+		__Raw.storeWord(run, offset: runErrorFdOffset, value: streamFd(errorKind, collected: spawnOutputCollect, pipeEnd: endOf(fieldAt(run, offset: runErrorPipeOffset), writeEnd: true), nullFd: nullFd, inherited: spawnOutputInherit, file: spawnOutputFile, fileFd: wordAt(files, offset: streamErrorFileOffset)))
 		let vector = argumentVector(blob, argc: wordAt(request, offset: requestArgcOffset))
+		let own = ownEnvironment(request)
+		var envp = environment()
+		if own != 0 'ownBlock'
+			envp = own
+		end 'ownBlock'
 		var start = noDirectory as Count
 		let directoryLength = wordAt(request, offset: requestDirectoryLengthOffset)
 		if directoryLength != 0 'directory'
@@ -392,7 +422,7 @@
 		_ = __Raw.syscall4(linuxSysRtSigprocmask, arg1: linuxSigSetMask, arg2: fieldAt(run, offset: runAllSignalsOffset), arg3: fieldAt(run, offset: runCloneMaskOffset), arg4: linuxSignalMaskBytes)
 		let pid = __Raw.syscall5(linuxSysClone, arg1: linuxCloneChildFlags, arg2: 0, arg3: 0, arg4: 0, arg5: 0)
 		if pid == 0 'child'
-			execChild(run, path: program, vector: vector, directory: start)
+			execChild(run, path: program, vector: vector, directory: start, envp: envp)
 		end 'child'
 		_ = __Raw.syscall4(linuxSysRtSigprocmask, arg1: linuxSigSetMask, arg2: fieldAt(run, offset: runCloneMaskOffset), arg3: 0, arg4: linuxSignalMaskBytes)
 		releaseForkAlone(lock)
@@ -400,9 +430,13 @@
 		if start != noDirectory 'started'
 			free(start)
 		end 'started'
+		if own != 0 'freeBlock'
+			free(own)
+		end 'freeBlock'
 		free(vector)
 		free(program)
 		closeChildEnds(fieldAt(run, offset: runOutputPipeOffset), errors: fieldAt(run, offset: runErrorPipeOffset), input: fieldAt(run, offset: runInputPipeOffset), pipes: pipes)
+		closeStreamFiles(files)
 		if nullFd != noFd 'closeNull'
 			closeFd(nullFd)
 		end 'closeNull'
@@ -434,37 +468,22 @@
 		return 0
 	end 'startChild'
 
-	// abandonRun ends a child that no wait has taken and gives up what the run holds of it: its exit's entry, its pid, which is
-	// waited for, and the ends of its pipes.
+	// abandonRun ends a child that no wait has taken, with the processes of its group, and gives up what the run holds of it: its
+	// exit's entry, its pid, which is waited for unless a kill of its tree did, and the ends of its pipes.
 	function abandonRun(run Count)
 		let wait = waitOf(run)
 		let pid = wordAt(wait, offset: waitChildOffset)
 		eventProcessFree(wordAt(wait, offset: waitProcessOffset))
 		killChild(pid)
-		_ = reapChild(run, pid: pid)
+		if not isReaped(wait) 'unreaped'
+			_ = reapChild(run, pid: pid)
+		end 'unreaped'
 		closeOurEnds(wait)
 	end 'abandonRun'
 
 	// finishRun gives back what a child holds once its wait has ended, which on Linux is nothing: the pid was waited for.
 	function finishRun(run Count)
 	end 'finishRun'
-
-	// statusKindOf is how a child ended that a wait status says: a child that a signal ended is signalled.
-	function statusKindOf(status Count) returns Count
-		if (status and waitSignalMask) != 0 'signalled'
-			return resultSignalled
-		end 'signalled'
-		return resultExited
-	end 'statusKindOf'
-
-	// statusCodeOf is the code of how a child ended: the signal's number for a child that a signal ended, and the exit code for
-	// one that exited.
-	function statusCodeOf(status Count) returns Count
-		if (status and waitSignalMask) != 0 'signalled'
-			return status and waitSignalMask
-		end 'signalled'
-		return (status shr waitExitShift) and waitExitMask
-	end 'statusCodeOf'
 
 	// win32CodeOf is an errno in the words of Win32 that maxon's runtime uses on every system.
 	function win32CodeOf(errno Count) returns Count

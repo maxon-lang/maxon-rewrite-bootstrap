@@ -86,7 +86,7 @@
 
 	// The run's frame, one allocation: the startup record, the array of the handles the child inherits (which the attribute
 	// list points into until the child is created), the process record, the ends of the three pipes (a word for each of
-	// the read end and the write end), and the run's wait.
+	// the read end and the write end), the handles opened for the streams that are not pipes, and the run's wait.
 	let frameStartupOffset = 0
 
 	let frameInheritedOffset = frameStartupOffset + startupBytes
@@ -99,7 +99,9 @@
 
 	let frameInputEndsOffset = (frameErrorEndsOffset + pipeEndBytes) as Count
 
-	let frameWaitOffset = (frameInputEndsOffset + pipeEndBytes) as Count
+	let frameStreamHandlesOffset = (frameInputEndsOffset + pipeEndBytes) as Count
+
+	let frameWaitOffset = (frameStreamHandlesOffset + streamHandlesBytes) as Count
 
 	let frameBytes = (frameWaitOffset + waitBytes) as Count
 #endif
@@ -115,6 +117,8 @@ let ioFailed = 3
 
 let timedOut = 4
 
+let treeNotEnded = 5
+
 // inputChunkBytes is the most of a run's input that one write offers the pipe of the child's standard input.
 let inputChunkBytes = 65536
 
@@ -123,6 +127,12 @@ let noDeadline = 0
 
 // killedExitCode is the exit code of a child that a run ended at its deadline.
 let killedExitCode = 1
+
+// treeEndBoundMs is how long the end of a child's tree is given to leave no process of it running, and treePollMs how often it
+// is looked at meanwhile: a green sleep, so that the scheduler runs on.
+let treeEndBoundMs = 5000
+
+let treePollMs = 1
 
 function spawnFailures() returns Count
 	return failureCases(executableNotFound, accessDenied: spawnFailed, busy: spawnBusy, alreadyExists: spawnFailed, other: spawnFailed)
@@ -139,8 +149,9 @@ end 'wordAt'
 // A run's wait is a record of words that the green threads serving the run share: the event entry of the child's exit, the
 // child (its pid, or its process handle on Windows) for killChild, the run's deadline (eventNoDeadline for none) as the event
 // queue's clock reads it, whether the deadline ended a wait, what the child ended with (its wait status, or on Windows its
-// exit code), the child's process id and when it started (the event queue's clock, in nanoseconds), and a record for each of the
-// two output streams and for the input.
+// exit code), the child's process id and when it started (the event queue's clock, in nanoseconds), whether the tree of the child
+// was ended, whether part of it was still running after that, whether a POSIX child has been waited for (its status kept), and a
+// record for each of the two output streams and for the input.
 let waitProcessOffset = 0
 
 let waitChildOffset = 8
@@ -155,7 +166,13 @@ let waitPidOffset = 40
 
 let waitStartedOffset = 48
 
-let waitOutputOffset = 56
+let waitKilledOffset = 56
+
+let waitSurvivedOffset = 64
+
+let waitReapedOffset = 72
+
+let waitOutputOffset = 80
 
 let waitErrorOffset = waitOutputOffset + streamBytes
 
@@ -378,8 +395,14 @@ function startHelper(code Count, argument Count) returns Count
 	return helper
 end 'startHelper'
 
+// killTree ends the child's tree, which the deadline of a run does, and says in the wait that it has.
+function killTree(wait Count)
+	_ = endTree(wait)
+	__Raw.storeWord(wait, offset: waitKilledOffset, value: set)
+end 'killTree'
+
 // exitWaiterMain waits for the child of a run to exit, in the run's wait that is its green thread's argument, until the run's
-// deadline; a child still running then is ended (killChild) and waited for on. An entry may hold an event of its last owner,
+// deadline; a child still running then is ended with its tree (killTree) and waited for on. An entry may hold an event of its last owner,
 // so a wake says nothing of the child (childExited does), as a wake of a handle's entry says nothing of what its call finds.
 function exitWaiterMain(g Count) returns Count
 	let wait = greenArgument(g, index: 0)
@@ -398,7 +421,7 @@ function exitWaiterMain(g Count) returns Count
 			panic("the wait for a child's exit ended otherwise than by its exit or the run's deadline")
 		end 'unexpected'
 		markExpired(wait)
-		killChild(child)
+		killTree(wait)
 		deadline = eventNoDeadline
 	end 'exit'
 	return 0
@@ -473,7 +496,8 @@ function inputWriterMain(g Count) returns Count
 end 'inputWriterMain'
 
 // awaitChild serves a run whose child has started, until the child has exited, its output has ended and its input is written
-// or refused, and says whether the run's deadline ended a wait. The caller has put in the run's wait the child, the entry of its
+// or refused, and says whether the run's deadline ended a wait: it ends the child's tree then, and says in the wait whether part of
+// the tree was still running (waitSurvivedOffset). The caller has put in the run's wait the child, the entry of its
 // exit, the entries of the ends of its pipes that the run uses, and the bytes and the length of the input that is written. The
 // run's own green thread parks until the green threads that read, write and wait have finished: one for each pipe the run has, so
 // that a stream that is not collected has none; the ends and the exit's entry are closed and given back by then, and the
@@ -509,8 +533,18 @@ function awaitChild(wait Count, deadlineMs Count) returns bool
 	if inputWriter != noGreen 'written'
 		_ = greenAwait(inputWriter)
 	end 'written'
+	let expired = wordAt(wait, offset: waitExpiredOffset) != 0
+	if expired 'late'
+		// A child that exited before the deadline left processes that hold its pipes, which the deadline ends too.
+		if wordAt(wait, offset: waitKilledOffset) == 0 'unended'
+			killTree(wait)
+		end 'unended'
+		if not treeEnded(wait) 'survived'
+			__Raw.storeWord(wait, offset: waitSurvivedOffset, value: set)
+		end 'survived'
+	end 'late'
 	eventProcessFree(wordAt(wait, offset: waitProcessOffset))
-	return wordAt(wait, offset: waitExpiredOffset) != 0
+	return expired
 end 'awaitChild'
 
 // argumentAt is the address of the argument at an index of an array of strings, which stays there: its bytes are
@@ -562,7 +596,7 @@ function runChild(executable String, arguments Count, directory String, hasInput
 	let blobLength = argvBlobBytes(executable, arguments: arguments)
 	let blob = alloc(blobLength)
 	fillArgvBlob(executable, arguments: arguments, dst: blob)
-	let request = alloc(requestBytes)
+	let request = newRequest()
 	__Raw.storeWord(request, offset: requestArgvOffset, value: blob)
 	__Raw.storeWord(request, offset: requestArgvLengthOffset, value: blobLength)
 	__Raw.storeWord(request, offset: requestArgcOffset, value: __Raw.wrappingAdd(wordAt(arguments, offset: osArrayLengthOffset), right: 1))
@@ -595,8 +629,9 @@ function runChild(executable String, arguments Count, directory String, hasInput
 	if expired 'late'
 		freeStream(fieldAt(wait, offset: waitOutputOffset))
 		freeStream(fieldAt(wait, offset: waitErrorOffset))
+		let survived = wordAt(wait, offset: waitSurvivedOffset) != 0
 		free(run)
-		failWith(errorAddress, errorCase: timedOut)
+		failWith(errorAddress, errorCase: treeNotEnded if survived else timedOut)
 		return 0
 	end 'late'
 	storeStream(stdout, stream: fieldAt(wait, offset: waitOutputOffset))
@@ -705,9 +740,9 @@ end 'osRunInput'
 
 	// createChild creates the child that command and the startup record describe, inheriting the handles of the array and no
 	// others, with the creation flags given, in the directory that the zero-terminated UTF-16 path names, or in the caller's
-	// working directory for noCurrentDirectory, and gives the Win32 error of the step that failed, or 0 when the child was
-	// created.
-	function createChild(command Count, startup Count, inherited Count, inheritedCount Count, process Count, flags Count, directory Count) returns Count
+	// working directory for noCurrentDirectory, with the environment that the zero-terminated block of UTF-16 names, or the
+	// caller's own for noEnvironment, and gives the Win32 error of the step that failed, or 0 when the child was created.
+	function createChild(command Count, startup Count, inherited Count, inheritedCount Count, process Count, flags Count, directory Count, environment Count) returns Count
 		var listBytes = 0 as Count
 		// The call that asks for the size fails by design.
 		_ = __Raw.callImport4("InitializeProcThreadAttributeList", arg1: noAttributeList, arg2: attributeCount, arg3: noAttributeFlags, arg4: __Raw.addressOf(listBytes))
@@ -723,7 +758,7 @@ end 'osRunInput'
 			failure = win32Error()
 		end 'unupdated' else 'update'
 			__Raw.storeWord(startup, offset: startupAttributeListOffset, value: list)
-			let created = __Raw.callImport10("CreateProcessW", arg1: noApplication, arg2: command, arg3: noSecurity, arg4: noThreadSecurity, arg5: inheritHandles, arg6: flags, arg7: noEnvironment, arg8: directory, arg9: startup, arg10: process)
+			let created = __Raw.callImport10("CreateProcessW", arg1: noApplication, arg2: command, arg3: noSecurity, arg4: noThreadSecurity, arg5: inheritHandles, arg6: flags, arg7: environment, arg8: directory, arg9: startup, arg10: process)
 			if dword(created) == 0 'uncreated'
 				failure = win32Error()
 			end 'uncreated'
@@ -733,27 +768,62 @@ end 'osRunInput'
 		return failure
 	end 'createChild'
 
-	// killChild ends a child that is still running when its deadline passes.
+	// killChild ends a child alone that is still running, which is what a child whose tree is not held yet is ended by.
 	function killChild(child Count)
 		_ = __Raw.callImport2("TerminateProcess", arg1: child, arg2: killedExitCode)
 	end 'killChild'
 
-	// childExited is whether the child has exited, which its job says by holding no process, and keeps its exit code in the wait
-	// then, once its handle is signalled, which is with the job's notification or an instant after.
-	function childExited(wait Count, child Count) returns bool
+	// endTree ends the child and every process it started that is in its job, which is every one that did not break away from it,
+	// and gives the Win32 error of a kill that was refused, or 0. The processes are ending when it returns (treeEnded).
+	function endTree(wait Count) returns Count
 		let job = wordAt(wordAt(wait, offset: waitProcessOffset), offset: entryHandleOffset)
+		if dword(__Raw.callImport2("TerminateJobObject", arg1: job, arg2: killedExitCode)) == 0 'refused'
+			return win32Error()
+		end 'refused'
+		return 0
+	end 'endTree'
+
+	// jobActiveProcesses is how many processes of a job are running: the child and the tree it started.
+	function jobActiveProcesses(job Count) returns Count
 		let accounting = alloc(jobAccountingBytes)
 		if dword(__Raw.callImport5("QueryInformationJobObject", arg1: job, arg2: jobBasicAccountingInformation, arg3: accounting, arg4: jobAccountingBytes, arg5: noReturnSize)) == 0 'refused'
 			panic("cannot read the accounting of a child's job")
 		end 'refused'
 		let active = __Raw.loadWord32(accounting, offset: jobActiveProcessesOffset)
 		free(accounting)
-		if active != 0 'running'
-			return false
+		return active
+	end 'jobActiveProcesses'
+
+	// treeEnded waits, as long as treeEndBoundMs, until the job of the child holds no process, and says whether it came to.
+	function treeEnded(wait Count) returns bool
+		let job = wordAt(wordAt(wait, offset: waitProcessOffset), offset: entryHandleOffset)
+		let bound = __Raw.wrappingAdd(osClockMillis(), right: treeEndBoundMs)
+		while jobActiveProcesses(job) != 0 'running'
+			if osClockMillis() >= bound 'late'
+				return false
+			end 'late'
+			sleepMs(treePollMs)
 		end 'running'
-		enterBlocking()
-		_ = __Raw.callImport2("WaitForSingleObject", arg1: child, arg2: infinite)
-		exitBlocking()
+		return true
+	end 'treeEnded'
+
+	// The answer of WaitForSingleObject for a handle that is signalled.
+	let waitObjectSignalled = 0
+
+	// childExited is whether the child has exited, which its handle says, and keeps its exit code in the wait then. The job reports
+	// the child's exit (processHasExited), or that it holds no process, a moment before the handle is signalled, and an entry may
+	// hold an event of its last owner: a handle that is not signalled and a job that has reported the child's exit or holds no
+	// process is a child that has exited; any other is one that runs.
+	function childExited(wait Count, child Count) returns bool
+		if dword(__Raw.callImport2("WaitForSingleObject", arg1: child, arg2: 0)) != waitObjectSignalled 'unsignalled'
+			let watch = wordAt(wait, offset: waitProcessOffset)
+			if not processHasExited(watch) and jobActiveProcesses(wordAt(watch, offset: entryHandleOffset)) != 0 'running'
+				return false
+			end 'running'
+			enterBlocking()
+			_ = __Raw.callImport2("WaitForSingleObject", arg1: child, arg2: infinite)
+			exitBlocking()
+		end 'unsignalled'
 		var exitCode = 0 as Count
 		_ = __Raw.callImport2("GetExitCodeProcess", arg1: child, arg2: __Raw.addressOf(exitCode))
 		__Raw.storeWord(wait, offset: waitStatusOffset, value: exitCode)
@@ -769,12 +839,14 @@ end 'osRunInput'
 		closeOurEnds(wait)
 	end 'abandonChild'
 
-	// abandonRun ends a child that no wait has taken and gives up what the run holds of it: its exit's entry, its process handle and
-	// the ends of its pipes.
+	// abandonRun ends a child that no wait has taken, with the tree it started, and gives up what the run holds of it: its exit's
+	// entry, its process handle and the ends of its pipes.
 	function abandonRun(run Count)
 		let wait = waitOf(run)
+		if endTree(wait) != 0 'refused'
+			killChild(wordAt(wait, offset: waitChildOffset))
+		end 'refused'
 		eventProcessFree(wordAt(wait, offset: waitProcessOffset))
-		killChild(wordAt(wait, offset: waitChildOffset))
 		closeHandle(wordAt(wait, offset: waitChildOffset))
 		closeOurEnds(wait)
 	end 'abandonRun'
@@ -799,17 +871,29 @@ end 'osRunInput'
 		return status
 	end 'statusCodeOf'
 
+	// killedCodeOf is the code of a child that the end of its tree was sent to: the code it ended with, which is the kill's for a child
+	// the kill reached and the child's own for one that had exited.
+	function killedCodeOf(status Count) returns Count
+		return status
+	end 'killedCodeOf'
+
 	// win32CodeOf is a system's error in Win32's vocabulary, which on Windows it is.
 	function win32CodeOf(code Count) returns Count
 		return code
 	end 'win32CodeOf'
 
-	// openNullDevice is a handle of the null device that a child inherits, open for reading and writing, or invalidHandle.
-	function openNullDevice() returns Count
+	// inheritableSecurity is a new SECURITY_ATTRIBUTES whose handle a child inherits, which the caller frees.
+	function inheritableSecurity() returns Count
 		let security = alloc(securityBytes)
 		zeroRange(security, from: 0, to: securityBytes)
 		__Raw.storeWord32(security, offset: securityLengthOffset, value: securityBytes)
 		__Raw.storeWord32(security, offset: securityInheritOffset, value: 1)
+		return security
+	end 'inheritableSecurity'
+
+	// openNullDevice is a handle of the null device that a child inherits, open for reading and writing, or invalidHandle.
+	function openNullDevice() returns Count
+		let security = inheritableSecurity()
 		let name = wideOf(nullDeviceName)
 		let handle = __Raw.callImport7("CreateFileW", arg1: name, arg2: genericRead or genericWrite, arg3: fileShareRead or fileShareWrite, arg4: security, arg5: openExisting, arg6: fileAttributeNormal, arg7: noTemplate)
 		free(name)
@@ -817,22 +901,136 @@ end 'osRunInput'
 		return handle
 	end 'openNullDevice'
 
+	// openStreamFile is a handle that a child inherits of the file that the bytes of a path name, open to read an existing file, or
+	// made or emptied for writing, with every share mode as maxon's, or invalidHandle.
+	function openStreamFile(path Count, length Count, forWrite bool) returns Count
+		let security = inheritableSecurity()
+		let name = wideOfBytes(path, length: length)
+		var access = genericRead as Count
+		var disposition = openExisting as Count
+		if forWrite 'write'
+			access = genericWrite
+			disposition = createAlways
+		end 'write'
+		let handle = __Raw.callImport7("CreateFileW", arg1: name, arg2: access, arg3: fileShareRead or fileShareWrite or fileShareDelete, arg4: security, arg5: disposition, arg6: fileAttributeNormal, arg7: noTemplate)
+		free(name)
+		free(security)
+		return handle
+	end 'openStreamFile'
+
 	let nullDeviceName = "NUL"
 
 	let fileShareWrite = 2
 
-	// createNoWindow is CREATE_NO_WINDOW, which a child that hides its window is created with.
+	let fileShareDelete = 4
+
+	// createNoWindow is CREATE_NO_WINDOW, which a child that hides its window is created with, createNewProcessGroup
+	// CREATE_NEW_PROCESS_GROUP, which a child that is a group of its own is, and createUnicodeEnvironment the flag of an
+	// environment block of UTF-16.
 	let createNoWindow = 0x08000000
+
+	let createNewProcessGroup = 0x200
+
+	let createUnicodeEnvironment = 0x400
+
+	// The handles that a start opens for the standard streams, a word each in the run's frame: the null device, which a stream
+	// that is none or discarded is, and the file of each stream whose kind is a file. invalidHandle for one that is not open.
+	let streamNullOffset = 0
+
+	let streamInputFileOffset = 8
+
+	let streamOutputFileOffset = 16
+
+	let streamErrorFileOffset = 24
+
+	let streamHandlesBytes = 32
+
+	// closeStreamHandles closes the handles that openStreamHandles opened, and leaves none open.
+	function closeStreamHandles(handles Count)
+		for at in 0 upto streamHandlesBytes / wordBytes 'each'
+			let offset = try at * wordBytes otherwise panic("a stream handle past the run's frame")
+			let handle = wordAt(handles, offset: offset)
+			if handle != invalidHandle 'open'
+				closeHandle(handle)
+				__Raw.storeWord(handles, offset: offset, value: invalidHandle)
+			end 'open'
+		end 'each'
+	end 'closeStreamHandles'
+
+	// openStreamFileInto opens the file of a stream and keeps its handle at an offset of the handles, and gives 0, or the failure of
+	// the open with every handle opened closed.
+	function openStreamFileInto(handles Count, offset Count, request Count, pathOffset Count, forWrite bool) returns Count
+		let handle = openStreamFile(wordAt(request, offset: pathOffset), length: wordAt(request, offset: __Raw.wrappingAdd(pathOffset, right: wordBytes)), forWrite: forWrite)
+		let code = win32Error()
+		if handle == invalidHandle 'unopened'
+			closeStreamHandles(handles)
+			return systemFailure(failureStepStream, code: code)
+		end 'unopened'
+		__Raw.storeWord(handles, offset: offset, value: handle)
+		return 0
+	end 'openStreamFileInto'
+
+	// openStreamHandles opens what a request's streams are of the system's: the null device where one is none or discarded, and the
+	// file of each that is a file. It gives 0, or the failure of the open that failed, with every handle it opened closed.
+	function openStreamHandles(request Count, handles Count) returns Count
+		for at in 0 upto streamHandlesBytes / wordBytes 'clear'
+			__Raw.storeWord(handles, offset: try at * wordBytes otherwise panic("a stream handle past the run's frame"), value: invalidHandle)
+		end 'clear'
+		let inputKind = wordAt(request, offset: requestInputKindOffset)
+		let outputKind = wordAt(request, offset: requestOutputKindOffset)
+		let errorKind = wordAt(request, offset: requestErrorKindOffset)
+		if inputKind == spawnStdinNone or outputKind == spawnOutputDiscard or errorKind == spawnOutputDiscard 'nulled'
+			let nullDevice = openNullDevice()
+			let code = win32Error()
+			if nullDevice == invalidHandle 'unopened'
+				return systemFailure(failureStepStream, code: code)
+			end 'unopened'
+			__Raw.storeWord(handles, offset: streamNullOffset, value: nullDevice)
+		end 'nulled'
+		if inputKind == spawnStdinFile 'input'
+			let failure = openStreamFileInto(handles, offset: streamInputFileOffset, request: request, pathOffset: requestInputPathOffset, forWrite: false)
+			if failure != 0 'inputFailed'
+				return failure
+			end 'inputFailed'
+		end 'input'
+		if outputKind == spawnOutputFile 'output'
+			let failure = openStreamFileInto(handles, offset: streamOutputFileOffset, request: request, pathOffset: requestOutputPathOffset, forWrite: true)
+			if failure != 0 'outputFailed'
+				return failure
+			end 'outputFailed'
+		end 'output'
+		if errorKind == spawnOutputFile 'errors'
+			let failure = openStreamFileInto(handles, offset: streamErrorFileOffset, request: request, pathOffset: requestErrorPathOffset, forWrite: true)
+			if failure != 0 'errorsFailed'
+				return failure
+			end 'errorsFailed'
+		end 'errors'
+		return 0
+	end 'openStreamHandles'
+
+	// wideEnvironmentOf is a new block of UTF-16 of the environment block of the bytes at an address, its NAME=VALUE entries each
+	// ended by a unit of 0, and then two more such units, so that an empty block ends as Windows reads it.
+	function wideEnvironmentOf(block Count, length Count) returns Count
+		let wide = alloc(try (length + 2) * wideUnitBytes otherwise panic("an environment past memory"))
+		var units = 0 as Count
+		if length != 0 'some'
+			units = utf16FromUtf8(block, byteLength: length, dst: wide)
+		end 'some'
+		storeUnit(wide, index: units, value: 0)
+		storeUnit(wide, index: __Raw.wrappingAdd(units, right: 1), value: 0)
+		return wide
+	end 'wideEnvironmentOf'
 
 	// startChild starts the child that a request describes in the run, and gives 0, or the failure of the step that failed, with
 	// every pipe and handle it made closed. The child is created suspended, watched (eventProcessNew) and then resumed, so that
-	// its exit is not missed; its standard handles are the ends of the run's pipes, the null device, or the caller's own; the
-	// zero-terminated UTF-16 copies it makes of the command line and the directory are freed before it returns.
+	// its exit is not missed; its standard handles are the ends of the run's pipes, the null device, a file, or the caller's own;
+	// the zero-terminated UTF-16 copies it makes of the command line, the directory and the environment are freed before it returns.
 	function startChild(request Count, run Count) returns Count
 		let wait = waitOf(run)
 		let output = fieldAt(run, offset: frameOutputEndsOffset)
 		let errors = fieldAt(run, offset: frameErrorEndsOffset)
 		let inputEnds = fieldAt(run, offset: frameInputEndsOffset)
+		let handles = fieldAt(run, offset: frameStreamHandlesOffset)
 		let pipes = pipesOf(request)
 		let inputKind = wordAt(request, offset: requestInputKindOffset)
 		let outputKind = wordAt(request, offset: requestOutputKindOffset)
@@ -841,37 +1039,42 @@ end 'osRunInput'
 		if not openRunPipes(wait, output: output, errors: errors, input: inputEnds, pipes: pipes) 'pipes'
 			return setupFailure()
 		end 'pipes'
-		var nullDevice = invalidHandle
-		if inputKind == spawnStdinNone or outputKind == spawnOutputDiscard or errorKind == spawnOutputDiscard 'nulled'
-			nullDevice = openNullDevice()
-			if nullDevice == invalidHandle 'unopened'
-				let failure = systemFailure(failureStepStream, code: win32Error())
-				closeChildEnds(output, errors: errors, input: inputEnds, pipes: pipes)
-				closeOurEnds(wait)
-				return failure
-			end 'unopened'
-		end 'nulled'
-		var childInput = nullDevice
+		let opened = openStreamHandles(request, handles: handles)
+		if opened != 0 'unopened'
+			closeChildEnds(output, errors: errors, input: inputEnds, pipes: pipes)
+			closeOurEnds(wait)
+			return opened
+		end 'unopened'
+		var childInput = wordAt(handles, offset: streamNullOffset)
 		if inputKind == spawnStdinBytes 'piped'
 			childInput = endOf(inputEnds, writeEnd: false)
 		end 'piped'
 		if inputKind == spawnStdinInherit 'inherited'
 			childInput = __Raw.callImport1("GetStdHandle", arg1: stdInputHandle)
 		end 'inherited'
-		var childOutput = nullDevice
+		if inputKind == spawnStdinFile 'inputFile'
+			childInput = wordAt(handles, offset: streamInputFileOffset)
+		end 'inputFile'
+		var childOutput = wordAt(handles, offset: streamNullOffset)
 		if outputKind == spawnOutputCollect 'collected'
 			childOutput = endOf(output, writeEnd: true)
 		end 'collected'
 		if outputKind == spawnOutputInherit 'inheritedOutput'
 			childOutput = __Raw.callImport1("GetStdHandle", arg1: stdOutputHandle)
 		end 'inheritedOutput'
-		var childErrors = nullDevice
+		if outputKind == spawnOutputFile 'outputFile'
+			childOutput = wordAt(handles, offset: streamOutputFileOffset)
+		end 'outputFile'
+		var childErrors = wordAt(handles, offset: streamNullOffset)
 		if errorKind == spawnOutputCollect 'collectedErrors'
 			childErrors = endOf(errors, writeEnd: true)
 		end 'collectedErrors'
 		if errorKind == spawnOutputInherit 'inheritedErrors'
 			childErrors = __Raw.callImport1("GetStdHandle", arg1: stdErrorHandle)
 		end 'inheritedErrors'
+		if errorKind == spawnOutputFile 'errorFile'
+			childErrors = wordAt(handles, offset: streamErrorFileOffset)
+		end 'errorFile'
 		let command = commandLineOfBlob(wordAt(request, offset: requestArgvOffset), argc: wordAt(request, offset: requestArgcOffset))
 		let startup = fieldAt(run, offset: frameStartupOffset)
 		__Raw.storeWord32(startup, offset: startupSizeOffset, value: startupBytes)
@@ -890,17 +1093,27 @@ end 'osRunInput'
 			wideDirectory = wideOfBytes(wordAt(request, offset: requestDirectoryOffset), length: directoryLength)
 		end 'directory'
 		var creation = (extendedStartupInfoPresent or createSuspended) as Count
-		if (wordAt(request, offset: requestFlagsOffset) and spawnFlagHideWindow) != 0 'hidden'
+		let flags = wordAt(request, offset: requestFlagsOffset)
+		if (flags and spawnFlagHideWindow) != 0 'hidden'
 			creation = creation or createNoWindow
 		end 'hidden'
-		let win32 = createChild(command, startup: startup, inherited: inherited, inheritedCount: inheritedCount, process: process, flags: creation, directory: wideDirectory)
+		if (flags and spawnFlagNewGroup) != 0 'group'
+			creation = creation or createNewProcessGroup
+		end 'group'
+		var wideEnvironment = noEnvironment as Count
+		if wordAt(request, offset: requestEnvironmentOwnOffset) != 0 'environment'
+			wideEnvironment = wideEnvironmentOf(wordAt(request, offset: requestEnvironmentOffset), length: wordAt(request, offset: requestEnvironmentLengthOffset))
+			creation = creation or createUnicodeEnvironment
+		end 'environment'
+		let win32 = createChild(command, startup: startup, inherited: inherited, inheritedCount: inheritedCount, process: process, flags: creation, directory: wideDirectory, environment: wideEnvironment)
+		if wideEnvironment != noEnvironment 'wideBlock'
+			free(wideEnvironment)
+		end 'wideBlock'
 		if wideDirectory != noCurrentDirectory 'wide'
 			free(wideDirectory)
 		end 'wide'
 		closeChildEnds(output, errors: errors, input: inputEnds, pipes: pipes)
-		if nullDevice != invalidHandle 'closeNull'
-			closeHandle(nullDevice)
-		end 'closeNull'
+		closeStreamHandles(handles)
 		free(command)
 		if win32 != 0 'spawn'
 			closeOurEnds(wait)
@@ -1168,4 +1381,200 @@ end 'osRunInput'
 		end 'noPath'
 		return foundOnPath(__Raw.stringBytes(path), pathLength: __Raw.stringLength(path), name: name, nameLength: length, asGiven: asGiven, extensions: extensions, extensionsLength: extensionsLength)
 	end 'resolveProgram'
+#endif
+
+#if os(Linux) or os(macOS)
+	// Decoding a wait status: the low seven bits are the signal that ended the child, 0 when it exited, with its code in
+	// the eight bits after them; a child that a signal ended reports 128 plus the signal, the POSIX shell's convention, as
+	// maxon's runtime does.
+	let waitSignalMask = 0x7F
+
+	let waitExitShift = 8
+
+	let waitExitMask = 0xFF
+
+	let signalExitCodeBase = 128
+
+	let noWaitOptions = 0
+
+	let waitNoHang = 1
+
+	// The signal that ends a tree, and the one that asks only whether a group has a member.
+	let killSignal = 9
+
+	let noSignal = 0
+
+	// exitCodeOf is the exit code that a wait status says.
+	function exitCodeOf(status Count) returns Count
+		let signal = status and waitSignalMask
+		if signal != 0 'signalled'
+			return signalExitCodeBase + signal
+		end 'signalled'
+		return (status shr waitExitShift) and waitExitMask
+	end 'exitCodeOf'
+
+	// statusKindOf is how a child ended that a wait status says: a child that a signal ended is signalled.
+	function statusKindOf(status Count) returns Count
+		if (status and waitSignalMask) != 0 'signalled'
+			return resultSignalled
+		end 'signalled'
+		return resultExited
+	end 'statusKindOf'
+
+	// statusCodeOf is the code of how a child ended: the signal's number for a child that a signal ended, and the exit code for
+	// one that exited.
+	function statusCodeOf(status Count) returns Count
+		if (status and waitSignalMask) != 0 'signalled'
+			return status and waitSignalMask
+		end 'signalled'
+		return (status shr waitExitShift) and waitExitMask
+	end 'statusCodeOf'
+
+	// killedCodeOf is the code of a child that the end of its tree was sent to: the kill's for one that the kill ended, and the
+	// code that the child's own end says for any other.
+	function killedCodeOf(status Count) returns Count
+		if (status and waitSignalMask) == killSignal 'killed'
+			return killedExitCode
+		end 'killed'
+		return statusCodeOf(status)
+	end 'killedCodeOf'
+
+	// argumentVector is a new null-ended vector of the addresses of the argc tokens of a blob, each already ended by a NUL, as
+	// execve and posix_spawn read it; it is the caller's to free, and holds no copy of the blob, which must stay until the child has
+	// executed.
+	function argumentVector(blob Count, argc Count) returns Count
+		let vector = alloc(try (argc + 1) * wordBytes otherwise panic("too many arguments for memory"))
+		var offset = 0 as Count
+		for i in 0 upto argc 'tokens'
+			__Raw.storeWord(vector, offset: try i * wordBytes otherwise panic("too many arguments for memory"), value: __Raw.wrappingAdd(blob, right: offset))
+			offset = __Raw.wrappingAdd(offset, right: __Raw.wrappingAdd(terminatedLength(__Raw.wrappingAdd(blob, right: offset)), right: 1))
+		end 'tokens'
+		return vector
+	end 'argumentVector'
+
+	// environmentEntries is how many NAME=VALUE entries an environment block of a length holds: the NUL-ended texts before the empty
+	// one that ends it, or before its end.
+	function environmentEntries(block Count, length Count) returns Count
+		var count = 0 as Count
+		var offset = 0 as Count
+		while offset < length and __Raw.loadByte(block, offset: offset) != 0 'entries'
+			offset = __Raw.wrappingAdd(offset, right: __Raw.wrappingAdd(terminatedLength(__Raw.wrappingAdd(block, right: offset)), right: 1))
+			count = __Raw.wrappingAdd(count, right: 1)
+		end 'entries'
+		return count
+	end 'environmentEntries'
+
+	// ownEnvironment is a new vector of the entries of the environment block that a request holds, as the system's calls read an
+	// environment, which the caller frees, or 0 for a request whose child has the caller's own environment.
+	function ownEnvironment(request Count) returns Count
+		if wordAt(request, offset: requestEnvironmentOwnOffset) == 0 'inherited'
+			return 0
+		end 'inherited'
+		let block = wordAt(request, offset: requestEnvironmentOffset)
+		return argumentVector(block, argc: environmentEntries(block, length: wordAt(request, offset: requestEnvironmentLengthOffset)))
+	end 'ownEnvironment'
+
+	// The fds opened for the streams whose kind is a file, a word each in the run's record: the input's, the output's and the
+	// error's, noFd for one that is not.
+	let streamInputFileOffset = 0
+
+	let streamOutputFileOffset = 8
+
+	let streamErrorFileOffset = 16
+
+	let streamFilesBytes = 24
+
+	// closeStreamFiles closes the fds that openStreamFiles opened, and leaves none open.
+	function closeStreamFiles(files Count)
+		for at in 0 upto streamFilesBytes / wordBytes 'each'
+			let offset = try at * wordBytes otherwise panic("a stream file past the run's record")
+			let fd = wordAt(files, offset: offset)
+			if fd != noFd 'open'
+				closeFd(fd)
+				__Raw.storeWord(files, offset: offset, value: noFd)
+			end 'open'
+		end 'each'
+	end 'closeStreamFiles'
+
+	// openStreamFileInto opens the file of a stream and keeps its fd at an offset of the files, and gives 0, or the failure of the
+	// open with every fd opened closed.
+	function openStreamFileInto(files Count, offset Count, request Count, pathOffset Count, forWrite bool) returns Count
+		let fd = openStreamFile(wordAt(request, offset: pathOffset), length: wordAt(request, offset: __Raw.wrappingAdd(pathOffset, right: wordBytes)), forWrite: forWrite)
+		if failed(fd) 'unopened'
+			closeStreamFiles(files)
+			return systemFailure(failureStepStream, code: errnoOf(fd))
+		end 'unopened'
+		__Raw.storeWord(files, offset: offset, value: fd)
+		return 0
+	end 'openStreamFileInto'
+
+	// openStreamFiles opens the file of each stream of a request whose kind is a file, and gives 0, or the failure of the open
+	// that failed, with every fd it opened closed.
+	function openStreamFiles(request Count, files Count) returns Count
+		for at in 0 upto streamFilesBytes / wordBytes 'clear'
+			__Raw.storeWord(files, offset: try at * wordBytes otherwise panic("a stream file past the run's record"), value: noFd)
+		end 'clear'
+		if wordAt(request, offset: requestInputKindOffset) == spawnStdinFile 'input'
+			let failure = openStreamFileInto(files, offset: streamInputFileOffset, request: request, pathOffset: requestInputPathOffset, forWrite: false)
+			if failure != 0 'inputFailed'
+				return failure
+			end 'inputFailed'
+		end 'input'
+		if wordAt(request, offset: requestOutputKindOffset) == spawnOutputFile 'output'
+			let failure = openStreamFileInto(files, offset: streamOutputFileOffset, request: request, pathOffset: requestOutputPathOffset, forWrite: true)
+			if failure != 0 'outputFailed'
+				return failure
+			end 'outputFailed'
+		end 'output'
+		if wordAt(request, offset: requestErrorKindOffset) == spawnOutputFile 'errors'
+			let failure = openStreamFileInto(files, offset: streamErrorFileOffset, request: request, pathOffset: requestErrorPathOffset, forWrite: true)
+			if failure != 0 'errorsFailed'
+				return failure
+			end 'errorsFailed'
+		end 'errors'
+		return 0
+	end 'openStreamFiles'
+
+	// isReaped is whether the child has been waited for already, its wait status kept in the wait.
+	function isReaped(wait Count) returns bool
+		return wordAt(wait, offset: waitReapedOffset) != 0
+	end 'isReaped'
+
+	// markReaped says in a run's wait that the child has been waited for, which a wait for a child that is gone fails at.
+	function markReaped(wait Count)
+		__Raw.storeWord(wait, offset: waitReapedOffset, value: set)
+	end 'markReaped'
+
+	// killChild ends a child that is still running, with the processes of its group: every child leads a group of its own.
+	function killChild(pid Count)
+		_ = signalGroup(pid, signal: killSignal)
+	end 'killChild'
+
+	// endTree ends the child and every process of its group, which is every one it started that did not leave it, and gives the
+	// errno of a kill that was refused, or 0: a group with no member left is ended. The processes are ending when it returns
+	// (treeEnded).
+	function endTree(wait Count) returns Count
+		let result = signalGroup(wordAt(wait, offset: waitPidOffset), signal: killSignal)
+		if failed(result) and not noSuchGroup(result) 'refused'
+			return errnoOf(result)
+		end 'refused'
+		return 0
+	end 'endTree'
+
+	// treeEnded waits, as long as treeEndBoundMs, until the child has been waited for and its group has no member, and says whether it
+	// came to: a group outlives its leader, and a member that has ended stays in it until its parent has waited for it.
+	function treeEnded(wait Count) returns bool
+		let pid = wordAt(wait, offset: waitPidOffset)
+		let bound = __Raw.wrappingAdd(osClockMillis(), right: treeEndBoundMs)
+		while true 'poll'
+			if (isReaped(wait) or childWaited(wait, child: pid, options: waitNoHang)) and noSuchGroup(signalGroup(pid, signal: noSignal)) 'gone'
+				return true
+			end 'gone'
+			if osClockMillis() >= bound 'late'
+				return false
+			end 'late'
+			sleepMs(treePollMs)
+		end 'poll'
+		return false
+	end 'treeEnded'
 #endif

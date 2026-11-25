@@ -401,16 +401,21 @@
 		return (statMode(stat) and macosModeTypeMask) == macosModeDirectory
 	end 'statIsDirectory'
 
-	// openPath is the fd of the file a path names, opened with flags, or -errno; open is variadic, so the mode is passed
-	// on the stack. A call that may block reads errno before exitBlocking, which may move the green thread to another
-	// thread, whose errno is its own.
-	function openPath(path String, flags Count, mode Count) returns Count
-		let cPath = cStringOf(path)
+	// openPathBytes is the fd of the file that the bytes of a path name, opened with flags, or -errno; open is variadic, so the
+	// mode is passed on the stack. A call that may block reads errno before exitBlocking, which may move the green thread to
+	// another thread, whose errno is its own.
+	function openPathBytes(path Count, length Count, flags Count, mode Count) returns Count
+		let cPath = cStringOfBytes(path, length: length)
 		enterBlocking()
 		let fd = checkedInt(__Raw.callImport3("open", arg1: cPath, arg2: flags, arg3: mode))
 		exitBlocking()
 		free(cPath)
 		return fd
+	end 'openPathBytes'
+
+	// openPath is the fd of the file a path names, opened with flags, or -errno.
+	function openPath(path String, flags Count, mode Count) returns Count
+		return openPathBytes(__Raw.stringBytes(path), length: __Raw.stringLength(path), flags: flags, mode: mode)
 	end 'openPath'
 
 	// openReading opens a file to read, and openReplacing opens one to replace, made with the executable mode when it is

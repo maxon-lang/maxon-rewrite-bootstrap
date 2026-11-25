@@ -56,3 +56,7 @@ end 'lowerSubprocessLastErrorMessage'
 function lowerSubprocessResolveOnPath(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessResolveOnPath, kind: IrKind.kindManaged, args: args)
 end 'lowerSubprocessResolveOnPath'
+
+function lowerSubprocessEndTree(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessEndTree, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessEndTree'

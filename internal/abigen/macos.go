@@ -50,7 +50,7 @@ var macosABI = []layoutConst{
 	// The errors told apart, which a call that fails leaves in errno.
 	{"macosEperm", 1, true, toRuntime, "EPERM."},
 	{"macosEnoent", 2, true, toRuntime, "ENOENT."},
-	{"macosEsrch", 3, true, toRuntime, "ESRCH: a kevent of EVFILT_PROC for a process that has ended or is ending, which the filter cannot watch."},
+	{"macosEsrch", 3, true, toRuntime, "ESRCH: a kevent of EVFILT_PROC for a process that has ended or is ending, which the filter cannot watch, and a signal to a process or a group that has no member left."},
 	{"macosEintr", 4, true, toRuntime, "EINTR: a call that a signal broke off, which is made again."},
 	{"macosEacces", 13, true, toRuntime, "EACCES."},
 	{"macosEbusy", 16, true, toRuntime, "EBUSY."},
@@ -111,4 +111,5 @@ var macosABI = []layoutConst{
 	// posix_spawn.
 	{"macosSpawnObjectBytes", 8, true, toRuntime, "the size of a posix_spawn_file_actions_t and of a posix_spawnattr_t, each the address of what the init call allocates."},
 	{"macosSpawnCloexecDefault", 0x4000, true, toRuntime, "POSIX_SPAWN_CLOEXEC_DEFAULT: the child has only the fds the file actions give it, so no other run's pipe stays open in it."},
+	{"macosSpawnSetPgroup", 0x2, true, toRuntime, "POSIX_SPAWN_SETPGROUP: the child joins the process group that posix_spawnattr_setpgroup names, 0 being a group of its own."},
 }

@@ -1,41 +1,30 @@
 // Running a program on macOS: posix_spawn makes the child with each standard stream the write end of an output pipe, the read end
-// of a pipe that the run writes the input into as the child reads it, the null device, or the run's own, every other fd closed in
-// it (POSIX_SPAWN_CLOEXEC_DEFAULT), and says itself whether the program could be executed. The run reads the output pipes, writes
+// of a pipe that the run writes the input into as the child reads it, a file, the null device, or the run's own, every other fd
+// closed in it (POSIX_SPAWN_CLOEXEC_DEFAULT), and says itself whether the program could be executed. The child's environment is the
+// run's own or a block of the caller's, and it leads a process group of its own (POSIX_SPAWN_SETPGROUP), which ends the tree it
+// starts (subprocess.maxon: endTree). The run reads the output pipes, writes
 // the input and watches for the child's exit (the kqueue's
 // EVFILT_PROC with NOTE_EXIT, eventProcessNew) through the event queue (subprocess.maxon), and then waits for the child, which
 // returns at once.
 
 #if os(macOS)
 	// The run's record, one allocation: the ends of the three pipes as eventChildPipe makes them (the read end then the write
-	// end, a word each), and the run's wait (subprocess.maxon).
+	// end, a word each), the fds opened for the streams that are files, and the run's wait (subprocess.maxon).
 	let runOutputPipeOffset = 0 as Count
 
 	let runErrorPipeOffset = (runOutputPipeOffset + pipeEndBytes) as Count
 
 	let runInputPipeOffset = (runErrorPipeOffset + pipeEndBytes) as Count
 
-	let runWaitOffset = (runInputPipeOffset + pipeEndBytes) as Count
+	let runStreamFilesOffset = (runInputPipeOffset + pipeEndBytes) as Count
+
+	let runWaitOffset = (runStreamFilesOffset + streamFilesBytes) as Count
 
 	let runRecordBytes = (runWaitOffset + waitBytes) as Count
 
 	let stdoutFd = 1
 
 	let stderrFd = 2
-
-	// Decoding a wait status: the low seven bits are the signal that ended the child, 0 when it exited, with its code in
-	// the eight bits after them; a child that a signal ended reports 128 plus the signal, the POSIX shell's convention, as
-	// maxon's runtime does.
-	let waitSignalMask = 0x7F
-
-	let waitExitShift = 8
-
-	let waitExitMask = 0xFF
-
-	let signalExitCodeBase = 128
-
-	let noWaitOptions = 0
-
-	let waitNoHang = 1
 
 	// The separator of the directories of PATH, which a program named without a directory is looked for in.
 	let searchPathVariable = "PATH"
@@ -96,18 +85,6 @@
 		return 0
 	end 'programPath'
 
-	// argumentVector is a new null-ended vector of the addresses of the argc tokens of a blob, each already ended by a NUL, as
-	// posix_spawn reads it; it is the caller's to free, and holds no copy of the blob, which must stay until the spawn returns.
-	function argumentVector(blob Count, argc Count) returns Count
-		let vector = alloc(try (argc + 1) * wordBytes otherwise panic("too many arguments for memory"))
-		var offset = 0 as Count
-		for i in 0 upto argc 'tokens'
-			__Raw.storeWord(vector, offset: try i * wordBytes otherwise panic("too many arguments for memory"), value: __Raw.wrappingAdd(blob, right: offset))
-			offset = __Raw.wrappingAdd(offset, right: __Raw.wrappingAdd(terminatedLength(__Raw.wrappingAdd(blob, right: offset)), right: 1))
-		end 'tokens'
-		return vector
-	end 'argumentVector'
-
 	// openPipes makes the pipes of a run that the set of pipes names, and gives whether it made them all; a pipe it could not make
 	// leaves those before it closed.
 	function openPipes(run Count, pipes Count) returns bool
@@ -132,7 +109,7 @@
 	// (processArm): one still running is reported when it exits, and one that the kqueue refuses has started to exit and is
 	// waited for, which returns as soon as it has ended.
 	function childExited(wait Count, child Count) returns bool
-		if childWaited(wait, child: child, options: waitNoHang) 'ended'
+		if isReaped(wait) or childWaited(wait, child: child, options: waitNoHang) 'ended'
 			return true
 		end 'ended'
 		if processArm(wordAt(wait, offset: waitProcessOffset)) 'watched'
@@ -145,7 +122,7 @@
 	end 'childExited'
 
 	// childWaited waits for the child with the options of waitpid, its wait status kept in the wait, and gives whether it had
-	// ended: a child that has not been waited for may always be.
+	// ended (and it is waited for then): a child that has not been waited for may always be.
 	function childWaited(wait Count, child Count, options Count) returns bool
 		let status = fieldAt(wait, offset: waitStatusOffset)
 		while true 'wait'
@@ -156,19 +133,13 @@
 			if failed(result) 'refused'
 				panic("cannot wait for a child that has not been waited for")
 			end 'refused'
+			if result == child 'ended'
+				markReaped(wait)
+			end 'ended'
 			return result == child
 		end 'wait'
 		return false
 	end 'childWaited'
-
-	// exitCodeOf is the exit code that a wait status says.
-	function exitCodeOf(status Count) returns Count
-		let signal = status and waitSignalMask
-		if signal != 0 'signalled'
-			return signalExitCodeBase + signal
-		end 'signalled'
-		return (status shr waitExitShift) and waitExitMask
-	end 'exitCodeOf'
 
 	let stdinFd = 0
 
@@ -178,10 +149,24 @@
 		return checkedInt(__Raw.callImport3("waitpid", arg1: pid, arg2: status, arg3: options))
 	end 'waitChild'
 
-	// killChild ends a child that is still running when its deadline passes.
-	function killChild(pid Count)
-		_ = __Raw.callImport2("kill", arg1: pid, arg2: macosSigkill)
-	end 'killChild'
+	// signalGroup sends a signal to the process group that the child leads, which the child's pid names, and gives 0 or -errno.
+	function signalGroup(pid Count, signal Count) returns Count
+		return checkedInt(__Raw.callImport2("kill", arg1: __Raw.wrappingSub(0, right: pid), arg2: signal))
+	end 'signalGroup'
+
+	// noSuchGroup is whether the result of signalGroup says that the group has no member.
+	function noSuchGroup(result Count) returns bool
+		return failed(result) and errnoOf(result) == macosEsrch
+	end 'noSuchGroup'
+
+	// openStreamFile is the fd of the file that the bytes of a path name, open to read an existing file, or made or emptied for
+	// writing, or -errno.
+	function openStreamFile(path Count, length Count, forWrite bool) returns Count
+		if forWrite 'write'
+			return openPathBytes(path, length: length, flags: macosOpenReplace, mode: macosFileMode)
+		end 'write'
+		return openPathBytes(path, length: length, flags: macosOpenReadOnly, mode: 0)
+	end 'openStreamFile'
 
 	// reapChild waits for a child that has not run, or that is ended, and gives its wait status.
 	function reapChild(run Count, pid Count) returns Count
@@ -227,11 +212,20 @@
 			free(program)
 			return setupFailure()
 		end 'pipes'
+		let files = fieldAt(run, offset: runStreamFilesOffset)
+		let unfiled = openStreamFiles(request, files: files)
+		if unfiled != 0 'unfiled'
+			closeChildEnds(fieldAt(run, offset: runOutputPipeOffset), errors: fieldAt(run, offset: runErrorPipeOffset), input: fieldAt(run, offset: runInputPipeOffset), pipes: pipes)
+			closeOurEnds(wait)
+			free(program)
+			return unfiled
+		end 'unfiled'
 		var nullFd = noFd
 		if inputKind == spawnStdinNone or outputKind == spawnOutputDiscard or errorKind == spawnOutputDiscard 'nulled'
 			nullFd = openPath(nullDevicePath, flags: nullDeviceFlags, mode: 0)
 			if failed(nullFd) 'unopened'
 				let failure = systemFailure(failureStepStream, code: errnoOf(nullFd))
+				closeStreamFiles(files)
 				closeChildEnds(fieldAt(run, offset: runOutputPipeOffset), errors: fieldAt(run, offset: runErrorPipeOffset), input: fieldAt(run, offset: runInputPipeOffset), pipes: pipes)
 				closeOurEnds(wait)
 				free(program)
@@ -239,18 +233,27 @@
 			end 'unopened'
 		end 'nulled'
 		let vector = argumentVector(blob, argc: wordAt(request, offset: requestArgcOffset))
+		let own = ownEnvironment(request)
+		var envp = environment()
+		if own != 0 'ownBlock'
+			envp = own
+		end 'ownBlock'
 		var start = noDirectory as Count
 		let directoryLength = wordAt(request, offset: requestDirectoryLengthOffset)
 		if directoryLength != 0 'directory'
 			start = cStringOfBytes(wordAt(request, offset: requestDirectoryOffset), length: directoryLength)
 		end 'directory'
-		let pid = spawnChild(run, request: request, path: program, vector: vector, directory: start, nullFd: nullFd)
+		let pid = spawnChild(run, request: request, path: program, vector: vector, directory: start, nullFd: nullFd, envp: envp)
 		if start != noDirectory 'started'
 			free(start)
 		end 'started'
+		if own != 0 'freeBlock'
+			free(own)
+		end 'freeBlock'
 		free(vector)
 		free(program)
 		closeChildEnds(fieldAt(run, offset: runOutputPipeOffset), errors: fieldAt(run, offset: runErrorPipeOffset), input: fieldAt(run, offset: runInputPipeOffset), pipes: pipes)
+		closeStreamFiles(files)
 		if nullFd != noFd 'closeNull'
 			closeFd(nullFd)
 		end 'closeNull'
@@ -271,37 +274,22 @@
 		return 0
 	end 'startChild'
 
-	// abandonRun ends a child that no wait has taken and gives up what the run holds of it: its exit's entry, its pid, which is
-	// waited for, and the ends of its pipes.
+	// abandonRun ends a child that no wait has taken, with the processes of its group, and gives up what the run holds of it: its
+	// exit's entry, its pid, which is waited for unless a kill of its tree did, and the ends of its pipes.
 	function abandonRun(run Count)
 		let wait = waitOf(run)
 		let pid = wordAt(wait, offset: waitChildOffset)
 		eventProcessFree(wordAt(wait, offset: waitProcessOffset))
 		killChild(pid)
-		_ = reapChild(run, pid: pid)
+		if not isReaped(wait) 'unreaped'
+			_ = reapChild(run, pid: pid)
+		end 'unreaped'
 		closeOurEnds(wait)
 	end 'abandonRun'
 
 	// finishRun gives back what a child holds once its wait has ended, which on macOS is nothing: the pid was waited for.
 	function finishRun(run Count)
 	end 'finishRun'
-
-	// statusKindOf is how a child ended that a wait status says: a child that a signal ended is signalled.
-	function statusKindOf(status Count) returns Count
-		if (status and waitSignalMask) != 0 'signalled'
-			return resultSignalled
-		end 'signalled'
-		return resultExited
-	end 'statusKindOf'
-
-	// statusCodeOf is the code of how a child ended: the signal's number for a child that a signal ended, and the exit code for
-	// one that exited.
-	function statusCodeOf(status Count) returns Count
-		if (status and waitSignalMask) != 0 'signalled'
-			return status and waitSignalMask
-		end 'signalled'
-		return (status shr waitExitShift) and waitExitMask
-	end 'statusCodeOf'
 
 	// win32CodeOf is an errno in the words of Win32 that maxon's runtime uses on every system: a file or a directory that is not
 	// there, access that is refused and a table of files that is full are the codes of Windows that say so; any other errno is
@@ -336,50 +324,78 @@
 	// noDirectory is the directory of a child that starts in the run's working directory.
 	let noDirectory = 0
 
+	// firstFailure is the failure of the first call of a setup that failed: the failure so far, or else the error that the next call
+	// gave, which is 0 or an errno itself.
+	function firstFailure(failure Count, result Count) returns Count
+		if failure != 0 'failed'
+			return failure
+		end 'failed'
+		return intResult(result)
+	end 'firstFailure'
+
 	// addStream adds the file action that makes the child's fd of a stream what its kind says: an end of the run's pipe for a collected
-	// stream, the fd the child already has for one that is inherited (which the spawn closes unless told), and the null device that
-	// the run opened for the others.
-	function addStream(actions Count, fd Count, kind Count, collected Count, inherited Count, pipeEnd Count, nullFd Count)
+	// stream, the fd the child already has for one that is inherited (which the spawn closes unless told), the file the run opened
+	// for one that is a file, and the null device that the run opened for the others. It gives 0 or the error of the action.
+	function addStream(actions Count, fd Count, kind Count, collected Count, inherited Count, pipeEnd Count, nullFd Count, file Count, fileFd Count) returns Count
 		if kind == collected 'collected'
-			_ = __Raw.callImport3("posix_spawn_file_actions_adddup2", arg1: actions, arg2: pipeEnd, arg3: fd)
-			return
+			return intResult(__Raw.callImport3("posix_spawn_file_actions_adddup2", arg1: actions, arg2: pipeEnd, arg3: fd))
 		end 'collected'
 		if kind == inherited 'inherited'
-			_ = __Raw.callImport2("posix_spawn_file_actions_addinherit_np", arg1: actions, arg2: fd)
-			return
+			return intResult(__Raw.callImport2("posix_spawn_file_actions_addinherit_np", arg1: actions, arg2: fd))
 		end 'inherited'
-		_ = __Raw.callImport3("posix_spawn_file_actions_adddup2", arg1: actions, arg2: nullFd, arg3: fd)
+		if kind == file 'file'
+			return intResult(__Raw.callImport3("posix_spawn_file_actions_adddup2", arg1: actions, arg2: fileFd, arg3: fd))
+		end 'file'
+		return intResult(__Raw.callImport3("posix_spawn_file_actions_adddup2", arg1: actions, arg2: nullFd, arg3: fd))
 	end 'addStream'
 
-	// spawnChild spawns the run's child, whose standard streams are what the request's kinds say, which moves to the zero-terminated
-	// directory unless that is noDirectory and executes the program, and gives its pid, or -errno where posix_spawn failed, which
-	// gives the errno itself.
-	function spawnChild(run Count, request Count, path Count, vector Count, directory Count, nullFd Count) returns Count
-		let actions = alloc(macosSpawnObjectBytes)
-		let attributes = alloc(macosSpawnObjectBytes)
-		if intResult(__Raw.callImport1("posix_spawn_file_actions_init", arg1: actions)) != 0 'actions'
-			panic("cannot make the file actions of a child")
-		end 'actions'
-		if intResult(__Raw.callImport1("posix_spawnattr_init", arg1: attributes)) != 0 'attributes'
-			panic("cannot make the attributes of a child")
-		end 'attributes'
-		addStream(actions, fd: stdoutFd, kind: wordAt(request, offset: requestOutputKindOffset), collected: spawnOutputCollect, inherited: spawnOutputInherit, pipeEnd: endOf(fieldAt(run, offset: runOutputPipeOffset), writeEnd: true), nullFd: nullFd)
-		addStream(actions, fd: stderrFd, kind: wordAt(request, offset: requestErrorKindOffset), collected: spawnOutputCollect, inherited: spawnOutputInherit, pipeEnd: endOf(fieldAt(run, offset: runErrorPipeOffset), writeEnd: true), nullFd: nullFd)
-		addStream(actions, fd: stdinFd, kind: wordAt(request, offset: requestInputKindOffset), collected: spawnStdinBytes, inherited: spawnStdinInherit, pipeEnd: endOf(fieldAt(run, offset: runInputPipeOffset), writeEnd: false), nullFd: nullFd)
+	// spawnWith fills the file actions and the attributes of the run's child, whose standard streams are what the request's kinds
+	// say, which leads a process group of its own, moves to the zero-terminated directory unless that is noDirectory and executes
+	// the program with the environment that the vector of its entries is, and spawns it. It gives its pid, or -errno of the first
+	// step that failed: a file action or an attribute that is refused fails the spawn, as posix_spawn's own refusal does.
+	function spawnWith(run Count, request Count, path Count, vector Count, directory Count, nullFd Count, envp Count, actions Count, attributes Count) returns Count
+		let files = fieldAt(run, offset: runStreamFilesOffset)
+		var failure = addStream(actions, fd: stdoutFd, kind: wordAt(request, offset: requestOutputKindOffset), collected: spawnOutputCollect, inherited: spawnOutputInherit, pipeEnd: endOf(fieldAt(run, offset: runOutputPipeOffset), writeEnd: true), nullFd: nullFd, file: spawnOutputFile, fileFd: wordAt(files, offset: streamOutputFileOffset))
+		failure = firstFailure(failure, result: addStream(actions, fd: stderrFd, kind: wordAt(request, offset: requestErrorKindOffset), collected: spawnOutputCollect, inherited: spawnOutputInherit, pipeEnd: endOf(fieldAt(run, offset: runErrorPipeOffset), writeEnd: true), nullFd: nullFd, file: spawnOutputFile, fileFd: wordAt(files, offset: streamErrorFileOffset)))
+		failure = firstFailure(failure, result: addStream(actions, fd: stdinFd, kind: wordAt(request, offset: requestInputKindOffset), collected: spawnStdinBytes, inherited: spawnStdinInherit, pipeEnd: endOf(fieldAt(run, offset: runInputPipeOffset), writeEnd: false), nullFd: nullFd, file: spawnStdinFile, fileFd: wordAt(files, offset: streamInputFileOffset)))
 		if directory != noDirectory 'directory'
-			_ = __Raw.callImport2("posix_spawn_file_actions_addchdir_np", arg1: actions, arg2: directory)
+			failure = firstFailure(failure, result: __Raw.callImport2("posix_spawn_file_actions_addchdir_np", arg1: actions, arg2: directory))
 		end 'directory'
-		_ = __Raw.callImport2("posix_spawnattr_setflags", arg1: attributes, arg2: macosSpawnCloexecDefault)
+		failure = firstFailure(failure, result: __Raw.callImport2("posix_spawnattr_setflags", arg1: attributes, arg2: macosSpawnCloexecDefault or macosSpawnSetPgroup))
+		failure = firstFailure(failure, result: __Raw.callImport2("posix_spawnattr_setpgroup", arg1: attributes, arg2: 0))
+		if failure != 0 'refused'
+			return __Raw.wrappingSub(0, right: failure)
+		end 'refused'
 		// posix_spawn writes a pid_t, 32 bits, into the word's lower half.
 		var pid = 0 as Count
-		let error = intResult(__Raw.callImport6("posix_spawn", arg1: __Raw.addressOf(pid), arg2: path, arg3: actions, arg4: attributes, arg5: vector, arg6: environment()))
-		_ = __Raw.callImport1("posix_spawn_file_actions_destroy", arg1: actions)
-		_ = __Raw.callImport1("posix_spawnattr_destroy", arg1: attributes)
+		let error = intResult(__Raw.callImport6("posix_spawn", arg1: __Raw.addressOf(pid), arg2: path, arg3: actions, arg4: attributes, arg5: vector, arg6: envp))
+		if error != 0 'spawn'
+			return __Raw.wrappingSub(0, right: error)
+		end 'spawn'
+		return pid
+	end 'spawnWith'
+
+	// spawnChild spawns the run's child (spawnWith) with file actions and attributes that it makes and gives back, and gives its pid, or
+	// -errno of the step that failed, a refused init included.
+	function spawnChild(run Count, request Count, path Count, vector Count, directory Count, nullFd Count, envp Count) returns Count
+		let actions = alloc(macosSpawnObjectBytes)
+		let attributes = alloc(macosSpawnObjectBytes)
+		var result = 0 as Count
+		let actionsError = intResult(__Raw.callImport1("posix_spawn_file_actions_init", arg1: actions))
+		if actionsError != 0 'actionsRefused'
+			result = __Raw.wrappingSub(0, right: actionsError)
+		end 'actionsRefused' else 'actionsMade'
+			let attributesError = intResult(__Raw.callImport1("posix_spawnattr_init", arg1: attributes))
+			if attributesError != 0 'attributesRefused'
+				result = __Raw.wrappingSub(0, right: attributesError)
+			end 'attributesRefused' else 'attributesMade'
+				result = spawnWith(run, request: request, path: path, vector: vector, directory: directory, nullFd: nullFd, envp: envp, actions: actions, attributes: attributes)
+				_ = __Raw.callImport1("posix_spawnattr_destroy", arg1: attributes)
+			end 'attributesMade'
+			_ = __Raw.callImport1("posix_spawn_file_actions_destroy", arg1: actions)
+		end 'actionsMade'
 		free(actions)
 		free(attributes)
-		if error != 0 'refused'
-			return __Raw.wrappingSub(0, right: error)
-		end 'refused'
-		return pid
+		return result
 	end 'spawnChild'
 #endif

@@ -57,3 +57,7 @@ end 'entrySubprocessLastErrorMessage'
 function entrySubprocessResolveOnPath(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	haltSubprocessRow("__Builtins.subprocessResolveOnPath")
 end 'entrySubprocessResolveOnPath'
+
+function entrySubprocessEndTree(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltSubprocessRow("__Builtins.subprocessEndTree")
+end 'entrySubprocessEndTree'

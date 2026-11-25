@@ -1,0 +1,225 @@
+// A deadline of a wait, and subprocessEndTree, end the child and every process it started, not the child alone. The child of this
+// program starts a grandchild that writes a growing count to a file every few milliseconds, so that a grandchild that still runs
+// is seen as a file that changes; both are this program run again, which every system runs. A child that a spawn starts leads a
+// group of its own on Linux and macOS, so that a grandchild started by a spawn would not be in the child's tree there: on those the
+// child is a shell that starts the grandchild in the background, which stays in its group. At the deadline the child and its
+// tree end (the result is timedOut, never treeNotEnded), the output the child had written is kept and the count stands still. A
+// tree ended before any wait ends the same way and the wait then finds the child ended by the kill; a tree that is ended again
+// answers 0 as well; and the end of a tree is -1 for a child that has been waited for and for a word that names no child.
+// native-only
+//> deadline: kind=2 stdout=started timed=true
+//> the grandchild had run: true
+//> after the deadline the grandchild stands still: true
+//> the end of the tree: 0
+//> after the end the grandchild stands still: true
+//> the child was ended by the kill: true
+//> the end of a tree after its wait: -1
+//> the end of a word that names no child: -1
+//> the end of a tree that was ended: 0
+
+typealias Blob = Array with Byte
+
+let terminator = 0 as Byte
+
+let stdinNone = 0
+
+let outputDiscard = 0
+
+let outputCollect = 2
+
+let noFlags = 0
+
+let parentEnvironment = 1
+
+let beatMilliseconds = 25
+
+let settleMilliseconds = 500
+
+let readAttempts = 20
+
+let readRetryMilliseconds = 5
+
+let startedBoundMilliseconds = 10000
+
+function appendToken(mutates out Blob, token String)
+	for b in token.bytes() 'each'
+		out.push(b)
+	end 'each'
+	out.push(terminator)
+end 'appendToken'
+
+// selfBlob is this program and the arguments that make it a child of a mode, which keeps its counts at a path.
+function selfBlob(mode String, path String) returns Blob
+	var argv = Blob.create(0)
+	let executable = try Process.executablePath() otherwise return argv
+	appendToken(argv, token: executable.path)
+	appendToken(argv, token: "child")
+	appendToken(argv, token: mode)
+	appendToken(argv, token: path)
+	return argv
+end 'selfBlob'
+
+// spawnSelf starts this program as a child of a mode, its output collected unless it is discarded, and gives its handle, or -1.
+function spawnSelf(mode String, path String, stdoutKind Count) returns FullRangeInt
+	return spawnBlob(selfBlob(mode, path: path), tokens: 4, stdoutKind: stdoutKind)
+end 'spawnSelf'
+
+// spawnBlob starts the program that a blob of tokens names, its output collected unless it is discarded, and gives its handle, or -1.
+function spawnBlob(argv Blob, tokens Count, stdoutKind Count) returns FullRangeInt
+	var env = Blob.create(1)
+	env.push(terminator)
+	let empty = ""
+	return __Builtins.subprocessSpawn(argv.managed, tokens, empty.cstr(), env.managed, parentEnvironment, stdinNone, empty.cstr(), stdoutKind, empty.cstr(), 0, outputDiscard, empty.cstr(), 0, noFlags, 0)
+end 'spawnBlob'
+
+// The child's script on Linux and macOS: it starts the grandchild (this program, $1, in the mode beat at the path $2) in the
+// background, which keeps the group of the shell, waits until the grandchild has written its first count, says so, and goes on.
+let treeScript = "\"$1\" child beat \"$2\" >/dev/null 2>&1 & while [ ! -e \"$2\" ]; do sleep 0.05; done; printf started; sleep 60"
+
+// spawnTree starts the child of the tree, which has a grandchild in its tree, and gives its handle, or -1.
+function spawnTree(path String, stdoutKind Count) returns FullRangeInt
+	#if os(Windows)
+		return spawnSelf("tree", path: path, stdoutKind: stdoutKind)
+	#else
+		let executable = try Process.executablePath() otherwise return -1
+		var argv = Blob.create(0)
+		appendToken(argv, token: "sh")
+		appendToken(argv, token: "-c")
+		appendToken(argv, token: treeScript)
+		appendToken(argv, token: "sh")
+		appendToken(argv, token: executable.path)
+		appendToken(argv, token: path)
+		return spawnBlob(argv, tokens: 6, stdoutKind: stdoutKind)
+	#endif
+end 'spawnTree'
+
+// countAt is what the grandchild last wrote to a path, or empty. The grandchild truncates the file before it writes, so a read
+// that finds it empty or held is made again a few times.
+function countAt(path String) returns String
+	let file = try FilePath.from(path) otherwise return ""
+	var attempts = 0 as Count
+	while attempts < readAttempts 'attempts'
+		let text = try File.readText(file) otherwise ""
+		if text.byteLength() != 0 'read'
+			return text
+		end 'read'
+		sleep(readRetryMilliseconds)
+		attempts = attempts + 1
+	end 'attempts'
+	return ""
+end 'countAt'
+
+// appears waits until a file is there, as long as startedBoundMilliseconds, and says whether it came to be.
+function appears(path String) returns bool
+	let file = try FilePath.from(path) otherwise return false
+	var waited = 0 as Count
+	while not File.exists(file) and waited < startedBoundMilliseconds 'wait'
+		sleep(10)
+		waited = waited + 10
+	end 'wait'
+	return File.exists(file)
+end 'appears'
+
+// stagingOf is the path where the grandchild writes a count before it puts it at the path of the counts: a kill that comes between
+// the truncation and the write of the file leaves that one empty, never the file of the counts.
+function stagingOf(path String) returns String
+	return "{path}.part"
+end 'stagingOf'
+
+// beat is the grandchild: it writes a count that grows to a path, over and over, for a hundred seconds at most. A count that cannot
+// be put in place now, since the file is being read, is the next one's to put.
+function beat(path String) returns ExitCode
+	let file = try FilePath.from(path) otherwise return 2
+	let staging = try FilePath.from(stagingOf(path)) otherwise return 2
+	var count = 0 as Count
+	while count < 4000 'beats'
+		count = count + 1
+		try File.writeText(staging, content: "{count}") otherwise return 3
+		try File.rename(staging, to: file) otherwise continue
+		sleep(beatMilliseconds)
+	end 'beats'
+	return 0
+end 'beat'
+
+// tree is the child: it starts the grandchild, waits until the grandchild has written its first count, says so and goes on.
+function tree(path String) returns ExitCode
+	let grandchild = spawnSelf("beat", path: path, stdoutKind: outputDiscard)
+	if grandchild == -1 or not appears(path) 'unstarted'
+		return 3
+	end 'unstarted'
+	print("started")
+	sleep(60000)
+	return 0
+end 'tree'
+
+function child(mode String, path String) returns ExitCode
+	if mode == "beat" 'beat'
+		return beat(path)
+	end 'beat'
+	if mode == "tree" 'tree'
+		return tree(path)
+	end 'tree'
+	return 9
+end 'child'
+
+// standsStill is whether the count at a path does not change over the time that a grandchild would need to change it several times.
+function standsStill(path String) returns bool
+	let before = countAt(path)
+	sleep(settleMilliseconds)
+	return before.byteLength() != 0 and countAt(path) == before
+end 'standsStill'
+
+// remove deletes the file at a path, if there is one.
+function remove(path String)
+	let file = try FilePath.from(path) otherwise return
+	if File.exists(file) 'present'
+		try File.delete(file) otherwise return
+	end 'present'
+end 'remove'
+
+// forget deletes the file of the counts and the one it is staged in.
+function forget(path String)
+	remove(path)
+	remove(stagingOf(path))
+end 'forget'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() > 1 'child'
+		return child(try args.get(2) otherwise "", path: try args.get(3) otherwise "")
+	end 'child'
+	let path = "rows-tree-counts-{Process.id()}.tmp"
+	forget(path)
+	let handle = spawnTree(path, stdoutKind: outputCollect)
+	let result = __Builtins.subprocessWaitCollect(handle, 2500)
+	let ran = __Builtins.subprocessResultDurationMs(result)
+	print("deadline: kind={__Builtins.subprocessResultStatusKind(result)} stdout={String.init(__Builtins.subprocessResultStdout(result))} timed={ran >= 2000 and ran < 30000}\n")
+	__Builtins.subprocessResultRelease(result)
+	__Builtins.subprocessReleaseHandle(handle)
+	print("the grandchild had run: {countAt(path).byteLength() != 0}\n")
+	print("after the deadline the grandchild stands still: {standsStill(path)}\n")
+	forget(path)
+	let second = spawnTree(path, stdoutKind: outputCollect)
+	_ = appears(path)
+	print("the end of the tree: {__Builtins.subprocessEndTree(second)}\n")
+	print("after the end the grandchild stands still: {standsStill(path)}\n")
+	let ended = __Builtins.subprocessWaitCollect(second, 0)
+	#if os(Windows)
+		let byKill = __Builtins.subprocessResultStatusKind(ended) == 0 and __Builtins.subprocessResultStatusCode(ended) == 1
+	#else
+		let byKill = __Builtins.subprocessResultStatusKind(ended) == 1 and __Builtins.subprocessResultStatusCode(ended) == 9
+	#endif
+	print("the child was ended by the kill: {byKill}\n")
+	__Builtins.subprocessResultRelease(ended)
+	print("the end of a tree after its wait: {__Builtins.subprocessEndTree(second)}\n")
+	print("the end of a word that names no child: {__Builtins.subprocessEndTree(-1)}\n")
+	__Builtins.subprocessReleaseHandle(second)
+	forget(path)
+	let third = spawnTree(path, stdoutKind: outputDiscard)
+	_ = appears(path)
+	_ = __Builtins.subprocessEndTree(third)
+	print("the end of a tree that was ended: {__Builtins.subprocessEndTree(third)}\n")
+	__Builtins.subprocessReleaseHandle(third)
+	forget(path)
+	return 0
+end 'main'

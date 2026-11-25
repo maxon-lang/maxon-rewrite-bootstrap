@@ -5498,15 +5498,21 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   node is O(n) and the link O(1). `get`, `first` and `last` lend the element (a copy is `.clone()`) where maxon's copy it
   out; `clear()` and `insert` need elements that can be dropped, and `dropEmpty()` ends an empty list of values with
   destructors.
-- **The subprocess rows are the first step of maxon's, and stdlib/Subprocess.maxon is not converted over them.** The rows
-  (`runtime/spawn.maxon`, "Primitives": `__Builtins`) serve a spawn whose environment is this process's, whose standard input is
-  none (the null device), inherited or bytes, whose output and error are discarded, inherited or collected (a limit caps what is
-  kept, never what is read), and whose flags are the hidden window (Windows only). They refuse, as a spawn that fails with Win32's
-  50 (not supported), an environment block (`envInherit` 0), a stream that is a file or, for the input, held open, and the flags new
-  process group, detach and traced; `subprocessDetach`, `subprocessEndTree` and the streaming rows are not there. A deadline ends the
-  child alone and keeps the output it had written (the result's kind is `timedOut`); a process the child started goes on running,
-  where maxon ends the whole tree, until the step that does. A POSIX child that a signal ended is `signalled` (the code is the
-  signal's number) in a result, whose record keeps the raw wait status, while `Subprocess.run` goes on giving 128 plus the signal.
+- **The subprocess rows are the attached run of maxon's, and stdlib/Subprocess.maxon is not converted over them.** The rows
+  (`runtime/spawn.maxon`, "Primitives": `__Builtins`) serve a spawn whose environment is this process's or a block of
+  `NAME=VALUE` entries (`envInherit` 0, all of the child's environment, a block that is not one refused as Win32's 87), whose standard
+  input is none (the null device), inherited, bytes or a file, whose output and error are discarded, inherited, collected (a limit
+  caps what is kept, never what is read) or a file (made or emptied), and whose flags are the hidden window (Windows only) and the new
+  process group. They refuse, as a spawn that fails with Win32's 50 (not supported), the flags detach and traced and an input that is
+  held open; `subprocessDetach` and the streaming rows are not there. A deadline ends the child and the tree it started and keeps the
+  output it had written (the result's kind is `timedOut`, or `treeNotEnded` when part of the tree still ran five seconds after the
+  kill), and `subprocessEndTree` does the same for a child that is not waited for (0, -3 for a tree still running after the bound, -1
+  for a word that names no child that no wait has taken, so after a wait it is -1). The tree is a Windows job object that holds the
+  child and every process it starts but those started with `CREATE_BREAKAWAY_FROM_JOB`, which escape the kill, and on Linux and macOS
+  the child's process group (the child leads one of its own), so that a descendant that leads a group of its own (`setsid`,
+  `setpgid`) escapes it. A POSIX child that a signal ended is `signalled` (the code is the
+  signal's number) in a result, whose record keeps the raw wait status, while `Subprocess.run` goes on giving 128 plus the signal;
+  a child whose tree was killed and that the kill ended reports the kill's code (1). `Subprocess.run`'s deadline ends the tree too.
   A handle and a result are `generation * 2^32 + slot`, a `SlotKey`'s word, where maxon's handle is `generation * 64 + slot`, and the
   last failure is one word for the process, as maxon's. A spawn copies the input's bytes into the child's record, where maxon borrows
   the caller's until the wait ends: a cstring of a short `String` is two words that hold its bytes, which are gone once the row has

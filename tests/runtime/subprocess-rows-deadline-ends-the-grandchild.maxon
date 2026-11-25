@@ -1,0 +1,206 @@
+// A deadline of a wait ends the child and every process it started: the child of this program starts a grandchild that would run for
+// a minute and says its process id; at the deadline the wait answers timedOut with the output that the child had written, and the
+// grandchild is gone, which the system says (a process of that id that a wait on it finds ended, or that is not there). This program
+// is the child and the grandchild too, run again, so that every system runs the same test, except that a child that a spawn starts
+// leads a group of its own on Linux and macOS, so that a grandchild started by a spawn would not be in the child's tree there: on
+// those the child is a shell that starts the grandchild in the background, which stays in its group, and says its process id.
+//> the child was ended at the deadline with its output: timedOut, the process id of its grandchild is 1 or more
+//> the grandchild is gone: true
+
+let treeMode = "tree"
+
+let sleeperMode = "sleeper"
+
+let pidPrefix = "pid:"
+
+let treeStdinNone = 0 as Count
+
+let treeNoHandle = 0xFFFFFFFFFFFFFFFF as Count
+
+// The deadline, and how long the grandchild is waited for after it. A child starts a grandchild and says so well within the
+// deadline; the grandchild would run a minute.
+let treeDeadlineMs = 2500 as Count
+
+let treeGoneBoundMs = 3000 as Count
+
+let treeWatchMs = 20 as Count
+
+let treeSleepMs = 60000 as Count
+
+let treeTimedOut = 2 as Count
+
+function treeWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'treeWrite'
+
+// treeAppend adds a text and its NUL to a blob of tokens.
+function treeAppend(blob Count, text String)
+	appendBytesOf(blob, address: __Raw.stringBytes(text), length: __Raw.stringLength(text))
+	let at = collectionExtend(blob, count: 1, elementBytes: byteBytes)
+	__Raw.storeByte(at, offset: 0, value: 0)
+end 'treeAppend'
+
+// treeScript is the child's script on Linux and macOS: it starts the grandchild (this program, $1, in the sleeper mode) in the
+// background, which keeps the group of the shell, and says its process id.
+let treeScript = "\"$1\" sleeper >/dev/null 2>&1 & printf 'pid:%s\n' \"$!\"; sleep 60"
+
+// treeSpawnSelf starts this program as a child of a mode, its output collected, and gives its handle: on Windows the child is this
+// program in the tree mode; on Linux and macOS it is the shell of treeScript.
+function treeSpawnSelf(mode String) returns Count
+	var unset = 0 as Count
+	let executable = osExecutablePath(__Raw.addressOf(unset))
+	if unset != 0 'unknown'
+		panic("the program's own path is unknown")
+	end 'unknown'
+	let blob = bytesNew()
+	#if os(Windows)
+		let tokens = 2 as Count
+		treeAppend(blob, text: executable)
+		treeAppend(blob, text: mode)
+	#else
+		treeAppend(blob, text: "sh")
+		treeAppend(blob, text: "-c")
+		treeAppend(blob, text: treeScript)
+		treeAppend(blob, text: "sh")
+		treeAppend(blob, text: executable)
+		let tokens = 5 as Count
+	#endif
+	let handle = subprocessSpawn(blob, argc: tokens, cwd: "", env: 0, envInherit: spawnEnvironmentParent, stdinKind: spawnStdinNone, stdinData: "", stdoutKind: spawnOutputCollect, stdoutData: "", stdoutLimit: 0, stderrKind: spawnOutputDiscard, stderrData: "", stderrLimit: 0, flags: 0, stdinLength: 0)
+	free(collectionData(blob))
+	free(blob)
+	return handle
+end 'treeSpawnSelf'
+
+// treeModeOf is the mode that this program was started with, the text of its first argument, or empty for none.
+function treeModeOf(args Count) returns String
+	if collectionLength(args) < 2 'none'
+		return ""
+	end 'none'
+	let offset = collectionBytes(1, elementBytes: __Raw.stringSize())
+	let data = __Raw.loadWord(args, offset: osArrayDataOffset)
+	let length = __Raw.stringLengthAt(data, offset: offset)
+	let room = __Raw.stringRoom(length)
+	if length != 0 'some'
+		copyBytes(__Raw.stringBytesAt(data, offset: offset), target: room, count: length)
+	end 'some'
+	return stringOfRoom(room, length: length)
+end 'treeModeOf'
+
+// treeAlive is whether a process of an id is running.
+#if os(Windows)
+	// synchronize is SYNCHRONIZE, the access that a wait on a process needs; a process that is gone has no handle to open, and
+	// one that has ended and is held open is signalled.
+	let synchronize = 0x100000 as Count
+
+	let waitSignalled = 0 as Count
+
+	function treeAlive(pid Count) returns bool
+		let handle = __Raw.callImport3("OpenProcess", arg1: synchronize, arg2: 0, arg3: pid)
+		if handle == 0 'gone'
+			return false
+		end 'gone'
+		let state = dword(__Raw.callImport2("WaitForSingleObject", arg1: handle, arg2: 0))
+		closeHandle(handle)
+		return state != waitSignalled
+	end 'treeAlive'
+#endif
+
+#if os(Linux)
+	function treeAlive(pid Count) returns bool
+		return not failed(__Raw.syscall2(linuxSysKill, arg1: pid, arg2: 0))
+	end 'treeAlive'
+#endif
+
+#if os(macOS)
+	function treeAlive(pid Count) returns bool
+		return not failed(checkedInt(__Raw.callImport2("kill", arg1: pid, arg2: 0)))
+	end 'treeAlive'
+#endif
+
+// treeParsedPid is the number after pidPrefix at the start of the bytes of a child's output, or 0 where there is none.
+function treeParsedPid(bytes Count, length Count) returns Count
+	let prefix = __Raw.stringLength(pidPrefix)
+	if length <= prefix 'short'
+		return 0
+	end 'short'
+	for i in 0 upto prefix 'prefix'
+		if __Raw.loadByte(bytes, offset: i) != __Raw.loadByte(__Raw.stringBytes(pidPrefix), offset: i) 'differs'
+			return 0
+		end 'differs'
+	end 'prefix'
+	var pid = 0 as Count
+	var at = prefix
+	while at < length and __Raw.loadByte(bytes, offset: at) >= 0x30 and __Raw.loadByte(bytes, offset: at) <= 0x39 'digits'
+		let digit = __Raw.wrappingSub(__Raw.loadByte(bytes, offset: at) as Count, right: 0x30)
+		pid = __Raw.wrappingAdd(try pid * 10 otherwise panic("a process id past a word"), right: digit)
+		at = at + 1
+	end 'digits'
+	return pid
+end 'treeParsedPid'
+
+// treeGone waits for a process to be gone, as long as treeGoneBoundMs, and says whether it was.
+function treeGone(pid Count) returns bool
+	var waited = 0 as Count
+	while treeAlive(pid) and waited < treeGoneBoundMs 'wait'
+		sleepMs(treeWatchMs)
+		waited = waited + treeWatchMs
+	end 'wait'
+	return not treeAlive(pid)
+end 'treeGone'
+
+// treeChild starts the grandchild, says its process id and goes on.
+function treeChild() returns ExitCode
+	let grandchild = treeSpawnSelf(sleeperMode)
+	if grandchild == treeNoHandle 'unstarted'
+		return 3
+	end 'unstarted'
+	treeWrite("{pidPrefix}{itoa(subprocessGetPid(grandchild), unsigned: true)}\n")
+	sleepMs(treeSleepMs)
+	return 0
+end 'treeChild'
+
+// treeDrop frees an array of strings that osArgs made: the room of each string that is not held inline, the buffer and the box.
+function treeDrop(args Count)
+	let data = __Raw.loadWord(args, offset: osArrayDataOffset)
+	for index in 0 upto collectionLength(args) 'each'
+		let offset = collectionBytes(index, elementBytes: __Raw.stringSize())
+		if not holdsInline(__Raw.stringLengthAt(data, offset: offset)) 'room'
+			__Raw.freeStringRoom(__Raw.stringBytesAt(data, offset: offset))
+		end 'room'
+	end 'each'
+	free(data)
+	free(args)
+end 'treeDrop'
+
+function main() returns ExitCode
+	let own = osArgs()
+	let mode = treeModeOf(own)
+	treeDrop(own)
+	if streq(mode, right: sleeperMode) 'sleeper'
+		sleepMs(treeSleepMs)
+		return 0
+	end 'sleeper'
+	if streq(mode, right: treeMode) 'tree'
+		return treeChild()
+	end 'tree'
+	let handle = treeSpawnSelf(treeMode)
+	if handle == treeNoHandle 'unstarted'
+		panic("the child did not start")
+	end 'unstarted'
+	let result = subprocessWaitCollect(handle, ms: treeDeadlineMs)
+	let out = subprocessResultStdout(result)
+	let pid = treeParsedPid(collectionData(out), length: collectionLength(out))
+	let timedOut = subprocessResultStatusKind(result) == treeTimedOut
+	free(collectionData(out))
+	free(out)
+	subprocessResultRelease(result)
+	subprocessReleaseHandle(handle)
+	if timedOut and pid >= 1 'ended'
+		treeWrite("the child was ended at the deadline with its output: timedOut, the process id of its grandchild is 1 or more\n")
+	end 'ended' else 'unended'
+		treeWrite("the child was not ended at the deadline with its output: timedOut {timedOut}, process id {pid}\n")
+		return 1
+	end 'unended'
+	treeWrite("the grandchild is gone: {treeGone(pid)}\n")
+	return 0
+end 'main'

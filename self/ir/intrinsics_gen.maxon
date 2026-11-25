@@ -587,6 +587,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrSubprocessReleaseHandle 'intrSubprocessReleaseHandle'
 		return lowerSubprocessReleaseHandle(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSubprocessReleaseHandle'
+	if op == ast.Intrinsic.intrSubprocessEndTree 'intrSubprocessEndTree'
+		return lowerSubprocessEndTree(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessEndTree'
 	if op == ast.Intrinsic.intrSubprocessLastErrorCode 'intrSubprocessLastErrorCode'
 		return lowerSubprocessLastErrorCode(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSubprocessLastErrorCode'
@@ -1417,6 +1420,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrSubprocessReleaseHandle 'intrSubprocessReleaseHandle'
 		return false
 	end 'intrSubprocessReleaseHandle'
+	if op == ast.Intrinsic.intrSubprocessEndTree 'intrSubprocessEndTree'
+		return false
+	end 'intrSubprocessEndTree'
 	if op == ast.Intrinsic.intrSubprocessLastErrorCode 'intrSubprocessLastErrorCode'
 		return false
 	end 'intrSubprocessLastErrorCode'
