@@ -109,6 +109,7 @@ func convertProgram(file, src string, kind inputKind, ownTypes []string) Result 
 	joinEndOtherwise(lines)
 	rewriteDestructors(lines, addWarn)
 	rewriteStringBuilders(lines)
+	lines = rewriteMergeScratch(lines)
 	rewriteWithIterator(lines, addWarn)
 	transformLines(lines, addWarn)
 

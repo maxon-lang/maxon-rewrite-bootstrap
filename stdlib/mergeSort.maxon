@@ -28,10 +28,11 @@ export extension Array
 	// into scratch, then sweeps left-to-right merging scratch + right into
 	// the output range. Stable (when picking equal, left wins).
 	function mergeBufferedLeft(mutates self, lo ElementIndex, mid ElementIndex, hi ElementIndex, mutates scratch MergeScratchArray, cmp SortComparator) where T implements Droppable and Copyable
+		scratch.truncate(0)
 		let leftLen = try mid - lo otherwise panic("out of range")
 		var i = 0 as ElementIndex
 		while i < leftLen 'copyLeft'
-			try scratch.set(i, value: try self.managed.get(lo + i) otherwise panic("mergeBufferedLeft: get OOB during copy")) otherwise panic("mergeBufferedLeft: scratch.set OOB")
+			scratch.push(try self.managed.get(lo + i) otherwise panic("mergeBufferedLeft: get OOB during copy"))
 			i = i + 1
 		end 'copyLeft'
 		var l = 0 as ElementIndex
@@ -70,10 +71,11 @@ export extension Array
 	// "left > right" — equality falls through to "take right", which is
 	// the stability-preserving choice.
 	function mergeBufferedRight(mutates self, lo ElementIndex, mid ElementIndex, hi ElementIndex, mutates scratch MergeScratchArray, cmp SortComparator) where T implements Droppable and Copyable
+		scratch.truncate(0)
 		let rightLen = try hi - mid otherwise panic("out of range")
 		var i = 0 as ElementIndex
 		while i < rightLen 'copyRight'
-			try scratch.set(i, value: try self.managed.get(mid + i) otherwise panic("mergeBufferedRight: get OOB during copy")) otherwise panic("mergeBufferedRight: scratch.set OOB")
+			scratch.push(try self.managed.get(mid + i) otherwise panic("mergeBufferedRight: get OOB during copy"))
 			i = i + 1
 		end 'copyRight'
 		// Exclusive end-pointers: lEnd = first index past unconsumed left;

@@ -839,3 +839,13 @@ func TestConvertRenamesMaxonsSlotAsCell(t *testing.T) {
 		t.Errorf("spec tests:\ngot:\n%q\nwant:\n%q", got, want)
 	}
 }
+
+// TestConvertMergeScratchGrowsByPush covers driftsort's merge scratch: its resize becomes a reserve, and a function that
+// stores to a scratch it is given by index from 0 empties it first and pushes each element instead.
+func TestConvertMergeScratchGrowsByPush(t *testing.T) {
+	in := "function sort(n Count)\n\tlet scratch = MergeScratchArray.create(0)\n\tlet other = Words.create(0)\n\tscratch.resize(n)\n\tother.resize(n)\nend 'sort'\n\nfunction fill(n Count, scratch MergeScratchArray, pivotHold MergeScratchArray)\n\t// copy\n\tvar i = 0\n\twhile i < n 'copy'\n\t\ttry scratch.set(i, value: try managed.get(i) otherwise panic(\"get\")) otherwise panic(\"set\")\n\t\ti = i + 1\n\tend 'copy'\n\tpivotHold.clear()\nend 'fill'\n"
+	want := "function sort(n Count)\n\tlet scratch = MergeScratchArray.create(0)\n\tlet other = Words.create(0)\n\tscratch.reserve(n)\n\tother.resize(n)\nend 'sort'\n\nfunction fill(n Count, scratch MergeScratchArray, pivotHold MergeScratchArray)\n\tscratch.truncate(0)\n\t// copy\n\tvar i = 0\n\twhile i < n 'copy'\n\t\tscratch.push(try managed.get(i) otherwise panic(\"get\"))\n\t\ti = i + 1\n\tend 'copy'\n\tpivotHold.clear()\nend 'fill'\n"
+	if got := Convert("maxon/stdlib/helpers/sort/mergeSort.maxon", in, sourceFile).Text; got != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", got, want)
+	}
+}

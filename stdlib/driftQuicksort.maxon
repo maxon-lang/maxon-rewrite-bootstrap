@@ -34,6 +34,7 @@ export extension Array
 	// Each split loop tests membership of the BUFFERED class first, so the scanned element's last mention is the
 	// in-place `managed.set` that consumes it.
 	function stablePartition(mutates self, lo ElementIndex, hi ElementIndex, pivotIndex ElementIndex, mutates scratch MergeScratchArray, mutates pivotHold MergeScratchArray, cmp SortComparator) returns ElementIndex where T implements Droppable and Copyable
+		scratch.truncate(0)
 		pivotHold.clear()
 		pivotHold.push(try self.managed.get(pivotIndex) otherwise panic("stablePartition: get OOB at pivot"))
 		let pv = try pivotHold.get(0) otherwise panic("stablePartition: pivotHold is empty one line after a push into it")
@@ -62,7 +63,7 @@ export extension Array
 			while i < hi 'splitGe'
 				let v = try self.managed.get(i) otherwise panic("stablePartition: get OOB at i (ge)")
 				if cmp(v, pv) != Ordering.lessThan 'toScratch'
-					try scratch.set(k, value: v) otherwise panic("stablePartition: scratch.set OOB (ge)")
+					scratch.push(v)
 					k = try k + 1 otherwise panic("out of range")
 				end 'toScratch' else 'keepLeft'
 					try self.managed.set(w, value: v) otherwise panic("stablePartition: set OOB at w (ge)")
@@ -91,7 +92,7 @@ export extension Array
 			while i < hi 'splitLess'
 				let v = try self.managed.get(i) otherwise panic("stablePartition: get OOB at i (less)")
 				if cmp(v, pv) == Ordering.lessThan 'toScratch2'
-					try scratch.set(k, value: v) otherwise panic("stablePartition: scratch.set OOB (less)")
+					scratch.push(v)
 					k = try k + 1 otherwise panic("out of range")
 				end 'toScratch2' else 'keepRight'
 					try self.managed.set(w, value: v) otherwise panic("stablePartition: set OOB at w (less)")

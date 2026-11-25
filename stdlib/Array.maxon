@@ -89,7 +89,7 @@ end 'Array'
 public extension Array where T implements Comparable
 	/// Sort in place using the element's `Comparable.compare` ordering.
 	/// Stable: equal elements keep their relative order.
-	public function sort(mutates self) where T implements Droppable and Copyable
+	public function sort(mutates self) where T implements Copyable
 		let lo = 0
 		let hi = self.managed.length()
 		self.driftsortRange(lo, hi: hi, cmp: function(x T, y T) gives x.compare(y))
@@ -106,7 +106,7 @@ end 'Array'
 
 public extension Array
 	/// Sort in place using the supplied comparator. Stable.
-	public function sortBy(mutates self, cmp SortComparator) where T implements Droppable and Copyable
+	public function sortBy(mutates self, cmp SortComparator) where T implements Copyable
 		let lo = 0
 		let hi = self.managed.length()
 		self.driftsortRange(lo, hi: hi, cmp: cmp)

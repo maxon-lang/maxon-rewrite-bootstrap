@@ -249,7 +249,7 @@ export extension Array
 	// run's right neighbor (the merged result going forward) won't have
 	// a higher power, so we can finalize it now. Push the new run, repeat.
 	// At end-of-input, drain the stack by merging top-to-bottom.
-	export function driftsortRange(mutates self, lo ElementIndex, hi ElementIndex, cmp SortComparator) where T implements Droppable and Copyable
+	export function driftsortRange(mutates self, lo ElementIndex, hi ElementIndex, cmp SortComparator) where T implements Copyable
 		let n = try hi - lo otherwise panic("out of range")
 		if n <= SmallSortThreshold 'small'
 			self.internalInsertionSortRange(lo, hi: hi, cmp: cmp)
@@ -293,7 +293,7 @@ export extension Array
 			allocLen = SmallSortThreshold as ElementIndex
 		end 'bySmallSort'
 		let scratchCap = allocLen
-		scratch.resize(scratchCap)
+		scratch.reserve(scratchCap)
 		// Eager run-creation pays off only on short inputs, where a small-sort
 		// (or two plus a merge) beats deferring.
 		let eager = n <= EagerRunLengthLimit
