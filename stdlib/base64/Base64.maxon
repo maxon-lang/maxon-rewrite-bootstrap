@@ -10,9 +10,9 @@ end 'Base64Error'
 
 typealias Base64Value = int(0 to 63)
 
-typealias Base64Accumulator = int(0 to 4095)
+export typealias Base64Accumulator = int(0 to 4095)
 
-typealias Base64BitCount = int(0 to 12)
+export typealias Base64BitCount = int(0 to 12)
 
 let Base64UpperFirst = 0x41
 
@@ -114,7 +114,7 @@ public type Base64
 		return bytes
 	end 'decode'
 
-	static function lowBits(accumulator Base64Accumulator, count Base64BitCount) returns Base64Accumulator
+	export static function lowBits(accumulator Base64Accumulator, count Base64BitCount) returns Base64Accumulator
 		return accumulator and ((1 shl count) - 1)
 	end 'lowBits'
 

@@ -831,6 +831,7 @@ function scalarTag(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns Stri
 		invalid gives ""
 		primString gives ""
 		primCharacter gives ""
+		primCString gives ""
 		primVoid gives ""
 		primNever gives ""
 		record gives ""

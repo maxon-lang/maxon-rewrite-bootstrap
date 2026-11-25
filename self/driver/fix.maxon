@@ -739,10 +739,10 @@ function programAt(path String) returns FixProgram
 	var files = project.SourceFiles.create(0)
 	if project.isDirectoryPath(path) 'project'
 		var names = ast.StringList.create(0)
-		collectSourceFiles(path, markers: true, files: names)
+		collectSourceFiles(path, files: names)
 		project.sortStrings(names)
 		for i in 0 upto names.count() 'files'
-			if endsWithText(names[i], suffix: sourceExtension) or endsWithText(names[i], suffix: testExtension) or project.lastComponent(names[i]) == project.ignoreMarkerName 'source'
+			if endsWithText(names[i], suffix: sourceExtension) or endsWithText(names[i], suffix: testExtension) 'source'
 				files.push(project.SourceFile.make(names[i].clone(), text: readText(names[i])))
 			end 'source'
 		end 'files'

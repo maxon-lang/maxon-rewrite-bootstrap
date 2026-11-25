@@ -2,11 +2,11 @@
 /// @category Crypto
 // One word type serves both cores, so one state, schedule, reader and writer do too. SHA-256 masks
 // to 32 bits after every operation that can carry; a missing mask is a wrong digest, not an error.
-typealias Sha2Word = bits(64)
+export typealias Sha2Word = bits(64)
 
-typealias Sha2Words = Array with Sha2Word
+export typealias Sha2Words = Array with Sha2Word
 
-typealias Sha2State = FixedArray with 8 Sha2Word
+export typealias Sha2State = FixedArray with 8 Sha2Word
 
 typealias Sha512RotateAmount = int(1 to 63)
 
@@ -14,7 +14,7 @@ typealias Sha2StateSlot = int(0 to 7)
 
 typealias Sha2WordBytes = int(4 to 8) implements Count
 
-typealias DigestByteTally = int(0 to u64.max) implements Count
+export typealias DigestByteTally = int(0 to u64.max) implements Count
 
 public typealias HashBlockBytes = int(64 to 128) implements Count
 
@@ -288,21 +288,21 @@ end 'HashAlgorithm'
 /// A SHA-2 hash fed in chunks. The digest depends only on the bytes passed to `update`, never on
 /// how they were split.
 public type Digest
-	var algorithm as HashAlgorithm
-	var state as Sha2State
+	export var algorithm as HashAlgorithm
+	export var state as Sha2State
 	var hardwareState as ByteArray
 	// Reused by every block, so compressing one allocates nothing.
-	var schedule as Sha2Words
-	var pending as ByteArray
-	var consumed as DigestByteTally
-	var finished as bool
+	export var schedule as Sha2Words
+	export var pending as ByteArray
+	export var consumed as DigestByteTally
+	export var finished as bool
 
 	/// A new hash of the empty message, sharing nothing with any other `Digest`.
 	public static function create(algorithm HashAlgorithm) returns Digest
 		return Self.build(algorithm, software: false)
 	end 'create'
 
-	static function build(algorithm HashAlgorithm, software bool) returns Digest
+	export static function build(algorithm HashAlgorithm, software bool) returns Digest
 		let initial = match algorithm 'initial'
 			sha256 gives sha256InitialState()
 			sha384 gives sha384InitialState()
@@ -315,7 +315,7 @@ public type Digest
 		return Digest{algorithm: algorithm, state: initial, hardwareState: hardwareState, schedule: schedule, pending: pending, consumed: 0, finished: false}
 	end 'build'
 
-	function usesHardware() returns bool
+	export function usesHardware() returns bool
 		return hardwareState.count() != 0
 	end 'usesHardware'
 
@@ -378,7 +378,7 @@ public type Digest
 		end 'used'
 	end 'requireOpen'
 
-	function buffer(mutates self, data ByteArray, firstIndex ElementIndex, limit ElementIndex)
+	export function buffer(mutates self, data ByteArray, firstIndex ElementIndex, limit ElementIndex)
 		for index in firstIndex upto limit 'eachByte'
 			pending.push(try data.get(index) otherwise panic("Digest: buffered byte past the data the caller sized"))
 		end 'eachByte'
@@ -405,13 +405,13 @@ public type Digest
 	end 'loadHardwareState'
 end 'Digest'
 
-function sha2Once(algorithm HashAlgorithm, data ByteArray) returns ByteArray
+export function sha2Once(algorithm HashAlgorithm, data ByteArray) returns ByteArray
 	var digest = Digest.create(algorithm)
 	digest.update(data)
 	return digest.finalize()
 end 'sha2Once'
 
-function sha2OfMessages(algorithm HashAlgorithm, messages ByteArrays) returns ByteArray
+export function sha2OfMessages(algorithm HashAlgorithm, messages ByteArrays) returns ByteArray
 	var digest = Digest.create(algorithm)
 	for message in messages 'eachMessage'
 		digest.update(message)

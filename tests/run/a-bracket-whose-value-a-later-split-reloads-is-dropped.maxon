@@ -1,0 +1,26 @@
+// A panic's message in a cold block, built of interpolated calls while the strings of the earlier ones are live,
+// brackets those strings around each later call. A split whose cut lies past a bracket's restore reloads the value at
+// every use after it, which leaves the bracket dead: its restore put the value back in a register no pressure counted
+// for the rest of the block, so colouring found no register for a later value on x64 ("has no home"). Spilling deletes
+// a bracket whose value nothing reads after its restore.
+function quoted(s String) returns String
+	return "<{s}>"
+end 'quoted'
+
+function numbered(v Count) returns String
+	return "#{v}"
+end 'numbered'
+
+function report(a String, b Count, c String, d Count, e String, why String) returns Count
+	if why != "" 'broken'
+		panic("rules: from {quoted(a)}, {numbered(b)} gives {quoted(c)}{why}, but {numbered(d)} can become {quoted(e)}")
+	end 'broken'
+	return d
+end 'report'
+
+function main() returns ExitCode
+	print("{report("x", b: 1, c: "y", d: 3, e: "z", why: "")}\n")
+	return 0
+end 'main'
+
+//> 3

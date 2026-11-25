@@ -343,7 +343,7 @@ The same program in the library tier.
 typealias Integer = int(i64.min to i64.max)
 
 function lengthOf(c cstring) returns Integer
-	return String.fromCString(c).byteLength()
+	return try String.fromCString(c).byteLength() as Integer otherwise panic("out of range")
 end 'lengthOf'
 
 function main() returns ExitCode

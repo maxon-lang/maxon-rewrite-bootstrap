@@ -133,7 +133,7 @@ end 'isReservedTopLevel'
 let projectFileExtension = ".maxproj"
 
 // ignoreMarkerName is the name of the file that keeps a directory, and what is below it, out of the program that discovers it.
-export let ignoreMarkerName = ".maxonignore"
+let ignoreMarkerName = ".maxonignore"
 
 // runtimeDirName is the directory of the runtime's source (README, "The runtime").
 let runtimeDirName = "runtime"
@@ -459,6 +459,15 @@ export function lastComponent(path String) returns borrowed String
 	end 'back'
 	return path.sliceBytes(at, endPos: path.byteLength())
 end 'lastComponent'
+
+// holdsIgnoreMarker is whether a directory on disk holds the ignore marker, which keeps it and what is below it out of what
+// discovers a program, and out of what fix and fmt walk below the path they are given.
+export function holdsIgnoreMarker(dir String) returns bool
+	var files = ast.StringList.create(0)
+	var projectFiles = ast.StringList.create(0)
+	var dirs = ast.StringList.create(0)
+	return listDirectory(dir, memory: SourceFiles.create(0), files: files, projectFiles: projectFiles, dirs: dirs)
+end 'holdsIgnoreMarker'
 
 // listDirectory sorts what a directory holds into the paths of its source files, the paths of its project files and the names
 // of the directories that may be modules, each in order. It is whether the directory holds an ignore marker.

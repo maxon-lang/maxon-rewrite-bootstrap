@@ -103,6 +103,9 @@ func convertProgram(file, src string, kind inputKind, ownTypes []string) Result 
 		lendRequirements(lines)
 		dropReplacedMembers(lines)
 		dropSelfClones(lines)
+		if root := libraryRoot(file); root != "" {
+			exportDeclarationsNamedElsewhere(lines, namedByOtherModules(root, file))
+		}
 	}
 	rewriteTypeNames(lines)
 	renameLibraryTypes(file, lines, kind, ownTypes)

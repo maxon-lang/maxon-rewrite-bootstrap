@@ -20,8 +20,8 @@ end 'Array'
 /// come from the Iterator/BidirectionalIterator extension methods.
 public type ArrayIterator uses Element implements BidirectionalIterator with Element
 	public typealias ElementMemory = __ManagedMemory with Element
-	typealias RawCursor = __ManagedMemoryCursor with Element
-	var raw as RawCursor
+	export typealias RawCursor = __ManagedMemoryCursor with Element
+	export var raw as RawCursor
 
 	public static function create(source ElementMemory) returns Self throws IterationError
 		let cursor = try source.createCursor() otherwise throw IterationError.exhausted

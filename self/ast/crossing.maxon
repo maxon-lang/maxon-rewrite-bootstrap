@@ -33,6 +33,7 @@ function holdsBorrowWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, mutat
 		primBool gives false
 		primString gives false
 		primCharacter gives false
+		primCString gives false
 		primVoid gives false
 		primNever gives false
 		intRange gives false
@@ -124,6 +125,7 @@ function unsendableWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, functi
 		primBool gives ""
 		primString gives ""
 		primCharacter gives ""
+		primCString gives ""
 		primVoid gives ""
 		primNever gives ""
 		intRange gives ""

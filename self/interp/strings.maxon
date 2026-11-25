@@ -35,6 +35,24 @@ function entryStrGraphemeBytePos(mutates vm Vm, f ir.IrFunction, x ir.Instr) thr
 	giveCount(vm, x: x, n: stringGraphemeBytePos(text, from: countArg(vm, f: f, x: x, i: 1), count: countArg(vm, f: f, x: x, i: 2)))
 end 'entryStrGraphemeBytePos'
 
+// entryStrCStr is the cstring of a String, which the interpreter tracks as it does any String: a copy of the text.
+function entryStrCStr(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a cstring")
+	giveText(vm, x: x, text: text.clone())
+end 'entryStrCStr'
+
+// entryStrFromCString is the bytes of a cstring before its first zero byte, as a new String.
+function entryStrFromCString(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a cstring")
+	for i in 0 upto text.byteLength() 'scan'
+		if text.byteAt(i) == 0 'zero'
+			giveText(vm, x: x, text: text.sliceBytes(0, endPos: i).clone())
+			return
+		end 'zero'
+	end 'scan'
+	giveText(vm, x: x, text: text.clone())
+end 'entryStrFromCString'
+
 function entryStrFind(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a string search")
 	let needle = try stringArg(vm, f: f, x: x, i: 1, what: "a string search")

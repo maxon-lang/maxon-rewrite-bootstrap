@@ -192,18 +192,18 @@ public type URL implements core.Equatable, core.Stringable
 		return URL{scheme: scheme, path: path, storedUserinfo: userinfo, storedHost: host, storedPort: portNum, storedQuery: query, storedFragment: fragment, hasHost: hasHost, hasUserinfo: hasUserinfo, hasPort: hasPort, hasQuery: hasQuery, hasFragment: hasFragment}
 	end 'parse'
 
-	static function forOriginForm(scheme String, authority String, target String) returns URL throws URLError
+	export static function forOriginForm(scheme String, authority String, target String) returns URL throws URLError
 		let host = try urlHostAuthorityOf(authority)
 		let path = try urlOriginFormOf(target)
 		return URL.ofRequestTarget(scheme, host: host.host, port: host.port, hasHost: true, hasPort: host.hasPort, path: path)
 	end 'forOriginForm'
 
-	static function forHostlessOriginForm(scheme String, target String) returns URL throws URLError
+	export static function forHostlessOriginForm(scheme String, target String) returns URL throws URLError
 		let path = try urlOriginFormOf(target)
 		return URL.ofRequestTarget(scheme, host: "", port: 0, hasHost: false, hasPort: false, path: path)
 	end 'forHostlessOriginForm'
 
-	static function forAbsoluteForm(scheme String, target String) returns URL throws URLError
+	export static function forAbsoluteForm(scheme String, target String) returns URL throws URLError
 		let prefix = "{scheme}{SchemeAuthorityMark}"
 		if not target.toLower().startsWith(prefix) 'anotherScheme'
 			throw URLError.invalidScheme
@@ -455,7 +455,7 @@ type URLHostAuthority
 	export let port as NetworkPort
 	export let hasPort as bool
 
-	static function create(host String, port NetworkPort, hasPort bool) returns URLHostAuthority
+	export static function create(host String, port NetworkPort, hasPort bool) returns URLHostAuthority
 		return URLHostAuthority{host: host.clone(), port: port, hasPort: hasPort}
 	end 'create'
 end 'URLHostAuthority'
@@ -465,7 +465,7 @@ type URLOriginForm
 	export let query as String
 	export let hasQuery as bool
 
-	static function create(path String, query String, hasQuery bool) returns URLOriginForm
+	export static function create(path String, query String, hasQuery bool) returns URLOriginForm
 		return URLOriginForm{path: path.clone(), query: query.clone(), hasQuery: hasQuery}
 	end 'create'
 end 'URLOriginForm'

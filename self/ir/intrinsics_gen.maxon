@@ -218,6 +218,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrStringFrom 'intrStringFrom'
 		return lowerStringFrom(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrStringFrom'
+	if op == ast.Intrinsic.intrStringCStr 'intrStringCStr'
+		return lowerStringCStr(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrStringCStr'
+	if op == ast.Intrinsic.intrStringFromCString 'intrStringFromCString'
+		return lowerStringFromCString(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrStringFromCString'
 	if op == ast.Intrinsic.intrStringBytes 'intrStringBytes'
 		return lowerStringBytes(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrStringBytes'
@@ -1012,6 +1018,12 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrStringFrom 'intrStringFrom'
 		return false
 	end 'intrStringFrom'
+	if op == ast.Intrinsic.intrStringCStr 'intrStringCStr'
+		return false
+	end 'intrStringCStr'
+	if op == ast.Intrinsic.intrStringFromCString 'intrStringFromCString'
+		return false
+	end 'intrStringFromCString'
 	if op == ast.Intrinsic.intrStringBytes 'intrStringBytes'
 		return false
 	end 'intrStringBytes'

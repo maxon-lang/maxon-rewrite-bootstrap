@@ -28,6 +28,7 @@ export enum TypeKind
 	primBool
 	primString
 	primCharacter
+	primCString
 	primVoid
 	primNever
 	intRange
@@ -63,6 +64,7 @@ export enum TypeKind
 			primBool gives false
 			primString gives false
 			primCharacter gives false
+			primCString gives false
 			primVoid gives false
 			primNever gives false
 			intRange gives false
@@ -1576,6 +1578,7 @@ export function byteSize(tt TypeSlot, reads TypeTable, t TypeID) returns Count
 		interfaceTy gives panic("an interface has no size")
 		primString gives sizeofWord
 		primCharacter gives sizeofWord
+		primCString gives sizeofWord
 		intRange gives sizeofWord
 		constInt gives sizeofWord
 		floatRange gives sizeofWord
@@ -2020,7 +2023,7 @@ export function isStringType(tt TypeSlot, reads TypeTable, t TypeID) returns boo
 		return false
 	end 'none'
 	let k = typeKind(tt, reads: reads, t: t)
-	return k == TypeKind.primString or k == TypeKind.primCharacter
+	return k == TypeKind.primString or k == TypeKind.primCharacter or k == TypeKind.primCString
 end 'isStringType'
 
 export function isManagedType(tt TypeSlot, reads TypeTable, t TypeID) returns bool
@@ -2030,6 +2033,7 @@ export function isManagedType(tt TypeSlot, reads TypeTable, t TypeID) returns bo
 	return match typeKind(tt, reads: reads, t: t) 'k'
 		primString gives true
 		primCharacter gives true
+		primCString gives true
 		record gives true
 		unionTy gives true
 		builtinArray gives true

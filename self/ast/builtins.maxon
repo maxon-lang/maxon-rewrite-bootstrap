@@ -217,6 +217,7 @@ export function initBuiltins(mutates tt TypeSlot, reads TypeTable, mutates ft Fu
 	b.boolTy = allocType(tt, module: diag.stdlibID, e: TypeEntry.make(TypeKind.primBool, name: "bool"))
 	b.stringTy = allocType(tt, module: diag.stdlibID, e: TypeEntry.make(TypeKind.primString, name: "String"))
 	b.characterTy = allocType(tt, module: diag.stdlibID, e: TypeEntry.make(TypeKind.primCharacter, name: "Character"))
+	b.cStringTy = allocType(tt, module: diag.stdlibID, e: TypeEntry.make(TypeKind.primCString, name: "cstring"))
 	b.voidTy = allocType(tt, module: diag.stdlibID, e: TypeEntry.make(TypeKind.primVoid, name: "void"))
 	b.neverTy = allocType(tt, module: diag.stdlibID, e: TypeEntry.make(TypeKind.primNever, name: "never"))
 	b.anon64Ty = internIntRange(tt, reads: reads, aliasName: "", minVal: I128.i64Min(), maxVal: I128.i64Max(), inferred: false)

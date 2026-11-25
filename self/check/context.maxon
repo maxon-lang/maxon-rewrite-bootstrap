@@ -842,6 +842,7 @@ export function typeIsNominal(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID
 		primBool gives false
 		primString gives false
 		primCharacter gives false
+		primCString gives false
 		primVoid gives false
 		primNever gives false
 		intRange gives false
@@ -1361,6 +1362,15 @@ function resolveNamedTypeRef(mutates c Checker, p ast.Project, mutates ms ast.Mo
 			end 'badA'
 			return p.builtins.characterTy
 		end 'char'
+		if tName == "cstring" 'cstring'
+			if hasArgs 'badA'
+				failNotGeneric(c, off: off, name: "cstring", errs: errs)
+			end 'badA'
+			if refusesRawType(c, p: p, ms: ms, off: off, t: p.builtins.cStringTy, errs: errs) 'raw'
+				return ast.noType
+			end 'raw'
+			return p.builtins.cStringTy
+		end 'cstring'
 		if tName == "Self" 'slf'
 			if selfTy == ast.noType 'noS'
 				checkFail(c.modID, off: off, code: diag.errUnknownType, msg: "'Self' names a type only inside one", errs: errs)

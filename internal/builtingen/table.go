@@ -23,6 +23,7 @@ var primTypes = []primType{
 	{"Bool", "b.boolTy"},
 	{"String", "b.stringTy"},
 	{"Character", "b.characterTy"},
+	{"CString", "b.cStringTy"},
 	{"Void", "b.voidTy"},
 	{"Count", "b.countTy"},
 	{"ElementIndex", "b.elementIndexTy"},
@@ -51,6 +52,14 @@ var primTypes = []primType{
 	{"Natural", "b.anonU64Ty"},
 	{"OrderedWord", "b.orderedWordTy"},
 	{"HashDigest", "b.hashDigestTy"},
+}
+
+// rawPrimTypes are the primitives of maxon's raw surface, whose name only the library tiers may write (E3185).
+var rawPrimTypes = []struct {
+	Key   string
+	Named rawSurface
+}{
+	{"CString", rawSurface{What: "the NUL-terminated pointer type is nameable", Instead: "use 'String'"}},
 }
 
 // stdAlias is a built-in ranged alias of maxon's stdlib (`Count`, `ExitCode`...), which the rows of the table name and
@@ -835,6 +844,11 @@ var tableFunctions = []function{
 	// are few, so each is a copy, read through the String's bytes as every member reads them.
 	{Owner: "String", Name: "addressableBytes", Result: "ManagedMemory with Byte", Intrinsic: "StringToByteArray", Raw: &rawSurface{What: "a String's bytes are taken as a raw '__ManagedMemory' buffer", Instead: "use 'toByteArray()' or 'bytes()'"}},
 	{Owner: "String", Name: "init", Static: true, Params: []string{"managed ManagedMemory with Byte"}, Result: "String", Intrinsic: "StringFrom", Raw: &rawSurface{What: "a String is made of a raw '__ManagedMemory' buffer", Instead: "use 'String.from(bytes)'"}},
+	// A cstring is the two words of the String it was made of, a distinct type that only the library tiers name: cstr() hands
+	// them over as they are and costs nothing, and a runtime row that takes one makes the zero-terminated copy it needs
+	// itself and frees it before it returns. fromCString is its inverse, a copy of the bytes before the first NUL.
+	{Owner: "String", Name: "cstr", Result: "CString", Intrinsic: "StringCStr", Raw: &rawSurface{What: "a String's bytes are taken as a NUL-terminated 'cstring'", Instead: "pass the String itself"}},
+	{Owner: "String", Name: "fromCString", Static: true, Params: []string{"cs CString"}, Result: "String", Intrinsic: "StringFromCString", Raw: &rawSurface{What: "a String is made of a NUL-terminated 'cstring'", Instead: "use 'String.from(bytes)'"}},
 	{Owner: "String", Name: "bytes", Result: "ByteView", Intrinsic: "StringBytes"},
 	{Owner: "String", Name: "codepoints", Result: "CodepointView", Intrinsic: "StringCodepoints"},
 	{Owner: "String", Name: "utf16", Result: "Utf16View", Intrinsic: "StringUtf16"},
@@ -1163,6 +1177,8 @@ var entries = []entry{
 	{"StrCount", "rt.str.count", "Runtime", roleCall, "(String) -> count of its grapheme clusters"},
 	{"StrGraphemeIndex", "rt.str.graphemeIndex", "Runtime", roleCall, "(String, byte position) -> count of the clusters that start before it"},
 	{"StrGraphemeBytePos", "rt.str.graphemeBytePos", "Runtime", roleCall, "(String, from, count) -> the byte position that count clusters after from end at, or the end"},
+	{"StrCStr", "rt.str.cstr", "Runtime", roleCall, "(String) -> cstring: the String's own two words, which own nothing as a cstring (the drop and the copy of the type are the routines of a view), so the String must outlive it; the interpreter, which tracks each object's owner, gives a copy of the text"},
+	{"StrFromCString", "rt.str.fromCString", "Runtime", roleCall, "(cs String) -> String: a new String of the bytes of a cstring before its first NUL, which its length bounds, the cstring's two words taken as a String's"},
 	{"StrFind", "rt.str.find", "Runtime", roleCall, "(String, needle String, from) -> the position of the first match at or after from, plus 1, or 0"},
 	{"StrFindLast", "rt.str.findLast", "Runtime", roleCall, "(String, needle String) -> the position of the last match, plus 1, or 0"},
 	{"StrHasAffix", "rt.str.hasAffix", "Runtime", roleCall, "(String, affix String, atEnd) -> whether it starts with the affix, or ends with it where atEnd"},
@@ -1381,6 +1397,8 @@ var runtimeFunctions = []runtimeFunction{
 	{"StrCount", "stringCount(text String) Count"},
 	{"StrGraphemeIndex", "stringGraphemeIndex(text String, bytePos Count) Count"},
 	{"StrGraphemeBytePos", "stringGraphemeBytePos(text String, from Count, count Count) Count"},
+	{"StrCStr", "stringCStr(text String) String"},
+	{"StrFromCString", "stringFromCString(cs String) String"},
 	{"StrFind", "stringFind(text String, needle String, from Count) Count"},
 	{"StrFindLast", "stringFindLast(text String, needle String) Count"},
 	{"StrHasAffix", "stringHasAffix(text String, affix String, atEnd Bool) Bool"},

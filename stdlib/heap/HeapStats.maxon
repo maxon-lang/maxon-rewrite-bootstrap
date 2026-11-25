@@ -11,7 +11,7 @@ public type HeapActivity
 	public let frees as HeapCount
 	public let bytes as HeapBytes
 
-	static function create(allocations HeapCount, frees HeapCount, bytes HeapBytes) returns Self
+	export static function create(allocations HeapCount, frees HeapCount, bytes HeapBytes) returns Self
 		return Self{allocations: allocations, frees: frees, bytes: bytes}
 	end 'create'
 end 'HeapActivity'

@@ -561,7 +561,12 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   extension names that module. Each directory of maxon's `stdlib/helpers/` is a module of the library by the conversion
   (`files.txt` maps each file to it) and the conversion makes every `public` of a helper file `export`, so a helper is the
   whole library's and no program's, and so is a `public` member of another library file whose parameters or typealias target
-  name a helper's type or such a member (its result may name one). A program the spec runner stages in the library is
+  name a helper's type or such a member (its result may name one). Where maxon's unmarked declaration is visible to the
+  library's tree, here it is the declaring module's, so the conversion makes an unmarked declaration `export` when a file
+  of another module of `files.txt`, or a file of maxon's library that is not converted yet, writes its name, within the
+  directory maxon makes it visible to (`cmd/convert --listing`, `visibility.go`), together with the types of the file that
+  its signature names (`E3167`); it reads names as words, so a word that such a file writes for something else exports a
+  declaration that nothing names, which reaches no program. A program the spec runner stages in the library is
   compiled as a file of the core, so it sees the library's `export` declarations too, bare. Only the library modules a program
   names, directly or through others, are compiled past their resolve (`reachedModules`), so a program pays for no other, and
   resolves only those it reaches: in a program's compile the library's resolves wait for the program's, and a library module
@@ -2242,7 +2247,7 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   behaviours, and requires the same stdout and exit code as the directives and no violation. `self/interp/interp.maxtest` tests it on
   IR that is written to break each rule (and to schedule behaviours: their order, their interleaving, the counts). `minimaxon fuzz` (`self/fuzz`) writes random well-formed programs over records, unions,
   strings, the four conventions, calls with overlapping and disjoint arguments, match bindings, loops, generics with bounds,
-  arrays, lists through maxon's value API, slot maps with slot keys, a borrowed place held while a later operand of the same expression changes or
+  arrays, lists through maxon's value API (and a field of an element that get lends, written with a try before the target), slot maps with slot keys, a borrowed place held while a later operand of the same expression changes or
   consumes what it lies in, and frozen values, cowns and behaviours. The checker refuses most of them, since the generator leans
   on the edges of the rules: about two programs in five are careless and break rules throughout, and two in five of the rest
   break exactly one rule of sharing, once (a behaviour that takes a borrow, a variable used after a behaviour took it, a frozen
@@ -2435,7 +2440,9 @@ into an x64 Linux executable and not run.
   (see "E5001 and the optimizations"), or ask for alone (`HotLoops.test`); (6) everywhere, a point still over its free registers spills by
   farthest next use, constants first, then values already stored or defined outside the loop; in a cold block, a value
   live across a call, or one the loop's hot path reads, is bracketed instead: stored before the point and restored into
-  its own register after it, which lends its register to the instructions between, so the hot path keeps it.
+  its own register after it, which lends its register to the instructions between, so the hot path keeps it. A bracket
+  whose value nothing reads after its restore (a split whose cut lies past it reloads the value at every later use) is
+  dead, and each round's analysis deletes it before the round goes on.
 - **A split** stores the value once, after its definition, and gives each use the cut reaches a reload (or the constant
   made again), one per block and stretch of uses, hoisted to the preheader of every loop that holds neither the cut nor
   the definition. A reload defines a new value that dominates its uses, so the function stays SSA with no new
@@ -2445,9 +2452,9 @@ into an x64 Linux executable and not run.
   instruction no edit touched, and the live blocks of a value whose definition and uses no edit touched, are taken over;
   and only a block whose instructions or live-out values changed is surveyed for pressure again.
 - **The invariant** (`verifyPressure`, which `--verify-ir` holds every function to): every virtual register has one
-  definition; at every instruction each class's demand fits its free registers; and spill code in a hot block lies only
-  in loops that define or read its value (a slot is one value). So a store runs where the definition does and a reload
-  no deeper than its uses.
+  definition; at every instruction each class's demand fits its free registers; no bracket is dead; and spill code in a
+  hot block lies only in loops that define or read its value (a slot is one value). So a store runs where the definition
+  does and a reload no deeper than its uses.
 - **E5001** (`refuseHotLoops`, a `PressureRefusal` per loop nest and class, which the emit stage reports as a compile error
   at the function's declaration, since the IR keeps no place of a loop, and an instance's at its generic's): after tiers 1
   to 4, a point of a loop's hot path over its class's whole pool. It names the loop,
@@ -2481,7 +2488,9 @@ register and takes the function out of SSA form; `Allocator.allocate` runs both 
   fixed register, and only then a callee-saved one, which a value live across a call is confined to anyway.
 - **Two-address forms** (`colourReuse`): the definition takes the reused operand's register when that operand dies there; for
   a commutative form, the other use's when that one dies (the uses are swapped); otherwise another register, never one the
-  instruction reads, and a copy of the operand before it, which pressure has counted beside the dying operands.
+  instruction reads but the dying reused operand's, and a copy of the operand before it, which pressure has counted beside
+  the dying operands. The dying operand's register stays one to start in when the operand was in a window there and another
+  value has it as its home: the definition then gets a home of its own and starts in a window.
 - **The repair** (`repair`): when every register a value may be in is held (the count fits, but the values about it are
   confined to different sets: Hall's condition), first a breadth-first search from those registers to a free one, through
   values that die in this block, each of which may move to the next register for the rest of its life in the block and
@@ -4966,6 +4975,13 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   (`E3900` from a `let` that holds one, or where the String is itself borrowed), a behaviour taking a `let` that holds one
   is `E3909`, and changing or moving the String while a `let` views it is `E3186`. Each names the copy, `.clone()`, which `fix` (that `specs.ps1` runs)
   writes at the place the message names, so converted maxon code keeps its meaning with one copy where maxon made one.
+- **A `cstring` costs a copy in each row that takes one.** `cstring` and `String.cstr()` are the library tiers' (`E3185` elsewhere), as in
+  maxon; `cstr()` is not mutating, as there. A `cstring` is the two words of the String it was made of, a type of its own whose
+  drop and copy own nothing (the String must outlive it), so `cstr()` costs nothing, but a String has no spare byte for a
+  terminator where it is a view, a literal or holds its bytes in its words, so each runtime row that takes one makes the
+  zero-terminated copy itself (`cStringOf`) and frees it before it returns, where maxon grows the String's own buffer by a
+  byte. The words carry the length, so a row of bytes takes it as it is. `String.fromCString(cs)` is a new String of the
+  bytes before the first zero byte, as maxon's. This is a cost, not a language difference.
 - `String` implements `Hashable` and `Equatable` through the library's extension, which the conversion writes from the header
   of maxon's `String.maxon`, with the methods that the built-in `String` lacks (`hash()`) from maxon's source; the built-in
   `equals` meets `Equatable` and is called in place through a bound. `Cloneable` is left out: `clone()` is the copy every
@@ -5442,7 +5458,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   changes nothing a program sees, `setLength` is `resize`, and `elementSize()` is what `sizeof` gives for the element, never
   maxon's negative bit width, since no element is bit-packed. Not provided, because no model-sound operation does the same:
   `setByte` (it writes a buffer under another type than its element's), a `__ManagedMemory` of no element type, `create`
-  with an element size, `fromCString`, `toCString` and `makeCharFromBytes` (there is no `cstring`, and a `Character` is no buffer),
+  with an element size, `fromCString`, `toCString` and `makeCharFromBytes` (a `String` has `cstr()` and `String.fromCString` instead, and a `Character` is no buffer),
   `shiftLeft` and `shiftRight`, `__ManagedList` and its nodes (a node carries its list by a reference count, where a `SlotKey`
   is an index into a list that the caller names), `__ManagedFile`, `__ManagedDirectory`, `__ManagedSocket`, `__ManagedPages`,
   `__ManagedHandle` and `__ManagedPin` (the OS records of the runtime take their place), and the four contracts of a counted

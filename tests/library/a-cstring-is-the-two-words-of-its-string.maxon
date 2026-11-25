@@ -1,0 +1,55 @@
+// A cstring is the two words of the String it was made of, a type of the library tiers: cstr() hands them over and costs
+// nothing, a cstring is held in a field, a parameter and an array as any two words are, and String.fromCString copies the
+// bytes before the first zero byte into a String of its own, whatever kind of String the cstring was made of.
+//> short=hello 5
+//> long=a string that is longer than fifteen bytes 42
+//> built=built and joined with a longer tail 35
+//> view=ring that is longer than fif 28
+//> empty= 0
+//> cut=ab 2 of 6
+//> held=hello 5
+//> element=built and joined with a longer tail 35
+
+typealias CStrings = Array with cstring
+
+type Holder
+	let name as cstring
+
+	static function make(name cstring) returns Holder
+		return Holder{name: name.clone()}
+	end 'make'
+end 'Holder'
+
+function lengthOf(c cstring) returns Count
+	return String.fromCString(c).byteLength()
+end 'lengthOf'
+
+function show(label String, c cstring)
+	let copy = String.fromCString(c)
+	print("{label}={copy} {lengthOf(c)}\n")
+end 'show'
+
+function main() returns ExitCode
+	let short = "hello"
+	let long = "a string that is longer than fifteen bytes"
+	var built = "built"
+	built = "{built} and joined with a longer tail"
+	let view = long.sliceBytes(4, endPos: 32)
+	let empty = ""
+	let nul = "ab\0cde"
+	show("short", c: short.cstr())
+	show("long", c: long.cstr())
+	show("built", c: built.cstr())
+	show("view", c: view.cstr())
+	show("empty", c: empty.cstr())
+	let cut = String.fromCString(nul.cstr())
+	print("cut={cut} {cut.byteLength()} of {nul.byteLength()}\n")
+	let holder = Holder.make(short.cstr())
+	show("held", c: holder.name)
+	var all = CStrings.create(0)
+	all.push(built.cstr())
+	for c in all 'each'
+		show("element", c: c)
+	end 'each'
+	return 0
+end 'main'

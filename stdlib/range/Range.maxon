@@ -20,9 +20,9 @@ public typealias IterPos = int(0 to u64.max)
 /// Iterator for both Range and OpenRange. Stores the inclusive last value so a
 /// single comparison per step suffices.
 public type RangeIterator implements core.Iterator with RangeBound, core.BidirectionalIterator
-	let first as RangeBound
-	let last as RangeBound
-	var pos as RangeBound
+	export let first as RangeBound
+	export let last as RangeBound
+	export var pos as RangeBound
 
 	public static function create(first RangeBound, last RangeBound) returns Self throws IterationError
 		if last < first 'empty'
@@ -56,8 +56,8 @@ end 'RangeIterator'
 
 /// Inclusive range: iterates from start through finish (both endpoints visited).
 public type Range implements core.Iterable with (RangeBound, RangeIterator)
-	let start as RangeBound
-	let finish as RangeBound
+	export let start as RangeBound
+	export let finish as RangeBound
 
 	public static function create(start RangeBound, finish RangeBound) returns Self
 		return Self{start: start, finish: finish}
@@ -72,7 +72,7 @@ end 'Range'
 
 /// Half-open range: iterates from start up to but not including endExclusive.
 public type OpenRange implements core.Iterable with (RangeBound, RangeIterator)
-	let start as RangeBound
+	export let start as RangeBound
 	let endExclusive as RangeBound
 
 	public static function create(start RangeBound, endExclusive RangeBound) returns Self

@@ -643,6 +643,7 @@ function hasIdentity(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bo
 		record gives false
 		primString gives true
 		primCharacter gives false
+		primCString gives false
 		builtinArray gives true
 		invalid gives false
 		primBool gives false
@@ -1114,6 +1115,7 @@ function castTargetIsRefused(p ast.Project, ms ast.ModuleState, target ast.TypeI
 		primBool gives true
 		primString gives true
 		primCharacter gives true
+		primCString gives true
 		record gives true
 		enumTy gives true
 		unionTy gives true
@@ -1146,6 +1148,7 @@ function castKindWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns S
 		primBool gives "bool"
 		primString gives "String"
 		primCharacter gives "Character"
+		primCString gives "cstring"
 		primVoid gives name
 		primNever gives name
 		intRange gives "int" if typeIsAnonInt(ms.types, reads: p.types, t: t) else name
@@ -1176,6 +1179,7 @@ function castTargetWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns
 		primBool gives "bool"
 		primString gives "String"
 		primCharacter gives "Character"
+		primCString gives "cstring"
 		intRange gives "int"
 		constInt gives "int"
 		floatRange gives "float"

@@ -3,7 +3,7 @@
 /// @category Collections
 public type Cell uses T
 	typealias CellArray = Array with T
-	let name as String
+	export let name as String
 	var cells = CellArray.create(0)
 
 	/// An empty cell named `name`.

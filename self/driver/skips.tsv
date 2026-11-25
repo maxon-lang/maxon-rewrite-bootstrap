@@ -500,6 +500,7 @@ test	slot.md	taking-from-an-empty-slot-panics-naming-the-slot	the test asserts a
 test	slot.md	reading-an-empty-slot-panics-naming-the-slot	the test asserts a line of maxon's library source, which the converted file does not share
 test	sha2.md	sha2.digest-panics-when-finalized-twice	the test asserts a line of maxon's library source, which the converted file does not share
 test	sha2.md	sha2.digest-panics-on-update-after-finalize	the test asserts a line of maxon's library source, which the converted file does not share
+test	sha2.md	sha2.the-hardware-and-software-compressions-agree	language difference: minimaxon's library is software only, so the hardware intrinsics the test calls (`__Builtins.cpuHasSha`, `__Builtins.sha256Blocks`) are not provided
 test	builtins-mm-counters.md	builtins-mm-counters.bytes-scale-with-the-request	language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart
 test	builtins-mm-counters.md	builtins-mm-counters.total-is-never-below-live	language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart
 test	builtins-mm-counters.md	builtins-mm-counters.the-two-layers-are-disjoint	language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart

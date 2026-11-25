@@ -117,7 +117,7 @@ var builtinMethods = map[string][]string{
 	"__StringCursor":        {"create", "current", "advance"},
 	"__GroupMemory":         {"create", "groups", "control", "setControl", "first", "second", "put", "setSecond", "takeFirst", "takeSecond", "clear"},
 	"SlotKey":               {"fromWord", "word"},
-	"String":                {"byteLength", "byteAt", "sliceBytes", "toByteArray", "from", "byteAtOrPanic", "addressableBytes", "init", "bytes", "codepoints", "utf16", "isEmpty", "equals", "count", "contains", "startsWith", "endsWith", "findFirst", "findLast", "indexAfter", "startIndex", "endIndex", "slice", "sliceLength", "replace", "replaceFirst", "toLower", "toUpper", "charAt", "containsCharacter"},
+	"String":                {"byteLength", "byteAt", "sliceBytes", "toByteArray", "from", "byteAtOrPanic", "addressableBytes", "init", "cstr", "fromCString", "bytes", "codepoints", "utf16", "isEmpty", "equals", "count", "contains", "startsWith", "endsWith", "findFirst", "findLast", "indexAfter", "startIndex", "endIndex", "slice", "sliceLength", "replace", "replaceFirst", "toLower", "toUpper", "charAt", "containsCharacter"},
 	"ByteView":              {"createIterator", "count"},
 	"ByteIterator":          {"current", "advance"},
 	"CodepointView":         {"createIterator", "count"},
