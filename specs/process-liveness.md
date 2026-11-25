@@ -132,18 +132,18 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
+		let exe = MxExecutable.name("cmd")
 		let argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("exit")
 		argv.push("0")
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 		let argv = StringArray.create(0)
 		argv.push("-c")
 		argv.push("exit 0")
 	#endif
-	let result = try Subprocess.run(exe, arguments: argv) otherwise return 2
+	let result = try MxSubprocess.run(exe, arguments: argv) otherwise return 2
 	if result.pid == 0 'noId'
 		return 4
 	end 'noId'
@@ -166,12 +166,12 @@ let ChildPollMs = 50
 
 function main() returns ExitCode
 	#if os(Windows)
-		let config = Configuration.create(Executable.name("ping"))
+		let config = Configuration.create(MxExecutable.name("ping"))
 		config.arguments.push("-n")
 		config.arguments.push("3")
 		config.arguments.push("127.0.0.1")
 	#else
-		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
+		let config = Configuration.create(MxExecutable.path(try FilePath.from("/bin/sleep") otherwise return 2))
 		config.arguments.push("2")
 	#endif
 	let pid = try config.runDetached() otherwise return 2
@@ -204,12 +204,12 @@ let ChildPollMs = 50
 
 function main() returns ExitCode
 	#if os(Windows)
-		let config = Configuration.create(Executable.name("cmd"))
+		let config = Configuration.create(MxExecutable.name("cmd"))
 		config.arguments.push("/c")
 		config.arguments.push("exit")
 		config.arguments.push("0")
 	#else
-		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sh") otherwise return 2))
+		let config = Configuration.create(MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2))
 		config.arguments.push("-c")
 		config.arguments.push("exit 0")
 	#endif

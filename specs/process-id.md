@@ -131,18 +131,18 @@ and answers `E3074`, which no skip counts, so the case is pinned on the other la
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
+		let exe = MxExecutable.name("cmd")
 		let argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("exit")
 		argv.push("0")
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 20)
+		let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 20)
 		let argv = StringArray.create(0)
 		argv.push("-c")
 		argv.push("exit 0")
 	#endif
-	let result = try Subprocess.run(exe, arguments: argv) otherwise return 21
+	let result = try MxSubprocess.run(exe, arguments: argv) otherwise return 21
 	let childPid = result.pid
 	let selfPid = Process.id()
 	var score = 0 as Count

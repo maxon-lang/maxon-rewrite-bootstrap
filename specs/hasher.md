@@ -361,19 +361,19 @@ function spelled(hash HashValue) returns String
 end 'spelled'
 
 function child() returns ExitCode
-	let hasher = Hasher.create()
+	var hasher = Hasher.create()
 	hasher.combineBytes("one message".toByteArray())
 	print("{spelled(hasher.finalize())}\n")
 	return 0
 end 'child'
 
-function spawnChild(me FilePath) returns CollectedOutput
-	let argv = StringArray.create(0)
+function spawnChild(me FilePath) returns MxCollectedOutput
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	var config = Configuration.create(MxExecutable.path(me.clone()))
 	config.arguments = argv
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": ""])
-	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
+	return try MxSubprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'spawnChild'
 
 function main() returns ExitCode
@@ -465,16 +465,16 @@ function bestTier() returns String
 	return "software"
 end 'bestTier'
 
-function runUnder(me FilePath, tier String, seedHex String) returns CollectedOutput
+function runUnder(me FilePath, tier String, seedHex String) returns MxCollectedOutput
 	let argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	let config = Configuration.create(MxExecutable.path(me))
 	config.arguments = argv
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_TIER": tier, "SEED": seedHex])
-	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
+	return try MxSubprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'runUnder'
 
-function answeredAsTheHostAllows(run CollectedOutput, tier String) returns bool
+function answeredAsTheHostAllows(run MxCollectedOutput, tier String) returns bool
 	if hostRuns(tier) 'runs'
 		return run.exitCode() == 0 and run.stderr == "" and run.stdout.count() > 1
 	end 'runs'
@@ -541,12 +541,12 @@ function main() returns ExitCode
 		return 0
 	end 'iAmTheChild'
 	let me = try Process.executablePath() otherwise return 2
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	var config = Configuration.create(MxExecutable.path(me))
 	config.arguments = argv
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_TIER": "fast"])
-	let run = try Subprocess.runConfiguration(config) otherwise return 4
+	let run = try MxSubprocess.runConfiguration(config) otherwise return 4
 	print("child stdout=[{run.stdout}]\n")
 	print("child stderr=[{run.stderr}]\n")
 	print("child exit={run.exitCode()}\n")
@@ -575,20 +575,20 @@ written in, so one seed, one tier and one program reproduce one hash in every pr
 it the hash, differs between hosts. Not on `wasm32-wasi`, where the subprocess band is refused at compile time.
 ```maxon
 function child() returns ExitCode
-	let hasher = Hasher.create()
+	var hasher = Hasher.create()
 	hasher.combineBytes("abc".toByteArray())
 	let folded = hasher.finalize()
 	print("{folded:08x}\n{folded == "abc".hash()}\n")
 	return 0
 end 'child'
 
-function spawnPinned(me FilePath, seed String) returns CollectedOutput
-	let argv = StringArray.create(0)
+function spawnPinned(me FilePath, seed String) returns MxCollectedOutput
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	var config = Configuration.create(MxExecutable.path(me.clone()))
 	config.arguments = argv
-	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": seed])
-	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
+	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": seed.clone()])
+	return try MxSubprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'spawnPinned'
 
 function main() returns ExitCode
@@ -636,12 +636,12 @@ function main() returns ExitCode
 		return 0
 	end 'iAmTheChild'
 	let me = try Process.executablePath() otherwise return 2
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	var config = Configuration.create(MxExecutable.path(me))
 	config.arguments = argv
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": "0123"])
-	let run = try Subprocess.runConfiguration(config) otherwise return 4
+	let run = try MxSubprocess.runConfiguration(config) otherwise return 4
 	print("child stdout=[{run.stdout}]\n")
 	print("child stderr=[{run.stderr}]\n")
 	print("child exit={run.exitCode()}\n")
@@ -1116,13 +1116,13 @@ function hostRuns(tier String) returns bool
 	panic("'{tier}' is not one of the tiers this case runs")
 end 'hostRuns'
 
-function runUnder(me FilePath, tier String) returns CollectedOutput
+function runUnder(me FilePath, tier String) returns MxCollectedOutput
 	let argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	let config = Configuration.create(MxExecutable.path(me))
 	config.arguments = argv
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_TIER": tier])
-	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
+	return try MxSubprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'runUnder'
 
 function main() returns ExitCode
@@ -1184,20 +1184,20 @@ let FirstMiddle = 0x11
 
 let SecondMiddle = 0x33
 
-function pushWord(bytes ByteArray, word Word)
+function pushWord(mutates bytes ByteArray, word Word)
 	for index in 0 upto WordBytes 'eachByte'
 		bytes.push(((word shr (index * 8)) and 0xFF) as Byte)
 	end 'eachByte'
 end 'pushWord'
 
-function pushRun(bytes ByteArray, value Byte, count Count)
+function pushRun(mutates bytes ByteArray, value Byte, count Count)
 	for _ in 0 upto count 'eachByte'
 		bytes.push(value)
 	end 'eachByte'
 end 'pushRun'
 
 function message(lanes WordList, middle Byte) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	for lane in lanes 'eachLane'
 		pushWord(bytes, word: lane xor 1)
 		pushRun(bytes, value: middle, count: WordBytes)
@@ -1228,12 +1228,12 @@ function main() returns ExitCode
 		return child()
 	end 'iAmTheChild'
 	let me = try Process.executablePath() otherwise return 2
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	var config = Configuration.create(MxExecutable.path(me))
 	config.arguments = argv
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_TIER": "software"])
-	let run = try Subprocess.runConfiguration(config) otherwise return 4
+	let run = try MxSubprocess.runConfiguration(config) otherwise return 4
 	print("child exit={run.exitCode()} stderr=[{run.stderr}]\n{run.stdout}")
 	return 0
 end 'main'
@@ -1487,13 +1487,13 @@ function child() returns ExitCode
 	return 0
 end 'child'
 
-function spawnPinned(me FilePath) returns CollectedOutput
-	let argv = StringArray.create(0)
+function spawnPinned(me FilePath) returns MxCollectedOutput
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	var config = Configuration.create(MxExecutable.path(me.clone()))
 	config.arguments = argv
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": "0123456789abcdef"])
-	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
+	return try MxSubprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'spawnPinned'
 
 function main() returns ExitCode
@@ -1552,16 +1552,16 @@ function hostRunsAes() returns bool
 	return __Builtins.cpuHasAes()
 end 'hostRunsAes'
 
-function runUnder(me FilePath, tier String) returns CollectedOutput
+function runUnder(me FilePath, tier String) returns MxCollectedOutput
 	let argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	let config = Configuration.create(MxExecutable.path(me))
 	config.arguments = argv
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": "0123456789abcdef", "MAXON_HASH_TIER": tier])
-	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
+	return try MxSubprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'runUnder'
 
-function drewFourSeeds(run CollectedOutput) returns bool
+function drewFourSeeds(run MxCollectedOutput) returns bool
 	return run.exitCode() == 0 and run.stderr == "" and run.stdout.count() == DrawsPerChild * SpelledSeedLength
 end 'drewFourSeeds'
 
@@ -1614,16 +1614,16 @@ function child() returns ExitCode
 	return 0
 end 'child'
 
-function spawnPinned(me FilePath, seed String) returns CollectedOutput
-	let argv = StringArray.create(0)
+function spawnPinned(me FilePath, seed String) returns MxCollectedOutput
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	var config = Configuration.create(MxExecutable.path(me.clone()))
 	config.arguments = argv
-	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": seed])
-	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
+	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": seed.clone()])
+	return try MxSubprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'spawnPinned'
 
-function firstDraw(run CollectedOutput) returns String
+function firstDraw(run MxCollectedOutput) returns String
 	return try run.stdout.split("\n").get(0) otherwise panic("a split has a first piece")
 end 'firstDraw'
 
@@ -1688,21 +1688,21 @@ function child(mode String) returns ExitCode
 	return 3
 end 'child'
 
-function spawnUnder(me FilePath, mode String, seed String) returns CollectedOutput
-	let argv = StringArray.create(0)
+function spawnUnder(me FilePath, mode String, seed String) returns MxCollectedOutput
+	var argv = StringArray.create(0)
 	argv.push("child")
-	argv.push(mode)
-	let config = Configuration.create(Executable.path(me))
+	argv.push(mode.clone())
+	var config = Configuration.create(MxExecutable.path(me.clone()))
 	config.arguments = argv
-	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": seed])
-	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
+	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": seed.clone()])
+	return try MxSubprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'spawnUnder'
 
-function line(run CollectedOutput, at Count) returns String
+function line(run MxCollectedOutput, at Count) returns String
 	return try run.stdout.split("\n").get(at) otherwise "<no line {at}>"
 end 'line'
 
-function drawsDiffer(run CollectedOutput) returns bool
+function drawsDiffer(run MxCollectedOutput) returns bool
 	let first = line(run, at: 0)
 	let second = line(run, at: 1)
 	let third = line(run, at: 2)

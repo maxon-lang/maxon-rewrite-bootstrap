@@ -30,7 +30,7 @@ there; wasm32-wasi also cannot spawn the child.
 ```maxon
 function reapedChildId() returns Pid
 	let shell = try FilePath.from("/bin/sh") otherwise panic("/bin/sh is a spellable path")
-	let finished = try Subprocess.run(Executable.path(shell), arguments: ["-c", "exit 0"]) otherwise panic("the short child could not run")
+	let finished = try MxSubprocess.run(MxExecutable.path(shell), arguments: ["-c", "exit 0"]) otherwise panic("the short child could not run")
 	return finished.pid
 end 'reapedChildId'
 

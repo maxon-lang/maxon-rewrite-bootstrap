@@ -1160,13 +1160,13 @@ function appendToken(out ByteArray, token String)
 end 'appendToken'
 
 function isZombie(pid Pid) returns bool
-	let ps = Executable.path(try FilePath.from("/bin/ps") otherwise panic("/bin/ps is a valid path"))
+	let ps = MxExecutable.path(try FilePath.from("/bin/ps") otherwise panic("/bin/ps is a valid path"))
 	let argv = StringArray.create(0)
 	argv.push("-o")
 	argv.push("stat=")
 	argv.push("-p")
 	argv.push("{pid}")
-	let result = try Subprocess.run(ps, arguments: argv) otherwise panic("/bin/ps could not run")
+	let result = try MxSubprocess.run(ps, arguments: argv) otherwise panic("/bin/ps could not run")
 	return result.stdout.trim().startsWith("Z")
 end 'isZombie'
 
@@ -3003,10 +3003,10 @@ arm64-macOS the harness reports it COMPILED but NOT RUN, which is still the whol
 panic would make impossible.
 ```maxon
 function main() returns ExitCode
-	let config = Configuration.create(Executable.name("/bin/sh"))
+	var config = Configuration.create(MxExecutable.name("/bin/sh"))
 	config.arguments = ["-c", "printf ok"]
 	config.workingDirectory = WorkingDirectory.inherit
-	let r = try Subprocess.runConfiguration(config) otherwise return 2
+	let r = try MxSubprocess.runConfiguration(config) otherwise return 2
 	print("exit={r.exitCode()} out={r.stdout}\n")
 	return 0
 end 'main'
@@ -3026,10 +3026,10 @@ execute. Between them the stdlib's `Configuration` + `runConfiguration` path —
 `specs` exercises — is covered on both lanes the `subprocess` facility serves.
 ```maxon
 function main() returns ExitCode
-	let config = Configuration.create(Executable.name("cmd"))
+	var config = Configuration.create(MxExecutable.name("cmd"))
 	config.arguments = ["/c", "echo ok"]
 	config.workingDirectory = WorkingDirectory.inherit
-	let r = try Subprocess.runConfiguration(config) otherwise return 2
+	let r = try MxSubprocess.runConfiguration(config) otherwise return 2
 	print("exit={r.exitCode()} out={r.stdout.trim()}\n")
 	return 0
 end 'main'

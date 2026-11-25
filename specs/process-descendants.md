@@ -45,12 +45,12 @@ let PollMs = 50
 
 function main() returns ExitCode
 	#if os(Windows)
-		let config = Configuration.create(Executable.name("ping"))
+		let config = Configuration.create(MxExecutable.name("ping"))
 		config.arguments.push("-n")
 		config.arguments.push("30")
 		config.arguments.push("127.0.0.1")
 	#else
-		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
+		let config = Configuration.create(MxExecutable.path(try FilePath.from("/bin/sleep") otherwise return 2))
 		config.arguments.push("30")
 	#endif
 	let armed = Process.endDescendants()
@@ -107,7 +107,7 @@ function runShell(script String, exePath FilePath) returns ExitCode
 	argv.push("-c")
 	argv.push(script)
 	argv.push("{exePath}")
-	let result = try Subprocess.run(Executable.path(try FilePath.from("/bin/sh") otherwise return 2), arguments: argv) otherwise return 3
+	let result = try MxSubprocess.run(MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2), arguments: argv) otherwise return 3
 	return result.status.code() as ExitCode
 end 'runShell'
 
@@ -122,7 +122,7 @@ function main() returns ExitCode
 	if copied != 0 'copyFailed'
 		return 4
 	end 'copyFailed'
-	let config = Configuration.create(Executable.path(try FilePath.from("./{CopyName}") otherwise return 5))
+	let config = Configuration.create(MxExecutable.path(try FilePath.from("./{CopyName}") otherwise return 5))
 	config.arguments.push(ChildMode)
 	let pid = try config.runDetached() otherwise return 6
 	let found = Process.endDescendants()
@@ -155,19 +155,19 @@ armed=0 removed=0 named=true onlyOne=true ended=true
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
+		let exe = MxExecutable.name("cmd")
 		let argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("exit")
 		argv.push("0")
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 		let argv = StringArray.create(0)
 		argv.push("-c")
 		argv.push("exit 0")
 	#endif
 	let armed = Process.endDescendants()
-	let result = try Subprocess.run(exe, arguments: argv) otherwise return 3
+	let result = try MxSubprocess.run(exe, arguments: argv) otherwise return 3
 	let found = Process.endDescendants()
 	print("armed={armed.count()} ran={result.pid != 0} found={found.count()}\n")
 	return 0
@@ -192,7 +192,7 @@ function main() returns ExitCode
 	let flag = try FilePath.from(FlagName) otherwise return 2
 	try File.writeText(flag, content: "go") otherwise return 3
 	#if os(Windows)
-		let config = Configuration.create(Executable.name("cmd"))
+		let config = Configuration.create(MxExecutable.name("cmd"))
 		config.arguments.push("/c")
 		config.arguments.push("del")
 		config.arguments.push(FlagName)
@@ -203,7 +203,7 @@ function main() returns ExitCode
 		config.arguments.push("127.0.0.1")
 		config.arguments.push(">nul")
 	#else
-		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sh") otherwise return 4))
+		let config = Configuration.create(MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 4))
 		config.arguments.push("-c")
 		config.arguments.push("rm -f {FlagName}; sleep 30")
 	#endif
@@ -243,12 +243,12 @@ let PollMs = 50
 
 function main() returns ExitCode
 	#if os(Windows)
-		let config = Configuration.create(Executable.name("cmd"))
+		let config = Configuration.create(MxExecutable.name("cmd"))
 		config.arguments.push("/c")
 		config.arguments.push("exit")
 		config.arguments.push("0")
 	#else
-		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sh") otherwise return 2))
+		let config = Configuration.create(MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2))
 		config.arguments.push("-c")
 		config.arguments.push("exit 0")
 	#endif
@@ -287,12 +287,12 @@ let SleeperLabel = "sleeper="
 
 function detachSleeper() returns ExitCode
 	#if os(Windows)
-		let config = Configuration.create(Executable.name("ping"))
+		let config = Configuration.create(MxExecutable.name("ping"))
 		config.arguments.push("-n")
 		config.arguments.push("30")
 		config.arguments.push("127.0.0.1")
 	#else
-		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
+		let config = Configuration.create(MxExecutable.path(try FilePath.from("/bin/sleep") otherwise return 2))
 		config.arguments.push("30")
 	#endif
 	let pid = try config.runDetached() otherwise return 3
@@ -308,7 +308,7 @@ function main() returns ExitCode
 	let argv = StringArray.create(0)
 	argv.push("child")
 	let me = try Process.executablePath() otherwise return 2
-	let child = try Subprocess.run(Executable.path(me), arguments: argv) otherwise return 3
+	let child = try MxSubprocess.run(MxExecutable.path(me), arguments: argv) otherwise return 3
 	let text = child.stdout.trim().replace(SleeperLabel, with: "")
 	let pid = try int.fromString(text) otherwise return 4
 	let alive = Process.isAlive(pid as Pid)
@@ -361,12 +361,12 @@ let OrphanerMode = "orphaner"
 
 function startSleeper() returns Pid
 	#if os(Windows)
-		let config = Configuration.create(Executable.name("ping"))
+		let config = Configuration.create(MxExecutable.name("ping"))
 		config.arguments.push("-n")
 		config.arguments.push("30")
 		config.arguments.push("127.0.0.1")
 	#else
-		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise panic("/bin/sleep is a valid path")))
+		let config = Configuration.create(MxExecutable.path(try FilePath.from("/bin/sleep") otherwise panic("/bin/sleep is a valid path")))
 		config.arguments.push("30")
 	#endif
 	return try config.runDetached() otherwise panic("the sleeper did not start")
@@ -382,7 +382,7 @@ function runAsProbe() returns ExitCode
 	let me = try Process.executablePath() otherwise return 2
 	let argv = StringArray.create(0)
 	argv.push(OrphanerMode)
-	let orphaner = try Subprocess.run(Executable.path(me), arguments: argv) otherwise return 3
+	let orphaner = try MxSubprocess.run(MxExecutable.path(me), arguments: argv) otherwise return 3
 	let orphan = try int.fromString(orphaner.stdout.trim().replace(SleeperLabel, with: "")) otherwise return 4
 	let found = Process.endDescendants()
 	var listedDirect = false
@@ -414,7 +414,7 @@ function main() returns ExitCode
 	let overrides = EnvMap.create()
 	overrides.upsert(TrackVariable, value: UntrackedValue)
 	let me = try Process.executablePath() otherwise return 2
-	let config = Configuration.create(Executable.path(me))
+	let config = Configuration.create(MxExecutable.path(me))
 	config.arguments.push(ProbeMode)
 	config.environment = Environment.inheritUpdating(overrides)
 	let probe = try config.run() otherwise return 3
@@ -457,12 +457,12 @@ typealias PidArray = Array with Pid
 
 function detachSleeper() returns ExitCode
 	#if os(Windows)
-		let config = Configuration.create(Executable.name("ping"))
+		let config = Configuration.create(MxExecutable.name("ping"))
 		config.arguments.push("-n")
 		config.arguments.push("30")
 		config.arguments.push("127.0.0.1")
 	#else
-		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
+		let config = Configuration.create(MxExecutable.path(try FilePath.from("/bin/sleep") otherwise return 2))
 		config.arguments.push("30")
 	#endif
 	let pid = try config.runDetached() otherwise return 3
@@ -506,7 +506,7 @@ function main() returns ExitCode
 	let overrides = EnvMap.create()
 	overrides.upsert(TrackVariable, value: ArmedValue)
 	let me = try Process.executablePath() otherwise return 2
-	let config = Configuration.create(Executable.path(me))
+	let config = Configuration.create(MxExecutable.path(me))
 	config.arguments.push("child")
 	config.environment = Environment.inheritUpdating(overrides)
 	let child = try config.run() otherwise return 3
@@ -559,12 +559,12 @@ let FramePrefix = "@@maxon-spec@@!"
 
 function waitForShortChild() returns ExitCode
 	#if os(Windows)
-		let config = Configuration.create(Executable.name("ping"))
+		let config = Configuration.create(MxExecutable.name("ping"))
 		config.arguments.push("-n")
 		config.arguments.push("2")
 		config.arguments.push("127.0.0.1")
 	#else
-		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
+		let config = Configuration.create(MxExecutable.path(try FilePath.from("/bin/sleep") otherwise return 2))
 		config.arguments.push("1")
 	#endif
 	let pid = try config.runDetached() otherwise return 3
@@ -585,7 +585,7 @@ function main() returns ExitCode
 	let overrides = EnvMap.create()
 	overrides.upsert(TrackVariable, value: ArmedValue)
 	let me = try Process.executablePath() otherwise return 2
-	let config = Configuration.create(Executable.path(me))
+	let config = Configuration.create(MxExecutable.path(me))
 	config.arguments.push("child")
 	config.environment = Environment.inheritUpdating(overrides)
 	let child = try config.run() otherwise return 3
@@ -629,12 +629,12 @@ typealias PidArray = Array with Pid
 
 function detachSleeper() returns ExitCode
 	#if os(Windows)
-		let config = Configuration.create(Executable.name("ping"))
+		let config = Configuration.create(MxExecutable.name("ping"))
 		config.arguments.push("-n")
 		config.arguments.push("30")
 		config.arguments.push("127.0.0.1")
 	#else
-		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
+		let config = Configuration.create(MxExecutable.path(try FilePath.from("/bin/sleep") otherwise return 2))
 		config.arguments.push("30")
 	#endif
 	let pid = try config.runDetached() otherwise return 3
@@ -660,7 +660,7 @@ end 'framedPids'
 
 function runAsChild() returns ExitCode
 	let me = try Process.executablePath() otherwise return 2
-	let config = Configuration.create(Executable.path(me))
+	let config = Configuration.create(MxExecutable.path(me))
 	config.arguments.push(GrandchildMode)
 	let grandchild = try config.run() otherwise return 3
 	print("{grandchild.stdout.trim()}\n")
@@ -677,7 +677,7 @@ function main() returns ExitCode
 	let overrides = EnvMap.create()
 	overrides.upsert(TrackVariable, value: ArmedValue)
 	let me = try Process.executablePath() otherwise return 2
-	let config = Configuration.create(Executable.path(me))
+	let config = Configuration.create(MxExecutable.path(me))
 	config.arguments.push(ChildMode)
 	config.environment = Environment.inheritUpdating(overrides)
 	let child = try config.run() otherwise return 3
@@ -728,7 +728,7 @@ function main() returns ExitCode
 	var missed = 0 as Count
 	var lap = 0 as Count
 	while lap < Laps 'laps'
-		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sh") otherwise return 2))
+		let config = Configuration.create(MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2))
 		config.arguments.push("-c")
 		config.arguments.push("sleep 60; true")
 		_ = try config.runDetached() otherwise return 3

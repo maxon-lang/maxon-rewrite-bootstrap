@@ -122,3 +122,36 @@ func TestConvertSpecMarksAnErrorTestWhoseBlockWasLaidOutDifferently(t *testing.T
 		t.Fatalf("converting the converted text changes it:\n%s", again.Text)
 	}
 }
+
+// TestConvertSpecNamesTheLibrarysSubprocessWhereAProgramRunsAChild: a spec program that runs a child names the types that the
+// library declares beside the built-ins, keeping a type it declares itself, and keeps the built-ins where it calls a built-in
+// that takes the built-in type.
+func TestConvertSpecNamesTheLibrarysSubprocessWhereAProgramRunsAChild(t *testing.T) {
+	test := func(name, body string) string {
+		return "<!-- test: " + name + " -->\n```maxon\n" + body + "```\n\n"
+	}
+	run := "function main() returns ExitCode\n\tlet out = try Subprocess.run(Executable.name(\"x\"), arguments: StringArray.create(0), deadline: WaitDeadline.within(5)) otherwise return 1\n\treturn out.exitCode()\nend 'main'\n"
+	spec := "## Tests\n\n" +
+		test("runs", run) +
+		test("configures", "function f(c Configuration) returns Executable\n\treturn c.executable\nend 'f'\n") +
+		test("debugs", "function main() returns ExitCode\n\tlet pid = try Debuggee.launch(Executable.name(\"x\"), arguments: StringArray.create(0), outputToError: false) otherwise return 1\n\t_ = Subprocess.run\n\treturn 0\nend 'main'\n") +
+		test("removes", "function main() returns ExitCode\n\t_ = Subprocess.run\n\t_ = Directory.removeTree(Directory.currentPath(), waiting: WaitDeadline.none)\n\treturn 0\nend 'main'\n") +
+		test("declares", "type Executable\n\tlet name as String\nend 'Executable'\n\nfunction main() returns ExitCode\n\tlet out = try Subprocess.run(Executable{name: \"x\"})\n\treturn 0\nend 'main'\n")
+	got := ConvertSpec("demo.md", spec).Text
+	for _, want := range []string{
+		"try MxSubprocess.run(MxExecutable.name(\"x\")",
+		"deadline: MxWaitDeadline.within(5)",
+		"function f(c Configuration) returns MxExecutable",
+		"Debuggee.launch(Executable.name(\"x\")",
+		"_ = Subprocess.run\n\t_ = Directory.removeTree(Directory.currentPath(), waiting: WaitDeadline.none)",
+		"type Executable\n\tlet name as String",
+		"try MxSubprocess.run(Executable{name: \"x\"})",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the conversion lacks %q:\n%s", want, got)
+		}
+	}
+	if strings.Count(got, "MxSubprocess") != 2 {
+		t.Errorf("a program that reaches a built-in that takes the built-in's names the library's:\n%s", got)
+	}
+}

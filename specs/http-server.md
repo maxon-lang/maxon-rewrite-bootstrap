@@ -1609,14 +1609,14 @@ function sendThenReset(port NetworkPort) returns bool
 		argv.push("-NoProfile")
 		argv.push("-Command")
 		argv.push("$s = New-Object System.Net.Sockets.Socket([System.Net.Sockets.AddressFamily]::InterNetwork, [System.Net.Sockets.SocketType]::Stream, [System.Net.Sockets.ProtocolType]::Tcp); $s.LingerState = New-Object System.Net.Sockets.LingerOption($true, 0); $s.Connect('127.0.0.1', {port}); $null = $s.Send([System.Text.Encoding]::ASCII.GetBytes(\"GET {ResetPath} HTTP/1.1`r`nHost: x`r`n`r`n\")); while (-not (Test-Path '{RequestReadFlag}')) \{ Start-Sleep -Milliseconds {PollIntervalMs} \}; $s.Close()")
-		let helper = Executable.name("powershell")
+		let helper = MxExecutable.name("powershell")
 	#else
 		argv.push("-MSocket")
 		argv.push("-e")
 		argv.push("socket(my $s, PF_INET, SOCK_STREAM, 0) or die; setsockopt($s, SOL_SOCKET, SO_LINGER, pack(\"ii\", 1, 0)) or die; connect($s, pack_sockaddr_in({port}, inet_aton(\"127.0.0.1\"))) or die; syswrite($s, \"GET {ResetPath} HTTP/1.1\\r\\nHost: x\\r\\n\\r\\n\") or die; select(undef, undef, undef, 0.02) until -e \"{RequestReadFlag}\"; close($s)")
-		let helper = Executable.name("perl")
+		let helper = MxExecutable.name("perl")
 	#endif
-	let res = try Subprocess.run(helper, arguments: argv) otherwise return false
+	let res = try MxSubprocess.run(helper, arguments: argv) otherwise return false
 	return res.succeeded()
 end 'sendThenReset'
 

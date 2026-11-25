@@ -182,10 +182,23 @@ var libraryBesideBuiltins = []string{"CollectedOutput", "Executable", "Subproces
 // besideBuiltinPrefix starts the name of a type of libraryBesideBuiltins that the library declares.
 const besideBuiltinPrefix = "Mx"
 
+// builtinsOfTheBuiltInTypes are the built-ins that take the built-in Executable (Debuggee.launch, runWithInput) or WaitDeadline
+// (the waiting removeTree and removeContents), so that a program that reaches one cannot name the library's.
+var builtinsOfTheBuiltInTypes = []string{"Debuggee", "runWithInput"}
+
+// builtinsTakingWaitDeadline are the built-ins whose WaitDeadline is the built-in one, which a program names beside them.
+var builtinsTakingWaitDeadline = []string{"removeTree", "removeContents"}
+
+// libraryOnlySubprocessTypes are the types of the library's Subprocess that the built-ins have no counterpart of, besides
+// Subprocess itself: a program that names one runs a child through the library.
+var libraryOnlySubprocessTypes = []string{"Subprocess", "Configuration", "InputSource", "OutputDestination", "WorkingDirectory", "TerminationStatus", "PlatformOptions"}
+
 // programNames is what the whole of a program (every file of a spec test) says about the names its files write.
 type programNames struct {
 	// own are the types of libraryTypeNamesHere and libraryBesideBuiltins that the program declares itself, which it keeps.
 	own []string
+	// usesLibrarySubprocess is whether the program runs a child through Subprocess and so names the library's types.
+	usesLibrarySubprocess bool
 }
 
 // programNamesOf reads the names of a program from its source, all its files together.
@@ -202,6 +215,10 @@ func programNamesOf(src string) programNames {
 			names.own = append(names.own, name)
 		}
 	}
+	words := wordsOf(src)
+	names.usesLibrarySubprocess = slices.ContainsFunc(libraryOnlySubprocessTypes, func(word string) bool { return words[word] && !declaresType(lines, word) }) &&
+		!slices.ContainsFunc(builtinsOfTheBuiltInTypes, func(word string) bool { return words[word] }) &&
+		!(words["WaitDeadline"] && slices.ContainsFunc(builtinsTakingWaitDeadline, func(word string) bool { return words[word] }))
 	return names
 }
 
@@ -228,6 +245,19 @@ func renameBesideBuiltins(lines []sourceLine) {
 			}
 			l.comment = replaceWholeWord(l.comment, name, here)
 			l.trailing = replaceWholeWord(l.trailing, name, here)
+		}
+	}
+}
+
+// renameProgramBesideBuiltins writes each type of libraryBesideBuiltins that a program names, and does not declare, as the
+// library's.
+func renameProgramBesideBuiltins(lines []sourceLine, own []string) {
+	for i := range lines {
+		l := &lines[i]
+		for k, t := range l.code {
+			if t.kind == tokIdent && slices.Contains(libraryBesideBuiltins, t.text) && !slices.Contains(own, t.text) && (k == 0 || l.code[k-1].text != ".") {
+				l.code[k].text = besideBuiltinPrefix + t.text
+			}
 		}
 	}
 }

@@ -283,21 +283,21 @@ let directoryName = "directory-unreadable-listed"
 #endif
 
 function runTool(tool String, arguments StringArray) returns bool
-	let result = try Subprocess.run(Executable.name(tool), arguments: arguments, deadline: WaitDeadline.within(toolTimeoutMs)) otherwise return false
+	let result = try MxSubprocess.run(MxExecutable.name(tool.clone()), arguments: arguments, deadline: MxWaitDeadline.within(toolTimeoutMs)) otherwise return false
 	return result.succeeded()
 end 'runTool'
 
 function hostRefusesListing(directory FilePath) returns bool
-	let arguments = StringArray.create(0)
+	var arguments = StringArray.create(0)
 	#if os(Windows)
 		arguments.push("-NoProfile")
 		arguments.push("-Command")
 		arguments.push("try \{ [void][System.IO.Directory]::GetFileSystemEntries('{directory}'); exit 0 \} catch [System.UnauthorizedAccessException] \{ exit {listerRefusedExit} \}")
-		let result = try Subprocess.run(Executable.name("powershell"), arguments: arguments, deadline: WaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's lister did not run")
+		let result = try MxSubprocess.run(MxExecutable.name("powershell"), arguments: arguments, deadline: MxWaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's lister did not run")
 	#else
 		arguments.push("-r")
 		arguments.push("{directory}")
-		let result = try Subprocess.run(Executable.name("test"), arguments: arguments, deadline: WaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's lister did not run")
+		let result = try MxSubprocess.run(MxExecutable.name("test"), arguments: arguments, deadline: MxWaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's lister did not run")
 	#endif
 	if result.succeeded() 'listable'
 		return false
@@ -309,23 +309,23 @@ function hostRefusesListing(directory FilePath) returns bool
 end 'hostRefusesListing'
 
 function tokenBypassesDenial() returns bool
-	let arguments = StringArray.create(0)
+	var arguments = StringArray.create(0)
 	#if os(Windows)
 		arguments.push("/priv")
 		arguments.push("/fo")
 		arguments.push("csv")
 		arguments.push("/nh")
-		let result = try Subprocess.run(Executable.name("whoami"), arguments: arguments, deadline: WaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's privilege report did not run")
+		let result = try MxSubprocess.run(MxExecutable.name("whoami"), arguments: arguments, deadline: MxWaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's privilege report did not run")
 		return result.succeeded() and (result.stdout.contains("SeBackupPrivilege") or result.stdout.contains("SeRestorePrivilege"))
 	#else
 		arguments.push("-u")
-		let result = try Subprocess.run(Executable.name("id"), arguments: arguments, deadline: WaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's privilege report did not run")
+		let result = try MxSubprocess.run(MxExecutable.name("id"), arguments: arguments, deadline: MxWaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's privilege report did not run")
 		return result.succeeded() and result.stdout.trim() == "0"
 	#endif
 end 'tokenBypassesDenial'
 
 function denyListing(directory FilePath) returns bool
-	let arguments = StringArray.create(0)
+	var arguments = StringArray.create(0)
 	#if os(Windows)
 		arguments.push("{directory}")
 		arguments.push("/deny")
@@ -339,7 +339,7 @@ function denyListing(directory FilePath) returns bool
 end 'denyListing'
 
 function restoreListing(directory FilePath) returns bool
-	let arguments = StringArray.create(0)
+	var arguments = StringArray.create(0)
 	#if os(Windows)
 		arguments.push("{directory}")
 		arguments.push("/remove:d")
@@ -583,11 +583,11 @@ and the link stays: nothing resolves through it, and only a lookup that does not
 let linkToolTimeoutMs = 30000
 
 function plantLink(link FilePath, target FilePath) returns bool
-	let arguments = StringArray.create(0)
+	var arguments = StringArray.create(0)
 	arguments.push("-s")
 	arguments.push("{target}")
 	arguments.push("{link}")
-	let result = try Subprocess.run(Executable.name("ln"), arguments: arguments, deadline: WaitDeadline.within(linkToolTimeoutMs)) otherwise return false
+	let result = try MxSubprocess.run(MxExecutable.name("ln"), arguments: arguments, deadline: MxWaitDeadline.within(linkToolTimeoutMs)) otherwise return false
 	return result.succeeded()
 end 'plantLink'
 
@@ -633,10 +633,10 @@ answer is `notFound`.
 let testToolTimeoutMs = 30000
 
 function hostFindsAnEntryAt(path FilePath) returns bool
-	let arguments = StringArray.create(0)
+	var arguments = StringArray.create(0)
 	arguments.push("-e")
 	arguments.push("{path}")
-	let result = try Subprocess.run(Executable.name("test"), arguments: arguments, deadline: WaitDeadline.within(testToolTimeoutMs)) otherwise panic("the host's existence test could not run")
+	let result = try MxSubprocess.run(MxExecutable.name("test"), arguments: arguments, deadline: MxWaitDeadline.within(testToolTimeoutMs)) otherwise panic("the host's existence test could not run")
 	if result.succeeded() 'found'
 		return true
 	end 'found'

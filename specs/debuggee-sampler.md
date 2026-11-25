@@ -647,7 +647,7 @@ function main() returns ExitCode
 	let directory = try me.parent() otherwise return 1
 	let childArguments = StringArray.create(0)
 	childArguments.push("child")
-	let child = try StreamingSubprocess.spawnTraceable(Executable.path(me), arguments: childArguments, workingDirectory: WorkingDirectory.at(directory), environment: Environment.inherit, traced: true) otherwise return 2
+	let child = try StreamingSubprocess.spawnTraceable(MxExecutable.path(me), arguments: childArguments, workingDirectory: WorkingDirectory.at(directory), environment: Environment.inherit, traced: true) otherwise return 2
 	let pid = try child.processId() otherwise return 3
 	let pin = MachinePin.acquire()
 	let port = DebugPort.create()
@@ -825,14 +825,14 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 1
 	let targetArguments = StringArray.create(0)
 	targetArguments.push("target")
-	let target = try StreamingSubprocess.spawn(Executable.path(me), arguments: targetArguments) otherwise return 2
+	let target = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: targetArguments) otherwise return 2
 	let readiness = try target.takeStdout() otherwise return 7
 	_ = try readiness.readLine() otherwise return 7
 	let pid = try target.processId() otherwise return 3
 	let samplerArguments = StringArray.create(0)
 	samplerArguments.push("sampler")
 	samplerArguments.push("{pid}")
-	let sampler = try Subprocess.run(Executable.path(me), arguments: samplerArguments) otherwise return 4
+	let sampler = try MxSubprocess.run(MxExecutable.path(me), arguments: samplerArguments) otherwise return 4
 	print("stderr is the one line {sampler.stderr == "sampler: thread {pid} of process {pid} could not be detached within 10000 ms, so the process was killed rather than left stopped\n"}\n")
 	let code = try target.wait() otherwise return 8
 	print("ended {code}\n")

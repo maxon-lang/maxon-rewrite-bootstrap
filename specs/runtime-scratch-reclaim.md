@@ -172,11 +172,11 @@ enum Door
 	streamingWithEnvironment
 end 'Door'
 
-function shell() returns Executable
+function shell() returns MxExecutable
 	#if os(Windows)
-		return Executable.name("cmd")
+		return MxExecutable.name("cmd")
 	#else
-		return Executable.name("sh")
+		return MxExecutable.name("sh")
 	#endif
 end 'shell'
 
@@ -192,17 +192,17 @@ function exitZero() returns StringArray
 end 'exitZero'
 
 function childRuns() returns bool
-	let result = try Subprocess.run(shell(), arguments: exitZero()) otherwise return false
+	let result = try MxSubprocess.run(shell(), arguments: exitZero()) otherwise return false
 	return result.exitCode() == 0
 end 'childRuns'
 
 function executableMissing() returns bool
-	_ = try Subprocess.run(Executable.path(Directory.currentPath().join("maxon-spec-no-such-executable-xyzzy")), arguments: StringArray.create(0)) otherwise return true
+	_ = try MxSubprocess.run(MxExecutable.path(Directory.currentPath().join("maxon-spec-no-such-executable-xyzzy")), arguments: StringArray.create(0)) otherwise return true
 	return false
 end 'executableMissing'
 
 function workingDirectoryMissing() returns bool
-	_ = try Subprocess.run(shell(), arguments: exitZero(), workingDirectory: WorkingDirectory.at(Directory.currentPath().join("maxon-spec-no-such-working-directory-xyzzy"))) otherwise return true
+	_ = try MxSubprocess.run(shell(), arguments: exitZero(), workingDirectory: WorkingDirectory.at(Directory.currentPath().join("maxon-spec-no-such-working-directory-xyzzy"))) otherwise return true
 	return false
 end 'workingDirectoryMissing'
 

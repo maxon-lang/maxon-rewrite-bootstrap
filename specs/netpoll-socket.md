@@ -1361,14 +1361,14 @@ function resetBeforeAccept(port NetworkPort) returns bool
 		argv.push("-NoProfile")
 		argv.push("-Command")
 		argv.push("$s = New-Object System.Net.Sockets.Socket([System.Net.Sockets.AddressFamily]::InterNetwork, [System.Net.Sockets.SocketType]::Stream, [System.Net.Sockets.ProtocolType]::Tcp); $s.LingerState = New-Object System.Net.Sockets.LingerOption($true, 0); $s.Connect('127.0.0.1', {port}); $s.Close()")
-		let helper = Executable.name("powershell")
+		let helper = MxExecutable.name("powershell")
 	#else
 		argv.push("-MSocket")
 		argv.push("-e")
 		argv.push("socket(my $s, PF_INET, SOCK_STREAM, 0) or die; setsockopt($s, SOL_SOCKET, SO_LINGER, pack(\"ii\", 1, 0)) or die; connect($s, pack_sockaddr_in({port}, inet_aton(\"127.0.0.1\"))) or die; close($s)")
-		let helper = Executable.name("perl")
+		let helper = MxExecutable.name("perl")
 	#endif
-	let res = try Subprocess.run(helper, arguments: argv) otherwise return false
+	let res = try MxSubprocess.run(helper, arguments: argv) otherwise return false
 	return res.succeeded()
 end 'resetBeforeAccept'
 
@@ -1471,7 +1471,7 @@ function main() returns ExitCode
 	argv.push("-c")
 	argv.push(DescriptorLimit)
 	argv.push(exe.path)
-	let res = try Subprocess.run(Executable.name("sh"), arguments: argv) otherwise return 3
+	let res = try MxSubprocess.run(MxExecutable.name("sh"), arguments: argv) otherwise return 3
 	print(res.stdout)
 	return 0 if res.succeeded() else 4
 end 'main'

@@ -110,6 +110,9 @@ func convertProgram(file, src string, kind inputKind, names programNames) Result
 	}
 	rewriteTypeNames(lines)
 	renameLibraryTypes(file, lines, kind, names.own)
+	if kind == specProgram && names.usesLibrarySubprocess {
+		renameProgramBesideBuiltins(lines, names.own)
+	}
 	joinEndOtherwise(lines)
 	rewriteDestructors(lines, addWarn)
 	rewriteStringBuilders(lines)

@@ -47,9 +47,9 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 2
 	let argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	let config = Configuration.create(MxExecutable.path(me))
 	config.arguments = argv
-	let run = try Subprocess.runConfiguration(config) otherwise return 3
+	let run = try MxSubprocess.runConfiguration(config) otherwise return 3
 	if not run.succeeded() 'childFailed'
 		return 4
 	end 'childFailed'
@@ -560,9 +560,9 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 2
 	let argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	let config = Configuration.create(MxExecutable.path(me))
 	config.arguments = argv
-	let run = try Subprocess.runConfiguration(config) otherwise return 3
+	let run = try MxSubprocess.runConfiguration(config) otherwise return 3
 	if run.exitCode() != 5 'wrongExit'
 		print("child exited {run.exitCode()}\n")
 		return 1
@@ -611,9 +611,9 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 2
 	let argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	let config = Configuration.create(MxExecutable.path(me))
 	config.arguments = argv
-	let run = try Subprocess.runConfiguration(config) otherwise return 3
+	let run = try MxSubprocess.runConfiguration(config) otherwise return 3
 	let expected = [" level=INFO msg=one", " level=INFO msg=two", " level=INFO msg=three", " level=ERROR msg=boom"]
 	let lines = run.stderr.split("\n")
 	for (iter, suffix) in expected.enumerated() 'eachExpected'

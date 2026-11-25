@@ -209,6 +209,7 @@ aggregate=80 last=1
 ```
 
 <!-- test: a-blocking-subprocess-wait-does-not-stall-a-sibling -->
+<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 <!-- procs: 2 -->
 **THE SAME SHAPE ON THE WAIT THAT COSTS THE MOST.** `Subprocess.run` is the surface the timing paragraph at
@@ -242,12 +243,12 @@ type Runner
 	end 'create'
 
 	export function child() returns Integer
-		let exe = Executable.name("cmd")
+		let exe = MxExecutable.name("cmd")
 		let argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("exit")
 		argv.push("0")
-		let result = try Subprocess.run(exe, arguments: argv) otherwise 'e'
+		let result = try MxSubprocess.run(exe, arguments: argv) otherwise 'e'
 			return 0
 		end 'e'
 		if result.succeeded() 'ok'

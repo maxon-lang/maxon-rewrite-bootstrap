@@ -497,7 +497,7 @@ function main() returns ExitCode
 		builder = "{builder}x"
 		filled = filled + 1
 	end 'fill'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
 	let outcome = try runChildFedAfterLine(exe, argv: argv, workingDirectory: WorkingDirectory.inherit, environment: Environment.inherit, deadlineMs: 20000, endsWhen: RunEndsWhen.outputEnds, tailSilenceMs: 200, tailCapMs: 1000, anchor: "ready", feed: builder) otherwise return 3
 	match outcome 'outcome'
 		ran(report) then print(report.stdout)

@@ -69,17 +69,17 @@ byte-transparency of both capture paths.
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-	let exe = Executable.name("cmd")
+	let exe = MxExecutable.name("cmd")
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("echo")
 	argv.push("hello")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/echo") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("/bin/echo") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("hello")
 	#endif
-	let result = try Subprocess.run(exe, arguments: argv) otherwise return 2
+	let result = try MxSubprocess.run(exe, arguments: argv) otherwise return 2
 	if not result.succeeded() 'check-success'
 		return 3
 	end 'check-success'
@@ -109,17 +109,17 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-	let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("echo")
 	argv.push("via-path")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/echo") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("/bin/echo") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("via-path")
 	#endif
-	let result = try Subprocess.run(exe, arguments: argv) otherwise return 3
+	let result = try MxSubprocess.run(exe, arguments: argv) otherwise return 3
 	if not result.succeeded() 'check-success'
 		return 4
 	end 'check-success'
@@ -140,15 +140,15 @@ end 'main'
 function main() returns ExitCode
 	let cwd = Directory.currentPath()
 	#if os(Windows)
-	let exe = Executable.name("cmd")
+	let exe = MxExecutable.name("cmd")
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("cd")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/pwd") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("/bin/pwd") otherwise return 2)
 	let argv = StringArray.create(0)
 	#endif
-	let result = try Subprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(cwd)) otherwise return 2
+	let result = try MxSubprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(cwd)) otherwise return 2
 	if not result.succeeded() 'check-success'
 		return 3
 	end 'check-success'
@@ -177,9 +177,9 @@ function main() returns ExitCode
 	// least one character — i.e. every non-empty line of stdin. We feed it two
 	// lines and expect both back on stdout.
 	#if os(Windows)
-	let c = Configuration.create(Executable.name("findstr"))
+	let c = Configuration.create(MxExecutable.name("findstr"))
 	#else
-	let c = Configuration.create(Executable.path(try FilePath.from("/usr/bin/grep") otherwise return 2))
+	let c = Configuration.create(MxExecutable.path(try FilePath.from("/usr/bin/grep") otherwise return 2))
 	#endif
 	let argv = StringArray.create(0)
 	argv.push(".")
@@ -527,21 +527,21 @@ function main() returns ExitCode
 	// `ping 127.0.0.1 -n 30` (Windows) / `sleep 30` (POSIX) waits ~30 seconds;
 	// we kill it after 200ms.
 	#if os(Windows)
-		let exe = Executable.name("cmd")
-		let argv = StringArray.create(0)
+		let exe = MxExecutable.name("cmd")
+		var argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("ping")
 		argv.push("127.0.0.1")
 		argv.push("-n")
 		argv.push("30")
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/sleep") otherwise return 1)
-		let argv = StringArray.create(0)
+		let exe = MxExecutable.path(try FilePath.from("/bin/sleep") otherwise return 1)
+		var argv = StringArray.create(0)
 		argv.push("30")
 	#endif
 	let cwd = Directory.currentPath()
 	var sawTimeout = false
-	try Subprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(cwd), deadline: WaitDeadline.within(200)) otherwise (e) 'handler'
+	try MxSubprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(cwd), deadline: MxWaitDeadline.within(200)) otherwise (e) 'handler'
 		match e 'kind'
 			timeout then sawTimeout = true
 			executableNotFound then sawTimeout = false
@@ -578,8 +578,8 @@ can hand `alpha` back, so a green here is a statement about the payload and abou
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
-		let argv = StringArray.create(0)
+		let exe = MxExecutable.name("cmd")
+		var argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("echo")
 		argv.push("alpha")
@@ -589,16 +589,16 @@ function main() returns ExitCode
 		argv.push("-n")
 		argv.push("30")
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 1)
-		let argv = StringArray.create(0)
+		let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 1)
+		var argv = StringArray.create(0)
 		argv.push("-c")
 		argv.push("echo alpha; sleep 30")
 	#endif
 	let cwd = Directory.currentPath()
 	var partial = ""
-	try Subprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(cwd), deadline: WaitDeadline.within(2000)) otherwise (e) 'handler'
+	try MxSubprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(cwd), deadline: MxWaitDeadline.within(2000)) otherwise (e) 'handler'
 		partial = match e 'kind'
-			timeout(_, out, _) gives out
+			timeout(_, out, _) gives out.clone()
 			executableNotFound or
 			spawnFailed or
 			busy or
@@ -671,7 +671,7 @@ function argumentsFor(mode String) returns StringArray
 	return argv
 end 'argumentsFor'
 
-function startGrandchild(me Executable) returns ExitCode
+function startGrandchild(me MxExecutable) returns ExitCode
 	let grandchild = try StreamingSubprocess.spawn(me, arguments: argumentsFor("grandchild")) otherwise return 3
 	let pid = try grandchild.processId() otherwise return 4
 	print("{pid}\n")
@@ -680,23 +680,23 @@ function startGrandchild(me Executable) returns ExitCode
 	return 0
 end 'startGrandchild'
 
-function streamingVerdict(me Executable) returns String throws SubprocessError
+function streamingVerdict(me MxExecutable) returns String throws MxSubprocessError
 	let child = try StreamingSubprocess.spawn(me, arguments: argumentsFor("child"))
 	let reader = try child.takeStdout()
 	let line = textOf(try reader.readLine() otherwise panic("the child's stdout is readable"))
 	let pid = try grandchildIdFrom(line) otherwise panic("the child prints the grandchild's id")
 	var timedOut = false
-	try child.wait(WaitDeadline.within(deadlineMs)) otherwise (e) 'expired'
+	try child.wait(MxWaitDeadline.within(deadlineMs)) otherwise (e) 'expired'
 		timedOut = e.timedOut()
 	end 'expired'
 	child.release()
 	return "wait: timed out {timedOut}, grandchild ended {endsWithinGrace(pid)}"
 end 'streamingVerdict'
 
-function collectedVerdict(me Executable) returns String
+function collectedVerdict(me MxExecutable) returns String
 	var partial = ""
 	var timedOut = false
-	try Subprocess.run(me, arguments: argumentsFor("child"), deadline: WaitDeadline.within(deadlineMs)) otherwise (e) 'expired'
+	try MxSubprocess.run(me, arguments: argumentsFor("child"), deadline: MxWaitDeadline.within(deadlineMs)) otherwise (e) 'expired'
 		timedOut = e.timedOut()
 		partial = match e 'kind'
 			timeout(_, out, _) gives out
@@ -715,7 +715,7 @@ function collectedVerdict(me Executable) returns String
 end 'collectedVerdict'
 
 function main() returns ExitCode
-	let me = Executable.path(try Process.executablePath() otherwise return 2)
+	let me = MxExecutable.path(try Process.executablePath() otherwise return 2)
 	let args = CommandLine.args()
 	let mode = try args.get(1) otherwise ""
 	if mode == "grandchild" 'sleeper'
@@ -849,7 +849,7 @@ let DeadlineSpanMs = 25
 
 function main() returns ExitCode
 	let armed = Process.endDescendants()
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 	var timedOut = 0 as Count
 	var leaked = 0 as Count
 	var lap = 0 as Count
@@ -857,7 +857,7 @@ function main() returns ExitCode
 		let argv = StringArray.create(0)
 		argv.push("-c")
 		argv.push("echo hello; sleep 60")
-		try Subprocess.run(exe, arguments: argv, deadline: WaitDeadline.within((1 + lap mod DeadlineSpanMs) as Count)) otherwise (e) 'expired'
+		try MxSubprocess.run(exe, arguments: argv, deadline: MxWaitDeadline.within(((1 + lap mod DeadlineSpanMs) as Count) as WaitDeadlineMs)) otherwise (e) 'expired'
 			if e.timedOut() 'counted'
 				timedOut = timedOut + 1
 			end 'counted'
@@ -1160,7 +1160,7 @@ function argumentsFor(mode String) returns StringArray
 	return argv
 end 'argumentsFor'
 
-function startDetached(me Executable) returns ExitCode
+function startDetached(me MxExecutable) returns ExitCode
 	let config = Configuration.create(me)
 	config.arguments = argumentsFor("detached")
 	let pid = try config.runDetached() otherwise return 3
@@ -1170,7 +1170,7 @@ function startDetached(me Executable) returns ExitCode
 end 'startDetached'
 
 function main() returns ExitCode
-	let me = Executable.path(try Process.executablePath() otherwise return 2)
+	let me = MxExecutable.path(try Process.executablePath() otherwise return 2)
 	let args = CommandLine.args()
 	let mode = try args.get(1) otherwise ""
 	if mode == "detached" 'sleeper'
@@ -1182,7 +1182,7 @@ function main() returns ExitCode
 	end 'child'
 	var partial = ""
 	var timedOut = false
-	try Subprocess.run(me, arguments: argumentsFor("child"), deadline: WaitDeadline.within(deadlineMs)) otherwise (e) 'expired'
+	try MxSubprocess.run(me, arguments: argumentsFor("child"), deadline: MxWaitDeadline.within(deadlineMs)) otherwise (e) 'expired'
 		timedOut = e.timedOut()
 		partial = match e 'kind'
 			timeout(_, out, _) gives out
@@ -1218,7 +1218,7 @@ A detached launch whose executable is a directory is refused by the operating sy
 throws `detachRefused`; a launch the operating system itself refuses never does.
 ```maxon
 function main() returns ExitCode
-	let config = Configuration.create(Executable.path(Directory.currentPath()))
+	let config = Configuration.create(MxExecutable.path(Directory.currentPath()))
 	var verdict = "started"
 	try config.runDetached() otherwise (e) 'refused'
 		verdict = "threw {e.name}"
@@ -1316,18 +1316,18 @@ build compilers that call themselves `dev`.
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
+		let exe = MxExecutable.name("cmd")
 		var argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("exit")
 		argv.push("7")
 	#else
-		let exe = Executable.name("sh")
+		let exe = MxExecutable.name("sh")
 		var argv = StringArray.create(0)
 		argv.push("-c")
 		argv.push("exit 7")
 	#endif
-	let result = try Subprocess.run(exe, arguments: argv) otherwise return 2
+	let result = try MxSubprocess.run(exe, arguments: argv) otherwise return 2
 	return result.exitCode() as ExitCode
 end 'main'
 ```
@@ -1350,7 +1350,7 @@ function main() returns ExitCode
 	let probe = try FilePath.from("maxon-cwd-shadow-probe") otherwise return 2
 	try File.writeText(probe, content: "#!/bin/sh\nexit 99\n", mode: FilePermission.executable) otherwise return 3
 	var refused = false
-	try Subprocess.run(Executable.name("maxon-cwd-shadow-probe"), arguments: StringArray.create(0)) otherwise (e) 'handler'
+	try MxSubprocess.run(MxExecutable.name("maxon-cwd-shadow-probe"), arguments: StringArray.create(0)) otherwise (e) 'handler'
 		match e 'kind'
 			executableNotFound then refused = true
 			spawnFailed or
@@ -1391,11 +1391,11 @@ Only Windows runs it: POSIX names are case-sensitive, and there two spellings ar
 ```maxon
 function outcomeOf(role String, environment Environment) returns String
 	let me = try Process.executablePath() otherwise panic("the running program has a path")
-	let argv = StringArray.create(0)
-	argv.push(role)
-	let config = Configuration.create(Executable.path(me))
+	var argv = StringArray.create(0)
+	argv.push(role.clone())
+	var config = Configuration.create(MxExecutable.path(me))
 	config.arguments = argv
-	config.environment = environment
+	config.environment = environment.clone()
 	var outcome = ""
 	if let result = try config.run() 'ran'
 		outcome = result.stdout
@@ -1459,7 +1459,7 @@ Only Windows runs it: `PATHEXT` is that platform's convention, and POSIX tries a
 ```maxon
 function outcomeOf(name String) returns String
 	var outcome = ""
-	if let result = try Subprocess.run(Executable.name(name), arguments: StringArray.create(0)) 'ran'
+	if let result = try MxSubprocess.run(MxExecutable.name(name.clone()), arguments: StringArray.create(0)) 'ran'
 		outcome = "exit {result.exitCode()}"
 	end 'ran' else (e) 'failed'
 		outcome = e.displayReason()
@@ -1482,10 +1482,10 @@ function main() returns ExitCode
 	try File.writeText(batch, content: "@exit /b 7\r\n") otherwise return 2
 	try File.writeText(extended, content: "@exit /b 9\r\n") otherwise return 2
 	let inheritedPath = try Process.environmentVariable("PATH") otherwise return 3
-	let overrides = EnvMap.create()
+	var overrides = EnvMap.create()
 	overrides.upsert("PATH", value: "{shimDir.path};{inheritedPath}")
-	let config = Configuration.create(Executable.path(try Process.executablePath() otherwise return 4))
-	let argv = StringArray.create(0)
+	var config = Configuration.create(MxExecutable.path(try Process.executablePath() otherwise return 4))
+	var argv = StringArray.create(0)
 	argv.push("resolve")
 	config.arguments = argv
 	config.environment = Environment.inheritUpdating(overrides)
@@ -1507,6 +1507,7 @@ name with another extension: executable not found: maxon-spec-pathext-shim.bat
 ```
 
 <!-- test: subprocess-a-bare-name-is-searched-in-createprocess-order-on-windows -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 ⭐⭐ **ON WINDOWS A BARE NAME IS SEARCHED IN `CreateProcessW`'s ORDER, AND THE ANSWER IS AN ABSOLUTE PATH TO
@@ -1553,7 +1554,7 @@ function makeDirectory(dir FilePath, made FilePathArray)
 end 'makeDirectory'
 
 function exitOf(name String, workingDirectory WorkingDirectory) returns String
-	let config = Configuration.create(Executable.name(name))
+	let config = Configuration.create(MxExecutable.name(name))
 	config.workingDirectory = workingDirectory
 	var outcome = ""
 	if let result = try config.run() 'ran'
@@ -1635,7 +1636,7 @@ function main() returns ExitCode
 	writeProbe(workingDir, name: "maxon-spec-order-drive", code: 88, placed: placed)
 	writeProbe(elsewhere, name: "maxon-spec-order-drive", code: 99, placed: placed)
 	writeProbe(pathDir, name: "maxon-spec-order-third", code: 33, placed: placed)
-	let config = Configuration.create(Executable.path(me))
+	let config = Configuration.create(MxExecutable.path(me))
 	let argv = StringArray.create(0)
 	argv.push(pathDir.path)
 	config.arguments = argv
@@ -1677,10 +1678,10 @@ the `PATH` walk misses is known not to exist before any spawn. Windows cannot kn
 than a generic `spawnFailed`.
 ```maxon
 function main() returns ExitCode
-	let exe = Executable.name("definitely-not-a-real-binary-xyzzy")
+	let exe = MxExecutable.name("definitely-not-a-real-binary-xyzzy")
 	let argv = StringArray.create(0)
 	var sawNotFound = false
-	try Subprocess.run(exe, arguments: argv) otherwise (e) 'handler'
+	try MxSubprocess.run(exe, arguments: argv) otherwise (e) 'handler'
 		match e 'kind'
 			executableNotFound then sawNotFound = true
 			spawnFailed or
@@ -1716,7 +1717,7 @@ function main() returns ExitCode
 		return 2
 	end 'present'
 	var sawNotFound = false
-	try Subprocess.run(Executable.path(missing), arguments: StringArray.create(0)) otherwise (e) 'handler'
+	try MxSubprocess.run(MxExecutable.path(missing), arguments: StringArray.create(0)) otherwise (e) 'handler'
 		match e 'kind'
 			executableNotFound then sawNotFound = true
 			spawnFailed or
@@ -1779,7 +1780,7 @@ function main() returns ExitCode
 	#endif
 	let writer = try FileWriter.open(copy, mode: FilePermission.executable) otherwise panic("the scratch image can be opened for writing")
 	try writer.write(image) otherwise panic("the scratch image can be written")
-	let config = Configuration.create(Executable.path(copy))
+	let config = Configuration.create(MxExecutable.path(copy))
 	config.arguments.push("child")
 	config.standardOutput = OutputDestination.discard
 	let verdict = verdictOf(config)
@@ -1839,15 +1840,15 @@ function main() returns ExitCode
 		let tool = appDir.join("maxon-spec-app-dir-tool.exe")
 		let image = try File.readBinary(systemTool) otherwise panic("hostname.exe is readable")
 		try File.writeBinary(tool, content: image) otherwise panic("the application directory is writable")
-		let exe = Executable.name("maxon-spec-app-dir-tool")
+		let exe = MxExecutable.name("maxon-spec-app-dir-tool")
 	#else
-		let exe = Executable.name("sh")
+		let exe = MxExecutable.name("sh")
 	#endif
-	let control = Configuration.create(exe)
+	var control = Configuration.create(exe)
 	control.standardOutput = OutputDestination.discard
-	let missingStdin = Configuration.create(exe)
+	var missingStdin = Configuration.create(exe)
 	missingStdin.standardInput = InputSource.file(Directory.currentPath().join("maxon-spec-no-such-stdin-xyzzy.txt"))
-	let missingStdoutDir = Configuration.create(exe)
+	var missingStdoutDir = Configuration.create(exe)
 	missingStdoutDir.standardOutput = OutputDestination.file(Directory.currentPath().join("maxon-spec-no-such-dir-xyzzy").join("out.txt"))
 	print("control={verdictOf(control)} stdin={verdictOf(missingStdin)} stdout={verdictOf(missingStdoutDir)}\n")
 	#if os(Windows)
@@ -1875,7 +1876,7 @@ has already entered it. An `Executable.name` that carries a directory part names
 something to search for, so it is resolved exactly as the same relative `Executable.path` is, and the second
 line answers what the first does.
 ```maxon
-function verdictOf(executable Executable, workingDirectory FilePath) returns String
+function verdictOf(executable MxExecutable, workingDirectory FilePath) returns String
 	let config = Configuration.create(executable)
 	config.workingDirectory = WorkingDirectory.at(workingDirectory)
 	var verdict = "ran"
@@ -1913,8 +1914,8 @@ function dotRelative(name String) returns String
 	#endif
 end 'dotRelative'
 
-function pathTo(name String) returns Executable
-	return Executable.path(try FilePath.from(dotRelative(name)) otherwise panic("a dot-relative file name is a well-formed path"))
+function pathTo(name String) returns MxExecutable
+	return MxExecutable.path(try FilePath.from(dotRelative(name)) otherwise panic("a dot-relative file name is a well-formed path"))
 end 'pathTo'
 
 function main() returns ExitCode
@@ -1956,18 +1957,18 @@ The executable is one every lane finds, so `executableNotFound` would be a wrong
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
-		let argv = StringArray.create(0)
+		let exe = MxExecutable.name("cmd")
+		var argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("exit 0")
 	#else
-		let exe = Executable.name("sh")
-		let argv = StringArray.create(0)
+		let exe = MxExecutable.name("sh")
+		var argv = StringArray.create(0)
 		argv.push("-c")
 		argv.push("exit 0")
 	#endif
 	var verdict = "ran"
-	try Subprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(Directory.currentPath().join("maxon-spec-no-such-working-directory-xyzzy"))) otherwise (e) 'handler'
+	try MxSubprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(Directory.currentPath().join("maxon-spec-no-such-working-directory-xyzzy"))) otherwise (e) 'handler'
 		match e 'kind'
 			executableNotFound then verdict = "executableNotFound"
 			spawnFailed then verdict = "spawnFailed"
@@ -1998,11 +1999,11 @@ message names `WorkingDirectory.inherit`, the way to start the child in the pare
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
+		let exe = MxExecutable.name("cmd")
 	#else
-		let exe = Executable.name("sh")
+		let exe = MxExecutable.name("sh")
 	#endif
-	try Subprocess.run(exe, arguments: StringArray.create(0), workingDirectory: WorkingDirectory.at(FilePath.empty())) otherwise (e) 'handler'
+	try MxSubprocess.run(exe, arguments: StringArray.create(0), workingDirectory: WorkingDirectory.at(FilePath.empty())) otherwise (e) 'handler'
 		match e 'kind'
 			spawnFailed(reason) then print("spawnFailed names inherit {reason.contains("WorkingDirectory.inherit")}\n")
 			default panic("an empty working directory is refused as spawnFailed")
@@ -2024,17 +2025,17 @@ spawnFailed names inherit true
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-	let exe = Executable.name("cmd")
+	let exe = MxExecutable.name("cmd")
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("exit 42")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push("exit 42")
 	#endif
-	let result = try Subprocess.run(exe, arguments: argv) otherwise return 2
+	let result = try MxSubprocess.run(exe, arguments: argv) otherwise return 2
 	if result.exitCode() != 42 'check-exit'
 		return 3
 	end 'check-exit'
@@ -2062,11 +2063,11 @@ A child that a signal ends is reported as `signalled` with the signal's number, 
 reported only exit codes answers `exited 137` here.
 ```maxon
 function main() returns ExitCode
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
+	var argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push("kill -9 $$")
-	let result = try Subprocess.run(exe, arguments: argv) otherwise return 3
+	let result = try MxSubprocess.run(exe, arguments: argv) otherwise return 3
 	let described = match result.status 'status'
 		exited(c) gives "exited {c}"
 		signalled(c) gives "signalled {c}"
@@ -2105,13 +2106,13 @@ end 'describePoll'
 
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
+		let exe = MxExecutable.name("cmd")
 		let argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("exit 42")
 		let expected = "exited 42"
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 		let argv = StringArray.create(0)
 		argv.push("-c")
 		argv.push("kill -9 $$")
@@ -2144,17 +2145,17 @@ function main() returns ExitCode
 	// `echo err 1>&2` writes "err" to stderr only (shell redirection works the
 	// same in cmd and sh).
 	#if os(Windows)
-	let exe = Executable.name("cmd")
+	let exe = MxExecutable.name("cmd")
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("echo err 1>&2")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push("echo err 1>&2")
 	#endif
-	let result = try Subprocess.run(exe, arguments: argv) otherwise return 2
+	let result = try MxSubprocess.run(exe, arguments: argv) otherwise return 2
 	if not result.succeeded() 'check-success'
 		return 3
 	end 'check-success'
@@ -2188,17 +2189,17 @@ function main() returns ExitCode
 	// many iterations because the suite runs below normal priority, where a shell
 	// loop of tens of thousands of iterations can starve past the run deadline.
 	#if os(Windows)
-	let exe = Executable.name("cmd")
+	let exe = MxExecutable.name("cmd")
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("(for /L %i in (1,1,1100) do @echo 0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789) & echo stdout-tail & (for /L %j in (1,1,1100) do @echo 0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789 1>&2) & echo stderr-tail 1>&2")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push("i=1; while [ $i -le 1100 ]; do echo 0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789; echo 0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789 1>&2; i=$((i+1)); done; echo stdout-tail; echo stderr-tail 1>&2")
 	#endif
-	let result = try Subprocess.run(exe, arguments: argv) otherwise return 2
+	let result = try MxSubprocess.run(exe, arguments: argv) otherwise return 2
 	if not result.succeeded() 'check-success'
 		return 3
 	end 'check-success'
@@ -2230,17 +2231,17 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
-		let argv = StringArray.create(0)
+		let exe = MxExecutable.name("cmd")
+		var argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("echo")
 		argv.push("ok")
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/echo") otherwise return 2)
-		let argv = StringArray.create(0)
+		let exe = MxExecutable.path(try FilePath.from("/bin/echo") otherwise return 2)
+		var argv = StringArray.create(0)
 		argv.push("ok")
 	#endif
-	let result = try Subprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(Directory.currentPath()), deadline: WaitDeadline.within(5000)) otherwise return 3
+	let result = try MxSubprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(Directory.currentPath()), deadline: MxWaitDeadline.within(5000)) otherwise return 3
 	if result.succeeded() 'check'
 		return 0
 	end 'check'
@@ -2265,17 +2266,17 @@ across the green-thread entry to Win32.
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-	let exe = Executable.name("cmd")
+	let exe = MxExecutable.name("cmd")
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("echo")
 	argv.push("hello")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/echo") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("/bin/echo") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("hello")
 	#endif
-	let p = async Subprocess.run(exe, arguments: argv)
+	let p = async MxSubprocess.run(exe, arguments: argv)
 	let result = try await p otherwise return 2
 	if not result.succeeded() 'check-success'
 		return 3
@@ -2308,15 +2309,15 @@ loop's interaction with multiple in-flight promises sitting on the
 P's local queue; and the TIB save/restore around each child's
 Win32 calls.
 ```maxon
-typealias SubP = Promise with (CollectedOutput, SubprocessError)
+typealias SubP = Promise with (MxCollectedOutput, MxSubprocessError)
 
 typealias SubPArray = Array with SubP
 
 function main() returns ExitCode
 	#if os(Windows)
-	let exe = Executable.name("cmd")
+	let exe = MxExecutable.name("cmd")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/echo") otherwise return 7)
+	let exe = MxExecutable.path(try FilePath.from("/bin/echo") otherwise return 7)
 	#endif
 	let count = 4
 	let promises = SubPArray.create(0)
@@ -2328,7 +2329,7 @@ function main() returns ExitCode
 		argv.push("echo")
 		#endif
 		argv.push("child-{i}")
-		promises.push(async Subprocess.run(exe.clone(), arguments: argv.clone()))
+		promises.push(async MxSubprocess.run(exe.clone(), arguments: argv.clone()))
 		i = i + 1
 	end 'spawn'
 	var j = 0 as FullRangeInt
@@ -2382,7 +2383,7 @@ about three durations, which that bound refuses; a loaded parallel run
 spreads them only by its spawn and wake-up skew, which stays far below
 two full child-durations.
 ```maxon
-typealias SubP = Promise with (CollectedOutput, SubprocessError)
+typealias SubP = Promise with (MxCollectedOutput, MxSubprocessError)
 
 typealias SubPArray = Array with SubP
 
@@ -2408,15 +2409,15 @@ end 'sleepArgs'
 
 function main() returns ExitCode
 	#if os(Windows)
-	let exe = Executable.name("cmd")
+	let exe = MxExecutable.name("cmd")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sleep") otherwise return 7)
+	let exe = MxExecutable.path(try FilePath.from("/bin/sleep") otherwise return 7)
 	#endif
 	let promises = SubPArray.create(0)
 	let start = Clock.nowMs()
 	var spawned = 0 as ChildTally
 	while spawned < ChildCount 'spawn'
-		promises.push(async Subprocess.run(exe.clone(), arguments: sleepArgs()))
+		promises.push(async MxSubprocess.run(exe.clone(), arguments: sleepArgs()))
 		spawned = spawned + 1
 	end 'spawn'
 	var awaited = 0 as ChildTally
@@ -2497,10 +2498,10 @@ function main() returns ExitCode
 		runChild()
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
 	var argv = StringArray.create(0)
 	argv.push("emit")
-	let result = try Subprocess.run(exe, arguments: argv) otherwise return 3
+	let result = try MxSubprocess.run(exe, arguments: argv) otherwise return 3
 	print("{describe("stdout", text: result.stdout)}\n")
 	print("{describe("stderr", text: result.stderr)}\n")
 	return 0
@@ -2634,12 +2635,12 @@ function main() returns ExitCode
 		runChild()
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
 	var argv = StringArray.create(0)
 	argv.push("child")
 	argv.push("a\0b")
 	argv.push("after")
-	if let result = try Subprocess.run(exe, arguments: argv) 'ran'
+	if let result = try MxSubprocess.run(exe, arguments: argv) 'ran'
 		print("ran: {result.stdout}")
 	end 'ran' else (e) 'refused'
 		print("refused {e.name}\n")
@@ -2672,24 +2673,24 @@ function main() returns ExitCode
 		print("child ran\n")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let value = Configuration.create(exe)
+	var value = Configuration.create(exe)
 	value.arguments = argv.clone()
-	let valueVars = EnvMap.create()
+	var valueVars = EnvMap.create()
 	valueVars.upsert("MAXON_SPEC_NUL_VALUE", value: "a\0b")
 	value.environment = Environment.inheritUpdating(valueVars)
 	attempt("value", config: value)
-	let name = Configuration.create(exe)
+	var name = Configuration.create(exe)
 	name.arguments = argv.clone()
-	let nameVars = EnvMap.create()
+	var nameVars = EnvMap.create()
 	nameVars.upsert("MAXON_SPEC\0NUL_NAME", value: "v")
 	name.environment = Environment.inheritUpdating(nameVars)
 	attempt("name", config: name)
-	let custom = Configuration.create(exe)
+	var custom = Configuration.create(exe)
 	custom.arguments = argv
-	let customVars = EnvMap.create()
+	var customVars = EnvMap.create()
 	customVars.upsert("MAXON_SPEC_NUL_CUSTOM", value: "a\0b")
 	custom.environment = Environment.custom(customVars)
 	attempt("custom", config: custom)
@@ -2720,10 +2721,10 @@ function main() returns ExitCode
 	if not Directory.create(prefix) 'setup'
 		return 2
 	end 'setup'
-	let exe = Executable.path(try Process.executablePath() otherwise return 3)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 3)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	if let result = try Subprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(Directory.currentPath().join("subprocess-nul-working-directory\0x"))) 'ran'
+	if let result = try MxSubprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(Directory.currentPath().join("subprocess-nul-working-directory\0x"))) 'ran'
 		print("ran: {result.stdout}")
 	end 'ran' else (e) 'refused'
 		print("refused {e.name}\n")
@@ -2751,10 +2752,10 @@ function main() returns ExitCode
 	end 'childMode'
 	let me = try Process.executablePath() otherwise return 2
 	let folder = try me.parent() otherwise return 3
-	let exe = Executable.path(folder.join("{me.filename()}\0x"))
+	let exe = MxExecutable.path(folder.join("{me.filename()}\0x"))
 	var argv = StringArray.create(0)
 	argv.push("child")
-	if let result = try Subprocess.run(exe, arguments: argv) 'ran'
+	if let result = try MxSubprocess.run(exe, arguments: argv) 'ran'
 		print("ran: {result.stdout}")
 	end 'ran' else (e) 'refused'
 		print("refused {e.name}\n")
@@ -2792,18 +2793,18 @@ function main() returns ExitCode
 	let prefix = Directory.currentPath().join("subprocess-nul-redirect")
 	let holding = Directory.currentPath().join("subprocess-nul-redirect\0x")
 	try File.writeText(prefix, content: "x") otherwise return 2
-	let exe = Executable.path(try Process.executablePath() otherwise return 3)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 3)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let input = Configuration.create(exe)
+	var input = Configuration.create(exe)
 	input.arguments = argv.clone()
-	input.standardInput = InputSource.file(holding)
+	input.standardInput = InputSource.file(holding.clone())
 	attempt("stdin", config: input)
-	let output = Configuration.create(exe)
+	var output = Configuration.create(exe)
 	output.arguments = argv.clone()
-	output.standardOutput = OutputDestination.file(holding)
+	output.standardOutput = OutputDestination.file(holding.clone())
 	attempt("stdout", config: output)
-	let errors = Configuration.create(exe)
+	var errors = Configuration.create(exe)
 	errors.arguments = argv
 	errors.standardError = OutputDestination.file(holding)
 	attempt("stderr", config: errors)
@@ -2853,7 +2854,7 @@ function main() returns ExitCode
 		print("{readAllStdin()}\n")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("child")
 	let fed = Configuration.create(exe)
@@ -2885,6 +2886,7 @@ streamed: 4 bytes [97 0 98 10]
 ```
 
 <!-- test: subprocess-a-spawn-whose-pipes-cannot-be-made-fails-instead-of-panicking -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 A spawn whose stdin or stdout pipe cannot be made fails as `spawnFailed`, and nothing panics. The case runs
@@ -2901,7 +2903,7 @@ function attempt(label String, config Configuration)
 	end 'refused'
 end 'attempt'
 
-function spawnWithoutDescriptors(exe Executable)
+function spawnWithoutDescriptors(exe MxExecutable)
 	let argv = StringArray.create(0)
 	argv.push("grandchild")
 	let fed = Configuration.create(exe)
@@ -2920,7 +2922,7 @@ end 'spawnWithoutDescriptors'
 function exhaustThenSpawn(me FilePath)
 	let held = try __ManagedFile.openRead(me.path.toByteArray().managed) otherwise 'exhausted'
 		print("exhausted\n")
-		spawnWithoutDescriptors(Executable.path(me))
+		spawnWithoutDescriptors(MxExecutable.path(me))
 		return
 	end 'exhausted'
 	exhaustThenSpawn(me)
@@ -2942,7 +2944,7 @@ function main() returns ExitCode
 	argv.push("-c")
 	argv.push("ulimit -n 64; exec \"$0\" child")
 	argv.push(me.path)
-	let result = try Subprocess.run(Executable.path(try FilePath.from("/bin/sh") otherwise return 3), arguments: argv) otherwise return 4
+	let result = try MxSubprocess.run(MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 3), arguments: argv) otherwise return 4
 	print(result.stdout)
 	print("child exit {result.exitCode()}\n")
 	return 0
@@ -2974,7 +2976,7 @@ function main() returns ExitCode
 	holderArgv.push("-NoProfile")
 	holderArgv.push("-Command")
 	holderArgv.push("$parent = (Get-CimInstance Win32_Process -Filter ('ProcessId=' + $PID)).ParentProcessId; $held = @(); foreach ($letters in 87) \{ foreach ($seq in 0..63) \{ $v = ([int64]$parent -shl 32) -bor $seq; $name = 'mx' + (-join (15..0 | ForEach-Object \{ $n = ($v -shr (4 * $_)) -band 15; [char]($n + $(if ($n -lt 10) \{ 48 \} else \{ $letters \})) \})); try \{ $held += New-Object System.IO.Pipes.NamedPipeServerStream($name, 'InOut', 1) \} catch \{ \} \} \}; [Console]::Out.WriteLine('ready'); [Console]::Out.Flush(); [void][Console]::In.ReadLine()")
-	let holder = try StreamingSubprocess.spawn(Executable.name("powershell"), arguments: holderArgv) otherwise return 2
+	let holder = try StreamingSubprocess.spawn(MxExecutable.name("powershell"), arguments: holderArgv) otherwise return 2
 	let reader = try holder.takeStdout() otherwise return 3
 	let read = try reader.readLine() otherwise return 3
 	let announced = match read 'read'
@@ -2985,7 +2987,7 @@ function main() returns ExitCode
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("exit")
-	let fed = Configuration.create(Executable.name("cmd"))
+	let fed = Configuration.create(MxExecutable.name("cmd"))
 	fed.arguments = argv
 	fed.standardInput = InputSource.bytes("x")
 	if let result = try fed.run() 'ran'
@@ -3016,10 +3018,10 @@ becomes its standard input. The case runs itself under `/bin/sh` with `<&-`, and
 feeding its stdin, then runs `/bin/cat` with stdin inherited: on the null device `cat` reads end of file at once
 and exits 0 having written nothing to either stream.
 ```maxon
-function spawnWithStdinClosed(exe Executable)
-	let fedArgv = StringArray.create(0)
+function spawnWithStdinClosed(exe MxExecutable)
+	var fedArgv = StringArray.create(0)
 	fedArgv.push("fed")
-	let fed = Configuration.create(exe)
+	var fed = Configuration.create(exe)
 	fed.arguments = fedArgv
 	fed.standardInput = InputSource.bytes("xyz")
 	if let result = try fed.run() 'ran'
@@ -3027,7 +3029,7 @@ function spawnWithStdinClosed(exe Executable)
 	end 'ran' else (e) 'refused'
 		print("fed: refused {e.displayReason()}\n")
 	end 'refused'
-	let inherited = Configuration.create(Executable.path(try FilePath.from("/bin/cat") otherwise panic("/bin/cat is a valid path")))
+	var inherited = Configuration.create(MxExecutable.path(try FilePath.from("/bin/cat") otherwise panic("/bin/cat is a valid path")))
 	inherited.standardInput = InputSource.inherit
 	if let result = try inherited.run() 'catRan'
 		print("inherited: cat exit {result.exitCode()} stdout {result.stdout.byteLength()} bytes stderr {result.stderr.byteLength()} bytes\n")
@@ -3042,7 +3044,7 @@ function main() returns ExitCode
 	if args.count() > 1 'childMode'
 		let mode = try args.get(1) otherwise ""
 		if mode == "fed" 'readFed'
-			let stdin = Console.stdin()
+			var stdin = Console.stdin()
 			let received = try stdin.readToEnd() otherwise (e) 'unread'
 				print("read threw {e.name}\n")
 				return 1
@@ -3050,14 +3052,14 @@ function main() returns ExitCode
 			print("{received.count()} bytes\n")
 			return 0
 		end 'readFed'
-		spawnWithStdinClosed(Executable.path(me))
+		spawnWithStdinClosed(MxExecutable.path(me))
 		return 0
 	end 'childMode'
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push("exec \"$0\" child <&-")
 	argv.push(me.path)
-	let result = try Subprocess.run(Executable.path(try FilePath.from("/bin/sh") otherwise return 3), arguments: argv) otherwise return 4
+	let result = try MxSubprocess.run(MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 3), arguments: argv) otherwise return 4
 	print(result.stdout)
 	print("child exit {result.exitCode()}\n")
 	return 0
@@ -3104,7 +3106,7 @@ function main() returns ExitCode
 			print(chunk)
 		end 'write'
 		var received = 0 as Tally
-		let stdin = Console.stdin()
+		var stdin = Console.stdin()
 		while true 'drain'
 			let read = try stdin.readBytes(4096) otherwise (e) 'unread'
 				printError("child read threw {e.name}\n")
@@ -3113,23 +3115,23 @@ function main() returns ExitCode
 			if read.count() == 0 'ended'
 				break
 			end 'ended'
-			received = received + (read.count() as Tally)
+			received = try received + (read.count() as Tally) otherwise panic("out of range")
 		end 'drain'
 		printError("child read {received} bytes\n")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
 	let chunk = block()
 	var payload = ""
 	for _ in 0 upto stdinBlocks 'fill'
 		payload = "{payload}{chunk}"
 	end 'fill'
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(exe)
+	var config = Configuration.create(exe)
 	config.arguments = argv
 	config.standardInput = InputSource.bytes(payload)
-	config.deadline = WaitDeadline.within(deadlineMs)
+	config.deadline = MxWaitDeadline.within(deadlineMs)
 	if let result = try config.run() 'ran'
 		print("exit {result.exitCode()}\nstdout {result.stdout.byteLength()} bytes\n{result.stderr}")
 	end 'ran' else (e) 'refused'
@@ -3180,7 +3182,7 @@ type Spawner
 		argv.push("-n")
 		argv.push("3")
 		argv.push("127.0.0.1")
-		let config = Configuration.create(Executable.name("ping"))
+		let config = Configuration.create(MxExecutable.name("ping"))
 		config.arguments = argv
 		for _ in 0 upto rounds 'spawn'
 			let pid = try config.runDetached() otherwise panic("ping starts")
@@ -3222,7 +3224,7 @@ function main() returns ExitCode
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("echo hi")
-	let echo = Configuration.create(Executable.name("cmd"))
+	let echo = Configuration.create(MxExecutable.name("cmd"))
 	echo.arguments = argv
 	var slow = 0 as Tally
 	var answered = 0 as Tally
@@ -3923,19 +3925,19 @@ function main() returns ExitCode
 	end 'childMode'
 	let rootName = "subprocess-long-redirect"
 	let root = Directory.currentPath().join(rootName)
-	var deep = root
+	var deep = root.clone()
 	for i in 0 upto 12 'segments'
 		deep = deep.join("a-fairly-long-directory-segment-number-{i}")
 	end 'segments'
 	print("past the limit {deep.toString().byteLength() > 260}\n")
 	print("create {Directory.create(deep)}\n")
 	let target = deep.join("out.txt")
-	let exe = Executable.path(try Process.executablePath() otherwise return 3)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 3)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(exe)
+	var config = Configuration.create(exe)
 	config.arguments = argv
-	config.standardOutput = OutputDestination.file(target)
+	config.standardOutput = OutputDestination.file(target.clone())
 	if let result = try config.run() 'ran'
 		print("exit {result.exitCode()}\n")
 	end 'ran' else (e) 'refused'
@@ -4039,10 +4041,10 @@ end 'block'
 
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
+		let exe = MxExecutable.name("cmd")
 		let argv = StringArray from ["/c", "exit 7"]
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 		let argv = StringArray from ["-c", "exit 7"]
 	#endif
 	let chunk = block()
@@ -4050,10 +4052,10 @@ function main() returns ExitCode
 	for _ in 0 upto payloadBlocks 'fill'
 		payload = "{payload}{chunk}"
 	end 'fill'
-	let config = Configuration.create(exe)
+	var config = Configuration.create(exe)
 	config.arguments = argv
 	config.standardInput = InputSource.bytes(payload)
-	config.deadline = WaitDeadline.within(deadlineMs)
+	config.deadline = MxWaitDeadline.within(deadlineMs)
 	if let result = try config.run() 'ran'
 		print("child exit {result.exitCode()}\n")
 	end 'ran' else (e) 'refused'
@@ -4090,17 +4092,17 @@ function block() returns String
 end 'block'
 
 function main() returns ExitCode
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 	let argv = StringArray from ["-c", "exec 0<&-; sleep 0.3; exit 3"]
 	let chunk = block()
 	var payload = ""
 	for _ in 0 upto payloadBlocks 'fill'
 		payload = "{payload}{chunk}"
 	end 'fill'
-	let config = Configuration.create(exe)
+	var config = Configuration.create(exe)
 	config.arguments = argv
 	config.standardInput = InputSource.bytes(payload)
-	config.deadline = WaitDeadline.within(deadlineMs)
+	config.deadline = MxWaitDeadline.within(deadlineMs)
 	if let result = try config.run() 'ran'
 		print("child exit {result.exitCode()}\n")
 	end 'ran' else (e) 'refused'
@@ -4125,13 +4127,13 @@ the run answers the same either way: the child's exit status.
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
+		let exe = MxExecutable.name("cmd")
 		let argv = StringArray from ["/c", "exit 5"]
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 		let argv = StringArray from ["-c", "exit 5"]
 	#endif
-	let config = Configuration.create(exe)
+	var config = Configuration.create(exe)
 	config.arguments = argv
 	config.standardInput = InputSource.bytes("hello\n")
 	if let result = try config.run() 'ran'
@@ -4169,17 +4171,17 @@ function block() returns String
 end 'block'
 
 function main() returns ExitCode
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 	let argv = StringArray from ["-c", "echo bye; exit 4"]
 	let chunk = block()
 	var payload = ""
 	for _ in 0 upto payloadBlocks 'fill'
 		payload = "{payload}{chunk}"
 	end 'fill'
-	let config = Configuration.create(exe)
+	var config = Configuration.create(exe)
 	config.arguments = argv
 	config.standardInput = InputSource.bytes(payload)
-	config.deadline = WaitDeadline.within(deadlineMs)
+	config.deadline = MxWaitDeadline.within(deadlineMs)
 	if let result = try config.run() 'ran'
 		print("child exit {result.exitCode()} stdout {result.stdout}")
 	end 'ran' else (e) 'refused'
@@ -4426,7 +4428,7 @@ function main() returns ExitCode
 		builder = "{builder}x"
 		filled = filled + 1
 	end 'fill'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
 	let outcome = try runChildFedAfterLine(exe, argv: argv, workingDirectory: WorkingDirectory.inherit, environment: Environment.inherit, deadlineMs: 20000, endsWhen: RunEndsWhen.outputEnds, tailSilenceMs: 200, tailCapMs: 1000, anchor: "ready", feed: builder) otherwise return 3
 	match outcome 'outcome'
 		ran(report) then print(report.stdout)
@@ -4465,7 +4467,7 @@ function main() returns ExitCode
 	argv.push("-c")
 	argv.push("( \"$0\" child; echo \"child=$?\" >&2 ) | head -n 1 >/dev/null")
 	argv.push(me.path)
-	let result = try Subprocess.run(Executable.path(try FilePath.from("/bin/sh") otherwise return 3), arguments: argv) otherwise return 4
+	let result = try MxSubprocess.run(MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 3), arguments: argv) otherwise return 4
 	print(result.stderr)
 	return 0
 end 'main'
@@ -4496,7 +4498,7 @@ function main() returns ExitCode
 	argv.push("-c")
 	argv.push("\{ ( \"$0\" child 2>&1 >/dev/null; echo \"child=$?\" >&3 ) | head -n 1 >/dev/null; \} 3>&2")
 	argv.push(me.path)
-	let result = try Subprocess.run(Executable.path(try FilePath.from("/bin/sh") otherwise return 3), arguments: argv) otherwise return 4
+	let result = try MxSubprocess.run(MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 3), arguments: argv) otherwise return 4
 	print(result.stderr)
 	return 0
 end 'main'
@@ -4520,7 +4522,7 @@ function main() returns ExitCode
 	var argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push("sh -c 'kill -PIPE $$; echo survived'; echo status=$?")
-	let result = try Subprocess.run(Executable.path(try FilePath.from("/bin/sh") otherwise return 2), arguments: argv) otherwise return 3
+	let result = try MxSubprocess.run(MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2), arguments: argv) otherwise return 3
 	print(result.stdout)
 	return 0
 end 'main'
