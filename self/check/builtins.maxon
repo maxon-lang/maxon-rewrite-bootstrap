@@ -130,11 +130,11 @@ function checkManagedByteAtArgs(mutates c Checker, p ast.Project, ms ast.ModuleS
 	failAt(c, p: p, ms: ms, node: call, code: diag.errUnsupportedFeature, msg: "Unsupported: 'byteAt' on a buffer of '{nameOfType(p, ms: ms, t: elem)}': only a buffer of bytes is read by byte; read the element with 'get(index)'", errs: errs)
 end 'checkManagedByteAtArgs'
 
-// checkElementsComparable refuses a method that compares elements, for an element that this compiler cannot compare: it
-// compares integers, bools, enums and strings, and has no Equatable interface for any other type yet.
+// checkElementsComparable refuses a method that compares elements, for an element that it does not compare in place
+// (ast.comparesInPlace): integers, bools, enums and strings. An array's equals of any other element is the library's.
 function checkElementsComparable(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, method String, mutates errs diag.ErrorList)
 	let elem = callElement(c, call: call)
-	if typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.intRange) or typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.primBool) or typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.primString) or typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.enumTy) 'comparable'
+	if elem != ast.noType and ast.comparesInPlace(ms.types, reads: p.types, elem: elem) 'comparable'
 		return
 	end 'comparable'
 	failAt(c, p: p, ms: ms, node: call, code: diag.errUnsupportedFeature, msg: "Unsupported: '{method}' on an array of '{nameOfType(p, ms: ms, t: elem)}': only an array of integers, bools, enums or strings compares its elements, since there is no Equatable interface yet", errs: errs)

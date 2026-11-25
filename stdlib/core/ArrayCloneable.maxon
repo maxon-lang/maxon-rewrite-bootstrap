@@ -1,0 +1,5 @@
+// An array is Cloneable where its element is, which maxon's Array.maxon declares unconditionally: Cloneable extends Copyable
+// here, and an array is Copyable exactly where its element is, so the conformance holds where the element is Cloneable. Its
+// clone() is the built-in copy, which copies an array of arrays through the inner arrays' copies.
+extension Array implements Cloneable where T implements Cloneable
+end 'Array'

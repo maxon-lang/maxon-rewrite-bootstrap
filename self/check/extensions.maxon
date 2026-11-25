@@ -123,8 +123,12 @@ function declareExtension(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	end 'ofInterface'
 	let key = ast.extensionKey(p, ms: ms, t: nt).unwrap()
 	let interfaces = conformedInterfaces(c, p: p, ms: ms, interfaces: xd.conforms, capabilities: false, selfTy: nt, errs: errs)
-	for i in 0 upto interfaces.count() 'conforms'
-		ms.tables.pushExtConform(ast.ExtConform.make(key, iface: interfaces[i], site: xd.id))
+	var conditions = ast.ParamBoundList.create(0)
+	if interfaces.count() > 0 'conditional'
+		conditions = extensionConditions(c, p: p, ms: ms, xd: xd, errs: errs)
+	end 'conditional'
+	for iface in interfaces 'conforms'
+		ms.tables.pushExtConform(ast.ExtConform.make(key, iface: iface, site: xd.id, conditions: conditions.clone()))
 	end 'conforms'
 	if failedSince(errs, mark: mark) 'badConforms'
 		return
@@ -138,6 +142,20 @@ function declareExtension(mutates c Checker, p ast.Project, mutates ms ast.Modul
 		addExtensionMethod(c, p: p, ms: ms, xd: xd, method: xd.methods[i].clone(), nt: owner, key: key, declared: declared, errs: errs)
 	end 'methods'
 end 'declareExtension'
+
+// extensionConditions are the bounds of the 'where' of an extension, over the parameters of the type it extends, which a
+// conformance it declares holds under.
+function extensionConditions(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, xd ast.ExtensionDecl, mutates errs diag.ErrorList) returns ast.ParamBoundList
+	var conditions = ast.ParamBoundList.create(0)
+	for cs in xd.whereList 'clauses'
+		let constrained = boundedParamOf(c, p: p, ms: ms, cs: cs)
+		for bi in 0 upto ms.tree().listLen(cs.bounds) 'bounds'
+			let iface = resolveBoundTypeRef(c, p: p, ms: ms, tr: ms.tree().listAt(cs.bounds, index: bi) as ast.NodeID, isBound: true, selfTy: ast.noType, errs: errs)
+			conditions.push(ast.ParamBound.make(constrained, ifaceTy: iface))
+		end 'bounds'
+	end 'clauses'
+	return conditions
+end 'extensionConditions'
 
 // familySelfParam is the `Self` of the static functions of an extension of the primitive family, or none where the extension
 // is of another type or adds no static function. Such a function is generic over it: a call through the family's name binds
@@ -197,7 +215,7 @@ export function checkExtensionConformances(mutates c Checker, p ast.Project, mut
 			continue 'each'
 		end 'twice'
 		var lacks = Shortfall.new()
-		checkInterface(c, p: p, ms: ms, site: entry.site, nt: entry.owner, iface: entry.iface, lacks: lacks, errs: errs)
+		checkInterface(c, p: p, ms: ms, site: entry.site, nt: entry.owner, iface: entry.iface, conditions: entry.conditions, lacks: lacks, errs: errs)
 		failIncomplete(c, p: p, ms: ms, site: entry.site, typeName: ast.typeName(ms.types, reads: p.types, t: entry.owner), lacks: lacks, errs: errs)
 	end 'each'
 end 'checkExtensionConformances'

@@ -1,0 +1,76 @@
+// A program declares conformances that hold under a condition, `extension Pair implements Hashable, Equatable where A
+// implements Hashable and Equatable`: a Pair of a key is a Map key and meets a bound of Equatable, and the program's own
+// conditional conformance of Array to Stringable, an interface of the library, holds in the program for its arrays of names.
+type Pair uses A
+	export var first as A
+	export var second as A
+
+	static function make(consumes first A, consumes second A) returns Self
+		return Self{first: first, second: second}
+	end 'make'
+end 'Pair'
+
+extension Pair implements Hashable, Equatable where A implements Hashable and Equatable
+	public function hash() returns HashValue
+		var hasher = Hasher.create()
+		hasher.combine(first.hash() as HashDigest)
+		hasher.combine(second.hash() as HashDigest)
+		return hasher.finalize()
+	end 'hash'
+
+	public function equals(other Self) returns bool
+		return first == other.first and second == other.second
+	end 'equals'
+end 'Pair'
+
+typealias Edge = Pair with Count
+
+typealias Lengths = Map with (Edge, Count)
+
+typealias Names = Pair with String
+
+type Name implements Stringable
+	export var text as String
+
+	static function make(consumes text String) returns Name
+		return Name{text: text}
+	end 'make'
+
+	public function toString() returns String
+		return text.clone()
+	end 'toString'
+end 'Name'
+
+typealias NameList = Array with Name
+
+extension Array implements Stringable where T implements Stringable
+	public function toString() returns String
+		var out = ""
+		for item in self 'each'
+			out = "{out}[{item.toString()}]"
+		end 'each'
+		return out
+	end 'toString'
+end 'Array'
+
+function same(a T, b T) uses T returns bool where T implements Equatable
+	return a == b
+end 'same'
+
+function shown(x T) uses T returns String where T implements Stringable
+	return x.toString()
+end 'shown'
+
+function main() returns ExitCode
+	var lengths = Lengths.create()
+	lengths.upsert(Edge.make(1, second: 2), value: 12)
+	lengths.upsert(Edge.make(2, second: 1), value: 21)
+	print("{lengths.count()} {try lengths.get(Edge.make(2, second: 1)) otherwise 0} {lengths.contains(Edge.make(1, second: 3))}\n")
+	print("{same(Names.make("a", second: "b"), b: Names.make("a", second: "b"))} {same(Names.make("a", second: "b"), b: Names.make("b", second: "a"))}\n")
+	print("{shown(NameList from [Name.make("ada"), Name.make("bo")])}\n")
+	return 0
+end 'main'
+
+//> 2 21 false
+//> true false
+//> [ada][bo]

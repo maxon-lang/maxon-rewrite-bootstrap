@@ -228,6 +228,8 @@ export enum Intrinsic
 	intrArrayFillSlot
 	intrArrayTakeSlot
 	intrArrayLendSlot
+	intrArrayHashesAsStorage
+	intrArrayStorageHash
 	intrArrayContains
 	intrArrayContainsSequence
 	intrArrayEquals
@@ -865,6 +867,12 @@ export function rawMemberSurface(b Builtins, owner TypeID, name String) returns 
 	if owner == b.arrayOrigin and name == "lendSlot" 'arrayLendSlot'
 		return table.Option.some(RawSurface.make("an array's element is lent in place", instead: "use a subscript, 'a[i]'"))
 	end 'arrayLendSlot'
+	if owner == b.arrayOrigin and name == "hashesAsStorage" 'arrayHashesAsStorage'
+		return table.Option.some(RawSurface.make("an array is asked whether it hashes as its storage", instead: "use 'hash()'"))
+	end 'arrayHashesAsStorage'
+	if owner == b.arrayOrigin and name == "storageHash" 'arrayStorageHash'
+		return table.Option.some(RawSurface.make("the storage of an array is hashed", instead: "use 'hash()'"))
+	end 'arrayStorageHash'
 	if owner == b.slotKeyOrigin and name == "fromWord" 'slotKeyFromWord'
 		return table.Option.some(RawSurface.make("a slot key is made of a word", instead: "use the slot key a slot map's 'insert' gives"))
 	end 'slotKeyFromWord'
@@ -1316,28 +1324,32 @@ function declareArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft Fu
 	let f67 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayLendSlot, name: "lendSlot", isStatic: false, selfConv: Convention.convLet, ret: p65, params: ps66, listed: true)
 	ft.lists[funcList(ft, f: f67)][funcIndex(ft, f: f67)].result = ResultConv.resultBorrowed
 	ft.lists[funcList(ft, f: f67)][funcIndex(ft, f: f67)].lendsPlace = true
-	let p68 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	var ps69 = ParamSpecList.create(0)
-	ps69.push(ParamSpec.make("element", ty: p68, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayContains, name: "contains", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps69, listed: true)
-	let ty70 = selfType(tt, reads: reads, declTy: b.arrayOrigin)
-	var ps71 = ParamSpecList.create(0)
-	ps71.push(ParamSpec.make("sequence", ty: ty70, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayContainsSequence, name: "containsSequence", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps71, listed: true)
-	let ty72 = selfType(tt, reads: reads, declTy: b.arrayOrigin)
-	var ps73 = ParamSpecList.create(0)
-	ps73.push(ParamSpec.make("other", ty: ty72, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayEquals, name: "equals", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps73, listed: true)
-	let p74 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	let f75 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayFirst, name: "first", isStatic: false, selfConv: Convention.convLet, ret: p74, params: ParamSpecList.create(0), listed: true)
-	let p76 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f75)][funcIndex(ft, f: f75)].bounds.push(ParamBound.make(p76, ifaceTy: b.copyableTy))
-	ft.lists[funcList(ft, f: f75)][funcIndex(ft, f: f75)].errTy = b.arrayErrorTy
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayHashesAsStorage, name: "hashesAsStorage", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
+	var ps68 = ParamSpecList.create(0)
+	ps68.push(ParamSpec.make("seed", ty: b.hashDigestTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayStorageHash, name: "storageHash", isStatic: false, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ps68, listed: true)
+	let p69 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	var ps70 = ParamSpecList.create(0)
+	ps70.push(ParamSpec.make("element", ty: p69, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayContains, name: "contains", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps70, listed: true)
+	let ty71 = selfType(tt, reads: reads, declTy: b.arrayOrigin)
+	var ps72 = ParamSpecList.create(0)
+	ps72.push(ParamSpec.make("sequence", ty: ty71, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayContainsSequence, name: "containsSequence", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps72, listed: true)
+	let ty73 = selfType(tt, reads: reads, declTy: b.arrayOrigin)
+	var ps74 = ParamSpecList.create(0)
+	ps74.push(ParamSpec.make("other", ty: ty73, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayEquals, name: "equals", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps74, listed: true)
+	let p75 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	let f76 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayFirst, name: "first", isStatic: false, selfConv: Convention.convLet, ret: p75, params: ParamSpecList.create(0), listed: true)
 	let p77 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	let f78 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayLast, name: "last", isStatic: false, selfConv: Convention.convLet, ret: p77, params: ParamSpecList.create(0), listed: true)
-	let p79 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f78)][funcIndex(ft, f: f78)].bounds.push(ParamBound.make(p79, ifaceTy: b.copyableTy))
-	ft.lists[funcList(ft, f: f78)][funcIndex(ft, f: f78)].errTy = b.arrayErrorTy
+	ft.lists[funcList(ft, f: f76)][funcIndex(ft, f: f76)].bounds.push(ParamBound.make(p77, ifaceTy: b.copyableTy))
+	ft.lists[funcList(ft, f: f76)][funcIndex(ft, f: f76)].errTy = b.arrayErrorTy
+	let p78 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	let f79 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayLast, name: "last", isStatic: false, selfConv: Convention.convLet, ret: p78, params: ParamSpecList.create(0), listed: true)
+	let p80 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f79)][funcIndex(ft, f: f79)].bounds.push(ParamBound.make(p80, ifaceTy: b.copyableTy))
+	ft.lists[funcList(ft, f: f79)][funcIndex(ft, f: f79)].errTy = b.arrayErrorTy
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayAwaitAny, name: "awaitAny", isStatic: false, selfConv: Convention.convLet, ret: b.elementIndexTy, params: ParamSpecList.create(0), listed: true)
 end 'declareArrayMethods'
 

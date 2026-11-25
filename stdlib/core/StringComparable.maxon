@@ -1,0 +1,30 @@
+// A String is Comparable, as maxon's compiler makes it with no declaration in maxon's String.maxon (LANGUAGE_REFERENCE,
+// "Primitive Conformances"): it is ordered by its bytes, a shorter String that the other starts with first, the order of a
+// Character's bytes. `<`, `<=`, `>` and `>=` of two Strings call this compare.
+extension String implements Comparable
+	public function compare(other String) returns Ordering
+		let ours = byteLength()
+		let theirs = other.byteLength()
+		var shorter = ours
+		if theirs < shorter 'theirsShorter'
+			shorter = theirs
+		end 'theirsShorter'
+		for i in 0 upto shorter 'bytes'
+			let mine = byteAt(i)
+			let theirByte = other.byteAt(i)
+			if mine < theirByte 'before'
+				return Ordering.lessThan
+			end 'before'
+			if mine > theirByte 'after'
+				return Ordering.greaterThan
+			end 'after'
+		end 'bytes'
+		if ours < theirs 'prefix'
+			return Ordering.lessThan
+		end 'prefix'
+		if ours > theirs 'longer'
+			return Ordering.greaterThan
+		end 'longer'
+		return Ordering.equalTo
+	end 'compare'
+end 'String'

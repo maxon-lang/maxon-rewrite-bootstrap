@@ -57,8 +57,11 @@ array-clone-managed-elements.md: clone-of-an-array-of-lists-is-deep
 array-clone-managed-elements.md: clone-of-an-array-of-managed-element-lists
 array-clone-managed-elements.md: clone-of-an-array-of-string-arrays-is-deep
 array-clone-managed-elements.md: slice-of-an-array-of-string-arrays-is-deep
+array-conditional-conformance-withheld.md: an-array-of-arrays-decides-the-inner-conformance-first
 array-conditional-conformance-withheld.md: error.an-array-of-non-conforming-arrays-names-the-inner-array
+array-conditional-conformance-withheld.md: error.equality-operator-is-withheld-for-a-non-conforming-element
 array-conditional-conformance-withheld.md: error.hash-is-withheld-for-a-non-conforming-element
+array-conditional-conformance-withheld.md: the-cloneable-witness-route-is-opened-by-the-instance-dictionary
 array-copy-widths.md: append-copies-every-length-at-every-alignment
 array-copy-widths.md: insert-and-remove-shift-every-length
 array-copy-widths.md: insert-and-remove-shift-every-position-of-eight-byte-elements
@@ -102,18 +105,32 @@ array-enum-element-size.md: enum-array-push-get
 array-enum-element-size.md: enum-array-push-get-last
 array-enum-element-size.md: narrow-signed-enum-element-reaches-user-code-through-the-corpus
 array-enum-element-size.md: nested-enum-array-push-get
+array-hashable.md: a-float-array-hashes-as-its-element-chain
+array-hashable.md: a-generic-body-compares-a-field-array-with-the-operator
+array-hashable.md: a-generic-body-compares-arrays-of-a-parametric-instance
+array-hashable.md: a-generic-body-compares-arrays-with-the-operator
 array-hashable.md: a-generic-body-hashes-an-array-as-concrete-code-does
 array-hashable.md: a-generic-body-hashes-arrays-of-a-parametric-instance
+array-hashable.md: a-narrow-int-array-hashes-alike-through-every-route
+array-hashable.md: a-payload-free-enum-array-hashes-alike-through-every-route
+array-hashable.md: a-set-keyed-by-arrays-of-a-signed-narrow-alias-finds-equal-keys
+array-hashable.md: a-user-byte-declared-as-a-float-compares-element-wise
+array-hashable.md: an-enum-array-chains-the-enum-s-own-hash
+array-hashable.md: an-int-array-hashed-only-through-a-witness-table-links
 array-hashable.md: array-eq-operator-same-content
 array-hashable.md: array-equals-same
 array-hashable.md: array-hash-basic
+array-hashable.md: array-keys-of-two-element-types-in-one-program
 array-hashable.md: array-ne-operator-equal-content
 array-hashable.md: byte-array-eq-operator-fresh-literal
 array-hashable.md: byte-array-equals
 array-hashable.md: byte-array-hash
+array-hashable.md: every-integer-element-width-hashes-alike-through-every-route
 array-hashable.md: hash-avalanches
+array-hashable.md: int-array-map-key
 array-hashable.md: string-array-equals-compares-element-content
 array-hashable.md: string-array-hash-follows-element-content
+array-hashable.md: string-array-map-key
 array-hashable.md: string-array-operator-equality-compares-element-content
 array-init.md: error.a-non-buffer-argument
 array-literal-element-size.md: array-literal-nonconstant-byte-stride
@@ -617,6 +634,7 @@ async-scheduler.md: async-scheduler.a-float-argument-beside-a-reassigned-float-u
 async-scheduler.md: async-scheduler.a-float-argument-rides-the-float-argument-registers
 async-scheduler.md: async-scheduler.a-float-argument-survives-a-stack-grow
 async-scheduler.md: async-scheduler.a-float-argument-the-callee-reassigns-rides-a-cell
+async-scheduler.md: async-scheduler.a-generic-function-is-spawned-at-its-inferred-instance
 async-scheduler.md: async-scheduler.an-integer-argument-is-widened-to-a-float-parameter
 async-scheduler.md: async-scheduler.await-loop-bounded
 async-scheduler.md: async-scheduler.basic
@@ -1005,7 +1023,10 @@ byte-string-literal.md: byte-string-literal.latin1-char
 byte-string-literal.md: byte-string-literal.latin1-hex-equivalent
 byte-string-literal.md: byte-string-literal.latin1-mixed
 byte-string-literal.md: byte-string-literal.latin1-two
+byte-string-literal.md: byte-string-literal.local-map
+byte-string-literal.md: byte-string-literal.local-map-struct
 byte-string-literal.md: byte-string-literal.local-var
+byte-string-literal.md: byte-string-literal.map-key
 byte-string-literal.md: byte-string-literal.pop-detaches-from-rdata
 byte-string-literal.md: byte-string-literal.push-grows-off-rdata
 byte-string-literal.md: byte-string-literal.remove-detaches-from-rdata
@@ -1090,6 +1111,7 @@ challenge-struct-lifetime.md: return-struct-with-computed-fields
 char-literal-to-int.md: char-literal-arithmetic
 char-literal-to-int.md: char-literal-both-sides-still-character
 char-literal-to-int.md: char-literal-codepoint-iteration
+char-literal-to-int.md: char-literal-coerces-across-a-closure-body
 char-literal-to-int.md: char-literal-eq-codepoint
 char-literal-to-int.md: char-literal-escape-coercion
 char-literal-to-int.md: char-literal-ge-le-codepoint
@@ -1136,6 +1158,7 @@ character-set.md: trim-end-all-match
 character-set.md: trim-in-a-loop
 character-set.md: trim-result-discarded
 character-set.md: trim-start-all-match
+character-type.md: a-string-is-ordered-as-its-bytes
 character-type.md: ascii-value-digit
 character-type.md: ascii-value-emoji
 character-type.md: ascii-value-letter
@@ -1153,6 +1176,7 @@ character-type.md: character-ordering-compares-bytes-unsigned
 character-type.md: character-ordering-equal
 character-type.md: character-ordering-le-ge
 character-type.md: character-ordering-lt
+character-type.md: character-ordering-of-two-owned-temporaries
 character-type.md: character-ordering-prefix-is-less
 character-type.md: character-to-string
 character-type.md: emoji-character
@@ -1398,6 +1422,7 @@ compiler-directives.md: directives.not-doubles-back
 compiler-directives.md: directives.or-always-true
 conditional-extensions.md: conditional-extensions.array-contains
 conditional-extensions.md: conditional-extensions.basic-equatable
+conditional-extensions.md: conditional-extensions.binding-over-an-alias-two-files-declare
 conditional-extensions.md: conditional-extensions.constraint-not-met
 conditional-extensions.md: conditional-extensions.multiple-constraints
 conditional-extensions.md: conditional-extensions.partial-availability
@@ -3013,6 +3038,7 @@ generic-functions.md: a-comparable-record-is-ordered-by-less-than
 generic-functions.md: a-record-argument-is-its-callers-own-type
 generic-functions.md: an-enum-argument-is-its-callers-own-type
 generic-functions.md: an-exported-generic-and-another-directorys-exported-non-generic-of-one-name-both-stand
+generic-functions.md: an-exported-generic-function-is-called-from-another-file
 generic-functions.md: an-exported-non-generic-and-another-directorys-exported-generic-of-one-name-both-stand
 generic-functions.md: an-exported-requirement-reached-only-through-an-instance-is-used
 generic-functions.md: error.a-record-that-is-not-equatable
@@ -3544,6 +3570,7 @@ hasher.md: one-bit-avalanches
 hasher.md: one-seed-gives-one-digest
 hasher.md: resume-continues-a-finalized-fold
 hasher.md: the-fold-separates-the-parts
+hasher.md: the-hash-methods-are-the-process-fold
 hasher.md: the-process-seed-has-no-public-accessor
 hasher.md: the-two-faces-are-one-fold
 hasher.md: two-seeds-give-two-digests
@@ -3612,9 +3639,13 @@ immutable-constants.md: a-constant-local-let-passed-to-a-parameter-a-plain-field
 immutable-constants.md: a-constant-module-let-is-read-by-a-reading-parameter-and-an-immutable-parameter
 immutable-constants.md: a-constant-module-let-is-stored-into-an-immutable-field
 immutable-constants.md: a-constant-module-let-passed-to-a-parameter-a-plain-field-keeps-is-read-only-for-the-caller
+immutable-constants.md: a-constant-name-kept-by-a-field-an-element-and-a-map-key-is-frozen-into-an-array
 immutable-constants.md: a-constant-static-let-passed-to-a-parameter-a-plain-field-keeps-is-read-only-for-the-caller
 immutable-constants.md: a-fresh-frozen-name-is-stored-into-an-immutable-field
+immutable-constants.md: a-frozen-fresh-key-is-inserted-into-a-map-and-a-set
 immutable-constants.md: a-frozen-union-holding-a-record-is-accepted-by-an-immutable-parameter
+immutable-constants.md: a-lookup-with-an-immutable-key-and-a-fresh-fallback-is-written
+immutable-constants.md: a-map-get-result-takes-its-capability-from-the-value-slot-only
 immutable-constants.md: a-map-of-text-keys-is-built-from-a-dictionary-literal
 immutable-constants.md: a-map-of-values-is-built-from-a-dictionary-literal
 immutable-constants.md: a-match-expression-with-a-panic-arm-returns-a-declared-immutable-result
@@ -3625,6 +3656,7 @@ immutable-constants.md: a-read-of-an-immutable-field-passed-to-an-immutable-para
 immutable-constants.md: a-record-of-let-values-crosses-a-message-with-no-capability-word
 immutable-constants.md: a-record-of-let-values-is-a-map-key-and-a-set-element-with-no-freeze
 immutable-constants.md: a-scalar-key-and-element-need-no-freeze
+immutable-constants.md: a-set-of-names-is-built-from-an-array-literal-of-names
 immutable-constants.md: a-set-of-values-is-built-from-an-array-literal
 immutable-constants.md: a-union-payload-declared-immutable-holds-a-constant-name
 immutable-constants.md: an-all-let-record-read-from-an-element-is-stored-into-a-plain-payload
@@ -3633,6 +3665,7 @@ immutable-constants.md: an-immutable-constant-is-returned-past-two-owned-locals
 immutable-constants.md: an-immutable-element-fills-a-one-word-union-payload
 immutable-constants.md: an-immutable-element-fills-an-immutable-struct-field
 immutable-constants.md: an-immutable-element-fills-the-second-payload-case-of-a-boxed-union
+immutable-constants.md: an-immutable-field-read-off-a-parameter-arrays-element-goes-into-a-set
 immutable-constants.md: an-immutable-payload-read-through-a-result-does-not-freeze-the-record-the-result-came-from
 immutable-constants.md: an-immutable-result-returns-a-constant
 immutable-constants.md: an-inline-byte-literal-passed-to-a-parameter-a-plain-field-keeps-is-read-only-for-the-caller
@@ -3640,6 +3673,9 @@ immutable-constants.md: an-unmarked-parameter-passed-to-an-immutable-parameter-i
 immutable-constants.md: constant-names-are-pushed-into-an-immutable-array-and-read-by-for
 immutable-constants.md: immutable-names-share-across-a-service-send
 immutable-constants.md: inline-byte-literal-is-immutable
+immutable-constants.md: map-key-read-into-immutable-holder
+immutable-constants.md: reads-of-an-immutable-slot-are-immutable
+immutable-constants.md: set-element-read-into-immutable-holder
 immutable-method-call.md: append-on-let-string-error
 immutable-method-call.md: append-on-string-parameter-ok
 immutable-method-call.md: append-on-var-self-field-string-ok
@@ -4398,6 +4434,7 @@ map.md: a-let-map-read-after-a-reading-call-keeps-its-range
 map.md: a-let-map-value-read-is-range-known
 map.md: a-top-level-let-map-read-is-range-known
 map.md: a-user-type-can-be-a-map-key
+map.md: body-literal.enum-value-column
 map.md: churn.insert-and-remove-stays-flat
 map.md: clone.writing-the-copy-leaves-the-source-unchanged
 map.md: contains.true
@@ -4439,6 +4476,8 @@ map.md: string-keys-early-return
 map.md: string-keys-get-multiple
 map.md: string-keys-remove
 map.md: string-keys-upsert-update
+map.md: top-level-literal.enum-value-column
+map.md: top-level-literal.managed-value-column
 map.md: trivial-key-column-survives-rehash
 map.md: trivial-key-with-managed-value-column
 map.md: upsert.existing-key
@@ -6352,6 +6391,7 @@ readonly-element-returns.md: a-generic-method-returning-its-item-type-over-an-im
 readonly-element-returns.md: a-method-returning-an-immutable-element-is-read-through-a-let
 readonly-element-returns.md: error.a-method-returning-an-immutable-element-or-a-fresh-record-hands-back-a-read-only-value
 readonly-element-types.md: a-map-stores-frozen-values-and-stays-mutable
+readonly-element-types.md: a-set-element-read-by-for-is-kept-without-a-copy
 readonly-element-types.md: a-wrapper-storing-into-an-immutable-element-takes-a-frozen-argument
 readonly-element-types.md: error.a-for-value-over-an-immutable-map-is-not-written
 readonly-element-types.md: error.a-for-variable-over-an-immutable-list-is-not-written
@@ -7502,6 +7542,7 @@ static-variables.md: a-top-level-array-let-names-another-global-forward
 static-variables.md: a-top-level-character-is-a-record-slot
 static-variables.md: a-top-level-let-built-by-a-string-literal-init
 static-variables.md: a-top-level-let-built-by-a-string-literal-init-of-a-library-type-whose-init-is-not-exported
+static-variables.md: a-top-level-let-map-with-cast-values-reads-back-typed
 static-variables.md: an-array-literal-of-enum-cases-is-a-top-level-constant
 static-variables.md: error.a-boxed-union-constant-cannot-be-read-through-a-payload-less-alternative
 static-variables.md: error.a-case-the-union-does-not-declare-is-refused-in-a-body
@@ -8496,6 +8537,7 @@ type-name-collision.md: a-union-case-construction-beside-the-librarys-type-names
 type-name-collision.md: alias-named-like-its-own-compiled-name
 type-name-collision.md: an-authors-comparable-is-the-authors-own-interface
 type-name-collision.md: an-authors-comparable-leaves-the-library-sort-on-ints
+type-name-collision.md: an-authors-comparable-leaves-the-library-sort-on-strings
 type-name-collision.md: an-authors-comparable-with-the-librarys-shape-orders-its-own-type
 type-name-collision.md: an-authors-enum-named-like-a-library-alias-is-read-in-a-constant
 type-name-collision.md: an-authors-equatable-leaves-the-library-contains-on-ints
@@ -8990,6 +9032,7 @@ where-clauses.md: where-clauses.a-static-comparing-type-parameter-values-for-equ
 where-clauses.md: where-clauses.a-static-local-named-like-a-field-compares-as-its-own-type
 where-clauses.md: where-clauses.a-static-ordering-element-reads-takes-the-call-sites-tables
 where-clauses.md: where-clauses.a-static-ordering-type-parameter-values-takes-the-call-sites-tables
+where-clauses.md: where-clauses.a-static-takes-the-call-sites-tables-when-it-dispatches
 where-clauses.md: where-clauses.a-witness-only-static-called-through-self-from-an-instance-method
 where-clauses.md: where-clauses.and-violation
 where-clauses.md: where-clauses.concrete-static-beside-witness-dispatch

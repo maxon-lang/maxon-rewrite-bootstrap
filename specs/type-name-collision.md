@@ -4162,7 +4162,7 @@ public interface Comparable
 end 'Comparable'
 
 function main() returns ExitCode
-	let words = ["b", "a"]
+	var words = ["b", "a"]
 	words.sort()
 	let first = try words.get(0) otherwise return 3
 	print("{first}\n")

@@ -1,0 +1,20 @@
+// The equals of an array's conditional conformance to Equatable for an array whose elements the built-in equals does not
+// compare in place (ast.comparesInPlace): a float, a Character, a record, an array. As maxon's Array.equals, it compares the
+// two arrays element by element through the element's own equals. An array's equals, and == and != of two arrays, call it
+// where the built-in does not compare the elements, and nothing reaches it by its own name; minimaxon's own, since the
+// built-in equals is what maxon's converts to.
+extension Array where T implements Hashable and Equatable
+	export function equalsByElements(other Self) returns bool
+		if count() != other.count() 'lengths'
+			return false
+		end 'lengths'
+		var at = 0 as ElementIndex
+		for ours in self 'each'
+			if ours != other.lendSlot(at) 'differ'
+				return false
+			end 'differ'
+			at = try at + 1 otherwise panic("an array holds more elements than an index counts")
+		end 'each'
+		return true
+	end 'equalsByElements'
+end 'Array'

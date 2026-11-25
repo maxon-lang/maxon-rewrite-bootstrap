@@ -722,6 +722,7 @@ function storeExtConform(mutates w table.CacheWriter, v ExtConform)
 	w.word64(v.owner as table.Word64)
 	w.word64(v.iface as table.Word64)
 	w.word32(v.site as table.Word64)
+	storeArrayOfParamBound(w, v: v.conditions)
 end 'storeExtConform'
 
 extension ExtConform
@@ -729,7 +730,8 @@ extension ExtConform
 		let theOwner = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
 		let theIface = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
 		let theSite = try (r.word32() as NodeID) otherwise panic("cache: a stored NodeID is out of its range")
-		return ExtConform{owner: theOwner, iface: theIface, site: theSite}
+		let theConditions = loadArrayOfParamBound(r)
+		return ExtConform{owner: theOwner, iface: theIface, site: theSite, conditions: theConditions}
 	end 'cacheLoad'
 end 'ExtConform'
 

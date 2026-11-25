@@ -1,0 +1,24 @@
+// The conformances of a String to Equatable, Hashable and Comparable leave its equality and its hash built in: == of two
+// Strings is the runtime's comparison of their bytes, and hash() is inlined down to the runtime's fold of the bytes, with no
+// call left between. Only an ordering calls the library's compare.
+// expect-ir: same calls rt.streq
+// expect-ir: hashed calls rt.hash.string
+// expect-ir: hashed does not call hashString
+// expect-ir: before calls String.compare
+
+function same(a String, b String) returns bool
+	return a == b
+end 'same'
+
+function hashed(a String) returns HashValue
+	return a.hash()
+end 'hashed'
+
+function before(a String, b String) returns bool
+	return a < b
+end 'before'
+
+function main() returns ExitCode
+	print("{same("a", b: "b")} {hashed("a") == hashed("a")} {before("a", b: "b")}\n")
+	return 0
+end 'main'

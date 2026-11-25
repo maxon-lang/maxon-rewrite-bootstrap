@@ -1,0 +1,27 @@
+// An array's equals is its conformance to Equatable, which holds where its element is Hashable and Equatable, as maxon's
+// does: an array of a record that declares neither, or of bools, which are not Hashable, has none (maxon's E4006).
+type Point
+	export var x as Count
+
+	static function make(x Count) returns Point
+		return Point{x: x}
+	end 'make'
+end 'Point'
+
+typealias Points = Array with Point
+
+typealias Flags = Array with bool
+
+function main() returns ExitCode
+	let a = Points from [Point.make(1)]
+	let b = Points from [Point.make(1)]
+	let f = Flags from [true]
+	let g = Flags from [true]
+	if a == b or f.equals(g) 'same'
+		return 1
+	end 'same'
+	return 0
+end 'main'
+
+// expect-error: E4006 at 20:7
+// expect-error: E4006 at 20:17

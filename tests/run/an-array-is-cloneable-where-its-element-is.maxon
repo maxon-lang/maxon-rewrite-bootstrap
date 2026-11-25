@@ -1,0 +1,32 @@
+// An array is Cloneable where its element is, so an array of arrays of Strings, and a record that holds an array, meet a
+// bound of Cloneable; the clone is a copy of its own, which a change of the original does not reach.
+typealias Texts = Array with String
+
+typealias Rows = Array with Texts
+
+type Shelf implements Cloneable
+	export var titles as Texts
+
+	static function make(consumes titles Texts) returns Shelf
+		return Shelf{titles: titles}
+	end 'make'
+end 'Shelf'
+
+function copied(a T) uses T returns T where T implements Cloneable
+	return a.clone()
+end 'copied'
+
+function main() returns ExitCode
+	var rows = Rows from [Texts from ["a", "b"], Texts from ["c"]]
+	let copy = copied(rows)
+	rows.push(Texts from ["d"])
+	print("{copy.count()} {rows.count()} {copy == (Rows from [Texts from ["a", "b"], Texts from ["c"]])}\n")
+	var shelf = Shelf.make(Texts from ["Emma"])
+	let kept = copied(shelf)
+	shelf.titles.push("Persuasion")
+	print("{kept.titles.count()} {shelf.titles.count()}\n")
+	return 0
+end 'main'
+
+//> 2 3 true
+//> 1 2

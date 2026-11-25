@@ -3555,8 +3555,9 @@ end 'wrap'
   (`Equatable`'s), and `<`, `<=`, `>` and `>=` the `compare` (`Comparable`'s), testing the case of the `Ordering` it
   returns, as maxon's do; each is `E3005` where no bound declares a method of one parameter that returns `bool` or an
   `Ordering`. Two values of one record type or one array type compare the same way through the type's own `equals` or
-  `compare`, which it need not declare a conformance for (an array's `equals` is the built-in one, element by element), and
-  a type without one cannot be compared (`E3005`), as in maxon. A type parameter's name stands for the parameter in an expression, over a declaration of that name. A method
+  `compare`, which it need not declare a conformance for (an array's `equals` is its conformance to `Equatable`, see
+  "Primitives"), and a type without one cannot be compared (`E3005`), as in maxon; two Strings are equal by the built-in
+  comparison of their bytes and ordered by the `compare` of their `Comparable` conformance. A type parameter's name stands for the parameter in an expression, over a declaration of that name. A method
   uses its type's parameters and takes none of its own (`E3907`). `Self` inside a generic type is the type at its own
   parameters, and a literal of it is `Self{...}`.
 - **Inheritance.** `interface Derived extends Base, Other` (before or after its `uses`) has the requirements of the
@@ -4003,8 +4004,40 @@ A `where` on an extension is the `where` of each method it declares, before the 
 instances, or of the conformers, whose type arguments meet it, and the bound holds in their bodies. A call on a value
 that does not meet it is maxon's `E4006`, in the verify stage: `Type 'Box' has no field named 'total' ('total' is
 available as a conditional extension where Item implements Sizer, but 'Plain' does not implement 'Sizer')`. A `where` that
-names no type parameter of the extended declaration is `E2015`. A method with such a bound does not meet a requirement
-(`E3016`), so an extension that says `implements` and has a `where` gives no conditional conformance.
+names no type parameter of the extended declaration is `E2015`.
+
+**Conditional conformance.** An extension that says `implements` and has a `where` declares a conformance that holds at the
+instances whose type arguments meet the `where`, in any code, a program's as the library's:
+
+```maxon
+extension Pair implements Hashable, Equatable where A implements Hashable and Equatable
+	public function hash() returns HashValue
+		var hasher = Hasher.create()
+		hasher.combine(first.hash() as HashDigest)
+		hasher.combine(second.hash() as HashDigest)
+		return hasher.finalize()
+	end 'hash'
+
+	public function equals(other Self) returns bool
+		return first == other.first and second == other.second
+	end 'equals'
+end 'Pair'
+```
+
+makes `Pair with Count` a `Map` key and an argument where `T implements Equatable` is asked, and leaves `Pair with Plain`, of a
+record that is neither, without: a bound it does not meet is `E3017`, and its `==` or `equals` is `E4006`, as a method of a
+conditional extension is. The condition is judged where the code that asks sees what implements what (`ast.ExtConform.conditions`,
+`ast.conditionsMet`); a type parameter meets it, its code being checked against its own bounds. The requirements are met by the
+type's own methods and by the methods that extensions add under that `where`; a method with a bound of its own beyond it meets
+none (`E3016`). A conformance to an interface that extends `Copyable` (`Cloneable`) holds under conditions that make every type
+parameter `Copyable`, as `extension Array implements Cloneable where T implements Cloneable` does. A type has one conformance to an
+interface wherever it is used, so a second conditional conformance of it to the interface, whatever its condition, is `E3941`
+as a second unconditional one is (with a method of the same name, `E3006` first). The orphan rule above holds for them alike:
+a program may declare a conformance of a built-in type to an interface of the library, conditional or not, which holds in the
+module that writes it (`extension Array implements Stringable where T implements Stringable`), and one that the library declares
+already, `Array`'s to `Hashable`, is `E3941`. maxon's parser and checker accept the same declarations and honour the library's
+conditions on `Array` (`E3017`, `E4006`); for a program's own generic type maxon's compiler checks no condition, and a use that does
+not meet one stops in its lowering (see "Where it differs from Maxon" for two overlapping ones).
 
 ### Primitives
 
@@ -4363,7 +4396,7 @@ of its `toString()`, which `"{c}"` is here (see "Where it differs from Maxon"). 
 surrogates are no step, and `Character.fromCodepoint(cp)` encodes one; each panics, as maxon's does, on a surrogate, which a
 `Codepoint` can name, and `advanceBy` past the first or the last scalar value. `for c in 'a' to 'z'` (or `upto`), both bounds
 literals, counts through the scalar values between them and gives each as a Character; with one integer bound the range is
-of integers, the literal's code point. A Character is `Hashable`, `Equatable` and `Comparable` through the library's
+of integers, the literal's code point. A Character is `Hashable`, `Equatable`, `Comparable` and `Cloneable` through the library's
 `stdlib/core/Character.maxon` (minimaxon's own, since maxon's declares the type that is built in here; its surrogate code points are `stdlib/character`), so it is a `Map` key, a `Set`
 element and sorts; its hash is the hash of the String of its bytes, which for one held in its two words is one fold of the words. `String` has `charAt(index)`, the cluster at an index as a Character, and `containsCharacter(c)`.
 maxon's `Ascii` is converted from maxon's library (`stdlib/ascii`), and so is its `CharacterSet` (`stdlib/characterset/CharacterSet.maxon`).
@@ -4869,6 +4902,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 
 ### Where it differs from Maxon
 
+- **Two overlapping conditional conformances are refused.** maxon accepts two conditional conformances of one type to one
+  interface whose conditions overlap when only one of them declares the member; here the second is `E3941`, as a second
+  unconditional one is, since which one holds would otherwise depend on which declares what (see "Extensions").
 - **A Character is held in two words.** maxon's `Character` is a record that owns a heap copy of its bytes, so each one
   taken from a String or written as a literal allocates. Here it is two words, laid out as a String is: a cluster of at most
   15 bytes, which is nearly every one, is held in the words themselves and owns nothing, as a String of so few bytes is, and a
@@ -4943,10 +4979,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   zero-terminated copy itself (`cStringOf`) and frees it before it returns, where maxon grows the String's own buffer by a
   byte. The words carry the length, so a row of bytes takes it as it is. `String.fromCString(cs)` is a new String of the
   bytes before the first zero byte, as maxon's. This is a cost, not a language difference.
-- `String` implements `Hashable` and `Equatable` through the library's extension, which the conversion writes from the header
-  of maxon's `String.maxon`, with the methods that the built-in `String` lacks (`hash()`) from maxon's source; the built-in
-  `equals` meets `Equatable` and is called in place through a bound. `Cloneable` is left out: `clone()` is the copy every
-  `Copyable` value has here, which no type declares.
+- `String` implements `Hashable`, `Equatable` and `Cloneable` through the library's extension, which the conversion writes from
+  the header of maxon's `String.maxon`, with the methods that the built-in `String` lacks (`hash()`) from maxon's source; the
+  built-in `equals` meets `Equatable` and is called in place through a bound, and `Cloneable`'s `clone()` is the copy every
+  `Copyable` value has here, which no type declares (a generic type's `Cloneable`, which holds only where its type
+  arguments are `Copyable`, is left out). It is `Comparable` by `stdlib/core/StringComparable.maxon`, minimaxon's own, since
+  maxon's compiler makes it so with no declaration in its library.
 - `name immutable T` on a parameter, or a result's `immutable T`, where `T` is a type parameter alone, is a plain `T`: a
   parameter is read-only already, and a generic body cannot give a frozen value of a `T` it holds. Of any other type it is
   `frozen with T`.
@@ -5005,7 +5043,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - maxon's `Array.maxon` converts to an extension of the built-in `Array` (`keptBuiltinMembers`: `cursor`, `createIterator`, the
   `ArrayIter` typealias, and the `Iterable` conformance with its type arguments), the iterator type, and the extensions that
   `cmd/convert` renames to the built-in table's `T`, with the field `managed` written `self.managed`, the members the
-  built-in declares left out, and a conditional `implements` dropped for lack of conditional conformance. `String.maxon`
+  built-in declares left out, its conditional `implements` kept, and maxon's `__Builtins.elementsHashAsStorage()` and
+  `__Builtins.hashArrayStorage(self)` written as the built-in's library-only `self.hashesAsStorage()` and
+  `hashValueOfDigest(self.storageHash(processFoldStart()))` (`storageHashCalls`). `String.maxon`
   keeps `BytePos` and `GraphemeIndex` (`keptBuiltinDeclarations`). A ranged typealias that names no type parameter and is declared in a generic type or an extension of one is made a top-level declaration (`hoistRangedTypealiases`, maxon's `Array.NodePower`), a helper's name that a public member of the root names stays `public` (`publicHelperNames`, `SortComparator`).
 - An iterator lends its element: `cmd/convert` writes `returns borrowed` on the requirements of maxon's library interfaces
   that hand one out (`lentRequirements`: `Iterator.current()`), so a loop over an iterator, and the code of an extension of
@@ -5015,7 +5055,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - maxon's `Cloneable`, `clone() returns Self`, is met by the `clone()` every Copyable type has (see "Generics"): the
   interface extends `Copyable`, so a type that implements it and cannot be copied is `E3918` where maxon would refuse its
   generated `clone()`, and no type declares a `clone()` of its own: `cmd/convert` leaves out a library `clone()` whose body
-  is `return self` (`PrimitiveExtensions.maxon`'s), which is that built-in clone.
+  is `return self` (`PrimitiveExtensions.maxon`'s), which is that built-in clone. maxon's `Array` is `Cloneable` whatever its
+  element; here it is where its element is (`stdlib/core/ArrayCloneable.maxon`), since an array of an element that cannot be
+  copied cannot be.
 - `interface Sub extends Base`, where `Base` has associated types, gives `Sub` those it does not declare itself (see
   "Generics"), so `implements Sub with X` binds `Base`'s `Element` too, where maxon counts only `Sub`'s own and compares an
   inherited requirement as written unless the clause binds `Base` beside it (which minimaxon also reads). maxon's
@@ -5295,7 +5337,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   traps on a miss, where only `get` and `set` throw, as maxon's do; `SlotKey` and the list's slot key API (`prepend`
   and `append` return a `SlotKey`, `first` and `last` return one, `remove(h)`, `next`, `prev`, `moveToFront`) stand where
   maxon has pointers and indexes; `filled` and `dropEmpty` are minimaxon's own; the loop holds the array or the list it walks, so a body that pushes to it or reassigns it is
-  refused (`E3186`) where maxon re-reads the live count; `sort`, `sortUnstable`, `sortBy`, `sortUnstableBy`, `cursor`, `createIterator`, `map`, `filter` and `hash()` are the library's extensions of `Array` (`stdlib/array/Array.maxon`, converted, and maxon's six sort files converted from `stdlib/helpers/sort/`, driftsort for `sort` and `sortBy` and pdqsort for the unstable ones, as files of `stdlib/array`, so a sort compares in the order maxon's does; a sort needs `T` `Copyable` and `Droppable`, since maxon's `get` copies an element; `withIterator` is not there), `swap(i, j: j)` (maxon's, `smallSort.maxon`: a panic past the end, over the buffer's `swap`, which exchanges two elements where they are, a managed one moved and never copied or dropped) and `appendMemory(buffer)` (over the buffer's `append`) are library members written over `self.managed`, and `create(n, zeroed: false)` is an empty array with room for `n`, legal for every element (`zeroed: true` is `create(n)`; the flag is a literal), `Array` implements `Iterable` there but not `Hashable` (minimaxon has no conditional conformance, so `hash()` is a method of the arrays whose element is `Hashable`, and an array is no `Map` key), `reserve(n)` gives the buffer room for `n` elements exactly where it has less, so that pushing up to them moves nothing, though a capacity is no part of an array's value here (there is no `capacity()`), and `clear`, `truncate`, `resize`, `slice`, `first` and `last` are maxon's, and `clearSlot(at)` too, which only the library tiers call (`E3185`): it drops the element at an index and leaves the slot empty, a hash table's tombstone. Its two other halves are library-only as well, and drop nothing, so a slot table holds an element without `Droppable`: `fillSlot(at, value: v)` moves a value into an empty slot and traps past the end or at a slot that holds an element, and `takeSlot(at)` moves the element out, leaves the slot empty and throws `indexOutOfBounds` past the end and `emptySlot` at an empty slot. `lendSlot(at)`, library-only and provisional until the subscript goes and `get` lends, lends the element at an index with the access its caller has to the array (a place in it, see "Ownership"), trapping past the end and at an empty slot as a subscript does; it is the one unchecked access that a SlotMap's and a List's `get` lend through, and of an array of byte-sized elements, which packs them, it lends the element's byte (see "Ownership", the bytes lent by address). A slot is empty where a library tier grew an array of its type parameter with `resize` (outside the library tiers that is `E3106`, as maxon refuses it) or cleared it; it is maxon's: an empty slot of a managed element is 0, the empty place a drop does nothing with, so dropping the array drops only the full slots, and a copy keeps an empty slot empty, while over a scalar a grown or cleared slot is the element 0. `get`, `first`, `last` and a buffer's `get` or a cursor's `peek` of an empty slot throw `emptySlot`, and a read that lends it (a subscript, a `for`, a cursor's `current()`) panics with maxon's `empty slot: element N of the array was never filled`, so no element that is not there is ever lent; the indexes and counts they take are `ElementIndex`; `create(n)` and `resize` refuse an enum element
+  refused (`E3186`) where maxon re-reads the live count; `sort`, `sortUnstable`, `sortBy`, `sortUnstableBy`, `cursor`, `createIterator`, `map`, `filter` and `hash()` are the library's extensions of `Array` (`stdlib/array/Array.maxon`, converted, and maxon's six sort files converted from `stdlib/helpers/sort/`, driftsort for `sort` and `sortBy` and pdqsort for the unstable ones, as files of `stdlib/array`, so a sort compares in the order maxon's does; a sort needs `T` `Copyable` and `Droppable`, since maxon's `get` copies an element; `withIterator` is not there), `swap(i, j: j)` (maxon's, `smallSort.maxon`: a panic past the end, over the buffer's `swap`, which exchanges two elements where they are, a managed one moved and never copied or dropped) and `appendMemory(buffer)` (over the buffer's `append`) are library members written over `self.managed`, and `create(n, zeroed: false)` is an empty array with room for `n`, legal for every element (`zeroed: true` is `create(n)`; the flag is a literal), `Array` implements `Iterable` there, `Hashable` and `Equatable` where its element is both, as maxon's library declares (see "Extensions", conditional conformance), so such an array is a `Map` key and a `Set` element, and `Cloneable` where its element is: its `hash()` is maxon's, which folds the hash of each element, or for an array of integers held one to a byte (`ast.storageHashes`, `ByteArray` among them) the fold of its bytes, the hash that `Hasher.combineBytes` gives them, as maxon's `elementsHashAsStorage` does (not yet for the other integer types and the payload-free enums that maxon's hashes as storage too, whose arrays hold a word to an element here); its `equals`, and `==` and `!=`, are the built-in comparison in place of an array of integers, enums or Strings, and of any other element the library's `equalsByElements` (`stdlib/core/ArrayEquals.maxon`, minimaxon's own, which an array's `equals` runs, `ast.runsBuiltin`, and no code reaches by its own name), element by element through the element's `equals` as maxon's `Array.equals`; an array whose element is not both, an array of bools among them, has no `equals` (`E4006`), as in maxon, though `contains` and `containsSequence` compare bools, integers, enums and Strings in place, `reserve(n)` gives the buffer room for `n` elements exactly where it has less, so that pushing up to them moves nothing, though a capacity is no part of an array's value here (there is no `capacity()`), and `clear`, `truncate`, `resize`, `slice`, `first` and `last` are maxon's, and `clearSlot(at)` too, which only the library tiers call (`E3185`): it drops the element at an index and leaves the slot empty, a hash table's tombstone. Its two other halves are library-only as well, and drop nothing, so a slot table holds an element without `Droppable`: `fillSlot(at, value: v)` moves a value into an empty slot and traps past the end or at a slot that holds an element, and `takeSlot(at)` moves the element out, leaves the slot empty and throws `indexOutOfBounds` past the end and `emptySlot` at an empty slot. `lendSlot(at)`, library-only and provisional until the subscript goes and `get` lends, lends the element at an index with the access its caller has to the array (a place in it, see "Ownership"), trapping past the end and at an empty slot as a subscript does; it is the one unchecked access that a SlotMap's and a List's `get` lend through, and of an array of byte-sized elements, which packs them, it lends the element's byte (see "Ownership", the bytes lent by address). A slot is empty where a library tier grew an array of its type parameter with `resize` (outside the library tiers that is `E3106`, as maxon refuses it) or cleared it; it is maxon's: an empty slot of a managed element is 0, the empty place a drop does nothing with, so dropping the array drops only the full slots, and a copy keeps an empty slot empty, while over a scalar a grown or cleared slot is the element 0. `get`, `first`, `last` and a buffer's `get` or a cursor's `peek` of an empty slot throw `emptySlot`, and a read that lends it (a subscript, a `for`, a cursor's `current()`) panics with maxon's `empty slot: element N of the array was never filled`, so no element that is not there is ever lent; the indexes and counts they take are `ElementIndex`; `create(n)` and `resize` refuse an enum element
   some case of which writes a raw value or carries a payload, since a slot holds a case's ordinal and its zero is the first case, which is maxon's case of raw value 0 only where no case writes one, and take no `zeroed:`; and `String` has the byte operations `byteLength`, `byteAt`, `sliceBytes`, `toByteArray`, the static `String.from(bytes)`, and maxon's text methods (see "Text").
   There is no built-in `Option`, which maxon's stdlib has no more of either: an
   operation that can miss throws.

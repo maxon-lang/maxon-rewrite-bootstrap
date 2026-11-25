@@ -1249,7 +1249,7 @@ so a released key or value is a wrong answer here rather than a lucky one.
 let m = [b"alpha": "one", b"beta": "two"]
 
 function main() returns ExitCode
-	let churn = ByteArray.create(0)
+	var churn = ByteArray.create(0)
 	var i = 0 as Count
 	while i < 64 'allocate'
 		churn.push(65)
@@ -1304,7 +1304,7 @@ function main() returns ExitCode
 	let m = [b"a": Kind.one, b"b": Kind.two]
 	let k = try m.get(b"b") otherwise Kind.one
 	print("{k.name}\n")
-	return m.count() as ExitCode
+	return try m.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1326,11 +1326,11 @@ end 'Kind'
 let m = [b"a": Kind.one, b"b": Kind.two]
 
 function main() returns ExitCode
-	let grown = m.clone()
+	var grown = m.clone()
 	grown.upsert(b"c", value: Kind.one)
 	let k = try m.get(b"b") otherwise Kind.one
 	print("{k.name}\n")
-	return grown.count() as ExitCode
+	return try grown.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

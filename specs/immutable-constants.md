@@ -794,21 +794,21 @@ type Credit
 	export let name as ByteArray
 
 	static function create(name ByteArray) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Credit'
 
 function main() returns ExitCode
-	let counts = CountMap.create()
+	var counts = CountMap.create()
 	counts.upsert(b"ab", value: 1)
 	counts.upsert(b"cde", value: 2)
-	let credits = CreditArray.create(0)
+	var credits = CreditArray.create(0)
 	for (name, _) in counts 'eachKey'
 		credits.push(Credit.create(name))
 	end 'eachKey'
 	var total = 0 as Count
 	for credit in credits 'eachCredit'
-		total = total + credit.name.count()
+		total = try total + credit.name.count() otherwise panic("out of range")
 	end 'eachCredit'
 	print("{credits.count()} {total}\n")
 	return 0
@@ -833,21 +833,21 @@ type Credit
 	export let name as ByteArray
 
 	static function create(name ByteArray) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Credit'
 
 function main() returns ExitCode
-	let names = NameSet.create()
+	var names = NameSet.create()
 	names.insert(b"ab")
 	names.insert(b"cde")
-	let credits = CreditArray.create(0)
+	var credits = CreditArray.create(0)
 	for name in names 'eachElement'
 		credits.push(Credit.create(name))
 	end 'eachElement'
 	var total = 0 as Count
 	for credit in credits 'eachCredit'
-		total = total + credit.name.count()
+		total = try total + credit.name.count() otherwise panic("out of range")
 	end 'eachCredit'
 	print("{credits.count()} {total}\n")
 	return 0
@@ -869,9 +869,9 @@ typealias CountMap = Map with (ByteArray, Count)
 typealias NameSet = Set with ByteArray
 
 function main() returns ExitCode
-	let counts = CountMap.create()
+	var counts = CountMap.create()
 	counts.upsert(thaw(freeze(ByteArray.create(3))), value: 7)
-	let names = NameSet.create()
+	var names = NameSet.create()
 	names.insert(thaw(freeze(ByteArray.create(2))))
 	print("{counts.count()} {names.count()}\n")
 	return 0
@@ -1313,17 +1313,17 @@ function lookup(byPath NameMap, path ByteArray) returns frozen with ByteArray
 end 'lookup'
 
 function copyAll(names NameArray) returns NameArray
-	let out = NameArray.create(0)
+	var out = NameArray.create(0)
 	for name in names 'eachName'
-		out.push(name)
+		out.push(name.clone())
 	end 'eachName'
 	return out
 end 'copyAll'
 
 function main() returns ExitCode
-	let names = NameArray.create(0)
+	var names = NameArray.create(0)
 	names.push(Alpha)
-	let byPath = NameMap.create()
+	var byPath = NameMap.create()
 	byPath.upsert(Alpha, value: Alpha)
 	print("{firstOf(names).count()} {lookup(byPath, path: Alpha).count()} {copyAll(names).count()}\n")
 	return 0
@@ -1350,9 +1350,9 @@ typealias PathArray = Array with ByteArray
 typealias PathMap = Map with (ByteArray, PathArray)
 
 function main() returns ExitCode
-	let byName = PathMap.create()
+	var byName = PathMap.create()
 	byName.upsert(Spelling, value: PathArray.create(0))
-	let sharers = try byName.get(Spelling) otherwise panic("main: the key was just inserted")
+	var sharers = try byName.get(Spelling) otherwise panic("main: the key was just inserted")
 	sharers.push(Declaring)
 	print("{sharers.count()}\n")
 	return 0
@@ -1766,14 +1766,14 @@ type Func
 	end 'create'
 
 	static function namesOf(functions FuncArray) returns NameSet
-		let names = NameSet.create()
+		var names = NameSet.create()
 		let func = try functions.get(0) otherwise panic("namesOf: the caller passes a function")
 		names.insert(func.name)
 		return names
 	end 'namesOf'
 
 	static function countsOf(functions FuncArray) returns NameMap
-		let counts = NameMap.create()
+		var counts = NameMap.create()
 		let func = try functions.get(0) otherwise panic("countsOf: the caller passes a function")
 		counts.upsert(func.name, value: 1)
 		return counts
@@ -1781,7 +1781,7 @@ type Func
 end 'Func'
 
 function main() returns ExitCode
-	let functions = FuncArray.create(0)
+	var functions = FuncArray.create(0)
 	functions.push(Func.create(freeze(b"alpha")))
 	print("{Func.namesOf(functions).count()} {Func.countsOf(functions).count()}\n")
 	return 0
@@ -2205,17 +2205,17 @@ type Token
 end 'Token'
 
 function collect(tokens TokenArray) returns LinesMap
-	let built = LinesMap.create()
+	var built = LinesMap.create()
 	for tok in tokens 'eachToken'
-		let lines = try built.get(tok.value) otherwise CountArray.create(0)
+		var lines = try built.get(tok.value) otherwise CountArray.create(0)
 		lines.push(1)
-		built.upsert(tok.value, value: lines)
+		built.upsert(tok.value.clone(), value: lines)
 	end 'eachToken'
 	return built
 end 'collect'
 
 function main() returns ExitCode
-	let tokens = TokenArray.create(0)
+	var tokens = TokenArray.create(0)
 	tokens.push(Token.create(freeze(b"a")))
 	tokens.push(Token.create(freeze(b"a")))
 	print("{collect(tokens).count()}\n")
@@ -2441,26 +2441,26 @@ end 'Token'
 typealias Tokens = Array with Token
 
 function frozenCopyOf(names Names) returns frozen with Names
-	let frozen = Names.create(names.count(), zeroed: false) as Names
+	var frozen = Names.create(names.count(), zeroed: false) as Names
 	for name in names 'eachName'
-		frozen.push(name)
+		frozen.push(name.clone())
 	end 'eachName'
 	return freeze(frozen)
 end 'frozenCopyOf'
 
 function main() returns ExitCode
-	let tokens = Tokens.create(0)
+	var tokens = Tokens.create(0)
 	tokens.push(Token.create(freeze(b"generateRung")))
 	tokens.push(Token.create(freeze(b"abc")))
-	let counts = Counts.create()
+	var counts = Counts.create()
 	counts.upsert(b"generateRung", value: 1)
 	counts.upsert(b"abc", value: 2)
-	let names = Names.create(0)
+	var names = Names.create(0)
 	for token in tokens 'eachToken'
-		names.push(token.value)
+		names.push(token.value.clone())
 	end 'eachToken'
 	for (key, _) in counts 'eachKey'
-		names.push(key)
+		names.push(key.clone())
 	end 'eachKey'
 	let first = frozenCopyOf(names)
 	let second = frozenCopyOf(names)

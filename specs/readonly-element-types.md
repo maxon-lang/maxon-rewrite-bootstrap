@@ -710,18 +710,18 @@ type Credit
 	end 'create'
 end 'Credit'
 
-function note(credits CreditArray, name frozen with ByteArray)
+function note(mutates credits CreditArray, name frozen with ByteArray)
 	credits.push(Credit.create(name))
 end 'note'
 
 function main() returns ExitCode
-	let reached = NameSet.create()
+	var reached = NameSet.create()
 	reached.insert(b"a")
-	let credits = CreditArray.create(0)
+	var credits = CreditArray.create(0)
 	for name in reached 'eachReached'
-		note(credits, name: freeze(name))
+		note(credits, name: freeze(name.clone()))
 	end 'eachReached'
-	return credits.count() as ExitCode
+	return try credits.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

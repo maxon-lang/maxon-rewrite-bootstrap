@@ -345,11 +345,15 @@ function methodLookup(c Checker, p ast.Project, ms ast.ModuleState, t ast.TypeID
 	if t == p.builtins.stringTy or t == p.builtins.characterTy 'primitive'
 		own = primitiveMethodNamed(p, t: t, name: name)
 	end 'primitive'
+	if own != ast.noFunc and not ast.runsBuiltin(p, ms: ms, t: t, fid: own) 'library'
+		return ast.extensionMethod(p, ms: ms, from: c.modID, owner: ast.extensionKey(p, ms: ms, t: t).unwrap(), name: ast.elementwiseEquals)
+	end 'library'
 	if own != ast.noFunc 'declared'
 		return ast.MethodLookup.found(own)
 	end 'declared'
 	let key = ast.extensionKey(p, ms: ms, t: t)
-	if key.isSome() 'extensions'
+	// The library's equals of an array is reached through the array's equals alone, never by its own name.
+	if key.isSome() and name != ast.elementwiseEquals 'extensions'
 		let ofType = ast.extensionMethod(p, ms: ms, from: c.modID, owner: key.unwrap(), name: name)
 		if not ofType.isAbsent() 'found'
 			return ofType

@@ -1365,7 +1365,8 @@ func libraryInterfaces(root string) map[string][]string {
 }
 
 // cloneRequirement is the requirement that the copy every Copyable value has meets here (x.clone()): no type declares a
-// method of that name, so a conformance that requires it is not one a built-in type can declare.
+// method of that name, so a built-in type that is always Copyable meets it with the built-in copy, and a generic one, which
+// is Copyable only where its type arguments are, cannot declare a conformance that requires it.
 const cloneRequirement = "clone"
 
 // staticRequirement starts the name of a requirement that is a static function (libraryInterfaces).
@@ -1384,8 +1385,8 @@ var keptBuiltinMembers = map[string][]string{
 // keptBuiltinMembers may), with each method they require that the built-in type lacks, as the file writes it, the members
 // that keptBuiltinMembers names, and the file's declarations that those methods name. The rest of the file is the
 // built-in's own implementation, which minimaxon has natively. A conformance whose requirements neither the built-in nor
-// the file meets, that requires clone, or that requires a static function, which makes a value of the type where the
-// compiler makes the built-in's, is left out.
+// the file meets, that requires clone of a generic type, or that requires a static function, which makes a value of the
+// type where the compiler makes the built-in's, is left out.
 func keepBuiltinConformances(lines []sourceLine, interfaces map[string][]string) {
 	header := -1
 	name := ""
@@ -1414,13 +1415,13 @@ func keepBuiltinConformances(lines []sourceLine, interfaces map[string][]string)
 	needed := slices.Clone(keptBuiltinMembers[name])
 	for _, item := range implementedInterfaces(lines[header].code) {
 		reqs, ok := interfaces[item.name]
-		if !ok || item.hasArgs && !typeArgs || slices.Contains(reqs, cloneRequirement) || slices.ContainsFunc(reqs, func(r string) bool { return strings.HasPrefix(r, staticRequirement) }) {
+		if !ok || item.hasArgs && !typeArgs || typeArgs && slices.Contains(reqs, cloneRequirement) || slices.ContainsFunc(reqs, func(r string) bool { return strings.HasPrefix(r, staticRequirement) }) {
 			continue
 		}
 		var mine []string
 		met := true
 		for _, req := range reqs {
-			if slices.Contains(builtinMethods[name], req) {
+			if req == cloneRequirement || slices.Contains(builtinMethods[name], req) {
 				continue
 			}
 			if _, ok := declared[req]; !ok {

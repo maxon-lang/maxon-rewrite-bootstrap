@@ -115,7 +115,7 @@ typealias IntArr = Array with Val
 typealias IntArrMap = Map with (IntArr, Val)
 
 function threeKey() returns IntArr
-	let key = IntArr.create(0)
+	var key = IntArr.create(0)
 	key.push(1)
 	key.push(2)
 	key.push(3)
@@ -123,16 +123,16 @@ function threeKey() returns IntArr
 end 'threeKey'
 
 function main() returns ExitCode
-	let m = IntArrMap.create()
+	var m = IntArrMap.create()
 	try m.insert(thaw(freeze(threeKey())), value: 42) otherwise ignore
-	let lookup = IntArr.create(0)
+	var lookup = IntArr.create(0)
 	lookup.push(1)
 	lookup.push(2)
 	lookup.push(3)
 	let val = try m.get(lookup) otherwise 'notFound'
 		return 0
 	end 'notFound'
-	return val
+	return try val as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -350,15 +350,15 @@ typealias StrArr = Array with String
 typealias StrArrMap = Map with (StrArr, Val)
 
 function numbered(first Val, count Val) returns StrArr
-	let arr = StrArr.create(0)
-	for i in first upto first + count 'fill'
+	var arr = StrArr.create(0)
+	for i in first upto try first + count otherwise panic("out of range") 'fill'
 		arr.push("p{i}")
 	end 'fill'
 	return arr
 end 'numbered'
 
 function main() returns ExitCode
-	let m = StrArrMap.create()
+	var m = StrArrMap.create()
 	try m.insert(thaw(freeze(numbered(1, count: 3))), value: 42) otherwise ignore
 	let found = try m.get(numbered(1, count: 3)) otherwise 'notFound'
 		print("not found\n")
@@ -421,25 +421,25 @@ typealias IntArrMap = Map with (IntArr, Val)
 typealias StrArrMap = Map with (StrArr, Val)
 
 function numbered(first Val, count Val) returns StrArr
-	let arr = StrArr.create(0)
-	for i in first upto first + count 'fill'
+	var arr = StrArr.create(0)
+	for i in first upto try first + count otherwise panic("out of range") 'fill'
 		arr.push("p{i}")
 	end 'fill'
 	return arr
 end 'numbered'
 
 function seven() returns IntArr
-	let xs = IntArr.create(0)
+	var xs = IntArr.create(0)
 	xs.push(7)
 	return xs
 end 'seven'
 
 function main() returns ExitCode
-	let ints = IntArrMap.create()
+	var ints = IntArrMap.create()
 	try ints.insert(thaw(freeze(seven())), value: 1) otherwise ignore
-	let strings = StrArrMap.create()
+	var strings = StrArrMap.create()
 	try strings.insert(thaw(freeze(numbered(1, count: 3))), value: 2) otherwise ignore
-	let intProbe = IntArr.create(0)
+	var intProbe = IntArr.create(0)
 	intProbe.push(7)
 	let a = try ints.get(intProbe) otherwise 0
 	let b = try strings.get(numbered(1, count: 3)) otherwise 0
@@ -505,8 +505,8 @@ type Holder uses T where T implements Hashable and Equatable
 	export typealias Items = Array with T
 	var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	function same(a Items, b Items) returns bool
@@ -520,13 +520,13 @@ typealias ValArray = Array with Val
 
 function main() returns ExitCode
 	let holder = H.create(1)
-	let first = ValArray.create(0)
+	var first = ValArray.create(0)
 	first.push(41)
 	first.push(42)
-	let second = ValArray.create(0)
+	var second = ValArray.create(0)
 	second.push(41)
 	second.push(42)
-	let third = ValArray.create(0)
+	var third = ValArray.create(0)
 	third.push(41)
 	third.push(43)
 	print("{holder.same(first, b: second)}\n")
@@ -552,8 +552,8 @@ type Holder uses T where T implements Hashable and Equatable
 	export typealias Items = Array with T
 	var items as Items
 
-	static function create(items Items) returns Self
-		return Self{items: items}
+	static function create(items Items) returns Self where T implements Copyable
+		return Self{items: items.clone()}
 	end 'create'
 
 	function matches(b Items) returns bool
@@ -566,14 +566,14 @@ typealias H = Holder with Val
 typealias ValArray = Array with Val
 
 function main() returns ExitCode
-	let held = ValArray.create(0)
+	var held = ValArray.create(0)
 	held.push(41)
 	held.push(42)
 	let holder = H.create(held)
-	let equal = ValArray.create(0)
+	var equal = ValArray.create(0)
 	equal.push(41)
 	equal.push(42)
-	let unequal = ValArray.create(0)
+	var unequal = ValArray.create(0)
 	unequal.push(41)
 	unequal.push(43)
 	print("{holder.matches(equal)}\n")
@@ -653,7 +653,7 @@ type Tag uses T implements Hashable, Equatable
 	end 'create'
 
 	function hash() returns HashValue
-		return n
+		return try n as HashValue otherwise panic("out of range")
 	end 'hash'
 
 	function equals(other Self) returns bool
@@ -667,7 +667,7 @@ type Holder uses T
 	var tags as Tags
 
 	static function create(tags Tags) returns Self
-		return Self{tags: tags}
+		return Self{tags: tags.clone()}
 	end 'create'
 
 	function sameAs(other Self) returns bool
@@ -682,9 +682,9 @@ typealias IntTags = Array with IntTag
 typealias H = Holder with Val
 
 function main() returns ExitCode
-	let a = IntTags.create(0)
+	var a = IntTags.create(0)
 	a.push(IntTag.create(7))
-	let b = IntTags.create(0)
+	var b = IntTags.create(0)
 	b.push(IntTag.create(7))
 	print("{H.create(a).sameAs(H.create(b))}\n")
 	return 0
@@ -775,7 +775,7 @@ typealias DwordArray = Array with Dword
 type Holder
 	let key as Hashable
 
-	static function create(key Hashable) returns Self
+	static function create(consumes key Hashable) returns Self
 		return Self{key: key}
 	end 'create'
 end 'Holder'
@@ -804,21 +804,21 @@ function main() returns ExitCode
 	let wide = WideArray from [-3, 7, -9000000000000, 9000000000000]
 	let wideEqual = WideArray from [-3, 7, -9000000000000, 9000000000000]
 	let wideChanged = WideArray from [-3, 7, -9000000000000, 9000000000001]
-	print("wide: {verdict(wide.hash(), existential: Holder.create(wide).key.hash(), generic: WideRoute.hashOf(wide), equal: wideEqual.hash(), changed: wideChanged.hash())}\n")
+	print("wide: {verdict(wide.hash(), existential: Holder.create(wide.clone()).key.hash(), generic: WideRoute.hashOf(wide), equal: wideEqual.hash(), changed: wideChanged.hash())}\n")
 	let words = WordArray from [65535, 1, 0]
 	let wordsEqual = WordArray from [65535, 1, 0]
 	let wordsChanged = WordArray from [65535, 1, 256]
-	print("word: {verdict(words.hash(), existential: Holder.create(words).key.hash(), generic: WordRoute.hashOf(words), equal: wordsEqual.hash(), changed: wordsChanged.hash())}\n")
+	print("word: {verdict(words.hash(), existential: Holder.create(words.clone()).key.hash(), generic: WordRoute.hashOf(words), equal: wordsEqual.hash(), changed: wordsChanged.hash())}\n")
 	let dwords = DwordArray from [4294967295, 2, 0]
 	let dwordsEqual = DwordArray from [4294967295, 2, 0]
 	let dwordsChanged = DwordArray from [4294967295, 2, 65536]
-	print("dword: {verdict(dwords.hash(), existential: Holder.create(dwords).key.hash(), generic: DwordRoute.hashOf(dwords), equal: dwordsEqual.hash(), changed: dwordsChanged.hash())}\n")
+	print("dword: {verdict(dwords.hash(), existential: Holder.create(dwords.clone()).key.hash(), generic: DwordRoute.hashOf(dwords), equal: dwordsEqual.hash(), changed: dwordsChanged.hash())}\n")
 	let bytes = ByteArray from [0, 200, 255]
 	let bytesEqual = ByteArray from [0, 200, 255]
 	let bytesChanged = ByteArray from [0, 201, 255]
-	print("byte: {verdict(bytes.hash(), existential: Holder.create(bytes).key.hash(), generic: ByteRoute.hashOf(bytes), equal: bytesEqual.hash(), changed: bytesChanged.hash())}\n")
+	print("byte: {verdict(bytes.hash(), existential: Holder.create(bytes.clone()).key.hash(), generic: ByteRoute.hashOf(bytes), equal: bytesEqual.hash(), changed: bytesChanged.hash())}\n")
 	let empty = WideArray.create(0)
-	print("empty: {verdict(empty.hash(), existential: Holder.create(empty).key.hash(), generic: WideRoute.hashOf(empty), equal: WideArray.create(0).hash(), changed: wide.hash())}\n")
+	print("empty: {verdict(empty.hash(), existential: Holder.create(empty.clone()).key.hash(), generic: WideRoute.hashOf(empty), equal: WideArray.create(0).hash(), changed: wide.hash())}\n")
 	return 0
 end 'main'
 ```
@@ -844,7 +844,7 @@ typealias SignedArray = Array with Signed
 typealias SignedArraySet = Set with SignedArray
 
 function signedKey() returns SignedArray
-	let key = SignedArray.create(0)
+	var key = SignedArray.create(0)
 	key.push(-100)
 	key.push(5)
 	key.push(100)
@@ -852,20 +852,20 @@ function signedKey() returns SignedArray
 end 'signedKey'
 
 function main() returns ExitCode
-	let key = SignedArray.create(0)
+	var key = SignedArray.create(0)
 	key.push(-100)
 	key.push(5)
 	key.push(100)
-	let probe = SignedArray.create(0)
+	var probe = SignedArray.create(0)
 	probe.push(-100)
 	probe.push(5)
 	probe.push(100)
-	let other = SignedArray.create(0)
+	var other = SignedArray.create(0)
 	other.push(-100)
 	other.push(6)
 	other.push(100)
 	let sameHash = key.hash() == probe.hash()
-	let seen = SignedArraySet.create()
+	var seen = SignedArraySet.create()
 	seen.insert(thaw(freeze(signedKey())))
 	print("{seen.contains(probe)}\n")
 	print("{seen.contains(other)}\n")
@@ -893,7 +893,7 @@ typealias Byte = float(-1.0 to 1.0)
 typealias Bs = Array with Byte
 
 function fold(values Bs) returns HashValue
-	let hasher = Hasher.create()
+	var hasher = Hasher.create()
 	for item in values 'eachElement'
 		hasher.combine(item.hash() as HashDigest)
 	end 'eachElement'
@@ -901,12 +901,12 @@ function fold(values Bs) returns HashValue
 end 'fold'
 
 function main() returns ExitCode
-	let a = Bs.create(0)
+	var a = Bs.create(0)
 	a.push(0.0)
-	let b = Bs.create(0)
+	var b = Bs.create(0)
 	b.push(-0.0)
 	print("{a == b} {a.equals(b)}\n")
-	let c = Bs.create(0)
+	var c = Bs.create(0)
 	c.push(0.5)
 	print("{c.hash() == fold(c)}\n")
 	return 0
@@ -1175,7 +1175,7 @@ typealias WideArray = Array with Wide
 type Holder
 	let key as Hashable
 
-	static function create(key Hashable) returns Self
+	static function create(consumes key Hashable) returns Self
 		return Self{key: key}
 	end 'create'
 end 'Holder'
@@ -1215,7 +1215,7 @@ typealias SmallArray = Array with Small
 type Holder
 	let key as Hashable
 
-	static function create(key Hashable) returns Self
+	static function create(consumes key Hashable) returns Self
 		return Self{key: key}
 	end 'create'
 end 'Holder'
@@ -1240,11 +1240,11 @@ function main() returns ExitCode
 	let percents = PercentArray from [0, 7, 100, 42]
 	let percentsEqual = PercentArray from [0, 7, 100, 42]
 	let percentsChanged = PercentArray from [0, 7, 100, 43]
-	print("percent: {verdict(percents.hash(), existential: Holder.create(percents).key.hash(), generic: PercentRoute.hashOf(percents), equal: percentsEqual.hash(), changed: percentsChanged.hash())}\n")
+	print("percent: {verdict(percents.hash(), existential: Holder.create(percents.clone()).key.hash(), generic: PercentRoute.hashOf(percents), equal: percentsEqual.hash(), changed: percentsChanged.hash())}\n")
 	let smalls = SmallArray from [-128, 0, 5, 127]
 	let smallsEqual = SmallArray from [-128, 0, 5, 127]
 	let smallsChanged = SmallArray from [-127, 0, 5, 127]
-	print("small: {verdict(smalls.hash(), existential: Holder.create(smalls).key.hash(), generic: SmallRoute.hashOf(smalls), equal: smallsEqual.hash(), changed: smallsChanged.hash())}\n")
+	print("small: {verdict(smalls.hash(), existential: Holder.create(smalls.clone()).key.hash(), generic: SmallRoute.hashOf(smalls), equal: smallsEqual.hash(), changed: smallsChanged.hash())}\n")
 	return 0
 end 'main'
 ```
@@ -1275,7 +1275,7 @@ typealias SuitArray = Array with Suit
 type Holder
 	let key as Hashable
 
-	static function create(key Hashable) returns Self
+	static function create(consumes key Hashable) returns Self
 		return Self{key: key}
 	end 'create'
 end 'Holder'
@@ -1295,7 +1295,7 @@ function main() returns ExitCode
 	let suitsEqual = SuitArray from [Suit.spades, Suit.clubs, Suit.hearts, Suit.diamonds]
 	let suitsChanged = SuitArray from [Suit.spades, Suit.clubs, Suit.hearts, Suit.hearts]
 	let direct = suits.hash()
-	print("through Hashable: {direct == Holder.create(suits).key.hash()}\n")
+	print("through Hashable: {direct == Holder.create(suits.clone()).key.hash()}\n")
 	print("generic: {direct == SuitRoute.hashOf(suits)}\n")
 	print("equal: {suits == suitsEqual} {direct == suitsEqual.hash()}\n")
 	print("changed: {suits != suitsChanged} {direct != suitsChanged.hash()}\n")
@@ -1340,13 +1340,13 @@ typealias ParityArray = Array with Parity
 type Holder
 	let key as Hashable
 
-	static function create(key Hashable) returns Self
+	static function create(consumes key Hashable) returns Self
 		return Self{key: key}
 	end 'create'
 end 'Holder'
 
 function chained(values ParityArray) returns HashValue
-	let hasher = Hasher.create()
+	var hasher = Hasher.create()
 	for item in values 'eachElement'
 		hasher.combine(item.hash() as HashDigest)
 	end 'eachElement'
@@ -1357,7 +1357,7 @@ function main() returns ExitCode
 	let values = ParityArray from [Parity.three, Parity.zero, Parity.two]
 	let sameParity = ParityArray from [Parity.one, Parity.two, Parity.zero]
 	print("direct: {values.hash() == chained(values)}\n")
-	print("through Hashable: {Holder.create(values).key.hash() == chained(values)}\n")
+	print("through Hashable: {Holder.create(values.clone()).key.hash() == chained(values)}\n")
 	print("own hash decides: {values != sameParity} {values.hash() == sameParity.hash()}\n")
 	return 0
 end 'main'
@@ -1384,13 +1384,13 @@ typealias Reals = Array with FullRangeFloat
 type Holder
 	let key as Hashable
 
-	static function create(key Hashable) returns Self
+	static function create(consumes key Hashable) returns Self
 		return Self{key: key}
 	end 'create'
 end 'Holder'
 
 function chained(values Reals) returns HashValue
-	let hasher = Hasher.create()
+	var hasher = Hasher.create()
 	for item in values 'eachElement'
 		hasher.combine(item.hash() as HashDigest)
 	end 'eachElement'
@@ -1401,11 +1401,11 @@ function main() returns ExitCode
 	let reals = Reals from [1.5, -2.25, 0.0, 1000000.125]
 	let empty = Reals.create(0)
 	let positive = Reals from [1.5, 0.0]
-	let negative = Reals.create(0)
+	var negative = Reals.create(0)
 	negative.push(1.5)
 	negative.push(-0.0)
 	print("direct: {reals.hash() == chained(reals)}\n")
-	print("through Hashable: {Holder.create(reals).key.hash() == chained(reals)}\n")
+	print("through Hashable: {Holder.create(reals.clone()).key.hash() == chained(reals)}\n")
 	print("empty: {empty.hash() == chained(empty)}\n")
 	print("signed zeros: {positive == negative} {positive.hash() == negative.hash()}\n")
 	return 0

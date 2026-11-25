@@ -72,9 +72,9 @@ function checkConformance(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	let orig = ast.originOf(ms.types, reads: p.types, t: nt)
 	let conforms = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: orig).conforms)
 	var lacks = Shortfall.new()
-	for i in 0 upto conforms.count() 'interfaces'
+	for iface in conforms 'interfaces'
 		let mark = errs.count()
-		checkInterface(c, p: p, ms: ms, site: site, nt: nt, iface: conforms[i], lacks: lacks, errs: errs)
+		checkInterface(c, p: p, ms: ms, site: site, nt: nt, iface: iface, conditions: ast.ParamBoundList.create(0), lacks: lacks, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
 			return
 		end 'failed'
@@ -141,8 +141,10 @@ function bulletLines(items ast.StringList) returns String
 end 'bulletLines'
 
 // checkInterface checks a type against one interface it implements, whether its body or an extension says so: each
-// requirement is met, up to the first that is not, and what is lacking is collected into missing and wrong.
-function checkInterface(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, site ast.NodeID, nt ast.TypeID, iface ast.TypeID, mutates lacks Shortfall, mutates errs diag.ErrorList)
+// requirement is met, up to the first that is not, and what is lacking is collected into missing and wrong. A conditional
+// conformance, an extension's with a 'where', is met by the methods that extensions add under that 'where'.
+function checkInterface(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, site ast.NodeID, nt ast.TypeID, iface ast.TypeID, conditions ast.ParamBoundList, mutates lacks Shortfall, mutates errs diag.ErrorList)
+	let conditional = conditions.count() > 0
 	let own = ast.selfType(ms.types, reads: p.types, declTy: nt)
 	let orig = ast.originOf(ms.types, reads: p.types, t: nt)
 	let ifaceOrig = ast.originOf(ms.types, reads: p.types, t: iface)
@@ -151,21 +153,46 @@ function checkInterface(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 		failAt(c, p: p, ms: ms, node: site, code: diag.errConformance, msg: diag.unboundAssociatedType(ast.typeEntry(ms.types, reads: p.types, t: orig).name, associated: associated, interfaceName: ast.typeEntry(ms.types, reads: p.types, t: ifaceOrig).name), errs: errs)
 		return
 	end 'unbound'
-	if not requireCapabilities(c, p: p, ms: ms, site: site, nt: nt, iface: iface, errs: errs) 'capability'
+	if not conditionsGiveCapabilities(p, ms: ms, nt: nt, iface: iface, conditions: conditions) and not requireCapabilities(c, p: p, ms: ms, site: site, nt: nt, iface: iface, errs: errs) 'capability'
 		return
 	end 'capability'
 	// The interface's 'where' bounds the types a conformance binds to its associated types, which the verify stage checks
 	// here, at the conformance, rather than at each use of it.
 	queueBounds(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: site), params: requirementParams(p, ms: ms, iface: ifaceOrig), args: requirementArgs(p, ms: ms, iface: iface, own: own))
 	let reqs = ast.requirementsOf(ms.types, reads: p.types, iface: iface)
-	for j in 0 upto reqs.count() 'sigs'
+	for req in reqs 'sigs'
 		let mark = errs.count()
-		requireImplements(c, p: p, ms: ms, site: site, nt: orig, own: own, req: reqs[j], inherited: reqs[j].iface != iface, lacks: lacks, errs: errs)
+		requireImplements(c, p: p, ms: ms, site: site, nt: orig, own: own, req: req, inherited: req.iface != iface, conditional: conditional, lacks: lacks, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
 			return
 		end 'failed'
 	end 'sigs'
 end 'checkInterface'
+
+// conditionsGiveCapabilities is whether the conditions of a conditional conformance of nt to iface bound each type parameter
+// of nt by an interface that extends what iface extends of Copyable and Droppable, so that every instance the conformance
+// holds for has it: an array is Cloneable where its element is.
+function conditionsGiveCapabilities(p ast.Project, ms ast.ModuleState, nt ast.TypeID, iface ast.TypeID, conditions ast.ParamBoundList) returns bool
+	if conditions.count() == 0 'unconditional'
+		return false
+	end 'unconditional'
+	let copies = ast.reachesInterface(ms.types, reads: p.types, have: iface, want: p.builtins.copyableTy)
+	let drops = ast.reachesInterface(ms.types, reads: p.types, have: iface, want: p.builtins.droppableTy)
+	for param in ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: nt)).typeParams 'params'
+		var copied = not copies
+		var dropped = not drops
+		for condition in conditions 'conditions'
+			if condition.paramTy == param 'bounds'
+				copied = copied or ast.reachesInterface(ms.types, reads: p.types, have: condition.ifaceTy, want: p.builtins.copyableTy)
+				dropped = dropped or ast.reachesInterface(ms.types, reads: p.types, have: condition.ifaceTy, want: p.builtins.droppableTy)
+			end 'bounds'
+		end 'conditions'
+		if not copied or not dropped 'lacks'
+			return false
+		end 'lacks'
+	end 'params'
+	return true
+end 'conditionsGiveCapabilities'
 
 // requireCapabilities refuses a type that implements an interface that extends Copyable or Droppable without having it,
 // since every value of the interface has what the interface extends.
@@ -187,7 +214,7 @@ end 'requireCapabilities'
 
 // requireImplements files what an implementation lacks of one requirement: the requirement when the method is missing,
 // with the interface it comes from when it is inherited, and the method beside the requirement when its signature differs.
-function requireImplements(c Checker, p ast.Project, mutates ms ast.ModuleState, site ast.NodeID, nt ast.TypeID, own ast.TypeID, req ast.Requirement, inherited bool, mutates lacks Shortfall, mutates errs diag.ErrorList)
+function requireImplements(c Checker, p ast.Project, mutates ms ast.ModuleState, site ast.NodeID, nt ast.TypeID, own ast.TypeID, req ast.Requirement, inherited bool, conditional bool, mutates lacks Shortfall, mutates errs diag.ErrorList)
 	let iface = req.iface
 	let sig = req.sig
 	let selfParams = requirementParams(p, ms: ms, iface: iface)
@@ -202,7 +229,7 @@ function requireImplements(c Checker, p ast.Project, mutates ms ast.ModuleState,
 	if failedSince(errs, mark: mark) 'ambiguous'
 		return
 	end 'ambiguous'
-	if m != ast.noFunc and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).bounds.count() > 0 'ownBounds'
+	if m != ast.noFunc and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).bounds.count() > 0 and not (conditional and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).bounds.count() == ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).conditionalBounds) 'ownBounds'
 		failAt(c, p: p, ms: ms, node: site, code: diag.errConformance, msg: "'{typeName}' says it implements {ifaceName}, but its method '{sigName}' adds a 'where' on the type's parameters, so '{typeName}' would implement {ifaceName} only for some instances: remove the 'where' from the method, or put the bound on the type", errs: errs)
 		return
 	end 'ownBounds'
@@ -407,7 +434,11 @@ function requireCondition(mutates c Checker, p ast.Project, mutates ms ast.Modul
 		errs.append(refused)
 		return
 	end 'other'
-	let method = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: bound.methodFn).name.clone()
+	var method = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: bound.methodFn).name.clone()
+	if method == ast.elementwiseEquals 'equals'
+		// The library's equals of an array, which a call of the array's equals runs (ast.runsBuiltin), as maxon names it.
+		method = equalsMethod.clone()
+	end 'equals'
 	let msg = diag.conditionalExtensionWithheld(nameOfType(p, ms: ms, t: bound.receiverTy), methodName: method, clause: conditionText(p, ms: ms, method: bound.methodFn), bindingName: nameOfType(p, ms: ms, t: bound.argTy), interfaceName: nameOfType(p, ms: ms, t: bound.ifaceTy))
 	checkFail(c.modID, off: bound.off, code: diag.errInvalidFieldAccess, msg: msg, errs: errs)
 end 'requireCondition'
@@ -498,6 +529,10 @@ function requireDeclared(c Checker, p ast.Project, mutates ms ast.ModuleState, o
 		failBindingDisagrees(c, p: p, ms: ms, off: off, arg: arg, declared: declared, iface: iface, param: param, errs: errs)
 		return
 	end 'disagrees'
+	if boundsExtend(p, ms: ms, bounds: ast.seenInterfaces(p, ms: ms, from: c.modID, t: arg), iface: iface) 'conditionUnmet'
+		checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "'{argName}' must be {ifaceName} for '{paramName}', but the extension that says '{extensionTargetName(p, ms: ms, t: arg)}' implements {spelled(c, p: p, ms: ms, iface: iface)} says it only where its type arguments meet its 'where', and those of '{argName}' do not: give it type arguments that do, or wrap it in a type of your own that implements {spelled(c, p: p, ms: ms, iface: iface)}", errs: errs)
+		return
+	end 'conditionUnmet'
 	if not typeIsNominal(ms.types, reads: p.types, t: arg) or (ast.typeEntry(ms.types, reads: p.types, t: orig).hasDecl and ast.typeEntry(ms.types, reads: p.types, t: orig).decl.module == diag.stdlibID) 'builtIn'
 		checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "'{argName}' is built in and implements no interface, so it cannot be {ifaceName} for '{paramName}'; declare 'extension {extensionTargetName(p, ms: ms, t: arg)} implements {spelled(c, p: p, ms: ms, iface: iface)}', or wrap it in a type of your own that declares 'implements {spelled(c, p: p, ms: ms, iface: iface)}'", errs: errs)
 		return

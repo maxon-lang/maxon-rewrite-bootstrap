@@ -673,8 +673,14 @@ var tableFunctions = []function{
 	// does: the one unchecked access that a library collection's checked get lends through. It is provisional, the
 	// library's alone, until the subscript goes and Array's own get lends.
 	{Owner: "Array", Name: "lendSlot", Params: []string{"at ElementIndex"}, Result: "T", Lends: true, Place: true, Intrinsic: "ArrayLendSlot", Raw: &rawSurface{What: "an array's element is lent in place", Instead: "use a subscript, 'a[i]'"}},
+	// hashesAsStorage and storageHash are maxon's __Builtins.elementsHashAsStorage() and __Builtins.hashArrayStorage(self),
+	// which cmd/convert writes as them: whether the array hashes as the fold of the bytes of its storage (ast.storageHashes),
+	// and that fold under a seed, the library's alone.
+	{Owner: "Array", Name: "hashesAsStorage", Result: "Bool", Intrinsic: "ArrayHashesAsStorage", Raw: &rawSurface{What: "an array is asked whether it hashes as its storage", Instead: "use 'hash()'"}},
+	{Owner: "Array", Name: "storageHash", Params: []string{"seed HashDigest"}, Result: "HashDigest", Intrinsic: "ArrayStorageHash", Raw: &rawSurface{What: "the storage of an array is hashed", Instead: "use 'hash()'"}},
 	// contains, containsSequence and equals are maxon's for an element that is Equatable; the checker holds them to the
-	// elements this compiler compares itself (checkElementsComparable).
+	// elements this compiler compares itself (checkElementsComparable), and the library's equalsByElements is an array's
+	// equals of any other element (ast.runsBuiltin).
 	{Owner: "Array", Name: "contains", Params: []string{"element T"}, Result: "Bool", Intrinsic: "ArrayContains", Checked: true},
 	{Owner: "Array", Name: "containsSequence", Params: []string{"sequence Self"}, Result: "Bool", Intrinsic: "ArrayContainsSequence", Checked: true},
 	{Owner: "Array", Name: "equals", Params: []string{"other Self"}, Result: "Bool", Intrinsic: "ArrayEquals", Checked: true}, {Owner: "Array", Name: "first", Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayFirst"},

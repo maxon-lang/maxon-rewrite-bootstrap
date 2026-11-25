@@ -80,6 +80,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrArrayLendSlot 'intrArrayLendSlot'
 		return lowerArrayLendSlot(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayLendSlot'
+	if op == ast.Intrinsic.intrArrayHashesAsStorage 'intrArrayHashesAsStorage'
+		return lowerArrayHashesAsStorage(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArrayHashesAsStorage'
+	if op == ast.Intrinsic.intrArrayStorageHash 'intrArrayStorageHash'
+		return lowerArrayStorageHash(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArrayStorageHash'
 	if op == ast.Intrinsic.intrArrayContains 'intrArrayContains'
 		return lowerArrayContains(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayContains'
@@ -913,6 +919,12 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrArrayLendSlot 'intrArrayLendSlot'
 		return false
 	end 'intrArrayLendSlot'
+	if op == ast.Intrinsic.intrArrayHashesAsStorage 'intrArrayHashesAsStorage'
+		return false
+	end 'intrArrayHashesAsStorage'
+	if op == ast.Intrinsic.intrArrayStorageHash 'intrArrayStorageHash'
+		return false
+	end 'intrArrayStorageHash'
 	if op == ast.Intrinsic.intrArrayContains 'intrArrayContains'
 		return false
 	end 'intrArrayContains'

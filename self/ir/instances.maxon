@@ -86,7 +86,7 @@ end 'resolveTarget'
 function witnessFor(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, recv ast.TypeID, name String, conformance diag.ModuleID, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
 	let origin = ast.typeEntry(ms.types, reads: p.types, t: recv).effectiveOrigin()
 	match consumes ast.typeEntry(ms.types, reads: p.types, t: origin).findMethod(name) 'found'
-		some(method) then return instantiateMethod(p, ms: ms, module: module, site: site, method: method, recv: recv, errs: errs)
+		some(method) then return ownWitness(p, ms: ms, module: module, site: site, method: method, recv: recv, conformance: conformance, errs: errs)
 		none then _ = 0
 	end 'found'
 	// A built-in method of String meets a requirement as it is: a call through the bound lowers it in place
@@ -112,6 +112,23 @@ function witnessFor(p ast.Project, mutates ms ast.ModuleState, module diag.Modul
 		ambiguous(_, _) then panic("the conformance of {ast.typeName(ms.types, reads: p.types, t: recv)} in {ast.describeModule(p, modID: conformance)} has two methods '{name}'")
 	end 'ofInterface'
 end 'witnessFor'
+
+// ownWitness is the method of the type recv's own that meets a requirement: a built-in one of a built-in generic type (an
+// Array's equals) as it is, since a call through the bound lowers it in place (lowerBuiltinWitness), but for an array's
+// equals that the library's elementwiseEquals is instead (ast.runsBuiltin), and any other at its instance for recv.
+function ownWitness(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, method ast.FuncID, recv ast.TypeID, conformance diag.ModuleID, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
+	if not ast.runsBuiltin(p, ms: ms, t: recv, fid: method) 'library'
+		match consumes ast.extensionMethod(p, ms: ms, from: conformance, owner: ast.extensionKey(p, ms: ms, t: recv).unwrap(), name: ast.elementwiseEquals) 'elementwise'
+			found(fid) then return instantiateMethod(p, ms: ms, module: module, site: site, method: fid, recv: recv, errs: errs)
+			absent then panic("the conformance of {ast.typeName(ms.types, reads: p.types, t: recv)} in {ast.describeModule(p, modID: conformance)} has no method '{ast.elementwiseEquals}'")
+			ambiguous(_, _) then panic("the conformance of {ast.typeName(ms.types, reads: p.types, t: recv)} in {ast.describeModule(p, modID: conformance)} has two methods '{ast.elementwiseEquals}'")
+		end 'elementwise'
+	end 'library'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).intrinsic != ast.Intrinsic.intrNone 'builtIn'
+		return table.Option.some(method)
+	end 'builtIn'
+	return instantiateMethod(p, ms: ms, module: module, site: site, method: method, recv: recv, errs: errs)
+end 'ownWitness'
 
 // instantiateExtension is the instance for the type recv, which implements the interfaces have, of a method that an
 // extension of an interface adds.

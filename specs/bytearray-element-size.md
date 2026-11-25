@@ -345,7 +345,7 @@ let KEYWORDS = [b"hi": 1]
 function main() returns ExitCode
 	var made = Bytes.create(0)
 	made.push(1)
-	return made.count() + KEYWORDS.count()
+	return try made.count() + KEYWORDS.count() otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

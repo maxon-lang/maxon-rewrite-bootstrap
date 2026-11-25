@@ -14,16 +14,27 @@ var builtinTypeParams = map[string]string{
 // maxonElementParam is the name of the type parameter of maxon's generic collections.
 const maxonElementParam = "Element"
 
-// unavailableIntrinsicConditions are the conditions of an `if` of maxon's library that ask the compiler about its native
-// storage hashing, which minimaxon has no counterpart of: the block takes a shortcut that the code after it must agree with, so
-// the converter leaves the block out and the code after it is the whole of the method.
-var unavailableIntrinsicConditions = []string{"__Builtins.elementsHashAsStorage()"}
+// storageHashCalls are the calls of maxon's library that ask the compiler about an array's native storage hashing, and what
+// minimaxon writes for each: the library's own members of the built-in Array that answer them (internal/builtingen),
+// whether the array hashes as the bytes of its storage, and their fold under the process's seed.
+var storageHashCalls = []struct{ maxon, here []token }{
+	{
+		maxon: []token{{kind: tokIdent, text: "__Builtins"}, {kind: tokPunct, text: "."}, {kind: tokIdent, text: "elementsHashAsStorage"}, {kind: tokPunct, text: "("}, {kind: tokPunct, text: ")"}},
+		here:  []token{{kind: tokIdent, text: "self"}, {kind: tokPunct, text: "."}, {kind: tokIdent, text: "hashesAsStorage"}, {kind: tokPunct, text: "("}, {kind: tokPunct, text: ")"}},
+	},
+	{
+		maxon: []token{{kind: tokIdent, text: "__Builtins"}, {kind: tokPunct, text: "."}, {kind: tokIdent, text: "hashArrayStorage"}, {kind: tokPunct, text: "("}, {kind: tokIdent, text: "self"}, {kind: tokPunct, text: ")"}},
+		here: []token{
+			{kind: tokIdent, text: "hashValueOfDigest"}, {kind: tokPunct, text: "("}, {kind: tokIdent, text: "self"}, {kind: tokPunct, text: "."}, {kind: tokIdent, text: "storageHash"}, {kind: tokPunct, text: "("},
+			{kind: tokIdent, text: "processFoldStart"}, {kind: tokPunct, text: "("}, {kind: tokPunct, text: ")"}, {kind: tokPunct, text: ")"}, {kind: tokPunct, text: ")"},
+		},
+	},
+}
 
 // rewriteBuiltinExtensions writes each extension of a type that minimaxon builds in (Array) as minimaxon has it:
 // the type parameter under the built-in table's name, the receiver's own storage as `self.managed`, the members the
-// built-in declares left out (the table has them natively), no conformance where the extension has a `where` (minimaxon
-// has no conditional conformance, so the methods stay and the interface is not implemented), and no block that asks for the
-// native storage hash.
+// built-in declares left out (the table has them natively), and the calls that ask for the native storage hash as the
+// members that answer them here.
 func rewriteBuiltinExtensions(lines []sourceLine) {
 	for i := 0; i < len(lines); i++ {
 		l := &lines[i]
@@ -40,12 +51,13 @@ func rewriteBuiltinExtensions(lines []sourceLine) {
 			continue
 		}
 		last := topLevelEnd(lines, i)
-		dropConformanceBeforeWhere(l)
 		for k := i; k <= last; k++ {
 			renameInLine(&lines[k], param)
 		}
 		dropNativeMembers(lines, i, last, target)
-		dropUnavailableIntrinsicBlocks(lines, i, last)
+		for k := i; k <= last; k++ {
+			rewriteStorageHashCalls(&lines[k])
+		}
 		i = last
 	}
 }
@@ -64,16 +76,6 @@ func renameInLine(l *sourceLine, param string) {
 		out = append(out, t)
 	}
 	l.code = out
-}
-
-// dropConformanceBeforeWhere removes the `implements` clause of an extension header that has a `where`.
-func dropConformanceBeforeWhere(l *sourceLine) {
-	impl := findToken(l.code, 0, "implements")
-	where := findToken(l.code, 0, "where")
-	if impl < 0 || where < impl {
-		return
-	}
-	l.code = slices.Delete(l.code, impl, where)
 }
 
 // extendedBuiltinRecords are the record types minimaxon builds in whose library declaration has members that the built-in
@@ -142,32 +144,17 @@ func dropNativeMembers(lines []sourceLine, header, last int, target string) {
 	}
 }
 
-// dropUnavailableIntrinsicBlocks leaves out each `if` block between header and last whose condition is one of
-// unavailableIntrinsicConditions.
-func dropUnavailableIntrinsicBlocks(lines []sourceLine, header, last int) {
-	for k := header + 1; k < last; k++ {
-		l := &lines[k]
-		if l.removed || len(l.code) < 2 || l.code[0].text != "if" || !slices.Contains(unavailableIntrinsicConditions, conditionText(l.code[1:])) {
-			continue
+// rewriteStorageHashCalls writes each of storageHashCalls in the line as minimaxon has it.
+func rewriteStorageHashCalls(l *sourceLine) {
+	for _, call := range storageHashCalls {
+		for k := 0; k+len(call.maxon) <= len(l.code); k++ {
+			if !slices.EqualFunc(l.code[k:k+len(call.maxon)], call.maxon, func(a, b token) bool { return a.kind == b.kind && a.text == b.text }) {
+				continue
+			}
+			l.code = slices.Concat(l.code[:k], call.here, l.code[k+len(call.maxon):])
+			k += len(call.here) - 1
 		}
-		end := memberEnd(lines, k)
-		for j := k; j <= end; j++ {
-			lines[j].removed = true
-		}
-		k = end
 	}
-}
-
-// conditionText is the tokens of an `if` condition, up to its label, written without spaces.
-func conditionText(toks []token) string {
-	var text strings.Builder
-	for _, t := range toks {
-		if t.kind == tokLabel {
-			break
-		}
-		text.WriteString(t.text)
-	}
-	return text.String()
 }
 
 // typeNamesHere are the types of maxon's that minimaxon types as another: the payload of WaitDeadline.within is a Count here,
