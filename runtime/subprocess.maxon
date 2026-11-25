@@ -183,7 +183,7 @@ let waitBytes = waitInputOffset + inputRecordBytes
 // A stream and the input each hold, first, the event entry of the end of its pipe that the run uses, noEntry for a stream that is
 // not collected, for the input of a run without and once the end is closed. A stream then holds the room of the string read so
 // far (__Raw.stringRoom) with its length and its capacity, the run's wait and the most it keeps (0 for no cap), and the input the
-// bytes and the length of the text it writes. Both hold the run's wait.
+// bytes and the length of the text it writes, and whether it is held open and not written. Both hold the run's wait.
 let endEntryOffset = 0
 
 let streamTextOffset = 8
@@ -207,7 +207,10 @@ let inputLengthOffset = 16
 
 let inputWaitOffset = 24
 
-let inputRecordBytes = 32
+// inputHoldOffset says whether the input is held open and never written (InputSource.hold).
+let inputHoldOffset = 32
+
+let inputRecordBytes = 40
 
 // readChunkBytes is the least room a stream's text has past its length before a read, and readMostBytes the most one read asks
 // for, which the system's counts of 32 bits hold.
@@ -523,11 +526,15 @@ function awaitChild(wait Count, deadlineMs Count) returns bool
 		errorReader = startHelper(__Raw.codeAddress("streamReaderMain"), argument: errorRecord)
 	end 'errors'
 	var inputWriter = noGreen
-	if wordAt(inputRecord, offset: endEntryOffset) != noEntry 'input'
+	let held = wordAt(inputRecord, offset: inputHoldOffset) != 0
+	if wordAt(inputRecord, offset: endEntryOffset) != noEntry and not held 'input'
 		__Raw.storeWord(inputRecord, offset: inputWaitOffset, value: wait)
 		inputWriter = startHelper(__Raw.codeAddress("inputWriterMain"), argument: inputRecord)
 	end 'input'
 	_ = greenAwait(exitWaiter)
+	if held 'unheld'
+		releaseOurEnd(inputRecord)
+	end 'unheld'
 	if outputReader != noGreen 'outputEnded'
 		_ = greenAwait(outputReader)
 	end 'outputEnded'

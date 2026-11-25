@@ -209,7 +209,11 @@ let requestEnvironmentLengthOffset = 160 as Count
 // Whether the child has an environment of its own, the block above, where 0 is the caller's.
 let requestEnvironmentOwnOffset = 168 as Count
 
-let requestBytes = 176 as Count
+// Whether the input is a pipe that the run holds open, never writes and closes once the child has exited: its kind is then the
+// bytes' (a pipe with none to write), which every system's start serves.
+let requestInputHoldOffset = 176 as Count
+
+let requestBytes = 184 as Count
 
 // A child: the record that a handle names. It holds whether a wait has taken it, the run that the child's system record is (its
 // pipes, its exit and its wait), and the copy of the input that the child reads, which the run's input stream points into.
@@ -479,16 +483,12 @@ function pathHoldsNul(path String) returns bool
 end 'pathHoldsNul'
 
 // spawnRefusal is the failure of a spawn that is not served or whose words are malformed, which is refused before anything starts
-// or is allocated, and 0 for one that is neither. A stream held open (the streaming child's), a detach and a trace are the ones it
-// does not serve; an environment block that is not a block, a path or a working directory that holds a NUL and the words that name
-// no kind or flag are the malformed ones.
+// or is allocated, and 0 for one that is neither. A detach and a trace are the ones it does not serve; an environment block that
+// is not a block, a path or a working directory that holds a NUL and the words that name no kind or flag are the malformed ones.
 function spawnRefusal(argv Count, argc Count, cwd String, env Count, envInherit Count, stdinKind Count, stdinData String, stdoutKind Count, stdoutData String, stderrKind Count, stderrData String, flags Count, stdinLength Count) returns Count
 	if envInherit > spawnEnvironmentParent or (envInherit == spawnEnvironmentBlock and not environmentIsWhole(env)) 'environment'
 		return refusedFailure(codeInvalidParameter)
 	end 'environment'
-	if stdinKind == spawnStdinHold 'inputUnserved'
-		return refusedFailure(codeNotSupported)
-	end 'inputUnserved'
 	if stdinKind > spawnStdinHold 'inputKind'
 		return refusedFailure(codeInvalidParameter)
 	end 'inputKind'
@@ -520,6 +520,7 @@ function prepareRun(wait Count, request Count)
 	__Raw.storeWord(fieldAt(wait, offset: waitErrorOffset), offset: streamLimitOffset, value: wordAt(request, offset: requestErrorLimitOffset))
 	__Raw.storeWord(fieldAt(wait, offset: waitInputOffset), offset: inputTextOffset, value: wordAt(request, offset: requestInputOffset))
 	__Raw.storeWord(fieldAt(wait, offset: waitInputOffset), offset: inputLengthOffset, value: wordAt(request, offset: requestInputLengthOffset))
+	__Raw.storeWord(fieldAt(wait, offset: waitInputOffset), offset: inputHoldOffset, value: wordAt(request, offset: requestInputHoldOffset))
 end 'prepareRun'
 
 // newRequest is a new request with every word 0.
@@ -562,7 +563,12 @@ function subprocessSpawn(argv Count, argc Count, cwd String, env Count, envInher
 	__Raw.storeWord(request, offset: requestArgcOffset, value: argc)
 	__Raw.storeWord(request, offset: requestDirectoryOffset, value: __Raw.stringBytes(cwd))
 	__Raw.storeWord(request, offset: requestDirectoryLengthOffset, value: __Raw.stringLength(cwd))
-	__Raw.storeWord(request, offset: requestInputKindOffset, value: stdinKind)
+	if stdinKind == spawnStdinHold 'held'
+		__Raw.storeWord(request, offset: requestInputKindOffset, value: spawnStdinBytes)
+		__Raw.storeWord(request, offset: requestInputHoldOffset, value: set)
+	end 'held' else 'kind'
+		__Raw.storeWord(request, offset: requestInputKindOffset, value: stdinKind)
+	end 'kind'
 	__Raw.storeWord(request, offset: requestInputOffset, value: held)
 	__Raw.storeWord(request, offset: requestInputLengthOffset, value: heldLength)
 	__Raw.storeWord(request, offset: requestOutputKindOffset, value: stdoutKind)
