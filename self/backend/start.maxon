@@ -79,7 +79,21 @@ function emitStartRoutines(mutates u CodeUnit, a ast.TargetArch, calls EntryCall
 	u.beginSection()
 	u.defineCode(unbracketedSymbol)
 	rRet(u, a: a)
+	u.beginSection()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtCopyBytes))
+	emitCopyBytes(u, a: a)
 end 'emitStartRoutines'
+
+// emitCopyBytes writes rt.copyBytes, which __Raw.copyBytes calls by the internal convention with the source, the target
+// and the count: the copy routines' copy (rCopyBytes), whose registers every call may leave holding anything. The count is
+// above 0 and the two places do not overlap, which the caller sees to.
+function emitCopyBytes(mutates u CodeUnit, a ast.TargetArch)
+	rMov(u, a: a, dst: rCopyFrom, src: rArg)
+	rMov(u, a: a, dst: rCopyTo, src: rArgWord)
+	rMov(u, a: a, dst: rSecond, src: rArgThird)
+	rCopyBytes(u, a: a)
+	rRet(u, a: a)
+end 'emitCopyBytes'
 
 // emitMainGreen writes rt.mainGreen, the code main's green thread runs, which greenMain calls by the internal convention
 // with the green thread, and which rt.mainAlone calls: it calls main, whose result is the exit code, or each test of an

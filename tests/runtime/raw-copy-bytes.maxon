@@ -1,0 +1,76 @@
+// __Raw.copyBytes, the copy routines' copy that rt.copyBytes calls: every count from 1 to testSmallest and some past the
+// routine's loop, from a source at each offset of a word into a target at each, so that every size class of the copy
+// and every alignment of its ends is met. The byte before the target and the one after it hold a guard that the copy
+// leaves as it was, so a byte written outside the target is seen too.
+//> copied 25600 runs of 1 to 400 bytes and 384 of 4096 to 70001, every byte in place and no guard changed
+
+let testSmallest = 400 as Count
+
+let testOffsets = 8 as Count
+
+let testGuard = 0xA5 as Byte
+
+// testRoomPast is the room the source and the target have past the count: the offsets of both and a guard at each end.
+let testRoomPast = 18 as Count
+
+// testLarge are the counts past the routine's loop that the test copies, each from every offset of a word to the next.
+let testLarge = [4096, 4097, 65536, 70001, 4100, 5000]
+
+function main() returns ExitCode
+	var runs = 0 as Count
+	var bad = 0 as Count
+	for count in 1 upto __Raw.wrappingAdd(testSmallest, right: 1) 'small'
+		runs = __Raw.wrappingAdd(runs, right: testCopies(count, bad: bad))
+	end 'small'
+	var large = 0 as Count
+	for count in testLarge 'large'
+		large = __Raw.wrappingAdd(large, right: testCopies(count as Count, bad: bad))
+	end 'large'
+	if bad != 0 'wrong'
+		print("{bad} runs copied wrong\n")
+		return 1
+	end 'wrong'
+	print("copied {runs} runs of 1 to {testSmallest} bytes and {large} of 4096 to 70001, every byte in place and no guard changed\n")
+	return 0
+end 'main'
+
+// testCopies copies count bytes from every offset of a word into every offset of a word, adds each run that went wrong to
+// bad, and gives how many runs it made.
+function testCopies(count Count, mutates bad Count) returns Count
+	var runs = 0 as Count
+	let room = __Raw.wrappingAdd(count, right: testRoomPast)
+	let source = alloc(room)
+	let target = alloc(room)
+	for i in 0 upto room 'fill'
+		__Raw.storeByte(source, offset: i, value: (__Raw.wrappingAdd(i, right: count) and 0xFF) as Byte)
+	end 'fill'
+	for from in 0 upto testOffsets 'from'
+		for to in 0 upto testOffsets 'to'
+			if not testCopyOnce(source, from: from, target: target, to: to, count: count, room: room) 'wrong'
+				bad = __Raw.wrappingAdd(bad, right: 1)
+			end 'wrong'
+			runs = __Raw.wrappingAdd(runs, right: 1)
+		end 'to'
+	end 'from'
+	free(source)
+	free(target)
+	return runs
+end 'testCopies'
+
+function testCopyOnce(source Count, from Count, target Count, to Count, count Count, room Count) returns bool
+	for i in 0 upto room 'clear'
+		__Raw.storeByte(target, offset: i, value: testGuard)
+	end 'clear'
+	let at = __Raw.wrappingAdd(to, right: 1)
+	__Raw.copyBytes(__Raw.wrappingAdd(source, right: from), target: __Raw.wrappingAdd(target, right: at), count: count)
+	for i in 0 upto room 'check'
+		var want = testGuard
+		if i >= at and i < __Raw.wrappingAdd(at, right: count) 'inside'
+			want = __Raw.loadByte(source, offset: __Raw.wrappingAdd(from, right: __Raw.wrappingSub(i, right: at)))
+		end 'inside'
+		if __Raw.loadByte(target, offset: i) != want 'differs'
+			return false
+		end 'differs'
+	end 'check'
+	return true
+end 'testCopyOnce'

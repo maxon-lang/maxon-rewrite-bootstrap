@@ -270,6 +270,12 @@ function lowerRawCompareExchange(mutates l Lowerer, p ast.Project, ms ast.Module
 	return d
 end 'lowerRawCompareExchange'
 
+// lowerRawCopyBytes calls rt.copyBytes, the backend's copy, and gives 0 as its value, as a store does.
+function lowerRawCopyBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	emitCallRuntime(l, dst: noReg, symbol: Rt.rtCopyBytes, args: argsOf3(args[0], b: args[1], c: args[2]), routine: ast.noFunc)
+	return konst(l, value: 0 as Word)
+end 'lowerRawCopyBytes'
+
 // lowerRawSpinPause gives 0 as its value, as a store does.
 function lowerRawSpinPause(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	emit(l, i: newSpinPause())

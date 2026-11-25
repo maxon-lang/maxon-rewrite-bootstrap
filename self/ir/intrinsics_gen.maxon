@@ -794,6 +794,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrRawSpinPause 'intrRawSpinPause'
 		return lowerRawSpinPause(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawSpinPause'
+	if op == ast.Intrinsic.intrRawCopyBytes 'intrRawCopyBytes'
+		return lowerRawCopyBytes(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawCopyBytes'
 	if op == ast.Intrinsic.intrRawThreadContext 'intrRawThreadContext'
 		return lowerRawThreadContext(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawThreadContext'
@@ -1639,6 +1642,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrRawSpinPause 'intrRawSpinPause'
 		return false
 	end 'intrRawSpinPause'
+	if op == ast.Intrinsic.intrRawCopyBytes 'intrRawCopyBytes'
+		return false
+	end 'intrRawCopyBytes'
 	if op == ast.Intrinsic.intrRawThreadContext 'intrRawThreadContext'
 		return false
 	end 'intrRawThreadContext'

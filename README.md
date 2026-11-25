@@ -2515,6 +2515,7 @@ are a `Count`:
 | `__Raw.atomicAdd(address, offset: o, value: v)`, `__Raw.atomicExchange(address, offset: o, value: v)` | adds `v` to the word at `address + o`, or puts `v` there, as one locked step (a full fence), and gives the word it found |
 | `__Raw.compareExchange(address, offset: o, expected: e, desired: d)` | puts `d` in the word at `address + o` when `e` is there, as one locked step, and gives the word it found: it succeeded when that is `e` |
 | `__Raw.spinPause()` | `pause`, in a loop that waits for another thread |
+| `__Raw.copyBytes(source, target: t, count: n)` | copies `n` bytes from `source` to `t` with the copy routines' copy (`rCopyBytes`: Go's memmove plan on arm64, `rep movsb` on x64), which the entry stub's `rt.copyBytes` calls by the internal convention. The contract is the caller's to keep, and nothing checks it: `n` is above 0, so a caller that may have nothing to copy decides so with an `if` of its own and does not call; and the two places do not overlap, so it is no move within one buffer: an array's gaps move with the runtime's own `copyBytes` and `copyBackward`, which stay as they are. The runtime's source does not call it yet: a seed compiles `runtime/`, and only a seed that knows it may (`tests/runtime/raw-copy-bytes.maxon` tests it) |
 | `__Raw.threadContext()` | the running thread's context: the word in the runtime's thread-local slot |
 | `__Raw.callCode1(code, arg1: a)` | calls the code at the address `code` with one word by the internal convention, as a behaviour's thunk is called with its record, and gives what it returns |
 | `__Raw.callHost2(code, arg1: a, arg2: b)` | calls the code at the address `code` with two words by the host convention, Win64, as a DLL import is called: a function of a library that the import table does not name, which the runtime found by its name (`LoadLibraryA`, `GetProcAddress`); Windows only |
@@ -2534,8 +2535,8 @@ are sequentially consistent between themselves, as Go's `atomic.Load` and `Store
 `stlr` may be done before it); `atomicadd`, `atomicxchg` and `cmpxchg` at the address plus
 the offset (`lock xadd`, `xchg`, `lock cmpxchg`; LSE's `ldaddal`, `swpal` and `casal` on arm64); `spinpause`; `threadcontext`, which on Windows reads the slot straight from the
 TEB (`mov rax, gs:[rcx + 0x1480]`, `rcx` the slot's offset in `g.tlsOffset`) and on Linux the word that `fs` points at
-(`mov rax, fs:[0]`), maxon's thread pointer; `callcode`, an indirect call; and `callhost`, an indirect call by the host convention, which
-`emitHostCall` sets up as it does an import's. Each
+(`mov rax, fs:[0]`), maxon's thread pointer; `callcode`, an indirect call; `callhost`, an indirect call by the host convention, which
+`emitHostCall` sets up as it does an import's; and `copyBytes`, a call of the entry `rt.copyBytes`. Each
 ordered access, atomic operation and `spinpause` reads and writes memory, so no pass moves a load or a store across one;
 a plain `loadraw` or `storeraw` is ordered on x64 alone, so on arm64 a word that threads hand over without a lock
 needs an ordered access. The interpreter never runs the

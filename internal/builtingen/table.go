@@ -569,6 +569,10 @@ func rawFunctions() []function {
 		raw("atomicExchange", append(slices.Clone(at), "value Count"), "Count", "RawAtomicExchange"),
 		raw("compareExchange", append(slices.Clone(at), "expected Count", "desired Count"), "Count", "RawCompareExchange"),
 		raw("spinPause", nil, "", "RawSpinPause"),
+		// copyBytes copies count bytes from source to target with the copy routines' copy (rCopyBytes): count is above 0
+		// (a caller with nothing to copy does not call), and the two do not overlap, so a move within one buffer, as an
+		// array's gaps are moved, is not one.
+		raw("copyBytes", []string{"source Count", "target Count", "count Count"}, "", "RawCopyBytes"),
 		raw("threadContext", nil, "Count", "RawThreadContext"),
 		// callCode1 calls the code at an address with one word, as a behaviour's thunk is called with its record.
 		raw("callCode1", []string{"code Count", "arg1 Count"}, "Count", "RawCallCode"),
@@ -1125,6 +1129,7 @@ var entries = []entry{
 	{"ProcessStart", "g.processStart", "Runtime", roleGlobal, "the stack pointer a Linux process starts with, at the argument count, then the arguments and the environment, which the entry keeps"},
 	{"ThreadStart", "rt.threadStart", "Runtime", roleInternal, "(context) by Win64: the start of a thread the runtime makes, which keeps stack for the fault handler, stores the context in the thread-local slot and calls workerMain"},
 	{"StackSwitch", "rt.stackSwitch", "Runtime", roleInternal, "(pair) -> the record it left: saves the registers of the running stack into the switch record at the pair's first word and goes on the stack of the record at its second, by the internal convention (README, \"Green threads\")"},
+	{"CopyBytes", "rt.copyBytes", "Runtime", roleInternal, "(source, target, count) by the internal convention: copies count bytes, count above 0, between places that do not overlap, with the copy routines' copy (__Raw.copyBytes)"},
 	{"GreenStart", "rt.greenStart", "Runtime", roleInternal, "the code a green thread's stack starts at, which a switch onto a stack that has not run returns to: it calls the code in r12 with the word in rbx"},
 	{"AsyncPreempt", "rt.asyncPreempt", "Runtime", roleInternal, "the code the monitor makes a green thread it stops return into, at the address it stopped at: it saves every register and the flags, calls the code at contextPreemptCodeOffset of the thread's context with the context, and gives them back"},
 	{"PreemptHandler", "rt.preemptHandler", "Runtime", roleInternal, "(signal, siginfo, context) by System V: the handler of the Linux preemption signal, which calls the code at contextSignalCodeOffset of the thread's context with the signal's context"},

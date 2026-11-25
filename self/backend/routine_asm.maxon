@@ -21,11 +21,13 @@ enum RoutineReg
 	frame
 	stack
 	// arg, result and error are the internal convention's first argument, result and error registers, and argWord and
-	// resultWord its second argument and its second result, which a String's word is passed and given in.
+	// resultWord its second argument and its second result, which a String's word is passed and given in, and argThird
+	// its third argument.
 	arg
 	result
 	error
 	argWord
+	argThird
 	resultWord
 	// thunkBase holds the record a thunk passes the words of, and thunkWord a word it passes on the stack, apart from
 	// every argument register.
@@ -55,6 +57,8 @@ let rError = RoutineReg.error
 
 let rArgWord = RoutineReg.argWord
 
+let rArgThird = RoutineReg.argThird
+
 let rResultWord = RoutineReg.resultWord
 
 let rThunkBase = RoutineReg.thunkBase
@@ -75,6 +79,7 @@ function x64RoutineRegister(r RoutineReg) returns X64Register
 		result gives resultWord()
 		error gives x64InternalError
 		argWord gives x64InternalArg(1)
+		argThird gives x64InternalArg(2)
 		resultWord gives x64InternalSecondResult
 		thunkBase gives r11
 		thunkWord gives r10
@@ -97,6 +102,7 @@ function arm64RoutineRegister(r RoutineReg) returns Arm64Register
 		result gives arm64ResultWord()
 		error gives arm64InternalError
 		argWord gives arm64InternalArg(1)
+		argThird gives arm64InternalArg(2)
 		resultWord gives arm64InternalSecondResult
 		thunkBase gives Arm64Register.x13
 		thunkWord gives Arm64Register.x14
