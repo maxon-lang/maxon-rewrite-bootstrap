@@ -1,0 +1,117 @@
+// A closure that borrows a variable to change it changes it whenever it is called, so what a condition said of the
+// variable before the closure was made no longer holds once the closure is gone: an index, a divisor or a conversion
+// that depended on it is not proven.
+typealias Int = int(i64.min to i64.max)
+
+typealias Vec3 = FixedArray with 3 Int
+
+typealias Slot = int(0 to 2)
+
+typealias Small = int(0 to 200)
+
+typealias Bump = function() returns Count mutates captures
+
+type Box
+	export var n as Count
+
+	static function make(n Count) returns Self
+		return Self{n: n}
+	end 'make'
+end 'Box'
+
+function setBig(mutates n Count) returns Count
+	n = 1000000
+	return n
+end 'setBig'
+
+function setZero(mutates n Count) returns Count
+	n = 0
+	return n
+end 'setZero'
+
+function setSlot(mutates s Slot) returns Count
+	s = 2
+	return 0
+end 'setSlot'
+
+function apply(mutates f Bump) returns Count
+	return f()
+end 'apply'
+
+function passed(v Vec3) returns Int
+	var i = 0 as Count
+	if i < 3 'below'
+		_ = apply(function() gives setBig(i))
+		return v.get(i)
+	end 'below'
+	return 0
+end 'passed'
+
+function bound(v Vec3) returns Int
+	var i = 0 as Count
+	if i < 3 'below'
+		if true 'scope'
+			var f = (function() gives setBig(i)) as Bump
+			_ = f()
+		end 'scope'
+		return v.get(i)
+	end 'below'
+	return 0
+end 'bound'
+
+function nested(v Vec3) returns Int
+	var i = 0 as Count
+	if i < 3 'below'
+		_ = apply(function() gives apply(function() gives setBig(i)))
+		return v.get(i)
+	end 'below'
+	return 0
+end 'nested'
+
+function field(v Vec3) returns Int
+	var b = Box.make(0)
+	if b.n < 3 'below'
+		_ = apply(function() gives setBig(b.n))
+		return v.get(b.n)
+	end 'below'
+	return 0
+end 'field'
+
+function aliased(v Vec3) returns Int
+	var s = 0 as Slot
+	if s < 2 'below'
+		_ = apply(function() gives setSlot(s))
+		return v.get(s + 1)
+	end 'below'
+	return 0
+end 'aliased'
+
+function divided() returns Count
+	var d = 5 as Count
+	if d != 0 'nonZero'
+		_ = apply(function() gives setZero(d))
+		return 10 / d
+	end 'nonZero'
+	return 0
+end 'divided'
+
+function converted() returns Small
+	var x = 5 as Count
+	if x < 100 'fits'
+		_ = apply(function() gives setBig(x))
+		return x as Small
+	end 'fits'
+	return 0 as Small
+end 'converted'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3057 at 45:15
+// expect-error: E3057 at 57:15
+// expect-error: E3057 at 66:15
+// expect-error: E3057 at 75:15
+// expect-error: E3057 at 84:15
+// expect-error: E3057 at 93:13
+// expect-error: E3057 at 102:12

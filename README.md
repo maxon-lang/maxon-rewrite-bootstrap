@@ -3125,8 +3125,9 @@ and knows:
 - a constant's exact value.
 
 What may be assigned (a `var`, a `mutates` or `sets` parameter, and their fields) loses what is known of it at the top
-of a loop, and a place loses it when it is assigned or passed to a call that may change it, so no loop is walked twice
-(but see accumulators, below); a condition says nothing of a place that it changes itself, as in `if a > 5 and reset(a)`. A
+of a loop, and a place loses it when it is assigned, passed to a call that may change it, or captured by a closure that borrows
+it to change it (the closure changes it whenever it is called, and the ownership pass lets nothing read it while the closure
+lives), so no loop is walked twice (but see accumulators, below); a condition says nothing of a place that it changes itself, as in `if a > 5 and reset(a)`. A
 divisor that is not 0 may still be -1, so a signed `a / b` needs `b > 0`, or `b != 0` and `b != -1`. Proven code is
 faster than it was before checked arithmetic, when every operation was checked.
 

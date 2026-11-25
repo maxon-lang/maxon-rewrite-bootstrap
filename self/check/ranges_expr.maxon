@@ -313,14 +313,26 @@ end 'rangeEval'
 // rangeClosure analyses the body of a closure as a function of its own: it runs when it is called, so nothing known where
 // it is made reaches into it. A closure the bodies check gave no function has nothing to follow.
 function rangeClosure(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID)
-	if r.probing 'probed'
-		return
-	end 'probed'
 	match consumes r.typing.closures.get(e as Count) 'closure'
-		some(info) then rangeFunction(r, p: p, ms: ms, fid: info.fn, behaviour: false)
+		some(info) then rangeClosureOf(r, p: p, ms: ms, info: info)
 		none then _ = 0
 	end 'closure'
 end 'rangeClosure'
+
+// rangeClosureOf forgets what is known of each variable the closure borrows to change, which its calls change wherever
+// they are: the ownership pass lets nothing read the variable while the closure lives, so no span of it is learned
+// before the closure is gone.
+function rangeClosureOf(mutates r Ranges, p ast.Project, ms ast.ModuleState, info ast.ClosureInfo)
+	for capture in info.captures 'captures'
+		if capture.conv == ast.Convention.convMutates 'changes'
+			rangeChanged(r, p: p, ms: ms, place: Place.local(slotOf(r, local: capture.outerLocal)), t: typeOf(r, e: capture.refNode))
+		end 'changes'
+	end 'captures'
+	if r.probing 'probed'
+		return
+	end 'probed'
+	rangeFunction(r, p: p, ms: ms, fid: info.fn, behaviour: false)
+end 'rangeClosureOf'
 
 function rangeStrLit(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let partsRef = ast.strLitPartsRef(ms.tree(), id: e)

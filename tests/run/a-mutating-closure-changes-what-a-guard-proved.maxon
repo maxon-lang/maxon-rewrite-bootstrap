@@ -1,0 +1,60 @@
+typealias Int = int(i64.min to i64.max)
+
+typealias Vec3 = FixedArray with 3 Int
+
+typealias Small = int(0 to 200)
+
+typealias Bump = function() returns Count mutates captures
+
+typealias Reader = function() returns Count
+
+function setBig(mutates n Count) returns Count
+	n = 1000000
+	return n
+end 'setBig'
+
+function setZero(mutates n Count) returns Count
+	n = 0
+	return n
+end 'setZero'
+
+function apply(mutates f Bump) returns Count
+	return f()
+end 'apply'
+
+function read(f Reader) returns Count
+	return f()
+end 'read'
+
+function main() returns ExitCode
+	var v = Vec3.create(value: 7)
+	var i = 0 as Count
+	if i < 3 'below'
+		let before = v.get(i)
+		_ = apply(function() gives setBig(i))
+		let after = try v.get(i) otherwise -1
+		print("{before} {after}\n")
+	end 'below'
+	var d = 5 as Count
+	if d != 0 'nonZero'
+		_ = apply(function() gives setZero(d))
+		print("{try 10 / d otherwise -1}\n")
+	end 'nonZero'
+	var x = 5 as Count
+	if x < 100 'fits'
+		_ = apply(function() gives setBig(x))
+		let y = try x as Small otherwise 0 as Small
+		print("{y}\n")
+	end 'fits'
+	var j = 1 as Count
+	if j < 3 'unrelated'
+		_ = read(function() gives try j + 1 otherwise 0)
+		print("{v.get(j)}\n")
+	end 'unrelated'
+	return 0
+end 'main'
+
+//> 7 -1
+//> -1
+//> 0
+//> 7
