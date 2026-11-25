@@ -571,7 +571,7 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 		return usageExitCode
 	end 'results'
 	if hasPath and project.holdsModuleTests(path) 'modules'
-		return moduleTests(path, options: given)
+		return moduleTests(path, options: given, compilesOnly: corpus.compilesOnly)
 	end 'modules'
 	let width = RunWidth.of(runWorkers(), executables: executables)
 	if hasPath and isSpecPath(path) 'specs'

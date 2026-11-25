@@ -476,6 +476,10 @@ function finishCompile(ctx frozen with Context, mutates station ProjectStation, 
 	if ctx.compile.cache.enabled() 'trim'
 		trimWhenDue(ctx.compile.cache)
 	end 'trim'
+	if code == 0 and ctx.compile.options.runsTests and ctx.compile.options.compilesTestsOnly 'compiledTests'
+		Process.setExitCode(compiledTestExecutable(ctx.compile.output, tests: testsOf(known).count(), under: ctx.compile.options.testsUnder, target: ctx.compile.options.target))
+		return
+	end 'compiledTests'
 	if code == 0 and ctx.compile.options.runsTests 'tests'
 		Process.setExitCode(runTestExecutable(ctx.compile.output, tests: testsOf(known).count(), under: ctx.compile.options.testsUnder))
 		return

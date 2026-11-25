@@ -6,20 +6,52 @@
 let selfDirectory = "self"
 
 // moduleTests compiles and runs the tests of the modules under the directory at path, in the project around it, with what the
-// command line gave.
-function moduleTests(path String, options Options) returns ExitCode
+// command line gave; compilesOnly makes their executable for the target and runs nothing, so that a target the host does
+// not run is compiled for. Their executable runs only on the host, so a run for another target must only compile.
+function moduleTests(path String, options Options, compilesOnly bool) returns ExitCode
+	if not compilesOnly and options.target.name() != hostTarget().name() 'foreign'
+		printError("test: the tests of modules run on {hostTarget().name()} only: {compileOnlyFlag} compiles them for {options.target.name()}\n")
+		return usageExitCode
+	end 'foreign'
 	let dir = project.absolutePath(path)
 	var tests = withCache(options)
 	tests.runsTests = true
 	tests.testsUnder = dir.clone()
-	return buildPath(project.projectRootOf(dir), output: testExecutable(dir), options: tests)
+	tests.compilesTestsOnly = compilesOnly
+	return buildPath(project.projectRootOf(dir), output: testExecutable(dir, target: options.target), options: tests)
 end 'moduleTests'
+
+// selftestCommandName is the command that tests the compiler's own modules.
+let selftestCommandName = "selftest"
+
+// selftestCommand is `selftest [--compile-only]`: the tests of the compiler's own modules (moduleTests of self).
+function selftestCommand(rest CommandNames, given Options) returns ExitCode
+	var compilesOnly = false
+	for arg in rest 'arguments'
+		if arg == compileOnlyFlag 'compileOnly'
+			compilesOnly = true
+		end 'compileOnly' else if arg != selftestCommandName 'unknown'
+			printError("selftest: unknown argument '{arg}' (it takes {compileOnlyFlag})\n")
+			return usageExitCode
+		end 'unknown'
+	end 'arguments'
+	return moduleTests(selfDirectory, options: given, compilesOnly: compilesOnly)
+end 'selftestCommand'
 
 // testExecutable is where a compile of the tests under dir writes its executable: in the temporary directory, named after
 // the process and the directory, so that two compilers running at once never write the same file.
-function testExecutable(dir String) returns String
-	return ast.temporaryPath("minimaxon-test-{Process.id()}-{project.lastComponent(dir)}{executableExtension(hostTarget())}")
+function testExecutable(dir String, target ast.Target) returns String
+	return ast.temporaryPath("minimaxon-test-{Process.id()}-{project.lastComponent(dir)}{executableExtension(target)}")
 end 'testExecutable'
+
+// compiledTestExecutable deletes the executable of tests at path that a compile-only run of the tests under dir made for
+// target, and says so: the compile reached it, through code generation, which is all such a run holds the tests to.
+function compiledTestExecutable(path String, tests Count, under String, target ast.Target) returns ExitCode
+	let exe = try FilePath.from(path) otherwise panic("driver: the executable of tests has no path")
+	try File.delete(exe) otherwise panic("driver: cannot delete {path}")
+	print("ok: {tests} tests of {under} compiled for {target.name()}\n")
+	return 0
+end 'compiledTestExecutable'
 
 // runTestExecutable runs the executable of tests at path, which a compile of the tests under dir made, passes on what it
 // wrote, and gives its exit code: 0 when every one of its tests ran without a panic.

@@ -709,3 +709,35 @@ function testSpillScale()
 		panic("scale: {problems[0]}")
 	end 'problems'
 end 'testSpillScale'
+
+// A panic's message in a cold block, built of interpolated calls while the strings of the earlier ones are live, panicked
+// the x64 register allocator (59d43678: a dead bracket left a value in a register no pressure counted, "has no home";
+// a two-address definition refused the register of the dying operand it reuses, "has no free register"). arm64, with
+// more registers, never reached it, so this guards it through the gate's compile of these tests for x64
+// (`selftest --compile-only --target=x64-windows`): the compile is the test, and the call below only runs it.
+function bracketQuoted(s String) returns String
+	return "<{s}>"
+end 'bracketQuoted'
+
+function bracketNumbered(v Count) returns String
+	return "#{v}"
+end 'bracketNumbered'
+
+function bracketReport(a String, b Count, c String, d Count, e String, why String) returns Count
+	if why != "" 'broken'
+		panic("rules: from {bracketQuoted(a)}, {bracketNumbered(b)} gives {bracketQuoted(c)}{why}, but {bracketNumbered(d)} can become {bracketQuoted(e)}")
+	end 'broken'
+	return d
+end 'bracketReport'
+
+function bracketSpread(a Count, b Count, c Count, d Count, e Count, f Count, why String) returns Count
+	if why != "" 'broken'
+		panic("rules: {bracketNumbered(a)} and {bracketNumbered(b)} and {bracketNumbered(c)} and {bracketNumbered(d)} and {bracketNumbered(e)} and {bracketNumbered(f)} and {bracketNumbered(a)}{why}")
+	end 'broken'
+	return f
+end 'bracketSpread'
+
+test 'a panic message of interpolated calls compiles'
+	expectCount("bracket", what: "report", got: bracketReport("x", b: 1, c: "y", d: 3, e: "z", why: ""), want: 3)
+	expectCount("bracket", what: "spread", got: bracketSpread(1, b: 2, c: 3, d: 4, e: 5, f: 6, why: ""), want: 6)
+end 'a panic message of interpolated calls compiles'
