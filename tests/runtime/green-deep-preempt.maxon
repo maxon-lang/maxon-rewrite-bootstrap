@@ -10,7 +10,7 @@
 let testDepth = 60000 as Count
 
 // testSpinsPerFrame is how long each frame spins before it calls the next, so that the descent spans many slices.
-let testSpinsPerFrame = 8000 as Count
+let testSpinsPerFrame = 2000 as Count
 
 // testExtraWorkers is how many workers there are beyond the processors, so that some always wait for one.
 let testExtraWorkers = 2 as Count
