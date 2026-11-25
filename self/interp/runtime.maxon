@@ -377,14 +377,20 @@ function execBounds(mutates vm Vm, x ir.Instr)
 	end 'failed'
 end 'execBounds'
 
+// provenOutside is the violation of an access that no check guards, because the checker proved its index in range, at an
+// index that is not: so the proof is wrong.
+function provenOutside(mutates vm Vm, what String, index Count, count Count) returns Halt
+	return violation(vm, kind: provenAccess, message: "{what} at index {index}, count {count}: the access has no check, and the checker's proof that the index is in range is wrong")
+end 'provenOutside'
+
 // elementCell is the place of the element at an index of an array of words, which a Bounds or the checker has checked: an
-// index past the end here is a compiler bug.
+// index past the end here is a proof that was wrong.
 function elementCell(mutates vm Vm, arr ir.Reg, index ir.Reg, what String) returns Count throws Halt
 	let a = try collection(vm, o: vm.ref(arr), kind: kindArray, what: what)
 	let i = ir.bitsOfWord(vm.num(index))
 	let data = vm.h.oData[a]
 	if i >= vm.h.elements[data].count() 'outside'
-		panic("interp: {what} at an index that no check let through")
+		throw provenOutside(vm, what: what, index: i, count: vm.h.elements[data].count())
 	end 'outside'
 	return vm.h.elements[data][i]
 end 'elementCell'
@@ -420,7 +426,7 @@ function bufferByte(mutates vm Vm, o Count, i Count) returns Byte throws Halt
 	let b = try collection(vm, o: o, kind: kindBytes, what: "a byte read")
 	let data = vm.h.oData[b]
 	if i >= vm.h.buffers[data].count() 'outside'
-		panic("interp: a byte read at an index that no check let through")
+		throw provenOutside(vm, what: "a byte read", index: i, count: vm.h.buffers[data].count())
 	end 'outside'
 	return vm.h.buffers[data][i]
 end 'bufferByte'
@@ -428,7 +434,7 @@ end 'bufferByte'
 function textByte(mutates vm Vm, o Count, i Count) returns Byte throws Halt
 	let at = try textIndex(vm, o: o, what: "a string byteAt")
 	if i >= vm.h.texts[at].byteLength() 'outside'
-		panic("interp: a string byte read at an index that no check let through")
+		throw provenOutside(vm, what: "a string byte read", index: i, count: vm.h.texts[at].byteLength())
 	end 'outside'
 	return vm.h.texts[at].byteAt(i)
 end 'textByte'
@@ -614,7 +620,7 @@ end 'entryArrayFill'
 // entryArrayReserve changes nothing the interpreter's model of an array has: a buffer's capacity is no part of it.
 // entryArrayCapacity is the native runtime's buffer, which the interpreter does not model: an array here is its elements.
 function entryArrayCapacity(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	panic("interp: an array's capacity is the native runtime's buffer, which the interpreter does not model")
+	throw unmodelled(vm, what: "an array's capacity is the native runtime's buffer, which the interpreter does not model")
 end 'entryArrayCapacity'
 
 function entryArrayReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt

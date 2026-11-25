@@ -41,6 +41,9 @@ let fatalViolation = 2 as Count
 
 let fatalTimeout = 3 as Count
 
+// fatalUnmodelled is a program that uses what the native runtime does and the interpreter has no model of.
+let fatalUnmodelled = 4 as Count
+
 // noFailure is what failTo holds when the last instruction did not fail.
 let noFailure = -1 as ir.Word
 

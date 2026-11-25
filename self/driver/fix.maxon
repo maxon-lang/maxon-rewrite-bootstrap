@@ -878,7 +878,7 @@ function codeMismatchOf(shared SharedRuntimes, exe String, test SpecTest, text S
 	end 'noError'
 	let source = text.sliceBytes(test.sourceStart, endPos: test.sourceFinish)
 	var errs = diag.ErrorList.create(0)
-	compileSpecSource(shared[at], exe: exe, test: test, source: source, sections: splitSections(source), verifies: false, errs: errs)
+	_ = compileSpecSource(shared[at], exe: exe, test: test, source: source, sections: splitSections(source), verifies: false, keepsLowered: false, errs: errs)
 	if errs.count() == 0 'compiled'
 		left = discarded(exe)
 		return table.Option.none

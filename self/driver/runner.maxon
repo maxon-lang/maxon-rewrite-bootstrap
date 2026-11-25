@@ -186,15 +186,18 @@ type CorpusPending
 	end 'make'
 end 'CorpusPending'
 
-// SpecPending is a test of a spec file that compiled, whose executable is run once.
+// SpecPending is a test of a spec file that compiled, whose executable is run once, and then, when the run is of the interpreter
+// too (interprets), what it lowered runs under the interpreter.
 type SpecPending
 	var index as Count
 	var exe as String
 	var test as SpecTest
 	var file as Count
+	var compiled as CompiledProgram
+	var interprets as bool
 
-	static function make(index Count, consumes exe String, consumes test SpecTest, file Count) returns SpecPending
-		return SpecPending{index: index, exe: exe, test: test, file: file}
+	static function make(index Count, consumes exe String, consumes test SpecTest, file Count, consumes compiled CompiledProgram, interprets bool) returns SpecPending
+		return SpecPending{index: index, exe: exe, test: test, file: file, compiled: compiled, interprets: interprets}
 	end 'make'
 end 'SpecPending'
 
@@ -518,8 +521,11 @@ function runCompiledProgram(bench frozen with Bench, consumes pending CorpusPend
 end 'runCompiledProgram'
 
 function runSpecPending(bench frozen with Bench, consumes pending SpecPending)
-	let result = checkSpecRun(pending.test, text: bench.files[pending.file].text, exe: pending.exe, directory: bench.corpus.workingDirectory)
+	var result = checkSpecRun(pending.test, text: bench.files[pending.file].text, exe: pending.exe, directory: bench.corpus.workingDirectory)
 	releaseExecutable(bench)
+	if result.outcome != TestOutcome.testFailed and pending.interprets 'interpreted'
+		result = interpretedViolations(pending.compiled)
+	end 'interpreted'
 	var finished = Finished.make(result)
 	finished.left = discarded(pending.exe)
 	settleJob(bench, index: pending.index, finished: finished)

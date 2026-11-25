@@ -421,6 +421,42 @@ test 'a moved element is owned by the caller'
 	expectViolation("moved element", out: runMain(p, main: b.ret(zero)), kind: "leak", fragments: says("", b: "", c: "", d: ""))
 end 'a moved element is owned by the caller'
 
+// elementReadAt is main's IR with one element, 7, in an array, and a read of the element at index with no Bounds before it,
+// as an access the checker proved in range is lowered.
+function elementReadAt(index ir.Word) returns Outcome
+	var p = ir.irProject()
+	var b = Fn.new(p, name: "main", convs: ir.convs0())
+	let a = b.runtime(ir.Rt.rtArrayNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
+	let zero = b.konst(0)
+	let seven = b.konst(7)
+	_ = b.runtime(ir.Rt.rtArrayInsert, kind: ir.IrKind.kindScalar, args: regs3(a, b: zero, c: seven))
+	let at = b.konst(index)
+	let loaded = b.reg(ir.IrKind.kindScalar)
+	b.emit(ir.newElemLoad(loaded, arr: a, index: at, shift: ir.wordElementShift))
+	b.drop(a)
+	return runMain(p, main: b.ret(loaded))
+end 'elementReadAt'
+
+test 'a proven access in range reports nothing'
+	expectClean("proven in range", out: elementReadAt(0), exit: 7)
+end 'a proven access in range reports nothing'
+
+test 'a proven access out of range is a violation that names the access'
+	expectViolation("proven past the end", out: elementReadAt(1), kind: "proven access out of range", fragments: says("function main", b: "a read of an element at index 1, count 1", c: "the checker's proof that the index is in range is wrong", d: ""))
+end 'a proven access out of range is a violation that names the access'
+
+test 'a use of what the interpreter does not model ends the run as unmodelled'
+	var p = ir.irProject()
+	var b = Fn.new(p, name: "main", convs: ir.convs0())
+	let a = b.runtime(ir.Rt.rtArrayNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
+	_ = b.runtime(ir.Rt.rtArrayCapacity, kind: ir.IrKind.kindScalar, args: ir.regs1(a))
+	let zero = b.konst(0)
+	let out = runMain(p, main: b.ret(zero))
+	if not out.unmodelled or out.violations.count() != 0 or not table.contains(out.stderr, fragment: "capacity") 'wrong'
+		panic("unmodelled: {out.unmodelled}, {out.violations.count()} violations, stderr {out.stderr}")
+	end 'wrong'
+end 'a use of what the interpreter does not model ends the run as unmodelled'
+
 test 'a checked add that overflows goes to its failure block'
 	var p = ir.irProject()
 	var b = Fn.new(p, name: "main", convs: ir.convs0())

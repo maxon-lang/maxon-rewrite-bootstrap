@@ -275,7 +275,7 @@ function compareNative(shared SharedRuntime, source String, outcome GeneratedRun
 	var options = Options.new()
 	options.countAllocations = true
 	var errs = diag.ErrorList.create(0)
-	compileSourceWith(shared, path: generatedPath, text: source, output: exe, options: options, errs: errs)
+	_ = compileSourceWith(shared, path: generatedPath, text: source, output: exe, options: options, errs: errs)
 	diag.sortErrors(errs)
 	if errs.count() > 0 'failed'
 		if not onlyInterpreterErrors(errs) 'other'

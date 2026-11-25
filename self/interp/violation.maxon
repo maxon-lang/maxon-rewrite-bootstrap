@@ -2,11 +2,12 @@
 // so a violation means the checker, or lowering, has a hole.
 
 // Halt is what ends the run before main returns, all of which leave their cause in the Vm: a violation, a trap or the exit
-// of the program, and the step limit.
+// of the program, the step limit, and a feature of the native runtime that the interpreter has no model of.
 enum Halt implements Error
 	violated
 	exited
 	timedOut
+	unmodelled
 end 'Halt'
 
 // The kinds of violation.
@@ -41,6 +42,10 @@ let immutability = 8 as Count
 // count is a frozen value or a cown whose count of owners is wrong: freed while a place still holds it, or lowered past 0.
 let countWrong = 9 as Count
 
+// provenAccess is an element or byte read or address, lowered with no check because the checker proved the index in range,
+// at an index that is not.
+let provenAccess = 10 as Count
+
 function violationName(kind Count) returns String
 	return match kind 'k'
 		0 gives "use after free"
@@ -53,6 +58,7 @@ function violationName(kind Count) returns String
 		7 gives "data race"
 		8 gives "change to a frozen value"
 		9 gives "reference count"
+		10 gives "proven access out of range"
 		default gives panic("interp: {kind} is no kind of violation")
 	end 'k'
 end 'violationName'

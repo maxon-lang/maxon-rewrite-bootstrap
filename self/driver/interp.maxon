@@ -11,6 +11,9 @@ let violationExitCode = 4 as ExitCode
 
 let timeoutExitCode = 5 as ExitCode
 
+// unmodelledExitCode ends a program that uses what the native runtime does and the interpreter does not model.
+let unmodelledExitCode = 6 as ExitCode
+
 // parseSeed is the number a seed flag gives, as Go's strconv.ParseInt reads it in base 10: an optional sign and digits.
 function parseSeed(text String) returns table.Option with Count
 	var at = 0 as Count
@@ -105,6 +108,9 @@ function interpLoaded(consumes loadedProject ast.Project, seed ir.Word, wantFree
 		printError("timed out\n")
 		return timeoutExitCode
 	end 'timedOut'
+	if out.unmodelled 'unmodelled'
+		return unmodelledExitCode
+	end 'unmodelled'
 	return interp.exitStatus(out.exitCode)
 end 'interpLoaded'
 

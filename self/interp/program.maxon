@@ -97,6 +97,11 @@ export type Outcome
 	export var stderr as String
 	export var exitCode as ir.Word
 	export var timedOut as bool
+	// unmodelled is whether the run ended at a use of what the native runtime does and the interpreter does not model, which
+	// stderr names.
+	export var unmodelled as bool
+	// provenAccess is whether a violation is an access that the checker proved in range and that is not.
+	export var provenAccess as bool
 	// violations are the reports of the rules the program broke, one to each.
 	export var violations as ast.StringList
 	// frees is every value freed, in the order it was freed: a string by its text, anything else by its kind. Only a run that
@@ -107,7 +112,7 @@ export type Outcome
 	export var steps as Count
 
 	static function new() returns Outcome
-		return Outcome{stdout: "", stderr: "", exitCode: 0, timedOut: false, violations: ast.StringList.create(0), frees: ast.StringList.create(0), behaviours: 0, steps: 0}
+		return Outcome{stdout: "", stderr: "", exitCode: 0, timedOut: false, unmodelled: false, provenAccess: false, violations: ast.StringList.create(0), frees: ast.StringList.create(0), behaviours: 0, steps: 0}
 	end 'new'
 end 'Outcome'
 
@@ -212,9 +217,14 @@ export function run(p ast.Project, modules ModuleFunctions, entry ast.FuncID, st
 		out.exitCode = job.m.vm.exitCode
 	end 'exited' else if job.m.vm.fatal == fatalTimeout 'timedOut'
 		out.timedOut = true
-	end 'timedOut'
+	end 'timedOut' else if job.m.vm.fatal == fatalUnmodelled 'unmodelled'
+		out.unmodelled = true
+	end 'unmodelled'
 	for i in 0 upto job.m.vm.violations.count() 'violations'
 		out.violations.push(violationText(p, modules: modules, paths: paths, vm: job.m.vm, v: job.m.vm.violations[i]))
+		if job.m.vm.violations[i].kind == provenAccess 'proven'
+			out.provenAccess = true
+		end 'proven'
 	end 'violations'
 	if wantFrees 'frees'
 		for i in 0 upto job.m.vm.frees.count() 'each'

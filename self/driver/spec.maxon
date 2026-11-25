@@ -76,6 +76,9 @@ let skipPassedFlag = "--skip-passed"
 
 let requirePassedFlag = "--require-passed"
 
+// The flag that has each spec test run under the interpreter as well, which fails it for a proven access out of range (interpretedViolations).
+let interpretFlag = "--interpret"
+
 // The flags that keep the result of every test in a file, and that replay such a file instead of running the tests.
 let saveResultsFlag = "--save-results="
 
@@ -1259,7 +1262,7 @@ function stageSpecTest(shared SharedRuntime, host SharedRuntime, job SpecJob, fi
 	let source = file.text.sliceBytes(job.test.sourceStart, endPos: job.test.sourceFinish)
 	let sections = splitSections(source)
 	var errs = diag.ErrorList.create(0)
-	compileSpecSource(shared, exe: exe, test: job.test, source: source, sections: sections, verifies: options.verifiesIr, errs: errs)
+	let compiled = compileSpecSource(shared, exe: exe, test: job.test, source: source, sections: sections, verifies: options.verifiesIr, keepsLowered: options.interprets, errs: errs)
 	let checked = checkSpecTest(job.test, text: file.text, stem: file.stem, errs: errs, sections: sections)
 	if options.compilesOnly 'compiledOnly'
 		if buildsDebugInfo(job.test) and errs.count() == 0 'sidecar'
@@ -1285,7 +1288,7 @@ function stageSpecTest(shared SharedRuntime, host SharedRuntime, job SpecJob, fi
 			return doneBuilt(TestResult.failed(fault.unwrap()), exe: exe, built: true)
 		end 'unwalkable'
 	end 'sidecar'
-	return Staged.needsRun(PendingRun.spec(SpecPending.make(index, exe: exe.clone(), test: job.test.clone(), file: job.file)))
+	return Staged.needsRun(PendingRun.spec(SpecPending.make(index, exe: exe.clone(), test: job.test.clone(), file: job.file, compiled: compiled, interprets: options.interprets)))
 end 'stageSpecTest'
 
 // compiledOnlyFailure is what a spec test that a compile-only run compiled for another target than the host, and that did not
@@ -1298,7 +1301,7 @@ function compiledOnlyFailure(host SharedRuntime, test SpecTest, file SpecFile, e
 		return doneBuilt(TestResult.unsupported(hostFailsReason), exe: exe, built: built)
 	end 'host'
 	var errs = diag.ErrorList.create(0)
-	compileSpecSource(host, exe: exe, test: test, source: source, sections: sections, verifies: false, errs: errs)
+	_ = compileSpecSource(host, exe: exe, test: test, source: source, sections: sections, verifies: false, keepsLowered: false, errs: errs)
 	let hostBuilt = errs.count() == 0
 	if buildsDebugInfo(test) and hostBuilt 'sidecar'
 		discardSidecar(exe)
@@ -1316,22 +1319,29 @@ let hostFailsReason = "does not compile as its blocks say for the host either"
 // compileSpecSource compiles the maxon block of a test, split into sections, as the runner does: a fragment under maxon's
 // header line, or the files of a multi-file block. An executable is made at exe when there is no error; verifies checks
 // the IR and the allocation of every function (--verify-ir).
-function compileSpecSource(shared SharedRuntime, exe String, test SpecTest, source String, sections SourceSections, verifies bool, mutates errs diag.ErrorList)
+function compileSpecSource(shared SharedRuntime, exe String, test SpecTest, source String, sections SourceSections, verifies bool, keepsLowered bool, mutates errs diag.ErrorList) returns CompiledProgram
 	var options = testOptions()
 	options.verifyIr = verifies
 	options.stagesInLibrary = stagedInLibrary(test)
 	options.debugInfo = buildsDebugInfo(test)
-	if not options.debugInfo 'cached'
+	options.keepsLowered = keepsLowered
+	// The cache holds a library module as code, and the interpreter runs the IR of every module the program reaches.
+	if not options.debugInfo and not keepsLowered 'cached'
 		options.cacheDir = shared.cacheDir.clone()
 		options.compiler = shared.compiler.clone()
 		options.speculates = shared.cacheDir != ""
 	end 'cached'
+	var compiled as CompiledProgram
 	if sections.count() == 0 'single'
 		let fragment = "{fragmentHeader}{test.name}\n{source}\n"
-		compileSourceWith(shared, path: fragmentToken, text: fragment, output: exe, options: options, errs: errs)
+		compiled = compileSourceWith(shared, path: fragmentToken, text: fragment, output: exe, options: options, errs: errs)
 	end 'single' else 'project'
-		compileFilesWith(shared, path: projectRoot, files: sectionFiles(sections), output: exe, options: options, errs: errs)
+		compiled = compileFilesWith(shared, path: projectRoot, files: sectionFiles(sections), output: exe, options: options, errs: errs)
 	end 'project'
+	if not keepsLowered 'dropped'
+		return CompiledProgram.nothing()
+	end 'dropped'
+	return compiled
 end 'compileSpecSource'
 
 // expectedFirstCode is the code of the first error that the test's maxoncstderr block lists, or nothing when the test

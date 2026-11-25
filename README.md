@@ -118,7 +118,7 @@ the step that fails, with the gate's own output.
 | `minimaxon run <file\|dir>` | compile to the compiler's directory of the temporary directory (`minimaxon`, under `TEMP` on Windows and `TMPDIR` elsewhere, where every executable the compiler and its tests build goes, so that a scanner can be told to leave that one directory alone), as `minimaxon-run-<process id>-<name>.exe`, and run; exits with the program's code |
 | `minimaxon check [--tests] <file\|dir>` | diagnostics only, exit code 1 when there are any; `check runtime` checks the runtime's source and holds it to the functions the compiler calls (see "The runtime"); `--tests` checks every module's files of tests (`.maxtest`) with its source |
 | `minimaxon test [--update-positions] [--behaviours] [--repeat=N] [--worker-counts=N,N,...] [--env-runner=path] [--executables=N] [--target=<arch>-<os>] [dir]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests"), compiled for the target and run through its runner |
-| `minimaxon test <specs-dir\|file.md> [--verbose] [--require-passed\|--skip-passed] [--record-passed] [--executables=N]` | run maxon's spec tests (see "Tests") |
+| `minimaxon test <specs-dir\|file.md> [--verbose] [--interpret] [--require-passed\|--skip-passed] [--record-passed] [--executables=N]` | run maxon's spec tests (see "Tests") |
 | `minimaxon test <module dir>` | run the tests of the modules under the directory: the `test` declarations of their files of tests (`.maxtest`), compiled with the modules they name and the runtime into one executable whose entry calls each, which is then run (see "Tests") |
 | `minimaxon selftest` | run the compiler's own tests: `test self`, from the root of the repository |
 | `minimaxon debug --symbolize <exe> <offset\|rip=0x<address>>...` | name the function, `file:line:column` and the inlined calls of code offsets (decimal or `0x` hex) of an executable that `build --debug-info` made, or of the address of a fault line, from the sidecar beside it, refusing one that describes another build (see "Debug info") |
@@ -318,8 +318,8 @@ every program compiled with arm64's selection and allocation held to their invar
 the `qemu-aarch64` that WSL has registered with binfmt_misc), every program of `tests/bench/` compiled, and none run, with `--verify-ir` for each of the four targets (`test testsench --target=<target> --verify-ir --compile-only`), the compiler's own source
 built, and not run, for `arm64-linux` and `arm64-macos` (`build self --target=<target> --verify-ir --no-cache`), the corpus compiled, and none run, for each target whose executables the host does not run (on the Mac `x64-windows`, `x64-linux` and `arm64-linux`; `test --compile-only --target=<target>`, with `--verify-ir` for arm64: a compiler panic fails it), and every spec test compiled, and none run, for the one foreign target that `specsCompiledFor` in `cmd/gate` names for the host, the one no other lane runs them for (`x64-windows` on the Mac, `arm64-macos` on Windows, none on Linux; `test specs --compile-only --target=<target>`: a spec test must compile as its blocks say wherever the host's compile of it does), the build cache (a project whose main inlines a leaf of the module it names, built cold, warm and after
 an edit of the leaf that the order mispredicts, on every worker and on one, each executable held to the uncached build of the same
-source, and `--verify-cache`), the debug info (programs built for each target and `self` for x64 Windows with and without `--debug-info`, each executable the same and every span verified, and a stack overflow's `rip=` symbolized to its line on x64 Windows, x64 Linux and arm64 Linux; see "Debug info"), every spec test (`test specs --require-passed`, which fails when a test that `specs/passed.txt` lists does not pass, and
-counts the new passes), and `fuzz` (300 generated programs, each one the checker accepts run clean under the interpreter). It stops at the
+source, and `--verify-cache`), the debug info (programs built for each target and `self` for x64 Windows with and without `--debug-info`, each executable the same and every span verified, and a stack overflow's `rip=` symbolized to its line on x64 Windows, x64 Linux and arm64 Linux; see "Debug info"), every spec test (`test specs --interpret --require-passed`, which fails when a test that `specs/passed.txt` lists does not pass,
+counts the new passes, and runs each test that passes under the interpreter too, for a proven access out of range alone), and `fuzz` (300 generated programs, each one the checker accepts run clean under the interpreter). It stops at the
 first step that fails. That the compiler reproduces itself (the seed builds C1, C1 builds C2, C2 builds C3, and C3 is
 byte-identical to C2) is checked where the seeds are renewed, `.\seed.ps1`, which then runs the same suites on C2 and
 proves the Linux seed under WSL and the macOS seed on the Mac (`seed/README.md`).
@@ -2176,8 +2176,16 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   (a slot that was moved out of or never assigned, read again), a value with two owners or one that is freed or returned while
   another owner holds it, a stale borrow (an element's address used after its structure changed), exclusivity (two arguments
   that reach one place where one of them can be changed, or a change to a place that a borrow a call is still waiting to use
-  reaches), and three that only threads can break (below). A violation in a program the checker accepted is a hole in the
-  checker or in lowering. It stops the run; a leak is found at the end.
+  reaches), a proven access out of range, and three that only threads can break (below). A violation in a program the checker
+  accepted is a hole in the checker or in lowering. It stops the run; a leak is found at the end.
+- **Proven accesses.** The expanded IR (`self/opt/expand.maxon`) reads an element or a byte with no `bounds` before it where the
+  checker proved the index in range; the interpreter keeps the length test on that read (`ElemAddr`, `ElemLoad`, `LoadByte`),
+  and an index that fails it is the violation `proven access out of range`, which names the access, the index and the count
+  (`a read of an element at index 5, count 5`) at the function, block and instruction. Every read whose check came first
+  never reaches it, so the violation is always a wrong proof. The test is the interpreter's own, so it costs a compiled program
+  nothing. `test specs --interpret` (the gate's spec run passes it) runs each spec test that passes under the interpreter too,
+  compiled uncached since the cache keeps a library module as code, and fails it for a proven access out of range alone: its output and exit code are the executable's to give, and the rules of the memory model are the corpus's to hold programs to. The interpreter
+  acts in the directory it runs in, so the gate starts the run from a scratch directory
 - **Threads.** `main` is the first thread; a `when` makes a behaviour that is queued on each cown it names, in the order
   behaviours were scheduled, and that becomes a thread once it is first in all of those queues. A thread is a stack of frames
   that a loop runs only while the scheduler has given it the turn, so exactly one thread executes at any moment and a run is
@@ -2200,7 +2208,10 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   the order of the frees, so it is deterministic (`interp --frees` lists them, on standard error).
 - **Traps** behave as the executable does: `rt.panic`, an index out of range, a stale slot key, a collection ended with `dropEmpty`
   while it holds an element and a behaviour that names one cown twice write to standard error and exit with 1; the same
-  standard output and the same exit code. A trap is not a violation. A violation, a trap and a timeout end the run through a
+  standard output and the same exit code. A program that uses what the native runtime does and the interpreter does not model
+  (an array's capacity, deleting a directory, a child's input) ends the run as `unmodelled`, which `interp` exits with 6 and
+  the corpus fails, and the spec run leaves as it is. A trap is not a violation (an index that a check rejects is a trap; one that no
+  check guards is a violation, above). A violation, a trap and a timeout end the run through a
   `Halt` that every function of the run throws.
 - **How the tests use it.** `minimaxon test` runs every program under it, under 20 schedules when the program schedules
   behaviours, and requires the same stdout and exit code as the directives and no violation. `self/interp/interp.maxtest` tests it on

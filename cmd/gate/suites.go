@@ -530,6 +530,10 @@ var (
 	specStamp   = filepath.Join("bin", "spec-results.stamp")
 )
 
+// specInterpretFlag has every spec test that passes run under the interpreter too, which fails it for a proven access out of
+// range: a read the checker proved in range, lowered with no check, that is out of range shows there and nowhere else.
+const specInterpretFlag = "--interpret"
+
 // replayRefusedCode is the runner's code when it refuses results that are not those of its tests (replayRefusedExitCode in
 // self/driver).
 const replayRefusedCode = 3
@@ -554,7 +558,7 @@ func specStampOf(compiler string) (string, error) {
 	for _, name := range specStampEnvironment {
 		env = append(env, name+"="+os.Getenv(name))
 	}
-	return fmt.Sprintf("compiler %s\ninputs %s\nflags \nenvironment %s", compilerSum, inputs, strings.Join(env, " ")), nil
+	return fmt.Sprintf("compiler %s\ninputs %s\nflags %s\nenvironment %s", compilerSum, inputs, specInterpretFlag, strings.Join(env, " ")), nil
 }
 
 // specRun runs every spec test with the flag that says what the run makes of the results (--require-passed or
@@ -565,8 +569,15 @@ func specRun(compiler, classifying string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
+	// The interpreter acts in the directory it is started in, where the spec tests that write files would leave them.
+	dir, err := scratchDir("minimaxon-specs-")
+	if err != nil {
+		return "", "", err
+	}
+	defer os.RemoveAll(dir)
+	specs := abs("specs")
 	if isFile(specResults) && stampHolds(specStamp, stamp) {
-		out, err := output(nil, "", compiler, "test", "specs", "--replay-results="+abs(specResults), classifying)
+		out, err := output(nil, dir, compiler, "test", specs, "--replay-results="+abs(specResults), classifying)
 		var exit *exec.ExitError
 		if !errors.As(err, &exit) || exit.ExitCode() != replayRefusedCode {
 			return out, fmt.Sprintf("replayed: the results of the run that stamp %s was written for, kept in %s", stampID(stamp), specResults), err
@@ -578,7 +589,7 @@ func specRun(compiler, classifying string) (string, string, error) {
 	if err := os.MkdirAll("bin", 0o755); err != nil {
 		return "", "", err
 	}
-	out, runErr := output(nil, "", compiler, "test", "specs", "--save-results="+abs(specResults), classifying)
+	out, runErr := output(nil, dir, compiler, "test", specs, specInterpretFlag, "--save-results="+abs(specResults), classifying)
 	// A run ends with the runner's code 0 (all as required) or 1 (a test did not pass); another code is a crash or a refusal.
 	var exit *exec.ExitError
 	ended := runErr == nil || errors.As(runErr, &exit) && exit.ExitCode() == 1

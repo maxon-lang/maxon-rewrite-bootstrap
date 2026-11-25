@@ -192,6 +192,11 @@ type CompiledProgram
 	static function make(consumes p ast.Project, consumes generated Generated) returns CompiledProgram
 		return CompiledProgram{p: p, generated: generated}
 	end 'make'
+
+	// nothing is the program that was not kept for the interpreter.
+	static function nothing() returns CompiledProgram
+		return CompiledProgram{p: ast.Project.new(""), generated: Generated.nothing()}
+	end 'nothing'
 end 'CompiledProgram'
 
 // compileProjectWith is compileProject for a compile that makes an executable of the project at path, on the runtime that
@@ -209,21 +214,23 @@ function compileProjectWith(shared SharedRuntime, path String, output String, op
 end 'compileProjectWith'
 
 // compileFilesWith is compileProjectWith for a project whose files are held in memory, as the directory at path holds them.
-function compileFilesWith(shared SharedRuntime, path String, files project.SourceFiles, output String, options Options, mutates errs diag.ErrorList)
+function compileFilesWith(shared SharedRuntime, path String, files project.SourceFiles, output String, options Options, mutates errs diag.ErrorList) returns CompiledProgram
 	var p = shared.projectForProgram()
 	p.keepsSpans = options.debugInfo
 	let first = p.modules.count()
 	project.discoverFilesInto(p, rootPath: path, files: files, errs: errs)
-	_ = compileDiscovered(p, memory: files, first: first, ready: shared.ready, output: output, options: options, errs: errs)
+	let generated = compileDiscovered(p, memory: files, first: first, ready: shared.ready, output: output, options: options, errs: errs)
+	return CompiledProgram.make(p, generated: generated)
 end 'compileFilesWith'
 
 // compileSourceWith is compileProjectWith for a program that is the one file text, named path in the diagnostics.
-function compileSourceWith(shared SharedRuntime, path String, text String, output String, options Options, mutates errs diag.ErrorList)
+function compileSourceWith(shared SharedRuntime, path String, text String, output String, options Options, mutates errs diag.ErrorList) returns CompiledProgram
 	var p = shared.projectForProgram()
 	p.keepsSpans = options.debugInfo
 	let first = p.modules.count()
 	let memory = project.discoverSourceInto(p, path: path, text: text, errs: errs)
-	_ = compileDiscovered(p, memory: memory, first: first, ready: shared.ready, output: output, options: options, errs: errs)
+	let generated = compileDiscovered(p, memory: memory, first: first, ready: shared.ready, output: output, options: options, errs: errs)
+	return CompiledProgram.make(p, generated: generated)
 end 'compileSourceWith'
 
 // compileRuntimeTest compiles a test of the runtime: the file is compiled as one more file of the runtime's module,

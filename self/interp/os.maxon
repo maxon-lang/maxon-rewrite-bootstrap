@@ -377,7 +377,7 @@ end 'entryOsCreateDirectory'
 
 // entryOsDeleteDirectory halts: the interpreter removes no directory, so a program that does says `// native-only`.
 function entryOsDeleteDirectory(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	panic("interp: Directory.delete is not run by the interpreter: mark the program native-only")
+	throw unmodelled(vm, what: "Directory.delete is not run by the interpreter: mark the program native-only")
 end 'entryOsDeleteDirectory'
 
 function entryOsList(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
@@ -517,7 +517,7 @@ end 'runChild'
 
 // entryOsRunInput halts: the interpreter gives no child an input of its own, so a program that does says `// native-only`.
 function entryOsRunInput(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	panic("interp: Subprocess.runWithInput is not run by the interpreter: mark the program native-only")
+	throw unmodelled(vm, what: "Subprocess.runWithInput is not run by the interpreter: mark the program native-only")
 end 'entryOsRunInput'
 
 // entryOsReadStdin gives up to the count asked of the standard input the run was given, and nothing at its end.
@@ -600,8 +600,8 @@ end 'entryDebugTerminate'
 
 // The interpreter runs inside the process that interprets it, whose priority a program it runs is not to change: a program that
 // asks is marked native-only.
-function entryOsEnterBackgroundPriority(mutates vm Vm, f ir.IrFunction, x ir.Instr)
-	panic("interp: the interpreter does not change the compiler's priority: mark the program native-only")
+function entryOsEnterBackgroundPriority(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw unmodelled(vm, what: "the interpreter does not change the compiler's priority: mark the program native-only")
 end 'entryOsEnterBackgroundPriority'
 
 function debugPortNotInterpreted()

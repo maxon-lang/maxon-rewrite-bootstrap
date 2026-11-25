@@ -97,6 +97,15 @@ function timeout(mutates vm Vm) returns Halt
 	return Halt.timedOut
 end 'timeout'
 
+// unmodelled ends the run at a use of what the native runtime does and the interpreter has no model of, which is no verdict on
+// the program: the outcome says so (Outcome.unmodelled), with what it was in its standard error, and a caller decides what
+// that is worth.
+function unmodelled(mutates vm Vm, what String) returns Halt
+	vm.stderr.append("interp: {what}\n".toByteArray())
+	vm.fatal = fatalUnmodelled
+	return Halt.unmodelled
+end 'unmodelled'
+
 function requireLive(mutates vm Vm, o Count, what String) throws Halt
 	if vm.h.oFreed[o] 'freed'
 		let message = "{objectText(vm, o: o)} is {what} after it was freed at {siteText(vm, site: vm.h.oFreedAt[o])}"

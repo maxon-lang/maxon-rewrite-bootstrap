@@ -460,6 +460,8 @@ type CorpusOptions
 	var verifiesIr as bool
 	// compilesOnly makes every program one that is only compiled.
 	var compilesOnly as bool
+	// interprets has each spec test that passes run under the interpreter too, as the corpus's programs always are.
+	var interprets as bool
 	// workerCounts are the worker counts each executable runs under, and envRunner the program that sets one for it alone: none
 	// of them leaves the executables the environment of the runner.
 	var workerCounts as CountList
@@ -469,19 +471,20 @@ type CorpusOptions
 	var workingDirectory as String
 
 	static function new() returns CorpusOptions
-		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, repeats: behaviourRuns, target: hostTarget(), runner: TargetRunner.native, verifiesIr: false, compilesOnly: false, workerCounts: CountList.create(0), envRunner: "", workingDirectory: inheritedDirectory}
+		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, repeats: behaviourRuns, target: hostTarget(), runner: TargetRunner.native, verifiesIr: false, compilesOnly: false, interprets: false, workerCounts: CountList.create(0), envRunner: "", workingDirectory: inheritedDirectory}
 	end 'new'
 end 'CorpusOptions'
 
 // testCommand is `test [dir|file.md] [--verbose] [--update-positions] [--behaviours] [--repeat=N] [--executables=N]
-// [--compile-only] [--skip-passed] [--require-passed] [--record-passed] [--save-results=file] [--replay-results=file]`: the corpus is the given directory of programs, or the spec files at the given path, or
+// [--compile-only] [--interpret] [--skip-passed] [--require-passed] [--record-passed] [--save-results=file] [--replay-results=file]`: the corpus is the given directory of programs, or the spec files at the given path, or
 // else the nearest tests directory from the executable's upward. With --update-positions a test whose expect-error got its
 // code at another place has the directive rewritten to that place, as after a change that only moves code, such as renaming
 // a keyword. --behaviours runs only the programs that schedule behaviours, natively, and --repeat runs the executable of each
 // such program N times. --executables lets at most N test executables run at once. The last three flags are for the spec
 // files: one leaves out the tests that the list of the tests that pass has, one fails the run when one of them does not
 // pass, and one writes the list. The last two keep the result of every test in a file and take them from it instead of running the
-// tests (self/driver/specresults.maxon).
+// tests (self/driver/specresults.maxon). --interpret, also for the spec files, runs each test that passes under the interpreter
+// as well, and fails it for a proven access out of range, which the checker proved in range and is not.
 function testCommand(rest CommandNames, given Options) returns ExitCode
 	var options = SpecOptions.new()
 	var corpus = CorpusOptions.new()
@@ -534,7 +537,9 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 			corpusFlags = true
 		end 'behaviours' else if rest[i] == compileOnlyFlag 'compileOnly'
 			corpus.compilesOnly = true
-		end 'compileOnly' else if hasPrefix(rest[i], prefix: repeatFlag) 'repeat'
+		end 'compileOnly' else if rest[i] == interpretFlag 'interpret'
+			corpus.interprets = true
+		end 'interpret' else if hasPrefix(rest[i], prefix: repeatFlag) 'repeat'
 			let runs = match consumes parseCount(afterPrefix(rest[i], prefix: repeatFlag)) 'runs'
 				some(n) gives n
 				none gives 0
@@ -584,6 +589,10 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 			return usageExitCode
 		end 'compileOnlyList'
 		// The spec tests' executables run only on the host, so a run for another target only compiles them.
+		if corpus.interprets and corpus.compilesOnly 'compileOnlyInterpret'
+			printError("test: {interpretFlag} runs what {compileOnlyFlag} does not run: give one\n")
+			return usageExitCode
+		end 'compileOnlyInterpret'
 		if not corpus.compilesOnly and given.target.name() != hostTarget().name() 'foreign'
 			printError("test: the spec tests run on {hostTarget().name()} only: {compileOnlyFlag} compiles them for {given.target.name()}\n")
 			return usageExitCode
@@ -592,6 +601,10 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 		corpus.verifiesIr = given.verifyIr
 		return runSpecs(path, options: options, compiling: corpus, width: width)
 	end 'specs'
+	if corpus.interprets 'interpretCorpus'
+		printError("test: {interpretFlag} is for the spec files, and the corpus always runs under the interpreter: name the specs directory\n")
+		return usageExitCode
+	end 'interpretCorpus'
 	if corpus.workerCounts.count() > 0 and corpus.envRunner == "" 'envRunnerMissing'
 		printError("test: {workerCountsFlag} needs {envRunnerFlag}, the program that sets the worker count of one executable\n")
 		return usageExitCode
@@ -852,6 +865,9 @@ function runInterpreted(compiled CompiledProgram, expect Expectation) returns Te
 		if out.timedOut 'timedOut'
 			return TestResult.failed("the interpreter timed out{atSeed}")
 		end 'timedOut'
+		if out.unmodelled 'unmodelled'
+			return TestResult.failed("the interpreter does not model what the program uses{atSeed}: {trimSpace(out.stderr)}")
+		end 'unmodelled'
 		if code != expect.exit 'exit'
 			return TestResult.failed("the interpreter exited {exitCodeText(code)}, expected {exitCodeText(expect.exit)}{atSeed}; stderr: {trimSpace(out.stderr)}")
 		end 'exit'
@@ -867,6 +883,19 @@ function runInterpreted(compiled CompiledProgram, expect Expectation) returns Te
 	end 'schedules'
 	return TestResult.passed()
 end 'runInterpreted'
+
+// interpretedViolations runs a program under the interpreter once, for the proofs of the checker alone: a read it proved in
+// range that is not fails the test. The output and the exit code are the executable's to give, which the run of it has checked
+// already; a run that outlasts the step limit, ends in a trap of the program or at what the interpreter does not model found
+// no wrong proof, and the rules of the memory model are the corpus's to hold the programs to, which the spec tests, written
+// for maxon, are not.
+function interpretedViolations(compiled CompiledProgram) returns TestResult
+	let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, seed: interp.seedOf(0), wantFrees: false, stdin: "")
+	if out.provenAccess 'wrong'
+		return TestResult.failed("the interpreter found a proof of the checker that is wrong:\n{joinLines(out.violations)}")
+	end 'wrong'
+	return TestResult.passed()
+end 'interpretedViolations'
 
 // sameLines is whether two lists hold the same lines in the same order.
 function sameLines(actual ast.StringList, expected ast.StringList) returns bool
