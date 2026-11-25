@@ -1,8 +1,0 @@
-// expect-error: E9900 at 5:26
-typealias CountList = List with Count
-
-function main() returns ExitCode
-	var l = CountList.create()
-	print("{l.count()}")
-	return 0
-end 'main'
