@@ -282,7 +282,7 @@ n=8
 ```
 
 <!-- test: error.a-global-initializer-may-not-start-a-service -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 **A GLOBAL INITIALIZER MAY NOT START A SERVICE.** `Box.start` spawns `Reader`, and a spawn is a call: no initializer
 makes one, so a service starts in `main`, or in a function `main` calls.

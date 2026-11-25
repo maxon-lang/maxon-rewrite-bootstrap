@@ -5147,7 +5147,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   A record or function raw value is a constant, as maxon's is, where a call of a literal factory is the literal filled by its
   arguments (maxon reads `Meta.create(1)` so too, never running `create`); here the factory is declared and its body must be
   one `return` of a record literal over its parameters and constants, which a constant of the module may call too, and a call
-  of a function that is no such factory is `E2045` or `E3220` (see the next item).
+  of a function that is no such factory is `E2045` or `E3220` (`create` of an array, which maxon's module `let` may call,
+  is not yet allowed: see below).
   Maxon refuses a raw value its constant evaluator cannot hold with `E2015` (a `String` or an array in the record, a field
   left out or given twice, a factory with more arguments than fields), `E3095` for a bare function name that two modules
   declare, and `E3155` for a reserved one; here the ordinary rules say what is wrong (`E3005`, `E3086`, `E3006`, `E3036`,
@@ -5155,16 +5156,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   the executable's data, which no program can tell apart since building it runs no code. `.rawValue` of such an enum or union
   is the whole record, which the reader owns, where maxon refuses it without a field
   after it (`E2015`); and the record that the enum or union exports is not held to be at least as visible as it (`E3167`).
-- **A constant calls only a literal factory.** The initializer of a module-level or `static let` calls nothing but a
-  literal factory (see "Raw values"): any other call is `E3220` (`E2045` where the result is a number, an enum or a bool),
-  `Names.create(0)` of an array among them. A constant is laid out in the executable's data or built where it is read, and
-  nothing runs before `main` (see "Constants in the data section"), so what a constant is never depends on code that runs.
-  maxon's own rule is that an initializer calls nothing, but its check counts only a call of a function the program or the
-  library declares, so a module `let` there may also call `create` of an `Array` or a `FixedArray`, which maxon builds
-  itself, and its first error in such a test is another; the spec tests that make such a call, or a raw value's call of a
-  library type's `create`, are skipped with that reason. Not yet: a case of a union with a payload (`Op.add(1)`, `Hold.owned(9)`), which maxon's
-  initializer may build and which runs no code, is refused here as a call (`E3220`), since the check refuses a member call
-  of a constant before it resolves it to a case.
+- Not yet: a module-level or `static let` that calls `create` of an `Array` or a `FixedArray` (`Names.create(0)`,
+  `Buf.create(4)`) or builds a case of a union with a payload (`Op.add(1)`, `Hold.owned(9)`), as maxon's may: maxon's
+  initializer calls no function the program or the library declares, and builds these itself. Here a constant calls nothing
+  but a literal factory (see "Raw values"), and both are refused for now with `E3220`, the second because the check refuses a
+  member call of a constant before it resolves it to a case; their spec tests fail until then.
 - **A result may be less visible than its function**, as a function of Go may return a type that is not exported: `export
   function make() returns Secret` is fine where `Secret` has no modifier, and the caller outside `Secret`'s module holds
   the value without naming the type (see "Modules"). Maxon refuses it (`E3167`), as it does a parameter, a field, a payload,

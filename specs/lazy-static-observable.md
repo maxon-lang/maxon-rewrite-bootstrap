@@ -86,7 +86,7 @@ main
 ```
 
 <!-- test: error.a-call-in-a-static-initializer-is-refused -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ### A call in a static initializer is refused
 
 ```maxon
@@ -116,7 +116,7 @@ error E3220: <fragment>:5:21: the initializer of 'Late.value' calls 'Late.build'
 ```
 
 <!-- test: error.a-call-in-a-module-level-let-initializer-is-refused -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ### A call in a module-level `let` initializer is refused
 
 ```maxon

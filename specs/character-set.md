@@ -597,7 +597,7 @@ xyz
 ```
 
 <!-- test: error.characterset-from-at-a-top-level-initializer-is-refused -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ### Error: `CharacterSet.from` at a TOP-LEVEL initializer
 A top-level initializer calls nothing, and `CharacterSet.from` is a call.
 ```maxon

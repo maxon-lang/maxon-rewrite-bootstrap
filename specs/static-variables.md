@@ -445,7 +445,7 @@ declared interface names. Such a record is never laid down as image data, becaus
 address only the lowering can name.
 
 <!-- test: error.static-struct-literal-interface-field -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Square.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -544,7 +544,7 @@ error E3005: <fragment>:12:19: field type mismatch for 'Holder.s': type 'int' do
 ```
 
 <!-- test: error.static-factory-initializer -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Row.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -820,7 +820,7 @@ error E3207: <fragment>:7:4: 'push' needs a writable receiver; 'b' is immutable
 ```
 
 <!-- test: error.top-level-let-field-map-var-alias -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Holder.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -853,7 +853,7 @@ error E3220: <fragment>:16:9: the initializer of 'H' calls 'Holder.create': a mo
 ```
 
 <!-- test: error.top-level-let-field-accessor-read-only -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Holder.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -890,7 +890,7 @@ error E3209: <fragment>:19:2: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.top-level-let-field-accessor-result-write -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Holder.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -980,7 +980,6 @@ error E3207: <fragment>:16:7: 'push' needs a writable receiver; 'pick' is immuta
 ```
 
 <!-- test: error.top-level-let-array-handed-back-as-a-map-miss-fallback -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
 <!-- positions: moved -->
 And through a call whose `otherwise` fallback is the `let` array: `pick` hands back `Empty`'s own record
 whenever the lookup misses, so its result mixes frozen and mutable data and is read-only for the caller: the write through `var mine` is E3197.
@@ -1028,7 +1027,7 @@ end 'main'
 ```
 
 <!-- test: error.top-level-let-struct-accessor-read-only -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1058,7 +1057,7 @@ error E3209: <fragment>:14:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.let-global-accessor-result-field-write -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1090,7 +1089,7 @@ error E3197: <fragment>:20:2: cannot write 'n' through 'a', which is immutable
 ```
 
 <!-- test: error.let-global-accessor-result-two-hops-of-return -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1126,7 +1125,7 @@ error E3197: <fragment>:24:2: cannot write 'n' through 'a', which is immutable
 ```
 
 <!-- test: error.let-global-passed-to-field-writing-callee -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Box.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -1155,7 +1154,7 @@ error E3220: <fragment>:12:9: the initializer of 'G' calls 'Box.make': a module-
 ```
 
 <!-- test: error.let-global-to-a-callee-that-calls-a-self-writing-method -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Box.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -1188,7 +1187,7 @@ error E3220: <fragment>:16:9: the initializer of 'G' calls 'Box.make': a module-
 ```
 
 <!-- test: error.let-global-to-a-callee-that-calls-a-self-writing-method-on-a-field -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Holder.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -1229,7 +1228,7 @@ error E3220: <fragment>:24:9: the initializer of 'G' calls 'Holder.make': a modu
 ```
 
 <!-- test: error.let-global-to-a-callee-that-pushes-into-a-container-a-call-hands-back-from-inside-it -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Holder.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1265,7 +1264,7 @@ error E3220: <fragment>:13:9: the initializer of 'G' calls 'Holder.make': a modu
 ```
 
 <!-- test: error.let-global-to-a-callee-that-pushes-into-a-var-merged-from-inside-it -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Holder.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1309,7 +1308,7 @@ error E3220: <fragment>:21:9: the initializer of 'G' calls 'Holder.make': a modu
 ```
 
 <!-- test: error.a-let-global-held-by-a-record-a-callee-builds-is-not-written-by-writing-that-record -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Guards.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1353,7 +1352,7 @@ error E3207: <fragment>:31:15: 'mint' takes `immutable` 'guards' (line 25: `var 
 ```
 
 <!-- test: error.let-global-accessor-result-to-field-writing-callee -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1389,7 +1388,7 @@ error E3207: <fragment>:24:7: 'bump' writes 'b' (line 19: `b.n = 99`); 'a' is im
 ```
 
 <!-- test: error.let-global-to-callee-that-forwards-the-write -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Box.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -1790,7 +1789,7 @@ error E3197: <fragment>:27:2: cannot write 'n' through 'b', which is immutable
 ```
 
 <!-- test: error.a-local-var-may-not-write-through-a-lets-record-a-map-miss-hands-back -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1921,7 +1920,7 @@ error E2013: <fragment>:5:2: 'origin' is a let and cannot be reassigned
 ```
 
 <!-- test: top-level-let-struct-reassign-error -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Point.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -2024,7 +2023,6 @@ A function may return a module-level `let`'s record on one arm and another value
 hands back the arm its condition selects.
 
 <!-- test: a-returned-inline-conditional-may-hand-back-a-global -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
 Both arms are exercised — one call takes the global, the other takes the parameter.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2064,7 +2062,6 @@ a call argument binds nothing. A local the body declares above the `return` take
 handed back is then the local's, which the caller may write through.
 
 <!-- test: a-returned-global-is-not-shadowed-by-a-later-call-argument -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
 The global is returned bare on one path and passed as an argument on the next line. Both paths are
 exercised.
 ```maxon
@@ -2102,7 +2099,6 @@ empty=0 one=1
 ```
 
 <!-- test: a-returned-name-IS-shadowed-by-a-binder-above-it -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
 ⭐ **THE CONTROL, AND IT IS THE HALF THAT MUST NOT BREAK.** This program binds a local of the global's
 name ABOVE the return — so the local wins, and the value handed back is the LOCAL's and not the global's.
 **It WRITES through the returned value, and that is what makes it discriminating**: a result taken for
@@ -2145,7 +2141,6 @@ the written-out argument is and refused where the written-out argument is: a cal
 parameter is E3207 at the call that omits the argument.
 
 <!-- test: a-parameter-default-may-name-a-let-global -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
 All three spellings of the same argument are exercised side by
 side — omitted, written out, and a value of the caller's own — because "the default agrees with the
 written-out argument" is the property, not "the default compiles".
@@ -2176,7 +2171,6 @@ omitted=0 written=0 given=2
 ```
 
 <!-- test: a-parameter-default-may-call-an-accessor-that-returns-a-global -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
 The transitive half: the default is a CALL to an accessor that hands back the global's record.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2861,7 +2855,7 @@ end 'main'
 ```
 
 <!-- test: error.global-bytestring-map-with-union-array -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `KeywordInfo.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -2928,7 +2922,7 @@ end 'main'
 ```
 
 <!-- test: error.live-global-survives-dead-global-pruning -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `describe`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -2994,7 +2988,7 @@ as the same call in a function body reports it — at the factory's name — and
 twin.
 
 <!-- test: error.const-fold-union-case-into-enum-field -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Mixed.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Num = int(0 to 1000)
@@ -3065,7 +3059,7 @@ they are not the same record at all: read back through the array surface, `H.xs.
 second word as a `__ManagedMemory` length.
 
 <!-- test: error.const-fold-map-into-array-field -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Map.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -3120,7 +3114,7 @@ error E3005: <fragment>:15:17: argument type mismatch for 'xs': expected 'NumArr
 ```
 
 <!-- test: error.let-global-alias-receives-a-self-writing-container-method-on-a-field -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Holder.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -3149,7 +3143,7 @@ error E3220: <fragment>:13:9: the initializer of 'G' calls 'Holder.make': a modu
 ```
 
 <!-- test: error.let-global-field-passed-to-a-writing-callee -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Holder.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -3186,7 +3180,7 @@ error E3220: <fragment>:20:9: the initializer of 'G' calls 'Holder.make': a modu
 ```
 
 <!-- test: error.let-global-alias-field-passed-to-a-writing-callee -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Holder.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -3224,7 +3218,7 @@ error E3220: <fragment>:20:9: the initializer of 'G' calls 'Holder.make': a modu
 ```
 
 <!-- test: error.let-global-field-receives-a-self-writing-method -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Holder.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -3261,7 +3255,7 @@ error E3220: <fragment>:24:9: the initializer of 'G' calls 'Holder.make': a modu
 ```
 
 <!-- test: error.let-global-alias-field-receives-a-self-writing-method -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Holder.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -3299,7 +3293,7 @@ error E3220: <fragment>:24:9: the initializer of 'G' calls 'Holder.make': a modu
 ```
 
 <!-- test: error.let-global-container-field-passed-to-a-pushing-callee -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Holder.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -3331,7 +3325,7 @@ error E3220: <fragment>:13:9: the initializer of 'G' calls 'Holder.make': a modu
 ```
 
 <!-- test: error.let-global-alias-container-field-passed-to-a-pushing-callee -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Holder.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -3364,7 +3358,7 @@ error E3220: <fragment>:13:9: the initializer of 'G' calls 'Holder.make': a modu
 ```
 
 <!-- test: error.let-binding-of-a-let-global-field-receives-a-self-writing-method -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Holder.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -3402,7 +3396,7 @@ error E3220: <fragment>:24:9: the initializer of 'G' calls 'Holder.make': a modu
 ```
 
 <!-- test: error.a-let-global-stored-into-a-var-field-is-refused-at-the-store -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Config.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -3445,7 +3439,7 @@ error E3220: <fragment>:20:9: the initializer of 'G' calls 'Config.make': a modu
 ```
 
 <!-- test: error.a-clone-of-a-let-global-stored-into-a-var-field-may-be-written -->
-<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 The initializer of a module-level or `static` `let` calls `Config.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Count = int(0 to u64.max)
