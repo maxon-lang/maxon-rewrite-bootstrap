@@ -918,7 +918,7 @@ function main() returns ExitCode
 	if part.count() != 3 'count'
 		return 1
 	end 'count'
-	let first = try part.get(0) otherwise return 2
+	let first = part.get(0)
 	if first != "name number 1" 'first'
 		return 3
 	end 'first'

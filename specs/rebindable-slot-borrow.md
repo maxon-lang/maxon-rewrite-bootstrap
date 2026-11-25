@@ -57,7 +57,7 @@ type Holder
 		items = fresh
 		var sum = 0 as Integer
 		for i in 0 upto old.count() 'walk'
-			sum = try sum + (try old.get(i) otherwise 0) otherwise panic("out of range")
+			sum = try sum + (old.get(i)) otherwise panic("out of range")
 		end 'walk'
 		return sum
 	end 'swapAndRead'
@@ -95,7 +95,7 @@ type Holder
 		items = IntArray.create(0)
 		var sum = 0 as Integer
 		for i in 0 upto old.count() 'walk'
-			sum = try sum + (try old.get(i) otherwise 0) otherwise panic("out of range")
+			sum = try sum + (old.get(i)) otherwise panic("out of range")
 		end 'walk'
 		return sum
 	end 'swapAndRead'
@@ -163,7 +163,7 @@ type Frozen
 		let held = items.clone()
 		var sum = 0 as Integer
 		for i in 0 upto held.count() 'walk'
-			sum = try sum + (try held.get(i) otherwise 0) otherwise panic("out of range")
+			sum = try sum + (held.get(i)) otherwise panic("out of range")
 		end 'walk'
 		return sum
 	end 'total'

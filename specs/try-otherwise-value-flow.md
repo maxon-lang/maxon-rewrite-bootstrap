@@ -208,7 +208,7 @@ typealias BoolArray = Array with bool
 function countSet(bits BoolArray) returns Tally
 	var n = 0 as Tally
 	for i in 0 upto bits.count() 'each'
-		if (try bits.get(i) otherwise false) 'set'
+		if (bits.get(i)) 'set'
 			n = try n + 1 otherwise panic("out of range")
 		end 'set'
 	end 'each'
@@ -290,7 +290,7 @@ function longestLen(rows RowArray) returns ExitCode
 	var best = 0 as GraphemeIndex
 	var i = 0 as Count
 	while i < rows.count() 'scan'
-		let len = (try rows.get(i) otherwise break).label.count()
+		let len = (rows.get(i)).label.count()
 		if len > best 'bigger'
 			best = len as GraphemeIndex
 		end 'bigger'

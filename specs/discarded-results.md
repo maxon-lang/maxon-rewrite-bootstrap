@@ -678,7 +678,7 @@ typealias IntArray = Array with Integer
 function removeFirst(mutates arr IntArray, value Integer) returns bool
 	var i = 0 as ElementIndex
 	while i < arr.count() 'scan'
-		let cur = try arr.get(i) otherwise panic("oob")
+		let cur = arr.get(i)
 		if cur == value 'hit'
 			_ = try arr.remove(i) otherwise panic("remove failed")
 			return true

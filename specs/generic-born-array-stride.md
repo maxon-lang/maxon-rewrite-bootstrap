@@ -124,7 +124,7 @@ end 'sumOf'
 function sumDirect(bag ByteBag) returns Total
 	var total = 0 as Total
 	for at in 0 upto bag.items.count() 'each'
-		total = try total + ((try bag.items.get(at) otherwise panic("sumDirect: index out of range")) as Total) otherwise panic("out of range")
+		total = try total + ((bag.items.get(at)) as Total) otherwise panic("out of range")
 	end 'each'
 	return total
 end 'sumDirect'
@@ -723,7 +723,7 @@ end 'sumOf'
 function sumOfArray(items SignalArray) returns Integer
 	var total = 0 as Integer
 	for at in 0 upto items.count() 'each'
-		let signal = try items.get(at) otherwise panic("sumOfArray: index out of range")
+		let signal = items.get(at)
 		total = try total + (signal.rawValue as Integer) otherwise panic("out of range")
 	end 'each'
 	return total

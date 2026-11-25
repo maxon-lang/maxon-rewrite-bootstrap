@@ -48,7 +48,7 @@ function main() returns ExitCode
 	if cloned.count() != 2 'badCount'
 		return 99
 	end 'badCount'
-	let item = try cloned.get(1) otherwise Item.create("", value: 0)
+	let item = cloned.get(1)
 	return try item.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
@@ -106,7 +106,7 @@ function main() returns ExitCode
 	if cloned.count() != 1 'badCount'
 		return 99
 	end 'badCount'
-	let outer = try cloned.get(0) otherwise Outer.create(Mid.create(Leaf.create("", value: 0)))
+	let outer = cloned.get(0)
 	return try outer.mid.leaf.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```

@@ -6,9 +6,15 @@ type RangeHandler
 	// takes is the one error the handler names, which every failure it catches must be, or none for a handler that names
 	// none and so catches any.
 	export var takes as ast.TypeID
+	// site is the try, or 0 for the handler a test's body has.
+	export var site as ast.NodeID
+	// fallible is whether something the try covers can fail; proven is the first access it covers that the analysis proved
+	// cannot, or 0. A try that covers only proven accesses says a failure is handled that cannot happen.
+	export var fallible as bool
+	export var proven as ast.NodeID
 
-	static function make(propagates bool, takes ast.TypeID) returns RangeHandler
-		return RangeHandler{propagates: propagates, entry: deadState, takes: takes}
+	static function make(propagates bool, takes ast.TypeID, site ast.NodeID) returns RangeHandler
+		return RangeHandler{propagates: propagates, entry: deadState, takes: takes, site: site, fallible: false, proven: 0 as ast.NodeID}
 	end 'make'
 end 'RangeHandler'
 
@@ -40,6 +46,8 @@ type Ranges
 	// typing is the module's, which the analysis holds while it runs and records the failures in.
 	export var typing as ast.Typing
 	export var errs as diag.ErrorList
+	// needless are the tries that cover only proven accesses, which are errors where nothing else is wrong.
+	export var needless as diag.ErrorList
 	// failed is whether the walk of the function or the value has met its error, which ends the walk.
 	export var failed as bool
 	export var fn as ast.FuncID
@@ -66,12 +74,13 @@ type Ranges
 	export var probe as LoopProbe
 
 	static function make(modID diag.ModuleID, modIdx Count, consumes typing ast.Typing) returns Ranges
-		return Ranges{modID: modID, modIdx: modIdx, typing: typing, errs: diag.ErrorList.create(0), failed: false, fn: ast.noFunc, base: 0 as Count, slots: 0 as Count, locals: ast.LocalIDList.create(0), mutable: ByteArray.create(0), st: deadState, handlers: RangeHandlerList.create(0), frames: RangeFrameList.create(0), behaviour: false, written: PlaceList.create(0), states: States.new(), bounds: AccBoundList.create(0), probing: false, probe: LoopProbe.new()}
+		return Ranges{modID: modID, modIdx: modIdx, typing: typing, errs: diag.ErrorList.create(0), needless: diag.ErrorList.create(0), failed: false, fn: ast.noFunc, base: 0 as Count, slots: 0 as Count, locals: ast.LocalIDList.create(0), mutable: ByteArray.create(0), st: deadState, handlers: RangeHandlerList.create(0), frames: RangeFrameList.create(0), behaviour: false, written: PlaceList.create(0), states: States.new(), bounds: AccBoundList.create(0), probing: false, probe: LoopProbe.new()}
 	end 'make'
 end 'Ranges'
 
-// checkRanges analyses the defaults of the module's record fields, then the bodies of its functions.
-function checkRanges(mutates c Checker, p ast.Project, ms ast.ModuleState, functions ast.FuncIDList, mutates errs diag.ErrorList)
+// checkRanges analyses the defaults of the module's record fields, then the bodies of its functions, and gives needless
+// the tries that cover only proven accesses.
+function checkRanges(mutates c Checker, p ast.Project, ms ast.ModuleState, functions ast.FuncIDList, mutates errs diag.ErrorList, mutates needless diag.ErrorList)
 	var r = Ranges.make(c.modID, modIdx: c.modIdx, typing: exchange(c.typing, value: ast.Typing.new(c.modID)))
 	for i in 0 upto p.modules[c.modIdx].decls.count() 'decls'
 		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
@@ -85,6 +94,7 @@ function checkRanges(mutates c Checker, p ast.Project, ms ast.ModuleState, funct
 	end 'functions'
 	c.typing = exchange(r.typing, value: ast.Typing.new(c.modID))
 	rangeHandOver(r, errs: errs)
+	needless.append(r.needless)
 end 'checkRanges'
 
 // rangeConstant analyses a constant's value and gives its span, which a name of the constant has wherever it is used.
@@ -222,7 +232,7 @@ function rangeFunction(mutates r Ranges, p ast.Project, ms ast.ModuleState, fid 
 	end 'locals'
 	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).isTest 'test'
 		// A test handles every error its body raises: the failure of any call, of any error type, ends the test.
-		r.handlers.push(RangeHandler.make(false, takes: ast.noType))
+		r.handlers.push(RangeHandler.make(false, takes: ast.noType, site: 0 as ast.NodeID))
 	end 'test'
 	rangeBlock(r, p: p, ms: ms, body: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).bodyRef)
 	r.states.release(m)
@@ -438,8 +448,28 @@ function rangePlaceOf(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID)
 			end 'obj'
 		end 'field'
 	end 'member'
+	if k == ast.NodeKind.callExpr 'call'
+		return rangeMeasuredPlace(r, p: p, ms: ms, e: e, measure: ast.MeasureKind.measureCount)
+	end 'call'
 	return table.Option.none
 end 'rangePlaceOf'
+
+// rangeMeasuredPlace is the count of the collection whose count the call e reads as measure says, if the call is one and
+// the collection is a place whose count the analysis follows.
+function rangeMeasuredPlace(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, measure ast.MeasureKind) returns table.Option with Place
+	let call = r.typing.calls.expect(e as Count, what: "call")
+	if ast.intrinsicMeasure(call.intrinsic) != measure 'other'
+		return table.Option.none
+	end 'other'
+	let receiver = ast.callReceiver(ms.tree(), e: e, kind: call.kind)
+	if receiver == 0 or not isMeasuredType(p, ms: ms, t: typeOf(r, e: receiver)) 'unfollowed'
+		return table.Option.none
+	end 'unfollowed'
+	return match consumes rangePlaceOf(r, p: p, ms: ms, e: receiver) 'collection'
+		some(q) gives table.Option.some(placeCount(q))
+		none gives table.Option.none
+	end 'collection'
+end 'rangeMeasuredPlace'
 
 function selfPlace(r Ranges, p ast.Project, ms ast.ModuleState) returns Place
 	return Place.local(slotOf(r, local: ast.receiverLocal(p, ms: ms, f: r.fn)))
@@ -616,7 +646,7 @@ function rangeIfTryStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s a
 	if not added 'passed'
 		return
 	end 'passed'
-	let h = rangeLeaveTry(r)
+	let h = rangeLeaveTry(r, p: p, ms: ms)
 	_ = rangeKeep(r)
 	if ast.ifTryStmtName(ms.tree(), id: s) != "" 'bind'
 		let local = match consumes nodeLocalOf(r, node: s) 'bound'
@@ -723,10 +753,32 @@ function rangeLoopBody(mutates r Ranges, p ast.Project, ms ast.ModuleState, s as
 	if v.isEmpty() 'never'
 		r.states.list[body].dead = true
 	end 'never' else 'runs'
-		r.states.list[body].refine(Place.local(slotOf(r, local: local)), v: v)
+		let counter = Place.local(slotOf(r, local: local))
+		r.states.list[body].refine(counter, v: v)
+		match consumes rangeFixedBound(r, p: p, ms: ms, e: ast.forStmtTo(ms.tree(), id: s)) 'bound'
+			some(bound) then r.states.list[body].relate(bound, lo: counter, gap: ast.I128.zero() if ast.forStmtInclusive(ms.tree(), id: s) else ast.I128.one())
+			none then _ = 0
+		end 'bound'
 	end 'runs'
 	return body
 end 'rangeLoopBody'
+
+// rangeFixedBound is the place the bound e of a for loop names, if nothing in the function can change it: its root is no
+// var and no parameter taken to change. The loop evaluated the bound once, so the counter stays below a bound that cannot
+// change on every iteration.
+function rangeFixedBound(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns table.Option with Place
+	return match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
+		some(place) gives rangeUnassignable(r, place: place)
+		none gives table.Option.none
+	end 'place'
+end 'rangeFixedBound'
+
+function rangeUnassignable(r Ranges, consumes place Place) returns table.Option with Place
+	if r.mutable[place.root] != 0 'assignable'
+		return table.Option.none
+	end 'assignable'
+	return table.Option.some(place)
+end 'rangeUnassignable'
 
 // rangeWhenStmt analyses the body of a behaviour as a function of its own: it runs later, so neither what is known here
 // nor a try around it reaches into it. A behaviour whose body the bodies check gave no function has nothing to follow.
@@ -754,13 +806,19 @@ function rangeEnterTry(mutates r Ranges, p ast.Project, ms ast.ModuleState, site
 			return false
 		end 'refused'
 	end 'toCaller'
-	r.handlers.push(RangeHandler.make(not handles, takes: takes))
+	r.handlers.push(RangeHandler.make(not handles, takes: takes, site: site))
 	return true
 end 'rangeEnterTry'
 
-// rangeLeaveTry ends a try that rangeEnterTry added a handler for, and gives the handler.
-function rangeLeaveTry(mutates r Ranges) returns RangeHandler
-	return try r.handlers.pop() otherwise panic("ranges: a try ended that was never begun")
+// rangeLeaveTry ends a try that rangeEnterTry added a handler for, and gives the handler. A try that covers only accesses
+// the analysis proved inside their collections handles a failure that cannot happen, which is an error: the code would
+// say the access is checked where it is not. It does not end the walk, and it is reported only where nothing else is.
+function rangeLeaveTry(mutates r Ranges, p ast.Project, ms ast.ModuleState) returns RangeHandler
+	let h = try r.handlers.pop() otherwise panic("ranges: a try ended that was never begun")
+	if not h.fallible and h.proven != 0 and h.site != 0 and not r.probing and not r.failed 'needless'
+		checkFailFixed(r.modID, off: ms.tree().startOf(h.site), code: diag.errProvenTry, msg: provenTryText(ms.tree(), access: h.proven), fix: untryFix(ms.tree(), site: h.site), errs: r.needless)
+	end 'needless'
+	return h
 end 'rangeLeaveTry'
 
 // fnErrorType is the error the function being walked throws, or none.
@@ -801,7 +859,7 @@ function rangeTryStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast
 	if not added 'passed'
 		return
 	end 'passed'
-	let h = rangeLeaveTry(r)
+	let h = rangeLeaveTry(r, p: p, ms: ms)
 	if not handles 'noHandler'
 		return
 	end 'noHandler'

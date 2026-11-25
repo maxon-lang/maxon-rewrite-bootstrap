@@ -1360,7 +1360,7 @@ function main() returns ExitCode
 	var arr = PointArray.create(0)
 	if arr.count() == 0 'writes'
 		arr.push(s)
-		var e = try arr.get(0) otherwise panic("an element was pushed")
+		var e = arr.get(0)
 		e.x = 9
 		print("wrote {e.x}\n")
 	end 'writes' else 'reads'

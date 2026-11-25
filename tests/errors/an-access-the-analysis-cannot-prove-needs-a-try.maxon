@@ -1,0 +1,34 @@
+// expect-error: E3057 at 13:17
+// expect-error: E3057 at 22:17
+// expect-error: E3057 at 29:8
+// An access the analysis cannot prove inside its collection needs a try: a loop over the count of a var, which its body
+// may change, a loop over the count of another array, and a set at an index nothing compares with the count.
+typealias Counts = Array with Count
+
+function sumOfVar() returns Count
+	var xs = Counts.filled(3, value: 1)
+	var total = 0 as Count
+	for i in 0 upto xs.count() 'each'
+		xs.push(1)
+		let v = xs.get(i)
+		total = try total + v otherwise panic("total overflowed")
+	end 'each'
+	return total
+end 'sumOfVar'
+
+function other(xs Counts, ys Counts) returns Count
+	var total = 0 as Count
+	for i in 0 upto ys.count() 'each'
+		let v = xs.get(i)
+		total = try total + v otherwise panic("total overflowed")
+	end 'each'
+	return total
+end 'other'
+
+function reset(mutates xs Counts, at Count)
+	xs.set(at, value: 0)
+end 'reset'
+
+function main() returns ExitCode
+	return 0
+end 'main'

@@ -599,7 +599,7 @@ function main() returns ExitCode
 	var sum = 0 as Int
 	var i = 0 as Count
 	while i < v.count() 'loop'
-		sum = try sum + (try v.get(i) otherwise 0) otherwise panic("out of range")
+		sum = try sum + (v.get(i)) otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	return try sum as ExitCode otherwise panic("out of range")
@@ -622,7 +622,7 @@ function main() returns ExitCode
 	var count = 0 as FullRangeInt
 	var i = 0 as Count
 	while i < v.count() 'scan'
-		let bit = try v.get(i) otherwise false
+		let bit = v.get(i)
 		if bit 'isSet'
 			count = try count + 1 otherwise panic("out of range")
 		end 'isSet'

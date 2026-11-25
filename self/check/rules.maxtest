@@ -5,7 +5,9 @@
 //
 // The universe has three quantities: a, an integer local; count(c), the count of an array local c; and count(g.0), the
 // count of an array in field 0 of a record local g. Field 0 of c stands for an array's '__ManagedMemory' storage, and
-// field 1 of g for a sibling of g.0. Values before an operation are 0 to universeTop; an operation may move them to
+// field 1 of g for a sibling of g.0. A fourth, g.0, an integer at the path of that array, has a test of its own, so that a
+// fact on a count is never taken for a fact on what lives at its collection's path; the others hold it at 0, since none
+// of their facts or operations names it. Values before an operation are 0 to universeTop; an operation may move them to
 // universeTop + spill, which is as far as the rules' amounts reach (a grow of unknown amount is sampled to there: the
 // rules are linear, so a fact broken further out is broken by a smaller step of the same case).
 
@@ -13,7 +15,15 @@ let universeTop = 2 as Count
 
 let spill = 2 as Count
 
-let quantities = 3 as Count
+let quantities = 4 as Count
+
+// The counts are the quantities from firstCount until pastCounts: count(c) and count(g.0).
+let firstCount = 1 as Count
+
+let pastCounts = 3 as Count
+
+// atCollection is the quantity that lives at the path of the collection g.0 and is not its count.
+let atCollection = 3 as Count
 
 typealias Ints = Array with Count
 
@@ -47,6 +57,9 @@ function quantityPlace(q Count) returns Place
 	if q == 2 'countG'
 		return placeCount(placeField(Place.local(2 as Count), field: 0 as Count).unwrap())
 	end 'countG'
+	if q == atCollection 'atG'
+		return placeField(Place.local(2 as Count), field: 0 as Count).unwrap()
+	end 'atG'
 	panic("rules: no quantity {q}")
 end 'quantityPlace'
 
@@ -56,6 +69,7 @@ function storagePaths() returns Strings
 	var out = Strings.create(0)
 	out.push("a")
 	out.push("c")
+	out.push("g.0")
 	out.push("g.0")
 	return out
 end 'storagePaths'
@@ -110,14 +124,20 @@ function pathsOverlap(x String, y String) returns bool
 	return x == y or x.startsWith("{y}.") or y.startsWith("{x}.")
 end 'pathsOverlap'
 
+// quantityOf is the quantity a fact names, told apart by its path and by whether it is a count, not by the rules' own
+// same, which the test holds to telling them apart.
 function quantityOf(p Place) returns Count
 	for q in 0 upto quantities 'each'
-		if quantityPlace(q).same(p) 'found'
+		if quantityPlace(q).samePath(p) and quantityPlace(q).counted == p.counted 'found'
 			return q
 		end 'found'
 	end 'each'
 	panic("rules: a fact names a place outside the universe")
 end 'quantityOf'
+
+function isCount(q Count) returns bool
+	return q >= firstCount and q < pastCounts
+end 'isCount'
 
 function countSpan() returns Span
 	return Span.make(ast.I128.zero(), hi: ast.I128.i64Max())
@@ -161,9 +181,9 @@ end 'holdsIn'
 function quantityText(p Place) returns String
 	let names = storagePaths()
 	let q = quantityOf(p)
-	if q == 0 'local'
+	if not isCount(q) 'integer'
 		return names[q].clone()
-	end 'local'
+	end 'integer'
 	return "count({names[q]})"
 end 'quantityText'
 
@@ -224,13 +244,14 @@ function spanChoices() returns SpanList
 	return out
 end 'spanChoices'
 
-// relationChoices are the ordered pairs of quantities a relation can name, as hi * quantities + lo.
-function relationChoices() returns Ints
+// relationChoices are the ordered pairs of the quantities from first until past that a relation can name, as
+// hi * quantities + lo.
+function relationChoices(first Count, past Count) returns Ints
 	var out = Ints.create(0)
-	for hi in 0 upto quantities 'hi'
-		for lo in 0 upto quantities 'lo'
+	for hi in first upto past 'hi'
+		for lo in first upto past 'lo'
 			if hi != lo 'apart'
-				out.push(hi * quantities + lo)
+				out.push(try hi * quantities + lo otherwise panic("rules: a quantity past the universe"))
 			end 'apart'
 		end 'lo'
 	end 'hi'
@@ -265,7 +286,7 @@ end 'relateChoice'
 // span known.
 function startStates() returns RangeStateList
 	let spans = spanChoices()
-	let pairs = relationChoices()
+	let pairs = relationChoices(0 as Count, past: atCollection)
 	var out = RangeStateList.create(0)
 	var pick = Ints.create(quantities)
 	for s0 in 0 upto spans.count() 'a'
@@ -332,9 +353,9 @@ function allOps() returns Ops
 	let cmps = comparisons()
 	let effects = countEffects()
 	var out = Ops.create(0)
-	for x in 0 upto quantities 'x'
+	for x in 0 upto atCollection 'x'
 		for i in 0 upto cmps.count() 'cmp'
-			for y in 0 upto quantities 'y'
+			for y in 0 upto atCollection 'y'
 				if x != y 'apart'
 					out.push(Op.compare(x, op: cmps[i].clone(), y: y))
 				end 'apart'
@@ -344,7 +365,7 @@ function allOps() returns Ops
 			end 'k'
 		end 'cmp'
 	end 'x'
-	for q in 1 upto quantities 'empty'
+	for q in firstCount upto pastCounts 'empty'
 		out.push(Op.empty(q, truth: true))
 		out.push(Op.empty(q, truth: false))
 	end 'empty'
@@ -365,6 +386,64 @@ function allOps() returns Ops
 	end 'masks'
 	return out
 end 'allOps'
+
+// collectionOps are the operations that reach g.0 or count(g.0): every guard between the two and of each with a
+// constant, both tests of emptiness of g.0, every count effect on g.0 and on g, a write of g, g.0 and g.1, and the top of a
+// loop where g may be assigned.
+function collectionOps() returns Ops
+	let cmps = comparisons()
+	let effects = countEffects()
+	let countG = 2 as Count
+	let g = 3 as Count
+	let g0 = 4 as Count
+	let g1 = 5 as Count
+	var out = Ops.create(0)
+	for i in 0 upto cmps.count() 'cmp'
+		out.push(Op.compare(countG, op: cmps[i].clone(), y: atCollection))
+		out.push(Op.compare(atCollection, op: cmps[i].clone(), y: countG))
+		for k in 0 upto universeTop + 2 'k'
+			out.push(Op.constant(countG, op: cmps[i].clone(), k: k))
+			out.push(Op.constant(atCollection, op: cmps[i].clone(), k: k))
+		end 'k'
+	end 'cmp'
+	out.push(Op.empty(countG, truth: true))
+	out.push(Op.empty(countG, truth: false))
+	for i in 0 upto effects.count() 'effects'
+		out.push(Op.effect(g, effect: effects[i]))
+		out.push(Op.effect(g0, effect: effects[i]))
+	end 'effects'
+	out.push(Op.write(g))
+	out.push(Op.write(g0))
+	out.push(Op.write(g1))
+	out.push(Op.forget(1 shl 2))
+	return out
+end 'collectionOps'
+
+// collectionStates are every state whose spans of count(g.0) and g.0 are any of the choices, with at most one relation
+// between the two, a and count(c) held at 0.
+function collectionStates() returns RangeStateList
+	let spans = spanChoices()
+	let pairs = relationChoices(2 as Count, past: quantities)
+	var out = RangeStateList.create(0)
+	var pick = Ints.create(quantities)
+	pick[0] = 1
+	pick[1] = 1
+	for s2 in 0 upto spans.count() 'countG'
+		for s3 in 0 upto spans.count() 'atG'
+			pick[2] = s2
+			pick[3] = s3
+			out.push(startState(spans, pick: pick))
+			for r in 0 upto pairs.count() 'pair'
+				for g in 0 upto gapChoices 'gap'
+					var st = startState(spans, pick: pick)
+					relateChoice(st, pair: pairs[r], gap: g)
+					out.push(st)
+				end 'gap'
+			end 'pair'
+		end 'atG'
+	end 'countG'
+	return out
+end 'collectionStates'
 
 // guardSide narrows x by 'x op y', as the walk's rangeCompareAt does: the relation the comparison records, then x's span.
 function guardSide(mutates st RangeState, x Place, op String, y table.Option with Place, other Span)
@@ -518,16 +597,13 @@ end 'concrete'
 // anything else whose storage the holder overlaps may become anything.
 function effectOn(mutates out Reaches, v Ints, holder String, effect ast.CountEffect)
 	let paths = storagePaths()
-	for q in 1 upto quantities 'counts'
-		if paths[q] == holder 'itsCount'
+	for q in 0 upto quantities 'quantities'
+		if isCount(q) and paths[q] == holder 'itsCount'
 			out[q] = effectReach(effect, v: v[q])
 		end 'itsCount' else if pathsOverlap(paths[q], y: holder) 'reached'
 			out[q] = anyValue()
 		end 'reached'
-	end 'counts'
-	if pathsOverlap(paths[0], y: holder) 'local'
-		out[0] = anyValue()
-	end 'local'
+	end 'quantities'
 end 'effectOn'
 
 // writeOf is a write of the storage at holder: whatever lives in storage it overlaps may become anything.
@@ -556,33 +632,39 @@ function keepIf(mutates out Reaches, holds bool)
 	end 'fails'
 end 'keepIf'
 
-// described are the valuations within the universe that a state describes, three values each.
-function described(st RangeState) returns Ints
+// described are the valuations within the universe that a state describes, the values of the quantities one after
+// another, with g.0 at most atTop.
+function described(st RangeState, atTop Count) returns Ints
 	var out = Ints.create(0)
 	var v = Ints.create(quantities)
 	for x in 0 upto universeTop + 1 'a'
 		for y in 0 upto universeTop + 1 'countC'
 			for z in 0 upto universeTop + 1 'countG'
-				v[0] = x
-				v[1] = y
-				v[2] = z
-				if holdsIn(st, v: v) 'holds'
-					out.push(x)
-					out.push(y)
-					out.push(z)
-				end 'holds'
+				for w in 0 upto past(atTop) 'atG'
+					v[0] = x
+					v[1] = y
+					v[2] = z
+					v[3] = w
+					if holdsIn(st, v: v) 'holds'
+						out.append(v)
+					end 'holds'
+				end 'atG'
 			end 'countG'
 		end 'countC'
 	end 'a'
 	return out
 end 'described'
 
+function valuationText(v Ints) returns String
+	return "a = {v[0]}, count(c) = {v[1]}, count(g.0) = {v[2]}, g.0 = {v[3]}"
+end 'valuationText'
+
 function reportBroken(before RangeState, op Op, from Ints, to Ints, after RangeState)
-	panic("rules: from {stateText(before)}, {opText(op)} gives {stateText(after)}, but a = {from[0]}, count(c) = {from[1]}, count(g.0) = {from[2]} can become a = {to[0]}, count(c) = {to[1]}, count(g.0) = {to[2]}")
+	panic("rules: from {stateText(before)}, {opText(op)} gives {stateText(after)}, but {valuationText(from)} can become {valuationText(to)}")
 end 'reportBroken'
 
-// checkReached fails unless every valuation the reaches allow holds in after.
-function checkReached(before RangeState, op Op, from Ints, reaches Reaches, after RangeState)
+// checkReached fails unless every valuation the reaches allow, with g.0 at most atTop, holds in after.
+function checkReached(before RangeState, op Op, from Ints, reaches Reaches, after RangeState, atTop Count)
 	for q in 0 upto quantities 'none'
 		if reaches[q].none 'cannot'
 			return
@@ -592,36 +674,50 @@ function checkReached(before RangeState, op Op, from Ints, reaches Reaches, afte
 	for x in reaches[0].lo upto past(reaches[0].hi) 'a'
 		for y in reaches[1].lo upto past(reaches[1].hi) 'countC'
 			for z in reaches[2].lo upto past(reaches[2].hi) 'countG'
-				v[0] = x
-				v[1] = y
-				v[2] = z
-				if not holdsIn(after, v: v) 'broken'
-					reportBroken(before, op: op, from: from, to: v, after: after)
-				end 'broken'
+				for w in reaches[3].lo upto past(minCount(reaches[3].hi, b: atTop)) 'atG'
+					v[0] = x
+					v[1] = y
+					v[2] = z
+					v[3] = w
+					if not holdsIn(after, v: v) 'broken'
+						reportBroken(before, op: op, from: from, to: v, after: after)
+					end 'broken'
+				end 'atG'
 			end 'countG'
 		end 'countC'
 	end 'a'
 end 'checkReached'
 
-test 'every rule keeps only what the operation leaves true'
-	let states = startStates()
-	let ops = allOps()
+function minCount(a Count, b Count) returns Count
+	return a if a < b else b
+end 'minCount'
+
+// checkAll checks every operation on every state over the valuations it describes, with g.0 at most atTop.
+function checkAll(states RangeStateList, ops Ops, atTop Count)
 	var from = Ints.create(quantities)
 	for s in 0 upto states.count() 'states'
-		let values = described(states[s])
+		let values = described(states[s], atTop: atTop)
 		if values.count() > 0 'reached'
 			for o in 0 upto ops.count() 'ops'
 				let after = applied(states[s], op: ops[o])
 				for i in 0 upto values.count() / quantities 'values'
-					from[0] = values[i * quantities]
-					from[1] = values[i * quantities + 1]
-					from[2] = values[i * quantities + 2]
-					checkReached(states[s], op: ops[o], from: from, reaches: concrete(ops[o], v: from), after: after)
+					for q in 0 upto quantities 'from'
+						from[q] = values[i * quantities + q]
+					end 'from'
+					checkReached(states[s], op: ops[o], from: from, reaches: concrete(ops[o], v: from), after: after, atTop: atTop)
 				end 'values'
 			end 'ops'
 		end 'reached'
 	end 'states'
+end 'checkAll'
+
+test 'every rule keeps only what the operation leaves true'
+	checkAll(startStates(), ops: allOps(), atTop: 0 as Count)
 end 'every rule keeps only what the operation leaves true'
+
+test 'a fact on a count is never taken for one on what lives at the path of its collection'
+	checkAll(collectionStates(), ops: collectionOps(), atTop: universeTop + spill)
+end 'a fact on a count is never taken for one on what lives at the path of its collection'
 
 // joinStates are the states the join is checked on: spans of a and count(c), at most one relation between them, and the
 // state no path reaches.
@@ -660,14 +756,14 @@ test 'a join keeps only what both paths know'
 			let b = states.list.count()
 			states.list.push(starts[j].clone())
 			let joined = states.joined(a, b: b)
-			var values = described(starts[i])
-			values.append(described(starts[j]))
+			var values = described(starts[i], atTop: 0 as Count)
+			values.append(described(starts[j], atTop: 0 as Count))
 			for k in 0 upto values.count() / quantities 'values'
-				v[0] = values[k * quantities]
-				v[1] = values[k * quantities + 1]
-				v[2] = values[k * quantities + 2]
+				for q in 0 upto quantities 'value'
+					v[q] = values[k * quantities + q]
+				end 'value'
 				if not holdsIn(states.list[joined], v: v) 'lost'
-					panic("rules: the join of {stateText(starts[i])} and {stateText(starts[j])} is {stateText(states.list[joined])}, which leaves out a = {v[0]}, count(c) = {v[1]}")
+					panic("rules: the join of {stateText(starts[i])} and {stateText(starts[j])} is {stateText(states.list[joined])}, which leaves out {valuationText(v)}")
 				end 'lost'
 			end 'values'
 			states.release(m)

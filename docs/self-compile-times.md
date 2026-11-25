@@ -90,3 +90,4 @@ versions (the baseline) is the noise floor: a ratio inside it says nothing. Chec
 | Date | Commit | Stage | Runs | A ms | B ms | B/A | B/A range | Check | Bounds | Empty slot |
 |---|---|---|---:|---:|---:|---:|---|---:|---:|---:|
 | 2026-11-24 | d1f764dd | P0 baseline: A = B, the noise floor | 11 | 1502 | 1495 | 0.995 | 0.943-1.051 | 18.5% | 11362 | 3802 |
+| 2026-11-24 | 7a37ea8e+ | P3b proven get and set in counted loops | 11 | 1487 | 1493 | 1.003 | 0.977-1.061 | 17.9% | 11413 | 3829 |

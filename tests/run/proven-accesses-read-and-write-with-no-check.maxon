@@ -1,0 +1,96 @@
+// An access whose index the range analysis proves inside the collection is written with no try and runs with no check: a
+// loop over the count of an array no code can change, a loop inside one, a while whose condition compares the index
+// with the count, a guard, a test of emptiness, and a fixed array of strings. Where only one of two arrays is the loop's,
+// the other's access is checked and its try still catches the index past its end.
+typealias Counts = Array with Count
+
+typealias Names = FixedArray with 3 String
+
+type Holder
+	export var items as Counts
+
+	static function make(consumes items Counts) returns Holder
+		return Holder{items: items}
+	end 'make'
+end 'Holder'
+
+function sum(xs Counts) returns Count
+	var total = 0 as Count
+	for i in 0 upto xs.count() 'each'
+		total = try total + xs.get(i) otherwise panic("total overflowed")
+	end 'each'
+	return total
+end 'sum'
+
+function pairs(xs Counts) returns Count
+	var total = 0 as Count
+	for i in 0 upto xs.count() 'rows'
+		for j in 0 upto xs.count() 'columns'
+			total = try total + xs.get(i) * xs.get(j) otherwise panic("total overflowed")
+		end 'columns'
+	end 'rows'
+	return total
+end 'pairs'
+
+function held(h Holder) returns Count
+	var total = 0 as Count
+	for i in 0 upto h.items.count() 'each'
+		total = try total + h.items.get(i) otherwise panic("total overflowed")
+	end 'each'
+	return total
+end 'held'
+
+function doubled(mutates xs Counts)
+	var i = 0 as Count
+	while i < xs.count() 'each'
+		let v = xs.get(i)
+		xs.set(i, value: try v * 2 otherwise panic("doubled overflowed"))
+		i = try i + 1 otherwise panic("index overflowed")
+	end 'each'
+end 'doubled'
+
+function firstOr(xs Counts, fallback Count) returns Count
+	if not xs.isEmpty() 'some'
+		return xs.get(0)
+	end 'some'
+	return fallback
+end 'firstOr'
+
+function lastOf(xs Counts, at Count) returns Count
+	if at < xs.count() 'inside'
+		return xs.get(at)
+	end 'inside'
+	return 0
+end 'lastOf'
+
+// zipped reads ys at the indices of xs: only xs is the loop's, so ys's read keeps its check.
+function zipped(xs Counts, ys Counts) returns Count
+	var total = 0 as Count
+	for i in 0 upto xs.count() 'each'
+		let y = try ys.get(i) otherwise 100
+		total = try total + xs.get(i) + y otherwise panic("total overflowed")
+	end 'each'
+	return total
+end 'zipped'
+
+function joined(names Names) returns String
+	var out = ""
+	for i in 0 upto names.count() 'each'
+		out = "{out}{names.get(i)}"
+	end 'each'
+	return out
+end 'joined'
+
+function main() returns ExitCode
+	let xs = Counts.filled(4, value: 3)
+	var ys = Counts.filled(2, value: 5)
+	let h = Holder.make(Counts.filled(3, value: 2))
+	doubled(ys)
+	let names = Names.create(value: "ab")
+	print("{sum(xs)} {pairs(xs)} {held(h)} {ys[0]} {ys[1]} {firstOr(xs, fallback: 9)} {firstOr(Counts.create(0), fallback: 9)}\n")
+	print("{lastOf(xs, at: 3)} {lastOf(xs, at: 4)} {zipped(xs, ys: ys)} {joined(names)}\n")
+	return 0
+end 'main'
+
+//> 12 144 6 10 10 3 9
+//> 3 0 232 ababab

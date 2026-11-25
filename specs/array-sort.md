@@ -699,7 +699,7 @@ function main() returns ExitCode
 	var i = 1 as Count
 	while i < a.count() 'check'
 		let prev = try a.get(i - 1) otherwise return 99
-		let curr = try a.get(i) otherwise return 99
+		let curr = a.get(i)
 		if prev.key == curr.key 'sameKey'
 			if prev.tag > curr.tag 'outOfOrder'
 				ok = false

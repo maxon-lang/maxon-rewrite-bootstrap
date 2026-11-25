@@ -1733,7 +1733,7 @@ function main() returns ExitCode
 	if a.count() != 2 'badCount'
 		return 90
 	end 'badCount'
-	let second = try a.get(1) otherwise return 91
+	let second = a.get(1)
 	print("{second}\n")
 	return 0
 end 'main'

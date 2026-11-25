@@ -93,8 +93,11 @@ function placeCount(p Place) returns Place
 	return out
 end 'placeCount'
 
-// maxElementCount is more elements than any array holds: no 64-bit target addresses 2^62 of even the smallest, so a count
-// that grows stays below it.
+// maxElementCount is more elements than any array holds. No element takes less than a byte of the buffer: a packed byte is
+// one, and every other holding at least a word, a record with no fields too (ir.holdingBytes, ir.boxBytes), so there is no
+// element of size 0. Every count an array reaches is backed by a buffer of that many elements, whose size the runtime
+// computes with a checked product (collectionBytes), and no 64-bit target addresses 2^62 bytes, so a count that grows
+// stays below it.
 let maxElementCount = 4611686018427387904 as Count
 
 // changedIn is whether a place overlaps one of the places written from since on.

@@ -1,0 +1,34 @@
+// expect-error: E3944 at 14:11
+// expect-error: E3944 at 22:3
+// expect-error: E3944 at 29:9
+// A try around an access the analysis proves inside its collection handles a failure that cannot happen: a get in a loop
+// over the count of an array no code changes, a set under a guard, and a fixed array at an index whose type lies inside
+// it.
+typealias Counts = Array with Count
+
+typealias Vec3 = FixedArray with 3 Count
+
+function sum(xs Counts) returns Count
+	var total = 0 as Count
+	for i in 0 upto xs.count() 'each'
+		let v = try xs.get(i) otherwise 0
+		total = try total + v otherwise panic("total overflowed")
+	end 'each'
+	return total
+end 'sum'
+
+function reset(mutates xs Counts, at Count)
+	if at < xs.count() 'inside'
+		try xs.set(at, value: 0) otherwise panic("unreachable")
+	end 'inside'
+end 'reset'
+
+typealias Slot = int(0 to 2)
+
+function pick(v Vec3, slot Slot) returns Count
+	return try v.get(slot as ElementIndex) otherwise 0
+end 'pick'
+
+function main() returns ExitCode
+	return 0
+end 'main'

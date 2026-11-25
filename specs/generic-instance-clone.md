@@ -54,7 +54,7 @@ function main() returns ExitCode
 	if copy.count() != 2 'badCount'
 		return 91
 	end 'badCount'
-	let b = try copy.get(1) otherwise return 92
+	let b = copy.get(1)
 	if not b.v.equals("second boxed string, long enough to live on the heap") 'badString'
 		return 93
 	end 'badString'
@@ -168,7 +168,7 @@ function main() returns ExitCode
 	if c.count() != 1 'badCount'
 		return 91
 	end 'badCount'
-	let e = try c.get(0) otherwise return 92
+	let e = c.get(0)
 	return try e.tag as ExitCode otherwise panic("out of range")
 end 'main'
 ```

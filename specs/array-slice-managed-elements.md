@@ -46,7 +46,7 @@ function main() returns ExitCode
 	if sliced.count() != 2 'badCount'
 		return 99
 	end 'badCount'
-	let item = try sliced.get(0) otherwise Item.create("", value: 0)
+	let item = sliced.get(0)
 	return try item.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
@@ -80,7 +80,7 @@ function main() returns ExitCode
 	if sliced.count() != 2 'badCount'
 		return 99
 	end 'badCount'
-	let op = try sliced.get(0) otherwise Op.nop
+	let op = sliced.get(0)
 	match op 'check'
 		sub(v) then return try v as ExitCode otherwise panic("out of range")
 		add then return 98
@@ -124,7 +124,7 @@ function main() returns ExitCode
 	if src.count() != 4 'badSrcCount'
 		return 96
 	end 'badSrcCount'
-	let item = try sub.get(1) otherwise Item.create("", value: 0)
+	let item = sub.get(1)
 	return try item.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
@@ -168,7 +168,7 @@ function main() returns ExitCode
 	if sliced.count() != 2 'badCount'
 		return 99
 	end 'badCount'
-	let node = try sliced.get(0) otherwise Node.empty
+	let node = sliced.get(0)
 	match node 'check'
 		leaf(n) then return checkLeaf(n)
 		branch then return 98
@@ -199,7 +199,7 @@ function main() returns ExitCode
 	if sub.count() != 2 'badCount'
 		return 99
 	end 'badCount'
-	return try (try sub.get(0) otherwise 97) as ExitCode otherwise panic("out of range")
+	return try (sub.get(0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

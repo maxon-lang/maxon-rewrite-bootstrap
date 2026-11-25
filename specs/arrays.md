@@ -1839,7 +1839,7 @@ function main() returns ExitCode
 	var sum = 0 as FullRangeInt
 	var i = 0 as Count
 	while i < arr.count() 'loop'
-		sum = try sum + (try arr.get(i) otherwise 0) otherwise panic("out of range")
+		sum = try sum + (arr.get(i)) otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	let s0 = try sub.get(0) otherwise 0
@@ -2023,7 +2023,7 @@ function main() returns ExitCode
 		end 'mismatch'
 		k = k + 1
 	end 'check'
-	let ok = vClear.count() == 0 and popped == 4 and vPop.count() == 3 and removed == 2 and vRemove.count() == 3 and (try vInsert.get(1) otherwise 0) == 99 and vInsert.count() == 4 and vResize.count() == 2 and vGrow.count() == 3 and (try vGrow.get(2) otherwise 0) == 1000
+	let ok = vClear.count() == 0 and popped == 4 and vPop.count() == 3 and removed == 2 and vRemove.count() == 3 and (try vInsert.get(1) otherwise 0) == 99 and vInsert.count() == 4 and vResize.count() == 2 and vGrow.count() == 3 and (vGrow.get(2)) == 1000
 	return 0 if ok else 8
 end 'main'
 ```
@@ -3627,7 +3627,7 @@ end 'take'
 function main() returns ExitCode
 	let xs = [10, 20]
 	let m = match xs.count() 'm'
-		2 gives try xs.get(0) otherwise 0
+		2 gives xs.get(0)
 		default gives 5
 	end 'm'
 	print("{take(m)}\n")

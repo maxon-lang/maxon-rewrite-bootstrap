@@ -69,7 +69,7 @@ end 'work'
 function main() returns ExitCode
 	let args = CommandLine.args()
 	if args.count() == 4 'one'
-		let total = run(try args.get(1) otherwise "", size: try args.get(2) otherwise "", text: try args.get(3) otherwise "")
+		let total = run(args.get(1), size: args.get(2), text: args.get(3))
 		print("{total}\n")
 		return 0
 	end 'one'

@@ -82,8 +82,8 @@ function sha2WordAt(words Sha2Words, index ElementIndex) returns Sha2Word
 end 'sha2WordAt'
 
 function sha2AddIntoState(mutates state Sha2State, slot Sha2StateSlot, addend Sha2Word, mask Sha2Word)
-	let current = try state.get(slot as ElementIndex) otherwise panic("sha2: state index unreachable")
-	try state.set(slot as ElementIndex, value: (current + addend) and mask) otherwise panic("sha2: state index unreachable")
+	let current = state.get(slot as ElementIndex)
+	state.set(slot as ElementIndex, value: (current + addend) and mask)
 end 'sha2AddIntoState'
 
 function sha256Doubled(v Sha2Word) returns Sha2Word

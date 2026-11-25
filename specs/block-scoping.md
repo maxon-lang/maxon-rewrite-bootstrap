@@ -248,8 +248,8 @@ function repro(foos FooArray, names StringArray)
 		useTwo(foo.name, k: foo.kind)
 	end 'fooLoop'
 	for i in 0 upto names.count() 'nameLoop'
-		let name = try names.get(i) otherwise panic("get failed at {i}")
-		let s2 = try names.get(i) otherwise panic("get2 failed at {i}")
+		let name = names.get(i)
+		let s2 = names.get(i)
 		useOne(name)
 		useOne(s2)
 	end 'nameLoop'

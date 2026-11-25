@@ -320,9 +320,17 @@ function readForm(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, 
 	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
 	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box)))
 	emit(l, i: newLoadAt(d, addr: addr))
-	requireFilled(l, p: p, ms: ms, site: box.site, elem: arrayElem(p, ms: ms, box: box), element: d, index: index, read: read)
+	if slotsMayBeEmpty(p, ms: ms, box: box) 'mayBeEmpty'
+		requireFilled(l, p: p, ms: ms, site: box.site, elem: arrayElem(p, ms: ms, box: box), element: d, index: index, read: read)
+	end 'mayBeEmpty'
 	return d
 end 'readForm'
+
+// slotsMayBeEmpty is whether a slot of the array may hold no element. A fixed array's never does: its creates fill every
+// slot, with zero only of a type that has a zero (fixedarrays.maxon refuses the others), and no row of it empties one.
+function slotsMayBeEmpty(p ast.Project, ms ast.ModuleState, box ArrayBox) returns bool
+	return ast.originOf(ms.types, reads: p.types, t: box.ty) != p.builtins.fixedArrayOrigin
+end 'slotsMayBeEmpty'
 
 // arrayClearSlot drops the element at an index and leaves its slot empty, 0, which fails with indexOutOfBounds past the
 // end.
@@ -367,7 +375,7 @@ end 'arrayLend'
 function lendFormSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
 	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
 	let elem = arrayElem(p, ms: ms, box: box)
-	if zeroIsEmpty(ms.types, reads: p.types, t: elem) 'mayBeEmpty'
+	if zeroIsEmpty(ms.types, reads: p.types, t: elem) and slotsMayBeEmpty(p, ms: ms, box: box) 'mayBeEmpty'
 		let held = newReg(l, kind: kindOf(l, p: p, ms: ms, t: elem))
 		emit(l, i: newLoadAt(held, addr: addr))
 		requireFilled(l, p: p, ms: ms, site: box.site, elem: elem, element: held, index: index, read: SlotRead.slotLent)

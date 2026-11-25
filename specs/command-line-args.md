@@ -169,7 +169,7 @@ function main() returns ExitCode
 	let args = CommandLine.args()
 	var i = 1 as Count
 	while i < args.count() 'loop'
-		let arg = try args.get(i) otherwise ""
+		let arg = args.get(i)
 		print(arg)
 		print("\n")
 		i = i + 1
@@ -193,7 +193,7 @@ function main() returns ExitCode
 	let args = CommandLine.args()
 	// Args include argv[0], so count == 2 with one user arg
 	if args.count() == 2 'check'
-		let arg = try args.get(1) otherwise ""
+		let arg = args.get(1)
 		print(arg)
 		return 0
 	end 'check'

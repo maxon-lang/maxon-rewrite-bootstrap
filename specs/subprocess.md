@@ -2467,7 +2467,7 @@ function describe(label String, text String) returns String
 	let bytes = text.toByteArray()
 	var line = "{label} len={bytes.count()} ["
 	for i in 0 upto bytes.count() 'byteLoop'
-		let value = try bytes.get(i) otherwise panic("describe: index is in range")
+		let value = bytes.get(i)
 		if i > 0 'separator'
 			line = "{line} "
 		end 'separator'

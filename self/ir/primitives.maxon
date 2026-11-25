@@ -488,8 +488,7 @@ function lowerFixedArrayCount(mutates l Lowerer, p ast.Project, mutates ms ast.M
 end 'lowerFixedArrayCount'
 
 // lowerArrayGetProven is a copy of the element at an index that the checker proved inside the count, which cannot
-// fail, of an array or a fixed array. A slot that is empty is a broken invariant, which panics: nothing empties a slot of
-// a fixed array.
+// fail, of an array or a fixed array. An array's slot that is empty panics, as a lent read does; a fixed array has none.
 function lowerArrayGetProven(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
 	let element = arrayRead(l, p: p, ms: ms, box: a, arr: recv, index: args[0], checked: false, read: SlotRead.slotLent)

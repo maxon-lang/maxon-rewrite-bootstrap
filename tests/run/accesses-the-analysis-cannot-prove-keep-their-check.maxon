@@ -1,0 +1,155 @@
+// An access stays checked wherever its index may lie outside the collection by the time it runs, and the try around it
+// catches the index past the end: each loop below reads one element past what is left. Had the analysis proved one of
+// them, the try would be refused (E3944), and a read with no check would run past the end.
+typealias Counts = Array with Count
+
+type Holder
+	export var items as Counts
+
+	static function make(consumes items Counts) returns Holder
+		return Holder{items: items}
+	end 'make'
+
+	function drain(mutates self)
+		items.clear()
+	end 'drain'
+end 'Holder'
+
+function shrink(mutates xs Counts)
+	try xs.pop() otherwise panic("empty")
+end 'shrink'
+
+typealias Cut = function() returns Count mutates captures
+
+function cutOnce(mutates xs Counts) returns Count
+	try xs.pop() otherwise panic("empty")
+	return xs.count()
+end 'cutOnce'
+
+function apply(mutates f Cut) returns Count
+	return f()
+end 'apply'
+
+function threes() returns Counts
+	return Counts.filled(3, value: 3)
+end 'threes'
+
+// popped shrinks the array its loop runs over.
+function popped() returns Count
+	var xs = threes()
+	var missed = 0 as Count
+	for i in 0 upto xs.count() 'each'
+		let v = try xs.get(i) otherwise 100
+		missed = try missed + v otherwise panic("overflowed")
+		try xs.pop() otherwise panic("empty")
+	end 'each'
+	return missed
+end 'popped'
+
+function cleared() returns Count
+	var xs = threes()
+	var missed = 0 as Count
+	for i in 0 upto xs.count() 'each'
+		missed = try missed + (try xs.get(i) otherwise 100) otherwise panic("overflowed")
+		xs.clear()
+	end 'each'
+	return missed
+end 'cleared'
+
+function removed() returns Count
+	var xs = threes()
+	var missed = 0 as Count
+	for i in 0 upto xs.count() 'each'
+		missed = try missed + (try xs.get(i) otherwise 100) otherwise panic("overflowed")
+		_ = try xs.remove(0) otherwise panic("empty")
+	end 'each'
+	return missed
+end 'removed'
+
+function assigned() returns Count
+	var xs = threes()
+	var missed = 0 as Count
+	for i in 0 upto xs.count() 'each'
+		missed = try missed + (try xs.get(i) otherwise 100) otherwise panic("overflowed")
+		xs = Counts.filled(1, value: 3)
+	end 'each'
+	return missed
+end 'assigned'
+
+function passed() returns Count
+	var xs = threes()
+	var missed = 0 as Count
+	for i in 0 upto xs.count() 'each'
+		missed = try missed + (try xs.get(i) otherwise 100) otherwise panic("overflowed")
+		shrink(xs)
+	end 'each'
+	return missed
+end 'passed'
+
+function captured() returns Count
+	var xs = threes()
+	var missed = 0 as Count
+	for i in 0 upto 3 'each'
+		if i < xs.count() 'guarded'
+			_ = apply(function() gives cutOnce(xs))
+			missed = try missed + (try xs.get(i) otherwise 100) otherwise panic("overflowed")
+		end 'guarded'
+	end 'each'
+	return missed
+end 'captured'
+
+// stepped moves the index past the count after the condition compared it.
+function stepped() returns Count
+	let xs = threes()
+	var missed = 0 as Count
+	var i = 0 as Count
+	while i < xs.count() 'each'
+		i = try i + 2 otherwise panic("overflowed")
+		missed = try missed + (try xs.get(i) otherwise 100) otherwise panic("overflowed")
+	end 'each'
+	return missed
+end 'stepped'
+
+// other reads xs at the indices of a longer array.
+function other() returns Count
+	let xs = threes()
+	let ys = Counts.filled(4, value: 1)
+	var missed = 0 as Count
+	for i in 0 upto ys.count() 'each'
+		missed = try missed + (try xs.get(i) otherwise 100) otherwise panic("overflowed")
+	end 'each'
+	return missed
+end 'other'
+
+// viaHolder empties the array through a method of the record that holds it.
+function viaHolder() returns Count
+	var h = Holder.make(threes())
+	var missed = 0 as Count
+	for i in 0 upto 3 'each'
+		if i < h.items.count() 'guarded'
+			h.drain()
+			missed = try missed + (try h.items.get(i) otherwise 100) otherwise panic("overflowed")
+		end 'guarded'
+	end 'each'
+	return missed
+end 'viaHolder'
+
+// guardThenPop pops after the guard, which leaves the count at the index.
+function guardThenPop() returns Count
+	var xs = threes()
+	var missed = 0 as Count
+	if 2 < xs.count() 'guarded'
+		try xs.pop() otherwise panic("empty")
+		missed = try xs.get(2) otherwise 100
+	end 'guarded'
+	return missed
+end 'guardThenPop'
+
+function main() returns ExitCode
+	print("{popped()} {cleared()} {removed()} {assigned()} {passed()}\n")
+	print("{captured()} {stepped()} {other()} {viaHolder()} {guardThenPop()}\n")
+	return 0
+end 'main'
+
+//> 106 203 106 203 106
+//> 103 103 109 100 100

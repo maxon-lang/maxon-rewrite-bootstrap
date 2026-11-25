@@ -77,7 +77,7 @@ function firstFailing(m ClauseMap, key String) returns Count
 	var failedType = ""
 	let clauses = try m.get(key) otherwise ClauseArray.create(0)
 	for i in 0 upto clauses.count() 'each'
-		let c = try clauses.get(i) otherwise panic("firstFailing: get OOB")
+		let c = clauses.get(i)
 		if not satisfied(c.traitName) 'fail'
 			failedParam = c.paramName
 			failedTrait = c.traitName

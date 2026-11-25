@@ -983,7 +983,7 @@ type Box uses T
 		if items.isEmpty() 'none'
 			throw BoxError.empty
 		end 'none'
-		let first = try items.get(0) otherwise panic("empty")
+		let first = items.get(0)
 		items.clear()
 		into.push(first)
 	end 'keepFirst'

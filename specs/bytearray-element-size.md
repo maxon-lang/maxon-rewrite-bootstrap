@@ -67,7 +67,7 @@ function main() returns ExitCode
 	var out = ByteArray.create(0)
 	var i = 12 as Count
 	while i < bytes.count() 'copy'
-		let b = try bytes.get(i) otherwise 0
+		let b = bytes.get(i)
 		out.push(b)
 		i = i + 1
 	end 'copy'
@@ -364,7 +364,7 @@ function main() returns ExitCode
 	var made = Bytes.create(0)
 	made.push(65)
 	made.append(b"CD")
-	return 0 if made.count() == 3 and (try made.get(1) otherwise 0) == 67 and (try made.get(2) otherwise 0) == 68 else 1
+	return 0 if made.count() == 3 and (made.get(1)) == 67 and (made.get(2)) == 68 else 1
 end 'main'
 ```
 ```exitcode
@@ -719,7 +719,7 @@ function main() returns ExitCode
 	var made = Bytes.create(0)
 	made.push(300)
 	made.push(700)
-	return 0 if made.count() == 2 and (try made.get(1) otherwise 0) == 700 else 1
+	return 0 if made.count() == 2 and (made.get(1)) == 700 else 1
 end 'main'
 ```
 ```exitcode

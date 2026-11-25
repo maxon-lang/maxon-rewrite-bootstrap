@@ -299,7 +299,7 @@ function allocate(ranges LRArray) returns ExitCode
 	var total = 0 as ExitCode
 	var oi = 0 as Count
 	while oi < ranges.count() 'assign'
-		let range = try ranges.get(oi) otherwise panic("oob")
+		let range = ranges.get(oi)
 		total = try total + callThunk(function() gives earliest(range)) otherwise panic("out of range")
 		oi = oi + 1
 	end 'assign'

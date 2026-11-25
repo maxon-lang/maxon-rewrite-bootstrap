@@ -165,7 +165,7 @@ typealias Index = int(0 to u64.max) implements ElementIndex
 function main() returns ExitCode
 	let arr = [10 as Index, 20 as Index, 30 as Index]
 	let i = 5 as Index
-	if i < arr.count() and (try arr.get(i) otherwise 0 as Index) > 0 'check'
+	if i < arr.count() and (arr.get(i)) > 0 'check'
 		return 1
 	end 'check'
 	return 42

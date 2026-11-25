@@ -297,7 +297,7 @@ function main() returns ExitCode
 	if arr.count() != 3 'cnt'
 		return 1
 	end 'cnt'
-	let v = try arr.get(1) otherwise -1
+	let v = arr.get(1)
 	if v != 2 'check'
 		return 2
 	end 'check'
@@ -612,8 +612,8 @@ function main() returns ExitCode
 	if arr.count() != 2 'cnt'
 		return 1
 	end 'cnt'
-	let s0 = try arr.get(0) otherwise ""
-	let s1 = try arr.get(1) otherwise ""
+	let s0 = arr.get(0)
+	let s1 = arr.get(1)
 	print(s0)
 	print(s1)
 	return 0
@@ -639,8 +639,8 @@ function main() returns ExitCode
 	if arr.count() != 2 'cnt'
 		return 1
 	end 'cnt'
-	let s0 = try arr.get(0) otherwise ""
-	let s1 = try arr.get(1) otherwise ""
+	let s0 = arr.get(0)
+	let s1 = arr.get(1)
 	print(s0)
 	print(s1)
 	return 0
@@ -812,15 +812,15 @@ function main() returns ExitCode
 	if arr.count() != 4 'cnt'
 		return 1
 	end 'cnt'
-	let v0 = try arr.get(0) otherwise -1
+	let v0 = arr.get(0)
 	if v0 != 5 'c0'
 		return 2
 	end 'c0'
-	let v1 = try arr.get(1) otherwise -1
+	let v1 = arr.get(1)
 	if v1 != 10 'c1'
 		return 3
 	end 'c1'
-	let v3 = try arr.get(3) otherwise -1
+	let v3 = arr.get(3)
 	if v3 != 30 'c3'
 		return 4
 	end 'c3'
@@ -848,11 +848,11 @@ function main() returns ExitCode
 	if arr.count() != 4 'cnt'
 		return 1
 	end 'cnt'
-	let v1 = try arr.get(1) otherwise -1
+	let v1 = arr.get(1)
 	if v1 != 20 'c1'
 		return 2
 	end 'c1'
-	let v2 = try arr.get(2) otherwise -1
+	let v2 = arr.get(2)
 	if v2 != 30 'c2'
 		return 3
 	end 'c2'
@@ -879,7 +879,7 @@ function main() returns ExitCode
 	if arr.count() != 3 'cnt'
 		return 1
 	end 'cnt'
-	let v2 = try arr.get(2) otherwise -1
+	let v2 = arr.get(2)
 	if v2 != 30 'c2'
 		return 2
 	end 'c2'
@@ -904,7 +904,7 @@ function main() returns ExitCode
 	if arr.count() != 1 'cnt'
 		return 1
 	end 'cnt'
-	let v0 = try arr.get(0) otherwise -1
+	let v0 = arr.get(0)
 	if v0 != 42 'c0'
 		return 2
 	end 'c0'
@@ -931,7 +931,7 @@ function main() returns ExitCode
 	if arr.count() != 3 'cnt'
 		return 1
 	end 'cnt'
-	let v2 = try arr.get(2) otherwise -1
+	let v2 = arr.get(2)
 	if v2 != 30 'c2'
 		return 2
 	end 'c2'
@@ -960,11 +960,11 @@ function main() returns ExitCode
 	if arr.count() != 5 'cnt'
 		return 1
 	end 'cnt'
-	let v0 = try arr.get(0) otherwise -1
-	let v1 = try arr.get(1) otherwise -1
-	let v2 = try arr.get(2) otherwise -1
-	let v3 = try arr.get(3) otherwise -1
-	let v4 = try arr.get(4) otherwise -1
+	let v0 = arr.get(0)
+	let v1 = arr.get(1)
+	let v2 = arr.get(2)
+	let v3 = arr.get(3)
+	let v4 = arr.get(4)
 	if v0 != 10 'c0'
 		return 2
 	end 'c0'
@@ -1011,11 +1011,11 @@ function main() returns ExitCode
 	if arr.count() != 2 'cnt'
 		return 2
 	end 'cnt'
-	let v0 = try arr.get(0) otherwise -1
+	let v0 = arr.get(0)
 	if v0 != 20 'c0'
 		return 3
 	end 'c0'
-	let v1 = try arr.get(1) otherwise -1
+	let v1 = arr.get(1)
 	if v1 != 30 'c1'
 		return 4
 	end 'c1'
@@ -1048,11 +1048,11 @@ function main() returns ExitCode
 	if arr.count() != 2 'cnt'
 		return 2
 	end 'cnt'
-	let v0 = try arr.get(0) otherwise -1
+	let v0 = arr.get(0)
 	if v0 != 10 'c0'
 		return 3
 	end 'c0'
-	let v1 = try arr.get(1) otherwise -1
+	let v1 = arr.get(1)
 	if v1 != 30 'c1'
 		return 4
 	end 'c1'
@@ -1085,7 +1085,7 @@ function main() returns ExitCode
 	if arr.count() != 2 'cnt'
 		return 2
 	end 'cnt'
-	let v1 = try arr.get(1) otherwise -1
+	let v1 = arr.get(1)
 	if v1 != 20 'c1'
 		return 3
 	end 'c1'
@@ -1195,9 +1195,9 @@ function main() returns ExitCode
 	if arr.count() != 3 'cnt'
 		return 2
 	end 'cnt'
-	let v0 = try arr.get(0) otherwise -1
-	let v1 = try arr.get(1) otherwise -1
-	let v2 = try arr.get(2) otherwise -1
+	let v0 = arr.get(0)
+	let v1 = arr.get(1)
+	let v2 = arr.get(2)
 	if v0 != 10 'c0'
 		return 3
 	end 'c0'
@@ -1231,10 +1231,10 @@ function main() returns ExitCode
 	if arr.count() != 4 'cnt'
 		return 1
 	end 'cnt'
-	let v0 = try arr.get(0) otherwise -1
-	let v1 = try arr.get(1) otherwise -1
-	let v2 = try arr.get(2) otherwise -1
-	let v3 = try arr.get(3) otherwise -1
+	let v0 = arr.get(0)
+	let v1 = arr.get(1)
+	let v2 = arr.get(2)
+	let v3 = arr.get(3)
 	if v0 != 10 'c0'
 		return 2
 	end 'c0'
@@ -1270,9 +1270,9 @@ function main() returns ExitCode
 	if arr.count() != 3 'cnt'
 		return 1
 	end 'cnt'
-	let v0 = try arr.get(0) otherwise ""
-	let v1 = try arr.get(1) otherwise ""
-	let v2 = try arr.get(2) otherwise ""
+	let v0 = arr.get(0)
+	let v1 = arr.get(1)
+	let v2 = arr.get(2)
 	print(v0)
 	print(v1)
 	print(v2)
@@ -1302,8 +1302,8 @@ function main() returns ExitCode
 	if arr.count() != 2 'cnt'
 		return 1
 	end 'cnt'
-	let v0 = try arr.get(0) otherwise ""
-	let v1 = try arr.get(1) otherwise ""
+	let v0 = arr.get(0)
+	let v1 = arr.get(1)
 	print(v0)
 	print(v1)
 	return 0

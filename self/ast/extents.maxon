@@ -174,6 +174,17 @@ function labelEnd(text String, at Count) returns Count
 	return i
 end 'labelEnd'
 
+// jumpEnd is past the statement at at that leaves by a word alone or with a label: a break or a continue, which may name
+// the block it leaves, or a return with no value.
+export function jumpEnd(text String, at Count) returns Count
+	let word = wordEnd(text, at: at)
+	let next = skipSpace(text, at: word)
+	if next < text.byteLength() and text.byteAt(next) == apostropheByte 'label'
+		return labelEnd(text, at: next)
+	end 'label'
+	return word
+end 'jumpEnd'
+
 // lineEnd is the newline that ends the line at at, or the end of the text.
 function lineEnd(text String, at Count) returns Count
 	var i = at

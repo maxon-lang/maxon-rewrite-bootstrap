@@ -3,6 +3,9 @@ union Unchecked
 	call(name String)
 	// index is a get or a set of a fixed array that states its count, at an index not proven inside it.
 	index(method String, count Count)
+	// access is a get or a set of the collection receiver at the index argument, or another call whose precondition on
+	// the collection's count the analysis did not prove.
+	access(receiver ast.NodeID, index ast.NodeID, requirement ast.Precondition)
 	operation(op String, fails Byte, node ast.NodeID, ty ast.TypeID)
 	cast(ty ast.TypeID)
 	// recovered is a cast of a value of the interface iface to the type ty, which fails when it holds another.
@@ -40,6 +43,13 @@ function rangeNarrow(mutates r Ranges, p ast.Project, ms ast.ModuleState, mutate
 		end 'not'
 		return
 	end 'unary'
+	if k == ast.NodeKind.callExpr 'call'
+		match consumes rangeMeasuredPlace(r, p: p, ms: ms, e: c, measure: ast.MeasureKind.measureIsEmpty) 'emptiness'
+			some(count) then rangeNarrowCount(r, p: p, ms: ms, st: st, from: from, count: count, op: emptyComparison(truth), since: since)
+			none then _ = 0
+		end 'emptiness'
+		return
+	end 'call'
 	if k != ast.NodeKind.binaryExpr 'other'
 		return
 	end 'other'
@@ -107,7 +117,11 @@ function rangeCompareAt(mutates r Ranges, p ast.Project, ms ast.ModuleState, mut
 	end 'y'
 	let cur = rangeSpanAt(r, p: p, ms: ms, s: st, place: px, t: typeOf(r, e: x))
 	let other = rangePeek(r, p: p, ms: ms, s: st, e: y)
-	let next = narrowedSpan(cur, op: op, other: other)
+	rangeRefineAt(r, st: st, from: from, place: px, cur: cur, next: narrowedSpan(cur, op: op, other: other))
+end 'rangeCompareAt'
+
+// rangeRefineAt gives a place the span next in st, where it had cur: a span that holds no value means no path gets here.
+function rangeRefineAt(mutates r Ranges, mutates st Count, from Count, place Place, cur Span, next Span)
 	if next.same(cur) 'unchanged'
 		return
 	end 'unchanged'
@@ -118,8 +132,26 @@ function rangeCompareAt(mutates r Ranges, p ast.Project, ms ast.ModuleState, mut
 		r.states.list[st].dead = true
 		return
 	end 'never'
-	r.states.list[st].refine(px, v: next)
-end 'rangeCompareAt'
+	r.states.list[st].refine(place, v: next)
+end 'rangeRefineAt'
+
+// rangeNarrowCount narrows the count of a collection by 'count op 0', what a test of whether it is empty says, unless the
+// condition changed the collection after it read it.
+function rangeNarrowCount(mutates r Ranges, p ast.Project, ms ast.ModuleState, mutates st Count, from Count, count Place, op String, since Count)
+	if isDead(r, s: st) or changedIn(count, written: r.written, since: since) 'unknown'
+		return
+	end 'unknown'
+	let cur = countSpanAt(r, s: st, count: count)
+	rangeRefineAt(r, st: st, from: from, place: count, cur: cur, next: narrowedSpan(cur, op: op, other: Span.exactly(ast.I128.zero())))
+end 'rangeNarrowCount'
+
+// countSpanAt is what is known of the count of a collection in the state s: no array holds maxElementCount elements.
+function countSpanAt(r Ranges, s Count, count Place) returns Span
+	return match consumes r.states.list[s].at(count) 'known'
+		some(v) gives v
+		none gives Span.make(ast.I128.zero(), hi: ast.I128.fromCount(maxElementCount))
+	end 'known'
+end 'countSpanAt'
 
 function rangeRelateUnchanged(mutates r Ranges, mutates st Count, from Count, x Place, op String, y Place, since Count)
 	if not changedIn(y, written: r.written, since: since) 'unchanged'
@@ -394,14 +426,17 @@ function rangeCallExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e as
 		_ = rangeEval(r, p: p, ms: ms, e: ast.callExprCallee(ms.tree(), id: e))
 	end 'value'
 	var first = noSpan()
+	var afterFirst = r.written.count()
 	for i in 0 upto call.ordered.count() 'args'
 		if call.ordered[i] != 0 'given'
 			let span = rangeEval(r, p: p, ms: ms, e: call.ordered[i])
 			if i == 0 'first'
 				first = span
+				afterFirst = r.written.count()
 			end 'first'
 		end 'given'
 	end 'args'
+	let access = receiver != 0 and rangeAccess(r, p: p, ms: ms, e: e, info: call, receiver: receiver, index: first, since: afterFirst)
 	for i in 0 upto call.ordered.count() 'changes'
 		let a = call.ordered[i]
 		if a != 0 and i < call.paramSpecs.count() and ast.isByAddress(call.paramSpecs[i].conv) 'byAddress'
@@ -411,10 +446,9 @@ function rangeCallExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e as
 	if receiver != 0 and call.selfConv != ast.Convention.convLet 'receiverChanges'
 		rangeReceiverChanged(r, p: p, ms: ms, e: receiver, effect: receiverEffect(p, ms: ms, info: call, receiverType: typeOf(r, e: receiver)))
 	end 'receiverChanges'
-	if receiver != 0 and isCountedAccess(r, p: p, ms: ms, info: call, receiver: receiver) 'counted'
-		rangeCountedAccess(r, p: p, ms: ms, e: e, info: call, receiver: receiver, index: first)
+	if access 'judged'
 		return rangeTyped(r, p: p, ms: ms, e: e)
-	end 'counted'
+	end 'judged'
 	let err = callErrorType(p, ms: ms, info: call)
 	if err != ast.noType 'throws'
 		rangeFallible(r, p: p, ms: ms, site: e, err: err, why: Unchecked.call(callTargetName(p, ms: ms, info: call)))
@@ -451,57 +485,132 @@ function rangeAwait(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.N
 	return rangeTyped(r, p: p, ms: ms, e: e)
 end 'rangeAwait'
 
-// isCountedAccess is whether a call is a get or a set of a fixed array whose type states its count, which fails only at an
-// index outside it.
-function isCountedAccess(r Ranges, p ast.Project, ms ast.ModuleState, info ast.CallInfo, receiver ast.NodeID) returns bool
-	let op = info.intrinsic
-	if op != ast.Intrinsic.intrArrayGet and op != ast.Intrinsic.intrArraySet and op != ast.Intrinsic.intrArrayGetProven and op != ast.Intrinsic.intrArraySetProven 'other'
+// rangeAccess judges a call of a built-in whose only failure is a precondition on the count of its receiver, a collection
+// whose count the analysis follows, and says whether the call was one: a get or a set at an index. Where the analysis
+// proves the precondition, the call becomes the twin that cannot fail, which reads or writes with no check; elsewhere it
+// stays the checked call, whose failure a try must cover. A constant index outside a fixed array that states its count is
+// an error of its own.
+function rangeAccess(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, info ast.CallInfo, receiver ast.NodeID, index Span, since Count) returns bool
+	let requirement = ast.intrinsicRequires(info.intrinsic)
+	if requirement == ast.Precondition.requiresNone or not isMeasuredType(p, ms: ms, t: typeOf(r, e: receiver)) 'other'
 		return false
 	end 'other'
-	let t = ast.contentType(ms.types, reads: p.types, t: typeOf(r, e: receiver))
-	return ast.originOf(ms.types, reads: p.types, t: t) == p.builtins.fixedArrayOrigin and ast.statesCount(ms.types, reads: p.types, t: t)
-end 'isCountedAccess'
-
-// rangeCountedAccess judges a get or a set of a fixed array that states its count by the span of its index: one inside
-// the count cannot fail, and the call becomes the access with no check; a constant outside it is an error; any other
-// index is checked, so the call fails as an array's does.
-function rangeCountedAccess(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, info ast.CallInfo, receiver ast.NodeID, index Span)
-	let t = ast.contentType(ms.types, reads: p.types, t: typeOf(r, e: receiver))
-	let count = ast.statedCount(ms.types, reads: p.types, t: t)
-	let last = ast.I128.fromCount(count).sub(ast.I128.one())
-	let isGet = info.intrinsic == ast.Intrinsic.intrArrayGet or info.intrinsic == ast.Intrinsic.intrArrayGetProven
-	var method = "set"
-	if isGet 'get'
-		method = "get"
-	end 'get'
-	let proven = not index.lo.isNeg() and index.hi.le(last)
+	let checked = checkedAccessFunc(p, ms: ms, info: info, receiverType: typeOf(r, e: receiver))
+	let twin = match consumes ast.provenTwin(p.builtins, f: checked) 'twin'
+		some(f) gives f
+		none panic("ranges: the built-in '{ast.funcEntry(ms.funcs, funcReads: p.funcs, f: checked).name}' has a precondition but no twin that cannot fail")
+	end 'twin'
+	let proven = rangeProves(r, p: p, ms: ms, info: info, receiver: receiver, requirement: requirement, index: index, since: since)
 	if not r.probing 'record'
 		var chosen = info.clone()
-		chosen.fn = countedAccessFunc(p, ms: ms, isGet: isGet, proven: proven)
+		chosen.fn = checked
+		if proven 'twin'
+			chosen.fn = twin
+		end 'twin'
 		chosen.intrinsic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: chosen.fn).intrinsic
 		r.typing.calls.insert(e as Count, value: chosen)
 	end 'record'
 	if proven 'inside'
-		return
+		rangeProvenCovered(r, e: e)
+		return true
 	end 'inside'
-	if index.lo.eq(index.hi) and index.lo.gt(last) and not r.probing 'constant'
-		rangeRaise(r, p: p, ms: ms, node: info.ordered[0], code: diag.errTypeMismatch, msg: "Value {index.lo.toString()} is outside the range of the indices of 'FixedArray with {count}' (int(0 to {last.toString()}))")
-		return
-	end 'constant'
-	rangeFallible(r, p: p, ms: ms, site: e, err: p.builtins.arrayErrorTy, why: Unchecked.index(method, count: count))
-end 'rangeCountedAccess'
+	let t = ast.contentType(ms.types, reads: p.types, t: typeOf(r, e: receiver))
+	if requirement == ast.Precondition.requiresIndexBelow and statesItsCount(p, ms: ms, t: t) 'stated'
+		let count = ast.statedCount(ms.types, reads: p.types, t: t)
+		let last = ast.I128.fromCount(count).sub(ast.I128.one())
+		if index.lo.eq(index.hi) and index.lo.gt(last) and not r.probing 'constant'
+			rangeRaise(r, p: p, ms: ms, node: info.ordered[0], code: diag.errTypeMismatch, msg: "Value {index.lo.toString()} is outside the range of the indices of 'FixedArray with {count}' (int(0 to {last.toString()}))")
+			return true
+		end 'constant'
+		rangeFallible(r, p: p, ms: ms, site: e, err: p.builtins.arrayErrorTy, why: Unchecked.index(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: checked).name.clone(), count: count))
+		return true
+	end 'stated'
+	rangeFallible(r, p: p, ms: ms, site: e, err: p.builtins.arrayErrorTy, why: Unchecked.access(receiver, index: indexArgument(info), requirement: requirement))
+	return true
+end 'rangeAccess'
 
-// countedAccessFunc is the get or the set of a fixed array that a call runs: the one that cannot fail at a proven index.
-function countedAccessFunc(p ast.Project, ms ast.ModuleState, isGet bool, proven bool) returns ast.FuncID
-	if isGet and proven 'provenGet'
-		return p.builtins.fixedArrayGetProvenFunc
-	end 'provenGet'
-	if proven 'provenSet'
-		return p.builtins.fixedArraySetProvenFunc
-	end 'provenSet'
-	let name = "get" if isGet else "set"
-	return ast.typeEntry(ms.types, reads: p.types, t: p.builtins.fixedArrayOrigin).findMethod(name).unwrap()
-end 'countedAccessFunc'
+// rangeProvenCovered notes the proven access e in the try that covers it, if one does.
+function rangeProvenCovered(mutates r Ranges, e ast.NodeID)
+	if r.handlers.count() == 0 'uncovered'
+		return
+	end 'uncovered'
+	let last = try r.handlers.count() - 1 otherwise panic("ranges: no handler")
+	if r.handlers[last].proven == 0 'first'
+		r.handlers[last].proven = e
+	end 'first'
+end 'rangeProvenCovered'
+
+// indexArgument is the first argument of a call, the index of an access, or 0 for a call with none.
+function indexArgument(info ast.CallInfo) returns ast.NodeID
+	if info.ordered.count() == 0 'none'
+		return 0 as ast.NodeID
+	end 'none'
+	return info.ordered[0]
+end 'indexArgument'
+
+// statesItsCount is whether the collection type t is a fixed array whose type states its count.
+function statesItsCount(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
+	return ast.originOf(ms.types, reads: p.types, t: t) == p.builtins.fixedArrayOrigin and ast.statesCount(ms.types, reads: p.types, t: t)
+end 'statesItsCount'
+
+// checkedAccessFunc is the checked row of the method that a call of an access names, which the call names unless an
+// earlier walk chose its twin: the first method of the name that the collection's type declares.
+function checkedAccessFunc(p ast.Project, ms ast.ModuleState, info ast.CallInfo, receiverType ast.TypeID) returns ast.FuncID
+	let origin = ast.originOf(ms.types, reads: p.types, t: ast.contentType(ms.types, reads: p.types, t: receiverType))
+	return ast.typeEntry(ms.types, reads: p.types, t: origin).findMethod(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).name).unwrap()
+end 'checkedAccessFunc'
+
+// rangeProves is whether the state proves the precondition of an access on the collection receiver: that the index, whose
+// value has the span index, lies inside the collection's count, or that the count is not 0. The count's span and how far
+// the count is known to lie above the index's place decide it, as they are where the index was evaluated: a fact on either
+// that changed since is not used.
+function rangeProves(r Ranges, p ast.Project, ms ast.ModuleState, info ast.CallInfo, receiver ast.NodeID, requirement ast.Precondition, index Span, since Count) returns bool
+	if isDead(r, s: r.st) 'dead'
+		return false
+	end 'dead'
+	var count = Span.make(ast.I128.zero(), hi: ast.I128.fromCount(maxElementCount))
+	let t = ast.contentType(ms.types, reads: p.types, t: typeOf(r, e: receiver))
+	if statesItsCount(p, ms: ms, t: t) 'stated'
+		count = Span.exactly(ast.I128.fromCount(ast.statedCount(ms.types, reads: p.types, t: t)))
+	end 'stated'
+	var least = count.lo.sub(index.hi)
+	match consumes rangePlaceOf(r, p: p, ms: ms, e: receiver) 'collection'
+		some(q) then least = rangeCountAbove(r, p: p, ms: ms, count: placeCount(q), stated: count, index: index, at: indexArgument(info), since: since)
+		none then _ = 0
+	end 'collection'
+	return match requirement 'requirement'
+		requiresNone gives panic("ranges: an access with no precondition")
+		requiresNonEmpty gives least.ge(ast.I128.one())
+		requiresIndexBelow gives not index.lo.isNeg() and least.ge(ast.I128.one())
+	end 'requirement'
+end 'rangeProves'
+
+// rangeCountAbove is the least that the count of a collection lies above the index of the span index, which the
+// expression at evaluates, or above 0 for an access with no index: from the count's span, within stated, what its type says
+// of it, and from a relation between the count and the index's place. A fact on a place that changed since the index was
+// evaluated is not used.
+function rangeCountAbove(r Ranges, p ast.Project, ms ast.ModuleState, count Place, stated Span, index Span, at ast.NodeID, since Count) returns ast.I128
+	if changedIn(count, written: r.written, since: since) 'changed'
+		return stated.lo.sub(index.hi)
+	end 'changed'
+	let known = countSpanAt(r, s: r.st, count: count).clamp(stated)
+	let least = known.lo.sub(index.hi)
+	if at == 0 'noIndex'
+		return least
+	end 'noIndex'
+	match consumes rangePlaceOf(r, p: p, ms: ms, e: at) 'index'
+		some(i) then return rangeGapSince(r, hi: count, lo: i, since: since, least: least)
+		none then return least
+	end 'index'
+end 'rangeCountAbove'
+
+// rangeGapSince is the least of hi - lo by a relation between them, or least where none is known or lo changed since.
+function rangeGapSince(r Ranges, hi Place, lo Place, since Count, least ast.I128) returns ast.I128
+	if changedIn(lo, written: r.written, since: since) 'changed'
+		return least.clone()
+	end 'changed'
+	return gapOrLow(r.states.list[r.st].gap(hi, lo: lo), low: least)
+end 'rangeGapSince'
 
 // isMeasuredType is whether the count of a collection of the type t is a place the analysis follows: an Array's or a
 // FixedArray's. A '__ManagedMemory' shares Array's intrinsics, but it is an Array's storage, so its length would be a
@@ -575,7 +684,7 @@ function rangeTryExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast
 	if not added 'passed'
 		return v
 	end 'passed'
-	let h = rangeLeaveTry(r)
+	let h = rangeLeaveTry(r, p: p, ms: ms)
 	if h.propagates 'toCaller'
 		return v
 	end 'toCaller'
@@ -847,6 +956,7 @@ function uncheckedNode(why Unchecked, site ast.NodeID) returns ast.NodeID
 		returned(_, value) gives value
 		call(_) gives site
 		index(_, _) gives site
+		access(_, _, _) gives site
 		operation(_, _, _, _) gives site
 		cast(_) gives site
 		recovered(_, _) gives site
@@ -861,6 +971,7 @@ function uncheckedFix(p ast.Project, ms ast.ModuleState, t ast.Tree, why Uncheck
 		returned(ty, value) gives returnFix(t, e: value, target: nameOfType(p, ms: ms, t: ty))
 		call(_) gives tryFix(t, e: site)
 		index(_, _) gives tryFix(t, e: site)
+		access(_, _, _) gives tryFix(t, e: site)
 		operation(_, _, _, _) gives tryFix(t, e: site)
 		cast(_) gives tryFix(t, e: site)
 		recovered(_, _) gives tryFix(t, e: site)
@@ -877,6 +988,7 @@ function ownTryFix(p ast.Project, ms ast.ModuleState, why Unchecked, site ast.No
 		call(_) gives diag.Fix.none()
 		thrown gives diag.Fix.none()
 		index(_, _) gives uncheckedFix(p, ms: ms, t: ms.tree(), why: why, site: site)
+		access(_, _, _) gives uncheckedFix(p, ms: ms, t: ms.tree(), why: why, site: site)
 		operation(_, _, _, _) gives uncheckedFix(p, ms: ms, t: ms.tree(), why: why, site: site)
 		cast(_) gives uncheckedFix(p, ms: ms, t: ms.tree(), why: why, site: site)
 		recovered(_, _) gives uncheckedFix(p, ms: ms, t: ms.tree(), why: why, site: site)
@@ -885,10 +997,11 @@ function ownTryFix(p ast.Project, ms ast.ModuleState, why Unchecked, site ast.No
 end 'ownTryFix'
 
 // uncheckedText is the error for an operation that can fail where no try covers it.
-function uncheckedText(r Ranges, p ast.Project, ms ast.ModuleState, why Unchecked) returns String
+function uncheckedText(r Ranges, p ast.Project, ms ast.ModuleState, why Unchecked, site ast.NodeID) returns String
 	return match why 'why'
 		call(name) gives diag.throwingCallRequiresTry(name)
 		index(method, count) gives "{diag.throwingCallRequiresTry(method)} — its index is not proven inside the fixed array's {count} elements; wrap it as `try … otherwise …`, or give the index a ranged type within `int(0 to {ast.I128.fromCount(count).sub(ast.I128.one()).toString()})`"
+		access(receiver, index, requirement) gives accessText(ms.tree(), call: site, receiver: receiver, index: index, requirement: requirement)
 		operation(op, fails, node, ty) gives "{failureText(p, ms: ms, op: op, fails: fails, ty: ty)}{operandFix(guardAdvice(ms.tree(), fails: fails, e: node))}"
 		cast(ty) gives castText(p, ms: ms, ty: ty)
 		recovered(iface, ty) gives "the value of '{nameOfType(p, ms: ms, t: iface)}' may hold a value of another type than '{nameOfType(p, ms: ms, t: ty)}', and then the cast fails with CastError.otherType; handle the failure with 'try'"
@@ -896,6 +1009,35 @@ function uncheckedText(r Ranges, p ast.Project, ms ast.ModuleState, why Unchecke
 		thrown panic("ranges: a throw is always covered")
 	end 'why'
 end 'uncheckedText'
+
+// accessText is the error for an access at call whose precondition on the count of the collection receiver is not proven
+// where no try covers it: what it needs, and the two ways to give it.
+function accessText(t ast.Tree, call ast.NodeID, receiver ast.NodeID, index ast.NodeID, requirement ast.Precondition) returns String
+	let written = exprText(t, e: call)
+	let count = "{receiverText(t, call: call, receiver: receiver)}.count()"
+	let needs = match requirement 'requirement'
+		requiresNone gives panic("ranges: an access with no precondition")
+		requiresIndexBelow gives "{exprText(t, e: index)} < {count}"
+		requiresNonEmpty gives "{count} > 0"
+	end 'requirement'
+	return "'{written}' needs {needs}, which is not known here: guard it with 'if {needs}', or check it with 'try {written} otherwise …'"
+end 'accessText'
+
+// receiverText is the text of the receiver of a method call: what stands before the dot of the callee, which is where the
+// member starts, since the extent of a bare name runs on through the dotted words after it.
+function receiverText(t ast.Tree, call ast.NodeID, receiver ast.NodeID) returns String
+	let callee = ast.callExprCallee(t, id: call)
+	if t.kindOf(callee) != ast.NodeKind.memberExpr 'unqualified'
+		return exprText(t, e: receiver)
+	end 'unqualified'
+	return table.blankTrimmed(t.text.sliceBytes(ast.exprStart(t, e: receiver), endPos: t.startOf(callee) as Count), fromStart: false, fromEnd: true).clone()
+end 'receiverText'
+
+// provenTryText is the error for a try that covers nothing that can fail but the access, which the analysis proved inside
+// its collection.
+function provenTryText(t ast.Tree, access ast.NodeID) returns String
+	return "'{exprText(t, e: access)}' cannot fail here: its index is proven inside the collection, so the 'try' handles a failure that never happens; remove the 'try' and its handler"
+end 'provenTryText'
 
 // rangeFail records how the operation e can fail, if it can, and that the innermost try covers it. The probe of a loop
 // records nothing, as the real walk of the loop will.
@@ -923,11 +1065,12 @@ end 'setFails'
 function rangeFallible(mutates r Ranges, p ast.Project, ms ast.ModuleState, site ast.NodeID, err ast.TypeID, why Unchecked)
 	if r.handlers.count() == 0 'uncovered'
 		if not r.probing 'report'
-			rangeRaiseFixed(r, p: p, ms: ms, node: uncheckedNode(why, site: site), code: diag.errUncheckedFailure, msg: uncheckedText(r, p: p, ms: ms, why: why), fix: uncheckedFix(p, ms: ms, t: ms.tree(), why: why, site: site))
+			rangeRaiseFixed(r, p: p, ms: ms, node: uncheckedNode(why, site: site), code: diag.errUncheckedFailure, msg: uncheckedText(r, p: p, ms: ms, why: why, site: site), fix: uncheckedFix(p, ms: ms, t: ms.tree(), why: why, site: site))
 		end 'report'
 		return
 	end 'uncovered'
 	let last = try r.handlers.count() - 1 otherwise panic("ranges: no handler")
+	r.handlers[last].fallible = true
 	let propagates = r.handlers[last].propagates
 	let takes = r.handlers[last].takes
 	if not r.probing 'judged'

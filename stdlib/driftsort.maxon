@@ -339,7 +339,7 @@ export extension Array
 		// A lone logical run never reached a merge (e.g. the whole input became
 		// one short run). Sort it so the final array is ordered.
 		if stack.count() == 1 'lone'
-			let only = try stack.get(0) otherwise panic("driftsortRange: stack.get OOB at drain end")
+			let only = stack.get(0)
 			if not only.sorted 'loneLogical'
 				self.stableQuicksortRange(only.startIndex, hi: try only.startIndex + only.length otherwise panic("out of range"), scratch: scratch, scratchCap: scratchCap, pivotHold: pivotHold, cmp: cmp)
 			end 'loneLogical'

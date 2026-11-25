@@ -60,7 +60,7 @@ typealias WordArray = Array with Word
 function total(a WordArray) returns Word
 	var t = 0 as Word
 	for i in 0 upto a.count() 'sum'
-		t = try t + (try a.get(i) otherwise panic("total: i < a.count()")) otherwise panic("out of range")
+		t = try t + (a.get(i)) otherwise panic("out of range")
 	end 'sum'
 	return t
 end 'total'

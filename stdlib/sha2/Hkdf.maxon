@@ -49,7 +49,7 @@ function hkdfBlocks(algorithm HashAlgorithm, pseudoRandomKey ByteArray, info Byt
 		input.append(info)
 		input.push(counter)
 		block = hmac(algorithm, key: pseudoRandomKey, message: input)
-		let wanted = try length - output.count() otherwise panic("out of range")
+		let wanted = length - output.count()
 		if block.count() <= wanted 'whole'
 			output.append(block)
 		end 'whole' else 'partial'

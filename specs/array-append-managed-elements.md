@@ -52,7 +52,7 @@ function main() returns ExitCode
 	if dest.count() != 4 'badCount'
 		return 99
 	end 'badCount'
-	let item = try dest.get(1) otherwise Item.create("", value: 0)
+	let item = dest.get(1)
 	return try item.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
@@ -88,7 +88,7 @@ function main() returns ExitCode
 	if dest.count() != 4 'badCount'
 		return 99
 	end 'badCount'
-	let op = try dest.get(1) otherwise Op.nop
+	let op = dest.get(1)
 	match op 'check'
 		add(v) then return try v as ExitCode otherwise panic("out of range")
 		sub then return 98
@@ -146,7 +146,7 @@ function main() returns ExitCode
 	if allModule.functions.count() != 2 'badCount'
 		return 99
 	end 'badCount'
-	let first = try allModule.functions.get(0) otherwise Func.create("", body: IntArray.create(0))
+	let first = allModule.functions.get(0)
 	if first.name == "func_a_with_long_name_for_heap" 'correct'
 		return 0
 	end 'correct'
@@ -198,11 +198,11 @@ function main() returns ExitCode
 	if dest.count() != 2 'badCount'
 		return 99
 	end 'badCount'
-	let rec = try dest.get(1) otherwise Record.create("", lines: StringArray.create(0))
+	let rec = dest.get(1)
 	if rec.lines.count() != 2 'badLines'
 		return 98
 	end 'badLines'
-	let line = try rec.lines.get(0) otherwise "?"
+	let line = rec.lines.get(0)
 	if line == "line one long enough for heap allocation" 'correct'
 		return 0
 	end 'correct'

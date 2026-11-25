@@ -24,6 +24,8 @@ export let fixKindInterpolation = "interpolation"
 
 export let fixKindMatchConsumes = "match consumes"
 
+export let fixKindUntry = "no try"
+
 let fixKindThaw = "thaw"
 
 let fixKindFreeze = "freeze"
@@ -96,6 +98,60 @@ end 'isCompound'
 export function tryFix(t ast.Tree, e ast.NodeID) returns diag.Fix
 	return wrapFix(t, kind: fixKindTry, e: ast.outermostArithmetic(t, e: e), before: "try ", after: panicClause())
 end 'tryFix'
+
+// untryFix removes a try expression's 'try' and its handler, leaving the expression it covers, which cannot fail: what a
+// try that covers only proven accesses is told to do. A try statement, or a try whose handler is a block, has no fix:
+// where it ends is not found from its nodes.
+export function untryFix(t ast.Tree, site ast.NodeID) returns diag.Fix
+	if t.kindOf(site) != ast.NodeKind.tryExpr or ast.tryExprHandler(t, id: site) != 0 'block'
+		return diag.Fix.none()
+	end 'block'
+	let inner = ast.exprExtent(t, e: ast.tryExprE(t, id: site))
+	let finish = tryEnd(t, e: site)
+	if not inner.isSome() or not finish.isSome() 'unknown'
+		return diag.Fix.none()
+	end 'unknown'
+	let kept = inner.unwrap()
+	var edits = diag.FixEdits.create(0)
+	edits.push(diag.FixEdit.make(t.module, begin: at32(ast.exprStart(t, e: site)), until: kept.begin, text: ""))
+	edits.push(diag.FixEdit.make(t.module, begin: kept.until, until: at32(finish.unwrap()), text: ""))
+	return fixOf(fixKindUntry, edits: edits)
+end 'untryFix'
+
+// tryEnd is where a try expression whose handler is no block ends: after its fallback or its expression, after the
+// statement its handler is, or after the word ignore.
+function tryEnd(t ast.Tree, e ast.NodeID) returns table.Option with Count
+	let ret = ast.tryExprRet(t, id: e)
+	if ret != 0 and ast.returnStmtValue(t, id: ret) != 0 'returns'
+		return ast.exprEnd(t, e: ast.returnStmtValue(t, id: ret))
+	end 'returns'
+	let thr = ast.tryExprThr(t, id: e)
+	if thr != 0 'throws'
+		return ast.exprEnd(t, e: ast.throwStmtValue(t, id: thr))
+	end 'throws'
+	var jump = ast.tryExprBrk(t, id: e)
+	if jump == 0 'notBreak'
+		jump = ast.tryExprCont(t, id: e)
+	end 'notBreak'
+	if jump == 0 'notContinue'
+		jump = ret
+	end 'notContinue'
+	if jump != 0 'jumps'
+		return table.Option.some(ast.jumpEnd(t.text, at: t.startOf(jump) as Count))
+	end 'jumps'
+	if ast.tryExprIgnore(t, id: e) 'ignores'
+		return ignoreEnd(t, e: e)
+	end 'ignores'
+	return ast.exprEnd(t, e: e)
+end 'tryEnd'
+
+// ignoreEnd is past the words 'otherwise ignore' after the expression of a try.
+function ignoreEnd(t ast.Tree, e ast.NodeID) returns table.Option with Count
+	match consumes ast.exprEnd(t, e: ast.tryExprE(t, id: e)) 'covered'
+		some(past) then return table.Option.some(ast.wordEnd(t.text, at: ast.skipSpace(t.text, at: ast.wordEnd(t.text, at: ast.skipSpace(t.text, at: past)))))
+		none then return table.Option.none
+	end 'covered'
+end 'ignoreEnd'
 
 // returnFix writes the conversion that a return makes to the integer type named target as a cast that a try covers.
 export function returnFix(t ast.Tree, e ast.NodeID, target String) returns diag.Fix

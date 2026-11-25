@@ -1825,8 +1825,8 @@ function main() returns ExitCode
 	if parts.count() != 2 'notDriveRooted'
 		return 3
 	end 'notDriveRooted'
-	let drive = try parts.get(0) otherwise return 3
-	let rooted = try parts.get(1) otherwise return 3
+	let drive = parts.get(0)
+	let rooted = parts.get(1)
 	if not probe("short", drive: drive, rooted: rooted, segments: 1) 'short'
 		return 4
 	end 'short'
