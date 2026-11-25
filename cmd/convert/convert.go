@@ -560,17 +560,22 @@ func dropBuiltinDeclarations(lines []sourceLine) {
 		if l.removed || len(l.code) == 0 || l.indent != "" {
 			continue
 		}
-		declIdx := skipModifiers(l.code)
-		if declIdx+1 >= len(l.code) || l.code[declIdx].kind != tokIdent || !builtinNames[l.code[declIdx+1].text] {
-			continue
-		}
 		last := i
-		switch word := l.code[declIdx].text; {
-		case slices.Contains(blockDeclWords, word):
-			last = topLevelEnd(lines, i)
-		case slices.Contains(lineDeclWords, word):
-		default:
-			continue
+		if l.code[0].text == "#if" {
+			end, builtinOnly := builtinConditionalRegion(lines, i)
+			if !builtinOnly {
+				continue
+			}
+			last = end
+		} else {
+			declIdx := skipModifiers(l.code)
+			if declIdx+1 >= len(l.code) || l.code[declIdx].kind != tokIdent || !builtinNames[l.code[declIdx+1].text] {
+				continue
+			}
+			var ok bool
+			if last, ok = declarationEnd(lines, i); !ok {
+				continue
+			}
 		}
 		for k := i - 1; k >= 0 && len(lines[k].code) == 0 && lines[k].comment != ""; k-- {
 			lines[k].removed = true
@@ -580,6 +585,42 @@ func dropBuiltinDeclarations(lines []sourceLine) {
 		}
 		i = last
 	}
+}
+
+// builtinConditionalRegion is the line of the `#endif` of the conditional region that the `#if` at line start opens, and
+// whether every declaration inside it is of a name that minimaxon has built in, as maxon's `ExitCode`, which a region declares
+// for each system's range, is: such a region is the built-in's own and goes with it.
+func builtinConditionalRegion(lines []sourceLine, start int) (end int, builtinOnly bool) {
+	_, end = conditionalRegion(lines, start)
+	declared := 0
+	for k := start + 1; k < end; k++ {
+		l := lines[k]
+		if l.removed || len(l.code) == 0 {
+			continue
+		}
+		declIdx := skipModifiers(l.code)
+		if l.code[0].text == "#else" || declIdx+1 >= len(l.code) {
+			continue
+		}
+		if l.indent != "\t" || !builtinNames[l.code[declIdx+1].text] || !slices.Contains(lineDeclWords, l.code[declIdx].text) {
+			return end, false
+		}
+		declared++
+	}
+	return end, declared > 0
+}
+
+// declarationEnd is the last line of the top-level declaration that line start opens: its `end` for a type, an enum, a
+// union, an interface or a function, the line itself for a typealias or a constant. It says false for any other line.
+func declarationEnd(lines []sourceLine, start int) (last int, ok bool) {
+	word := lines[start].code[skipModifiers(lines[start].code)].text
+	switch {
+	case slices.Contains(blockDeclWords, word):
+		return topLevelEnd(lines, start), true
+	case slices.Contains(lineDeclWords, word):
+		return start, true
+	}
+	return start, false
 }
 
 // topLevelEnd is the line of the `end` that closes the top-level declaration that line start opens.

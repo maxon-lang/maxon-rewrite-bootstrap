@@ -255,6 +255,12 @@ function lowerReadStdin(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c 
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsReadStdin, kind: IrKind.kindManaged, args: argsOf1(args[0]))
 end 'lowerReadStdin'
 
+// lowerOsEnvironmentEntry is a fresh byte array of the environment's entry at an index: the box of an array of bytes, which a
+// __ManagedMemory of bytes is.
+function lowerOsEnvironmentEntry(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsEnvironmentEntry, kind: IrKind.kindManaged, args: argsOf1(try args.get(0) otherwise panic("osEnvironmentEntry takes one argument, which the checker has seen")))
+end 'lowerOsEnvironmentEntry'
+
 function lowerStdoutWantsColor(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsStdoutWantsColor, kind: IrKind.kindScalar, args: RegList.create(0))
 end 'lowerStdoutWantsColor'

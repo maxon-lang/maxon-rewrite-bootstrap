@@ -540,7 +540,9 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   it as the step "library regenerates" when `MAXON_STDLIB` names that directory, and skips it otherwise, since it cannot
   assume where maxon is checked out. The conversion replaces a conditional region that calls a CPU-specific intrinsic
   (`__Builtins.cpuHasSha`, `__Builtins.sha256Blocks`) by its `#else` branch or leaves it out, so `Sha2` is software only on
-  every target. The modules are layers, as a program's are: maxon's library names any of its declarations from any file, so
+  every target. It leaves out a conditional region that declares only names the compiler builds in (maxon's `ExitCode`,
+  whose range each system's branch sets), and a method that calls a raw function the table lacks, with the constants and
+  private methods that only such methods reach. The modules are layers, as a program's are: maxon's library names any of its declarations from any file, so
   the layout puts files that name each other in one module and each other module above the ones it names. Every program is
   compiled with it (`project.addLibrary`): its directories are modules after the program's, flagged `isLibrary`, the root's
   path being `stdlib` and each one under it `stdlib.<path>`, so no program module shares one, and `Project.library` names the
@@ -4374,6 +4376,16 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
   conversion writes the type rather than an extension, the OS rows (`File`, `Directory`, `Process.executablePath`,
   `Subprocess.runInDirectory`, `FilePathArray`) find the library's `FilePath` by its name at the root, as a map literal finds
   `Map`, and `self/`'s `path.toString()` calls become interpolations.
+- **`Process`** is a built-in record with the rows above, and the library's `stdlib/process` (`Process.maxon`, converted) extends
+  it with maxon's `currentEnvironmentEntries()` (`StringArray`, one `NAME=VALUE` entry per element in the order the system
+  reports them, `environmentUnreadable` where it hands over none), `envEntryName(entry)`, `envEntryValue(entry)` (an entry
+  divides at its first `=` after byte 0, as a Windows entry `=C:=C:\dir` is named `=C:`), `envNameKey(name)` (lowercased on
+  Windows, as given elsewhere), `EnvNameValueSeparator` and `BackgroundPriority`. The walk is `__Builtins.osEnvironmentEntry(index)`
+  (`rt.os.environmentEntry`, `runtime/environment.maxon`), a fresh buffer of bytes for the entry at an index, empty past the
+  last and one NUL byte where the system has no environment, neither of which an entry is: `GetEnvironmentStringsW` on
+  Windows, converted from UTF-16 entry by entry, and on Linux and macOS the vector of entries the process started with.
+  maxon's `environmentVariable`, `executablePath`, `id` and `enterBackgroundPriority` stay the built-ins' own, which read the
+  system directly where maxon's `environmentVariable` walks the entries. A `__ManagedMemory` of bytes has maxon's `byteAt`, which is its `get`.
 - **Errors** are maxon's enums, cases and all: `FileReadError` (`notFound`, `accessDenied`, `busy`, `failed`),
   `FileWriteError` (`failed`, `notFound`, `accessDenied`, `alreadyExists`, `busy`, `partialFileLeft`),
   `FilePermission` (`normal`, 0666, the default of `mode:`, and `executable`, 0755, which only Linux's runtime has an effect for),
@@ -5236,7 +5248,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - The OS functions (see "The OS") have maxon's names, signatures and errors, but are a subset, built in rather than
   stdlib code: `FilePath`'s built-in `from` does not resolve a `file://` URL (one is taken as a path); `File` has no `readBinary`, `createText`, `exists`, `renameNew`, `info` or `openRead`,
   `Directory.exists`, `removeTree` and `removeContents` are maxon's (`stdlib/directory` extends the built-in with the last two), and
-  `Directory.list` lists in the order the system gives; `Process` has only `environmentVariable`, `executablePath`, `id` and `setExitCode`; `Subprocess.run`
+  `Directory.list` lists in the order the system gives; `Process` has `environmentVariable`, `executablePath`, `id`, `setExitCode`, `exit` and `enterBackgroundPriority` built in, and the library's environment functions (see "The OS"); `Subprocess.run`
   takes no `workingDirectory:` or `deadline:` (`runWithDeadline` takes the deadline), and `CollectedOutput` has no `status`, `pid` or `durationMs`;
   `SubprocessError` is an enum without maxon's payloads (the name, the reason, the output). Natively the runtime uses
   the `A` Win32 calls, so a path or an argument is bytes in the system's code page rather than UTF-8 turned into
@@ -5418,6 +5430,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `"70000"`, an `int`'s `"9223372036854775808"`, a float's `"1e309"`) is `outOfRange`, and `invalidFormat` is a text that
   is not written as the type's values are, so a program tells the two apart.
 - `try p.get(k).n = v` is minimaxon's: a try before an assignment's target covers the call that lends the place and passes
+- **`Process` has not `isAlive`, `namespace`, `endDescendants` or `DescendantProcess`**, and `Pid` is not declared: each needs a
+  raw function that lists or tests the host's processes, which this runtime has not, and `Pid` is declared in maxon's
+  `Subprocess.maxon`, which is not converted yet. The conversion leaves them out with the helpers only they reach.
+  `Process.currentEnvironmentEntries()` and the rest of the environment functions are maxon's, but the interpreter has no way to
+  walk its own environment that the compiler's seed compiles, so a program that calls one is `// native-only` and halts under
+  the interpreter, as one that enters background priority does.
   its failure on, where maxon has no place a call lends to be changed.
 - `SlotMap with T` and `SlotKey with T` are minimaxon's (`stdlib/slotmap`), where maxon has no slot map: minimaxon's
   replacement for pointers, a SlotMap of nodes that name each other by generational key.

@@ -1,0 +1,11 @@
+// maxon's byteAt reads a byte of any element that holds no address; here only a buffer of bytes is read by byte, and a buffer of
+// words is read by get.
+// expect-error: E2015
+typealias Words = Array with Count
+
+function main() returns ExitCode
+	var words = Words.create(0)
+	words.push(7)
+	let byte = try words.managed.byteAt(0) otherwise return 1
+	return byte as ExitCode
+end 'main'

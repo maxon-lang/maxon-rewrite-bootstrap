@@ -689,6 +689,9 @@ var tableFunctions = []function{
 	// A buffer's length is the count of its elements, and get gives a copy of the one at an index below it, as an array's do.
 	{Owner: "ManagedMemory", Name: "length", Result: "Count", Intrinsic: "ArrayCount"},
 	{Owner: "ManagedMemory", Name: "get", Params: []string{"index ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ManagedMemoryError", Intrinsic: "ArrayGet"},
+	// byteAt is maxon's name for get of a buffer of bytes, which the library reads an answer of the runtime by. maxon's reads the
+	// bytes of any element that holds no address; here only a buffer of bytes has it, since every other element is read by get.
+	{Owner: "ManagedMemory", Name: "byteAt", Params: []string{"index ElementIndex"}, Result: "Byte", Throws: "ManagedMemoryError", Intrinsic: "ManagedByteAt", Checked: true},
 	// The buffer operations of maxon that an array operation does the same as, each of which throws where maxon's does. A
 	// buffer is the array here, so set is bounded by the length where maxon's is by the capacity, slice copies where maxon's is
 	// a view of the parent, and grow is reserve, which changes nothing a program sees. What has no counterpart is not
@@ -946,6 +949,10 @@ var tableFunctions = []function{
 	// then ends: what maxon's Configuration.standardInput of InputSource.bytes gives, which the compiler's test runner and
 	// interpreter run children with until maxon's Subprocess converts.
 	{Owner: "Builtins", Name: "readStdin", Static: true, Params: []string{"_ Natural"}, Result: "ManagedMemory with Byte", Intrinsic: "ReadStdin", Instead: "Console.stdin().readBytes(n)"},
+	// osEnvironmentEntry is maxon's: the NAME=VALUE entry of this process's environment at an index, in the order the system
+	// reports them, in a fresh buffer of bytes: empty past the last entry, and one NUL byte where the system handed over no
+	// environment, neither of which an entry can be.
+	{Owner: "Builtins", Name: "osEnvironmentEntry", Static: true, Params: []string{"_ ElementIndex"}, Result: "ManagedMemory with Byte", Intrinsic: "OsEnvironmentEntry", Instead: "Process.currentEnvironmentEntries()"},
 	{Owner: "Builtins", Name: "runWithInput", Static: true, Params: []string{"executable Executable", "arguments Array with String", "input String", "deadline WaitDeadline"}, Result: "CollectedOutput", Throws: "SubprocessError", Intrinsic: "SubprocessRunWithInput", Instead: "a Configuration whose standardInput is InputSource.bytes(text)"},
 	{Owner: "Builtins", Name: "stdoutWantsAnsiColor", Static: true, Result: "Bool", Intrinsic: "StdoutWantsColor", Instead: "Console.stdoutWantsColor()"},
 	// floatToBits is the 64 bits of a double read as an integer, as maxon's is: a reinterpretation, which the library's
@@ -1207,6 +1214,7 @@ var entries = []entry{
 	{"OsProcessId", "rt.os.processId", "Os", roleCall, "() -> Count: the id of the running process"},
 	{"OsSetExitCode", "rt.os.setExitCode", "Os", roleCall, "(code): the code the process ends with when main has returned and no behaviour is left, in place of main's"},
 	{"OsExitAtOnce", "rt.os.exitAtOnce", "Os", roleCall, "(code): ends the process with the code at once, freeing nothing"},
+	{"OsEnvironmentEntry", "rt.os.environmentEntry", "Os", roleCall, "(index) -> ByteArray: the NAME=VALUE entry of the process's environment at the index, in the order the system reports them; empty past the last entry, and one NUL byte where the system handed over no environment"},
 	{"OsEnterBackgroundPriority", "rt.os.enterBackgroundPriority", "Os", roleCall, "() -> Count: puts the process at background priority (Windows' below-normal class, a POSIX nice of 10) and answers the priority the system reports afterwards"},
 	{"OsClockNanos", "rt.os.clockNanos", "Os", roleCall, "() -> Count: the monotonic clock in nanoseconds, from QueryPerformanceCounter"},
 	{"OsClockMillis", "rt.os.clockMillis", "Os", roleCall, "() -> Count: the monotonic clock in whole milliseconds, which is OsClockNanos divided by a million"},
@@ -1397,6 +1405,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsProcessId", "osProcessId() Count"},
 	{"OsSetExitCode", "osSetExitCode(code Count)"},
 	{"OsExitAtOnce", "osExitAtOnce(code Count)"},
+	{"OsEnvironmentEntry", "osEnvironmentEntry(index Count) Count"},
 	{"OsEnterBackgroundPriority", "osEnterBackgroundPriority() Count"},
 	{"OsClockNanos", "osClockNanos() Count"},
 	{"OsClockMillis", "osClockMillis() Count"},

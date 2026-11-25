@@ -1,0 +1,52 @@
+// Process.currentEnvironmentEntries walks the entries of the process's own environment, which Windows hands over as a block of
+// UTF-16 and Linux and macOS as the vector the process started with, and each system's walk agrees with the lookup by name.
+// The interpreter has no way to walk its own environment, so the program is native-only.
+// native-only
+//> some=true
+//> named=true
+//> path=true
+//> unset=true
+//> again=true
+
+function entryNamed(entries StringArray, name String) returns String
+	let wanted = Process.envNameKey(name)
+	for entry in entries 'each'
+		if Process.envNameKey(Process.envEntryName(entry)) == wanted 'found'
+			return entry.clone()
+		end 'found'
+	end 'each'
+	return ""
+end 'entryNamed'
+
+function sameEntries(first StringArray, second StringArray) returns bool
+	if first.count() != second.count() 'counts'
+		return false
+	end 'counts'
+	for i in 0 upto first.count() 'each'
+		let a = try first.get(i) otherwise panic("an entry of the first walk is inside it")
+		let b = try second.get(i) otherwise panic("an entry of the second walk is inside it")
+		if a != b 'differs'
+			return false
+		end 'differs'
+	end 'each'
+	return true
+end 'sameEntries'
+
+function main() returns ExitCode
+	let entries = try Process.currentEnvironmentEntries() otherwise panic("the environment cannot be read")
+	print("some={entries.count() > 0}\n")
+	var named = true
+	for entry in entries 'each'
+		if Process.envEntryName(entry).byteLength() == 0 'nameless'
+			named = false
+		end 'nameless'
+	end 'each'
+	print("named={named}\n")
+	let path = entryNamed(entries, name: "PATH")
+	let value = try Process.environmentVariable("PATH") otherwise panic("PATH is not set")
+	print("path={Process.envEntryValue(path) == value}\n")
+	print("unset={entryNamed(entries, name: "MINIMAXON_NO_SUCH_ENV_98765").byteLength() == 0}\n")
+	let second = try Process.currentEnvironmentEntries() otherwise panic("the environment cannot be read")
+	print("again={sameEntries(entries, second: second)}\n")
+	return 0
+end 'main'

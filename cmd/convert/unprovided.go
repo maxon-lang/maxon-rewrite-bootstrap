@@ -29,34 +29,75 @@ func dropUnprovidedMembers(lines []sourceLine) {
 			i = end
 			continue
 		}
-		for j := commentsAbove(lines, i); j <= end; j++ {
-			noteNames(lines[j].code, named)
-			lines[j].removed = true
-		}
+		dropLines(lines, commentsAbove(lines, i), end, named)
 		i = end
 	}
 	for dropped := true; dropped; {
 		dropped = false
+		inInterface := false
 		for i := range lines {
 			l := &lines[i]
-			if l.removed || l.indent != "" || len(l.code) == 0 {
+			if l.removed || len(l.code) == 0 {
 				continue
 			}
-			name := topLevelName(l.code)
-			if name == "" || !named[name] {
+			if l.indent == "" {
+				declIdx := skipModifiers(l.code)
+				inInterface = declIdx < len(l.code) && l.code[declIdx].text == "interface"
+			}
+			if inInterface {
 				continue
 			}
-			end := topLevelEnd(lines, i)
-			if namedOutside(lines, name, i, end) {
+			first, end, name := reachedOnlyByDropped(lines, i, named)
+			if name == "" {
 				continue
 			}
-			for j := commentsAbove(lines, i); j <= end; j++ {
-				noteNames(lines[j].code, named)
-				lines[j].removed = true
-			}
+			dropLines(lines, first, end, named)
 			dropped = true
 		}
 	}
+}
+
+// dropLines leaves out the lines from first to last, and notes the names they write.
+func dropLines(lines []sourceLine, first, last int, named map[string]bool) {
+	for j := first; j <= last; j++ {
+		noteNames(lines[j].code, named)
+		lines[j].removed = true
+	}
+}
+
+// reachedOnlyByDropped says, for the declaration that line i opens, which lines it spans (comments above included) and its
+// name when that name was written by a dropped line and no kept line writes it: a top-level declaration, or a private member
+// of a type, which only a dropped method reached. It gives "" for any other line.
+func reachedOnlyByDropped(lines []sourceLine, i int, named map[string]bool) (first, last int, name string) {
+	l := lines[i]
+	var end int
+	switch l.indent {
+	case "":
+		name = topLevelName(l.code)
+		if name == "" || !named[name] {
+			return 0, 0, ""
+		}
+		var ok bool
+		if end, ok = declarationEnd(lines, i); !ok {
+			return 0, 0, ""
+		}
+	case "\t":
+		declIdx := skipModifiers(l.code)
+		if declIdx+1 >= len(l.code) || l.code[declIdx].text != "function" || hasModifier(l.code[:declIdx], "public") {
+			return 0, 0, ""
+		}
+		name = l.code[declIdx+1].text
+		if !named[name] {
+			return 0, 0, ""
+		}
+		end = memberEnd(lines, i)
+	default:
+		return 0, 0, ""
+	}
+	if namedOutside(lines, name, i, end) {
+		return 0, 0, ""
+	}
+	return commentsAbove(lines, i), end, name
 }
 
 // rawPrefix starts the name of a type of maxon's raw surface, which the built-in table declares without it.
@@ -127,4 +168,9 @@ func namedOutside(lines []sourceLine, name string, first, last int) bool {
 		}
 	}
 	return false
+}
+
+// hasModifier says whether the modifiers of a declaration (the tokens before its word) include the word.
+func hasModifier(modifiers []token, word string) bool {
+	return slices.ContainsFunc(modifiers, func(t token) bool { return t.kind == tokIdent && t.text == word })
 }

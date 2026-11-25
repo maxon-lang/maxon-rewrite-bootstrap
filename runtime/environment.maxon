@@ -1,0 +1,85 @@
+// The process's environment, an entry at a time, as maxon's runtime answers `__Builtins.osEnvironmentEntry`
+// (Compiler/Runtime/EnvironmentRuntime.maxon): a fresh byte array of the NAME=VALUE entry at an index, in the order the system
+// reports them, which is empty past the last entry and one NUL byte where the system handed over no environment. Neither of
+// those two is an entry a real environment holds, since every entry has a name and no entry is a lone NUL, so a reader tells
+// the three answers apart by what it is given and needs no count. Each system walks its own structure (appendEnvironmentEntry):
+// Windows a UTF-16 block that it is handed a copy of, Linux and macOS the vector of the entries the process started with.
+
+// The three ways an entry's walk ends.
+let environmentEntryFound = 0 as Count
+
+let environmentPastTheEnd = 1 as Count
+
+let environmentUnreadable = 2 as Count
+
+// environmentUnreadableByte is the byte of the answer for no environment at all, which `Process.currentEnvironmentEntries`
+// holds a failure to be.
+let environmentUnreadableByte = 0 as Byte
+
+// osEnvironmentEntry is a new byte array of the entry of the environment at an index.
+function osEnvironmentEntry(index Count) returns Count
+	let bytes = bytesNew()
+	if appendEnvironmentEntry(bytes, index: index) == environmentUnreadable 'unreadable'
+		bytesInsert(bytes, index: 0, value: environmentUnreadableByte)
+	end 'unreadable'
+	return bytes
+end 'osEnvironmentEntry'
+
+// appendBytesOf adds the length bytes at an address after the bytes of a byte array.
+function appendBytesOf(bytes Count, address Count, length Count)
+	if length == 0 'empty'
+		return
+	end 'empty'
+	copyBytes(address, target: collectionExtend(bytes, count: length, elementBytes: byteBytes), count: length)
+end 'appendBytesOf'
+
+#if os(Linux) or os(macOS)
+	// appendEnvironmentEntry adds the entry at an index to a byte array and says whether there was one: the vector the process
+	// started with is read in place, a null ending it.
+	function appendEnvironmentEntry(bytes Count, index Count) returns Count
+		var at = environment()
+		for _ in 0 upto index 'skip'
+			if __Raw.loadWord(at, offset: 0) == 0 'pastTheEnd'
+				return environmentPastTheEnd
+			end 'pastTheEnd'
+			at = __Raw.wrappingAdd(at, right: wordBytes)
+		end 'skip'
+		let entry = __Raw.loadWord(at, offset: 0)
+		if entry == 0 'last'
+			return environmentPastTheEnd
+		end 'last'
+		appendBytesOf(bytes, address: entry, length: cLength(entry))
+		return environmentEntryFound
+	end 'appendEnvironmentEntry'
+#endif
+
+#if os(Windows)
+	// appendEnvironmentEntry adds the entry at an index to a byte array and says whether there was one. The block that
+	// GetEnvironmentStringsW hands over is a copy, released on every way out: the entries back to back as UTF-16, each ended by a
+	// zero unit, and the block by one more, so an entry is narrowed only once it is the one asked for.
+	function appendEnvironmentEntry(bytes Count, index Count) returns Count
+		let block = __Raw.callImport0("GetEnvironmentStringsW")
+		if block == 0 'unreadable'
+			return environmentUnreadable
+		end 'unreadable'
+		var at = block
+		var found = environmentPastTheEnd
+		var entries = 0 as Count
+		while unitAt(at, index: 0) != 0 and found == environmentPastTheEnd 'walk'
+			let units = wideLength(at)
+			if units >= textUnitLimit 'outside'
+				panic("environment entry too long to convert")
+			end 'outside'
+			if entries == index 'wanted'
+				let room = alloc(units * maxUtf8BytesPerUnit)
+				appendBytesOf(bytes, address: room, length: utf8FromUtf16(at, units: units, dst: room))
+				free(room)
+				found = environmentEntryFound
+			end 'wanted'
+			entries = __Raw.wrappingAdd(entries, right: 1)
+			at = __Raw.wrappingAdd(at, right: (units + 1) * wideUnitBytes)
+		end 'walk'
+		_ = __Raw.callImport1("FreeEnvironmentStringsW", arg1: block)
+		return found
+	end 'appendEnvironmentEntry'
+#endif

@@ -116,6 +116,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrFixedArrayRefill 'intrFixedArrayRefill'
 		return lowerFixedArrayRefill(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFixedArrayRefill'
+	if op == ast.Intrinsic.intrManagedByteAt 'intrManagedByteAt'
+		return lowerManagedByteAt(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedByteAt'
 	if op == ast.Intrinsic.intrArrayElementSize 'intrArrayElementSize'
 		return lowerArrayElementSize(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayElementSize'
@@ -545,6 +548,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrReadStdin 'intrReadStdin'
 		return lowerReadStdin(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrReadStdin'
+	if op == ast.Intrinsic.intrOsEnvironmentEntry 'intrOsEnvironmentEntry'
+		return lowerOsEnvironmentEntry(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrOsEnvironmentEntry'
 	if op == ast.Intrinsic.intrSubprocessRunWithInput 'intrSubprocessRunWithInput'
 		return lowerSubprocessRunWithInput(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSubprocessRunWithInput'
@@ -895,6 +901,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrFixedArrayRefill 'intrFixedArrayRefill'
 		return false
 	end 'intrFixedArrayRefill'
+	if op == ast.Intrinsic.intrManagedByteAt 'intrManagedByteAt'
+		return false
+	end 'intrManagedByteAt'
 	if op == ast.Intrinsic.intrArrayElementSize 'intrArrayElementSize'
 		return false
 	end 'intrArrayElementSize'
@@ -1324,6 +1333,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrReadStdin 'intrReadStdin'
 		return false
 	end 'intrReadStdin'
+	if op == ast.Intrinsic.intrOsEnvironmentEntry 'intrOsEnvironmentEntry'
+		return false
+	end 'intrOsEnvironmentEntry'
 	if op == ast.Intrinsic.intrSubprocessRunWithInput 'intrSubprocessRunWithInput'
 		return false
 	end 'intrSubprocessRunWithInput'
