@@ -19,14 +19,15 @@ export type DeadCode
 	var flagsLiveIn as BoolList
 	var flagsPass as BoolList
 	var written as BoolList
-	var out as MInstrList
+	var order as CountList
+	var listed as BoolList
 	var outSpans as ir.SpanList
 	// alias is the register each virtual register's reads read once copies are propagated: its own, or the one a copy
 	// copied into it.
 	var alias as MRegList
 
 	static function new() returns DeadCode
-		return DeadCode{readCount: CountList.create(0), defAt: CountList.create(0), dead: BoolList.create(0), sweepAt: 0, again: false, flagsLiveIn: BoolList.create(0), flagsPass: BoolList.create(0), written: BoolList.create(0), out: MInstrList.create(0), outSpans: ir.SpanList.create(0), alias: MRegList.create(0)}
+		return DeadCode{readCount: CountList.create(0), defAt: CountList.create(0), dead: BoolList.create(0), sweepAt: 0, again: false, flagsLiveIn: BoolList.create(0), flagsPass: BoolList.create(0), written: BoolList.create(0), order: CountList.create(0), listed: BoolList.create(0), outSpans: ir.SpanList.create(0), alias: MRegList.create(0)}
 	end 'new'
 
 	// remove leaves out the dead instructions of fn, until none is left, and writes its blocks in the order of its layout.
@@ -220,22 +221,22 @@ export type DeadCode
 	end 'isDeadTarget'
 
 	// compact writes the instructions of fn that are not dead in the order of its layout; a block the layout leaves out is
-	// left empty.
+	// left empty. order lists them, and the others are dropped.
 	function compact(mutates self, mutates fn MirFunction)
-		out.clear()
-		out.reserve(fn.instrs.count())
+		order.clear()
+		order.reserve(fn.instrs.count())
 		outSpans.clear()
 		for o in 0 upto fn.order.count() 'blocks'
 			let b = fn.order[o] as Count
-			let first = out.count()
+			let first = order.count()
 			for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
 				if not dead[k] 'live'
-					out.push(table.takeAt(fn.instrs, at: k))
+					order.push(k)
 					keepSpan(outSpans, fn: fn, k: k)
 				end 'live'
 			end 'instrs'
 			fn.blocks[b].first = first
-			fn.blocks[b].endAt = out.count()
+			fn.blocks[b].endAt = order.count()
 		end 'blocks'
 		ir.resetFlags(written, n: fn.blocks.count())
 		for o in 0 upto fn.order.count() 'placed'
@@ -243,12 +244,11 @@ export type DeadCode
 		end 'placed'
 		for b in 0 upto fn.blocks.count() 'unwritten'
 			if not written[b] 'empty'
-				fn.blocks[b].first = out.count()
-				fn.blocks[b].endAt = out.count()
+				fn.blocks[b].first = order.count()
+				fn.blocks[b].endAt = order.count()
 			end 'empty'
 		end 'unwritten'
-		let kept = exchange(out, value: MInstrList.create(0))
-		out = exchange(fn.instrs, value: kept)
+		table.arrange(fn.instrs, source: order, taken: listed)
 		if fn.keepsSpans 'spans'
 			let keptSpans = exchange(outSpans, value: ir.SpanList.create(0))
 			outSpans = exchange(fn.spans, value: keptSpans)

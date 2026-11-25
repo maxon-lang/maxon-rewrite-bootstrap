@@ -1,0 +1,32 @@
+// arrange keeps the elements of xs that source lists, in source's order, and drops the others: the element at source[t]
+// goes to t. A pass that compacts or lays out instructions lists those it keeps, and they move by swaps along the cycles
+// of the permutation that source makes with the others after it, so none is copied and nothing is allocated past the
+// growth of source to xs's count and of taken, whether source lists an element, which the pass keeps for its next call.
+export function arrange(mutates xs Array with T, mutates source Array with Count, mutates taken Array with bool) uses T where T implements Droppable
+	let keep = source.count()
+	taken.clear()
+	try taken.resize(xs.count()) otherwise panic("table: a list past memory")
+	for t in 0 upto keep 'listed'
+		try taken.set(try source.get(t) otherwise panic("table: an order shorter than it is"), value: true) otherwise panic("table: an order that names an element past the end of its list")
+	end 'listed'
+	for k in 0 upto xs.count() 'unlisted'
+		if not (try taken.get(k) otherwise panic("table: an element past the end of its flags")) 'dropped'
+			source.push(k)
+		end 'dropped'
+	end 'unlisted'
+	if source.count() != xs.count() 'twice'
+		panic("table: an order that names an element twice")
+	end 'twice'
+	for start in 0 upto source.count() 'cycles'
+		var at = start
+		var from = try source.get(at) otherwise panic("table: an order shorter than it is")
+		while from != start 'cycle'
+			try xs.managed.swap(at, j: from) otherwise panic("table: an order that names an element past the end of its list")
+			try source.set(at, value: at) otherwise panic("table: an order shorter than it is")
+			at = from
+			from = try source.get(at) otherwise panic("table: an order that names an element past its end")
+		end 'cycle'
+		try source.set(at, value: at) otherwise panic("table: an order shorter than it is")
+	end 'cycles'
+	xs.truncate(keep)
+end 'arrange'

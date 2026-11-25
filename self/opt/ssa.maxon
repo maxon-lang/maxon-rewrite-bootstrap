@@ -81,7 +81,8 @@ export type Ssa
 	var edgeStart as ir.Index
 	var edgeCount as ir.Index
 	var successors as ir.SuccessorVisitor
-	var instrs as ir.InstrList
+	var order as Array with Count
+	var listed as Array with bool
 	var spans as ir.SpanList
 	var blockParams as ir.RegList
 	// names is, when the function keeps spans, the binding of the source that each slot holds (ir.slotNames), which renaming
@@ -89,7 +90,7 @@ export type Ssa
 	var names as ir.SlotNames
 
 	export static function new() returns Ssa
-		return Ssa{analysis: Analysis.new(), promoted: 0, kept: 0, params: 0, dropsRemoved: 0, promotable: Array.create(0), newSlot: Array.create(0), defMark: Array.create(0), useMark: Array.create(0), useFrom: Array.create(0), useTo: Array.create(0), defFrom: Array.create(0), defTo: Array.create(0), useStart: Array.create(0), useSeg: Array.create(0), defStart: Array.create(0), defSeg: Array.create(0), liveMark: Array.create(0), defHere: Array.create(0), placed: Array.create(0), queued: Array.create(0), work: Array.create(0), paramBlock: Array.create(0), paramSlot: Array.create(0), paramReg: ir.RegList.create(0), paramOrder: Array.create(0), paramStart: Array.create(0), paramAt: Array.create(0), cur: ir.RegList.create(0), undoSlot: Array.create(0), undoValue: ir.RegList.create(0), repl: ir.RegList.create(0), keep: Array.create(0), stack: Array.create(0), cursor: Array.create(0), heights: Array.create(0), zeroScalar: ir.noReg, zeroManaged: ir.noReg, zeroString: ir.noReg, retargetFrom: ir.noBlock, retargetTo: ir.noBlock, extending: false, edgeStart: 0 as ir.Index, edgeCount: 0 as ir.Index, successors: ir.SuccessorVisitor.new(), instrs: ir.InstrList.create(0), spans: ir.SpanList.create(0), blockParams: ir.RegList.create(0), names: ir.SlotNames.create(0)}
+		return Ssa{analysis: Analysis.new(), promoted: 0, kept: 0, params: 0, dropsRemoved: 0, promotable: Array.create(0), newSlot: Array.create(0), defMark: Array.create(0), useMark: Array.create(0), useFrom: Array.create(0), useTo: Array.create(0), defFrom: Array.create(0), defTo: Array.create(0), useStart: Array.create(0), useSeg: Array.create(0), defStart: Array.create(0), defSeg: Array.create(0), liveMark: Array.create(0), defHere: Array.create(0), placed: Array.create(0), queued: Array.create(0), work: Array.create(0), paramBlock: Array.create(0), paramSlot: Array.create(0), paramReg: ir.RegList.create(0), paramOrder: Array.create(0), paramStart: Array.create(0), paramAt: Array.create(0), cur: ir.RegList.create(0), undoSlot: Array.create(0), undoValue: ir.RegList.create(0), repl: ir.RegList.create(0), keep: Array.create(0), stack: Array.create(0), cursor: Array.create(0), heights: Array.create(0), zeroScalar: ir.noReg, zeroManaged: ir.noReg, zeroString: ir.noReg, retargetFrom: ir.noBlock, retargetTo: ir.noBlock, extending: false, edgeStart: 0 as ir.Index, edgeCount: 0 as ir.Index, successors: ir.SuccessorVisitor.new(), order: Array.create(0), listed: Array.create(0), spans: ir.SpanList.create(0), blockParams: ir.RegList.create(0), names: ir.SlotNames.create(0)}
 	end 'new'
 
 	// construct puts the function f, which keeps the verifier's rules, and the bodies of its behaviours and closures in
@@ -608,31 +609,30 @@ export type Ssa
 	end 'edgeAlways'
 
 	// compact lays the instructions that stay out block after block, the registers that hold 0 first, gives each block its
-	// parameters, and keeps only the slots that stay in the frame.
+	// parameters, and keeps only the slots that stay in the frame. order lists them, and the others are dropped.
 	function compact(mutates self, mutates f ir.IrFunction)
-		instrs.clear()
-		instrs.reserve(try f.instrs.count() + entryZeroConsts otherwise panic("ssa: a function past memory"))
+		let count = try f.instrs.count() + entryZeroConsts otherwise panic("ssa: a function past memory")
+		f.instrs.reserve(count)
+		order.clear()
+		order.reserve(count)
 		spans.clear()
 		blockParams.clear()
 		for b in 0 upto f.blocks.count() 'blocks'
-			let first = instrs.count()
+			let first = order.count()
 			if b == 0 'entry'
 				if zeroScalar != ir.noReg 'scalar'
-					instrs.push(ir.newConst(zeroScalar, value: 0))
-					ir.addSpan(spans, f: f, span: ir.noSpan)
+					placeZero(order, spans: spans, f: f, r: zeroScalar)
 				end 'scalar'
 				if zeroManaged != ir.noReg 'managed'
-					instrs.push(ir.newConst(zeroManaged, value: 0))
-					ir.addSpan(spans, f: f, span: ir.noSpan)
+					placeZero(order, spans: spans, f: f, r: zeroManaged)
 				end 'managed'
 				if zeroString != ir.noReg 'string'
-					instrs.push(ir.newConst(zeroString, value: 0))
-					ir.addSpan(spans, f: f, span: ir.noSpan)
+					placeZero(order, spans: spans, f: f, r: zeroString)
 				end 'string'
 			end 'entry'
 			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
 				if keep[k] 'kept'
-					instrs.push(table.takeAt(f.instrs, at: k))
+					order.push(k)
 					ir.keepSpan(spans, f: f, k: k)
 				end 'kept'
 			end 'instrs'
@@ -644,12 +644,11 @@ export type Ssa
 				blockParams.push(paramReg[paramAt[e]])
 			end 'placed'
 			f.blocks[b].first = first
-			f.blocks[b].endAt = instrs.count()
+			f.blocks[b].endAt = order.count()
 			f.blocks[b].params = firstParam
 			f.blocks[b].paramCount = try blockParams.count() - firstParam otherwise panic("opt: parameters out of order")
 		end 'blocks'
-		let oldInstrs = exchange(f.instrs, value: exchange(instrs, value: ir.InstrList.create(0)))
-		instrs = oldInstrs
+		table.arrange(f.instrs, source: order, taken: listed)
 		if f.keepsSpans 'spans'
 			let oldSpans = exchange(f.spans, value: exchange(spans, value: ir.SpanList.create(0)))
 			spans = oldSpans
@@ -669,3 +668,10 @@ export type Ssa
 		end 'trim'
 	end 'compact'
 end 'Ssa'
+
+// placeZero adds the instruction that puts 0 in r after f's instructions, and lists it next in order among those that stay.
+function placeZero(mutates order Array with Count, mutates spans ir.SpanList, mutates f ir.IrFunction, r ir.Reg)
+	order.push(f.instrs.count())
+	f.instrs.push(ir.newConst(r, value: 0))
+	ir.addSpan(spans, f: f, span: ir.noSpan)
+end 'placeZero'

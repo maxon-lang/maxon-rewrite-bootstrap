@@ -448,29 +448,31 @@ function writeLayout(mutates fn MirFunction)
 	if inLayout(fn) 'written'
 		return
 	end 'written'
-	var out = MInstrList.create(0)
-	out.reserve(fn.instrs.count())
+	// order lists the instructions block by block in the layout's order; those of a block it leaves out are dropped.
+	var order = CountList.create(0)
+	order.reserve(fn.instrs.count())
 	var spans = ir.SpanList.create(0)
-	var placed = BoolList.create(0)
+	// placed, by block, has the room of arrange's flags, by instruction, which it then holds.
+	var placed = BoolList.create(fn.instrs.count(), zeroed: false)
 	ir.resetFlags(placed, n: fn.blocks.count())
 	for o in 0 upto fn.order.count() 'blocks'
 		let b = fn.order[o] as Count
 		placed[b] = true
-		let first = out.count()
+		let first = order.count()
 		for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
-			out.push(table.takeAt(fn.instrs, at: k))
+			order.push(k)
 			keepSpan(spans, fn: fn, k: k)
 		end 'instrs'
 		fn.blocks[b].first = first
-		fn.blocks[b].endAt = out.count()
+		fn.blocks[b].endAt = order.count()
 	end 'blocks'
 	for b in 0 upto fn.blocks.count() 'unreached'
 		if not placed[b] 'empty'
-			fn.blocks[b].first = out.count()
-			fn.blocks[b].endAt = out.count()
+			fn.blocks[b].first = order.count()
+			fn.blocks[b].endAt = order.count()
 		end 'empty'
 	end 'unreached'
-	fn.instrs = out
+	table.arrange(fn.instrs, source: order, taken: placed)
 	if fn.keepsSpans 'spans'
 		fn.spans = spans
 	end 'spans'

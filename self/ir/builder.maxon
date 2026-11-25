@@ -637,23 +637,25 @@ export type Builder
 				places[blk] = try places[blk] + 1 otherwise panic("ir: a function has too many instructions")
 			end 'live'
 		end 'order'
-		var placed = InstrList.create(0)
-		placed.reserve(total)
-		for k in 0 upto total 'place'
-			var x = table.takeAt(instrs, at: order[k])
-			let target = failTarget(x)
-			if target != noBlock 'fails'
-				setFail(x, fail: newID[blockIndex(target)])
-			end 'fails'
-			placed.push(x)
-		end 'place'
 		var done = exchange(f, value: IrFunction.new(ast.noFunc, name: "", paramCount: 0 as Count))
 		if keepsSpans 'spans'
 			for k in 0 upto total 'place'
 				done.spans.push(spans[order[k]])
 			end 'place'
 		end 'spans'
-		done.instrs = placed
+		var listed as Array with bool
+		listed = Array.create(0)
+		table.arrange(instrs, source: order, taken: listed)
+		var spare = Instr.make(Opcode.opNone)
+		for k in 0 upto total 'renumber'
+			var x = exchange(instrs[k], value: spare)
+			let target = failTarget(x)
+			if target != noBlock 'fails'
+				setFail(x, fail: newID[blockIndex(target)])
+			end 'fails'
+			spare = exchange(instrs[k], value: x)
+		end 'renumber'
+		done.instrs = exchange(instrs, value: InstrList.create(0))
 		done.blocks = blocks
 		done.blockParams = blockParams
 		renumberCases(done, newID: newID)

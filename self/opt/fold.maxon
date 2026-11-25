@@ -97,6 +97,9 @@ export type Fold
 	var marks as ir.RegList
 	var marksTop as Count
 	var order as Array with Count
+	// source is the order compact lays the instructions that stay out in, and taken arrange's flags of them.
+	var source as Array with Count
+	var taken as Array with bool
 	var orderCount as Count
 	var useCount as Count
 	var regCount as Count
@@ -112,7 +115,7 @@ export type Fold
 	var raising as bool
 
 	export static function new() returns Fold
-		return Fold{instrsBefore: 0, instrsAfter: 0, branchesFolded: 0, paramsRemoved: 0, checksDecided: 0, defs: ir.Defs.new(), repl: ir.RegList.create(0), known: Array.create(0), value: ir.WordList.create(0), useHead: Array.create(0), useTail: Array.create(0), useItem: Array.create(0), useNext: Array.create(0), regLive: Array.create(0), paramOf: Array.create(0), dead: Array.create(0), instrBlock: Array.create(0), queuedInstr: Array.create(0), liveInstr: Array.create(0), chainFirst: Array.create(0), chainLast: Array.create(0), chainNext: Array.create(0), blockDead: Array.create(0), livePreds: Array.create(0), queuedTerm: Array.create(0), predStart: Array.create(0), pred: Array.create(0), newID: ir.BlockIDList.create(0), reached: Array.create(0), paramBlock: Array.create(0), paramGone: Array.create(0), queuedParam: Array.create(0), queue: Array.create(0), head: 0, tail: 0, dying: Array.create(0), dyingTop: 0, walk: Array.create(0), walkTop: 0, into: Array.create(0), marks: ir.RegList.create(0), marksTop: 0, order: Array.create(0), orderCount: 0, useCount: 0, regCount: 0, pairFrom: Array.create(0), pairTo: Array.create(0), regs: ir.RegList.create(0), successors: ir.SuccessorVisitor.new(), rewrite: Rewrite.new(), blocks: 0, spans: ir.SpanList.create(0), raising: false}
+		return Fold{instrsBefore: 0, instrsAfter: 0, branchesFolded: 0, paramsRemoved: 0, checksDecided: 0, defs: ir.Defs.new(), repl: ir.RegList.create(0), known: Array.create(0), value: ir.WordList.create(0), useHead: Array.create(0), useTail: Array.create(0), useItem: Array.create(0), useNext: Array.create(0), regLive: Array.create(0), paramOf: Array.create(0), dead: Array.create(0), instrBlock: Array.create(0), queuedInstr: Array.create(0), liveInstr: Array.create(0), chainFirst: Array.create(0), chainLast: Array.create(0), chainNext: Array.create(0), blockDead: Array.create(0), livePreds: Array.create(0), queuedTerm: Array.create(0), predStart: Array.create(0), pred: Array.create(0), newID: ir.BlockIDList.create(0), reached: Array.create(0), paramBlock: Array.create(0), paramGone: Array.create(0), queuedParam: Array.create(0), queue: Array.create(0), head: 0, tail: 0, dying: Array.create(0), dyingTop: 0, walk: Array.create(0), walkTop: 0, into: Array.create(0), marks: ir.RegList.create(0), marksTop: 0, order: Array.create(0), source: Array.create(0), taken: Array.create(0), orderCount: 0, useCount: 0, regCount: 0, pairFrom: Array.create(0), pairTo: Array.create(0), regs: ir.RegList.create(0), successors: ir.SuccessorVisitor.new(), rewrite: Rewrite.new(), blocks: 0, spans: ir.SpanList.create(0), raising: false}
 	end 'new'
 
 	// foldFunction folds the function f, which keeps the verifier's rules, and the bodies of its behaviours and closures;
@@ -1061,8 +1064,9 @@ export type Fold
 				n = plusOne(n)
 			end 'kept'
 		end 'number'
-		var instrs = ir.InstrList.create(0)
-		instrs.reserve(f.instrs.count())
+		// source lists the instructions that stay, in their new order, and then the others, which are dropped.
+		source.clear()
+		source.reserve(f.instrs.count())
 		spans.clear()
 		var blockList = ir.BlockList.create(0)
 		var blockParams = ir.RegList.create(0)
@@ -1070,17 +1074,12 @@ export type Fold
 			if blockDead[b] 'gone'
 				continue 'blocks'
 			end 'gone'
-			let first = instrs.count()
+			let first = source.count()
 			self.blockOrder(f, b: b)
 			for i in 0 upto orderCount 'instrs'
 				let k = order[i]
 				if liveInstr[k] and not dead[k] 'kept'
-					var x = table.takeAt(f.instrs, at: k)
-					let fail = ir.failTarget(x)
-					if fail != ir.noBlock 'fails'
-						ir.setFail(x, fail: newID[ir.blockIndex(fail)])
-					end 'fails'
-					instrs.push(x)
+					source.push(k)
 					ir.keepSpan(spans, f: f, k: k)
 				end 'kept'
 			end 'instrs'
@@ -1092,9 +1091,19 @@ export type Fold
 				end 'kept'
 			end 'params'
 			let term = self.newTerm(f, t: f.blocks[b].term.clone())
-			blockList.push(ir.Block.make(first, endAt: instrs.count(), params: firstParam, paramCount: try blockParams.count() - firstParam otherwise panic("opt: parameters out of order"), term: term))
+			blockList.push(ir.Block.make(first, endAt: source.count(), params: firstParam, paramCount: try blockParams.count() - firstParam otherwise panic("opt: parameters out of order"), term: term))
 		end 'blocks'
-		f.instrs = instrs
+		let kept = source.count()
+		table.arrange(f.instrs, source: source, taken: taken)
+		var spare = ir.Instr.make(ir.Opcode.opNone)
+		for k in 0 upto kept 'renumber'
+			var x = exchange(f.instrs[k], value: spare)
+			let fail = ir.failTarget(x)
+			if fail != ir.noBlock 'fails'
+				ir.setFail(x, fail: newID[ir.blockIndex(fail)])
+			end 'fails'
+			spare = exchange(f.instrs[k], value: x)
+		end 'renumber'
 		ir.takeSpans(f, laid: spans)
 		f.blocks = blockList
 		f.blockParams = blockParams
