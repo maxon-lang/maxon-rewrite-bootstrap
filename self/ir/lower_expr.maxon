@@ -979,7 +979,7 @@ function record(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t 
 		l.pending.push(PendingDrop.ofReg(box, ty: ty))
 	end 'owned'
 	for i in 0 upto count 'each'
-		let v = heldIn(l, p: p, ms: ms, e: values[i])
+		let v = heldIn(l, p: p, ms: ms, e: values[i], holder: t)
 		var offset = 0 as Count
 		if tagged 'payload'
 			offset = payloadOffset(ms.types, reads: p.types, owner: applied, caseIndex: caseIndex, index: i)
@@ -1019,11 +1019,11 @@ function exprRefType(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	return iface
 end 'exprRefType'
 
-// heldIn is the value of the expression e as a holder other than a local keeps it (boxed).
-function heldIn(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ExprRef) returns Reg
+// heldIn is the value of the expression e as a holder of the type holder other than a local keeps it (arrayHeld).
+function heldIn(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ExprRef, holder ast.TypeID) returns Reg
 	let v = exprIn(l, p: p, ms: ms, e: e)
 	let t = exprRefType(l, p: p, ms: ms, e: e)
-	return boxed(l, p: p, ms: ms, v: v, t: t)
+	return arrayHeld(l, p: p, ms: ms, v: v, t: t, holder: holder)
 end 'heldIn'
 
 // copyValue is a new value equal to v, which every part of it owns: the deep copy that CopyInstr says. A scalar is the
@@ -1058,7 +1058,7 @@ end 'unionWord'
 function nullCaseWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, caseIndex Count, values ExprRefList) returns Reg
 	if caseIndex == payloadCase(ms.types, reads: p.types, t: t) 'payload'
 		let mark = l.pending.count()
-		let v = heldIn(l, p: p, ms: ms, e: values[0])
+		let v = heldIn(l, p: p, ms: ms, e: values[0], holder: t)
 		popPending(l, n: mark)
 		return v
 	end 'payload'

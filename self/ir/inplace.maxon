@@ -63,14 +63,23 @@ function unboxed(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, v
 	return area
 end 'unboxed'
 
-// holderCopy is a copy of the value v of the type t that a holder other than a local keeps: a box of its own for a value
-// held in place, which v may be the address of, in place or in a box.
-function holderCopy(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, v Reg, t ast.TypeID) returns Reg
-	if inPlace(l, p: p, ms: ms, t: t) 'box'
-		return boxed(l, p: p, ms: ms, v: v, t: t)
-	end 'box'
+// elementCopy is a copy of the value v of the type t that an array is given to keep: for a value held in place, v itself,
+// whose words the array copies in; any other value copied.
+function elementCopy(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, v Reg, t ast.TypeID) returns Reg
+	if inPlace(l, p: p, ms: ms, t: t) 'words'
+		return v
+	end 'words'
 	return copyValue(l, p: p, ms: ms, site: site, v: v, t: t)
-end 'holderCopy'
+end 'elementCopy'
+
+// arrayHeld is the value v of the type t as the holder of the type holder keeps it: an array holds the words of a value
+// held in place itself, and every other holder a box of its own (boxed).
+function arrayHeld(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, v Reg, t ast.TypeID, holder ast.TypeID) returns Reg
+	if isArray(l, p: p, ms: ms, collection: holder) 'array'
+		return v
+	end 'array'
+	return boxed(l, p: p, ms: ms, v: v, t: t)
+end 'arrayHeld'
 
 // holderKind is the kind of a value of the type t as a holder other than a local keeps it: the managed word of its box for
 // a value held in place, and its kind otherwise.

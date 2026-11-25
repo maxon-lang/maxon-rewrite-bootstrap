@@ -519,6 +519,74 @@ function entryStrsReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Hal
 	try entryArrayReserve(vm, f: f, x: x)
 end 'entryStrsReserve'
 
+// The entries of an array of records held in place: its model is an array's, a cell to an element, which owns a box of the
+// element's words; an address of the element is that box, whose words the code copies in and out.
+function entryRecsElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "an element address")
+	let i = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let data = vm.h.oData[a]
+	if i >= vm.h.elements[data].count() 'outside'
+		throw trap(vm, message: indexOutOfRangeMessage)
+	end 'outside'
+	let element = vm.h.elements[data][i]
+	giveCell(vm, x: x, c: element)
+end 'entryRecsElem'
+
+// entryRecsOpen puts a cell at an index, which may be the length, that owns a new box of the element's words, 0, and gives
+// the box.
+function entryRecsOpen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "an insert")
+	let i = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let words = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 2)) / ir.wordBytes
+	let data = vm.h.oData[a]
+	if i > vm.h.elements[data].count() 'outside'
+		throw trap(vm, message: indexOutOfRangeMessage)
+	end 'outside'
+	try restructure(vm, o: a)
+	let e = vm.h.newCell(a)
+	let box = newBox(vm, words: words)
+	try adopt(vm, c: e, o: box, what: "the insert")
+	vm.h.elements[data].insert(i, value: e)
+	giveCell(vm, x: x, c: e)
+end 'entryRecsOpen'
+
+// entryRecsClose takes out the cell at an index, whose words the code copied out, and frees its box.
+function entryRecsClose(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "a remove")
+	let i = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let data = vm.h.oData[a]
+	if i >= vm.h.elements[data].count() 'outside'
+		throw trap(vm, message: indexOutOfRangeMessage)
+	end 'outside'
+	try restructure(vm, o: a)
+	let e = try vm.h.elements[data].remove(i) otherwise panic("interp: an element that was there is gone")
+	try dropCell(vm, c: e)
+end 'entryRecsClose'
+
+function entryRecsReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try entryArrayReserve(vm, f: f, x: x)
+end 'entryRecsReserve'
+
+// entryRecsShrink sets the length of an array of records held in place, freeing the boxes of the elements above it, which
+// need no drop.
+function entryRecsShrink(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "a shrink")
+	let keep = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let data = vm.h.oData[a]
+	let count = vm.h.elements[data].count()
+	if keep > count 'outside'
+		throw trap(vm, message: indexOutOfRangeMessage)
+	end 'outside'
+	if keep < count 'shorter'
+		try restructure(vm, o: a)
+		for i in keep upto count 'above'
+			let element = vm.h.elements[data][i]
+			try dropCell(vm, c: element)
+		end 'above'
+		vm.h.elements[data].truncate(keep)
+	end 'shorter'
+end 'entryRecsShrink'
+
 // entryArrayFill appends count copies of a word, each in a place of its own as an insert's element is.
 function entryArrayFill(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "a fill")

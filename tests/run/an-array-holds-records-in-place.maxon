@@ -1,0 +1,63 @@
+// An array of records held in place keeps each element's words in its buffer, with three words to an element, a stride
+// that is no power of two: every operation copies the words in and out.
+typealias Small = int(0 to 1000000)
+
+type Trio
+	var a as Small
+	var b as Small
+	var c as Small
+
+	static function make(a Small, b Small, c Small) returns Self
+		return Self{a: a, b: b, c: c}
+	end 'make'
+end 'Trio'
+
+typealias Trios = Array with Trio
+
+function show(t Trio) returns String
+	return "{t.a}/{t.b}/{t.c}"
+end 'show'
+
+function all(ts Trios) returns String
+	var out = ""
+	for t in ts 'each'
+		out = "{out} {show(t)}"
+	end 'each'
+	return out
+end 'all'
+
+function bump(mutates t Trio)
+	t.a = try t.a + 100 otherwise 0
+end 'bump'
+
+function main() returns ExitCode
+	var ts = Trios.create(0)
+	for i in 0 upto 6 'fill'
+		let n = i as Small
+		ts.push(Trio.make(n, b: try n * 2 otherwise 0, c: try n * 3 otherwise 0))
+	end 'fill'
+	print("{all(ts)}\n")
+	ts[1] = Trio.make(7, b: 8, c: 9)
+	ts[2].b = 55
+	bump(ts[3])
+	try ts.swap(0, j: 5) otherwise panic("swap")
+	print("{all(ts)}\n")
+	let popped = try ts.pop() otherwise panic("pop")
+	let removed = try ts.remove(1) otherwise panic("remove")
+	ts.insert(0, value: Trio.make(1, b: 1, c: 1))
+	print("{show(popped)} {show(removed)}{all(ts)}\n")
+	let old = exchange(ts[2], value: Trio.make(4, b: 4, c: 4))
+	var copy = ts.clone()
+	copy.push(old.clone())
+	ts.truncate(2)
+	print("{show(old)}{all(ts)} |{all(copy)} {copy.count()}\n")
+	let filled = Trios.filled(3, value: Trio.make(2, b: 3, c: 4))
+	print("{all(filled)} {show(filled[2])}\n")
+	return 0
+end 'main'
+
+//>  0/0/0 1/2/3 2/4/6 3/6/9 4/8/12 5/10/15
+//>  5/10/15 7/8/9 2/55/6 103/6/9 4/8/12 0/0/0
+//> 0/0/0 7/8/9 1/1/1 5/10/15 2/55/6 103/6/9 4/8/12
+//> 2/55/6 1/1/1 5/10/15 | 1/1/1 5/10/15 4/4/4 103/6/9 4/8/12 2/55/6 6
+//>  2/3/4 2/3/4 2/3/4 2/3/4

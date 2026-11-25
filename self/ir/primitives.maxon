@@ -234,8 +234,8 @@ function assignElement(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	let coll = lowerExpr(l, p: p, ms: ms, e: obj)
 	let index = indexValue(l, p: p, ms: ms, e: target)
 	let given = lowerExpr(l, p: p, ms: ms, e: value)
-	let v = boxed(l, p: p, ms: ms, v: given, t: exprType(p, module: l.module, node: target))
 	let collTy = exprType(p, module: l.module, node: obj)
+	let v = arrayHeld(l, p: p, ms: ms, v: given, t: exprType(p, module: l.module, node: target), holder: collTy)
 	if isArray(l, p: p, ms: ms, collection: collTy) 'array'
 		let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: target), t: collTy)
 		arrayStore(l, p: p, ms: ms, box: box, arr: coll, index: index, v: v)
@@ -307,7 +307,7 @@ function columnArray(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	for i in 0 upto p.modules[l.mi].tree.listLen(ref) 'each'
 		let node = p.modules[l.mi].tree.listAt(ref, index: i) as ast.NodeID
 		let converted = lowerConverted(l, p: p, ms: ms, e: node, target: element)
-		let v = boxed(l, p: p, ms: ms, v: converted, t: element)
+		let v = arrayHeld(l, p: p, ms: ms, v: converted, t: element, holder: t)
 		arrayPush(l, p: p, ms: ms, box: box, arr: arr, v: v)
 	end 'each'
 	popPending(l, n: succ(mark))
@@ -337,7 +337,7 @@ function lowerCollectionLit(mutates l Lowerer, p ast.Project, mutates ms ast.Mod
 	l.pending.push(PendingDrop.ofReg(collection, ty: flight))
 	for i in 0 upto p.modules[l.mi].tree.listLen(elemsRef) 'each'
 		let node = p.modules[l.mi].tree.listAt(elemsRef, index: i) as ast.NodeID
-		let first = heldIn(l, p: p, ms: ms, e: ExprRef.make(l.module, node: node))
+		let first = heldIn(l, p: p, ms: ms, e: ExprRef.make(l.module, node: node), holder: ty)
 		if isList 'append'
 			_ = entry(l, p: p, site: site, symbol: Rt.rtListPushBack, kind: IrKind.kindScalar, args: argsOf2(collection, b: first))
 		end 'append' else 'push'
@@ -375,12 +375,23 @@ function lowerIntrinsic(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 		recv = lowerRead(l, p: p, ms: ms, e: c.receiver)
 	end 'receiver'
 	let base = l.args.count()
+	// An array keeps the words of a value held in place that it consumes itself, so its primitives take the words' address.
+	var collection = c.node
+	if c.receiver != 0 'receiver'
+		collection = c.receiver
+	end 'receiver'
+	let onArray = isArray(l, p: p, ms: ms, collection: exprType(p, module: l.module, node: collection))
 	for i in 0 upto c.ordered.count() 'each'
 		if c.ordered[i] == 0 'defaulted'
 			let word = konst(l, value: try c.info.paramSpecs[i].defaultCase as Word otherwise panic("ir: a case index is out of range"))
 			pushArg(l, v: word)
 			continue 'each'
 		end 'defaulted'
+		if onArray 'array'
+			let given = lowerConverted(l, p: p, ms: ms, e: c.ordered[i], target: c.info.paramSpecs[i].ty)
+			pushArg(l, v: given)
+			continue 'each'
+		end 'array'
 		let v = argValue(l, p: p, ms: ms, c: c, index: i)
 		pushArg(l, v: v)
 	end 'each'
@@ -927,7 +938,7 @@ function arrayFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	end 'scalar'
 	let loop = countedLoopBegin(l, limit: count)
 	let i = countedLoopIndex(l, loop: loop)
-	let copy = holderCopy(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), v: value, t: arrayElem(p, ms: ms, box: a))
+	let copy = elementCopy(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), v: value, t: arrayElem(p, ms: ms, box: a))
 	arrayInsert(l, p: p, ms: ms, box: a, arr: out, index: i, v: copy)
 	countedLoopEnd(l, loop: loop)
 	dropValue(l, p: p, ms: ms, v: value, t: arrayElem(p, ms: ms, box: a))

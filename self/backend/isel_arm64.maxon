@@ -164,6 +164,12 @@ extension Selector
 		return self.arm64Define(Arm64Form.addRegRegLsl, b: base, c: index, aux: 0, imm: try shift as FullRangeInt otherwise panic("backend: a shift past the word"))
 	end 'arm64ElementAddress'
 
+	function arm64MulImm(mutates self, src MReg, value Count) returns MReg
+		let factor = self.newTemp()
+		self.arm64ConstantInto(factor, value: try value as FullRangeInt otherwise panic("backend: a factor past the word"))
+		return self.arm64Define(Arm64Form.mulRegReg, b: src, c: factor, aux: 0, imm: 0)
+	end 'arm64MulImm'
+
 	function arm64LoadIndexedByte(mutates self, base MReg, index MReg, disp Imm32) returns MReg
 		var at = base
 		if disp != 0 'offset'

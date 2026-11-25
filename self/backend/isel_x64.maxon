@@ -243,6 +243,10 @@ extension Selector
 		return self.define(X64Form.leaRegBaseIndex8Disp, b: base, c: words, aux: 0, imm: 0)
 	end 'x64ElementAddress'
 
+	function x64MulImm(mutates self, src MReg, value Count) returns MReg
+		return self.define(X64Form.imulRegRegImm32, b: src, c: noMReg, aux: 0, imm: try value as FullRangeInt otherwise panic("backend: a factor past the word"))
+	end 'x64MulImm'
+
 	function x64LoadIndexedByte(mutates self, base MReg, index MReg, disp Imm32) returns MReg
 		return self.define(X64Form.movzxRegByteBaseIndex1Disp, b: base, c: index, aux: disp, imm: 0)
 	end 'x64LoadIndexedByte'

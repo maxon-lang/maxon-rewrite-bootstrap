@@ -416,9 +416,10 @@ function datumArray(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, mod
 		return false
 	end 'notArray'
 	let elem = ast.typeArgAt(ms.types, reads: p.types, t: bt, index: 0)
-	if ast.typeKind(ms.types, reads: p.types, t: elem) == ast.TypeKind.typeParam 'generic'
+	// An element held in place is its words in the buffer, which the data lays out as boxes: such an array is built where read.
+	if ast.typeKind(ms.types, reads: p.types, t: elem) == ast.TypeKind.typeParam or heldInPlace(ms.types, reads: p.types, t: elem) 'built'
 		return false
-	end 'generic'
+	end 'built'
 	let packed = arrayPacked(p, ms: ms, box: ArrayBox.make(diag.Site.make(module, offset: p.modules[mi].tree.startOf(e)), ty: bt))
 	let elemsRef = ast.collectionLitExprElemsRef(p.modules[mi].tree, id: e)
 	let at = b.d.boxes.count()

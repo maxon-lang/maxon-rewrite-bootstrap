@@ -99,6 +99,45 @@ function stringsReserve(array Count, count Count)
 	end 'more'
 end 'stringsReserve'
 
+// The entries of an array of records held in place, whose elements are the words of a record each, a number of bytes the
+// code that calls them knows: it copies the words in and out of the addresses they give.
+
+// recordsElem is the address of the element at an index, which panics past the end.
+function recordsElem(array Count, index Count, bytes Count) returns Count
+	return collectionElementAddress(array, index: index, elementBytes: bytes)
+end 'recordsElem'
+
+// recordsOpen makes room for an element at an index, which may be the length, and gives its address: its words 0, which
+// the code fills.
+function recordsOpen(array Count, index Count, bytes Count) returns Count
+	let at = collectionOpenGap(array, index: index, elementBytes: bytes)
+	var offset = 0 as Count
+	while offset < bytes 'words'
+		__Raw.storeWord(at, offset: offset, value: 0)
+		offset = __Raw.wrappingAdd(offset, right: wordBytes)
+	end 'words'
+	return at
+end 'recordsOpen'
+
+// recordsClose takes the element at an index, whose words the code copied out, out of the buffer.
+function recordsClose(array Count, index Count, bytes Count)
+	_ = collectionElementAddress(array, index: index, elementBytes: bytes)
+	collectionCloseGap(array, index: index, elementBytes: bytes)
+end 'recordsClose'
+
+// recordsReserve makes the buffer hold a count of elements, exactly, where it holds fewer.
+function recordsReserve(array Count, count Count, bytes Count)
+	if count > __Raw.loadWord(array, offset: arrayCapacityOffset) 'more'
+		collectionMove(array, capacity: count, elementBytes: bytes)
+	end 'more'
+end 'recordsReserve'
+
+// recordsShrink makes an array of records held in place a length that is not above its own, and keeps the buffer: a
+// record held in place needs no drop.
+function recordsShrink(array Count, length Count, bytes Count)
+	arrayShrink(array, length: length)
+end 'recordsShrink'
+
 // arrayShrink makes an array or a byte array a length that is not above its own, and keeps the buffer. The elements
 // above the length are the caller's to have moved out or dropped already, or need no drop.
 function arrayShrink(array Count, length Count)

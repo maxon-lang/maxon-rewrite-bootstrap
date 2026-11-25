@@ -7,8 +7,6 @@ advent.md: day1
 advent.md: day2
 allocations-by-tag.md: allocations-by-tag.alloc-bytes-by-tag-arity-checked
 allocations-by-tag.md: allocations-by-tag.alloc-total-by-tag-arity-checked
-allocations-by-tag.md: allocations-by-tag.an-untraced-build-tallies-nothing
-allocations-by-tag.md: allocations-by-tag.the-public-counters-see-a-population-arrive-and-leave
 argument-overlap.md: a-call-result-beside-a-mutable-parameter-is-a-fresh-counted-value
 argument-overlap.md: a-receiver-handed-to-its-own-method-that-writes-its-fields
 argument-overlap.md: a-record-handed-beside-a-field-the-callee-clears
@@ -3714,7 +3712,6 @@ inline-leaves.md: an-identity-leaf-returns-its-argument
 inline-leaves.md: error.an-inlined-element-of-a-let-literal-outside-the-callee-range-is-refused
 inline-leaves.md: two-returns
 inline-records.md: inline-records.a-factory-handed-another-inline-record-for-a-field
-inline-records.md: inline-records.a-generic-type-stays-a-heap-record
 inline-records.md: inline-records.a-nonzero-lower-bound-stays-a-heap-record
 inline-records.md: inline-records.a-signed-field-stays-a-heap-record
 inline-records.md: inline-records.a-sole-whole-word-field
@@ -3728,6 +3725,8 @@ inline-records.md: inline-records.clone-is-the-identity
 inline-records.md: inline-records.equals-still-dispatches
 inline-records.md: inline-records.field-range-check-at-the-door
 inline-records.md: inline-records.is-on-an-inline-record-is-refused
+inline-records.md: inline-records.map-key-survives-rehash
+inline-records.md: inline-records.no-allocation-for-an-inline-record
 inline-records.md: inline-records.no-equals-is-still-refused
 inline-records.md: inline-records.passed-and-returned-through-functions
 inline-records.md: inline-records.sixty-five-bits-stays-a-heap-record

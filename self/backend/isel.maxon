@@ -639,6 +639,35 @@ export type Selector
 		end 'arch'
 	end 'address'
 
+	// constantArg is the word that the constant argument index of a call, its arguments from start, is.
+	function constantArg(f ir.IrFunction, start Count, index Count) returns Count
+		let r = f.args[try start + index otherwise panic("backend: an argument past the pool")]
+		if not self.definedBy(f, r: r, op: ir.Opcode.opConst) 'other'
+			panic("backend: an argument that is no constant is read as one")
+		end 'other'
+		return try f.instrs[self.defOf(r)].imm as Count otherwise panic("backend: a negative constant is read as a size")
+	end 'constantArg'
+
+	// strideAddress is the address of the element at an index of the buffer at base, whose elements are bytes bytes each, a
+	// whole number of words: a shift where that number is a power of two, and a multiply of the index otherwise.
+	function strideAddress(mutates self, base MReg, index MReg, bytes Count) returns MReg
+		let words = bytes / wordBytes
+		var power = 1 as Count
+		var shift = wordElementShift as Count
+		while power < words 'power'
+			power = try power + power otherwise panic("backend: an element past memory")
+			shift = nextCount(shift)
+		end 'power'
+		if power == words 'shifted'
+			return self.elementAddress(base, index: index, shift: shift)
+		end 'shifted'
+		let scaled = match arch 'arch'
+			x64 gives self.x64MulImm(index, value: words)
+			arm64 gives self.arm64MulImm(index, value: words)
+		end 'arch'
+		return self.elementAddress(base, index: scaled, shift: wordElementShift)
+	end 'strideAddress'
+
 	// elementAddress is the address of the element at an index of the buffer at base, whose elements are 1 shl shift bytes
 	// each.
 	function elementAddress(mutates self, base MReg, index MReg, shift Count) returns MReg
@@ -950,9 +979,12 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		sel.callSymbol(ir.rtSymbol(ir.Rt.rtFree))
 		return
 	end 'boxedString'
-	let reads = symbol == ir.Rt.rtArrayElem or symbol == ir.Rt.rtStrsElem or symbol == ir.Rt.rtBytesGet or symbol == ir.Rt.rtStrByteAt
-	let opens = symbol == ir.Rt.rtStrsOpen
-	if not ir.writtenInPlace(symbol) or (reads and ins.dst == ir.noReg) 'call'
+	let reads = symbol == ir.Rt.rtArrayElem or symbol == ir.Rt.rtStrsElem or symbol == ir.Rt.rtRecsElem or symbol == ir.Rt.rtBytesGet or symbol == ir.Rt.rtStrByteAt
+	let opens = symbol == ir.Rt.rtStrsOpen or symbol == ir.Rt.rtRecsOpen
+	// An element of an array of records held in place is written in place where its size is a constant, as lowering gives it.
+	let records = symbol == ir.Rt.rtRecsElem or symbol == ir.Rt.rtRecsOpen
+	let sized = records and sel.definedBy(fn, r: fn.args[nextCount(nextCount(start))], op: ir.Opcode.opConst)
+	if not ir.writtenInPlace(symbol) or (reads and ins.dst == ir.noReg) or (records and not sized) 'call'
 		sel.callWords(fn, symbol: ir.rtSymbol(symbol), start: start, count: ir.callRuntimeArgsCount(ins), dst: ins.dst)
 		return
 	end 'call'
@@ -979,7 +1011,23 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		let at = sel.elementAddress(data, index: index, shift: stringElementShift)
 		sel.emptyString(at, disp: 0)
 		sel.reach(done, value: at, keeps: keeps)
-	end 'stringsOpen' else if symbol == ir.Rt.rtBytesGet 'bytesGet'
+	end 'stringsOpen' else if symbol == ir.Rt.rtRecsElem 'recordsElem'
+		let data = sel.elementBuffer(box, index: index, slow: slow)
+		let at = sel.strideAddress(data, index: index, bytes: sel.constantArg(fn, start: start, index: 2))
+		sel.reach(done, value: at, keeps: keeps)
+	end 'recordsElem' else if symbol == ir.Rt.rtRecsOpen 'recordsOpen'
+		// The room is past the length, whose words may be an element's that a shrink left: they are zeroed, as the entry does.
+		let bytes = sel.constantArg(fn, start: start, index: 2)
+		let atEnd = sel.knownLength(fn, box: fn.args[start], index: fn.args[nextCount(start)])
+		let data = sel.pushInPlace(box, index: index, atEnd: atEnd, slow: slow)
+		let at = sel.strideAddress(data, index: index, bytes: bytes)
+		var offset = 0 as Count
+		while offset < bytes 'words'
+			sel.storeImm(at, disp: imm32Of(offset), value: 0)
+			offset = try offset + wordBytes otherwise panic("backend: an element past memory")
+		end 'words'
+		sel.reach(done, value: at, keeps: keeps)
+	end 'recordsOpen' else if symbol == ir.Rt.rtBytesGet 'bytesGet'
 		let data = sel.elementBuffer(box, index: index, slow: slow)
 		let byte = sel.loadIndexedByte(data, index: index, disp: 0)
 		sel.reach(done, value: byte, keeps: keeps)

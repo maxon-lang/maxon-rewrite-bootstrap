@@ -1741,9 +1741,16 @@ the address of the caller's place, which holds the address of the words, so an a
 function whose result is held in place, and which does not lend it, takes the address of an area of its caller's frame
 after its arguments, copies the result there before its scopes end and returns the address (`resultWords`,
 `returnPlaced`); given 0, as an async call's coroutine gives it, it returns a box of the result, which its promise owns.
+An array keeps the words of each element in its buffer, the element's size apart (`arrayInPlace`, the `rt.recs` entries,
+which take that size): an element read is the address of its words, an insert opens a zeroed room and copies the words in,
+a remove copies them out to a frame area and closes the room, a swap, a store and an `exchange` copy words, and the
+array's drop and copy routines move its buffer's words and nothing else. The element's place, which a `mutates` argument
+is given, is a slot that holds the address of the words; the array's primitives take what they consume as its address,
+with no box, and the backend writes an element's address in place, an index shifted or multiplied by the size, which
+lowering gives as a constant. An array literal of such records is built where it is read, not laid out as data.
 Every other holder keeps the value as a managed word, the address of a box of its words that it owns, as every record was
 held before: a field and a payload (the layout table's form and offsets, the drop and copy routines and the datums are
-unchanged), an element of an array, a half of a map's pair, a node of a list or a pool, a capture of a closure or a
+unchanged), a half of a map's pair, a node of a list or a pool, a capture of a closure or a
 behaviour, an argument of a message, the contents of an interface value, a frozen value or a cown, and an argument that a
 parameter consumes, since a callee may keep what it consumes past the caller's frame (a coroutine, a behaviour): the value
 goes into the holder as a `copy` into a new box (`boxed`), is read from it as the box's address, which is the address of
@@ -5237,7 +5244,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   is.
 - **A record of words is not a heap allocation where a function holds it.** A record whose every field is a word of nothing
   to drop, and which has no destructor, is held in place (see "The IR"): a literal, a
-  `.clone()`, a local, a parameter and a result allocate nothing, where maxon allocates every record that is not inline. A
+  `.clone()`, a local, a parameter, a result and an element of an array allocate nothing (an array keeps the words in its
+  buffer), where maxon allocates every record that is not inline. A
   program that counts its allocations sees fewer: two back-to-back `HeapStats.thread()` readings, whose `HeapActivity` is
   such a record, count the same.
 - **`Process.exit(code)` ends the process at once**, as Rust's `process::exit` and Go's `os.Exit` do: nothing is dropped,

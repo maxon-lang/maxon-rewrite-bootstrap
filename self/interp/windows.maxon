@@ -7,7 +7,7 @@ function borrowsStorage(x ir.Instr) returns bool
 	if x.op == ir.Opcode.opCallRuntime 'runtime'
 		// The entries whose symbol ends in .elem.
 		let symbol = ir.callRuntimeSymbol(x)
-		return symbol == ir.Rt.rtArrayElem or symbol == ir.Rt.rtStrsElem or symbol == ir.Rt.rtListElem or symbol == ir.Rt.rtPoolElem
+		return symbol == ir.Rt.rtArrayElem or symbol == ir.Rt.rtStrsElem or symbol == ir.Rt.rtRecsElem or symbol == ir.Rt.rtListElem or symbol == ir.Rt.rtPoolElem
 	end 'runtime'
 	return false
 end 'borrowsStorage'

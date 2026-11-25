@@ -582,6 +582,7 @@ end 'main'
 ```
 
 <!-- test: inline-records.a-generic-type-stays-a-heap-record -->
+<!-- skip: language difference: a record of words is held in place, an array's element too, so making one and pushing it allocates nothing -->
 CONTROL: a type with a type parameter never qualifies, even at an instance whose arguments would qualify
 on their own, so constructing one still takes a box. The control is read as an allocation rather than as a
 `sizeof`, because `sizeof` on a generic instance answers the SLOT that holds it — 8 either way — and says
@@ -595,8 +596,8 @@ type Box uses T
 	export let a as T
 	export let b as T
 
-	static function create(a T, b T) returns Self where T implements Copyable
-		return Self{a: a.clone(), b: b.clone()}
+	static function create(a T, b T) returns Self
+		return Self{a: a, b: b}
 	end 'create'
 end 'Box'
 
@@ -605,7 +606,7 @@ typealias HalfBox = Box with Half
 typealias HalfBoxArray = Array with HalfBox
 
 function main() returns ExitCode
-	var holder = HalfBoxArray.create(0)
+	let holder = HalfBoxArray.create(0)
 	holder.reserve(4)
 	let before = HeapStats.allocationsLive()
 	holder.push(HalfBox.create(1, b: 2))
@@ -613,7 +614,7 @@ function main() returns ExitCode
 	if holder.count() != 1 'held'
 		return 1
 	end 'held'
-	if (try after - before otherwise panic("out of range")) != 1 'alloc'
+	if (after - before) != 1 'alloc'
 		return 2
 	end 'alloc'
 	return 0

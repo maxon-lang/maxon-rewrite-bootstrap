@@ -3,14 +3,14 @@
 // frozen value holds, is a load, and reading, writing or pushing one element calls the entry only for an index out of range
 // or a buffer that has to grow.
 export function writtenInPlace(symbol Rt) returns bool
-	return symbol == Rt.rtArrayLen or symbol == Rt.rtBytesLen or symbol == Rt.rtStrLen or symbol == Rt.rtFrozenGet or symbol == Rt.rtArrayElem or symbol == Rt.rtStrsElem or symbol == Rt.rtBytesGet or symbol == Rt.rtStrByteAt or symbol == Rt.rtBytesSet or symbol == Rt.rtArrayInsert or symbol == Rt.rtStrsOpen or symbol == Rt.rtBytesInsert
+	return symbol == Rt.rtArrayLen or symbol == Rt.rtBytesLen or symbol == Rt.rtStrLen or symbol == Rt.rtFrozenGet or symbol == Rt.rtArrayElem or symbol == Rt.rtStrsElem or symbol == Rt.rtBytesGet or symbol == Rt.rtStrByteAt or symbol == Rt.rtBytesSet or symbol == Rt.rtArrayInsert or symbol == Rt.rtStrsOpen or symbol == Rt.rtBytesInsert or symbol == Rt.rtRecsElem or symbol == Rt.rtRecsOpen
 end 'writtenInPlace'
 
 // onlyReads is whether a call of the runtime entry symbol changes nothing its caller can read: it reads its arguments and
 // what they reach, and gives a scalar or a new box. So it ends no read of the caller (opt.motionOf), and a value it is
 // lent may be a borrow of one that nothing else changes.
 export function onlyReads(symbol Rt) returns bool
-	return symbol == Rt.rtConcat or symbol == Rt.rtItoa or symbol == Rt.rtDecimalLength or symbol == Rt.rtStrJoinRoom or symbol == Rt.rtStrOwned or symbol == Rt.rtStrAscii or symbol == Rt.rtArrayCapacity or symbol == Rt.rtFtoa or symbol == Rt.rtFtoaExact or symbol == Rt.rtFmtInt or symbol == Rt.rtFmtPad or symbol == Rt.rtFmtQuoted or symbol == Rt.rtFmtFixed or symbol == Rt.rtStreq or symbol == Rt.rtStrLen or symbol == Rt.rtStrByteAt or symbol == Rt.rtStrView or symbol == Rt.rtStrCount or symbol == Rt.rtStrGraphemeIndex or symbol == Rt.rtStrGraphemeBytePos or symbol == Rt.rtStrFind or symbol == Rt.rtStrFindLast or symbol == Rt.rtStrHasAffix or symbol == Rt.rtStrReplace or symbol == Rt.rtStrTrimFirst or symbol == Rt.rtStrTrimLast or symbol == Rt.rtStrMapCase or symbol == Rt.rtStrCodePointAt or symbol == Rt.rtStrCodePointNext or symbol == Rt.rtStrCodePointCount or symbol == Rt.rtStrUtf16Unit or symbol == Rt.rtStrUtf16Next or symbol == Rt.rtStrUtf16Count or symbol == Rt.rtHashWord or symbol == Rt.rtHashBytes or symbol == Rt.rtHashStringBytes or symbol == Rt.rtArrayNew or symbol == Rt.rtArrayLen or symbol == Rt.rtArrayElem or symbol == Rt.rtStrsElem or symbol == Rt.rtBytesNew or symbol == Rt.rtBytesLen or symbol == Rt.rtBytesGet or symbol == Rt.rtBytesToString
+	return symbol == Rt.rtConcat or symbol == Rt.rtItoa or symbol == Rt.rtDecimalLength or symbol == Rt.rtStrJoinRoom or symbol == Rt.rtStrOwned or symbol == Rt.rtStrAscii or symbol == Rt.rtArrayCapacity or symbol == Rt.rtFtoa or symbol == Rt.rtFtoaExact or symbol == Rt.rtFmtInt or symbol == Rt.rtFmtPad or symbol == Rt.rtFmtQuoted or symbol == Rt.rtFmtFixed or symbol == Rt.rtStreq or symbol == Rt.rtStrLen or symbol == Rt.rtStrByteAt or symbol == Rt.rtStrView or symbol == Rt.rtStrCount or symbol == Rt.rtStrGraphemeIndex or symbol == Rt.rtStrGraphemeBytePos or symbol == Rt.rtStrFind or symbol == Rt.rtStrFindLast or symbol == Rt.rtStrHasAffix or symbol == Rt.rtStrReplace or symbol == Rt.rtStrTrimFirst or symbol == Rt.rtStrTrimLast or symbol == Rt.rtStrMapCase or symbol == Rt.rtStrCodePointAt or symbol == Rt.rtStrCodePointNext or symbol == Rt.rtStrCodePointCount or symbol == Rt.rtStrUtf16Unit or symbol == Rt.rtStrUtf16Next or symbol == Rt.rtStrUtf16Count or symbol == Rt.rtHashWord or symbol == Rt.rtHashBytes or symbol == Rt.rtHashStringBytes or symbol == Rt.rtArrayNew or symbol == Rt.rtArrayLen or symbol == Rt.rtArrayElem or symbol == Rt.rtStrsElem or symbol == Rt.rtRecsElem or symbol == Rt.rtBytesNew or symbol == Rt.rtBytesLen or symbol == Rt.rtBytesGet or symbol == Rt.rtBytesToString
 end 'onlyReads'
 
 // arrayOf is the runtime of the array type t, read through the binding and through a frozen value.
@@ -33,6 +33,30 @@ function arrayOfStrings(p ast.Project, ms ast.ModuleState, box ArrayBox) returns
 	return ast.isStringType(ms.types, reads: p.types, t: arrayElem(p, ms: ms, box: box))
 end 'arrayOfStrings'
 
+// arrayInPlace is whether the array holds the words of each element itself, a record held in place, which the rt.recs
+// entries address with the element's size.
+function arrayInPlace(p ast.Project, ms ast.ModuleState, box ArrayBox) returns bool
+	return heldInPlace(ms.types, reads: p.types, t: arrayElem(p, ms: ms, box: box))
+end 'arrayInPlace'
+
+// elementWords is how many words an element of an array held in place takes.
+function elementWords(p ast.Project, ms ast.ModuleState, box ArrayBox) returns Count
+	return inPlaceWords(ms.types, reads: p.types, t: arrayElem(p, ms: ms, box: box))
+end 'elementWords'
+
+// elementBytes is the size of an element of an array held in place, as the rt.recs entries take it.
+function elementBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox) returns Reg
+	return konst(l, value: try wordOffset(elementWords(p, ms: ms, box: box)) as Word otherwise panic("lower: an element past a word"))
+end 'elementBytes'
+
+// zeroWords writes 0 to words words at the address at.
+function zeroWords(mutates l Lowerer, at Reg, words Count)
+	let zero = konst(l, value: 0 as Word)
+	for i in 0 upto words 'words'
+		emit(l, i: newStoreField(at, offset: wordOffset(i), src: zero, borrow: false))
+	end 'words'
+end 'zeroWords'
+
 function arrayElem(p ast.Project, ms ast.ModuleState, box ArrayBox) returns ast.TypeID
 	return ast.typeArgAt(ms.types, reads: p.types, t: box.ty, index: 0)
 end 'arrayElem'
@@ -47,7 +71,10 @@ end 'arrayNew'
 // arrayReserve makes the buffer of an array hold count elements, where a lowering knows how many it is about to push: an
 // array of words reserves them, and an array of bytes grows as it is pushed to.
 function arrayReserve(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, count Reg)
-	if arrayOfStrings(p, ms: ms, box: box) 'strings'
+	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
+		let bytes = elementBytes(l, p: p, ms: ms, box: box)
+		entryVoid(l, p: p, site: box.site, symbol: Rt.rtRecsReserve, args: argsOf3(arr, b: count, c: bytes))
+	end 'inPlace' else if arrayOfStrings(p, ms: ms, box: box) 'strings'
 		entryVoid(l, p: p, site: box.site, symbol: Rt.rtStrsReserve, args: argsOf2(arr, b: count))
 	end 'strings' else if not arrayPacked(p, ms: ms, box: box) 'words'
 		entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayReserve, args: argsOf2(arr, b: count))
@@ -61,6 +88,9 @@ function arrayFill(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box Arr
 	if arrayPacked(p, ms: ms, box: box) 'packed'
 		panic("lower: a fill of an array of bytes")
 	end 'packed'
+	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
+		panic("lower: a fill of an array of records held in place, whose element is no word")
+	end 'inPlace'
 	if arrayOfStrings(p, ms: ms, box: box) 'strings'
 		entryVoid(l, p: p, site: box.site, symbol: Rt.rtStrsFill, args: argsOf2(arr, b: count))
 		return
@@ -75,12 +105,19 @@ function arrayLength(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box A
 	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayLen, kind: IrKind.kindScalar, args: argsOf1(arr))
 end 'arrayLength'
 
-// arrayInsert moves v in at index, which may be the length.
+// arrayInsert moves v in at index, which may be the length: for an array held in place, v is the address of the words it
+// copies in.
 function arrayInsert(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, v Reg)
 	if arrayPacked(p, ms: ms, box: box) 'packed'
 		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesInsert, args: argsOf3(arr, b: index, c: v))
 		return
 	end 'packed'
+	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
+		let bytes = elementBytes(l, p: p, ms: ms, box: box)
+		let at = entry(l, p: p, site: box.site, symbol: Rt.rtRecsOpen, kind: IrKind.kindScalar, args: argsOf3(arr, b: index, c: bytes))
+		copyWords(l, dst: at, src: v, words: elementWords(p, ms: ms, box: box))
+		return
+	end 'inPlace'
 	if arrayOfStrings(p, ms: ms, box: box) 'strings'
 		let at = entry(l, p: p, site: box.site, symbol: Rt.rtStrsOpen, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
 		emit(l, i: newStoreAt(at, src: v))
@@ -100,7 +137,14 @@ function arrayRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 		return entry(l, p: p, site: box.site, symbol: Rt.rtBytesRemove, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
 	end 'packed'
 	let elem = arrayElem(p, ms: ms, box: box)
-	let kind = holderKind(l, p: p, ms: ms, t: elem)
+	let kind = kindOf(l, p: p, ms: ms, t: elem)
+	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
+		let bytes = elementBytes(l, p: p, ms: ms, box: box)
+		let at = entry(l, p: p, site: box.site, symbol: Rt.rtRecsElem, kind: IrKind.kindScalar, args: argsOf3(arr, b: index, c: bytes))
+		let d = placedCopy(l, words: elementWords(p, ms: ms, box: box), v: at)
+		entryVoid(l, p: p, site: box.site, symbol: Rt.rtRecsClose, args: argsOf3(arr, b: index, c: bytes))
+		return d
+	end 'inPlace'
 	if arrayOfStrings(p, ms: ms, box: box) 'strings'
 		let at = entry(l, p: p, site: box.site, symbol: Rt.rtStrsElem, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
 		let d = newReg(l, kind: kind)
@@ -108,8 +152,7 @@ function arrayRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 		entryVoid(l, p: p, site: box.site, symbol: Rt.rtStrsClose, args: argsOf2(arr, b: index))
 		return d
 	end 'strings'
-	let removed = entry(l, p: p, site: box.site, symbol: Rt.rtArrayRemove, kind: kind, args: argsOf2(arr, b: index))
-	return unboxed(l, p: p, ms: ms, v: removed, t: elem)
+	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayRemove, kind: kind, args: argsOf2(arr, b: index))
 end 'arrayRemove'
 
 // arrayLoad reads the element at index: a byte, a scalar, or a managed element lent for as long as the array is not
@@ -175,8 +218,12 @@ function arrayRead(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	if arrayPacked(p, ms: ms, box: box) 'packed'
 		return elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: index), checked: checked)
 	end 'packed'
-	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box)))
 	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
+	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
+		// The element is its words' address; one that nothing filled reads as its words 0.
+		return addr
+	end 'inPlace'
+	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box)))
 	emit(l, i: newLoadAt(d, addr: addr))
 	requireFilled(l, p: p, ms: ms, site: box.site, elem: arrayElem(p, ms: ms, box: box), element: d, index: index, read: read)
 	return d
@@ -187,7 +234,12 @@ end 'arrayRead'
 function arrayClearSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg)
 	arrayInBounds(l, p: p, ms: ms, box: box, arr: arr, index: index)
 	let elem = arrayElem(p, ms: ms, box: box)
-	if holderOwns(l, p: p, ms: ms, t: elem) and not arrayPacked(p, ms: ms, box: box) 'owning'
+	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
+		let at = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
+		zeroWords(l, at: at, words: elementWords(p, ms: ms, box: box))
+		return
+	end 'inPlace'
+	if owning(kindOf(l, p: p, ms: ms, t: elem)) and not arrayPacked(p, ms: ms, box: box) 'owning'
 		let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
 		dropAt(l, p: p, ms: ms, addr: addr, t: elem)
 		return
@@ -208,9 +260,20 @@ function arraySwap(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: j, c: first))
 		return
 	end 'packed'
-	let kind = holderKind(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box))
 	let addrI = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: i, checked: false)
 	let addrJ = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: j, checked: false)
+	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
+		for w in 0 upto elementWords(p, ms: ms, box: box) 'words'
+			let first = newReg(l, kind: IrKind.kindScalar)
+			emit(l, i: newLoadField(first, obj: addrI, offset: wordOffset(w)))
+			let second = newReg(l, kind: IrKind.kindScalar)
+			emit(l, i: newLoadField(second, obj: addrJ, offset: wordOffset(w)))
+			emit(l, i: newStoreField(addrI, offset: wordOffset(w), src: second, borrow: false))
+			emit(l, i: newStoreField(addrJ, offset: wordOffset(w), src: first, borrow: false))
+		end 'words'
+		return
+	end 'inPlace'
+	let kind = kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box))
 	let first = newReg(l, kind: kind)
 	emit(l, i: newLoadAt(first, addr: addrI))
 	let second = newReg(l, kind: kind)
@@ -227,6 +290,10 @@ function arrayWrite(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 		return
 	end 'packed'
 	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
+	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
+		copyWords(l, dst: addr, src: v, words: elementWords(p, ms: ms, box: box))
+		return
+	end 'inPlace'
 	dropAt(l, p: p, ms: ms, addr: addr, t: arrayElem(p, ms: ms, box: box))
 	emit(l, i: newStoreAt(addr, src: v))
 end 'arrayWrite'
@@ -242,6 +309,10 @@ function arrayAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box 
 	if arrayPacked(p, ms: ms, box: box) 'packed'
 		panic("lower: an element of {ast.typeName(ms.types, reads: p.types, t: box.ty)} has no word address")
 	end 'packed'
+	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
+		let bytes = elementBytes(l, p: p, ms: ms, box: box)
+		return elementEntry(l, p: p, site: box.site, symbol: Rt.rtRecsElem, args: argsOf3(arr, b: index, c: bytes), checked: checked)
+	end 'inPlace'
 	if arrayOfStrings(p, ms: ms, box: box) 'strings'
 		return elementEntry(l, p: p, site: box.site, symbol: Rt.rtStrsElem, args: argsOf2(arr, b: index), checked: checked)
 	end 'strings'
@@ -251,6 +322,16 @@ end 'arrayAddress'
 // arrayPlace is the address a call that takes the element at index by address is given: the element's own for an array of
 // words, and for an array of bytes a slot that holds the element until writeBack stores it back.
 function arrayPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
+		// A place of a value held in place holds the address of its words, as a local's slot does: the words stay in the
+		// element, so nothing is written back.
+		let at = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
+		let held = l.b.f.newSlot(IrKind.kindScalar)
+		emit(l, i: newStoreSlot(held, src: at, borrow: false))
+		let place = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newSlotAddr(place, slot: held))
+		return place
+	end 'inPlace'
 	if not arrayPacked(p, ms: ms, box: box) 'words'
 		return arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
 	end 'words'
@@ -284,7 +365,7 @@ function arrayAppendCopy(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	let loop = countedLoopBegin(l, limit: n)
 	let i = countedLoopIndex(l, loop: loop)
 	let element = arrayLoad(l, p: p, ms: ms, box: box, arr: other, index: i)
-	let copy = holderCopy(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
+	let copy = elementCopy(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
 	arrayPush(l, p: p, ms: ms, box: box, arr: arr, v: copy)
 	countedLoopEnd(l, loop: loop)
 end 'arrayAppendCopy'
@@ -345,7 +426,12 @@ end 'saturatingSub'
 // each, before the length is set.
 function arrayShrinkTo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, keep Reg)
 	let elem = arrayElem(p, ms: ms, box: box)
-	if holderOwns(l, p: p, ms: ms, t: elem) 'owning'
+	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
+		let bytes = elementBytes(l, p: p, ms: ms, box: box)
+		entryVoid(l, p: p, site: box.site, symbol: Rt.rtRecsShrink, args: argsOf3(arr, b: keep, c: bytes))
+		return
+	end 'inPlace'
+	if owning(kindOf(l, p: p, ms: ms, t: elem)) 'owning'
 		let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
 		let extra = newReg(l, kind: IrKind.kindScalar)
 		emit(l, i: newBin(extra, op: BinOp.binSub, left: length, right: keep, unsigned: true, fail: noBlock))
@@ -383,7 +469,11 @@ function arrayGrowZero(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
 	let missing = saturatingSub(l, a: newLength, b: length)
 	let loop = countedLoopBegin(l, limit: missing)
-	if arrayOfStrings(p, ms: ms, box: box) 'strings'
+	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
+		let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
+		let bytes = elementBytes(l, p: p, ms: ms, box: box)
+		_ = entry(l, p: p, site: box.site, symbol: Rt.rtRecsOpen, kind: IrKind.kindScalar, args: argsOf3(arr, b: length, c: bytes))
+	end 'inPlace' else if arrayOfStrings(p, ms: ms, box: box) 'strings'
 		let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
 		_ = entry(l, p: p, site: box.site, symbol: Rt.rtStrsOpen, kind: IrKind.kindScalar, args: argsOf2(arr, b: length))
 	end 'strings' else 'words'
@@ -409,7 +499,7 @@ function arraySlice(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 	let index = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newBin(index, op: BinOp.binAdd, left: start, right: offset, unsigned: true, fail: noBlock))
 	let element = arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: index)
-	let copy = holderCopy(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
+	let copy = elementCopy(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
 	arrayPush(l, p: p, ms: ms, box: box, arr: out, v: copy)
 	countedLoopEnd(l, loop: loop)
 	return out
@@ -425,7 +515,7 @@ end 'arrayCopyAt'
 // arrayPushCopies pushes n copies of value, which the call only reads.
 function arrayPushCopies(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, n Reg, value Reg)
 	let loop = countedLoopBegin(l, limit: n)
-	let copy = holderCopy(l, p: p, ms: ms, site: box.site, v: value, t: arrayElem(p, ms: ms, box: box))
+	let copy = elementCopy(l, p: p, ms: ms, site: box.site, v: value, t: arrayElem(p, ms: ms, box: box))
 	arrayPush(l, p: p, ms: ms, box: box, arr: arr, v: copy)
 	countedLoopEnd(l, loop: loop)
 end 'arrayPushCopies'

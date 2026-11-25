@@ -630,7 +630,15 @@ function wordColumns(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, ty ast
 		end 'pairs'
 		return columns
 	end 'groups'
-	columns.push(elementType(tt, reads: reads, array: ty))
+	let element = elementType(tt, reads: reads, array: ty)
+	if ir.heldInPlace(tt, reads: reads, t: element) 'inPlace'
+		// The words of a record held in place, none of them to drop or to copy but as words.
+		for _ in 0 upto ir.inPlaceWords(tt, reads: reads, t: element) 'words'
+			columns.push(p.builtins.countTy)
+		end 'words'
+		return columns
+	end 'inPlace'
+	columns.push(element)
 	return columns
 end 'wordColumns'
 
