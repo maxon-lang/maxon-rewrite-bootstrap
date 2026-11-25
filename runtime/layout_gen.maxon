@@ -1059,6 +1059,9 @@ let macosEperm = 1 as Count
 // macosEnoent is ENOENT.
 let macosEnoent = 2 as Count
 
+// macosEsrch is ESRCH: a kevent of EVFILT_PROC for a process that has ended or is ending, which the filter cannot watch.
+let macosEsrch = 3 as Count
+
 // macosEintr is EINTR: a call that a signal broke off, which is made again.
 let macosEintr = 4 as Count
 

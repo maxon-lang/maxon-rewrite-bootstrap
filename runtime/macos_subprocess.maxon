@@ -138,12 +138,30 @@
 		return 0
 	end 'reap'
 
-	// childExited is whether the child has exited, which it waits for if so, its wait status kept in the wait then. It never waits
-	// otherwise: the entry that the kqueue's filter is may hold an event of its last owner, so a wake of the entry is no proof.
+	// childExited is whether the child has exited, which it waits for if so, its wait status kept in the wait. A wake of the
+	// exit's entry proves nothing either way: the entry may hold an event of its last owner, and the kqueue reports NOTE_EXIT as
+	// the child starts to exit, before waitpid can take it. So a child that waitpid does not yet find ended is watched again
+	// (processArm): one still running is reported when it exits, and one that the kqueue refuses has started to exit and is
+	// waited for, which returns as soon as it has ended.
 	function childExited(wait Count, child Count) returns bool
+		if childWaited(wait, child: child, options: waitNoHang) 'ended'
+			return true
+		end 'ended'
+		if processArm(wordAt(wait, offset: waitProcessOffset)) 'watched'
+			return false
+		end 'watched'
+		enterBlocking()
+		let waited = childWaited(wait, child: child, options: noWaitOptions)
+		exitBlocking()
+		return waited
+	end 'childExited'
+
+	// childWaited waits for the child with the options of waitpid, its wait status kept in the wait, and gives whether it had
+	// ended: a child that has not been waited for may always be.
+	function childWaited(wait Count, child Count, options Count) returns bool
 		let status = fieldAt(wait, offset: waitStatusOffset)
 		while true 'wait'
-			let result = waitChild(child, status: status, options: waitNoHang)
+			let result = waitChild(child, status: status, options: options)
 			if interrupted(result) 'again'
 				continue 'wait'
 			end 'again'
@@ -153,7 +171,7 @@
 			return result == child
 		end 'wait'
 		return false
-	end 'childExited'
+	end 'childWaited'
 
 	// exitCodeOf is the exit code that a wait status says.
 	function exitCodeOf(status Count) returns Count

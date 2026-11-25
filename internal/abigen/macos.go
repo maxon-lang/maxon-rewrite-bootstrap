@@ -50,6 +50,7 @@ var macosABI = []layoutConst{
 	// The errors told apart, which a call that fails leaves in errno.
 	{"macosEperm", 1, true, toRuntime, "EPERM."},
 	{"macosEnoent", 2, true, toRuntime, "ENOENT."},
+	{"macosEsrch", 3, true, toRuntime, "ESRCH: a kevent of EVFILT_PROC for a process that has ended or is ending, which the filter cannot watch."},
 	{"macosEintr", 4, true, toRuntime, "EINTR: a call that a signal broke off, which is made again."},
 	{"macosEacces", 13, true, toRuntime, "EACCES."},
 	{"macosEbusy", 16, true, toRuntime, "EBUSY."},
