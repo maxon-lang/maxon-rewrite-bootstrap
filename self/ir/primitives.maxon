@@ -599,8 +599,8 @@ end 'lowerArrayRemove'
 
 function lowerArrayDropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
-	let n = arrayLength(l, p: p, ms: ms, box: a, arr: recv)
-	return dropEmpty(l, p: p, ms: ms, c: c, length: n, collection: recv)
+	let filled = arrayAnyFilled(l, p: p, ms: ms, box: a, arr: recv)
+	return dropEmpty(l, p: p, ms: ms, c: c, left: filled, collection: recv)
 end 'lowerArrayDropEmpty'
 
 function lowerArrayPop(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
@@ -772,7 +772,7 @@ end 'lowerListRemove'
 
 function lowerListDropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListLen, kind: IrKind.kindScalar, args: argsOf1(recv))
-	return dropEmpty(l, p: p, ms: ms, c: c, length: n, collection: recv)
+	return dropEmpty(l, p: p, ms: ms, c: c, left: n, collection: recv)
 end 'lowerListDropEmpty'
 
 function lowerListMoveToFront(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
@@ -803,7 +803,7 @@ end 'lowerSlotMapInsert'
 
 function lowerSlotMapDropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSlotMapLen, kind: IrKind.kindScalar, args: argsOf1(recv))
-	return dropEmpty(l, p: p, ms: ms, c: c, length: n, collection: recv)
+	return dropEmpty(l, p: p, ms: ms, c: c, left: n, collection: recv)
 end 'lowerSlotMapDropEmpty'
 
 function lowerSlotMapRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
@@ -836,10 +836,10 @@ function lowerStringFrom(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	return arrayText(l, p: p, ms: ms, box: a, arr: args[0])
 end 'lowerStringFrom'
 
-// dropEmpty ends a collection of the given length that the call consumes, and traps if an element is left: dropping it
-// would drop the element, which a type with a destructor must never be left to do.
-function dropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, length Reg, collection Reg) returns Reg
-	let empty = isZero(l, v: length)
+// dropEmpty ends a collection that the call consumes, and traps if an element is left (left is not 0): dropping it would
+// drop the element, which a type with a destructor must never be left to do.
+function dropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, left Reg, collection Reg) returns Reg
+	let empty = isZero(l, v: left)
 	requireOrTrap(l, cond: empty, message: dropEmptyMessage)
 	dropValue(l, p: p, ms: ms, v: collection, t: exprType(p, module: l.module, node: c.receiver))
 	return konst(l, value: 0 as Word)

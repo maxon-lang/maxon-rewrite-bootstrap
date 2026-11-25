@@ -1,0 +1,28 @@
+// expect-exit: 1
+// dropEmpty traps where one slot of the array still holds an element, the empty slots around it notwithstanding.
+type Table uses Element where Element implements Droppable
+	typealias Column = Array with Element
+	var slots as Column
+
+	static function filledOnce(consumes value Element) returns Self
+		var slots = Column.create(0)
+		slots.resize(3)
+		try slots.set(2, value: value) otherwise panic("a slot inside the table")
+		return Self{slots: slots}
+	end 'filledOnce'
+
+	function end(consumes self)
+		slots.dropEmpty()
+	end 'end'
+end 'Table'
+
+typealias Names = Table with String
+
+function main() returns ExitCode
+	print("before\n")
+	Names.filledOnce("ada").end()
+	print("after\n")
+	return 0
+end 'main'
+
+//> before

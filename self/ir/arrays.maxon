@@ -182,6 +182,15 @@ function requireFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	if not zeroIsEmpty(ms.types, reads: p.types, t: elem) 'value'
 		return
 	end 'value'
+	let filled = notZero(l, p: p, ms: ms, elem: elem, element: element)
+	match read 'read'
+		slotCopied then failUnless(l, p: p, ms: ms, cond: filled, errorCase: ast.errorEmptySlot)
+		slotLent then panicUnlessFilled(l, p: p, site: site, filled: filled, index: index)
+	end 'read'
+end 'requireFilled'
+
+// notZero is whether an element loaded from a slot of a word or a String is not the slot's zero, the empty slot.
+function notZero(mutates l Lowerer, p ast.Project, ms ast.ModuleState, elem ast.TypeID, element Reg) returns Reg
 	var word = element
 	if valueForm(ms.types, reads: p.types, t: elem) == ValueForm.formString 'string'
 		// A String that holds its bytes in its words may have a first word of 0, but never a word of 0 then.
@@ -191,12 +200,46 @@ function requireFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		word = wrappingBin(l, op: BinOp.binOr, a: first, b: second, kind: IrKind.kindScalar)
 	end 'string'
 	let empty = konst(l, value: 0 as Word)
-	let filled = compare(l, op: CmpOp.cmpNe, a: word, b: empty, unsigned: true)
-	match read 'read'
-		slotCopied then failUnless(l, p: p, ms: ms, cond: filled, errorCase: ast.errorEmptySlot)
-		slotLent then panicUnlessFilled(l, p: p, site: site, filled: filled, index: index)
-	end 'read'
-end 'requireFilled'
+	return compare(l, op: CmpOp.cmpNe, a: word, b: empty, unsigned: true)
+end 'notZero'
+
+// slotFilled is whether the slot at index, which is inside the array, holds an element: a slot is empty where it is all 0,
+// as resize and clearSlot leave it, so over a scalar an empty slot and an element 0 are the same.
+function slotFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+	let empty = konst(l, value: 0 as Word)
+	if arrayPacked(p, ms: ms, box: box) 'packed'
+		let byte = elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: index), checked: false)
+		return compare(l, op: CmpOp.cmpNe, a: byte, b: empty, unsigned: true)
+	end 'packed'
+	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
+	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
+		var any = empty
+		for w in 0 upto elementWords(p, ms: ms, box: box) 'words'
+			let word = newReg(l, kind: IrKind.kindScalar)
+			emit(l, i: newLoadField(word, obj: addr, offset: wordOffset(w)))
+			any = wrappingBin(l, op: BinOp.binOr, a: any, b: word, kind: IrKind.kindScalar)
+		end 'words'
+		return compare(l, op: CmpOp.cmpNe, a: any, b: empty, unsigned: true)
+	end 'inPlace'
+	let elem = arrayElem(p, ms: ms, box: box)
+	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: elem))
+	emit(l, i: newLoadAt(d, addr: addr))
+	return notZero(l, p: p, ms: ms, elem: elem, element: d)
+end 'slotFilled'
+
+// arrayAnyFilled is 1 where some slot of the array holds an element, and 0 where every slot is empty.
+function arrayAnyFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg) returns Reg
+	let result = l.b.f.newSlot(IrKind.kindScalar)
+	let none = konst(l, value: 0 as Word)
+	emit(l, i: newStoreSlot(result, src: none, borrow: false))
+	let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
+	let loop = countedLoopBegin(l, limit: length)
+	let i = countedLoopIndex(l, loop: loop)
+	let filled = slotFilled(l, p: p, ms: ms, box: box, arr: arr, index: i)
+	storeIf(l, slot: result, cond: filled, value: 1 as Word)
+	countedLoopEnd(l, loop: loop)
+	return load(l, slot: result)
+end 'arrayAnyFilled'
 
 // panicUnlessFilled goes on when the slot is filled, and panics with maxon's message of the slot otherwise.
 function panicUnlessFilled(mutates l Lowerer, p ast.Project, site diag.Site, filled Reg, index Reg)

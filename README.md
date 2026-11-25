@@ -3920,7 +3920,8 @@ throw.
 `create` and `filled` are static functions, called through a typealias of the instance (`Counts.create(0)`) or where
 the type is known (`Shelf{items: Array.create(0)}`). An operation that changes the primitive takes `mutates self`, and one that adds an element takes it `consumes`.
 `dropEmpty()` takes `consumes self`, ends the collection and traps if an element is left: it is how a collection of values with destructors, which cannot be
-dropped, ends after every element was taken out. Nothing built in returns an `Option`, and there is none built in.
+dropped, ends after every element was taken out. An array's empty slot (see `clearSlot` below) holds no element, so an array whose
+slots are all empty ends; a slot is empty where it is all 0, so over a scalar an element 0 is one. Nothing built in returns an `Option`, and there is none built in.
 - **Operations that fail throw.** `remove`, `pop`, `removeFirst`, `removeLast`, `first`, `last`, `next` and `prev` throw
   maxon's error, so a call of one is covered by a `try` like any other that throws (`E3057`): `try a.pop() otherwise
   fallback`, or `try a.remove(i) otherwise panic("index out of range")` where a miss is a bug. The lowering tests first

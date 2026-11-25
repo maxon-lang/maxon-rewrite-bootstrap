@@ -1,0 +1,61 @@
+// dropEmpty ends an array whose every slot is empty, as resize grows them and clearSlot leaves them, whatever the array
+// holds: Strings, words, records held in place or boxed, and bytes. Over a scalar an empty slot is the element 0.
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	var x as Integer
+	var y as Integer
+
+	static function make(x Integer, y Integer) returns Point
+		return Point{x: x, y: y}
+	end 'make'
+end 'Point'
+
+type Named
+	var name as String
+
+	static function make(consumes name String) returns Named
+		return Named{name: name}
+	end 'make'
+end 'Named'
+
+type Table uses Element where Element implements Droppable
+	typealias Column = Array with Element
+	var slots as Column
+
+	static function filledOnce(consumes value Element) returns Self
+		var slots = Column.create(0)
+		slots.resize(3)
+		try slots.set(1, value: value) otherwise panic("a slot inside the table")
+		try slots.clearSlot(1) otherwise panic("a slot inside the table")
+		return Self{slots: slots}
+	end 'filledOnce'
+
+	function end(consumes self) returns Count
+		let n = slots.count()
+		slots.dropEmpty()
+		return n
+	end 'end'
+end 'Table'
+
+typealias Names = Table with String
+
+typealias Numbers = Table with Integer
+
+typealias Points = Table with Point
+
+typealias Boxes = Table with Named
+
+typealias Bytes = Table with Byte
+
+function main() returns ExitCode
+	let a = Names.filledOnce("ada").end()
+	let b = Numbers.filledOnce(7).end()
+	let c = Points.filledOnce(Point.make(1, y: 2)).end()
+	let d = Boxes.filledOnce(Named.make("box")).end()
+	let e = Bytes.filledOnce(9).end()
+	print("{a} {b} {c} {d} {e}\n")
+	return 0
+end 'main'
+
+//> 3 3 3 3 3
