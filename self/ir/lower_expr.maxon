@@ -1765,14 +1765,6 @@ function lowerOperator(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	if p.typings[l.mi].calls.has(e as Count) 'method'
 		return lowerOperatorCall(l, p: p, ms: ms, e: e, op: op, left: left)
 	end 'method'
-	if op == "is" 'identity'
-		var test = CmpOp.cmpEq
-		if ast.binaryExprNegated(p.modules[l.mi].tree, id: e) 'negated'
-			test = CmpOp.cmpNe
-		end 'negated'
-		let other = lowerExpr(l, p: p, ms: ms, e: right)
-		return compare(l, op: test, a: left, b: other, unsigned: true)
-	end 'identity'
 	let arith = arithInfoAt(p, module: l.module, node: e)
 	if arith.operand == p.builtins.stringTy 'string'
 		let b = lowerExpr(l, p: p, ms: ms, e: right)

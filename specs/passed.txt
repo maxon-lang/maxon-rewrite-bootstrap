@@ -15,7 +15,6 @@ argument-overlap.md: error.a-field-handed-beside-its-owner-to-a-callee-that-take
 argument-overlap.md: error.a-receiver-handed-beside-a-field-the-method-takes-mutable
 argument-overlap.md: error.a-record-handed-first-and-a-field-of-it-to-a-mutable-parameter-second
 argument-overlap.md: error.only-the-function-that-takes-the-parameter-mutable-refuses-the-overlap
-argument-overlap.md: one-array-handed-twice-to-a-callee-that-only-reads-both
 argument-overlap.md: one-record-handed-to-a-callee-that-stores-a-field-of-one-parameter
 argument-overlap.md: the-function-that-takes-the-parameter-by-value-accepts-the-overlap
 arithmetic-operators.md: addition
@@ -2964,7 +2963,6 @@ functions.md: unknown-function-result-assigned-to-a-struct-variable
 functions.md: unknown-function-result-awaited-directly
 functions.md: unknown-function-result-captured-and-returned
 functions.md: unknown-function-result-captured-by-a-closure
-functions.md: unknown-function-result-compared-by-identity
 functions.md: unknown-function-result-compared-with-a-literal
 functions.md: unknown-function-result-destructured
 functions.md: unknown-function-result-element-method-call-under-try
@@ -3755,7 +3753,6 @@ inline-records.md: inline-records.captured-by-a-closure
 inline-records.md: inline-records.clone-is-the-identity
 inline-records.md: inline-records.equals-still-dispatches
 inline-records.md: inline-records.field-range-check-at-the-door
-inline-records.md: inline-records.is-on-an-inline-record-is-refused
 inline-records.md: inline-records.map-key-survives-rehash
 inline-records.md: inline-records.no-allocation-for-an-inline-record
 inline-records.md: inline-records.no-equals-is-still-refused
@@ -4138,7 +4135,6 @@ library-tier-surface.md: error.a-managed-memory-type-is-refused-outside-the-libr
 library-tier-surface.md: error.a-managed-read-is-refused-outside-the-library-tiers
 library-tier-surface.md: error.a-scalar-builtins-member-is-refused-too
 library-tier-surface.md: error.a-self-managed-call-in-an-array-extension-is-refused-at-the-field
-library-tier-surface.md: error.a-self-managed-read-in-an-array-extension-is-refused-at-the-field
 library-tier-surface.md: error.an-async-builtins-call-is-refused-outside-the-library-tiers
 library-tier-surface.md: error.the-cursor-type-is-refused-outside-the-library-tiers
 library-tier-surface.md: the-cursor-type-compiles-in-the-library-tier
@@ -4655,7 +4651,6 @@ memory-destination-add.md: the-word-read-on-the-right-of-a-sum-is-the-same-step
 memory-destination-add.md: two-fields-are-two-words
 memory-destination-add.md: xor-a-constant-into-the-word
 memory-destination-add.md: xor-a-register-into-the-word
-memory-safety.md: array-clone
 memory-safety.md: assignment-creates-alias
 memory-safety.md: clone-of-a-clone-is-independent-of-both
 memory-safety.md: clone-of-nested-array-copies-the-inner-array
@@ -6379,9 +6374,7 @@ refcount-reassigned-slot-borrow.md: loop-resident-by-reference-reassign-borrow
 refcount-reassigned-slot-borrow.md: unrelated-by-reference-reassign-keeps-borrow
 refcount-shared-borrow-root-phi-args.md: shared-borrow-root-break-edge
 reference-identity.md: clone-isolates-mutation
-reference-identity.md: primitive-error
 reference-identity.md: static-array-of-literals
-reference-identity.md: string-identity
 regions-async-lend.md: a-field-of-a-local-handed-by-reference-is-written-by-the-coroutine
 regions-async-lend.md: a-holder-reassigned-after-its-await-in-a-loop-is-accepted
 regions-async-lend.md: a-lent-variable-reassigned-in-a-try-body-is-refused

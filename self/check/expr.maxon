@@ -518,9 +518,6 @@ function checkOperator(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	let l = codepointTyped(c, p: p, ms: ms, e: lNode, t: caseL, retype: unaliased)
 	let r = codepointTyped(c, p: p, ms: ms, e: rNode, t: caseR, retype: unaliased)
 	let off = offsetOf(c, p: p, ms: ms, node: e)
-	if op == "is" 'identity'
-		return checkIdentity(c, p: p, ms: ms, e: e, l: l, r: r, errs: errs)
-	end 'identity'
 	if ast.isFloatType(ms.types, reads: p.types, t: l) or ast.isFloatType(ms.types, reads: p.types, t: r) 'floats'
 		if isComparisonOp(op) 'comparison'
 			return checkFloatComparison(c, p: p, ms: ms, e: e, op: op, l: l, r: r, errs: errs)
@@ -654,62 +651,6 @@ function codepointTyped(mutates c Checker, p ast.Project, ms ast.ModuleState, e 
 	recordType(c, e: e, t: p.builtins.codepointTy)
 	return p.builtins.codepointTy
 end 'codepointTyped'
-
-// hasIdentity is whether a value of the type is an object that two names can stand for: a string or a collection. A
-// number, a bool, an enum case, a union, a function and a type parameter are values with no object to name, and so is a
-// record, whose words may be held in place, where an address says nothing of which value it is.
-function hasIdentity(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
-	return match ast.typeKind(ms.types, reads: p.types, t: t) 'kind'
-		record gives false
-		primString gives true
-		primCharacter gives false
-		primCString gives false
-		builtinArray gives true
-		invalid gives false
-		primBool gives false
-		primVoid gives false
-		primNever gives false
-		intRange gives false
-		constInt gives false
-		floatRange gives false
-		constFloat gives false
-		enumTy gives false
-		unionTy gives false
-		builtinSlotKey gives false
-		builtinFrozen gives false
-		builtinCown gives false
-		builtinCursor gives false
-		builtinGroups gives false
-		builtinPromise gives false
-		builtinService gives false
-		typeParam gives false
-		interfaceTy gives false
-		funcTy gives false
-	end 'kind'
-end 'hasIdentity'
-
-// checkIdentity types 'a is b' and 'a is not b': whether two names stand for one object.
-function checkIdentity(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let off = offsetOf(c, p: p, ms: ms, node: e)
-	var op = "is"
-	if ast.binaryExprNegated(ms.tree(), id: e) 'negated'
-		op = "is not"
-	end 'negated'
-	if ast.typeKind(ms.types, reads: p.types, t: l) == ast.TypeKind.record or ast.typeKind(ms.types, reads: p.types, t: r) == ast.TypeKind.record 'record'
-		checkFail(c.modID, off: off, code: diag.errRefIdentityOnPrimitive, msg: "'{op}' has no meaning for a record, which is a value with no identity: compare its fields instead", errs: errs)
-		return ast.noType
-	end 'record'
-	if not hasIdentity(p, ms: ms, t: l) or not hasIdentity(p, ms: ms, t: r) 'primitive'
-		checkFail(c.modID, off: off, code: diag.errRefIdentityOnPrimitive, msg: diag.refIdentityOnPrimitive(op), errs: errs)
-		return ast.noType
-	end 'primitive'
-	if l != r 'different'
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.refIdentityTypeMismatch(op, left: gotName(p, ms: ms, t: l), right: gotName(p, ms: ms, t: r)), errs: errs)
-		return ast.noType
-	end 'different'
-	setOperand(c, node: e, operand: l)
-	return p.builtins.boolTy
-end 'checkIdentity'
 
 // isWordOp is whether an operator works on the bits of its operands, which must then be two bools or two integers.
 function isWordOp(op String) returns bool

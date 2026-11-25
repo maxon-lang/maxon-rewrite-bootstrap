@@ -385,7 +385,7 @@ end 'main'
 ```
 
 <!-- test: reference-identity-is-never-promoted -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
+<!-- skip: minimaxon has no identity operator -->
 `is` compares record ADDRESSES, so it is the one operator that can tell a frame slot from a heap box. A
 record reaching an `is` is never promoted, which is what makes the two storage shapes indistinguishable
 here: two separate constructions are never identical, and an alias always is, whichever storage they use.
@@ -406,9 +406,11 @@ function main() returns ExitCode
 	let b = Point.create(1, y: 2)
 	let c = a
 	var score = 0 as Integer
+	// TODO: minimaxon has no identity operator
 	if a is b 'distinctRecordsAreNotIdentical'
 		score = score + 1
 	end 'distinctRecordsAreNotIdentical'
+	// TODO: minimaxon has no identity operator
 	if a is c 'anAliasIsIdentical'
 		score = score + 40
 	end 'anAliasIsIdentical'

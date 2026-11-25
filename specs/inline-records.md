@@ -440,6 +440,8 @@ end 'main'
 ```
 
 <!-- test: inline-records.is-on-an-inline-record-is-refused -->
+<!-- skip: minimaxon has no identity operator -->
+<!-- positions: moved -->
 Two inline records are two words and there is no record for the two names to share, so `is` is
 refused with the diagnostic every primitive already gets.
 ```maxon
@@ -457,6 +459,7 @@ end 'Pair'
 function main() returns ExitCode
 	let a = Pair.create(1, hi: 2)
 	let b = Pair.create(1, hi: 2)
+	// TODO: minimaxon has no identity operator
 	if a is b 'same'
 		return 1
 	end 'same'

@@ -1218,6 +1218,8 @@ error E3004: <fragment>:3:12: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-compared-by-identity -->
+<!-- skip: minimaxon has no identity operator -->
+<!-- positions: moved -->
 ```maxon
 type Box
 	export var n = 0 as Count
@@ -1229,6 +1231,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create()
+	// TODO: minimaxon has no identity operator
 	return 0 if frobnicate(2) is b else 1
 end 'main'
 ```

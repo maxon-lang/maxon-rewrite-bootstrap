@@ -1850,10 +1850,9 @@ export function binaryExprOp(t Tree, id NodeID) returns String
 		11 gives "<="
 		12 gives ">"
 		13 gives ">="
-		14 gives "is"
-		15 gives "and"
-		16 gives "xor"
-		17 gives "or"
+		14 gives "and"
+		15 gives "xor"
+		16 gives "or"
 		default gives ""
 	end 'lit'
 end 'binaryExprOp'
@@ -1873,10 +1872,9 @@ export function setBinaryExprOp(mutates t Tree, id NodeID, text String)
 		"<=" gives 11 as U16
 		">" gives 12 as U16
 		">=" gives 13 as U16
-		"is" gives 14 as U16
-		"and" gives 15 as U16
-		"xor" gives 16 as U16
-		"or" gives 17 as U16
+		"and" gives 14 as U16
+		"xor" gives 15 as U16
+		"or" gives 16 as U16
 		default panic("invalid enum text")
 	end 'lit'
 	t.records[id as Count].aux = (t.records[id as Count].aux and (65280 as U16)) or code
@@ -1889,14 +1887,6 @@ end 'binaryExprR'
 export function setBinaryExprR(mutates t Tree, id NodeID, value NodeID)
 	t.records[id as Count].b = value as diag.U32
 end 'setBinaryExprR'
-
-export function binaryExprNegated(t Tree, id NodeID) returns bool
-	return (t.records[id as Count].flags and (1 as Byte)) != 0
-end 'binaryExprNegated'
-
-export function setBinaryExprNegated(mutates t Tree, id NodeID)
-	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
-end 'setBinaryExprNegated'
 
 export function newRangeExpr(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.rangeExpr, start: start)

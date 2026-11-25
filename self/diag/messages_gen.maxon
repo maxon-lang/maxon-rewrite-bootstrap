@@ -395,16 +395,6 @@ export function rawValueTypeMismatch(expected String, got String) returns String
 	return "raw value type mismatch: 'expected {expected}, got {got}'"
 end 'rawValueTypeMismatch'
 
-// The text of errRefIdentityOnPrimitive for: '{op}' requires reference types (structs), not primitive values
-export function refIdentityOnPrimitive(op String) returns String
-	return "'{op}' requires reference types (structs), not primitive values"
-end 'refIdentityOnPrimitive'
-
-// The text of errTypeMismatch for: '{op}' requires both operands to be the same type, got '{left}' and '{right}'
-export function refIdentityTypeMismatch(op String, left String, right String) returns String
-	return "'{op}' requires both operands to be the same type, got '{left}' and '{right}'"
-end 'refIdentityTypeMismatch'
-
 // The text of errMatchQualifiedCaseName for: use '{bare}' instead of '{qualified}' in match
 export function matchQualifiedCaseName(bare String, qualified String) returns String
 	return "use '{bare}' instead of '{qualified}' in match"

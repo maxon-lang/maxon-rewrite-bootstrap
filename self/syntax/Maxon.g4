@@ -595,7 +595,6 @@ expr
     | l=expr op=('+' | '-') r=expr                                   # BinaryExpr
     | l=expr op=('shl' | 'shr') r=expr                               # BinaryExpr
     | l=expr op=('==' | '!=' | '<' | '<=' | '>' | '>=') r=expr       # BinaryExpr
-    | l=expr op='is' negated='not'? r=expr                           # BinaryExpr
     | l=expr op='and' {notFallthrough}? r=expr                       # BinaryExpr
     | l=expr op='xor' r=expr                                         # BinaryExpr
     | l=expr op='or' r=expr                                          # BinaryExpr

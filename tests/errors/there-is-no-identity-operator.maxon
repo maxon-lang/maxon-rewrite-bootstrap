@@ -1,0 +1,10 @@
+// minimaxon has no identity operator: `is` after an operand does not parse.
+function same(a String, b String) returns bool
+	return a is b
+end 'same'
+
+function main() returns ExitCode
+	return 0 if same("a", b: "b") else 1
+end 'main'
+
+// expect-error: E2010 at 3:11

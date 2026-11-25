@@ -2886,7 +2886,7 @@ edit to `runtime/` rebuilds everything.
 - Tuples (see "Tuples"): the type `(A, B)`, the value `(a, b)`, `t.0`, `typealias Span = (A, B)`, a tuple as a parameter, a result or a
   field, `let (a, b) = t`, `(a, let b) = t` and `for (a, b) in xs`.
 - Integer, float, bool, string and byte string literals (`b"..."`, a new `ByteArray` of the characters up to U+00FF, one byte each, with `\xNN` for a raw byte; a character above U+00FF is `E1004`), array literals `[a, b]`, map literals `[k: v, k: w]` and `Type from value` over a literal (see "Primitives"), interpolation, arithmetic and bitwise operators, `shl`/`shr`,
-  comparisons, `a is b` and `a is not b` (see "Identity"), `and`/`or`/`xor`/`not`, `x if c else y`, range values `a to b`
+  comparisons, `and`/`or`/`xor`/`not`, `x if c else y`, range values `a to b`
   and `a upto b` (see "Iteration"), `as` casts, error enums, `throw`, `throws E`, `try e`,
   `try e otherwise ...` and `try` blocks (see "Errors of the program"), calls with Maxon's
   positional-then-labelled arguments (a label may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.clone()`,
@@ -4666,17 +4666,6 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   interpreter`, so a test that starts one is `// native-only`.
 - Not yet: see "Where it differs from Maxon".
 
-### Identity
-
-`a is b` is true when two names stand for one object, and `a is not b` when they do not (maxon's reference identity; the
-operator ranks with the comparisons, below them and above `and`). It takes two operands of one type that has an object: a
-`type` or a tuple, a `String`, an `Array`, a `Map` or a `List`. A number, a `bool`, an enum case, a union, a function, a
-type parameter and anything else is `E3068` at the `is` (`'is' requires reference types (structs), not primitive values`), and
-two operands of different types are `E3005`. What it compares is the two objects' addresses. A record has one owner, so
-two names stand for one record only where one is a borrow of the other, or both borrow one owner: `a is a` and a
-parameter handed `a` twice are true, two records built alike and a `.clone()` are not, and `let b = a` is a move
-(`E3102` where `a` is used again), so nothing like maxon's alias made by `let b = a` exists to compare.
-
 ### Source text
 
 A source file is UTF-8, by Zig's rules and two more, each refused where it is:
@@ -5050,10 +5039,6 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   (`typealias Pair = (int, int)`, `typealias Op = function(int) returns int`); anywhere else it is `E3005`, and as the
   target of a cast it has the cast's own wording. `int.fromString` and the other static functions of `int` are library, as
   `float.fromString` is (below).
-- `a is b` (see "Identity") does not refuse a record that packs into one word (maxon's inline record, `E3068`): every
-  record here has an address, of its box or, for a record held in place, of its words. A literal is not interned, so two equal literals are two objects, and the
-  tests that read an alias made by `let b = a`, a string's identity after `.clone()` or the identity of a constant do not
-  hold here (`.clone()` of a `String` is the same object).
 - A keyword is not a case name: maxon's `end` as the case of an enum, a union or an arm is a syntax error here.
 - Interface values (see "Interface values"): maxon's interface value refers to the value it was made from, which the
   program shares; here the box owns the value, which moves into it (a borrowed one takes `.clone()` or `consumes`), and a
@@ -5328,7 +5313,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   the word a type declares conformance with, rather than `where T is Shape`; a union can be generic; and a call whose
   arguments leave a type argument open takes it from where its result goes (`return Option.none`).
 - A type or a union opts out of copying with `is noncopyable`, and declares a destructor to opt out of dropping, where
-  Maxon has `unique` (so `is`, `noncopyable` and `destructs` are reserved). `unique` is replaced by this: every owned
+  Maxon has `unique` (so `is`, which only this header uses here, `noncopyable` and `destructs` are reserved). `unique` is replaced by this: every owned
   value is already moved and never aliased here, so what is left of it is a value that cannot be copied or forgotten.
   `Copyable` and `Droppable` are structural bounds, not interfaces a declaration implements (see "Capabilities and
   destructors"). `exchange(place, value: v)` takes the label `value`.
@@ -5469,9 +5454,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `panic` does: code after it in its block is `E3071`, and a function that ends with it needs no return. The ordinary way to end
   a program is still to return from `main`, with `Process.setExitCode` for the code when behaviours run after it. maxon's
   library has none.
-- **`is` on a record is `E3068`.** A record is a value with one owner whose words may be held in place, so the address of
-  its words says nothing of which value it is; maxon compares the references of two heap records, and refuses `is` only on
-  an inline record. Compare the fields instead.
+- **There is no identity operator.** maxon's `a is b` and `a is not b` are not in the grammar, so after an operand `is`
+  is a syntax error (`E2010`). A value has one owner here, so whether two names stand for one object says nothing a
+  program can use; compare the values instead (`==`, or the fields of a record).
 - **maxon's `Slot` is `Cell`.** The library type that holds one value or none (`fill`, `replace`, `held`, `take`) is
   `Cell with T` (`stdlib/cell`); `cmd/convert` writes maxon's `Slot` as `Cell` where a program or the library names it, and
   keeps a program's own type of that name.

@@ -114,10 +114,85 @@ func convertProgram(file, src string, kind inputKind, ownTypes []string) Result 
 	rewriteStringBuilders(lines)
 	rewriteWithIterator(lines, addWarn)
 	transformLines(lines, addWarn)
+	warnIdentityOperators(lines, addWarn)
 
 	candidate := renderFallbackLayout(lines)
 	laid := formatter.format(candidate)
 	return Result{Text: laid.text, Warnings: warnings, Formatted: laid.formatted, Rejected: laid.rejected}
+}
+
+// identityOperatorWarning is the warning on a line that compares two values with maxon's `is` or `is not`, which minimaxon
+// does not have: a value has one owner here, so whether two names stand for one object says nothing a program can use.
+const identityOperatorWarning = "minimaxon has no identity operator"
+
+// warnIdentityOperators warns on each line that uses `is` as an operator: after an operand, outside a type's or a union's
+// header (`type T is noncopyable`) and a where clause, which keep the word.
+func warnIdentityOperators(lines []sourceLine, warn func(*sourceLine, string)) {
+	for i := range lines {
+		if lines[i].removed {
+			continue
+		}
+		code := lines[i].code
+		// A directive's line, and a line of a file that is no source, may hold any text after its `#`.
+		if len(code) == 0 || strings.HasPrefix(code[0].text, "#") {
+			continue
+		}
+		if slices.ContainsFunc(code, interpolatesIdentity) {
+			warn(&lines[i], identityOperatorWarning)
+			continue
+		}
+		for k := 1; k < len(code); k++ {
+			if code[k].kind != tokIdent || code[k].text != "is" {
+				continue
+			}
+			if isIdentityOperand(code[k-1]) && !isHeaderIs(code[:k]) && (k+1 >= len(code) || code[k+1].text != "noncopyable" && code[k+1].text != "unique") {
+				warn(&lines[i], identityOperatorWarning)
+				break
+			}
+		}
+	}
+}
+
+// interpolationPart is an interpolation of a string without braces inside it, quotedPart a string literal inside one, and
+// identityInPart `is` after an operand.
+var (
+	interpolationPart = regexp.MustCompile(`\{[^{}]*\}`)
+	quotedPart        = regexp.MustCompile(`"[^"]*"`)
+	identityInPart    = regexp.MustCompile(`[A-Za-z0-9_)\]]\s+is\s`)
+)
+
+// interpolatesIdentity is whether a token is a string whose interpolation uses `is` as an operator, outside the text of
+// a string inside the interpolation.
+func interpolatesIdentity(t token) bool {
+	if t.kind != tokString {
+		return false
+	}
+	for _, part := range interpolationPart.FindAllString(t.text, -1) {
+		if identityInPart.MatchString(quotedPart.ReplaceAllString(part, `""`)) {
+			return true
+		}
+	}
+	return false
+}
+
+// isIdentityOperand is whether a token can end the left operand of a binary operator.
+func isIdentityOperand(t token) bool {
+	switch t.kind {
+	case tokIdent, tokInt, tokFloat, tokString, tokByteString:
+		return true
+	}
+	return t.text == ")" || t.text == "]"
+}
+
+// isHeaderIs is whether the tokens before an `is` are those of a declaration's header or a where clause, where the word is
+// not the identity operator.
+func isHeaderIs(before []token) bool {
+	for _, t := range before {
+		if t.kind == tokIdent && (t.text == "type" || t.text == "union" || t.text == "where") {
+			return true
+		}
+	}
+	return false
 }
 
 // normalizeText strips BOM, converts CRLF/CR to LF, escapes the characters minimaxon refuses in literals, converts

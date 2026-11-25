@@ -50,7 +50,7 @@ areSame(p, b: p)  // true  — same reference passed twice
 ## Tests
 
 <!-- test: self-identity -->
-<!-- skip: language difference: a record is a value whose words may be held in place, so it has no identity for 'is' to compare -->
+<!-- skip: minimaxon has no identity operator -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -65,6 +65,7 @@ end 'Point'
 
 function main() returns ExitCode
 	let a = Point.create(1, y: 2)
+	// TODO: minimaxon has no identity operator
 	if a is a 'check'
 		return 1
 	end 'check'
@@ -76,7 +77,7 @@ end 'main'
 ```
 
 <!-- test: assignment-creates-alias -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
+<!-- skip: minimaxon has no identity operator -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -92,6 +93,7 @@ end 'Point'
 function main() returns ExitCode
 	let a = Point.create(1, y: 2)
 	let b = a
+	// TODO: minimaxon has no identity operator
 	if a is b 'check'
 		return 1
 	end 'check'
@@ -103,7 +105,7 @@ end 'main'
 ```
 
 <!-- test: clone-creates-new-object -->
-<!-- skip: language difference: a record is a value whose words may be held in place, so it has no identity for 'is' to compare -->
+<!-- skip: minimaxon has no identity operator -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -119,6 +121,7 @@ end 'Point'
 function main() returns ExitCode
 	let a = Point.create(1, y: 2)
 	let b = a.clone()
+	// TODO: minimaxon has no identity operator
 	if a is b 'check'
 		return 1
 	end 'check'
@@ -130,7 +133,7 @@ end 'main'
 ```
 
 <!-- test: different-objects -->
-<!-- skip: language difference: a record is a value whose words may be held in place, so it has no identity for 'is' to compare -->
+<!-- skip: minimaxon has no identity operator -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -146,6 +149,7 @@ end 'Point'
 function main() returns ExitCode
 	let a = Point.create(1, y: 2)
 	let b = Point.create(1, y: 2)
+	// TODO: minimaxon has no identity operator
 	if a is b 'check'
 		return 1
 	end 'check'
@@ -157,7 +161,7 @@ end 'main'
 ```
 
 <!-- test: is-not-operator -->
-<!-- skip: language difference: a record is a value whose words may be held in place, so it has no identity for 'is' to compare -->
+<!-- skip: minimaxon has no identity operator -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -173,6 +177,7 @@ end 'Point'
 function main() returns ExitCode
 	let a = Point.create(1, y: 2)
 	let b = Point.create(1, y: 2)
+	// TODO: minimaxon has no identity operator
 	if a is not b 'check'
 		return 1
 	end 'check'
@@ -184,7 +189,7 @@ end 'main'
 ```
 
 <!-- test: is-not-self -->
-<!-- skip: language difference: a record is a value whose words may be held in place, so it has no identity for 'is' to compare -->
+<!-- skip: minimaxon has no identity operator -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -199,6 +204,7 @@ end 'Point'
 
 function main() returns ExitCode
 	let a = Point.create(1, y: 2)
+	// TODO: minimaxon has no identity operator
 	if a is not a 'check'
 		return 1
 	end 'check'
@@ -210,7 +216,7 @@ end 'main'
 ```
 
 <!-- test: function-same-arg -->
-<!-- skip: language difference: a record is a value whose words may be held in place, so it has no identity for 'is' to compare -->
+<!-- skip: minimaxon has no identity operator -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -223,6 +229,7 @@ type Box
 end 'Box'
 
 function areSame(a Box, b Box) returns bool
+	// TODO: minimaxon has no identity operator
 	return a is b
 end 'areSame'
 
@@ -244,6 +251,7 @@ end 'main'
 ```
 
 <!-- test: string-identity -->
+<!-- skip: minimaxon has no identity operator -->
 ```maxon
 function main() returns ExitCode
 	// Two identical string literals are INTERNED: a never-mutated literal is emitted once as a
@@ -251,9 +259,11 @@ function main() returns ExitCode
 	let a = "hello"
 	let b = "hello"
 	var result = 0 as ExitCode
+	// TODO: minimaxon has no identity operator
 	if a is a 'self'
 		result = result + 1
 	end 'self'
+	// TODO: minimaxon has no identity operator
 	if a is b 'diff'
 		result = result + 10
 	end 'diff'
@@ -289,10 +299,13 @@ end 'main'
 ```
 
 <!-- test: primitive-error -->
+<!-- skip: minimaxon has no identity operator -->
+<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let a = 42
 	let b = 42
+	// TODO: minimaxon has no identity operator
 	if a is b 'check'
 		return 1
 	end 'check'
@@ -304,6 +317,7 @@ error E3068: specs/reference-identity/primitive-error.maxon:5:7: 'is' requires r
 ```
 
 <!-- test: byte-array-constant-identity -->
+<!-- skip: minimaxon has no identity operator -->
 A module-level `let` holding a byte string is image data, not a heap object: the whole program reads ONE
 `.rdata` record for it, and the record table pools by bytes. So `is` answers the same way it does for the
 interned string literals above — a constant is itself, and two constants with the same bytes are one
@@ -318,15 +332,19 @@ let C = b"ho"
 
 function main() returns ExitCode
 	var result = 0 as ExitCode
+	// TODO: minimaxon has no identity operator
 	if A is A 'self'
 		result = result + 1
 	end 'self'
+	// TODO: minimaxon has no identity operator
 	if A is B 'sameBytes'
 		result = result + 2
 	end 'sameBytes'
+	// TODO: minimaxon has no identity operator
 	if A is not C 'otherBytes'
 		result = result + 4
 	end 'otherBytes'
+	// TODO: minimaxon has no identity operator
 	if A is b"hi" 'inlineIsPooled'
 		result = result + 8
 	end 'inlineIsPooled'
@@ -395,6 +413,7 @@ error E3196: <fragment>:10:9: cannot store an immutable 'NumArray' into 'an elem
 ```
 
 <!-- test: a-durable-store-of-a-cloned-constant-is-its-own-object -->
+<!-- skip: minimaxon has no identity operator -->
 ⭐ **A CLONE OF A CONSTANT IS A DIFFERENT OBJECT, AND THE STORE TAKES IT.** `let b = A` shares the one
 record, so `b is A`; the container's element is the private copy `.clone()` made, so it is not `A`. `is` is
 where the representation choice becomes visible, and this case is where the compiler says which answer is
@@ -411,12 +430,14 @@ let Anchor = NumArray.create(0)
 function main() returns ExitCode
 	var result = 0 as ExitCode
 	let bound = Anchor
+	// TODO: minimaxon has no identity operator
 	if bound is Anchor 'bindingBorrows'
 		result = result + 1
 	end 'bindingBorrows'
 	let h = Holder.create(0)
 	h.push(Anchor.clone())
 	let stored = try h.get(0) otherwise NumArray.create(0)
+	// TODO: minimaxon has no identity operator
 	if stored is not Anchor 'storeCopies'
 		result = result + 2
 	end 'storeCopies'
@@ -452,6 +473,7 @@ end 'main'
 ```
 
 <!-- test: an-immutable-container-keeps-the-constants-identity -->
+<!-- skip: minimaxon has no identity operator -->
 ⭐ **AN `immutable` ELEMENT NEEDS NO PRIVATE COPY OF AN IMMORTAL IMAGE.** The container shares the constant's own
 record, so the element read back IS the constant: `stored is Anchor`, where a container of writable elements
 holds a private copy and `is` answers false (`a-durable-store-of-a-cloned-constant-is-its-own-object`).
@@ -468,6 +490,7 @@ function main() returns ExitCode
 	let h = Holder.create(0)
 	h.push(Anchor)
 	let stored = try h.get(0) otherwise NumArray.create(0)
+	// TODO: minimaxon has no identity operator
 	if stored is Anchor 'keepsIdentity'
 		return 1
 	end 'keepsIdentity'
