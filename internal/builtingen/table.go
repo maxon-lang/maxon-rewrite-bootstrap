@@ -1002,7 +1002,6 @@ var units = []unit{
 	{Key: "Os", Doc: "the OS unit, linked into a program that calls an OS entry"},
 	{Key: "Linker", Doc: "the linker, which defines the symbol itself"},
 	{Key: "Shared", Doc: "the frozen values and cowns, in the runtime's source (runtime/frozen.maxon)"},
-	{Key: "Interpreter", Doc: "no unit: only the interpreter runs the entry, and the compiler refuses a call of it"},
 	{Key: "Source", Doc: "the runtime's Maxon source (runtime/), which the compiler compiles with every program"},
 }
 

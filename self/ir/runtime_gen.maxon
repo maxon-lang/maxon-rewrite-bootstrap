@@ -2169,7 +2169,6 @@ export enum RtUnit
 	rtUnitOs
 	rtUnitLinker
 	rtUnitShared
-	rtUnitInterpreter
 	rtUnitSource
 end 'RtUnit'
 

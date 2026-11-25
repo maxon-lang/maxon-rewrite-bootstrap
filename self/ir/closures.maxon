@@ -32,9 +32,6 @@ function visitClosureExpr(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 		end 'value'
 		body.captureTypes.push(t)
 		body.captureOwned.push(owned)
-		if owned and l.b.f.refusals.count() == 0 'native'
-			requireNative(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), t: t)
-		end 'native'
 	end 'captures'
 	let index = l.b.body(body)
 	let d = newReg(l, kind: IrKind.kindManaged)

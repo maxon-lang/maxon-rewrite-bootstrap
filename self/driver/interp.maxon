@@ -109,11 +109,11 @@ function interpLoaded(consumes loadedProject ast.Project, seed ir.Word, wantFree
 end 'interpLoaded'
 
 // lowerForInterpreter checks and lowers a project that has no runtime, as a build does but with no backend, so that the
-// interpreter can run it. What only the interpreter runs is no refusal here; what it lowered is nothing when errs has any.
+// interpreter can run it. What it lowered is nothing when errs has any.
 function lowerForInterpreter(mutates p ast.Project, mutates errs diag.ErrorList) returns Generated
 	let generated = lowerLoaded(p, errs: errs)
 	if errs.count() == 0 'refusals'
-		refusalsBesidesInterpreterOnly(generated.modules, errs: errs)
+		reportRefusals(generated.modules, errs: errs)
 	end 'refusals'
 	ast.locateAllErrors(p.modules, errs: errs)
 	return generated
@@ -131,18 +131,15 @@ export function lowerSource(path String, text String) returns diag.ErrorList
 	return errs
 end 'lowerSource'
 
-// refusalsBesidesInterpreterOnly reports what a function's lowering could not make that is not a construct the interpreter runs,
-// at the first of each function, as the backend's refusals are.
-function refusalsBesidesInterpreterOnly(lowered interp.ModuleFunctions, mutates errs diag.ErrorList)
+// reportRefusals reports what a function's lowering could not make, the first of each function, as the backend's refusals
+// are.
+function reportRefusals(lowered interp.ModuleFunctions, mutates errs diag.ErrorList)
 	for m in 0 upto lowered.count() 'modules'
 		for f in 0 upto lowered[m].count() 'functions'
-			for r in 0 upto lowered[m][f].refusals.count() 'refusals'
-				if lowered[m][f].refusals[r].code != diag.errInterpreterOnly 'blocked'
-					let refusal = lowered[m][f].refusals[r].clone()
-					diag.pushSiteError(errs, code: refusal.code.clone(), message: refusal.message.clone(), module: refusal.module, offset: refusal.offset)
-					break 'refusals'
-				end 'blocked'
-			end 'refusals'
+			if lowered[m][f].refusals.count() > 0 'refused'
+				let refusal = lowered[m][f].refusals[0].clone()
+				diag.pushSiteError(errs, code: refusal.code.clone(), message: refusal.message.clone(), module: refusal.module, offset: refusal.offset)
+			end 'refused'
 		end 'functions'
 	end 'modules'
-end 'refusalsBesidesInterpreterOnly'
+end 'reportRefusals'

@@ -1,7 +1,5 @@
 let dropEmptyMessage = "dropEmpty of a collection that still holds an element"
 
-let interpreterOnlyMessage = "a list or a slot map runs only under the interpreter for now, and the compiler has no code for it; use an array, or run the program with the interpreter"
-
 // entry calls a runtime entry of a primitive that returns a value. site is the source that needs it, kept when the
 // backend has no code for the entry.
 function entry(mutates l Lowerer, p ast.Project, site diag.Site, symbol Rt, kind IrKind, args RegList) returns Reg
@@ -40,9 +38,7 @@ function noteEntry(mutates l Lowerer, site diag.Site, symbol Rt)
 		l.b.f.usesBytes = true
 	end 'bytes' else if unit == RtUnit.rtUnitArrays 'arrays'
 		l.b.f.usesArrays = true
-	end 'arrays' else if unit == RtUnit.rtUnitInterpreter 'interpreter'
-		refuse(l, site: site, code: diag.errInterpreterOnly, message: interpreterOnlyMessage)
-	end 'interpreter' else if unit == RtUnit.rtUnitRuntime or unit == RtUnit.rtUnitLinker 'internal'
+	end 'arrays' else if unit == RtUnit.rtUnitRuntime or unit == RtUnit.rtUnitLinker 'internal'
 		panic("lower: {rtSymbol(symbol)} is no entry of a primitive")
 	end 'internal'
 end 'noteEntry'
@@ -814,79 +810,3 @@ function arrayFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	dropValue(l, p: p, ms: ms, v: value, t: arrayElem(p, ms: ms, box: a))
 	return out
 end 'arrayFilled'
-
-// requireNative refuses, once for each site, a value of a type that holds a primitive the backend has no code for. A copy
-// or a drop of such a value is code that only the interpreter has, as the entries of the primitive itself are.
-function requireNative(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, t ast.TypeID)
-	var visiting = ast.TypeIDList.create(0)
-	if holdsInterpreterOnly(p, ms: ms, t: t, visiting: visiting) 'only'
-		refuse(l, site: site, code: diag.errInterpreterOnly, message: interpreterOnlyMessage)
-	end 'only'
-end 'requireNative'
-
-// holdsInterpreterOnly is whether a value of type t is, or holds at any depth, a list or a slot map. visiting are the
-// records and unions being walked, so a type that contains itself through an array ends.
-function holdsInterpreterOnly(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, mutates visiting ast.TypeIDList) returns bool
-	let kind = ast.typeKind(ms.types, reads: p.types, t: t)
-	if kind == ast.TypeKind.primBool or kind == ast.TypeKind.primString or kind == ast.TypeKind.primCharacter or kind == ast.TypeKind.intRange or kind == ast.TypeKind.constInt or kind == ast.TypeKind.floatRange or kind == ast.TypeKind.constFloat or kind == ast.TypeKind.enumTy 'plain'
-		return false
-	end 'plain'
-	if kind == ast.TypeKind.builtinSlotKey or kind == ast.TypeKind.builtinPromise 'handle'
-		return false
-	end 'handle'
-	// A function value is dropped by the routine of its closure, which the closure that owns such a value refuses.
-	if kind == ast.TypeKind.funcTy 'function'
-		return false
-	end 'function'
-	// An interface value is dropped by the table of the type it holds, and boxing a value of a type that holds such a part
-	// is refused natively where it is boxed.
-	if kind == ast.TypeKind.interfaceTy 'interface'
-		return false
-	end 'interface'
-	if kind == ast.TypeKind.builtinArray 'array'
-		return holdsInterpreterOnly(p, ms: ms, t: elementType(p, ms: ms, bt: t), visiting: visiting)
-	end 'array'
-	if kind == ast.TypeKind.builtinGroups 'groups'
-		let halves = ast.typeArgsOf(ms.types, reads: p.types, t: t)
-		return holdsInterpreterOnly(p, ms: ms, t: halves[0], visiting: visiting) or holdsInterpreterOnly(p, ms: ms, t: halves[1], visiting: visiting)
-	end 'groups'
-	if kind == ast.TypeKind.builtinFrozen or kind == ast.TypeKind.builtinCown or kind == ast.TypeKind.builtinService 'shared'
-		return holdsInterpreterOnly(p, ms: ms, t: heldType(p, ms: ms, t: t), visiting: visiting)
-	end 'shared'
-	// A cursor holds a word of the buffer it borrows and its index, and never drops the buffer.
-	if kind == ast.TypeKind.builtinCursor 'cursor'
-		return false
-	end 'cursor'
-	if kind == ast.TypeKind.record or kind == ast.TypeKind.unionTy 'nominal'
-		for i in 0 upto visiting.count() 'seen'
-			if visiting[i] == t 'again'
-				return false
-			end 'again'
-		end 'seen'
-		visiting.push(t)
-		let origin = ast.typeEntry(ms.types, reads: p.types, t: t).effectiveOrigin()
-		let params = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: origin).typeParams)
-		let args = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: t).typeArgs)
-		if kind == ast.TypeKind.record 'record'
-			for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: origin).fields.count() 'fields'
-				let declared = ast.typeEntry(ms.types, reads: p.types, t: origin).fields[i].ty
-				let field = ast.substituteType(ms.types, reads: p.types, t: declared, params: params, args: args)
-				if holdsInterpreterOnly(p, ms: ms, t: field, visiting: visiting) 'holds'
-					return true
-				end 'holds'
-			end 'fields'
-			return false
-		end 'record'
-		for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: origin).cases.count() 'cases'
-			for j in 0 upto ast.typeEntry(ms.types, reads: p.types, t: origin).cases[i].payload.count() 'payload'
-				let declared = ast.typeEntry(ms.types, reads: p.types, t: origin).cases[i].payload[j].ty
-				let field = ast.substituteType(ms.types, reads: p.types, t: declared, params: params, args: args)
-				if holdsInterpreterOnly(p, ms: ms, t: field, visiting: visiting) 'holds'
-					return true
-				end 'holds'
-			end 'payload'
-		end 'cases'
-		return false
-	end 'nominal'
-	panic("lower: {ast.typeName(ms.types, reads: p.types, t: t)} has no layout the backend knows")
-end 'holdsInterpreterOnly'

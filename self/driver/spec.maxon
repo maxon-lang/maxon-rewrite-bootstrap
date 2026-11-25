@@ -1358,9 +1358,6 @@ function checkSpecTest(test SpecTest, text String, stem String, errs diag.ErrorL
 		return table.Option.some(checkSpecError(test, expected: expected.unwrap(), stem: stem, errs: errs, sections: sections))
 	end 'expectsError'
 	if errs.count() > 0 'failed'
-		if onlyInterpreterErrors(errs) 'interpreter'
-			return table.Option.some(TestResult.unsupported("needs the interpreter: a map, list, slot map, frozen value, cown or behaviour"))
-		end 'interpreter'
 		return table.Option.some(TestResult.failed("unexpected compile error: {oneLine(errs[0].code, limit: detailLimit)} {oneLine(errs[0].message, limit: detailLimit)}"))
 	end 'failed'
 	return table.Option.none

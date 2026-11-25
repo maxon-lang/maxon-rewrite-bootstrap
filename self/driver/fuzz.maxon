@@ -262,9 +262,8 @@ type NativeCheck
 	end 'differs'
 end 'NativeCheck'
 
-// compareNative compiles the program the interpreter just ran and runs the executable. A program that uses a map, a list or a
-// slot map has no executable yet and is skipped, as is one that schedules behaviours and was not written so that its output is
-// the same under every schedule. One that was runs several times, and a run that ends in a trap may have printed more or
+// compareNative compiles the program the interpreter just ran and runs the executable. A program that schedules behaviours
+// and was not written so that its output is the same under every schedule is skipped. One that was runs several times, and a run that ends in a trap may have printed more or
 // less of main's output first than the interpreter did, since a behaviour runs beside main: one output must be the start
 // of the other.
 function compareNative(shared SharedRuntime, source String, outcome GeneratedRun, scheduleIndependent bool) returns NativeCheck
@@ -278,10 +277,7 @@ function compareNative(shared SharedRuntime, source String, outcome GeneratedRun
 	compileSourceWith(shared, path: generatedPath, text: source, output: exe, options: options, errs: errs)
 	diag.sortErrors(errs)
 	if errs.count() > 0 'failed'
-		if not onlyInterpreterErrors(errs) 'other'
-			return NativeCheck.differs("the program did not compile: {joinErrors(errs)}", ran: false)
-		end 'other'
-		return NativeCheck.agreed(false)
+		return NativeCheck.differs("the program did not compile: {joinErrors(errs)}", ran: false)
 	end 'failed'
 	let exePath = try FilePath.from(exe) otherwise return NativeCheck.differs("{exe} is not a path", ran: false)
 	var runs = 1 as Count
