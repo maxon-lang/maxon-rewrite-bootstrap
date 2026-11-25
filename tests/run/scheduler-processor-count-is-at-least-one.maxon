@@ -1,6 +1,9 @@
-// Scheduler.processorCount is the same before a behaviour is scheduled as after it, and is never 0.
+// Scheduler.processorCount is the same before a behaviour is scheduled as after it, and is never 0; so is
+// Scheduler.machineCpuCount, the machine's count, which MAXON_MAX_PROCS does not change.
 //> positive
 //> stable
+//> machine positive
+//> machine stable
 
 function main() returns ExitCode
 	let before = Scheduler.processorCount()
@@ -11,5 +14,12 @@ function main() returns ExitCode
 	if before == after 'stable'
 		print("stable\n")
 	end 'stable'
+	let machine = Scheduler.machineCpuCount()
+	if machine >= 1 'machinePositive'
+		print("machine positive\n")
+	end 'machinePositive'
+	if machine == Scheduler.machineCpuCount() 'machineStable'
+		print("machine stable\n")
+	end 'machineStable'
 	return 0
 end 'main'

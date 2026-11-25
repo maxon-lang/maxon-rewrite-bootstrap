@@ -99,6 +99,12 @@ function entryOsProcessorCount(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	giveNum(vm, x: x, n: interpretedWorkers)
 end 'entryOsProcessorCount'
 
+// entryOsMachineCpuCount is the interpreter's one processor: it is the machine its scheduler runs on, which the default
+// processor count is all of, as a native run's is.
+function entryOsMachineCpuCount(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: interpretedWorkers)
+end 'entryOsMachineCpuCount'
+
 // clockStepNanos is how far one reading moves the interpreter's clock.
 let clockStepNanos = 1000 as ir.Word
 
@@ -550,6 +556,18 @@ end 'entrySchedPin'
 
 function entrySchedUnpin(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 end 'entrySchedUnpin'
+
+// entrySchedPinDepth is 0, since the interpreter's pins pin nothing (entrySchedPin).
+function entrySchedPinDepth(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: 0)
+end 'entrySchedPinDepth'
+
+// interpretedMachine is the number of the one thread the interpreter runs every green thread on.
+let interpretedMachine = 1 as ir.Word
+
+function entrySchedCurrentMachine(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: interpretedMachine)
+end 'entrySchedCurrentMachine'
 
 // The debug port's entries halt: the interpreter drives no debuggee, so a program that does says `// native-only`.
 function entryDebugLaunch(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt

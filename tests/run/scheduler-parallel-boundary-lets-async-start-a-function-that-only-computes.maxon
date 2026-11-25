@@ -1,0 +1,20 @@
+// native-only
+// Scheduler.parallelBoundary() marks a function that only computes as one async may start (E3073 refuses a function
+// that never waits); it does nothing at run time, so the coroutine computes what a call would. The interpreter runs no
+// coroutine.
+//> 5050
+
+function sumTo(n Count) returns Count
+	Scheduler.parallelBoundary()
+	var sum = 0 as Count
+	for i in 0 upto n 'add'
+		sum = try sum + i + 1 otherwise 0
+	end 'add'
+	return sum
+end 'sumTo'
+
+function main() returns ExitCode
+	let p = async sumTo(100)
+	print("{await p}\n")
+	return 0
+end 'main'

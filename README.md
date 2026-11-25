@@ -5015,8 +5015,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - `Clock.nowNanos()` is a built-in and the rest of `Clock` the library's (`stdlib/clock`), so `Clock.nowMs()` and the others need no more than naming. Natively a reading is the
   performance counter (`QueryPerformanceCounter`) in nanoseconds; the interpreter's clock moves by 1000 ns at each reading, so a run is deterministic.
 
-- `Scheduler` has only `processorCount()`, which maxon's gives as `SchedulerProcessorCount`, here a `Count`, and `yield()`;
-  maxon's `quiesce`, `parallelBoundary` and pins are not there.
+- `Scheduler` has `processorCount()` and `machineCpuCount()`, which maxon's give as `SchedulerProcessorCount`, here a `Count`,
+  `yield()`, `parallelBoundary()` (a marker that emits nothing and counts as a wait for `E3073`), the pins `pinToMachine()`,
+  `unpinFromMachine()` and `pinDepth()`, and `currentMachine()`, the thread running the green thread numbered from 1 in the
+  order the threads started; the library tiers have maxon's floors `__Builtins.sleep`, `cpuCount` and `parallelBoundary`.
+  Not yet: maxon's `quiesce`, `counters`, `currentStackBytes` and `MachinePin`.
 
 - Conditional compilation, tests and `@heap` (see "Conditional compilation, tests and annotations"): a branch of `#if` is indented a tab deeper than its
   directives and each branch holds whole declarations, members or statements (Maxon lets the layout be what it likes and a branch

@@ -259,6 +259,14 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entrySchedUnpin(vm, f: f, x: x)
 		return
 	end 'rtSchedUnpin'
+	if symbol == ir.Rt.rtSchedPinDepth 'rtSchedPinDepth'
+		try entrySchedPinDepth(vm, f: f, x: x)
+		return
+	end 'rtSchedPinDepth'
+	if symbol == ir.Rt.rtSchedCurrentMachine 'rtSchedCurrentMachine'
+		try entrySchedCurrentMachine(vm, f: f, x: x)
+		return
+	end 'rtSchedCurrentMachine'
 	if symbol == ir.Rt.rtHashSeed 'rtHashSeed'
 		try entryHashSeed(vm, f: f, x: x)
 		return
@@ -543,6 +551,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryOsUnixSeconds(vm, f: f, x: x)
 		return
 	end 'rtOsUnixSeconds'
+	if symbol == ir.Rt.rtOsMachineCpuCount 'rtOsMachineCpuCount'
+		try entryOsMachineCpuCount(vm, f: f, x: x)
+		return
+	end 'rtOsMachineCpuCount'
 	if symbol == ir.Rt.rtOsProcessorCount 'rtOsProcessorCount'
 		try entryOsProcessorCount(vm, f: f, x: x)
 		return

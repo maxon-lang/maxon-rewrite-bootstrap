@@ -573,6 +573,28 @@ function schedUnpin()
 	end 'last'
 end 'schedUnpin'
 
+// schedPinDepth is how many pins the running green thread holds; off a green thread, none.
+function schedPinDepth() returns Count
+	let g = __Raw.loadWord(__Raw.threadContext(), offset: contextGreenOffset)
+	if g == noGreen 'off'
+		return 0
+	end 'off'
+	return __Raw.loadWord(g, offset: greenPinsOffset)
+end 'schedPinDepth'
+
+// mainMachine is the number of the main thread, the one machine of a program without the scheduler.
+let mainMachine = 1 as Count
+
+// schedCurrentMachine is Scheduler.currentMachine: the number of the thread running the green thread, which a pin keeps the
+// same across a park.
+function schedCurrentMachine() returns Count
+	let context = __Raw.threadContext()
+	if __Raw.loadWord(context, offset: contextSchedulerOffset) == noScheduler 'oneThread'
+		return mainMachine
+	end 'oneThread'
+	return __Raw.loadWord(threadBlockSwitch(context), offset: threadBlockMachineOffset)
+end 'schedCurrentMachine'
+
 // unpinGreen frees a green thread and the thread it is pinned to of each other: at its last unpin, or when it finishes
 // pinned, which leaves the thread to run the scheduler as before. A record is carved zeroed and one that finishes is
 // unpinned, so a green thread that newGreen makes holds no pin.

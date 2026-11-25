@@ -1164,6 +1164,9 @@ function initThread(scheduler Count, context Count)
 	lockScheduler(scheduler)
 	__Raw.storeWord(context, offset: contextAllNextOffset, value: __Raw.loadWord(scheduler, offset: schedAllThreadsOffset))
 	__Raw.storeWord(scheduler, offset: schedAllThreadsOffset, value: context)
+	let machine = __Raw.wrappingAdd(__Raw.loadWord(scheduler, offset: schedMachinesOffset), right: 1)
+	__Raw.storeWord(scheduler, offset: schedMachinesOffset, value: machine)
+	__Raw.storeWord(threadBlockSwitch(context), offset: threadBlockMachineOffset, value: machine)
 	unlockScheduler(scheduler)
 end 'initThread'
 
@@ -1227,13 +1230,19 @@ end 'carve'
 	end 'newEvent'
 #endif
 
-// workerCount is how many processors run green threads: the processors of every group, which Windows may fail to
-// count, or the count MAXON_MAX_PROCS asks for.
+// workerCount is how many processors run green threads: the machine's (machineCpuCount), or the count MAXON_MAX_PROCS asks
+// for.
 function workerCount() returns Count
 	let requested = requestedWorkers()
 	if requested != noRequest 'requested'
 		return requested
 	end 'requested'
+	return machineCpuCount()
+end 'workerCount'
+
+// machineCpuCount is Scheduler.machineCpuCount, as maxon's __cpu_count reads it: the logical processors of every group, which
+// Windows may fail to count, or those this process may run on under Linux, and at least 1.
+function machineCpuCount() returns Count
 	#if os(Windows)
 		let processors = dword(__Raw.callImport1("GetActiveProcessorCount", arg1: allProcessorGroups))
 	#else
@@ -1243,7 +1252,7 @@ function workerCount() returns Count
 		return fewestWorkers
 	end 'uncounted'
 	return processors
-end 'workerCount'
+end 'machineCpuCount'
 
 // osProcessorCount is Scheduler.processorCount: the processors the runtime runs green threads on, which is fixed by the
 // machine and the environment alone, so it is the same before the first behaviour is scheduled as after it.

@@ -381,7 +381,9 @@ var layouts = []layoutConst{
 		"where the scheduler's record holds the address of the table that names the children and the results of subprocess spawns (a word that a handle packs a slot and the slot's generation into), 0 until the first spawn."},
 	{"schedProcessEntryFreeOffset", 42, false, toRuntime,
 		"where the scheduler's record holds the first free event entry that was a process's, linked through entryLinkOffset, under the lock: such an entry is taken again only as a process's, since a system may still hold a notification keyed by it that no other kind of entry could tell from its own."},
-	{"schedProcessorsOffset", 43, false, toRuntime,
+	{"schedMachinesOffset", 43, false, toRuntime,
+		"where the scheduler's record holds how many threads it has started, the last one's number, under the scheduler's lock."},
+	{"schedProcessorsOffset", 44, false, toRuntime,
 		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made."},
 
 	// A processor (Go's P): what a thread must hold to run green threads, its local run queue (a ring that its owner puts
@@ -546,8 +548,10 @@ var layouts = []layoutConst{
 	// after a drain counts when another thread breaks the event queue's wait at the end.
 	{"threadBlockChangeOffset", 289, false, toRuntime,
 		"where a thread's block holds the one change of a user event that the thread makes to the event queue, a struct kevent on macOS."},
-	{"threadBlockBytes", 293, false, toRuntime,
-		"the size of a thread's block: room for eventSlots events of windowsEntryBytes each, the larger of the two systems', the pinned green thread and a change of a user event."},
+	{"threadBlockMachineOffset", 293, false, toRuntime,
+		"where a thread's block holds the thread's number among those the scheduler started, from 1 in the order they started, which Scheduler.currentMachine gives."},
+	{"threadBlockBytes", 294, false, toRuntime,
+		"the size of a thread's block: room for eventSlots events of windowsEntryBytes each, the larger of the two systems', the pinned green thread, a change of a user event and the thread's number."},
 
 	// An event entry: what a green thread waits on in the event queue, a system handle registered with it (eventRegister) or a user
 	// event (eventUserNew), with a state word for each way it is waited on, reading and writing, readied by an event or a

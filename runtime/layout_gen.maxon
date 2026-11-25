@@ -366,8 +366,11 @@ let schedHandlesOffset = 328 as Count
 // schedProcessEntryFreeOffset is where the scheduler's record holds the first free event entry that was a process's, linked through entryLinkOffset, under the lock: such an entry is taken again only as a process's, since a system may still hold a notification keyed by it that no other kind of entry could tell from its own.
 let schedProcessEntryFreeOffset = 336 as Count
 
+// schedMachinesOffset is where the scheduler's record holds how many threads it has started, the last one's number, under the scheduler's lock.
+let schedMachinesOffset = 344 as Count
+
 // schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made.
-let schedProcessorsOffset = 344 as Count
+let schedProcessorsOffset = 352 as Count
 
 // procIdOffset is where a processor holds its index among the processors.
 let procIdOffset = 0 as Count
@@ -567,8 +570,11 @@ let threadBlockLockedOffset = 2304 as Count
 // threadBlockChangeOffset is where a thread's block holds the one change of a user event that the thread makes to the event queue, a struct kevent on macOS.
 let threadBlockChangeOffset = 2312 as Count
 
-// threadBlockBytes is the size of a thread's block: room for eventSlots events of windowsEntryBytes each, the larger of the two systems', the pinned green thread and a change of a user event.
-let threadBlockBytes = 2344 as Count
+// threadBlockMachineOffset is where a thread's block holds the thread's number among those the scheduler started, from 1 in the order they started, which Scheduler.currentMachine gives.
+let threadBlockMachineOffset = 2344 as Count
+
+// threadBlockBytes is the size of a thread's block: room for eventSlots events of windowsEntryBytes each, the larger of the two systems', the pinned green thread, a change of a user event and the thread's number.
+let threadBlockBytes = 2352 as Count
 
 // entryReadStateOffset is where an event entry holds the state of a wait to read, or of a user event: the green thread that waits, eventQueued once an event came that no wait has taken, or what claimed the wake of the waiter (a deadline, a close, a cancel), exchanged atomically.
 let entryReadStateOffset = 0 as Count

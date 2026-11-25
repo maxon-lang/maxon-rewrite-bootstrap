@@ -428,6 +428,18 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrSchedulerUnpinFromMachine 'intrSchedulerUnpinFromMachine'
 		return lowerSchedulerUnpinFromMachine(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSchedulerUnpinFromMachine'
+	if op == ast.Intrinsic.intrSchedulerPinDepth 'intrSchedulerPinDepth'
+		return lowerSchedulerPinDepth(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSchedulerPinDepth'
+	if op == ast.Intrinsic.intrSchedulerCurrentMachine 'intrSchedulerCurrentMachine'
+		return lowerSchedulerCurrentMachine(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSchedulerCurrentMachine'
+	if op == ast.Intrinsic.intrSchedulerMachineCpuCount 'intrSchedulerMachineCpuCount'
+		return lowerSchedulerMachineCpuCount(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSchedulerMachineCpuCount'
+	if op == ast.Intrinsic.intrSchedulerParallelBoundary 'intrSchedulerParallelBoundary'
+		return lowerSchedulerParallelBoundary(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSchedulerParallelBoundary'
 	if op == ast.Intrinsic.intrSleep 'intrSleep'
 		return lowerSleep(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSleep'
@@ -1267,6 +1279,18 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrSchedulerUnpinFromMachine 'intrSchedulerUnpinFromMachine'
 		return false
 	end 'intrSchedulerUnpinFromMachine'
+	if op == ast.Intrinsic.intrSchedulerPinDepth 'intrSchedulerPinDepth'
+		return false
+	end 'intrSchedulerPinDepth'
+	if op == ast.Intrinsic.intrSchedulerCurrentMachine 'intrSchedulerCurrentMachine'
+		return false
+	end 'intrSchedulerCurrentMachine'
+	if op == ast.Intrinsic.intrSchedulerMachineCpuCount 'intrSchedulerMachineCpuCount'
+		return false
+	end 'intrSchedulerMachineCpuCount'
+	if op == ast.Intrinsic.intrSchedulerParallelBoundary 'intrSchedulerParallelBoundary'
+		return false
+	end 'intrSchedulerParallelBoundary'
 	if op == ast.Intrinsic.intrSleep 'intrSleep'
 		return false
 	end 'intrSleep'

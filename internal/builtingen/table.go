@@ -888,6 +888,15 @@ var tableFunctions = []function{
 	// whether there is a machine to pin to, which off a green thread is the thread itself.
 	{Owner: "Scheduler", Name: "pinToMachine", Static: true, Result: "Bool", Intrinsic: "SchedulerPinToMachine"},
 	{Owner: "Scheduler", Name: "unpinFromMachine", Static: true, Intrinsic: "SchedulerUnpinFromMachine"},
+	// pinDepth is how many pins the calling green thread holds, and currentMachine the machine (thread) running it, numbered
+	// from 1 in the order the threads started; 0 is no machine.
+	{Owner: "Scheduler", Name: "pinDepth", Static: true, Result: "Count", Intrinsic: "SchedulerPinDepth"},
+	{Owner: "Scheduler", Name: "currentMachine", Static: true, Result: "Count", Intrinsic: "SchedulerCurrentMachine"},
+	// machineCpuCount is maxon's: the machine's logical processors, at least 1, whatever MAXON_MAX_PROCS asks.
+	{Owner: "Scheduler", Name: "machineCpuCount", Static: true, Result: "Count", Intrinsic: "SchedulerMachineCpuCount"},
+	// parallelBoundary is maxon's marker with no effect at run time: a function that calls it may be started with async
+	// (E3073) though it only computes.
+	{Owner: "Scheduler", Name: "parallelBoundary", Static: true, Intrinsic: "SchedulerParallelBoundary"},
 	// sleep is maxon's: the running green thread parks for at least the milliseconds, and its strand's other coroutines run
 	// meanwhile.
 	{Name: "sleep", Params: []string{"milliseconds Milliseconds"}, Intrinsic: "Sleep"},
@@ -954,6 +963,10 @@ var tableFunctions = []function{
 	{Owner: "Debuggee", Name: "terminate", Static: true, Params: []string{"process Count", "exitCode Count"}, Result: "Bool", Intrinsic: "DebuggeeTerminate"},
 	{Owner: "CollectedOutput", Name: "succeeded", Result: "Bool", Intrinsic: "CollectedOutputSucceeded"},
 
+	// The floors of maxon's Sleep and Scheduler, which the library tiers call.
+	{Owner: "Builtins", Name: "sleep", Static: true, Params: []string{"_ Natural"}, Intrinsic: "Sleep", Instead: "sleep(milliseconds)"},
+	{Owner: "Builtins", Name: "cpuCount", Static: true, Result: "Count", Intrinsic: "SchedulerMachineCpuCount", Instead: "Scheduler.machineCpuCount()"},
+	{Owner: "Builtins", Name: "parallelBoundary", Static: true, Intrinsic: "SchedulerParallelBoundary", Instead: "Scheduler.parallelBoundary()"},
 	{Owner: "Builtins", Name: "currentProcessId", Static: true, Result: "Count", Intrinsic: "ProcessId", Instead: "Process.id()"},
 	{Owner: "Builtins", Name: "currentTimeNanos", Static: true, Result: "Count", Intrinsic: "ClockNowNanos", Instead: "Clock.nowNanos()"},
 	// The other readings of the clocks maxon's Clock and WallClock are written on. A wall-clock reading is signed: it is
@@ -1185,6 +1198,8 @@ var entries = []entry{
 	{"Yield", "rt.yield", "Source", roleCall, "(): lets the members of the strand that wait, else the runnable green threads, run first"},
 	{"SchedPin", "rt.pin", "Source", roleCall, "() -> bool: pins the running green thread to its thread, Go's LockOSThread, one level deeper"},
 	{"SchedUnpin", "rt.unpin", "Source", roleCall, "(): undoes one pin of the running green thread, Go's UnlockOSThread"},
+	{"SchedPinDepth", "rt.pinDepth", "Source", roleCall, "() -> Count: how many pins the running green thread holds"},
+	{"SchedCurrentMachine", "rt.currentMachine", "Source", roleCall, "() -> Count: the number of the thread running the green thread, from 1"},
 	{"HashSeed", "rt.hash.seed", "Source", roleCall, "() -> the fold of no bytes under the process's secret, which the first hash of the process draws or reads from MAXON_HASH_SEED"},
 	{"HashSeedDraw", "rt.hash.draw", "Source", roleCall, "() -> a fresh secret from the system, or the next of the sequence a pinned process draws"},
 	{"HeapThreadAllocs", "rt.heap.threadAllocs", "Source", roleCall, "() -> how many boxes the running thread allocated"},
@@ -1265,6 +1280,7 @@ var entries = []entry{
 	{"OsThreadCpuTicks", "rt.os.threadCpuTicks", "Os", roleCall, "() -> Count: the CPU time the calling green thread has used, on whichever threads it ran, in the cycles QueryThreadCycleTime counts on Windows and in nanoseconds under POSIX"},
 	{"OsUnixNanos", "rt.os.unixNanos", "Os", roleCall, "() -> Count: the nanoseconds since 1970-01-01 UTC, in steps of the host calendar's own tick, the word of a signed 64-bit count"},
 	{"OsUnixSeconds", "rt.os.unixSeconds", "Os", roleCall, "() -> Count: the whole seconds since 1970-01-01 UTC, which is OsUnixNanos divided by a billion, the word of a signed 64-bit count"},
+	{"OsMachineCpuCount", "rt.os.machineCpuCount", "Os", roleCall, "() -> Count: the machine's logical processors, at least 1, whatever MAXON_MAX_PROCS asks"},
 	{"OsProcessorCount", "rt.os.processorCount", "Os", roleCall, "() -> Count: how many workers the runtime runs behaviours on, as the scheduler counts them: the processors, or what MAXON_MAX_PROCS asks"},
 	{"OsPathFrom", "rt.os.pathFrom", "Os", roleCall, "(path String, error) -> String: the path with the native separator for the other one"},
 	{"OsReadText", "rt.os.readText", "Os", roleCall, "(path String, error) -> String"},
@@ -1401,6 +1417,8 @@ var runtimeFunctions = []runtimeFunction{
 	{"Yield", "schedYield()"},
 	{"SchedPin", "schedPin() Bool"},
 	{"SchedUnpin", "schedUnpin()"},
+	{"SchedPinDepth", "schedPinDepth() Count"},
+	{"SchedCurrentMachine", "schedCurrentMachine() Count"},
 	{"HashSeed", "hashSeed() Count"},
 	{"HashSeedDraw", "drawHashSeed() Count"},
 	{"HeapThreadAllocs", "heapThreadAllocs() Count"},
@@ -1472,6 +1490,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsThreadCpuTicks", "osThreadCpuTicks() Count"},
 	{"OsUnixNanos", "osUnixNanos() Count"},
 	{"OsUnixSeconds", "osUnixSeconds() Count"},
+	{"OsMachineCpuCount", "machineCpuCount() Count"},
 	{"OsProcessorCount", "osProcessorCount() Count"},
 	{"OsPathFrom", "osPathFrom(path String, errorAddress Count) String"},
 	{"OsReadText", "osReadText(path String, errorAddress Count) String"},
