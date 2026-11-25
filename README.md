@@ -2296,8 +2296,11 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   `fix` pass then removes the handler wherever the analysis proves the access (E3944), and an invariant wherever it cannot
   prove it (E3945), so the generator needs no model of what
   the analysis proves. A read or a store at the index of a fact on its array is sometimes a subscript instead, which has no
-  handler: a proven one runs with no check, and one the analysis does not prove traps outside, which ends the program (a
-  trap that the executable must end with too). Each program prints a checksum; an access the analysis proved that the interpreter finds outside its array
+  handler: a proven one runs with no check, and one the analysis does not prove traps outside. It stands under a guard
+  `within(i, count: xs.count())`, a call the analysis does not look into, so it runs only inside and is proven by the facts
+  around it alone, and the other arm makes the same access with its handler, so a wrong proof is still caught there. About
+  3% of programs end, after their checksums, in an unproven subscript outside its array (a trap that the executable must end
+  with too). Each program prints a checksum; an access the analysis proved that the interpreter finds outside its array
   (`proven access out of range`), or an executable whose output is not the interpreter's, is a failure, which names the seed and
   keeps the program under `--keep=DIR` (the compiler's temporary directory, in `minimaxon-fuzz-proofs`, without it). The checker
   may refuse a program for what it knows of the code (a statically known index outside a `FixedArray`, a divisor that is 0), up to

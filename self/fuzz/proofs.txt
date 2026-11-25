@@ -138,3 +138,7 @@ end 'peek'
 function idx(n Count) returns Count
 	return n
 end 'idx'
+
+function within(i Count, count Count) returns bool
+	return i >= 0 and i < count
+end 'within'

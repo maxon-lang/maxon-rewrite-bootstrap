@@ -2,7 +2,8 @@
 // read and written by index inside guards and loops, mixed with everything that must make the analysis forget what it knows (a
 // mutation of the array or of the index between the fact and its use, a closure that changes either, a call or a record's method
 // that changes the array, an assignment of the array, an early exit). Each access but a subscript is written with its own
-// handler, as `try xs.get(i) otherwise 7`, so that a program the analysis cannot prove runs checked and never traps; the
+// handler, as `try xs.get(i) otherwise 7`, and a subscript under a guard that its index lies inside, so that a program the
+// analysis cannot prove runs checked and never traps, but at the subscript a few programs end with (proofTrapPercent); the
 // compiler's own `fix` pass then removes the handler where the analysis proves the access (E3944), so the generator never needs
 // to know what the analysis proves. What is left runs under the interpreter, where an access that was proven and lies outside
 // its array is a violation, and natively, where the output must be the interpreter's.
@@ -54,9 +55,13 @@ let proofFuelLimit = 12 as Count
 let proofInvariantPercent = 40 as Count
 
 // proofSubscriptPercent is how often a read or a store at the index of a fact on its array is a subscript, which has no
-// handler: where the analysis proves it, it runs with no check, so an index outside is a violation under the interpreter, and
-// elsewhere it traps there, which ends the program.
+// handler: where the analysis proves it, it runs with no check, and elsewhere it traps outside its array (subscriptGuardOpen).
 let proofSubscriptPercent = 15 as Count
+
+// proofTrapPercent is how often a program ends in a subscript the analysis cannot prove and that lies outside its array, so
+// that the trap of an unproven subscript is run natively and under the interpreter; it is the last thing the program does,
+// so nothing goes untested after it.
+let proofTrapPercent = 3 as Count
 
 // proofClampedPercent is how often a loop over a stepping index runs below a var bound that the body may move and that only
 // the loop's invariant keeps at most the array's count.
@@ -681,8 +686,7 @@ type ProofGen
 	end 'probe'
 
 	// subscripted is whether an access at an index of an array is written as a subscript: only under a fact on that array and
-	// that index, where it mostly lies inside, since a subscript the analysis does not prove traps outside and ends the program,
-	// and never at a slot index, which is no position.
+	// that index, where the analysis may prove it, and never at a slot index, which is no position.
 	function subscripted(mutates self, array Count, index String) returns bool
 		if containsText(index, needle: " {kwAs} ") 'cast'
 			return false
@@ -696,16 +700,51 @@ type ProofGen
 		return focused and self.chance(proofSubscriptPercent)
 	end 'subscripted'
 
+	// subscriptGuardOpen opens the run-time guard of a subscript: a subscript the analysis does not prove traps outside its
+	// array and would end the program there, so it runs only where the index lies inside. The guard is a call the analysis
+	// does not look into, so the subscript is proven or not by the facts around it alone, and the other arm makes the same
+	// access with its handler, which the fix strips where those facts prove it: an index outside that the analysis wrongly
+	// proves is still a violation there. It gives the label of the other arm.
+	function subscriptGuardOpen(mutates self, array Count, index String) returns String
+		let label = self.label()
+		self.line("{kwIf} within({index}, count: {arrays[array].text}.count()) {label}")
+		self.indentMore()
+		return label
+	end 'subscriptGuardOpen'
+
+	function subscriptGuardElse(mutates self, label String) returns String
+		let other = self.label()
+		self.indentLess()
+		self.line("{kwEnd} {label} {kwElse} {other}")
+		self.indentMore()
+		return other
+	end 'subscriptGuardElse'
+
+	function subscriptGuardClose(mutates self, other String)
+		self.indentLess()
+		self.line("{kwEnd} {other}")
+	end 'subscriptGuardClose'
+
 	function readAt(mutates self, array Count, index String)
-		let text = arrays[array].text.clone()
 		if self.subscripted(array, index: index) 'subscript'
+			let label = self.subscriptGuardOpen(array, index: index)
+			let text = arrays[array].text.clone()
 			if arrays[array].kind == proofNames 'names'
 				self.line("acc = mix(acc, v: {text}[{index}].byteLength())")
-				return
-			end 'names'
-			self.line("acc = mix(acc, v: {text}[{index}])")
+			end 'names' else 'numbers'
+				self.line("acc = mix(acc, v: {text}[{index}])")
+			end 'numbers'
+			let other = self.subscriptGuardElse(label)
+			self.handledRead(array, index: index)
+			self.subscriptGuardClose(other)
 			return
 		end 'subscript'
+		self.handledRead(array, index: index)
+	end 'readAt'
+
+	// handledRead reads at an index with a handler that gives the fallback where the read fails.
+	function handledRead(mutates self, array Count, index String)
+		let text = arrays[array].text.clone()
 		if arrays[array].kind == proofNames 'names'
 			let v = self.fresh("v")
 			self.line("{kwLet} {v} = {proofHandled("{text}.get({index})", fallback: proofNameFallback)}")
@@ -719,7 +758,7 @@ type ProofGen
 		let v = self.fresh("v")
 		self.line("{kwLet} {v} = {proofHandled("{text}.get({index})", fallback: proofReadFallback)}")
 		self.line("acc = mix(acc, v: {v})")
-	end 'readAt'
+	end 'handledRead'
 
 	// writeStatement stores a number or a string at an index.
 	function writeStatement(mutates self)
@@ -731,14 +770,19 @@ type ProofGen
 		self.storeAt(t.array, index: t.index, value: value)
 	end 'writeStatement'
 
-	// storeAt stores the value at an index of an array, by a set with its handler or by a subscript.
+	// storeAt stores the value at an index of an array, by a set with its handler or by a guarded subscript.
 	function storeAt(mutates self, array Count, index String, value String)
 		let text = arrays[array].text.clone()
+		let handled = "{kwTry} {text}.set({index}, value: {value}) {kwOtherwise} {kwIgnore}"
 		if self.subscripted(array, index: index) 'subscript'
+			let label = self.subscriptGuardOpen(array, index: index)
 			self.line("{text}[{index}] = {value}")
+			let other = self.subscriptGuardElse(label)
+			self.line(handled)
+			self.subscriptGuardClose(other)
 			return
 		end 'subscript'
-		self.line("{kwTry} {text}.set({index}, value: {value}) {kwOtherwise} {kwIgnore}")
+		self.line(handled)
 	end 'storeAt'
 
 	// newArray is an expression for a new value of an array of numbers.
@@ -1447,6 +1491,10 @@ type ProofGen
 			self.line("total = mix(total, v: r{k})")
 		end 'each'
 		self.line(printed("total"))
+		if self.chance(proofTrapPercent) 'trap'
+			self.line("{kwLet} past = fresh(idx(2), salt: 1)")
+			self.line(printed("past[idx(2)]"))
+		end 'trap'
 		self.line("{kwReturn} 0")
 		self.indentLess()
 		self.line("{kwEnd} 'main'")
