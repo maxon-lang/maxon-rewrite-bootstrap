@@ -62,18 +62,26 @@ function withoutCurrentDirectory(path String) returns borrowed String
 	return path
 end 'withoutCurrentDirectory'
 
-// collectSourceFiles adds to files the .maxon and .md files at path, a file or a directory to search.
+// collectSourceFiles adds to files the .maxon and .md files at path, a file or a directory to search, less those of a directory
+// below it that holds the ignore marker, as discovery leaves one out of a program.
 function collectSourceFiles(path String, mutates files ast.StringList)
+	collectSourceFilesBelow(path, files: files, isRoot: true)
+end 'collectSourceFiles'
+
+function collectSourceFilesBelow(path String, mutates files ast.StringList, isRoot bool)
 	if project.isDirectoryPath(path) 'directory'
+		if not isRoot and project.holdsIgnoreMarker(path) 'ignored'
+			return
+		end 'ignored'
 		let dir = try FilePath.from(path) otherwise panic("fmt: {path} is not a path")
 		let listed = try Directory.list(dir) otherwise panic("fmt: cannot list {path}")
 		for i in 0 upto listed.count() 'each'
-			collectSourceFiles(withoutCurrentDirectory(listed[i].toString()), files: files)
+			collectSourceFilesBelow(withoutCurrentDirectory(listed[i].toString()), files: files, isRoot: false)
 		end 'each'
 	end 'directory' else if isSourcePath(path) 'file'
 		files.push(path.clone())
 	end 'file'
-end 'collectSourceFiles'
+end 'collectSourceFilesBelow'
 
 // isReadable is whether path names a directory, or a file that can be read.
 function isReadable(path String) returns bool
