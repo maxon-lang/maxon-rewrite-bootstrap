@@ -1,0 +1,72 @@
+// subprocessResolveOnPath turns the name of a program into the path that a spawn can launch, searched for as the system's own lookup
+// does (PATH and PATHEXT where Windows looks, PATH on Linux and macOS) and answered as a full path; a name that nothing resolves,
+// or that holds a NUL, comes back as it was given, never empty, and a spawn of the answer runs the program.
+// native-only
+//> resolved: absolute=true ends with the name=true
+//> missing: definitely-not-a-real-executable-xyz
+//> a NUL in the name: 3
+//> the resolved path spawns the program: kind=0 code=0
+
+typealias Blob = Array with Byte
+
+let terminator = 0 as Byte
+
+function appendToken(mutates out Blob, token String)
+	for b in token.bytes() 'each'
+		out.push(b)
+	end 'each'
+	out.push(terminator)
+end 'appendToken'
+
+function resolved(name String) returns String
+	return String.init(__Builtins.subprocessResolveOnPath(name.cstr()))
+end 'resolved'
+
+// shell is a program that every host has on its PATH, with no extension as it is written, and the arguments that make it end at
+// once with 0.
+#if os(Windows)
+	let shell = "cmd"
+
+	let shellFile = "cmd.exe"
+
+	let shellFirst = "/c"
+
+	let shellSecond = "exit 0"
+#else
+	let shell = "sh"
+
+	let shellFile = "sh"
+
+	let shellFirst = "-c"
+
+	let shellSecond = "exit 0"
+#endif
+
+function main() returns ExitCode
+	let found = resolved(shell)
+	#if os(Windows)
+		let absolute = found.contains(":")
+	#else
+		let absolute = found.startsWith("/")
+	#endif
+	print("resolved: absolute={absolute} ends with the name={found.toLower().endsWith(shellFile)}\n")
+	print("missing: {resolved("definitely-not-a-real-executable-xyz")}\n")
+	print("a NUL in the name: {resolved("a\0b").byteLength()}\n")
+	var argv = Blob.create(0)
+	appendToken(argv, token: found)
+	appendToken(argv, token: shellFirst)
+	appendToken(argv, token: shellSecond)
+	var env = Blob.create(1)
+	env.push(terminator)
+	let empty = ""
+	let handle = __Builtins.subprocessSpawn(argv.managed, 3, empty.cstr(), env.managed, 1, 0, empty.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
+	if handle == -1 'failed'
+		print("the resolved path does not spawn: {String.init(__Builtins.subprocessLastErrorMessage())}\n")
+		return 1
+	end 'failed'
+	let result = __Builtins.subprocessWaitCollect(handle, 0)
+	print("the resolved path spawns the program: kind={__Builtins.subprocessResultStatusKind(result)} code={__Builtins.subprocessResultStatusCode(result)}\n")
+	__Builtins.subprocessResultRelease(result)
+	__Builtins.subprocessReleaseHandle(handle)
+	return 0
+end 'main'

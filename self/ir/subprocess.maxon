@@ -1,0 +1,58 @@
+// The subprocess rows of the raw surface (`__Builtins.subprocess*`) call their runtime entries with the words, the byte arrays and the
+// cstrings (a String's two words) they were given, and the runtime answers a word or a fresh byte array.
+
+function lowerSubprocessSpawn(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessSpawn, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessSpawn'
+
+function lowerSubprocessGetPid(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessGetPid, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessGetPid'
+
+function lowerSubprocessWaitCollect(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessWaitCollect, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessWaitCollect'
+
+function lowerSubprocessResultStatusKind(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessResultStatusKind, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessResultStatusKind'
+
+function lowerSubprocessResultStatusCode(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessResultStatusCode, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessResultStatusCode'
+
+// lowerSubprocessResultStdout is a fresh byte array of what the child wrote: the box of an array of bytes, which a
+// __ManagedMemory of bytes is.
+function lowerSubprocessResultStdout(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessResultStdout, kind: IrKind.kindManaged, args: args)
+end 'lowerSubprocessResultStdout'
+
+function lowerSubprocessResultStderr(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessResultStderr, kind: IrKind.kindManaged, args: args)
+end 'lowerSubprocessResultStderr'
+
+function lowerSubprocessResultDurationMs(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessResultDurationMs, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessResultDurationMs'
+
+function lowerSubprocessResultRelease(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessResultRelease, args: args)
+	return konst(l, value: 0 as Word)
+end 'lowerSubprocessResultRelease'
+
+function lowerSubprocessReleaseHandle(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessReleaseHandle, args: args)
+	return konst(l, value: 0 as Word)
+end 'lowerSubprocessReleaseHandle'
+
+function lowerSubprocessLastErrorCode(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessLastErrorCode, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessLastErrorCode'
+
+function lowerSubprocessLastErrorMessage(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessLastErrorMessage, kind: IrKind.kindManaged, args: args)
+end 'lowerSubprocessLastErrorMessage'
+
+function lowerSubprocessResolveOnPath(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessResolveOnPath, kind: IrKind.kindManaged, args: args)
+end 'lowerSubprocessResolveOnPath'

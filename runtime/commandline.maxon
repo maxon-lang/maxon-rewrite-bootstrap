@@ -100,15 +100,16 @@ function scanArgument(line Count, length Count, position Count, scratch Count) r
 	return at
 end 'scanArgument'
 
-// hasSeparator is whether a text has a space or a tab, which is what makes an argument need quotes.
-function hasSeparator(source Count, length Count) returns bool
+// needsQuotes is whether a text has a space, a tab or a quote, which is what makes an argument need quotes, as maxon's runtime
+// decides it: an empty argument needs them too (quoteArgument).
+function needsQuotes(source Count, length Count) returns bool
 	for i in 0 upto length 'each'
-		if isSeparator(__Raw.loadByte(source, offset: i)) 'found'
+		if isSeparator(__Raw.loadByte(source, offset: i)) or __Raw.loadByte(source, offset: i) == quoteByte 'found'
 			return true
 		end 'found'
 	end 'each'
 	return false
-end 'hasSeparator'
+end 'needsQuotes'
 
 // quotedBound is the most bytes that quoting a text of a length writes: a byte is at most doubled, and the quotes are two.
 function quotedBound(length Count) returns Count
@@ -119,15 +120,15 @@ function quotedBound(length Count) returns Count
 end 'quotedBound'
 
 // quoteArgument writes an argument at dst as the rules of scanArgument read it back (Go's syscall.EscapeArg), and gives
-// the number of bytes written, at most quotedBound. An empty argument is `""`; one with a space or a tab is in quotes;
-// a quote is escaped by a backslash after the backslashes before it are doubled, and so are the backslashes before the
-// closing quote.
+// the number of bytes written, at most quotedBound. An argument is in quotes when it is empty (`""`) or has a space, a tab or a
+// quote, as maxon's runtime decides it; a quote is escaped by a backslash after the backslashes before it are doubled, and so
+// are the backslashes before the closing quote.
 function quoteArgument(source Count, length Count, dst Count) returns Count
 	if length == 0 'empty'
 		var at = storeNextByte(dst, offset: 0, value: quoteByte)
 		return storeNextByte(dst, offset: at, value: quoteByte)
 	end 'empty'
-	let inQuotes = hasSeparator(source, length: length)
+	let inQuotes = needsQuotes(source, length: length)
 	var at = 0 as Count
 	if inQuotes 'open'
 		at = storeNextByte(dst, offset: at, value: quoteByte)

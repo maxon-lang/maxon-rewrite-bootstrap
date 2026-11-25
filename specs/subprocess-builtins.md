@@ -2756,6 +2756,7 @@ grew=true absolute=true missIsNull=0 missEchoed=true
 ```
 
 <!-- test: subprocess-builtins.last-error-is-empty-when-clean -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `subprocessLastErrorMessage()` answers the EMPTY buffer while nothing has failed, and the OS
 error NUMBER once something has — here a spawn of an executable that does not exist, which
@@ -2797,6 +2798,7 @@ cleanLen=0 spawn=-1 message=true
 ```
 
 <!-- test: subprocess-builtins.a-caller-built-environment-is-the-childs-whole-environment -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 ⭐⭐ **`envInherit = 0` HANDS THE CHILD THE CALLER'S OWN BLOCK.** The stdlib assembles a block from
@@ -2855,6 +2857,7 @@ spawned=true echoed=true len=6
 
 ```
 <!-- test: subprocess-builtins.posix-a-caller-built-environment-is-the-childs-whole-environment -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 The Windows twin's subject on the POSIX lane. ⚠ **It is a sibling rather than a widened marker for

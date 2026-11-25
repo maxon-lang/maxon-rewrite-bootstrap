@@ -967,6 +967,26 @@ var tableFunctions = []function{
 	// reports them, in a fresh buffer of bytes: empty past the last entry, and one NUL byte where the system handed over no
 	// environment, neither of which an entry can be.
 	{Owner: "Builtins", Name: "osEnvironmentEntry", Static: true, Params: []string{"_ ElementIndex"}, Result: "ManagedMemory with Byte", Intrinsic: "OsEnvironmentEntry", Instead: "Process.currentEnvironmentEntries()"},
+	// The subprocess rows are maxon's `__Builtins.subprocess*` (specs/subprocess-builtins.md), the floor of its Subprocess.maxon, as
+	// far as the first step of them goes: a spawn that gives a handle (or -1), a wait that collects the output of the child it names
+	// into a result, the readers of that result, and the helpers. A handle and a result are each a word that names a slot of the
+	// runtime's table and the generation the slot is in, so a word that names nothing live (a released one, one that was
+	// never given, -1) is a failure and never a fault. A cstring is the two words of a String, which the row copies where it
+	// hands the bytes to the system and frees on every way out. The results that are words are signed where maxon's are, and
+	// subprocessResultDurationMs is a natural number, which maxon's library passes on as a DurationMs.
+	{Owner: "Builtins", Name: "subprocessSpawn", Static: true, Params: []string{"_ ManagedMemory with Byte", "_ ElementIndex", "_ CString", "_ ManagedMemory with Byte", "_ Natural", "_ Natural", "_ CString", "_ Natural", "_ CString", "_ Natural", "_ Natural", "_ CString", "_ Natural", "_ Natural", "_ Natural"}, Result: "FullRangeInt", Intrinsic: "SubprocessSpawn", Instead: "Subprocess.run or a Configuration's run()"},
+	{Owner: "Builtins", Name: "subprocessGetPid", Static: true, Params: []string{"_ FullRangeInt"}, Result: "FullRangeInt", Intrinsic: "SubprocessGetPid", Instead: "Subprocess.run or a Configuration's run()"},
+	{Owner: "Builtins", Name: "subprocessWaitCollect", Static: true, Params: []string{"_ FullRangeInt", "_ Natural"}, Result: "FullRangeInt", Intrinsic: "SubprocessWaitCollect", Instead: "Subprocess.run or a Configuration's run()"},
+	{Owner: "Builtins", Name: "subprocessResultStatusKind", Static: true, Params: []string{"_ FullRangeInt"}, Result: "FullRangeInt", Intrinsic: "SubprocessResultStatusKind", Instead: "Subprocess.run or a Configuration's run()"},
+	{Owner: "Builtins", Name: "subprocessResultStatusCode", Static: true, Params: []string{"_ FullRangeInt"}, Result: "FullRangeInt", Intrinsic: "SubprocessResultStatusCode", Instead: "Subprocess.run or a Configuration's run()"},
+	{Owner: "Builtins", Name: "subprocessResultStdout", Static: true, Params: []string{"_ FullRangeInt"}, Result: "ManagedMemory with Byte", Intrinsic: "SubprocessResultStdout", Instead: "Subprocess.run or a Configuration's run()"},
+	{Owner: "Builtins", Name: "subprocessResultStderr", Static: true, Params: []string{"_ FullRangeInt"}, Result: "ManagedMemory with Byte", Intrinsic: "SubprocessResultStderr", Instead: "Subprocess.run or a Configuration's run()"},
+	{Owner: "Builtins", Name: "subprocessResultDurationMs", Static: true, Params: []string{"_ FullRangeInt"}, Result: "Natural", Intrinsic: "SubprocessResultDurationMs", Instead: "Subprocess.run or a Configuration's run()"},
+	{Owner: "Builtins", Name: "subprocessResultRelease", Static: true, Params: []string{"_ FullRangeInt"}, Intrinsic: "SubprocessResultRelease", Instead: "Subprocess.run or a Configuration's run()"},
+	{Owner: "Builtins", Name: "subprocessReleaseHandle", Static: true, Params: []string{"_ FullRangeInt"}, Intrinsic: "SubprocessReleaseHandle", Instead: "Subprocess.run or a Configuration's run()"},
+	{Owner: "Builtins", Name: "subprocessLastErrorCode", Static: true, Result: "FullRangeInt", Intrinsic: "SubprocessLastErrorCode", Instead: "Subprocess.run or a Configuration's run()"},
+	{Owner: "Builtins", Name: "subprocessLastErrorMessage", Static: true, Result: "ManagedMemory with Byte", Intrinsic: "SubprocessLastErrorMessage", Instead: "Subprocess.run or a Configuration's run()"},
+	{Owner: "Builtins", Name: "subprocessResolveOnPath", Static: true, Params: []string{"_ CString"}, Result: "ManagedMemory with Byte", Intrinsic: "SubprocessResolveOnPath", Instead: "Subprocess.run or a Configuration's run()"},
 	{Owner: "Builtins", Name: "runWithInput", Static: true, Params: []string{"executable Executable", "arguments Array with String", "input String", "deadline WaitDeadline"}, Result: "CollectedOutput", Throws: "SubprocessError", Intrinsic: "SubprocessRunWithInput", Instead: "a Configuration whose standardInput is InputSource.bytes(text)"},
 	{Owner: "Builtins", Name: "stdoutWantsAnsiColor", Static: true, Result: "Bool", Intrinsic: "StdoutWantsColor", Instead: "Console.stdoutWantsColor()"},
 	// floatToBits is the 64 bits of a double read as an integer, as maxon's is: a reinterpretation, which the library's
@@ -1268,6 +1288,19 @@ var entries = []entry{
 	{"OsRun", "rt.os.run", "Os", roleCall, "(executable String, arguments Array with String, deadlineMs, stdout, stderr, error) -> exit code: runs the executable with the arguments quoted as the C runtime splits them, and stores what the child wrote to each stream as a String at the address given for it; a child still running deadlineMs milliseconds after it started, when that is not 0, is terminated and the run fails with the timeout case"},
 	{"OsRunIn", "rt.os.runIn", "Os", roleCall, "(executable String, arguments Array with String, directory String, deadlineMs, stdout, stderr, error) -> exit code: rt.os.run with the child started in directory, relative to the caller's working directory"},
 	{"OsRunInput", "rt.os.runInput", "Os", roleCall, "(executable String, arguments Array with String, input String, deadlineMs, stdout, stderr, error) -> exit code: rt.os.run with the child's standard input a pipe that holds the input and then ends"},
+	{"SubprocessSpawn", "rt.subprocess.spawn", "Os", roleCall, "(argv ByteArray, argc, cwd cstring, env ByteArray, envInherit, stdinKind, stdinData cstring, stdoutKind, stdoutData cstring, stdoutLimit, stderrKind, stderrData cstring, stderrLimit, flags, stdinLength) -> handle or -1: starts the child that argc NUL-ended tokens of the argv blob name, the first the program, in the directory cwd names ('' for the caller's own) with the caller's environment (an env block is refused), its standard input none, inherited or the stdinLength bytes of stdinData, and its standard output and error inherited or collected up to a limit (0 for none); a kind, a flag or a block that this step does not serve is refused, as a spawn that fails; the handle names a slot of the runtime's table and its generation"},
+	{"SubprocessGetPid", "rt.subprocess.getPid", "Os", roleCall, "(handle) -> the process id the spawn recorded, or -1 for a word that names no live child"},
+	{"SubprocessWaitCollect", "rt.subprocess.waitCollect", "Os", roleCall, "(handle, ms) -> result or -1: parks until the child has exited and its output has ended, or until ms milliseconds (0 for none) have passed, which ends the child and keeps the output it had written; the result names what became of it, a word of the same kind as a handle, or is -1 for a word that names no child that no wait has taken"},
+	{"SubprocessResultStatusKind", "rt.subprocess.resultStatusKind", "Os", roleCall, "(result) -> how the child ended: exited 0, signalled 1, timedOut 2, treeNotEnded 3, reapedElsewhere 4; 0 for a word that names no result"},
+	{"SubprocessResultStatusCode", "rt.subprocess.resultStatusCode", "Os", roleCall, "(result) -> the exit code (a POSIX wait status gives 128 plus its signal), or the signal's number for a signalled child; 0 for a word that names no result"},
+	{"SubprocessResultStdout", "rt.subprocess.resultStdout", "Os", roleCall, "(result) -> ByteArray: a fresh copy of what the child wrote to its standard output, empty for a stream that was not collected or a word that names no result"},
+	{"SubprocessResultStderr", "rt.subprocess.resultStderr", "Os", roleCall, "(result) -> ByteArray: a fresh copy of what the child wrote to its standard error, empty for a stream that was not collected or a word that names no result"},
+	{"SubprocessResultDurationMs", "rt.subprocess.resultDurationMs", "Os", roleCall, "(result) -> milliseconds from the spawn to the end of the wait; 0 for a word that names no result"},
+	{"SubprocessResultRelease", "rt.subprocess.resultRelease", "Os", roleCall, "(result): gives back the result and the output it holds; a word that names no result is skipped"},
+	{"SubprocessReleaseHandle", "rt.subprocess.releaseHandle", "Os", roleCall, "(handle): gives back the child's slot and what it still holds; a word that names no live child is skipped"},
+	{"SubprocessLastErrorCode", "rt.subprocess.lastErrorCode", "Os", roleCall, "() -> the failed step of the last spawn above 32 bits and the Win32 code of its failure in them (a POSIX errno mapped to 2, 3, 5 or 31), 0 when nothing has failed"},
+	{"SubprocessLastErrorMessage", "rt.subprocess.lastErrorMessage", "Os", roleCall, "() -> ByteArray: 'os error N' for the code of the last failure, empty when nothing has failed"},
+	{"SubprocessResolveOnPath", "rt.subprocess.resolveOnPath", "Os", roleCall, "(name cstring) -> ByteArray: the path of the program that the name asks for, searched for as the system's own lookup does (PATH and PATHEXT on Windows, PATH on POSIX), or the name itself where none is found"},
 	{"OsReadStdin", "rt.os.readStdin", "Os", roleCall, "(most) -> ByteArray: up to most bytes of standard input, parking until one arrives; empty only at its end or a failure"},
 	{"OsStdoutWantsColor", "rt.os.stdoutWantsColor", "Os", roleCall, "() -> bool: whether standard output is a character device, NO_COLOR is unset and TERM is not dumb"},
 }
@@ -1447,6 +1480,19 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsRun", "osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 	{"OsRunIn", "osRunIn(executable String, arguments Count, directory String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 	{"OsRunInput", "osRunInput(executable String, arguments Count, input String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
+	{"SubprocessSpawn", "subprocessSpawn(argv Count, argc Count, cwd String, env Count, envInherit Count, stdinKind Count, stdinData String, stdoutKind Count, stdoutData String, stdoutLimit Count, stderrKind Count, stderrData String, stderrLimit Count, flags Count, stdinLength Count) Count"},
+	{"SubprocessGetPid", "subprocessGetPid(handle Count) Count"},
+	{"SubprocessWaitCollect", "subprocessWaitCollect(handle Count, ms Count) Count"},
+	{"SubprocessResultStatusKind", "subprocessResultStatusKind(result Count) Count"},
+	{"SubprocessResultStatusCode", "subprocessResultStatusCode(result Count) Count"},
+	{"SubprocessResultStdout", "subprocessResultStdout(result Count) Count"},
+	{"SubprocessResultStderr", "subprocessResultStderr(result Count) Count"},
+	{"SubprocessResultDurationMs", "subprocessResultDurationMs(result Count) Count"},
+	{"SubprocessResultRelease", "subprocessResultRelease(result Count)"},
+	{"SubprocessReleaseHandle", "subprocessReleaseHandle(handle Count)"},
+	{"SubprocessLastErrorCode", "subprocessLastErrorCode() Count"},
+	{"SubprocessLastErrorMessage", "subprocessLastErrorMessage() Count"},
+	{"SubprocessResolveOnPath", "subprocessResolveOnPath(name String) Count"},
 	{"OsReadStdin", "osReadStdin(most Count) Count"},
 	{"OsStdoutWantsColor", "osStdoutWantsColor() Bool"},
 	{"DebugLaunch", "debugLaunch(executable String, arguments Count, outputToError Bool, errorAddress Count) Count"},

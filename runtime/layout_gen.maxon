@@ -360,8 +360,11 @@ let schedEntryFreeOffset = 312 as Count
 // schedPipeSerialOffset is where the scheduler's record holds the serial of the next pipe that eventPipe names, on Windows, stepped atomically.
 let schedPipeSerialOffset = 320 as Count
 
+// schedHandlesOffset is where the scheduler's record holds the address of the table that names the children and the results of subprocess spawns (a word that a handle packs a slot and the slot's generation into), 0 until the first spawn.
+let schedHandlesOffset = 328 as Count
+
 // schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made.
-let schedProcessorsOffset = 328 as Count
+let schedProcessorsOffset = 336 as Count
 
 // procIdOffset is where a processor holds its index among the processors.
 let procIdOffset = 0 as Count

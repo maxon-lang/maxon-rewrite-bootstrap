@@ -1,0 +1,118 @@
+// An argument is quoted for a Windows command line as maxon's runtime quotes it: only when it is empty or holds a space, a tab or a
+// quote, a quote written `\"`, and the tokens of the argv blob joined by one space each. The backslashes before a quote and before
+// the closing quote are doubled where maxon writes them as they are, so that the C runtime reads back the argument that was
+// given. Where a system takes no command line (Linux and macOS), each token of the blob reaches it as it is.
+//> empty: "" ok
+//> plain: plain ok
+//> space: "a b" ok
+//> tab: "a	b" ok
+//> quote: "a\"b" ok
+//> lone quote: "\"" ok
+//> backslash: a\b ok
+//> directory: C:\dir\ ok
+//> directory with a space: "C:\my dir\\" ok
+//> backslash and quote: "a\\\"b" ok
+//> the blob reaches the system as maxon passes it
+
+// quotedText is the quoting of a text as a new string.
+function quotedText(text String) returns String
+	let length = __Raw.stringLength(text)
+	let dst = alloc(__Raw.wrappingAdd(quotedBound(length), right: 1))
+	let written = quoteArgument(__Raw.stringBytes(text), length: length, dst: dst)
+	let room = __Raw.stringRoom(written)
+	if written != 0 'some'
+		copyBytes(dst, target: room, count: written)
+	end 'some'
+	free(dst)
+	return stringOfRoom(room, length: written)
+end 'quotedText'
+
+function quotingWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'quotingWrite'
+
+// quotingCase writes a line that says whether the quoting of a text is the expected one.
+function quotingCase(label String, text String, expected String)
+	let quoted = quotedText(text)
+	if streq(quoted, right: expected) 'same'
+		quotingWrite("{label}: {quoted} ok\n")
+	end 'same' else 'different'
+		quotingWrite("{label}: {quoted} but {expected} was expected\n")
+	end 'different'
+end 'quotingCase'
+
+// blobOfTokens is a new blob of the tokens of a command, each ended by a NUL, at an address.
+function quotingBlob() returns Count
+	let blob = alloc(quotingBlobBytes)
+	var at = 0 as Count
+	for token in 0 upto 4 'tokens'
+		var text = "cmd"
+		if token == 1 'second'
+			text = "/c"
+		end 'second'
+		if token == 2 'third'
+			text = "echo"
+		end 'third'
+		if token == 3 'fourth'
+			text = "a b"
+		end 'fourth'
+		copyBytes(__Raw.stringBytes(text), target: __Raw.wrappingAdd(blob, right: at), count: __Raw.stringLength(text))
+		at = storeNextByte(blob, offset: __Raw.wrappingAdd(at, right: __Raw.stringLength(text)), value: 0)
+	end 'tokens'
+	return blob
+end 'quotingBlob'
+
+// The blob's size: "cmd", "/c", "echo" and "a b", each and its NUL.
+let quotingBlobBytes = 17 as Count
+
+#if os(Windows)
+	// quotingReachesSystem is whether the command line of the blob is `cmd /c echo "a b"`, the UTF-16 of CreateProcessW read back.
+	function quotingReachesSystem() returns bool
+		let blob = quotingBlob()
+		let line = commandLineOfBlob(blob, argc: 4)
+		let units = wideLength(line)
+		let bytes = alloc(__Raw.wrappingAdd(try units * maxUtf8BytesPerUnit otherwise panic("a command line past memory"), right: 1))
+		let length = utf8FromUtf16(line, units: units, dst: bytes)
+		let expected = "cmd /c echo \"a b\""
+		var same = length == __Raw.stringLength(expected)
+		for i in 0 upto length 'bytes'
+			if same and __Raw.loadByte(bytes, offset: i) != __Raw.loadByte(__Raw.stringBytes(expected), offset: i) 'differs'
+				same = false
+			end 'differs'
+		end 'bytes'
+		free(bytes)
+		free(line)
+		free(blob)
+		return same
+	end 'quotingReachesSystem'
+#else
+	// quotingReachesSystem is whether each token of the blob is a token of the vector that the system's spawn reads, as it is.
+	function quotingReachesSystem() returns bool
+		let blob = quotingBlob()
+		let vector = argumentVector(blob, argc: 4)
+		let last = __Raw.loadWord(vector, offset: 3 * wordBytes)
+		let verbatim = terminatedLength(last) == 3 and __Raw.loadByte(last, offset: 1) == spaceByte and __Raw.loadWord(vector, offset: 4 * wordBytes) == 0
+		free(vector)
+		free(blob)
+		return verbatim
+	end 'quotingReachesSystem'
+#endif
+
+function main() returns ExitCode
+	quotingCase("empty", text: "", expected: "\"\"")
+	quotingCase("plain", text: "plain", expected: "plain")
+	quotingCase("space", text: "a b", expected: "\"a b\"")
+	quotingCase("tab", text: "a\tb", expected: "\"a\tb\"")
+	quotingCase("quote", text: "a\"b", expected: "\"a\\\"b\"")
+	quotingCase("lone quote", text: "\"", expected: "\"\\\"\"")
+	quotingCase("backslash", text: "a\\b", expected: "a\\b")
+	quotingCase("directory", text: "C:\\dir\\", expected: "C:\\dir\\")
+	quotingCase("directory with a space", text: "C:\\my dir\\", expected: "\"C:\\my dir\\\\\"")
+	quotingCase("backslash and quote", text: "a\\\"b", expected: "\"a\\\\\\\"b\"")
+	if quotingReachesSystem() 'reaches'
+		quotingWrite("the blob reaches the system as maxon passes it\n")
+	end 'reaches' else 'altered'
+		quotingWrite("the blob was altered on its way to the system\n")
+	end 'altered'
+	return 0
+end 'main'

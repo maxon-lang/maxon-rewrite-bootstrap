@@ -199,6 +199,19 @@ export enum Rt
 	rtOsRun
 	rtOsRunIn
 	rtOsRunInput
+	rtSubprocessSpawn
+	rtSubprocessGetPid
+	rtSubprocessWaitCollect
+	rtSubprocessResultStatusKind
+	rtSubprocessResultStatusCode
+	rtSubprocessResultStdout
+	rtSubprocessResultStderr
+	rtSubprocessResultDurationMs
+	rtSubprocessResultRelease
+	rtSubprocessReleaseHandle
+	rtSubprocessLastErrorCode
+	rtSubprocessLastErrorMessage
+	rtSubprocessResolveOnPath
 	rtOsReadStdin
 	rtOsStdoutWantsColor
 end 'Rt'
@@ -793,6 +806,45 @@ export function rtSymbol(r Rt) returns String
 	if r == Rt.rtOsRunInput 'rtOsRunInput'
 		return "runtime::osRunInput"
 	end 'rtOsRunInput'
+	if r == Rt.rtSubprocessSpawn 'rtSubprocessSpawn'
+		return "runtime::subprocessSpawn"
+	end 'rtSubprocessSpawn'
+	if r == Rt.rtSubprocessGetPid 'rtSubprocessGetPid'
+		return "runtime::subprocessGetPid"
+	end 'rtSubprocessGetPid'
+	if r == Rt.rtSubprocessWaitCollect 'rtSubprocessWaitCollect'
+		return "runtime::subprocessWaitCollect"
+	end 'rtSubprocessWaitCollect'
+	if r == Rt.rtSubprocessResultStatusKind 'rtSubprocessResultStatusKind'
+		return "runtime::subprocessResultStatusKind"
+	end 'rtSubprocessResultStatusKind'
+	if r == Rt.rtSubprocessResultStatusCode 'rtSubprocessResultStatusCode'
+		return "runtime::subprocessResultStatusCode"
+	end 'rtSubprocessResultStatusCode'
+	if r == Rt.rtSubprocessResultStdout 'rtSubprocessResultStdout'
+		return "runtime::subprocessResultStdout"
+	end 'rtSubprocessResultStdout'
+	if r == Rt.rtSubprocessResultStderr 'rtSubprocessResultStderr'
+		return "runtime::subprocessResultStderr"
+	end 'rtSubprocessResultStderr'
+	if r == Rt.rtSubprocessResultDurationMs 'rtSubprocessResultDurationMs'
+		return "runtime::subprocessResultDurationMs"
+	end 'rtSubprocessResultDurationMs'
+	if r == Rt.rtSubprocessResultRelease 'rtSubprocessResultRelease'
+		return "runtime::subprocessResultRelease"
+	end 'rtSubprocessResultRelease'
+	if r == Rt.rtSubprocessReleaseHandle 'rtSubprocessReleaseHandle'
+		return "runtime::subprocessReleaseHandle"
+	end 'rtSubprocessReleaseHandle'
+	if r == Rt.rtSubprocessLastErrorCode 'rtSubprocessLastErrorCode'
+		return "runtime::subprocessLastErrorCode"
+	end 'rtSubprocessLastErrorCode'
+	if r == Rt.rtSubprocessLastErrorMessage 'rtSubprocessLastErrorMessage'
+		return "runtime::subprocessLastErrorMessage"
+	end 'rtSubprocessLastErrorMessage'
+	if r == Rt.rtSubprocessResolveOnPath 'rtSubprocessResolveOnPath'
+		return "runtime::subprocessResolveOnPath"
+	end 'rtSubprocessResolveOnPath'
 	if r == Rt.rtOsReadStdin 'rtOsReadStdin'
 		return "runtime::osReadStdin"
 	end 'rtOsReadStdin'
@@ -1392,6 +1444,45 @@ export function rtText(r Rt) returns String
 	if r == Rt.rtOsRunInput 'rtOsRunInput'
 		return "rt.os.runInput"
 	end 'rtOsRunInput'
+	if r == Rt.rtSubprocessSpawn 'rtSubprocessSpawn'
+		return "rt.subprocess.spawn"
+	end 'rtSubprocessSpawn'
+	if r == Rt.rtSubprocessGetPid 'rtSubprocessGetPid'
+		return "rt.subprocess.getPid"
+	end 'rtSubprocessGetPid'
+	if r == Rt.rtSubprocessWaitCollect 'rtSubprocessWaitCollect'
+		return "rt.subprocess.waitCollect"
+	end 'rtSubprocessWaitCollect'
+	if r == Rt.rtSubprocessResultStatusKind 'rtSubprocessResultStatusKind'
+		return "rt.subprocess.resultStatusKind"
+	end 'rtSubprocessResultStatusKind'
+	if r == Rt.rtSubprocessResultStatusCode 'rtSubprocessResultStatusCode'
+		return "rt.subprocess.resultStatusCode"
+	end 'rtSubprocessResultStatusCode'
+	if r == Rt.rtSubprocessResultStdout 'rtSubprocessResultStdout'
+		return "rt.subprocess.resultStdout"
+	end 'rtSubprocessResultStdout'
+	if r == Rt.rtSubprocessResultStderr 'rtSubprocessResultStderr'
+		return "rt.subprocess.resultStderr"
+	end 'rtSubprocessResultStderr'
+	if r == Rt.rtSubprocessResultDurationMs 'rtSubprocessResultDurationMs'
+		return "rt.subprocess.resultDurationMs"
+	end 'rtSubprocessResultDurationMs'
+	if r == Rt.rtSubprocessResultRelease 'rtSubprocessResultRelease'
+		return "rt.subprocess.resultRelease"
+	end 'rtSubprocessResultRelease'
+	if r == Rt.rtSubprocessReleaseHandle 'rtSubprocessReleaseHandle'
+		return "rt.subprocess.releaseHandle"
+	end 'rtSubprocessReleaseHandle'
+	if r == Rt.rtSubprocessLastErrorCode 'rtSubprocessLastErrorCode'
+		return "rt.subprocess.lastErrorCode"
+	end 'rtSubprocessLastErrorCode'
+	if r == Rt.rtSubprocessLastErrorMessage 'rtSubprocessLastErrorMessage'
+		return "rt.subprocess.lastErrorMessage"
+	end 'rtSubprocessLastErrorMessage'
+	if r == Rt.rtSubprocessResolveOnPath 'rtSubprocessResolveOnPath'
+		return "rt.subprocess.resolveOnPath"
+	end 'rtSubprocessResolveOnPath'
 	if r == Rt.rtOsReadStdin 'rtOsReadStdin'
 		return "rt.os.readStdin"
 	end 'rtOsReadStdin'
@@ -1991,11 +2082,50 @@ export function rtCode(r Rt) returns Count
 	if r == Rt.rtOsRunInput 'rtOsRunInput'
 		return 196
 	end 'rtOsRunInput'
-	if r == Rt.rtOsReadStdin 'rtOsReadStdin'
+	if r == Rt.rtSubprocessSpawn 'rtSubprocessSpawn'
 		return 197
+	end 'rtSubprocessSpawn'
+	if r == Rt.rtSubprocessGetPid 'rtSubprocessGetPid'
+		return 198
+	end 'rtSubprocessGetPid'
+	if r == Rt.rtSubprocessWaitCollect 'rtSubprocessWaitCollect'
+		return 199
+	end 'rtSubprocessWaitCollect'
+	if r == Rt.rtSubprocessResultStatusKind 'rtSubprocessResultStatusKind'
+		return 200
+	end 'rtSubprocessResultStatusKind'
+	if r == Rt.rtSubprocessResultStatusCode 'rtSubprocessResultStatusCode'
+		return 201
+	end 'rtSubprocessResultStatusCode'
+	if r == Rt.rtSubprocessResultStdout 'rtSubprocessResultStdout'
+		return 202
+	end 'rtSubprocessResultStdout'
+	if r == Rt.rtSubprocessResultStderr 'rtSubprocessResultStderr'
+		return 203
+	end 'rtSubprocessResultStderr'
+	if r == Rt.rtSubprocessResultDurationMs 'rtSubprocessResultDurationMs'
+		return 204
+	end 'rtSubprocessResultDurationMs'
+	if r == Rt.rtSubprocessResultRelease 'rtSubprocessResultRelease'
+		return 205
+	end 'rtSubprocessResultRelease'
+	if r == Rt.rtSubprocessReleaseHandle 'rtSubprocessReleaseHandle'
+		return 206
+	end 'rtSubprocessReleaseHandle'
+	if r == Rt.rtSubprocessLastErrorCode 'rtSubprocessLastErrorCode'
+		return 207
+	end 'rtSubprocessLastErrorCode'
+	if r == Rt.rtSubprocessLastErrorMessage 'rtSubprocessLastErrorMessage'
+		return 208
+	end 'rtSubprocessLastErrorMessage'
+	if r == Rt.rtSubprocessResolveOnPath 'rtSubprocessResolveOnPath'
+		return 209
+	end 'rtSubprocessResolveOnPath'
+	if r == Rt.rtOsReadStdin 'rtOsReadStdin'
+		return 210
 	end 'rtOsReadStdin'
 	if r == Rt.rtOsStdoutWantsColor 'rtOsStdoutWantsColor'
-		return 198
+		return 211
 	end 'rtOsStdoutWantsColor'
 	panic("ir: rtNone has no number")
 end 'rtCode'
@@ -2199,8 +2329,21 @@ export function rtOf(code Count) returns Rt
 		194 gives Rt.rtOsRun
 		195 gives Rt.rtOsRunIn
 		196 gives Rt.rtOsRunInput
-		197 gives Rt.rtOsReadStdin
-		198 gives Rt.rtOsStdoutWantsColor
+		197 gives Rt.rtSubprocessSpawn
+		198 gives Rt.rtSubprocessGetPid
+		199 gives Rt.rtSubprocessWaitCollect
+		200 gives Rt.rtSubprocessResultStatusKind
+		201 gives Rt.rtSubprocessResultStatusCode
+		202 gives Rt.rtSubprocessResultStdout
+		203 gives Rt.rtSubprocessResultStderr
+		204 gives Rt.rtSubprocessResultDurationMs
+		205 gives Rt.rtSubprocessResultRelease
+		206 gives Rt.rtSubprocessReleaseHandle
+		207 gives Rt.rtSubprocessLastErrorCode
+		208 gives Rt.rtSubprocessLastErrorMessage
+		209 gives Rt.rtSubprocessResolveOnPath
+		210 gives Rt.rtOsReadStdin
+		211 gives Rt.rtOsStdoutWantsColor
 		default panic("ir: a number that is no runtime symbol")
 	end 'code'
 end 'rtOf'
@@ -2806,6 +2949,45 @@ export function rtUnit(r Rt) returns RtUnit
 	if r == Rt.rtOsRunInput 'rtOsRunInput'
 		return RtUnit.rtUnitOs
 	end 'rtOsRunInput'
+	if r == Rt.rtSubprocessSpawn 'rtSubprocessSpawn'
+		return RtUnit.rtUnitOs
+	end 'rtSubprocessSpawn'
+	if r == Rt.rtSubprocessGetPid 'rtSubprocessGetPid'
+		return RtUnit.rtUnitOs
+	end 'rtSubprocessGetPid'
+	if r == Rt.rtSubprocessWaitCollect 'rtSubprocessWaitCollect'
+		return RtUnit.rtUnitOs
+	end 'rtSubprocessWaitCollect'
+	if r == Rt.rtSubprocessResultStatusKind 'rtSubprocessResultStatusKind'
+		return RtUnit.rtUnitOs
+	end 'rtSubprocessResultStatusKind'
+	if r == Rt.rtSubprocessResultStatusCode 'rtSubprocessResultStatusCode'
+		return RtUnit.rtUnitOs
+	end 'rtSubprocessResultStatusCode'
+	if r == Rt.rtSubprocessResultStdout 'rtSubprocessResultStdout'
+		return RtUnit.rtUnitOs
+	end 'rtSubprocessResultStdout'
+	if r == Rt.rtSubprocessResultStderr 'rtSubprocessResultStderr'
+		return RtUnit.rtUnitOs
+	end 'rtSubprocessResultStderr'
+	if r == Rt.rtSubprocessResultDurationMs 'rtSubprocessResultDurationMs'
+		return RtUnit.rtUnitOs
+	end 'rtSubprocessResultDurationMs'
+	if r == Rt.rtSubprocessResultRelease 'rtSubprocessResultRelease'
+		return RtUnit.rtUnitOs
+	end 'rtSubprocessResultRelease'
+	if r == Rt.rtSubprocessReleaseHandle 'rtSubprocessReleaseHandle'
+		return RtUnit.rtUnitOs
+	end 'rtSubprocessReleaseHandle'
+	if r == Rt.rtSubprocessLastErrorCode 'rtSubprocessLastErrorCode'
+		return RtUnit.rtUnitOs
+	end 'rtSubprocessLastErrorCode'
+	if r == Rt.rtSubprocessLastErrorMessage 'rtSubprocessLastErrorMessage'
+		return RtUnit.rtUnitOs
+	end 'rtSubprocessLastErrorMessage'
+	if r == Rt.rtSubprocessResolveOnPath 'rtSubprocessResolveOnPath'
+		return RtUnit.rtUnitOs
+	end 'rtSubprocessResolveOnPath'
 	if r == Rt.rtOsReadStdin 'rtOsReadStdin'
 		return RtUnit.rtUnitOs
 	end 'rtOsReadStdin'
@@ -3502,10 +3684,62 @@ export function rtFunctions(b ast.Builtins) returns RtFunctionList
 	params176.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
 	fns.push(RtFunction.make(Rt.rtOsRunInput, name: "osRunInput", params: params176, result: b.countTy))
 	var params177 = RtParamList.create(0)
-	params177.push(RtParam.make(ast.Convention.convLet, name: "most", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsReadStdin, name: "osReadStdin", params: params177, result: b.countTy))
-	let params178 = RtParamList.create(0)
-	fns.push(RtFunction.make(Rt.rtOsStdoutWantsColor, name: "osStdoutWantsColor", params: params178, result: b.boolTy))
+	params177.push(RtParam.make(ast.Convention.convLet, name: "argv", ty: b.countTy))
+	params177.push(RtParam.make(ast.Convention.convLet, name: "argc", ty: b.countTy))
+	params177.push(RtParam.make(ast.Convention.convLet, name: "cwd", ty: b.stringTy))
+	params177.push(RtParam.make(ast.Convention.convLet, name: "env", ty: b.countTy))
+	params177.push(RtParam.make(ast.Convention.convLet, name: "envInherit", ty: b.countTy))
+	params177.push(RtParam.make(ast.Convention.convLet, name: "stdinKind", ty: b.countTy))
+	params177.push(RtParam.make(ast.Convention.convLet, name: "stdinData", ty: b.stringTy))
+	params177.push(RtParam.make(ast.Convention.convLet, name: "stdoutKind", ty: b.countTy))
+	params177.push(RtParam.make(ast.Convention.convLet, name: "stdoutData", ty: b.stringTy))
+	params177.push(RtParam.make(ast.Convention.convLet, name: "stdoutLimit", ty: b.countTy))
+	params177.push(RtParam.make(ast.Convention.convLet, name: "stderrKind", ty: b.countTy))
+	params177.push(RtParam.make(ast.Convention.convLet, name: "stderrData", ty: b.stringTy))
+	params177.push(RtParam.make(ast.Convention.convLet, name: "stderrLimit", ty: b.countTy))
+	params177.push(RtParam.make(ast.Convention.convLet, name: "flags", ty: b.countTy))
+	params177.push(RtParam.make(ast.Convention.convLet, name: "stdinLength", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtSubprocessSpawn, name: "subprocessSpawn", params: params177, result: b.countTy))
+	var params178 = RtParamList.create(0)
+	params178.push(RtParam.make(ast.Convention.convLet, name: "handle", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtSubprocessGetPid, name: "subprocessGetPid", params: params178, result: b.countTy))
+	var params179 = RtParamList.create(0)
+	params179.push(RtParam.make(ast.Convention.convLet, name: "handle", ty: b.countTy))
+	params179.push(RtParam.make(ast.Convention.convLet, name: "ms", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtSubprocessWaitCollect, name: "subprocessWaitCollect", params: params179, result: b.countTy))
+	var params180 = RtParamList.create(0)
+	params180.push(RtParam.make(ast.Convention.convLet, name: "result", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtSubprocessResultStatusKind, name: "subprocessResultStatusKind", params: params180, result: b.countTy))
+	var params181 = RtParamList.create(0)
+	params181.push(RtParam.make(ast.Convention.convLet, name: "result", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtSubprocessResultStatusCode, name: "subprocessResultStatusCode", params: params181, result: b.countTy))
+	var params182 = RtParamList.create(0)
+	params182.push(RtParam.make(ast.Convention.convLet, name: "result", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtSubprocessResultStdout, name: "subprocessResultStdout", params: params182, result: b.countTy))
+	var params183 = RtParamList.create(0)
+	params183.push(RtParam.make(ast.Convention.convLet, name: "result", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtSubprocessResultStderr, name: "subprocessResultStderr", params: params183, result: b.countTy))
+	var params184 = RtParamList.create(0)
+	params184.push(RtParam.make(ast.Convention.convLet, name: "result", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtSubprocessResultDurationMs, name: "subprocessResultDurationMs", params: params184, result: b.countTy))
+	var params185 = RtParamList.create(0)
+	params185.push(RtParam.make(ast.Convention.convLet, name: "result", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtSubprocessResultRelease, name: "subprocessResultRelease", params: params185, result: b.voidTy))
+	var params186 = RtParamList.create(0)
+	params186.push(RtParam.make(ast.Convention.convLet, name: "handle", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtSubprocessReleaseHandle, name: "subprocessReleaseHandle", params: params186, result: b.voidTy))
+	let params187 = RtParamList.create(0)
+	fns.push(RtFunction.make(Rt.rtSubprocessLastErrorCode, name: "subprocessLastErrorCode", params: params187, result: b.countTy))
+	let params188 = RtParamList.create(0)
+	fns.push(RtFunction.make(Rt.rtSubprocessLastErrorMessage, name: "subprocessLastErrorMessage", params: params188, result: b.countTy))
+	var params189 = RtParamList.create(0)
+	params189.push(RtParam.make(ast.Convention.convLet, name: "name", ty: b.stringTy))
+	fns.push(RtFunction.make(Rt.rtSubprocessResolveOnPath, name: "subprocessResolveOnPath", params: params189, result: b.countTy))
+	var params190 = RtParamList.create(0)
+	params190.push(RtParam.make(ast.Convention.convLet, name: "most", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtOsReadStdin, name: "osReadStdin", params: params190, result: b.countTy))
+	let params191 = RtParamList.create(0)
+	fns.push(RtFunction.make(Rt.rtOsStdoutWantsColor, name: "osStdoutWantsColor", params: params191, result: b.boolTy))
 	return fns
 end 'rtFunctions'
 
@@ -3710,6 +3944,19 @@ export function rtGivesString(r Rt) returns bool
 		rtOsRun or
 		rtOsRunIn or
 		rtOsRunInput or
+		rtSubprocessSpawn or
+		rtSubprocessGetPid or
+		rtSubprocessWaitCollect or
+		rtSubprocessResultStatusKind or
+		rtSubprocessResultStatusCode or
+		rtSubprocessResultStdout or
+		rtSubprocessResultStderr or
+		rtSubprocessResultDurationMs or
+		rtSubprocessResultRelease or
+		rtSubprocessReleaseHandle or
+		rtSubprocessLastErrorCode or
+		rtSubprocessLastErrorMessage or
+		rtSubprocessResolveOnPath or
 		rtOsReadStdin or
 		rtOsStdoutWantsColor gives false
 	end 'entry'

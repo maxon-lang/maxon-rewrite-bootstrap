@@ -139,7 +139,8 @@ end 'wordAt'
 // A run's wait is a record of words that the green threads serving the run share: the event entry of the child's exit, the
 // child (its pid, or its process handle on Windows) for killChild, the run's deadline (eventNoDeadline for none) as the event
 // queue's clock reads it, whether the deadline ended a wait, what the child ended with (its wait status, or on Windows its
-// exit code), and a record for each of the two output streams and for the input.
+// exit code), the child's process id and when it started (the event queue's clock, in nanoseconds), and a record for each of the
+// two output streams and for the input.
 let waitProcessOffset = 0
 
 let waitChildOffset = 8
@@ -150,7 +151,11 @@ let waitExpiredOffset = 24
 
 let waitStatusOffset = 32
 
-let waitOutputOffset = 40
+let waitPidOffset = 40
+
+let waitStartedOffset = 48
+
+let waitOutputOffset = 56
 
 let waitErrorOffset = waitOutputOffset + streamBytes
 
@@ -158,9 +163,10 @@ let waitInputOffset = waitErrorOffset + streamBytes
 
 let waitBytes = waitInputOffset + inputRecordBytes
 
-// A stream and the input each hold, first, the event entry of the end of its pipe that the run uses, noEntry for the input of a
-// run without or once the end is closed. A stream then holds the room of the string read so far (__Raw.stringRoom) with its
-// length and its capacity, and the input the bytes and the length of the text it writes. Both hold the run's wait.
+// A stream and the input each hold, first, the event entry of the end of its pipe that the run uses, noEntry for a stream that is
+// not collected, for the input of a run without and once the end is closed. A stream then holds the room of the string read so
+// far (__Raw.stringRoom) with its length and its capacity, the run's wait and the most it keeps (0 for no cap), and the input the
+// bytes and the length of the text it writes. Both hold the run's wait.
 let endEntryOffset = 0
 
 let streamTextOffset = 8
@@ -171,7 +177,12 @@ let streamCapacityOffset = 24
 
 let streamWaitOffset = 32
 
-let streamBytes = 40
+let streamLimitOffset = 40
+
+let streamBytes = 48
+
+// noLimit is the limit of a stream that keeps all it reads.
+let noLimit = 0
 
 let inputTextOffset = 8
 
@@ -213,21 +224,51 @@ function openRunPipe(ends Count, childWrites bool, record Count) returns bool
 	return true
 end 'openRunPipe'
 
-// openRunPipes makes the pipes of a run: the child writes its output and its error to two, and reads its input from a third in a
-// run with input. A pipe that cannot be made leaves the ones before it closed.
-function openRunPipes(wait Count, output Count, errors Count, input Count, hasInput bool) returns bool
+// A run's pipes: which of the child's output, error and input are pipes of the run's, each one the child writes, or reads in a run
+// with input. A stream that is not collected, and an input that is not written, has none.
+let pipeOutput = 1
+
+let pipeErrors = 2
+
+let pipeInput = 4
+
+// pipesOf are the pipes that a request makes: the two streams that are collected, and the input that is written, which a
+// child with none and one that is given bytes have.
+function pipesOf(request Count) returns Count
+	var pipes = 0 as Count
+	if wordAt(request, offset: requestOutputKindOffset) == spawnOutputCollect 'output'
+		pipes = pipes or pipeOutput
+	end 'output'
+	if wordAt(request, offset: requestErrorKindOffset) == spawnOutputCollect 'errors'
+		pipes = pipes or pipeErrors
+	end 'errors'
+	if wordAt(request, offset: requestInputKindOffset) == spawnStdinBytes 'input'
+		pipes = pipes or pipeInput
+	end 'input'
+	return pipes
+end 'pipesOf'
+
+// openRunPipes makes the pipes of a run that the set of pipes names. A pipe that cannot be made leaves the ones before it closed.
+function openRunPipes(wait Count, output Count, errors Count, input Count, pipes Count) returns bool
 	let outputRecord = fieldAt(wait, offset: waitOutputOffset)
 	let errorRecord = fieldAt(wait, offset: waitErrorOffset)
-	if not openRunPipe(output, childWrites: true, record: outputRecord) 'output'
+	let inputRecord = fieldAt(wait, offset: waitInputOffset)
+	if (pipes and pipeOutput) != 0 and not openRunPipe(output, childWrites: true, record: outputRecord) 'output'
 		return false
 	end 'output'
-	if not openRunPipe(errors, childWrites: true, record: errorRecord) 'errors'
-		closeRunPipe(output, childWrites: true, record: outputRecord)
+	if (pipes and pipeErrors) != 0 and not openRunPipe(errors, childWrites: true, record: errorRecord) 'errors'
+		if (pipes and pipeOutput) != 0 'closeOutput'
+			closeRunPipe(output, childWrites: true, record: outputRecord)
+		end 'closeOutput'
 		return false
 	end 'errors'
-	if hasInput and not openRunPipe(input, childWrites: false, record: fieldAt(wait, offset: waitInputOffset)) 'input'
-		closeRunPipe(output, childWrites: true, record: outputRecord)
-		closeRunPipe(errors, childWrites: true, record: errorRecord)
+	if (pipes and pipeInput) != 0 and not openRunPipe(input, childWrites: false, record: inputRecord) 'input'
+		if (pipes and pipeOutput) != 0 'closeOutput'
+			closeRunPipe(output, childWrites: true, record: outputRecord)
+		end 'closeOutput'
+		if (pipes and pipeErrors) != 0 'closeErrors'
+			closeRunPipe(errors, childWrites: true, record: errorRecord)
+		end 'closeErrors'
 		return false
 	end 'input'
 	return true
@@ -241,10 +282,14 @@ function closeRunPipe(ends Count, childWrites bool, record Count)
 end 'closeRunPipe'
 
 // closeChildEnds closes the ends of a run's pipes that the child was to have, once it has them or will never have them.
-function closeChildEnds(output Count, errors Count, input Count, hasInput bool)
-	eventPipeClose(endOf(output, writeEnd: true))
-	eventPipeClose(endOf(errors, writeEnd: true))
-	if hasInput 'input'
+function closeChildEnds(output Count, errors Count, input Count, pipes Count)
+	if (pipes and pipeOutput) != 0 'output'
+		eventPipeClose(endOf(output, writeEnd: true))
+	end 'output'
+	if (pipes and pipeErrors) != 0 'errors'
+		eventPipeClose(endOf(errors, writeEnd: true))
+	end 'errors'
+	if (pipes and pipeInput) != 0 'input'
 		eventPipeClose(endOf(input, writeEnd: false))
 	end 'input'
 end 'closeChildEnds'
@@ -380,11 +425,25 @@ function streamReaderMain(g Count) returns Count
 			end 'late'
 			break 'read'
 		end 'stopped'
-		__Raw.storeWord(stream, offset: streamLengthOffset, value: __Raw.wrappingAdd(length, right: got))
+		__Raw.storeWord(stream, offset: streamLengthOffset, value: __Raw.wrappingAdd(length, right: keptOf(stream, length: length, got: got)))
 	end 'read'
 	releaseOurEnd(stream)
 	return 0
 end 'streamReaderMain'
+
+// keptOf is how many of the got bytes that a read added after a stream's length it keeps: all of them, or the ones up to the
+// stream's limit. A limit caps what is kept and never what is read, since a child that fills a pipe that nothing reads waits for ever.
+function keptOf(stream Count, length Count, got Count) returns Count
+	let limit = wordAt(stream, offset: streamLimitOffset)
+	if limit == noLimit 'uncapped'
+		return got
+	end 'uncapped'
+	if length >= limit 'full'
+		return 0
+	end 'full'
+	let room = __Raw.wrappingSub(limit, right: length)
+	return got if got < room else room
+end 'keptOf'
 
 // inputWriterMain writes the input of a run to its pipe, in the input record that is its green thread's argument, until the
 // run's deadline, and closes the end, which ends the child's input. A write that fails is a child that stopped reading, which
@@ -415,10 +474,11 @@ end 'inputWriterMain'
 
 // awaitChild serves a run whose child has started, until the child has exited, its output has ended and its input is written
 // or refused, and says whether the run's deadline ended a wait. The caller has put in the run's wait the child, the entry of its
-// exit and the entries of the ends of its pipes that the run uses, and the text of the input is the one given. The run's own green
-// thread parks until the green threads that read, write and wait have finished; the ends and the exit's entry are closed and
-// given back by then, and the streams' texts are the caller's to store or free.
-function awaitChild(wait Count, input String, deadlineMs Count) returns bool
+// exit, the entries of the ends of its pipes that the run uses, and the bytes and the length of the input that is written. The
+// run's own green thread parks until the green threads that read, write and wait have finished: one for each pipe the run has, so
+// that a stream that is not collected has none; the ends and the exit's entry are closed and given back by then, and the
+// streams' texts are the caller's to store or free.
+function awaitChild(wait Count, deadlineMs Count) returns bool
 	__Raw.storeWord(wait, offset: waitDeadlineOffset, value: runDeadline(deadlineMs))
 	let outputRecord = fieldAt(wait, offset: waitOutputOffset)
 	let errorRecord = fieldAt(wait, offset: waitErrorOffset)
@@ -426,20 +486,27 @@ function awaitChild(wait Count, input String, deadlineMs Count) returns bool
 	startStream(outputRecord, wait: wait)
 	startStream(errorRecord, wait: wait)
 	let exitWaiter = startHelper(__Raw.codeAddress("exitWaiterMain"), argument: wait)
-	let outputReader = startHelper(__Raw.codeAddress("streamReaderMain"), argument: outputRecord)
-	let errorReader = startHelper(__Raw.codeAddress("streamReaderMain"), argument: errorRecord)
-	let writing = wordAt(inputRecord, offset: endEntryOffset) != noEntry
+	var outputReader = noGreen
+	if wordAt(outputRecord, offset: endEntryOffset) != noEntry 'output'
+		outputReader = startHelper(__Raw.codeAddress("streamReaderMain"), argument: outputRecord)
+	end 'output'
+	var errorReader = noGreen
+	if wordAt(errorRecord, offset: endEntryOffset) != noEntry 'errors'
+		errorReader = startHelper(__Raw.codeAddress("streamReaderMain"), argument: errorRecord)
+	end 'errors'
 	var inputWriter = noGreen
-	if writing 'input'
-		__Raw.storeWord(inputRecord, offset: inputTextOffset, value: __Raw.stringBytes(input))
-		__Raw.storeWord(inputRecord, offset: inputLengthOffset, value: __Raw.stringLength(input))
+	if wordAt(inputRecord, offset: endEntryOffset) != noEntry 'input'
 		__Raw.storeWord(inputRecord, offset: inputWaitOffset, value: wait)
 		inputWriter = startHelper(__Raw.codeAddress("inputWriterMain"), argument: inputRecord)
 	end 'input'
 	_ = greenAwait(exitWaiter)
-	_ = greenAwait(outputReader)
-	_ = greenAwait(errorReader)
-	if writing 'written'
+	if outputReader != noGreen 'outputEnded'
+		_ = greenAwait(outputReader)
+	end 'outputEnded'
+	if errorReader != noGreen 'errorsEnded'
+		_ = greenAwait(errorReader)
+	end 'errorsEnded'
+	if inputWriter != noGreen 'written'
 		_ = greenAwait(inputWriter)
 	end 'written'
 	eventProcessFree(wordAt(wait, offset: waitProcessOffset))
@@ -483,33 +550,138 @@ function bytesHoldNul(bytes Count, length Count) returns bool
 	return false
 end 'bytesHoldNul'
 
+// runChild runs the child of osRun, osRunIn and osRunInput: it makes the request of the executable and its arguments (their blob),
+// the directory unless it is empty and the standard input, which is the caller's own, or in a run with input a pipe that holds the
+// input and then ends, collects the output and the error whole, starts the child (startChild, each system's), waits for it
+// (awaitChild) and gives its exit code. A failure is reported as the case of SubprocessError that it is (reportRunFailure).
+function runChild(executable String, arguments Count, directory String, hasInput bool, input String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
+	if holdsNul(executable, arguments: arguments, directory: directory) 'nul'
+		failWith(errorAddress, errorCase: spawnFailed)
+		return 0
+	end 'nul'
+	let blobLength = argvBlobBytes(executable, arguments: arguments)
+	let blob = alloc(blobLength)
+	fillArgvBlob(executable, arguments: arguments, dst: blob)
+	let request = alloc(requestBytes)
+	__Raw.storeWord(request, offset: requestArgvOffset, value: blob)
+	__Raw.storeWord(request, offset: requestArgvLengthOffset, value: blobLength)
+	__Raw.storeWord(request, offset: requestArgcOffset, value: __Raw.wrappingAdd(wordAt(arguments, offset: osArrayLengthOffset), right: 1))
+	__Raw.storeWord(request, offset: requestDirectoryOffset, value: __Raw.stringBytes(directory))
+	__Raw.storeWord(request, offset: requestDirectoryLengthOffset, value: __Raw.stringLength(directory))
+	var inputKind = spawnStdinInherit
+	if hasInput 'input'
+		inputKind = spawnStdinBytes
+		__Raw.storeWord(request, offset: requestInputOffset, value: __Raw.stringBytes(input))
+		__Raw.storeWord(request, offset: requestInputLengthOffset, value: __Raw.stringLength(input))
+	end 'input'
+	__Raw.storeWord(request, offset: requestInputKindOffset, value: inputKind)
+	__Raw.storeWord(request, offset: requestOutputKindOffset, value: spawnOutputCollect)
+	__Raw.storeWord(request, offset: requestOutputLimitOffset, value: noLimit)
+	__Raw.storeWord(request, offset: requestErrorKindOffset, value: spawnOutputCollect)
+	__Raw.storeWord(request, offset: requestErrorLimitOffset, value: noLimit)
+	__Raw.storeWord(request, offset: requestFlagsOffset, value: 0)
+	let run = newRun()
+	let failure = startChild(request, run: run)
+	free(request)
+	free(blob)
+	if failure != 0 'failed'
+		free(run)
+		reportRunFailure(errorAddress, failure: failure)
+		return 0
+	end 'failed'
+	let wait = waitOf(run)
+	let expired = awaitChild(wait, deadlineMs: deadlineMs)
+	finishRun(run)
+	if expired 'late'
+		freeStream(fieldAt(wait, offset: waitOutputOffset))
+		freeStream(fieldAt(wait, offset: waitErrorOffset))
+		free(run)
+		failWith(errorAddress, errorCase: timedOut)
+		return 0
+	end 'late'
+	storeStream(stdout, stream: fieldAt(wait, offset: waitOutputOffset))
+	storeStream(stderr, stream: fieldAt(wait, offset: waitErrorOffset))
+	let code = exitCodeOf(wordAt(wait, offset: waitStatusOffset))
+	free(run)
+	succeed(errorAddress)
+	return code
+end 'runChild'
+
+// osRun runs an executable with arguments and gives its exit code, and stores what the child wrote to its standard output
+// and error as strings at the two addresses. An executable that is not found fails with the first case of the error. A
+// child still running deadlineMs milliseconds after it started, when that is not noDeadline, is ended and fails the run
+// with the timeout case.
+function osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
+	return runChild(executable, arguments: arguments, directory: "", hasInput: false, input: noString(), deadlineMs: deadlineMs, stdout: stdout, stderr: stderr, errorAddress: errorAddress)
+end 'osRun'
+
+// osRunIn is osRun with the child started in directory, relative to the run's working directory, or in the run's own
+// working directory when directory is empty.
+function osRunIn(executable String, arguments Count, directory String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
+	return runChild(executable, arguments: arguments, directory: directory, hasInput: false, input: noString(), deadlineMs: deadlineMs, stdout: stdout, stderr: stderr, errorAddress: errorAddress)
+end 'osRunIn'
+
+// osRunInput is osRun with the child's standard input a pipe that holds the input and then ends.
+function osRunInput(executable String, arguments Count, input String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
+	return runChild(executable, arguments: arguments, directory: "", hasInput: true, input: input, deadlineMs: deadlineMs, stdout: stdout, stderr: stderr, errorAddress: errorAddress)
+end 'osRunInput'
+
 #if os(Windows)
-	// commandLineOf is a new zero-terminated UTF-16 command line of the executable and the arguments, each quoted by the
-	// rules that the C runtime splits them by, with a space between them. CreateProcessW may write in it.
-	function commandLineOf(executable String, arguments Count) returns Count
-		let count = wordAt(arguments, offset: osArrayLengthOffset)
-		if count >= osArrayLimit 'outside'
-			panic("too many arguments to quote")
-		end 'outside'
-		var capacity = __Raw.wrappingAdd(quotedBound(__Raw.stringLength(executable)), right: 1)
-		for i in 0 upto count 'size'
-			let spaceAndArgument = __Raw.wrappingAdd(quotedBound(__Raw.stringLengthAt(argumentAt(arguments, index: i), offset: 0)), right: 1)
-			capacity = __Raw.wrappingAdd(capacity, right: spaceAndArgument)
+	// waitOf is the wait of a run, which awaitChild serves.
+	function waitOf(run Count) returns Count
+		return fieldAt(run, offset: frameWaitOffset)
+	end 'waitOf'
+
+	// newRun is a new run: a frame whose wait has no entries.
+	function newRun() returns Count
+		let frame = alloc(frameBytes)
+		waitNew(fieldAt(frame, offset: frameWaitOffset))
+		return frame
+	end 'newRun'
+
+	// tokenLengthAt is the length of the token of a blob that starts at an offset.
+	function tokenLengthAt(blob Count, offset Count) returns Count
+		return terminatedLength(__Raw.wrappingAdd(blob, right: offset))
+	end 'tokenLengthAt'
+
+	// commandLineOfBlob is a new zero-terminated UTF-16 command line of the argc tokens of a blob, each quoted by the rules that
+	// maxon's runtime quotes them by (quoteArgument), with a space between them. CreateProcessW may write in it.
+	function commandLineOfBlob(blob Count, argc Count) returns Count
+		var capacity = 1 as Count
+		var offset = 0 as Count
+		for _ in 0 upto argc 'size'
+			let length = tokenLengthAt(blob, offset: offset)
+			capacity = __Raw.wrappingAdd(capacity, right: __Raw.wrappingAdd(quotedBound(length), right: 1))
+			offset = __Raw.wrappingAdd(offset, right: __Raw.wrappingAdd(length, right: 1))
 		end 'size'
 		let line = alloc(capacity)
-		var length = quoteArgument(__Raw.stringBytes(executable), length: __Raw.stringLength(executable), dst: line)
-		for i in 0 upto count 'write'
-			let argument = argumentAt(arguments, index: i)
-			length = storeNextByte(line, offset: length, value: spaceByte)
-			length = __Raw.wrappingAdd(length, right: quoteArgument(__Raw.stringBytesAt(argument, offset: 0), length: __Raw.stringLengthAt(argument, offset: 0), dst: __Raw.wrappingAdd(line, right: length)))
+		var written = 0 as Count
+		offset = 0
+		for i in 0 upto argc 'write'
+			let length = tokenLengthAt(blob, offset: offset)
+			if i != 0 'separator'
+				written = storeNextByte(line, offset: written, value: spaceByte)
+			end 'separator'
+			written = __Raw.wrappingAdd(written, right: quoteArgument(__Raw.wrappingAdd(blob, right: offset), length: length, dst: __Raw.wrappingAdd(line, right: written)))
+			offset = __Raw.wrappingAdd(offset, right: __Raw.wrappingAdd(length, right: 1))
 		end 'write'
-		if length >= textUnitLimit 'long'
+		if written >= textUnitLimit 'long'
 			panic("command line too long to convert")
 		end 'long'
-		let wide = alloc((length + 1) * wideUnitBytes)
-		_ = utf16FromUtf8(line, byteLength: length, dst: wide)
+		let wide = alloc((written + 1) * wideUnitBytes)
+		_ = utf16FromUtf8(line, byteLength: written, dst: wide)
 		free(line)
 		return wide
+	end 'commandLineOfBlob'
+
+	// commandLineOf is the command line of an executable and the arguments of an array of strings.
+	function commandLineOf(executable String, arguments Count) returns Count
+		let length = argvBlobBytes(executable, arguments: arguments)
+		let blob = alloc(length)
+		fillArgvBlob(executable, arguments: arguments, dst: blob)
+		let line = commandLineOfBlob(blob, argc: __Raw.wrappingAdd(wordAt(arguments, offset: osArrayLengthOffset), right: 1))
+		free(blob)
+		return line
 	end 'commandLineOf'
 
 	function inheritedBytes(count Count) returns Count
@@ -561,25 +733,6 @@ end 'bytesHoldNul'
 		return failure
 	end 'createChild'
 
-	// osRun runs an executable with arguments and gives its exit code, and stores what the child wrote to its standard output
-	// and error as strings at the two addresses. An executable that is not found fails with the first case of the error. A
-	// child still running deadlineMs milliseconds after it started, when that is not noDeadline, is ended and fails the run
-	// with the timeout case.
-	function osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
-		return runChild(executable, arguments: arguments, directory: "", hasInput: false, input: noString(), deadlineMs: deadlineMs, stdout: stdout, stderr: stderr, errorAddress: errorAddress)
-	end 'osRun'
-
-	// osRunIn is osRun with the child started in directory, relative to the run's working directory, or in the run's own
-	// working directory when directory is empty.
-	function osRunIn(executable String, arguments Count, directory String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
-		return runChild(executable, arguments: arguments, directory: directory, hasInput: false, input: noString(), deadlineMs: deadlineMs, stdout: stdout, stderr: stderr, errorAddress: errorAddress)
-	end 'osRunIn'
-
-	// osRunInput is osRun with the child's standard input a pipe that holds the input and then ends.
-	function osRunInput(executable String, arguments Count, input String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
-		return runChild(executable, arguments: arguments, directory: "", hasInput: true, input: input, deadlineMs: deadlineMs, stdout: stdout, stderr: stderr, errorAddress: errorAddress)
-	end 'osRunInput'
-
 	// killChild ends a child that is still running when its deadline passes.
 	function killChild(child Count)
 		_ = __Raw.callImport2("TerminateProcess", arg1: child, arg2: killedExitCode)
@@ -607,96 +760,412 @@ end 'bytesHoldNul'
 		return true
 	end 'childExited'
 
-	// abandonChild ends a child that is created and not yet running and undoes its run: it closes the child's handles and the
-	// ends of the pipes that the run uses, and frees the frame.
-	function abandonChild(child Count, thread Count, wait Count, frame Count)
+	// abandonChild ends a child that is created and not yet running and undoes its start: it closes the child's handles and the
+	// ends of the pipes that the run uses.
+	function abandonChild(child Count, thread Count, wait Count)
 		killChild(child)
 		closeHandle(thread)
 		closeHandle(child)
 		closeOurEnds(wait)
-		free(frame)
 	end 'abandonChild'
 
-	// runChild runs the child of osRun and osRunIn, in directory unless it is empty, and of osRunInput when hasInput is set.
-	function runChild(executable String, arguments Count, directory String, hasInput bool, input String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
-		if holdsNul(executable, arguments: arguments, directory: directory) 'nul'
-			failWith(errorAddress, errorCase: spawnFailed)
-			return 0
-		end 'nul'
-		let frame = alloc(frameBytes)
-		let wait = fieldAt(frame, offset: frameWaitOffset)
-		waitNew(wait)
-		let output = fieldAt(frame, offset: frameOutputEndsOffset)
-		let errors = fieldAt(frame, offset: frameErrorEndsOffset)
-		let inputEnds = fieldAt(frame, offset: frameInputEndsOffset)
-		let command = commandLineOf(executable, arguments: arguments)
-		if not openRunPipes(wait, output: output, errors: errors, input: inputEnds, hasInput: hasInput) 'pipes'
-			free(command)
-			free(frame)
-			failWith(errorAddress, errorCase: ioFailed)
-			return 0
+	// abandonRun ends a child that no wait has taken and gives up what the run holds of it: its exit's entry, its process handle and
+	// the ends of its pipes.
+	function abandonRun(run Count)
+		let wait = waitOf(run)
+		eventProcessFree(wordAt(wait, offset: waitProcessOffset))
+		killChild(wordAt(wait, offset: waitChildOffset))
+		closeHandle(wordAt(wait, offset: waitChildOffset))
+		closeOurEnds(wait)
+	end 'abandonRun'
+
+	// finishRun closes the child's process handle, once its wait has ended.
+	function finishRun(run Count)
+		closeHandle(wordAt(waitOf(run), offset: waitChildOffset))
+	end 'finishRun'
+
+	// exitCodeOf is the exit code that a child's status says: on Windows the status is the exit code.
+	function exitCodeOf(status Count) returns Count
+		return status
+	end 'exitCodeOf'
+
+	// statusKindOf is how a child ended that the status says: a Windows child that ended abnormally is exited, with its NTSTATUS
+	// for its code.
+	function statusKindOf(status Count) returns Count
+		return resultExited
+	end 'statusKindOf'
+
+	function statusCodeOf(status Count) returns Count
+		return status
+	end 'statusCodeOf'
+
+	// win32CodeOf is a system's error in Win32's vocabulary, which on Windows it is.
+	function win32CodeOf(code Count) returns Count
+		return code
+	end 'win32CodeOf'
+
+	// openNullDevice is a handle of the null device that a child inherits, open for reading and writing, or invalidHandle.
+	function openNullDevice() returns Count
+		let security = alloc(securityBytes)
+		zeroRange(security, from: 0, to: securityBytes)
+		__Raw.storeWord32(security, offset: securityLengthOffset, value: securityBytes)
+		__Raw.storeWord32(security, offset: securityInheritOffset, value: 1)
+		let name = wideOf(nullDeviceName)
+		let handle = __Raw.callImport7("CreateFileW", arg1: name, arg2: genericRead or genericWrite, arg3: fileShareRead or fileShareWrite, arg4: security, arg5: openExisting, arg6: fileAttributeNormal, arg7: noTemplate)
+		free(name)
+		free(security)
+		return handle
+	end 'openNullDevice'
+
+	let nullDeviceName = "NUL"
+
+	let fileShareWrite = 2
+
+	// createNoWindow is CREATE_NO_WINDOW, which a child that hides its window is created with.
+	let createNoWindow = 0x08000000
+
+	// startChild starts the child that a request describes in the run, and gives 0, or the failure of the step that failed, with
+	// every pipe and handle it made closed. The child is created suspended, watched (eventProcessNew) and then resumed, so that
+	// its exit is not missed; its standard handles are the ends of the run's pipes, the null device, or the caller's own; the
+	// zero-terminated UTF-16 copies it makes of the command line and the directory are freed before it returns.
+	function startChild(request Count, run Count) returns Count
+		let wait = waitOf(run)
+		let output = fieldAt(run, offset: frameOutputEndsOffset)
+		let errors = fieldAt(run, offset: frameErrorEndsOffset)
+		let inputEnds = fieldAt(run, offset: frameInputEndsOffset)
+		let pipes = pipesOf(request)
+		let inputKind = wordAt(request, offset: requestInputKindOffset)
+		let outputKind = wordAt(request, offset: requestOutputKindOffset)
+		let errorKind = wordAt(request, offset: requestErrorKindOffset)
+		prepareRun(wait, request: request)
+		if not openRunPipes(wait, output: output, errors: errors, input: inputEnds, pipes: pipes) 'pipes'
+			return setupFailure()
 		end 'pipes'
-		var childInput = __Raw.callImport1("GetStdHandle", arg1: stdInputHandle)
-		if hasInput 'input'
+		var nullDevice = invalidHandle
+		if inputKind == spawnStdinNone or outputKind == spawnOutputDiscard or errorKind == spawnOutputDiscard 'nulled'
+			nullDevice = openNullDevice()
+			if nullDevice == invalidHandle 'unopened'
+				let failure = systemFailure(failureStepStream, code: win32Error())
+				closeChildEnds(output, errors: errors, input: inputEnds, pipes: pipes)
+				closeOurEnds(wait)
+				return failure
+			end 'unopened'
+		end 'nulled'
+		var childInput = nullDevice
+		if inputKind == spawnStdinBytes 'piped'
 			childInput = endOf(inputEnds, writeEnd: false)
-		end 'input'
-		let startup = fieldAt(frame, offset: frameStartupOffset)
+		end 'piped'
+		if inputKind == spawnStdinInherit 'inherited'
+			childInput = __Raw.callImport1("GetStdHandle", arg1: stdInputHandle)
+		end 'inherited'
+		var childOutput = nullDevice
+		if outputKind == spawnOutputCollect 'collected'
+			childOutput = endOf(output, writeEnd: true)
+		end 'collected'
+		if outputKind == spawnOutputInherit 'inheritedOutput'
+			childOutput = __Raw.callImport1("GetStdHandle", arg1: stdOutputHandle)
+		end 'inheritedOutput'
+		var childErrors = nullDevice
+		if errorKind == spawnOutputCollect 'collectedErrors'
+			childErrors = endOf(errors, writeEnd: true)
+		end 'collectedErrors'
+		if errorKind == spawnOutputInherit 'inheritedErrors'
+			childErrors = __Raw.callImport1("GetStdHandle", arg1: stdErrorHandle)
+		end 'inheritedErrors'
+		let command = commandLineOfBlob(wordAt(request, offset: requestArgvOffset), argc: wordAt(request, offset: requestArgcOffset))
+		let startup = fieldAt(run, offset: frameStartupOffset)
 		__Raw.storeWord32(startup, offset: startupSizeOffset, value: startupBytes)
 		__Raw.storeWord32(startup, offset: startupFlagsOffset, value: startfUseStdHandles)
 		__Raw.storeWord(startup, offset: startupInputOffset, value: childInput)
-		__Raw.storeWord(startup, offset: startupOutputOffset, value: endOf(output, writeEnd: true))
-		__Raw.storeWord(startup, offset: startupErrorOffset, value: endOf(errors, writeEnd: true))
-		let inherited = fieldAt(frame, offset: frameInheritedOffset)
-		var inheritedCount = listInherited(inherited, count: 0, handle: wordAt(startup, offset: startupInputOffset))
-		inheritedCount = listInherited(inherited, count: inheritedCount, handle: wordAt(startup, offset: startupOutputOffset))
-		inheritedCount = listInherited(inherited, count: inheritedCount, handle: wordAt(startup, offset: startupErrorOffset))
-		let process = fieldAt(frame, offset: frameProcessOffset)
+		__Raw.storeWord(startup, offset: startupOutputOffset, value: childOutput)
+		__Raw.storeWord(startup, offset: startupErrorOffset, value: childErrors)
+		let inherited = fieldAt(run, offset: frameInheritedOffset)
+		var inheritedCount = listInherited(inherited, count: 0, handle: childInput)
+		inheritedCount = listInherited(inherited, count: inheritedCount, handle: childOutput)
+		inheritedCount = listInherited(inherited, count: inheritedCount, handle: childErrors)
+		let process = fieldAt(run, offset: frameProcessOffset)
 		var wideDirectory = noCurrentDirectory as Count
-		if __Raw.stringLength(directory) != 0 'directory'
-			wideDirectory = wideOf(directory)
+		let directoryLength = wordAt(request, offset: requestDirectoryLengthOffset)
+		if directoryLength != 0 'directory'
+			wideDirectory = wideOfBytes(wordAt(request, offset: requestDirectoryOffset), length: directoryLength)
 		end 'directory'
-		let win32 = createChild(command, startup: startup, inherited: inherited, inheritedCount: inheritedCount, process: process, flags: extendedStartupInfoPresent or createSuspended, directory: wideDirectory)
+		var creation = (extendedStartupInfoPresent or createSuspended) as Count
+		if (wordAt(request, offset: requestFlagsOffset) and spawnFlagHideWindow) != 0 'hidden'
+			creation = creation or createNoWindow
+		end 'hidden'
+		let win32 = createChild(command, startup: startup, inherited: inherited, inheritedCount: inheritedCount, process: process, flags: creation, directory: wideDirectory)
 		if wideDirectory != noCurrentDirectory 'wide'
 			free(wideDirectory)
 		end 'wide'
-		closeChildEnds(output, errors: errors, input: inputEnds, hasInput: hasInput)
+		closeChildEnds(output, errors: errors, input: inputEnds, pipes: pipes)
+		if nullDevice != invalidHandle 'closeNull'
+			closeHandle(nullDevice)
+		end 'closeNull'
 		free(command)
 		if win32 != 0 'spawn'
 			closeOurEnds(wait)
-			free(frame)
-			endWithError(errorAddress, osError: win32, table: spawnFailures())
-			return 0
+			return systemFailure(failureStepProgram, code: win32)
 		end 'spawn'
 		let child = wordAt(process, offset: processHandleOffset)
 		let thread = wordAt(process, offset: processThreadOffset)
 		let watch = eventProcessNew(child)
 		if watch == noEntry 'unwatched'
-			abandonChild(child, thread: thread, wait: wait, frame: frame)
-			failWith(errorAddress, errorCase: ioFailed)
-			return 0
+			abandonChild(child, thread: thread, wait: wait)
+			return setupFailure()
 		end 'unwatched'
 		if dword(__Raw.callImport1("ResumeThread", arg1: thread)) == resumeFailed 'unresumed'
 			eventProcessFree(watch)
-			abandonChild(child, thread: thread, wait: wait, frame: frame)
-			failWith(errorAddress, errorCase: ioFailed)
-			return 0
+			abandonChild(child, thread: thread, wait: wait)
+			return setupFailure()
 		end 'unresumed'
 		closeHandle(thread)
 		__Raw.storeWord(wait, offset: waitChildOffset, value: child)
 		__Raw.storeWord(wait, offset: waitProcessOffset, value: watch)
-		let expired = awaitChild(wait, input: input, deadlineMs: deadlineMs)
-		closeHandle(child)
-		if expired 'late'
-			freeStream(fieldAt(wait, offset: waitOutputOffset))
-			freeStream(fieldAt(wait, offset: waitErrorOffset))
-			free(frame)
-			failWith(errorAddress, errorCase: timedOut)
+		__Raw.storeWord(wait, offset: waitPidOffset, value: __Raw.loadWord32(process, offset: processIdOffset))
+		return 0
+	end 'startChild'
+
+	// The names that the lookup of a program reads, and the bytes it splits them by: CreateProcessW's own rules, which maxon's
+	// runtime follows, so that the file the lookup names is the file that runs.
+	let pathVariable = "PATH"
+
+	let extensionsVariable = "PATHEXT"
+
+	let currentDirectoryVariable = "NoDefaultCurrentDirectoryInExePath"
+
+	let defaultExtensions = ".COM;.EXE;.BAT;.CMD"
+
+	let legacySystemSubdirectory = "System"
+
+	let listSeparatorByte = 0x3B
+
+	let portableSeparatorByte = 0x2F
+
+	let extensionDotByte = 0x2E
+
+	let driveColonByte = 0x3A
+
+	let driveSpecBytes = 2
+
+	// fullPathOf is a new zero-terminated UTF-8 full path of the zero-terminated UTF-16 path at an address, or 0 when Windows
+	// gives none.
+	function fullPathOf(wide Count) returns Count
+		let units = dword(__Raw.callImport4("GetFullPathNameW", arg1: wide, arg2: 0, arg3: 0, arg4: 0))
+		if units == 0 or units >= textUnitLimit 'none'
 			return 0
-		end 'late'
-		storeStream(stdout, stream: fieldAt(wait, offset: waitOutputOffset))
-		storeStream(stderr, stream: fieldAt(wait, offset: waitErrorOffset))
-		free(frame)
-		succeed(errorAddress)
-		return wordAt(wait, offset: waitStatusOffset)
-	end 'runChild'
+		end 'none'
+		let buffer = alloc(units * wideUnitBytes)
+		let written = dword(__Raw.callImport4("GetFullPathNameW", arg1: wide, arg2: units, arg3: buffer, arg4: 0))
+		var path = 0 as Count
+		if written != 0 and written < units 'read'
+			path = alloc(written * maxUtf8BytesPerUnit + 1)
+			let length = utf8FromUtf16(buffer, units: written, dst: path)
+			__Raw.storeByte(path, offset: length, value: 0)
+		end 'read'
+		free(buffer)
+		return path
+	end 'fullPathOf'
+
+	// programIn is the file that a directory holds under a name and an extension (the working directory for no directory, no
+	// extension for none), as a new zero-terminated full path, or 0 when it holds none: a directory of the name is no program.
+	function programIn(directory Count, directoryLength Count, name Count, nameLength Count, extension Count, extensionLength Count) returns Count
+		var total = __Raw.wrappingAdd(nameLength, right: extensionLength)
+		if directoryLength != 0 'separated'
+			total = __Raw.wrappingAdd(total, right: __Raw.wrappingAdd(directoryLength, right: 1))
+		end 'separated'
+		if total >= textUnitLimit 'long'
+			return 0
+		end 'long'
+		let text = alloc(__Raw.wrappingAdd(total, right: 1))
+		var at = 0 as Count
+		if directoryLength != 0 'directory'
+			copyBytes(directory, target: text, count: directoryLength)
+			at = storeNextByte(text, offset: directoryLength, value: backslashByte)
+		end 'directory'
+		if nameLength != 0 'name'
+			copyBytes(name, target: __Raw.wrappingAdd(text, right: at), count: nameLength)
+			at = __Raw.wrappingAdd(at, right: nameLength)
+		end 'name'
+		if extensionLength != 0 'extension'
+			copyBytes(extension, target: __Raw.wrappingAdd(text, right: at), count: extensionLength)
+		end 'extension'
+		let wide = wideOfBytes(text, length: total)
+		free(text)
+		let attributes = dword(__Raw.callImport1("GetFileAttributesW", arg1: wide))
+		var found = 0 as Count
+		if attributes != invalidFileAttributes and (attributes and fileAttributeDirectory) == 0 'file'
+			found = fullPathOf(wide)
+		end 'file'
+		free(wide)
+		return found
+	end 'programIn'
+
+	// foundIn is the program that a directory holds under a name, as CreateProcessW tries it: the name as given where its last
+	// component has an extension, and otherwise the name with each extension of the list in turn; a new zero-terminated full path,
+	// or 0.
+	function foundIn(directory Count, directoryLength Count, name Count, nameLength Count, asGiven bool, extensions Count, extensionsLength Count) returns Count
+		if asGiven 'given'
+			return programIn(directory, directoryLength: directoryLength, name: name, nameLength: nameLength, extension: 0, extensionLength: 0)
+		end 'given'
+		var start = 0 as Count
+		while start <= extensionsLength 'extensions'
+			var stop = start
+			while stop < extensionsLength and __Raw.loadByte(extensions, offset: stop) != listSeparatorByte 'member'
+				stop = __Raw.wrappingAdd(stop, right: 1)
+			end 'member'
+			if stop != start 'present'
+				let found = programIn(directory, directoryLength: directoryLength, name: name, nameLength: nameLength, extension: __Raw.wrappingAdd(extensions, right: start), extensionLength: __Raw.wrappingSub(stop, right: start))
+				if found != 0 'hit'
+					return found
+				end 'hit'
+			end 'present'
+			start = __Raw.wrappingAdd(stop, right: 1)
+		end 'extensions'
+		return 0
+	end 'foundIn'
+
+	// windowsDirectory is a new zero-terminated UTF-8 path of the system directory, or where system is not set of the Windows
+	// directory, or 0 when Windows gives none.
+	function windowsDirectory(system bool) returns Count
+		let wide = alloc(longPathUnits * wideUnitBytes)
+		var units = 0 as Count
+		if system 'system'
+			units = dword(__Raw.callImport2("GetSystemDirectoryW", arg1: wide, arg2: longPathUnits))
+		end 'system' else 'windows'
+			units = dword(__Raw.callImport2("GetWindowsDirectoryW", arg1: wide, arg2: longPathUnits))
+		end 'windows'
+		var path = 0 as Count
+		if units != 0 and units < longPathUnits 'read'
+			path = alloc(units * maxUtf8BytesPerUnit + 1)
+			let length = utf8FromUtf16(wide, units: units, dst: path)
+			__Raw.storeByte(path, offset: length, value: 0)
+		end 'read'
+		free(wide)
+		return path
+	end 'windowsDirectory'
+
+	// foundInSystem is the program that the directory of the zero-terminated path holds, which it frees, or 0 for none.
+	function foundInSystem(directory Count, name Count, nameLength Count, asGiven bool, extensions Count, extensionsLength Count) returns Count
+		if directory == 0 'none'
+			return 0
+		end 'none'
+		let found = foundIn(directory, directoryLength: terminatedLength(directory), name: name, nameLength: nameLength, asGiven: asGiven, extensions: extensions, extensionsLength: extensionsLength)
+		free(directory)
+		return found
+	end 'foundInSystem'
+
+	// foundInLegacySystem is foundInSystem of the System directory below the Windows directory, which the Windows directory has the
+	// path of, which it frees.
+	function foundInLegacySystem(windows Count, name Count, nameLength Count, asGiven bool, extensions Count, extensionsLength Count) returns Count
+		if windows == 0 'none'
+			return 0
+		end 'none'
+		let windowsLength = terminatedLength(windows)
+		let subdirectoryLength = __Raw.stringLength(legacySystemSubdirectory)
+		let legacy = alloc(__Raw.wrappingAdd(__Raw.wrappingAdd(windowsLength, right: subdirectoryLength), right: 2))
+		copyBytes(windows, target: legacy, count: windowsLength)
+		var at = storeNextByte(legacy, offset: windowsLength, value: backslashByte)
+		copyBytes(__Raw.stringBytes(legacySystemSubdirectory), target: __Raw.wrappingAdd(legacy, right: at), count: subdirectoryLength)
+		at = __Raw.wrappingAdd(at, right: subdirectoryLength)
+		__Raw.storeByte(legacy, offset: at, value: 0)
+		return foundInSystem(legacy, name: name, nameLength: nameLength, asGiven: asGiven, extensions: extensions, extensionsLength: extensionsLength)
+	end 'foundInLegacySystem'
+
+	// foundOnPath is the program that a directory of the PATH value holds, the empty ones left out, or 0.
+	function foundOnPath(path Count, pathLength Count, name Count, nameLength Count, asGiven bool, extensions Count, extensionsLength Count) returns Count
+		var start = 0 as Count
+		while start <= pathLength 'directories'
+			var stop = start
+			while stop < pathLength and __Raw.loadByte(path, offset: stop) != listSeparatorByte 'directory'
+				stop = __Raw.wrappingAdd(stop, right: 1)
+			end 'directory'
+			if stop != start 'present'
+				let found = foundIn(__Raw.wrappingAdd(path, right: start), directoryLength: __Raw.wrappingSub(stop, right: start), name: name, nameLength: nameLength, asGiven: asGiven, extensions: extensions, extensionsLength: extensionsLength)
+				if found != 0 'hit'
+					return found
+				end 'hit'
+			end 'present'
+			start = __Raw.wrappingAdd(stop, right: 1)
+		end 'directories'
+		return 0
+	end 'foundOnPath'
+
+	// resolveProgram is the program that a name asks for, as a new zero-terminated UTF-8 full path, or 0 when there is none, found
+	// where CreateProcessW looks for the first word of a command line, in its order. A name that carries a path (a separator, or a
+	// drive's colon after one letter) is tried in that one place; any other is looked for in the directory of this program, the
+	// working directory unless NoDefaultCurrentDirectoryInExePath is set, the system directory, the System directory of the
+	// Windows directory, the Windows directory and the directories of PATH. A name whose last component has an extension is tried
+	// as given, and one without with each extension of PATHEXT.
+	function resolveProgram(name Count, length Count) returns Count
+		var asGiven = false
+		var carriesPath = false
+		for i in 0 upto length 'scan'
+			let byte = __Raw.loadByte(name, offset: i)
+			if byte == extensionDotByte 'extension'
+				asGiven = true
+			end 'extension'
+			if byte == backslashByte or byte == portableSeparatorByte 'separator'
+				asGiven = false
+				carriesPath = true
+			end 'separator'
+		end 'scan'
+		if not carriesPath and length >= driveSpecBytes and __Raw.loadByte(name, offset: 1) == driveColonByte 'drive'
+			carriesPath = true
+		end 'drive'
+		var extensionsUnset = 0 as Count
+		let readExtensions = osEnvironmentVariable(extensionsVariable, errorAddress: __Raw.addressOf(extensionsUnset))
+		var extensions = __Raw.stringBytes(readExtensions)
+		var extensionsLength = __Raw.stringLength(readExtensions)
+		if extensionsUnset != 0 'defaulted'
+			extensions = __Raw.stringBytes(defaultExtensions)
+			extensionsLength = __Raw.stringLength(defaultExtensions)
+		end 'defaulted'
+		if carriesPath 'carried'
+			return foundIn(0, directoryLength: 0, name: name, nameLength: length, asGiven: asGiven, extensions: extensions, extensionsLength: extensionsLength)
+		end 'carried'
+		var executableUnset = 0 as Count
+		let executable = osExecutablePath(__Raw.addressOf(executableUnset))
+		if executableUnset == 0 'executable'
+			var directoryLength = __Raw.stringLength(executable)
+			while directoryLength != 0 and __Raw.loadByte(__Raw.stringBytes(executable), offset: __Raw.wrappingSub(directoryLength, right: 1)) != backslashByte 'trim'
+				directoryLength = __Raw.wrappingSub(directoryLength, right: 1)
+			end 'trim'
+			if directoryLength > 1 'directory'
+				let found = foundIn(__Raw.stringBytes(executable), directoryLength: __Raw.wrappingSub(directoryLength, right: 1), name: name, nameLength: length, asGiven: asGiven, extensions: extensions, extensionsLength: extensionsLength)
+				if found != 0 'hit'
+					return found
+				end 'hit'
+			end 'directory'
+		end 'executable'
+		var currentUnset = 0 as Count
+		_ = osEnvironmentVariable(currentDirectoryVariable, errorAddress: __Raw.addressOf(currentUnset))
+		if currentUnset != 0 'currentDirectory'
+			let found = foundIn(0, directoryLength: 0, name: name, nameLength: length, asGiven: asGiven, extensions: extensions, extensionsLength: extensionsLength)
+			if found != 0 'hit'
+				return found
+			end 'hit'
+		end 'currentDirectory'
+		let inSystem = foundInSystem(windowsDirectory(true), name: name, nameLength: length, asGiven: asGiven, extensions: extensions, extensionsLength: extensionsLength)
+		if inSystem != 0 'inSystem'
+			return inSystem
+		end 'inSystem'
+		let windows = windowsDirectory(false)
+		let legacy = foundInLegacySystem(windows, name: name, nameLength: length, asGiven: asGiven, extensions: extensions, extensionsLength: extensionsLength)
+		if legacy != 0 'legacy'
+			if windows != 0 'freeWindows'
+				free(windows)
+			end 'freeWindows'
+			return legacy
+		end 'legacy'
+		let inWindows = foundInSystem(windows, name: name, nameLength: length, asGiven: asGiven, extensions: extensions, extensionsLength: extensionsLength)
+		if inWindows != 0 'inWindows'
+			return inWindows
+		end 'inWindows'
+		var pathUnset = 0 as Count
+		let path = osEnvironmentVariable(pathVariable, errorAddress: __Raw.addressOf(pathUnset))
+		if pathUnset != 0 'noPath'
+			return 0
+		end 'noPath'
+		return foundOnPath(__Raw.stringBytes(path), pathLength: __Raw.stringLength(path), name: name, nameLength: length, asGiven: asGiven, extensions: extensions, extensionsLength: extensionsLength)
+	end 'resolveProgram'
 #endif

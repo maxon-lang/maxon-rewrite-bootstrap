@@ -918,6 +918,9 @@ break.md: break.labeled-continue-outer
 break.md: break.labeled-continue-triple-nested
 break.md: break.multiple-conditions
 break.md: break.with-if
+builtin-type-checking.md: builtin-type-checking.error-subprocess-get-pid-cstring
+builtin-type-checking.md: builtin-type-checking.error-subprocess-resolve-on-path-int
+builtin-type-checking.md: builtin-type-checking.error-subprocess-resolve-on-path-managed
 builtins-byte-order.md: builtins-byte-order.a-let-handed-to-a-function-that-appends-is-written-as-for-a-push
 builtins-byte-order.md: builtins-byte-order.a-let-receiver-whose-method-appends-to-its-own-field-is-written-as-for-a-push
 builtins-byte-order.md: builtins-byte-order.an-append-to-a-let-binding-is-written-as-a-push-is
@@ -7999,6 +8002,7 @@ structs.md: struct-param
 structs.md: struct-return
 structs.md: var-field-assign
 structs.md: var-struct-field-assign
+subprocess-builtins.md: subprocess-builtins.result-pointer-guards
 subprocess.md: subprocess-a-path-to-a-missing-file-is-not-found
 subprocess.md: subprocess-a-program-path-holding-a-nul-is-refused-before-the-spawn
 subprocess.md: subprocess-an-argument-holding-a-nul-is-refused-before-the-spawn

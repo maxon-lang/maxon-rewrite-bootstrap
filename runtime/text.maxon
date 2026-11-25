@@ -259,14 +259,18 @@ end 'wideLength'
 
 // wideOf is a new zero-terminated UTF-16 copy of a string, which the caller frees.
 function wideOf(text String) returns Count
-	let length = __Raw.stringLength(text)
+	return wideOfBytes(__Raw.stringBytes(text), length: __Raw.stringLength(text))
+end 'wideOf'
+
+// wideOfBytes is a new zero-terminated UTF-16 copy of the length bytes of UTF-8 text at an address, which the caller frees.
+function wideOfBytes(source Count, length Count) returns Count
 	if length >= textUnitLimit 'outside'
 		panic("text too long to convert")
 	end 'outside'
 	let wide = alloc((length + 1) * wideUnitBytes)
-	_ = utf16FromUtf8(__Raw.stringBytes(text), byteLength: length, dst: wide)
+	_ = utf16FromUtf8(source, byteLength: length, dst: wide)
 	return wide
-end 'wideOf'
+end 'wideOfBytes'
 
 // stringOfUnits is a new string of the UTF-8 form of a UTF-16 text.
 function stringOfUnits(source Count, units Count) returns String
