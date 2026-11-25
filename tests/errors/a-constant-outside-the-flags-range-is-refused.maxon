@@ -1,0 +1,8 @@
+typealias Flags = int(0 to 15)
+
+function main() returns ExitCode
+	let f = 8 as Flags
+	// expect-error: E3005 at 6:12
+	let x = f or 16
+	return 0
+end 'main'

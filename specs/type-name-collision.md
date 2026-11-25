@@ -2634,7 +2634,7 @@ enum Status
 end 'Status'
 
 export function widest() returns ExitCode
-	return try Status.big.rawValue as ExitCode otherwise panic("out of range")
+	return Status.big.rawValue as ExitCode
 end 'widest'
 
 // --- file: main.maxon

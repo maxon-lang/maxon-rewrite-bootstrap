@@ -611,19 +611,39 @@ end 'rawValueSpan'
 // passed, stored or returned as one. It is noType for any other e, and for a value of such an enum that is no case written
 // out, whose case is not known before it runs.
 function rawCaseConstant(c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns ast.TypeID
+	let owner = caseOwner(c, e: e, kind: ast.MemberKind.memberEnumCase)
+	if owner == ast.noType or not ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: owner)).hasExplicitRaw 'unwritten'
+		return ast.noType
+	end 'unwritten'
+	return caseRawConstant(c, p: p, ms: ms, e: e, kind: ast.MemberKind.memberEnumCase)
+end 'rawCaseConstant'
+
+// caseRawConstant is the constant type of the raw value of the case (of the member kind) that e writes, whose cases write
+// integers or none: unnamed, so it takes the integer alias of the operand it meets as maxon's does. It is noType for any other e.
+function caseRawConstant(c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, kind ast.MemberKind) returns ast.TypeID
+	let owner = caseOwner(c, e: e, kind: kind)
+	if owner == ast.noType 'notCase'
+		return ast.noType
+	end 'notCase'
+	let orig = ast.originOf(ms.types, reads: p.types, t: owner)
+	if ast.typeEntry(ms.types, reads: p.types, t: orig).rawKind != ast.RawKind.integer 'notInteger'
+		return ast.noType
+	end 'notInteger'
+	let info = c.typing.members.get(e as Count).unwrap()
+	return ast.internConstInt(ms.types, reads: p.types, val: ast.typeEntry(ms.types, reads: p.types, t: orig).cases[info.enumCase].rawValue.clone())
+end 'caseRawConstant'
+
+// caseOwner is the enum or union that the case e names belongs to, where e names a case of that kind of type, and noType otherwise.
+function caseOwner(c Checker, e ast.NodeID, kind ast.MemberKind) returns ast.TypeID
 	if not c.typing.members.has(e as Count) 'notMember'
 		return ast.noType
 	end 'notMember'
 	let info = c.typing.members.get(e as Count).unwrap()
-	if info.kind != ast.MemberKind.memberEnumCase 'notCase'
+	if info.kind != kind 'notCase'
 		return ast.noType
 	end 'notCase'
-	let orig = ast.originOf(ms.types, reads: p.types, t: info.ownerTy)
-	if ast.typeEntry(ms.types, reads: p.types, t: orig).rawKind != ast.RawKind.integer or not ast.typeEntry(ms.types, reads: p.types, t: orig).hasExplicitRaw 'unwritten'
-		return ast.noType
-	end 'unwritten'
-	return ast.internConstInt(ms.types, reads: p.types, val: ast.typeEntry(ms.types, reads: p.types, t: orig).cases[info.enumCase].rawValue.clone())
-end 'rawCaseConstant'
+	return info.ownerTy
+end 'caseOwner'
 
 // codepointTyped is the type of the operand e, of type t: a Codepoint where retype says so and e is a character literal that
 // integerized made its code point, and t otherwise.

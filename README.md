@@ -4199,8 +4199,12 @@ A case of an enum, and of a union, may write a raw value after `=`: an integer, 
 The first case settles what they are and every later one agrees (`E3032`: `raw value type mismatch: 'expected int, got
 float'`), where a case that writes none is an integer, the one after the case before it, from 0; no two cases have the same
 value (`E3031`). `.rawValue` has the type of the values: a `Count` or a `FullRangeInt` for integers, a `FullRangeFloat`, a
-`String`. An enum is stored as its case's index, so a raw value is found by a switch on it, and a union value's tag is its
-case's index while its `.rawValue` is the tag the case writes (`add(dest Id) = 5`), and its `.ordinal` the index.
+`String`; but the `.rawValue` of a case written out (`Flag.first.rawValue`) of an enum or a union whose raw values are
+integers is that integer as a constant with no alias, as maxon types it, so it takes the alias of the operand it meets
+(`flags or Flag.first.rawValue` is a `Flags` where `Flags = int(0 to 15)`, and the value must fit it), while the
+`.rawValue` of a value that runs stays a `Count` or a `FullRangeInt`. A float or a string raw value is read when the program
+runs in maxon too, so it stays a `FullRangeFloat` or a `String`. An enum is stored as its case's index, so a raw value is
+found by a switch on it, and a union value's tag is its case's index while its `.rawValue` is the tag the case writes (`add(dest Id) = 5`), and its `.ordinal` the index.
 Interpolating an enum value that has raw values writes the raw value, and an enum with none the name of the case.
 
 **`fromRawValue`.** `Color.fromRawValue(raw)` is the case of an enum that writes `raw`, as maxon's is: a call of the type's

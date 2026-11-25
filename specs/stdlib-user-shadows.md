@@ -527,7 +527,7 @@ enum RepeatCount
 end 'RepeatCount'
 
 function main() returns ExitCode
-	return try RepeatCount.second.rawValue as ExitCode otherwise panic("out of range")
+	return RepeatCount.second.rawValue
 end 'main'
 ```
 ```exitcode
