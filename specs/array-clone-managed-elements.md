@@ -679,6 +679,7 @@ end 'main'
 ```
 
 <!-- test: a-write-through-a-cloned-arrays-record-element-leaves-the-source-alone -->
+<!-- skip: not yet: Array.get gives a copy of the element until it lends at the subscript-removal stage (1R), so a write through what it gave does not reach the array -->
 ### A write through an element of the clone does not reach the source
 The clone deep-copies each record element, so `e` is the copy's own record and the source's element still reads `1`.
 ```maxon

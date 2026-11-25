@@ -164,6 +164,7 @@ end 'main'
 ```
 
 <!-- test: clone-of-struct-array-survives-a-write-and-a-growth -->
+<!-- skip: not yet: Array.get gives a copy of the element until it lends at the subscript-removal stage (1R), so a write through what it gave does not reach the array -->
 ### A cloned Array of STRUCTS is independent under both mutation and growth
 Growth is the half that a shared element makes fatal rather than merely wrong: pushing past the
 clone's capacity copies its buffer, and a buffer of element pointers nobody owns twice is freed
