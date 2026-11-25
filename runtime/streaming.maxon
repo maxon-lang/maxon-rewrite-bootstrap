@@ -1,0 +1,448 @@
+// The streaming child of the subprocess rows, maxon's `__Builtins.subprocessSpawnStreaming` and the rows over its handle
+// (specs/subprocess-builtins.md, its Subprocess.maxon's StreamingSubprocess): a child that the caller drives while it goes on, where
+// the attached run's child is collected by one wait. It is the same child (spawn.maxon: one start, one table of handles, the run's
+// pipes, its exit and its tree), with its standard input a pipe that the caller writes and holds open, and its standard output and
+// error two pipes that the caller reads when it chooses: no green thread of the runtime reads them, so the child that is not read
+// fills a pipe and waits as it would on any pipe.
+//
+// A read gives the bytes that were read and not given yet, up to the count asked, and parks the calling green thread only while there
+// are none, until some arrive or the pipe ends; the rest of what a read of the pipe brought stays in the stream's text for the next.
+// The end of a stream is latched by the read that found it, which is what the stream's state says (the reader's, not the child's).
+//
+// Every row of a streaming child counts itself as a user of the child's record for as long as it runs (childHold, childDrop), so that
+// a release, which takes the handle out of the table and evicts every event entry that a call may be parked on, gives the record
+// back only once no call is in it. A word that names no live streaming child (a released one, one that was never given, -1, the
+// handle of an attached child) is a failure answered, never a fault.
+
+// What a write of the child's input answers: the bytes were written, the input is closed or the child no longer reads it, and a
+// payload that is queued is not written out yet. -1 is a word that names no live streaming child.
+let stdinAccepted = 0 as Count
+
+let stdinBroken = 1 as Count
+
+let stdinQueuePending = 2 as Count
+
+// What a wait for the child's exit answers besides its exit code: the deadline ended the child's tree (-2), or part of the tree still
+// ran afterwards (-3, endTreeSurvived).
+let waitTimedOutAnswer = 0xFFFFFFFFFFFFFFFE as Count
+
+// What a poll of the child's exit answers while the child runs (-1, as noHandle), and for a word that names no live streaming
+// child (-5).
+let pollRunningAnswer = 0xFFFFFFFFFFFFFFFF as Count
+
+let pollNoSuchChildAnswer = 0xFFFFFFFFFFFFFFFB as Count
+
+// The streams of a read: maxon's StdioStream, 0 for the child's output and 1 for its error.
+let streamOutputWord = 0 as Count
+
+let streamErrorWord = 1 as Count
+
+// The most of a read that a count of bytes can be: below it a count is a count, and at and above it a count of 0 or less, as maxon's is
+// signed.
+let readMostLimit = 0x8000000000000000 as Count
+
+// How long a wait for the input to take more sleeps, by how many times in a row it has: 0, 1, 3, 7, 15 milliseconds and at most
+// stdinBackoffMaxMs, the steps that maxon's pump counts.
+let stdinBackoffSteps = 5 as Count
+
+let stdinBackoffMaxMs = 16 as Count
+
+// streamingHold is the record of the streaming child that a word names, with one more user of it, which the caller gives back
+// (childDrop), or 0 for a word that names none.
+function streamingHold(handle Count) returns Count
+	let child = childHold(handle)
+	if child == 0 'none'
+		return 0
+	end 'none'
+	if wordAt(child, offset: childModeOffset) != childStreaming 'attached'
+		childDrop(child)
+		return 0
+	end 'attached'
+	return child
+end 'streamingHold'
+
+function childWait(child Count) returns Count
+	return waitOf(wordAt(child, offset: childRunOffset))
+end 'childWait'
+
+function inputOf(child Count) returns Count
+	return fieldAt(childWait(child), offset: waitInputOffset)
+end 'inputOf'
+
+// streamOf is the record of the child's output (streamOutputWord) or error, and 0 for another word.
+function streamOf(child Count, which Count) returns Count
+	if which == streamOutputWord 'output'
+		return fieldAt(childWait(child), offset: waitOutputOffset)
+	end 'output'
+	if which == streamErrorWord 'errors'
+		return fieldAt(childWait(child), offset: waitErrorOffset)
+	end 'errors'
+	return 0
+end 'streamOf'
+
+// readStream gives a new byte array of at most most of the bytes of a stream that were read and not given yet, reading the pipe
+// where there are none, parked until some arrive or the pipe ends, which it latches in the stream's state. The array is empty at the
+// end and for a pipe whose read failed. Reads of one stream follow each other.
+function readStream(stream Count, most Count) returns Count
+	let bytes = bytesNew()
+	while __Raw.compareExchange(stream, offset: streamBusyOffset, expected: 0, desired: set) != 0 'busy'
+		greenYield()
+	end 'busy'
+	while true 'fill'
+		let length = wordAt(stream, offset: streamLengthOffset)
+		let cursor = wordAt(stream, offset: streamReadOffset)
+		let available = __Raw.wrappingSub(length, right: cursor)
+		if available != 0 'buffered'
+			let taken = available if available < most else most
+			appendBytesOf(bytes, address: __Raw.wrappingAdd(wordAt(stream, offset: streamTextOffset), right: cursor), length: taken)
+			if taken == available 'drained'
+				__Raw.storeWord(stream, offset: streamLengthOffset, value: 0)
+				__Raw.storeWord(stream, offset: streamReadOffset, value: 0)
+			end 'drained' else 'kept'
+				__Raw.storeWord(stream, offset: streamReadOffset, value: __Raw.wrappingAdd(cursor, right: taken))
+			end 'kept'
+			break 'fill'
+		end 'buffered'
+		let entry = wordAt(stream, offset: endEntryOffset)
+		if wordAt(stream, offset: streamStateOffset) != streamOpen or entry == noEntry 'ended'
+			break 'fill'
+		end 'ended'
+		let room = streamRoom(stream)
+		let asked = room if room < readMostBytes else readMostBytes
+		let got = eventTransfer(entry, mode: eventRead, buffer: __Raw.wrappingAdd(wordAt(stream, offset: streamTextOffset), right: length), length: asked, deadline: eventNoDeadline)
+		if got == 0 'atEnd'
+			__Raw.storeWord(stream, offset: streamStateOffset, value: streamAtEof)
+			releaseOurEnd(stream)
+			break 'fill'
+		end 'atEnd'
+		if got > asked 'stopped'
+			if got == transferFailed 'failed'
+				__Raw.storeWord(stream, offset: streamStateOffset, value: streamReadFailed)
+				releaseOurEnd(stream)
+			end 'failed'
+			break 'fill'
+		end 'stopped'
+		__Raw.storeWord(stream, offset: streamLengthOffset, value: __Raw.wrappingAdd(length, right: got))
+	end 'fill'
+	__Raw.storeRelease(stream, offset: streamBusyOffset, value: unset)
+	return bytes
+end 'readStream'
+
+// subprocessReadAvailable is a new byte array of at most most bytes of what the child wrote to its output (stream 0) or its error
+// (1) that were not given yet, parking where there are none until some arrive or the stream ends. It is empty at the end of the
+// stream, for a stream that is neither, for a most of 0 or less, for a read that failed and for a word that names no live streaming
+// child; the stream's state (subprocessStdoutState) says which of the first, third and last it was.
+function subprocessReadAvailable(handle Count, stream Count, most Count) returns Count
+	let child = streamingHold(handle)
+	if child == 0 'none'
+		return bytesNew()
+	end 'none'
+	let record = streamOf(child, which: stream)
+	var bytes = 0 as Count
+	if record == 0 or most == 0 or most >= readMostLimit 'nothing'
+		bytes = bytesNew()
+	end 'nothing' else 'read'
+		bytes = readStream(record, most: most)
+	end 'read'
+	childDrop(child)
+	return bytes
+end 'subprocessReadAvailable'
+
+// streamStateOf is what a read of a stream of a child would answer next (a __SubprocessStreamState's ordinal), noSuchChild for a
+// word that names no live streaming child.
+function streamStateOf(handle Count, which Count) returns Count
+	let child = streamingHold(handle)
+	if child == 0 'none'
+		return streamNoSuchChild
+	end 'none'
+	let state = wordAt(streamOf(child, which: which), offset: streamStateOffset)
+	childDrop(child)
+	return state
+end 'streamStateOf'
+
+function subprocessStdoutState(handle Count) returns Count
+	return streamStateOf(handle, which: streamOutputWord)
+end 'subprocessStdoutState'
+
+function subprocessStderrState(handle Count) returns Count
+	return streamStateOf(handle, which: streamErrorWord)
+end 'subprocessStderrState'
+
+// writeToInput writes the length bytes at an address to the child's input, parked while its pipe is full, and says whether it did
+// (stdinAccepted) or the input is closed or the child no longer reads it (stdinBroken).
+function writeToInput(input Count, address Count, length Count) returns Count
+	if wordAt(input, offset: endEntryOffset) == noEntry 'closed'
+		return stdinBroken
+	end 'closed'
+	var done = 0 as Count
+	while done < length 'write'
+		let entry = wordAt(input, offset: endEntryOffset)
+		if entry == noEntry 'closedMeanwhile'
+			return stdinBroken
+		end 'closedMeanwhile'
+		let left = __Raw.wrappingSub(length, right: done)
+		let asked = left if left < inputChunkBytes else inputChunkBytes
+		let wrote = eventTransfer(entry, mode: eventWrite, buffer: __Raw.wrappingAdd(address, right: done), length: asked, deadline: eventNoDeadline)
+		if wrote > asked 'stopped'
+			return stdinBroken
+		end 'stopped'
+		done = __Raw.wrappingAdd(done, right: wrote)
+	end 'write'
+	return stdinAccepted
+end 'writeToInput'
+
+// writeStdin is a write of the length bytes at an address to the input of the child that a word names, which a payload that is
+// queued for it refuses (stdinQueuePending).
+function writeStdin(handle Count, address Count, length Count) returns Count
+	let child = streamingHold(handle)
+	if child == 0 'none'
+		return noHandle
+	end 'none'
+	let input = inputOf(child)
+	var answer = stdinQueuePending
+	if wordAt(input, offset: inputQueuedOffset) == 0 'unqueued'
+		answer = writeToInput(input, address: address, length: length)
+	end 'unqueued'
+	childDrop(child)
+	return answer
+end 'writeStdin'
+
+// cstringLength is the length of the bytes of a cstring up to its first NUL, or all of them where it holds none.
+function cstringLength(text String) returns Count
+	let length = __Raw.stringLength(text)
+	let bytes = __Raw.stringBytes(text)
+	var at = 0 as Count
+	while at < length and __Raw.loadByte(bytes, offset: at) != 0 'scan'
+		at = __Raw.wrappingAdd(at, right: 1)
+	end 'scan'
+	return at
+end 'cstringLength'
+
+// subprocessWriteStdinAll writes the text of a cstring up to its NUL to the child's input as it takes it, parking while the pipe is
+// full, and answers 0, or 1 for an input that is closed or a child that no longer reads, 2 while a payload queued for it is not
+// written out, and -1 for a word that names no live streaming child. No newline is added.
+function subprocessWriteStdinAll(handle Count, data String) returns Count
+	return writeStdin(handle, address: __Raw.stringBytes(data), length: cstringLength(data))
+end 'subprocessWriteStdinAll'
+
+// subprocessWriteStdinBytes is subprocessWriteStdinAll of the length bytes of the data, the NUL bytes among them. A length past
+// the data's is refused as a word that names no child.
+function subprocessWriteStdinBytes(handle Count, data String, length Count) returns Count
+	if length > __Raw.stringLength(data) 'past'
+		return noHandle
+	end 'past'
+	return writeStdin(handle, address: __Raw.stringBytes(data), length: length)
+end 'subprocessWriteStdinBytes'
+
+// pendingOf is how many bytes of the payload queued for an input are not written yet, 0 where none is queued.
+function pendingOf(input Count) returns Count
+	if wordAt(input, offset: inputQueuedOffset) == 0 'none'
+		return 0
+	end 'none'
+	return __Raw.wrappingSub(wordAt(input, offset: inputLengthOffset), right: wordAt(input, offset: inputDoneOffset))
+end 'pendingOf'
+
+// subprocessQueueStdin queues a copy of the length bytes of the data for the child's input, which a green thread of the runtime
+// writes as the child takes them and then closes the input, so that the caller goes on while the child reads (and while it writes
+// what a caller that wrote it itself could not read); it answers 0, 2 while a payload is queued already, and -1 for an input that
+// is closed, a length past the data's and a word that names no live streaming child.
+function subprocessQueueStdin(handle Count, data String, length Count) returns Count
+	let child = streamingHold(handle)
+	if child == 0 'none'
+		return noHandle
+	end 'none'
+	let input = inputOf(child)
+	var answer = noHandle
+	if wordAt(input, offset: inputQueuedOffset) != 0 'queued'
+		answer = stdinQueuePending
+	end 'queued' else if wordAt(input, offset: endEntryOffset) != noEntry and length <= __Raw.stringLength(data) 'open'
+		var payload = 0 as Count
+		if length != 0 'copy'
+			payload = alloc(length)
+			copyBytes(__Raw.stringBytes(data), target: payload, count: length)
+		end 'copy'
+		__Raw.storeWord(input, offset: inputTextOffset, value: payload)
+		__Raw.storeWord(input, offset: inputLengthOffset, value: length)
+		__Raw.storeWord(input, offset: inputDoneOffset, value: 0)
+		__Raw.storeRelease(input, offset: inputQueuedOffset, value: set)
+		__Raw.storeWord(child, offset: childQueueOffset, value: payload)
+		__Raw.storeWord(child, offset: childWriterOffset, value: startHelper(__Raw.codeAddress("inputWriterMain"), argument: input))
+		answer = stdinAccepted
+	end 'open'
+	childDrop(child)
+	return answer
+end 'subprocessQueueStdin'
+
+// subprocessPushStdin gives how many bytes of the queued payload are not written yet, 0 where none is queued, after the writer has
+// had a turn if some are not, and -1 for a word that names no live streaming child. It never waits for the child to take them.
+function subprocessPushStdin(handle Count) returns Count
+	let child = streamingHold(handle)
+	if child == 0 'none'
+		return noHandle
+	end 'none'
+	let input = inputOf(child)
+	if pendingOf(input) != 0 'pending'
+		greenYield()
+	end 'pending'
+	let remaining = pendingOf(input)
+	childDrop(child)
+	return remaining
+end 'subprocessPushStdin'
+
+// stdinBackoffOf is how long a wait for the input sleeps after a number of waits in a row.
+function stdinBackoffOf(passes Count) returns Count
+	var milliseconds = 0 as Count
+	var step = 0 as Count
+	while step < passes and step < stdinBackoffSteps 'grow'
+		milliseconds = __Raw.wrappingAdd(__Raw.wrappingAdd(milliseconds, right: milliseconds), right: 1)
+		step = __Raw.wrappingAdd(step, right: 1)
+	end 'grow'
+	return milliseconds if milliseconds < stdinBackoffMaxMs else stdinBackoffMaxMs
+end 'stdinBackoffOf'
+
+// subprocessAwaitStdinWritable gives the green thread that writes a queued payload its turn, by a sleep that grows with the number
+// of waits in a row (passes), while a payload is queued, and answers 0, or -1 for a word that names no live streaming child.
+function subprocessAwaitStdinWritable(handle Count, passes Count) returns Count
+	let child = streamingHold(handle)
+	if child == 0 'none'
+		return noHandle
+	end 'none'
+	let input = inputOf(child)
+	if pendingOf(input) != 0 and wordAt(input, offset: endEntryOffset) != noEntry 'pending'
+		let milliseconds = stdinBackoffOf(passes)
+		if milliseconds == 0 'now'
+			greenYield()
+		end 'now' else 'later'
+			sleepMs(milliseconds)
+		end 'later'
+	end 'pending'
+	childDrop(child)
+	return stdinAccepted
+end 'subprocessAwaitStdinWritable'
+
+// subprocessCloseStdin closes the caller's end of the child's input, which ends the payload queued for it where one is, and does
+// nothing for an input that is closed or a word that names no live streaming child.
+function subprocessCloseStdin(handle Count)
+	let child = streamingHold(handle)
+	if child == 0 'none'
+		return
+	end 'none'
+	releaseOurEnd(inputOf(child))
+	childDrop(child)
+end 'subprocessCloseStdin'
+
+// subprocessWaitExit parks the calling green thread until the child has exited, and gives its exit code (a POSIX child that a
+// signal ended gives 128 plus the signal), or until ms milliseconds (0 for none) have passed, which ends the child's tree: it gives
+// -2 then, and -3 where part of the tree still ran after the bound. It gives -1 for a word that names no live streaming child, for
+// a wait that another is parked in and for a child that was released while it waited. The child may be waited for again, and gives
+// its exit code again.
+function subprocessWaitExit(handle Count, ms Count) returns Count
+	let child = streamingHold(handle)
+	if child == 0 'none'
+		setLastError(systemFailure(failureStepProgram, code: codeInvalidHandle))
+		return noHandle
+	end 'none'
+	if __Raw.compareExchange(child, offset: childWaitingOffset, expected: 0, desired: set) != 0 'parked'
+		setLastError(systemFailure(failureStepProgram, code: codeInvalidHandle))
+		childDrop(child)
+		return noHandle
+	end 'parked'
+	let wait = childWait(child)
+	__Raw.storeWord(wait, offset: waitDeadlineOffset, value: runDeadline(ms))
+	__Raw.storeWord(wait, offset: waitExpiredOffset, value: unset)
+	__Raw.storeWord(wait, offset: waitKilledOffset, value: unset)
+	__Raw.storeWord(wait, offset: waitSurvivedOffset, value: unset)
+	var answer = noHandle
+	if waitForExit(wait) 'exited'
+		if wordAt(wait, offset: waitExpiredOffset) != 0 'late'
+			endDeadlineTree(wait)
+			answer = waitTimedOutAnswer
+			if wordAt(wait, offset: waitSurvivedOffset) != 0 'survived'
+				setLastError(systemFailure(failureStepProgram, code: codeGeneralFailure))
+				answer = endTreeSurvived
+			end 'survived'
+		end 'late' else 'ended'
+			answer = exitCodeOf(wordAt(wait, offset: waitStatusOffset))
+		end 'ended'
+	end 'exited' else 'aborted'
+		setLastError(systemFailure(failureStepProgram, code: codeInvalidHandle))
+	end 'aborted'
+	__Raw.storeRelease(child, offset: childWaitingOffset, value: unset)
+	childDrop(child)
+	return answer
+end 'subprocessWaitExit'
+
+// hasExited says whether a streaming child has exited, which it asks without waiting, and keeps what it ended with in the wait.
+function hasExited(child Count) returns bool
+	let wait = childWait(child)
+	return childExited(wait, child: wordAt(wait, offset: waitChildOffset))
+end 'hasExited'
+
+// subprocessPollExit gives the child's exit code once it has exited, -1 while it runs and -5 for a word that names no live
+// streaming child. It never waits and never ends the child.
+function subprocessPollExit(handle Count) returns Count
+	let child = streamingHold(handle)
+	if child == 0 'none'
+		return pollNoSuchChildAnswer
+	end 'none'
+	var answer = pollRunningAnswer
+	if hasExited(child) 'exited'
+		answer = exitCodeOf(wordAt(childWait(child), offset: waitStatusOffset))
+	end 'exited'
+	childDrop(child)
+	return answer
+end 'subprocessPollExit'
+
+// subprocessExitSignal gives the number of the signal that ended the child once it has exited (0 for a child that exited, which a
+// Windows child always did), -1 while it runs and -5 for a word that names no live streaming child.
+function subprocessExitSignal(handle Count) returns Count
+	let child = streamingHold(handle)
+	if child == 0 'none'
+		return pollNoSuchChildAnswer
+	end 'none'
+	var answer = pollRunningAnswer
+	if hasExited(child) 'exited'
+		answer = signalOf(wordAt(childWait(child), offset: waitStatusOffset))
+	end 'exited'
+	childDrop(child)
+	return answer
+end 'subprocessExitSignal'
+
+// evictEntryOf ends the waits on the event entry that a record holds, where it holds one.
+function evictEntryOf(record Count)
+	let entry = wordAt(record, offset: endEntryOffset)
+	if entry != noEntry 'open'
+		eventEvict(entry)
+	end 'open'
+end 'evictEntryOf'
+
+// releaseStreaming gives back a streaming child that a word named: it takes the child out of the table, so that no call finds it,
+// evicts what a call may be parked on (a read, a write, the writer of a queued payload, a wait for the exit), waits for the calls
+// that use the child to have returned and for the writer to have ended, ends the child with its tree where it still runs, closes its
+// pipes, and frees what it held.
+function releaseStreaming(handle Count, child Count)
+	if handleFind(handle, kind: childKind, remove: true) == 0 'gone'
+		return
+	end 'gone'
+	let run = wordAt(child, offset: childRunOffset)
+	let wait = waitOf(run)
+	evictEntryOf(fieldAt(wait, offset: waitOutputOffset))
+	evictEntryOf(fieldAt(wait, offset: waitErrorOffset))
+	evictEntryOf(fieldAt(wait, offset: waitInputOffset))
+	eventEvict(wordAt(wait, offset: waitProcessOffset))
+	while __Raw.atomicAdd(child, offset: childUsersOffset, value: 0) != 0 'users'
+		greenYield()
+	end 'users'
+	let writer = wordAt(child, offset: childWriterOffset)
+	if writer != noGreen 'written'
+		_ = greenAwait(writer)
+	end 'written'
+	abandonRun(run)
+	freeStream(fieldAt(wait, offset: waitOutputOffset))
+	freeStream(fieldAt(wait, offset: waitErrorOffset))
+	if wordAt(child, offset: childQueueOffset) != 0 'queue'
+		free(wordAt(child, offset: childQueueOffset))
+	end 'queue'
+	free(run)
+	free(child)
+end 'releaseStreaming'

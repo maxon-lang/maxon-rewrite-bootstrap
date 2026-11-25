@@ -1,0 +1,123 @@
+// A streaming child is driven by calls while it goes on: its input is written (subprocessWriteStdinBytes), its output and error
+// are read when the caller chooses (subprocessReadAvailable, which gives at most the count asked of what has been read and parks
+// only while there is none), what a read of each answers next is its state, and its exit is waited for (subprocessWaitExit, with
+// a deadline that ends its tree) or asked about (subprocessPollExit, subprocessExitSignal) without waiting. A handle that was
+// released, or never given, is answered as a failure. The child is this program run again.
+// native-only
+//> a streaming child started: true
+//> the first read of 3 gives: [ech]
+//> the next read gives the rest of what was read: [o:hello]
+//> before the end, the states are: open open
+//> a second write is echoed: [echo:world]
+//> after the input was closed, the output ends: [] atEof, the error says [bye] and ends: atEof
+//> the child exited with 7, polled 7, signal 0, and again 7
+//> after the release: out=noSuchChild read=[] write=-1 poll=-5 wait=-1
+//> a child that runs: poll=-1, a deadline of its wait answers -2
+//> after the deadline it is gone, with a code that is not 0: true, and a signal of 0 or 9: true
+//> the end of the tree of a child that runs answers 0, and it is gone: true
+
+typealias Blob = Array with Byte
+
+let terminator = 0 as Byte
+
+let parentEnvironment = 1
+
+let streamOutput = 0 as FullRangeInt
+
+let streamError = 1 as FullRangeInt
+
+function appendToken(mutates out Blob, token String)
+	for b in token.bytes() 'each'
+		out.push(b)
+	end 'each'
+	out.push(terminator)
+end 'appendToken'
+
+// child echoes what it reads from its input with a prefix, until the end of the input, then says bye on its error and exits with 7;
+// or as the sleeper it only waits.
+function child(mode String) returns ExitCode
+	if mode == "sleeper" 'sleeper'
+		sleep(60000)
+		return 0
+	end 'sleeper'
+	var reading = true
+	while reading 'reads'
+		let got = __Builtins.readStdin(65536)
+		if got.length() == 0 'end'
+			reading = false
+		end 'end' else 'more'
+			print("echo:{String.init(got)}")
+		end 'more'
+	end 'reads'
+	printError("bye")
+	return 7
+end 'child'
+
+// spawnSelf starts this program as a streaming child of a mode and gives its handle, or -1.
+function spawnSelf(mode String) returns FullRangeInt
+	var argv = Blob.create(0)
+	let executable = try Process.executablePath() otherwise return -1
+	appendToken(argv, token: executable.path)
+	appendToken(argv, token: mode)
+	var env = Blob.create(1)
+	env.push(terminator)
+	let empty = ""
+	return __Builtins.subprocessSpawnStreaming(argv.managed, 2, empty.cstr(), 0, env.managed, parentEnvironment)
+end 'spawnSelf'
+
+function readOf(handle FullRangeInt, stream FullRangeInt, most FullRangeInt) returns String
+	return String.init(__Builtins.subprocessReadAvailable(handle, stream, most))
+end 'readOf'
+
+function writeOf(handle FullRangeInt, text String) returns FullRangeInt
+	return __Builtins.subprocessWriteStdinBytes(handle, text.cstr(), text.byteLength())
+end 'writeOf'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() > 1 'child'
+		let mode = try args.get(1) otherwise return 2
+		return child(mode)
+	end 'child'
+	let h = spawnSelf("echo")
+	print("a streaming child started: {h != -1}\n")
+	if h == -1 'unstarted'
+		print("{String.init(__Builtins.subprocessLastErrorMessage())}\n")
+		return 3
+	end 'unstarted'
+	_ = writeOf(h, text: "hello")
+	print("the first read of 3 gives: [{readOf(h, stream: streamOutput, most: 3)}]\n")
+	print("the next read gives the rest of what was read: [{readOf(h, stream: streamOutput, most: 100)}]\n")
+	print("before the end, the states are: {__Builtins.subprocessStdoutState(h).name} {__Builtins.subprocessStderrState(h).name}\n")
+	_ = writeOf(h, text: "world")
+	print("a second write is echoed: [{readOf(h, stream: streamOutput, most: 100)}]\n")
+	__Builtins.subprocessCloseStdin(h)
+	let atEnd = readOf(h, stream: streamOutput, most: 100)
+	let outState = __Builtins.subprocessStdoutState(h).name
+	let bye = readOf(h, stream: streamError, most: 100)
+	_ = readOf(h, stream: streamError, most: 100)
+	print("after the input was closed, the output ends: [{atEnd}] {outState}, the error says [{bye}] and ends: {__Builtins.subprocessStderrState(h).name}\n")
+	let code = __Builtins.subprocessWaitExit(h, 0)
+	let polled = __Builtins.subprocessPollExit(h)
+	let signal = __Builtins.subprocessExitSignal(h)
+	let again = __Builtins.subprocessWaitExit(h, 0)
+	print("the child exited with {code}, polled {polled}, signal {signal}, and again {again}\n")
+	__Builtins.subprocessReleaseHandle(h)
+	let released = __Builtins.subprocessStdoutState(h).name
+	let readAfter = readOf(h, stream: streamOutput, most: 100)
+	print("after the release: out={released} read=[{readAfter}] write={writeOf(h, text: "late")} poll={__Builtins.subprocessPollExit(h)} wait={__Builtins.subprocessWaitExit(h, 0)}\n")
+	let sleeper = spawnSelf("sleeper")
+	let running = __Builtins.subprocessPollExit(sleeper)
+	let timedOut = __Builtins.subprocessWaitExit(sleeper, 300)
+	print("a child that runs: poll={running}, a deadline of its wait answers {timedOut}\n")
+	let afterCode = __Builtins.subprocessPollExit(sleeper)
+	let afterSignal = __Builtins.subprocessExitSignal(sleeper)
+	print("after the deadline it is gone, with a code that is not 0: {afterCode > 0}, and a signal of 0 or 9: {afterSignal == 0 or afterSignal == 9}\n")
+	__Builtins.subprocessReleaseHandle(sleeper)
+	let second = spawnSelf("sleeper")
+	let ended = __Builtins.subprocessEndTree(second)
+	let gone = __Builtins.subprocessPollExit(second)
+	print("the end of the tree of a child that runs answers {ended}, and it is gone: {gone > 0}\n")
+	__Builtins.subprocessReleaseHandle(second)
+	return 0
+end 'main'

@@ -1,0 +1,94 @@
+// A streaming child that is released while calls of other coroutines are parked on it gives those calls the answer of a handle that
+// names nothing, and the release waits for them to have returned before it frees what they use: a read parked on the output of a
+// child that writes nothing, a wait for its exit and the writer of a payload that the child does not read (its pipe is full) are each
+// woken. A child that still runs is ended with its tree by the release. The child is this program run again, which sleeps.
+// native-only
+//> the parked read answered nothing: true
+//> the parked wait answered -1: true
+//> the parked payload was ended with the release: true
+//> after the release the handle answers as one that names nothing: poll=-5 state=noSuchChild
+//> a hundred streaming children each started, read and released: 100
+
+typealias Blob = Array with Byte
+
+let terminator = 0 as Byte
+
+let parentEnvironment = 1
+
+let streamOutput = 0 as FullRangeInt
+
+function appendToken(mutates out Blob, token String)
+	for b in token.bytes() 'each'
+		out.push(b)
+	end 'each'
+	out.push(terminator)
+end 'appendToken'
+
+function spawnSelf(mode String) returns FullRangeInt
+	var argv = Blob.create(0)
+	let executable = try Process.executablePath() otherwise return -1
+	appendToken(argv, token: executable.path)
+	appendToken(argv, token: mode)
+	var env = Blob.create(1)
+	env.push(terminator)
+	let empty = ""
+	return __Builtins.subprocessSpawnStreaming(argv.managed, 2, empty.cstr(), 0, env.managed, parentEnvironment)
+end 'spawnSelf'
+
+function parkedRead(handle FullRangeInt) returns FullRangeInt
+	return 0 if __Builtins.subprocessReadAvailable(handle, streamOutput, 100).length() == 0 else 1
+end 'parkedRead'
+
+function parkedWait(handle FullRangeInt) returns FullRangeInt
+	return __Builtins.subprocessWaitExit(handle, 0)
+end 'parkedWait'
+
+function yieldsToParked()
+	for _ in 0 upto 10 'yields'
+		Scheduler.yield()
+	end 'yields'
+	sleep(200)
+end 'yieldsToParked'
+
+function payload() returns String
+	var text = "0123456789abcdef"
+	for _ in 0 upto 17 'doubling'
+		text = "{text}{text}"
+	end 'doubling'
+	return text
+end 'payload'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() > 1 'child'
+		sleep(60000)
+		return 0
+	end 'child'
+	let h = spawnSelf("sleeper")
+	if h == -1 'unstarted'
+		return 3
+	end 'unstarted'
+	let reader = async parkedRead(h)
+	let waiter = async parkedWait(h)
+	let text = payload()
+	let queued = __Builtins.subprocessQueueStdin(h, text.cstr(), text.byteLength())
+	yieldsToParked()
+	let pending = __Builtins.subprocessPushStdin(h)
+	__Builtins.subprocessReleaseHandle(h)
+	let read = await reader
+	let waited = await waiter
+	print("the parked read answered nothing: {read == 0}\n")
+	print("the parked wait answered -1: {waited == -1}\n")
+	print("the parked payload was ended with the release: {queued == 0 and pending > 0}\n")
+	print("after the release the handle answers as one that names nothing: poll={__Builtins.subprocessPollExit(h)} state={__Builtins.subprocessStdoutState(h).name}\n")
+	var started = 0 as Count
+	for _ in 0 upto 100 'many'
+		let each = spawnSelf("sleeper")
+		if each != -1 and __Builtins.subprocessPollExit(each) == -1 'counted'
+			started = try started + 1 otherwise 0
+		end 'counted'
+		__Builtins.subprocessReleaseHandle(each)
+	end 'many'
+	print("a hundred streaming children each started, read and released: {started}\n")
+	return 0
+end 'main'

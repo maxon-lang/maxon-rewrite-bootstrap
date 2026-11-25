@@ -61,3 +61,55 @@ end 'entrySubprocessResolveOnPath'
 function entrySubprocessEndTree(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	haltSubprocessRow("__Builtins.subprocessEndTree")
 end 'entrySubprocessEndTree'
+
+function entrySubprocessSpawnStreaming(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltSubprocessRow("__Builtins.subprocessSpawnStreaming")
+end 'entrySubprocessSpawnStreaming'
+
+function entrySubprocessStdoutState(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltSubprocessRow("__Builtins.subprocessStdoutState")
+end 'entrySubprocessStdoutState'
+
+function entrySubprocessStderrState(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltSubprocessRow("__Builtins.subprocessStderrState")
+end 'entrySubprocessStderrState'
+
+function entrySubprocessWriteStdinAll(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltSubprocessRow("__Builtins.subprocessWriteStdinAll")
+end 'entrySubprocessWriteStdinAll'
+
+function entrySubprocessWriteStdinBytes(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltSubprocessRow("__Builtins.subprocessWriteStdinBytes")
+end 'entrySubprocessWriteStdinBytes'
+
+function entrySubprocessQueueStdin(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltSubprocessRow("__Builtins.subprocessQueueStdin")
+end 'entrySubprocessQueueStdin'
+
+function entrySubprocessPushStdin(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltSubprocessRow("__Builtins.subprocessPushStdin")
+end 'entrySubprocessPushStdin'
+
+function entrySubprocessAwaitStdinWritable(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltSubprocessRow("__Builtins.subprocessAwaitStdinWritable")
+end 'entrySubprocessAwaitStdinWritable'
+
+function entrySubprocessWaitExit(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltSubprocessRow("__Builtins.subprocessWaitExit")
+end 'entrySubprocessWaitExit'
+
+function entrySubprocessPollExit(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltSubprocessRow("__Builtins.subprocessPollExit")
+end 'entrySubprocessPollExit'
+
+function entrySubprocessExitSignal(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltSubprocessRow("__Builtins.subprocessExitSignal")
+end 'entrySubprocessExitSignal'
+
+function entrySubprocessReadAvailable(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltSubprocessRow("__Builtins.subprocessReadAvailable")
+end 'entrySubprocessReadAvailable'
+
+function entrySubprocessCloseStdin(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltSubprocessRow("__Builtins.subprocessCloseStdin")
+end 'entrySubprocessCloseStdin'

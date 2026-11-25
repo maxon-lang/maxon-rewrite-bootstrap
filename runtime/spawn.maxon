@@ -223,7 +223,9 @@ let requestInputHoldOffset = 176 as Count
 let requestBytes = 184 as Count
 
 // A child: the record that a handle names. It holds whether a wait has taken it, the run that the child's system record is (its
-// pipes, its exit and its wait), and the copy of the input that the child reads, which the run's input stream points into.
+// pipes, its exit and its wait), and the copy of the input that the child reads, which the run's input stream points into. A
+// streaming child's holds also how many calls use it (the users, which a release waits to be none), whether a wait for its exit is
+// parked, the green thread that writes the payload queued for its input and the copy of that payload.
 let childKind = 1 as Count
 
 let childKindOffset = 0 as Count
@@ -234,7 +236,23 @@ let childRunOffset = 16 as Count
 
 let childInputOffset = 24 as Count
 
-let childBytes = 32 as Count
+let childModeOffset = 32 as Count
+
+let childUsersOffset = 40 as Count
+
+let childWaitingOffset = 48 as Count
+
+let childWriterOffset = 56 as Count
+
+let childQueueOffset = 64 as Count
+
+let childBytes = 72 as Count
+
+// A child's mode: whether its output is collected by a wait (the attached run's), or read on demand while the child goes on and its
+// input written by calls (the streaming child's).
+let childAttached = 0 as Count
+
+let childStreaming = 1 as Count
 
 // A child's states: not waited for, being waited for by a green thread, and waited for, its output in a result, and having its
 // tree ended, which only the caller of subprocessEndTree is in.
@@ -391,6 +409,25 @@ end 'handleInsert'
 // remove is set, which makes every word of it stale. The lock is held for the lookup alone: a record is the caller's to use until
 // it takes it out.
 function handleFind(word Count, kind Count, remove bool) returns Count
+	return handleFindHolding(word, kind: kind, remove: remove, hold: holdNothing)
+end 'handleFind'
+
+// holdNothing is the hold of a lookup that keeps its record in no count of users.
+let holdNothing = 0xFFFFFFFFFFFFFFFF as Count
+
+// childHold is the record of a child that a word names, or 0, with one more user of it, which the caller gives back (childDrop)
+// when it has done: a lookup that counts the user under the table's lock, so that a release that has taken the child out of the
+// table and finds no users left has no call that holds it.
+function childHold(word Count) returns Count
+	return handleFindHolding(word, kind: childKind, remove: false, hold: childUsersOffset)
+end 'childHold'
+
+function childDrop(child Count)
+	_ = __Raw.atomicAdd(child, offset: childUsersOffset, value: stepDown)
+end 'childDrop'
+
+// handleFindHolding is handleFind that adds one to the word of the record at the offset hold where it finds one, under the lock.
+function handleFindHolding(word Count, kind Count, remove bool, hold Count) returns Count
 	let table = handleTable()
 	spinLock(table, offset: tableLockOffset)
 	let slot = word and failureCodeMask
@@ -401,6 +438,9 @@ function handleFind(word Count, kind Count, remove bool) returns Count
 		let held = __Raw.loadWord(at, offset: slotGenerationOffset)
 		if held == generation and held mod 2 == 1 and __Raw.loadWord(__Raw.loadWord(at, offset: slotRecordOffset), offset: 0) == kind 'live'
 			record = __Raw.loadWord(at, offset: slotRecordOffset)
+			if hold != holdNothing 'held'
+				_ = __Raw.atomicAdd(record, offset: hold, value: 1)
+			end 'held'
 			if remove 'taken'
 				if generation < lastGeneration 'reusable'
 					__Raw.storeWord(at, offset: slotGenerationOffset, value: __Raw.wrappingAdd(generation, right: 1))
@@ -415,7 +455,7 @@ function handleFind(word Count, kind Count, remove bool) returns Count
 	end 'inside'
 	spinUnlock(table, offset: tableLockOffset)
 	return record
-end 'handleFind'
+end 'handleFindHolding'
 
 // setLastError records the failure of a spawn, which subprocessLastErrorCode and subprocessLastErrorMessage answer from.
 function setLastError(word Count)
@@ -580,6 +620,12 @@ function subprocessSpawn(argv Count, argc Count, cwd String, env Count, envInher
 		heldLength = stdinLength
 		copyBytes(__Raw.stringBytes(stdinData), target: held, count: stdinLength)
 	end 'copy'
+	let request = spawnRequest(argv, argc: argc, cwd: cwd, env: env, envInherit: envInherit, stdinKind: stdinKind, stdinData: stdinData, stdoutKind: stdoutKind, stdoutData: stdoutData, stdoutLimit: stdoutLimit, stderrKind: stderrKind, stderrData: stderrData, stderrLimit: stderrLimit, flags: flags, held: held, heldLength: heldLength)
+	return spawnAnswer(request, held: held, mode: childAttached)
+end 'subprocessSpawn'
+
+// spawnRequest is the request that the words of a spawn describe, whose input's bytes are the held copy, if there are any.
+function spawnRequest(argv Count, argc Count, cwd String, env Count, envInherit Count, stdinKind Count, stdinData String, stdoutKind Count, stdoutData String, stdoutLimit Count, stderrKind Count, stderrData String, stderrLimit Count, flags Count, held Count, heldLength Count) returns Count
 	let request = newRequest()
 	__Raw.storeWord(request, offset: requestArgvOffset, value: collectionData(argv))
 	__Raw.storeWord(request, offset: requestArgvLengthOffset, value: collectionLength(argv))
@@ -613,8 +659,16 @@ function subprocessSpawn(argv Count, argc Count, cwd String, env Count, envInher
 		__Raw.storeWord(request, offset: requestEnvironmentLengthOffset, value: collectionLength(env))
 		__Raw.storeWord(request, offset: requestEnvironmentOwnOffset, value: set)
 	end 'block'
+	return request
+end 'spawnRequest'
+
+// spawnAnswer starts the child that a request describes, which it frees, and gives its handle, the process id of a detached one,
+// or the answer of a failed start with the failure recorded. The held copy of the input goes to the child's record, or is freed
+// where there is none. A child of the mode streaming has its two output streams made, to be read on demand.
+function spawnAnswer(request Count, held Count, mode Count) returns Count
 	let run = newRun()
 	let failure = startChild(request, run: run)
+	let detached = isDetached(request)
 	free(request)
 	if failure != 0 'failed'
 		if held != 0 'kept'
@@ -627,7 +681,7 @@ function subprocessSpawn(argv Count, argc Count, cwd String, env Count, envInher
 		end 'refused'
 		return noHandle
 	end 'failed'
-	if (flags and spawnFlagDetach) != 0 'detached'
+	if detached 'detached'
 		let pid = wordAt(waitOf(run), offset: waitPidOffset)
 		noteDetached(pid)
 		free(run)
@@ -636,14 +690,44 @@ function subprocessSpawn(argv Count, argc Count, cwd String, env Count, envInher
 		end 'input'
 		return pid
 	end 'detached'
-	__Raw.storeWord(waitOf(run), offset: waitStartedOffset, value: osClockNanos())
+	let wait = waitOf(run)
+	__Raw.storeWord(wait, offset: waitStartedOffset, value: osClockNanos())
 	let child = alloc(childBytes)
+	zeroRange(child, from: 0, to: childBytes)
 	__Raw.storeWord(child, offset: childKindOffset, value: childKind)
 	__Raw.storeWord(child, offset: childStateOffset, value: childIdle)
 	__Raw.storeWord(child, offset: childRunOffset, value: run)
 	__Raw.storeWord(child, offset: childInputOffset, value: held)
+	__Raw.storeWord(child, offset: childModeOffset, value: mode)
+	__Raw.storeWord(child, offset: childWriterOffset, value: noGreen)
+	if mode == childStreaming 'streaming'
+		startStream(fieldAt(wait, offset: waitOutputOffset), wait: wait)
+		startStream(fieldAt(wait, offset: waitErrorOffset), wait: wait)
+		__Raw.storeWord(fieldAt(wait, offset: waitInputOffset), offset: inputWaitOffset, value: wait)
+	end 'streaming'
 	return handleInsert(child)
-end 'subprocessSpawn'
+end 'spawnAnswer'
+
+// subprocessSpawnStreaming starts a child as subprocessSpawn does, with the caller's environment or the block of env as all of it
+// (envInherit), whose standard input is a pipe that the caller writes (subprocessWriteStdinBytes, subprocessQueueStdin) and holds
+// open until it closes it, and whose standard output and error are pipes that the caller reads on demand
+// (subprocessReadAvailable), with no cap, and gives its handle, or -1 with the failure recorded. A detached or traced child is
+// refused.
+function subprocessSpawnStreaming(argv Count, argc Count, cwd String, flags Count, env Count, envInherit Count) returns Count
+	reapDetached()
+	var refused = 0 as Count
+	if (flags and (spawnFlagDetach or spawnFlagTraced)) != 0 'unserved'
+		refused = refusedFailure(codeNotSupported)
+	end 'unserved' else 'served'
+		refused = spawnRefusal(argv, argc: argc, cwd: cwd, env: env, envInherit: envInherit, stdinKind: spawnStdinHold, stdinData: "", stdoutKind: spawnOutputCollect, stdoutData: "", stderrKind: spawnOutputCollect, stderrData: "", flags: flags, stdinLength: 0)
+	end 'served'
+	if refused != 0 'refused'
+		setLastError(lastErrorOf(refused))
+		return noHandle
+	end 'refused'
+	let request = spawnRequest(argv, argc: argc, cwd: cwd, env: env, envInherit: envInherit, stdinKind: spawnStdinHold, stdinData: "", stdoutKind: spawnOutputCollect, stdoutData: "", stdoutLimit: 0, stderrKind: spawnOutputCollect, stderrData: "", stderrLimit: 0, flags: flags, held: 0, heldLength: 0)
+	return spawnAnswer(request, held: 0, mode: childStreaming)
+end 'subprocessSpawnStreaming'
 
 // subprocessGetPid is the process id that the spawn recorded for a child.
 function subprocessGetPid(handle Count) returns Count
@@ -661,7 +745,7 @@ end 'subprocessGetPid'
 // is -1, with ERROR_INVALID_HANDLE recorded.
 function subprocessWaitCollect(handle Count, ms Count) returns Count
 	let child = handleFind(handle, kind: childKind, remove: false)
-	if child == 0 'none'
+	if child == 0 or wordAt(child, offset: childModeOffset) != childAttached 'none'
 		setLastError(systemFailure(failureStepProgram, code: codeInvalidHandle))
 		return noHandle
 	end 'none'
@@ -761,33 +845,56 @@ let endTreeSurvived = 0xFFFFFFFFFFFFFFFD as Count
 // that no wait has taken, or for a kill that the system refused (its error recorded). A child whose tree is ended and that is waited
 // for after answers what became of it as any other.
 function subprocessEndTree(handle Count) returns Count
-	let child = handleFind(handle, kind: childKind, remove: false)
-	if child == 0 or __Raw.compareExchange(child, offset: childStateOffset, expected: childIdle, desired: childEnding) != childIdle 'none'
+	let child = childHold(handle)
+	if child == 0 'none'
 		setLastError(systemFailure(failureStepProgram, code: codeInvalidHandle))
 		return noHandle
 	end 'none'
-	let wait = waitOf(wordAt(child, offset: childRunOffset))
 	var answer = 0 as Count
-	let refused = endTree(wait)
-	if refused != 0 'refused'
-		setLastError(systemFailure(failureStepProgram, code: win32CodeOf(refused)))
-		answer = noHandle
-	end 'refused' else if not treeEnded(wait) 'survived'
-		setLastError(systemFailure(failureStepProgram, code: codeGeneralFailure))
-		answer = endTreeSurvived
-	end 'survived'
-	__Raw.storeRelease(child, offset: childStateOffset, value: childIdle)
+	if wordAt(child, offset: childModeOffset) == childStreaming 'streaming'
+		answer = endTreeOf(child)
+	end 'streaming' else 'attached'
+		if __Raw.compareExchange(child, offset: childStateOffset, expected: childIdle, desired: childEnding) != childIdle 'taken'
+			setLastError(systemFailure(failureStepProgram, code: codeInvalidHandle))
+			childDrop(child)
+			return noHandle
+		end 'taken'
+		answer = endTreeOf(child)
+		__Raw.storeRelease(child, offset: childStateOffset, value: childIdle)
+	end 'attached'
+	childDrop(child)
 	return answer
 end 'subprocessEndTree'
 
+// endTreeOf ends the tree of a child and gives subprocessEndTree's answer for it: 0, -3 for a tree still running after the bound, or
+// -1 for a kill that the system refused.
+function endTreeOf(child Count) returns Count
+	let wait = waitOf(wordAt(child, offset: childRunOffset))
+	let refused = endTree(wait)
+	if refused != 0 'refused'
+		setLastError(systemFailure(failureStepProgram, code: win32CodeOf(refused)))
+		return noHandle
+	end 'refused'
+	if not treeEnded(wait) 'survived'
+		setLastError(systemFailure(failureStepProgram, code: codeGeneralFailure))
+		return endTreeSurvived
+	end 'survived'
+	return 0
+end 'endTreeOf'
+
 // subprocessReleaseHandle gives back a child's slot and what it still holds; a word that names no child is skipped. A child that
 // no wait has taken is ended with its tree and given up, with the pipes it holds closed. A handle that a wait is parked on, or that
-// subprocessEndTree is ending, is a program error, which stops the program as it does in maxon.
+// subprocessEndTree is ending, is a program error, which stops the program as it does in maxon; a streaming child's is given back
+// once the calls that use it have returned (releaseStreaming).
 function subprocessReleaseHandle(handle Count)
 	let child = handleFind(handle, kind: childKind, remove: false)
 	if child == 0 'none'
 		return
 	end 'none'
+	if wordAt(child, offset: childModeOffset) == childStreaming 'streaming'
+		releaseStreaming(handle, child: child)
+		return
+	end 'streaming'
 	let state = wordAt(child, offset: childStateOffset)
 	if state == childCollecting or state == childEnding 'busy'
 		panic("subprocessReleaseHandle: the handle is released while a wait is parked on it")

@@ -719,6 +719,58 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entrySubprocessEndTree(vm, f: f, x: x)
 		return
 	end 'rtSubprocessEndTree'
+	if symbol == ir.Rt.rtSubprocessSpawnStreaming 'rtSubprocessSpawnStreaming'
+		try entrySubprocessSpawnStreaming(vm, f: f, x: x)
+		return
+	end 'rtSubprocessSpawnStreaming'
+	if symbol == ir.Rt.rtSubprocessReadAvailable 'rtSubprocessReadAvailable'
+		try entrySubprocessReadAvailable(vm, f: f, x: x)
+		return
+	end 'rtSubprocessReadAvailable'
+	if symbol == ir.Rt.rtSubprocessStdoutState 'rtSubprocessStdoutState'
+		try entrySubprocessStdoutState(vm, f: f, x: x)
+		return
+	end 'rtSubprocessStdoutState'
+	if symbol == ir.Rt.rtSubprocessStderrState 'rtSubprocessStderrState'
+		try entrySubprocessStderrState(vm, f: f, x: x)
+		return
+	end 'rtSubprocessStderrState'
+	if symbol == ir.Rt.rtSubprocessWriteStdinAll 'rtSubprocessWriteStdinAll'
+		try entrySubprocessWriteStdinAll(vm, f: f, x: x)
+		return
+	end 'rtSubprocessWriteStdinAll'
+	if symbol == ir.Rt.rtSubprocessWriteStdinBytes 'rtSubprocessWriteStdinBytes'
+		try entrySubprocessWriteStdinBytes(vm, f: f, x: x)
+		return
+	end 'rtSubprocessWriteStdinBytes'
+	if symbol == ir.Rt.rtSubprocessQueueStdin 'rtSubprocessQueueStdin'
+		try entrySubprocessQueueStdin(vm, f: f, x: x)
+		return
+	end 'rtSubprocessQueueStdin'
+	if symbol == ir.Rt.rtSubprocessPushStdin 'rtSubprocessPushStdin'
+		try entrySubprocessPushStdin(vm, f: f, x: x)
+		return
+	end 'rtSubprocessPushStdin'
+	if symbol == ir.Rt.rtSubprocessAwaitStdinWritable 'rtSubprocessAwaitStdinWritable'
+		try entrySubprocessAwaitStdinWritable(vm, f: f, x: x)
+		return
+	end 'rtSubprocessAwaitStdinWritable'
+	if symbol == ir.Rt.rtSubprocessCloseStdin 'rtSubprocessCloseStdin'
+		try entrySubprocessCloseStdin(vm, f: f, x: x)
+		return
+	end 'rtSubprocessCloseStdin'
+	if symbol == ir.Rt.rtSubprocessWaitExit 'rtSubprocessWaitExit'
+		try entrySubprocessWaitExit(vm, f: f, x: x)
+		return
+	end 'rtSubprocessWaitExit'
+	if symbol == ir.Rt.rtSubprocessPollExit 'rtSubprocessPollExit'
+		try entrySubprocessPollExit(vm, f: f, x: x)
+		return
+	end 'rtSubprocessPollExit'
+	if symbol == ir.Rt.rtSubprocessExitSignal 'rtSubprocessExitSignal'
+		try entrySubprocessExitSignal(vm, f: f, x: x)
+		return
+	end 'rtSubprocessExitSignal'
 	if symbol == ir.Rt.rtSubprocessLastErrorCode 'rtSubprocessLastErrorCode'
 		try entrySubprocessLastErrorCode(vm, f: f, x: x)
 		return

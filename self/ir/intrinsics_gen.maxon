@@ -611,6 +611,45 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrSubprocessEndTree 'intrSubprocessEndTree'
 		return lowerSubprocessEndTree(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSubprocessEndTree'
+	if op == ast.Intrinsic.intrSubprocessSpawnStreaming 'intrSubprocessSpawnStreaming'
+		return lowerSubprocessSpawnStreaming(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessSpawnStreaming'
+	if op == ast.Intrinsic.intrSubprocessReadAvailable 'intrSubprocessReadAvailable'
+		return lowerSubprocessReadAvailable(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessReadAvailable'
+	if op == ast.Intrinsic.intrSubprocessStdoutState 'intrSubprocessStdoutState'
+		return lowerSubprocessStdoutState(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessStdoutState'
+	if op == ast.Intrinsic.intrSubprocessStderrState 'intrSubprocessStderrState'
+		return lowerSubprocessStderrState(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessStderrState'
+	if op == ast.Intrinsic.intrSubprocessWriteStdinAll 'intrSubprocessWriteStdinAll'
+		return lowerSubprocessWriteStdinAll(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessWriteStdinAll'
+	if op == ast.Intrinsic.intrSubprocessWriteStdinBytes 'intrSubprocessWriteStdinBytes'
+		return lowerSubprocessWriteStdinBytes(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessWriteStdinBytes'
+	if op == ast.Intrinsic.intrSubprocessQueueStdin 'intrSubprocessQueueStdin'
+		return lowerSubprocessQueueStdin(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessQueueStdin'
+	if op == ast.Intrinsic.intrSubprocessPushStdin 'intrSubprocessPushStdin'
+		return lowerSubprocessPushStdin(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessPushStdin'
+	if op == ast.Intrinsic.intrSubprocessAwaitStdinWritable 'intrSubprocessAwaitStdinWritable'
+		return lowerSubprocessAwaitStdinWritable(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessAwaitStdinWritable'
+	if op == ast.Intrinsic.intrSubprocessCloseStdin 'intrSubprocessCloseStdin'
+		return lowerSubprocessCloseStdin(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessCloseStdin'
+	if op == ast.Intrinsic.intrSubprocessWaitExit 'intrSubprocessWaitExit'
+		return lowerSubprocessWaitExit(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessWaitExit'
+	if op == ast.Intrinsic.intrSubprocessPollExit 'intrSubprocessPollExit'
+		return lowerSubprocessPollExit(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessPollExit'
+	if op == ast.Intrinsic.intrSubprocessExitSignal 'intrSubprocessExitSignal'
+		return lowerSubprocessExitSignal(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessExitSignal'
 	if op == ast.Intrinsic.intrSubprocessLastErrorCode 'intrSubprocessLastErrorCode'
 		return lowerSubprocessLastErrorCode(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSubprocessLastErrorCode'
@@ -1465,6 +1504,45 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrSubprocessEndTree 'intrSubprocessEndTree'
 		return false
 	end 'intrSubprocessEndTree'
+	if op == ast.Intrinsic.intrSubprocessSpawnStreaming 'intrSubprocessSpawnStreaming'
+		return false
+	end 'intrSubprocessSpawnStreaming'
+	if op == ast.Intrinsic.intrSubprocessReadAvailable 'intrSubprocessReadAvailable'
+		return false
+	end 'intrSubprocessReadAvailable'
+	if op == ast.Intrinsic.intrSubprocessStdoutState 'intrSubprocessStdoutState'
+		return false
+	end 'intrSubprocessStdoutState'
+	if op == ast.Intrinsic.intrSubprocessStderrState 'intrSubprocessStderrState'
+		return false
+	end 'intrSubprocessStderrState'
+	if op == ast.Intrinsic.intrSubprocessWriteStdinAll 'intrSubprocessWriteStdinAll'
+		return false
+	end 'intrSubprocessWriteStdinAll'
+	if op == ast.Intrinsic.intrSubprocessWriteStdinBytes 'intrSubprocessWriteStdinBytes'
+		return false
+	end 'intrSubprocessWriteStdinBytes'
+	if op == ast.Intrinsic.intrSubprocessQueueStdin 'intrSubprocessQueueStdin'
+		return false
+	end 'intrSubprocessQueueStdin'
+	if op == ast.Intrinsic.intrSubprocessPushStdin 'intrSubprocessPushStdin'
+		return false
+	end 'intrSubprocessPushStdin'
+	if op == ast.Intrinsic.intrSubprocessAwaitStdinWritable 'intrSubprocessAwaitStdinWritable'
+		return false
+	end 'intrSubprocessAwaitStdinWritable'
+	if op == ast.Intrinsic.intrSubprocessCloseStdin 'intrSubprocessCloseStdin'
+		return false
+	end 'intrSubprocessCloseStdin'
+	if op == ast.Intrinsic.intrSubprocessWaitExit 'intrSubprocessWaitExit'
+		return false
+	end 'intrSubprocessWaitExit'
+	if op == ast.Intrinsic.intrSubprocessPollExit 'intrSubprocessPollExit'
+		return false
+	end 'intrSubprocessPollExit'
+	if op == ast.Intrinsic.intrSubprocessExitSignal 'intrSubprocessExitSignal'
+		return false
+	end 'intrSubprocessExitSignal'
 	if op == ast.Intrinsic.intrSubprocessLastErrorCode 'intrSubprocessLastErrorCode'
 		return false
 	end 'intrSubprocessLastErrorCode'

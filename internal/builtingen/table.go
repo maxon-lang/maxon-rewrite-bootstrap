@@ -409,6 +409,13 @@ var enumTypes = []enumType{
 		{"inputTooLarge", "ErrorInputTooLarge"},
 		{"statusLost", "ErrorStatusLost"},
 	}},
+	// SubprocessStreamState is maxon's (stdlib/Builtins.maxon): what a read of a streaming child's output or error answers next.
+	{Key: "SubprocessStreamState", Name: "__SubprocessStreamState", Cases: []enumCase{
+		{"open", "StreamStateOpen"},
+		{"atEof", "StreamStateAtEof"},
+		{"readFailed", "StreamStateReadFailed"},
+		{"noSuchChild", "StreamStateNoSuchChild"},
+	}},
 	// DebuggeeError is maxon's: what a read or a write of a debuggee's memory or registers fails with.
 	{Key: "DebuggeeError", Name: "DebuggeeError", Cases: []enumCase{
 		{"unreadable", "ErrorDebuggeeUnreadable"},
@@ -984,9 +991,10 @@ var tableFunctions = []function{
 	// reports them, in a fresh buffer of bytes: empty past the last entry, and one NUL byte where the system handed over no
 	// environment, neither of which an entry can be.
 	{Owner: "Builtins", Name: "osEnvironmentEntry", Static: true, Params: []string{"_ ElementIndex"}, Result: "ManagedMemory with Byte", Intrinsic: "OsEnvironmentEntry", Instead: "Process.currentEnvironmentEntries()"},
-	// The subprocess rows are maxon's `__Builtins.subprocess*` (specs/subprocess-builtins.md), the floor of its Subprocess.maxon, as
-	// far as the first step of them goes: a spawn that gives a handle (or -1), a wait that collects the output of the child it names
-	// into a result, the readers of that result, and the helpers. A handle and a result are each a word that names a slot of the
+	// The subprocess rows are maxon's `__Builtins.subprocess*` (specs/subprocess-builtins.md), the floor of its Subprocess.maxon, but
+	// for the kill and the signal that no corpus file calls: a spawn that gives a handle (or -1), or the id of a detached child, a wait
+	// that collects the output of the child it names into a result, the readers of that result, the streaming child (a spawn whose
+	// input is written and whose output is read by calls, its waits and polls) and the helpers. A handle and a result are each a word that names a slot of the
 	// runtime's table and the generation the slot is in, so a word that names nothing live (a released one, one that was
 	// never given, -1) is a failure and never a fault. A cstring is the two words of a String, which the row copies where it
 	// hands the bytes to the system and frees on every way out. The results that are words are signed where maxon's are, and
@@ -1003,6 +1011,19 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "subprocessResultRelease", Static: true, Params: []string{"_ FullRangeInt"}, Intrinsic: "SubprocessResultRelease", Instead: "Subprocess.run or a Configuration's run()"},
 	{Owner: "Builtins", Name: "subprocessReleaseHandle", Static: true, Params: []string{"_ FullRangeInt"}, Intrinsic: "SubprocessReleaseHandle", Instead: "Subprocess.run or a Configuration's run()"},
 	{Owner: "Builtins", Name: "subprocessEndTree", Static: true, Params: []string{"_ FullRangeInt"}, Result: "FullRangeInt", Intrinsic: "SubprocessEndTree", Instead: "Subprocess.run or a Configuration's run()"},
+	{Owner: "Builtins", Name: "subprocessSpawnStreaming", Static: true, Params: []string{"_ ManagedMemory with Byte", "_ ElementIndex", "_ CString", "_ Natural", "_ ManagedMemory with Byte", "_ Natural"}, Result: "FullRangeInt", Intrinsic: "SubprocessSpawnStreaming", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessReadAvailable", Static: true, Params: []string{"_ FullRangeInt", "_ FullRangeInt", "_ FullRangeInt"}, Result: "ManagedMemory with Byte", Intrinsic: "SubprocessReadAvailable", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessStdoutState", Static: true, Params: []string{"_ FullRangeInt"}, Result: "SubprocessStreamState", Intrinsic: "SubprocessStdoutState", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessStderrState", Static: true, Params: []string{"_ FullRangeInt"}, Result: "SubprocessStreamState", Intrinsic: "SubprocessStderrState", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessWriteStdinAll", Static: true, Params: []string{"_ FullRangeInt", "_ CString"}, Result: "FullRangeInt", Intrinsic: "SubprocessWriteStdinAll", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessWriteStdinBytes", Static: true, Params: []string{"_ FullRangeInt", "_ CString", "_ Natural"}, Result: "FullRangeInt", Intrinsic: "SubprocessWriteStdinBytes", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessQueueStdin", Static: true, Params: []string{"_ FullRangeInt", "_ CString", "_ Natural"}, Result: "FullRangeInt", Intrinsic: "SubprocessQueueStdin", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessPushStdin", Static: true, Params: []string{"_ FullRangeInt"}, Result: "FullRangeInt", Intrinsic: "SubprocessPushStdin", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessAwaitStdinWritable", Static: true, Params: []string{"_ FullRangeInt", "_ Natural"}, Result: "FullRangeInt", Intrinsic: "SubprocessAwaitStdinWritable", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessCloseStdin", Static: true, Params: []string{"_ FullRangeInt"}, Intrinsic: "SubprocessCloseStdin", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessWaitExit", Static: true, Params: []string{"_ FullRangeInt", "_ Natural"}, Result: "FullRangeInt", Intrinsic: "SubprocessWaitExit", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessPollExit", Static: true, Params: []string{"_ FullRangeInt"}, Result: "FullRangeInt", Intrinsic: "SubprocessPollExit", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessExitSignal", Static: true, Params: []string{"_ FullRangeInt"}, Result: "FullRangeInt", Intrinsic: "SubprocessExitSignal", Instead: "StreamingSubprocess"},
 	{Owner: "Builtins", Name: "subprocessLastErrorCode", Static: true, Result: "FullRangeInt", Intrinsic: "SubprocessLastErrorCode", Instead: "Subprocess.run or a Configuration's run()"},
 	{Owner: "Builtins", Name: "subprocessLastErrorMessage", Static: true, Result: "ManagedMemory with Byte", Intrinsic: "SubprocessLastErrorMessage", Instead: "Subprocess.run or a Configuration's run()"},
 	{Owner: "Builtins", Name: "subprocessResolveOnPath", Static: true, Params: []string{"_ CString"}, Result: "ManagedMemory with Byte", Intrinsic: "SubprocessResolveOnPath", Instead: "Subprocess.run or a Configuration's run()"},
@@ -1323,6 +1344,19 @@ var entries = []entry{
 	{"SubprocessResultRelease", "rt.subprocess.resultRelease", "Os", roleCall, "(result): gives back the result and the output it holds; a word that names no result is skipped"},
 	{"SubprocessReleaseHandle", "rt.subprocess.releaseHandle", "Os", roleCall, "(handle): gives back the child's slot and what it still holds; a word that names no live child is skipped"},
 	{"SubprocessEndTree", "rt.subprocess.endTree", "Os", roleCall, "(handle) -> 0 when the child and every process it started are gone, -3 when part of the tree is still running after the kill, -1 for a word that names no child that no wait has taken or a kill the system refused"},
+	{"SubprocessSpawnStreaming", "rt.subprocess.spawnStreaming", "Os", roleCall, "(argv ByteArray, argc, cwd cstring, flags, env ByteArray, envInherit) -> handle or -1: starts the child as the attached spawn does, its standard input a pipe that the caller writes and holds open and its standard output and error pipes that the caller reads on demand, with no cap; a traced or a detached child is refused, as a spawn that fails; the handle names a slot of the runtime's table and its generation, as the attached spawn's does"},
+	{"SubprocessReadAvailable", "rt.subprocess.readAvailable", "Os", roleCall, "(handle, stream, most) -> ByteArray: at most most bytes of the child's output (stream 0) or error (1) that were read from its pipe and not given yet, a fresh copy, and where there are none parks until there are some or the stream ends; empty at the end, for a stream that is neither, for most of 0 or less, for a failed read and for a word that names no live streaming child"},
+	{"SubprocessStdoutState", "rt.subprocess.stdoutState", "Os", roleCall, "(handle) -> __SubprocessStreamState: what a read of the child's output answers next: open, atEof once a read found the end, readFailed once a read failed, noSuchChild for a word that names no live streaming child"},
+	{"SubprocessStderrState", "rt.subprocess.stderrState", "Os", roleCall, "(handle) -> __SubprocessStreamState: stdoutState of the child's error"},
+	{"SubprocessWriteStdinAll", "rt.subprocess.writeStdinAll", "Os", roleCall, "(handle, data cstring) -> 0 when every byte of the text up to its NUL was written to the child's input, parking while the pipe is full, 1 when the input is closed or the child no longer reads it, 2 while a payload queued for it is not written out, -1 for a word that names no live streaming child"},
+	{"SubprocessWriteStdinBytes", "rt.subprocess.writeStdinBytes", "Os", roleCall, "(handle, data cstring, length) -> writeStdinAll of the length bytes of data, the NUL bytes among them"},
+	{"SubprocessQueueStdin", "rt.subprocess.queueStdin", "Os", roleCall, "(handle, data cstring, length) -> 0 when a copy of the length bytes is queued, which a green thread of the runtime writes to the child's input as it takes them and then closes it, 2 while a payload is queued already, -1 for an input that is closed or a word that names no live streaming child"},
+	{"SubprocessPushStdin", "rt.subprocess.pushStdin", "Os", roleCall, "(handle) -> how many bytes of the queued payload are not written yet (0 for none), after a turn of the writer; -1 for a word that names no live streaming child"},
+	{"SubprocessAwaitStdinWritable", "rt.subprocess.awaitStdinWritable", "Os", roleCall, "(handle, passes) -> 0 once the input may take more or is closed, after a sleep of 0, 1, 3, 7, 15 or 16 milliseconds for passes of 0 to 5 and more while a payload is queued; -1 for a word that names no live streaming child"},
+	{"SubprocessCloseStdin", "rt.subprocess.closeStdin", "Os", roleCall, "(handle): closes the caller's end of the child's input, which ends a payload that is queued, and does nothing for an input that is closed or a word that names no live streaming child"},
+	{"SubprocessWaitExit", "rt.subprocess.waitExit", "Os", roleCall, "(handle, ms) -> the child's exit code (a POSIX child that a signal ended gives 128 plus the signal), parking until it has exited or until ms milliseconds (0 for none) have passed, which ends the child's tree: -2 for a deadline that ended it, -3 for one after which part of the tree still ran, -1 for a word that names no live streaming child or a wait that another is parked in"},
+	{"SubprocessPollExit", "rt.subprocess.pollExit", "Os", roleCall, "(handle) -> the child's exit code once it has exited, -1 while it runs, -5 for a word that names no live streaming child; never waits and never ends the child"},
+	{"SubprocessExitSignal", "rt.subprocess.exitSignal", "Os", roleCall, "(handle) -> the number of the signal that ended the child (0 for one that exited, always on Windows) once it has exited, -1 while it runs, -5 for a word that names no live streaming child"},
 	{"SubprocessLastErrorCode", "rt.subprocess.lastErrorCode", "Os", roleCall, "() -> the failed step of the last spawn above 32 bits and the Win32 code of its failure in them (a POSIX errno mapped to 2, 3, 5 or 31), 0 when nothing has failed"},
 	{"SubprocessLastErrorMessage", "rt.subprocess.lastErrorMessage", "Os", roleCall, "() -> ByteArray: 'os error N' for the code of the last failure, empty when nothing has failed"},
 	{"SubprocessResolveOnPath", "rt.subprocess.resolveOnPath", "Os", roleCall, "(name cstring) -> ByteArray: the path of the program that the name asks for, searched for as the system's own lookup does (PATH and PATHEXT on Windows, PATH on POSIX), or the name itself where none is found"},
@@ -1521,6 +1555,19 @@ var runtimeFunctions = []runtimeFunction{
 	{"SubprocessResultRelease", "subprocessResultRelease(result Count)"},
 	{"SubprocessReleaseHandle", "subprocessReleaseHandle(handle Count)"},
 	{"SubprocessEndTree", "subprocessEndTree(handle Count) Count"},
+	{"SubprocessSpawnStreaming", "subprocessSpawnStreaming(argv Count, argc Count, cwd String, flags Count, env Count, envInherit Count) Count"},
+	{"SubprocessReadAvailable", "subprocessReadAvailable(handle Count, stream Count, most Count) Count"},
+	{"SubprocessStdoutState", "subprocessStdoutState(handle Count) Count"},
+	{"SubprocessStderrState", "subprocessStderrState(handle Count) Count"},
+	{"SubprocessWriteStdinAll", "subprocessWriteStdinAll(handle Count, data String) Count"},
+	{"SubprocessWriteStdinBytes", "subprocessWriteStdinBytes(handle Count, data String, length Count) Count"},
+	{"SubprocessQueueStdin", "subprocessQueueStdin(handle Count, data String, length Count) Count"},
+	{"SubprocessPushStdin", "subprocessPushStdin(handle Count) Count"},
+	{"SubprocessAwaitStdinWritable", "subprocessAwaitStdinWritable(handle Count, passes Count) Count"},
+	{"SubprocessCloseStdin", "subprocessCloseStdin(handle Count)"},
+	{"SubprocessWaitExit", "subprocessWaitExit(handle Count, ms Count) Count"},
+	{"SubprocessPollExit", "subprocessPollExit(handle Count) Count"},
+	{"SubprocessExitSignal", "subprocessExitSignal(handle Count) Count"},
 	{"SubprocessLastErrorCode", "subprocessLastErrorCode() Count"},
 	{"SubprocessLastErrorMessage", "subprocessLastErrorMessage() Count"},
 	{"SubprocessResolveOnPath", "subprocessResolveOnPath(name String) Count"},

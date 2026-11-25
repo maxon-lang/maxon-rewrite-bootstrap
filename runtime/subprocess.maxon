@@ -196,7 +196,23 @@ let streamWaitOffset = 32
 
 let streamLimitOffset = 40
 
-let streamBytes = 48
+// A stream that is read on demand (a streaming child's) holds the bytes of its text that were given already (its read position), what
+// a read of it found (streamOpen, streamAtEof or streamReadFailed) and whether a read is in progress.
+let streamReadOffset = 48
+
+let streamStateOffset = 56
+
+let streamBusyOffset = 64
+
+let streamBytes = 72
+
+let streamOpen = 0 as Count
+
+let streamAtEof = 1 as Count
+
+let streamReadFailed = 2 as Count
+
+let streamNoSuchChild = 3 as Count
 
 // noLimit is the limit of a stream that keeps all it reads.
 let noLimit = 0
@@ -210,7 +226,13 @@ let inputWaitOffset = 24
 // inputHoldOffset says whether the input is held open and never written (InputSource.hold).
 let inputHoldOffset = 32
 
-let inputRecordBytes = 40
+// The input of a streaming child holds also how many of the bytes of the payload queued for it are written, and whether a payload is
+// queued and not written out.
+let inputDoneOffset = 40
+
+let inputQueuedOffset = 48
+
+let inputRecordBytes = 56
 
 // readChunkBytes is the least room a stream's text has past its length before a read, and readMostBytes the most one read asks
 // for, which the system's counts of 32 bits hold.
@@ -321,12 +343,11 @@ function closeOurEnds(wait Count)
 	releaseOurEnd(fieldAt(wait, offset: waitInputOffset))
 end 'closeOurEnds'
 
-// releaseOurEnd closes the end of a record's entry, unless it has none or it is closed.
+// releaseOurEnd closes the end of a record's entry, unless it has none or it is closed, which one of the calls that race for it does.
 function releaseOurEnd(record Count)
-	let entry = wordAt(record, offset: endEntryOffset)
+	let entry = __Raw.atomicExchange(record, offset: endEntryOffset, value: noEntry)
 	if entry != noEntry 'open'
 		releaseEnd(entry)
-		__Raw.storeWord(record, offset: endEntryOffset, value: noEntry)
 	end 'open'
 end 'releaseOurEnd'
 
@@ -353,6 +374,9 @@ function startStream(stream Count, wait Count)
 	__Raw.storeWord(stream, offset: streamLengthOffset, value: 0)
 	__Raw.storeWord(stream, offset: streamCapacityOffset, value: 0)
 	__Raw.storeWord(stream, offset: streamWaitOffset, value: wait)
+	__Raw.storeWord(stream, offset: streamReadOffset, value: 0)
+	__Raw.storeWord(stream, offset: streamStateOffset, value: streamOpen)
+	__Raw.storeWord(stream, offset: streamBusyOffset, value: 0)
 end 'startStream'
 
 // streamRoom makes room for a read past a stream's text, which grows by doubling, and gives how much there is.
@@ -404,33 +428,39 @@ function killTree(wait Count)
 	__Raw.storeWord(wait, offset: waitKilledOffset, value: set)
 end 'killTree'
 
-// exitWaiterMain waits for the child of a run to exit, in the run's wait that is its green thread's argument, until the run's
-// deadline; a child still running then is ended with its tree (killTree) and waited for on. An entry may hold an event of its last owner,
-// so a wake says nothing of the child (childExited does), as a wake of a handle's entry says nothing of what its call finds.
-function exitWaiterMain(g Count) returns Count
-	let wait = greenArgument(g, index: 0)
+// waitForExit parks the running green thread until the child of a wait has exited, which it says, until the wait's deadline, which
+// ends the child's tree (killTree) and is waited on, or until the entry of the child's exit is evicted or the green thread is
+// cancelled, which it says too. An entry may hold an event of its last owner, and one that was taken by an earlier wait is not
+// there again, so a wake says nothing of the child (childExited does), which is asked before every wait.
+function waitForExit(wait Count) returns bool
 	let process = wordAt(wait, offset: waitProcessOffset)
 	let child = wordAt(wait, offset: waitChildOffset)
 	var deadline = wordAt(wait, offset: waitDeadlineOffset)
 	while true 'exit'
+		if childExited(wait, child: child) 'exited'
+			return true
+		end 'exited'
 		let status = eventWait(process, mode: eventRead, deadline: deadline)
 		if status == eventReady 'ready'
-			if childExited(wait, child: child) 'exited'
-				break 'exit'
-			end 'exited'
 			continue 'exit'
 		end 'ready'
-		if status != eventExpired 'unexpected'
-			panic("the wait for a child's exit ended otherwise than by its exit or the run's deadline")
-		end 'unexpected'
+		if status != eventExpired 'ended'
+			return false
+		end 'ended'
 		markExpired(wait)
 		killTree(wait)
 		deadline = eventNoDeadline
-		// The kill may have waited for the child already, and an event that its exit made is no longer to be waited for.
-		if childExited(wait, child: child) 'ended'
-			break 'exit'
-		end 'ended'
 	end 'exit'
+	return false
+end 'waitForExit'
+
+// exitWaiterMain waits for the child of a run to exit, in the run's wait that is its green thread's argument (waitForExit), until
+// the run's deadline.
+function exitWaiterMain(g Count) returns Count
+	let wait = greenArgument(g, index: 0)
+	if not waitForExit(wait) 'unexpected'
+		panic("the wait for a child's exit ended otherwise than by its exit or the run's deadline")
+	end 'unexpected'
 	return 0
 end 'exitWaiterMain'
 
@@ -497,8 +527,10 @@ function inputWriterMain(g Count) returns Count
 			break 'write'
 		end 'stopped'
 		done = __Raw.wrappingAdd(done, right: wrote)
+		__Raw.storeRelease(input, offset: inputDoneOffset, value: done)
 	end 'write'
 	releaseOurEnd(input)
+	__Raw.storeRelease(input, offset: inputQueuedOffset, value: unset)
 	return 0
 end 'inputWriterMain'
 
@@ -546,17 +578,22 @@ function awaitChild(wait Count, deadlineMs Count) returns bool
 	end 'written'
 	let expired = wordAt(wait, offset: waitExpiredOffset) != 0
 	if expired 'late'
-		// A child that exited before the deadline left processes that hold its pipes, which the deadline ends too.
-		if wordAt(wait, offset: waitKilledOffset) == 0 'unended'
-			killTree(wait)
-		end 'unended'
-		if not treeEnded(wait) 'survived'
-			__Raw.storeWord(wait, offset: waitSurvivedOffset, value: set)
-		end 'survived'
+		endDeadlineTree(wait)
 	end 'late'
 	eventProcessFree(wordAt(wait, offset: waitProcessOffset))
 	return expired
 end 'awaitChild'
+
+// endDeadlineTree is what a deadline that ended a wait leaves to do once the wait has: a child that exited before the deadline left
+// processes that hold its pipes, which the deadline ends too, and the wait says whether part of the tree was still running after.
+function endDeadlineTree(wait Count)
+	if wordAt(wait, offset: waitKilledOffset) == 0 'unended'
+		killTree(wait)
+	end 'unended'
+	if not treeEnded(wait) 'survived'
+		__Raw.storeWord(wait, offset: waitSurvivedOffset, value: set)
+	end 'survived'
+end 'endDeadlineTree'
 
 // argumentAt is the address of the argument at an index of an array of strings, which stays there: its bytes are
 // __Raw.stringBytesAt and its length __Raw.stringLengthAt of it at 0.
@@ -879,6 +916,11 @@ end 'osRunInput'
 	function exitCodeOf(status Count) returns Count
 		return status
 	end 'exitCodeOf'
+
+	// signalOf is the signal that ended a child that the status says, which on Windows is none.
+	function signalOf(status Count) returns Count
+		return 0
+	end 'signalOf'
 
 	// statusKindOf is how a child ended that the status says: a Windows child that ended abnormally is exited, with its NTSTATUS
 	// for its code.
@@ -1468,6 +1510,11 @@ end 'osRunInput'
 		end 'signalled'
 		return (status shr waitExitShift) and waitExitMask
 	end 'exitCodeOf'
+
+	// signalOf is the signal that ended a child that a wait status says, 0 for a child that exited.
+	function signalOf(status Count) returns Count
+		return status and waitSignalMask
+	end 'signalOf'
 
 	// statusKindOf is how a child ended that a wait status says: a child that a signal ended is signalled.
 	function statusKindOf(status Count) returns Count
