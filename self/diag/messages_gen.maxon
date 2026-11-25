@@ -420,6 +420,11 @@ export function enumUnknownCase(kindWord String, caseName String) returns String
 	return "unknown {kindWord} case: '{caseName}'"
 end 'enumUnknownCase'
 
+// The text of errEnumUnknownCase for: no enum case with raw value '{value}': '{enumName}'
+export function enumNoSuchRawValue(value String, enumName String) returns String
+	return "no enum case with raw value '{value}': '{enumName}'"
+end 'enumNoSuchRawValue'
+
 // The text of errEnumWrongBindingCount for: wrong binding count: '{caseName}' expects {expected} associated value(s), got {got}
 export function enumWrongBindingCount(caseName String, expected String, got String) returns String
 	return "wrong binding count: '{caseName}' expects {expected} associated value(s), got {got}"

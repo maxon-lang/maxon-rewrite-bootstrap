@@ -1,0 +1,95 @@
+enum Color
+	red
+	green
+	blue
+end 'Color'
+
+enum HttpStatus
+	ok = 200
+	notFound = 404
+	teapot = 418
+end 'HttpStatus'
+
+enum Temperature
+	cold = -10
+	freezing = 0
+	warm = 25
+end 'Temperature'
+
+enum Weights
+	light = 1.5
+	medium = 2.5
+	heavy = 3.5
+end 'Weights'
+
+enum Planet
+	earth = "Earth"
+	mars = "Mars"
+end 'Planet'
+
+function codeOf(n Count) returns Count
+	return try n * 2 otherwise 0
+end 'codeOf'
+
+function doubled(x FullRangeFloat) returns FullRangeFloat
+	return x * 2.0
+end 'doubled'
+
+function planetNamed(name String) returns String
+	return name.clone()
+end 'planetNamed'
+
+function describe(n FullRangeInt) returns String
+	let status = try HttpStatus.fromRawValue(n) otherwise (e) 'missing'
+		match e 'e'
+			noSuchRawValue then return "no status {n}"
+			noSuchCaseName then return "no name"
+		end 'e'
+	end 'missing'
+	return "status {status.name}"
+end 'describe'
+
+function main() returns ExitCode
+	let green = try Color.fromRawValue(1) otherwise Color.red
+	print("{green.name}\n")
+	let again = try Color.fromRawValue(green.rawValue) otherwise Color.red
+	print("{again.name}\n")
+	let fallback = try Color.fromRawValue(codeOf(2)) otherwise Color.blue
+	print("{fallback.name}\n")
+	print("{describe(404)}\n")
+	print("{describe(200)}\n")
+	print("{describe(405)}\n")
+	print("{describe(-1)}\n")
+	let counted = try HttpStatus.fromRawValue(codeOf(209)) otherwise HttpStatus.ok
+	print("{counted.name}\n")
+	let cold = try Temperature.fromRawValue(-10) otherwise Temperature.warm
+	let zero = try Temperature.fromRawValue(0) otherwise Temperature.warm
+	print("{cold.name} {zero.name}\n")
+	let medium = try Weights.fromRawValue(doubled(1.25)) otherwise Weights.light
+	let missing = try Weights.fromRawValue(doubled(1.375)) otherwise Weights.light
+	print("{medium.name} {missing.name}\n")
+	let mars = try Planet.fromRawValue("Mars") otherwise Planet.earth
+	let lost = try Planet.fromRawValue(planetNamed("Venus")) otherwise Planet.earth
+	let built = try Planet.fromRawValue(planetNamed("Earth")) otherwise Planet.mars
+	print("{mars.name} {lost.name} {built.name}\n")
+	try Color.fromRawValue(codeOf(9)) otherwise (e) 'handled'
+		match e 'e'
+			noSuchRawValue then print("noSuchRawValue\n")
+			noSuchCaseName then print("noSuchCaseName\n")
+		end 'e'
+	end 'handled'
+	return 0
+end 'main'
+
+//> green
+//> green
+//> blue
+//> status notFound
+//> status ok
+//> no status 405
+//> no status -1
+//> teapot
+//> cold freezing
+//> medium light
+//> mars earth earth
+//> noSuchRawValue

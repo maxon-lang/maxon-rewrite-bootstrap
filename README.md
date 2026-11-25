@@ -4216,6 +4216,18 @@ value (`E3031`). `.rawValue` has the type of the values: a `Count` or a `FullRan
 case's index while its `.rawValue` is the tag the case writes (`add(dest Id) = 5`), and its `.ordinal` the index.
 Interpolating an enum value that has raw values writes the raw value, and an enum with none the name of the case.
 
+**`fromRawValue`.** `Color.fromRawValue(raw)` is the case of an enum that writes `raw`, as maxon's is: a call of the type's
+name that throws `__EnumLookupError.noSuchRawValue` (maxon's, declared by no library file, with `noSuchCaseName` after it) when
+no case writes it, so it needs a `try`. An enum that writes integers, or none, takes an integer of any range, one that writes
+floats takes a float and never an integer (compared by its bits, so a zero and its negative are two raw values), and one that
+writes strings takes a `String`; any other argument is `E3005` at the argument, as `expected int, got String`. A constant
+that no case writes (`HttpStatus.fromRawValue(999)`) is `E3034` at `fromRawValue`, and the call stands for the `try` that
+covers it otherwise. The member is read before a case or a function of the same name. A union has none, nor an enum whose
+raw values are records (`E3034`, `unknown union case: 'fromRawValue'` or `unknown enum case: ...`, at the type's name), and an
+enum whose raw values are functions refuses it as `E2015`. The call is a static call of a function that only it has, of the
+intrinsic `EnumFromRawValue`, which lowers to a compare of the argument with the raw value of each case in turn, the
+case's index where one is equal and the failure where none is (`ir/enumlookup.maxon`).
+
 **Records and functions.** A raw value that is no literal is a **constant of the program**, checked, ordered and lowered as a
 top-level `let` is (`static let` and module `let` alike): a record literal whose fields are constants (`OpMeta{latency: 1}`,
 records nested in records, a module's constants), a function named without a call (`doubleFn`, `alpha.doubleFn`), a closure
@@ -5106,9 +5118,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   range, and `int(5)` is a syntax error (`E2010`) where `bits(5)` is `E3148`. A cast to the alias a value already has is
   not refused as unneeded (`E3010`), as for every other alias.
 - Raw values (see "Raw values"): integer, float and string raw values of an enum, and an integer, float or string tag on a
-  union case; a case written with a character has none yet, and `fromRawValue`, `fromName`,
-  `unionCases`, comparing a case with its raw value and using it where a number is expected are the library's and are not
-  here. An enum whose cases write raw values interpolates its raw value, as maxon's does, and one that writes none its name.
+  union case; a case written with a character has none yet, and `fromName`, `unionCases` (so no `Shape.unionCases.fromRawValue`
+  either), comparing a case with its raw value and using it where a number is expected are the library's and are not here.
+  An enum whose cases write raw values interpolates its raw value, as maxon's does, and one that writes none its name.
   A record or function raw value is a constant, as maxon's is, where a call of a literal factory is the literal filled by its
   arguments (maxon reads `Meta.create(1)` so too, never running `create`); here the factory is declared and its body must be
   one `return` of a record literal over its parameters and constants, which a constant of the module may call too where maxon

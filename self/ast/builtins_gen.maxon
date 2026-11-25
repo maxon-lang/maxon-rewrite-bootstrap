@@ -196,6 +196,10 @@ export let errorIterationAtStart = 1 as Count
 
 export let errorCastOtherType = 0 as Count
 
+export let errorNoSuchRawValue = 0 as Count
+
+export let errorNoSuchCaseName = 1 as Count
+
 export enum Intrinsic
 	intrNone
 	intrArrayCreate
@@ -458,6 +462,7 @@ export enum Intrinsic
 	intrRawSignalReturnAddress
 	intrEnumHash
 	intrEnumEquals
+	intrEnumFromRawValue
 end 'Intrinsic'
 
 // intrinsicRuntimeOnly is whether only the runtime module may call the intrinsic (E3152).
@@ -883,7 +888,8 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrRawPreemptHandlerAddress or
 		intrRawSignalReturnAddress or
 		intrEnumHash or
-		intrEnumEquals gives Precondition.requiresNone
+		intrEnumEquals or
+		intrEnumFromRawValue gives Precondition.requiresNone
 		intrArrayGet or
 		intrArrayGetProven or
 		intrArraySet or
@@ -1134,7 +1140,8 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrRawPreemptHandlerAddress or
 		intrRawSignalReturnAddress or
 		intrEnumHash or
-		intrEnumEquals gives CountEffect.countKeep
+		intrEnumEquals or
+		intrEnumFromRawValue gives CountEffect.countKeep
 		intrArrayAppend gives CountEffect.countGrow
 		intrArrayPush or
 		intrArrayInsert gives CountEffect.countGrowOne
@@ -1435,7 +1442,8 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrRawPreemptHandlerAddress or
 		intrRawSignalReturnAddress or
 		intrEnumHash or
-		intrEnumEquals gives MeasureKind.measureNone
+		intrEnumEquals or
+		intrEnumFromRawValue gives MeasureKind.measureNone
 		intrArrayCount or
 		intrFixedArrayCount gives MeasureKind.measureCount
 		intrArrayIsEmpty gives MeasureKind.measureIsEmpty
@@ -1949,22 +1957,26 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std P
 	var names35 = StringList.create(0)
 	names35.push("otherType")
 	b.castErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CastError", cases: names35)
+	var names36 = StringList.create(0)
+	names36.push("noSuchRawValue")
+	names36.push("noSuchCaseName")
+	b.enumLookupErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__EnumLookupError", cases: names36)
 	b.copyableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Copyable")
 	b.droppableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Droppable")
 	b.errorTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Error")
 	b.initableFromStringLiteralTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "InitableFromStringLiteral")
 	tt.lists[typeList(tt, t: b.filePathTy)][typeIndex(tt, t: b.filePathTy)].conforms.push(b.initableFromStringLiteralTy)
-	let ty36 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty36)
 	let ty37 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	let ty38 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(ty37))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArrays", ty: ty38)
-	let ty39 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty39)
-	let ty40 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty40)
-	let ty41 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty41)
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty37)
+	let ty38 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	let ty39 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(ty38))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArrays", ty: ty39)
+	let ty40 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty40)
+	let ty41 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty41)
+	let ty42 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty42)
 end 'declareBuiltinTypes'
 
 function declareArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

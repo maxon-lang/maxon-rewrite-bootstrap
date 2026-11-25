@@ -82,6 +82,7 @@ var builtinNames = map[string]bool{
 	"StringError":               true,
 	"IterationError":            true,
 	"CastError":                 true,
+	"__EnumLookupError":         true,
 	"Copyable":                  true,
 	"Droppable":                 true,
 	"Error":                     true,

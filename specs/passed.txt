@@ -1055,6 +1055,7 @@ bytearray-element-size.md: wide-byte-program-that-never-mentions-file-still-runs
 capability-qualifiers.md: capability-qualifiers.a-function-value-declaring-an-isolated-result-converts-to-an-isolated-alias
 capability-qualifiers.md: capability-qualifiers.a-function-value-that-writes-its-parameter-converts-to-a-mutable-alias
 capability-qualifiers.md: capability-qualifiers.error.a-capability-alias-of-a-value-type-is-refused
+cast-target-type-resolution.md: an-enum-comes-from-an-integer-through-from-raw-value
 cast-target-type-resolution.md: cast-to-alias-declared-later
 cast-target-type-resolution.md: cast-to-loaded-stdlib-internal-typealias
 cast-target-type-resolution.md: error.cast-computed-int-to-enum
@@ -1465,6 +1466,8 @@ constants.md: char-backed
 constants.md: char-rawvalue-function-param
 constants.md: error.duplicate-case
 constants.md: error.duplicate-value
+constants.md: error.fromRawValue-invalid-literal
+constants.md: error.fromRawValue-type-mismatch
 constants.md: error.mixed-backing-types
 constants.md: error.unknown-case
 constants.md: explicit-char-backed-rawvalue
@@ -1474,6 +1477,12 @@ constants.md: export
 constants.md: float-backed
 constants.md: float-backed-rawvalue
 constants.md: float-rawvalue-in-function
+constants.md: fromRawValue-failure
+constants.md: fromRawValue-float-backed
+constants.md: fromRawValue-int-backed
+constants.md: fromRawValue-runtime
+constants.md: fromRawValue-simple
+constants.md: fromRawValue-string-backed
 constants.md: function-param
 constants.md: int-backed-rawvalue
 constants.md: int-rawvalue-in-function
@@ -1966,6 +1975,8 @@ enum-full.md: error.associated-value-type-mismatch
 enum-full.md: error.duplicate-case
 enum-full.md: error.duplicate-raw-value
 enum-full.md: error.enum-method-non-exported-cross-file
+enum-full.md: error.fromRawValue-argument-is-an-undefined-call
+enum-full.md: error.fromRawValue-associated-values
 enum-full.md: error.mixed-backing-types
 enum-full.md: error.raw-value-type-mismatch
 enum-full.md: error.unknown-enum-case
@@ -2082,6 +2093,7 @@ enum-ordinal.md: enum-ordinal.ordinal-is-an-element-index
 enum-ordinal.md: enum-ordinal.rawvalue-of-an-integer-enum-is-a-full-range-int
 enum-ordinal.md: enum-ordinal.simple
 enum-ordinal.md: enum-ordinal.string-backed
+enum-struct-backing.md: error.struct-backing-fromRawValue
 enum-struct-backing.md: error.struct-backing-mixed
 enum-struct-backing.md: struct-backing-basic
 enum-struct-backing.md: struct-backing-enum-factory
@@ -6901,6 +6913,7 @@ register-phi-copies.md: cycle-plus-leaf-moves
 register-phi-copies.md: permutation-under-pressure
 register-phi-copies.md: swap-across-call-callee-saved
 register-phi-copies.md: two-preds-different-permutations
+register-spill.md: a-constant-read-only-by-a-jump-table-is-rematerialized-before-it
 register-spill.md: a-reload-for-a-later-argument-must-not-clobber-an-earlier-one
 register-spill.md: a-reload-inherits-its-victims-register-file
 register-spill.md: a-twice-spilled-value-read-on-every-iteration
@@ -8464,6 +8477,7 @@ type-name-collision.md: an-authors-comparable-leaves-the-library-sort-on-ints
 type-name-collision.md: an-authors-comparable-with-the-librarys-shape-orders-its-own-type
 type-name-collision.md: an-authors-enum-named-like-a-library-alias-is-read-in-a-constant
 type-name-collision.md: an-authors-equatable-leaves-the-library-contains-on-ints
+type-name-collision.md: an-authors-error-leaves-the-compiler-owned-errors-catchable
 type-name-collision.md: an-authors-hashable-leaves-library-map-keys-hashing
 type-name-collision.md: an-authors-type-named-comparable-leaves-the-library-sort
 type-name-collision.md: an-enum-case-beside-the-librarys-type-names-the-authors-at-top-level

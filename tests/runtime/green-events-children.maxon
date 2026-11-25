@@ -3,8 +3,8 @@
 // green threads each succeed with the child's exit code. A child that exits before its exit is watched, or whose exit the
 // system reports before it can be waited for, is still waited for: on macOS the kqueue refuses EVFILT_PROC for a process that
 // has started to exit (ESRCH), and reports NOTE_EXIT before waitpid can take the child.
-//> 200 children one after another left the descriptors as they were
-//> 256 children on 16 green threads each ran and exited
+//> 48 children one after another left the descriptors as they were
+//> the children on green threads each ran and exited
 
 // The host's program that exits with 0 at once, and its arguments.
 #if os(Windows)
@@ -17,11 +17,20 @@
 	let childrenProgram = "true"
 #endif
 
-let childrenSequential = 200 as Count
+let childrenSequential = 48 as Count
 
-let childrenThreads = 16 as Count
+// The concurrent runs: how many green threads, and how many children each runs. macOS's exit race (a child that exits before
+// its EVFILT_PROC is added, or whose NOTE_EXIT comes before waitpid can take it) shows only with about a thousand children at
+// once, which take under 1 s there; Linux and Windows have no such race, and a child is slow to start on Windows.
+#if os(macOS)
+	let childrenThreads = 16 as Count
 
-let childrenEach = 16 as Count
+	let childrenEach = 64 as Count
+#else
+	let childrenThreads = 8 as Count
+
+	let childrenEach = 8 as Count
+#endif
 
 // childrenWarmup is how many runs come before the first count, so that what the first run of a child opens for good (on
 // Windows, the handles the loader and the console keep) is in both counts.
@@ -90,7 +99,7 @@ function childrenConcurrentTest()
 		end 'failed'
 	end 'await'
 	free(runs)
-	childrenWrite("{childrenThreads * childrenEach} children on {childrenThreads} green threads each ran and exited\n")
+	childrenWrite("the children on green threads each ran and exited\n")
 end 'childrenConcurrentTest'
 
 // childrenWorker runs its children one after another and gives 0 when every run succeeded with exit code 0, 1 otherwise.

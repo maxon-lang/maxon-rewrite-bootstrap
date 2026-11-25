@@ -613,6 +613,9 @@ function callOnType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	if ast.typeKind(ms.types, reads: p.types, t: nt) == ast.TypeKind.typeParam 'parameter'
 		return callOnTypeParam(c, p: p, ms: ms, call: call, param: nt, name: name, errs: errs)
 	end 'parameter'
+	if isFromRawValue(p, ms: ms, nt: nt, name: name) 'fromRawValue'
+		return callEnumFromRawValue(c, p: p, ms: ms, call: call, nt: nt, errs: errs)
+	end 'fromRawValue'
 	if ast.typeKind(ms.types, reads: p.types, t: nt) == ast.TypeKind.unionTy and ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: nt)).findCase(name).isSome() 'union'
 		return unionConstructor(c, p: p, ms: ms, call: call, ut: nt, caseName: name, errs: errs)
 	end 'union'
@@ -637,6 +640,9 @@ function callOnType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	if sm != ast.noFunc 'instance'
 		return refuseInstanceMethodWithoutReceiver(c, p: p, ms: ms, node: ast.callExprCallee(ms.tree(), id: call), owner: nt, name: name, errs: errs)
 	end 'instance'
+	if name == fromRawValueMethod and ast.typeKind(ms.types, reads: p.types, t: nt) == ast.TypeKind.unionTy 'unionLookup'
+		return refuseFromRawValue(c, p: p, ms: ms, call: call, nt: nt, errs: errs)
+	end 'unionLookup'
 	return unknownTypeFunction(c, p: p, ms: ms, call: call, nt: nt, name: name, errs: errs)
 end 'callOnType'
 

@@ -70,7 +70,7 @@ ErrUnknownField	E3018	semanticUnknownField	A field access names a field the type
 ErrEnumDuplicateCase	E3030	enumDuplicateCase	An enum declares a case name twice.
 ErrEnumDuplicateRawValue	E3031	enumDuplicateRawValue	Two cases of an enum have the same raw value.
 ErrEnumRawValueTypeMismatch	E3032	enumRawValueTypeMismatch	The raw values of an enum or a union are not all of one kind: integers, floats, strings or values of one type.
-ErrEnumUnknownCase	E3034	enumUnknownCase	A name is not a case of its enum or union.
+ErrEnumUnknownCase	E3034	enumUnknownCase	A name is not a case of its enum or union, or a constant argument of fromRawValue is no raw value of any case.
 ErrEnumWrongBindingCount	E3035	enumWrongBindingCount	A match pattern binds a different number of values than its case carries.
 ErrCallArgCountMismatch	E3036	callArgCountMismatch	A call passes a different number of arguments than the callee takes.
 ErrCallUnknownArgLabel	E3037	callUnknownArgLabel	A call's label names no parameter of the callee.

@@ -1,0 +1,43 @@
+// lowerEnumFromRawValue is the fromRawValue(raw) of an enum: the case whose raw value is raw, found by comparing it with the
+// raw value of each case in turn, and failing with noSuchRawValue where none is. A case is its index, which the search
+// stores where the case that answers is found.
+function lowerEnumFromRawValue(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let owner = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.fn).ownerTy
+	for raw in args 'argument'
+		return searchRawValues(l, p: p, ms: ms, origin: ast.typeEntry(ms.types, reads: p.types, t: owner).effectiveOrigin(), raw: raw)
+	end 'argument'
+	panic("ir: a call of fromRawValue has no argument")
+end 'lowerEnumFromRawValue'
+
+// searchRawValues is the index of the case of the enum origin that writes raw, which is the String, the float's 64 bits or the
+// integer that the lookup was given. A float is found by its bits, as maxon finds it, so a zero and its negative are two raw
+// values and a NaN is its own.
+function searchRawValues(mutates l Lowerer, p ast.Project, ms ast.ModuleState, origin ast.TypeID, raw Reg) returns Reg
+	let kind = ast.typeEntry(ms.types, reads: p.types, t: origin).rawKind
+	let result = l.b.f.newSlot(IrKind.kindScalar)
+	let join = l.b.newBlock()
+	for (i, written) in ast.typeEntry(ms.types, reads: p.types, t: origin).cases.enumerated() 'eachCase'
+		let hit = l.b.newBlock()
+		let next = l.b.newBlock()
+		let same = writesRawValue(l, kind: kind, written: written, raw: raw)
+		l.b.terminate(l.cur, t: newBranch(same, ifTrue: hit, ifFalse: next))
+		l.cur = hit
+		let index = konst(l, value: wordOf(ast.I128.fromCount(i as Count)))
+		emit(l, i: newStoreSlot(result, src: index, borrow: false))
+		goTo(l, target: join)
+		l.cur = next
+	end 'eachCase'
+	failUnlessEnd(l, p: p, ms: ms, errorCase: ast.errorNoSuchRawValue, ok: join)
+	return fetch(l, slot: result)
+end 'searchRawValues'
+
+// writesRawValue is whether the case written writes the raw value that raw is: the text of a String is compared byte by byte,
+// and a number by its word.
+function writesRawValue(mutates l Lowerer, kind ast.RawKind, written ast.CaseInfo, raw Reg) returns Reg
+	if kind == ast.RawKind.string 'text'
+		let text = strReg(l, value: written.rawText.clone())
+		return runtime(l, symbol: Rt.rtStreq, kind: IrKind.kindScalar, args: argsOf2(raw, b: text))
+	end 'text'
+	let number = konst(l, value: wordOf(written.rawValue.clone()))
+	return compare(l, op: CmpOp.cmpEq, a: raw, b: number, unsigned: false)
+end 'writesRawValue'

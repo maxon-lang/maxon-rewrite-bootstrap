@@ -192,7 +192,7 @@ export let errEnumDuplicateRawValue = "E3031"
 // The raw values of an enum or a union are not all of one kind: integers, floats, strings or values of one type.
 export let errEnumRawValueTypeMismatch = "E3032"
 
-// A name is not a case of its enum or union.
+// A name is not a case of its enum or union, or a constant argument of fromRawValue is no raw value of any case.
 export let errEnumUnknownCase = "E3034"
 
 // A match pattern binds a different number of values than its case carries.

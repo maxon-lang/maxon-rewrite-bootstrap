@@ -441,6 +441,11 @@ var enumTypes = []enumType{
 	{Key: "CastError", Name: "CastError", Cases: []enumCase{
 		{"otherType", "ErrorCastOtherType"},
 	}},
+	// EnumLookupError is maxon's, declared by no library file: what an enum's fromRawValue throws, in maxon's order.
+	{Key: "EnumLookupError", Name: "__EnumLookupError", Cases: []enumCase{
+		{"noSuchRawValue", "ErrorNoSuchRawValue"},
+		{"noSuchCaseName", "ErrorNoSuchCaseName"},
+	}},
 }
 
 // capabilities are the interfaces a bound can name and no declaration implements: a type has one by its parts.
@@ -539,8 +544,9 @@ var (
 )
 
 // synthesizedIntrinsics are what the methods that the checker gives a declaration of the program lower to, which no row
-// declares: a payload-free enum's hash() and equals(other), on its ordinal (check/enums.maxon).
-var synthesizedIntrinsics = []string{"EnumHash", "EnumEquals"}
+// declares: a payload-free enum's hash() and equals(other), on its ordinal (check/enums.maxon), and the static
+// fromRawValue(raw) of an enum whose cases write raw values or none (check/enumlookup.maxon).
+var synthesizedIntrinsics = []string{"EnumHash", "EnumEquals", "EnumFromRawValue"}
 
 // maxImportArgs is the most words a DLL import of the runtime takes: CreateProcessA's ten.
 const maxImportArgs = 10
