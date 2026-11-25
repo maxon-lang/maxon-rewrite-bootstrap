@@ -169,14 +169,14 @@ instead, and so does a test that expects a compile error which minimaxon reports
 (the pairs of `self/driver/skips.tsv`, generated into `codeSkipTable`: ownership refused by another rule, the syntax error, operand
 types), a test that expects a code whose rule minimaxon changed, whatever it reports (the table's `expect` rows: `E3220`, since a
 constant may call a literal factory), and a test that runs a program which minimaxon refuses, after the fixes, by a rule it
-changed (its `run` rows: `E3925`, a closure that borrows does not escape, and `E3220`, a constant that calls what is no literal factory), and a test that the table names by its file and
+changed (its `run` rows: `E3925`, a closure that borrows does not escape), and a test that the table names by its file and
 name (its `test` rows), whose program minimaxon runs to another answer by a language change (a float division by 0 is
 IEEE's). A test that expects a compile error and is first refused under another code by a fixable language difference
 (arithmetic that needs a `try`, an integer cast, a clone, `mutates`, `var`, a bare name of another module) gets the fixes of the errors that are not the
 expected one, round by round, until the first error is the expected one, and a `<!-- positions: moved -->` line, since the
 fixes move text; if that is never reached, it is skipped when the code left after the fixes and the expected one are a
-pair of the table, or when the first code left after the fixes is one of the table's `first` rows (`E3220`: a constant
-that calls what is no literal factory is refused before what maxon reports), and otherwise left as it was; a program that checks clean after the fixes is never skipped: it gets the fixes and a `<!-- positions: moved -->` line, and the test fails for the diagnostic that minimaxon lacks. A test whose first diagnostic left after the fixes has a cause that the table's `cause` rows name, and is not the
+pair of the table, or when the first code left after the fixes is one of the table's `first` rows (`E3008`: a name
+that Go's module rules keep from another module is refused before what maxon reports), and otherwise left as it was; a program that checks clean after the fixes is never skipped: it gets the fixes and a `<!-- positions: moved -->` line, and the test fails for the diagnostic that minimaxon lacks. A test whose first diagnostic left after the fixes has a cause that the table's `cause` rows name, and is not the
 code it expects, is skipped with that row's reason: a program that changes the collection its `for` walks (a loop holds
 the collection it walks), or a handler that binds a payload of `SendError` or `SubprocessError`. `fix` over spec files fixes
 each test as a behaviour, on every core, as the runner runs them (`self/driver/fixrun.maxon`); each check adds the test to a
@@ -5146,8 +5146,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   An enum whose cases write raw values interpolates its raw value, as maxon's does, and one that writes none its name.
   A record or function raw value is a constant, as maxon's is, where a call of a literal factory is the literal filled by its
   arguments (maxon reads `Meta.create(1)` so too, never running `create`); here the factory is declared and its body must be
-  one `return` of a record literal over its parameters and constants, which a constant of the module may call too where maxon
-  refuses every call in a module `let` (`E3220`), and a call of a function that is no such factory is `E2045` or `E3220`.
+  one `return` of a record literal over its parameters and constants, which a constant of the module may call too, and a call
+  of a function that is no such factory is `E2045` or `E3220` (see the next item).
   Maxon refuses a raw value its constant evaluator cannot hold with `E2015` (a `String` or an array in the record, a field
   left out or given twice, a factory with more arguments than fields), `E3095` for a bare function name that two modules
   declare, and `E3155` for a reserved one; here the ordinary rules say what is wrong (`E3005`, `E3086`, `E3006`, `E3036`,
@@ -5155,6 +5155,16 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   the executable's data, which no program can tell apart since building it runs no code. `.rawValue` of such an enum or union
   is the whole record, which the reader owns, where maxon refuses it without a field
   after it (`E2015`); and the record that the enum or union exports is not held to be at least as visible as it (`E3167`).
+- **A constant calls only a literal factory.** The initializer of a module-level or `static let` calls nothing but a
+  literal factory (see "Raw values"): any other call is `E3220` (`E2045` where the result is a number, an enum or a bool),
+  `Names.create(0)` of an array among them. A constant is laid out in the executable's data or built where it is read, and
+  nothing runs before `main` (see "Constants in the data section"), so what a constant is never depends on code that runs.
+  maxon's own rule is that an initializer calls nothing, but its check counts only a call of a function the program or the
+  library declares, so a module `let` there may also call `create` of an `Array` or a `FixedArray`, which maxon builds
+  itself, and its first error in such a test is another; the spec tests that make such a call, or a raw value's call of a
+  library type's `create`, are skipped with that reason. Not yet: a case of a union with a payload (`Op.add(1)`, `Hold.owned(9)`), which maxon's
+  initializer may build and which runs no code, is refused here as a call (`E3220`), since the check refuses a member call
+  of a constant before it resolves it to a case.
 - **A result may be less visible than its function**, as a function of Go may return a type that is not exported: `export
   function make() returns Secret` is fine where `Secret` has no modifier, and the caller outside `Secret`'s module holds
   the value without naming the type (see "Modules"). Maxon refuses it (`E3167`), as it does a parameter, a field, a payload,

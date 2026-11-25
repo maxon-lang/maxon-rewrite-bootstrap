@@ -560,7 +560,7 @@ further before refusing — landing on exactly the sentence its `Array` sibling 
 line:column. A type the stdlib declares has no second rule.
 
 <!-- test: error.nested-struct-backing-characterset-field -->
-<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
+<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
 ```maxon
 typealias Wide = int(0 to 100)
 

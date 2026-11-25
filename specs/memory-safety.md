@@ -177,17 +177,17 @@ type Leaf
 	export var value as Integer
 
 	static function create(label String, value Integer) returns Self
-		return Self{label: label.clone(), value: value}
+		return Self{label: label, value: value}
 	end 'create'
 end 'Leaf'
 
 typealias Leaves = Array with Leaf
 
 function main() returns ExitCode
-	var a = Leaves.create(0)
+	let a = Leaves.create(0)
 	a.push(Leaf.create("original label long enough for a heap record", value: 10))
-	var b = a.clone()
-	var cloned = try b.get(0) otherwise panic("no leaf")
+	let b = a.clone()
+	let cloned = try b.get(0) otherwise panic("no leaf")
 	cloned.label = "mutated"
 	b.push(Leaf.create("second label long enough for a heap record", value: 20))
 	let kept = try a.get(0) otherwise panic("no leaf")

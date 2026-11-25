@@ -4673,7 +4673,6 @@ error E3008: <fragment>:8:9: type 'OverlayPrivateMode' is not exported
 ```
 
 <!-- test: a-union-case-construction-beside-the-librarys-type-names-the-authors-at-top-level -->
-<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 A directory exports a union `ParseError` beside the library's enum; a top-level construction of one of its cases
 in another directory builds the user's union.
 ```maxon

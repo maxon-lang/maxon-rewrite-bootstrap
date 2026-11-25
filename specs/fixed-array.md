@@ -4743,7 +4743,7 @@ error E2069: <fragment>:6:23: A `FixedArray` element count runs from 1 to 429496
 ```
 
 <!-- test: a-top-level-let-of-a-constant-length-create-is-sized -->
-<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
+<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 

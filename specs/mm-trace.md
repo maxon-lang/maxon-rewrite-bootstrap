@@ -208,7 +208,6 @@ end 'main'
 ```
 
 <!-- test: module-let-array-globals-cost-no-allocation-at-all -->
-<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 A module-scope `let` holding an array LITERAL, and one holding an empty container, are both constants: their
 bytes are decided when the program is compiled and nothing about them can change while it runs. So neither
 may cost a memory-manager event, and the block is EMPTY.
@@ -344,7 +343,6 @@ end 'main'
 ```
 
 <!-- test: a-payload-carrying-union-case-let-still-allocates -->
-<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ⭐ **THE ROUTING GATE: A PAYLOAD-CARRYING CASE NEVER REACHES THE IMAGING PREDICATE AT ALL, AND THIS IS WHAT
 HOLDS IT THERE.** Both bindings below name cases of ONE union. `Slot.empty` is a payload-free case and is
 image data. `Slot.filled(7)` carries a payload, so the box below is built by `__module_init` and released
@@ -527,7 +525,6 @@ mm_free AsyncArgumentImage #1
 ```
 
 <!-- test: module-let-array-of-zero-capacity-costs-no-allocation -->
-<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 `Items.create(0)` is the empty array, so a module-scope `let` of it is the image record, exactly as `Items.create()` is, and the block is EMPTY. The not-zeroed spelling of a zero capacity is the same empty array.
 <!-- MmTrace -->
 ```maxon

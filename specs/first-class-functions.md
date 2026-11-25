@@ -3237,7 +3237,6 @@ error E2073: <fragment>:7:19: type 'lib.Flag' has no static member named 'nope'
 ```
 
 <!-- test: error.an-unknown-static-of-a-primitive-at-module-scope-is-refused-for-what-it-lacks -->
-<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ```maxon
 let n = int.nope()
 
@@ -3250,7 +3249,6 @@ error E2073: <fragment>:2:13: 'int' has no static method named 'nope' — a prim
 ```
 
 <!-- test: error.an-unknown-static-of-byte-at-module-scope-is-refused-for-what-it-lacks -->
-<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ```maxon
 let n = byte.nope()
 
@@ -3671,7 +3669,6 @@ error E3185: <fragment>:3:2: '__ManagedFile' named outside the library tiers: th
 ```
 
 <!-- test: error.a-raw-handle-static-at-module-scope-in-user-code-is-not-reachable -->
-<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ```maxon
 let h = __ManagedFile.openRead("p")
 

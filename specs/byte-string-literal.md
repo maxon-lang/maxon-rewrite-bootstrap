@@ -303,7 +303,7 @@ end 'main'
 ```
 
 <!-- test: byte-string-literal.error.tobytearray-global-is-refused -->
-<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
+<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
 <!-- positions: moved -->
 
 A global's initializer calls nothing, so a method call whose result is a record is refused there; the `ByteArray`

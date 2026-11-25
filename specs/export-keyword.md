@@ -1704,7 +1704,7 @@ error E3008: specs/export-keyword/error.non-exported-static-constant-assign-cros
 ```
 
 <!-- test: error.hidden-alias-as-a-top-level-container-create -->
-<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
+<!-- skip: language difference: a constant calls nothing but a literal factory, since it is built where it is read and nothing runs before main, so E3220 names what it may call (README, Where it differs from Maxon: A constant calls only a literal factory) -->
 A top-level `<alias>.create()` names the alias, so another directory's unmarked one is refused there as it is in
 a body.
 ```maxon

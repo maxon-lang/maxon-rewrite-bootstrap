@@ -696,10 +696,10 @@ end 'Box'
 typealias Boxes = Array with Box
 
 function main() returns ExitCode
-	var a = Boxes.create(0)
+	let a = Boxes.create(0)
 	a.push(Box.create(1))
 	let b = a.clone()
-	var e = try b.get(0) otherwise return 91
+	let e = try b.get(0) otherwise return 91
 	e.n = 9
 	let first = try a.get(0) otherwise return 92
 	let second = try b.get(0) otherwise return 93
