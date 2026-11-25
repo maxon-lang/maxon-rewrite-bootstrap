@@ -1,6 +1,8 @@
 // Timers: testSleepers green threads sleep for durations from testStepNanos to ten times it, all at once, each checking
-// by the clock that it woke no earlier than it asked, and a sleep of 0 returns; the coordinator awaits them all.
-//> 50 sleepers woke, none early
+// by the clock that it woke no earlier than it asked, and a sleep of 0 returns; the coordinator awaits them all. A break of
+// the event queue's wait allocates nothing: the thread that idles the last processor breaks it as the main thread counts
+// the live boxes at the end, which a box of the break's own would add to, as one of macOS did.
+//> 50 sleepers woke, none early, a break allocated nothing
 
 let testSleepers = 50 as Count
 
@@ -26,7 +28,13 @@ function testCoordinator(g Count) returns Count
 		_ = greenAwait(__Raw.loadWord(list, offset: i * wordBytes))
 	end 'await'
 	free(list)
-	testWrite("{testSleepers} sleepers woke, none early\n")
+	let scheduler = __Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset)
+	let allocs = processHeapCount(heapAllocsOffset)
+	sendBreak(scheduler)
+	if processHeapCount(heapAllocsOffset) != allocs 'allocated'
+		panic("a break of the event queue's wait allocated")
+	end 'allocated'
+	testWrite("{testSleepers} sleepers woke, none early, a break allocated nothing\n")
 	return 0
 end 'testCoordinator'
 

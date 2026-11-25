@@ -558,8 +558,11 @@ let eventSlots = 64 as Count
 // threadBlockLockedOffset is where a thread's block holds the green thread pinned to the thread (Go's m.lockedg), which it runs and no other, 0 for none.
 let threadBlockLockedOffset = 2304 as Count
 
-// threadBlockBytes is the size of a thread's block: room for eventSlots events of windowsEntryBytes each, the larger of the two systems', and the pinned green thread.
-let threadBlockBytes = 2312 as Count
+// threadBlockChangeOffset is where a thread's block holds the one change of a user event that the thread makes to the event queue, a struct kevent on macOS.
+let threadBlockChangeOffset = 2312 as Count
+
+// threadBlockBytes is the size of a thread's block: room for eventSlots events of windowsEntryBytes each, the larger of the two systems', the pinned green thread and a change of a user event.
+let threadBlockBytes = 2344 as Count
 
 // entryReadStateOffset is where an event entry holds the state of a wait to read, or of a user event: the green thread that waits, eventQueued once an event came that no wait has taken, or what claimed the wake of the waiter (a deadline, a close, a cancel), exchanged atomically.
 let entryReadStateOffset = 0 as Count

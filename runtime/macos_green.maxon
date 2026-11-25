@@ -164,18 +164,17 @@
 		changeUserEvent(eventQueue, ident: eventBreakKey, flags: macosEvAddClear, fflags: 0, key: eventBreakKey)
 	end 'initEventQueue'
 
-	// changeUserEvent makes one change of the user event of an ident of the kqueue, which reports it with a key.
+	// changeUserEvent makes one change of the user event of an ident of the kqueue, which reports it with a key, through the
+	// running thread's block: not its events, which a take that passes a break on is still reading, and not a box, which
+	// would be live while the thread makes the change, after a drain whose last processor's thread breaks the wait as the
+	// main thread counts the live boxes (endDrain).
 	function changeUserEvent(eventQueue Count, ident Count, flags Count, fflags Count, key Count)
-		let change = alloc(macosKeventBytes)
-		__Raw.storeWord(change, offset: 0, value: ident)
-		__Raw.storeWord16(change, offset: macosKeventFilterOffset, value: macosEvfiltUser)
-		__Raw.storeWord16(change, offset: macosKeventFlagsOffset, value: flags)
+		let change = __Raw.wrappingAdd(threadBlockSwitch(__Raw.threadContext()), right: threadBlockChangeOffset)
+		fillKevent(change, ident: ident, filter: macosEvfiltUser, flags: flags, key: key)
 		__Raw.storeWord32(change, offset: macosKeventFflagsOffset, value: fflags)
-		__Raw.storeWord(change, offset: macosKeventUdataOffset, value: key)
 		if failed(checkedInt(__Raw.callImport6("kevent", arg1: eventQueue, arg2: change, arg3: oneChange, arg4: noEvents, arg5: 0, arg6: noTimeout))) 'refused'
 			panic("cannot change a user event of the event queue")
 		end 'refused'
-		free(change)
 	end 'changeUserEvent'
 
 	// keventDataOffset is where a struct kevent holds data, the word its filter reports with.

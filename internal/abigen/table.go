@@ -537,8 +537,13 @@ var layouts = []layoutConst{
 	// to a thread is in its block, which the runtime makes.
 	{"threadBlockLockedOffset", 288, false, toRuntime,
 		"where a thread's block holds the green thread pinned to the thread (Go's m.lockedg), which it runs and no other, 0 for none."},
-	{"threadBlockBytes", 289, false, toRuntime,
-		"the size of a thread's block: room for eventSlots events of windowsEntryBytes each, the larger of the two systems', and the pinned green thread."},
+	// A change of a user event on macOS, a kevent of four words, has a place of its own, apart from the events, since a take
+	// passes a break on while it reads them, and a box would be live while the thread makes the change, which the leak check
+	// after a drain counts when another thread breaks the event queue's wait at the end.
+	{"threadBlockChangeOffset", 289, false, toRuntime,
+		"where a thread's block holds the one change of a user event that the thread makes to the event queue, a struct kevent on macOS."},
+	{"threadBlockBytes", 293, false, toRuntime,
+		"the size of a thread's block: room for eventSlots events of windowsEntryBytes each, the larger of the two systems', the pinned green thread and a change of a user event."},
 
 	// An event entry: what a green thread waits on in the event queue, a system handle registered with it (eventRegister) or a user
 	// event (eventUserNew), with a state word for each way it is waited on, reading and writing, readied by an event or a
