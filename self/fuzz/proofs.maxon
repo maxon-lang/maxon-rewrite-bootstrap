@@ -278,7 +278,8 @@ type ProofGen
 		if self.chance(85) 'plain'
 			return "{arrays[array].text}.count()"
 		end 'plain'
-		return "({proofHandled("{arrays[array].text}.count() - {self.pickFrom(1, n: 2)}", fallback: "0")})"
+		let less = self.pickFrom(1, n: 2)
+		return "({proofHandled("{arrays[array].text}.count() - {less}", fallback: "0")})"
 	end 'countText'
 
 	// boundLocal binds a new local to the count of an array, or to the count less one, and gives its name: the analysis relates
@@ -706,7 +707,8 @@ type ProofGen
 			return
 		end 'outer'
 		if holds == proofOwnerNone 'none'
-			let row8 = "{arrays[at].text} = {self.newCounts()}"
+			let counts = self.newCounts()
+			let row8 = "{arrays[at].text} = {counts}"
 			self.line(row8)
 			return
 		end 'none'
@@ -1266,7 +1268,7 @@ end 'ProofGen'
 export function generateProof(seed Count, library String) returns GeneratedProgram
 	var g = ProofGen.new(seed)
 	g.start()
-	return GeneratedProgram.make(g.finish(library), scheduleIndependent: true)
+	return GeneratedProgram.unplanted(g.finish(library), scheduleIndependent: true)
 end 'generateProof'
 
 // proofAccessTally is how many accesses the scenarios of a proof program have, after the fix, and how many of them have lost

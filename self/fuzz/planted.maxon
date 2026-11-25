@@ -1,0 +1,118 @@
+// Planted shapes: a few lines at the start of main that the checker must refuse with an ownership error. Each reads a place
+// and, later in the same expression or statement, hands the place to a call that moves it (swallowReturning) or replaces it
+// (rebuildReturning) while what the read borrowed is still held: an interpolated part, an operand of a comparison, an
+// argument, a receiver, a collection being subscripted, a binding of a match, a loop's collection. The shape goes into a
+// program the checker accepted, so the refusal is the shape's, and an acceptance is a hole in the checker whatever the
+// interpreter would make of the program.
+
+// plantShapes is how many shapes there are, and each is planted once with each call.
+let plantShapes = 16 as Count
+
+let plantCalls = 2 as Count
+
+// PlantedShape is the lines of a shape and its name.
+export type PlantedShape
+	export var name as String
+	export var lines as Array with String
+
+	static function make(consumes name String, consumes lines Array with String) returns PlantedShape
+		return PlantedShape{name: name, lines: lines}
+	end 'make'
+end 'PlantedShape'
+
+// heldText is the String every root starts with, long enough to be on the heap.
+function heldText() returns String
+	return quoted("{braced("1")}p-held-past-its-two-words")
+end 'heldText'
+
+// rootLine declares the place a shape reads: a String, an array of them, a Box of one, an Option of one or a FilePath.
+function rootLine(root String) returns String
+	if root == "pls" 'text'
+		return "\t{kwVar} pls = {heldText()}"
+	end 'text'
+	if root == "pla" 'list'
+		return "\t{kwVar} pla = [{heldText()}]"
+	end 'list'
+	if root == "plb" 'box'
+		return "\t{kwVar} plb = Box.make({heldText()})"
+	end 'box'
+	if root == "plo" 'option'
+		return "\t{kwVar} plo = Option.some({heldText()})"
+	end 'option'
+	if root == "plf" 'path'
+		return "\t{kwVar} plf = {kwTry} FilePath.from({heldText()}) {kwOtherwise} panic({quoted("not a path")})"
+	end 'path'
+	panic("fuzz: no planted root {root}")
+end 'rootLine'
+
+// plantedShape is the shape the seed plants: the seeds go through the shapes in turn, and through the calls every
+// plantShapes seeds.
+export function plantedShape(seed Count) returns PlantedShape
+	let which = seed mod plantShapes
+	let call = "swallowReturning" if (seed / plantShapes) mod plantCalls == 0 else "rebuildReturning"
+	let c = "{call}(pls, result: {quoted("s")})"
+	return match which 'shape'
+		0 gives shape("part behind text", root: "pls", line: printedText("{braced("pls")} {braced(c)}"))
+		1 gives shape("adjacent part", root: "pls", line: printedText("{braced("pls")}{braced(c)}"))
+		2 gives shape("part after a part", root: "pls", line: printedText("{braced("pls")} {braced("pls")} {braced(c)}"))
+		3 gives shape("nested part", root: "pls", line: printedText("{braced(quoted("{braced("pls")}-"))} {braced(c)}"))
+		4 gives shape("field part", root: "plb", line: printedText("{braced("plb.item")} {braced(on(call, root: "plb"))}"))
+		5 gives shape("element part", root: "pla", line: printedText("{braced("pla[0]")} {braced(on(call, root: "pla"))}"))
+		6 gives shape("path part", root: "plf", line: printedText("{braced("plf")} {braced(on(call, root: "plf"))}"))
+		7 gives shape("appended part", root: "pls", line: "pls = {quoted("{braced("pls")} {braced(c)}")}")
+		8 gives shape("compared operand", root: "pls", line: printed("pls == {c}"))
+		9 gives shape("compared field", root: "plb", line: printed("plb.item != {on(call, root: "plb")}"))
+		10 gives shape("argument", root: "pls", line: "{printCall}lookReturning(pls, result: {c}){printClose}")
+		11 gives shape("receiver", root: "plb", line: "plb.replace({on(call, root: "plb")})")
+		12 gives shape("subscripted collection", root: "pla", line: "{printCall}pla[{call}(pla, result: (0) {kwAs} Count)]{printClose}")
+		13 gives shape("exchanged place", root: "pls", line: "{printCall}exchange(pls, value: {c}){printClose}")
+		14 gives matchShape(call)
+		default gives loopShape(call)
+	end 'shape'
+end 'plantedShape'
+
+// on is the call that moves or replaces the root and gives a String.
+function on(call String, root String) returns String
+	return "{call}({root}, result: {quoted("s")})"
+end 'on'
+
+// shape is a shape of one statement after its root.
+function shape(name String, root String, line String) returns PlantedShape
+	var lines = StringList.create(0)
+	lines.push(rootLine(root))
+	lines.push("\t{line}")
+	return PlantedShape.make(name.clone(), lines: lines)
+end 'shape'
+
+// matchShape changes the subject of a match in the arm whose binding borrows it.
+function matchShape(call String) returns PlantedShape
+	var lines = StringList.create(0)
+	lines.push(rootLine("plo"))
+	lines.push("\t{kwLet} plm = {kwMatch} plo 'pm'")
+	lines.push("\t\tsome(v) {kwGives} {call}(plo, result: v.clone())")
+	lines.push("\t\tnone {kwGives} {quoted("n")}")
+	lines.push("\t{kwEnd} 'pm'")
+	lines.push("\t{printCall}plm{printClose}")
+	return PlantedShape.make("match binding", lines: lines)
+end 'matchShape'
+
+// loopShape changes the collection a loop walks in its body.
+function loopShape(call String) returns PlantedShape
+	var lines = StringList.create(0)
+	lines.push(rootLine("pla"))
+	lines.push("\t{kwFor} plx {kwIn} pla 'pf'")
+	lines.push("\t\t{printCall}{call}(pla, result: plx.clone()){printClose}")
+	lines.push("\t{kwEnd} 'pf'")
+	return PlantedShape.make("loop collection", lines: lines)
+end 'loopShape'
+
+// lineBreaks is how many lines text ends.
+function lineBreaks(text String) returns Count
+	var n = 0 as Count
+	for i in 0 upto text.byteLength() 'bytes'
+		if text.byteAt(i) == 10 'line'
+			n = try n + 1 otherwise panic("fuzz: more lines than memory")
+		end 'line'
+	end 'bytes'
+	return n
+end 'lineBreaks'

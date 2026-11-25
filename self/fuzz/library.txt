@@ -17,6 +17,9 @@ union Option uses T
 	end 'unwrap'
 end 'Option'
 
+// Small is a byte-sized type: a List or an Array packs it, and a place of it lent by address is one byte wide.
+typealias Small = int(0 to 200)
+
 interface Scorable
 	function score() returns Count
 end 'Scorable'

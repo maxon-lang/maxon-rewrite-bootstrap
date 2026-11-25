@@ -119,8 +119,8 @@ the step that fails, with the gate's own output.
 | `minimaxon check [--tests] <file\|dir>` | diagnostics only, exit code 1 when there are any; `check runtime` checks the runtime's source and holds it to the functions the compiler calls (see "The runtime"); `--tests` checks every module's files of tests (`.maxtest`) with its source |
 | `minimaxon test [--update-positions] [--behaviours] [--repeat=N] [--worker-counts=N,N,...] [--env-runner=path] [--executables=N] [--target=<arch>-<os>] [dir]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests"), compiled for the target and run through its runner |
 | `minimaxon test <specs-dir\|file.md> [--verbose] [--interpret] [--require-passed\|--skip-passed] [--record-passed] [--executables=N]` | run maxon's spec tests (see "Tests") |
-| `minimaxon test <module dir>` | run the tests of the modules under the directory: the `test` declarations of their files of tests (`.maxtest`), compiled with the modules they name and the runtime into one executable whose entry calls each, which is then run (see "Tests") |
-| `minimaxon selftest` | run the compiler's own tests: `test self`, from the root of the repository |
+| `minimaxon test <module dir> [--compile-only] [--target=<arch>-<os>]` | run the tests of the modules under the directory: the `test` declarations of their files of tests (`.maxtest`), compiled with the modules they name and the runtime into one executable whose entry calls each, which is then run (see "Tests"); `--compile-only` builds that executable for the target, through code generation, and runs nothing, and without it a target other than the host's is refused, as the executable runs only on the host |
+| `minimaxon selftest [--compile-only]` | run the compiler's own tests: `test self`, from the root of the repository |
 | `minimaxon debug --symbolize <exe> <offset\|rip=0x<address>>...` | name the function, `file:line:column` and the inlined calls of code offsets (decimal or `0x` hex) of an executable that `build --debug-info` made, or of the address of a fault line, from the sidecar beside it, refusing one that describes another build (see "Debug info") |
 | `minimaxon debug --dump-info <exe> [header\|files\|functions\|types\|lines\|inline\|layout]...` | print the sidecar's sections, every one when none is named |
 | `minimaxon debug --batch --commands=<cmd;cmd;...\|@file> [--stop-timeout=<seconds>] <exe> [-- <args>...]` | debug an executable that `build --debug-info` made, on x64 Windows: launch it under the debugger, run the commands and write one JSON event per line, maxon's batch mode (see "Debug info") |
@@ -316,7 +316,7 @@ executables run under WSL, to which `MAXON_MAX_PROCS` is passed by `WSLENV`; a m
 steps with what it lacks, and never skips them), and again for the `arm64-linux` target (`test --target=arm64-linux --verify-ir`,
 every program compiled with arm64's selection and allocation held to their invariants, and its static executable run under WSL by
 the `qemu-aarch64` that WSL has registered with binfmt_misc), every program of `tests/bench/` compiled, and none run, with `--verify-ir` for each of the four targets (`test testsench --target=<target> --verify-ir --compile-only`), the compiler's own source
-built, and not run, for `arm64-linux` and `arm64-macos` (`build self --target=<target> --verify-ir --no-cache`), the corpus compiled, and none run, for each target whose executables the host does not run (on the Mac `x64-windows`, `x64-linux` and `arm64-linux`; `test --compile-only --target=<target>`, with `--verify-ir` for arm64: a compiler panic fails it), and every spec test compiled, and none run, for the one foreign target that `specsCompiledFor` in `cmd/gate` names for the host, the one no other lane runs them for (`x64-windows` on the Mac, `arm64-macos` on Windows, none on Linux; `test specs --compile-only --target=<target>`: a spec test must compile as its blocks say wherever the host's compile of it does), the build cache (a project whose main inlines a leaf of the module it names, built cold, warm and after
+built, and not run, for `arm64-linux` and `arm64-macos` (`build self --target=<target> --verify-ir --no-cache`), the corpus compiled, and none run, for each target whose executables the host does not run (on the Mac `x64-windows`, `x64-linux` and `arm64-linux`; `test --compile-only --target=<target>`, with `--verify-ir` for arm64: a compiler panic fails it), the compiler's own tests built for each of those targets with `--verify-ir`, and none run (`selftest --compile-only --target=<target> --verify-ir`, about two seconds a target on the Mac: the host's `selftest` compiles them for the host alone, and x64's allocator once panicked on a file of tests that arm64 compiled), and every spec test compiled, and none run, for the one foreign target that `specsCompiledFor` in `cmd/gate` names for the host, the one no other lane runs them for (`x64-windows` on the Mac, `arm64-macos` on Windows, none on Linux; `test specs --compile-only --target=<target>`: a spec test must compile as its blocks say wherever the host's compile of it does), the build cache (a project whose main inlines a leaf of the module it names, built cold, warm and after
 an edit of the leaf that the order mispredicts, on every worker and on one, each executable held to the uncached build of the same
 source, and `--verify-cache`), the debug info (programs built for each target and `self` for x64 Windows with and without `--debug-info`, each executable the same and every span verified, and a stack overflow's `rip=` symbolized to its line on x64 Windows, x64 Linux and arm64 Linux; see "Debug info"), every spec test (`test specs --interpret --require-passed`, which fails when a test that `specs/passed.txt` lists does not pass,
 counts the new passes, and runs each test that passes under the interpreter too, for a proven access out of range alone), `fuzz` (300 generated programs, each one the checker accepts run clean under the interpreter), and `fuzz --proofs --native` (180 programs that aim at the range analysis's proofs, run under the interpreter and as executables). It stops at the
@@ -2250,13 +2250,18 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   behaviours, and requires the same stdout and exit code as the directives and no violation. `self/interp/interp.maxtest` tests it on
   IR that is written to break each rule (and to schedule behaviours: their order, their interleaving, the counts). `minimaxon fuzz` (`self/fuzz`) writes random well-formed programs over records, unions,
   strings, the four conventions, calls with overlapping and disjoint arguments, match bindings, loops, generics with bounds,
-  arrays, lists through maxon's value API (and a field of an element that get lends, written with a try before the target), slot maps with slot keys, a borrowed place held while a later operand of the same expression changes or
+  arrays, lists through maxon's value API (and a field of an element that get lends, written with a try before the target, often a byte-sized Small, and read again after the list changes shape), slot maps with slot keys, a borrowed place held while a later operand of the same expression changes or
   consumes what it lies in, and frozen values, cowns and behaviours. The checker refuses most of them, since the generator leans
   on the edges of the rules: about two programs in five are careless and break rules throughout, and two in five of the rest
   break exactly one rule of sharing, once (a behaviour that takes a borrow, a variable used after a behaviour took it, a frozen
   value changed or taken apart, a cown read outside a behaviour, a borrowed place held across a later operand), so that a rule
   the checker lacked would be all that stands between that program and the interpreter. Every program it accepts must run
-  clean, under several schedules when it schedules a behaviour, and one that does not is a hole. A program is a pure function of
+  clean, under several schedules when it schedules a behaviour, and one that does not is a hole. Each accepted program is
+  also checked again with a shape planted at the start of main (`self/fuzz/planted.maxon`): a read of a place followed,
+  in the same expression or statement, by a call that moves or replaces it while the read still holds it (an interpolated
+  part behind text, after another part, nested, of a field, an element or a `FilePath`, or appended to; a compared
+  operand; an argument; a receiver; a subscripted collection; an exchanged place; a match binding; a loop's collection).
+  The checker must refuse it with an ownership error on the shape's lines, and a planted program it accepts is a hole. A program of `fuzz --proofs` has none planted, since its library has none of the calls a shape makes. A program is a pure function of
   its seed; the generator draws from `self/fuzz/rand.maxon` and the generic library every program starts with is
   `self/fuzz/library.txt`. The generator writes a `try` on every piece of arithmetic, and one that the analysis proves
   cannot fail is `E3944`, which is no fault of the program: a program refused for that alone runs after `fix` removes those
@@ -4141,7 +4146,8 @@ taken out; a library slot array's (`__SlotArray`) makes no test, as the slot tab
   place, then evaluates the next, then uses the borrow, the place stays borrowed through the next. That is an argument
   while later arguments are evaluated, the target of `x.f = v` and `a[i] = v` while the value is, the left operand of a
   string comparison while the right is, the collection of a subscript while its index is, and each part of an
-  interpolated string while the later ones are (the parts are measured and joined once all are evaluated).
+  interpolated string that is joined from what it reads, until the last part is (the parts are measured and joined once
+  all are evaluated).
   A call in there that changes an overlapping place is refused (`E3186`): `look(a[0], n: drop(a))`, where `drop`
   takes `a` as `mutates`, `a[0].n = drop(a)`, `a[0] == wipe(a)`, `rows[0].cells[shrink(rows)]` (read, assigned,
   passed `mutates` or matched) and `"{p.name}{take(p)}"`. A scalar that is only read is a value by then and holds
@@ -4363,7 +4369,13 @@ bound, by calling it (`Typing.hooks`). An interpolation measures its parts (a St
 known one, an integer's digit count by `rt.decimalLength`), allocates once (`rt.str.joinRoom`) and puts each part in place
 (`rt.str.joinPut`, and `rt.str.joinDigits`, which writes an integer's digits into the buffer with no String of their own),
 its ASCII bit the AND of the parts'; an interpolation that is a part of another with no format of its own gives the outer
-one its parts (`self/ir/joins.maxon`). An assignment whose value is an interpolation that starts with the assigned place
+one its parts (`self/ir/joins.maxon`). A part that is an unquoted String, or a `FilePath`, is joined from the String it
+reads, kept as a handle until the one join after the last part, so the place it reads is held until then; the checker's
+ownership pass holds each such part the same way, nested parts included (`strLitOwn`), and both ask the same question of a
+part, `ast.textPartBorrows` (with `ast.nestedTextParts` for the parts a nested literal gives), so the two cannot disagree on
+which parts are read at the join. A later part that moves or changes the place is refused (`E3186`), whichever part it is:
+`"{s} {take(s)}"` as much as `"{s}{take(s)}"`. A part of a type parameter is held as a String would be, since an instance
+may make it one. An assignment whose value is an interpolation that starts with the assigned place
 itself, `s = "{s}..."` (a local, a field of a place, or an element at a literal or immutable index, through a `mutates`
 parameter too), appends: the assignment consumes the old String, so where its owned bit is set (not a literal, whose bytes
 are the executable's) and its box has room (`boxCapacity`, the size of the heap's slot or large block, read from the box's

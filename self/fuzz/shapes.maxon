@@ -325,9 +325,9 @@ function actionTable() returns WeightedList
 	t.push(Weighted.make(3, action: Action.actWhile))
 	t.push(Weighted.make(3, action: Action.actFor))
 	t.push(Weighted.make(5, action: Action.actMatch))
-	t.push(Weighted.make(9, action: Action.actArray))
+	t.push(Weighted.make(8, action: Action.actArray))
 	t.push(Weighted.make(5, action: Action.actSlotMap))
-	t.push(Weighted.make(4, action: Action.actList))
+	t.push(Weighted.make(5, action: Action.actList))
 	t.push(Weighted.make(3, action: Action.actReturn))
 	t.push(Weighted.make(3, action: Action.actLoopJump))
 	t.push(Weighted.make(3, action: Action.actElement))
@@ -361,21 +361,40 @@ function actionTable() returns WeightedList
 end 'actionTable'
 
 // GeneratedProgram is the source of a program and whether its output and exit code are the same under every schedule of
-// its behaviours, so that its executable and the interpreter, which schedule differently, can be compared.
+// its behaviours, so that its executable and the interpreter, which schedule differently, can be compared. With it comes the
+// same program with a shape planted at the start of main that the checker must refuse with an ownership error on one of the
+// lines from plantFirst to plantLast, counted from 1; a proof program has none (unplanted).
 export type GeneratedProgram
 	export var source as String
 	export var scheduleIndependent as bool
+	export var planted as String
+	export var plantName as String
+	export var plantFirst as Count
+	export var plantLast as Count
 
-	static function make(consumes source String, scheduleIndependent bool) returns GeneratedProgram
-		return GeneratedProgram{source: source, scheduleIndependent: scheduleIndependent}
+	static function make(consumes source String, scheduleIndependent bool, consumes planted String, shape PlantedShape, plantFirst Count) returns GeneratedProgram
+		let last = try plantFirst + shape.lines.count() - 1 otherwise panic("fuzz: a shape of no lines")
+		return GeneratedProgram{source: source, scheduleIndependent: scheduleIndependent, planted: planted, plantName: shape.name.clone(), plantFirst: plantFirst, plantLast: last}
 	end 'make'
+
+	// unplanted is a program with no shape planted, as the proof generator writes: its library has none of the calls that a
+	// shape makes, so planted is empty and there is nothing for the checker to refuse.
+	static function unplanted(consumes source String, scheduleIndependent bool) returns GeneratedProgram
+		return GeneratedProgram{source: source, scheduleIndependent: scheduleIndependent, planted: "", plantName: "", plantFirst: 0, plantLast: 0}
+	end 'unplanted'
+
+	// isPlanted is whether the program comes with a planted shape.
+	export function isPlanted() returns bool
+		return planted != ""
+	end 'isPlanted'
 end 'GeneratedProgram'
 
 // generate writes one random program for the seed, whose library text is what every program starts with.
 export function generate(seed Count, library String) returns GeneratedProgram
 	var g = Generator.new(seed)
 	g.start()
-	return GeneratedProgram.make(g.finish(library), scheduleIndependent: g.scheduleIndependent())
+	let shape = plantedShape(seed)
+	return GeneratedProgram.make(g.finish(library), scheduleIndependent: g.scheduleIndependent(), planted: g.finishPlanted(library, plant: shape.lines), shape: shape, plantFirst: g.plantedLine(library))
 end 'generate'
 
 // program is the source of the program generate writes for the seed.

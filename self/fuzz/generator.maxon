@@ -14,6 +14,7 @@ typealias Depth = int(-16 to 8)
 enum Kind
 	kCount
 	kBool
+	kByte
 	kString
 	kRecord
 	kUnion
@@ -31,12 +32,15 @@ let longTextTail = "-held-past-its-two-words"
 
 let halfTheTime = 50 as Count
 
-// The three types that are not made by the program's declarations or an instance.
+// The four types that are not made by the program's declarations or an instance. A Small is the library's int(0 to 200), a
+// byte-sized type, which a field has so that a place of it lent by address is one byte wide.
 let tCount = 0 as Count
 
 let tBool = 1 as Count
 
 let tString = 2 as Count
+
+let tByte = 3 as Count
 
 type Ty
 	var kind as Kind
@@ -240,13 +244,16 @@ type Generator
 	var sinning as bool
 	var recent as Count
 	var recentOK as bool
+	// mainAt is the index in out of the line that declares main, after which a planted shape goes.
+	var mainAt as Count
 
 	static function new(seed Count) returns Generator
 		var tys = TyList.create(0)
 		tys.push(Ty.make(Kind.kCount, name: "", args: CountList.create(0), src: "Count"))
 		tys.push(Ty.make(Kind.kBool, name: "", args: CountList.create(0), src: "bool"))
 		tys.push(Ty.make(Kind.kString, name: "", args: CountList.create(0), src: "String"))
-		return Generator{rng: Rand.new(seed), tys: tys, tyIndex: TyIndex.new(), records: RecordList.create(0), unions: UnionList.create(0), fns: FnList.create(0), aliases: CountList.create(0), out: StringList.create(0), indent: 0, labels: 0, names: 0, scopes: Scopes.create(0), vars: VarList.create(0), store: PlaceList.create(0), hasRet: false, ret: 0, loop: 0, budget: 0, guards: StringList.create(0), pendingInit: CountList.create(0), carelessPercent: 0, arraysOnly: false, sharing: false, quiet: false, behaviours: 0, sinsLeft: 0, heldSin: false, inMain: false, tries: 0, sinning: false, recent: 0, recentOK: false}
+		tys.push(Ty.make(Kind.kByte, name: "", args: CountList.create(0), src: "Small"))
+		return Generator{rng: Rand.new(seed), tys: tys, tyIndex: TyIndex.new(), records: RecordList.create(0), unions: UnionList.create(0), fns: FnList.create(0), aliases: CountList.create(0), out: StringList.create(0), indent: 0, labels: 0, names: 0, scopes: Scopes.create(0), vars: VarList.create(0), store: PlaceList.create(0), hasRet: false, ret: 0, loop: 0, budget: 0, guards: StringList.create(0), pendingInit: CountList.create(0), carelessPercent: 0, arraysOnly: false, sharing: false, quiet: false, behaviours: 0, sinsLeft: 0, heldSin: false, inMain: false, tries: 0, sinning: false, recent: 0, recentOK: false, mainAt: 0}
 	end 'new'
 
 	// kindOf is the kind of a type.
@@ -270,7 +277,7 @@ type Generator
 
 	function managed(t Count) returns bool
 		let k = tys[t].kind
-		return k != Kind.kCount and k != Kind.kBool and k != Kind.kSlotKey
+		return k != Kind.kCount and k != Kind.kBool and k != Kind.kByte and k != Kind.kSlotKey
 	end 'managed'
 
 	function scalar(t Count) returns bool
@@ -591,13 +598,16 @@ type Generator
 			end 'chosen'
 		end 'shared'
 		let n = self.pick(17)
-		if n < 4 'count'
+		if n < 3 'count'
 			return tCount
 		end 'count'
-		if n < 5 'bool'
+		if n < 6 'small'
+			return tByte
+		end 'small'
+		if n < 7 'bool'
 			return tBool
 		end 'bool'
-		if n < 8 'string'
+		if n < 9 'string'
 			return tString
 		end 'string'
 		if n < 10 'array'
@@ -1280,6 +1290,9 @@ type Generator
 		if k == Kind.kBool 'bool'
 			return self.boolExpr(level)
 		end 'bool'
+		if k == Kind.kByte 'small'
+			return self.smallExpr(level)
+		end 'small'
 		let below = lower(level)
 		if level > 0 'storage'
 			if self.chance(15) 'drawn'
@@ -1365,6 +1378,17 @@ type Generator
 		end 'shared'
 		panic("owned: unhandled type {tys[t].src}")
 	end 'owned'
+
+	// smallExpr is a Small: a literal, or a Small that is in scope.
+	function smallExpr(mutates self, depth Depth) returns String
+		if depth > 0 and self.chance(30) 'place'
+			let found = self.place(tByte, mutable: false)
+			if found.isSome() 'some'
+				return store[found.unwrap()].src.clone()
+			end 'some'
+		end 'place'
+		return literal(self.pick(201))
+	end 'smallExpr'
 
 	function recordExpr(mutates self, ri Count, depth Depth) returns String
 		let t = records[ri].t
@@ -2141,16 +2165,21 @@ type Generator
 		let test = self.boolExpr(1)
 		self.line("{kwIf} {test} {label}")
 		let state = self.moveState()
+		// Each branch is a scope of its own: a variable that a value declares there (a sets argument's) is not seen after it.
 		self.indentMore()
+		self.push()
 		let first = self.owned(t, depth: 1)
 		self.line("{name} = {first}")
+		self.pop()
 		self.indentLess()
 		let stateA = self.moveState()
 		self.restoreMoves(state)
 		self.line("{kwEnd} {label} {kwElse} {label2}")
 		self.indentMore()
+		self.push()
 		let second = self.owned(t, depth: 1)
 		self.line("{name} = {second}")
+		self.pop()
 		self.indentLess()
 		self.line("{kwEnd} {label2}")
 		let stateB = self.moveState()
@@ -2836,7 +2865,7 @@ type Generator
 		end 'immutable'
 		let name = vars[v].name.clone()
 		let element = tys[vars[v].t].args[0]
-		let n = self.pick(9)
+		let n = self.pick(10)
 		if n < 2 'add'
 			var adder = "append"
 			if self.pick(2) == 1 'prepend'
@@ -2859,8 +2888,8 @@ type Generator
 			let fallback = self.owned(element, depth: 2)
 			self.line("{kwLet} {kept} = {kwTry} {name}.{taker} {kwOtherwise} {fallback}")
 			_ = self.declare(kept, t: element, owned: true, mutable: false)
-		end 'take' else if n < 8 'element'
-			if n == 4 and self.lentWrite(v) 'written'
+		end 'take' else if n < 9 'element'
+			if n < 5 and self.lentWrite(v) 'written'
 				return true
 			end 'written'
 			let mark = self.guardedBegin()
@@ -2874,24 +2903,33 @@ type Generator
 
 	// lentWrite writes a field of an element of the list v as the statement `try l.get(i).f = value`, whose try covers the get
 	// that lends the place and passes its failure on: to the handler of a try block around it, its own or one that encloses
-	// it. The count guards it, so the handler does not run, and a field that is a count is printed after. It writes nothing,
-	// and is false, where the element is no record with a field to assign.
+	// it. The count guards it, so the handler does not run. It leans toward a Small field, which is lent a byte wide, prints
+	// the field after, and half the time changes the list's shape and reads the elements again. It writes nothing, and is
+	// false, where the element is no record with a field to assign.
 	function lentWrite(mutates self, v Count) returns bool
-		let ri = self.recordIndex(tys[vars[v].t].args[0])
+		let elem = tys[vars[v].t].args[0]
+		let ri = self.recordIndex(elem)
 		if not ri.isSome() 'plain'
 			return false
 		end 'plain'
 		let r = ri.unwrap()
 		var assignable = CountList.create(0)
+		var smalls = CountList.create(0)
 		for k in 0 upto records[r].fields.count() 'fields'
 			if records[r].fields[k].isVar 'var'
 				assignable.push(k)
+				if records[r].fields[k].t == tByte 'small'
+					smalls.push(k)
+				end 'small'
 			end 'var'
 		end 'fields'
 		if assignable.count() == 0 'none'
 			return false
 		end 'none'
-		let f = assignable[self.pick(assignable.count())]
+		var f = assignable[self.pick(assignable.count())]
+		if smalls.count() > 0 and self.chance(80) 'small'
+			f = smalls[self.pick(smalls.count())]
+		end 'small'
 		let fieldName = records[r].fields[f].name.clone()
 		let fieldT = records[r].fields[f].t
 		let name = vars[v].name.clone()
@@ -2918,12 +2956,53 @@ type Generator
 			self.indentLess()
 			self.line("{kwEnd} {handler}")
 		end 'own'
-		if fieldT == tCount 'shown'
-			self.say(printed("({kwTry} {name}.get({at}) {kwOtherwise} panic(\"the list is empty\")).{fieldName}"))
-		end 'shown'
+		self.readField(name, at: at, field: fieldName, t: fieldT)
+		if self.chance(50) 'reshaped'
+			self.reshape(name, elem: elem)
+			let label = self.label()
+			self.line("{kwIf} {name}.count() > 0 {label}")
+			self.indentMore()
+			self.readField(name, at: "0", field: fieldName, t: fieldT)
+			self.readField(name, at: "{name}.count() / 2", field: fieldName, t: fieldT)
+			self.readField(name, at: "({kwTry} {name}.count() - 1 {kwOtherwise} 0)", field: fieldName, t: fieldT)
+			self.indentLess()
+			self.line("{kwEnd} {label}")
+		end 'reshaped'
 		self.guardedEnd(mark)
 		return true
 	end 'lentWrite'
+
+	// reshape changes the shape of the list name, whose elements are elem: adds an element at either end or takes one out
+	// of either end or of the middle, so its elements move.
+	function reshape(mutates self, name String, elem Count)
+		let n = self.pick(5)
+		if n < 1 'append'
+			let value = self.owned(elem, depth: 1)
+			self.line("{name}.append({value})")
+		end 'append' else if n < 2 'prepend'
+			let value = self.owned(elem, depth: 1)
+			self.line("{name}.prepend({value})")
+		end 'prepend' else if n < 3 'first'
+			self.line("{kwTry} {name}.removeFirst() {kwOtherwise} ignore")
+		end 'first' else if n < 4 'last'
+			self.line("{kwTry} {name}.removeLast() {kwOtherwise} ignore")
+		end 'last' else 'middle'
+			self.line("{kwTry} {name}.remove({name}.count() / 2) {kwOtherwise} ignore")
+		end 'middle'
+	end 'reshape'
+
+	// readField reads the field of the element at of the list name, which get lends: prints it where it prints, copies it
+	// where it is managed, and prints the list's count for a slot key.
+	function readField(mutates self, name String, at String, field String, t Count)
+		let src = "({kwTry} {name}.get({at}) {kwOtherwise} panic(\"the list is empty\")).{field}"
+		if t == tCount or t == tByte or t == tString or t == tBool 'printed'
+			self.say(printed(src))
+		end 'printed' else if self.managed(t) 'copied'
+			self.line("_ = {src}.clone()")
+		end 'copied' else 'counted'
+			self.say(printed("{name}.count()"))
+		end 'counted'
+	end 'readField'
 
 	function actBox(mutates self, depth Depth) returns bool
 		var boxes = CountList.create(0)
@@ -3099,6 +3178,7 @@ type Generator
 	function mainFunction(mutates self)
 		scopes = Scopes.create(0)
 		self.push()
+		mainAt = out.count()
 		self.line("{kwFunction} main() {kwReturns} ExitCode")
 		inMain = true
 		hasRet = false
@@ -3153,6 +3233,12 @@ type Generator
 		end 'pool'
 		if self.chance(70) 'list'
 			elem = self.elementType()
+			if self.chance(60) 'writable'
+				let found = self.writableRecord()
+				if found.isSome() 'some'
+					elem = found.unwrap()
+				end 'some'
+			end 'writable'
 			let l = self.fresh("v")
 			let lt = self.listOf(elem)
 			let listText = self.typeExpr(lt)
@@ -3163,6 +3249,36 @@ type Generator
 		end 'list'
 		self.sharingPreamble()
 	end 'preamble'
+
+	// writableRecord is a record with a field to assign, for a list whose elements lentWrite writes: one with a Small field
+	// where there is one, more often than not.
+	function writableRecord(mutates self) returns table.Option with Count
+		var found = CountList.create(0)
+		var smalls = CountList.create(0)
+		for i in 0 upto records.count() 'records'
+			var assignable = false
+			var small = false
+			for k in 0 upto records[i].fields.count() 'fields'
+				if records[i].fields[k].isVar 'var'
+					assignable = true
+					small = small or records[i].fields[k].t == tByte
+				end 'var'
+			end 'fields'
+			if assignable 'assignable'
+				found.push(records[i].t)
+			end 'assignable'
+			if small 'small'
+				smalls.push(records[i].t)
+			end 'small'
+		end 'records'
+		if smalls.count() > 0 and self.chance(85) 'small'
+			return table.Option.some(smalls[self.pick(smalls.count())])
+		end 'small'
+		if found.count() == 0 'none'
+			return table.Option.none
+		end 'none'
+		return table.Option.some(found[self.pick(found.count())])
+	end 'writableRecord'
 
 	// anyPlace is a place of any managed type that is in scope, to be borrowed.
 	function anyPlace(mutates self, mutable bool) returns table.Option with Count
@@ -3483,7 +3599,8 @@ type Generator
 		end 'mutating'
 		if c.kind == SiblingKind.swallow 'swallow'
 			vars[c.v].moved = true
-			return table.Option.some("swallowReturning({vars[c.v].name}, result: {result})")
+			// The variable is typed, as look's place is, so that a match or a conditional of literals fixes T.
+			return table.Option.some("swallowReturning({self.typedOf(vars[c.v].t, value: vars[c.v].name)}, result: {result})")
 		end 'swallow'
 		if c.kind == SiblingKind.consumingMethod 'consuming'
 			vars[c.v].moved = true
@@ -4474,4 +4591,36 @@ type Generator
 	function finish(library String) returns String
 		return "{trimTrailingNewlines(library)}\n\n{self.aliasDecls()}{joinStrings(out, separator: "\n")}\n"
 	end 'finish'
+
+	// finishPlanted is the program's text with the lines of plant at the start of main's body.
+	function finishPlanted(library String, plant StringList) returns String
+		var lines = StringList.create(0)
+		var at = 0 as Count
+		for text in out 'lines'
+			lines.push(text.clone())
+			if at == mainAt 'main'
+				for planted in plant 'plant'
+					lines.push(planted.clone())
+				end 'plant'
+			end 'main'
+			at = try at + 1 otherwise panic("fuzz: more lines than memory")
+		end 'lines'
+		return "{trimTrailingNewlines(library)}\n\n{self.aliasDecls()}{joinStrings(lines, separator: "\n")}\n"
+	end 'finishPlanted'
+
+	// plantedLine is the number of the first line that finishPlanted plants, counted from 1: the line after main's, whose
+	// text is everything up to it.
+	function plantedLine(library String) returns Count
+		var head = StringList.create(0)
+		var at = 0 as Count
+		for text in out 'lines'
+			if at > mainAt 'past'
+				break 'lines'
+			end 'past'
+			head.push(text.clone())
+			at = try at + 1 otherwise panic("fuzz: more lines than memory")
+		end 'lines'
+		let before = lineBreaks("{trimTrailingNewlines(library)}\n\n{self.aliasDecls()}{joinStrings(head, separator: "\n")}\n")
+		return try before + 1 otherwise panic("fuzz: more lines than memory")
+	end 'plantedLine'
 end 'Generator'

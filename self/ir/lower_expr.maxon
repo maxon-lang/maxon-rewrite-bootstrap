@@ -1568,7 +1568,7 @@ end 'visitStrLit'
 function textParts(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, partsRef diag.U32, from Count, mutates parts TextParts)
 	let count = p.modules[l.mi].tree.strPartCount(partsRef)
 	for i in from upto count 'parts'
-		let nested = nestedParts(l, p: p, partsRef: partsRef, index: i)
+		let nested = ast.nestedTextParts(p.modules[l.mi].tree, partsRef: partsRef, index: i)
 		if nested.isSome() 'nested'
 			textParts(l, p: p, ms: ms, partsRef: nested.unwrap(), from: 0 as Count, parts: parts)
 			continue 'parts'
@@ -1581,23 +1581,6 @@ function textParts(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	end 'parts'
 end 'textParts'
 
-// nestedParts is the parts of the part at index when it is an interpolated literal written with no format, which the outer
-// literal takes in its place.
-function nestedParts(l Lowerer, p ast.Project, partsRef diag.U32, index Count) returns table.Option with diag.U32
-	if not p.modules[l.mi].tree.strPartIsExpr(partsRef, index: index) or p.modules[l.mi].tree.strPartFormat(partsRef, index: index).byteLength() > 0 'other'
-		return table.Option.none
-	end 'other'
-	let inner = ast.through(p.modules[l.mi].tree, e: p.modules[l.mi].tree.strPartExpr(partsRef, index: index))
-	if p.modules[l.mi].tree.kindOf(inner) != ast.NodeKind.strLit 'notLiteral'
-		return table.Option.none
-	end 'notLiteral'
-	let innerRef = ast.strLitPartsRef(p.modules[l.mi].tree, id: inner)
-	if p.modules[l.mi].tree.strIsPlain(innerRef) 'plain'
-		return table.Option.none
-	end 'plain'
-	return table.Option.some(innerRef)
-end 'nestedParts'
-
 function strPart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, partsRef diag.U32, index Count) returns TextPart
 	if not p.modules[l.mi].tree.strPartIsExpr(partsRef, index: index) 'text'
 		return TextPart.literal(partsRef, index: index, length: p.modules[l.mi].tree.strPartText(partsRef, index: index).byteLength())
@@ -1607,16 +1590,19 @@ function strPart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, p
 	let applied = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e))
 	let t = ast.contentType(ms.types, reads: p.types, t: applied)
 	let kind = ast.typeKind(ms.types, reads: p.types, t: t)
-	let spec = formatSpecOf(p.modules[l.mi].tree, partsRef: partsRef, index: index)
-	if t == p.builtins.stringTy and spec.quotes 'quoted'
-		return quotedText(l, v: v, spec: spec)
-	end 'quoted'
-	if t == p.builtins.stringTy 'string'
+	let spec = ast.partFormatSpec(p.modules[l.mi].tree, partsRef: partsRef, index: index)
+	if ast.textPartBorrows(p.builtins, tt: ms.types, reads: p.types, t: t, spec: spec) 'borrowed'
+		if t == p.builtins.filePathTy 'path'
+			return TextPart.make(pathText(l, path: v), owner: TextOwner.textBorrowed)
+		end 'path'
 		if isImmortal(l, p: p, e: e) 'immortal'
 			return TextPart.make(v, owner: TextOwner.textImmortal)
 		end 'immortal'
 		return TextPart.make(v, owner: TextOwner.textBorrowed)
-	end 'string'
+	end 'borrowed'
+	if t == p.builtins.stringTy 'quoted'
+		return quotedText(l, v: v, spec: spec)
+	end 'quoted'
 	if t == p.builtins.characterTy 'character'
 		return characterText(l, p: p, ms: ms, v: v, spec: spec)
 	end 'character'
@@ -1651,9 +1637,6 @@ function strPart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, p
 		let tag = tagReg(l, p: p, ms: ms, t: t, v: v)
 		return TextPart.make(names(l, index: tag, names: caseNames(p, ms: ms, t: t)), owner: TextOwner.textImmortal)
 	end 'union'
-	if t == p.builtins.filePathTy 'path'
-		return TextPart.make(pathText(l, path: v), owner: TextOwner.textBorrowed)
-	end 'path'
 	if p.typings[l.mi].hooks.has(e as Count) 'hook'
 		let made = newReg(l, kind: IrKind.kindString)
 		let text = protocolCall(l, p: p, ms: ms, s: e, info: hookInfoAt(p, module: l.module, node: e), recv: v, dst: made, resultTy: p.builtins.stringTy, exit: l.cur.clone())
@@ -1681,19 +1664,6 @@ function rawText(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t
 	end 'intSpec'
 	return TextPart.decimal(raw, unsigned: false)
 end 'rawText'
-
-// formatSpecOf is the format specifier of a part of a string literal, which asks for nothing for a part that has none. The
-// parser refused a specifier that does not read, so every one reads here.
-function formatSpecOf(t ast.Tree, partsRef diag.U32, index Count) returns ast.FormatSpec
-	let text = t.strPartFormat(partsRef, index: index)
-	if text.byteLength() == 0 'none'
-		return ast.FormatSpec.absent()
-	end 'none'
-	return match consumes ast.parseFormatSpec(text) 'spec'
-		some(s) gives s
-		none panic("ir: the format specifier '{text}' was not read by the parser")
-	end 'spec'
-end 'formatSpecOf'
 
 function binOpOfText(op String) returns BinOp
 	return match op 'op'

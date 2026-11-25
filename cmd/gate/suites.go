@@ -144,7 +144,9 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 	// What is never run here is compiled here: a compile that panics or fails for a target only another host runs would
 	// otherwise show only on that host.
 	for _, t := range foreignTargets(r.h) {
-		steps = append(steps, laneStep{step{"compiles for " + t, func() error { return compilesFor(r.h, r.compiler, t, r.testArgs) }}, "builds"})
+		steps = append(steps,
+			laneStep{step{"compiles for " + t, func() error { return compilesFor(r.h, r.compiler, t, r.testArgs) }}, "builds"},
+			laneStep{step{"self tests compile for " + t, func() error { return selfTestsCompileFor(r.compiler, t) }}, "builds"})
 	}
 	first := []string{"checks", "builds", "specs", "native"}
 	second := []string{"native-behaviours"}
@@ -472,6 +474,14 @@ func compilesFor(h host, compiler, t string, testArgs []string) error {
 		return nil
 	}
 	return quiet(nil, compiler, slices.Concat([]string{"test", "specs"}, flags)...)
+}
+
+// selfTestsCompileFor builds the executable of the compiler's own tests (selftest) for a target the host does not run, with
+// the IR and the allocation of every function verified, and runs nothing: the host's selftest compiles them for the host
+// only, so a compile that panics for another target, as x64's register allocator did on a panic's message of interpolated
+// calls in a file of tests (59d43678), would otherwise show only on that target's host. It takes about two seconds a target.
+func selfTestsCompileFor(compiler, t string) error {
+	return quiet(nil, compiler, "selftest", "--compile-only", "--target="+t, "--verify-ir")
 }
 
 // benchmarksCompile compiles every program of tests/bench, and runs none, for every target, with the IR and the allocation of

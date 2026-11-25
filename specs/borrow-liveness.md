@@ -3116,6 +3116,7 @@ end 'main'
 ```
 
 <!-- test: an-interpolated-field-read-survives-a-later-part-reassigning-the-field -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### A field read as an interpolation part survives a later part that reassigns the field
 `{self.name}` is read before `self.rename()` runs; the part holds its own reference, so the
 reassignment's release of the old name leaves the text being built intact.
@@ -3124,25 +3125,25 @@ type Person
 	var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name.clone()}
+		return Self{name: name}
 	end 'create'
 
 	function current() returns String
-		return name.clone()
+		return name
 	end 'current'
 
-	function rename(mutates self) returns String
+	function rename() returns String
 		self.name = "renamed {40 + 2} value long enough for a heap record"
 		return "done"
 	end 'rename'
 
-	function describe(mutates self) returns String
+	function describe() returns String
 		return "{self.name} {self.rename()}"
 	end 'describe'
 end 'Person'
 
 function main() returns ExitCode
-	var p = Person.create("original {40 + 2} value long enough for a heap record")
+	let p = Person.create("original {40 + 2} value long enough for a heap record")
 	let text = p.describe()
 	print("[{text}]\n")
 	print("[{p.current()}]\n")

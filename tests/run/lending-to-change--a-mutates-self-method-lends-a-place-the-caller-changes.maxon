@@ -69,12 +69,14 @@ function main() returns ExitCode
 	bump(p.counter())
 	bump(p.first().n)
 	rename(p.second(), to: "renamed")
-	print("{p.first().n} {p.second().name} {p.counter()} {p.view().n}\n")
+	let right = p.second().name.clone()
+	print("{p.first().n} {right} {p.counter()} {p.view().n}\n")
 	var h = Holder.make()
 	h.inner().first().n = 7
 	h.deep().name = "deep"
 	bump(h.inner().counter())
-	print("{h.inner().view().n} {h.deep().name} {h.inner().counter()}\n")
+	let deep = h.deep().name.clone()
+	print("{h.inner().view().n} {deep} {h.inner().counter()}\n")
 	return 0
 end 'main'
 
