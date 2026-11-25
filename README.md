@@ -112,6 +112,16 @@ compiler finds `runtime/` and `stdlib/` by walking up from its executable, which
 (`macos-latest`) runs `./check.sh`, the arm64 macOS gate. There is no Windows job, since the Windows gate needs WSL. A job fails on
 the step that fails, with the gate's own output.
 
+`.github/workflows/nightly-fuzz.yml` runs `fuzz --native` every night, and on demand over a range given as `start` and `count`, on
+arm64 macOS and arm64 Linux. By default a night runs 20,000 seeds from the days since 2026-01-01 times 20,000, so no two nights
+run the same seeds. Its `prepare` job (`macos-latest`) decides the range, which it prints in its log and summary, and builds the
+arm64 Linux compiler as `linux-x64` does in `ci.yml`. Then `macos-arm64` builds its compiler from the seed and `linux-arm64` takes
+that one, and each runs `bash cmd/fuzzshards/run.sh bin/minimaxon <start> <count> --native`. The script splits the range into one
+`fuzz --seed=S --count=M --keep=DIR` process per core (`FUZZ_SHARDS`, `FUZZ_OUT`) and waits for all of them. It fails when one
+does, and names the lowest failing seed and the command that reproduces it in the job's summary. The job keeps the failing
+programs as an artifact. The workflow reads the repository and writes nothing to it, and it runs the same locally, as in
+`FUZZ_SHARDS=2 bash cmd/fuzzshards/run.sh bin/minimaxon 1 100 --native`.
+
 | Command | What it does |
 |---|---|
 | `minimaxon build <file\|dir> [-o out.exe] [--target=<arch>-<os>]` | compile; the path given is the project's root, and a directory is a project, one module per directory (see "Modules"); `--target` names the target, `x64-windows`, `x64-linux` or `arm64-linux` (see "Targets"), the system the compiler runs on by default |
