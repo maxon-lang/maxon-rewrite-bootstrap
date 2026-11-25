@@ -1,10 +1,8 @@
-package main
+package heavylock
 
 import (
 	"errors"
-	"os/exec"
 	"runtime"
-	"strconv"
 	"syscall"
 	"unsafe"
 )
@@ -70,17 +68,4 @@ func processAlive(pid int) bool {
 	var code uint32
 	ok, _, _ := getExitCodeProcess.Call(uintptr(handle), uintptr(unsafe.Pointer(&code)))
 	return ok != 0 && code == stillActive
-}
-
-// startGroup starts cmd so that stopGroup can end it and every process it started.
-func startGroup(cmd *exec.Cmd) error {
-	return cmd.Start()
-}
-
-// stopGroup ends a process and the processes it started.
-func stopGroup(cmd *exec.Cmd) {
-	if cmd.Process == nil || cmd.ProcessState != nil {
-		return
-	}
-	_ = exec.Command("taskkill.exe", "/PID", strconv.Itoa(cmd.Process.Pid), "/T", "/F").Run()
 }
