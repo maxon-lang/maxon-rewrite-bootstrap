@@ -1697,7 +1697,7 @@ function registerAt(slot Slot) returns Register
 end 'registerAt'
 
 function combine(sum Tally, op Opcode, left Register, right Register, extra Tally) returns Tally
-	return (sum + opcodeValue(op) * (left.rawValue as Tally) + (right.rawValue as Tally) + extra) mod 1000003
+	return try (sum + opcodeValue(op) * (left.rawValue as Tally) + (right.rawValue as Tally) + extra) mod 1000003 otherwise panic("out of range")
 end 'combine'
 
 function fold(lanes Tally, extra Tally) returns Tally
@@ -1712,7 +1712,7 @@ function fold(lanes Tally, extra Tally) returns Tally
 		end 'eachPair'
 		width = half
 	end 'halving'
-	return total + mix
+	return try total + mix otherwise panic("out of range")
 end 'fold'
 
 function main() returns ExitCode

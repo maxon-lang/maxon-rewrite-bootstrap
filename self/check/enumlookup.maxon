@@ -1,0 +1,127 @@
+// fromRawValue is maxon's lookup of the case that writes a raw value: `Color.fromRawValue(raw)` throws `noSuchRawValue` when
+// none does. It is a member of every enum whose cases write integers, floats or strings, or none, and it is read before a
+// case or a function of that name, as maxon's is. An enum whose cases write records or functions, and every union, has none.
+// The call is a static call of a function that only this call has, which lowers to a search of the cases (ir/enumlookup.maxon).
+let fromRawValueMethod = "fromRawValue"
+
+// isFromRawValue is whether the member name of a call written on the type nt is the lookup of the raw values of an enum.
+function isFromRawValue(p ast.Project, ms ast.ModuleState, nt ast.TypeID, name String) returns bool
+	return name == fromRawValueMethod and kindOfType(p, ms: ms, t: nt) == ast.TypeKind.enumTy
+end 'isFromRawValue'
+
+// callEnumFromRawValue types `Enum.fromRawValue(raw)`, whose argument is typed by itself: a number for an enum of integers or
+// of floats, and never the other, and a String for an enum of strings. A constant that no case writes is refused where it is
+// written, as maxon does, though the call still stands for the `try` that covers it. An enum of records or of functions has no
+// such member.
+function callEnumFromRawValue(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let orig = ast.originOf(ms.types, reads: p.types, t: nt)
+	if ast.typeEntry(ms.types, reads: p.types, t: orig).rawKind == ast.RawKind.value 'valued'
+		return refuseFromRawValue(c, p: p, ms: ms, call: call, nt: nt, errs: errs)
+	end 'valued'
+	var specs = ast.ParamSpecList.create(0)
+	specs.push(ast.ParamSpec.make(positionalName.clone(), ty: ast.noType, conv: ast.Convention.convLet))
+	let mark = errs.count()
+	let ordered = orderArgs(c, p: p, ms: ms, call: call, callee: "{nameOfType(p, ms: ms, t: nt)}.{fromRawValueMethod}", specs: specs, receivers: 0, errs: errs)
+	if failedSince(errs, mark: mark) 'badOrder'
+		return ast.noType
+	end 'badOrder'
+	var result = ast.noType
+	for arg in ordered 'argument'
+		result = typeRawValueArgument(c, p: p, ms: ms, call: call, nt: nt, arg: arg, ordered: ordered, errs: errs)
+	end 'argument'
+	return result
+end 'callEnumFromRawValue'
+
+// typeRawValueArgument is callEnumFromRawValue for arg, the one argument of the call, which it records as the call's.
+function typeRawValueArgument(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, nt ast.TypeID, arg ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList) returns ast.TypeID
+	let given = checkExpecting(c, p: p, ms: ms, e: arg, want: ast.noType, errs: errs)
+	if given == ast.noType 'badArgument'
+		return ast.noType
+	end 'badArgument'
+	let kind = ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: nt)).rawKind
+	if not rawValueArgumentSuits(p, ms: ms, kind: kind, t: given) 'wrongDomain'
+		checkFail(c.modID, off: exprOffset(c, p: p, ms: ms, node: arg), code: diag.errTypeMismatch, msg: diag.expectedGot(kind.noun(), got: gotName(p, ms: ms, t: given)), errs: errs)
+		return ast.noType
+	end 'wrongDomain'
+	if not requireConstantNamesCase(c, p: p, ms: ms, call: call, nt: nt, kind: kind, given: given, errs: errs) 'namesNoCase'
+		return ast.noType
+	end 'namesNoCase'
+	let lookup = lookupFunction(c, p: p, ms: ms, call: call, nt: nt, given: given)
+	var info = ast.CallInfo.make(ast.CallKind.callStatic, fn: lookup, receiverTy: ast.noType)
+	info.paramSpecs.push(ast.ParamSpec.make(positionalName.clone(), ty: given, conv: ast.Convention.convLet))
+	info.intrinsic = ast.Intrinsic.intrEnumFromRawValue
+	info.ordered = ordered.clone()
+	c.typing.calls.insert(call as Count, value: info)
+	return nt
+end 'typeRawValueArgument'
+
+// lookupFunction is the function that the call at node is a call of: the lookup of the enum nt, which takes an argument of
+// the type given and throws what no case of the enum answers to.
+function lookupFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, nt ast.TypeID, given ast.TypeID) returns ast.FuncID
+	var fn = ast.FuncEntry.make(fromRawValueMethod.clone(), visibility: publicVisibility.clone(), module: c.modID, nodeID: call)
+	fn.ownerTy = nt
+	fn.isStatic = true
+	fn.retTy = nt
+	fn.errTy = p.builtins.enumLookupErrorTy
+	fn.intrinsic = ast.Intrinsic.intrEnumFromRawValue
+	fn.paramTypes.push(given)
+	fn.params.push(ast.ParamSpec.make(positionalName.clone(), ty: given, conv: ast.Convention.convLet))
+	return ast.allocFunc(ms.funcs, module: c.modID, f: fn)
+end 'lookupFunction'
+
+// rawValueArgumentSuits is whether a value of type t is of the domain of the raw values of the kind: an integer of any range,
+// a float, or a String. An integer is no float here, as maxon's lookup takes only the type its raw values are.
+function rawValueArgumentSuits(p ast.Project, ms ast.ModuleState, kind ast.RawKind, t ast.TypeID) returns bool
+	return match kind 'k'
+		integer gives ast.isIntType(ms.types, reads: p.types, t: t)
+		float gives ast.isFloatType(ms.types, reads: p.types, t: t)
+		string gives t == p.builtins.stringTy
+		value gives panic("fromRawValue is not typed for an enum whose raw values are no literals")
+	end 'k'
+end 'rawValueArgumentSuits'
+
+// requireConstantNamesCase refuses an argument that is a constant no case of the enum writes, E3034 at the member. Only a
+// number is a constant here: the text of a String is looked up where the call runs.
+function requireConstantNamesCase(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, nt ast.TypeID, kind ast.RawKind, given ast.TypeID, mutates errs diag.ErrorList) returns bool
+	let givenKind = kindOfType(p, ms: ms, t: given)
+	if givenKind != ast.TypeKind.constInt and givenKind != ast.TypeKind.constFloat 'notConstant'
+		return true
+	end 'notConstant'
+	let known = ast.typeEntry(ms.types, reads: p.types, t: given).minVal.clone()
+	for written in ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: nt)).cases 'eachCase'
+		if written.rawValue.eq(known) 'writesIt'
+			return true
+		end 'writesIt'
+	end 'eachCase'
+	var shown = known.toString()
+	if kind == ast.RawKind.float 'float'
+		shown = ast.floatDiagnosticText(known.lo)
+	end 'float'
+	failAt(c, p: p, ms: ms, node: call, code: diag.errEnumUnknownCase, msg: diag.enumNoSuchRawValue(shown, enumName: nameOfType(p, ms: ms, t: nt)), errs: errs)
+	return false
+end 'requireConstantNamesCase'
+
+// refuseFromRawValue refuses `fromRawValue` on a type that has none, as maxon does: a union and an enum of records have no such
+// member (E3034 at the type's name), and an enum of functions refuses it, since a function is no literal that a case could be
+// looked up by (E2015, at the member).
+function refuseFromRawValue(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let orig = ast.originOf(ms.types, reads: p.types, t: nt)
+	let isUnion = kindOfType(p, ms: ms, t: nt) == ast.TypeKind.unionTy
+	if not isUnion and ast.typeEntry(ms.types, reads: p.types, t: orig).rawKind == ast.RawKind.value 'valued'
+		let raw = ast.rawTypeOf(p, ms: ms, t: orig)
+		if raw == ast.noType 'untyped'
+			return failRawUntyped(c, p: p, ms: ms, e: call, t: nt, errs: errs)
+		end 'untyped'
+		if typeHasKind(p, ms: ms, t: raw, kind: ast.TypeKind.funcTy) 'functions'
+			failAt(c, p: p, ms: ms, node: call, code: diag.errUnsupportedFeature, msg: "'{fromRawValueMethod}' on enum '{nameOfType(p, ms: ms, t: nt)}', whose raw values are functions: a function is no literal that a case could be looked up by", errs: errs)
+			return ast.noType
+		end 'functions'
+	end 'valued'
+	var word = enumWord
+	if isUnion 'union'
+		word = unionWord
+	end 'union'
+	let head = ast.memberExprObj(ms.tree(), id: ast.callExprCallee(ms.tree(), id: call))
+	checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: head), code: diag.errEnumUnknownCase, msg: diag.enumUnknownCase(word, caseName: fromRawValueMethod), errs: errs)
+	return ast.noType
+end 'refuseFromRawValue'

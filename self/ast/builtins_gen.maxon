@@ -196,6 +196,10 @@ export let errorIterationAtStart = 1 as Count
 
 export let errorCastOtherType = 0 as Count
 
+export let errorNoSuchRawValue = 0 as Count
+
+export let errorNoSuchCaseName = 1 as Count
+
 export enum Intrinsic
 	intrNone
 	intrArrayCreate
@@ -455,6 +459,7 @@ export enum Intrinsic
 	intrRawSignalReturnAddress
 	intrEnumHash
 	intrEnumEquals
+	intrEnumFromRawValue
 end 'Intrinsic'
 
 // intrinsicRuntimeOnly is whether only the runtime module may call the intrinsic (E3152).
@@ -1090,22 +1095,26 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std P
 	var names34 = StringList.create(0)
 	names34.push("otherType")
 	b.castErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CastError", cases: names34)
+	var names35 = StringList.create(0)
+	names35.push("noSuchRawValue")
+	names35.push("noSuchCaseName")
+	b.enumLookupErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__EnumLookupError", cases: names35)
 	b.copyableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Copyable")
 	b.droppableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Droppable")
 	b.errorTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Error")
 	b.initableFromStringLiteralTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "InitableFromStringLiteral")
 	tt.lists[typeList(tt, t: b.filePathTy)][typeIndex(tt, t: b.filePathTy)].conforms.push(b.initableFromStringLiteralTy)
-	let ty35 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty35)
 	let ty36 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	let ty37 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(ty36))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArrays", ty: ty37)
-	let ty38 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty38)
-	let ty39 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty39)
-	let ty40 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty40)
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty36)
+	let ty37 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	let ty38 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(ty37))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArrays", ty: ty38)
+	let ty39 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty39)
+	let ty40 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty40)
+	let ty41 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty41)
 end 'declareBuiltinTypes'
 
 function declareArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

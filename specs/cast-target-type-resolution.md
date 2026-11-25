@@ -255,7 +255,7 @@ enum Color
 end 'Color'
 
 function pick(n Integer) returns Integer
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'pick'
 
 function main() returns ExitCode

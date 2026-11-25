@@ -1,0 +1,84 @@
+enum HttpStatus
+	ok = 200
+	notFound = 404
+end 'HttpStatus'
+
+enum Weights
+	light = 1.5
+	heavy = 3.5
+end 'Weights'
+
+enum Planet
+	earth = "Earth"
+	mars = "Mars"
+end 'Planet'
+
+type OpMeta
+	export let latency as Count
+end 'OpMeta'
+
+enum Instruction
+	add = OpMeta{latency: 1}
+	load = OpMeta{latency: 4}
+end 'Instruction'
+
+function doubleFn(x FullRangeInt) returns FullRangeInt
+	return x * 2
+end 'doubleFn'
+
+enum Op
+	doubleOp = doubleFn
+end 'Op'
+
+union Shape
+	dot
+	circle(r Count)
+end 'Shape'
+
+function noIntegerCase() returns HttpStatus
+	return try HttpStatus.fromRawValue(999) otherwise HttpStatus.ok
+end 'noIntegerCase'
+
+function noFloatCase() returns Weights
+	return try Weights.fromRawValue(2.5) otherwise Weights.light
+end 'noFloatCase'
+
+function aStringForIntegers() returns HttpStatus
+	return try HttpStatus.fromRawValue("404") otherwise HttpStatus.ok
+end 'aStringForIntegers'
+
+function anIntegerForFloats() returns Weights
+	return try Weights.fromRawValue(2) otherwise Weights.light
+end 'anIntegerForFloats'
+
+function aFloatForStrings() returns Planet
+	return try Planet.fromRawValue(2.5) otherwise Planet.earth
+end 'aFloatForStrings'
+
+function aUnionHasNone() returns Count
+	let shape = try Shape.fromRawValue(0) otherwise Shape.dot
+	return 0
+end 'aUnionHasNone'
+
+function anEnumOfRecordsHasNone() returns Count
+	let op = try Instruction.fromRawValue(1) otherwise Instruction.add
+	return 0
+end 'anEnumOfRecordsHasNone'
+
+function anEnumOfFunctionsRefusesIt() returns Count
+	let op = try Op.fromRawValue(1) otherwise Op.doubleOp
+	return 0
+end 'anEnumOfFunctionsRefusesIt'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3034 at 39:24
+// expect-error: E3034 at 43:21
+// expect-error: E3005 at 47:37
+// expect-error: E3005 at 51:34
+// expect-error: E3005 at 55:33
+// expect-error: E3034 at 59:18
+// expect-error: E3034 at 64:15
+// expect-error: E2015 at 69:18

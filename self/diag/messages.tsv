@@ -90,6 +90,7 @@ refIdentityTypeMismatch	ErrTypeMismatch	'{op}' requires both operands to be the 
 matchQualifiedCaseName	ErrMatchQualifiedCaseName	use '{bare}' instead of '{qualified}' in match
 instanceMethodWithoutReceiver	ErrInstanceMethodWithoutReceiver	'{method}' is an instance method of '{owner}' and needs a receiver: call it on a value, such as 'value.{method}(...)', or make it `static`
 enumUnknownCase	ErrEnumUnknownCase	unknown {kindWord} case: '{caseName}'
+enumNoSuchRawValue	ErrEnumUnknownCase	no enum case with raw value '{value}': '{enumName}'
 enumWrongBindingCount	ErrEnumWrongBindingCount	wrong binding count: '{caseName}' expects {expected} associated value(s), got {got}
 argArityMismatch	ErrCallArgCountMismatch	'{callee}' expects {expected} argument(s) but {got} were provided
 argUnknownLabel	ErrCallUnknownArgLabel	'{callee}' has no parameter named '{label}'

@@ -773,6 +773,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrEnumEquals 'intrEnumEquals'
 		return lowerEnumEquals(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrEnumEquals'
+	if op == ast.Intrinsic.intrEnumFromRawValue 'intrEnumFromRawValue'
+		return lowerEnumFromRawValue(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrEnumFromRawValue'
 	panic("lower: a call names no intrinsic")
 end 'intrinsicCall'
 
@@ -1549,5 +1552,8 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrEnumEquals 'intrEnumEquals'
 		return false
 	end 'intrEnumEquals'
+	if op == ast.Intrinsic.intrEnumFromRawValue 'intrEnumFromRawValue'
+		return false
+	end 'intrEnumFromRawValue'
 	panic("lower: a call names no intrinsic")
 end 'ownsOperands'
