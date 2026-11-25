@@ -223,20 +223,26 @@ type RangeState
 		if fields.count() == 0 and relations.count() == 0 'nothing'
 			return
 		end 'nothing'
-		var keptFields = PlaceSpanList.create(0)
+		var keptFields = 0 as Count
 		for i in 0 upto fields.count() 'fields'
 			if not gone.isGone(fields[i].at) 'stays'
-				keptFields.push(fields[i].clone())
+				if keptFields != i 'moves'
+					fields[keptFields] = fields[i].clone()
+				end 'moves'
+				keptFields = keptFields + 1
 			end 'stays'
 		end 'fields'
-		fields = keptFields
-		var keptRelations = RelationList.create(0)
+		fields.truncate(keptFields)
+		var keptRelations = 0 as Count
 		for i in 0 upto relations.count() 'relations'
 			if not gone.isGone(relations[i].hi) and not gone.isGone(relations[i].lo) 'stays'
-				keptRelations.push(relations[i].clone())
+				if keptRelations != i 'moves'
+					relations[keptRelations] = relations[i].clone()
+				end 'moves'
+				keptRelations = keptRelations + 1
 			end 'stays'
 		end 'relations'
-		relations = keptRelations
+		relations.truncate(keptRelations)
 	end 'drop'
 
 	// affect applies what a call that changes nothing else the state follows inside the collection at holder does to its

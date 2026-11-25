@@ -91,3 +91,10 @@ versions (the baseline) is the noise floor: a ratio inside it says nothing. Chec
 |---|---|---|---:|---:|---:|---:|---|---:|---:|---:|
 | 2026-11-24 | d1f764dd | P0 baseline: A = B, the noise floor | 11 | 1502 | 1495 | 0.995 | 0.943-1.051 | 18.5% | 11362 | 3802 |
 | 2026-11-24 | 7a37ea8e+ | P3b proven get and set in counted loops | 11 | 1487 | 1493 | 1.003 | 0.977-1.061 | 17.9% | 11413 | 3829 |
+| 2026-11-25 | 15f5a2ab+ | P5 drop in place, ranges timing (A = P4 tip) | 11 | 1368 | 1361 | 0.995 | 0.897-1.025 | 15.9% | 11402 | 3829 |
+| 2026-11-25 | 15f5a2ab+ | P5 checkpoint, stage so far (A = 4c494e68, before P1) | 11 | 1481 | 1374 | 0.928 | 0.883-0.956 | 17.3% | 11402 | 3829 |
+
+At the P5 checkpoint the counts in the compiler's own IR were 11386 bounds and 3816 empty-slot at 4c494e68, 11400 and 3829
+at the tip before P5, and 11402 and 3829 after it. The stage is under its limit (+2%) by a wide margin because the slot-array
+commits of the same branch, which A lacks, make the build faster. The `ranges` line of `--timings` shows the range analysis at
+about 4% of a `build self`, and is part of the `verify` stage.

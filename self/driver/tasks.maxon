@@ -270,17 +270,18 @@ type Outcome
 end 'Outcome'
 
 // TaskTiming is what a task times besides its wall time, which --timings reports: the phases of a lower and of an emit,
-// and the calls an inline replaced.
+// the calls an inline replaced, and the range analysis of a verify.
 type TaskTiming
 	var lower as table.PhaseClock
 	var emit as backend.EmitClock
 	var inlined as Count
+	var ranges as table.PhaseClock
 
 	static function of(timed bool) returns TaskTiming
 		if timed 'on'
-			return TaskTiming{lower: table.PhaseClock.start(opt.OptPhase.allCaseNames.count()), emit: backend.EmitClock.start(), inlined: 0}
+			return TaskTiming{lower: table.PhaseClock.start(opt.OptPhase.allCaseNames.count()), emit: backend.EmitClock.start(), inlined: 0, ranges: table.PhaseClock.start(check.rangesPhases)}
 		end 'on'
-		return TaskTiming{lower: table.PhaseClock.off(), emit: backend.EmitClock.off(), inlined: 0}
+		return TaskTiming{lower: table.PhaseClock.off(), emit: backend.EmitClock.off(), inlined: 0, ranges: table.PhaseClock.off()}
 	end 'of'
 end 'TaskTiming'
 
@@ -353,13 +354,13 @@ function moduleTask(c Compile, mutates work ModuleWork, stage Stage, m Count, kn
 		parsed then panic("driver: parsed is a stage of the project")
 		resolve then return resolveTask(c, work: work, known: known, inputs: inputs, errs: errs)
 		order then panic("driver: order is a stage of the project")
-		aliases then return checkTask(c, work: work, stage: stage, known: known, inputs: inputs, errs: errs)
-		declare then return checkTask(c, work: work, stage: stage, known: known, inputs: inputs, errs: errs)
+		aliases then return checkTask(c, work: work, stage: stage, known: known, inputs: inputs, timing: timing, errs: errs)
+		declare then return checkTask(c, work: work, stage: stage, known: known, inputs: inputs, timing: timing, errs: errs)
 		entry then panic("driver: entry is a stage of the project")
-		constantOrder then return checkTask(c, work: work, stage: stage, known: known, inputs: inputs, errs: errs)
-		constants then return checkTask(c, work: work, stage: stage, known: known, inputs: inputs, errs: errs)
-		bodies then return checkTask(c, work: work, stage: stage, known: known, inputs: inputs, errs: errs)
-		verify then return checkTask(c, work: work, stage: stage, known: known, inputs: inputs, errs: errs)
+		constantOrder then return checkTask(c, work: work, stage: stage, known: known, inputs: inputs, timing: timing, errs: errs)
+		constants then return checkTask(c, work: work, stage: stage, known: known, inputs: inputs, timing: timing, errs: errs)
+		bodies then return checkTask(c, work: work, stage: stage, known: known, inputs: inputs, timing: timing, errs: errs)
+		verify then return checkTask(c, work: work, stage: stage, known: known, inputs: inputs, timing: timing, errs: errs)
 		endCheck then panic("driver: endCheck is a stage of the project")
 		lower then return lowerModule(c, work: work, known: known, inputs: inputs, timing: timing, errs: errs)
 		inline then return inlineTask(c, work: work, m: m, known: known, inputs: inputs, timing: timing)
@@ -591,7 +592,7 @@ end 'giveTask'
 // checkTask runs a stage of the check of the module: the module's state, to which the module's home lends what the stage
 // writes, is what the stage writes, and the task's view of the project is what it reads of the modules it waited on. The
 // verify ends the module's check.
-function checkTask(c Compile, mutates work ModuleWork, stage Stage, known Known, inputs ast.Inputs, mutates errs diag.ErrorList) returns frozen with Product
+function checkTask(c Compile, mutates work ModuleWork, stage Stage, known Known, inputs ast.Inputs, mutates timing TaskTiming, mutates errs diag.ErrorList) returns frozen with Product
 	let module = work.home.module
 	var view as ast.Project
 	let unit = lendTask(c, work: work, stage: stage, lent: ast.Lent.tree, known: known, inputs: inputs, view: view)
@@ -607,7 +608,7 @@ function checkTask(c Compile, mutates work ModuleWork, stage Stage, known Known,
 		constantOrder then check.moduleConstantOrder(work.checkState, p: view, errs: errs)
 		constants then check.moduleConstants(work.checkState, p: view, errs: errs)
 		bodies then checkBodies(work, view: view, errs: errs)
-		verify then check.moduleVerify(work.checkState, p: view, errs: errs)
+		verify then check.moduleVerify(work.checkState, p: view, clock: timing.ranges, errs: errs)
 		endCheck then panic("driver: endCheck is a stage of the project")
 		lower then panic("driver: the lower is no stage of the check")
 		inline then panic("driver: the inline is no stage of the check")

@@ -182,7 +182,7 @@ and its symbol, which `cmd/sample` reads. A profile of `self/` is two commands:
 `--verify-ir` checks the IR of every function with the IR verifier (see "The IR") as lowered and again in SSA form, before code is made, and holds
 the register allocation of every function to its invariants (spilling's to `verifyPressure`, colouring's to `checkColouring`), and stops the compile
 with an internal error naming the rules the first broken function breaks. `--timings` (on `build`, `run` and `check`) prints on standard error, once the stages have run, a table with one line for
-each stage of the task graph: the wall time its tasks took, in milliseconds, and its share of the total, and the five modules whose
+each stage of the task graph: the wall time its tasks took, in milliseconds, and its share of the total, a `ranges` line for the part of the `verify` stage that the range analysis took, and the five modules whose
 tasks took longest; a `build` prints it for the runtime's compile, which every build does first, and for the program's. A
 `build` or `check` runs its tasks on every core, so the stages' times add up to the work the compile did, which is more than
 its wall time. The clock is read twice per task and only when the flag is on.

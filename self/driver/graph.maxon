@@ -593,7 +593,7 @@ function chargeTask(mutates timings Timings, stage Stage, module Count, nanos Co
 	end 'ofModule' else 'ofProject'
 		timings.addProject(stage.ordinal, nanos: nanos)
 	end 'ofProject'
-	timings.addTask(timing.lower, emitted: timing.emit, inlined: timing.inlined)
+	timings.addTask(timing.lower, emitted: timing.emit, inlined: timing.inlined, ranged: timing.ranges)
 end 'chargeTask'
 
 // execute runs the tasks in order, the ones that a task adds as well, each when every task it waits on has run: a task is
