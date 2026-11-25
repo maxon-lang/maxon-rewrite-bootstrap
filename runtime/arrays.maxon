@@ -283,7 +283,7 @@ function collectionCloseGap(box Count, index Count, elementBytes Count)
 	let following = __Raw.wrappingSub(__Raw.wrappingSub(length, right: index), right: 1)
 	let moving = collectionBytes(following, elementBytes: elementBytes)
 	if moving != 0 'follows'
-		copyBytes(__Raw.wrappingAdd(at, right: elementBytes), target: at, count: moving)
+		copyForward(__Raw.wrappingAdd(at, right: elementBytes), target: at, count: moving)
 	end 'follows'
 	__Raw.storeWord(box, offset: arrayLengthOffset, value: __Raw.wrappingSub(length, right: 1))
 end 'collectionCloseGap'
