@@ -1,7 +1,0 @@
-public typealias GraphemeIndex = int(0 to u64.max) implements ElementIndex
-
-extension String implements Hashable, Equatable
-	public function hash() returns HashValue
-		return hashString(self)
-	end 'hash'
-end 'String'

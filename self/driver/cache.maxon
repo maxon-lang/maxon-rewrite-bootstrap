@@ -565,16 +565,7 @@ function planModules(c Compile, p ast.Project, order check.ModuleOrder, known Kn
 			pending.push(c.moduleOf(slot))
 		end 'pending'
 	end 'unsettled'
-	while pending.count() > 0 'closure'
-		let m = try pending.pop() otherwise panic("driver: the pending modules ran out")
-		for j in 0 upto p.resolutions[m].deps.count() 'deps'
-			let d = ast.modIndex(p.resolutions[m].deps[j].module)
-			if d >= c.first and not checked[c.slotOf(d)] 'new'
-				checked[c.slotOf(d)] = true
-				pending.push(d)
-			end 'new'
-		end 'deps'
-	end 'closure'
+	markNamedClosure(c, p: p, marked: checked, pending: pending)
 	for slot in 0 upto c.modules 'loaded'
 		if settled[slot] and not checked[slot] 'ready'
 			plans[slot].reach = Reach.loaded
@@ -587,6 +578,24 @@ function planModules(c Compile, p ast.Project, order check.ModuleOrder, known Kn
 	end 'loaded'
 	return plans
 end 'planModules'
+
+// markNamedClosure marks in marked, by place among the modules the compile compiles, every one of them that the modules in
+// pending name, directly or through others, and spends pending. It reads only what each module's resolve recorded, so it
+// marks modules that the compile already reached and never one it did not: it is how a module that is not settled finds the
+// modules whose check and lower it reads, and how the inline of a module finds the modules whose leaves it may copy, the
+// same set.
+function markNamedClosure(c Compile, p ast.Project, mutates marked Placed, mutates pending TaskIDs)
+	while pending.count() > 0 'closure'
+		let m = try pending.pop() otherwise panic("driver: the pending modules ran out")
+		for j in 0 upto p.resolutions[m].deps.count() 'deps'
+			let d = ast.modIndex(p.resolutions[m].deps[j].module)
+			if d >= c.first and not marked[c.slotOf(d)] 'new'
+				marked[c.slotOf(d)] = true
+				pending.push(d)
+			end 'new'
+		end 'deps'
+	end 'closure'
+end 'markNamedClosure'
 
 // namedSettled is whether every module that module m of p names, and the compile compiles, is settled, or is taken to make the
 // summary it made the last time.

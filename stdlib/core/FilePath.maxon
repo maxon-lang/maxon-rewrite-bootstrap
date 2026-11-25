@@ -1,0 +1,32 @@
+extension FilePath implements Equatable, Hashable
+	/// `s` in the form the host filesystem compares paths in. Windows: lower-cased (NTFS treats
+	/// `C:\Foo` and `c:\foo` as the same path). POSIX: returned as-is.
+	export static function canonicalForCompare(s String) returns String
+		#if os(Windows)
+			return s.toLower()
+		#else
+			return s.clone()
+		#endif
+	end 'canonicalForCompare'
+
+	/// This path as the host compares paths: lower-cased on Windows, as written on POSIX.
+	/// `equals`, `hash`, `isInside`, `startsWith` and `relativeTo` compare this spelling.
+	public function comparisonSpelling() returns String
+		return canonicalForCompare(path)
+	end 'comparisonSpelling'
+
+	// --- Equatable ---
+	/// Path equality matching the host filesystem's semantics:
+	/// case-insensitive on Windows, exact byte match on POSIX.
+	public function equals(other FilePath) returns bool
+		return comparisonSpelling() == other.comparisonSpelling()
+	end 'equals'
+
+	// --- Hashable ---
+	/// Hash that agrees with `equals`: case-insensitive on Windows
+	/// so map lookups find an entry inserted with `C:\foo` when
+	/// queried with `c:\Foo`.
+	public function hash() returns HashValue
+		return comparisonSpelling().hash()
+	end 'hash'
+end 'FilePath'

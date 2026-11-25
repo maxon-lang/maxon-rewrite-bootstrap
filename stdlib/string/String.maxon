@@ -1,0 +1,1 @@
+public typealias GraphemeIndex = int(0 to u64.max) implements ElementIndex

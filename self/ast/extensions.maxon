@@ -662,3 +662,69 @@ function collectInterfaceMethodsOf(p Project, ms ModuleState, module diag.Module
 	p.modules[modIndex(module)].tables.requireHeld()
 	collectInterfaceMethods(p, ms: ms, tables: p.modules[modIndex(module)].tables, have: have, name: name, found: found)
 end 'collectInterfaceMethodsOf'
+
+// fixKindName is the kind of the fix that makes a module of the library name the module whose extension adds a member it
+// calls (check.libraryNamingFix).
+export let fixKindName = "name"
+
+// extensionHostOf is the module of the library, other than from, whose extensions add a member of the name, when exactly one
+// does. It reads what the modules declare as they are parsed, which every module may, so it holds nothing back.
+export function extensionHostOf(p Project, from diag.ModuleID, name String) returns table.Option with diag.ModuleID
+	var hosts = 0 as Count
+	var host = from
+	for candidate in p.modules 'modules'
+		if not candidate.isLibrary or candidate.id == from 'other'
+			continue 'modules'
+		end 'other'
+		if addsMember(candidate, name: name) 'adds'
+			hosts = try hosts + 1 otherwise panic("extensions: more modules than memory")
+			host = candidate.id
+		end 'adds'
+	end 'modules'
+	if hosts == 1 'one'
+		return table.Option.some(host)
+	end 'one'
+	return table.Option.none
+end 'extensionHostOf'
+
+// addsMember is whether an extension of the module adds a member of the name.
+function addsMember(m Module, name String) returns bool
+	for decl in m.decls 'decls'
+		if not decl.isExtension() 'other'
+			continue 'decls'
+		end 'other'
+		let names = decl.memberNames()
+		for member in names 'names'
+			if member == name 'hit'
+				return true
+			end 'hit'
+		end 'names'
+	end 'decls'
+	return false
+end 'addsMember'
+
+// namedTypeOf is the name of a type that the module declares for the other modules of the library, which a declaration of
+// another module writes to name the module: the first declaration that is not private and is an enum, a typealias or a type
+// with no type parameters, which a bare name stands for. A nested typealias is a declaration of its own, under a dotted name
+// that no bare name writes.
+export function namedTypeOf(m Module) returns table.Option with String
+	for decl in m.decls 'decls'
+		if decl.level() != Visibility.unexported and namesWholeType(decl) and not decl.name().contains(".") 'named'
+			return table.Option.some(decl.name())
+		end 'named'
+	end 'decls'
+	return table.Option.none
+end 'namedTypeOf'
+
+function namesWholeType(d Decl) returns bool
+	return match d 'd'
+		typeDecl(v) gives v.typeParams.count() == 0
+		enumDecl(_) gives true
+		aliasDecl(_) gives true
+		funcDecl(_) gives false
+		constDecl(_) gives false
+		unionDecl(_) gives false
+		interfaceDecl(_) gives false
+		extensionDecl(_) gives false
+	end 'd'
+end 'namesWholeType'

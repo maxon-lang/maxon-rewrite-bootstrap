@@ -1086,7 +1086,7 @@ var entries = []entry{
 	{"StrHasAffix", "rt.str.hasAffix", "Runtime", roleCall, "(String, affix String, atEnd) -> whether it starts with the affix, or ends with it where atEnd"},
 	{"StrReplace", "rt.str.replace", "Runtime", roleCall, "(String, old String, replacement String, all) -> String with the first match, or each, replaced"},
 	// StrTrimFirst and StrTrimLast are the seed's String.trim, which builds C1 with them: trim is the library's
-	// (stdlib/StringTrim.maxon), and the two go with the next seed.
+	// (stdlib/characterset/StringTrim.maxon), and the two go with the next seed.
 	{"StrTrimFirst", "rt.str.trimFirst", "Runtime", roleCall, "(String) -> the byte position of the first cluster that is not whitespace, or the length"},
 	{"StrTrimLast", "rt.str.trimLast", "Runtime", roleCall, "(String, from) -> the byte position after the last cluster at or after from that is not whitespace, or from"},
 	{"StrMapCase", "rt.str.mapCase", "Runtime", roleCall, "(String, upper) -> String with its ASCII letters in that case"},

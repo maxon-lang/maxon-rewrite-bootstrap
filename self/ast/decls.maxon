@@ -20,23 +20,30 @@ export type DeclRef
 	end 'make'
 end 'DeclRef'
 
-// methodNamesOf are the names of the methods and the static lets that an extension declares.
+// methodNamesOf are the names of the methods and the static lets that an extension declares and another module may call: a
+// member with no visibility is the declaring module's own, which no other module names, so it reaches nothing.
 function methodNamesOf(xd ExtensionDecl) returns StringList
 	var names = StringList.create(0)
-	for i in 0 upto xd.methods.count() 'methods'
-		names.push(xd.methods[i].name.clone())
+	for method in xd.methods 'methods'
+		if visibilityOf(method.visibility) != Visibility.unexported 'seen'
+			names.push(method.name.clone())
+		end 'seen'
 	end 'methods'
-	for i in 0 upto xd.statics.count() 'statics'
-		names.push(xd.statics[i].name.clone())
+	for member in xd.statics 'statics'
+		if visibilityOf(member.visibility) != Visibility.unexported 'seen'
+			names.push(member.name.clone())
+		end 'seen'
 	end 'statics'
 	return names
 end 'methodNamesOf'
 
-// typeMethodNamesOf are the names of the methods that a type declares.
+// typeMethodNamesOf are the names of the methods that a type declares and another module may call.
 function typeMethodNamesOf(td TypeDecl) returns StringList
 	var names = StringList.create(0)
-	for i in 0 upto td.methods.count() 'methods'
-		names.push(td.methods[i].name.clone())
+	for method in td.methods 'methods'
+		if visibilityOf(method.visibility) != Visibility.unexported 'seen'
+			names.push(method.name.clone())
+		end 'seen'
 	end 'methods'
 	return names
 end 'typeMethodNamesOf'
@@ -388,6 +395,15 @@ export type Module
 		end 'rt'
 		return path.clone()
 	end 'display'
+
+	// isQualifierRoot is whether the module is the root that its qualified names start from, which `export` names: the
+	// project's root, or the library's, which holds no file.
+	export function isQualifierRoot() returns bool
+		if isLibrary 'library'
+			return path == stdlibQualifier
+		end 'library'
+		return path == ""
+	end 'isQualifierRoot'
 
 	// inLibraryTier is whether the module may name maxon's raw surface (E3185).
 	export function inLibraryTier() returns bool

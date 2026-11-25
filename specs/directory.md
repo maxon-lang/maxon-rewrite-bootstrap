@@ -159,7 +159,7 @@ the most on every lane, because Win32 takes a GLOB where POSIX takes a directory
 <!-- test: list-directory -->
 ```maxon
 function main() returns ExitCode
-	let files = try Directory.list(FilePath from "../stdlib") otherwise 'err'
+	let files = try Directory.list(FilePath from "../stdlib/string") otherwise 'err'
 		return 0
 	end 'err'
 	// every checkout's stdlib carries String.maxon

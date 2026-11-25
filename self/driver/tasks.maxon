@@ -389,6 +389,7 @@ function parseTask(c Compile, mutates work ModuleWork, known Known, inputs ast.I
 		end 'indexing'
 	end 'library' else if c.index.present 'program'
 		work.words = wordsIn(ms.parsed.tree.text)
+		addLiteralWords(work.words, tree: ms.parsed.tree)
 	end 'program'
 	if c.cache.enabled() 'digests'
 		work.digests.source = sourceDigest(ms.source.path, text: ms.parsed.tree.text, files: ms.parsed.files)
@@ -413,8 +414,8 @@ end 'checkBodies'
 let skimmedBodyNeeded = "E9998"
 
 // reachedByProgram is whether the program reaches library module m by the library's names index: the words of the program's
-// modules, whose parses the parse of m waited on, reach the root, each library module one of whose words they are, and what
-// those may name (reachedQualifiers).
+// modules, whose parses the parse of m waited on, reach the library's core, each library module one of whose words they are,
+// and what those may name (reachedQualifiers).
 function reachedByProgram(c Compile, p ast.Project, known Known, m Count) returns bool
 	var words = WordSet.new()
 	for slot in 0 upto c.modules 'program'
@@ -427,11 +428,11 @@ function reachedByProgram(c Compile, p ast.Project, known Known, m Count) return
 			end 'new'
 		end 'words'
 	end 'program'
-	let root = match p.library 'root'
+	let core = match consumes ast.libraryModuleNamed(p, name: ast.libraryCoreModule) 'core'
 		some(id) gives libraryKey(c, m: ast.modIndex(id))
 		none gives ""
-	end 'root'
-	let reached = reachedQualifiers(c.index, words: words, root: root)
+	end 'core'
+	let reached = reachedQualifiers(c.index, words: words, always: core)
 	return reached.has(libraryKey(c, m: m))
 end 'reachedByProgram'
 
@@ -762,23 +763,26 @@ function inlineModule(c Compile, mutates work ModuleWork, p ast.Project, ms ast.
 	let preemptible = preemptibleFunctions(p, ms: ms, m: m, fns: fns)
 	var leaves = opt.findLeaves(fns, slot: ast.moduleSlot(work.home.module), preemptible: preemptible, preemptibleOnly: false)
 	var ownPreemptible = opt.findLeaves(fns, slot: ast.moduleSlot(work.home.module), preemptible: preemptible, preemptibleOnly: true)
+	var reached = Placed.create(0)
+	var pending = TaskIDs.create(0)
+	for _ in 0 upto known.count() 'none'
+		reached.push(false)
+	end 'none'
+	pending.push(m)
+	markNamedClosure(c, p: p, marked: reached, pending: pending)
 	var reads as Array with bool
 	reads = Array.create(0)
 	var lowered as opt.LoweredLists
 	lowered = Array.create(0)
 	var named as opt.LeavesList
 	named = Array.create(0)
+	for (k, isReached) in reached.enumerated() 'reads'
+		reads.push(isReached and c.moduleOf(k as Count) != m)
+	end 'reads'
 	for k in 0 upto known.count() 'modules'
-		reads.push(false)
 		lowered.push(share(known[k].code))
 		named.push(share(known[k].leaves))
 	end 'modules'
-	for j in 0 upto p.resolutions[m].deps.count() 'deps'
-		let d = ast.modIndex(p.resolutions[m].deps[j].module)
-		if d >= c.first and d != m 'compiled'
-			reads[d - c.first] = true
-		end 'compiled'
-	end 'deps'
 	let before = optimizer.inliner.sites
 	opt.inlineModule(optimizer, fns: fns, own: leaves, ownPreemptible: ownPreemptible, preemptible: preemptible, lowered: lowered, leaves: named, reads: reads, first: c.first)
 	work.leaves = freeze(leaves)

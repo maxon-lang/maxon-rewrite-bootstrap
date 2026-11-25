@@ -1151,7 +1151,7 @@ function main() returns ExitCode
 	let a = freeze(Box.create(1))
 	let b = Box.create(2)
 	let mixed = MixedList.create()
-	mixed.append((thaw(a), b))
+	mixed.append((a, b))
 	let found = try mixed.get(0) otherwise panic("empty")
 	found.1.n = 5
 	print("{found.0.n} {b.n} {mixed.count()}\n")

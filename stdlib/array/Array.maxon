@@ -1,0 +1,61 @@
+/// Dynamic array with automatic growth and element access by index.
+/// @category Collections
+// Array receives __ManagedMemory directly for literal initialization via BuiltinArrayLiteral.
+
+extension Array
+	public typealias ElementMemory = __ManagedMemory with T
+
+	/// Append all elements out of a raw `__ManagedMemory`, without wrapping it in an `Array` first.
+	///
+	/// This is the whole of `append` — the array half of `other` is never read. An `Array` IS its
+	/// `__ManagedMemory`, so `Array.init(mem)` is not free: it must allocate a fresh record to view
+	/// `mem` through. Without this entry point a caller that already holds the memory and only wants
+	/// its elements copied out pays a record per call for nothing — `StringBuilder.appendBytes` one
+	/// PER APPEND.
+	public function appendMemory(mutates self, source ElementMemory) where T implements Copyable
+		self.managed.append(source)
+	end 'appendMemory'
+end 'Array'
+
+// Conditional extension: contains is only available when Element is Equatable
+public extension Array where T implements Equatable
+	public typealias ElementArray = Array with T
+end 'Array'
+
+// The sort entry points. The bodies here dispatch; the algorithms are in stdlib/helpers/sort/.
+//
+// `sort` and `sortUnstable` pass an inline closure whose `x.compare(y)` dispatches through the
+// enclosing extension's `where Element is Comparable` witness slot by closure-env inheritance.
+public extension Array where T implements core.Comparable
+	/// Sort in place using the element's `Comparable.compare` ordering.
+	/// Stable: equal elements keep their relative order.
+	public function sort(mutates self) where T implements Droppable and Copyable
+		let lo = 0
+		let hi = self.managed.length()
+		self.driftsortRange(lo, hi: hi, cmp: function(x T, y T) gives x.compare(y))
+	end 'sort'
+
+	/// Sort in place using the element's `Comparable.compare` ordering.
+	/// Unstable: relative order of equal elements is not preserved.
+	public function sortUnstable(mutates self) where T implements Copyable
+		let lo = 0
+		let hi = self.managed.length()
+		self.pdqsortRange(lo, hi: hi, cmp: function(x T, y T) gives x.compare(y))
+	end 'sortUnstable'
+end 'Array'
+
+public extension Array
+	/// Sort in place using the supplied comparator. Stable.
+	public function sortBy(mutates self, cmp SortComparator) where T implements Droppable and Copyable
+		let lo = 0
+		let hi = self.managed.length()
+		self.driftsortRange(lo, hi: hi, cmp: cmp)
+	end 'sortBy'
+
+	/// Sort in place using the supplied comparator. Unstable.
+	public function sortUnstableBy(mutates self, cmp SortComparator) where T implements Copyable
+		let lo = 0
+		let hi = self.managed.length()
+		self.pdqsortRange(lo, hi: hi, cmp: cmp)
+	end 'sortUnstableBy'
+end 'Array'

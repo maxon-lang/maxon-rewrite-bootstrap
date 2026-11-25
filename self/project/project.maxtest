@@ -22,6 +22,24 @@ test 'project'
 	end 'cyc'
 end 'project'
 
+test 'a source file in the root of the library is refused'
+	var errs = diag.ErrorList.create(0)
+	var p = match consumes loadProject("tests/run/generics.maxon", errs: errs) 'pr'
+		some(pv) gives pv
+		none panic("loadProject(\"tests/run/generics.maxon\") returned none")
+	end 'pr'
+	addLibraryFrom(p, dir: "self/project/library-root-file", errs: errs)
+	var refusals = 0 as Count
+	for e in errs 'errs'
+		if e.code == "E3928" 'refusal'
+			refusals = try refusals + 1 otherwise panic("project: more errors than memory")
+		end 'refusal'
+	end 'errs'
+	if errs.count() != 1 or refusals != 1 'refused'
+		panic("a library whose root holds Stray.maxon: expected one E3928, got {errs.count()} errors")
+	end 'refused'
+end 'a source file in the root of the library is refused'
+
 test 'a name joined to a root stays under the root'
 	table.assertEqStr(joinPath("/", name: "stdlib"), expected: "/stdlib", label: "joinPath(\"/\")")
 	table.assertEqStr(joinPath("C:\\", name: "stdlib"), expected: "C:\\stdlib", label: "joinPath(\"C:\\\\\")")

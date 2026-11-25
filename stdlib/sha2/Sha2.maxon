@@ -73,7 +73,7 @@ let sha512KTable = Sha2Words from [0x428a2f98d728ae22, 0x7137449123ef65cd, 0xb5c
 function sha2ReadBlock(mutates schedule Sha2Words, padded ByteArray, blockOff ElementIndex, wordBytes Sha2WordBytes)
 	schedule.clear()
 	for wi in 0 upto sha2BlockWords 'readWords'
-		schedule.push(crypto.readOrderedWord(padded, off: try blockOff + wi * wordBytes otherwise panic("out of range"), width: wordBytes as crypto.ByteWordWidth, limit: padded.count(), order: crypto.ByteOrder.bigEndian) as Sha2Word)
+		schedule.push(_helpers.readOrderedWord(padded, off: try blockOff + wi * wordBytes otherwise panic("out of range"), width: wordBytes as _helpers.ByteWordWidth, limit: padded.count(), order: _helpers.ByteOrder.bigEndian) as Sha2Word)
 	end 'readWords'
 end 'sha2ReadBlock'
 
@@ -231,7 +231,7 @@ end 'sha256HardwareAvailable'
 function sha256HardwareInitialState(initial Sha2State) returns ByteArray
 	var bytes = ByteArray.create(sha256DigestBytes, zeroed: false)
 	for word in initial 'eachWord'
-		crypto.appendOrderedWord(bytes, word: word as OrderedWord, width: sha256WordBytes, order: crypto.ByteOrder.littleEndian)
+		_helpers.appendOrderedWord(bytes, word: word as OrderedWord, width: sha256WordBytes, order: _helpers.ByteOrder.littleEndian)
 	end 'eachWord'
 	return bytes
 end 'sha256HardwareInitialState'
@@ -355,7 +355,7 @@ public type Digest
 		for _ in 0 upto (lengthBytes - messageLengthBytes) as Count 'uncountedHighBytes'
 			pending.push(paddingFillByte)
 		end 'uncountedHighBytes'
-		crypto.appendOrderedWord(pending, word: try (consumed * bitsPerByte) as OrderedWord otherwise panic("out of range"), width: messageLengthBytes, order: crypto.ByteOrder.bigEndian)
+		_helpers.appendOrderedWord(pending, word: try (consumed * bitsPerByte) as OrderedWord otherwise panic("out of range"), width: messageLengthBytes, order: _helpers.ByteOrder.bigEndian)
 		compress(pending.clone(), blockOff: 0, blocks: pending.count() / blockBytes)
 		if usesHardware() 'hardware'
 			loadHardwareState()
@@ -367,7 +367,7 @@ public type Digest
 			if digest.count() == digestBytes 'complete'
 				break
 			end 'complete'
-			crypto.appendOrderedWord(digest, word: word as OrderedWord, width: wordBytes as crypto.ByteWordWidth, order: crypto.ByteOrder.bigEndian)
+			_helpers.appendOrderedWord(digest, word: word as OrderedWord, width: wordBytes as _helpers.ByteWordWidth, order: _helpers.ByteOrder.bigEndian)
 		end 'eachWord'
 		return digest
 	end 'finalize'
@@ -399,7 +399,7 @@ public type Digest
 
 	function loadHardwareState(mutates self)
 		for slot in 0 upto sha256StateWords 'eachWord'
-			let word = crypto.readOrderedWord(hardwareState, off: slot * sha256WordBytes, width: sha256WordBytes, limit: hardwareState.count(), order: crypto.ByteOrder.littleEndian) as Sha2Word
+			let word = _helpers.readOrderedWord(hardwareState, off: slot * sha256WordBytes, width: sha256WordBytes, limit: hardwareState.count(), order: _helpers.ByteOrder.littleEndian) as Sha2Word
 			state.set(slot, value: word)
 		end 'eachWord'
 	end 'loadHardwareState'

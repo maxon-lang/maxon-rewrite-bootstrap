@@ -1,0 +1,348 @@
+// Driftsort — adaptive stable sort that drives every `Array.sort` call for
+// inputs larger than the small-sort threshold (n > 32). This is a
+// driftsort-style sort from the powersort-merge family: the same family Rust's
+// standard-library stable `slice::sort` (driftsort, Peters & Bergdoll, 2024)
+// belongs to. It is not byte-identical to Rust's driftsort, but shares the
+// defining structure — logical-run detection merged in a powersort-determined
+// order over a bounded auxiliary buffer.
+//
+// Driftsort splits the input into already-sorted runs (bidirectional run
+// detection: ascending runs stay, descending runs get reversed in place),
+// then merges those runs in a powersort-determined order that approximates
+// the optimal merge tree. Compared to bottom-up merge sort, this:
+//
+//   - On highly-presorted input: cost is dominated by the run-detection pass
+//     (O(n) comparisons), not log(n) merge passes. Best case is O(n).
+//   - On random input: matches bottom-up merge sort's O(n log n) but with
+//     a better-balanced merge tree (powersort is nearly optimal in the
+//     comparison-count sense).
+//
+// The large-run merge strategy is the bounded-buffer adaptive merge in
+// mergeSort.maxon (`mergeAdaptive`): merges whose smaller side fits the
+// O(log n) scratch buffer copy into it; everything else falls back to the
+// in-place rotation merge. Performance primitives (branchless small-sort,
+// uninitialized scratch, refcount-bypassing element moves) are deferred until
+// after profiling.
+
+let EagerRunLengthLimit = SmallSortThreshold * 2
+
+// `nodePowerBetween`'s arithmetic is a raw 64-bit word: `scale * x` reaches ~2^63 and the
+// leading-zero scan starts from the top bit, 2^63, so a value with bit 63 set is a real value,
+// not an overflow.
+typealias NodePowerWord = bits(64)
+
+// Run record carried on the powersort stack. Defined as a top-level type
+// (not inside an extension) so the `Array` extension methods can reference
+// it through the `RunArrayStack` typealias.
+//
+// Fields:
+//   startIndex — index into the parent Array where the run begins
+//   length     — number of elements in the run
+//   power      — node-power between this run and the run AFTER it on the
+//                stack. Meaningless for the topmost run until a right
+//                neighbor arrives.
+//   sorted     — false for a *logical* run: a block reserved at run-creation
+//                time but not yet sorted (driftsort's lazy path). It is stably
+//                quicksorted just before it is physically merged. `init`
+//                defaults this true so existing sorted-run call sites are
+//                unchanged; `initLogical` builds an unsorted one.
+export type SortRun
+	export var startIndex as ElementIndex
+	export var length as ElementIndex
+	export var power as NodePower
+	export var sorted as bool
+
+	export static function init(startIndex ElementIndex, length ElementIndex, power NodePower) returns Self
+		return Self{startIndex: startIndex, length: length, power: power, sorted: true}
+	end 'init'
+
+	export static function initLogical(startIndex ElementIndex, length ElementIndex, power NodePower) returns Self
+		return Self{startIndex: startIndex, length: length, power: power, sorted: false}
+	end 'initLogical'
+end 'SortRun'
+
+export typealias NodePower = int(0 to 64)
+
+export extension Array
+	// Inner typealiases for powersort. `NodePower` is the integer log2-style
+	// power computed between two adjacent runs (higher = merge sooner).
+	// `RunArrayStack` is the stack carrying detected runs awaiting merge.
+	typealias RunArrayStack = Array with SortRun
+
+	// ---------------------------------------------------------------
+	// Run-length policy
+	// ---------------------------------------------------------------
+	// Integer floor square root via Newton's method. Returns the largest
+	// `r` with `r*r <= n`. Used by `minGoodRunLen` for large inputs.
+	//
+	// Driftsort's reference seeds the initial guess from the input's
+	// bit-length; Maxon exposes no CLZ/bit-length builtin to the stdlib, so
+	// we seed with `x = n` and let the decreasing-Newton iteration converge
+	// (a handful of steps even for huge n). The result is identical — only
+	// the iteration count differs. The termination test compares `x <= n / x`
+	// rather than `x*x <= n` to avoid overflowing the product for large n.
+	function sqrtApprox(n ElementIndex) returns ElementIndex
+		if n < 2 'tiny'
+			return n
+		end 'tiny'
+		var x = n
+		// `x` is >= 1 throughout: it is seeded to n (>= 2 here) and only ever reassigned the Newton
+		// midpoint (x + n/x)/2, which is >= 1 for x, n >= 1. `ElementIndex` is 0-inclusive and there is
+		// no flow-narrowing to say otherwise, so the divide `n / x` — fallible at the type level —
+		// rides `try`; the `otherwise` is unreachable, so it panics rather than fold a wrong answer.
+		var y = try ((x + (try (n / x) otherwise panic("sqrtApprox: Newton iterate x reached 0"))) / 2) as ElementIndex otherwise panic("out of range")
+		while y < x 'newton'
+			x = y
+			y = try (x + (try (n / x) otherwise panic("sqrtApprox: Newton iterate x reached 0"))) / 2 otherwise panic("out of range")
+		end 'newton'
+		return x
+	end 'sqrtApprox'
+
+	// Driftsort's minimum "good" run length. A natural run shorter than this
+	// is not used as-is; instead a run of this length is manufactured (sorted
+	// by the stable quicksort). Larger than a classic timsort minrun on
+	// purpose: it keeps the powersort merge stack shallow and shifts work onto
+	// the cache-friendly quicksort run-builder.
+	//
+	// Reference (Voultapher/driftsort): with MIN_SQRT_RUN_LEN = 64, for inputs
+	// up to 64*64 = 4096 the run length is `min(ceil(n/2), 64)`; beyond that it
+	// is `floor(sqrt(n))`. The `ceil(n/2)` form (`n - n/2`) avoids producing a
+	// run longer than half the input on small slices.
+	function minGoodRunLen(n ElementIndex) returns ElementIndex
+		if n <= 4096 'smallN'
+			let half = try n - n / 2 otherwise panic("out of range")
+			let cap = 64 as ElementIndex
+			return half if half < cap else cap
+		end 'smallN'
+		return self.sqrtApprox(n)
+	end 'minGoodRunLen'
+
+	// ---------------------------------------------------------------
+	// Run creation
+	// ---------------------------------------------------------------
+	// Length of the natural run at `lo`: an ascending run (`a[i] <= a[i+1]`) or
+	// a strictly-descending run (`a[i] > a[i+1]`). Equal elements belong to the
+	// ascending case so stability is preserved. A descending run is reversed in
+	// place before return, so the returned run is always ascending.
+	function naturalRunLen(mutates self, lo ElementIndex, hi ElementIndex, cmp SortComparator) returns ElementIndex where T implements Copyable
+		if (try hi - lo otherwise panic("out of range")) <= 1 'trivial'
+			return try hi - lo otherwise panic("out of range")
+		end 'trivial'
+		var runEnd = try (lo + 1) as ElementIndex otherwise panic("out of range")
+		let v0 = try self.managed.get(lo) otherwise panic("naturalRunLen: get OOB at lo")
+		let v1 = try self.managed.get(lo + 1) otherwise panic("naturalRunLen: get OOB at lo+1")
+		let initialOrd = cmp(v0, v1)
+		let isDescending = initialOrd == core.Ordering.greaterThan
+		if isDescending 'desc'
+			while runEnd < hi 'scanDesc'
+				let a = try self.managed.get(runEnd - 1) otherwise panic("naturalRunLen: get OOB at runEnd-1 (desc)")
+				let b = try self.managed.get(runEnd) otherwise panic("naturalRunLen: get OOB at runEnd (desc)")
+				if cmp(a, b) != core.Ordering.greaterThan 'stop'
+					break
+				end 'stop'
+				runEnd = runEnd + 1
+			end 'scanDesc'
+			self.reverseRange(lo, hi: runEnd)
+		end 'desc' else 'asc'
+			while runEnd < hi 'scanAsc'
+				let a = try self.managed.get(runEnd - 1) otherwise panic("naturalRunLen: get OOB at runEnd-1 (asc)")
+				let b = try self.managed.get(runEnd) otherwise panic("naturalRunLen: get OOB at runEnd (asc)")
+				if cmp(a, b) == core.Ordering.greaterThan 'stop'
+					break
+				end 'stop'
+				runEnd = runEnd + 1
+			end 'scanAsc'
+		end 'asc'
+		return try runEnd - lo otherwise panic("out of range")
+	end 'naturalRunLen'
+
+	// Driftsort's `create_run`. Produce the next run starting at `lo`:
+	//   - If a natural run is at least `minGood`, return it as-is (sorted).
+	//   - Otherwise manufacture a run of `min(minGood, hi - lo)` elements. In
+	//     eager mode (short inputs) sort that block now with the stable
+	//     quicksort and return a sorted run. In lazy mode return an *unsorted*
+	//     logical run; `mergeTopTwo` quicksorts it just before merging.
+	// The eager/lazy choice is the caller's (driftsort sets eager for small
+	// inputs where a sort-then-merge beats deferring); see `driftsortRange`.
+	function createRun(mutates self, lo ElementIndex, hi ElementIndex, minGood ElementIndex, eager bool, mutates scratch MergeScratchArray, scratchCap ElementIndex, mutates pivotHold MergeScratchArray, cmp SortComparator) returns SortRun where T implements Copyable
+		let avail = try hi - lo otherwise panic("out of range")
+		if avail <= 1 'trivial'
+			return SortRun.init(lo, length: avail, power: 0)
+		end 'trivial'
+		let natural = self.naturalRunLen(lo, hi: hi, cmp: cmp)
+		if natural >= minGood 'goodNatural'
+			return SortRun.init(lo, length: natural, power: 0)
+		end 'goodNatural'
+		let want = minGood if minGood < avail else avail
+		if eager 'eagerSort'
+			self.stableQuicksortRange(lo, hi: try lo + want otherwise panic("out of range"), scratch: scratch, scratchCap: scratchCap, pivotHold: pivotHold, cmp: cmp)
+			return SortRun.init(lo, length: want, power: 0)
+		end 'eagerSort'
+		return SortRun.initLogical(lo, length: want, power: 0)
+	end 'createRun'
+
+	// ---------------------------------------------------------------
+	// Powersort merge policy
+	// ---------------------------------------------------------------
+	// Node-power between two adjacent runs of total-input length `n`; higher
+	// merges sooner. The powersort merge-tree depth (Munro & Wild,
+	// "Nearly-Optimal Mergesorts", ESA 2018) in exact integer form:
+	//
+	//   scale = ceil(2^62 / n)
+	//   x = a + b,  y = b + c       (a, b, c the run boundaries: prev run is
+	//                                [a, b), next run is [b, c))
+	//   power = number-of-leading-zeros((scale * x) xor (scale * y))   in u64
+	//
+	// Here the prev run is [s1, s2) and the next is [s2, s2+n2), so the
+	// boundaries are a = s1, b = s2, c = s2 + n2 (s2 already encodes s1+n1).
+	function nodePowerBetween(s1 ElementIndex, s2 ElementIndex, n2 ElementIndex, n ElementIndex) returns NodePower
+		// scale = ceil(2^62 / n) = (2^62 + n - 1) / n
+		let twoTo62 = 4611686018427387904 // 2^62
+		// `n` is a run length, always >= 1; `NodePowerWord` admits 0, so the scale divide rides `try`;
+		// the `otherwise` is unreachable, so it panics.
+		let nWord = n as NodePowerWord
+		let scale = try ((twoTo62 + nWord - 1) / nWord) otherwise panic("nodePowerBetween: run length n was 0")
+		let x = try (s1 + s2) as NodePowerWord otherwise panic("out of range")
+		let y = try (s2 + s2 + n2) as NodePowerWord otherwise panic("out of range")
+		let diff = (scale * x) xor (scale * y)
+		if diff == 0 'noDiff'
+			return 64
+		end 'noDiff'
+		// Count leading zeros of `diff` over the full 64-bit width; `NodePowerWord` orders
+		// the top bit unsigned, so `bit > 0` holds until it has shifted out.
+		var lz = 0 as NodePower
+		var bit = 9223372036854775808 as NodePowerWord // 2^63 (top bit)
+		while bit > 0 'lzScan'
+			if (diff and bit) != 0 'foundHigh'
+				return lz
+			end 'foundHigh'
+			lz = try lz + 1 otherwise panic("out of range")
+			bit = bit / 2
+		end 'lzScan'
+		return lz
+	end 'nodePowerBetween'
+
+	function mergeTopTwo(mutates self, mutates stack RunArrayStack, mutates scratch MergeScratchArray, scratchCap ElementIndex, mutates pivotHold MergeScratchArray, cmp SortComparator) where T implements Copyable
+		let top = try stack.count() - 1 otherwise panic("out of range")
+		let right = try stack.get(top) otherwise panic("mergeTopTwo: stack.get OOB at top")
+		let left = try stack.get(top - 1) otherwise panic("mergeTopTwo: stack.get OOB at top-1")
+		if not left.sorted 'sortLeft'
+			self.stableQuicksortRange(left.startIndex, hi: try left.startIndex + left.length otherwise panic("out of range"), scratch: scratch, scratchCap: scratchCap, pivotHold: pivotHold, cmp: cmp)
+		end 'sortLeft'
+		if not right.sorted 'sortRight'
+			self.stableQuicksortRange(right.startIndex, hi: try right.startIndex + right.length otherwise panic("out of range"), scratch: scratch, scratchCap: scratchCap, pivotHold: pivotHold, cmp: cmp)
+		end 'sortRight'
+		self.mergeAdaptive(left.startIndex, mid: right.startIndex, hi: try right.startIndex + right.length otherwise panic("out of range"), scratch: scratch, scratchCap: scratchCap, cmp: cmp)
+		// The merged run's right boundary is `right`'s, so it carries
+		// `right.power`. `left.power` names the boundary this merge removed,
+		// and carrying it breaks the powersort merge order.
+		let merged = SortRun.init(left.startIndex, length: try left.length + right.length otherwise panic("out of range"), power: right.power)
+		try stack.set(top - 1, value: merged) otherwise panic("mergeTopTwo: stack.set OOB at top-1")
+		_ = try stack.pop() otherwise panic("mergeTopTwo: stack.pop on non-empty stack")
+	end 'mergeTopTwo'
+
+	// Public entry: driftsort over [lo, hi).
+	//
+	// Algorithm: stream-style. Walk left-to-right detecting runs. For each
+	// new run, compute its node-power against the previous run. While the
+	// stack's top run has node-power >= the new run's, pop-merge — that
+	// run's right neighbor (the merged result going forward) won't have
+	// a higher power, so we can finalize it now. Push the new run, repeat.
+	// At end-of-input, drain the stack by merging top-to-bottom.
+	export function driftsortRange(mutates self, lo ElementIndex, hi ElementIndex, cmp SortComparator) where T implements Droppable and Copyable
+		let n = try hi - lo otherwise panic("out of range")
+		if n <= SmallSortThreshold 'small'
+			self.internalInsertionSortRange(lo, hi: hi, cmp: cmp)
+			return
+		end 'small'
+		// Driftsort's minimum good run length (~sqrt(n) for large n). A natural
+		// run shorter than this is manufactured by the stable quicksort rather
+		// than padded with insertion sort.
+		let minGood = self.minGoodRunLen(n)
+		var stack = RunArrayStack.create(0)
+		var scratch = MergeScratchArray.create(0)
+		// `stablePartition`'s one-slot pivot storage. It lives out here for the
+		// same reason `scratch` does — so a sort pays for it once rather than
+		// once per partition — and it must be a storage nothing else writes: that
+		// is the whole point of it (see `driftQuicksort.stablePartition`). It
+		// starts empty; the first partition's `push` gives it its one slot and
+		// every later `clear` + `push` reuses that slot's capacity.
+		var pivotHold = MergeScratchArray.create(0)
+		// The buffer holds max(n - n/2, min(n, 8 MB of elements), the small-sort
+		// threshold): full size, shrinking to about n/2 for large inputs. Every
+		// powersort merge's smaller side (<= n/2) then fits, so `mergeAdaptive`
+		// always takes the buffered path and the rotation fallback is defensive.
+		//
+		// The scratch holds the array's own `Element` type, so its size is read
+		// off the receiver's `managed` buffer. The `> 0` guard degrades to
+		// allocLen = n (safe over-allocation) should it read 0.
+		let elemBytes = self.managed.elementSize()
+		let halfUp = try n - n / 2 otherwise panic("out of range")
+		var byteCap = try n as ElementIndex otherwise panic("out of range")
+		if elemBytes > 0 'haveSize'
+			// Guarded `elemBytes > 0`, but the guard does not narrow the type, so the divide rides
+			// `try`; the zero path is unreachable inside the guard, so it panics.
+			let maxElems = (try (8000000 / elemBytes) otherwise panic("driftsort scratch: elemBytes was 0 inside the elemBytes > 0 guard")) as ElementIndex
+			byteCap = maxElems if maxElems < n else n
+		end 'haveSize'
+		var allocLen = try halfUp as ElementIndex otherwise panic("out of range")
+		if byteCap > allocLen 'byByte'
+			allocLen = byteCap
+		end 'byByte'
+		if SmallSortThreshold > allocLen 'bySmallSort'
+			allocLen = SmallSortThreshold as ElementIndex
+		end 'bySmallSort'
+		let scratchCap = allocLen
+		scratch.resize(scratchCap)
+		// Eager run-creation pays off only on short inputs, where a small-sort
+		// (or two plus a merge) beats deferring.
+		let eager = n <= EagerRunLengthLimit
+		var curStart = lo
+		while curStart < hi 'streamRuns'
+			let newRun = self.createRun(curStart, hi: hi, minGood: minGood, eager: eager, scratch: scratch, scratchCap: scratchCap, pivotHold: pivotHold, cmp: cmp)
+			let runLen = newRun.length
+			// Compute power between the previous top-of-stack run and this
+			// new one, then pop-merge while existing top runs have power
+			// >= this new boundary's power.
+			if stack.count() > 0 'havePrev'
+				let prev = try stack.get(stack.count() - 1) otherwise panic("driftsortRange: stack.get OOB")
+				let p = self.nodePowerBetween(prev.startIndex, s2: curStart, n2: runLen, n: n)
+				// Patch prev's power to record the boundary between prev and
+				// newRun. Preserve prev.sorted — a logical (unsorted) prev must
+				// stay unsorted until it is merged, or stability is lost.
+				var prevWithPower = SortRun.init(prev.startIndex, length: prev.length, power: p)
+				if not prev.sorted 'prevLogical'
+					prevWithPower = SortRun.initLogical(prev.startIndex, length: prev.length, power: p)
+				end 'prevLogical'
+				try stack.set(stack.count() - 1, value: prevWithPower) otherwise panic("driftsortRange: stack.set OOB")
+				// While the run two-from-top has a power >= top's power, merge top into it.
+				while stack.count() >= 2 'popMerge'
+					let topIdx = try stack.count() - 1 otherwise panic("out of range")
+					let top = try stack.get(topIdx) otherwise panic("driftsortRange: top get OOB")
+					let below = try stack.get(topIdx - 1) otherwise panic("driftsortRange: below get OOB")
+					if below.power < top.power 'stop'
+						break
+					end 'stop'
+					// Merge top into below. The boundary power of the merged
+					// pair against `newRun` is the same as `top.power` since
+					// top is the rightmost stack entry adjacent to `newRun`.
+					self.mergeTopTwo(stack, scratch: scratch, scratchCap: scratchCap, pivotHold: pivotHold, cmp: cmp)
+				end 'popMerge'
+			end 'havePrev'
+			stack.push(newRun)
+			curStart = try curStart + runLen otherwise panic("out of range")
+		end 'streamRuns'
+		// Drain: merge top-to-bottom until only one run remains.
+		while stack.count() > 1 'drain'
+			self.mergeTopTwo(stack, scratch: scratch, scratchCap: scratchCap, pivotHold: pivotHold, cmp: cmp)
+		end 'drain'
+		// A lone logical run never reached a merge (e.g. the whole input became
+		// one short run). Sort it so the final array is ordered.
+		if stack.count() == 1 'lone'
+			let only = try stack.get(0) otherwise panic("driftsortRange: stack.get OOB at drain end")
+			if not only.sorted 'loneLogical'
+				self.stableQuicksortRange(only.startIndex, hi: try only.startIndex + only.length otherwise panic("out of range"), scratch: scratch, scratchCap: scratchCap, pivotHold: pivotHold, cmp: cmp)
+			end 'loneLogical'
+		end 'lone'
+	end 'driftsortRange'
+end 'Array'

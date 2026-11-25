@@ -1,0 +1,11 @@
+# The declarations of a converted file that belong to another library module than the file's own (cmd/convert --split,
+# cmd/convert/split.go): the conformances that make the built-in types meet an interface go to the module that declares the
+# interfaces, the core, since a module sees `extension <built-in> implements I` only when the module that writes it declares
+# I; what the file keeps is the type's methods, in the module a programmer finds them by.
+#
+# file | module | declaration | members
+Array.maxon | core | extension Array implements | ArrayIter createIterator cursor
+Array.maxon | core | type ArrayIterator
+Array.maxon | core | extension Array where T implements Hashable
+String.maxon | core | extension String implements
+FilePath.maxon | core | extension FilePath implements | canonicalForCompare comparisonSpelling equals hash

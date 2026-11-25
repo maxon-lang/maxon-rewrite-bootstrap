@@ -259,6 +259,7 @@ function addLibraryAt(mutates p ast.Project, dir String, memory SourceFiles, mut
 	if not scanned.isSome() 'none'
 		return table.Option.none
 	end 'none'
+	refuseLibraryRootFiles(nodes, errs: errs)
 	let first = p.modules.count()
 	let root = collectModuleTree(nodes, nodeIdx: 0 as Count, p: p)
 	for m in first upto p.modules.count() 'modules'
@@ -268,8 +269,22 @@ function addLibraryAt(mutates p ast.Project, dir String, memory SourceFiles, mut
 	return table.Option.some(root)
 end 'addLibraryAt'
 
+// refuseLibraryRootFiles reports each source file in the library's root directory: the root holds modules only, so that what
+// the library has is listed by its directories, and a file there belongs to no module that is named.
+function refuseLibraryRootFiles(nodes DiscDirList, mutates errs diag.ErrorList)
+	for node in nodes 'nodes'
+		if node.modPath != ast.stdlibQualifier 'below'
+			continue 'nodes'
+		end 'below'
+		for file in node.filePaths 'files'
+			diag.pushLocatedError(errs, code: diag.errLibraryRootFile, message: "'{lastComponent(file)}' is a file of the standard library's root, which holds modules only: move it into the directory of the module that declares it ('{ast.libraryCoreModule}' holds the interfaces, the conformances of the built-in types and the hashing)", file: file.clone(), line: 1 as Count, col: 1 as Count)
+		end 'files'
+	end 'nodes'
+end 'refuseLibraryRootFiles'
+
 // libraryModulesNamedIn are the modules of the standard library in p that a library module whose source is text may name: each
-// whose qualifier's first name text writes right before a dot and a name (`hashtable.slotScan` for stdlib.hashtable, `export.X` for the root).
+// whose qualifier's first name text writes right before a dot and a name (`_helpers.slotScan` for stdlib._helpers), and the
+// core, which every module depends on (resolve.noteCoreDependency).
 // Comments and strings are read as code, so it is a superset of what the module's resolve records, known from the text alone
 // before any module resolved, which is what lets a program resolve only the library modules it reaches.
 export function libraryModulesNamedIn(p ast.Project, text String) returns CountList
@@ -281,9 +296,10 @@ export function libraryModulesNamedIn(p ast.Project, text String) returns CountL
 			heads.push(qualifierHead(ast.qualifierOf(p.modules[m])))
 		end 'library'
 	end 'modules'
+	let core = ast.libraryModuleNamed(p, name: ast.libraryCoreModule)
 	var named = BoolList.create(0)
-	for _ in 0 upto modules.count() 'none'
-		named.push(false)
+	for m in modules 'none'
+		named.push(core.isSome() and ast.modIndex(core.clone().unwrap()) == m)
 	end 'none'
 	let n = text.byteLength()
 	var i = 0 as Count

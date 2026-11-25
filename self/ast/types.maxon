@@ -2525,12 +2525,12 @@ export function leadingParams(f FuncEntry) returns Count
 	return 0
 end 'leadingParams'
 
-// libraryMapName is the type a map literal makes, the standard library root's Map, as maxon's makes the type that implements
-// BuiltinDictionaryLiteral (README, "Where it differs from Maxon").
+// libraryMapName is the type a map literal makes, the standard library's Map (its libraryMapModule), as maxon's makes the type
+// that implements BuiltinDictionaryLiteral (README, "Where it differs from Maxon").
 export let libraryMapName = "Map"
 
-// libraryRangeName and libraryOpenRangeName are the types a range value makes, `a to b` and `a upto b`, the standard library
-// root's, as maxon's are.
+// libraryRangeName and libraryOpenRangeName are the types a range value makes, `a to b` and `a upto b`, the standard
+// library's (its libraryRangeModule), as maxon's are.
 export let libraryRangeName = "Range"
 
 export let libraryOpenRangeName = "OpenRange"
