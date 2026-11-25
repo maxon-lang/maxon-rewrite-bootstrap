@@ -5499,8 +5499,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - **A Windows argument is quoted as maxon's runtime decides it, but its backslashes are written as the C runtime reads them back.**
   An argument is in quotes when it is empty or has a space, a tab or a quote (it was in quotes for a space or a tab alone, a bare
   quote written as `\"`), and a quote is written `\"`; the backslashes before a quote and before the closing quote are doubled,
-  where maxon's runtime writes them as they are, which makes `"C:\my dir\"` an argument that ends in a quote. This is the quoting
-  of `Subprocess.run` and of the debug port's launch too.
+  where maxon's runtime writes them as they are: its bytes for the argument `C:\my dir\` are `"C:\my dir\"`, whose last quote the C
+  runtime reads as a literal one, a broken argument that takes the rest of the line, where these write `"C:\my dir\\"`. This is
+  the quoting of `Subprocess.run` and of the debug port's launch too (`tests/runtime/arguments-round-trip-through-a-child.maxon`).
 
 ## Changing the language
 

@@ -1,0 +1,126 @@
+// Arguments that the quoting of a Windows command line has to take care over reach a child as they were given, each read back by
+// the child's own splitting of its command line, which it prints between brackets: one with a space that ends in backslashes
+// (maxon's bytes make `C:\my dir\` an argument that ends in a quote, and these double them), and ones with a quote that
+// backslashes come before. Where a system takes no command line (Linux and macOS) each reaches the child as it is.
+//> [C:\my dir\] ok
+//> [C:\my dir\\] ok
+//> [a\"b] ok
+//> [x\\"y z] ok
+//> [\\"] ok
+//> [] ok
+//> every argument round-tripped
+
+// The marker that makes the program a child that prints the arguments after it, and the tokens of the child's command: the
+// program, the marker and the argument.
+let roundTripMarker = "child"
+
+let roundTripTokens = 3 as Count
+
+let roundTripNoFlags = 0 as Count
+
+let roundTripNoHandle = 0xFFFFFFFFFFFFFFFF as Count
+
+function roundTripWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'roundTripWrite'
+
+// roundTripAppend adds a text and its NUL to a blob of tokens.
+function roundTripAppend(blob Count, text String)
+	appendBytesOf(blob, address: __Raw.stringBytes(text), length: __Raw.stringLength(text))
+	let at = collectionExtend(blob, count: 1, elementBytes: byteBytes)
+	__Raw.storeByte(at, offset: 0, value: 0)
+end 'roundTripAppend'
+
+// roundTripCopy is a new string of the bytes of a span.
+function roundTripCopy(address Count, length Count) returns String
+	let room = __Raw.stringRoom(length)
+	if length != 0 'some'
+		copyBytes(address, target: room, count: length)
+	end 'some'
+	return stringOfRoom(room, length: length)
+end 'roundTripCopy'
+
+// roundTripDrop frees an array of strings that osArgs made: the room of each string that is not held inline, the buffer and the box.
+function roundTripDrop(args Count)
+	let data = __Raw.loadWord(args, offset: osArrayDataOffset)
+	let count = collectionLength(args)
+	for index in 0 upto count 'each'
+		let offset = collectionBytes(index, elementBytes: __Raw.stringSize())
+		if not holdsInline(__Raw.stringLengthAt(data, offset: offset)) 'room'
+			__Raw.freeStringRoom(__Raw.stringBytesAt(data, offset: offset))
+		end 'room'
+	end 'each'
+	free(data)
+	free(args)
+end 'roundTripDrop'
+
+// roundTripChild prints each argument after the marker between brackets, one to a line.
+function roundTripChild(args Count) returns ExitCode
+	let data = __Raw.loadWord(args, offset: osArrayDataOffset)
+	let count = collectionLength(args)
+	for index in 2 upto count 'each'
+		let offset = collectionBytes(index, elementBytes: __Raw.stringSize())
+		let text = roundTripCopy(__Raw.stringBytesAt(data, offset: offset), length: __Raw.stringLengthAt(data, offset: offset))
+		roundTripWrite("[{text}]\n")
+	end 'each'
+	roundTripDrop(args)
+	return 0
+end 'roundTripChild'
+
+// roundTripOutput runs this program as a child given an argument and gives what it printed.
+function roundTripOutput(argument String) returns String
+	var unset = 0 as Count
+	let executable = osExecutablePath(__Raw.addressOf(unset))
+	if unset != 0 'unknown'
+		panic("the program's own path is unknown")
+	end 'unknown'
+	let blob = bytesNew()
+	roundTripAppend(blob, text: executable)
+	roundTripAppend(blob, text: roundTripMarker)
+	roundTripAppend(blob, text: argument)
+	let handle = subprocessSpawn(blob, argc: roundTripTokens, cwd: "", env: 0, envInherit: spawnEnvironmentParent, stdinKind: spawnStdinNone, stdinData: "", stdoutKind: spawnOutputCollect, stdoutData: "", stdoutLimit: 0, stderrKind: spawnOutputDiscard, stderrData: "", stderrLimit: 0, flags: roundTripNoFlags, stdinLength: 0)
+	free(collectionData(blob))
+	free(blob)
+	if handle == roundTripNoHandle 'failed'
+		panic("the child did not start")
+	end 'failed'
+	let result = subprocessWaitCollect(handle, ms: 0)
+	let out = subprocessResultStdout(result)
+	let printed = roundTripCopy(collectionData(out), length: collectionLength(out))
+	free(collectionData(out))
+	free(out)
+	subprocessResultRelease(result)
+	subprocessReleaseHandle(handle)
+	return printed
+end 'roundTripOutput'
+
+// roundTripCase says whether a child reads an argument as it was given.
+function roundTripCase(argument String) returns bool
+	let printed = roundTripOutput(argument)
+	let same = streq(printed, right: "[{argument}]\n")
+	if same 'same'
+		roundTripWrite("[{argument}] ok\n")
+	end 'same' else 'different'
+		roundTripWrite("[{argument}] was read as {printed}")
+	end 'different'
+	return same
+end 'roundTripCase'
+
+function main() returns ExitCode
+	let own = osArgs()
+	if collectionLength(own) > 1 'child'
+		return roundTripChild(own)
+	end 'child'
+	roundTripDrop(own)
+	var all = roundTripCase("C:\\my dir\\")
+	all = roundTripCase("C:\\my dir\\\\") and all
+	all = roundTripCase("a\\\"b") and all
+	all = roundTripCase("x\\\\\"y z") and all
+	all = roundTripCase("\\\\\"") and all
+	all = roundTripCase("") and all
+	if not all 'failed'
+		return 1
+	end 'failed'
+	roundTripWrite("every argument round-tripped\n")
+	return 0
+end 'main'
