@@ -220,12 +220,20 @@
 	end 'secondsAt'
 
 	function osIsDirectory(path String) returns bool
-		let stat = newStat()
-		let result = statPath(path, stat: stat)
-		let directory = statIsDirectory(stat)
-		free(stat)
-		return not failed(result) and directory
+		let cPath = cStringOf(path)
+		let directory = directoryAt(cPath)
+		free(cPath)
+		return directory
 	end 'osIsDirectory'
+
+	// directoryAt is whether a directory is at a zero-terminated path.
+	function directoryAt(cPath Count) returns bool
+		let stat = newStat()
+		let result = statCString(cPath, stat: stat)
+		let directory = not failed(result) and statIsDirectory(stat)
+		free(stat)
+		return directory
+	end 'directoryAt'
 
 	// osExists is whether a file or a directory is at a path: it has a status.
 	function osExists(path String) returns bool

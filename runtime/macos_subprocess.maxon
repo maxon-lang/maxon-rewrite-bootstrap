@@ -244,6 +244,12 @@
 			start = cStringOfBytes(wordAt(request, offset: requestDirectoryOffset), length: directoryLength)
 		end 'directory'
 		let pid = spawnChild(run, request: request, path: program, vector: vector, directory: start, nullFd: nullFd, envp: envp)
+		// posix_spawn gives a directory it cannot move to the not-found codes of a missing program, so a refusal is the directory's
+		// when the directory is not one.
+		var failedStep = failureStepProgram
+		if failed(pid) and start != noDirectory and not directoryAt(start) 'unmoved'
+			failedStep = failureStepDirectory
+		end 'unmoved'
 		if start != noDirectory 'started'
 			free(start)
 		end 'started'
@@ -259,7 +265,7 @@
 		end 'closeNull'
 		if failed(pid) 'spawn'
 			closeOurEnds(wait)
-			return systemFailure(failureStepProgram, code: errnoOf(pid))
+			return systemFailure(failedStep, code: errnoOf(pid))
 		end 'spawn'
 		let watch = eventProcessNew(pid)
 		if watch == noEntry 'unwatched'
