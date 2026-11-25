@@ -18,7 +18,7 @@ function visitAsyncExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 		panic("lower: an async call passes an element by address, which the ownership pass lends only from a local")
 	end 'writeBack'
 	var args = argsSince(l, base: base)
-	if resultWords(ms.types, reads: p.types, f: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target)) > 0 'inPlace'
+	if resultWords(ms.types, reads: p.types, b: p.builtins, f: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target)) > 0 'inPlace'
 		// No area: the function gives the coroutine a box of the result, which the promise owns (returnPlaced).
 		args.push(konst(l, value: 0 as Word))
 	end 'inPlace'

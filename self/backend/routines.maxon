@@ -152,13 +152,17 @@ function anyManagedPayload(mutates tt ast.TypeSlot, reads ast.TypeTable, owner a
 end 'anyManagedPayload'
 
 // fieldHoldsManaged is whether the field at index of the record ty holds something to drop and to copy: a field whose words
-// are the record's own (ir.inlineFieldWords) holds none.
+// are the record's own holds none.
 function fieldHoldsManaged(p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID, index Count) returns bool
-	if ir.inlineFieldWords(ms.types, reads: p.types, owner: ty, index: index) > 0 'inline'
-		return false
-	end 'inline'
 	let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: index)
-	return ir.holdsManaged(ms.types, reads: p.types, t: fieldTy)
+	return match ir.holding(ms.types, reads: p.types, b: p.builtins, t: fieldTy, holder: ir.Holder.inField(ty, index: index)) 'holding'
+		heldInline(_) gives false
+		heldWord gives false
+		heldString gives true
+		heldBox gives true
+		heldAddress(_) gives panic("backend: a field held as the address of words elsewhere or a byte of a buffer")
+		heldPacked gives panic("backend: a field held as the address of words elsewhere or a byte of a buffer")
+	end 'holding'
 end 'fieldHoldsManaged'
 
 // onlyFrees is whether dropping a value of the type is freeing its box and nothing else: a record with no managed field,
@@ -335,11 +339,14 @@ function emitDrop(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates m
 		return
 	end 'union'
 	if kind == ast.TypeKind.builtinArray 'array'
-		if ast.packsBytes(ms.types, reads: p.types, b: p.builtins, t: ty) 'bytes'
-			dropBytes(u, a: a)
-			return
-		end 'bytes'
-		dropArray(u, a: a, p: p, ms: ms, ty: ty)
+		match elementWay(p, ms: ms, ty: ty) 'way'
+			heldPacked then dropBytes(u, a: a)
+			heldInline(_) then dropArray(u, a: a, p: p, ms: ms, ty: ty)
+			heldString then dropArray(u, a: a, p: p, ms: ms, ty: ty)
+			heldWord then dropArray(u, a: a, p: p, ms: ms, ty: ty)
+			heldBox then dropArray(u, a: a, p: p, ms: ms, ty: ty)
+			heldAddress(_) panic("backend: an element held as the address of words elsewhere")
+		end 'way'
 		return
 	end 'array'
 	if kind == ast.TypeKind.builtinGroups 'groups'
@@ -392,11 +399,14 @@ function emitCopy(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates m
 		return
 	end 'union'
 	if kind == ast.TypeKind.builtinArray 'array'
-		if ast.packsBytes(ms.types, reads: p.types, b: p.builtins, t: ty) 'bytes'
-			copyBytes(u, a: a)
-			return
-		end 'bytes'
-		copyArray(u, a: a, p: p, ms: ms, ty: ty)
+		match elementWay(p, ms: ms, ty: ty) 'way'
+			heldPacked then copyBytes(u, a: a)
+			heldInline(_) then copyArray(u, a: a, p: p, ms: ms, ty: ty)
+			heldString then copyArray(u, a: a, p: p, ms: ms, ty: ty)
+			heldWord then copyArray(u, a: a, p: p, ms: ms, ty: ty)
+			heldBox then copyArray(u, a: a, p: p, ms: ms, ty: ty)
+			heldAddress(_) panic("backend: an element held as the address of words elsewhere")
+		end 'way'
 		return
 	end 'array'
 	if kind == ast.TypeKind.builtinGroups 'groups'
@@ -640,16 +650,30 @@ function wordColumns(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, ty ast
 		return columns
 	end 'groups'
 	let element = elementType(tt, reads: reads, array: ty)
-	if ir.heldInPlace(tt, reads: reads, t: element) 'inPlace'
-		// The words of a record held in place, none of them to drop or to copy but as words.
-		for _ in 0 upto ir.inPlaceWords(tt, reads: reads, t: element) 'words'
-			columns.push(p.builtins.countTy)
-		end 'words'
-		return columns
-	end 'inPlace'
-	columns.push(element)
-	return columns
+	// The words of a record held in place are words, none of them to drop or to copy but as words.
+	return match ir.holding(tt, reads: reads, b: p.builtins, t: element, holder: ir.Holder.inElement) 'way'
+		heldInline(words) gives repeatedColumn(p.builtins.countTy, times: words)
+		heldPacked gives repeatedColumn(element, times: 1)
+		heldString gives repeatedColumn(element, times: 1)
+		heldWord gives repeatedColumn(element, times: 1)
+		heldBox gives repeatedColumn(element, times: 1)
+		heldAddress(_) gives panic("backend: an element held as the address of words elsewhere")
+	end 'way'
 end 'wordColumns'
+
+// repeatedColumn is times columns of the type column.
+function repeatedColumn(column ast.TypeID, times Count) returns ast.TypeIDList
+	var columns = ast.TypeIDList.create(0)
+	for _ in 0 upto times 'each'
+		columns.push(column)
+	end 'each'
+	return columns
+end 'repeatedColumn'
+
+// elementWay is how the buffer of the array ty keeps an element (ir.holding).
+function elementWay(p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID) returns ir.Holding
+	return ir.holding(ms.types, reads: p.types, b: p.builtins, t: elementType(ms.types, reads: p.types, array: ty), holder: ir.Holder.inElement)
+end 'elementWay'
 
 function anyManagedColumn(tt ast.TypeSlot, reads ast.TypeTable, columns ast.TypeIDList) returns bool
 	for j in 0 upto columns.count() 'each'
@@ -1132,7 +1156,7 @@ end 'frameLocal'
 
 // resultAreasOf is how many words the method fid takes after its parameters for the area of its result (ir.resultAreas).
 function resultAreasOf(p ast.Project, ms ast.ModuleState, fid ast.FuncID) returns Count
-	return ir.resultAreas(ms.types, reads: p.types, f: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid))
+	return ir.resultAreas(ms.types, reads: p.types, b: p.builtins, f: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid))
 end 'resultAreasOf'
 
 // wordsAfterReceiver is how many words the method fid takes in general registers past its receiver: a word for each
@@ -1259,7 +1283,7 @@ export function emitAsyncThunk(mutates u CodeUnit, p ast.Project, mutates ms ast
 		end 'string'
 	end 'floats'
 	// The area of a result held in place, which the async call gives as 0, so the function returns a box of it.
-	if ir.resultWords(ms.types, reads: p.types, f: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee)) > 0 'inPlace'
+	if ir.resultWords(ms.types, reads: p.types, b: p.builtins, f: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee)) > 0 'inPlace'
 		floats.push(false)
 	end 'inPlace'
 	let words = floats.count()
@@ -1467,20 +1491,27 @@ function copyRecord(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates
 	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rWork)
 	for i in 0 upto fields 'fields'
 		let offset = ir.recordFieldOffset(ms.types, reads: p.types, owner: ty, index: i)
-		let inline = ir.inlineFieldWords(ms.types, reads: p.types, owner: ty, index: i)
-		// The words of a record held in place, none of them to copy but as a word.
-		for w in 0 upto inline 'inline'
-			copyWord(u, a: a, p: p, ms: ms, offset: try offset + ir.wordOffset(w) otherwise panic("routines: a field past memory"), ty: p.builtins.countTy)
-		end 'inline'
-		if inline > 0 'placed'
-			continue 'fields'
-		end 'placed'
 		let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
-		copyWord(u, a: a, p: p, ms: ms, offset: offset, ty: fieldTy)
+		match ir.holding(ms.types, reads: p.types, b: p.builtins, t: fieldTy, holder: ir.Holder.inField(ty, index: i)) 'holding'
+			heldInline(words) then copyInlineWords(u, a: a, p: p, ms: ms, offset: offset, words: words)
+			heldWord or
+			heldString or
+			heldBox then copyWord(u, a: a, p: p, ms: ms, offset: offset, ty: fieldTy)
+			heldAddress(_) panic("backend: a field held as the address of words elsewhere or a byte of a buffer")
+			heldPacked panic("backend: a field held as the address of words elsewhere or a byte of a buffer")
+		end 'holding'
 	end 'fields'
 	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)
 	routineReturn(u, a: a)
 end 'copyRecord'
+
+// copyInlineWords copies the words words of a record held in place at offset among a record's own, none of them to copy but
+// as a word.
+function copyInlineWords(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, offset Count, words Count)
+	for w in 0 upto words 'words'
+		copyWord(u, a: a, p: p, ms: ms, offset: try offset + ir.wordOffset(w) otherwise panic("routines: a field past memory"), ty: p.builtins.countTy)
+	end 'words'
+end 'copyInlineWords'
 
 // copyUnion makes a box for the case the value holds, sized for its payload as lowering sizes it.
 function copyUnion(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)

@@ -74,21 +74,29 @@ function dropAt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, ad
 	end 'managed'
 end 'dropAt'
 
-// storeField assigns a field of the type t at offset, dropping its old value first; a field whose words are the record's
-// own (inline of them, fieldWords) is given a copy of v's words, and holds nothing to drop.
-function storeField(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, obj Reg, offset Count, inline Count, t ast.TypeID, v Reg)
-	if inline > 0 'inline'
-		copyWordsAt(l, dst: obj, at: offset, src: v, words: inline)
-		return
-	end 'inline'
-	let held = boxed(l, p: p, ms: ms, v: v, t: t)
+// storeField assigns a field of the type t at offset, held as h, dropping its old value first; a field whose words are the
+// record's own is given a copy of v's words, and holds nothing to drop.
+function storeField(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, obj Reg, offset Count, h Holding, t ast.TypeID, v Reg)
+	match h 'holding'
+		heldInline(words) then copyWordsAt(l, dst: obj, at: offset, src: v, words: words)
+		heldWord or
+		heldString or
+		heldBox then storeOwnField(l, p: p, ms: ms, obj: obj, offset: offset, t: t, v: v)
+		heldAddress(_) panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
+		heldPacked panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
+	end 'holding'
+end 'storeField'
+
+// storeOwnField assigns a field that the record holds in its form, as storeField says.
+function storeOwnField(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, obj Reg, offset Count, t ast.TypeID, v Reg)
+	let kept = boxed(l, p: p, ms: ms, v: v, t: t)
 	if holderOwns(l, p: p, ms: ms, t: t) 'managed'
 		let addr = newReg(l, kind: IrKind.kindScalar)
 		emit(l, i: newFieldAddr(addr, obj: obj, offset: offset))
 		dropAt(l, p: p, ms: ms, addr: addr, t: t)
 	end 'managed'
-	emit(l, i: newStoreField(obj, offset: offset, src: held, borrow: false))
-end 'storeField'
+	emit(l, i: newStoreField(obj, offset: offset, src: kept, borrow: false))
+end 'storeOwnField'
 
 // fetch reads a slot that held a value only on its way from one place to another, such as the result of a conditional. A
 // managed value is moved out, so the slot is empty again and nothing drops it twice.

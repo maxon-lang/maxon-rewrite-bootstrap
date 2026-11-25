@@ -385,9 +385,15 @@ function datumRecord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, t 
 	end 'union' else if not tagged 'record'
 		// A record whose field's words are its own is built where it is read: the data lays a value out as a word or a box.
 		for i in 0 upto fieldsOf(ms.types, reads: p.types, owner: t) 'fields'
-			if inlineFieldWords(ms.types, reads: p.types, owner: t, index: i) > 0 'inline'
-				return false
-			end 'inline'
+			let field = ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: t)).fields[i].ty
+			match holding(ms.types, reads: p.types, b: p.builtins, t: field, holder: Holder.inField(t, index: i)) 'field'
+				heldInline(_) then return false
+				heldWord or
+				heldString or
+				heldBox then continue 'fields'
+				heldAddress(_) panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
+				heldPacked panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
+			end 'field'
 		end 'fields'
 	end 'record'
 	let at = b.d.boxes.count()
@@ -423,17 +429,22 @@ function datumArray(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, mod
 		return false
 	end 'notArray'
 	let elem = ast.typeArgAt(ms.types, reads: p.types, t: bt, index: 0)
-	// An element held in place is its words in the buffer, which the data lays out as boxes: such an array is built where read.
-	if ast.typeKind(ms.types, reads: p.types, t: elem) == ast.TypeKind.typeParam or heldInPlace(ms.types, reads: p.types, t: elem) 'built'
+	if ast.typeKind(ms.types, reads: p.types, t: elem) == ast.TypeKind.typeParam 'built'
 		return false
 	end 'built'
-	let packed = arrayPacked(p, ms: ms, box: ArrayBox.make(diag.Site.make(module, offset: p.modules[mi].tree.startOf(e)), ty: bt))
+	// An element held in place is its words in the buffer, which the data lays out as boxes: such an array is built where read.
+	var shape = DatumShape.array
+	match holding(ms.types, reads: p.types, b: p.builtins, t: elem, holder: Holder.inElement) 'way'
+		heldInline(_) then return false
+		heldPacked then shape = DatumShape.bytes
+		heldString or
+		heldWord or
+		heldBox then _ = 0
+		heldAddress(_) panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+	let packed = shape == DatumShape.bytes
 	let elemsRef = ast.collectionLitExprElemsRef(p.modules[mi].tree, id: e)
 	let at = b.d.boxes.count()
-	var shape = DatumShape.array
-	if packed 'packed'
-		shape = DatumShape.bytes
-	end 'packed'
 	b.d.boxes.push(DatumBox.make(shape, first: 0, count: 0))
 	var parts = DatumWordList.create(0)
 	for i in 0 upto p.modules[mi].tree.listLen(elemsRef) 'each'

@@ -59,8 +59,9 @@ end 'valueForm'
 // caller's place for a parameter, an element's room in an array's buffer, or the words of a part. A local holds it in a
 // frame area of its own, a result is written to an area the caller passes, a record holds its words among its own, and any
 // other holder (a payload, a capture, the contents of an interface value, a frozen value or a cown) holds it as a managed
-// word, the address of a box of its words, which the holder owns.
-export function heldInPlace(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns bool
+// word, the address of a box of its words, which the holder owns. Only holding asks it: every other question of the way a
+// value is held matches on what holding answers.
+function heldInPlace(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns bool
 	return inPlaceWithin(tt, reads: reads, t: t, depth: deepestInline)
 end 'heldInPlace'
 
@@ -92,30 +93,9 @@ function inPlaceWithin(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID, depth
 end 'inPlaceWithin'
 
 // inPlaceWords is how many words a value held in place takes: its fields', and one for a record of none, as its box.
-export function inPlaceWords(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Count
+function inPlaceWords(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Count
 	return boxBytes(fieldWordsBefore(tt, reads: reads, owner: t, index: fieldsOf(tt, reads: reads, owner: t)), tagged: false) / wordBytes
 end 'inPlaceWords'
-
-// inlineFieldWords is how many words the field at index of the record owner takes among the record's own words where it is
-// a record held in place, which a record of any kind other than a tuple holds that way, and 0 for a field held as a word or
-// a String. Its bound type decides it, so a field declared as an instance over the owner's type parameters (Pair with T) is
-// a box in every instance, as the layout of such a field cannot depend on what each instance binds.
-export function inlineFieldWords(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, index Count) returns Count
-	if ast.isTupleType(tt, reads: reads, t: owner) 'tuple'
-		return 0
-	end 'tuple'
-	let declared = ast.typeEntry(tt, reads: reads, t: ast.originOf(tt, reads: reads, t: owner)).fields[index].ty
-	return inlineWords(tt, reads: reads, field: boundType(tt, reads: reads, owner: owner, declared: declared))
-end 'inlineFieldWords'
-
-// inlineWords is how many words a field of the bound type field takes among its record's words where it is held in place,
-// and 0 otherwise.
-function inlineWords(tt ast.TypeSlot, reads ast.TypeTable, field ast.TypeID) returns Count
-	if ast.typeKind(tt, reads: reads, t: field) != ast.TypeKind.record or not heldInPlace(tt, reads: reads, t: field) 'other'
-		return 0
-	end 'other'
-	return inPlaceWords(tt, reads: reads, t: field)
-end 'inlineWords'
 
 // Holder is where a value is held, which decides the way (holding): a variable (a local, a parameter or a result), the field
 // at index of the record owner, an element of an array's buffer, a payload of a union, or a capture of a closure or a
@@ -146,8 +126,8 @@ end 'Holding'
 let packedBytes = 1 as Count
 
 // holding is how the holder keeps a value of the type t, an instance's types as it is bound. It is built from the predicates
-// of the table (heldInPlace, inlineFieldWords, ast.packsByte) in this one place; a way of holding that the lowering takes
-// from the predicates directly must agree with it.
+// of the table (heldInPlace, ast.packsByte) in this one place, and every part of the compiler that depends on the way a
+// value is held matches on its answer, every case named, so that a new way fails the build wherever it is not decided.
 export function holding(tt ast.TypeSlot, reads ast.TypeTable, b ast.Builtins, t ast.TypeID, holder Holder) returns Holding
 	return match holder 'holder'
 		inVariable gives addressOrForm(tt, reads: reads, t: t)
@@ -186,13 +166,33 @@ function addressOrForm(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) retur
 	return formHolding(tt, reads: reads, t: t)
 end 'addressOrForm'
 
+// fieldHolding is how the record owner keeps its field at index, of the type t: among the record's own words where the
+// field is a record held in place, which a record of any kind other than a tuple keeps that way, and otherwise in its form.
+// The field's bound type decides it, so a field declared as an instance over the owner's type parameters (Pair with T) is a
+// box in every instance, as the layout of such a field cannot depend on what each instance binds.
 function fieldHolding(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID, owner ast.TypeID, index Count) returns Holding
-	let words = inlineFieldWords(tt, reads: reads, owner: owner, index: index)
-	if words > 0 'inline'
-		return Holding.heldInline(words)
+	if ast.isTupleType(tt, reads: reads, t: owner) 'tuple'
+		return formHolding(tt, reads: reads, t: t)
+	end 'tuple'
+	let declared = ast.typeEntry(tt, reads: reads, t: ast.originOf(tt, reads: reads, t: owner)).fields[index].ty
+	let field = boundType(tt, reads: reads, owner: owner, declared: declared)
+	if ast.typeKind(tt, reads: reads, t: field) == ast.TypeKind.record and heldInPlace(tt, reads: reads, t: field) 'inline'
+		return Holding.heldInline(inPlaceWords(tt, reads: reads, t: field))
 	end 'inline'
 	return formHolding(tt, reads: reads, t: t)
 end 'fieldHolding'
+
+// holdingWords is how many words a value takes where it is held as h among a box's words or a frame area's.
+function holdingWords(h Holding) returns Count
+	return match h 'holding'
+		heldWord gives 1
+		heldString gives stringValueBytes / wordBytes
+		heldBox gives 1
+		heldAddress(_) gives 1
+		heldInline(words) gives words
+		heldPacked gives panic("ir: a byte of a buffer among a box's words")
+	end 'holding'
+end 'holdingWords'
 
 function elementHolding(tt ast.TypeSlot, reads ast.TypeTable, b ast.Builtins, t ast.TypeID) returns Holding
 	if heldInPlace(tt, reads: reads, t: t) 'place'
@@ -459,17 +459,10 @@ end 'payloadsOf'
 // fieldWordsBefore is how many words the fields of the record owner before index take.
 function fieldWordsBefore(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, index Count) returns Count
 	let origin = ast.originOf(tt, reads: reads, t: owner)
-	let tuple = ast.isTupleType(tt, reads: reads, t: owner)
 	var words = 0 as Count
 	for i in 0 upto index 'each'
 		let field = boundType(tt, reads: reads, owner: owner, declared: ast.typeEntry(tt, reads: reads, t: origin).fields[i].ty)
-		var n = valueWords(tt, reads: reads, t: field)
-		if not tuple 'record'
-			let inline = inlineWords(tt, reads: reads, field: field)
-			if inline > 0 'inline'
-				n = inline
-			end 'inline'
-		end 'record'
+		let n = holdingWords(fieldHolding(tt, reads: reads, t: field, owner: owner, index: i))
 		words = try words + n otherwise panic("ir: a box past memory")
 	end 'each'
 	return words

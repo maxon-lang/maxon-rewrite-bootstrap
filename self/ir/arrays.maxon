@@ -22,31 +22,16 @@ function arrayOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s
 	return ArrayBox.make(site.clone(), ty: bt)
 end 'arrayOf'
 
-// arrayPacked is whether the box of the array, or of the memory or cursor over its buffer, holds each element in one byte
-// (ast.packsBytes).
-function arrayPacked(p ast.Project, ms ast.ModuleState, box ArrayBox) returns bool
-	return ast.packsByte(ms.types, reads: p.types, b: p.builtins, elem: ast.typeArgAt(ms.types, reads: p.types, t: box.ty, index: 0))
-end 'arrayPacked'
+// elementWay is how the buffer of the array, or of the memory or cursor over it, keeps an element (holding): a byte
+// (ast.packsBytes), the words of a record held in place, which the rt.recs entries address with the element's size, a
+// String's two words, which the rt.strs entries address, or a word.
+function elementWay(p ast.Project, ms ast.ModuleState, box ArrayBox) returns Holding
+	return holding(ms.types, reads: p.types, b: p.builtins, t: arrayElem(p, ms: ms, box: box), holder: Holder.inElement)
+end 'elementWay'
 
-// arrayOfStrings is whether the array holds Strings, two words to an element, which the rt.strs entries address.
-function arrayOfStrings(p ast.Project, ms ast.ModuleState, box ArrayBox) returns bool
-	return ast.isStringType(ms.types, reads: p.types, t: arrayElem(p, ms: ms, box: box))
-end 'arrayOfStrings'
-
-// arrayInPlace is whether the array holds the words of each element itself, a record held in place, which the rt.recs
-// entries address with the element's size.
-function arrayInPlace(p ast.Project, ms ast.ModuleState, box ArrayBox) returns bool
-	return heldInPlace(ms.types, reads: p.types, t: arrayElem(p, ms: ms, box: box))
-end 'arrayInPlace'
-
-// elementWords is how many words an element of an array held in place takes.
-function elementWords(p ast.Project, ms ast.ModuleState, box ArrayBox) returns Count
-	return inPlaceWords(ms.types, reads: p.types, t: arrayElem(p, ms: ms, box: box))
-end 'elementWords'
-
-// elementBytes is the size of an element of an array held in place, as the rt.recs entries take it.
-function elementBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox) returns Reg
-	return konst(l, value: try wordOffset(elementWords(p, ms: ms, box: box)) as Word otherwise panic("lower: an element past a word"))
+// elementBytes is the size of an element of words words, as the rt.recs entries take it.
+function elementBytes(mutates l Lowerer, words Count) returns Reg
+	return konst(l, value: try wordOffset(words) as Word otherwise panic("lower: an element past a word"))
 end 'elementBytes'
 
 // zeroWords writes 0 to words words at the address at.
@@ -62,69 +47,74 @@ function arrayElem(p ast.Project, ms ast.ModuleState, box ArrayBox) returns ast.
 end 'arrayElem'
 
 function arrayNew(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox) returns Reg
-	if arrayPacked(p, ms: ms, box: box) 'packed'
-		return entry(l, p: p, site: box.site, symbol: Rt.rtBytesNew, kind: IrKind.kindManaged, args: RegList.create(0))
-	end 'packed'
-	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayNew, kind: IrKind.kindManaged, args: RegList.create(0))
+	let symbol = match elementWay(p, ms: ms, box: box) 'way'
+		heldPacked gives Rt.rtBytesNew
+		heldInline(_) gives Rt.rtArrayNew
+		heldString gives Rt.rtArrayNew
+		heldWord gives Rt.rtArrayNew
+		heldBox gives Rt.rtArrayNew
+		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+	return entry(l, p: p, site: box.site, symbol: symbol, kind: IrKind.kindManaged, args: RegList.create(0))
 end 'arrayNew'
 
 // arrayReserve makes the buffer of an array hold count elements, where a lowering knows how many it is about to push: an
 // array of words reserves them, and an array of bytes grows as it is pushed to.
 function arrayReserve(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, count Reg)
-	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
-		let bytes = elementBytes(l, p: p, ms: ms, box: box)
-		entryVoid(l, p: p, site: box.site, symbol: Rt.rtRecsReserve, args: argsOf3(arr, b: count, c: bytes))
-	end 'inPlace' else if arrayOfStrings(p, ms: ms, box: box) 'strings'
-		entryVoid(l, p: p, site: box.site, symbol: Rt.rtStrsReserve, args: argsOf2(arr, b: count))
-	end 'strings' else if not arrayPacked(p, ms: ms, box: box) 'words'
-		entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayReserve, args: argsOf2(arr, b: count))
-	end 'words'
+	match elementWay(p, ms: ms, box: box) 'way'
+		heldInline(words) then recordsCall(l, p: p, box: box, symbol: Rt.rtRecsReserve, arr: arr, n: count, words: words)
+		heldString then entryVoid(l, p: p, site: box.site, symbol: Rt.rtStrsReserve, args: argsOf2(arr, b: count))
+		heldWord or
+		heldBox then entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayReserve, args: argsOf2(arr, b: count))
+		heldPacked then _ = 0
+		heldAddress(_) panic("ir: an element held as the address of words elsewhere")
+	end 'way'
 end 'arrayReserve'
 
 // arrayFill appends count copies of v, a word that needs no copy of its own, to an array that is not packed, in one call
 // that writes them in a pass where as many inserts would each check the buffer. An array of strings is filled with empty
 // elements, the String that the empty place v is.
 function arrayFill(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, count Reg, v Reg)
-	if arrayPacked(p, ms: ms, box: box) 'packed'
-		panic("lower: a fill of an array of bytes")
-	end 'packed'
-	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
-		panic("lower: a fill of an array of records held in place, whose element is no word")
-	end 'inPlace'
-	if arrayOfStrings(p, ms: ms, box: box) 'strings'
-		entryVoid(l, p: p, site: box.site, symbol: Rt.rtStrsFill, args: argsOf2(arr, b: count))
-		return
-	end 'strings'
-	entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayFill, args: argsOf3(arr, b: count, c: v))
+	match elementWay(p, ms: ms, box: box) 'way'
+		heldPacked panic("lower: a fill of an array of bytes")
+		heldInline(_) panic("lower: a fill of an array of records held in place, whose element is no word")
+		heldString then entryVoid(l, p: p, site: box.site, symbol: Rt.rtStrsFill, args: argsOf2(arr, b: count))
+		heldWord or
+		heldBox then entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayFill, args: argsOf3(arr, b: count, c: v))
+		heldAddress(_) panic("ir: an element held as the address of words elsewhere")
+	end 'way'
 end 'arrayFill'
 
 function arrayLength(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg) returns Reg
-	if arrayPacked(p, ms: ms, box: box) 'packed'
-		return entry(l, p: p, site: box.site, symbol: Rt.rtBytesLen, kind: IrKind.kindScalar, args: argsOf1(arr))
-	end 'packed'
-	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayLen, kind: IrKind.kindScalar, args: argsOf1(arr))
+	let symbol = match elementWay(p, ms: ms, box: box) 'way'
+		heldPacked gives Rt.rtBytesLen
+		heldInline(_) gives Rt.rtArrayLen
+		heldString gives Rt.rtArrayLen
+		heldWord gives Rt.rtArrayLen
+		heldBox gives Rt.rtArrayLen
+		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+	return entry(l, p: p, site: box.site, symbol: symbol, kind: IrKind.kindScalar, args: argsOf1(arr))
 end 'arrayLength'
 
 // arrayInsert moves v in at index, which may be the length: for an array held in place, v is the address of the words it
 // copies in.
 function arrayInsert(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, v Reg)
-	if arrayPacked(p, ms: ms, box: box) 'packed'
-		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesInsert, args: argsOf3(arr, b: index, c: v))
-		return
-	end 'packed'
-	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
-		let bytes = elementBytes(l, p: p, ms: ms, box: box)
-		let at = entry(l, p: p, site: box.site, symbol: Rt.rtRecsOpen, kind: IrKind.kindScalar, args: argsOf3(arr, b: index, c: bytes))
-		copyWords(l, dst: at, src: v, words: elementWords(p, ms: ms, box: box))
-		return
-	end 'inPlace'
-	if arrayOfStrings(p, ms: ms, box: box) 'strings'
-		let at = entry(l, p: p, site: box.site, symbol: Rt.rtStrsOpen, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
-		emit(l, i: newStoreAt(at, src: v))
-		return
-	end 'strings'
-	entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayInsert, args: argsOf3(arr, b: index, c: v))
+	match elementWay(p, ms: ms, box: box) 'way'
+		heldPacked then entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesInsert, args: argsOf3(arr, b: index, c: v))
+		heldInline(words) then insertWords(l, p: p, box: box, arr: arr, index: index, v: v, words: words)
+		heldString then insertString(l, p: p, box: box, arr: arr, index: index, v: v)
+		heldWord or
+		heldBox then entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayInsert, args: argsOf3(arr, b: index, c: v))
+		heldAddress(_) panic("ir: an element held as the address of words elsewhere")
+	end 'way'
 end 'arrayInsert'
+
+// openRoom is the address of a new, zeroed element of words words at index of an array held in place.
+function openRoom(mutates l Lowerer, p ast.Project, box ArrayBox, arr Reg, index Reg, words Count) returns Reg
+	let bytes = elementBytes(l, words: words)
+	return entry(l, p: p, site: box.site, symbol: Rt.rtRecsOpen, kind: IrKind.kindScalar, args: argsOf3(arr, b: index, c: bytes))
+end 'openRoom'
 
 function arrayPush(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, v Reg)
 	let n = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
@@ -133,38 +123,59 @@ end 'arrayPush'
 
 // arrayRemove moves the element at index out.
 function arrayRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
-	if arrayPacked(p, ms: ms, box: box) 'packed'
-		return entry(l, p: p, site: box.site, symbol: Rt.rtBytesRemove, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
-	end 'packed'
-	let elem = arrayElem(p, ms: ms, box: box)
-	let kind = kindOf(l, p: p, ms: ms, t: elem)
-	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
-		let bytes = elementBytes(l, p: p, ms: ms, box: box)
-		let at = entry(l, p: p, site: box.site, symbol: Rt.rtRecsElem, kind: IrKind.kindScalar, args: argsOf3(arr, b: index, c: bytes))
-		let d = placedCopy(l, words: elementWords(p, ms: ms, box: box), v: at)
-		entryVoid(l, p: p, site: box.site, symbol: Rt.rtRecsClose, args: argsOf3(arr, b: index, c: bytes))
-		return d
-	end 'inPlace'
-	if arrayOfStrings(p, ms: ms, box: box) 'strings'
-		let at = entry(l, p: p, site: box.site, symbol: Rt.rtStrsElem, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
-		let d = newReg(l, kind: kind)
-		emit(l, i: newMoveAt(d, addr: at))
-		entryVoid(l, p: p, site: box.site, symbol: Rt.rtStrsClose, args: argsOf2(arr, b: index))
-		return d
-	end 'strings'
-	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayRemove, kind: kind, args: argsOf2(arr, b: index))
+	return match elementWay(p, ms: ms, box: box) 'way'
+		heldPacked gives entry(l, p: p, site: box.site, symbol: Rt.rtBytesRemove, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
+		heldInline(words) gives removeWords(l, p: p, box: box, arr: arr, index: index, words: words)
+		heldString gives removeString(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		heldWord gives removeWord(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		heldBox gives removeWord(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
+	end 'way'
 end 'arrayRemove'
 
 // arrayPop moves the last element out, which the caller has checked there is: nothing follows it, so nothing moves. An
 // array of strings or of records held in place takes the element's address and then closes its room, which moves nothing
 // for the last.
 function arrayPop(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, last Reg) returns Reg
-	if arrayInPlace(p, ms: ms, box: box) or arrayOfStrings(p, ms: ms, box: box) 'room'
-		return arrayRemove(l, p: p, ms: ms, box: box, arr: arr, index: last)
-	end 'room'
+	return match elementWay(p, ms: ms, box: box) 'way'
+		heldInline(_) gives arrayRemove(l, p: p, ms: ms, box: box, arr: arr, index: last)
+		heldString gives arrayRemove(l, p: p, ms: ms, box: box, arr: arr, index: last)
+		heldWord gives popWord(l, p: p, ms: ms, box: box, arr: arr)
+		heldBox gives popWord(l, p: p, ms: ms, box: box, arr: arr)
+		heldPacked gives popWord(l, p: p, ms: ms, box: box, arr: arr)
+		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+end 'arrayPop'
+
+// popWord moves the last word of an array out.
+function popWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg) returns Reg
 	let kind = kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box))
 	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayPop, kind: kind, args: argsOf1(arr))
-end 'arrayPop'
+end 'popWord'
+
+// removeWords moves the element of words words at index of an array held in place out, to a frame area of its own.
+function removeWords(mutates l Lowerer, p ast.Project, box ArrayBox, arr Reg, index Reg, words Count) returns Reg
+	let bytes = elementBytes(l, words: words)
+	let at = entry(l, p: p, site: box.site, symbol: Rt.rtRecsElem, kind: IrKind.kindScalar, args: argsOf3(arr, b: index, c: bytes))
+	let d = placedCopy(l, words: words, v: at)
+	entryVoid(l, p: p, site: box.site, symbol: Rt.rtRecsClose, args: argsOf3(arr, b: index, c: bytes))
+	return d
+end 'removeWords'
+
+// removeString moves the String at index of an array of Strings out.
+function removeString(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+	let at = entry(l, p: p, site: box.site, symbol: Rt.rtStrsElem, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
+	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box)))
+	emit(l, i: newMoveAt(d, addr: at))
+	entryVoid(l, p: p, site: box.site, symbol: Rt.rtStrsClose, args: argsOf2(arr, b: index))
+	return d
+end 'removeString'
+
+// removeWord moves the word at index of an array of words out.
+function removeWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+	let kind = kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box))
+	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayRemove, kind: kind, args: argsOf2(arr, b: index))
+end 'removeWord'
 
 // arrayLoad reads the element at index: a byte, a scalar, or a managed element lent for as long as the array is not
 // changed.
@@ -224,25 +235,42 @@ end 'slotWord'
 // as resize and clearSlot leave it, so over a scalar an empty slot and an element 0 are the same.
 function slotFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
 	let empty = konst(l, value: 0 as Word)
-	if arrayPacked(p, ms: ms, box: box) 'packed'
-		let byte = elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: index), checked: false)
-		return compare(l, op: CmpOp.cmpNe, a: byte, b: empty, unsigned: true)
-	end 'packed'
+	return match elementWay(p, ms: ms, box: box) 'way'
+		heldPacked gives byteFilled(l, p: p, box: box, arr: arr, index: index, empty: empty)
+		heldInline(words) gives wordsFilled(l, p: p, ms: ms, box: box, arr: arr, index: index, words: words, empty: empty)
+		heldString gives formFilled(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		heldWord gives formFilled(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		heldBox gives formFilled(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+end 'slotFilled'
+
+// byteFilled is whether the byte at index of an array of bytes is not 0.
+function byteFilled(mutates l Lowerer, p ast.Project, box ArrayBox, arr Reg, index Reg, empty Reg) returns Reg
+	let byte = elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: index), checked: false)
+	return compare(l, op: CmpOp.cmpNe, a: byte, b: empty, unsigned: true)
+end 'byteFilled'
+
+// wordsFilled is whether some one of the words words of the element at index of an array held in place is not 0.
+function wordsFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, words Count, empty Reg) returns Reg
+	let at = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
+	var any = empty
+	for w in 0 upto words 'words'
+		let word = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newLoadField(word, obj: at, offset: wordOffset(w)))
+		any = wrappingBin(l, op: BinOp.binOr, a: any, b: word, kind: IrKind.kindScalar)
+	end 'words'
+	return compare(l, op: CmpOp.cmpNe, a: any, b: empty, unsigned: true)
+end 'wordsFilled'
+
+// formFilled is whether the slot at index of an array of words or Strings is not its empty slot.
+function formFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
 	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
-	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
-		var any = empty
-		for w in 0 upto elementWords(p, ms: ms, box: box) 'words'
-			let word = newReg(l, kind: IrKind.kindScalar)
-			emit(l, i: newLoadField(word, obj: addr, offset: wordOffset(w)))
-			any = wrappingBin(l, op: BinOp.binOr, a: any, b: word, kind: IrKind.kindScalar)
-		end 'words'
-		return compare(l, op: CmpOp.cmpNe, a: any, b: empty, unsigned: true)
-	end 'inPlace'
 	let elem = arrayElem(p, ms: ms, box: box)
 	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: elem))
 	emit(l, i: newLoadAt(d, addr: addr))
 	return notZero(l, p: p, ms: ms, elem: elem, element: d)
-end 'slotFilled'
+end 'formFilled'
 
 // arrayAnyFilled is 1 where some slot of the array holds an element, and 0 where every slot is empty.
 function arrayAnyFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg) returns Reg
@@ -273,40 +301,53 @@ end 'panicUnlessFilled'
 // arrayRead reads the element at index as arrayLoad does; where the checker or a check before it has proved the index
 // inside the array (not checked), the entry's call is proven, which the expansion of the primitives makes the read alone.
 // It stays a call until then: a function's source form is its IR from before the expansion (opt.sourceOf), whose loops
-// decide E5001, as the program wrote them with the call.
+// decide E5001, as the program wrote them with the call. An element held in place is its words' address; one that nothing
+// filled reads as its words 0.
 function arrayRead(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool, read SlotRead) returns Reg
-	if arrayPacked(p, ms: ms, box: box) 'packed'
-		return elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: index), checked: checked)
-	end 'packed'
+	return match elementWay(p, ms: ms, box: box) 'way'
+		heldPacked gives elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: index), checked: checked)
+		heldInline(_) gives arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
+		heldString gives readForm(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked, read: read)
+		heldWord gives readForm(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked, read: read)
+		heldBox gives readForm(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked, read: read)
+		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+end 'arrayRead'
+
+// readForm reads the element at index of an array of words or Strings, as arrayRead says.
+function readForm(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool, read SlotRead) returns Reg
 	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
-	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
-		// The element is its words' address; one that nothing filled reads as its words 0.
-		return addr
-	end 'inPlace'
 	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box)))
 	emit(l, i: newLoadAt(d, addr: addr))
 	requireFilled(l, p: p, ms: ms, site: box.site, elem: arrayElem(p, ms: ms, box: box), element: d, index: index, read: read)
 	return d
-end 'arrayRead'
+end 'readForm'
 
 // arrayClearSlot drops the element at an index and leaves its slot empty, 0, which fails with indexOutOfBounds past the
 // end.
 function arrayClearSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg)
 	arrayInBounds(l, p: p, ms: ms, box: box, arr: arr, index: index)
+	match elementWay(p, ms: ms, box: box) 'way'
+		heldInline(words) then zeroElement(l, p: p, ms: ms, box: box, arr: arr, index: index, words: words)
+		heldPacked then clearByte(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		heldString or
+		heldWord or
+		heldBox then clearFormSlot(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		heldAddress(_) panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+end 'arrayClearSlot'
+
+// clearFormSlot drops the word or String at an index and leaves its slot 0.
+function clearFormSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg)
 	let elem = arrayElem(p, ms: ms, box: box)
-	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
-		let at = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
-		zeroWords(l, at: at, words: elementWords(p, ms: ms, box: box))
-		return
-	end 'inPlace'
-	if owning(kindOf(l, p: p, ms: ms, t: elem)) and not arrayPacked(p, ms: ms, box: box) 'owning'
+	if owning(kindOf(l, p: p, ms: ms, t: elem)) 'owning'
 		let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
 		dropAt(l, p: p, ms: ms, addr: addr, t: elem)
 		return
 	end 'owning'
 	let empty = konst(l, value: 0 as Word)
 	arrayWrite(l, p: p, ms: ms, box: box, arr: arr, index: index, v: empty, checked: false)
-end 'arrayClearSlot'
+end 'clearFormSlot'
 
 // fillSlotMessage is the trap of a fillSlot of a slot that holds an element, which it would have to drop.
 let fillSlotMessage = "fillSlot of a slot that holds an element"
@@ -315,15 +356,19 @@ let fillSlotMessage = "fillSlot of a slot that holds an element"
 // it traps past the end, as a subscript does, and where the slot holds an element. Where the zero is a value of the
 // element, a scalar or a record held in place, no slot holds anything to drop, and it writes over what is there.
 function arrayFillSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, v Reg)
-	if arrayPacked(p, ms: ms, box: box) 'packed'
-		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: index, c: v))
-		return
-	end 'packed'
+	match elementWay(p, ms: ms, box: box) 'way'
+		heldPacked then entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: index, c: v))
+		heldInline(words) then writeWords(l, p: p, ms: ms, box: box, arr: arr, index: index, v: v, words: words, checked: true)
+		heldString or
+		heldWord or
+		heldBox then fillFormSlot(l, p: p, ms: ms, box: box, arr: arr, index: index, v: v)
+		heldAddress(_) panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+end 'arrayFillSlot'
+
+// fillFormSlot moves the word or String v into the empty slot at index, as arrayFillSlot says.
+function fillFormSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, v Reg)
 	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
-	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
-		copyWords(l, dst: addr, src: v, words: elementWords(p, ms: ms, box: box))
-		return
-	end 'inPlace'
 	let elem = arrayElem(p, ms: ms, box: box)
 	if zeroIsEmpty(ms.types, reads: p.types, t: elem) 'mayHold'
 		let held = newReg(l, kind: kindOf(l, p: p, ms: ms, t: elem))
@@ -334,25 +379,42 @@ function arrayFillSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		requireOrTrap(l, cond: empty, message: fillSlotMessage)
 	end 'mayHold'
 	emit(l, i: newStoreAt(addr, src: v))
-end 'arrayFillSlot'
+end 'fillFormSlot'
 
 // arrayTakeSlot moves the element at index out and leaves its slot empty, all 0, so a type without Droppable can be taken
 // out of a slot table. It fails with indexOutOfBounds past the end and with emptySlot at an empty slot.
 function arrayTakeSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
 	arrayInBounds(l, p: p, ms: ms, box: box, arr: arr, index: index)
 	let zero = konst(l, value: 0 as Word)
-	if arrayPacked(p, ms: ms, box: box) 'packed'
-		let byte = elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: index), checked: false)
-		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: index, c: zero))
-		return byte
-	end 'packed'
+	return match elementWay(p, ms: ms, box: box) 'way'
+		heldPacked gives takeByte(l, p: p, box: box, arr: arr, index: index, zero: zero)
+		heldInline(words) gives takeWords(l, p: p, ms: ms, box: box, arr: arr, index: index, words: words)
+		heldString gives takeForm(l, p: p, ms: ms, box: box, arr: arr, index: index, zero: zero)
+		heldWord gives takeForm(l, p: p, ms: ms, box: box, arr: arr, index: index, zero: zero)
+		heldBox gives takeForm(l, p: p, ms: ms, box: box, arr: arr, index: index, zero: zero)
+		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+end 'arrayTakeSlot'
+
+// takeByte reads the byte at index of an array of bytes and leaves it 0.
+function takeByte(mutates l Lowerer, p ast.Project, box ArrayBox, arr Reg, index Reg, zero Reg) returns Reg
+	let byte = elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: index), checked: false)
+	entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: index, c: zero))
+	return byte
+end 'takeByte'
+
+// takeWords copies the words words of the element at index of an array held in place to a frame area of their own and
+// leaves them 0.
+function takeWords(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, words Count) returns Reg
+	let at = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
+	let taken = placedCopy(l, words: words, v: at)
+	zeroWords(l, at: at, words: words)
+	return taken
+end 'takeWords'
+
+// takeForm moves the word or String at index out, as arrayTakeSlot says.
+function takeForm(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, zero Reg) returns Reg
 	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
-	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
-		let words = elementWords(p, ms: ms, box: box)
-		let taken = placedCopy(l, words: words, v: addr)
-		zeroWords(l, at: addr, words: words)
-		return taken
-	end 'inPlace'
 	let elem = arrayElem(p, ms: ms, box: box)
 	let kind = kindOf(l, p: p, ms: ms, t: elem)
 	if zeroIsEmpty(ms.types, reads: p.types, t: elem) 'mayBeEmpty'
@@ -370,33 +432,49 @@ function arrayTakeSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	emit(l, i: newLoadAt(value, addr: addr))
 	emit(l, i: newStoreAt(addr, src: zero))
 	return value
-end 'arrayTakeSlot'
+end 'takeForm'
 
 // arraySwap exchanges the elements at two indexes where they are: each is loaded and stored into the other's slot, so neither
 // is copied or dropped, and a slot that is empty stays empty. An index past the end fails with indexOutOfBounds, as a read's does.
 function arraySwap(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, i Reg, j Reg)
 	arrayInBounds(l, p: p, ms: ms, box: box, arr: arr, index: i)
 	arrayInBounds(l, p: p, ms: ms, box: box, arr: arr, index: j)
-	if arrayPacked(p, ms: ms, box: box) 'packed'
-		let first = elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: i), checked: false)
-		let second = elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: j), checked: false)
-		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: i, c: second))
-		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: j, c: first))
-		return
-	end 'packed'
+	match elementWay(p, ms: ms, box: box) 'way'
+		heldPacked then swapBytes(l, p: p, box: box, arr: arr, i: i, j: j)
+		heldInline(words) then swapWords(l, p: p, ms: ms, box: box, arr: arr, i: i, j: j, words: words)
+		heldString or
+		heldWord or
+		heldBox then swapForms(l, p: p, ms: ms, box: box, arr: arr, i: i, j: j)
+		heldAddress(_) panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+end 'arraySwap'
+
+// swapBytes exchanges the bytes at two indexes of an array of bytes.
+function swapBytes(mutates l Lowerer, p ast.Project, box ArrayBox, arr Reg, i Reg, j Reg)
+	let first = elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: i), checked: false)
+	let second = elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: j), checked: false)
+	entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: i, c: second))
+	entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: j, c: first))
+end 'swapBytes'
+
+// swapWords exchanges the words words of the elements at two indexes of an array held in place, word by word.
+function swapWords(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, i Reg, j Reg, words Count)
 	let addrI = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: i, checked: false)
 	let addrJ = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: j, checked: false)
-	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
-		for w in 0 upto elementWords(p, ms: ms, box: box) 'words'
-			let first = newReg(l, kind: IrKind.kindScalar)
-			emit(l, i: newLoadField(first, obj: addrI, offset: wordOffset(w)))
-			let second = newReg(l, kind: IrKind.kindScalar)
-			emit(l, i: newLoadField(second, obj: addrJ, offset: wordOffset(w)))
-			emit(l, i: newStoreField(addrI, offset: wordOffset(w), src: second, borrow: false))
-			emit(l, i: newStoreField(addrJ, offset: wordOffset(w), src: first, borrow: false))
-		end 'words'
-		return
-	end 'inPlace'
+	for w in 0 upto words 'words'
+		let first = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newLoadField(first, obj: addrI, offset: wordOffset(w)))
+		let second = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newLoadField(second, obj: addrJ, offset: wordOffset(w)))
+		emit(l, i: newStoreField(addrI, offset: wordOffset(w), src: second, borrow: false))
+		emit(l, i: newStoreField(addrJ, offset: wordOffset(w), src: first, borrow: false))
+	end 'words'
+end 'swapWords'
+
+// swapForms exchanges the words or Strings at two indexes.
+function swapForms(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, i Reg, j Reg)
+	let addrI = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: i, checked: false)
+	let addrJ = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: j, checked: false)
 	let kind = kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box))
 	let first = newReg(l, kind: kind)
 	emit(l, i: newLoadAt(first, addr: addrI))
@@ -404,23 +482,27 @@ function arraySwap(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	emit(l, i: newLoadAt(second, addr: addrJ))
 	emit(l, i: newStoreAt(addrI, src: second))
 	emit(l, i: newStoreAt(addrJ, src: first))
-end 'arraySwap'
+end 'swapForms'
 
 // arrayWrite writes v to the element at index as arrayStore does, through a proven address where the index is proved
 // inside the array (not checked). A byte is written by its entry either way.
 function arrayWrite(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, v Reg, checked bool)
-	if arrayPacked(p, ms: ms, box: box) 'packed'
-		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: index, c: v))
-		return
-	end 'packed'
+	match elementWay(p, ms: ms, box: box) 'way'
+		heldPacked then entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: index, c: v))
+		heldInline(words) then writeWords(l, p: p, ms: ms, box: box, arr: arr, index: index, v: v, words: words, checked: checked)
+		heldString or
+		heldWord or
+		heldBox then writeForm(l, p: p, ms: ms, box: box, arr: arr, index: index, v: v, checked: checked)
+		heldAddress(_) panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+end 'arrayWrite'
+
+// writeForm writes the word or String v to the element at index, dropping the one it replaces.
+function writeForm(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, v Reg, checked bool)
 	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
-	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
-		copyWords(l, dst: addr, src: v, words: elementWords(p, ms: ms, box: box))
-		return
-	end 'inPlace'
 	dropAt(l, p: p, ms: ms, addr: addr, t: arrayElem(p, ms: ms, box: box))
 	emit(l, i: newStoreAt(addr, src: v))
-end 'arrayWrite'
+end 'writeForm'
 
 // arrayStore writes v to the element at index, dropping the element it replaces.
 function arrayStore(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, v Reg)
@@ -430,29 +512,31 @@ end 'arrayStore'
 // arrayAddress is where the element at index of an array of words is, a proven call where the index is proved inside the
 // array (not checked). A byte has no address a word can be read through: its place is a slot instead.
 function arrayAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool) returns Reg
-	if arrayPacked(p, ms: ms, box: box) 'packed'
-		panic("lower: an element of {ast.typeName(ms.types, reads: p.types, t: box.ty)} has no word address")
-	end 'packed'
-	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
-		let bytes = elementBytes(l, p: p, ms: ms, box: box)
-		return elementEntry(l, p: p, site: box.site, symbol: Rt.rtRecsElem, args: argsOf3(arr, b: index, c: bytes), checked: checked)
-	end 'inPlace'
-	if arrayOfStrings(p, ms: ms, box: box) 'strings'
-		return elementEntry(l, p: p, site: box.site, symbol: Rt.rtStrsElem, args: argsOf2(arr, b: index), checked: checked)
-	end 'strings'
-	return elementEntry(l, p: p, site: box.site, symbol: Rt.rtArrayElem, args: argsOf2(arr, b: index), checked: checked)
+	return match elementWay(p, ms: ms, box: box) 'way'
+		heldPacked gives panic("lower: an element of {ast.typeName(ms.types, reads: p.types, t: box.ty)} has no word address")
+		heldInline(words) gives recordAddress(l, p: p, box: box, arr: arr, index: index, words: words, checked: checked)
+		heldString gives elementEntry(l, p: p, site: box.site, symbol: Rt.rtStrsElem, args: argsOf2(arr, b: index), checked: checked)
+		heldWord gives elementEntry(l, p: p, site: box.site, symbol: Rt.rtArrayElem, args: argsOf2(arr, b: index), checked: checked)
+		heldBox gives elementEntry(l, p: p, site: box.site, symbol: Rt.rtArrayElem, args: argsOf2(arr, b: index), checked: checked)
+		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
+	end 'way'
 end 'arrayAddress'
 
 // arrayPlace is the address a call that takes the element at index by address is given: the element's own for an array of
 // words, and for an array of bytes a slot that holds the element until writeBack stores it back.
 function arrayPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
-	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
-		let at = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
-		return heldPlace(l, words: at)
-	end 'inPlace'
-	if not arrayPacked(p, ms: ms, box: box) 'words'
-		return arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
-	end 'words'
+	return match elementWay(p, ms: ms, box: box) 'way'
+		heldInline(_) gives recordPlace(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		heldString gives arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
+		heldWord gives arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
+		heldBox gives arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
+		heldPacked gives bytePlace(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+end 'arrayPlace'
+
+// bytePlace is a slot that holds the byte at index of an array of bytes until writeBack stores it back.
+function bytePlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
 	let slot = l.b.f.newSlot(IrKind.kindScalar)
 	let element = arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: index)
 	emit(l, i: newStoreSlot(slot, src: element, borrow: false))
@@ -460,7 +544,7 @@ function arrayPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 	let d = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newSlotAddr(d, slot: slot))
 	return d
-end 'arrayPlace'
+end 'bytePlace'
 
 // writeBack stores the slots of the places taken since mark back into their elements.
 function writeBack(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, mark Count)
@@ -475,10 +559,18 @@ end 'writeBack'
 // arrayAppendCopy pushes a copy of each element of other, which is only read. The length of other is read once, before
 // the first push.
 function arrayAppendCopy(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, other Reg)
-	if arrayPacked(p, ms: ms, box: box) 'packed'
-		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesAppend, args: argsOf2(arr, b: other))
-		return
-	end 'packed'
+	match elementWay(p, ms: ms, box: box) 'way'
+		heldPacked then entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesAppend, args: argsOf2(arr, b: other))
+		heldInline(_) then appendCopies(l, p: p, ms: ms, box: box, arr: arr, other: other)
+		heldString then appendCopies(l, p: p, ms: ms, box: box, arr: arr, other: other)
+		heldWord then appendCopies(l, p: p, ms: ms, box: box, arr: arr, other: other)
+		heldBox then appendCopies(l, p: p, ms: ms, box: box, arr: arr, other: other)
+		heldAddress(_) panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+end 'arrayAppendCopy'
+
+// appendCopies pushes a copy of each element of other one at a time, as arrayAppendCopy says.
+function appendCopies(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, other Reg)
 	let n = arrayLength(l, p: p, ms: ms, box: box, arr: other)
 	let loop = countedLoopBegin(l, limit: n)
 	let i = countedLoopIndex(l, loop: loop)
@@ -486,7 +578,19 @@ function arrayAppendCopy(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	let copy = elementCopy(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
 	arrayPush(l, p: p, ms: ms, box: box, arr: arr, v: copy)
 	countedLoopEnd(l, loop: loop)
-end 'arrayAppendCopy'
+end 'appendCopies'
+
+// arrayPacked is whether the buffer of the array keeps each element in one byte.
+function arrayPacked(p ast.Project, ms ast.ModuleState, box ArrayBox) returns bool
+	return match elementWay(p, ms: ms, box: box) 'way'
+		heldPacked gives true
+		heldInline(_) gives false
+		heldString gives false
+		heldWord gives false
+		heldBox gives false
+		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+end 'arrayPacked'
 
 function requirePacked(p ast.Project, ms ast.ModuleState, box ArrayBox)
 	if not arrayPacked(p, ms: ms, box: box) 'words'
@@ -543,12 +647,19 @@ end 'saturatingSub'
 // one entry whatever its length. An element that owns something is dropped in place, one loop with one lookup of its address
 // each, before the length is set.
 function arrayShrinkTo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, keep Reg)
+	match elementWay(p, ms: ms, box: box) 'way'
+		heldInline(words) then recordsCall(l, p: p, box: box, symbol: Rt.rtRecsShrink, arr: arr, n: keep, words: words)
+		heldPacked or
+		heldString or
+		heldWord or
+		heldBox then shrinkForms(l, p: p, ms: ms, box: box, arr: arr, keep: keep)
+		heldAddress(_) panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+end 'arrayShrinkTo'
+
+// shrinkForms makes an array of bytes, words or Strings keep elements long, as arrayShrinkTo says.
+function shrinkForms(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, keep Reg)
 	let elem = arrayElem(p, ms: ms, box: box)
-	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
-		let bytes = elementBytes(l, p: p, ms: ms, box: box)
-		entryVoid(l, p: p, site: box.site, symbol: Rt.rtRecsShrink, args: argsOf3(arr, b: keep, c: bytes))
-		return
-	end 'inPlace'
 	if owning(kindOf(l, p: p, ms: ms, t: elem)) 'owning'
 		let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
 		let extra = newReg(l, kind: IrKind.kindScalar)
@@ -565,7 +676,7 @@ function arrayShrinkTo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		countedLoopEnd(l, loop: loop)
 	end 'owning'
 	entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayShrink, args: argsOf2(arr, b: keep))
-end 'arrayShrinkTo'
+end 'shrinkForms'
 
 // arrayClear drops every element and keeps the buffer.
 function arrayClear(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg)
@@ -587,17 +698,14 @@ function arrayGrowZero(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
 	let missing = saturatingSub(l, a: newLength, b: length)
 	let loop = countedLoopBegin(l, limit: missing)
-	if arrayInPlace(p, ms: ms, box: box) 'inPlace'
-		let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
-		let bytes = elementBytes(l, p: p, ms: ms, box: box)
-		_ = entry(l, p: p, site: box.site, symbol: Rt.rtRecsOpen, kind: IrKind.kindScalar, args: argsOf3(arr, b: length, c: bytes))
-	end 'inPlace' else if arrayOfStrings(p, ms: ms, box: box) 'strings'
-		let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
-		_ = entry(l, p: p, site: box.site, symbol: Rt.rtStrsOpen, kind: IrKind.kindScalar, args: argsOf2(arr, b: length))
-	end 'strings' else 'words'
-		let zero = konst(l, value: 0 as Word)
-		arrayPush(l, p: p, ms: ms, box: box, arr: arr, v: zero)
-	end 'words'
+	match elementWay(p, ms: ms, box: box) 'way'
+		heldInline(words) then growRecord(l, p: p, ms: ms, box: box, arr: arr, words: words)
+		heldString then growString(l, p: p, ms: ms, box: box, arr: arr)
+		heldPacked or
+		heldWord or
+		heldBox then pushZero(l, p: p, ms: ms, box: box, arr: arr)
+		heldAddress(_) panic("ir: an element held as the address of words elsewhere")
+	end 'way'
 	countedLoopEnd(l, loop: loop)
 end 'arrayGrowZero'
 
@@ -744,3 +852,70 @@ function arrayEquals(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	goTo(l, target: done)
 	return load(l, slot: result)
 end 'arrayEquals'
+
+// recordsCall calls the rt.recs entry symbol that takes the array, a count n and the size of an element of words words.
+function recordsCall(mutates l Lowerer, p ast.Project, box ArrayBox, symbol Rt, arr Reg, n Reg, words Count)
+	let bytes = elementBytes(l, words: words)
+	entryVoid(l, p: p, site: box.site, symbol: symbol, args: argsOf3(arr, b: n, c: bytes))
+end 'recordsCall'
+
+// insertWords copies the words words at v into a new element at index of an array held in place.
+function insertWords(mutates l Lowerer, p ast.Project, box ArrayBox, arr Reg, index Reg, v Reg, words Count)
+	let at = openRoom(l, p: p, box: box, arr: arr, index: index, words: words)
+	copyWords(l, dst: at, src: v, words: words)
+end 'insertWords'
+
+// insertString moves the String v into a new element at index of an array of Strings.
+function insertString(mutates l Lowerer, p ast.Project, box ArrayBox, arr Reg, index Reg, v Reg)
+	let at = entry(l, p: p, site: box.site, symbol: Rt.rtStrsOpen, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
+	emit(l, i: newStoreAt(at, src: v))
+end 'insertString'
+
+// zeroElement writes 0 to the words words of the element at index of an array held in place.
+function zeroElement(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, words Count)
+	let at = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
+	zeroWords(l, at: at, words: words)
+end 'zeroElement'
+
+// clearByte writes 0 to the byte at index of an array of bytes.
+function clearByte(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg)
+	let empty = konst(l, value: 0 as Word)
+	arrayWrite(l, p: p, ms: ms, box: box, arr: arr, index: index, v: empty, checked: false)
+end 'clearByte'
+
+// writeWords copies the words words at v over the element at index of an array held in place, through a proven address
+// where the index is proved inside the array (not checked).
+function writeWords(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, v Reg, words Count, checked bool)
+	let at = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
+	copyWords(l, dst: at, src: v, words: words)
+end 'writeWords'
+
+// recordAddress is where the element of words words at index of an array held in place is.
+function recordAddress(mutates l Lowerer, p ast.Project, box ArrayBox, arr Reg, index Reg, words Count, checked bool) returns Reg
+	let bytes = elementBytes(l, words: words)
+	return elementEntry(l, p: p, site: box.site, symbol: Rt.rtRecsElem, args: argsOf3(arr, b: index, c: bytes), checked: checked)
+end 'recordAddress'
+
+// recordPlace is the place of the element at index of an array held in place, which holds the address of its words.
+function recordPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+	let at = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
+	return heldPlace(l, words: at)
+end 'recordPlace'
+
+// growRecord pushes a zeroed element of words words to an array held in place.
+function growRecord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, words Count)
+	let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
+	_ = openRoom(l, p: p, box: box, arr: arr, index: length, words: words)
+end 'growRecord'
+
+// growString pushes an empty String to an array of Strings.
+function growString(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg)
+	let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
+	_ = entry(l, p: p, site: box.site, symbol: Rt.rtStrsOpen, kind: IrKind.kindScalar, args: argsOf2(arr, b: length))
+end 'growString'
+
+// pushZero pushes the word 0 to an array of words or bytes.
+function pushZero(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg)
+	let zero = konst(l, value: 0 as Word)
+	arrayPush(l, p: p, ms: ms, box: box, arr: arr, v: zero)
+end 'pushZero'

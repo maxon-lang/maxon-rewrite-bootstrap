@@ -13,7 +13,7 @@ function convsOf(p ast.Project, decl ast.FuncID) returns CountList
 		convs.push(ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: decl).params[i].conv.ordinal)
 	end 'params'
 	// The area of the result, which the caller lends to be written.
-	for _ in 0 upto ir.resultAreas(ast.TypeSlot.none(), reads: p.types, f: ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: decl)) 'area'
+	for _ in 0 upto ir.resultAreas(ast.TypeSlot.none(), reads: p.types, b: p.builtins, f: ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: decl)) 'area'
 		convs.push(ast.Convention.convLet.ordinal)
 	end 'area'
 	return convs

@@ -149,24 +149,35 @@ function builtinRecord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	if ast.typeKind(ms.types, reads: p.types, t: ty) != ast.TypeKind.record or ast.typeEntry(ms.types, reads: p.types, t: origin).fields.count() != values.count() 'shape'
 		panic("lower: {ast.typeName(ms.types, reads: p.types, t: t)} is not a record of {values.count()} fields")
 	end 'shape'
-	var box = noReg
-	if heldInPlace(ms.types, reads: p.types, t: ty) 'inPlace'
-		box = newArea(l, words: inPlaceWords(ms.types, reads: p.types, t: ty))
-	end 'inPlace' else 'boxed'
-		box = newReg(l, kind: IrKind.kindManaged)
-		emit(l, i: newAlloc(box, bytes: recordBoxBytes(ms.types, reads: p.types, owner: ty)))
-	end 'boxed'
+	let box = match heldAs(p, ms: ms, t: ty) 'holding'
+		heldAddress(words) gives newArea(l, words: words)
+		heldWord gives recordBox(l, p: p, ms: ms, t: ty)
+		heldString gives recordBox(l, p: p, ms: ms, t: ty)
+		heldBox gives recordBox(l, p: p, ms: ms, t: ty)
+		heldInline(_) gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+		heldPacked gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+	end 'holding'
 	for i in 0 upto values.count() 'each'
 		let offset = recordFieldOffset(ms.types, reads: p.types, owner: ty, index: i)
-		let inline = inlineFieldWords(ms.types, reads: p.types, owner: ty, index: i)
-		if inline > 0 'inline'
-			copyWordsAt(l, dst: box, at: offset, src: values[i], words: inline)
-		end 'inline' else 'held'
-			emit(l, i: newStoreField(box, offset: offset, src: values[i], borrow: false))
-		end 'held'
+		let field = ast.typeEntry(ms.types, reads: p.types, t: origin).fields[i].ty
+		match holding(ms.types, reads: p.types, b: p.builtins, t: field, holder: Holder.inField(ty, index: i)) 'field'
+			heldInline(words) then copyWordsAt(l, dst: box, at: offset, src: values[i], words: words)
+			heldWord or
+			heldString or
+			heldBox then emit(l, i: newStoreField(box, offset: offset, src: values[i], borrow: false))
+			heldAddress(_) panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
+			heldPacked panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
+		end 'field'
 	end 'each'
 	return box
 end 'builtinRecord'
+
+// recordBox is a new box of the record t.
+function recordBox(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns Reg
+	let box = newReg(l, kind: IrKind.kindManaged)
+	emit(l, i: newAlloc(box, bytes: recordBoxBytes(ms.types, reads: p.types, owner: t)))
+	return box
+end 'recordBox'
 
 function lowerCommandLineArgs(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsArgs, kind: IrKind.kindManaged, args: RegList.create(0))

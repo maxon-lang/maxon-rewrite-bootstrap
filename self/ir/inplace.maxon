@@ -3,17 +3,24 @@
 // its caller passes (returnPlaced), and any other holder in a box of its own (boxed), which it owns and drops as before, and
 // which it gives up as a copy in a frame area (unboxed).
 
-// inPlace is whether a value of the type t, which the body names, is held in place.
-function inPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns bool
+// held is how a variable keeps a value of the type t, which the body names.
+function held(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns Holding
 	let ty = applyType(l, p: p, ms: ms, t: t)
-	return heldInPlace(ms.types, reads: p.types, t: ty)
-end 'inPlace'
+	return heldAs(p, ms: ms, t: ty)
+end 'held'
 
-// placeWords is how many words a value of the type t, which the body names and which is held in place, takes.
-function placeWords(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns Count
+// heldAs is how a variable keeps a value of the type t, an instance's.
+function heldAs(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns Holding
+	return holding(ms.types, reads: p.types, b: p.builtins, t: t, holder: Holder.inVariable)
+end 'heldAs'
+
+// fieldHeld is how the record owner, a type the body names, keeps its field at index, of the type t that the body names.
+function fieldHeld(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, owner ast.TypeID, index Count, t ast.TypeID) returns Holding
+	let applied = applyType(l, p: p, ms: ms, t: owner)
+	let record = ast.contentType(ms.types, reads: p.types, t: applied)
 	let ty = applyType(l, p: p, ms: ms, t: t)
-	return inPlaceWords(ms.types, reads: p.types, t: ty)
-end 'placeWords'
+	return holding(ms.types, reads: p.types, b: p.builtins, t: ty, holder: Holder.inField(record, index: index))
+end 'fieldHeld'
 
 // newArea is a frame area of words words of its own.
 function newArea(mutates l Lowerer, words Count) returns Reg
@@ -75,6 +82,19 @@ end 'nextWord'
 // copyPairWords is how many words copyWords loads before it stores them.
 let copyPairWords = 2 as Count
 
+// pushResultArea gives the arguments args of a call whose result, of the type t that is an instance's, is not lent, the
+// frame area the callee writes the result to where it is held in place.
+function pushResultArea(mutates l Lowerer, p ast.Project, ms ast.ModuleState, mutates args RegList, t ast.TypeID)
+	match heldAs(p, ms: ms, t: t) 'holding'
+		heldAddress(words) then args.push(newArea(l, words: words))
+		heldWord or
+		heldString or
+		heldBox then _ = 0
+		heldInline(_) panic("ir: a variable that holds words of its own or a byte of a buffer")
+		heldPacked panic("ir: a variable that holds words of its own or a byte of a buffer")
+	end 'holding'
+end 'pushResultArea'
+
 // placedCopy is a copy of the words words at v in a frame area of its own.
 function placedCopy(mutates l Lowerer, words Count, v Reg) returns Reg
 	let area = newArea(l, words: words)
@@ -86,36 +106,56 @@ end 'placedCopy'
 // box of its words, which the holder owns; any other value as it is. The words are copied in place rather than by the
 // type's copy routine, since v may be the address of words inside another record, which is no box.
 function boxed(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, v Reg, t ast.TypeID) returns Reg
-	let ty = applyType(l, p: p, ms: ms, t: t)
-	if not heldInPlace(ms.types, reads: p.types, t: ty) 'other'
-		return v
-	end 'other'
-	let words = inPlaceWords(ms.types, reads: p.types, t: ty)
+	return match held(l, p: p, ms: ms, t: t) 'holding'
+		heldAddress(words) gives boxOfWords(l, v: v, words: words)
+		heldWord gives v
+		heldString gives v
+		heldBox gives v
+		heldInline(_) gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+		heldPacked gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+	end 'holding'
+end 'boxed'
+
+// boxOfWords is a new box of the words words at v.
+function boxOfWords(mutates l Lowerer, v Reg, words Count) returns Reg
 	let d = newReg(l, kind: IrKind.kindManaged)
 	emit(l, i: newAlloc(d, bytes: wordOffset(words)))
 	copyWords(l, dst: d, src: v, words: words)
 	return d
-end 'boxed'
+end 'boxOfWords'
 
 // unboxed is the value of the box v of the type t that a holder gave up: for a value held in place, its words copied to a
 // frame area of their own, and the box dropped; any other value as it is.
 function unboxed(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, v Reg, t ast.TypeID) returns Reg
-	let ty = applyType(l, p: p, ms: ms, t: t)
-	if not heldInPlace(ms.types, reads: p.types, t: ty) 'other'
-		return v
-	end 'other'
-	let area = placedCopy(l, words: inPlaceWords(ms.types, reads: p.types, t: ty), v: v)
-	emitDropReg(l, src: v, ty: ty)
-	return area
+	return match held(l, p: p, ms: ms, t: t) 'holding'
+		heldAddress(words) gives unboxWords(l, p: p, ms: ms, v: v, words: words, t: t)
+		heldWord gives v
+		heldString gives v
+		heldBox gives v
+		heldInline(_) gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+		heldPacked gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+	end 'holding'
 end 'unboxed'
+
+// unboxWords is a copy of the words words of the box v of the type t, which the body names, in a frame area of their own,
+// the box dropped.
+function unboxWords(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, v Reg, words Count, t ast.TypeID) returns Reg
+	let area = placedCopy(l, words: words, v: v)
+	emitDropReg(l, src: v, ty: applyType(l, p: p, ms: ms, t: t))
+	return area
+end 'unboxWords'
 
 // elementCopy is a copy of the value v of the type t that an array is given to keep: for a value held in place, v itself,
 // whose words the array copies in; any other value copied.
 function elementCopy(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, v Reg, t ast.TypeID) returns Reg
-	if inPlace(l, p: p, ms: ms, t: t) 'words'
-		return v
-	end 'words'
-	return copyValue(l, p: p, ms: ms, site: site, v: v, t: t)
+	return match held(l, p: p, ms: ms, t: t) 'holding'
+		heldAddress(_) gives v
+		heldWord gives copyValue(l, p: p, ms: ms, site: site, v: v, t: t)
+		heldString gives copyValue(l, p: p, ms: ms, site: site, v: v, t: t)
+		heldBox gives copyValue(l, p: p, ms: ms, site: site, v: v, t: t)
+		heldInline(_) gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+		heldPacked gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+	end 'holding'
 end 'elementCopy'
 
 // arrayHeld is the value v of the type t as the holder of the type holder keeps it: an array holds the words of a value
@@ -130,10 +170,14 @@ end 'arrayHeld'
 // holderKind is the kind of a value of the type t as a holder other than a local keeps it: the managed word of its box for
 // a value held in place, and its kind otherwise.
 function holderKind(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns IrKind
-	if inPlace(l, p: p, ms: ms, t: t) 'box'
-		return IrKind.kindManaged
-	end 'box'
-	return kindOf(l, p: p, ms: ms, t: t)
+	return match held(l, p: p, ms: ms, t: t) 'holding'
+		heldAddress(_) gives IrKind.kindManaged
+		heldWord gives kindOf(l, p: p, ms: ms, t: t)
+		heldString gives kindOf(l, p: p, ms: ms, t: t)
+		heldBox gives kindOf(l, p: p, ms: ms, t: t)
+		heldInline(_) gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+		heldPacked gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+	end 'holding'
 end 'holderKind'
 
 // holderOwns is whether a holder other than a local owns what it keeps of a value of the type t, which it drops.
@@ -186,18 +230,25 @@ end 'placeSlot'
 // resultWords is how many words the result of the function f takes where it writes it to an area its caller passes after
 // its arguments, a result held in place that it does not lend, and 0 otherwise. An instance has its types substituted, so
 // every call of it and its own body read the same count (as ast.lentTupleElements).
-export function resultWords(tt ast.TypeSlot, reads ast.TypeTable, f ast.FuncEntry) returns Count
-	if f.result == ast.ResultConv.resultBorrowed or f.retTy == ast.noType or not heldInPlace(tt, reads: reads, t: f.retTy) 'none'
+export function resultWords(tt ast.TypeSlot, reads ast.TypeTable, b ast.Builtins, f ast.FuncEntry) returns Count
+	if f.result == ast.ResultConv.resultBorrowed or f.retTy == ast.noType 'none'
 		return 0
 	end 'none'
-	return inPlaceWords(tt, reads: reads, t: f.retTy)
+	return match holding(tt, reads: reads, b: b, t: f.retTy, holder: Holder.inVariable) 'holding'
+		heldAddress(words) gives words
+		heldWord gives 0
+		heldString gives 0
+		heldBox gives 0
+		heldInline(_) gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+		heldPacked gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+	end 'holding'
 end 'resultWords'
 
 // resultAreas is how many words the function f takes after its parameters for the address of an area its caller passes
 // for the result, a lent tuple's (ast.lentTupleElements) or one held in place (resultWords): 1 or 0. Every convention that
 // places a function's words beyond its parameters counts it from here.
-export function resultAreas(tt ast.TypeSlot, reads ast.TypeTable, f ast.FuncEntry) returns Count
-	if ast.lentTupleElements(tt, reads: reads, f: f) > 0 or resultWords(tt, reads: reads, f: f) > 0 'area'
+export function resultAreas(tt ast.TypeSlot, reads ast.TypeTable, b ast.Builtins, f ast.FuncEntry) returns Count
+	if ast.lentTupleElements(tt, reads: reads, f: f) > 0 or resultWords(tt, reads: reads, b: b, f: f) > 0 'area'
 		return 1
 	end 'area'
 	return 0

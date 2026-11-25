@@ -268,14 +268,14 @@ end 'regKind'
 
 // kindOfType is the kind of a value of a type in a register: for a value held in place, its address, which drops nothing.
 function kindOfType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns IrKind
-	if heldInPlace(ms.types, reads: p.types, t: t) 'inPlace'
-		return IrKind.kindScalar
-	end 'inPlace'
-	return match valueForm(ms.types, reads: p.types, t: t) 'form'
-		formScalar gives IrKind.kindScalar
-		formManaged gives IrKind.kindManaged
-		formString gives IrKind.kindString
-	end 'form'
+	return match heldAs(p, ms: ms, t: t) 'holding'
+		heldWord gives IrKind.kindScalar
+		heldString gives IrKind.kindString
+		heldBox gives IrKind.kindManaged
+		heldAddress(_) gives IrKind.kindScalar
+		heldInline(_) gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+		heldPacked gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+	end 'holding'
 end 'kindOfType'
 
 // applyType is a type of the body with the type parameters of the function replaced by their arguments.
@@ -445,7 +445,7 @@ function emitThrowingCall(mutates l Lowerer, p ast.Project, ms ast.ModuleState, 
 		emit(l, i: lending)
 		return
 	end 'lentTuple'
-	let words = resultWords(ms.types, reads: p.types, f: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target))
+	let words = resultWords(ms.types, reads: p.types, b: p.builtins, f: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target))
 	if words > 0 'inPlace'
 		var given = args.clone()
 		given.push(newArea(l, words: words))

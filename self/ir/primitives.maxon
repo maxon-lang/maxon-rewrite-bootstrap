@@ -890,22 +890,35 @@ function lowerExchange(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	let places = l.writeBacks.count()
 	let addr = address(l, p: p, ms: ms, e: c.ordered[0])
 	let t = exprType(p, module: l.module, node: c.node)
-	if inPlace(l, p: p, ms: ms, t: t) 'inPlace'
-		// The place holds the address of the words, a frame area's or a box's: the old words are copied out before the new
-		// ones are copied in, and the place keeps its box.
-		let words = newReg(l, kind: IrKind.kindScalar)
-		emit(l, i: newLoadAt(words, addr: addr))
-		let n = placeWords(l, p: p, ms: ms, t: t)
-		let old = placedCopy(l, words: n, v: words)
-		copyWords(l, dst: words, src: value, words: n)
-		writeBack(l, p: p, ms: ms, mark: places)
-		return old
-	end 'inPlace'
-	let old = moveOutAt(l, p: p, ms: ms, addr: addr, t: exprType(p, module: l.module, node: c.node))
-	emit(l, i: newStoreAt(addr, src: value))
+	let old = match held(l, p: p, ms: ms, t: t) 'holding'
+		heldAddress(words) gives exchangeWords(l, addr: addr, value: value, words: words)
+		heldWord gives exchangeWord(l, p: p, ms: ms, addr: addr, value: value, t: t)
+		heldString gives exchangeWord(l, p: p, ms: ms, addr: addr, value: value, t: t)
+		heldBox gives exchangeWord(l, p: p, ms: ms, addr: addr, value: value, t: t)
+		heldInline(_) gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+		heldPacked gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+	end 'holding'
 	writeBack(l, p: p, ms: ms, mark: places)
 	return old
 end 'lowerExchange'
+
+// exchangeWords gives the place at addr of a value held in place in words words the words of value, and the caller the
+// words it held: the place holds the address of the words, a frame area's or a box's, so the old words are copied out
+// before the new ones are copied in, and the place keeps its box.
+function exchangeWords(mutates l Lowerer, addr Reg, value Reg, words Count) returns Reg
+	let at = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newLoadAt(at, addr: addr))
+	let old = placedCopy(l, words: words, v: at)
+	copyWords(l, dst: at, src: value, words: words)
+	return old
+end 'exchangeWords'
+
+// exchangeWord gives the place at addr of a value of the type t held in its form the value, and the caller the value it held.
+function exchangeWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, addr Reg, value Reg, t ast.TypeID) returns Reg
+	let old = moveOutAt(l, p: p, ms: ms, addr: addr, t: t)
+	emit(l, i: newStoreAt(addr, src: value))
+	return old
+end 'exchangeWord'
 
 function isZero(mutates l Lowerer, v Reg) returns Reg
 	let zero = konst(l, value: 0 as Word)

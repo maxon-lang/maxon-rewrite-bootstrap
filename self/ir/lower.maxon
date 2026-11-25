@@ -7,7 +7,7 @@ export function begin(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	if l.lentElements > 0 'lentTuple'
 		paramCount = succ(paramCount)
 	end 'lentTuple'
-	l.resultWords = resultWords(ms.types, reads: p.types, f: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn))
+	l.resultWords = resultWords(ms.types, reads: p.types, b: p.builtins, f: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn))
 	if l.resultWords > 0 'inPlace'
 		paramCount = succ(paramCount)
 	end 'inPlace'
@@ -79,10 +79,16 @@ function declareSlots(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 			filled[slotOf(loc)] = true
 			l.b.f.slots[slotOf(loc)] = kindOf(l, p: p, ms: ms, t: loc.ty)
 			// A local that borrows (a binding of a part, a let of a lent result) holds the lender's address as it is.
-			if not loc.projected and inPlace(l, p: p, ms: ms, t: loc.ty) 'inPlace'
-				let words = placeWords(l, p: p, ms: ms, t: loc.ty)
-				placeLocal(l, slot: slotOf(loc), words: words)
-			end 'inPlace'
+			if not loc.projected 'owns'
+				match held(l, p: p, ms: ms, t: loc.ty) 'holding'
+					heldAddress(words) then placeLocal(l, slot: slotOf(loc), words: words)
+					heldWord or
+					heldString or
+					heldBox then continue 'each'
+					heldInline(_) panic("ir: a variable that holds words of its own or a byte of a buffer")
+					heldPacked panic("ir: a variable that holds words of its own or a byte of a buffer")
+				end 'holding'
+			end 'owns'
 		end 'slotted'
 	end 'each'
 	if l.b.keepsSpans 'bindings'
@@ -148,33 +154,44 @@ function adoptParams(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	let hasReceiver = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).hasReceiver
 	if hasReceiver and ast.receiverLocal(p, ms: ms, f: l.origin) != ast.noLocal 'self'
 		let selfLocal = localEntry(p, module: l.fnModule, id: ast.receiverLocal(p, ms: ms, f: l.origin))
-		if ast.ownsValue(selfLocal.conv) and inPlace(l, p: p, ms: ms, t: selfLocal.ty) 'placed'
-			let slot = adoptPlaced(l, p: p, ms: ms, index: selfLocal.paramIndex, t: selfLocal.ty)
-			l.selfOwner = indexOf(slot)
-		end 'placed' else if ast.ownsValue(selfLocal.conv) and owning(kindOf(l, p: p, ms: ms, t: selfLocal.ty)) 'owned'
-			let slot = adopt(l, p: p, ms: ms, index: selfLocal.paramIndex, t: selfLocal.ty)
-			l.selfOwner = indexOf(slot)
+		if ast.ownsValue(selfLocal.conv) 'owned'
+			let slot = adoptOwned(l, p: p, ms: ms, index: selfLocal.paramIndex, t: selfLocal.ty)
+			if slot != noSlot 'adopted'
+				l.selfOwner = slot
+			end 'adopted'
 		end 'owned'
 	end 'self'
 	let first = ast.leadingParams(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn))
 	for i in 0 upto ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).params.count() 'each'
 		let ty = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).paramTypes[i]
-		let consumed = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).params[i].conv == ast.Convention.convConsumes
-		if consumed and inPlace(l, p: p, ms: ms, t: ty) 'placed'
-			let slot = adoptPlaced(l, p: p, ms: ms, index: try first + i otherwise panic("ir: too many parameters"), t: ty)
-			let local = ast.paramLocal(p, ms: ms, f: l.origin, index: i)
-			if local != ast.noLocal 'named'
-				l.ownerSlots.push(OwnerSlot.make(local, slot: slot))
-			end 'named'
-		end 'placed' else if consumed and owning(kindOf(l, p: p, ms: ms, t: ty)) 'consumed'
-			let slot = adopt(l, p: p, ms: ms, index: try first + i otherwise panic("ir: too many parameters"), t: ty)
-			let local = ast.paramLocal(p, ms: ms, f: l.origin, index: i)
-			if local != ast.noLocal 'named'
-				l.ownerSlots.push(OwnerSlot.make(local, slot: slot))
-			end 'named'
-		end 'consumed'
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).params[i].conv != ast.Convention.convConsumes 'lent'
+			continue 'each'
+		end 'lent'
+		let slot = adoptOwned(l, p: p, ms: ms, index: try first + i otherwise panic("ir: too many parameters"), t: ty)
+		let local = ast.paramLocal(p, ms: ms, f: l.origin, index: i)
+		if slot != noSlot and local != ast.noLocal 'named'
+			l.ownerSlots.push(OwnerSlot.make(local, slot: slotIndex(slot)))
+		end 'named'
 	end 'each'
 end 'adoptParams'
+
+// adoptOwned gives the parameter at index of the type t, which the function owns, a slot that owns it from here on: the
+// frame area of a value held in place, the parameter's own word where it owns what it holds, and none (noSlot) for a word
+// of nothing to drop.
+function adoptOwned(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, index Count, t ast.TypeID) returns Index
+	match held(l, p: p, ms: ms, t: t) 'holding'
+		heldAddress(_) then return indexOf(adoptPlaced(l, p: p, ms: ms, index: index, t: t))
+		heldWord or
+		heldString or
+		heldBox then _ = 0
+		heldInline(_) panic("ir: a variable that holds words of its own or a byte of a buffer")
+		heldPacked panic("ir: a variable that holds words of its own or a byte of a buffer")
+	end 'holding'
+	if not owning(kindOf(l, p: p, ms: ms, t: t)) 'scalar'
+		return noSlot
+	end 'scalar'
+	return indexOf(adopt(l, p: p, ms: ms, index: index, t: t))
+end 'adoptOwned'
 
 function adopt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, index Count, t ast.TypeID) returns Count
 	let kind = kindOf(l, p: p, ms: ms, t: t)
@@ -253,22 +270,18 @@ function fieldAt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, o
 	return recordFieldOffset(ms.types, reads: p.types, owner: record, index: index)
 end 'fieldAt'
 
-// fieldWords is how many words the field at index of the record owner, a type the body names, takes among the record's own
-// words, where it is a record held in place that the record holds that way (inlineFieldWords), and 0 otherwise.
-function fieldWords(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, owner ast.TypeID, index Count) returns Count
-	let applied = applyType(l, p: p, ms: ms, t: owner)
-	let record = ast.contentType(ms.types, reads: p.types, t: applied)
-	return inlineFieldWords(ms.types, reads: p.types, owner: record, index: index)
-end 'fieldWords'
-
-// fieldPlace is the place of the field at index of the record owner, whose address is addr, as a call that takes it by
-// address is given it: the field itself, or, where its words are the record's own, a place that holds their address
-// (heldPlace), as every place of a value held in place does.
-function fieldPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, owner ast.TypeID, index Count, addr Reg) returns Reg
-	if fieldWords(l, p: p, ms: ms, owner: owner, index: index) == 0 'held'
-		return addr
-	end 'held'
-	return heldPlace(l, words: addr)
+// fieldPlace is the place of the field at index of the record owner, of the type t, whose address is addr, as a call that
+// takes it by address is given it: the field itself, or, where its words are the record's own, a place that holds their
+// address (heldPlace), as every place of a value held in place does.
+function fieldPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, owner ast.TypeID, index Count, t ast.TypeID, addr Reg) returns Reg
+	return match fieldHeld(l, p: p, ms: ms, owner: owner, index: index, t: t) 'holding'
+		heldInline(_) gives heldPlace(l, words: addr)
+		heldWord gives addr
+		heldString gives addr
+		heldBox gives addr
+		heldAddress(_) gives panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
+		heldPacked gives panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
+	end 'holding'
 end 'fieldPlace'
 
 function selfReg(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState) returns Reg
@@ -461,11 +474,14 @@ function visitReturnStmt(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	end 'lentTuple' else if ast.lendsToChange(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).result, selfConv: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).selfConv) 'changing'
 		// A place lent to be changed is the address of its word, in 'self' (check.requireLentToChange), or for a value held
 		// in place the address of its words, which is its value.
-		if inPlace(l, p: p, ms: ms, t: exprType(p, module: l.module, node: value)) 'held'
-			v = lowerExpr(l, p: p, ms: ms, e: value)
-		end 'held' else 'word'
-			v = address(l, p: p, ms: ms, e: value)
-		end 'word'
+		v = match held(l, p: p, ms: ms, t: exprType(p, module: l.module, node: value)) 'holding'
+			heldAddress(_) gives lowerExpr(l, p: p, ms: ms, e: value)
+			heldWord gives address(l, p: p, ms: ms, e: value)
+			heldString gives address(l, p: p, ms: ms, e: value)
+			heldBox gives address(l, p: p, ms: ms, e: value)
+			heldInline(_) gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+			heldPacked gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+		end 'holding'
 	end 'changing' else 'some'
 		v = lowerExpr(l, p: p, ms: ms, e: value)
 		if l.b.f.lendsResult 'lent'
@@ -598,17 +614,16 @@ function assignTo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, 
 				emit(l, i: newStoreSlot(slotOf(loc), src: v, borrow: owning(regKind(l, v: v))))
 				return
 			end 'view'
-			if isByRef(loc) and inPlace(l, p: p, ms: ms, t: loc.ty) 'placed'
-				// The caller's place holds the address of the words, a frame area's or a box's, whichever it keeps them in.
+			if isByRef(loc) 'byRef'
 				let addr = refAddress(l, p: p, ms: ms, loc: loc)
-				let words = newReg(l, kind: IrKind.kindScalar)
-				emit(l, i: newLoadAt(words, addr: addr))
-				let n = placeWords(l, p: p, ms: ms, t: loc.ty)
-				copyWords(l, dst: words, src: v, words: n)
-			end 'placed' else if isByRef(loc) 'byRef'
-				let addr = refAddress(l, p: p, ms: ms, loc: loc)
-				dropAt(l, p: p, ms: ms, addr: addr, t: loc.ty)
-				emit(l, i: newStoreAt(addr, src: v))
+				match held(l, p: p, ms: ms, t: loc.ty) 'holding'
+					heldAddress(words) then copyToPlace(l, addr: addr, v: v, words: words)
+					heldWord or
+					heldString or
+					heldBox then storeAtPlace(l, p: p, ms: ms, addr: addr, v: v, t: loc.ty)
+					heldInline(_) panic("ir: a variable that holds words of its own or a byte of a buffer")
+					heldPacked panic("ir: a variable that holds words of its own or a byte of a buffer")
+				end 'holding'
 			end 'byRef' else 'slot'
 				if owning(kindOf(l, p: p, ms: ms, t: loc.ty)) 'managed'
 					let ty = dropType(l, p: p, ms: ms, t: loc.ty)
@@ -623,8 +638,8 @@ function assignTo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, 
 			let obj = selfReg(l, p: p, ms: ms)
 			let owner = selfType(l, p: p, ms: ms)
 			let offset = fieldAt(l, p: p, ms: ms, owner: owner, index: name.fieldIndex)
-			let inline = fieldWords(l, p: p, ms: ms, owner: owner, index: name.fieldIndex)
-			storeField(l, p: p, ms: ms, obj: obj, offset: offset, inline: inline, t: exprType(p, module: l.module, node: target), v: v)
+			let h = fieldHeld(l, p: p, ms: ms, owner: owner, index: name.fieldIndex, t: exprType(p, module: l.module, node: target))
+			storeField(l, p: p, ms: ms, obj: obj, offset: offset, h: h, t: exprType(p, module: l.module, node: target), v: v)
 			return
 		end 'field'
 	end 'name'
@@ -636,8 +651,8 @@ function assignTo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, 
 			let v = lowerExpr(l, p: p, ms: ms, e: value)
 			let owner = exprType(p, module: l.module, node: objExpr)
 			let offset = fieldAt(l, p: p, ms: ms, owner: owner, index: member.fieldIndex)
-			let inline = fieldWords(l, p: p, ms: ms, owner: owner, index: member.fieldIndex)
-			storeField(l, p: p, ms: ms, obj: obj, offset: offset, inline: inline, t: exprType(p, module: l.module, node: target), v: v)
+			let h = fieldHeld(l, p: p, ms: ms, owner: owner, index: member.fieldIndex, t: exprType(p, module: l.module, node: target))
+			storeField(l, p: p, ms: ms, obj: obj, offset: offset, h: h, t: exprType(p, module: l.module, node: target), v: v)
 			return
 		end 'field'
 	end 'member'
@@ -647,6 +662,20 @@ function assignTo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, 
 	end 'index'
 	panic("lower: unhandled assignment target")
 end 'assignTo'
+
+// copyToPlace gives the caller's place at addr of a value held in place in words words a copy of v's words: the place holds
+// the address of the words, a frame area's or a box's, whichever the caller keeps them in.
+function copyToPlace(mutates l Lowerer, addr Reg, v Reg, words Count)
+	let at = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newLoadAt(at, addr: addr))
+	copyWords(l, dst: at, src: v, words: words)
+end 'copyToPlace'
+
+// storeAtPlace gives the caller's place at addr of a value of the type t held in its form v, dropping its old value first.
+function storeAtPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, addr Reg, v Reg, t ast.TypeID)
+	dropAt(l, p: p, ms: ms, addr: addr, t: t)
+	emit(l, i: newStoreAt(addr, src: v))
+end 'storeAtPlace'
 
 function visitForStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
 	if not ast.forStmtIsRange(p.modules[l.mi].tree, id: s) and p.typings[l.mi].iterations.has(s as Count) 'cursor'
@@ -949,7 +978,18 @@ function visitForCursor(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	let info = iterationInfoAt(p, module: l.module, node: s)
 	let source = ast.forStmtFrom(p.modules[l.mi].tree, id: s)
 	let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
-	let placed = info.hasFactory and inPlace(l, p: p, ms: ms, t: info.cursorTy)
+	var words = 0 as Count
+	if info.hasFactory 'factory'
+		words = match held(l, p: p, ms: ms, t: info.cursorTy) 'holding'
+			heldAddress(n) gives n
+			heldWord gives 0
+			heldString gives 0
+			heldBox gives 0
+			heldInline(_) gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+			heldPacked gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+		end 'holding'
+	end 'factory'
+	let placed = words > 0
 	let cursor = l.b.f.newSlot(IrKind.kindScalar if placed else IrKind.kindManaged)
 	let body = l.b.newBlock()
 	let cont = l.b.newBlock()
@@ -957,7 +997,6 @@ function visitForCursor(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	let collection = lowerRead(l, p: p, ms: ms, e: source)
 	if placed 'placed'
 		// A cursor held in place lives in the slot's frame area, which drops nothing.
-		let words = placeWords(l, p: p, ms: ms, t: info.cursorTy)
 		placeLocal(l, slot: cursor, words: words)
 		let fresh = newReg(l, kind: IrKind.kindScalar)
 		let made = protocolCall(l, p: p, ms: ms, s: s, info: info.factory, recv: collection, dst: fresh, resultTy: info.cursorTy, exit: exit)
@@ -1028,9 +1067,9 @@ function protocolCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 		let sig = FloatSignature.make(0 as FloatMask, result: not lends and ast.isFloatType(ms.types, reads: p.types, t: given))
 		let slot = ast.requirementSlot(ms.types, reads: p.types, iface: iface, sig: info.method)
 		var rest = RegList.create(0)
-		if not lends and heldInPlace(ms.types, reads: p.types, t: given) 'inPlace'
-			rest.push(newArea(l, words: inPlaceWords(ms.types, reads: p.types, t: given)))
-		end 'inPlace'
+		if not lends 'owned'
+			pushResultArea(l, p: p, ms: ms, args: rest, t: given)
+		end 'owned'
 		let call = l.b.callWitness(dst, conv: receiverConv(info.selfConv), slot: slot, recv: recv, args: rest, err: err, sig: sig)
 		emit(l, i: call)
 	end 'table' else if not fails 'plain'

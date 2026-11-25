@@ -219,13 +219,10 @@ type DebugTypes
 				fieldNamesOf.push(ast.typeEntry(ms.types, reads: p.types, t: origin).fields[i].name.clone())
 			end 'fields'
 		end 'record'
-		if isInPlaceRef(ref) 'place'
-			let words = ir.inPlaceWords(ms.types, reads: p.types, t: t)
-			self.begin(p, ms: ms, ref: ref, name: name.clone(), kind: mxdbg.MxdbgTypeKindInPlaceStruct, size: ir.holdingBytes(ir.Holding.heldInline(words)), align: wordSize, flag: 0)
-		end 'place' else 'box'
-			let bytes = ir.recordBoxBytes(ms.types, reads: p.types, owner: t)
-			self.begin(p, ms: ms, ref: ref, name: name.clone(), kind: mxdbg.MxdbgTypeKindStruct, size: bytes, align: wordSize, flag: 0)
-		end 'box'
+		// The words of a record held in place are those its box would hold.
+		let bytes = ir.recordBoxBytes(ms.types, reads: p.types, owner: t)
+		let kind = mxdbg.MxdbgTypeKindInPlaceStruct if isInPlaceRef(ref) else mxdbg.MxdbgTypeKindStruct
+		self.begin(p, ms: ms, ref: ref, name: name.clone(), kind: kind, size: bytes, align: wordSize, flag: 0)
 		for i in 0 upto types.count() 'fields'
 			let held = ir.holding(ms.types, reads: p.types, b: p.builtins, t: types[i], holder: ir.Holder.inField(t, index: i))
 			self.addField(fieldNamesOf[i].clone(), offset: ir.recordFieldOffset(ms.types, reads: p.types, owner: t, index: i), ref: entryOf(held, t: types[i]))

@@ -481,8 +481,8 @@ function visitNameExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		let obj = selfReg(l, p: p, ms: ms)
 		let owner = selfType(l, p: p, ms: ms)
 		let offset = fieldAt(l, p: p, ms: ms, owner: owner, index: name.fieldIndex)
-		let inline = fieldWords(l, p: p, ms: ms, owner: owner, index: name.fieldIndex) > 0
-		loadField(l, p: p, ms: ms, d: d, obj: obj, e: e, offset: offset, inline: inline)
+		let h = fieldHeld(l, p: p, ms: ms, owner: owner, index: name.fieldIndex, t: exprType(p, module: l.module, node: e))
+		loadField(l, p: p, ms: ms, d: d, obj: obj, e: e, offset: offset, h: h)
 		return d
 	end 'field'
 	if name.kind == ast.NameKind.nameConst 'const'
@@ -504,12 +504,20 @@ end 'visitNameExpr'
 
 // loadField is the value of a field of a record: a move out of it when the ownership pass found the expression consuming
 // it, which leaves 0 in the field for the drop of the record to skip, and a borrow otherwise. A field whose words are the
-// record's own (inline) is their address, which the record lends: whoever keeps the value copies the words.
-function loadField(mutates l Lowerer, p ast.Project, ms ast.ModuleState, d Reg, obj Reg, e ast.NodeID, offset Count, inline bool)
-	if inline 'inline'
-		emit(l, i: newFieldAddr(d, obj: obj, offset: offset))
-		return
-	end 'inline'
+// record's own (held as h) is their address, which the record lends: whoever keeps the value copies the words.
+function loadField(mutates l Lowerer, p ast.Project, ms ast.ModuleState, d Reg, obj Reg, e ast.NodeID, offset Count, h Holding)
+	match h 'holding'
+		heldInline(_) then emit(l, i: newFieldAddr(d, obj: obj, offset: offset))
+		heldWord or
+		heldString or
+		heldBox then loadOwnField(l, p: p, ms: ms, d: d, obj: obj, e: e, offset: offset)
+		heldAddress(_) panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
+		heldPacked panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
+	end 'holding'
+end 'loadField'
+
+// loadOwnField is the value of a field the record holds in its form: moved out or borrowed, as loadField says.
+function loadOwnField(mutates l Lowerer, p ast.Project, ms ast.ModuleState, d Reg, obj Reg, e ast.NodeID, offset Count)
 	if movesOut(p, ms: ms, module: l.module, node: e) and owning(regKind(l, v: d)) 'move'
 		let addr = newReg(l, kind: IrKind.kindScalar)
 		emit(l, i: newFieldAddr(addr, obj: obj, offset: offset))
@@ -517,7 +525,7 @@ function loadField(mutates l Lowerer, p ast.Project, ms ast.ModuleState, d Reg, 
 		return
 	end 'move'
 	emit(l, i: newLoadField(d, obj: obj, offset: offset))
-end 'loadField'
+end 'loadOwnField'
 
 // address is where a call that takes e by address finds it. An element of a byte array is given as a slot, so the caller
 // stores what the callee left there back with writeBack once the callee returns.
@@ -541,7 +549,7 @@ function address(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e
 			let owner = selfType(l, p: p, ms: ms)
 			let offset = fieldAt(l, p: p, ms: ms, owner: owner, index: name.fieldIndex)
 			emit(l, i: newFieldAddr(d, obj: obj, offset: offset))
-			return fieldPlace(l, p: p, ms: ms, owner: owner, index: name.fieldIndex, addr: d)
+			return fieldPlace(l, p: p, ms: ms, owner: owner, index: name.fieldIndex, t: exprType(p, module: l.module, node: e), addr: d)
 		end 'field'
 	end 'name'
 	if k == ast.NodeKind.memberExpr 'member'
@@ -556,7 +564,7 @@ function address(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e
 			let owner = exprType(p, module: l.module, node: objExpr)
 			let offset = fieldAt(l, p: p, ms: ms, owner: owner, index: member.fieldIndex)
 			emit(l, i: newFieldAddr(d, obj: obj, offset: offset))
-			return fieldPlace(l, p: p, ms: ms, owner: owner, index: member.fieldIndex, addr: d)
+			return fieldPlace(l, p: p, ms: ms, owner: owner, index: member.fieldIndex, t: exprType(p, module: l.module, node: e), addr: d)
 		end 'field'
 	end 'member'
 	if k == ast.NodeKind.indexExpr 'index'
@@ -567,10 +575,14 @@ function address(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e
 	end 'try'
 	if k == ast.NodeKind.callExpr and lendsToChangeAt(l, p: p, node: e) 'lent'
 		let lent = lowerCall(l, p: p, ms: ms, c: callSite(l, p: p, node: e))
-		if inPlace(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e)) 'held'
-			return heldPlace(l, words: lent)
-		end 'held'
-		return lent
+		return match held(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e)) 'holding'
+			heldAddress(_) gives heldPlace(l, words: lent)
+			heldWord gives lent
+			heldString gives lent
+			heldBox gives lent
+			heldInline(_) gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+			heldPacked gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+		end 'holding'
 	end 'lent'
 	let ty = exprType(p, module: l.module, node: e)
 	if ast.isMutatingFunction(ms.types, reads: p.types, t: ty) 'temporary'
@@ -785,9 +797,9 @@ function emitCallOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 		let result = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node))
 		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.method).result == ast.ResultConv.resultBorrowed and ast.isTupleType(ms.types, reads: p.types, t: result) 'lentTuple'
 			rest.push(frameArea(l, elements: ast.typeEntry(ms.types, reads: p.types, t: result).typeArgs.count()))
-		end 'lentTuple' else if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.method).result != ast.ResultConv.resultBorrowed and heldInPlace(ms.types, reads: p.types, t: result) 'inPlace'
-			rest.push(newArea(l, words: inPlaceWords(ms.types, reads: p.types, t: result)))
-		end 'inPlace'
+		end 'lentTuple' else if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.method).result != ast.ResultConv.resultBorrowed 'owned'
+			pushResultArea(l, p: p, ms: ms, args: rest, t: result)
+		end 'owned'
 		let sig = requirementSignature(l, p: p, ms: ms, c: c)
 		let instr = l.b.callWitness(dst, conv: receiverConv(c.info.selfConv), slot: slot, recv: args[0], args: rest, err: err, sig: sig)
 		emit(l, i: instr)
@@ -816,6 +828,13 @@ function requirementSignature(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	return FloatSignature.make(args, result: not lends and ast.isFloatType(ms.types, reads: p.types, t: result))
 end 'requirementSignature'
 
+// loadLent is the value at addr, the place that the call node lends to be changed.
+function loadLent(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID, addr Reg) returns Reg
+	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: exprType(p, module: l.module, node: node)))
+	emit(l, i: newLoadAt(d, addr: addr))
+	return d
+end 'loadLent'
+
 function visitCallExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID) returns Reg
 	let c = callSite(l, p: p, node: node)
 	let kind = c.info.kind
@@ -832,12 +851,19 @@ function visitCallExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	end 'print'
 	if kind == ast.CallKind.callFunction or kind == ast.CallKind.callStatic or kind == ast.CallKind.callMethod or kind == ast.CallKind.callBound 'call'
 		let result = lowerCall(l, p: p, ms: ms, c: c)
-		if ast.lendsToChange(c.info.result, selfConv: c.info.selfConv) and not inPlace(l, p: p, ms: ms, t: exprType(p, module: l.module, node: node)) 'place'
-			let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: exprType(p, module: l.module, node: node)))
-			emit(l, i: newLoadAt(d, addr: result))
-			return d
-		end 'place'
-		return result
+		if not ast.lendsToChange(c.info.result, selfConv: c.info.selfConv) 'value'
+			return result
+		end 'value'
+		// A place lent to be changed is the address of its word, and of a value held in place the address of its words, which
+		// is its value.
+		return match held(l, p: p, ms: ms, t: exprType(p, module: l.module, node: node)) 'holding'
+			heldAddress(_) gives result
+			heldWord gives loadLent(l, p: p, ms: ms, node: node, addr: result)
+			heldString gives loadLent(l, p: p, ms: ms, node: node, addr: result)
+			heldBox gives loadLent(l, p: p, ms: ms, node: node, addr: result)
+			heldInline(_) gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+			heldPacked gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+		end 'holding'
 	end 'call'
 	if kind == ast.CallKind.callSend 'send'
 		return lowerSend(l, p: p, ms: ms, c: c)
@@ -851,9 +877,7 @@ function visitCallExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		var args = argsSince(l, base: base)
 		let fnTy = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: ast.callExprCallee(p.modules[l.mi].tree, id: node)))
 		let result = ast.funcResult(ms.types, reads: p.types, t: fnTy)
-		if heldInPlace(ms.types, reads: p.types, t: result) 'inPlace'
-			args.push(newArea(l, words: inPlaceWords(ms.types, reads: p.types, t: result)))
-		end 'inPlace'
+		pushResultArea(l, p: p, ms: ms, args: args, t: result)
 		let instr = l.b.callValueInstr(dst, target: closure, args: args, sig: valueSignature(p, ms: ms, t: fnTy))
 		emit(l, i: instr)
 		popArgs(l, n: base)
@@ -935,15 +959,27 @@ end 'pushOrderedArgs'
 function argValue(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, index Count) returns Reg
 	let v = lowerConverted(l, p: p, ms: ms, e: c.ordered[index], target: c.info.paramSpecs[index].ty)
 	let t = exprRefType(l, p: p, ms: ms, e: ExprRef.make(l.module, node: c.ordered[index]))
-	if c.info.paramSpecs[index].conv != ast.Convention.convConsumes or not inPlace(l, p: p, ms: ms, t: t) 'lent'
+	if c.info.paramSpecs[index].conv != ast.Convention.convConsumes 'lent'
 		return v
 	end 'lent'
-	let box = boxed(l, p: p, ms: ms, v: v, t: t)
+	return match held(l, p: p, ms: ms, t: t) 'holding'
+		heldAddress(words) gives consumedBox(l, p: p, ms: ms, v: v, words: words, t: t)
+		heldWord gives v
+		heldString gives v
+		heldBox gives v
+		heldInline(_) gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+		heldPacked gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+	end 'holding'
+end 'argValue'
+
+// consumedBox is a box of the words words at v, a value of the type t held in place that a callee consumes.
+function consumedBox(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, v Reg, words Count, t ast.TypeID) returns Reg
+	let box = boxOfWords(l, v: v, words: words)
 	// The box is in flight until the call takes it, as a consumed value is (lowerExpr).
 	let ty = dropType(l, p: p, ms: ms, t: t)
 	l.pending.push(PendingDrop.ofReg(box, ty: ty))
 	return box
-end 'argValue'
+end 'consumedBox'
 
 // callResult is the register a call gives its value in, or noReg for a call that returns nothing.
 function callResult(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID) returns Reg
@@ -997,10 +1033,15 @@ function record(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t 
 			return unionWord(l, p: p, ms: ms, t: applied, caseIndex: caseIndex, values: values)
 		end 'word'
 		bytes = caseBoxBytes(ms.types, reads: p.types, owner: applied, caseIndex: caseIndex)
-	end 'union' else if heldInPlace(ms.types, reads: p.types, t: applied) 'inPlace'
-		return placedRecord(l, p: p, ms: ms, t: applied, values: values)
-	end 'inPlace' else 'fields'
-		bytes = recordBoxBytes(ms.types, reads: p.types, owner: applied)
+	end 'union' else 'fields'
+		match heldAs(p, ms: ms, t: applied) 'holding'
+			heldAddress(words) then return placedRecord(l, p: p, ms: ms, t: applied, words: words, values: values)
+			heldWord or
+			heldString or
+			heldBox then bytes = recordBoxBytes(ms.types, reads: p.types, owner: applied)
+			heldInline(_) panic("ir: a variable that holds words of its own or a byte of a buffer")
+			heldPacked panic("ir: a variable that holds words of its own or a byte of a buffer")
+		end 'holding'
 	end 'fields'
 	let box = newReg(l, kind: IrKind.kindManaged)
 	emit(l, i: newAlloc(box, bytes: bytes))
@@ -1026,10 +1067,10 @@ function record(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t 
 	return box
 end 'record'
 
-// placedRecord is a new value of the record t, held in place, in a frame area of its own: values are the expression of each
-// field, every one a word of nothing to drop or a record held in place.
-function placedRecord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, values ExprRefList) returns Reg
-	let area = newArea(l, words: inPlaceWords(ms.types, reads: p.types, t: t))
+// placedRecord is a new value of the record t, held in place in words words, in a frame area of its own: values are the
+// expression of each field, every one a word of nothing to drop or a record held in place.
+function placedRecord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, words Count, values ExprRefList) returns Reg
+	let area = newArea(l, words: words)
 	for i in 0 upto values.count() 'each'
 		storeNewField(l, p: p, ms: ms, record: area, t: t, index: i, value: values[i], holder: t)
 	end 'each'
@@ -1040,15 +1081,31 @@ end 'placedRecord'
 // the expression value: a copy of its words where they are the record's own, and otherwise the value as the record holds it.
 function storeNewField(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, record Reg, t ast.TypeID, index Count, value ExprRef, holder ast.TypeID)
 	let offset = recordFieldOffset(ms.types, reads: p.types, owner: t, index: index)
-	let inline = inlineFieldWords(ms.types, reads: p.types, owner: t, index: index)
-	if inline > 0 'inline'
-		let v = exprIn(l, p: p, ms: ms, e: value)
-		copyWordsAt(l, dst: record, at: offset, src: v, words: inline)
-		return
-	end 'inline'
+	let named = exprRefType(l, p: p, ms: ms, e: value)
+	let given = applyType(l, p: p, ms: ms, t: named)
+	match holding(ms.types, reads: p.types, b: p.builtins, t: given, holder: Holder.inField(t, index: index)) 'holding'
+		heldInline(words) then storeNewWords(l, p: p, ms: ms, record: record, offset: offset, value: value, words: words)
+		heldWord or
+		heldString or
+		heldBox then storeNewHeld(l, p: p, ms: ms, record: record, offset: offset, value: value, holder: holder)
+		heldAddress(_) panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
+		heldPacked panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
+	end 'holding'
+end 'storeNewField'
+
+// storeNewWords copies the words words of the value of the expression value to the bytes at offset of the new record at
+// record, a field whose words are the record's own.
+function storeNewWords(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, record Reg, offset Count, value ExprRef, words Count)
+	let v = exprIn(l, p: p, ms: ms, e: value)
+	copyWordsAt(l, dst: record, at: offset, src: v, words: words)
+end 'storeNewWords'
+
+// storeNewHeld gives the field at offset of the new record at record the value of the expression value, as the record of
+// the type holder holds it.
+function storeNewHeld(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, record Reg, offset Count, value ExprRef, holder ast.TypeID)
 	let v = heldIn(l, p: p, ms: ms, e: value, holder: holder)
 	emit(l, i: newStoreField(record, offset: offset, src: v, borrow: false))
-end 'storeNewField'
+end 'storeNewHeld'
 
 // exprRefType is the type of the value that lowering the expression e gives, in the module it is in: the interface it is
 // boxed to, where it is (lowerExpr), and its own type otherwise.
@@ -1076,9 +1133,14 @@ end 'heldIn'
 // value itself. site is the source that needs the copy, kept when the type holds something that has no native code.
 function copyValue(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, v Reg, t ast.TypeID) returns Reg
 	let ty = applyType(l, p: p, ms: ms, t: t)
-	if heldInPlace(ms.types, reads: p.types, t: ty) 'inPlace'
-		return placedCopy(l, words: inPlaceWords(ms.types, reads: p.types, t: ty), v: v)
-	end 'inPlace'
+	match heldAs(p, ms: ms, t: ty) 'holding'
+		heldAddress(words) then return placedCopy(l, words: words, v: v)
+		heldWord or
+		heldString or
+		heldBox then _ = 0
+		heldInline(_) panic("ir: a variable that holds words of its own or a byte of a buffer")
+		heldPacked panic("ir: a variable that holds words of its own or a byte of a buffer")
+	end 'holding'
 	if not owning(kindOfType(p, ms: ms, t: ty)) 'scalar'
 		return v
 	end 'scalar'
@@ -1179,8 +1241,8 @@ function visitMemberExpr(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 		let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e)))
 		let owner = exprType(p, module: l.module, node: obj)
 		let offset = fieldAt(l, p: p, ms: ms, owner: owner, index: member.fieldIndex)
-		let inline = fieldWords(l, p: p, ms: ms, owner: owner, index: member.fieldIndex) > 0
-		loadField(l, p: p, ms: ms, d: d, obj: base, e: e, offset: offset, inline: inline)
+		let h = fieldHeld(l, p: p, ms: ms, owner: owner, index: member.fieldIndex, t: exprType(p, module: l.module, node: e))
+		loadField(l, p: p, ms: ms, d: d, obj: base, e: e, offset: offset, h: h)
 		return d
 	end 'field'
 	if kind == ast.MemberKind.memberView 'view'
@@ -1264,17 +1326,24 @@ function rawFieldOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 	let recordTy = ast.rawTypeOf(p, ms: ms, t: origin)
 	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: ft))
 	let offset = fieldAt(l, p: p, ms: ms, owner: recordTy, index: field)
-	let inline = fieldWords(l, p: p, ms: ms, owner: recordTy, index: field)
-	if inline > 0 'inline'
-		emit(l, i: newFieldAddr(d, obj: record, offset: offset))
-	end 'inline' else 'held'
-		emit(l, i: newLoadField(d, obj: record, offset: offset))
-	end 'held'
+	let h = fieldHeld(l, p: p, ms: ms, owner: recordTy, index: field, t: ft)
+	match h 'read'
+		heldInline(_) then emit(l, i: newFieldAddr(d, obj: record, offset: offset))
+		heldWord or
+		heldString or
+		heldBox then emit(l, i: newLoadField(d, obj: record, offset: offset))
+		heldAddress(_) panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
+		heldPacked panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
+	end 'read'
 	if not rawDatums(p, ms: ms, origin: origin).isSome() 'built'
 		// A value held in place is the address of words the record holds, which leave with it.
-		var value = d
-		if inline > 0 'copied'
-			value = placedCopy(l, words: inline, v: d)
+		let value = match h 'copied'
+			heldInline(words) gives placedCopy(l, words: words, v: d)
+			heldWord gives d
+			heldString gives d
+			heldBox gives d
+			heldAddress(_) gives panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
+			heldPacked gives panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
 		end 'copied'
 		dropValue(l, p: p, ms: ms, v: record, t: recordTy)
 		return value
