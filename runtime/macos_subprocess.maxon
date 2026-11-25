@@ -103,6 +103,16 @@
 		return 0
 	end 'reap'
 
+	// detachedEnded is whether a detached child has ended, which it waits for if so: without waiting for one that has not, and a pid
+	// that is not a child of this process, one that something else waited for, is gone.
+	function detachedEnded(pid Count) returns bool
+		let result = waitChild(pid, status: 0, options: waitNoHang)
+		if failed(result) 'refused'
+			return not interrupted(result)
+		end 'refused'
+		return result == pid
+	end 'detachedEnded'
+
 	// childExited is whether the child has exited, which it waits for if so, its wait status kept in the wait. A wake of the
 	// exit's entry proves nothing either way: the entry may hold an event of its last owner, and the kqueue reports NOTE_EXIT as
 	// the child starts to exit, before waitpid can take it. So a child that waitpid does not yet find ended is watched again
@@ -267,6 +277,10 @@
 			closeOurEnds(wait)
 			return systemFailure(failedStep, code: errnoOf(pid))
 		end 'spawn'
+		if isDetached(request) 'left'
+			__Raw.storeWord(wait, offset: waitPidOffset, value: pid)
+			return 0
+		end 'left'
 		let watch = eventProcessNew(pid)
 		if watch == noEntry 'unwatched'
 			endAndReap(run, pid: pid)
@@ -352,7 +366,7 @@
 	end 'addStream'
 
 	// spawnWith fills the file actions and the attributes of the run's child, whose standard streams are what the request's kinds
-	// say, which leads a process group of its own, moves to the zero-terminated directory unless that is noDirectory and executes
+	// say, which leads a process group of its own (a session of its own, where it is detached), moves to the zero-terminated directory unless that is noDirectory and executes
 	// the program with the environment that the vector of its entries is, and spawns it. It gives its pid, or -errno of the first
 	// step that failed: a file action or an attribute that is refused fails the spawn, as posix_spawn's own refusal does.
 	function spawnWith(run Count, request Count, path Count, vector Count, directory Count, nullFd Count, envp Count, actions Count, attributes Count) returns Count
@@ -363,8 +377,12 @@
 		if directory != noDirectory 'directory'
 			failure = firstFailure(failure, result: __Raw.callImport2("posix_spawn_file_actions_addchdir_np", arg1: actions, arg2: directory))
 		end 'directory'
-		failure = firstFailure(failure, result: __Raw.callImport2("posix_spawnattr_setflags", arg1: attributes, arg2: macosSpawnCloexecDefault or macosSpawnSetPgroup))
-		failure = firstFailure(failure, result: __Raw.callImport2("posix_spawnattr_setpgroup", arg1: attributes, arg2: 0))
+		if isDetached(request) 'detached'
+			failure = firstFailure(failure, result: __Raw.callImport2("posix_spawnattr_setflags", arg1: attributes, arg2: macosSpawnCloexecDefault or macosSpawnSetSid))
+		end 'detached' else 'attached'
+			failure = firstFailure(failure, result: __Raw.callImport2("posix_spawnattr_setflags", arg1: attributes, arg2: macosSpawnCloexecDefault or macosSpawnSetPgroup))
+			failure = firstFailure(failure, result: __Raw.callImport2("posix_spawnattr_setpgroup", arg1: attributes, arg2: 0))
+		end 'attached'
 		if failure != 0 'refused'
 			return __Raw.wrappingSub(0, right: failure)
 		end 'refused'

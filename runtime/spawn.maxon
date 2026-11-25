@@ -57,6 +57,9 @@ let resultTreeNotEnded = 3 as Count
 // A word that names no live child or result, which every row that answers a word answers.
 let noHandle = 0xFFFFFFFFFFFFFFFF as Count
 
+// What a detach answers where the child could not leave the job this process runs in.
+let detachRefused = 0xFFFFFFFFFFFFFFFE as Count
+
 // A spawn that fails says so in a word: the code in its low 32 bits, the step of the spawn that failed above them, and what
 // the code is, in the bits above the step. A code of a system (a Win32 error, or an errno) is what the system's call failed with;
 // the others are codes of the contract's own, for a spawn that is refused before anything starts, and for one that could not set
@@ -75,6 +78,10 @@ let failureClassSystem = 0 as Count
 let failureClassRefused = 1 as Count
 
 let failureClassSetup = 2 as Count
+
+// The class of a detach whose child could not leave the job this process runs in, which does not allow breakaway: a failure of the
+// system's call (its code is the system's), which the row answers apart from a spawn that failed.
+let failureClassBreakaway = 3 as Count
 
 // The steps: the program, the standard streams (which a file kind opens) and the working directory.
 let failureStepProgram = 0 as Count
@@ -266,8 +273,8 @@ let resultBytes = 72 as Count
 
 // The handle table: one per process, its record made with the first spawn and hung on the scheduler's, and kept for good. It holds
 // its lock, the slots (kept, and moved to a larger run when they are full), how many slots have been taken, the first free slot
-// plus 1 (0 for none), linked through the free slots' records, and the last failure of a spawn, which subprocessLastErrorCode
-// answers, a word for the whole process as maxon's is.
+// plus 1 (0 for none), linked through the free slots' records, the last failure of a spawn, which subprocessLastErrorCode
+// answers, a word for the whole process as maxon's is, and the detached children that wait to be waited for.
 let tableLockOffset = 0 as Count
 
 let tableSlotsOffset = 8 as Count
@@ -280,7 +287,10 @@ let tableFreeOffset = 32 as Count
 
 let tableLastErrorOffset = 40 as Count
 
-let tableBytes = 48 as Count
+// The head of the list of the detached children of a POSIX system that have not been waited for, a node of the pid and its link.
+let tableDetachedOffset = 48 as Count
+
+let tableBytes = 56 as Count
 
 // A slot holds its generation and its record, or the link of the free list.
 let slotGenerationOffset = 0 as Count
@@ -483,8 +493,8 @@ function pathHoldsNul(path String) returns bool
 end 'pathHoldsNul'
 
 // spawnRefusal is the failure of a spawn that is not served or whose words are malformed, which is refused before anything starts
-// or is allocated, and 0 for one that is neither. A detach and a trace are the ones it does not serve; an environment block that
-// is not a block, a path or a working directory that holds a NUL and the words that name no kind or flag are the malformed ones.
+// or is allocated, and 0 for one that is neither. A trace is the one it does not serve; an environment block that is not a block, a
+// path or a working directory that holds a NUL and the words that name no kind or flag are the malformed ones.
 function spawnRefusal(argv Count, argc Count, cwd String, env Count, envInherit Count, stdinKind Count, stdinData String, stdoutKind Count, stdoutData String, stderrKind Count, stderrData String, flags Count, stdinLength Count) returns Count
 	if envInherit > spawnEnvironmentParent or (envInherit == spawnEnvironmentBlock and not environmentIsWhole(env)) 'environment'
 		return refusedFailure(codeInvalidParameter)
@@ -498,9 +508,13 @@ function spawnRefusal(argv Count, argc Count, cwd String, env Count, envInherit 
 	if (flags and spawnFlagsKnown) != flags 'flags'
 		return refusedFailure(codeInvalidParameter)
 	end 'flags'
-	if (flags and (spawnFlagDetach or spawnFlagTraced)) != 0 'unserved'
+	if (flags and spawnFlagTraced) != 0 'unserved'
 		return refusedFailure(codeNotSupported)
 	end 'unserved'
+	// A detached child is never waited for, so no pipe of the caller's could be served or drained.
+	if (flags and spawnFlagDetach) != 0 and (stdinKind == spawnStdinBytes or stdinKind == spawnStdinHold or stdoutKind == spawnOutputCollect or stderrKind == spawnOutputCollect) 'piped'
+		return refusedFailure(codeInvalidParameter)
+	end 'piped'
 	if not blobHoldsTokens(collectionData(argv), length: collectionLength(argv), argc: argc) 'tokens'
 		return refusedFailure(codeInvalidParameter)
 	end 'tokens'
@@ -523,6 +537,11 @@ function prepareRun(wait Count, request Count)
 	__Raw.storeWord(fieldAt(wait, offset: waitInputOffset), offset: inputHoldOffset, value: wordAt(request, offset: requestInputHoldOffset))
 end 'prepareRun'
 
+// isDetached is whether a request is for a child that is never waited for.
+function isDetached(request Count) returns bool
+	return (wordAt(request, offset: requestFlagsOffset) and spawnFlagDetach) != 0
+end 'isDetached'
+
 // newRequest is a new request with every word 0.
 function newRequest() returns Count
 	let request = alloc(requestBytes)
@@ -543,8 +562,12 @@ end 'storePath'
 // child's record keeps a copy of, or the file that stdinData names; and its standard output and error are discarded, inherited,
 // collected up to a limit, or the file that stdoutData and stderrData name, made or emptied. A kind, a flag or an environment that
 // is not served is refused. The cstrings are the two words of Strings: each system's start makes the zero-terminated copy it passes
-// the system and frees it before it returns.
+// the system and frees it before it returns. With the flag detach the child is one that is never waited for: its streams are none,
+// discarded, inherited or files, it leads a session of its own (on Windows it leaves every job it is in), no handle names it, and the
+// answer is its process id, or -2 (detachRefused) where the job that this process runs in does not allow the breakaway, with the
+// code of the system's refusal recorded. A child of a POSIX system that has ended is waited for by a later spawn (reapDetached).
 function subprocessSpawn(argv Count, argc Count, cwd String, env Count, envInherit Count, stdinKind Count, stdinData String, stdoutKind Count, stdoutData String, stdoutLimit Count, stderrKind Count, stderrData String, stderrLimit Count, flags Count, stdinLength Count) returns Count
+	reapDetached()
 	let refused = spawnRefusal(argv, argc: argc, cwd: cwd, env: env, envInherit: envInherit, stdinKind: stdinKind, stdinData: stdinData, stdoutKind: stdoutKind, stdoutData: stdoutData, stderrKind: stderrKind, stderrData: stderrData, flags: flags, stdinLength: stdinLength)
 	if refused != 0 'refused'
 		setLastError(lastErrorOf(refused))
@@ -599,8 +622,20 @@ function subprocessSpawn(argv Count, argc Count, cwd String, env Count, envInher
 		end 'kept'
 		free(run)
 		setLastError(lastErrorOf(failure))
+		if failureClassOf(failure) == failureClassBreakaway 'refused'
+			return detachRefused
+		end 'refused'
 		return noHandle
 	end 'failed'
+	if (flags and spawnFlagDetach) != 0 'detached'
+		let pid = wordAt(waitOf(run), offset: waitPidOffset)
+		noteDetached(pid)
+		free(run)
+		if held != 0 'input'
+			free(held)
+		end 'input'
+		return pid
+	end 'detached'
 	__Raw.storeWord(waitOf(run), offset: waitStartedOffset, value: osClockNanos())
 	let child = alloc(childBytes)
 	__Raw.storeWord(child, offset: childKindOffset, value: childKind)

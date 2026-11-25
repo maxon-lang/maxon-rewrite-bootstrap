@@ -1,0 +1,125 @@
+// A detached child leaves the jobs of its parent, which a job that does not allow breakaway refuses: the spawn answers -2, not -1,
+// and records the system's code (access denied, 5), and once the job allows the breakaway the same spawn answers the child's process
+// id. On Windows this program puts itself in a job of its own whose limits allow no breakaway, then in one that does; no other system
+// has jobs, where a detach is never refused and both spawns answer a process id. The child is this program run again, which ends at
+// once.
+//> a detach that the job forbids is refused, and records access denied: true
+//> a detach that the job allows answers a process id: true
+
+let detachMode = "quiet"
+
+let detachNoHandle = 0xFFFFFFFFFFFFFFFF as Count
+
+let detachRefusedAnswer = 0xFFFFFFFFFFFFFFFE as Count
+
+let detachAccessDenied = 5 as Count
+
+// detachSettleMs lets the children that were started end, which a system that holds the program's executable open while one runs
+// needs before the runner deletes it.
+let detachSettleMs = 500 as Count
+
+function detachWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'detachWrite'
+
+// detachAppend adds a text and its NUL to a blob of tokens.
+function detachAppend(blob Count, text String)
+	appendBytesOf(blob, address: __Raw.stringBytes(text), length: __Raw.stringLength(text))
+	let at = collectionExtend(blob, count: 1, elementBytes: byteBytes)
+	__Raw.storeByte(at, offset: 0, value: 0)
+end 'detachAppend'
+
+// detachSelf starts this program as a detached child that ends at once, and gives what the spawn answered.
+function detachSelf() returns Count
+	var unset = 0 as Count
+	let executable = osExecutablePath(__Raw.addressOf(unset))
+	if unset != 0 'unknown'
+		panic("the program's own path is unknown")
+	end 'unknown'
+	let blob = bytesNew()
+	detachAppend(blob, text: executable)
+	detachAppend(blob, text: detachMode)
+	let answer = subprocessSpawn(blob, argc: 2, cwd: "", env: 0, envInherit: spawnEnvironmentParent, stdinKind: spawnStdinNone, stdinData: "", stdoutKind: spawnOutputDiscard, stdoutData: "", stdoutLimit: 0, stderrKind: spawnOutputDiscard, stderrData: "", stderrLimit: 0, flags: spawnFlagDetach, stdinLength: 0)
+	free(collectionData(blob))
+	free(blob)
+	return answer
+end 'detachSelf'
+
+// detachModeOf is whether the first argument of this program is the detach mode.
+function detachIsChild() returns bool
+	let args = osArgs()
+	var child = false
+	if collectionLength(args) >= 2 'some'
+		let offset = collectionBytes(1, elementBytes: __Raw.stringSize())
+		let data = __Raw.loadWord(args, offset: osArrayDataOffset)
+		child = __Raw.stringLengthAt(data, offset: offset) == __Raw.stringLength(detachMode)
+	end 'some'
+	let data = __Raw.loadWord(args, offset: osArrayDataOffset)
+	for index in 0 upto collectionLength(args) 'each'
+		let offset = collectionBytes(index, elementBytes: __Raw.stringSize())
+		if not holdsInline(__Raw.stringLengthAt(data, offset: offset)) 'room'
+			__Raw.freeStringRoom(__Raw.stringBytesAt(data, offset: offset))
+		end 'room'
+	end 'each'
+	free(data)
+	free(args)
+	return child
+end 'detachIsChild'
+
+#if os(Windows)
+	// currentProcess is the pseudo handle of this process, which a job takes.
+	let currentProcess = 0xFFFFFFFFFFFFFFFF as Count
+
+	// detachJobAllowing makes this process a member of a job of its own whose limits are the flags, and gives the job.
+	function detachJobWith(job Count, flags Count)
+		let record = alloc(jobRecordBytes)
+		zeroRange(record, from: 0, to: jobRecordBytes)
+		__Raw.storeWord32(record, offset: jobLimitFlagsOffset, value: flags)
+		if dword(__Raw.callImport4("SetInformationJobObject", arg1: job, arg2: jobExtendedLimitInformation, arg3: record, arg4: jobRecordBytes)) == 0 'refused'
+			panic("the job's limits were refused")
+		end 'refused'
+		free(record)
+	end 'detachJobWith'
+
+	function detachEnterJob() returns Count
+		let job = __Raw.callImport2("CreateJobObjectW", arg1: noSecurity, arg2: noName)
+		if job == 0 'none'
+			panic("no job was made")
+		end 'none'
+		detachJobWith(job, flags: 0)
+		if dword(__Raw.callImport2("AssignProcessToJobObject", arg1: job, arg2: currentProcess)) == 0 'unassigned'
+			panic("this process was not put in the job")
+		end 'unassigned'
+		return job
+	end 'detachEnterJob'
+
+	function detachAllowBreakaway(job Count)
+		detachJobWith(job, flags: jobBreakawayOk)
+	end 'detachAllowBreakaway'
+#else
+	function detachEnterJob() returns Count
+		return 0
+	end 'detachEnterJob'
+
+	function detachAllowBreakaway(job Count)
+	end 'detachAllowBreakaway'
+#endif
+
+function main() returns ExitCode
+	if detachIsChild() 'child'
+		return 0
+	end 'child'
+	let job = detachEnterJob()
+	let forbidden = detachSelf()
+	#if os(Windows)
+		let refused = forbidden == detachRefusedAnswer and failureCodeOf(subprocessLastErrorCode()) == detachAccessDenied
+	#else
+		let refused = forbidden != detachNoHandle and forbidden != detachRefusedAnswer
+	#endif
+	detachWrite("a detach that the job forbids is refused, and records access denied: {refused}\n")
+	detachAllowBreakaway(job)
+	let allowed = detachSelf()
+	detachWrite("a detach that the job allows answers a process id: {allowed != detachNoHandle and allowed != detachRefusedAnswer}\n")
+	sleepMs(detachSettleMs)
+	return 0
+end 'main'

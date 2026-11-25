@@ -1206,6 +1206,9 @@ let macosSpawnCloexecDefault = 16384 as Count
 // macosSpawnSetPgroup is POSIX_SPAWN_SETPGROUP: the child joins the process group that posix_spawnattr_setpgroup names, 0 being a group of its own.
 let macosSpawnSetPgroup = 2 as Count
 
+// macosSpawnSetSid is POSIX_SPAWN_SETSID: the child leads a new session, and a process group of its own, with no controlling terminal.
+let macosSpawnSetSid = 1024 as Count
+
 #if arch(arm64)
 	// linuxSysRead is read(fd, buffer, count).
 	let linuxSysRead = 63 as Count
@@ -1260,6 +1263,9 @@ let macosSpawnSetPgroup = 2 as Count
 
 	// linuxSysSetpgid is setpgid(pid, group): 0 and 0 make the calling process the leader of a process group of its own.
 	let linuxSysSetpgid = 154 as Count
+
+	// linuxSysSetsid is setsid(): the calling process leads a new session, and a process group of its own, with no controlling terminal.
+	let linuxSysSetsid = 157 as Count
 
 	// linuxSysGetcwd is getcwd(buffer, size).
 	let linuxSysGetcwd = 17 as Count
@@ -1413,6 +1419,9 @@ let macosSpawnSetPgroup = 2 as Count
 
 	// linuxSysSetpgid is setpgid(pid, group): 0 and 0 make the calling process the leader of a process group of its own.
 	let linuxSysSetpgid = 109 as Count
+
+	// linuxSysSetsid is setsid(): the calling process leads a new session, and a process group of its own, with no controlling terminal.
+	let linuxSysSetsid = 112 as Count
 
 	// linuxSysGetcwd is getcwd(buffer, size).
 	let linuxSysGetcwd = 79 as Count

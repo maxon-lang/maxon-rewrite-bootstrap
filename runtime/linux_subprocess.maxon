@@ -43,7 +43,10 @@
 
 	let runErrorFdOffset = (runOutputFdOffset + wordBytes) as Count
 
-	let runStreamFilesOffset = (runErrorFdOffset + wordBytes) as Count
+	// Whether the child leads a session of its own (a detached one) and not only a process group.
+	let runSessionOffset = (runErrorFdOffset + wordBytes) as Count
+
+	let runStreamFilesOffset = (runSessionOffset + wordBytes) as Count
 
 	let runWaitOffset = (runStreamFilesOffset + streamFilesBytes) as Count
 
@@ -162,7 +165,7 @@
 		return true
 	end 'openPipes'
 
-	// execChild is the child of a run: it leads a process group of its own, puts the fds that the run names (an end of a pipe, a
+	// execChild is the child of a run: it leads a process group of its own (a session of its own for a detached child), puts the fds that the run names (an end of a pipe, a
 	// file or the null device) in place of its standard input, output and error, which dup3 leaves open on exec, moves to the
 	// zero-terminated directory unless that is noDirectory, and executes the program with the environment that the vector of its
 	// entries is. When a step fails it writes the errno down the status pipe and exits.
@@ -180,7 +183,11 @@
 	// which the same steps are as safe as they were.
 	function execChild(run Count, path Count, vector Count, directory Count, envp Count)
 		failChildUnless(run, result: __Raw.syscall4(linuxSysRtSigaction, arg1: linuxSigurg, arg2: fieldAt(run, offset: runDefaultActionOffset), arg3: 0, arg4: linuxSignalMaskBytes))
-		failChildUnless(run, result: __Raw.syscall2(linuxSysSetpgid, arg1: 0, arg2: 0))
+		if wordAt(run, offset: runSessionOffset) != 0 'session'
+			failChildUnless(run, result: __Raw.syscall0(linuxSysSetsid))
+		end 'session' else 'group'
+			failChildUnless(run, result: __Raw.syscall2(linuxSysSetpgid, arg1: 0, arg2: 0))
+		end 'group'
 		if wordAt(run, offset: runInputFdOffset) != noFd 'input'
 			failChildUnless(run, result: placeFd(wordAt(run, offset: runInputFdOffset), at: stdinFd))
 		end 'input'
@@ -281,6 +288,16 @@
 		end 'wait'
 		return false
 	end 'childWaited'
+
+	// detachedEnded is whether a detached child has ended, which it waits for if so: without waiting for one that has not, and a pid
+	// that is not a child of this process, one that something else waited for, is gone.
+	function detachedEnded(pid Count) returns bool
+		let result = __Raw.syscall4(linuxSysWait4, arg1: pid, arg2: 0, arg3: waitNoHang, arg4: noUsage)
+		if failed(result) 'refused'
+			return errnoOf(result) != linuxEintr
+		end 'refused'
+		return result == pid
+	end 'detachedEnded'
 
 	// childExited is whether the child has exited, which it waits for if so, its wait status kept in the wait then. It never waits
 	// otherwise: the entry that its pidfd is may hold an event of its last owner, so a wake of the entry is no proof.
@@ -404,6 +421,8 @@
 		__Raw.storeWord(run, offset: runInputFdOffset, value: streamFd(inputKind, collected: spawnStdinBytes, pipeEnd: endOf(fieldAt(run, offset: runInputPipeOffset), writeEnd: false), nullFd: nullFd, inherited: spawnStdinInherit, file: spawnStdinFile, fileFd: wordAt(files, offset: streamInputFileOffset)))
 		__Raw.storeWord(run, offset: runOutputFdOffset, value: streamFd(outputKind, collected: spawnOutputCollect, pipeEnd: endOf(fieldAt(run, offset: runOutputPipeOffset), writeEnd: true), nullFd: nullFd, inherited: spawnOutputInherit, file: spawnOutputFile, fileFd: wordAt(files, offset: streamOutputFileOffset)))
 		__Raw.storeWord(run, offset: runErrorFdOffset, value: streamFd(errorKind, collected: spawnOutputCollect, pipeEnd: endOf(fieldAt(run, offset: runErrorPipeOffset), writeEnd: true), nullFd: nullFd, inherited: spawnOutputInherit, file: spawnOutputFile, fileFd: wordAt(files, offset: streamErrorFileOffset)))
+		let detached = isDetached(request)
+		__Raw.storeWord(run, offset: runSessionOffset, value: set if detached else unset)
 		let vector = argumentVector(blob, argc: wordAt(request, offset: requestArgcOffset))
 		let own = ownEnvironment(request)
 		var envp = environment()
@@ -455,6 +474,10 @@
 			end 'unmoved'
 			return systemFailure(failureStepProgram, code: unexecuted)
 		end 'unexecuted'
+		if detached 'left'
+			__Raw.storeWord(wait, offset: waitPidOffset, value: pid)
+			return 0
+		end 'left'
 		let watch = eventProcessNew(pid)
 		if watch == noEntry 'unwatched'
 			endAndReap(run, pid: pid)

@@ -112,4 +112,5 @@ var macosABI = []layoutConst{
 	{"macosSpawnObjectBytes", 8, true, toRuntime, "the size of a posix_spawn_file_actions_t and of a posix_spawnattr_t, each the address of what the init call allocates."},
 	{"macosSpawnCloexecDefault", 0x4000, true, toRuntime, "POSIX_SPAWN_CLOEXEC_DEFAULT: the child has only the fds the file actions give it, so no other run's pipe stays open in it."},
 	{"macosSpawnSetPgroup", 0x2, true, toRuntime, "POSIX_SPAWN_SETPGROUP: the child joins the process group that posix_spawnattr_setpgroup names, 0 being a group of its own."},
+	{"macosSpawnSetSid", 0x400, true, toRuntime, "POSIX_SPAWN_SETSID: the child leads a new session, and a process group of its own, with no controlling terminal."},
 }
