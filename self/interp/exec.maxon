@@ -178,6 +178,9 @@ end 'target'
 
 function execLoadAt(mutates vm Vm, x ir.Instr) throws Halt
 	let c = try target(vm, addr: ir.loadAtAddr(x), what: "a read through an address")
+	if ir.loadAtFilled(x) 'filled'
+		try requireFilledCell(vm, c: c, what: "a read of an element through its address")
+	end 'filled'
 	copyToReg(vm, dst: x.dst, c: c)
 end 'execLoadAt'
 

@@ -138,7 +138,7 @@ function lowerRecoveryCast(mutates l Lowerer, p ast.Project, mutates ms ast.Modu
 	if owning(kind) 'managed'
 		emit(l, i: newMoveAt(v, addr: addr))
 	end 'managed' else 'scalar'
-		emit(l, i: newLoadAt(v, addr: addr))
+		emit(l, i: newLoadAt(v, addr: addr, filled: false))
 	end 'scalar'
 	let dropTy = dropType(l, p: p, ms: ms, t: iface)
 	emitDropReg(l, src: box, ty: dropTy)

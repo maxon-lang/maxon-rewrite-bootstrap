@@ -86,6 +86,17 @@ function cut(mutates xs Counts, to Count) returns Count
 	return xs.count()
 end 'cut'
 
+function drainUntil(mutates xs Names, stop String) returns Count
+	var total = 0 as Count
+	for x in xs.drain() 'each'
+		if x == stop 'stop'
+			break 'each'
+		end 'stop'
+		total = mix(total, v: x.byteLength())
+	end 'each'
+	return total
+end 'drainUntil'
+
 function restart(mutates xs Counts) returns Count
 	xs = fresh(2, salt: 11)
 	return xs.count()

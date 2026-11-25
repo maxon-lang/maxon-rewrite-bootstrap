@@ -46,6 +46,11 @@ let countWrong = 9 as Count
 // at an index that is not.
 let provenAccess = 10 as Count
 
+// emptySlotRead is a read of an element of an array, lowered with no test for an empty slot because no slot below the count
+// of an array of its type is empty (ir.slotsMayBeEmpty), that finds its slot empty: something emptied a slot and left
+// the count above it.
+let emptySlotRead = 11 as Count
+
 function violationName(kind Count) returns String
 	return match kind 'k'
 		0 gives "use after free"
@@ -59,6 +64,7 @@ function violationName(kind Count) returns String
 		8 gives "change to a frozen value"
 		9 gives "reference count"
 		10 gives "proven access out of range"
+		11 gives "read of an empty slot"
 		default gives panic("interp: {kind} is no kind of violation")
 	end 'k'
 end 'violationName'

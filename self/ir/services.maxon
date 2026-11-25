@@ -104,7 +104,7 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	if not factory 'message'
 		entryVoid(inner, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceTaken, args: argsOf1(state))
 		let recv = newReg(inner, kind: IrKind.kindManaged)
-		emit(inner, i: newLoadAt(recv, addr: state))
+		emit(inner, i: newLoadAt(recv, addr: state, filled: false))
 		args.push(recv)
 	end 'message'
 	var owned = RegList.create(0)

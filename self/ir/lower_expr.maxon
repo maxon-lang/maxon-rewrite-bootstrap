@@ -473,7 +473,7 @@ function visitNameExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		end 'byValue'
 		let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: loc.ty))
 		let addr = refAddress(l, p: p, ms: ms, loc: loc)
-		emit(l, i: newLoadAt(d, addr: addr))
+		emit(l, i: newLoadAt(d, addr: addr, filled: false))
 		return d
 	end 'local'
 	if name.kind == ast.NameKind.nameSelfField 'field'
@@ -840,7 +840,7 @@ function loadLent(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, 
 		emit(l, i: newLoadByteAt(d, addr: addr))
 		return d
 	end 'byte'
-	emit(l, i: newLoadAt(d, addr: addr))
+	emit(l, i: newLoadAt(d, addr: addr, filled: false))
 	return d
 end 'loadLent'
 

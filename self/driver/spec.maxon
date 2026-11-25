@@ -76,7 +76,7 @@ let skipPassedFlag = "--skip-passed"
 
 let requirePassedFlag = "--require-passed"
 
-// The flag that has each spec test run under the interpreter as well, which fails it for a proven access out of range (interpretedViolations).
+// The flag that has each spec test run under the interpreter as well, which fails it for an access left unchecked whose check fails (interpretedViolations).
 let interpretFlag = "--interpret"
 
 // The flags that keep the result of every test in a file, and that replay such a file instead of running the tests.

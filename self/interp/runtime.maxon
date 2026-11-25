@@ -378,6 +378,15 @@ function provenOutside(mutates vm Vm, what String, index Count, count Count) ret
 	return violation(vm, kind: provenAccess, message: "{what} at index {index}, count {count}: the access has no check, and the checker's proof that the index is in range is wrong")
 end 'provenOutside'
 
+// requireFilledCell goes on when the cell of an element that a read takes to be filled holds one: the read has no test for
+// an empty slot, since no slot below the count of an array of its type is empty, so a cell that holds nothing is that
+// invariant broken.
+function requireFilledCell(mutates vm Vm, c Count, what String) throws Halt
+	if vm.h.cellR[c] == 0 'empty'
+		throw violation(vm, kind: emptySlotRead, message: "{what} finds its slot empty: the read has no test, since no slot below an array's count is empty, and something emptied this one")
+	end 'empty'
+end 'requireFilledCell'
+
 // elementCell is the place of the element at an index of an array of words, which a Bounds or the checker has checked: an
 // index past the end here is a proof that was wrong.
 function elementCell(mutates vm Vm, arr ir.Reg, index ir.Reg, what String) returns Count throws Halt
@@ -421,6 +430,9 @@ end 'byteCell'
 function execElemLoad(mutates vm Vm, x ir.Instr) throws Halt
 	let what = "a read of an element"
 	let c = try elementCell(vm, arr: ir.elemLoadArr(x), index: ir.elemLoadIndex(x), what: what)
+	if ir.elemLoadFilled(x) 'filled'
+		try requireFilledCell(vm, c: c, what: "{what} at index {ir.bitsOfWord(vm.num(ir.elemLoadIndex(x)))}")
+	end 'filled'
 	if vm.tracking 'tracking'
 		try requireReachableCell(vm, c: c, what: what)
 	end 'tracking'

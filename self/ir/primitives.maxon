@@ -437,7 +437,7 @@ function lowerFixedArrayCount(mutates l Lowerer, p ast.Project, mutates ms ast.M
 end 'lowerFixedArrayCount'
 
 // lowerArrayGetProven is a copy of the element at an index that the checker proved inside the count, which cannot
-// fail, of an array or a fixed array. An array's slot that is empty panics, as a lent read does; a fixed array has none.
+// fail, of an array or a fixed array, which reads as any read of the array does (arrayRead).
 function lowerArrayGetProven(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
 	let element = arrayRead(l, p: p, ms: ms, box: a, arr: recv, index: args[0], checked: false, read: SlotRead.slotLent)
@@ -762,7 +762,7 @@ function moveOutAt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	if owning(kind) 'managed'
 		emit(l, i: newMoveAt(d, addr: addr))
 	end 'managed' else 'scalar'
-		emit(l, i: newLoadAt(d, addr: addr))
+		emit(l, i: newLoadAt(d, addr: addr, filled: false))
 	end 'scalar'
 	return d
 end 'moveOutAt'
@@ -792,7 +792,7 @@ end 'lowerExchange'
 // before the new ones are copied in, and the place keeps its box.
 function exchangeWords(mutates l Lowerer, addr Reg, value Reg, words Count) returns Reg
 	let at = newReg(l, kind: IrKind.kindScalar)
-	emit(l, i: newLoadAt(at, addr: addr))
+	emit(l, i: newLoadAt(at, addr: addr, filled: false))
 	let old = placedCopy(l, words: words, v: at)
 	copyWords(l, dst: at, src: value, words: words)
 	return old

@@ -724,9 +724,26 @@ type ProofGen
 		end 'assign'
 	end 'mutateThroughOwner'
 
+	// mutateNames changes an array of Strings, whose every slot below its count holds a String, by each operation that moves
+	// Strings in and out of slots, a drain that stops part of the way among them: a read after it that finds a slot empty
+	// is the interpreter's report that one of them left a hole.
 	function mutateNames(mutates self, at Count)
 		let text = arrays[at].text.clone()
-		let r = self.pick(5)
+		let r = self.pick(8)
+		if r == 5 'truncate'
+			let row13 = "{text}.truncate({self.looseConstantOrPlace()})"
+			self.line(row13)
+			return
+		end 'truncate'
+		if r == 6 'insert'
+			let row14 = "{text}.insert({self.looseConstantOrPlace()}, value: \"w\")"
+			self.line(row14)
+			return
+		end 'insert'
+		if r == 7 'drain'
+			self.line("_ = drainUntil({text}, stop: \"w\")")
+			return
+		end 'drain'
 		if r == 0 'push'
 			self.line("{text}.push(\"x\")")
 		end 'push' else if r == 1 'pop'

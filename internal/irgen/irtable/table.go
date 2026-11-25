@@ -195,6 +195,7 @@ var flags = []flag{
 	{"Throws", "Throws is on a Call of a function that throws: its error register receives 0 when it returned and the\n// error's case plus 1 when it failed."},
 	{"Proven", "Proven is on a CallRuntime of an entry that reads or addresses an element at an index that the checker or a\n// check before it has proved inside the collection: its expansion is the access alone, with no bounds check."},
 	{"FloatResult", "FloatResult is on a call whose result is a float, which native code returns in an xmm register."},
+	{"Filled", "Filled is on a LoadAt or an ElemLoad of an element of an array that is read with no test for an empty slot, since\n// no slot below the count of an array of its type is empty (ir.slotsMayBeEmpty): the interpreter reports one that is."},
 	{"Character", "Character is on a Str of a character literal, which native code holds in its two words when it has few enough bytes\n// (runtime/characters.maxon)."},
 }
 
@@ -210,6 +211,7 @@ var (
 	symbolOp  = operand{Name: "Symbol", Kind: kSymbol, Field: fImm}
 	checkedOp = operand{Name: "Fail", Kind: kFail, Field: fC, Flag: "Checked", Text: " else "}
 	unsignOp  = operand{Name: "Unsigned", Kind: kFlag, Field: fFlags, Flag: "Unsigned", Text: ".u"}
+	filledOp  = operand{Name: "Filled", Kind: kFlag, Field: fFlags, Flag: "Filled", Text: " filled"}
 	widthOp   = operand{Name: "Width", Kind: kEnum, Field: fSub, Enum: "RawWidth"}
 	// collectionOp is the box a collection operation reads.
 	collectionOp = operand{Name: "Of", Kind: kEnum, Field: fSub, Enum: "Collection"}
@@ -243,7 +245,7 @@ var ops = []op{
 	{Name: "FieldAddr", Eval: noEval, Doc: "FieldAddr gives Obj + Offset.", Result: valueResult,
 		Operands: []operand{reg("Obj", fA), offsetOp}, Text: "fieldaddr {Obj}+{Offset}"},
 	{Name: "LoadAt", Eval: noEval, Doc: "LoadAt reads the word at an address.", Result: valueResult,
-		Operands: []operand{reg("Addr", fA)}, Effects: []effect{effReads}, Text: "loadat {Addr}"},
+		Operands: []operand{reg("Addr", fA), filledOp}, Effects: []effect{effReads}, Text: "loadat {Addr}{Filled}"},
 	{Name: "StoreAt", Eval: noEval, Doc: "StoreAt writes Src to the word at an address.",
 		Operands: []operand{reg("Addr", fA), reg("Src", fB)}, Effects: []effect{effWrites}, Text: "storeat {Addr}, {Src}"},
 	// A place of a byte-sized type that a call lends by address is read and written one byte wide (ir.lentWidth): a byte
@@ -341,7 +343,7 @@ var ops = []op{
 	{Name: "ElemAddr", Eval: noEval, Doc: "ElemAddr gives the address of the element at Index of Arr, where a Bounds has checked the index: the elements\n// are 1 shl Shift bytes each, a word (wordElementShift) or a String (stringElementShift).",
 		Result: valueResult, Operands: []operand{reg("Arr", fA), reg("Index", fB), num("Shift")}, Effects: []effect{effReads}, Text: "elemaddr {Arr}, {Index} shl {Shift}"},
 	{Name: "ElemLoad", Eval: noEval, Doc: "ElemLoad reads the element at Index of Arr, of 1 shl Shift bytes, where a Bounds has checked the index: a\n// scalar, or a managed element or a String lent as LoadAt lends it.",
-		Result: valueResult, Operands: []operand{reg("Arr", fA), reg("Index", fB), num("Shift")}, Effects: []effect{effReads}, Text: "elem {Arr}, {Index} shl {Shift}"},
+		Result: valueResult, Operands: []operand{reg("Arr", fA), reg("Index", fB), num("Shift"), filledOp}, Effects: []effect{effReads}, Text: "elem {Arr}, {Index} shl {Shift}{Filled}"},
 	{Name: "LoadByte", Eval: noEval, Doc: "LoadByte reads the byte at Index of Src, a byte array or a string, where a Bounds has checked the index.",
 		Result: valueResult, Operands: []operand{reg("Src", fA), reg("Index", fB), collectionOp}, Effects: []effect{effReads},
 		Text: "byte.{Of} {Src}, {Index}"},

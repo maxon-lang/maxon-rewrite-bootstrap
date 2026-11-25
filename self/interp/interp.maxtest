@@ -387,7 +387,7 @@ test 'an address is stale once the array changes'
 	let two = b.konst(2)
 	_ = b.runtime(ir.Rt.rtArrayInsert, kind: ir.IrKind.kindScalar, args: regs3(a, b: zero2, c: two))
 	let loaded = b.reg(ir.IrKind.kindScalar)
-	b.emit(ir.newLoadAt(loaded, addr: element))
+	b.emit(ir.newLoadAt(loaded, addr: element, filled: false))
 	let zero = b.konst(0)
 	expectViolation("stale", out: runMain(p, main: b.ret(zero)), kind: "stale borrow", fragments: says("before the structure changed", b: "", c: "", d: ""))
 end 'an address is stale once the array changes'
@@ -432,7 +432,7 @@ function elementReadAt(index ir.Word) returns Outcome
 	_ = b.runtime(ir.Rt.rtArrayInsert, kind: ir.IrKind.kindScalar, args: regs3(a, b: zero, c: seven))
 	let at = b.konst(index)
 	let loaded = b.reg(ir.IrKind.kindScalar)
-	b.emit(ir.newElemLoad(loaded, arr: a, index: at, shift: ir.wordElementShift))
+	b.emit(ir.newElemLoad(loaded, arr: a, index: at, shift: ir.wordElementShift, filled: false))
 	b.drop(a)
 	return runMain(p, main: b.ret(loaded))
 end 'elementReadAt'
@@ -444,6 +444,34 @@ end 'a proven access in range reports nothing'
 test 'a proven access out of range is a violation that names the access'
 	expectViolation("proven past the end", out: elementReadAt(1), kind: "proven access out of range", fragments: says("function main", b: "a read of an element at index 1, count 1", c: "the checker's proof that the index is in range is wrong", d: ""))
 end 'a proven access out of range is a violation that names the access'
+
+// filledReadOf is main's IR with one element in an array, a box or nothing (0, as an emptied slot holds), and a read of it
+// marked filled, as a read of an array whose slots are never empty is lowered.
+function filledReadOf(boxed bool) returns Outcome
+	var p = ir.irProject()
+	var b = Fn.new(p, name: "main", convs: ir.convs0())
+	let a = b.runtime(ir.Rt.rtArrayNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
+	let zero = b.konst(0)
+	var element = b.konst(0)
+	if boxed 'box'
+		element = b.alloc(1)
+	end 'box'
+	_ = b.runtime(ir.Rt.rtArrayInsert, kind: ir.IrKind.kindScalar, args: regs3(a, b: zero, c: element))
+	let at = b.konst(0)
+	let loaded = b.reg(ir.IrKind.kindScalar)
+	b.emit(ir.newElemLoad(loaded, arr: a, index: at, shift: ir.wordElementShift, filled: true))
+	b.drop(a)
+	let none = b.konst(0)
+	return runMain(p, main: b.ret(none))
+end 'filledReadOf'
+
+test 'a read of a filled slot that has no test reports nothing'
+	expectClean("filled slot", out: filledReadOf(true), exit: 0)
+end 'a read of a filled slot that has no test reports nothing'
+
+test 'a read of an empty slot that has no test is a violation that names the access'
+	expectViolation("empty slot", out: filledReadOf(false), kind: "read of an empty slot", fragments: says("function main", b: "a read of an element at index 0", c: "finds its slot empty", d: ""))
+end 'a read of an empty slot that has no test is a violation that names the access'
 
 test 'a use of what the interpreter does not model ends the run as unmodelled'
 	var p = ir.irProject()
@@ -788,7 +816,7 @@ test 'a behaviour keeps its cown alive after every reference is dropped'
 	var body = Fn.new(p, name: "body", convs: convs1(ast.Convention.convMutates))
 	let addr = body.param(0, kind: ir.IrKind.kindScalar)
 	let value = body.reg(ir.IrKind.kindManaged)
-	body.emit(ir.newLoadAt(value, addr: addr))
+	body.emit(ir.newLoadAt(value, addr: addr, filled: false))
 	let field = body.reg(ir.IrKind.kindScalar)
 	body.emit(ir.newLoadField(field, obj: value, offset: 0))
 	let bodyZero = body.konst(0)

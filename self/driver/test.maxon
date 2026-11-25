@@ -484,7 +484,8 @@ end 'CorpusOptions'
 // files: one leaves out the tests that the list of the tests that pass has, one fails the run when one of them does not
 // pass, and one writes the list. The last two keep the result of every test in a file and take them from it instead of running the
 // tests (self/driver/specresults.maxon). --interpret, also for the spec files, runs each test that passes under the interpreter
-// as well, and fails it for a proven access out of range, which the checker proved in range and is not.
+// as well, and fails it for an access left unchecked whose check fails: a proven access out of range, which the checker
+// proved in range and is not, or a read of an empty slot of an array, which has none.
 function testCommand(rest CommandNames, given Options) returns ExitCode
 	var options = SpecOptions.new()
 	var corpus = CorpusOptions.new()
@@ -866,15 +867,15 @@ function runInterpreted(compiled CompiledProgram, expect Expectation) returns Te
 	return TestResult.passed()
 end 'runInterpreted'
 
-// interpretedViolations runs a program under the interpreter once, for the proofs of the checker alone: a read it proved in
-// range that is not fails the test. The output and the exit code are the executable's to give, which the run of it has checked
+// interpretedViolations runs a program under the interpreter once, for the accesses left unchecked alone: a read the checker
+// proved in range that is not, or a read of an array's element with no test for an empty slot that finds one, fails the test. The output and the exit code are the executable's to give, which the run of it has checked
 // already; a run that outlasts the step limit, ends in a trap of the program or at what the interpreter does not model found
 // no wrong proof, and the rules of the memory model are the corpus's to hold the programs to, which the spec tests, written
 // for maxon, are not.
 function interpretedViolations(compiled CompiledProgram) returns TestResult
 	let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, seed: interp.seedOf(0), wantFrees: false, stdin: "")
-	if out.provenAccess 'wrong'
-		return TestResult.failed("the interpreter found a proof of the checker that is wrong:\n{joinLines(out.violations)}")
+	if out.uncheckedAccess 'wrong'
+		return TestResult.failed("the interpreter found an access left unchecked whose check fails:\n{joinLines(out.violations)}")
 	end 'wrong'
 	return TestResult.passed()
 end 'interpretedViolations'

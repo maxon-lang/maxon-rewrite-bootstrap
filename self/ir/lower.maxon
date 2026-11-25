@@ -688,7 +688,7 @@ end 'assignTo'
 // the address of the words, a frame area's or a box's, whichever the caller keeps them in.
 function copyToPlace(mutates l Lowerer, addr Reg, v Reg, words Count)
 	let at = newReg(l, kind: IrKind.kindScalar)
-	emit(l, i: newLoadAt(at, addr: addr))
+	emit(l, i: newLoadAt(at, addr: addr, filled: false))
 	copyWords(l, dst: at, src: v, words: words)
 end 'copyToPlace'
 

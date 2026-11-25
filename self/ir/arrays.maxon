@@ -269,7 +269,7 @@ function formFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
 	let elem = arrayElem(p, ms: ms, box: box)
 	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: elem))
-	emit(l, i: newLoadAt(d, addr: addr))
+	emit(l, i: newLoadAt(d, addr: addr, filled: false))
 	return notZero(l, p: p, ms: ms, elem: elem, element: d)
 end 'formFilled'
 
@@ -301,21 +301,28 @@ function arrayRead(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	end 'way'
 end 'arrayRead'
 
-// readForm reads the element at index of an array of words or Strings, as arrayRead says.
+// readForm reads the element at index of an array of words or Strings, as arrayRead says. A read of an array whose slots
+// are never empty has no test; its load says so (filled) where an empty slot could be told apart, so that the interpreter
+// reports one that is.
 function readForm(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool, read SlotRead) returns Reg
 	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
-	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box)))
-	emit(l, i: newLoadAt(d, addr: addr))
-	if slotsMayBeEmpty(p, ms: ms, box: box) 'mayBeEmpty'
-		requireFilled(l, p: p, ms: ms, site: box.site, elem: arrayElem(p, ms: ms, box: box), element: d, index: index, read: read)
+	let elem = arrayElem(p, ms: ms, box: box)
+	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: elem))
+	let tested = slotsMayBeEmpty(p, ms: ms, box: box)
+	emit(l, i: newLoadAt(d, addr: addr, filled: not tested and zeroIsEmpty(ms.types, reads: p.types, t: elem)))
+	if tested 'mayBeEmpty'
+		requireFilled(l, p: p, ms: ms, site: box.site, elem: elem, element: d, index: index, read: read)
 	end 'mayBeEmpty'
 	return d
 end 'readForm'
 
-// slotsMayBeEmpty is whether a slot of the array may hold no element. A fixed array's never does: its creates fill every
-// slot, with zero only of a type that has a zero (fixedarrays.maxon refuses the others), and no row of it empties one.
+// slotsMayBeEmpty is whether a slot below the count of the array may hold no element, which a read of it then tests for: a
+// slot array's, whose operations empty and fill slots, and an array's of promises, whose element an await takes out and
+// leaves empty, as maxon's does (takeFromSlot). No other array has one: an array's and a fixed array's operations fill
+// every slot below the count or move the count below it, a buffer is only ever an array's, and an element is moved out of
+// an array by no expression (E3901), so the README's account of an array's representation holds of every slot.
 function slotsMayBeEmpty(p ast.Project, ms ast.ModuleState, box ArrayBox) returns bool
-	return ast.originOf(ms.types, reads: p.types, t: box.ty) != p.builtins.fixedArrayOrigin
+	return ast.originOf(ms.types, reads: p.types, t: box.ty) == p.builtins.slotArrayOrigin or ast.isPromiseType(ms.types, reads: p.types, t: arrayElem(p, ms: ms, box: box))
 end 'slotsMayBeEmpty'
 
 // arrayClearSlot drops the element at an index and leaves its slot empty, 0, which fails with indexOutOfBounds past the
@@ -365,7 +372,7 @@ function lendFormSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	let elem = arrayElem(p, ms: ms, box: box)
 	if zeroIsEmpty(ms.types, reads: p.types, t: elem) and slotsMayBeEmpty(p, ms: ms, box: box) 'mayBeEmpty'
 		let held = newReg(l, kind: kindOf(l, p: p, ms: ms, t: elem))
-		emit(l, i: newLoadAt(held, addr: addr))
+		emit(l, i: newLoadAt(held, addr: addr, filled: false))
 		requireFilled(l, p: p, ms: ms, site: box.site, elem: elem, element: held, index: index, read: SlotRead.slotLent)
 	end 'mayBeEmpty'
 	return addr
@@ -394,7 +401,7 @@ function fillFormSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	let elem = arrayElem(p, ms: ms, box: box)
 	if zeroIsEmpty(ms.types, reads: p.types, t: elem) 'mayHold'
 		let held = newReg(l, kind: kindOf(l, p: p, ms: ms, t: elem))
-		emit(l, i: newLoadAt(held, addr: addr))
+		emit(l, i: newLoadAt(held, addr: addr, filled: false))
 		let word = slotWord(l, p: p, ms: ms, elem: elem, element: held)
 		let none = konst(l, value: 0 as Word)
 		let empty = compare(l, op: CmpOp.cmpEq, a: word, b: none, unsigned: true)
@@ -448,7 +455,7 @@ function takeForm(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, 
 	let kind = kindOf(l, p: p, ms: ms, t: elem)
 	if not fillsEvery and zeroIsEmpty(ms.types, reads: p.types, t: elem) 'mayBeEmpty'
 		let held = newReg(l, kind: kind)
-		emit(l, i: newLoadAt(held, addr: addr))
+		emit(l, i: newLoadAt(held, addr: addr, filled: false))
 		let filled = notZero(l, p: p, ms: ms, elem: elem, element: held)
 		failUnless(l, p: p, ms: ms, cond: filled, errorCase: ast.errorEmptySlot)
 	end 'mayBeEmpty'
@@ -458,7 +465,7 @@ function takeForm(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, 
 		return moved
 	end 'owned'
 	let value = newReg(l, kind: kind)
-	emit(l, i: newLoadAt(value, addr: addr))
+	emit(l, i: newLoadAt(value, addr: addr, filled: false))
 	emit(l, i: newStoreAt(addr, src: zero))
 	return value
 end 'takeForm'
@@ -506,9 +513,9 @@ function swapForms(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	let addrJ = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: j, checked: false)
 	let kind = kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box))
 	let first = newReg(l, kind: kind)
-	emit(l, i: newLoadAt(first, addr: addrI))
+	emit(l, i: newLoadAt(first, addr: addrI, filled: false))
 	let second = newReg(l, kind: kind)
-	emit(l, i: newLoadAt(second, addr: addrJ))
+	emit(l, i: newLoadAt(second, addr: addrJ, filled: false))
 	emit(l, i: newStoreAt(addrI, src: second))
 	emit(l, i: newStoreAt(addrJ, src: first))
 end 'swapForms'

@@ -94,8 +94,14 @@ versions (the baseline) is the noise floor: a ratio inside it says nothing. Chec
 | 2026-11-25 | 15f5a2ab+ | P5 drop in place, ranges timing (A = P4 tip) | 11 | 1368 | 1361 | 0.995 | 0.897-1.025 | 15.9% | 11402 | 3829 |
 | 2026-11-25 | 15f5a2ab+ | P5 checkpoint, stage so far (A = 4c494e68, before P1) | 11 | 1481 | 1374 | 0.928 | 0.883-0.956 | 17.3% | 11402 | 3829 |
 | 2026-11-25 | 213afb4d+ | P6: chains, bindings, offsets, tightened operands (A = 213afb4d) | 11 | 1369 | 1356 | 0.991 | 0.962-1.023 | 16.5% | 11418 | 3841 |
+| 2026-11-25 | a47129a6+ | S4 array reads lose the empty-slot test (A = a47129a6) | 21 | 1341 | 1316 | 0.982 | 0.945-1.013 | 18.1% | 11578 | 60 |
 
 At the P5 checkpoint the counts in the compiler's own IR were 11386 bounds and 3816 empty-slot at 4c494e68, 11400 and 3829
 at the tip before P5, and 11402 and 3829 after it. The stage is under its limit (+2%) by a wide margin because the slot-array
 commits of the same branch, which A lacks, make the build faster. The `ranges` line of `--timings` shows the range analysis at
 about 4% of a `build self`, and is part of the `verify` stage.
+
+At S4 the compiler's own IR keeps 60 empty-slot panics, every one a lent read of a value of the compiler's IntMap or
+StringMap (`self/table/map.maxon`, a `__SlotArray`'s `lendSlot`), 45 in the maps' methods and 15 where they are inlined.
+The bounds count rises by 153 because the functions that lost their tests are smaller and more of them are inlined, each
+copy with its bounds. The compiler's `.text` falls from 5,500,151 to 5,385,463 bytes (-2.1%).

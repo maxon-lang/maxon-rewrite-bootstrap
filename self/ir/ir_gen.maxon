@@ -618,9 +618,13 @@ export let flagProven = 16 as Byte
 // flagFloatResult is on a call whose result is a float, which native code returns in an xmm register.
 export let flagFloatResult = 32 as Byte
 
+// flagFilled is on a LoadAt or an ElemLoad of an element of an array that is read with no test for an empty slot, since
+// no slot below the count of an array of its type is empty (ir.slotsMayBeEmpty): the interpreter reports one that is.
+export let flagFilled = 64 as Byte
+
 // flagCharacter is on a Str of a character literal, which native code holds in its two words when it has few enough bytes
 // (runtime/characters.maxon).
-export let flagCharacter = 64 as Byte
+export let flagCharacter = 128 as Byte
 
 export let effectReads = 1 as Count
 
@@ -1016,10 +1020,13 @@ export function newFieldAddr(dst Reg, obj Reg, offset Count) returns Instr
 end 'newFieldAddr'
 
 // LoadAt reads the word at an address.
-export function newLoadAt(dst Reg, addr Reg) returns Instr
+export function newLoadAt(dst Reg, addr Reg, filled bool) returns Instr
 	var r = Instr.make(Opcode.opLoadAt)
 	r.dst = dst
 	r.a = addr
+	if filled 'filled'
+		r.flags = r.flags or flagFilled
+	end 'filled'
 	return r
 end 'newLoadAt'
 
@@ -1341,12 +1348,15 @@ end 'newElemAddr'
 
 // ElemLoad reads the element at Index of Arr, of 1 shl Shift bytes, where a Bounds has checked the index: a
 // scalar, or a managed element or a String lent as LoadAt lends it.
-export function newElemLoad(dst Reg, arr Reg, index Reg, shift Count) returns Instr
+export function newElemLoad(dst Reg, arr Reg, index Reg, shift Count, filled bool) returns Instr
 	var r = Instr.make(Opcode.opElemLoad)
 	r.dst = dst
 	r.a = arr
 	r.b = index
 	r.imm = try shift as Word otherwise panic("ir: elemLoad shift is out of range")
+	if filled 'filled'
+		r.flags = r.flags or flagFilled
+	end 'filled'
 	return r
 end 'newElemLoad'
 
@@ -2110,6 +2120,13 @@ export function loadAtAddr(x Instr) returns Reg
 	return x.a
 end 'loadAtAddr'
 
+export function loadAtFilled(x Instr) returns bool
+	if x.op != Opcode.opLoadAt 'op'
+		wrongInstr("loadAtFilled", found: x.op)
+	end 'op'
+	return (x.flags and flagFilled) != 0
+end 'loadAtFilled'
+
 export function storeAtAddr(x Instr) returns Reg
 	if x.op != Opcode.opStoreAt 'op'
 		wrongInstr("storeAtAddr", found: x.op)
@@ -2623,6 +2640,13 @@ export function elemLoadShift(x Instr) returns Count
 	end 'op'
 	return try x.imm as Count otherwise panic("ir: elemLoad shift is out of range")
 end 'elemLoadShift'
+
+export function elemLoadFilled(x Instr) returns bool
+	if x.op != Opcode.opElemLoad 'op'
+		wrongInstr("elemLoadFilled", found: x.op)
+	end 'op'
+	return (x.flags and flagFilled) != 0
+end 'elemLoadFilled'
 
 export function loadByteSrc(x Instr) returns Reg
 	if x.op != Opcode.opLoadByte 'op'
@@ -5709,7 +5733,11 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 		return "{resultText(x.dst)}fieldaddr %{fieldAddrObj(x)}+{fieldAddrOffset(x)}"
 	end 'opFieldAddr'
 	if x.op == Opcode.opLoadAt 'opLoadAt'
-		return "{resultText(x.dst)}loadat %{loadAtAddr(x)}"
+		var text = "{resultText(x.dst)}loadat %{loadAtAddr(x)}"
+		if loadAtFilled(x) 'filled'
+			text = "{text} filled"
+		end 'filled'
+		return text
 	end 'opLoadAt'
 	if x.op == Opcode.opStoreAt 'opStoreAt'
 		return "storeat %{storeAtAddr(x)}, %{storeAtSrc(x)}"
@@ -5833,7 +5861,11 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 		return "{resultText(x.dst)}elemaddr %{elemAddrArr(x)}, %{elemAddrIndex(x)} shl {elemAddrShift(x)}"
 	end 'opElemAddr'
 	if x.op == Opcode.opElemLoad 'opElemLoad'
-		return "{resultText(x.dst)}elem %{elemLoadArr(x)}, %{elemLoadIndex(x)} shl {elemLoadShift(x)}"
+		var text = "{resultText(x.dst)}elem %{elemLoadArr(x)}, %{elemLoadIndex(x)} shl {elemLoadShift(x)}"
+		if elemLoadFilled(x) 'filled'
+			text = "{text} filled"
+		end 'filled'
+		return text
 	end 'opElemLoad'
 	if x.op == Opcode.opLoadByte 'opLoadByte'
 		return "{resultText(x.dst)}byte.{collectionText(loadByteOf(x))} %{loadByteSrc(x)}, %{loadByteIndex(x)}"

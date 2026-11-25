@@ -161,7 +161,7 @@ export type Expander
 			return true
 		end 'readByte'
 		if symbol != ir.Rt.rtBytesElem and next.op == ir.Opcode.opLoadAt and ir.loadAtAddr(next) == pendingDst 'read'
-			f.instrs.push(ir.newElemLoad(next.dst, arr: src, index: index, shift: elementShift(symbol)))
+			f.instrs.push(ir.newElemLoad(next.dst, arr: src, index: index, shift: elementShift(symbol), filled: ir.loadAtFilled(next)))
 			return true
 		end 'read'
 		f.instrs.push(elementAddress(f, symbol: symbol, start: pendingArgs, dst: pendingDst))

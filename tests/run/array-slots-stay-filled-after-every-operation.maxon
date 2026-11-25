@@ -1,0 +1,110 @@
+// Every slot below an array's count holds an element after each operation that moves elements in and out of slots, so a
+// read of any of them, which has no test for an empty slot, finds one: of Strings, of records held in a box, and of a
+// union whose case may hold no payload. The interpreter runs it too, and reports a read that finds its slot empty.
+union Maybe
+	some(text String)
+	none
+end 'Maybe'
+
+type Named
+	var name as String
+
+	static function make(consumes name String) returns Named
+		return Named{name: name}
+	end 'make'
+end 'Named'
+
+typealias Names = Array with String
+
+typealias Records = Array with Named
+
+typealias Maybes = Array with Maybe
+
+function names(xs Names) returns String
+	var out = ""
+	for x in xs 'each'
+		out = "{out}{x},"
+	end 'each'
+	for i in 0 upto xs.count() 'again'
+		out = "{out}{xs[i].byteLength()}"
+	end 'again'
+	return out
+end 'names'
+
+function records(xs Records) returns String
+	var out = ""
+	for x in xs 'each'
+		out = "{out}{x.name},"
+	end 'each'
+	return out
+end 'records'
+
+function maybes(xs Maybes) returns String
+	var out = ""
+	for x in xs 'each'
+		let shown = match x 'm'
+			some(text) gives text.clone()
+			none gives "-"
+		end 'm'
+		out = "{out}{shown},"
+	end 'each'
+	return out
+end 'maybes'
+
+function drainUntil(mutates xs Names, stop String) returns String
+	var out = ""
+	for x in xs.drain() 'each'
+		if x == stop 'stop'
+			break 'each'
+		end 'stop'
+		out = "{out}{x}"
+	end 'each'
+	return out
+end 'drainUntil'
+
+function main() returns ExitCode
+	var xs = Names.create(0)
+	for word in ["ab", "c", "def", "gh", "i"] 'fill'
+		xs.push(word.clone())
+	end 'fill'
+	print("{names(xs)}\n")
+	xs.insert(2, value: "new")
+	let popped = try xs.pop() otherwise "none"
+	let removed = try xs.remove(0) otherwise "none"
+	print("{popped} {removed} {names(xs)}\n")
+	try xs.set(1, value: "set") otherwise panic("a slot inside the array")
+	let old = exchange(xs[0], value: "swapped")
+	xs.swap(0, j: 3)
+	print("{old} {names(xs)}\n")
+	xs.truncate(2)
+	print("{names(xs)}\n")
+	let walked = drainUntil(xs, stop: "set")
+	print("{walked} {xs.count()}|{names(xs)}\n")
+	xs.push("back")
+	print("{names(xs)}\n")
+	var rs = Records.create(0)
+	rs.push(Named.make("ada"))
+	rs.push(Named.make("bob"))
+	rs.insert(0, value: Named.make("cy"))
+	let gone = try rs.remove(1) otherwise Named.make("none")
+	rs.push(Named.make("dee"))
+	let last = try rs.pop() otherwise Named.make("none")
+	print("{gone.name} {last.name} {records(rs)}\n")
+	var ms = Maybes.create(0)
+	ms.push(Maybe.some("x"))
+	ms.push(Maybe.none)
+	ms.insert(1, value: Maybe.some("y"))
+	ms.truncate(2)
+	ms.push(Maybe.none)
+	print("{maybes(ms)}\n")
+	return 0
+end 'main'
+
+//> ab,c,def,gh,i,21321
+//> i ab c,new,def,gh,1332
+//> c gh,set,def,swapped,2337
+//> gh,set,23
+//> gh 0|
+//> back,4
+//> ada dee cy,bob,
+//> x,y,-,
