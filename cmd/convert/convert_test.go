@@ -702,9 +702,9 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			wantTodo: "'end' is a keyword in minimaxon",
 		},
 		{
-			name:     "int.fromString",
-			in:       "function f() returns Count\n\treturn try int.fromString(\"5\") otherwise 0\nend 'f'\n",
-			wantTodo: "'int.fromString' is not supported",
+			name:     "reply.later",
+			in:       "function f()\n\treply.later()\nend 'f'\n",
+			wantTodo: "reply.later() is not supported",
 		},
 		{
 			name:     "withIterator's iterator used for more than its index",

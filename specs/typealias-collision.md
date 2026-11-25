@@ -651,7 +651,6 @@ end 'main'
 ```
 
 <!-- test: a-user-type-and-the-librarys-type-are-each-named-by-their-directory -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 `stdlib.X` reaches the library's type and `lib.X` the user's — in a struct FIELD (recorded by the declaration
 sweep), a throws clause, a static call and an enum case (7 + 10 + 2 + 20).
 ```maxon
@@ -682,7 +681,6 @@ type Holder
 end 'Holder'
 
 function parsed(text String) returns ExitCode throws stdlib.ParseError
-	// TODO: 'int.fromString' is not supported in minimaxon
 	return (try int.fromString(text)) as ExitCode
 end 'parsed'
 

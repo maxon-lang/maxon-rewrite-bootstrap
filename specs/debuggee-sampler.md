@@ -801,7 +801,6 @@ pin depth after the drop 0
 ```
 
 <!-- test: a-dropped-seized-set-kills-the-process-whose-thread-it-cannot-detach -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, arm64-macos, wasm32-wasi -->
 <!-- process: own -->
@@ -814,7 +813,6 @@ line can be pinned exactly.
 function main() returns ExitCode
 	let arguments = CommandLine.args()
 	if arguments.count() > 2 'asTheSampler'
-		// TODO: 'int.fromString' is not supported in minimaxon
 		let target = try int.fromString(try arguments.get(2) otherwise return 1) otherwise return 2
 		holdAndDrop(target as Pid)
 		return 0

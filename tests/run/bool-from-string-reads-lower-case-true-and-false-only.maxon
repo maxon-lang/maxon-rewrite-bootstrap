@@ -1,0 +1,35 @@
+// bool.fromString takes exactly `true` or `false`, as maxon's does: any other text, in any case and with any space around
+// it, is invalidFormat.
+function describe(text String) returns String
+	let flag = try bool.fromString(text) otherwise (failure) 'refused'
+		return "[{text}] {failure}"
+	end 'refused'
+	return "[{text}] {flag}"
+end 'describe'
+
+function main() returns ExitCode
+	print("{describe("true")}\n")
+	print("{describe("false")}\n")
+	print("{describe("True")}\n")
+	print("{describe("FALSE")}\n")
+	print("{describe("tru")}\n")
+	print("{describe("truefalse")}\n")
+	print("{describe(" true")}\n")
+	print("{describe("false ")}\n")
+	print("{describe("1")}\n")
+	print("{describe("yes")}\n")
+	print("{describe("")}\n")
+	return 0
+end 'main'
+
+//> [true] true
+//> [false] false
+//> [True] invalidFormat
+//> [FALSE] invalidFormat
+//> [tru] invalidFormat
+//> [truefalse] invalidFormat
+//> [ true] invalidFormat
+//> [false ] invalidFormat
+//> [1] invalidFormat
+//> [yes] invalidFormat
+//> [] invalidFormat

@@ -18,7 +18,6 @@ value the program produces.
 ## Tests
 
 <!-- test: many-constants -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- Args: 4 -->
 Constant-rematerialization gating test: forces the allocator to materialize many distinct
 integer constants in arithmetic against a large number of working values
@@ -42,7 +41,6 @@ end 'ident'
 
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let seed = (try int.fromString(try args.get(1) otherwise "0") otherwise 0) as Integer
 	// 4 working values that live across the body — opaque w.r.t. the
 	// constant folder thanks to the runtime seed. The body below uses
@@ -50,30 +48,30 @@ function main() returns ExitCode
 	// would compete with the working values for a register slot,
 	// inflating pressure. Post-Phase-1 each constant rematerializes at
 	// its use site, so v1..v4 + a couple of scratch reg are enough.
-	let v1 = ident(seed + 11)
-	let v2 = ident(seed + 22)
-	let v3 = ident(seed + 33)
-	let v4 = ident(seed + 44)
+	let v1 = ident(try seed + 11 otherwise panic("out of range"))
+	let v2 = ident(try seed + 22 otherwise panic("out of range"))
+	let v3 = ident(try seed + 33 otherwise panic("out of range"))
+	let v4 = ident(try seed + 44 otherwise panic("out of range"))
 	// Many distinct constants combined with the working values.
 	var total = 0 as Integer
 	total = total + (v1 and 255)
-	total = total + (v2 and 61680)
-	total = total + (v3 and 1193046)
-	total = total + (v4 and 286265908)
-	total = total + (v1 or 256)
-	total = total + (v2 or 8192)
-	total = total + (v3 or 196608)
-	total = total + (v4 or 4194304)
-	total = total + (v1 xor 21930)
-	total = total + (v2 xor 2147483647)
-	total = total + (v3 + 65536)
-	total = total + (v4 + 131072)
-	total = total + (v1 + 1234567)
-	total = total + (v2 + 7654321)
-	total = total + (v3 - 1048576)
-	total = total + (v4 - 2097152)
+	total = try total + (v2 and 61680) otherwise panic("out of range")
+	total = try total + (v3 and 1193046) otherwise panic("out of range")
+	total = try total + (v4 and 286265908) otherwise panic("out of range")
+	total = try total + (v1 or 256) otherwise panic("out of range")
+	total = try total + (v2 or 8192) otherwise panic("out of range")
+	total = try total + (v3 or 196608) otherwise panic("out of range")
+	total = try total + (v4 or 4194304) otherwise panic("out of range")
+	total = try total + (v1 xor 21930) otherwise panic("out of range")
+	total = try total + (v2 xor 2147483647) otherwise panic("out of range")
+	total = try total + (v3 + 65536) otherwise panic("out of range")
+	total = try total + (v4 + 131072) otherwise panic("out of range")
+	total = try total + (v1 + 1234567) otherwise panic("out of range")
+	total = try total + (v2 + 7654321) otherwise panic("out of range")
+	total = try total + (v3 - 1048576) otherwise panic("out of range")
+	total = try total + (v4 - 2097152) otherwise panic("out of range")
 	let masked = total and 255
-	return masked as ExitCode
+	return try masked as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -81,7 +79,6 @@ end 'main'
 ```
 
 <!-- test: dialect-roundtrip -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- Args: 0 -->
 Gating test for the X64 dialect's memory- and immediate-operand ALU variants
 (addRegMem / subRegMem / andRegMem / orRegMem / xorRegMem / imulRegMem /
@@ -114,21 +111,20 @@ end 'ident'
 
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let seed = (try int.fromString(try args.get(1) otherwise "0") otherwise 0) as Integer
 	// Two values defined via opaque calls so the constant folder cannot
 	// see through them. Each combines with a small set of distinct masks
 	// using and/or/xor/cmp — the exact ALU mix that Phase 3 will eventually
 	// fold into addRegMem / andRegMem / xorRegMem when the values spill.
-	let v1 = ident(seed + 7)
-	let v2 = ident(seed + 13)
+	let v1 = ident(try seed + 7 otherwise panic("out of range"))
+	let v2 = ident(try seed + 13 otherwise panic("out of range"))
 	var acc = 0 as Integer
 	acc = acc + (v1 and 255)
-	acc = acc + (v2 or 4096)
-	acc = acc + (v1 xor 21845)
-	acc = acc + (v2 + 1)
+	acc = try acc + (v2 or 4096) otherwise panic("out of range")
+	acc = try acc + (v1 xor 21845) otherwise panic("out of range")
+	acc = try acc + (v2 + 1) otherwise panic("out of range")
 	let masked = acc and 255
-	return masked as ExitCode
+	return try masked as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -136,7 +132,6 @@ end 'main'
 ```
 
 <!-- test: many-call-crossing -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- Args: 0 -->
 Spill-slot read fold gating test: a function with several i64 values live across
 multiple helper calls inside a loop body. Without the fold, every spilled-
@@ -176,39 +171,38 @@ function ident(x Integer) returns Integer
 end 'ident'
 
 function add2(a Integer, b Integer) returns Integer
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'add2'
 
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let seed = (try int.fromString(try args.get(1) otherwise "0") otherwise 0) as Integer
 	// 6 working values live across the loop body. Each `ident`-produced
 	// value is opaque to the constant folder, so all 6 land in the live
 	// set crossing the helper calls below. The body's reg-reg ALU mix
 	// is the fold-eligible shape that Phase 3's tryFoldReadFromSlot
 	// rewrites into `*Mem` variants when its source operand spills.
-	let v1 = ident(seed + 1)
-	let v2 = ident(seed + 2)
-	let v3 = ident(seed + 3)
-	let v4 = ident(seed + 4)
-	let v5 = ident(seed + 5)
-	let v6 = ident(seed + 6)
+	let v1 = ident(try seed + 1 otherwise panic("out of range"))
+	let v2 = ident(try seed + 2 otherwise panic("out of range"))
+	let v3 = ident(try seed + 3 otherwise panic("out of range"))
+	let v4 = ident(try seed + 4 otherwise panic("out of range"))
+	let v5 = ident(try seed + 5 otherwise panic("out of range"))
+	let v6 = ident(try seed + 6 otherwise panic("out of range"))
 	var total = 0 as Integer
 	var i = 0 as Integer
 	while i < 4 'loop'
 		// Each iteration's ALU mix uses every v_i. Spilled-source uses
 		// of these reg-reg forms are exactly the fold-eligible shape for
 		// Phase 3.
-		total = total + add2(v1, b: v2)
-		total = total + (v3 xor v4)
-		total = total + (v5 and v6)
-		total = total + (v1 + v3 + v5)
-		total = total + (v2 or v4 or v6)
+		total = try total + add2(v1, b: v2) otherwise panic("out of range")
+		total = try total + (v3 xor v4) otherwise panic("out of range")
+		total = try total + (v5 and v6) otherwise panic("out of range")
+		total = try total + (v1 + v3 + v5) otherwise panic("out of range")
+		total = try total + (v2 or v4 or v6) otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	let masked = total and 255
-	return masked as ExitCode
+	return try masked as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -216,7 +210,6 @@ end 'main'
 ```
 
 <!-- test: eviction-required -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- Args: 0 -->
 Eviction gating test: forces the colorer into a scenario where greedy
 first-fit assigns cold values to limited callee-saved registers first,
@@ -253,23 +246,22 @@ function opaque(x Integer) returns Integer
 end 'opaque'
 
 function combine(a Integer, b Integer, c Integer) returns Integer
-	return (a xor b) + c
+	return try (a xor b) + c otherwise panic("out of range")
 end 'combine'
 
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let seed = (try int.fromString(try args.get(1) otherwise "0") otherwise 0) as Integer
 	// 6 cold values defined early via opaque calls — the constant folder
 	// cannot see through `opaque` so each lives as a real working scalar.
 	// Each is used once at the end of the function, so its spill weight
 	// is low and its live range is long (spans the entire body).
-	let c1 = opaque(seed + 100)
-	let c2 = opaque(seed + 200)
-	let c3 = opaque(seed + 300)
-	let c4 = opaque(seed + 400)
-	let c5 = opaque(seed + 500)
-	let c6 = opaque(seed + 600)
+	let c1 = opaque(try seed + 100 otherwise panic("out of range"))
+	let c2 = opaque(try seed + 200 otherwise panic("out of range"))
+	let c3 = opaque(try seed + 300 otherwise panic("out of range"))
+	let c4 = opaque(try seed + 400 otherwise panic("out of range"))
+	let c5 = opaque(try seed + 500 otherwise panic("out of range"))
+	let c6 = opaque(try seed + 600 otherwise panic("out of range"))
 	// Hot inner loop: 4 high-weight values that benefit from being in
 	// callee-saved registers (they survive the inner `combine` call).
 	// In total the loop body keeps 4 hot scalars live across each call.
@@ -280,13 +272,13 @@ function main() returns ExitCode
 		let h2 = combine(seed, b: i, c: 2)
 		let h3 = combine(seed, b: i, c: 3)
 		let h4 = combine(seed, b: i, c: 4)
-		sum = sum + h1 + h2 + h3 + h4
+		sum = try sum + h1 + h2 + h3 + h4 otherwise panic("out of range")
 		i = i + 1
 	end 'hot'
-	let cold = c1 + c2 + c3 + c4 + c5 + c6
-	let total = sum + cold
+	let cold = try c1 + c2 + c3 + c4 + c5 + c6 otherwise panic("out of range")
+	let total = try sum + cold otherwise panic("out of range")
 	let masked = total and 255
-	return masked as ExitCode
+	return try masked as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -294,7 +286,6 @@ end 'main'
 ```
 
 <!-- test: scheduler-pressure -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- Args: 0 -->
 List-scheduler gating test: forces the bottom-up list scheduler to make a
 pressure-vs-critical-path choice. `kernel` defines four "early" values
@@ -339,42 +330,41 @@ function kernel(seed Integer) returns Integer
 	// a small computation rather than a call so the scheduler can
 	// freely reorder them — calls would form a barrier chain that
 	// pins relative ordering.
-	let a = (seed xor 305419896) + 1
-	let b = (seed xor 2271560481) + 2
-	let c = (seed xor 3735928559) + 3
-	let d = (seed xor 4275878552) + 4
+	let a = try (seed xor 305419896) + 1 otherwise panic("out of range")
+	let b = try (seed xor 2271560481) + 2 otherwise panic("out of range")
+	let c = try (seed xor 3735928559) + 3 otherwise panic("out of range")
+	let d = try (seed xor 4275878552) + 4 otherwise panic("out of range")
 	// Long intermediate chain that does not reference a..d. Each
 	// step has pressure delta 0 (defines one value, consumes one
 	// previous value that then dies). A pressure-aware scheduler
 	// can freely interleave these with the deferred a..d defs.
-	let i1 = (seed + 17) xor 11
-	let i2 = (i1 * 3) + 5
-	let i3 = (i2 xor 12345) + 7
-	let i4 = (i3 * 5) + 9
-	let i5 = (i4 xor 54321) + 11
-	let i6 = (i5 * 7) + 13
-	let i7 = (i6 xor 98765) + 15
-	let i8 = (i7 * 11) + 17
-	let i9 = (i8 xor 13579) + 19
-	let i10 = (i9 * 13) + 21
-	let i11 = (i10 xor 24680) + 23
-	let i12 = (i11 * 17) + 25
+	let i1 = (try seed + 17 otherwise panic("out of range")) xor 11
+	let i2 = try (i1 * 3) + 5 otherwise panic("out of range")
+	let i3 = try (i2 xor 12345) + 7 otherwise panic("out of range")
+	let i4 = try (i3 * 5) + 9 otherwise panic("out of range")
+	let i5 = try (i4 xor 54321) + 11 otherwise panic("out of range")
+	let i6 = try (i5 * 7) + 13 otherwise panic("out of range")
+	let i7 = try (i6 xor 98765) + 15 otherwise panic("out of range")
+	let i8 = try (i7 * 11) + 17 otherwise panic("out of range")
+	let i9 = try (i8 xor 13579) + 19 otherwise panic("out of range")
+	let i10 = try (i9 * 13) + 21 otherwise panic("out of range")
+	let i11 = try (i10 xor 24680) + 23 otherwise panic("out of range")
+	let i12 = try (i11 * 17) + 25 otherwise panic("out of range")
 	// Consume a..d together with the intermediate chain's final
 	// value. The naive schedule keeps a..d live across the i1..i12
 	// chain; the pressure-aware schedule defers their defs to here.
-	return a + b + c + d + i12
+	return try a + b + c + d + i12 otherwise panic("out of range")
 end 'kernel'
 
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let seed = (try int.fromString(try args.get(1) otherwise "0") otherwise 0) as Integer
 	let result = kernel(seed)
 	// Mask to 0..127 so the value fits both POSIX (0..255) and wasi
 	// (0..125 strict) exit-code ranges. The test gates on the
 	// deterministic value being produced, not on its specific bit width.
 	let masked = result and 127
-	return masked as ExitCode
+	return try masked as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -382,7 +372,6 @@ end 'main'
 ```
 
 <!-- test: call-arg-parallel-copy -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- Args: 0 -->
 Sequentialized call-arg setup test. Each ABI parameter slot is moved
 into one-by-one by `emitDirectCall`; unsequentialized, an
@@ -432,23 +421,22 @@ function opaque(x Integer) returns Integer
 end 'opaque'
 
 function combine6(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer) returns Integer
-	return ((a xor b) + (c xor d)) + ((e xor f) + 1)
+	return try ((a xor b) + (c xor d)) + ((e xor f) + 1) otherwise panic("out of range")
 end 'combine6'
 
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let seed = (try int.fromString(try args.get(1) otherwise "0") otherwise 0) as Integer
 	// Six values live across the helper call. Each comes from an opaque
 	// helper so the constant folder cannot fold them out. They are all
 	// used after the call (the final `total` consumes each), forcing
 	// them into long live ranges that cross the call boundary.
-	let v1 = opaque(seed + 11)
-	let v2 = opaque(seed + 22)
-	let v3 = opaque(seed + 33)
-	let v4 = opaque(seed + 44)
-	let v5 = opaque(seed + 55)
-	let v6 = opaque(seed + 66)
+	let v1 = opaque(try seed + 11 otherwise panic("out of range"))
+	let v2 = opaque(try seed + 22 otherwise panic("out of range"))
+	let v3 = opaque(try seed + 33 otherwise panic("out of range"))
+	let v4 = opaque(try seed + 44 otherwise panic("out of range"))
+	let v5 = opaque(try seed + 55 otherwise panic("out of range"))
+	let v6 = opaque(try seed + 66 otherwise panic("out of range"))
 	// Call with six args in a permuted order — combine6(v6, v5, v4,
 	// v3, v2, v1) forces a reverse mapping at the ABI boundary, which
 	// is exactly the shape that pre-sequentialization emitDirectCall
@@ -462,9 +450,9 @@ function main() returns ExitCode
 	// sets — catches a fix that happens to work for the first call
 	// but not when the post-call values land in different colorings.
 	let rotated = combine6(v3, b: v1, c: v2, d: v6, e: v4, f: v5)
-	let total = reversed + rotated + v1 + v2 + v3 + v4 + v5 + v6
+	let total = try reversed + rotated + v1 + v2 + v3 + v4 + v5 + v6 otherwise panic("out of range")
 	let masked = total and 127
-	return masked as ExitCode
+	return try masked as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

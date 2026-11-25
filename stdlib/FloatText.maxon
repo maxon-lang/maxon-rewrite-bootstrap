@@ -2,12 +2,7 @@
 // __float_bitsFromText) and which is minimaxon's own here, since that file is the compiler's: the same grammar, and the
 // double correctly rounded, as the compiler reads a literal (self/ast/floats.maxon). The digits are one big integer and
 // the power of ten scales it or its denominator, so the value is an exact ratio that is rounded once, to the nearest
-// double, ties to even.
-
-/// Why a String is not the value a `fromString` reads.
-public enum ParseError implements Error
-	invalidFormat
-end 'ParseError'
+// double, ties to even. floatTextRead is the reader of a prefix of a String, which fromString is built on.
 
 typealias FloatTextLimb = int(0 to 4294967295)
 
@@ -52,24 +47,36 @@ let floatTextUnderflowMagnitude = -400 as FloatTextExponent
 // shift by, as long as the text is shorter than the clamp, and ten times it and one more digit still fit FloatTextExponent.
 let floatTextExponentClamp = 100000 as FloatTextExponent
 
-enum FloatTextByte
-	minus = 45
-	plus = 43
-	point = 46
-	underscore = 95
-	zero = 48
-	nine = 57
-	lowerE = 101
-	upperE = 69
-end 'FloatTextByte'
+// The bits of the infinity that a text past f64.max reads as, before the sign.
+let floatTextInfinityBits = 9218868437227405312 as Count
+
+// FloatTextRead is the number a prefix of a String is: its double's 64 bits (the infinity's once pastRange, the text
+// naming a magnitude past f64.max), and the byte position after the last byte of the literal.
+type FloatTextRead
+	export let bits as Count
+	export let pastRange as bool
+	export let endAt as Count
+
+	static function create(bits Count, pastRange bool, endAt Count) returns FloatTextRead
+		return FloatTextRead{bits: bits, pastRange: pastRange, endAt: endAt}
+	end 'create'
+end 'FloatTextRead'
 
 extension float
-	/// The double the text is, correctly rounded: an optional `-`, digits with `_` between them, at most one `.`, and an
-	/// exponent `e` or `E` with an optional sign, as a float literal is written. Text that is not one, or a magnitude past
-	/// `f64.max`, is `ParseError.invalidFormat`.
-	public static function fromString(input String) returns FullRangeFloat throws ParseError
-		let bits = try floatTextBits(input) otherwise throw ParseError.invalidFormat
-		return __Builtins.bitsToFloat(floatTextSigned(bits))
+	/// The double the text is, correctly rounded, in the type the call names (`Ratio.fromString("0.5")` is a `Ratio`): an
+	/// optional `-`, digits with `_` between them, at most one `.`, and an exponent `e` or `E` with an optional sign, as a
+	/// float literal is written. Text that is not one is `ParseError.invalidFormat`; a magnitude past `f64.max`, or a
+	/// number outside the range of the type, is `ParseError.outOfRange`.
+	public static function fromString(input String) returns Self throws ParseError
+		let read = try floatTextRead(input, at: 0)
+		if read.endAt != input.byteLength() 'trailing'
+			throw ParseError.invalidFormat
+		end 'trailing'
+		if read.pastRange 'past'
+			throw ParseError.outOfRange
+		end 'past'
+		let value = __Builtins.bitsToFloat(floatTextSigned(read.bits))
+		return try value as Self otherwise throw ParseError.outOfRange
 	end 'fromString'
 end 'float'
 
@@ -82,90 +89,87 @@ function floatTextSigned(bits Count) returns FullRangeInt
 end 'floatTextSigned'
 
 enum FloatTextFailure implements Error
-	malformed
 	overflow
 end 'FloatTextFailure'
 
-function floatTextBits(text String) returns Count throws FloatTextFailure
+// floatTextRead reads the literal that starts at a byte position of the text: an optional `-`, the mantissa's digits,
+// `_` and at most one `.`, and an exponent, and stops at the first byte that none of them admits. It is `invalidFormat`
+// where the literal has no digit before its exponent.
+function floatTextRead(text String, at Count) returns FloatTextRead throws ParseError
 	let n = text.byteLength()
-	var at = 0 as Count
+	var cursor = at
 	var negative = false
-	if n > 0 and text.byteAt(0) == FloatTextByte.minus 'sign'
+	if cursor < n and text.byteAt(cursor) == ParseByte.minus 'sign'
 		negative = true
-		at = 1
+		cursor = cursor + 1
 	end 'sign'
 	var digits = FloatTextLimbs.create(0)
 	var significant = 0 as Count
 	var fractionDigits = 0 as Count
 	var pastPoint = false
 	var sawDigit = false
-	while at < n 'mantissa'
-		let c = text.byteAt(at) as Count
-		if c == FloatTextByte.lowerE.rawValue or c == FloatTextByte.upperE.rawValue 'exponent'
-			break 'mantissa'
-		end 'exponent'
-		if c == FloatTextByte.point.rawValue 'point'
+	while cursor < n 'mantissa'
+		let c = text.byteAt(cursor) as Count
+		if c == ParseByte.point.rawValue 'point'
 			if pastPoint 'second'
-				throw FloatTextFailure.malformed
+				break 'mantissa'
 			end 'second'
 			pastPoint = true
-		end 'point' else if c >= FloatTextByte.zero.rawValue and c <= FloatTextByte.nine.rawValue 'digit'
+		end 'point' else if c >= ParseByte.zero.rawValue and c <= ParseByte.nine.rawValue 'digit'
 			sawDigit = true
 			if pastPoint 'fraction'
-				fractionDigits = try fractionDigits + 1 otherwise throw FloatTextFailure.malformed
+				fractionDigits = try fractionDigits + 1 otherwise throw ParseError.invalidFormat
 			end 'fraction'
-			let d = try (c - FloatTextByte.zero.rawValue) as FloatTextLimb otherwise panic("FloatText: a digit is below 10")
+			let d = try (c - ParseByte.zero.rawValue) as FloatTextLimb otherwise panic("FloatText: a digit is below 10")
 			if significant > 0 or d != 0 'counted'
-				significant = try significant + 1 otherwise throw FloatTextFailure.malformed
+				significant = try significant + 1 otherwise throw ParseError.invalidFormat
 				floatTextMulAdd(digits, m: 10, add: d)
 			end 'counted'
-		end 'digit' else if c != FloatTextByte.underscore.rawValue 'other'
-			throw FloatTextFailure.malformed
+		end 'digit' else if c != ParseByte.underscore.rawValue 'other'
+			break 'mantissa'
 		end 'other'
-		at = at + 1
+		cursor = cursor + 1
 	end 'mantissa'
 	var exp10 = 0 as FloatTextExponent
-	if at < n 'exponent'
-		at = at + 1
+	if cursor < n and (text.byteAt(cursor) == ParseByte.lowerE or text.byteAt(cursor) == ParseByte.upperE) 'exponent'
+		cursor = cursor + 1
 		var negativeExponent = false
-		if at < n and (text.byteAt(at) == FloatTextByte.plus or text.byteAt(at) == FloatTextByte.minus) 'sign'
-			negativeExponent = text.byteAt(at) == FloatTextByte.minus
-			at = at + 1
+		if cursor < n and (text.byteAt(cursor) == ParseByte.plus or text.byteAt(cursor) == ParseByte.minus) 'sign'
+			negativeExponent = text.byteAt(cursor) == ParseByte.minus
+			cursor = cursor + 1
 		end 'sign'
-		while at < n 'digits'
-			let c = text.byteAt(at) as Count
-			if c == FloatTextByte.underscore.rawValue 'separator'
-				at = at + 1
-				continue 'digits'
-			end 'separator'
-			if c < FloatTextByte.zero.rawValue or c > FloatTextByte.nine.rawValue 'notDigit'
-				throw FloatTextFailure.malformed
-			end 'notDigit'
-			if exp10 < floatTextExponentClamp 'grow'
-				exp10 = try exp10 * 10 + ((c - FloatTextByte.zero.rawValue) as FloatTextExponent) otherwise panic("FloatText: the exponent is clamped")
-			end 'grow'
-			at = at + 1
+		while cursor < n 'digits'
+			let c = text.byteAt(cursor) as Count
+			if c != ParseByte.underscore.rawValue 'digitOrEnd'
+				if c < ParseByte.zero.rawValue or c > ParseByte.nine.rawValue 'notDigit'
+					break 'digits'
+				end 'notDigit'
+				if exp10 < floatTextExponentClamp 'grow'
+					exp10 = try exp10 * 10 + ((c - ParseByte.zero.rawValue) as FloatTextExponent) otherwise panic("FloatText: the exponent is clamped")
+				end 'grow'
+			end 'digitOrEnd'
+			cursor = cursor + 1
 		end 'digits'
 		if negativeExponent 'negate'
 			exp10 = -exp10
 		end 'negate'
 	end 'exponent'
 	if not sawDigit 'empty'
-		throw FloatTextFailure.malformed
+		throw ParseError.invalidFormat
 	end 'empty'
 	let sign = floatTextSignBit if negative else 0
 	if digits.count() == 0 'zero'
-		return sign
+		return FloatTextRead.create(sign, pastRange: false, endAt: cursor)
 	end 'zero'
-	let fraction = try fractionDigits as FloatTextExponent otherwise throw FloatTextFailure.malformed
-	let kept = try significant as FloatTextExponent otherwise throw FloatTextFailure.malformed
-	let scale = try (exp10 - fraction) as FloatTextExponent otherwise throw FloatTextFailure.malformed
-	let magnitude = try scale + kept otherwise throw FloatTextFailure.malformed
+	let fraction = try fractionDigits as FloatTextExponent otherwise throw ParseError.invalidFormat
+	let kept = try significant as FloatTextExponent otherwise throw ParseError.invalidFormat
+	let scale = try (exp10 - fraction) as FloatTextExponent otherwise throw ParseError.invalidFormat
+	let magnitude = try scale + kept otherwise throw ParseError.invalidFormat
 	if magnitude > floatTextOverflowMagnitude 'over'
-		throw FloatTextFailure.overflow
+		return FloatTextRead.create(floatTextInfinityBits or sign, pastRange: true, endAt: cursor)
 	end 'over'
 	if magnitude < floatTextUnderflowMagnitude 'under'
-		return sign
+		return FloatTextRead.create(sign, pastRange: false, endAt: cursor)
 	end 'under'
 	var den = floatTextOne()
 	if scale >= 0 'whole'
@@ -173,9 +177,11 @@ function floatTextBits(text String) returns Count throws FloatTextFailure
 	end 'whole' else 'fraction'
 		floatTextMulPow10(den, n: floatTextShift(-scale))
 	end 'fraction'
-	let bits = try floatTextRound(digits, den: den) otherwise throw FloatTextFailure.overflow
-	return bits or sign
-end 'floatTextBits'
+	let bits = try floatTextRound(digits, den: den) otherwise 'overflow'
+		return FloatTextRead.create(floatTextInfinityBits or sign, pastRange: true, endAt: cursor)
+	end 'overflow'
+	return FloatTextRead.create(bits or sign, pastRange: false, endAt: cursor)
+end 'floatTextRead'
 
 function floatTextOne() returns FloatTextLimbs
 	var one = FloatTextLimbs.create(0)

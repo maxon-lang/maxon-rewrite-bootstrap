@@ -272,7 +272,6 @@ armed=0 ended=true found=0
 ```
 
 <!-- test: process-descendants.an-orphaned-detached-grandchild-is-found -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 The program runs itself as a child. The child detaches a long sleeper, names its id on stdout and exits, so
@@ -311,7 +310,6 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 2
 	let child = try Subprocess.run(Executable.path(me), arguments: argv) otherwise return 3
 	let text = child.stdout.trim().replace(SleeperLabel, with: "")
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let pid = try int.fromString(text) otherwise return 4
 	let alive = Process.isAlive(pid as Pid)
 	let found = Process.endDescendants()
@@ -340,7 +338,6 @@ armed=0 alive=true listed=true named=true onlyOne=true ended=true
 ```
 
 <!-- test: process-descendants.a-first-call-lists-everything-the-program-started-before-it -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 The program runs itself as a probe whose environment carries no armed token, the shape of a program run outside
@@ -386,7 +383,6 @@ function runAsProbe() returns ExitCode
 	let argv = StringArray.create(0)
 	argv.push(OrphanerMode)
 	let orphaner = try Subprocess.run(Executable.path(me), arguments: argv) otherwise return 3
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let orphan = try int.fromString(orphaner.stdout.trim().replace(SleeperLabel, with: "")) otherwise return 4
 	let found = Process.endDescendants()
 	var listedDirect = false
@@ -434,7 +430,6 @@ exit=0 found=2 direct=true orphan=true ended=true
 ```
 
 <!-- test: process-descendants.an-armed-case-that-leaves-a-sleeper-reports-it-in-a-framed-line -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -482,7 +477,6 @@ function framedPids(text String) returns PidArray
 		if line.startsWith(FramePrefix) 'framed'
 			let fields = line.replace(FramePrefix, with: "").split(" ")
 			let digits = try fields.get(0) otherwise continue
-			// TODO: 'int.fromString' is not supported in minimaxon
 			let pid = try int.fromString(digits) otherwise continue
 			found.push(pid as Pid)
 		end 'framed'
@@ -516,7 +510,6 @@ function main() returns ExitCode
 	config.arguments.push("child")
 	config.environment = Environment.inheritUpdating(overrides)
 	let child = try config.run() otherwise return 3
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let sleeper = try int.fromString(child.stdout.trim().replace(SleeperLabel, with: "")) otherwise return 4
 	let framed = framedPids(child.stderr)
 	let tokens = framedTokens(child.stderr)
@@ -609,7 +602,6 @@ exit=0 childSaid=sawD=true ended=true framed=false
 ```
 
 <!-- test: process-descendants.the-children-of-an-armed-case-do-not-arm -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -659,7 +651,6 @@ function framedPids(text String) returns PidArray
 		if line.startsWith(FramePrefix) 'framed'
 			let fields = line.replace(FramePrefix, with: "").split(" ")
 			let digits = try fields.get(0) otherwise continue
-			// TODO: 'int.fromString' is not supported in minimaxon
 			let pid = try int.fromString(digits) otherwise continue
 			found.push(pid as Pid)
 		end 'framed'
@@ -694,7 +685,6 @@ function main() returns ExitCode
 	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in child.stdout.split("\n") 'eachLine'
 		if line.startsWith(SleeperLabel) 'theSleeper'
-			// TODO: 'int.fromString' is not supported in minimaxon
 			let parsed = try int.fromString(line.trim().replace(SleeperLabel, with: "")) otherwise return 4
 			sleeper = parsed as Pid
 		end 'theSleeper'

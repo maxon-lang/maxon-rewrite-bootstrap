@@ -1,0 +1,74 @@
+// A static function of `int` is generic over `Self`, so `fromString` through a typealias of an integer returns that alias
+// and refuses a number past its range as outOfRange, while the same text through another alias, or through `int`, is read.
+// A text that is no number is invalidFormat through every alias.
+typealias Port = int(0 to 65535)
+
+typealias Octet = int(0 to 255)
+
+typealias Delta = int(-128 to 127)
+
+typealias Natural = int(1 to u64.max)
+
+function describePort(text String) returns String
+	let port = try Port.fromString(text) otherwise (failure) 'refused'
+		return "port {failure}"
+	end 'refused'
+	return "port {port}"
+end 'describePort'
+
+function describeOctet(text String) returns String
+	let octet = try Octet.fromString(text) otherwise (failure) 'refused'
+		return "octet {failure}"
+	end 'refused'
+	return "octet {octet}"
+end 'describeOctet'
+
+function describeDelta(text String) returns String
+	let delta = try Delta.fromString(text) otherwise (failure) 'refused'
+		return "delta {failure}"
+	end 'refused'
+	return "delta {delta}"
+end 'describeDelta'
+
+function describeCount(text String) returns String
+	let count = try Count.fromString(text) otherwise (failure) 'refused'
+		return "count {failure}"
+	end 'refused'
+	return "count {count}"
+end 'describeCount'
+
+function describeNatural(text String) returns String
+	let natural = try Natural.fromString(text) otherwise (failure) 'refused'
+		return "natural {failure}"
+	end 'refused'
+	return "natural {natural}"
+end 'describeNatural'
+
+function main() returns ExitCode
+	print("{describePort("80")} {describeOctet("80")}\n")
+	print("{describePort("65535")} {describeOctet("255")}\n")
+	print("{describePort("65536")} {describeOctet("256")}\n")
+	print("{describePort("-1")} {describeOctet("-1")}\n")
+	print("{describeDelta("-128")} {describeDelta("127")}\n")
+	print("{describeDelta("-129")} {describeDelta("128")}\n")
+	print("{describeDelta("-0")} {describeDelta("x")}\n")
+	print("{describeCount("18446744073709551615")} {describeCount("18446744073709551616")}\n")
+	print("{describeCount("-1")} {describeCount("0")}\n")
+	print("{describeNatural("0")} {describeNatural("1")} {describeNatural("-0")}\n")
+	let wide = try int.fromString("70000") otherwise 0
+	let byte = try Octet.fromString("12x") otherwise 99
+	print("{wide} {byte}\n")
+	return 0
+end 'main'
+
+//> port 80 octet 80
+//> port 65535 octet 255
+//> port outOfRange octet outOfRange
+//> port outOfRange octet outOfRange
+//> delta -128 delta 127
+//> delta outOfRange delta outOfRange
+//> delta 0 delta invalidFormat
+//> count 18446744073709551615 count outOfRange
+//> count outOfRange count 0
+//> natural outOfRange natural 1 natural outOfRange
+//> 70000 99

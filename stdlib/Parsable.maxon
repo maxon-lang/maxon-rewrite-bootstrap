@@ -1,0 +1,27 @@
+// maxon's Parsable and ParseError (Builtins.maxon, where they sit with the compiler's raw surface), with the bytes the
+// readers of text share. minimaxon's own: the readers of `fromString` (IntText, FloatText, BoolText, CharacterText) are
+// library code here, where maxon's are the compiler's.
+
+/// A type that is made from the text of a String by its static `fromString`.
+public interface Parsable
+	static function fromString(input String) returns Self throws ParseError
+end 'Parsable'
+
+/// Why a String is not the value a `fromString` reads: `invalidFormat` when the text is not written as the type's values
+/// are, `outOfRange` when it is a number and the type, which may be an alias with a narrower range, cannot hold it.
+public enum ParseError implements Error
+	invalidFormat
+	outOfRange
+end 'ParseError'
+
+// ParseByte holds the ASCII bytes of a number's text.
+enum ParseByte
+	minus = 45
+	plus = 43
+	point = 46
+	underscore = 95
+	zero = 48
+	nine = 57
+	lowerE = 101
+	upperE = 69
+end 'ParseByte'

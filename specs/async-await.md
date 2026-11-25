@@ -3392,14 +3392,12 @@ error E2015: specs/async-await/async-await.error.qualified-spawn-container-alias
 ```
 
 <!-- test: async-await.qualified-spawn-primitive-static -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 A primitive's static spawns like any other: `async int.fromString(s)` hands the scheduler the
 compiler-minted `__int_fromString`, and the spawn carries that mint as a direct call does, so every
 reader downstream judges it as the compiler's name, not one the author wrote.
 ```maxon
 function main() returns ExitCode
 	let s = "41"
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let p = async int.fromString(s)
 	let n = try await p otherwise 0
 	return (n + 1) as ExitCode
@@ -3410,12 +3408,10 @@ end 'main'
 ```
 
 <!-- test: async-await.qualified-spawn-primitive-static-throws-through-the-promise -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 The spawned static's error reaches the awaiting caller: `"x"` does not parse, so `try await` takes the
 `otherwise` arm.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let p = async int.fromString("x")
 	let n = try await p otherwise 7
 	return n as ExitCode

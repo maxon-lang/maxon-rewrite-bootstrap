@@ -1,0 +1,29 @@
+// bool and Character implement Parsable, the interface of a static `fromString`, so a type that bounds its parameter by it
+// takes either one. A static requirement is read through a concrete type, so each is read by its own name.
+typealias FlagKeeper = Keeper with bool
+
+typealias LetterKeeper = Keeper with Character
+
+type Keeper uses T where T implements Parsable
+	export let item as T
+
+	static function create(consumes item T) returns Self
+		return Self{item: item}
+	end 'create'
+end 'Keeper'
+
+function main() returns ExitCode
+	let flag = FlagKeeper.create(try bool.fromString("true") otherwise false)
+	let fallback = 'x'
+	let letter = LetterKeeper.create(try Character.fromString("é") otherwise fallback)
+	print("{flag.item} {letter.item}\n")
+	let notFlag = try bool.fromString("yes") otherwise (failure) 'refused'
+		print("yes: {failure}\n")
+		return 0
+	end 'refused'
+	print("{notFlag}\n")
+	return 1
+end 'main'
+
+//> true é
+//> yes: invalidFormat

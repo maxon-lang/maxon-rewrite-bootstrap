@@ -2352,6 +2352,7 @@ field-initialization.md: abandoned-factory-body-reports-only-its-own-error
 field-initialization.md: all-defaults
 field-initialization.md: all-in-literal
 field-initialization.md: empty-literal-no-defaults-errors
+field-initialization.md: literal-field-init-with-try-otherwise
 field-initialization.md: literal-overrides-default
 field-initialization.md: missing-field-errors
 field-initialization.md: missing-non-exported-errors
@@ -2440,6 +2441,7 @@ first-class-functions.md: a-directory-lets-are-read-in-a-body-through-an-ordinar
 first-class-functions.md: a-factory-through-a-generic-instance-alias-is-called
 first-class-functions.md: a-function-of-the-declared-shape-is-accepted-by-every-store-into-a-function-typed-slot
 first-class-functions.md: a-module-binding-named-like-a-primitive-calls-the-binding
+first-class-functions.md: a-primitive-keyword-static-call-in-a-function-body-is-called
 first-class-functions.md: a-statement-call-through-a-directory-beside-a-type-of-its-name-reaches-the-directory
 first-class-functions.md: a-statement-call-through-a-directory-named-like-a-primitive-reaches-the-directory
 first-class-functions.md: a-statement-call-through-an-ordinary-directory-reaches-the-directory
@@ -2468,6 +2470,7 @@ first-class-functions.md: error.a-function-over-a-narrower-parameter-is-refused-
 first-class-functions.md: error.a-function-over-a-narrower-parameter-is-refused-at-a-wider-function-type
 first-class-functions.md: error.a-function-typed-parameter-is-judged-at-its-declared-type-at-an-argument-door
 first-class-functions.md: error.a-function-value-called-with-three-hundred-arguments-is-an-arity-error
+first-class-functions.md: error.a-primitive-keyword-static-call-at-module-scope-is-refused
 first-class-functions.md: error.a-requirement-through-a-type-parameter-is-not-a-function-value
 first-class-functions.md: error.a-requirement-through-a-type-parameter-of-a-generic-type-is-not-a-function-value
 first-class-functions.md: error.a-requirement-through-a-type-parameter-outranks-a-top-level-type-of-that-name
@@ -3892,6 +3895,7 @@ keyword-as-a-declared-name.md: a-keyword-named-METHOD-CALL-ending-a-block-HEADER
 keyword-as-a-declared-name.md: a-keyword-named-parameter-AS-THE-FIRST-TOKEN-OF-A-CONDITION
 keyword-as-a-declared-name.md: a-keyword-named-parameter-that-a-CONSTRUCTOR-CONSUMES
 keyword-as-a-declared-name.md: a-parameter-named-type-beside-a-real-type-declaration
+keyword-as-a-declared-name.md: a-try-target-may-be-a-keyword-named-receiver
 keyword-as-a-declared-name.md: four-different-keywords-as-parameter-names
 keyword-as-a-declared-name.md: keyword-named-INTERFACE-REQUIREMENTS-among-others
 keyword-named-case-members.md: a-parenthesized-condition-with-or-past-the-group
@@ -5250,6 +5254,7 @@ namespace-qualified-resolution.md: a-let-initializer-call-resolves-to-its-one-vi
 namespace-qualified-resolution.md: a-local-binding-named-like-a-directory-keeps-its-member-access
 namespace-qualified-resolution.md: a-qualified-enum-keeps-its-identity-where-the-files-own-alias-takes-its-name
 namespace-qualified-resolution.md: a-qualified-type-reaches-its-declaration-past-the-readers-own-alias
+namespace-qualified-resolution.md: a-throwing-static-of-a-directory-type-is-called-under-try
 namespace-qualified-resolution.md: a-types-own-alias-is-named-through-its-directory
 namespace-qualified-resolution.md: a-union-keeps-its-identity-where-the-files-own-alias-takes-its-name
 namespace-qualified-resolution.md: a-void-static-of-a-directory-type-is-called-as-a-statement
@@ -5786,13 +5791,24 @@ parentheses.md: grouping-parenthesis-split-after-an-operator
 parentheses.md: grouping-parenthesis-split-before-an-operator
 parentheses.md: nested-parentheses
 parentheses.md: override-precedence
+parsable-interface.md: error.int-from-string-is-a-full-range-int
+parsable-interface.md: error.minted-callee-arity-names-the-source-spelling
+parsable-interface.md: error.missing-throws
+parsable-interface.md: error.throws-non-error-type
 parsable-interface.md: error.unknown-static-of-a-user-type-named-byte-is-an-ordinary-undefined-function
+parsable-interface.md: parsable.bool-fromstring-false
+parsable-interface.md: parsable.bool-fromstring-true
 parsable-interface.md: parsable.bound-keyword-outranks-primitive-static
 parsable-interface.md: parsable.byte-user-type-outranks-primitive
 parsable-interface.md: parsable.float-fromstring
 parsable-interface.md: parsable.float-fromstring-negative
 parsable-interface.md: parsable.float-fromstring-past-the-i64-integer-part
 parsable-interface.md: parsable.float-fromstring-round-trips-interpolation
+parsable-interface.md: parsable.int-fromstring
+parsable-interface.md: parsable.int-fromstring-invalid
+parsable-interface.md: parsable.int-fromstring-negative
+parsable-interface.md: parsable.int-fromstring-refuses-a-second-or-a-trailing-minus
+parsable-interface.md: parsable.int-fromstring-refuses-a-value-past-the-int-range
 parsable-interface.md: parsable.interface-definition
 pass-by-reference.md: pass-by-reference.a-callee-taking-the-vars-own-alias-needs-no-copy-back-check
 pass-by-reference.md: pass-by-reference.a-field-typed-with-a-directory-qualified-function-alias-passes-by-reference

@@ -1056,7 +1056,6 @@ kind=2 code=3
 ```
 
 <!-- test: subprocess-builtins.posix-a-child-that-exited-before-the-deadline-keeps-its-own-code -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 `a-child-that-exited-before-the-deadline-keeps-its-own-code` on this lane. The shell exits with `3` and the
@@ -1087,7 +1086,6 @@ function appendToken(out ByteArray, token String)
 end 'appendToken'
 
 function memberPid(out String) returns Pid
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let parsed = try int.fromString(out.trim()) otherwise panic("the shell prints its background member's id before it exits")
 	return parsed as Pid
 end 'memberPid'
@@ -1134,7 +1132,6 @@ kind=2 code=3 memberEnded=true
 ```
 
 <!-- test: subprocess-builtins.posix-a-zombie-group-leader-keeps-its-own-code-when-the-deadline-kills-its-group -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 **A DEADLINE KILL OF A GROUP WHOSE LEADER HAS EXITED UNREAPED REPORTS THE LEADER'S OWN CODE.** The shell exits
@@ -1184,7 +1181,6 @@ function awaitZombie(pid Pid)
 end 'awaitZombie'
 
 function memberPid(out String) returns Pid
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let parsed = try int.fromString(out.trim()) otherwise panic("the shell prints its background member's id before it exits")
 	return parsed as Pid
 end 'memberPid'

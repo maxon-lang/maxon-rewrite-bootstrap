@@ -492,7 +492,6 @@ end 'main'
 ```
 
 <!-- test: literal-field-init-with-try-otherwise -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 A `Self{...}` literal whose field initializer contains control flow — here a
 `try … otherwise panic(…)` nested in a constructor call argument — splits the
 enclosing block: the `structAlloc` lands in one block and that field's
@@ -527,13 +526,12 @@ type Outer
 end 'Outer'
 
 function parseB() returns Integer throws ParseFailure
-	// TODO: 'int.fromString' is not supported in minimaxon
 	return try int.fromString("7") otherwise throw ParseFailure.badDigit
 end 'parseB'
 
 function main() returns ExitCode
 	let o = Outer.miss()
-	return o.inner.b
+	return try o.inner.b as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

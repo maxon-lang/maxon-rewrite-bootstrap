@@ -1,0 +1,95 @@
+// maxon's int.fromString (Builtins.maxon's __int_fromString), for every integer type: one optional `-` and then ASCII
+// digits, with nothing else in the text, no `+`, no `_`, no prefix and no space. minimaxon's own: maxon's is the
+// compiler's, and an integer type here is any range, so the text is read as a sign and a magnitude that reaches u64.max
+// and then converted into the type the call names, which tells a number past its range from text that is no number.
+
+// A decimal that fits no type is past every range, so the reader stops adding digits at u64.max and says so.
+typealias IntTextMagnitude = int(0 to 18446744073709551615)
+
+// The digit past which another one cannot be added without passing u64.max: its tenth and its last digit.
+let intTextMagnitudeTenth = 1844674407370955161 as IntTextMagnitude
+
+let intTextMagnitudeLastDigit = 5 as IntTextMagnitude
+
+// The magnitude of i64.min, the largest one that a `-` takes to an integer of a signed word.
+let intTextNegativeLimit = 9223372036854775808 as IntTextMagnitude
+
+let intTextRadix = 10 as IntTextMagnitude
+
+// IntTextRead is the number a prefix of a String is: its magnitude (u64.max once pastRange), its sign, and the byte
+// position after its last digit.
+type IntTextRead
+	export let magnitude as IntTextMagnitude
+	export let negative as bool
+	export let pastRange as bool
+	export let endAt as Count
+
+	static function create(magnitude IntTextMagnitude, negative bool, pastRange bool, endAt Count) returns IntTextRead
+		return IntTextRead{magnitude: magnitude, negative: negative, pastRange: pastRange, endAt: endAt}
+	end 'create'
+end 'IntTextRead'
+
+extension int
+	/// The integer the text is, in the type the call names (`Port.fromString("80")` is a `Port`): an optional `-` and then
+	/// digits, nothing else. Text that is not one is `ParseError.invalidFormat`, and a number the type cannot hold is
+	/// `ParseError.outOfRange`.
+	public static function fromString(input String) returns Self throws ParseError
+		let read = try intTextRead(input, at: 0)
+		if read.endAt != input.byteLength() 'trailing'
+			throw ParseError.invalidFormat
+		end 'trailing'
+		if read.pastRange 'past'
+			throw ParseError.outOfRange
+		end 'past'
+		if read.negative 'negative'
+			let value = try intTextNegated(read.magnitude)
+			return try value as Self otherwise throw ParseError.outOfRange
+		end 'negative'
+		return try read.magnitude as Self otherwise throw ParseError.outOfRange
+	end 'fromString'
+end 'int'
+
+// intTextRead reads the number that starts at a byte position of the text: an optional `-` and the digits that follow
+// it, and stops at the first byte that is neither. It is `invalidFormat` when no digit is there.
+function intTextRead(text String, at Count) returns IntTextRead throws ParseError
+	let length = text.byteLength()
+	var cursor = at
+	var negative = false
+	if cursor < length and text.byteAt(cursor) == ParseByte.minus 'sign'
+		negative = true
+		cursor = cursor + 1
+	end 'sign'
+	let digitsStart = cursor
+	var magnitude = 0 as IntTextMagnitude
+	var pastRange = false
+	while cursor < length 'digits'
+		let c = text.byteAt(cursor) as Count
+		if c < ParseByte.zero.rawValue or c > ParseByte.nine.rawValue 'stop'
+			break 'digits'
+		end 'stop'
+		let digit = try (c - ParseByte.zero.rawValue) as IntTextMagnitude otherwise panic("IntText: a digit is below 10")
+		if magnitude > intTextMagnitudeTenth or (magnitude == intTextMagnitudeTenth and digit > intTextMagnitudeLastDigit) 'past'
+			pastRange = true
+			magnitude = u64.max
+		end 'past' else 'grow'
+			magnitude = try magnitude * intTextRadix + digit otherwise panic("IntText: a magnitude within the bound grows by one digit")
+		end 'grow'
+		cursor = cursor + 1
+	end 'digits'
+	if cursor == digitsStart 'noDigit'
+		throw ParseError.invalidFormat
+	end 'noDigit'
+	return IntTextRead.create(magnitude, negative: negative, pastRange: pastRange, endAt: cursor)
+end 'intTextRead'
+
+// intTextNegated is -magnitude for the magnitude of a number read after a `-`, which is `outOfRange` below i64.min.
+function intTextNegated(magnitude IntTextMagnitude) returns FullRangeInt throws ParseError
+	if magnitude > intTextNegativeLimit 'below'
+		throw ParseError.outOfRange
+	end 'below'
+	if magnitude == intTextNegativeLimit 'least'
+		return i64.min
+	end 'least'
+	let positive = try magnitude as FullRangeInt otherwise panic("IntText: a magnitude below 2^63 fits")
+	return try 0 - positive otherwise panic("IntText: the negation of a magnitude below 2^63 fits")
+end 'intTextNegated'

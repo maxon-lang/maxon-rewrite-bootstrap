@@ -2119,10 +2119,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 			}
 		case tokIdent:
 			switch t.text {
-			case "int":
-				if i+2 < len(toks) && toks[i+1].text == "." && toks[i+2].text == "fromString" {
-					warn(line, "'int.fromString' is not supported in minimaxon")
-				}
 			case "from":
 				if isTypeFromValue(toks, i) {
 					warn(line, "'Type from value' takes an array literal or a string literal in minimaxon, not another value")

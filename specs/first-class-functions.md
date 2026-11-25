@@ -2793,11 +2793,8 @@ error E2013: <fragment>:15:6: 'Ops.twice' is a method, and a method cannot be as
 ```
 
 <!-- test: error.a-primitive-static-int-is-not-a-function-value -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let f = int.fromString
 	return 0
 end 'main'
@@ -3732,10 +3729,7 @@ error E2078: <fragment>:3:17: 'String.byteLength' is an instance method, and a m
 ```
 
 <!-- test: error.a-primitive-keyword-static-call-at-module-scope-is-refused -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: 'int.fromString' is not supported in minimaxon
 let n = try int.fromString("5") otherwise 0
 
 function main() returns ExitCode
@@ -3747,12 +3741,10 @@ error E2045: <fragment>:2:17: Function calls are not allowed in global variable 
 ```
 
 <!-- test: a-primitive-keyword-static-call-in-a-function-body-is-called -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let n = try int.fromString("5") otherwise 0
-	return n as ExitCode
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

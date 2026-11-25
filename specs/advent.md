@@ -39,7 +39,6 @@ end 'main'
 7
 ```
 <!-- test: day4a -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- Args: 1 -->
 ```maxon
 
@@ -51,36 +50,33 @@ end 'multiply'
 
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let parsed = try int.fromString(try args.get(1) otherwise "") otherwise 0
 	if parsed > 1000 'guard'
 		return 99
 	end 'guard'
-	return multiply(3)
+	return try multiply(3) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
 3
 ```
 <!-- test: day4b -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- Args: 3 -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
 function multiply(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'multiply'
 
 function main() returns ExitCode
 	let args = CommandLine.args()
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let parsed = try int.fromString(try args.get(1) otherwise "") otherwise 0
 	if parsed > 1000 'guard'
 		return 99
 	end 'guard'
-	return multiply(3)
+	return try multiply(3) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

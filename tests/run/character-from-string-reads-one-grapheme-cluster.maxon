@@ -1,0 +1,35 @@
+// Character.fromString reads a String that is exactly one Character, which is one grapheme cluster: a letter, a multi-byte
+// code point, a letter with a combining mark or an emoji sequence. An empty text, or one of several clusters, is
+// invalidFormat, and nothing is trimmed.
+function describe(text String) returns String
+	let fallback = '?'
+	let letter = try Character.fromString(text) otherwise (failure) 'refused'
+		return "[{text}] {failure}"
+	end 'refused'
+	return "[{text}] {letter} {letter.byteLength()} {letter == fallback}"
+end 'describe'
+
+function main() returns ExitCode
+	print("{describe("a")}\n")
+	print("{describe("?")}\n")
+	print("{describe("é")}\n")
+	print("{describe("é")}\n")
+	print("{describe("🎉")}\n")
+	print("{describe("👨‍👩‍👧")}\n")
+	print("{describe("ab")}\n")
+	print("{describe(" a")}\n")
+	print("{describe("a ")}\n")
+	print("{describe("")}\n")
+	return 0
+end 'main'
+
+//> [a] a 1 false
+//> [?] ? 1 true
+//> [é] é 2 false
+//> [é] é 3 false
+//> [🎉] 🎉 4 false
+//> [👨‍👩‍👧] 👨‍👩‍👧 18 false
+//> [ab] invalidFormat
+//> [ a] invalidFormat
+//> [a ] invalidFormat
+//> [] invalidFormat

@@ -674,7 +674,6 @@ own header says the field-chain arm is "checked FIRST" for exactly this reason â
 last and every specific one keeps its claim by standing above it.
 
 <!-- test: a-try-target-may-be-a-keyword-named-receiver -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 All three shapes in one program, because the rule is about which arm claims which: a KEYWORD-named
 receiver, a PRIMITIVE static, and a `Self.`-qualified static â€” the two that keep their claim because the
 general arm stands below them.
@@ -694,7 +693,7 @@ type Box
 		if n < 0 'bad'
 			throw BoxError.negative
 		end 'bad'
-		return n + 1
+		return try n + 1 otherwise panic("out of range")
 	end 'viaSelf'
 
 	static function checked(n Integer) returns Integer throws BoxError
@@ -710,10 +709,9 @@ function firstOf(from IntArray) returns Integer
 end 'firstOf'
 
 function main() returns ExitCode
-	let xs = IntArray.create(0)
+	var xs = IntArray.create(0)
 	xs.push(7)
 	let a = firstOf(xs)
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let b = try int.fromString("5") otherwise panic("parse")
 	let c = try Box.checked(1) otherwise panic("checked")
 	print("a={a} b={b} c={c}")

@@ -620,7 +620,6 @@ end 'main'
 ```
 
 <!-- test: subprocess-a-deadline-ends-the-grandchild-the-child-started -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐⭐ **A DEADLINE ENDS THE CHILD'S WHOLE PROCESS TREE, A GRANDCHILD THAT LEADS ITS OWN PROCESS GROUP
 INCLUDED.** On Linux and macOS every Maxon program leads a process group
@@ -640,7 +639,6 @@ let graceMs = 2000
 let pollMs = 50
 
 function grandchildIdFrom(line String) returns Pid throws ParseError
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let parsed = try int.fromString(line.trim())
 	if parsed < 0 'negative'
 		throw ParseError.invalidFormat
@@ -741,7 +739,6 @@ deadline: timed out true, grandchild ended true
 ```
 
 <!-- test: subprocess-endtree-ends-the-grandchild-the-child-started -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 **`endTree()` ENDS THE CHILD'S WHOLE PROCESS TREE AT ONCE, THE KILL A DEADLINE SENDS WITHOUT WAITING FOR ONE.**
 The case runs itself three ways. The child starts a grandchild that sleeps far past the case, prints the
@@ -756,7 +753,6 @@ let graceMs = 2000
 let pollMs = 50
 
 function grandchildIdFrom(line String) returns Pid throws ParseError
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let parsed = try int.fromString(line.trim())
 	if parsed < 0 'negative'
 		throw ParseError.invalidFormat
@@ -1116,7 +1112,6 @@ armed=0 ready=ready endedCleanly=true leaked=0
 ```
 
 <!-- test: subprocess-a-deadline-spares-the-process-the-child-started-detached -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 **A DEADLINE'S TREE KILL NEVER ENDS A PROCESS THE CHILD STARTED DETACHED.** Detaching is stated at the spawn,
 with `runDetached()`, so the process it starts is no part of the tree a deadline ends, though its parent is
@@ -1140,7 +1135,6 @@ let selfEndBoundMs = 30000
 let pollMs = 50
 
 function detachedIdFrom(line String) returns Pid throws ParseError
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let parsed = try int.fromString(line.trim())
 	if parsed < 0 'negative'
 		throw ParseError.invalidFormat

@@ -1,0 +1,14 @@
+// maxon's bool.fromString (Builtins.maxon's __bool_fromString), minimaxon's own since maxon's is the compiler's: exactly
+// the text `true` or `false`, in lower case, with nothing around it. A String is compared in place, so it reads no copy.
+extension bool implements Parsable
+	/// The bool the text is: `true` or `false`, and no other text, which is `ParseError.invalidFormat`.
+	public static function fromString(input String) returns bool throws ParseError
+		if input == "true" 'isTrue'
+			return true
+		end 'isTrue'
+		if input == "false" 'isFalse'
+			return false
+		end 'isFalse'
+		throw ParseError.invalidFormat
+	end 'fromString'
+end 'bool'

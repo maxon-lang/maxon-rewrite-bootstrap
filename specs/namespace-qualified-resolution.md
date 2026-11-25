@@ -324,14 +324,12 @@ error E3004: <fragment>:3:10: call to undefined function 'foo.bar.baz': nothing 
 
 
 <!-- test: a-throwing-static-of-a-directory-type-is-called-under-try -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 A throwing static reached through its directory chain is a throwing call under `try … otherwise`: `"7"`
 parses and returns 7, and `"x"` throws, so the fallback 30 is taken (7 + 30).
 ```maxon
 // --- file: sub/calc.maxon
 export type Calc
 	export static function parse(text String) returns ExitCode throws ParseError
-		// TODO: 'int.fromString' is not supported in minimaxon
 		let n = try int.fromString(text)
 		if n < 0 or n > 255 'outOfRange'
 			throw ParseError.invalidFormat
@@ -344,7 +342,7 @@ end 'Calc'
 function main() returns ExitCode
 	let n = try sub.Calc.parse("7") otherwise 0
 	let bad = try sub.Calc.parse("x") otherwise 30
-	return n + bad
+	return try n + bad otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1828,8 +1826,7 @@ end 'main'
 
 
 <!-- test: error.two-visible-candidates-are-ambiguous-under-try -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 A `try` over the contested bare call gets the same ambiguity. Both candidates throw, so no claim about
 whether "the" function throws can be made before the call is resolved.
 ```maxon
@@ -1847,7 +1844,6 @@ end 'pick'
 
 // --- file: zulu/f.maxon
 export function pick() returns Integer throws Oops
-	// TODO: 'int.fromString' is not supported in minimaxon
 	return try int.fromString("4") otherwise throw Oops.bad
 end 'pick'
 
@@ -1896,7 +1892,7 @@ error E3095: app/<fragment>:21:10: Ambiguous bare-name call to 'pick': more than
 
 
 <!-- test: error.two-visible-candidates-are-ambiguous-under-if-try -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 <!-- positions: moved -->
 An `if let … = try` over the contested bare call gets the ambiguity.
 ```maxon
@@ -1914,7 +1910,6 @@ end 'pick'
 
 // --- file: zulu/f.maxon
 export function pick() returns Integer throws Oops
-	// TODO: 'int.fromString' is not supported in minimaxon
 	return try int.fromString("4") otherwise throw Oops.bad
 end 'pick'
 
@@ -1932,8 +1927,7 @@ error E3095: app/<fragment>:21:17: Ambiguous bare-name call to 'pick': more than
 
 
 <!-- test: error.two-visible-candidates-are-ambiguous-when-spawned-and-awaited-under-try -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 A spawn of the contested bare call gets the ambiguity, not a claim about whether its promise throws.
 ```maxon
 // --- file: r.maxon
@@ -1950,7 +1944,6 @@ end 'pick'
 
 // --- file: zulu/f.maxon
 export function pick() returns Integer throws Oops
-	// TODO: 'int.fromString' is not supported in minimaxon
 	return try int.fromString("4") otherwise throw Oops.bad
 end 'pick'
 
@@ -1967,8 +1960,7 @@ error E3095: app/<fragment>:21:16: Ambiguous bare-name call to 'pick': more than
 
 
 <!-- test: error.two-visible-candidates-are-ambiguous-when-spawned-inside-try-await -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 The same spawn written inside the `try await` gets the ambiguity.
 ```maxon
 // --- file: r.maxon
@@ -1985,7 +1977,6 @@ end 'pick'
 
 // --- file: zulu/f.maxon
 export function pick() returns Integer throws Oops
-	// TODO: 'int.fromString' is not supported in minimaxon
 	return try int.fromString("4") otherwise throw Oops.bad
 end 'pick'
 
@@ -2001,7 +1992,7 @@ error E3095: app/<fragment>:21:26: Ambiguous bare-name call to 'pick': more than
 
 
 <!-- test: error.two-visible-candidates-are-ambiguous-when-a-spawn-is-stored -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 <!-- positions: moved -->
 Storing the spawn's promise gets the ambiguity, not a mismatch with the storage's throws clause.
 ```maxon
@@ -2019,7 +2010,6 @@ end 'pick'
 
 // --- file: zulu/f.maxon
 export function pick() returns Integer throws Oops
-	// TODO: 'int.fromString' is not supported in minimaxon
 	return try int.fromString("4") otherwise throw Oops.bad
 end 'pick'
 

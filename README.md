@@ -508,7 +508,7 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   unknown (`E2004`) as in maxon.
 - **The standard library** is Maxon source in `stdlib/`, found as `runtime/` is (the `stdlib` directory of the nearest
   directory, from the compiler's executable's upward, that has one), converted from maxon's `stdlib/` by `cmd/convert`
-  but for `Map.maxon`, `Stream.maxon`, `Console.maxon`, `Character.maxon`, `StringSplit.maxon` and `StringTrim.maxon`, which are minimaxon's own (see "Where it differs from Maxon") and
+  but for `Map.maxon`, `Stream.maxon`, `Console.maxon`, `Character.maxon`, `StringSplit.maxon`, `StringTrim.maxon`, `Parsable.maxon`, `IntText.maxon`, `FloatText.maxon`, `BoolText.maxon` and `CharacterText.maxon`, which are minimaxon's own (see "Where it differs from Maxon") and
   which no conversion touches; maxon's
   `StringBuilder.maxon` is left out, since an interpolation builds a String here:
   `stdlib/files.txt` lists the files converted so far, each with the library module it goes to (its directory under
@@ -4859,8 +4859,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   maxon does (maxon's `Type.case` arms of a handler over the combined error of several errors are not supported, see
   "Errors of the program"). A bare `int` or `float` is the full range of its kind only on the right of a `typealias`
   (`typealias Pair = (int, int)`, `typealias Op = function(int) returns int`); anywhere else it is `E3005`, and as the
-  target of a cast it has the cast's own wording. `int.fromString` and the other static functions of `int` are library, which
-  minimaxon has not: a call is `E3004`. `float.fromString` is (below).
+  target of a cast it has the cast's own wording. `int.fromString` and the other static functions of `int` are library, as
+  `float.fromString` is (below).
 - `a is b` (see "Identity") does not refuse a record that packs into one word (maxon's inline record, `E3068`): every
   record here has an address, of its box or, for a record held in place, of its words. A literal is not interned, so two equal literals are two objects, and the
   tests that read an alias made by `let b = a`, a string's identity after `.clone()` or the identity of a constant do not
@@ -4998,13 +4998,27 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   too), as an integer's do, where maxon traps. Float division by 0 is IEEE's (an infinity or NaN), where maxon's throws
   `divisionByZero` and refuses a constant zero divisor (`E3103`). The float functions take a float or an integer constant,
   not a value of an integer alias, which is cast first.
-  `float.fromString(text)` is maxon's reader of a float literal's text, correctly rounded, written in the library
-  (`stdlib/FloatText.maxon`, minimaxon's own, since maxon's is the compiler-owned `Builtins.maxon`'s `__float_bitsFromText`):
-  an optional `-`, digits with `_`, at most one `.` and an exponent with an optional sign, as a literal; the digits are
-  one big integer and a power of ten scales it or its denominator, so the value is an exact ratio rounded once to the
-  nearest double, ties to even, as the compiler reads a literal (`self/ast/floats.maxon`), where maxon keeps 768
-  significant digits and a sticky bit, which rounds the same; anything else, or a magnitude past `f64.max`, is
-  `ParseError.invalidFormat`. Its `static function` in an `extension float` is allowed in the library tiers.
+  `fromString(text)` is maxon's, written in the library (minimaxon's own files, since maxon's are the compiler-owned
+  `Builtins.maxon`'s `__int_fromString`, `__float_fromString` and `__bool_fromString`), with the text they accept and
+  `ParseError` (`invalidFormat`, and `outOfRange`, see the last item of this section): `int.fromString` is one optional `-` and
+  ASCII digits (`stdlib/IntText.maxon`), with no `+`, no `_`, no prefix and no space; `float.fromString` is a float
+  literal's text with an optional `-` (`stdlib/FloatText.maxon`): digits with `_`, at most one `.` and an exponent with an
+  optional sign, whose digits are one big integer that a power of ten scales or divides, so the value is an exact ratio
+  rounded once to the nearest double, ties to even, as the compiler reads a literal (`self/ast/floats.maxon`), where maxon
+  keeps 768 significant digits and a sticky bit, which rounds the same; `bool.fromString` is `true` or `false`
+  (`stdlib/BoolText.maxon`); and `Character.fromString`, which maxon has not, is a text of exactly one grapheme cluster
+  (`stdlib/CharacterText.maxon`). Text that is not one of these, or has anything after it, is `ParseError.invalidFormat`.
+  The integer's and the float's are static functions of `extension int` and `extension float`, generic over `Self` (see
+  "Extensions"), so each is read through a typealias as a value of it: `Port.fromString("80")` is a `Port`, and a number
+  that is well-formed and outside the range of the alias, or of an integer past `u64.max`, or of a float past `f64.max`,
+  is `ParseError.outOfRange`. Each is built on a reader of a prefix of the text from a byte position that returns the
+  value and where it stopped (`intTextRead`, `floatTextRead`, not public, in the library's root), which the whole
+  text must reach the end of, and which reads the bytes of the String where they are, so a decimal and a `bool` allocate
+  nothing. `bool` and `Character` implement the library's `Parsable` (`stdlib/Parsable.maxon`), whose `fromString` throws
+  `ParseError`, where maxon's throws `Error`: a `throws` of an interface is `E3113` here, so a type of the program
+  implements `Parsable` by throwing `ParseError`; an integer and a float do not implement it, since an interface's
+  `returns Self` is matched against the one type the conformance names and theirs is generic over `Self`; and a
+  static requirement cannot be called through a type parameter (`E3116`), so `Parsable` only bounds a parameter.
   There is no float `match` pattern or map key, no `Math`, no format
   specifier for a float, and no `f32` storage. `trunc` of a NaN or of a double past the word gives `i64.min`, as x64's
   `cvttsd2si` does.
@@ -5261,6 +5275,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - **maxon's `Slot` is `Cell`.** The library type that holds one value or none (`fill`, `replace`, `held`, `take`) is
   `Cell with T` (`stdlib/cell`); `cmd/convert` writes maxon's `Slot` as `Cell` where a program or the library names it, and
   keeps a program's own type of that name.
+- **`ParseError` has the case `outOfRange`.** maxon's has `invalidFormat` alone, and answers it for a number past the range
+  of an integer or of `f64.max` as well. Here a text that is a well-formed number the type cannot hold (a `Port`'s
+  `"70000"`, an `int`'s `"9223372036854775808"`, a float's `"1e309"`) is `outOfRange`, and `invalidFormat` is a text that
+  is not written as the type's values are, so a program tells the two apart.
 
 ## Changing the language
 

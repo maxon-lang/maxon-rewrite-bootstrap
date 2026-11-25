@@ -97,7 +97,6 @@ end 'main'
 ```
 
 <!-- test: process-liveness.an-exited-child-still-held-is-not-alive -->
-<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 ```maxon
 function main() returns ExitCode
@@ -112,7 +111,6 @@ function main() returns ExitCode
 		line(text) gives text
 		ended gives ""
 	end 'read'
-	// TODO: 'int.fromString' is not supported in minimaxon
 	let pid = try int.fromString(printed.trim()) otherwise return 5
 	let code = try child.wait() otherwise return 6
 	var answer = 3 as ExitCode

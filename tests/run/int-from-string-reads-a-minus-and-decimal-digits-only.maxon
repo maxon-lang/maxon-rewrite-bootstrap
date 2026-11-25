@@ -1,0 +1,64 @@
+// int.fromString takes one optional leading `-` and then ASCII digits, as maxon's does: no `+`, no `_`, no prefix, no
+// space, no fraction, and an empty text or a lone `-` is no number. Text that is a number past the type is outOfRange,
+// where it is not a number at all it is invalidFormat, and a number that is also followed by other text is invalidFormat.
+function describe(text String) returns String
+	let n = try int.fromString(text) otherwise (failure) 'refused'
+		return "[{text}] {failure}"
+	end 'refused'
+	return "[{text}] {n}"
+end 'describe'
+
+function main() returns ExitCode
+	print("{describe("42")}\n")
+	print("{describe("-7")}\n")
+	print("{describe("0")}\n")
+	print("{describe("-0")}\n")
+	print("{describe("0007")}\n")
+	print("{describe("9223372036854775807")}\n")
+	print("{describe("-9223372036854775808")}\n")
+	print("{describe("9223372036854775808")}\n")
+	print("{describe("-9223372036854775809")}\n")
+	print("{describe("18446744073709551615")}\n")
+	print("{describe("18446744073709551616")}\n")
+	print("{describe("99999999999999999999999")}\n")
+	print("{describe("")}\n")
+	print("{describe("-")}\n")
+	print("{describe("--5")}\n")
+	print("{describe("5-")}\n")
+	print("{describe("+5")}\n")
+	print("{describe("1_000")}\n")
+	print("{describe("0x10")}\n")
+	print("{describe("0b1")}\n")
+	print("{describe(" 5")}\n")
+	print("{describe("5 ")}\n")
+	print("{describe("1.5")}\n")
+	print("{describe("12345678901234567890x")}\n")
+	print("{describe("٣")}\n")
+	return 0
+end 'main'
+
+//> [42] 42
+//> [-7] -7
+//> [0] 0
+//> [-0] 0
+//> [0007] 7
+//> [9223372036854775807] 9223372036854775807
+//> [-9223372036854775808] -9223372036854775808
+//> [9223372036854775808] outOfRange
+//> [-9223372036854775809] outOfRange
+//> [18446744073709551615] outOfRange
+//> [18446744073709551616] outOfRange
+//> [99999999999999999999999] outOfRange
+//> [] invalidFormat
+//> [-] invalidFormat
+//> [--5] invalidFormat
+//> [5-] invalidFormat
+//> [+5] invalidFormat
+//> [1_000] invalidFormat
+//> [0x10] invalidFormat
+//> [0b1] invalidFormat
+//> [ 5] invalidFormat
+//> [5 ] invalidFormat
+//> [1.5] invalidFormat
+//> [12345678901234567890x] invalidFormat
+//> [٣] invalidFormat

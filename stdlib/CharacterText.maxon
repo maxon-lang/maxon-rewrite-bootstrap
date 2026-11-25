@@ -1,0 +1,14 @@
+// Character.fromString, which maxon's Character has not: a String of exactly one Character, which is one grapheme cluster
+// (a base letter with its combining marks, a CR LF, an emoji sequence), read in place.
+extension Character implements Parsable
+	/// The Character the text is, when the text is one grapheme cluster and nothing else; an empty text, or one of several
+	/// clusters, is `ParseError.invalidFormat`.
+	public static function fromString(input String) returns Character throws ParseError
+		let first = input.startIndex()
+		let next = try input.indexAfter(first) otherwise throw ParseError.invalidFormat
+		if next.bytePos() != input.byteLength() 'several'
+			throw ParseError.invalidFormat
+		end 'several'
+		return input.charAt(first)
+	end 'fromString'
+end 'Character'

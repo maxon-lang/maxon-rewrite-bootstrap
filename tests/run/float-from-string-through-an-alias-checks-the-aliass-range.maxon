@@ -1,0 +1,84 @@
+// float.fromString reads a float literal's text, as maxon does (an optional `-`, digits with `_`, one `.`, an exponent with
+// an optional sign; no `+`, no space, no `inf` or `nan`), through a typealias of a float as a value of that alias: a number
+// outside its range, or past f64.max, is outOfRange, and text that is no float literal is invalidFormat.
+typealias Ratio = float(0.0 to 1.0)
+
+typealias Offset = float(-10.0 to 10.0)
+
+function describe(text String) returns String
+	let value = try float.fromString(text) otherwise (failure) 'refused'
+		return "[{text}] {failure}"
+	end 'refused'
+	return "[{text}] {value}"
+end 'describe'
+
+function describeRatio(text String) returns String
+	let ratio = try Ratio.fromString(text) otherwise (failure) 'refused'
+		return "ratio {failure}"
+	end 'refused'
+	return "ratio {ratio}"
+end 'describeRatio'
+
+function describeOffset(text String) returns String
+	let offset = try Offset.fromString(text) otherwise (failure) 'refused'
+		return "offset {failure}"
+	end 'refused'
+	return "offset {offset}"
+end 'describeOffset'
+
+function main() returns ExitCode
+	print("{describe("3.14")}\n")
+	print("{describe("-2.5")}\n")
+	print("{describe("1_000.5")}\n")
+	print("{describe("1.5e3")}\n")
+	print("{describe("2E-2")}\n")
+	print("{describe("-0.0")}\n")
+	print("{describe("5")}\n")
+	print("{describe("1e22")}\n")
+	print("{describe("1e309")}\n")
+	print("{describe("-1e309")}\n")
+	print("{describe("1e-400")}\n")
+	print("{describe("")}\n")
+	print("{describe("-")}\n")
+	print("{describe(".")}\n")
+	print("{describe("+1.5")}\n")
+	print("{describe("1.2.3")}\n")
+	print("{describe("1.5x")}\n")
+	print("{describe(" 1.5")}\n")
+	print("{describe("inf")}\n")
+	print("{describe("1e5x")}\n")
+	print("{describe("e5")}\n")
+	print("{describeRatio("0.5")} {describeOffset("0.5")}\n")
+	print("{describeRatio("1.0")} {describeOffset("-10")}\n")
+	print("{describeRatio("1.5")} {describeOffset("10.5")}\n")
+	print("{describeRatio("-0.25")} {describeOffset("1e2")}\n")
+	print("{describeRatio("1e999")} {describeOffset("x")}\n")
+	return 0
+end 'main'
+
+//> [3.14] 3.14
+//> [-2.5] -2.5
+//> [1_000.5] 1000.5
+//> [1.5e3] 1500.0
+//> [2E-2] 0.02
+//> [-0.0] -0.0
+//> [5] 5.0
+//> [1e22] 10000000000000000000000.0
+//> [1e309] outOfRange
+//> [-1e309] outOfRange
+//> [1e-400] 0.0
+//> [] invalidFormat
+//> [-] invalidFormat
+//> [.] invalidFormat
+//> [+1.5] invalidFormat
+//> [1.2.3] invalidFormat
+//> [1.5x] invalidFormat
+//> [ 1.5] invalidFormat
+//> [inf] invalidFormat
+//> [1e5x] invalidFormat
+//> [e5] invalidFormat
+//> ratio 0.5 offset 0.5
+//> ratio 1.0 offset -10.0
+//> ratio outOfRange offset outOfRange
+//> ratio outOfRange offset outOfRange
+//> ratio outOfRange offset invalidFormat

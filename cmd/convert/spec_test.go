@@ -11,7 +11,7 @@ import (
 const specFile = "---\r\nfeature: demo\r\n---\r\n\r\n## Documentation\r\n\r\n```maxon\r\nlet docs = 1.5\r\n```\r\n\r\n" +
 	"## Tests\r\n\r\n" +
 	"<!-- test: clean -->\r\nWhat the test shows.\r\n```maxon\r\nfunction main() returns ExitCode\r\n\t\tlet x = 3\r\n\r\n\t\treturn x\r\nend 'main'\r\n```\r\n```exitcode\r\n3\r\n```\r\n\r\n" +
-	"<!-- test: unsupported -->\r\n<!-- Args: 1 -->\r\n```maxon\r\nfunction main() returns ExitCode\r\n\tlet x = int.fromString(\"1\")\r\n\treturn 0\r\nend 'main'\r\n```\r\n```exitcode\r\n0\r\n```\r\n\r\n" +
+	"<!-- test: unsupported -->\r\n<!-- Args: 1 -->\r\n```maxon\r\nfunction main() returns ExitCode\r\n\treply.later()\r\n\treturn 0\r\nend 'main'\r\n```\r\n```exitcode\r\n0\r\n```\r\n\r\n" +
 	"<!-- test: two-files -->\r\n```maxon\r\n// --- file: lib/a.maxon\r\nexport function a() returns ExitCode\r\n\t\treturn 1\r\nend 'a'\r\n\r\n// --- file: main.maxon\r\nfunction main() returns ExitCode\r\n\treturn a()\r\nend 'main'\r\n```\r\n```exitcode\r\n1\r\n```\r\n\r\n" +
 	"<!-- test: syntax-error -->\r\n```maxon\r\nfunction main() returns ExitCode\r\n\treturn (\r\nend 'main'\r\n```\r\n```maxoncstderr\r\nerror E2001: <fragment>:3:1: oops\r\n```\r\n\r\n" +
 	"<!-- test: quoted -->\r\n```text\r\n<!-- test: not a test -->\r\n```\r\n"
@@ -31,7 +31,7 @@ func TestConvertSpecConvertsEachTestsBlockAndMarksTheOnesThatWarned(t *testing.T
 	want := "---\nfeature: demo\n---\n\n## Documentation\n\n```maxon\nlet docs = 1.5\n```\n\n" +
 		"## Tests\n\n" +
 		"<!-- test: clean -->\nWhat the test shows.\n```maxon\nfunction main() returns ExitCode\n\tlet x = 3\n\treturn x\nend 'main'\n```\n```exitcode\n3\n```\n\n" +
-		"<!-- test: unsupported -->\n<!-- skip: 'int.fromString' is not supported in minimaxon -->\n<!-- Args: 1 -->\n```maxon\nfunction main() returns ExitCode\n\t// TODO: 'int.fromString' is not supported in minimaxon\n\tlet x = int.fromString(\"1\")\n\treturn 0\nend 'main'\n```\n```exitcode\n0\n```\n\n" +
+		"<!-- test: unsupported -->\n<!-- skip: reply.later() is not supported in minimaxon -->\n<!-- Args: 1 -->\n```maxon\nfunction main() returns ExitCode\n\t// TODO: reply.later() is not supported in minimaxon\n\treply.later()\n\treturn 0\nend 'main'\n```\n```exitcode\n0\n```\n\n" +
 		"<!-- test: two-files -->\n```maxon\n// --- file: lib/a.maxon\nexport function a() returns ExitCode\n\treturn 1\nend 'a'\n\n// --- file: main.maxon\nfunction main() returns ExitCode\n\treturn a()\nend 'main'\n```\n```exitcode\n1\n```\n\n" +
 		"<!-- test: syntax-error -->\n```maxon\nfunction main() returns ExitCode\n\treturn (\nend 'main'\n```\n```maxoncstderr\nerror E2001: <fragment>:3:1: oops\n```\n\n" +
 		"<!-- test: quoted -->\n```text\n<!-- test: not a test -->\n```\n"
@@ -79,7 +79,7 @@ func TestSpecsCheckCountsTestsPerKind(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := runMain([]string{"--specs", "--check", dir}, strings.NewReader(""), &stdout, &stderr)
-	want := "     1    1 files  'int.fromString' is not supported in minimaxon\n5 tests: 4 converted cleanly, 1 skipped\n1 of 1 files would change\n"
+	want := "     1    1 files  reply.later() is not supported in minimaxon\n5 tests: 4 converted cleanly, 1 skipped\n1 of 1 files would change\n"
 	if code != 1 || stdout.String() != want {
 		t.Fatalf("code=%d stdout=%q want %q", code, stdout.String(), want)
 	}
@@ -101,7 +101,7 @@ func TestSpecsOutWritesLFFilesAndTheSummary(t *testing.T) {
 		t.Fatalf("code=%d stderr=%q", code, stderr.String())
 	}
 	got, err := os.ReadFile(filepath.Join(out, "demo.md"))
-	if err != nil || bytes.Contains(got, []byte("\r")) || !bytes.Contains(got, []byte("<!-- skip: 'int.fromString'")) {
+	if err != nil || bytes.Contains(got, []byte("\r")) || !bytes.Contains(got, []byte("<!-- skip: reply.later()")) {
 		t.Fatalf("err=%v got=%q", err, got)
 	}
 	if !strings.HasSuffix(stdout.String(), "5 tests: 4 converted cleanly, 1 skipped\n") {
