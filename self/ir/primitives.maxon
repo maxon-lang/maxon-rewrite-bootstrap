@@ -553,11 +553,18 @@ function lowerArrayRemove(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	return arrayRemove(l, p: p, ms: ms, box: a, arr: recv, index: args[0])
 end 'lowerArrayRemove'
 
+// lowerArrayDropEmpty ends an array of count 0: an array has no empty slot below its count, so its count is what is left.
 function lowerArrayDropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
-	let filled = arrayAnyFilled(l, p: p, ms: ms, box: a, arr: recv)
-	return dropEmpty(l, p: p, ms: ms, c: c, left: filled, collection: recv)
+	let left = arrayLength(l, p: p, ms: ms, box: a, arr: recv)
+	return dropEmpty(l, p: p, ms: ms, c: c, left: left, collection: recv)
 end 'lowerArrayDropEmpty'
+
+// lowerSlotArrayDropEmpty ends a slot array whose slots its caller knows to be empty, so nothing is left to test.
+function lowerSlotArrayDropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	dropValue(l, p: p, ms: ms, v: recv, t: exprType(p, module: l.module, node: c.receiver))
+	return konst(l, value: 0 as Word)
+end 'lowerSlotArrayDropEmpty'
 
 function lowerArrayPop(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)

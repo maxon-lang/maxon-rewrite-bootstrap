@@ -1,4 +1,4 @@
-// dropEmpty ends an array whose every slot is empty, as resize grows them and clearSlot leaves them, whatever the array
+// dropEmpty ends a slot array whose every slot is empty, as create(n) makes them and clearSlot leaves them, whatever it
 // holds: Strings, words, records held in place or boxed, and bytes. Over a scalar an empty slot is the element 0.
 typealias Integer = int(i64.min to i64.max)
 
@@ -20,13 +20,12 @@ type Named
 end 'Named'
 
 type Table uses Element where Element implements Droppable
-	typealias Column = Array with Element
+	typealias Column = __SlotArray with Element
 	var slots as Column
 
 	static function filledOnce(consumes value Element) returns Self
-		var slots = Column.create(0)
-		slots.resize(3)
-		try slots.set(1, value: value) otherwise panic("a slot inside the table")
+		var slots = Column.create(3)
+		slots.fillSlot(1, value: value)
 		try slots.clearSlot(1) otherwise panic("a slot inside the table")
 		return Self{slots: slots}
 	end 'filledOnce'

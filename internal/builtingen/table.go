@@ -687,6 +687,7 @@ var tableFunctions = []function{
 	// remove and pop shrink the count where they succeed and change nothing where they fail, so shrink is true of both exits.
 	{Owner: "Array", Name: "remove", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "T", Throws: "ArrayError", Intrinsic: "ArrayRemove", Count: countShrink},
 	{Owner: "Array", Name: "pop", Self: "mutates", Result: "T", Throws: "ArrayError", Intrinsic: "ArrayPop", Count: countShrink},
+	// dropEmpty ends an array of count 0, the one whose every slot below its count is empty, and traps otherwise.
 	{Owner: "Array", Name: "dropEmpty", Self: "consumes", Intrinsic: "ArrayDropEmpty"},
 	// clear and truncate drop the elements they remove; reserve makes the buffer hold a count, which no part of the array's value
 	// shows; resize grows with zero elements, which the checker holds to an element that has one.
@@ -718,8 +719,8 @@ var tableFunctions = []function{
 	{Owner: "Array", Name: "last", Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayLast"},
 
 	// A slot array's operations are the array's of the same name, at the same intrinsics, but for create(n), whose n slots are
-	// empty where the array's are zero elements, so it is legal for every element, and isFilled(at), which an array whose
-	// every slot below its count is filled has no need of. isFilled traps past the end, as a subscript does; over a scalar an
+	// empty where the array's are zero elements, so it is legal for every element, isFilled(at), which an array whose
+	// every slot below its count is filled has no need of, and dropEmpty. isFilled traps past the end, as a subscript does; over a scalar an
 	// empty slot is the element 0, as dropEmpty reads it.
 	{Owner: "SlotArray", Name: "create", Static: true, Params: []string{"count ElementIndex"}, Result: "Self", Intrinsic: "ArrayEmptySlots"},
 	// adopt makes the slot array of an array's box, every slot filled: the same value under the slot array's type, as an
@@ -735,7 +736,9 @@ var tableFunctions = []function{
 	{Owner: "SlotArray", Name: "lendSlot", Params: []string{"at ElementIndex"}, Result: "T", Lends: true, Place: true, Intrinsic: "ArrayLendSlot"},
 	// clear drops the element of every filled slot, skipping the empty ones as an array's drop does, and keeps the buffer.
 	{Owner: "SlotArray", Name: "clear", Self: "mutates", Bounds: []string{"T Droppable"}, Intrinsic: "ArrayClear"},
-	{Owner: "SlotArray", Name: "dropEmpty", Self: "consumes", Intrinsic: "ArrayDropEmpty"},
+	// dropEmpty ends a slot array whose every slot is empty, with no test of its own: the slot table that calls it knows
+	// how many elements it holds, as an array knows its count, and tests that.
+	{Owner: "SlotArray", Name: "dropEmpty", Self: "consumes", Intrinsic: "SlotArrayDropEmpty"},
 
 	// A FixedArray is an array's box of its count of elements, which never grows. create() makes the count its type states,
 	// zeroed, and create(value:) copies of the value; a runtime-sized one takes the count, create(n) and create(n, value:),

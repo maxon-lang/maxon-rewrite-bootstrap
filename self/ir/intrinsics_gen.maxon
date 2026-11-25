@@ -107,6 +107,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrArrayIsFilled 'intrArrayIsFilled'
 		return lowerArrayIsFilled(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayIsFilled'
+	if op == ast.Intrinsic.intrSlotArrayDropEmpty 'intrSlotArrayDropEmpty'
+		return lowerSlotArrayDropEmpty(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSlotArrayDropEmpty'
 	if op == ast.Intrinsic.intrFixedArrayCreate 'intrFixedArrayCreate'
 		return lowerFixedArrayCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFixedArrayCreate'
@@ -889,6 +892,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrArrayIsFilled 'intrArrayIsFilled'
 		return false
 	end 'intrArrayIsFilled'
+	if op == ast.Intrinsic.intrSlotArrayDropEmpty 'intrSlotArrayDropEmpty'
+		return false
+	end 'intrSlotArrayDropEmpty'
 	if op == ast.Intrinsic.intrFixedArrayCreate 'intrFixedArrayCreate'
 		return false
 	end 'intrFixedArrayCreate'

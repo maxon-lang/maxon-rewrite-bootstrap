@@ -1,13 +1,13 @@
 // expect-exit: 1
-// dropEmpty traps where one slot of the array still holds an element, the empty slots around it notwithstanding.
+// dropEmpty traps where the array still holds an element: an array has no empty slot below its count, so it ends only at
+// count 0.
 type Table uses Element where Element implements Droppable
 	typealias Column = Array with Element
 	var slots as Column
 
 	static function filledOnce(consumes value Element) returns Self
 		var slots = Column.create(0)
-		slots.resize(3)
-		try slots.set(2, value: value) otherwise panic("a slot inside the table")
+		slots.push(value)
 		return Self{slots: slots}
 	end 'filledOnce'
 

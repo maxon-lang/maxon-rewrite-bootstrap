@@ -1,5 +1,5 @@
-// takeSlot moves an element out and leaves its slot empty, and fillSlot moves one into an empty slot, neither dropping
-// anything, so a slot table holds an element without Droppable, here a transaction that must be committed. takeSlot fails
+// A slot array's takeSlot moves an element out and leaves its slot empty, and fillSlot moves one into an empty slot,
+// neither dropping anything, so a slot table holds an element without Droppable, here a transaction that must be committed. takeSlot fails
 // with emptySlot at an empty slot and indexOutOfBounds past the end; over a scalar an empty slot is the element 0.
 typealias Integer = int(i64.min to i64.max)
 
@@ -29,7 +29,7 @@ type Point
 end 'Point'
 
 type Table uses Element
-	typealias Column = Array with Element
+	typealias Column = __SlotArray with Element
 	var slots as Column
 
 	static function holding(consumes first Element, consumes second Element) returns Self

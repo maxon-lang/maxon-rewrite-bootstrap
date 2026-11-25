@@ -1,6 +1,6 @@
 // expect-exit: 1
-// fillSlot drops nothing, so it traps at a slot that holds an element rather than lose it.
-typealias Names = Array with String
+// A slot array's fillSlot drops nothing, so it traps at a slot that holds an element rather than lose it.
+typealias Names = __SlotArray with String
 
 function main() returns ExitCode
 	var names = Names.create(0)

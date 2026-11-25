@@ -233,6 +233,7 @@ export enum Intrinsic
 	intrArrayLast
 	intrArrayEmptySlots
 	intrArrayIsFilled
+	intrSlotArrayDropEmpty
 	intrFixedArrayCreate
 	intrFixedArrayFilled
 	intrFixedArrayCreateCounted
@@ -658,6 +659,7 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrArrayLast or
 		intrArrayEmptySlots or
 		intrArrayIsFilled or
+		intrSlotArrayDropEmpty or
 		intrFixedArrayCreate or
 		intrFixedArrayFilled or
 		intrFixedArrayCreateCounted or
@@ -1147,6 +1149,7 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrArrayClearSlot or
 		intrArrayFillSlot or
 		intrArrayTakeSlot or
+		intrSlotArrayDropEmpty or
 		intrArraySwap or
 		intrCursorAdvance or
 		intrCursorRetreat or
@@ -1209,6 +1212,7 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrArrayLast or
 		intrArrayEmptySlots or
 		intrArrayIsFilled or
+		intrSlotArrayDropEmpty or
 		intrFixedArrayCreate or
 		intrFixedArrayFilled or
 		intrFixedArrayCreateCounted or
@@ -2183,7 +2187,7 @@ function declareSlotArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates f
 	let f25 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.slotArrayOrigin, op: Intrinsic.intrArrayClear, name: "clear", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 	let p26 = typeEntry(tt, reads: reads, t: b.slotArrayOrigin).typeParams[0]
 	ft.lists[funcList(ft, f: f25)][funcIndex(ft, f: f25)].bounds.push(ParamBound.make(p26, ifaceTy: b.droppableTy))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.slotArrayOrigin, op: Intrinsic.intrArrayDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.slotArrayOrigin, op: Intrinsic.intrSlotArrayDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 end 'declareSlotArrayMethods'
 
 function declareFixedArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
