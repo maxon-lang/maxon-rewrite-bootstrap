@@ -3098,18 +3098,16 @@ function adopt(consumes p Payload) returns Integer
 end 'adopt'
 
 function main() returns ExitCode
-	let h = spawn(capacity: 1) Store.create()
+	let h = spawn Store.create()
 	let accepted = Payload.create(1) as Payload
 	try h.keep(accepted) otherwise panic("a capacity of one takes the first send")
 	let second = Payload.create(2) as Payload
 	var total = 0 as Integer
 	try h.keep(second) otherwise (e) 'refused'
 		match e 'first'
-			mailboxFull(back) then total = adopt(back)
 			serviceStopped(back) then total = adopt(back)
 		end 'first'
 		match e 'second'
-			mailboxFull(again) then total = total + again.n
 			serviceStopped(again) then total = total + again.n
 		end 'second'
 	end 'refused'
@@ -3160,7 +3158,7 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	let h = spawn(capacity: 1) Store.create()
+	let h = spawn Store.create()
 	let empty = Payload.create(0) as Payload
 	var shelf = Shelf.holding(empty)
 	let accepted = Payload.create(1) as Payload
@@ -3168,7 +3166,6 @@ function main() returns ExitCode
 	let second = Payload.create(2) as Payload
 	try h.keep(second) otherwise (e) 'refused'
 		match e 'first'
-			mailboxFull(back) then shelf = Shelf.holding(back)
 			serviceStopped(back) then shelf = Shelf.holding(back)
 		end 'first'
 	end 'refused'
@@ -3221,7 +3218,7 @@ function adopt(consumes p Payload) returns Integer
 end 'adopt'
 
 function main() returns ExitCode
-	let h = spawn(capacity: 1) Store.create()
+	let h = spawn Store.create()
 	let accepted = Payload.create(1) as Payload
 	try h.keep(accepted) otherwise panic("a capacity of one takes the first send")
 	let second = Payload.create(2) as Payload
@@ -3229,11 +3226,9 @@ function main() returns ExitCode
 	try h.keep(second) otherwise (e) 'refused'
 		let other = e
 		match e 'first'
-			mailboxFull(back) then total = adopt(back)
 			serviceStopped(back) then total = adopt(back)
 		end 'first'
 		match other 'second'
-			mailboxFull(again) then total = total + adopt(again)
 			serviceStopped(again) then total = total + adopt(again)
 		end 'second'
 	end 'refused'

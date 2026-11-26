@@ -724,7 +724,7 @@ arg
 // A spawn starts a service of the type whose static factory the call names, and gives its handle. `spawn` is a word only
 // where a spawn starts (the parser's atSpawn), so it stays a name everywhere else.
 spawnExpr
-    : spawn=Name (^'(' capacity=arg ')')? call=expr
+    : spawn=Name call=expr
     ;
 
 panicExpr

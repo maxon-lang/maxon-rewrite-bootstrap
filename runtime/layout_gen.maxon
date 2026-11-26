@@ -66,11 +66,11 @@ let cownValueOffset = 24 as Count
 // cownBytes is the size of a cown.
 let cownBytes = 40 as Count
 
-// serviceGateOffset is where a service holds its mailbox's gate, stepped atomically: how many messages are queued and not yet started, plus serviceClosed once it is shut down.
+// serviceGateOffset is where a service holds its mailbox's gate, stepped atomically: how many messages are queued and not yet started, plus its flags: serviceClosed once it is shut down, serviceBehind and serviceMuted.
 let serviceGateOffset = 40 as Count
 
-// serviceCapacityOffset is where a service holds how many messages its mailbox holds at most.
-let serviceCapacityOffset = 48 as Count
+// serviceMutedOffset is where a service holds the senders muted on it while it is behind, a ring of entries named by its newest, whose link names the oldest, 0 for none, with mutedLock added while one holds it.
+let serviceMutedOffset = 48 as Count
 
 // serviceBytes is the size of a service.
 let serviceBytes = 56 as Count
@@ -528,8 +528,14 @@ let greenTimerIndexOffset = 496 as Count
 // greenEventOffset is where a green thread holds the address of the state word of the event entry it waits on, 0 while it waits on none: a timer that falls due for it and a cancel claim its wake there.
 let greenEventOffset = 504 as Count
 
+// greenServiceOffset is where a green thread holds the service whose message it runs, which the message's start names, 0 while it runs none.
+let greenServiceOffset = 512 as Count
+
+// greenMuteOffset is where a green thread holds muteListed while the behaviour it runs is listed on a service that is behind, and a task readied from such a list holds the entries its wake goes on to unmute; 0 otherwise.
+let greenMuteOffset = 520 as Count
+
 // greenBytes is the size of a green thread's record.
-let greenBytes = 512 as Count
+let greenBytes = 528 as Count
 
 // selectorGreenOffset is where a selector holds the green thread that waits.
 let selectorGreenOffset = 0 as Count

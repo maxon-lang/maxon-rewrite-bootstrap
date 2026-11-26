@@ -65,7 +65,6 @@ function main() returns ExitCode
 	h.shutdown()
 	let after = try await h.total() otherwise (e) 'refused'
 		match e 'why'
-			mailboxFull then print("full\n")
 			serviceStopped then print("stopped\n")
 		end 'why'
 		return 0

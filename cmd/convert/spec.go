@@ -102,6 +102,9 @@ func ConvertSpec(file, src string) SpecResult {
 					c.expectsError = true
 					c.expectsSyntaxError = c.expectsSyntaxError || hasSyntaxError(lines[i+1:end])
 				}
+				if c.open && inTests && expectationNamesMailbox(lines[i+1:end]) {
+					c.kinds = append(c.kinds, mailboxWarning)
+				}
 				c.out = append(c.out, lines[i:min(end+1, len(lines))]...)
 			}
 			i = end + 1

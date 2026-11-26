@@ -217,7 +217,7 @@ function again(e Store.keep.sendError) throws Store.keep.sendError
 end 'again'
 
 function main() returns ExitCode
-	let h = spawn(capacity: 1) Store.create()
+	let h = spawn Store.create()
 	let first = Box.create(1) as Box
 	let second = Box.create(2) as Box
 	try h.keep(first) otherwise panic("a capacity of one takes the first send")

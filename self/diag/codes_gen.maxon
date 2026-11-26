@@ -342,9 +342,6 @@ export let errComparisonMethodWrites = "E3187"
 // A message that replies is sent as a statement, so its reply is neither awaited, kept nor dropped on purpose.
 export let errReplyDropped = "E3190"
 
-// A message declares a parameter named sendTimeout, which every send keeps.
-export let errSendTimeoutReserved = "E3192"
-
 // An instance method is called by its type's name or, in a static method, by its bare name, with no value to call it on.
 export let errInstanceMethodWithoutReceiver = "E3193"
 

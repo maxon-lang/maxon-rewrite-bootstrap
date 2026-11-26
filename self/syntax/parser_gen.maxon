@@ -2820,15 +2820,8 @@ function parseSpawnExpr(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let v1 = try p.expect(TokenKind.name, what: "a name")
 	let v2 = p.textRef(v1)
 	ast.setSpawnExprSpawnRef(p.tree, id: n, ref: v2)
-	if p.at(TokenKind.lParen) and p.peekIn(lookahead58) 'b1'
-		p.joinNext = true
-		try p.pass(TokenKind.lParen, what: "'('")
-		let v3 = try parseArg(p)
-		ast.setSpawnExprCapacity(p.tree, id: n, value: v3)
-		try p.pass(TokenKind.rParen, what: "')'")
-	end 'b1'
-	let v4 = try parseExpr(p)
-	ast.setSpawnExprCall(p.tree, id: n, value: v4)
+	let v3 = try parseExpr(p)
+	ast.setSpawnExprCall(p.tree, id: n, value: v3)
 	return n
 end 'parseSpawnExpr'
 

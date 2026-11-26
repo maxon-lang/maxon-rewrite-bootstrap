@@ -113,13 +113,18 @@ type SharedData
 	var cell as Count
 	// owned are, for a closure, whether it owns each value it captured, which freeing it frees, or only borrows it.
 	var owned as BoolList
-	// gate and capacity are a service's mailbox, as the runtime's gate is: the messages sent and not started, with
-	// serviceClosed added once the service is shut down, and how many it holds.
+	// gate is a service's mailbox, as the runtime's gate is: the messages sent and not started, with serviceClosed added once
+	// the service is shut down. behind, muted, turn and senders are its backpressure (strands.maxon): whether it is behind,
+	// whether a message of it is kept muted, how many of its messages ran since its queue was last empty, and the senders
+	// muted on it, in order.
 	var gate as Count
-	var capacity as Count
+	var behind as bool
+	var muted as bool
+	var turn as Count
+	var senders as CountList
 
 	static function new() returns SharedData
-		return SharedData{count: 1, holders: CountList.create(0), queue: CountList.create(0), running: 0, ending: 0, cell: 0, owned: BoolList.create(0), gate: 0, capacity: 0}
+		return SharedData{count: 1, holders: CountList.create(0), queue: CountList.create(0), running: 0, ending: 0, cell: 0, owned: BoolList.create(0), gate: 0, behind: false, muted: false, turn: 0, senders: CountList.create(0)}
 	end 'new'
 end 'SharedData'
 

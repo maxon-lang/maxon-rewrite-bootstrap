@@ -559,6 +559,21 @@ func TestConvertEarlyDestructIsWarned(t *testing.T) {
 	}
 }
 
+// TestConvertDropsMailboxCapacity covers the mailbox that has no capacity: a spawn's capacity, a send's sendTimeout and a
+// mailboxFull arm go, and any other use of the case is warned.
+func TestConvertDropsMailboxCapacity(t *testing.T) {
+	in := "function main() returns ExitCode\n\tlet h = spawn(capacity: 4) Store.create()\n\ttry h.keep(\"a\", sendTimeout: 5) otherwise (e) 'refused'\n\t\tmatch e 'why'\n\t\t\tmailboxFull then print(\"full\")\n\t\t\tserviceStopped then print(\"stopped\")\n\t\tend 'why'\n\tend 'refused'\n\ttry h.ping(sendTimeout: 5) otherwise ignore\n\treturn 0\nend 'main'\n"
+	want := "function main() returns ExitCode\n\tlet h = spawn Store.create()\n\ttry h.keep(\"a\") otherwise (e) 'refused'\n\t\tmatch e 'why'\n\t\t\tserviceStopped then print(\"stopped\")\n\t\tend 'why'\n\tend 'refused'\n\ttry h.ping() otherwise ignore\n\treturn 0\nend 'main'\n"
+	res := Convert("test.maxon", in, specProgram)
+	if len(res.Warnings) != 0 || res.Text != want {
+		t.Fatalf("warnings %v, got:\n%q\nwant:\n%q", res.Warnings, res.Text, want)
+	}
+	other := Convert("test.maxon", "function full(e SendError) returns bool\n\treturn e == SendError.mailboxFull\nend 'full'\n", specProgram)
+	if len(other.Warnings) != 1 || other.Warnings[0].Message != mailboxWarning {
+		t.Fatalf("warnings %v", other.Warnings)
+	}
+}
+
 func TestConvertTupleElementSpelling(t *testing.T) {
 	in := "function f(p (Count, Count)) returns Count\n\treturn p._0 + p._1\nend 'f'\n"
 	want := "function f(p (Count, Count)) returns Count\n\treturn p.0 + p.1\nend 'f'\n"

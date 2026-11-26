@@ -4854,14 +4854,13 @@ type Kp
 end 'Kp'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Kp.create(Box.create(0), n: 0)
-	let bV = spawn(capacity: 1) Kp.create(Box.create(0), n: 0)
+	let a = spawn Kp.create(Box.create(0), n: 0)
+	let bV = spawn Kp.create(Box.create(0), n: 0)
 	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire a 'a1'
 		let r = Resp.create(0) as Resp
 		try bV.take(r) otherwise (sendFailure) 'h3'
 			match sendFailure 'x4'
-				mailboxFull(q) then q.fin(1)
 				serviceStopped(q) then q.fin(1)
 			end 'x4'
 		end 'h3'
@@ -5372,7 +5371,6 @@ type Sv
 	export function viaSelf(me Sv.handle)
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(b) then b.fin(9)
 				serviceStopped(b) then b.fin(9)
 			end 'x2'
 		end 'h1'
@@ -5471,7 +5469,6 @@ type Sv
 	export function viaSelf(me Sv.handle)
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(b) then b.fin(9)
 				serviceStopped(b) then b.fin(9)
 			end 'x2'
 		end 'h1'
@@ -5570,7 +5567,6 @@ type Sv
 	export function viaSelf(me Sv.handle)
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(b) then b.fin(9)
 				serviceStopped(b) then b.fin(9)
 			end 'x2'
 		end 'h1'
@@ -5669,7 +5665,6 @@ type Sv
 	export function viaSelf(me Sv.handle)
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(b) then b.fin(9)
 				serviceStopped(b) then b.fin(9)
 			end 'x2'
 		end 'h1'
@@ -5771,7 +5766,6 @@ type Sv
 	export function viaSelf(me Sv.handle)
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(b) then b.fin(9)
 				serviceStopped(b) then b.fin(9)
 			end 'x2'
 		end 'h1'
@@ -5872,7 +5866,6 @@ type Sv
 	export function viaSelf(me Sv.handle)
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(b) then b.fin(9)
 				serviceStopped(b) then b.fin(9)
 			end 'x2'
 		end 'h1'
@@ -5954,13 +5947,12 @@ type Kq
 end 'Kq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	let k = spawn Kq.create(0)
 	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire k 'a1'
 		try a.take(Resp.create(0)) otherwise (sendFailure) 'h3'
 			match sendFailure 'x4'
-				mailboxFull(q) then q.fin(1)
 				serviceStopped(q) then q.fin(1)
 			end 'x4'
 		end 'h3'
@@ -9376,7 +9368,6 @@ function main() returns ExitCode
 	let k = spawn Bn.create(0)
 	try k.eat(Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))), t: t.clone()) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z, _) then eatMr(z)
 			serviceStopped(z, _) then eatMr(z)
 		end 'x2'
 	end 'h1'

@@ -208,6 +208,8 @@ function schedule(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	vm.behaviours.capturesR.push(capturesR)
 	vm.behaviours.seq.push(vm.scheduled)
 	vm.behaviours.started.push(false)
+	vm.behaviours.mute.push(muteNone)
+	vm.behaviours.mutedOn.push(0)
 	vm.scheduled = try vm.scheduled + 1 otherwise panic("interp: more behaviours than memory")
 	for i in 0 upto cowns.count() 'queues'
 		let at = vm.h.oData[cowns[i]]
@@ -236,9 +238,21 @@ function beginBehaviour(mutates vm Vm, b Count) returns Count
 	return t
 end 'beginBehaviour'
 
-// finishBehaviour releases the cowns of a behaviour that has run: the next behaviour in each queue may now start, and the count
-// the behaviour held on each is given back, which frees a cown that nothing else refers to.
+// finishBehaviour releases the cowns of a behaviour that has run, unless backpressure mutes it (keepMuted).
 function finishBehaviour(mutates vm Vm, b Count) throws Halt
+	let service = vm.threads[vm.cur].service
+	if vm.behaviours.mute[b] == muteListed 'muted'
+		try keepMuted(vm, b: b, service: service)
+		return
+	end 'muted'
+	vm.behaviours.mute[b] = muteNone
+	try releaseBehaviour(vm, b: b, service: service)
+end 'finishBehaviour'
+
+// releaseBehaviour gives back the cowns of a behaviour: the next behaviour in each queue may now start, and the count the
+// behaviour held on each is given back, which frees a cown that nothing else refers to. service is the service whose message
+// the behaviour is, or 0, whose turn the release counts (countTurn).
+function releaseBehaviour(mutates vm Vm, b Count, service Count) throws Halt
 	for i in 0 upto vm.behaviours.cowns[b].count() 'cowns'
 		let c = vm.behaviours.cowns[b][i]
 		let at = vm.h.oData[c]
@@ -247,9 +261,12 @@ function finishBehaviour(mutates vm Vm, b Count) throws Halt
 		end 'order'
 		try vm.h.shareds[at].queue.remove(0) otherwise ignore
 		vm.h.shareds[at].running = 0
+		if c == service 'message'
+			try countTurn(vm, service: c)
+		end 'message'
 		try unref(vm, o: c)
 	end 'cowns'
-end 'finishBehaviour'
+end 'releaseBehaviour'
 
 // FunctionJob is work to do on a function that is found by where it is in the program: the function is a borrow of the lists
 // the program is in, so what is done with it is the job's, and the job is handed to withFunction.
@@ -462,9 +479,10 @@ function runScheduler(mutates job Interp, p ast.Project, modules ModuleFunctions
 	end 'turns'
 end 'runScheduler'
 
-// waitsOn is whether something of the program has not run to its end: a thread that has not finished, or a behaviour queued.
+// waitsOn is whether something of the program has not run to its end: a thread that has not finished, a behaviour queued,
+// or one that backpressure keeps muted.
 function waitsOn(vm Vm) returns bool
-	if vm.pending.count() > 0 'queued'
+	if vm.pending.count() > 0 or mutedBehaviours(vm).count() > 0 'queued'
 		return true
 	end 'queued'
 	for t in 1 upto vm.threads.count() 'threads'

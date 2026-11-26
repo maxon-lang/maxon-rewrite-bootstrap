@@ -4709,7 +4709,7 @@ maxon's surface, on the green threads of the runtime (see "Green threads"):
   Go's select shares one sudog among its cases (`rt.async.awaitAny`); it consumes none. It is a wait on another party
   (`E3221` in a message or a factory), as maxon has it; on an array of anything else it is `E3004`.
 - Not yet: `get(i)`, `first()` and `last()` of an array of promises as reads of a slot (maxon's), which want `T`
-  `Copyable` here (`E3017`), an async call of a built-in such as `File.readText`, `sendTimeout:`, the deadlock exit 92,
+  `Copyable` here (`E3017`), an async call of a built-in such as `File.readText`, the deadlock exit 92,
   and I/O on the event queue.
 
 ### Services
@@ -4718,14 +4718,24 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
 `runtime/service.maxon`):
 
 - `spawn T.f(args)` starts a service of the type `T`, declared with `type` and no type parameters, whose static factory
-  `f` returns `T`, and gives its handle, a `T.handle` (`E3134` for any other target). `spawn(capacity: n)` sets how many
-  messages its mailbox holds (a `MailboxCapacity`, 1024 by default). A factory that cannot throw runs as the service's
-  first message; one that throws runs where the spawn is, and the spawn fails with its error (`try spawn ...`).
+  `f` returns `T`, and gives its handle, a `T.handle` (`E3134` for any other target). A mailbox has no capacity. A factory
+  that cannot throw runs as the service's first message; one that throws runs where the spawn is, and the spawn fails
+  with its error (`try spawn ...`).
 - A call through the handle of an export instance method of `T` is a **message** (`E3136` for any other method): the
   service runs it on its own green thread, one at a time, in the order the sends were made, so a handler that sleeps or
-  is preempted still holds the service. Every send can fail, with `SendError`: `mailboxFull` when the mailbox holds its
-  capacity of messages the service has not started, `serviceStopped` after `h.shutdown()`, which closes the mailbox and
-  lets the queued messages run. A send without `try` where nothing catches is `E3057`.
+  is preempted still holds the service. A send fails, with `SendError`, only as `serviceStopped`, after `h.shutdown()`,
+  which closes the mailbox and lets the queued messages run. A send without `try` where nothing catches is `E3057`.
+- **Backpressure** is the runtime's, Pony's (`runtime/service.maxon`), and no program chooses a number. A service is
+  behind when a turn of its messages ends at 64 with messages still queued, until a turn empties its queue, and while it
+  is muted with messages waiting: a flag of the gate that every send loads already. A service that sends to one that is
+  behind is muted when its handler ends: it keeps its cown and runs no next message until the receiver catches up, and
+  nothing waits inside a handler or holds a green thread meanwhile. A task (main, a coroutine, a `when` that is no
+  message) parks at the send instead. A sender that is itself behind is not muted, so services that flood each other keep
+  draining, and a service that catches up unmutes its senders in order, 64 at a time. A service that drives itself with
+  messages to itself is behind at the end of each turn, so it is not muted, and a service between two others that
+  falls behind passes its backlog on, as ponyc's does: only its own senders are slowed until it catches up. The interpreter models the same flag, mutes
+  and parks, with a turn of 1 to 4 messages drawn from the seed, and its deadlock report names each service muted with
+  nothing left to unmute it.
 - A handler that returns or throws **replies**: the send gives `Promise with R` (or `Promise with (R, E)`), which the
   sender awaits as an async call's promise (`try await h.total() otherwise 0`, or `let p = try h.total()` and `await p`);
   `_ = try h.total() ...` drops the reply on the service, and a reply sent as a statement is `E3190`. A reply's promise is
@@ -4741,7 +4751,7 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   parameter is `let` or `consumes`, never `mutates` or `sets` (`E3217`); either way its argument moves into the service,
   so the sender's variable is spent (`E3102`), and the contents of a frozen value, which are lent, are not sent (`E3217`).
   The state holds no promise (`E3216`) and reaches no handle to its own service, through fields, containers, cowns and
-  other services' states (`E4014`); no parameter is named `sendTimeout` (`E3192`).
+  other services' states (`E4014`).
 - A message is as visible as its service and no more (`E3167`), as maxon holds it: an unexported type that its module
   spawns may name unexported types in its messages. A spawn in another module does not narrow them.
 - An idle service holds its state, its cown and its gate (48 bytes), and no green thread or stack: each message is a
@@ -4762,9 +4772,14 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   reads the handle, lowers the arguments as a `consumes` call's, takes a place in the mailbox (`rt.service.reserve`, which
   fails as a call fails, dropping the arguments in flight), makes the reply's cell where the sender keeps one
   (`rt.reply.new`) and queues a `when` on the service's cown whose body (`<f>$when<n>`, made in `ir/services.maxon`) gives
-  the place back (`rt.service.taken`), calls the handler with the state and the arguments, drops what a `let` parameter
+  the place back (`rt.service.start`), calls the handler with the state and the arguments, drops what a `let` parameter
   only borrowed, and gives the cell what the handler returned and threw (`rt.reply.give`), or drops it. The cell is a
-  green thread's record that never runs, so `rt.async.await` awaits it as a coroutine.
+  green thread's record that never runs, so `rt.async.await` awaits it as a coroutine. A behaviour's thunk ends with
+  `rt.behaviour.release`, which hands the cowns on or keeps them while the behaviour is muted; then the runtime runs the
+  thunk's finish (`finish run <body>`) once the behaviour is unmuted, which hands them on through
+  `rt.behaviour.resumed` and drops the holds and the record as the thunk would have. `runtime/service.maxon` keeps the
+  entries the seed's code calls (`serviceNew` with a capacity it ignores, `serviceTaken`, `cownRelease`), whose messages
+  are never muted, until the seed is renewed.
 - The interpreter runs services as the runtime does: a service is a cown with its gate, each message a behaviour on it
   whose thread may sleep or await while it holds the cown, and a reply a promise that the message's behaviour finishes.
 - Not yet: see "Where it differs from Maxon".
@@ -4945,6 +4960,13 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 
 ### Where it differs from Maxon
 
+- **A mailbox has no capacity.** A program writes `spawn T.create()` where maxon writes `spawn(capacity: n) T.create()`,
+  sends with no `sendTimeout:`, and matches only `serviceStopped`, the one case of `SendError`, where maxon matches
+  `mailboxFull` too: a send never fails or waits for room, and fails only once the service has stopped. The runtime slows
+  a sender of a service that is behind instead (see "Services"), so no program chooses a number. `MailboxCapacity` and
+  `E3192` (a message parameter named `sendTimeout`) do not exist; `cmd/convert` drops a spawn's capacity, a send's
+  `sendTimeout:` and a `mailboxFull` arm, and a spec test that is about a full mailbox or a timed send is skipped with
+  that reason.
 - **Two overlapping conditional conformances are refused.** maxon accepts two conditional conformances of one type to one
   interface whose conditions overlap when only one of them declares the member; here the second is `E3941`, as a second
   unconditional one is, since which one holds would otherwise depend on which declares what (see "Extensions").
@@ -5346,9 +5368,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   maxon's inference counts such a call as no wait: the check cannot see what it runs, so it cannot show that the holder
   never waits on another party (the spec tests that run one are skipped with that reason). A
   factory that throws runs on the spawner's green thread, where maxon's runs on the service's while the spawner waits.
-  A send's error is the built-in `SendError` (`mailboxFull`, `serviceStopped`) and gives the arguments no way back,
+  A send's error is the built-in `SendError` (`serviceStopped`) and gives the arguments no way back,
   where maxon's `<Service>.<message>.sendError` carries them (the spec tests whose handler binds them are skipped with
-  that reason). Not yet: `sendTimeout:`, interface handles (`I.handle`),
+  that reason). Not yet: interface handles (`I.handle`),
   `T.request`, `reply.later()`, `SharedValue`, a generic service, a message with type parameters,
   one `try await h.m()` over a message that throws, and services in the interpreter.
 - `stdlib/stream/Stream.maxon` and `stdlib/console/Console.maxon` (`Console.stdin()`, a `StreamReader` over a `StdinSource`) are minimaxon's own,

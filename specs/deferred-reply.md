@@ -1522,7 +1522,7 @@ type Gate
 	export function ask() returns Tally throws ReplyStopped
 		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
-		try self.sink.take(pending, sendTimeout: 0) otherwise ignore
+		try self.sink.take(pending) otherwise ignore
 		pending.answer(4)
 		return
 	end 'ask'

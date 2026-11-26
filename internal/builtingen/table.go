@@ -41,7 +41,6 @@ var primTypes = []primType{
 	{"ThreadCpuTicks", "b.threadCpuTicksTy"},
 	{"UnixSeconds", "b.unixSecondsTy"},
 	{"UnixNanos", "b.unixNanosTy"},
-	{"MailboxCapacity", "b.mailboxCapacityTy"},
 	{"ReportedCapacity", "b.reportedCapacityTy"},
 	{"FullRangeInt", "b.fullRangeIntTy"},
 	// Float is the type of a float whose range is not known, which maxon names FullRangeFloat.
@@ -101,8 +100,6 @@ var stdAliases = []stdAlias{
 	// and HashDigest a seeded 64-bit digest (maxon's stdlib/Hasher.maxon), which the hash intrinsics give and take.
 	{Name: "OrderedWord", Field: "orderedWordTy", Bits: 64},
 	{Name: "HashDigest", Field: "hashDigestTy", Bits: 64},
-	// MailboxCapacity is maxon's: how many messages a service's mailbox holds at most, `spawn(capacity: n)`.
-	{Name: "MailboxCapacity", Field: "mailboxCapacityTy", Lo: "I128.fromCount(1 as Count)", Hi: "I128.fromCount(2147483648 as Count)"},
 }
 
 // extraField is a field of self's Builtins record that no row of the table gives it: a type that initBuiltins registers
@@ -361,10 +358,9 @@ var enumTypes = []enumType{
 		{"normal", "FilePermissionNormal"},
 		{"executable", "FilePermissionExecutable"},
 	}},
-	// SendError is what a send to a service fails with: maxon's cases of `<Service>.<message>.sendError`, in its order, whose
-	// index plus 1 is the word rt.service.reserve gives for each.
+	// SendError is what a send to a service fails with: maxon's cases of `<Service>.<message>.sendError` but mailboxFull, since a
+	// mailbox has no capacity, whose index plus 1 is the word rt.service.reserve gives for each.
 	{Key: "SendError", Name: "SendError", Cases: []enumCase{
-		{"mailboxFull", "SendMailboxFull"},
 		{"serviceStopped", "SendServiceStopped"},
 	}},
 	{Key: "FileDeleteError", Name: "FileDeleteError", Cases: []enumCase{
@@ -1202,7 +1198,8 @@ var entries = []entry{
 	{"ExitBlocking", "rt.exitBlocking", "Source", roleInternal, "(): the end of a blocking call's bracket, which may wait for a processor; the link puts a routine that does nothing in its place in a program without the scheduler"},
 	{"ExitClaim", "rt.exitClaim", "Source", roleInternal, "(context): what a thread that ends the process takes first, so that the monitor stops no thread again; the link puts a routine that does nothing in its place in a program without the scheduler"},
 	{"CownAcquire", "rt.cown.acquire", "Source", roleInternal, "(behaviour record): what a when calls with the record it made, which queues the behaviour on each cown it names and makes it runnable once it holds them all"},
-	{"CownRelease", "rt.cown.release", "Source", roleInternal, "(behaviour record): what a behaviour's thunk calls after its body, which hands each cown to the behaviour queued after it"},
+	{"BehaviourRelease", "rt.behaviour.release", "Source", roleInternal, "(behaviour record, finish) -> kept: what a behaviour's thunk calls after its body, which hands each cown to the behaviour queued after it, or gives 1 and keeps them while the behaviour is muted, the thunk's finish to run once it is unmuted"},
+	{"BehaviourResumed", "rt.behaviour.resumed", "Source", roleInternal, "(behaviour record): what the finish of a behaviour's thunk calls once the behaviour is unmuted, which hands each cown it kept to the behaviour queued after it"},
 	{"PinUnheld", "rt.pinUnheld", "Source", roleInternal, "(): the fatal error of an unpin by a thread that holds no pin, which the single-thread form of rt.unpin jumps to"},
 	{"MainRun", "rt.mainRun", "Source", roleInternal, "(code) -> exit code: what the entry calls in place of main, with the address of rt.mainGreen: main runs as a green thread, and the main thread runs the scheduler until nothing is left"},
 	{"MainGreen", "rt.mainGreen", "Runtime", roleInternal, "(green thread) -> exit code: the stub's code that main's green thread runs, which calls main, or each test of an executable of tests"},
@@ -1237,9 +1234,9 @@ var entries = []entry{
 	{"HashStringBytes", "rt.hash.string", "Source", roleCall, "(String, at, count, seed) -> the fold of the count bytes of the string from at under the seed; a span past the end panics"},
 	{"BytesReadWord", "rt.bytes.readWord", "Source", roleCall, "(ByteArray, at, width, bigEndian, error) -> the width bytes from at as a word, the first the most significant where bigEndian; past the end sets the error to indexOutOfBounds"},
 	{"BytesAppendWord", "rt.bytes.appendWord", "Source", roleCall, "(ByteArray, word, width, bigEndian): appends the word's low width bytes, the most significant first where bigEndian"},
-	{"ServiceNew", "rt.service.new", "Source", roleCall, "(state, capacity) -> handle: a service, a cown that holds its state and its mailbox's gate, whose state the factory's behaviour stores when it is 0"},
-	{"ServiceReserve", "rt.service.reserve", "Source", roleCall, "(handle) -> 0, or the SendError case plus 1: takes a place in the service's mailbox for a message, unless the mailbox holds its capacity or the service is shut down"},
-	{"ServiceTaken", "rt.service.taken", "Source", roleCall, "(state address): what the behaviour of a message calls as it starts, which gives its place in the mailbox back"},
+	{"ServiceNew", "rt.service.new", "Source", roleCall, "(state) -> handle: a service, a cown that holds its state and its mailbox's gate, whose state the factory's behaviour stores when it is 0"},
+	{"ServiceReserve", "rt.service.reserve", "Source", roleCall, "(handle) -> 0, or the SendError case plus 1: takes a place in the service's mailbox for a message, unless the service is shut down, and slows the sender when the service is behind"},
+	{"ServiceStart", "rt.service.start", "Source", roleCall, "(state address): what the behaviour of a message calls as it starts, which gives its place in the mailbox back and makes the service the one its green thread runs a message of"},
 	{"ServiceShutdown", "rt.service.shutdown", "Source", roleCall, "(handle): closes the service's mailbox, so every later send fails with serviceStopped; the messages queued still run"},
 	{"ReplyNew", "rt.reply.new", "Source", roleCall, "() -> promise: the cell a message's reply comes back in, which an await of a promise waits for as it waits for a coroutine"},
 	{"ReplyGive", "rt.reply.give", "Source", roleCall, "(promise, value, error): what the behaviour of a message calls with what its handler returned and failed with, which readies the green thread that awaits the reply"},
@@ -1437,7 +1434,8 @@ var runtimeFunctions = []runtimeFunction{
 	{"ExitBlocking", "exitBlocking()"},
 	{"ExitClaim", "takeExitClaim(context Count)"},
 	{"CownAcquire", "cownAcquire(record Count)"},
-	{"CownRelease", "cownRelease(record Count)"},
+	{"BehaviourRelease", "behaviourRelease(record Count, finish Count) Count"},
+	{"BehaviourResumed", "behaviourResumed(record Count)"},
 	{"PinUnheld", "pinUnheld()"},
 	{"MainRun", "mainRun(code Count) Count"},
 	{"AsyncNew", "asyncNew(code Count) Count"},
@@ -1471,9 +1469,9 @@ var runtimeFunctions = []runtimeFunction{
 	{"HashStringBytes", "hashStringBytes(text String, at Count, count Count, seed Count) Count"},
 	{"BytesReadWord", "bytesReadWord(array Count, at Count, width Count, bigEndian Bool, errorAddress Count) Count"},
 	{"BytesAppendWord", "bytesAppendWord(array Count, word Count, width Count, bigEndian Bool)"},
-	{"ServiceNew", "serviceNew(state Count, capacity Count) Count"},
+	{"ServiceNew", "serviceCreate(state Count) Count"},
 	{"ServiceReserve", "serviceReserve(handle Count) Count"},
-	{"ServiceTaken", "serviceTaken(state Count)"},
+	{"ServiceStart", "serviceStart(state Count)"},
 	{"ServiceShutdown", "serviceShutdown(handle Count)"},
 	{"ReplyNew", "replyNew() Count"},
 	{"ReplyGive", "replyGive(promise Count, value Count, error Count)"},

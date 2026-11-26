@@ -1,0 +1,50 @@
+// Backpressure moves overload upstream along a chain: main sends to a, which passes each message to b, which passes it to
+// c. A service that sends to one that is behind is muted, a muted service with messages waiting is behind for its own
+// senders, and main, a task, parks at a send to a service that is behind, while no service waits inside a handler. So every
+// message arrives once and in order under every schedule.
+// schedules: 6
+//> handled=1000 in order
+export typealias Amount = int(0 to 1000000)
+
+let messages = 1000 as Amount
+
+type Relay
+	var next as Amount
+
+	static function create() returns Self
+		return Self{next: 0}
+	end 'create'
+
+	export function pass(sent Amount, to Relay.handle)
+		try to.take(sent) otherwise ignore
+	end 'pass'
+
+	export function passOn(sent Amount, to Relay.handle, last Relay.handle)
+		try to.pass(sent, to: last.clone()) otherwise ignore
+	end 'passOn'
+
+	export function take(mutates self, sent Amount)
+		self.next = try self.next + 1 otherwise 0
+		if sent != self.next 'order'
+			print("message {sent} came as {self.next}\n")
+		end 'order'
+	end 'take'
+
+	export function count() returns Amount
+		return self.next
+	end 'count'
+end 'Relay'
+
+function main() returns ExitCode
+	let a = spawn Relay.create()
+	let b = spawn Relay.create()
+	let c = spawn Relay.create()
+	for i in 1 to messages 'send'
+		try a.passOn(i, to: b.clone(), last: c.clone()) otherwise ignore
+	end 'send'
+	while (try await c.count() otherwise 0) < messages 'drain'
+		sleep(1)
+	end 'drain'
+	print("handled={try await c.count() otherwise 0} in order\n")
+	return 0
+end 'main'

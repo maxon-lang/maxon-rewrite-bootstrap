@@ -98,6 +98,8 @@ function newGreen(context Count, code Count, kind Count) returns Count
 	__Raw.storeWord(g, offset: greenCancelOffset, value: unset)
 	__Raw.storeWord(g, offset: greenHandedOffset, value: noBehaviour)
 	__Raw.storeWord(g, offset: greenCpuKeptOffset, value: unset)
+	__Raw.storeWord(g, offset: greenServiceOffset, value: noService)
+	__Raw.storeWord(g, offset: greenMuteOffset, value: 0)
 	return g
 end 'newGreen'
 
@@ -639,7 +641,8 @@ end 'greenMain'
 // has asked the green thread to stop, which it could not do in the runtime's code between two behaviours, or when a
 // behaviour made a coroutine, whose strand the green thread now roots and which the next behaviour is no member of: the
 // behaviour handed on then goes to the tail of the processor's run queue, behind what waited meanwhile, as maxon's
-// runner yields after its 64, and the green thread finishes. A behaviour of the turn may be preempted, or park, as the
+// runner yields after its 64, and the green thread finishes. A turn that ends at turnBehaviours with the service's next
+// message handed on leaves the service behind (markBehind). A behaviour of the turn may be preempted, or park, as the
 // first may; the green thread holds only the cowns of the behaviour it runs, and the thread it runs on is read again after
 // each.
 function runTurn(g Count)
@@ -652,10 +655,14 @@ function runTurn(g Count)
 		__Raw.storeWord(g, offset: greenHandedOffset, value: noBehaviour)
 		let preempted = __Raw.loadAcquire(g, offset: greenPreemptOffset) == set
 		if ran >= turnBehaviours or preempted or __Raw.loadWord(g, offset: greenStrandOffset) != noGreen 'ended'
+			if ran >= turnBehaviours 'full'
+				markBehind(g, record: record)
+			end 'full'
 			behaviourYields(record, preempted: preempted)
 			return
 		end 'ended'
 		ran = __Raw.wrappingAdd(ran, right: 1)
+		__Raw.storeWord(g, offset: greenArgOffset, value: record)
 		_ = __Raw.callCode1(__Raw.loadWord(record, offset: behaviourRunOffset), arg1: record)
 	end 'turn'
 end 'runTurn'

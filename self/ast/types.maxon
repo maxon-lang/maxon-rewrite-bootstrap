@@ -2747,9 +2747,6 @@ end 'promiseError'
 // serviceHandleMember is the member that names the type of a service's handle after the service's type: `Calc.handle`.
 export let serviceHandleMember = "handle"
 
-// defaultMailboxCapacity is maxon's DefaultMailboxCapacity: how many messages a mailbox holds when the spawn names none.
-export let defaultMailboxCapacity = 1024 as Count
-
 // isServiceType is whether a type is the handle of a service, which `spawn` gives and a send goes through.
 export function isServiceType(tt TypeSlot, reads TypeTable, t TypeID) returns bool
 	return t != noType and typeKind(tt, reads: reads, t: t) == TypeKind.builtinService

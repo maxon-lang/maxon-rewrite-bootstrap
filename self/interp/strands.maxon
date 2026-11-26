@@ -10,7 +10,7 @@
 // longestSleepNanos is the most a sleep waits, as the runtime's: about 146 years, so a deadline stays inside a word.
 let longestSleepNanos = 4611686018427387904 as Count
 
-// serviceClosed is what a shutdown adds to a service's gate, above every count of messages a capacity allows.
+// serviceClosed is what a shutdown adds to a service's gate, above every count of messages.
 let serviceClosed = 4611686018427387904 as Count
 
 // strandOf is the strand of a thread, which it becomes the root and holder of when it has none yet.
@@ -455,16 +455,15 @@ function entryYield(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 end 'entryYield'
 
 // entryServiceNew makes a service: a cown that holds its state, or nothing until its factory's behaviour stores it, with an
-// empty mailbox of a capacity.
+// empty mailbox.
 function entryServiceNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	vm.tracking = true
 	let service = try newShared(vm, f: f, kind: kindCown, src: argAt(f, x: x, i: 0), what: "the new service")
-	vm.h.shareds[vm.h.oData[service]].capacity = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
 	giveRef(vm, x: x, o: service)
 end 'entryServiceNew'
 
-// entryServiceReserve takes a place in a service's mailbox for a message, unless the service is shut down or the mailbox
-// holds its capacity, which it gives as the case of SendError plus 1.
+// entryServiceReserve takes a place in a service's mailbox for a message, unless the service is shut down, which it gives as
+// the case of SendError plus 1, and slows the sender of a service that is behind or muted (senderSlowed).
 function entryServiceReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
 	let at = vm.h.oData[service]
@@ -473,24 +472,143 @@ function entryServiceReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws 
 		giveNum(vm, x: x, n: caseWord(ast.sendServiceStopped))
 		return
 	end 'closed'
-	if gate >= vm.h.shareds[at].capacity 'full'
-		giveNum(vm, x: x, n: caseWord(ast.sendMailboxFull))
-		return
-	end 'full'
 	vm.h.shareds[at].gate = try gate + 1 otherwise panic("interp: a gate past a word")
 	giveNum(vm, x: x, n: 0)
+	if vm.h.shareds[at].behind or vm.h.shareds[at].muted 'slowing'
+		senderSlowed(vm, receiver: service)
+	end 'slowing'
 end 'entryServiceReserve'
 
-// entryServiceTaken gives a message's place in the mailbox back as its behaviour starts, given the address of the state.
-function entryServiceTaken(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+// entryServiceStart gives a message's place in the mailbox back as its behaviour starts, given the address of the state, and
+// names the service as the one the thread runs a message of.
+function entryServiceStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let c = vm.address(argAt(f, x: x, i: 0))
 	let service = vm.h.cellHolder[c]
 	if c == 0 or vm.h.oKind[service] != kindCown 'notState'
-		panic("interp: rt.service.taken is given no service's state")
+		panic("interp: rt.service.start is given no service's state")
 	end 'notState'
 	let at = vm.h.oData[service]
 	vm.h.shareds[at].gate = try vm.h.shareds[at].gate - 1 otherwise panic("interp: a message taken that no send reserved")
-end 'entryServiceTaken'
+	vm.threads[vm.cur].service = service
+end 'entryServiceStart'
+
+// Backpressure, as the runtime's (runtime/service.maxon): a service is behind once vm.turnLimit of its messages have run
+// with more queued, until its queue empties, and while it is muted with messages waiting. A message of another service that
+// sends to it is listed on it and muted when its handler ends: its behaviour keeps its cowns until the service catches up,
+// and a sender that is itself behind is not listed. A task, a thread that runs no message, parks at the send. A service
+// that catches up unmutes its senders in the order they were listed.
+let muteNone = 0 as Count
+
+let muteListed = 1 as Count
+
+let muteEarly = 2 as Count
+
+let muteKept = 3 as Count
+
+// turnLimits is how many turn limits a run may draw, from 1 up; turnLimitOf draws one from a seed without the run's random
+// numbers, so the interleavings a seed gives do not move.
+let turnLimits = 4 as Count
+
+function turnLimitOf(seed ir.Word) returns Count
+	return (ir.bitsOfWord(seed) mod turnLimits) + 1
+end 'turnLimitOf'
+
+// An entry of a service's senders is a behaviour, senderTag times its id, or a thread, senderTag times its id plus 1.
+let senderTag = 2 as Count
+
+// senderSlowed lists the message that the thread runs on a receiver that is behind, once, unless its own service is behind;
+// a task parks on the receiver.
+function senderSlowed(mutates vm Vm, receiver Count)
+	let t = vm.cur
+	let b = vm.threads[t].behaviour
+	let sender = vm.threads[t].service
+	let at = vm.h.oData[receiver]
+	if b != 0 and sender != 0 'message'
+		if vm.behaviours.mute[b] != muteNone or vm.h.shareds[vm.h.oData[sender]].behind 'exempt'
+			return
+		end 'exempt'
+		vm.h.shareds[at].senders.push(try b * senderTag otherwise panic("interp: a behaviour past a word"))
+		vm.behaviours.mute[b] = muteListed
+		vm.behaviours.mutedOn[b] = receiver
+		return
+	end 'message'
+	vm.h.shareds[at].senders.push(try t * senderTag + 1 otherwise panic("interp: a thread past a word"))
+	parkThread(vm)
+end 'senderSlowed'
+
+// keepMuted mutes a listed behaviour as its handler ends: it keeps its cowns, and its service, which runs no message
+// meanwhile, is muted. A service whose queue is empty is not behind, so it lets its own senders go first.
+function keepMuted(mutates vm Vm, b Count, service Count) throws Halt
+	vm.behaviours.mute[b] = muteKept
+	let cowns = vm.behaviours.cowns[b].count()
+	if service != 0 and cowns == 1 and vm.behaviours.cowns[b][0] == service 'message'
+		let at = vm.h.oData[service]
+		if vm.h.shareds[at].queue.count() == 1 'drained'
+			try caughtUp(vm, service: service)
+		end 'drained'
+		vm.h.shareds[at].muted = true
+	end 'message'
+	for i in 0 upto cowns 'cowns'
+		vm.h.shareds[vm.h.oData[vm.behaviours.cowns[b][i]]].running = 0
+	end 'cowns'
+end 'keepMuted'
+
+// countTurn counts a message of a service that has run: with none left the service catches up, and after vm.turnLimit with
+// more queued it is behind.
+function countTurn(mutates vm Vm, service Count) throws Halt
+	let at = vm.h.oData[service]
+	if vm.h.shareds[at].queue.count() == 0 'drained'
+		vm.h.shareds[at].turn = 0
+		try caughtUp(vm, service: service)
+		return
+	end 'drained'
+	vm.h.shareds[at].turn = try vm.h.shareds[at].turn + 1 otherwise panic("interp: a turn past a word")
+	if vm.h.shareds[at].turn >= vm.turnLimit 'full'
+		vm.h.shareds[at].turn = 0
+		vm.h.shareds[at].behind = true
+	end 'full'
+end 'countTurn'
+
+// caughtUp is a service that is no longer behind: its senders are unmuted in order, a kept behaviour releasing its cowns,
+// a running one told to release them as it ends, and a parked task readied.
+function caughtUp(mutates vm Vm, service Count) throws Halt
+	let at = vm.h.oData[service]
+	vm.h.shareds[at].behind = false
+	let senders = exchange(vm.h.shareds[at].senders, value: CountList.create(0))
+	for i in 0 upto senders.count() 'senders'
+		let e = senders[i]
+		if e mod senderTag == 1 'task'
+			readyThread(vm, t: e / senderTag)
+			continue 'senders'
+		end 'task'
+		let b = e / senderTag
+		if vm.behaviours.mute[b] == muteListed 'running'
+			vm.behaviours.mute[b] = muteEarly
+			continue 'senders'
+		end 'running'
+		vm.behaviours.mute[b] = muteNone
+		// A kept message's release counts as its service's own messages' do: one that empties the queue makes the service catch
+		// up, which a task parked on it before its message was queued waits for.
+		var message = 0 as Count
+		let first = vm.behaviours.cowns[b][0]
+		if vm.behaviours.cowns[b].count() == 1 and vm.h.shareds[vm.h.oData[first]].muted 'message'
+			vm.h.shareds[vm.h.oData[first]].muted = false
+			message = first
+		end 'message'
+		try releaseBehaviour(vm, b: b, service: message)
+	end 'senders'
+end 'caughtUp'
+
+// mutedBehaviours are the behaviours that backpressure keeps muted, in the order they were scheduled.
+function mutedBehaviours(vm Vm) returns CountList
+	var kept = CountList.create(0)
+	for b in 1 upto vm.behaviours.mute.count() 'behaviours'
+		if vm.behaviours.mute[b] == muteKept 'kept'
+			kept.push(b)
+		end 'kept'
+	end 'behaviours'
+	return kept
+end 'mutedBehaviours'
 
 function entryServiceShutdown(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a shutdown")
@@ -550,8 +668,9 @@ function waitingText(vm Vm, t Count) returns String
 	return "{describeThread(vm, t: t)} waits {place}"
 end 'waitingText'
 
-// reportDeadlock is a run in which nothing can go on: no thread can run and no timer is set, while threads wait or
-// behaviours are queued. It is placed where the first thread that waits is.
+// reportDeadlock is a run in which nothing can go on: no thread can run and no timer is set, while threads wait,
+// behaviours are queued, or backpressure keeps behaviours muted with nothing left to unmute them (the progress check).
+// It is placed where the first thread that waits is.
 function reportDeadlock(mutates vm Vm)
 	var text = "no thread can run and no timer is set"
 	var v = Violation.make(deadlock, fn: 0, block: 0, instr: 0, message: "")
@@ -573,6 +692,11 @@ function reportDeadlock(mutates vm Vm)
 	if vm.pending.count() > 0 'queued'
 		text = "{text}; {vm.pending.count()} behaviour(s) wait for cowns that never come free"
 	end 'queued'
+	let muted = mutedBehaviours(vm)
+	for i in 0 upto muted.count() 'muted'
+		let b = muted[i]
+		text = "{text}; behaviour #{vm.behaviours.seq[b]} is muted until {objectText(vm, o: vm.behaviours.mutedOn[b])} catches up, which nothing left can make it do"
+	end 'muted'
 	v.message = text
 	vm.violations.push(v)
 	vm.fatal = fatalViolation

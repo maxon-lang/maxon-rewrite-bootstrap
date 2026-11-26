@@ -25,7 +25,6 @@ var builtinNames = map[string]bool{
 	"UnixNanos":                 true,
 	"OrderedWord":               true,
 	"HashDigest":                true,
-	"MailboxCapacity":           true,
 	"Array":                     true,
 	"FixedArray":                true,
 	"__ManagedMemory":           true,

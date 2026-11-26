@@ -142,11 +142,11 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	let h = spawn(capacity: 1) Store.create()
+	let h = spawn Store.create()
 	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'edit'
-		try h.fill(sendTimeout: ForeverMs) otherwise panic("a send that waits without end returns only when it is delivered or the service stops")
+		try h.fill() otherwise panic("a send that waits without end returns only when it is delivered or the service stops")
 		batch.push("sent")
 	end 'edit'
 	return 0
@@ -281,11 +281,11 @@ type Store
 end 'Store'
 
 function main() returns ExitCode
-	let h = spawn(capacity: 1) Store.create()
+	let h = spawn Store.create()
 	var batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'edit'
-		try h.fill(sendTimeout: 50) otherwise panic("a send that waits for room returns when it is delivered or the timeout passes")
+		try h.fill() otherwise panic("a send that waits for room returns when it is delivered or the timeout passes")
 		batch.push("sent")
 	end 'edit'
 	return 0

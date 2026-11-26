@@ -144,9 +144,9 @@ var layouts = []layoutConst{
 	// A service is a cown with its mailbox's gate after the cown's words, so a behaviour, a share and a drop of the handle
 	// are a cown's.
 	{"serviceGateOffset", 5, false, toRuntime,
-		"where a service holds its mailbox's gate, stepped atomically: how many messages are queued and not yet started, plus serviceClosed once it is shut down."},
-	{"serviceCapacityOffset", 6, false, toRuntime,
-		"where a service holds how many messages its mailbox holds at most."},
+		"where a service holds its mailbox's gate, stepped atomically: how many messages are queued and not yet started, plus its flags: serviceClosed once it is shut down, serviceBehind and serviceMuted."},
+	{"serviceMutedOffset", 6, false, toRuntime,
+		"where a service holds the senders muted on it while it is behind, a ring of entries named by its newest, whose link names the oldest, 0 for none, with mutedLock added while one holds it."},
 	{"serviceBytes", 7, false, toRuntime,
 		"the size of a service."},
 
@@ -506,7 +506,12 @@ var layouts = []layoutConst{
 		"where a green thread holds its index in the timers' heap while it is on it, under the scheduler's lock, so it is taken off in a logarithmic time."},
 	{"greenEventOffset", 63, false, toRuntime,
 		"where a green thread holds the address of the state word of the event entry it waits on, 0 while it waits on none: a timer that falls due for it and a cancel claim its wake there."},
-	{"greenBytes", 64, false, toRuntime,
+	// What a green thread that runs behaviours knows of backpressure (service.maxon).
+	{"greenServiceOffset", 64, false, toRuntime,
+		"where a green thread holds the service whose message it runs, which the message's start names, 0 while it runs none."},
+	{"greenMuteOffset", 65, false, toRuntime,
+		"where a green thread holds muteListed while the behaviour it runs is listed on a service that is behind, and a task readied from such a list holds the entries its wake goes on to unmute; 0 otherwise."},
+	{"greenBytes", 66, false, toRuntime,
 		"the size of a green thread's record."},
 
 	// A selector: the record of an awaitAny that waits, which every promise it waits on names as its waiter, tagged, as the

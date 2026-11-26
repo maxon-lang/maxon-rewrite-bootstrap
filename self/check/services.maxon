@@ -3,27 +3,16 @@
 // handles one at a time on its own green thread. What crosses into a service is decided in one place, unsendable: a
 // value moves in, or is frozen and shared, and nothing borrowed crosses, so no part of a value is reachable from two
 // threads and no count but the atomic ones of frozen values, cowns and handles is stepped by two. A send fails at once
-// with SendError when the mailbox is full or the service is shut down; a message whose handler returns or throws
-// replies, and the reply is a promise the sender awaits, as an async call's is. A handler never waits on another party
-// (E3221), so services never wait on each other in a cycle.
-
-// sendTimeoutName is the parameter name maxon keeps for the timeout of a send, which a message may not declare.
-let sendTimeoutName = "sendTimeout"
-
-// spawnName and capacityName are the words of `spawn(capacity: n)`, as a message about its capacity names them.
-let spawnName = "spawn"
-
-let capacityName = "capacity"
+// with SendError only when the service is shut down; a mailbox has no capacity, the runtime slows a sender of a service
+// that is behind instead (runtime/service.maxon). A message whose handler returns or throws replies, and the reply is a
+// promise the sender awaits, as an async call's is. A handler never waits on another party (E3221), so services never wait
+// on each other in a cycle.
 
 // checkSpawn types a spawn: its target is a static factory of a type that returns the type, which becomes the service's
 // state. A factory that cannot throw runs as the service's first behaviour, so its arguments move in as a message's do; one
 // that throws runs where the spawn is, which fails with the factory's error, as maxon's spawner waits for it.
 function checkSpawn(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let call = ast.spawnExprCall(ms.tree(), id: e)
-	let capacity = ast.spawnExprCapacity(ms.tree(), id: e)
-	if capacity != 0 and not checkCapacity(c, p: p, ms: ms, spawn: e, capacity: capacity, errs: errs) 'badCapacity'
-		return ast.noType
-	end 'badCapacity'
 	if ms.tree().kindOf(call) != ast.NodeKind.callExpr or ms.tree().kindOf(ast.callExprCallee(ms.tree(), id: call)) != ast.NodeKind.memberExpr 'notFactory'
 		refuseSpawnTarget(c, p: p, ms: ms, e: e, errs: errs)
 		return ast.noType
@@ -66,16 +55,6 @@ export function serviceHandleType(mutates c Checker, p ast.Project, mutates ms a
 	args.push(state)
 	return instantiateGeneric(c, p: p, ms: ms, off: off, orig: p.builtins.serviceOrigin, args: args, errs: errs)
 end 'serviceHandleType'
-
-// checkCapacity types the capacity of `spawn(capacity: n)`, a MailboxCapacity.
-function checkCapacity(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, spawn ast.NodeID, capacity ast.NodeID, mutates errs diag.ErrorList) returns bool
-	let value = ast.argValue(ms.tree(), id: capacity)
-	if checkExpecting(c, p: p, ms: ms, e: value, want: p.builtins.mailboxCapacityTy, errs: errs) == ast.noType 'failed'
-		return false
-	end 'failed'
-	let spec = ast.ParamSpec.make(capacityName, ty: p.builtins.mailboxCapacityTy, conv: ast.Convention.convLet)
-	return coerceArg(c, p: p, ms: ms, call: spawn, value: value, callee: spawnName, spec: spec, payload: false, errs: errs)
-end 'checkCapacity'
 
 function refuseSpawnTarget(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList)
 	failAt(c, p: p, ms: ms, node: e, code: diag.errSpawnTarget, msg: "`spawn` starts a service of a type through a static factory of the type that returns it, as 'spawn Calc.create()'; '{exprText(ms.tree(), e: ast.spawnExprCall(ms.tree(), id: e))}' is not one", errs: errs)
@@ -186,7 +165,7 @@ end 'requireNoFrozenContents'
 
 // requireService checks, once for each type a module spawns, what maxon checks at the spawn that makes the type a service:
 // its state holds no promise (E3216) and reaches no handle to its own service (E4014), and each of its messages and the
-// factory carry only what can cross (E3217, E3140, E3192). It is false when it refused something.
+// factory carry only what can cross (E3217, E3140). It is false when it refused something.
 function requireService(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, state ast.TypeID, factory ast.FuncID, mutates errs diag.ErrorList) returns bool
 	let stateName = nameOfType(p, ms: ms, t: state)
 	if ast.typeKind(ms.types, reads: p.types, t: state) != ast.TypeKind.record or ast.typeEntry(ms.types, reads: p.types, t: state).typeArgs.count() > 0 'notRecord'
@@ -218,8 +197,8 @@ function requireService(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	return not failedSince(errs, mark: mark)
 end 'requireService'
 
-// requireMessage checks a message: it takes its state as let or mutates, takes only what can cross, names no parameter
-// sendTimeout, which maxon keeps for the send, and replies with what can cross.
+// requireMessage checks a message: it takes its state as let or mutates, takes only what can cross, and replies with what
+// can cross.
 function requireMessage(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, method ast.FuncID, mutates errs diag.ErrorList)
 	let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).name.clone()
 	let what = "the message '{name}'"
@@ -231,11 +210,6 @@ function requireMessage(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	if selfConv != ast.Convention.convLet and selfConv != ast.Convention.convMutates 'consumesSelf'
 		failAt(c, p: p, ms: ms, node: e, code: diag.errNotSendable, msg: "{what} takes its receiver as {selfConv.keyword()}, and a message is given the service's state, which it may read or change but never take: declare it 'mutates self', or leave the receiver as it is", errs: errs)
 	end 'consumesSelf'
-	for i in 0 upto ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).params.count() 'params'
-		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).params[i].name == sendTimeoutName 'timeout'
-			failAt(c, p: p, ms: ms, node: e, code: diag.errSendTimeoutReserved, msg: "{what} declares a parameter named 'sendTimeout', which every send keeps for how long it waits for room in the mailbox: rename the parameter", errs: errs)
-		end 'timeout'
-	end 'params'
 	requireCrossingParams(c, p: p, ms: ms, e: e, what: what, fn: method, errs: errs)
 	let reply = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).retTy
 	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).result != ast.ResultConv.resultOwned 'borrowed'

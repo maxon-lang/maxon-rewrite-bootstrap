@@ -3,50 +3,116 @@
 // cown's queue is the mailbox and two messages of one service never run at once, preempted or not: a behaviour holds its
 // cown until its thunk releases it. The release hands the next message to the green thread that ran the last, which runs
 // up to a turn of them (runTurn), so an idle service holds no green thread and a busy one one. The gate counts the
-// messages a send has queued and the service has not started, as maxon's does, so a mailbox holds at most its capacity
-// of them, and holds serviceClosed once the service is shut down.
+// messages a send has queued and the service has not started, as maxon's does, and holds the service's flags above them.
+// A mailbox has no capacity: a send fails only once the service is shut down.
 // A reply is a cell shaped like a green thread that is awaited (greenAwaited), which never runs: the message's behaviour
 // gives it its value and error as a coroutine's finish would, so an await of it is an await of a coroutine.
+//
+// Backpressure is Pony's (ponyc's actor.c): the runtime slows the senders of a service that falls behind, so overload
+// moves upstream to where it can stop, and no program chooses a number.
+//
+// - A service is behind when a turn of its messages ends at turnBehaviours with messages still queued (ponyc's
+//   batch_limit_reached), until a turn empties its queue; and while it is muted with messages waiting. The trigger
+//   compares the service's speed with its inflow, so it needs no threshold, and it is a flag of the gate that every send
+//   loads and compare-exchanges already: a send to a service that is not behind costs what a send cost before.
+// - A service that sends to one that is behind is muted when its handler ends: the behaviour's release is kept, so the
+//   service holds its cown and runs no next message, nothing waits inside a handler, and no green thread is held, only
+//   the behaviour's record (behaviourRelease). A task, a green thread that runs no message (main, a coroutine, a `when`
+//   that is no message of a service), parks at the send instead.
+// - A sender that is itself behind is not muted, so services that flood each other keep draining (ponyc mutes a sender
+//   only if it is not overloaded itself).
+// - A service that catches up unmutes its senders in the order they were muted, a turn's worth at a time onto the global
+//   run queue, the last of each batch carrying the rest, so a fan-in is not woken all at once to overload it again
+//   (ponyc #2980). There is no operation that applies pressure by hand, whose cycles deadlocked ponyc (#3382).
+//
+// Why muting never stops the program, with no service, task or behaviour that can run (the progress argument): a sender
+// is listed on a receiver only under the receiver's lock while the receiver is behind or muted, and the receiver's
+// catching up clears its flag and takes its whole list under that lock, so every entry is unmuted once its receiver
+// catches up. A receiver that is not muted runs and catches up, since a handler never waits on another service. So a muted
+// sender could wait for ever only in a cycle of muted services, each listed on the next. The last of them to be listed was
+// running, so it was not muted, and its predecessor was listed on it while it was behind, which needs its flag: then it
+// was behind when it sent, and a behind sender is not listed. A service whose queue is empty is not behind, and lets its
+// own senders go before it is muted (behaviourRelease), so no cycle closes through one that has drained. Tasks wait on no
+// one but a receiver. A muted behaviour stays counted among the live ones, so the program does not end before it has run.
 
-// serviceClosed is the gate's bit that a shutdown sets, above every count of messages a capacity allows.
+// The gate's flags, above every count of messages: serviceClosed once the service is shut down, serviceBehind while a
+// turn ended at turnBehaviours with messages queued, serviceMuted while a message of the service waits, its release kept,
+// for a service it sent to. serviceFlags is the lowest: a gate below it is a count alone.
 let serviceClosed = 0x4000000000000000 as Count
 
-// The words rt.service.reserve gives: a place taken, or the case of SendError plus 1 (sendMailboxFull and
-// sendServiceStopped of the built-ins).
+let serviceBehind = 0x2000000000000000 as Count
+
+let serviceMuted = 0x1000000000000000 as Count
+
+let serviceFlags = 0x1000000000000000 as Count
+
+// The words rt.service.reserve gives: a place taken, or the case of SendError plus 1 (sendServiceStopped of the
+// built-ins).
 let sendAccepted = 0 as Count
 
-let sendFull = 1 as Count
+let sendStopped = 1 as Count
 
-let sendStopped = 2 as Count
+// noService is a green thread's service while it runs no message (greenServiceOffset).
+let noService = 0 as Count
 
-// serviceNew is a service of one owner with no message queued, holding state: the state the factory gave when it ran on
+// A list of muted senders (serviceMutedOffset) is a ring of entries: a behaviour's record plus senderBehaviour, linked
+// through its first request slot's owner, which nothing reads once the behaviour runs, or a task's green thread, linked
+// through its run queue link, which nothing reads while it is parked. mutedLock is added to the ring's word while one
+// holds it; an address is a multiple of a word, so neither tag is part of one.
+let noSender = 0 as Count
+
+let senderBehaviour = 2 as Count
+
+let mutedLock = 1 as Count
+
+// resumedMessage is added to the link of a kept message that its unmute queues (behaviourResumed): a link names an entry, so
+// its lowest bit is free.
+let resumedMessage = 1 as Count
+
+// What a listed behaviour's record holds in its pending word, which nothing else reads while the behaviour runs or is
+// kept: listed on a service while its handler runs, released already because the service caught up first, or kept by
+// its release, as a message of a service (whose muted flag the unmute clears) or as another behaviour.
+let muteListed = 1 as Count
+
+let muteEarly = 2 as Count
+
+let muteKept = 3 as Count
+
+let muteKeptService = 4 as Count
+
+// behaviourRelease's answers to a behaviour's thunk: the cowns are handed on, or kept while the behaviour is muted.
+let releaseHandedOn = 0 as Count
+
+let releaseHeld = 1 as Count
+
+// serviceCreate is a service of one owner with no message queued, holding state: the state the factory gave when it ran on
 // the spawner, or 0 until the behaviour that runs the factory on the service stores it.
-function serviceNew(state Count, capacity Count) returns Count
+function serviceCreate(state Count) returns Count
 	let service = alloc(serviceBytes)
 	__Raw.storeWord(service, offset: cownCountOffset, value: firstOwner)
 	__Raw.storeWord(service, offset: cownTailOffset, value: notQueued)
 	__Raw.storeWord(service, offset: cownEndingOffset, value: 0)
 	__Raw.storeWord(service, offset: cownValueOffset, value: state)
 	__Raw.storeWord(service, offset: serviceGateOffset, value: 0)
-	__Raw.storeWord(service, offset: serviceCapacityOffset, value: capacity)
+	__Raw.storeWord(service, offset: serviceMutedOffset, value: noSender)
 	return service
-end 'serviceNew'
+end 'serviceCreate'
 
 // serviceReserve takes a place in the mailbox for a message, by a compare-exchange of the gate, unless the service is shut
-// down or the mailbox holds its capacity. The gate is read once, as an acquire, and then by each compare-exchange that
-// fails, so a send takes one locked operation on the gate when no other send races it.
+// down. The gate is read once, as an acquire, and then by each compare-exchange that fails, so a send takes one locked
+// operation on the gate when no other send races it; a flag below serviceClosed in the word it took the place with
+// slows the sender.
 function serviceReserve(handle Count) returns Count
-	let capacity = __Raw.loadWord(handle, offset: serviceCapacityOffset)
 	var gate = __Raw.loadAcquire(handle, offset: serviceGateOffset)
 	while true 'gate'
 		if gate >= serviceClosed 'closed'
 			return sendStopped
 		end 'closed'
-		if gate >= capacity 'full'
-			return sendFull
-		end 'full'
 		let seen = __Raw.compareExchange(handle, offset: serviceGateOffset, expected: gate, desired: __Raw.wrappingAdd(gate, right: 1))
 		if seen == gate 'taken'
+			if gate >= serviceFlags 'behind'
+				senderSlowed(handle)
+			end 'behind'
 			return sendAccepted
 		end 'taken'
 		gate = seen
@@ -54,12 +120,29 @@ function serviceReserve(handle Count) returns Count
 	return sendAccepted
 end 'serviceReserve'
 
-// serviceTaken gives a message's place in the mailbox back as its behaviour starts. state is the address of the cown's
-// value, which the behaviour is given.
+// serviceStart gives a message's place in the mailbox back as its behaviour starts, and names the service as the one the
+// green thread runs a message of. state is the address of the cown's value, which the behaviour is given.
+function serviceStart(state Count)
+	let handle = __Raw.wrappingSub(state, right: cownValueOffset)
+	_ = __Raw.atomicAdd(handle, offset: serviceGateOffset, value: stepDown)
+	__Raw.storeWord(__Raw.loadWord(__Raw.threadContext(), offset: contextGreenOffset), offset: greenServiceOffset, value: handle)
+end 'serviceStart'
+
+// serviceNew, serviceTaken and cownRelease are the entries that the code of the seed's compiler calls (seed/README.md),
+// whose thunks cannot keep a release: a mailbox's capacity is ignored, and a message names no service, so none of that code
+// is muted or makes a service behind.
+function serviceNew(state Count, capacity Count) returns Count
+	return serviceCreate(state)
+end 'serviceNew'
+
 function serviceTaken(state Count)
 	let handle = __Raw.wrappingSub(state, right: cownValueOffset)
 	_ = __Raw.atomicAdd(handle, offset: serviceGateOffset, value: stepDown)
 end 'serviceTaken'
+
+function cownRelease(record Count)
+	releaseCowns(record, service: noService)
+end 'cownRelease'
 
 // serviceShutdown closes the mailbox once: the bit stays set, and the messages queued before it still run.
 function serviceShutdown(handle Count)
@@ -73,6 +156,273 @@ function serviceShutdown(handle Count)
 		end 'done'
 	end 'gate'
 end 'serviceShutdown'
+
+// senderSlowed is what a send to a service that is behind does to its sender, once its message has its place: a message
+// of another service is listed to be muted when its handler ends, and a task parks until the receiver catches up.
+function senderSlowed(receiver Count)
+	let context = __Raw.threadContext()
+	let g = __Raw.loadWord(context, offset: contextGreenOffset)
+	if g == noGreen 'off'
+		return
+	end 'off'
+	if __Raw.loadWord(g, offset: greenKindOffset) == greenBehaviour and __Raw.loadWord(g, offset: greenServiceOffset) != noService 'message'
+		listMessage(receiver, g: g)
+		return
+	end 'message'
+	parkSender(context, receiver: receiver, g: g)
+end 'senderSlowed'
+
+// listMessage lists the behaviour that g runs, a message of a service, on a receiver that is behind, so that its release
+// is kept (behaviourRelease): once, however many such receivers it sends to, and not when its own service is behind.
+function listMessage(receiver Count, g Count)
+	if __Raw.loadWord(g, offset: greenMuteOffset) != 0 'listed'
+		return
+	end 'listed'
+	if (__Raw.loadAcquire(__Raw.loadWord(g, offset: greenServiceOffset), offset: serviceGateOffset) and serviceBehind) != 0 'behind'
+		return
+	end 'behind'
+	let record = __Raw.loadWord(g, offset: greenArgOffset)
+	let newest = lockMuted(receiver)
+	if not slowsSenders(receiver) 'caughtUp'
+		unlockMuted(receiver, newest: newest)
+		return
+	end 'caughtUp'
+	__Raw.storeWord(record, offset: behaviourPendingOffset, value: muteListed)
+	unlockMuted(receiver, newest: ringAdd(newest, entry: __Raw.wrappingAdd(record, right: senderBehaviour)))
+	__Raw.storeWord(g, offset: greenMuteOffset, value: muteListed)
+end 'listMessage'
+
+// parkSender parks a task on a receiver that is behind until it catches up. The unmute that readies it may hand it the rest
+// of the list, which it unmutes in turn.
+function parkSender(context Count, receiver Count, g Count)
+	__Raw.storeWord(g, offset: greenMuteOffset, value: noSender)
+	let newest = lockMuted(receiver)
+	if not slowsSenders(receiver) 'caughtUp'
+		unlockMuted(receiver, newest: newest)
+		return
+	end 'caughtUp'
+	unlockMuted(receiver, newest: ringAdd(newest, entry: g))
+	park(context)
+	let rest = __Raw.loadWord(g, offset: greenMuteOffset)
+	if rest != noSender 'rest'
+		__Raw.storeWord(g, offset: greenMuteOffset, value: noSender)
+		unmuteFrom(rest)
+	end 'rest'
+end 'parkSender'
+
+// slowsSenders is whether a service is behind or muted, read under the lock of its list, which its catching up clears
+// its flag under.
+function slowsSenders(service Count) returns bool
+	return (__Raw.loadAcquire(service, offset: serviceGateOffset) and (serviceBehind or serviceMuted)) != 0
+end 'slowsSenders'
+
+// behaviourRelease is what a behaviour's thunk calls after its body. A behaviour listed on a service that is behind is muted
+// here, unless the service caught up while it ran: its cowns, holds and record are kept, the thunk's finish runs with the
+// record once it is unmuted, and the answer is releaseHeld. Any other behaviour hands its cowns on (releaseCowns).
+function behaviourRelease(record Count, finish Count) returns Count
+	let context = __Raw.threadContext()
+	let g = __Raw.loadWord(context, offset: contextGreenOffset)
+	if g == noGreen 'off'
+		releaseCowns(record, service: noService)
+		return releaseHandedOn
+	end 'off'
+	let service = __Raw.loadWord(g, offset: greenServiceOffset)
+	if __Raw.loadWord(g, offset: greenMuteOffset) != 0 'listed'
+		__Raw.storeWord(g, offset: greenMuteOffset, value: 0)
+		if keepsRelease(context, record: record, service: service, finish: finish) 'kept'
+			return releaseHeld
+		end 'kept'
+	end 'listed'
+	releaseCowns(record, service: service)
+	return releaseHandedOn
+end 'behaviourRelease'
+
+// keepsRelease mutes a listed behaviour as its handler ends, and says whether it did: not when the service it waits on
+// caught up first. A service whose queue is empty is not behind, so it lets its own senders go before it waits (the
+// progress argument). The muted behaviour stays counted among the live ones until its finish has run.
+function keepsRelease(context Count, record Count, service Count, finish Count) returns bool
+	var muted = noService
+	if service != noService and __Raw.loadWord(record, offset: behaviourCownCountOffset) == 1 and __Raw.loadWord(record, offset: cownOffset(1, index: 0)) == service 'message'
+		muted = service
+		if queueEmpty(record) 'drained'
+			caughtUpIfSlowing(service)
+		end 'drained'
+		setGateFlag(service, flag: serviceMuted)
+	end 'message'
+	__Raw.storeWord(record, offset: behaviourRunOffset, value: finish)
+	stepLive(context, change: 1)
+	let kept = muteKeptService if muted != noService else muteKept
+	if __Raw.compareExchange(record, offset: behaviourPendingOffset, expected: muteListed, desired: kept) == muteListed 'kept'
+		return true
+	end 'kept'
+	if muted != noService 'unmute'
+		clearGateFlag(muted, flag: serviceMuted)
+	end 'unmute'
+	stepLive(context, change: stepDown)
+	return false
+end 'keepsRelease'
+
+// behaviourResumed is what the finish of a behaviour's thunk calls once the behaviour is unmuted: its cowns are handed on,
+// and the rest of the list its unmute was handed is unmuted. Its link holds the rest, with resumedMessage added for a
+// message of a service, whose release counts as its own messages' do: one that empties the queue makes the service
+// catch up, which a task parked on the service before its message was queued waits for.
+function behaviourResumed(record Count)
+	let link = senderLink(__Raw.wrappingAdd(record, right: senderBehaviour))
+	var service = noService
+	if (link and resumedMessage) != 0 'message'
+		service = __Raw.loadWord(record, offset: cownOffset(1, index: 0))
+	end 'message'
+	releaseCowns(record, service: service)
+	let rest = __Raw.wrappingSub(link, right: link and resumedMessage)
+	if rest != noSender 'rest'
+		unmuteFrom(rest)
+	end 'rest'
+end 'behaviourResumed'
+
+// queueEmpty is whether no message is queued, or being queued, after a behaviour of one cown.
+function queueEmpty(record Count) returns bool
+	let slot = requestSlot(record, index: 0)
+	return __Raw.loadAcquire(slot, offset: requestNextOffset) == notQueued and __Raw.loadAcquire(__Raw.loadWord(slot, offset: requestCownOffset), offset: cownTailOffset) == slot
+end 'queueEmpty'
+
+// markBehind makes the service whose message a turn ran last behind, when the behaviour the turn hands on is its next
+// message: the turn ended at turnBehaviours with messages still queued.
+function markBehind(g Count, record Count)
+	let service = __Raw.loadWord(g, offset: greenServiceOffset)
+	if service != noService and __Raw.loadWord(record, offset: behaviourCownCountOffset) == 1 and __Raw.loadWord(record, offset: cownOffset(1, index: 0)) == service 'next'
+		setGateFlag(service, flag: serviceBehind)
+	end 'next'
+end 'markBehind'
+
+// caughtUpIfSlowing is what the release that empties a service's queue does: the service is no longer behind, and its
+// senders are unmuted.
+function caughtUpIfSlowing(service Count)
+	if (__Raw.loadAcquire(service, offset: serviceGateOffset) and serviceBehind) != 0 or __Raw.loadAcquire(service, offset: serviceMutedOffset) != noSender 'slowing'
+		let newest = lockMuted(service)
+		clearGateFlag(service, flag: serviceBehind)
+		unlockMuted(service, newest: noSender)
+		if newest != noSender 'senders'
+			let oldest = senderLink(newest)
+			setSenderLink(newest, link: noSender)
+			unmuteFrom(oldest)
+		end 'senders'
+	end 'slowing'
+end 'caughtUpIfSlowing'
+
+// unmuteFrom unmutes the entries of a list in order: a kept behaviour and a parked task go to the global run queue, a
+// behaviour still running is told its service caught up first. After a turn's worth, the last carries the rest, which it
+// unmutes once it runs.
+function unmuteFrom(first Count)
+	let context = __Raw.threadContext()
+	var entry = first
+	var woken = 0 as Count
+	while entry != noSender 'entries'
+		let next = senderLink(entry)
+		var queued = true
+		if (entry and senderBehaviour) != 0 'behaviour'
+			let record = __Raw.wrappingSub(entry, right: senderBehaviour)
+			let state = __Raw.compareExchange(record, offset: behaviourPendingOffset, expected: muteListed, desired: muteEarly)
+			if state == muteListed 'running'
+				queued = false
+			end 'running' else 'kept'
+				var message = 0 as Count
+				if state == muteKeptService 'service'
+					clearGateFlag(__Raw.loadWord(record, offset: cownOffset(1, index: 0)), flag: serviceMuted)
+					message = resumedMessage
+				end 'service'
+				woken = __Raw.wrappingAdd(woken, right: 1)
+				setSenderLink(entry, link: __Raw.wrappingAdd(next if woken == turnBehaviours else noSender, right: message))
+				onGlobalQueue(context, entry: behaviourEntry(record))
+			end 'kept'
+		end 'behaviour' else 'task'
+			woken = __Raw.wrappingAdd(woken, right: 1)
+			__Raw.storeWord(entry, offset: greenMuteOffset, value: next if woken == turnBehaviours else noSender)
+			if markReady(entry) 'parked'
+				onGlobalQueue(context, entry: entry)
+			end 'parked'
+		end 'task'
+		if queued and woken == turnBehaviours 'batch'
+			return
+		end 'batch'
+		entry = next
+	end 'entries'
+end 'unmuteFrom'
+
+// onGlobalQueue puts a run queue's entry at the tail of the global run queue, which is FIFO, and wakes a thread for it. A
+// kept behaviour is counted among the live ones already.
+function onGlobalQueue(context Count, entry Count)
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	lockScheduler(scheduler)
+	globalPut(scheduler, g: entry)
+	unlockScheduler(scheduler)
+	wakeProc(scheduler)
+end 'onGlobalQueue'
+
+// lockMuted takes the lock of a service's list of muted senders and gives the ring's newest entry; only its holder
+// changes the ring, and unlockMuted lets it go with the newest entry it leaves.
+function lockMuted(service Count) returns Count
+	while true 'lock'
+		let word = __Raw.loadAcquire(service, offset: serviceMutedOffset)
+		if (word and mutedLock) == 0 and __Raw.compareExchange(service, offset: serviceMutedOffset, expected: word, desired: __Raw.wrappingAdd(word, right: mutedLock)) == word 'taken'
+			return word
+		end 'taken'
+		__Raw.spinPause()
+	end 'lock'
+	return noSender
+end 'lockMuted'
+
+function unlockMuted(service Count, newest Count)
+	__Raw.storeRelease(service, offset: serviceMutedOffset, value: newest)
+end 'unlockMuted'
+
+// ringAdd adds an entry after the newest of a ring, as the newest, and gives it.
+function ringAdd(newest Count, entry Count) returns Count
+	if newest == noSender 'first'
+		setSenderLink(entry, link: entry)
+		return entry
+	end 'first'
+	setSenderLink(entry, link: senderLink(newest))
+	setSenderLink(newest, link: entry)
+	return entry
+end 'ringAdd'
+
+function senderLink(entry Count) returns Count
+	if (entry and senderBehaviour) != 0 'behaviour'
+		return __Raw.loadWord(requestSlot(__Raw.wrappingSub(entry, right: senderBehaviour), index: 0), offset: requestOwnerOffset)
+	end 'behaviour'
+	return __Raw.loadWord(entry, offset: greenLinkOffset)
+end 'senderLink'
+
+function setSenderLink(entry Count, link Count)
+	if (entry and senderBehaviour) != 0 'behaviour'
+		__Raw.storeWord(requestSlot(__Raw.wrappingSub(entry, right: senderBehaviour), index: 0), offset: requestOwnerOffset, value: link)
+		return
+	end 'behaviour'
+	__Raw.storeWord(entry, offset: greenLinkOffset, value: link)
+end 'setSenderLink'
+
+// setGateFlag and clearGateFlag set and clear a flag of a service's gate, beside the sends that step its count.
+function setGateFlag(service Count, flag Count)
+	var gate = __Raw.loadAcquire(service, offset: serviceGateOffset)
+	while (gate and flag) == 0 'set'
+		let seen = __Raw.compareExchange(service, offset: serviceGateOffset, expected: gate, desired: __Raw.wrappingAdd(gate, right: flag))
+		if seen == gate 'done'
+			return
+		end 'done'
+		gate = seen
+	end 'set'
+end 'setGateFlag'
+
+function clearGateFlag(service Count, flag Count)
+	var gate = __Raw.loadAcquire(service, offset: serviceGateOffset)
+	while (gate and flag) != 0 'clear'
+		let seen = __Raw.compareExchange(service, offset: serviceGateOffset, expected: gate, desired: __Raw.wrappingSub(gate, right: flag))
+		if seen == gate 'done'
+			return
+		end 'done'
+		gate = seen
+	end 'clear'
+end 'clearGateFlag'
 
 // replyNew is the cell of a reply: a green thread's record that is awaited and never runs, so it holds no stack and does
 // not count among the live green threads; the behaviour of the message is the one that counts.

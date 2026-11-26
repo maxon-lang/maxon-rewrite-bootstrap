@@ -39,7 +39,7 @@ function descend(depth Depth) returns Depth
 end 'descend'
 
 function main() returns ExitCode
-	Log.setDefault(LogSink.create(spawn(capacity: InstrumentationMailboxCapacity) TextLogHandler.create(LogHandlerOptions.create(LogStream.standardError, addTime: false, addSource: false)), levels: LogLevelVar.create(LogLevels.minimum(LogLevel.info))))
+	Log.setDefault(LogSink.create(spawn TextLogHandler.create(LogHandlerOptions.create(LogStream.standardError, addTime: false, addSource: false)), levels: LogLevelVar.create(LogLevels.minimum(LogLevel.info))))
 	Log.error("boom")
 	let reached = descend(0)
 	print("{reached}\n")
@@ -177,7 +177,7 @@ function descend(depth Integer) returns Integer
 end 'descend'
 
 function main() returns ExitCode
-	Log.setDefault(LogSink.create(spawn(capacity: InstrumentationMailboxCapacity) TextLogHandler.create(LogHandlerOptions.create(LogStream.standardError, addTime: false, addSource: false)), levels: LogLevelVar.create(LogLevels.minimum(LogLevel.info))))
+	Log.setDefault(LogSink.create(spawn TextLogHandler.create(LogHandlerOptions.create(LogStream.standardError, addTime: false, addSource: false)), levels: LogLevelVar.create(LogLevels.minimum(LogLevel.info))))
 	Log.error("boom")
 	if descend(1000) != 1000 'grownWrongly'
 		return 2

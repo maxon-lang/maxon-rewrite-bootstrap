@@ -120,6 +120,7 @@ func convertProgram(file, src string, kind inputKind, names programNames) Result
 	rewriteDestructors(lines, addWarn)
 	rewriteStringBuilders(lines)
 	rewriteWithIterator(lines, addWarn)
+	dropMailboxCapacity(lines, addWarn)
 	transformLines(lines, addWarn)
 	warnIdentityOperators(lines, addWarn)
 

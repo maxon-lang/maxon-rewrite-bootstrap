@@ -108,9 +108,7 @@ export let filePermissionNormal = 0 as Count
 
 export let filePermissionExecutable = 1 as Count
 
-export let sendMailboxFull = 0 as Count
-
-export let sendServiceStopped = 1 as Count
+export let sendServiceStopped = 0 as Count
 
 export let errorDeleteNotFound = 0 as Count
 
@@ -1010,7 +1008,6 @@ function declareStdAliases(mutates tt TypeSlot, reads TypeTable, mutates std Par
 	b.unixNanosTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "UnixNanos", lo: I128.i64Min(), hi: I128.i64Max())
 	b.orderedWordTy = registerStdBitsAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "OrderedWord", width: 64)
 	b.hashDigestTy = registerStdBitsAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "HashDigest", width: 64)
-	b.mailboxCapacityTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "MailboxCapacity", lo: I128.fromCount(1 as Count), hi: I128.fromCount(2147483648 as Count))
 end 'declareStdAliases'
 
 function declareBuiltinTable(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates typeMap TypeIDMap, mutates funcMap FuncIDMap)
@@ -1179,7 +1176,6 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std P
 	names20.push("executable")
 	b.filePermissionTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FilePermission", cases: names20)
 	var names21 = StringList.create(0)
-	names21.push("mailboxFull")
 	names21.push("serviceStopped")
 	b.sendErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SendError", cases: names21)
 	var names22 = StringList.create(0)

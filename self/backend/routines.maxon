@@ -1236,11 +1236,14 @@ end 'parameterWords'
 // registers, as a behaviour's body takes them whatever their types, and which the body drops as it drops a consumes
 // parameter; has the runtime hand each cown to the behaviour queued after it; drops the behaviour's
 // hold on each cown, in source order as the interpreter does, which may end a cown and run its destructor on this
-// thread; and frees the record. The scheduler counts the behaviour finished when the thunk returns.
+// thread; and frees the record. The scheduler counts the behaviour finished when the thunk returns. A behaviour that the
+// runtime mutes keeps its cowns, its holds and its record: the thunk returns at once, and the runtime runs the thunk's
+// finish (emitBehaviourFinish) with the record once the behaviour is unmuted.
 export function emitBehaviourThunk(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, symbol String, body ir.IrFunction, bodySymbol String, instance bool)
 	let a = p.target.arch
 	let cowns = body.cownTypes.count()
 	let start = behaviourWordsOffset(cowns)
+	emitBehaviourFinish(u, p: p, ms: ms, symbol: finishSymbol(symbol), body: body, instance: instance)
 	u.beginSection()
 	u.defineFunction(symbol, instance: instance)
 	routinePrologue(u, a: a, locals: 0)
@@ -1261,16 +1264,46 @@ export function emitBehaviourThunk(mutates u CodeUnit, p ast.Project, mutates ms
 	end 'registers'
 	rCallSymbol(u, a: a, symbol: bodySymbol)
 	rCloseArgs(u, a: a, count: pushed)
+	let kept = u.asm.newLabel()
+	rLoad(u, a: a, dst: rArg, base: rFrame, disp: routineArg)
+	rAddress(u, a: a, dst: rArgWord, symbol: finishSymbol(symbol))
+	rCallSymbol(u, a: a, symbol: ir.rtSymbol(ir.Rt.rtBehaviourRelease))
+	rTest(u, a: a, left: rResult, right: rResult)
+	rBranch(u, a: a, cond: MCond.notEqual, label: kept)
+	dropHoldsAndRecord(u, a: a, p: p, ms: ms, body: body, start: start)
+	u.asm.bind(kept)
+	routineEpilogue(u, a: a)
+end 'emitBehaviourThunk'
+
+// emitBehaviourFinish writes the finish of a behaviour's thunk, which the runtime runs with the record of a behaviour it
+// muted once the behaviour is unmuted: the runtime hands each cown the behaviour kept to the behaviour queued after it,
+// and the finish drops the holds and frees the record, as the thunk does for a behaviour that was not muted.
+function emitBehaviourFinish(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, symbol String, body ir.IrFunction, instance bool)
+	let a = p.target.arch
+	u.beginSection()
+	u.defineFunction(symbol, instance: instance)
+	routinePrologue(u, a: a, locals: 0)
 	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineArg)
-	callRuntimeWithWork(u, a: a, entry: ir.Rt.rtCownRelease)
-	for i in 0 upto cowns 'holds'
+	callRuntimeWithWork(u, a: a, entry: ir.Rt.rtBehaviourResumed)
+	dropHoldsAndRecord(u, a: a, p: p, ms: ms, body: body, start: behaviourWordsOffset(body.cownTypes.count()))
+	routineEpilogue(u, a: a)
+end 'emitBehaviourFinish'
+
+// finishSymbol is the link name of the finish of the thunk of a link name.
+function finishSymbol(thunk String) returns String
+	return "finish {thunk}"
+end 'finishSymbol'
+
+// dropHoldsAndRecord drops a behaviour's hold on each cown, in source order as the interpreter does, which may end a cown
+// and run its destructor on this thread, and frees the record, which is the routine's argument.
+function dropHoldsAndRecord(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, body ir.IrFunction, start Count)
+	for i in 0 upto body.cownTypes.count() 'holds'
 		rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineArg)
 		rLoad(u, a: a, dst: rWork, base: rSecond, disp: imm32Of(try start + i * wordBytes otherwise panic("routines: a behaviour past memory")))
 		routineCall(u, a: a, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: body.cownTypes[i])
 	end 'holds'
 	freeArgument(u, a: a)
-	routineEpilogue(u, a: a)
-end 'emitBehaviourThunk'
+end 'dropHoldsAndRecord'
 
 // emitAsyncThunk writes the thunk a coroutine runs, which greenMain calls with the coroutine by the internal convention: it
 // calls the function an async call starts with the coroutine's argument words, each in the place the convention passes

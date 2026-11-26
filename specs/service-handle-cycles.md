@@ -237,7 +237,7 @@ function quiet(by Tally) returns Tally
 end 'quiet'
 
 function forward(target Echo.handle, by Tally) returns Tally
-	try target.bump(by, sendTimeout: 0) otherwise ignore
+	try target.bump(by) otherwise ignore
 	return by
 end 'forward'
 
@@ -281,12 +281,12 @@ function quiet(by Tally) returns Tally
 end 'quiet'
 
 function nudgePong(target Pong.handle, by Tally) returns Tally
-	try target.poke(by, sendTimeout: 0) otherwise ignore
+	try target.poke(by) otherwise ignore
 	return by
 end 'nudgePong'
 
 function nudgePing(target Ping.handle, by Tally) returns Tally
-	try target.poke(by, sendTimeout: 0) otherwise ignore
+	try target.poke(by) otherwise ignore
 	return by
 end 'nudgePing'
 
@@ -384,6 +384,7 @@ error E4014: <fragment>:23:6: type 'Echo' reaches a service handle that reaches 
 ```
 
 <!-- test: a-function-typed-field-is-accepted-when-no-closure-captures-a-handle-that-reaches-its-service -->
+<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 `Echo` keeps a function value, and a closure elsewhere captures a handle to `Logger`, a service whose state holds no function value: the function field reaches `Logger` and `Logger` reaches nothing back.
@@ -397,7 +398,7 @@ function quiet(by Tally) returns Tally
 end 'quiet'
 
 function forward(target Logger.handle, by Tally) returns Tally
-	try target.add(by, sendTimeout: 0) otherwise ignore
+	try target.add(by) otherwise ignore
 	return by
 end 'forward'
 
@@ -457,8 +458,8 @@ type Back
 		return Self{total: 0}
 	end 'create'
 
-	export function add(by Tally)
-		self.total = self.total + by
+	export function add(mutates self, by Tally)
+		self.total = try self.total + by otherwise panic("out of range")
 	end 'add'
 end 'Back'
 
@@ -466,11 +467,11 @@ type Middle
 	let back as Back.handle
 
 	static function create(back Back.handle) returns Self
-		return Self{back: back}
+		return Self{back: back.clone()}
 	end 'create'
 
 	export function relay(by Tally)
-		try self.back.add(by, sendTimeout: 0) otherwise ignore
+		try self.back.add(by) otherwise ignore
 	end 'relay'
 end 'Middle'
 
@@ -478,11 +479,11 @@ type Front
 	let middle as Middle.handle
 
 	static function create(middle Middle.handle) returns Self
-		return Self{middle: middle}
+		return Self{middle: middle.clone()}
 	end 'create'
 
 	export function poke(by Tally)
-		try self.middle.relay(by, sendTimeout: 0) otherwise ignore
+		try self.middle.relay(by) otherwise ignore
 	end 'poke'
 end 'Front'
 
@@ -490,7 +491,7 @@ function main() returns ExitCode
 	let back = spawn Back.create()
 	let middle = spawn Middle.create(back.clone())
 	let front = spawn Front.create(middle.clone())
-	try front.poke(3, sendTimeout: ForeverMs) otherwise return 1
+	try front.poke(3) otherwise return 1
 	front.shutdown()
 	middle.shutdown()
 	back.shutdown()
@@ -519,9 +520,9 @@ type Oracle
 		return Self{asked: 0}
 	end 'create'
 
-	export function ask(back Asker.handle, question Tally)
-		self.asked = self.asked + 1
-		try back.answer(question * 2, sendTimeout: 0) otherwise ignore
+	export function ask(mutates self, back Asker.handle, question Tally)
+		self.asked = try self.asked + 1 otherwise panic("out of range")
+		try back.answer(question * 2) otherwise ignore
 	end 'ask'
 end 'Oracle'
 
@@ -533,10 +534,10 @@ type Asker
 	end 'create'
 
 	export function start(oracle Oracle.handle, me Asker.handle)
-		try oracle.ask(me.clone(), question: 21, sendTimeout: 0) otherwise ignore
+		try oracle.ask(me.clone(), question: 21) otherwise ignore
 	end 'start'
 
-	export function answer(value Tally)
+	export function answer(mutates self, value Tally)
 		self.got = value
 	end 'answer'
 
@@ -619,7 +620,7 @@ end 'Echo'
 
 function main() returns ExitCode
 	let echo = spawn Echo.create()
-	try echo.put(echo.clone(), sendTimeout: ForeverMs) otherwise return 1
+	try echo.put(echo.clone()) otherwise return 1
 	echo.shutdown()
 	return 0
 end 'main'
@@ -685,7 +686,7 @@ end 'Echo'
 
 function main() returns ExitCode
 	let echo = spawn Echo.create()
-	try echo.put(1, sendTimeout: ForeverMs) otherwise return 1
+	try echo.put(1) otherwise return 1
 	echo.shutdown()
 	print("done\n")
 	return 0

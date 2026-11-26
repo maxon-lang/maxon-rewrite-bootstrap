@@ -154,3 +154,53 @@ test 'a cancel ends the sleep of its coroutine'
 		panic("{out.violations.count()} violations, {out.stdout}")
 	end 'wrong'
 end 'a cancel ends the sleep of its coroutine'
+
+// serviceMessage is the body of a message of a service that captures a number of services: it starts, then sends to the
+// first sends of them, a place taken in each mailbox.
+function serviceMessage(mutates p ast.Project, name String, captures Count, sends Count) returns Fn
+	var convs = convs1(ast.Convention.convMutates)
+	for i in 0 upto captures 'captures'
+		convs.push(ast.Convention.convLet)
+	end 'captures'
+	var b = Fn.new(p, name: name, convs: convs)
+	let state = b.param(0, kind: ir.IrKind.kindScalar)
+	_ = b.runtime(ir.Rt.rtServiceStart, kind: ir.IrKind.kindScalar, args: ir.regs1(state))
+	for i in 0 upto sends 'sends'
+		let to = b.param(try i + 1 otherwise panic("a parameter past memory"), kind: ir.IrKind.kindManaged)
+		_ = b.runtime(ir.Rt.rtServiceReserve, kind: ir.IrKind.kindScalar, args: ir.regs1(to))
+	end 'sends'
+	return b
+end 'serviceMessage'
+
+// A service muted on a receiver that never catches up has nothing left to unmute it, which the deadlock report names (the
+// progress check). Under seed 0 a turn is one message, so r's first message leaves r behind; its second starts a message
+// of x and waits for a reply that no one gives; x's message sends to r, which is behind, and x is muted as it ends.
+test 'a service muted for good is named in the deadlock report'
+	var p = ir.irProject()
+	var xm = serviceMessage(p, name: "xMessage", captures: 1, sends: 1)
+	let xZero = xm.konst(0)
+	let xFn = xm.ret(xZero)
+	var first = serviceMessage(p, name: "rFirst", captures: 0, sends: 0)
+	let firstZero = first.konst(0)
+	let firstFn = first.ret(firstZero)
+	var second = serviceMessage(p, name: "rSecond", captures: 2, sends: 1)
+	let x = second.param(1, kind: ir.IrKind.kindManaged)
+	let r = second.param(2, kind: ir.IrKind.kindManaged)
+	second.schedule(xFn, cowns: ir.regs1(x), captures: ir.regs1(r))
+	let reply = second.runtime(ir.Rt.rtReplyNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
+	awaitPromise(second, promise: reply)
+	let secondZero = second.konst(0)
+	let secondFn = second.ret(secondZero)
+	var b = Fn.new(p, name: "main", convs: ir.convs0())
+	let rState = b.alloc(1)
+	let rService = b.runtime(ir.Rt.rtServiceNew, kind: ir.IrKind.kindManaged, args: ir.regs1(rState))
+	let xState = b.alloc(1)
+	let xService = b.runtime(ir.Rt.rtServiceNew, kind: ir.IrKind.kindManaged, args: ir.regs1(xState))
+	_ = b.runtime(ir.Rt.rtServiceReserve, kind: ir.IrKind.kindScalar, args: ir.regs1(rService))
+	_ = b.runtime(ir.Rt.rtServiceReserve, kind: ir.IrKind.kindScalar, args: ir.regs1(rService))
+	b.schedule(firstFn, cowns: ir.regs1(rService), captures: ir.RegList.create(0))
+	b.schedule(secondFn, cowns: ir.regs1(rService), captures: ir.regs2(xService, b: rService))
+	let zero = b.konst(0)
+	let out = runSeed(p, main: b.ret(zero), seed: 0)
+	expectViolation("muted for good", out: out, kind: "deadlock", fragments: says("no thread can run and no timer is set", b: "is muted until", c: "catches up, which nothing left can make it do", d: ""))
+end 'a service muted for good is named in the deadlock report'

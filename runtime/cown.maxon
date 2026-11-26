@@ -108,7 +108,7 @@ end 'cownAcquire'
 // acquireOne is cownAcquire of a behaviour that names one cown, as every message of a service is: with nothing else to
 // queue on, the slot is queued once it is in the tail, so it is marked so before the exchange, and the behaviour has no
 // pending count: it is runnable at once when the cown was idle, and else when the release of the behaviour ahead finds
-// it linked, which only that release does (cownRelease). The mark is published by the exchange, which a successor's
+// it linked, which only that release does (releaseCowns). The mark is published by the exchange, which a successor's
 // exchange of the same tail reads after.
 //
 // Its hold on the cown is taken by whoever makes it runnable: here when the cown was idle, and else by that release, on
@@ -134,7 +134,9 @@ function acquireOne(record Count)
 	__Raw.storeRelease(prev, offset: requestNextOffset, value: slot)
 end 'acquireOne'
 
-// cownRelease hands each cown of a behaviour that has run to the behaviour queued after it, in the slots' order:
+// releaseCowns hands each cown of a behaviour that has run to the behaviour queued after it, in the slots' order, for the
+// releases of service.maxon (behaviourRelease, behaviourResumed). service is the service whose message the behaviour is, or
+// noService: the release that empties its queue makes it catch up (caughtUpIfSlowing).
 //
 // 3. When no slot is linked after this one, the cown goes idle by a compare-exchange of its tail from this slot to 0;
 //    when that fails, a behaviour has exchanged itself into the tail and is about to link, so this waits for its link.
@@ -153,13 +155,17 @@ end 'acquireOne'
 // thunk's to drop, since only the compiled code knows the types of the values they hold. Each successor holds a hold of
 // its own, taken before it queued, or for one of one cown by this release before the thunk's drop, so the drop that frees
 // a cown is the one after the last behaviour that names it.
-function cownRelease(record Count)
+function releaseCowns(record Count, service Count)
 	let n = __Raw.loadWord(record, offset: behaviourCownCountOffset)
 	for i in 0 upto n 'slots'
 		let slot = requestSlot(record, index: i)
 		var next = __Raw.loadAcquire(slot, offset: requestNextOffset)
 		if next == notQueued 'last'
-			if __Raw.compareExchange(__Raw.loadWord(slot, offset: requestCownOffset), offset: cownTailOffset, expected: slot, desired: notQueued) == slot 'idle'
+			let cown = __Raw.loadWord(slot, offset: requestCownOffset)
+			if __Raw.compareExchange(cown, offset: cownTailOffset, expected: slot, desired: notQueued) == slot 'idle'
+				if cown == service 'caughtUp'
+					caughtUpIfSlowing(service)
+				end 'caughtUp'
 				continue 'slots'
 			end 'idle'
 			while next == notQueued 'link'
@@ -175,7 +181,7 @@ function cownRelease(record Count)
 			handOn(owner)
 		end 'runnable'
 	end 'slots'
-end 'cownRelease'
+end 'releaseCowns'
 
 // handOn gives a behaviour that a release made runnable to the green thread that runs the released one, which runs it
 // next in the same turn (runTurn), as maxon's runner goes on to a cown's next message: the cown passes from one behaviour
