@@ -409,7 +409,7 @@ let CopyDeleteRetryMs = 50
 function main() returns ExitCode
 	if CommandLine.args().count() > 1 'theRunningCopy'
 		print("running\n")
-		let input = Console.stdin()
+		var input = Console.stdin()
 		_ = try input.readLine() otherwise return 0
 		return 0
 	end 'theRunningCopy'
@@ -427,9 +427,9 @@ function main() returns ExitCode
 end 'main'
 
 function verdictOverARunningCopy(copy FilePath) returns ExitCode
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("hold")
-	let running = try StreamingSubprocess.spawn(MxExecutable.path(copy), arguments: argv) otherwise return 4
+	var running = try StreamingSubprocess.spawn(MxExecutable.path(copy.clone()), arguments: argv) otherwise return 4
 	let verdict = verdictWhileItRuns(running, copy: copy)
 	running.closeStdin()
 	let ended = endedCleanly(running)
@@ -437,11 +437,11 @@ function verdictOverARunningCopy(copy FilePath) returns ExitCode
 	return verdict if ended else 6
 end 'verdictOverARunningCopy'
 
-function verdictWhileItRuns(running StreamingSubprocess, copy FilePath) returns ExitCode
-	let output = try running.takeStdout() otherwise return 5
+function verdictWhileItRuns(mutates running StreamingSubprocess, copy FilePath) returns ExitCode
+	var output = try running.takeStdout() otherwise return 5
 	_ = try output.readLine() otherwise return 5
 	try File.writeText(copy, content: "") otherwise (e) 'refused'
-		return 42 if e == FileWriteError.busy else (10 + e.ordinal) as ExitCode
+		return 42 if e == FileWriteError.busy else (try (10 + e.ordinal) as ExitCode otherwise panic("out of range"))
 	end 'refused'
 	return 2
 end 'verdictWhileItRuns'

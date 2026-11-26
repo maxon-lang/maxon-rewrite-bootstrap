@@ -2454,6 +2454,7 @@ file-io.md: rename-of-a-missing-file-throws-not-found
 file-io.md: write-and-read-binary
 file-io.md: write-and-read-text
 file-io.md: write-rename-and-read
+file-io.md: write-text-over-the-running-executable-throws-busy
 filepath.md: filepath-anchored-at-keeps-parent-components
 filepath.md: filepath-anchored-at-roots-and-drives
 filepath.md: filepath-change-extension
@@ -7164,6 +7165,7 @@ sched-runqueue.md: sched-runqueue.a-yield-goes-behind-the-global-queue
 sched-runqueue.md: sched-runqueue.ring-overflow-runs-every-spawned-service
 sched-runqueue.md: sched-runqueue.the-last-spawned-thread-runs-first-at-one-processor
 sched-runqueue.md: sched-runqueue.the-ring-index-wraps-past-its-capacity
+sched-syscall-handoff.md: an-async-child-wait-leaves-the-sleeping-coroutine-running
 scheduler-processor-count.md: scheduler-processor-count.a-count-longer-than-thirty-two-bytes-is-read-whole
 scheduler-processor-count.md: scheduler-processor-count.a-count-with-a-leading-plus-is-taken
 scheduler-processor-count.md: scheduler-processor-count.a-count-with-trailing-text-is-ignored
