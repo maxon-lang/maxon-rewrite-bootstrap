@@ -18,7 +18,6 @@ var builtinNames = map[string]bool{
 	"CodepointDelta":            true,
 	"NetworkPort":               true,
 	"CodeUnit16":                true,
-	"Milliseconds":              true,
 	"InstantNanos":              true,
 	"InstantMs":                 true,
 	"ThreadCpuTicks":            true,
@@ -103,7 +102,6 @@ var builtinNames = map[string]bool{
 	"min":                       true,
 	"max":                       true,
 	"exchange":                  true,
-	"sleep":                     true,
 }
 
 // builtinMethods are the methods minimaxon declares on each type it builds in, by the type's name, in the table's order.

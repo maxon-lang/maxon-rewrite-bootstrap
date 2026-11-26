@@ -440,9 +440,6 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrSchedulerParallelBoundary 'intrSchedulerParallelBoundary'
 		return lowerSchedulerParallelBoundary(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSchedulerParallelBoundary'
-	if op == ast.Intrinsic.intrSleep 'intrSleep'
-		return lowerSleep(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrSleep'
 	if op == ast.Intrinsic.intrServiceShutdown 'intrServiceShutdown'
 		return lowerServiceShutdown(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrServiceShutdown'
@@ -554,6 +551,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrCollectedOutputSucceeded 'intrCollectedOutputSucceeded'
 		return lowerCollectedOutputSucceeded(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrCollectedOutputSucceeded'
+	if op == ast.Intrinsic.intrSleep 'intrSleep'
+		return lowerSleep(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSleep'
 	if op == ast.Intrinsic.intrClockNowMillis 'intrClockNowMillis'
 		return lowerClockNowMillis(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrClockNowMillis'
@@ -1291,9 +1291,6 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrSchedulerParallelBoundary 'intrSchedulerParallelBoundary'
 		return false
 	end 'intrSchedulerParallelBoundary'
-	if op == ast.Intrinsic.intrSleep 'intrSleep'
-		return false
-	end 'intrSleep'
 	if op == ast.Intrinsic.intrServiceShutdown 'intrServiceShutdown'
 		return false
 	end 'intrServiceShutdown'
@@ -1405,6 +1402,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrCollectedOutputSucceeded 'intrCollectedOutputSucceeded'
 		return false
 	end 'intrCollectedOutputSucceeded'
+	if op == ast.Intrinsic.intrSleep 'intrSleep'
+		return false
+	end 'intrSleep'
 	if op == ast.Intrinsic.intrClockNowMillis 'intrClockNowMillis'
 		return false
 	end 'intrClockNowMillis'

@@ -36,7 +36,6 @@ var primTypes = []primType{
 	{"NetworkPort", "b.networkPortTy"},
 	{"CodeUnit16", "b.codeUnit16Ty"},
 	{"ExitCode", "b.exitCodeTy"},
-	{"Milliseconds", "b.millisecondsTy"},
 	{"InstantNanos", "b.instantNanosTy"},
 	{"InstantMs", "b.instantMsTy"},
 	{"ThreadCpuTicks", "b.threadCpuTicksTy"},
@@ -92,7 +91,6 @@ var stdAliases = []stdAlias{
 	// NetworkPort is maxon's (stdlib/TcpClient.maxon): a TCP or UDP port, which URL's port() gives.
 	{Name: "NetworkPort", Field: "networkPortTy", Lo: "I128.zero()", Hi: "I128.fromCount(65535 as Count)"},
 	{Name: "CodeUnit16", Field: "codeUnit16Ty", Lo: "I128.zero()", Hi: "I128.fromCount(65535 as Count)"},
-	{Name: "Milliseconds", Field: "millisecondsTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
 	// InstantNanos is maxon's (stdlib/Clock.maxon): a reading of the monotonic clock in nanoseconds.
 	{Name: "InstantNanos", Field: "instantNanosTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
 	{Name: "InstantMs", Field: "instantMsTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
@@ -897,9 +895,6 @@ var tableFunctions = []function{
 	// parallelBoundary is maxon's marker with no effect at run time: a function that calls it may be started with async
 	// (E3073) though it only computes.
 	{Owner: "Scheduler", Name: "parallelBoundary", Static: true, Intrinsic: "SchedulerParallelBoundary"},
-	// sleep is maxon's: the running green thread parks for at least the milliseconds, and its strand's other coroutines run
-	// meanwhile.
-	{Name: "sleep", Params: []string{"milliseconds Milliseconds"}, Intrinsic: "Sleep"},
 	// shutdown is maxon's: the service's mailbox closes, so every later send fails with serviceStopped, and the messages
 	// queued already run. It always succeeds.
 	{Owner: "Service", Name: "shutdown", Intrinsic: "ServiceShutdown"},
@@ -963,7 +958,8 @@ var tableFunctions = []function{
 	{Owner: "Debuggee", Name: "terminate", Static: true, Params: []string{"process Count", "exitCode Count"}, Result: "Bool", Intrinsic: "DebuggeeTerminate"},
 	{Owner: "CollectedOutput", Name: "succeeded", Result: "Bool", Intrinsic: "CollectedOutputSucceeded"},
 
-	// The floors of maxon's Sleep and Scheduler, which the library tiers call.
+	// The floors of maxon's Sleep and Scheduler, which the library tiers call. sleep is maxon's: the running green thread
+	// parks for at least the milliseconds, and its strand's other coroutines run meanwhile; the library's sleep calls it.
 	{Owner: "Builtins", Name: "sleep", Static: true, Params: []string{"_ Natural"}, Intrinsic: "Sleep", Instead: "sleep(milliseconds)"},
 	{Owner: "Builtins", Name: "cpuCount", Static: true, Result: "Count", Intrinsic: "SchedulerMachineCpuCount", Instead: "Scheduler.machineCpuCount()"},
 	{Owner: "Builtins", Name: "parallelBoundary", Static: true, Intrinsic: "SchedulerParallelBoundary", Instead: "Scheduler.parallelBoundary()"},

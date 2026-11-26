@@ -348,7 +348,6 @@ export enum Intrinsic
 	intrSchedulerCurrentMachine
 	intrSchedulerMachineCpuCount
 	intrSchedulerParallelBoundary
-	intrSleep
 	intrServiceShutdown
 	intrPromiseCancel
 	intrArrayAwaitAny
@@ -386,6 +385,7 @@ export enum Intrinsic
 	intrDebuggeeCloseHandle
 	intrDebuggeeTerminate
 	intrCollectedOutputSucceeded
+	intrSleep
 	intrClockNowMillis
 	intrClockTickMillis
 	intrClockThreadCpuTicks
@@ -940,7 +940,6 @@ function declareStdAliases(mutates tt TypeSlot, reads TypeTable, mutates std Par
 	b.codepointDeltaTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "CodepointDelta", lo: I128.fromCount(1114111 as Count).neg(), hi: I128.fromCount(1114111 as Count))
 	b.networkPortTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "NetworkPort", lo: I128.zero(), hi: I128.fromCount(65535 as Count))
 	b.codeUnit16Ty = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "CodeUnit16", lo: I128.zero(), hi: I128.fromCount(65535 as Count))
-	b.millisecondsTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "Milliseconds", lo: I128.zero(), hi: I128.u64Max())
 	b.instantNanosTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "InstantNanos", lo: I128.zero(), hi: I128.u64Max())
 	b.instantMsTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "InstantMs", lo: I128.zero(), hi: I128.u64Max())
 	b.threadCpuTicksTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "ThreadCpuTicks", lo: I128.zero(), hi: I128.u64Max())
@@ -1972,9 +1971,6 @@ function declareBuiltinFunctions(mutates tt TypeSlot, reads TypeTable, mutates f
 	ps34.push(ParamSpec.make("place", ty: g33, conv: Convention.convMutates))
 	ps34.push(ParamSpec.make("value", ty: g33, conv: Convention.convConsumes))
 	_ = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrExchange, name: "exchange", generics: oneArgList(g33), ret: g33, params: ps34, declareInStd: true)
-	var ps35 = ParamSpecList.create(0)
-	ps35.push(ParamSpec.make("milliseconds", ty: b.millisecondsTy, conv: Convention.convLet))
-	_ = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrSleep, name: "sleep", generics: TypeIDList.create(0), ret: b.voidTy, params: ps35, declareInStd: true)
 end 'declareBuiltinFunctions'
 
 function declareCommandLineMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

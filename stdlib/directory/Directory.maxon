@@ -109,7 +109,7 @@ extension Directory
 
 	static function pauseForBusyFiles(pauseMs BusyPauseMs, remainingMs clock.DurationMs) returns BusyPauseMs
 		let fullPauseMs = pauseMs as clock.DurationMs
-		sleep((fullPauseMs if fullPauseMs < remainingMs else remainingMs) as Milliseconds)
+		sleep.sleep((fullPauseMs if fullPauseMs < remainingMs else remainingMs) as sleep.Milliseconds)
 		return pauseMs * 2 if pauseMs < LongestBusyPauseMs / 2 else LongestBusyPauseMs
 	end 'pauseForBusyFiles'
 
