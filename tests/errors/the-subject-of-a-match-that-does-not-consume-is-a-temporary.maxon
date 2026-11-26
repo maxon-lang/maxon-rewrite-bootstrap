@@ -1,0 +1,48 @@
+// A match that does not consume only borrows its subject, so a subject made for it is a temporary that nothing takes, dropped
+// where the statement ends: the arms take apart only the subject of a match that consumes.
+type Txn
+	var id as Count
+
+	static function begin(id Count) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	function commit(destructs self) throws Refusal
+		if id == 0 'empty'
+			throw Refusal.refused
+		end 'empty'
+	end 'commit'
+end 'Txn'
+
+enum Refusal implements Error
+	refused
+end 'Refusal'
+
+union Step
+	done(txn Txn)
+	none
+end 'Step'
+
+function steps(n Count) returns Count throws Refusal
+	if n == 0 'none'
+		throw Refusal.refused
+	end 'none'
+	return n
+end 'steps'
+
+function finish(consumes t Txn, n Count) throws Refusal
+	try t.commit()
+end 'finish'
+
+function borrowed() throws Refusal
+	match Step.done(Txn.begin(1)) 'step'
+		done(txn) then _ = try steps(0)
+		none then return
+	end 'step'
+end 'borrowed'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3919 at 38:13

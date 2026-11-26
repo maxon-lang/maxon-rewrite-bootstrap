@@ -52,10 +52,14 @@ end 'movedCloneFix'
 // allows; everything else is refused and says to copy.
 function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes dest OwnDest, consumes s OwnState) returns OwnState
 	if ms.tree().kindOf(e) == ast.NodeKind.tryExpr and ast.isTransparent(ms.tree(), e: e) 'transparent'
+		let mark = o.inFlight.count()
 		let added = enterTry(o, handles: not ast.propagates(ms.tree(), e: e))
 		let after = consume(o, p: p, ms: ms, e: ast.tryExprE(ms.tree(), id: e), dest: dest, s: s)
 		let entry = leaveTryEntry(o, added: added)
+		// What leaves on a failure runs where the expression failed, without what the expression would have given.
+		let computed = takeInFlight(o, mark: mark)
 		handled(o, p: p, ms: ms, e: e, entry: entry)
+		giveInFlight(o, taken: computed)
 		return after
 	end 'transparent'
 	if isView(o, ms: ms, e: e) 'view'

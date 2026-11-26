@@ -3222,7 +3222,9 @@ end 'sums'
   the blocks it leaves are dropped, and so are the values computed for a call, a record or a union that never runs
   (`ir.Lowerer.pending`). The ownership pass follows each failure to its handler, so a value moved before a failure may
   be gone in the handler (`E3102`), and a value that cannot be dropped may not be in flight where something can fail
-  (`E3919`).
+  (`E3919`). A handler runs where its expression failed, so what that expression would have given is not in flight there,
+  and the arms of a `match consumes` take its subject apart, so the subject is not in flight in them: the handler of
+  `let b = try open(2) otherwise ...` may end an `a` opened before it with a destructor that can fail.
 
 **Guards.** The range analysis (`self/check/ranges*.maxon`, with `spans.maxon` and `accumulators.maxon`) proves most operations safe, and those need no `try` and
 compile to no check at all: lowering emits only the checks it leaves (`ArithInfo.fails`). It is one walk over each function,

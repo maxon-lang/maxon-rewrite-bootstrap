@@ -548,6 +548,23 @@ function land(mutates o Ownership, mark Count)
 	truncate(o.inFlight, mark: mark)
 end 'land'
 
+// takeInFlight takes the values in flight since mark away, last first, for a path on which they were never computed;
+// giveInFlight puts them back as they were.
+function takeInFlight(mutates o Ownership, mark Count) returns ast.NodeIDList
+	var taken = ast.NodeIDList.create(0)
+	while o.inFlight.count() > mark 'each'
+		taken.push(try o.inFlight.pop() otherwise panic("ownership: a value in flight vanished"))
+	end 'each'
+	return taken
+end 'takeInFlight'
+
+function giveInFlight(mutates o Ownership, consumes taken ast.NodeIDList)
+	var left = taken
+	while not left.isEmpty() 'each'
+		o.inFlight.push(try left.pop() otherwise panic("ownership: a value taken from flight vanished"))
+	end 'each'
+end 'giveInFlight'
+
 // handled checks what a transparent try does on a failure: return, break, continue or throw, or a handler block that leaves, or
 // nothing for a try that passes it to the caller.
 function handled(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes entry OwnState)
@@ -579,10 +596,14 @@ function tryExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 	let inner = ast.tryExprE(ms.tree(), id: e)
 	let passes = ast.propagates(ms.tree(), e: e)
 	if ast.isTransparent(ms.tree(), e: e) 'transparent'
+		let mark = o.inFlight.count()
 		let added = enterTry(o, handles: not passes)
 		let after = eval(o, p: p, ms: ms, e: inner, s: s)
 		let entry = leaveTryEntry(o, added: added)
+		// What leaves on a failure runs where the expression failed, without what the expression would have given.
+		let computed = takeInFlight(o, mark: mark)
 		handled(o, p: p, ms: ms, e: e, entry: entry)
+		giveInFlight(o, taken: computed)
 		return after
 	end 'transparent'
 	if ast.tryExprIgnore(ms.tree(), id: e) 'ignore'
@@ -597,8 +618,12 @@ function tryExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 		let added = enterTry(o, handles: true)
 		let after = eval(o, p: p, ms: ms, e: inner, s: s)
 		let entry = leaveTryEntry(o, added: added)
+		// The handler runs where the expression failed, so nothing the expression computed is in flight there; it is again
+		// where the expression gave its value.
+		let computed = takeInFlight(o, mark: mark)
 		let ended = walk(o, p: p, ms: ms, body: ast.handlerBlockBodyRef(ms.tree(), id: handler), s: entry)
 		land(o, mark: mark)
+		giveInFlight(o, taken: computed)
 		return join(o, p: p, ms: ms, a: after, b: ended)
 	end 'falls'
 	let mark = o.inFlight.count()
@@ -879,7 +904,10 @@ function matchOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState
 	var start = s
 	if consuming 'consumes'
 		_ = requireMayTakeApart(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, ms: ms, node: subject), t: ast.contentType(ms.types, reads: p.types, t: ownType(o, node: subject)), what: "a 'match consumes'")
+		let flight = o.inFlight.count()
 		start = consume(o, p: p, ms: ms, e: subject, dest: OwnDest.of(OwnDestKind.destMatch), s: start)
+		// The arms take the subject apart, each owning what it binds, so the subject is no longer in flight in them.
+		land(o, mark: flight)
 	end 'consumes' else 'reads'
 		start = expr(o, p: p, ms: ms, e: subject, s: start)
 	end 'reads'

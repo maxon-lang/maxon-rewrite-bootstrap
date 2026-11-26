@@ -1,0 +1,35 @@
+// The arms of a match that consumes take its subject apart, each owning the payload it binds, so the subject is not in flight
+// in them: an arm may end its payload with a destructor that can fail.
+type Txn
+	var id as Count
+
+	static function begin(id Count) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	function commit(destructs self) throws Refusal
+		if id == 0 'empty'
+			throw Refusal.refused
+		end 'empty'
+	end 'commit'
+end 'Txn'
+
+enum Refusal implements Error
+	refused
+end 'Refusal'
+
+union Step
+	done(txn Txn)
+	none
+end 'Step'
+
+function settle(consumes step Step) throws Refusal
+	match consumes step 'step'
+		done(txn) then try txn.commit()
+		none then return
+	end 'step'
+end 'settle'
+
+function main() returns ExitCode
+	return 0
+end 'main'
