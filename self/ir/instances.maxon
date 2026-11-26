@@ -521,19 +521,6 @@ function followInstances(p ast.Project, mutates ms ast.ModuleState, mutates foun
 	return true
 end 'followInstances'
 
-// addInstancesOf adds to found the instances that the function caller, which is not generic, needs, and those that they need
-// in turn, as findInstances finds them for each of its callers; found already holds those of the callers before it, whose own
-// were followed. It is false where the type arguments of one grow without end, which errs then holds.
-export function addInstancesOf(p ast.Project, mutates ms ast.ModuleState, caller ast.FuncID, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
-	let unbound = ast.TypeIDList.create(0)
-	let next = found.list.count()
-	let owner = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: caller).module
-	if not visitUses(p, ms: ms, module: owner, fn: caller, bindParams: unbound.clone(), bindArgs: unbound.clone(), bindWitnesses: ast.WitnessList.create(0), found: found, errs: errs) 'deep'
-		return false
-	end 'deep'
-	return followInstances(p, ms: ms, found: found, from: next, errs: errs)
-end 'addInstancesOf'
-
 // instancesOf are the instances among fns, the functions that lowerModule lowered for a module: every one it found, which
 // are the instances a function of the module calls when it is lowered again.
 export function instancesOf(p ast.Project, ms ast.ModuleState, fns IrFunctionList) returns InstanceSet
