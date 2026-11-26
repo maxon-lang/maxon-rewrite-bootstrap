@@ -142,7 +142,7 @@ programs as an artifact. The workflow reads the repository and writes nothing to
 | `minimaxon rename [--prelude=f,...] [--rules=file] <rule>... <program>...` | rename a built-in type or rewrite the calls of a built-in method by the declaration the checker resolved, never by text: `Array.append=push`, `Array.insert=insert({at}, value: {item})`, `Array.pop.unwrap=try {call} otherwise panic("empty")`, and a free function's whole call: `readFile().unwrap=try File.readText({path}) otherwise panic("unread")` (the rules are in `self/driver/rename.maxon`) |
 | `minimaxon fmt [--check] <path>...` | put the `.maxon` files and the Maxon code blocks of the `.md` files under the paths in the one layout; `--check` changes nothing and exits 1 listing the files that are not in it (see "Layout" and "Changing the language") |
 | `minimaxon interp <file\|dir> [--seed=N] [--frees]` | development only: run under the tracking interpreter, which runs a frozen value, a cown and a behaviour, and reports a violation of the memory model; `--frees` lists the values freed, in order |
-| `minimaxon fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]` | development only: write random programs, check them and run them under the interpreter (`self/fuzz`); `--native` also runs the executable of each that compiles and compares it with the interpreter (see "Tests") |
+| `minimaxon fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]` | development only: write random programs, check them and run them under the interpreter (`self/fuzz`), each staged in the library tier since it may write cowns and behaviours; `--native` also runs the executable of each that compiles and compares it with the interpreter (see "Tests") |
 | `go run ./cmd/convert [--specs] [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules); `--specs` converts maxon's spec files, which is how `specs/` is made. A source file's top-level declaration of a name that minimaxon has built in (`internal/builtingen`'s table, which writes `cmd/convert/builtins_gen.go`) is left out, with the comment above it, since the built-in is the declaration every other module uses; a spec test's program keeps one, as a program may declare such a name. A source file's declaration of a record type that minimaxon builds in and that has members the built-in lacks (`Clock`, `Directory`) is kept as an extension of the built-in, with the members the built-in declares and the fields left out, and maxon's `WaitDeadlineMs` is written `Count` unless the file declares it (the library's Subprocess does, for its own `MxWaitDeadline`). The types of maxon's Subprocess that the compiler builds in too are declared by the library under the prefix `Mx` (`MxSubprocess`), and a spec test that runs a child through `Subprocess` names them so (see "Where it differs from Maxon"). A method or a top-level function that calls a raw function the table lacks is left out, and so is what only it reached, a method that calls one left out included. A capability word before a type argument (`Array with immutable Key`) is left out (see "Where it differs from Maxon"). A block that is the first operand inside brackets (`let n = (try f() otherwise 'e' ... end 'e') as T`, `xs.push(match x 'm' ... end 'm')`) is bound on lines of its own before the line, since minimaxon reads no line break inside brackets. It lays out what it converts with the compiler's `fmt`: the gate's, `bin\minimaxon.exe` in the repository, or the compiler the environment variable `MINIMAXON` names A library file's cast of a raw buffer to the bare `__ManagedMemory` (maxon's `as isolated __ManagedMemory`) is left out, since the row's buffer is one already, and a field, parameter or local that it names `stream` is written `which`, so that the library's `stream` module can qualify what it declares. |
 | `go run ./cmd/sample [-interval D] [-threads] [-top N] [-callers N] [-focus TEXT,...] [-o FILE] <exe> [arg...]` | profile an executable that `build --emit-map` made: runs it, samples its main thread's instruction pointer and its `rbp` frames (1 ms by default), and prints the functions by self and by total samples, with the callers of the top ones and of those whose symbol contains a `-focus` text, and the wall time; code outside the image (a Windows DLL) is charged to the function that called it, found by scanning the stack, and exits with the program's code |
 | `go run ./cmd/selfab [--base=REV] [--base-compiler=EXE] [--runs=N] [--note=TEXT]` | compare the self-build of two versions of the compiler: A (`--base`, a git revision, `HEAD` by default, checked out in a temporary worktree; or `--base-compiler`, a C1 made of its sources) and B (the working tree). Each is built as C1 by its own seed, then `<C1> build self --no-cache` is timed N times (11 by default) on both, interleaved with the order alternating after one run of each that is not counted, and the tool prints the medians, their ratio and the range of the ratio over the pairs of runs. It also prints the share of a build that `--timings` gives the `bodies` and `verify` stages (the check of function bodies), and the count in the IR that `--emit-ir` writes (after the optimizer) of the `bounds` operations and of the calls of `rt.panicEmptySlot` (counted for both versions by the working tree's `ircount`), the run-time tests that a compiler made by each version still holds; the failures that a `try xs.get(i)` takes to its handler are not among them. `--note` also prints a row for `docs/self-compile-times.md`. It takes the machine-wide lock and works on Windows, Linux and macOS |
@@ -420,7 +420,7 @@ deadline, so the runner keeps its own width; so the gate runs each such program 
 programs that have one of the words `when`, `async`, `sleep` and `Scheduler` in a file, or are tests of the runtime, and
 leaves out the rest uncounted. A soak
 is the same flags with `--repeat=300` at each count. A failure names the run and the worker count. The stress
-programs are `behaviours-over-a-ring-of-cowns` and `behaviours-on-one-to-eight-cowns-and-pushers-handing-off` (1 to 8
+programs, of `tests/library/` since a program does not name cowns, are `behaviours-over-a-ring-of-cowns` and `behaviours-on-one-to-eight-cowns-and-pushers-handing-off` (1 to 8
 cowns per `when` and per-sender order across hand-offs, after maxon's `cown-multi-torture` and
 `cown-handoff-torture`); the others named `a-…` and `behaviours-…` each hold one path of the runtime to it (a function
 value or a frozen value shared into behaviours on many workers, a cown's last owner dropped inside a behaviour while
@@ -2914,7 +2914,7 @@ edit to `runtime/` rebuilds everything.
   whose type has maxon's iteration protocol (a type of the program, a type parameter through its bounds, an interface
   value through what its interface requires), `for (i, x) in xs.enumerated()` over any of these with the index of each element, `for (k, v) in m` over the library's `Map`, whose iterator lends each entry, and `for c in E.allCases` (see "Primitives"), `match` as a statement or expression
   (case, literal, range and string patterns, `or` alternatives, `default`, `panic` arms, `default throws E`, and `stmt and fallthrough`), `break`/`continue`
-  with labels, `return`, `when` (a behaviour, see "Immutable values, cowns and behaviours"), `await p` of a promise of a
+  with labels, `return`, `when` (a behaviour, in the library tiers only, see "Immutable values, cowns and behaviours"), `await p` of a promise of a
   function that returns nothing, and a `try` block with or without a handler (see "Checked arithmetic").
 - `async f(args)` and `await p`, `Promise with T` and `Promise with (T, E)`, `sleep(ms)` and `Scheduler.yield()` (see
   "Coroutines: async and await").
@@ -2946,7 +2946,7 @@ edit to `runtime/` rebuilds everything.
   could not tell from the end of a block: a parameter named by one of these is declared but not read. A variable, a
   field, a type and a case are not named by a keyword, as in Maxon, apart from `from` and `to`, which are names wherever
   a name is.
-- Built in: `print`, `printError`, `panic` (which takes a string literal or an interpolated string), `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the OS functions of maxon's stdlib (see "The OS"), the float functions (see "Floats"), the aliases `ExitCode`, `Count`,
+- Built in: `print`, `printError`, `panic` (which takes a string literal or an interpolated string), `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`, in the library tiers only), `exchange`, the OS functions of maxon's stdlib (see "The OS"), the float functions (see "Floats"), the aliases `ExitCode`, `Count`,
   `ElementIndex` (an index that a `Count` goes where one is taken, and the other way only by `as`), `FullRangeInt`, `FullRangeFloat`, `Byte`, `ByteArray` (`Array with Byte`), `ByteArrays` (`Array with ByteArray`), `StringArray` (`Array with String`), the limits of the sized integers as constants (`u64.max`, `i32.min`, ...), the `String` methods `byteLength()`, `byteAt(index)`, `sliceBytes(start, endPos: end)` and `toByteArray()` and the static `String.from(bytes)`, and maxon's `isEmpty`, `equals`, `append`, `count`, `contains`, `startsWith`, `endsWith`, `findFirst`, `findLast`, `startIndex`, `endIndex`, `slice`, `sliceLength`, `replace`, `replaceFirst`, `trim`, `trimStart`, `trimEnd`, `toLower` and `toUpper` with the type `StringIndex` (`charIndex()`, `bytePos()`) and the error `StringError`, the enums `ArithmeticError`, `ArrayError`, `MapError` and `IterationError`, the interface `Error`, and the generic types `Array`, `FixedArray`, `Map`, `List`, `SlotMap`, `SlotKey` (see "Primitives") with `sizeof(T)` and `countof(T)`,
   `frozen` and `cown` (see "Immutable values, cowns and behaviours"). Every built-in is public, so a public signature names
   one. The rest of the stdlib is the library source of `stdlib/` (see "Modules"), and there is no `Option`: a
@@ -4544,11 +4544,20 @@ behaviour-oriented concurrency. A compiled program runs behaviours on worker thr
 behaviours in the IR"); the interpreter runs them under a simulated scheduler, and the checker's rules are what the
 interpreter's runs test.
 
+**Cowns and `when` are the library tiers' machinery.** A program keeps state that threads share in a service and sends it
+messages (see "Services"): states that share an invariant are one service, whose messages change them together. The cown
+type, a `cown(...)` call and a `when` are written only in the library tiers (`stdlib/`, `runtime/`, a test of
+`tests/library/`, and the compiler's own source, whose task graph runs on them, `self/driver/executor.maxon`); anywhere else
+each is `E3185`, the code of the raw surface, with a service named as what to write instead. Services are lowered onto
+them (see "Services", "In the IR"), and the rules below hold of the code that writes them. Frozen values (`freeze`,
+`share`, `thaw`, `frozen with T`) are a program's.
+
 ```
 type Account
 	export var balance as Count
 end 'Account'
 
+// library-tier code: a program keeps the accounts in one service, whose transfer is a message
 function transfer(from cown with Account, dest cown with Account, amount Count)
 	when from, dest as f, t 'move'
 		if f.balance >= amount 'enough'
@@ -5343,7 +5352,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   local, a payload or a receiver, and `modify`), static fields, default parameters. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
   values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and
   "Immutable values, cowns and behaviours"), with an interpreter that runs all of it and a native backend that runs
-  all but the list. `freeze` is a function here, `when` is a statement that takes cowns and gives names to their values,
+  all but the list. `freeze` is a function here, `when` is a statement of the library tiers that takes cowns and gives
+  names to their values (a program writes a service; cowns and `when` elsewhere are `E3185`),
   and a frozen value is a type, `frozen with T`, where Maxon recovers immutability from facts about a value's history.
   The grammar has none of the rest, so each is a syntax error. Maxon's codes for the rules of its regions (`E3196`,
   `E3198` to `E3203`, `E3205` to `E3209`, `E3211`, `E3214`, `E3226`) are not raised, and the spec tests that expect one

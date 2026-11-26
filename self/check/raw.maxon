@@ -2,9 +2,15 @@
 // They read and write memory past the ownership model's bookkeeping, so only a module of a library tier goes through one;
 // each refusal is at the door, in maxon's words, with what a program uses instead.
 
+// checksLibraryTier is whether the module being checked is in a library tier, which may go through the raw surface's doors
+// and write cowns and behaviours.
+function checksLibraryTier(c Checker, p ast.Project) returns bool
+	return p.modules[c.modIdx].inLibraryTier()
+end 'checksLibraryTier'
+
 // refusesRawType refuses a type of the raw surface that a module outside the library tiers names at off.
 function refusesRawType(c Checker, p ast.Project, ms ast.ModuleState, off diag.U32, t ast.TypeID, mutates errs diag.ErrorList) returns bool
-	if p.modules[c.modIdx].inLibraryTier() 'tier'
+	if checksLibraryTier(c, p: p) 'tier'
 		return false
 	end 'tier'
 	let origin = ast.originOf(ms.types, reads: p.types, t: t)

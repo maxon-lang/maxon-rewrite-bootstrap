@@ -689,6 +689,9 @@ export function rawTypeSurface(b Builtins, origin TypeID) returns table.Option w
 	if origin == b.groupMemoryOrigin 'rawGroupMemory'
 		return table.Option.some(RawSurface.make("the raw buffer of a table's groups is nameable", instead: "use 'Map'"))
 	end 'rawGroupMemory'
+	if origin == b.cownOrigin 'rawCown'
+		return table.Option.some(RawSurface.make("the cown type is nameable", instead: "keep shared state in a service and send it messages"))
+	end 'rawCown'
 	if origin == b.serviceOrigin 'rawService'
 		return table.Option.some(RawSurface.make("the handle type of a service is nameable by its built-in name", instead: "write 'T.handle'"))
 	end 'rawService'

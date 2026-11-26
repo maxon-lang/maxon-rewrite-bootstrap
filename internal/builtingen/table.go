@@ -180,7 +180,11 @@ var builtinTypes = []builtinType{
 	}},
 	{Key: "SlotKey", Name: "SlotKey", Params: []string{"T"}},
 	{Key: "Frozen", Name: "frozen", Params: []string{"T"}, Managed: true, Shared: true},
-	{Key: "Cown", Name: "cown", Params: []string{"T"}, Managed: true, Shared: true},
+	// Cown is the library tiers' machinery of services (README, "Immutable values, cowns and behaviours"): a program keeps
+	// shared state in a service, so naming the type, and making one, is a door of the raw surface.
+	{Key: "Cown", Name: "cown", Params: []string{"T"}, Managed: true, Shared: true, Raw: &rawType{
+		Named: rawSurface{What: "the cown type is nameable", Instead: "keep shared state in a service and send it messages"},
+	}},
 	// Promise is maxon's: what an async call gives, the coroutine it started, which an await consumes. `Promise with T` is of
 	// a function that throws nothing, and `Promise with (T, E)` of one that throws E, whose E is then void.
 	{Key: "Promise", Name: "Promise", Params: []string{"T", "E"}, Managed: true},

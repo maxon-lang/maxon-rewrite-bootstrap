@@ -18,6 +18,11 @@ end 'loadParsed'
 function expectDeclared(path String)
 	var errs = diag.ErrorList.create(0)
 	var p = loadParsed(path, errs: errs)
+	if path == "self" 'compiler'
+		// The compiler's own source is a library tier, which names cowns (executor.maxon); a test's executable is not beside
+		// it, so the load cannot tell (project.isCompilerDirectory), and the test says so as discoverDirectory would.
+		project.markCompiler(p)
+	end 'compiler'
 	let entry = declareProject(p, errs: errs)
 	if errs.count() > 0 'de'
 		ast.locateAllErrors(p.modules, errs: errs)

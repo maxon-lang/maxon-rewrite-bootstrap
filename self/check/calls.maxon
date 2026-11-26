@@ -312,6 +312,9 @@ function callDeclared(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 		return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callFunction, target: fid, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
 	end 'function'
 	if typeHasKind(p, ms: ms, t: declaredTypeOrNone(p, ms: ms, ref: ref), kind: ast.TypeKind.builtinCown) 'cown'
+		if refusesRawType(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: call), t: declaredTypeOrNone(p, ms: ms, ref: ref), errs: errs) 'raw'
+			return ast.noType
+		end 'raw'
 		return cownCall(c, p: p, ms: ms, call: call, errs: errs)
 	end 'cown'
 	if ast.declIsConst(p, ref: ref) 'constant'

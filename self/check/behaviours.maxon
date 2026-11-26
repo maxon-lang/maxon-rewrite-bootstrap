@@ -282,6 +282,10 @@ end 'addBehaviourParam'
 // checkBehaviour types a behaviour: it names cowns, and its body runs once it has exclusive access to all of them, with
 // the names after 'as' giving mutable access to their values.
 function checkBehaviour(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
+	if not checksLibraryTier(c, p: p) 'outside'
+		failAt(c, p: p, ms: ms, node: s, code: diag.errRawSurfaceOutsideLibrary, msg: "'when' written outside the library tiers: a behaviour over cowns is written only in a source file under stdlib/ or runtime/ — keep shared state in a service and send it messages", errs: errs)
+		return
+	end 'outside'
 	let cownsRef = ast.whenStmtCownsRef(ms.tree(), id: s)
 	let cownCount = ms.tree().listLen(cownsRef)
 	let nameCount = ms.tree().listLen(ast.whenStmtNamesRef(ms.tree(), id: s))
