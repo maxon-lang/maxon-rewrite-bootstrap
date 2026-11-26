@@ -1007,10 +1007,7 @@ builtins-mm-counters.md: builtins-mm-counters.thread-alloc-bytes-arity-checked
 builtins-mm-counters.md: builtins-mm-counters.thread-alloc-total-arity-checked
 builtins-mm-counters.md: builtins-mm-counters.thread-free-total-arity-checked
 builtins-mm-counters.md: builtins-mm-counters.total-is-monotonic-and-moves
-builtins-parallel-boundary.md: builtins-parallel-boundary.error.arity-rejected
 builtins-parallel-boundary.md: builtins-parallel-boundary.error.the-control-still-refuses
-builtins-parallel-boundary.md: builtins-parallel-boundary.marks-a-cpu-bound-spawn
-builtins-parallel-boundary.md: builtins-parallel-boundary.statement-position
 builtins-sleep.md: builtins-sleep.arity-rejected
 builtins-sleep.md: builtins-sleep.statement-position
 builtins-sleep.md: builtins-sleep.unknown-member-in-statement-position
@@ -7159,8 +7156,6 @@ sched-park.md: sched-park.a-service-coroutine-runs-while-its-handler-sleeps
 sched-preempt.md: sched-preempt.a-switch-value-that-is-neither-off-nor-on-is-refused-at-start
 sched-processor.md: sched-processor.a-green-thread-kernel-call-round-trips-its-processor-stack
 sched-processor.md: sched-processor.a-scalar-program-still-runs-with-no-processor-at-all
-sched-processor.md: sched-processor.many-green-threads-through-one-processor
-sched-processor.md: sched-processor.spawn-carries-every-argument
 sched-runqueue.md: sched-runqueue.a-yield-goes-behind-the-global-queue
 sched-runqueue.md: sched-runqueue.ring-overflow-runs-every-spawned-service
 sched-runqueue.md: sched-runqueue.the-last-spawned-thread-runs-first-at-one-processor
