@@ -161,7 +161,7 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 	}
 	// The conversion writes specs/, which the other lanes read: it runs before any of them.
 	if r.recordSpecs != "" {
-		steps = append(steps, laneStep{step{"specs conversion", func() error { return convertSpecsIfStale(r.compiler, r.recordSpecs) }}, "prelude"})
+		steps = append(steps, laneStep{step{"specs conversion", func() error { return convertSpecsIfStale(r.compiler, r.recordSpecs, false) }}, "prelude"})
 	}
 	first := []string{"checks", "builds", "specs", "native"}
 	second := []string{"native-behaviours"}

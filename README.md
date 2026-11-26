@@ -157,7 +157,8 @@ file. A runner deletes each test's
 executable when it can, tries again for the others when the run ends, and says in one line on standard error how many it could
 not, which never changes the exit code.
 
-`specs/` holds maxon's spec tests converted by `cmd/convert --specs`, in maxon's own format: `<!-- test: name -->` and the
+`specs/` holds maxon's spec tests converted by `cmd/convert --specs`, from the maxon specs whose content `specs/SOURCE` pins
+(a git tree hash; another source is refused unless `--advance-source` moves the pin, `specs/README.md`), in maxon's own format: `<!-- test: name -->` and the
 fenced blocks ```` ```maxon ````, ```` ```exitcode ````, ```` ```stdout ````, ```` ```stderr ```` and ```` ```maxoncstderr ````. The tool
 rewrites only each test's `maxon` block (every `// --- file:` section of it) through the source conversion, and copies
 the rest, with line endings made LF. A test whose conversion warned, or whose source minimaxon cannot parse, carries one

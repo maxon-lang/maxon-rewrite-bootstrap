@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"minimaxon/internal/hosts"
+	"minimaxon/internal/specsource"
 )
 
 // renewSeeds renews the three seeds from self/, and refuses unless each reproduces itself. On x64 Windows the Windows seed
@@ -216,13 +217,13 @@ func wslCommand(compiler string, args ...string) (string, []string) {
 // as they are (currentCompiler). The run at the end runs every test (replayed when it can, specRun) and writes specs/passed.txt again: the
 // new passes are added, a listed test that the conversion now skips is dropped (the line "DROPPED"), and a listed test that
 // fails stays, so the gate goes on failing until it is fixed.
-func regenerateSpecs(h host, maxonSpecs string) error {
+func regenerateSpecs(h host, maxonSpecs string, advance bool) error {
 	pinHashSeed()
 	compiler, err := currentCompiler(h)
 	if err != nil {
 		return err
 	}
-	if err := convertSpecsIfStale(compiler, maxonSpecs); err != nil {
+	if err := convertSpecsIfStale(compiler, maxonSpecs, advance); err != nil {
 		return err
 	}
 	out, replayed, err := specRun(compiler, "--record-passed")
@@ -239,7 +240,7 @@ func regenerateSpecs(h host, maxonSpecs string) error {
 // maxon's spec files, the converter's source, and the compiler that formats and fixes with the runtime and the library it
 // finds beside itself and the skip table, and the specs they wrote, which anything may have edited since. Whatever differs,
 // or if the last conversion did not end, they run, and the stamp is written last.
-func convertSpecsIfStale(compiler, maxonSpecs string) error {
+func convertSpecsIfStale(compiler, maxonSpecs string, advance bool) error {
 	conversionStamp := filepath.Join("bin", "specs-conversion.stamp")
 	inputs := []string{maxonSpecs, filepath.Join("cmd", "convert"), "go.mod", compiler, "runtime", "stdlib", filepath.Join("self", "driver", "skips.tsv")}
 	stampOf := func() (string, string, error) {
@@ -262,7 +263,7 @@ func convertSpecsIfStale(compiler, maxonSpecs string) error {
 		return nil
 	}
 	os.Remove(conversionStamp)
-	if err := convertSpecs(compiler, maxonSpecs); err != nil {
+	if err := convertSpecs(compiler, maxonSpecs, advance); err != nil {
 		return err
 	}
 	// The inputs are read again: a change while the conversion ran leaves it with no stamp.
@@ -276,8 +277,12 @@ func convertSpecsIfStale(compiler, maxonSpecs string) error {
 	return nil
 }
 
-// convertSpecs writes specs/ again: maxon's spec files converted, then fixed.
-func convertSpecs(compiler, maxonSpecs string) error {
+// convertSpecs writes specs/ again: maxon's spec files converted, then fixed. A source of other content than specs/SOURCE
+// pins is refused before anything is deleted, unless advance moves the pin (internal/specsource).
+func convertSpecs(compiler, maxonSpecs string, advance bool) error {
+	if _, err := specsource.Check(maxonSpecs, "specs", advance); err != nil {
+		return err
+	}
 	// The conversion lays out what it writes with the same compiler, whatever the environment names.
 	env := []string{"MINIMAXON=" + compiler}
 	old, err := filepath.Glob(filepath.Join("specs", "*.md"))
@@ -291,7 +296,11 @@ func convertSpecs(compiler, maxonSpecs string) error {
 			}
 		}
 	}
-	if err := run(env, "go", "run", "./cmd/convert", "--specs", "--out=specs", maxonSpecs); err != nil {
+	args := []string{"run", "./cmd/convert", "--specs", "--out=specs"}
+	if advance {
+		args = append(args, specsource.AdvanceFlag)
+	}
+	if err := run(env, "go", append(args, maxonSpecs)...); err != nil {
 		return err
 	}
 	return run(env, compiler, "fix", "specs")
