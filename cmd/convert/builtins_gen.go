@@ -132,7 +132,7 @@ var builtinMethods = map[string][]string{
 	"__ServiceHandle":       {"shutdown", "mostQueued"},
 	"Promise":               {"cancel", "isComplete"},
 	"FilePath":              {"from", "init", "toString"},
-	"File":                  {"readText", "readBinary", "writeText", "createText", "writeBinary", "rename", "delete", "exists", "info"},
+	"File":                  {"readText", "readBinary", "writeText", "writeBinary", "rename", "delete", "exists", "info"},
 	"Directory":             {"isDirectory", "exists", "create", "currentPath", "delete", "list"},
 	"Subprocess":            {"run", "runWithDeadline", "runInDirectory"},
 	"CollectedOutput":       {"exitCode", "succeeded"},

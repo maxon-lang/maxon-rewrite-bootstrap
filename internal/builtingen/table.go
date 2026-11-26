@@ -962,8 +962,6 @@ var tableFunctions = []function{
 	// readBinary is maxon's: the whole content of a file as bytes, read as readText reads it.
 	{Owner: "File", Name: "readBinary", Static: true, Params: []string{"path FilePath"}, Result: "Array with Byte", Throws: "FileReadError", Intrinsic: "FileReadBinary"},
 	{Owner: "File", Name: "writeText", Static: true, Params: []string{"path FilePath", "content String", "mode FilePermission = normal"}, Throws: "FileWriteError", Intrinsic: "FileWriteText"},
-	// createText is maxon's: a new file holding the content, which must not be there (alreadyExists), and a failed write deletes it.
-	{Owner: "File", Name: "createText", Static: true, Params: []string{"path FilePath", "content String"}, Throws: "FileWriteError", Intrinsic: "FileCreateText"},
 	{Owner: "File", Name: "writeBinary", Static: true, Params: []string{"path FilePath", "content Array with Byte", "mode FilePermission = normal"}, Throws: "FileWriteError", Intrinsic: "FileWriteBinary"},
 	{Owner: "File", Name: "rename", Static: true, Params: []string{"from FilePath", "to FilePath"}, Throws: "FileRenameError", Intrinsic: "FileRename"},
 	{Owner: "File", Name: "delete", Static: true, Params: []string{"path FilePath"}, Throws: "FileDeleteError", Intrinsic: "FileDelete"},
@@ -1368,7 +1366,6 @@ var entries = []entry{
 	{"OsReadBinary", "rt.os.readBinary", "Os", roleCall, "(path String, error) -> ByteArray: the whole content of a file, which osReadText reads as a String"},
 	{"OsWriteTextMode", "rt.os.writeTextMode", "Os", roleCall, "(path String, content String, executable, error): executable is whether a file that the write creates gets the executable mode"},
 	{"OsWriteBinaryMode", "rt.os.writeBinaryMode", "Os", roleCall, "(path String, content ByteArray, executable, error): executable is whether a file that the write creates gets the executable mode"},
-	{"OsCreateText", "rt.os.createText", "Os", roleCall, "(path String, content String, error): a file that must not be there, made and written whole; a write that fails deletes it, and partialFileLeft when that fails too"},
 	{"OsRename", "rt.os.rename", "Os", roleCall, "(from String, to String, error): replaces what is at to"},
 	{"OsDelete", "rt.os.delete", "Os", roleCall, "(path String, error)"},
 	{"OsFileInfo", "rt.os.fileInfo", "Os", roleCall, "(path String, size, created, accessed, attributes, error) -> modified: the times in Unix seconds, and the attributes as a word whose bit 0 is whether the path is a directory and bit 1 whether it is read-only"},
@@ -1606,7 +1603,6 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsReadBinary", "osReadBinary(path String, errorAddress Count) Count"},
 	{"OsWriteTextMode", "osWriteTextMode(path String, content String, executable Bool, errorAddress Count)"},
 	{"OsWriteBinaryMode", "osWriteBinaryMode(path String, content Count, executable Bool, errorAddress Count)"},
-	{"OsCreateText", "osCreateText(path String, content String, errorAddress Count)"},
 	{"OsRename", "osRename(source String, destination String, errorAddress Count)"},
 	{"OsDelete", "osDelete(path String, errorAddress Count)"},
 	{"OsFileInfo", "osFileInfo(path String, size Count, created Count, accessed Count, attributes Count, errorAddress Count) Count"},

@@ -2302,7 +2302,8 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   mark the program `// native-only`, and never gives a result: `Directory.delete`, `Subprocess.runWithInput`, the process's
   environment entries, a change of the process's priority, the debug port, the subprocess rows of the raw surface, and **file
   streams**, the rows of an open file that the library's `__ManagedFile` is written over (`__Builtins.fileOpenRead` and the
-  other opens, `fileReadAppending`, `fileWrite`, `fileClose`, `self/interp/handles.maxon`), since its file layer reads and writes whole files and holds no
+  other opens, `fileReadAppending`, `fileWrite`, `fileClose`, `self/interp/handles.maxon`), and so the library's `FileWriter`,
+  `File.openRead` and `File.createText`, which are written over them, since its file layer reads and writes whole files and holds no
   descriptor. It stops at the operation and not before the run, since a module is lowered whole and a program that never opens
   a file may hold code that does.
   `fuzz` generates none of these: its programs are drawn from `self/fuzz/library.txt`, which names none.
@@ -4508,7 +4509,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `File.readText(path)` | `String` | `FileReadError` |
 | `File.readBinary(path)` | `Array with Byte`, the whole content of the file, read as `readText` reads it (the same system calls; the bytes are copied from the read buffer to the array) | `FileReadError` |
 | `File.writeText(path, content: s)`, `File.writeBinary(path, content: bytes)`, each with an optional `mode: FilePermission` | — (a file that is there is replaced, and keeps its mode) | `FileWriteError` |
-| `File.createText(path, content: s)` | — (makes a file that must not be there, in one step: `CreateFileW` with `CREATE_NEW`, `open` with `O_CREAT \| O_EXCL`; one that is there fails `alreadyExists` and is left as it was; a write that fails after the file was made deletes it, and the error is the write's, or `partialFileLeft` when that delete fails too and not as `notFound`) | `FileWriteError` |
+| `File.createText(path, content: s)` | — (maxon's, the library's (`stdlib/file/File.maxon`), over `FileWriter.openNew` and `writeAllText`: makes a file that must not be there, in one step, `CreateFileW` with `CREATE_NEW`, `open` with `O_CREAT \| O_EXCL`; one that is there fails `alreadyExists` and is left as it was; a write that fails after the file was made deletes it, and the error is the write's, or `partialFileLeft` when that delete fails too and not as `notFound`) | `FileWriteError` |
 | `File.openRead(path)` | `FileStreamReader`, maxon's `stream.StreamReader with FileSource` (`stdlib/file`): lines, exact counts of bytes and the rest of the file, read as the file's reads are (see "An open file", below); it is ended with `reader.source.close()` | `FileReadError` |
 | `FileWriter.open(path)`, with an optional `mode: FilePermission`, and `FileWriter.openNew(path)` (a file that must not be there, `alreadyExists`) | `FileWriter`, maxon's (`stdlib/file/fileWriter.maxon`): `write(bytes)` writes all of them; `close()` ends it; `writeAll(bytes)` and `writeAllText(s)` write and then close, and end it too | `FileWriteError` |
 | `File.rename(from, to: dest)` | — (what is at `dest` is replaced) | `FileRenameError` |

@@ -113,6 +113,22 @@ extension File
 	public static function openRead(path FilePath) returns FileStreamReader throws FileReadError
 		return stream.StreamReader.over(try FileSource.open(path.path))
 	end 'openRead'
+
+	/// Create a new file holding `content`. Throws `alreadyExists` when the path is already there. A
+	/// failed write deletes the file it created and throws the write's error; `partialFileLeft` when
+	/// that delete fails too.
+	public static function createText(path FilePath, content String) throws FileWriteError
+		let writer = try FileWriter.openNew(path)
+		try writer.writeAllText(content) otherwise (e) 'unwritten'
+			try File.delete(path) otherwise (cleanup) 'kept'
+				if cleanup == FileDeleteError.notFound 'nothingLeft'
+					throw e
+				end 'nothingLeft'
+				throw FileWriteError.partialFileLeft
+			end 'kept'
+			throw e
+		end 'unwritten'
+	end 'createText'
 end 'File'
 
 /// Why a file operation failed, whichever operation it was: every `File` error answers it through
