@@ -93,6 +93,7 @@ func convertProgram(file, src string, kind inputKind, names programNames) Result
 			dropLiteralMarkers(lines)
 		}
 		rewriteBuiltinRecords(lines)
+		rewriteBuiltinParamTypes(lines)
 		dropBuiltinDeclarations(lines)
 		dropHardwareRegions(lines)
 		rewriteBuiltinExtensions(lines)

@@ -18,7 +18,7 @@ function main() returns ExitCode
 	let own = 7 as FileSize
 	print("own size={own} {own <= 10}\n")
 	print("own timestamp={Timestamp.make(3).seconds}\n")
-	let info = FileInfo.create(100, modifiedTime: 1, createdTime: 2, accessedTime: 3, isDirectory: false, isReadOnly: false)
+	let info = FileInfo.create(100, modifiedTime: 1, createdTime: FileCreatedTime.time(2), accessedTime: 3, isDirectory: false, isReadOnly: false)
 	print("library size={info.size}\n")
 	return 0
 end 'main'

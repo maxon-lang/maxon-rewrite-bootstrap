@@ -2444,7 +2444,6 @@ file-info.md: file-info.directory
 file-info.md: file-info.empty-file
 file-info.md: file-info.not-found
 file-info.md: file-info.read-only
-file-info.md: file-info.timestamps
 file-io.md: bytes-written-before-close-are-the-files-content-after
 file-io.md: create-text-of-an-existing-file-throws-already-exists
 file-io.md: create-text-refuses-an-existing-file

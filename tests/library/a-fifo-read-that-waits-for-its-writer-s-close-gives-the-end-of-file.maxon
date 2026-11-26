@@ -1,0 +1,84 @@
+// A read of a FIFO that waits while its writer is still open, and whose writer then closes with nothing more written, ends
+// with 0. The writer writes, sleeps a fifth of a second and closes, so the second read waits every time before the close.
+// macOS gives a FIFO's reader no event for that close, of kqueue or of poll, so a read parked on the event queue waited for
+// good; there a FIFO's read blocks instead, and the close ends it.
+// unsupported-targets: x64-windows
+// native-only
+//> read: 4 then 0: ping
+typealias Bytes = __ManagedMemory with Byte
+
+typealias Arguments = Array with String
+
+function shellArguments(script String) returns Arguments
+	var arguments = Arguments.create(0)
+	arguments.push("-c")
+	arguments.push(script.clone())
+	return arguments
+end 'shellArguments'
+
+// shell runs a script to its end and says whether it ran.
+function shell(script String) returns bool
+	let sh = try FilePath.from("/bin/sh") otherwise return false
+	_ = try Subprocess.run(Executable.path(sh), arguments: shellArguments(script)) otherwise return false
+	return true
+end 'shell'
+
+// detached starts a script that this program does not wait for, and says whether it started.
+function detached(script String) returns bool
+	let sh = try FilePath.from("/bin/sh") otherwise return false
+	var configuration = Configuration.create(MxExecutable.path(sh))
+	configuration.arguments = shellArguments(script)
+	_ = try configuration.runDetached() otherwise return false
+	return true
+end 'detached'
+
+function failureName(e __ManagedFileError) returns String
+	return match e 'kind'
+		notFound gives "notFound"
+		accessDenied gives "accessDenied"
+		openFailed gives "openFailed"
+		readFailed gives "readFailed"
+		writeFailed gives "writeFailed"
+		sizeFailed gives "sizeFailed"
+		deleteFailed gives "deleteFailed"
+		statFailed gives "statFailed"
+		invalidStatBuffer gives "invalidStatBuffer"
+		invalidStatIndex gives "invalidStatIndex"
+		closed gives "closed"
+		alreadyExists gives "alreadyExists"
+		busy gives "busy"
+	end 'kind'
+end 'failureName'
+
+// readFifo reads a FIFO twice: the first read parks until the writer has written, the second until it has closed.
+function readFifo(path String, mutates buffer Bytes) returns String throws __ManagedFileError
+	var file = try __ManagedFile.openRead(path.addressableBytes())
+	let first = try file.readAppending(buffer, most: 8) otherwise (e) 'first'
+		try file.close() otherwise ignore
+		throw e
+	end 'first'
+	let second = try file.readAppending(buffer, most: 8) otherwise (e) 'second'
+		try file.close() otherwise ignore
+		throw e
+	end 'second'
+	try file.close()
+	return "{first} then {second}"
+end 'readFifo'
+
+function main() returns ExitCode
+	let inbound = "/tmp/minimaxon_fifo_close_{Process.id()}"
+	if not shell("mkfifo '{inbound}'") 'unmade'
+		return 1
+	end 'unmade'
+	if not detached("exec 3>'{inbound}'; sleep 1; printf ping >&3; sleep 0.2; exec 3>&-") 'writer'
+		return 2
+	end 'writer'
+	var buffer = try Bytes.create(16, elementSize: 1) otherwise return 3
+	let reads = try readFifo(inbound, buffer: buffer) otherwise (e) 'unread'
+		print("read: {failureName(e)}\n")
+		return 4
+	end 'unread'
+	print("read: {reads}: {String.from(ByteArray.init(buffer))}\n")
+	_ = shell("rm -f '{inbound}'")
+	return 0
+end 'main'

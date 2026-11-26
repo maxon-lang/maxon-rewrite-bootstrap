@@ -97,7 +97,7 @@ export function failureCase(op OsOperation, failure OsFailure) returns Count
 	end 'f'
 end 'failureCase'
 
-// payloadField is the index, in the payload of a case of Executable or WaitDeadline, of the one field it has.
+// payloadField is the index, in the payload of a case of Executable, WaitDeadline or FileCreatedTime, of the one field it has.
 export let payloadField = 0 as Count
 
 // Path characters that FilePath.from refuses besides the control characters, as maxon's does on Windows.
@@ -404,41 +404,68 @@ function lowerFileDelete(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c
 	return konst(l, value: 0 as Word)
 end 'lowerFileDelete'
 
-// fileInfoDirectoryBit and fileInfoReadOnlyShift are where rt.os.fileInfo's attributes word holds its two flags.
-let fileInfoDirectoryBit = 1 as Word
+// fileInfoDirectoryShift, fileInfoReadOnlyShift and fileInfoNotReportedShift are where rt.os.fileInfo's attributes word holds
+// its three flags.
+let fileInfoDirectoryShift = 0 as Word
 
 let fileInfoReadOnlyShift = 1 as Word
 
+let fileInfoNotReportedShift = 2 as Word
+
+// attributeFlag is the bit of the attributes word at shift, which is 0 or 1 as a bool is.
+function attributeFlag(mutates l Lowerer, flags Reg, shift Word) returns Reg
+	let shiftBy = konst(l, value: shift)
+	let shifted = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(shifted, op: BinOp.binShr, left: flags, right: shiftBy, unsigned: true, fail: noBlock))
+	let one = konst(l, value: 1 as Word)
+	let bit = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(bit, op: BinOp.binAnd, left: shifted, right: one, unsigned: true, fail: noBlock))
+	return bit
+end 'attributeFlag'
+
+// fileCreatedTime is the FileCreatedTime that the seconds and the attributes word of rt.os.fileInfo give: its tag is the
+// notReported flag, as the case time is index 0 and notReported 1, and its box is the time case's, whose payload notReported leaves
+// unread.
+function fileCreatedTime(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, flags Reg, seconds Reg) returns Reg
+	let t = applyType(l, p: p, ms: ms, t: p.builtins.fileCreatedTimeTy)
+	let box = newReg(l, kind: IrKind.kindManaged)
+	let bytes = caseBoxBytes(ms.types, reads: p.types, owner: t, caseIndex: ast.fileCreatedTimeTime)
+	emit(l, i: newAlloc(box, bytes: bytes))
+	let notReported = attributeFlag(l, flags: flags, shift: fileInfoNotReportedShift)
+	emit(l, i: newStoreField(box, offset: tagOffset, src: notReported, borrow: false))
+	let secondsOffset = payloadOffset(ms.types, reads: p.types, owner: t, caseIndex: ast.fileCreatedTimeTime, index: payloadField)
+	emit(l, i: newStoreField(box, offset: secondsOffset, src: seconds, borrow: false))
+	return box
+end 'fileCreatedTime'
+
 // lowerFileInfo makes the FileInfo of what the entry stored and returned: the times and the size as they are, and each flag
-// as its bit of the attributes word, which is 0 or 1 as a bool is.
+// as its bit of the attributes word.
 function lowerFileInfo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let site = siteOf(l, p: p, node: c.node)
 	let size = l.b.f.newSlot(IrKind.kindScalar)
-	let created = l.b.f.newSlot(IrKind.kindScalar)
+	let createdSlot = l.b.f.newSlot(IrKind.kindScalar)
 	let accessed = l.b.f.newSlot(IrKind.kindScalar)
 	let attributes = l.b.f.newSlot(IrKind.kindScalar)
 	let dst = newReg(l, kind: IrKind.kindScalar)
 	var all = RegList.create(0)
 	all.push(pathText(l, path: args[0]))
 	all.push(slotAddr(l, slot: size))
-	all.push(slotAddr(l, slot: created))
+	all.push(slotAddr(l, slot: createdSlot))
 	all.push(slotAddr(l, slot: accessed))
 	all.push(slotAddr(l, slot: attributes))
 	let modified = failing(l, p: p, ms: ms, site: site, dst: dst, symbol: Rt.rtOsFileInfo, args: all)
 	let flags = load(l, slot: attributes)
-	let directoryBit = konst(l, value: fileInfoDirectoryBit)
-	let isDirectory = newReg(l, kind: IrKind.kindScalar)
-	emit(l, i: newBin(isDirectory, op: BinOp.binAnd, left: flags, right: directoryBit, unsigned: true, fail: noBlock))
-	let readOnlyShift = konst(l, value: fileInfoReadOnlyShift)
-	let isReadOnly = newReg(l, kind: IrKind.kindScalar)
-	emit(l, i: newBin(isReadOnly, op: BinOp.binShr, left: flags, right: readOnlyShift, unsigned: true, fail: noBlock))
+	let isDirectory = attributeFlag(l, flags: flags, shift: fileInfoDirectoryShift)
+	let isReadOnly = attributeFlag(l, flags: flags, shift: fileInfoReadOnlyShift)
+	let seconds = load(l, slot: createdSlot)
+	let created = fileCreatedTime(l, p: p, ms: ms, flags: flags, seconds: seconds)
 	var fields = RegList.create(0)
 	for i in 0 upto succ(ast.fileInfoIsReadOnlyField) 'fields'
 		fields.push(noReg)
 	end 'fields'
 	fields[ast.fileInfoSizeField] = load(l, slot: size)
 	fields[ast.fileInfoModifiedTimeField] = modified
-	fields[ast.fileInfoCreatedTimeField] = load(l, slot: created)
+	fields[ast.fileInfoCreatedTimeField] = created
 	fields[ast.fileInfoAccessedTimeField] = load(l, slot: accessed)
 	fields[ast.fileInfoIsDirectoryField] = isDirectory
 	fields[ast.fileInfoIsReadOnlyField] = isReadOnly

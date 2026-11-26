@@ -467,10 +467,12 @@
 		return osErrorOf(result)
 	end 'closeFileHandle'
 
-	// fileEntryOf is the event entry of an open file's fd that waits on the event queue, as Go's os.File decides: a FIFO's, a
-	// socket's or a character device's, which it makes not wait (O_NONBLOCK) and registers. A regular file, a directory and a
-	// block device have none, since a kqueue takes a regular file and says it is always ready, and neither has an fd the kqueue
-	// refuses, whose flags are put back. No fd of macOS must wait there, so the open is never unwaited.
+	// fileEntryOf is the event entry of an open file's fd that waits on the event queue, as Go's os.File decides: a socket's
+	// or a character device's, which it makes not wait (O_NONBLOCK) and registers. A regular file, a directory, a block device
+	// and a FIFO have none, nor an fd the kqueue refuses, whose flags are put back: a kqueue takes a regular file and says it
+	// is always ready, and the close of a FIFO's last writer gives its reader no event, of either filter, nor any to poll, so
+	// a read that waited for that end of file would wait for good. Their reads and writes block, in the blocking bracket. No
+	// fd of macOS must wait there, so the open is never unwaited.
 	function fileEntryOf(fd Count, path Count, length Count, unwaitedAddress Count) returns Count
 		let stat = newStat()
 		enterBlocking()
@@ -478,7 +480,7 @@
 		exitBlocking()
 		let kind = statMode(stat) and macosModeTypeMask
 		free(stat)
-		if failed(statted) or not (kind == macosModeFifo or kind == macosModeSocket or kind == macosModeCharacter) 'plain'
+		if failed(statted) or not (kind == macosModeSocket or kind == macosModeCharacter) 'plain'
 			return noEntry
 		end 'plain'
 		let flags = intResult(__Raw.callImport3("fcntl", arg1: fd, arg2: macosFcntlGetFlags, arg3: 0))

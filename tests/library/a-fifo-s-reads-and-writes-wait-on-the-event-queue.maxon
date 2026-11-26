@@ -1,8 +1,9 @@
 // A FIFO's reads and writes wait on the event queue, as a pipe's do: its open file is given an event entry at the open, so a
 // read that comes before the writer has written parks the green thread until it has, and gives 0 once the writer has closed it,
-// and a write to a FIFO that a reader reads writes all of it. /dev/null, a character device that epoll refuses on Linux, is
-// read and written as a plain file. The other end of each FIFO is the shell's, started detached, so the opens, which wait for
-// the other end, wait on another process and not on this program.
+// and a write to a FIFO that a reader reads writes all of it. On macOS, whose kqueue gives a FIFO's reader no event for its
+// writer's close, a FIFO has no entry and its calls block instead, to the same results. /dev/null, a character device that
+// epoll refuses on Linux, is read and written as a plain file. The other end of each FIFO is the shell's, started detached,
+// so the opens, which wait for the other end, wait on another process and not on this program.
 // unsupported-targets: x64-windows
 // native-only
 //> read: 4 then 0: ping

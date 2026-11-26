@@ -160,6 +160,9 @@ let infoDirectoryFlag = 1
 
 let infoReadOnlyFlag = 2
 
+// infoNotReportedFlag is set when the system does not say when the file was made, which Linux's file systems may not.
+let infoNotReportedFlag = 4
+
 #if os(Windows)
 	// What FilePath.from refuses: the control characters and these. A path's native separator is a backslash.
 	let lastControlByte = 31

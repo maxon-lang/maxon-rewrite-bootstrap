@@ -849,3 +849,4 @@ test	stream-reader.md	a-line-read-within-a-cap-answers-pastTheCap-past-it-and-th
 test	stream-reader.md	a-final-line-with-no-newline-is-a-line-and-then-the-stream-has-ended	language difference: an open file is a linear value, and nothing closes it but its close
 test	stream-reader.md	a-file-is-read-line-by-line-across-chunks	language difference: an open file is a linear value, and nothing closes it but its close
 test	library-tier-surface.md	the-managed-file-type-compiles-in-the-library-tier	language difference: an open file is a linear value, and nothing closes it but its close
+test	file-info.md	file-info.timestamps	language difference: createdTime is a FileCreatedTime, time or notReported, where maxon gives a Timestamp that is st_ctime on Linux, so a comparison of it with a number does not type-check (README, Where it differs from Maxon)

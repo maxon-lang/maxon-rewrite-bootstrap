@@ -37,7 +37,6 @@ var macosABI = []layoutConst{
 	{"macosStatSizeOffset", 96, true, toRuntime, "where a struct stat holds st_size."},
 	{"macosModeTypeMask", 0xF000, true, toRuntime, "S_IFMT: the bits of st_mode that say what a file is."},
 	{"macosModeDirectory", 0x4000, true, toRuntime, "S_IFDIR."},
-	{"macosModeFifo", 0x1000, true, toRuntime, "S_IFIFO: a FIFO, which an open file waits on through the event queue."},
 	{"macosModeSocket", 0xC000, true, toRuntime, "S_IFSOCK: a socket, which an open file waits on through the event queue."},
 	{"macosModeCharacter", 0x2000, true, toRuntime, "S_IFCHR: a character device, a terminal among them."},
 	{"macosModeOwnerWrite", 0x80, true, toRuntime, "S_IWUSR: a file without it is the read-only one of FileInfo."},

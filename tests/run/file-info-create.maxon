@@ -1,10 +1,12 @@
-// FileInfo.create makes the record that File.info gives, from maxon's types: the size is a FileSize and the three times are
-// Timestamps (Unix seconds), whose range is the unsigned 64-bit word as Count's is. The fields have those types (sizeOf and
-// modifiedOf return them as they are), a record made by create reads back as it was made, and File.info of a file written in
-// the working directory gives a FileInfo of those types: its size, times after 2020 (createdTime is the inode change time on
-// Linux, which every file system gives) and its flags. The same program runs on every target and under the interpreter.
+// FileInfo.create makes the record that File.info gives: the size is a FileSize, the modified and accessed times are
+// Timestamps (Unix seconds), whose range is the unsigned 64-bit word as Count's is, and the time the file was made is a
+// FileCreatedTime, a Timestamp or notReported. The fields have those types (sizeOf and modifiedOf return them as they are), a
+// record made by create reads back as it was made, and File.info of a file written in the working directory gives a FileInfo of
+// those types: its size, times after 2020 (the time it was made too, where the file system reports one, which the working
+// directory's may not) and its flags. The same program runs on every target.
+// native-only
 //> made=10 20 30 40 false true
-//> largest=18446744073709551615 18446744073709551615
+//> largest=18446744073709551615 18446744073709551615 0
 //> sizeOf=10
 //> modifiedOf=20
 //> again=10 false
@@ -30,11 +32,27 @@ function modifiedOf(info FileInfo) returns Timestamp
 	return info.modifiedTime
 end 'modifiedOf'
 
+// createdSeconds is the seconds of the time a file was made, or 0 where the system does not report one.
+function createdSeconds(info FileInfo) returns Timestamp
+	return match info.createdTime 'created'
+		time(seconds) gives seconds
+		notReported gives 0
+	end 'created'
+end 'createdSeconds'
+
+// createdLate is whether the time a file was made is after 2020, or the system does not report one.
+function createdLate(info FileInfo) returns bool
+	return match info.createdTime 'created'
+		time(seconds) gives seconds > lateIn2020
+		notReported gives true
+	end 'created'
+end 'createdLate'
+
 function main() returns ExitCode
-	let made = FileInfo.create(10, modifiedTime: 20, createdTime: 30, accessedTime: 40, isDirectory: false, isReadOnly: true)
-	print("made={made.size} {made.modifiedTime} {made.createdTime} {made.accessedTime} {made.isDirectory} {made.isReadOnly}\n")
-	let most = FileInfo.create(18446744073709551615, modifiedTime: 18446744073709551615, createdTime: 0, accessedTime: 0, isDirectory: true, isReadOnly: false)
-	print("largest={most.size} {most.modifiedTime}\n")
+	let made = FileInfo.create(10, modifiedTime: 20, createdTime: FileCreatedTime.time(30), accessedTime: 40, isDirectory: false, isReadOnly: true)
+	print("made={made.size} {made.modifiedTime} {createdSeconds(made)} {made.accessedTime} {made.isDirectory} {made.isReadOnly}\n")
+	let most = FileInfo.create(18446744073709551615, modifiedTime: 18446744073709551615, createdTime: FileCreatedTime.notReported, accessedTime: 0, isDirectory: true, isReadOnly: false)
+	print("largest={most.size} {most.modifiedTime} {createdSeconds(most)}\n")
 	print("sizeOf={sizeOf(made)}\n")
 	print("modifiedOf={modifiedOf(made)}\n")
 	let again = FileInfo.create(made.size, modifiedTime: made.modifiedTime, createdTime: made.createdTime, accessedTime: made.accessedTime, isDirectory: made.isDirectory, isReadOnly: not made.isReadOnly)
@@ -45,7 +63,7 @@ function main() returns ExitCode
 	print("read size={sizeOf(info)}\n")
 	let typedSize = info.size as FileSize
 	print("read typed={typedSize == info.size}\n")
-	print("read times={modifiedOf(info) > lateIn2020 and info.createdTime > lateIn2020 and info.accessedTime > lateIn2020}\n")
+	print("read times={modifiedOf(info) > lateIn2020 and createdLate(info) and info.accessedTime > lateIn2020}\n")
 	print("read flags={info.isDirectory} {info.isReadOnly}\n")
 	let copy = FileInfo.create(info.size, modifiedTime: info.modifiedTime, createdTime: info.createdTime, accessedTime: info.accessedTime, isDirectory: info.isDirectory, isReadOnly: not info.isDirectory)
 	print("read again={copy.size} {copy.isReadOnly}\n")

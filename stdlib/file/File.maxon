@@ -65,8 +65,8 @@ end 'FileInfoError'
 
 /// Metadata about a file
 extension FileInfo
-	public static function create(size FileSize, modifiedTime Timestamp, createdTime Timestamp, accessedTime Timestamp, isDirectory bool, isReadOnly bool) returns FileInfo
-		return FileInfo{size: size, modifiedTime: modifiedTime, createdTime: createdTime, accessedTime: accessedTime, isDirectory: isDirectory, isReadOnly: isReadOnly}
+	public static function create(size FileSize, modifiedTime Timestamp, createdTime FileCreatedTime, accessedTime Timestamp, isDirectory bool, isReadOnly bool) returns FileInfo
+		return FileInfo{size: size, modifiedTime: modifiedTime, createdTime: createdTime.clone(), accessedTime: accessedTime, isDirectory: isDirectory, isReadOnly: isReadOnly}
 	end 'create'
 end 'FileInfo'
 

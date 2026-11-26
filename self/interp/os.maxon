@@ -318,6 +318,8 @@ let infoDirectoryFlag = 1 as ir.Word
 
 let infoReadOnlyFlag = 2 as ir.Word
 
+let infoNotReportedFlag = 4 as ir.Word
+
 // storeNumber stores n at the address that the argument at index of an entry's call gives.
 function storeNumber(mutates vm Vm, f ir.IrFunction, x ir.Instr, index Count, n ir.Word) throws Halt
 	let cell = try target(vm, addr: argAt(f, x: x, i: index), what: "a word an OS entry stores")
@@ -344,7 +346,7 @@ function entryOsFileInfo(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		let info = File.info(path)
 		size = wordOf(info.size as Count)
 		modified = wordOf(info.modifiedTime as Count)
-		created = wordOf(info.createdTime as Count)
+		flags = flags or infoNotReportedFlag
 		accessed = wordOf(info.accessedTime as Count)
 		if info.isDirectory 'directory'
 			flags = flags or infoDirectoryFlag
