@@ -1022,7 +1022,6 @@ SENTENCE: `append` declares its parameter `other` and `appendMemory` declares it
 refusal names the parameter of the method the author actually wrote.
 
 <!-- test: appendMemory-copies-a-raw-buffers-elements -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### An `Array` receiver takes a raw `__ManagedMemory` — `stdlib/String.maxon:865`'s exact shape
 The receiver is a genuine `Array` and the argument is a buffer nothing wrapped, which is the whole
@@ -1600,7 +1599,6 @@ end 'main'
 ```
 
 <!-- test: slice-and-clone-of-a-co-allocated-array-report-a-capacity-of-their-own -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 An array whose buffer lives in its record's own allocation is copied, not viewed, by `slice` and `clone`, so
 the copy reports the capacity of a buffer it owns, the larger of its length and the growth policy's minimum of 4,

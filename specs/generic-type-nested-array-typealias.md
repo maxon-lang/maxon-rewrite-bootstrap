@@ -1374,7 +1374,6 @@ line kept as a `note:`; `specs/array-conditional-conformance-withheld.md` explai
 the blame edge once, for all four such cases.
 
 <!-- test: opaque-copy-uncopyable-instantiation-rejected -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ```maxon

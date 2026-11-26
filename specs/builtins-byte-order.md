@@ -485,14 +485,14 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.a-file-read-into-a-let-binding-is-accepted -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
+<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->
 <!-- tier: stdlib -->
 `read` and `readAppending` fill the buffer they are given, so a `let` binding is accepted for each. The function is not
 called: there is no input file, and the case pins that the program compiles.
 ```maxon
 public function load() returns ExitCode
 	let file = try __ManagedFile.openRead("input.bin".toByteArray()) otherwise return 1
-	let managed = try __ManagedMemory.create(16, 1) otherwise return 1
+	let managed = try ByteMemory.create(16, 1) otherwise return 1
 	let got = try file.read(managed, 16) otherwise return 1
 	print("{got}\n")
 	return 0

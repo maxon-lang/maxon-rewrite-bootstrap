@@ -115,7 +115,6 @@ end 'main'
 ```
 
 <!-- test: error.clone-of-a-struct-holding-a-compiler-owned-handle-is-refused -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⛔⛔ **THE DEEP-CLONE GATE AND THE CLONE STRATEGY MUST AGREE ABOUT THE COMPILER'S OWN AGGREGATES.**
@@ -164,7 +163,7 @@ note: stdlib/Array.maxon:83:32: raised inside the library, on behalf of the cons
 ```
 
 <!-- test: an-array-of-a-handle-holding-struct-compiles-when-nothing-copies-it -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
+<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->
 <!-- tier: stdlib -->
 The refusal above answers for a COPY. The same element in an array that is only pushed to, walked and counted
 is legal.
@@ -566,7 +565,6 @@ appended inner string, long enough to allocate
 ```
 
 <!-- test: an-array-no-code-copies-may-hold-an-element-clone-cannot-copy -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `b/`'s `Holders` holds a handle element no clone can copy, and nothing copies a `Holders`, so it compiles; `a/`'s clone of its own array still works.
 ```maxon
@@ -578,14 +576,14 @@ type Item
 	export var value as Integer
 
 	static function create(name String, value Integer) returns Self
-		return Self{name: name, value: value}
+		return Self{name: name.clone(), value: value}
 	end 'create'
 end 'Item'
 
 typealias ItemArray = Array with Item
 
 export function runA()
-	let src = ItemArray.create(0)
+	var src = ItemArray.create(0)
 	src.push(Item.create("first item long enough to heap allocate", value: 10))
 	let copy = src.clone()
 	print("a {copy.count()}\n")
@@ -595,7 +593,7 @@ end 'runA'
 type Holder
 	export var f as __ManagedFile
 
-	static function create(f __ManagedFile) returns Self
+	static function create(consumes f __ManagedFile) returns Self
 		return Self{f: f}
 	end 'create'
 end 'Holder'
@@ -609,8 +607,8 @@ end 'runB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	runA()
-	runB()
+	a.runA()
+	b.runB()
 	return 0
 end 'main'
 ```

@@ -169,7 +169,6 @@ cloned
 ```
 
 <!-- test: error.the-suppression-may-not-read-a-weaker-index-than-the-report -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### A `where` clause satisfied by an EXTENSION still refuses the copy gate

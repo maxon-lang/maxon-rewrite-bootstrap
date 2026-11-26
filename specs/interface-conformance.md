@@ -589,7 +589,7 @@ FAULT**: `Cannot return 'ByteArray' from function declared to return …` — a 
 program whose fault is a FIELD.
 ```maxon
 type MyCollection uses Element implements BuiltinArrayLiteral
-	var managed as __ManagedMemory
+	var managed
 
 	static function init(mutates managed __ManagedMemory) returns Self
 		return Self{managed: managed}
@@ -1518,7 +1518,7 @@ on `TypeResolution.isCompilerOwnedTypeName`, so no user file can declare either,
 tagged `string`/`character` and dropped through `__str_decref` — never through a struct cascade.
 ```maxon
 type Wrapped implements BuiltinStringLiteral
-	var managed as __ManagedMemory
+	var managed
 	var flag as bool
 	var label = "tag"
 
@@ -1548,7 +1548,7 @@ field faults for the identical reason — **0xC0000005** unrefused. One door ref
 because there is exactly one producer of a fused wrapper value.
 ```maxon
 type Wrapped implements BuiltinStringLiteral
-	var managed as __ManagedMemory
+	var managed
 	var flag as bool
 	var label = "tag"
 
@@ -1594,7 +1594,7 @@ written, discarded, and read back as the classifier's `true`. Unrefused, it exit
 the `true` branch, for a program whose only literal wrote `false`.
 ```maxon
 type Wrapped implements BuiltinStringLiteral
-	var managed as __ManagedMemory
+	var managed
 	var flag as bool
 
 	static function init(mutates value __ManagedMemory) returns Self
@@ -1627,7 +1627,7 @@ The marker the refusal quotes is the one the type DECLARES, so the two byte-reco
 refusal rather than one each — the record is the same 48 bytes and the defect is the same defect.
 ```maxon
 type Glyph implements BuiltinCharLiteral
-	var managed as __ManagedMemory
+	var managed
 
 	static function init(mutates value __ManagedMemory) returns Self
 		return Self{managed: value}

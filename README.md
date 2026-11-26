@@ -5768,6 +5768,21 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   row answers them, since only this program waits for its children); maxon's pumps over a streaming child
   (`helpers/stream/childPump.maxon`, `stdinFeed.maxon`), which are not in `stdlib/files.txt`; and maxon's own `subprocessKill` and
   `subprocessSendSignal`, which its library does not call either.
+- **An open file is a linear value, and nothing closes it but its close.** maxon closes a `__ManagedFile` in its destructor
+  when the value dies, which a close before makes a no-op (maxon's `close()` is idempotent). Here the language runs nothing
+  when a value dies (there is no `deinit`): `__ManagedFile` is a record of the library whose one destructor is `close`, so
+  it, and the `FileWriter`, the `FileSource` and the reader over one that hold it, have no copy and no drop. Every path that
+  opens a file ends it once, by its close or by a write that closes it, or moves it on, and leaving it open, or closing it
+  twice, is refused at compile time (`E3919`, `E3102`), as a linear value is. Exclusive access is proven the same way: a
+  read or a write takes the file `mutates`, so no two calls are on one at once, where maxon's may be. The spec tests that let a
+  file die open, or assert maxon's close on drop (`managed-file.auto-close`, the readers of `stream-reader.md` left open, a
+  handle held in an array or a struct and dropped), are skipped with this reason.
+- **A file's close throws.** maxon's `close()` throws nothing and its drop discards what the system's close reports. Here,
+  as Go's `Close` does, `close()` throws it, `__ManagedFileError.writeFailed`, which `FileWriter.close` throws as
+  `FileWriteError.failed` and `FileSource.close` as `FileReadError.failed` (`FileFailure.failed`), so a program that must know
+  its bytes reached the file learns it from the close as well as from the write. The file is closed whether or not the close
+  throws, and a close is never made again (Linux's `EINTR` is reported, as Go reports it). A call of a close is written with
+  `try`, which `minimaxon fix` writes in maxon's code.
 
 ## Changing the language
 

@@ -160,6 +160,7 @@ pastTheCap|21|short|ended
 ```
 
 <!-- test: a-line-read-without-a-cap-returns-a-line-longer-than-any-cap-whole -->
+<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->
 `readLine()` takes no cap: a line of 1,100,000 bytes, longer than a mebibyte, comes back whole, the line after it reads whole too, and the read after the last line answers `ended`.
 ```maxon
 function shown(read LineOrEnd) returns String
@@ -174,9 +175,9 @@ function main() returns ExitCode
 	let chunk = "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"
 	var content = ""
 	for _ in 0 upto 11000 'eachChunk'
-		content = "{content}{chunk}"
+		content.append(chunk)
 	end 'eachChunk'
-	content = "{content}\nshort\n"
+	content.append("\nshort\n")
 	try File.writeText(path, content: content) otherwise return 1
 	let reader = try File.openRead(path) otherwise return 2
 	let long = shown(try reader.readLine() otherwise return 3)
@@ -195,6 +196,7 @@ end 'main'
 ```
 
 <!-- test: a-line-read-within-a-cap-answers-pastTheCap-past-it-and-the-line-within-it -->
+<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->
 `readLineWithin(cap)` answers `pastTheCap` for a line of twelve bytes under a cap of eight and consumes nothing, answers that same line under a cap of twelve, reads the short line after it under the cap of eight, and answers `ended` after the last line.
 ```maxon
 function shown(read LineRead) returns String
@@ -226,6 +228,7 @@ pastTheCap|twelve chars|short|ended
 ```
 
 <!-- test: a-final-line-with-no-newline-is-a-line-and-then-the-stream-has-ended -->
+<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->
 A stream whose last line has no LF answers that text as a `line` and every read after it `ended`, from `readLine()` and from `readLineWithin(cap)` alike, as Go's `bufio.Reader.ReadString` answers the partial text beside its end-of-file.
 ```maxon
 function shownWithin(read LineRead) returns String
@@ -914,6 +917,7 @@ dropped: client heard [first line;second line;] then secure(truncated)
 ```
 
 <!-- test: a-file-is-read-line-by-line-across-chunks -->
+<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->
 A reader over a file reads every line of one larger than a single read, so lines that straddle two reads come back whole and the count and the last line are exact.
 ```maxon
 function linesOf(path FilePath) returns String
@@ -939,7 +943,7 @@ function main() returns ExitCode
 	let path = FilePath from "stream-reader-a-file-is-read-line-by-line.txt"
 	var content = ""
 	for i in 0 upto 1000 'eachLine'
-		content = "{content}line {i}\n"
+		content.append("line {i}\n")
 	end 'eachLine'
 	try File.writeText(path, content: content) otherwise return 1
 	let outcome = linesOf(path)

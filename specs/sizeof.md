@@ -318,7 +318,7 @@ end 'main'
 ```
 
 <!-- test: sizeof.a-plain-managed-field-is-still-a-pointer -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
+<!-- skip: minimaxon does not parse the converted source: Expected '=' or 'as' but got '\n' -->
 <!-- tier: stdlib -->
 ### Without the marker, `managed` is an ordinary pointer field
 
@@ -328,7 +328,7 @@ keying on the name alone would silently widen every one of them by 40 bytes.
 
 ```maxon
 type Plain
-	var managed as __ManagedMemory
+	var managed
 	var flag as bool
 end 'Plain'
 

@@ -255,7 +255,6 @@ error E4006: <fragment>:8:12: Type 'Set' has no method named 'frobnicate'
 ```
 
 <!-- test: error.unknown-buffer-member-in-value-position -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The `__ManagedMemory` buffer surface has its own roster, and it is the one the reader needs — the two
 method sets differ, so naming the `Array`'s here would send them to the wrong question.
@@ -468,7 +467,6 @@ error E2004: <fragment>:8:14: Function 'append' does not return a value
 ```
 
 <!-- test: error.buffer-setlength-in-value-position -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ The buffer's three void mutators are THROWING, and a `try` around one makes the result unused — so
 this reachable spelling is the one WITHOUT the `try`, which is exactly where the guard fires.
@@ -484,7 +482,6 @@ error E2004: <fragment>:4:13: Function 'setLength' does not return a value
 ```
 
 <!-- test: error.buffer-setbyte-in-value-position -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -498,7 +495,6 @@ error E2004: <fragment>:4:13: Function 'setByte' does not return a value
 ```
 
 <!-- test: error.buffer-grow-in-value-position -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -512,7 +508,6 @@ error E2004: <fragment>:4:13: Function 'grow' does not return a value
 ```
 
 <!-- test: error.buffer-append-in-value-position -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `append` is the one name with TWO void arms — the buffer's throwing one and the `Array`'s — so it needs
 a control on each receiver, or a guard lost from either arm passes on the other's case.
@@ -576,7 +571,6 @@ error E3059: <fragment>:8:10: type mismatch: ''set' does not return a value'
 ```
 
 <!-- test: error.buffer-set-in-value-position -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ The buffer's `set` is a SECOND callee (`__managed_mem_set`, capacity-bounded where the `Array`'s is
 length-bounded), reached through the same arm — so it needs its own case for the reason the two `append`
@@ -649,7 +643,6 @@ return a value`), by the arm's own `resultUsed` guard. **Two codes, two checks, 
 and they must both be here, because a guard lost from either arm passes on the other's case.
 
 <!-- test: error.buffer-try-setlength-in-value-position -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -663,7 +656,6 @@ error E3059: <fragment>:4:10: type mismatch: ''setLength' does not return a valu
 ```
 
 <!-- test: error.buffer-try-setbyte-in-value-position -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -677,7 +669,6 @@ error E3059: <fragment>:4:10: type mismatch: ''setByte' does not return a value'
 ```
 
 <!-- test: error.buffer-try-grow-in-value-position -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode

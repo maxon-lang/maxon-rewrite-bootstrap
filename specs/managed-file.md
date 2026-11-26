@@ -75,7 +75,6 @@ end
 ## Tests
 
 <!-- test: managed-file.open-read-nonexistent -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -104,14 +103,14 @@ end 'TestFileError'
 type TestFile
 	export var file as __ManagedFile
 
-	static function openWrite(path __ManagedMemory) returns TestFile throws TestFileError
+	static function openWrite(path __ManagedMemory with Byte) returns TestFile throws TestFileError
 		let handle = try __ManagedFile.openWrite(path) otherwise 'fail'
 			throw TestFileError.openFailed
 		end 'fail'
 		return TestFile{file: handle}
 	end 'openWrite'
 
-	static function openRead(path __ManagedMemory) returns TestFile throws TestFileError
+	static function openRead(path __ManagedMemory with Byte) returns TestFile throws TestFileError
 		let handle = try __ManagedFile.openRead(path) otherwise 'fail'
 			throw TestFileError.openFailed
 		end 'fail'
@@ -140,7 +139,7 @@ function main() returns ExitCode
 	let size = try rf.file.size() otherwise 'sizeErr'
 		return 8
 	end 'sizeErr'
-	let buffer = try __ManagedMemory.create(size + 1, 1) otherwise 'allocFail'
+	let buffer = try ByteMemory.create(size + 1, 1) otherwise 'allocFail'
 		return 5
 	end 'allocFail'
 	let bytesRead = try rf.file.read(buffer, size) otherwise 'rErr'
@@ -188,7 +187,7 @@ end 'TestFileError'
 type TestFile
 	export var file as __ManagedFile
 
-	static function openWrite(path __ManagedMemory) returns TestFile throws TestFileError
+	static function openWrite(path __ManagedMemory with Byte) returns TestFile throws TestFileError
 		let handle = try __ManagedFile.openWrite(path) otherwise 'fail'
 			throw TestFileError.openFailed
 		end 'fail'
@@ -246,7 +245,7 @@ delete failed as expected
 ```
 
 <!-- test: managed-file.auto-close -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
+<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->
 <!-- tier: stdlib -->
 ```maxon
 enum TestFileError implements Error
@@ -256,14 +255,14 @@ end 'TestFileError'
 type TestFile
 	export var file as __ManagedFile
 
-	static function openWrite(path __ManagedMemory) returns TestFile throws TestFileError
+	static function openWrite(path __ManagedMemory with Byte) returns TestFile throws TestFileError
 		let handle = try __ManagedFile.openWrite(path) otherwise 'fail'
 			throw TestFileError.openFailed
 		end 'fail'
 		return TestFile{file: handle}
 	end 'openWrite'
 
-	static function openRead(path __ManagedMemory) returns TestFile throws TestFileError
+	static function openRead(path __ManagedMemory with Byte) returns TestFile throws TestFileError
 		let handle = try __ManagedFile.openRead(path) otherwise 'fail'
 			throw TestFileError.openFailed
 		end 'fail'
@@ -303,7 +302,6 @@ end 'main'
 ```
 
 <!-- test: managed-file.open-read-not-found-variant -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The errno→variant mapping ensures that opening a path that does not exist
@@ -549,10 +547,10 @@ function main() returns ExitCode
 	try w.write("hello world".toByteArray().managed) otherwise return 2
 	w.close()
 	let r = try __ManagedFile.openRead(path.toByteArray().managed) otherwise return 3
-	let buffer = try __ManagedMemory.create(32, 1) otherwise return 4
-	let first = try r.readAppending(buffer, 5) otherwise return 5
-	let second = try r.readAppending(buffer, 20) otherwise return 6
-	let third = try r.readAppending(buffer, 20) otherwise return 7
+	let buffer = try ByteMemory.create(32, 1) otherwise return 4
+	let first = try r.readAppending(buffer, most: 5) otherwise return 5
+	let second = try r.readAppending(buffer, most: 20) otherwise return 6
+	let third = try r.readAppending(buffer, most: 20) otherwise return 7
 	r.close()
 	try __ManagedFile.delete(path.toByteArray().managed) otherwise return 8
 	let head = try buffer.byteAt(0) otherwise return 9
@@ -570,7 +568,6 @@ end 'main'
 ```
 
 <!-- test: managed-file.read-appending-past-the-capacity-is-refused -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A `readAppending` whose bytes would run past the buffer's capacity is `readFailed`, and reads nothing.
 ```maxon
@@ -580,10 +577,10 @@ function main() returns ExitCode
 	try w.write("abcdef".toByteArray().managed) otherwise return 2
 	w.close()
 	let r = try __ManagedFile.openRead(path.toByteArray().managed) otherwise return 3
-	let buffer = try __ManagedMemory.create(4, 1) otherwise return 4
-	let first = try r.readAppending(buffer, 3) otherwise return 5
+	let buffer = try ByteMemory.create(4, 1) otherwise return 4
+	let first = try r.readAppending(buffer, most: 3) otherwise return 5
 	var answer = 6 as ExitCode
-	if let over = try r.readAppending(buffer, 2) 'read'
+	if let over = try r.readAppending(buffer, most: 2) 'read'
 		answer = (10 + over) as ExitCode
 	end 'read' else (e) 'refused'
 		answer = 42 if e == __ManagedFileError.readFailed and (buffer.length() as FileSize) == first else 7
@@ -604,7 +601,7 @@ A buffer passed to a function value of a by-reference arity lives in a cell, and
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-function observe(held __ManagedMemory, step Integer)
+function observe(held __ManagedMemory with Byte, step Integer)
 	print("{held.length()} {step}\n")
 end 'observe'
 
@@ -618,10 +615,10 @@ function main() returns ExitCode
 	try w.write("abcdef".toByteArray().managed) otherwise return 2
 	w.close()
 	let r = try __ManagedFile.openRead(path.toByteArray().managed) otherwise return 3
-	let buffer = try __ManagedMemory.create(8, 1) otherwise return 4
+	let buffer = try ByteMemory.create(8, 1) otherwise return 4
 	let look = observe
 	look(buffer, 1)
-	let got = try r.readAppending(buffer, 6) otherwise return 5
+	let got = try r.readAppending(buffer, most: 6) otherwise return 5
 	look(buffer, 2)
 	var total = 0 as Integer
 	advance(total, step: buffer.length() as Integer)
@@ -641,17 +638,23 @@ end 'main'
 ```
 
 <!-- test: error.managed-file.read-appending-into-a-buffer-of-wider-elements-is-refused -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
+<!-- positions: moved -->
 <!-- tier: stdlib -->
 `readAppending` grows the buffer's length by the bytes it read, and a length counts elements, so only a byte
 buffer is accepted: a buffer of wider elements is refused where it is passed.
 ```maxon
 function main() returns ExitCode
 	var r = try __ManagedFile.openRead("test_managed_read_appending_wide.txt".toByteArray().managed) otherwise return 1
-	var buffer = try __ManagedMemory.create(4, 8) otherwise return 2
-	let got = try r.readAppending(buffer, 8) otherwise return 3
-	r.close()
-	return got as ExitCode
+	var buffer = try ByteMemory.create(4, 8) otherwise 'rEnded'
+		try r.close() otherwise ignore
+		return 2
+	end 'rEnded'
+	let got = try r.readAppending(buffer, most: 8) otherwise 'rEnded'
+		try r.close() otherwise ignore
+		return 3
+	end 'rEnded'
+	try r.close() otherwise panic("out of range")
+	return try got as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -759,7 +762,6 @@ dirIsDirectory=1
 ```
 
 <!-- test: managed-file.open-read-without-try -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **E3057 MUST NAME THE CONSTRUCT THE AUTHOR WROTE (D12).** `openRead` throws, so a bare call branches on
@@ -780,7 +782,6 @@ error E3057: specs/managed-file/managed-file.open-read-without-try.maxon:3:6: th
 ```
 
 <!-- test: managed-file.open-write-executable-without-try -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **THE CALLEE NAMES THE METHOD THAT WAS WRITTEN.** A POSIX lane makes the 0755 bit OBSERVABLE — an
@@ -826,12 +827,12 @@ end 'TestFileError'
 type TestFile
 	export var file as __ManagedFile
 
-	static function openWrite(path __ManagedMemory) returns TestFile throws TestFileError
+	static function openWrite(path __ManagedMemory with Byte) returns TestFile throws TestFileError
 		let handle = try __ManagedFile.openWrite(path) otherwise throw TestFileError.openFailed
 		return TestFile{file: handle}
 	end 'openWrite'
 
-	static function openRead(path __ManagedMemory) returns TestFile throws TestFileError
+	static function openRead(path __ManagedMemory with Byte) returns TestFile throws TestFileError
 		let handle = try __ManagedFile.openRead(path) otherwise throw TestFileError.openFailed
 		return TestFile{file: handle}
 	end 'openRead'
@@ -893,12 +894,12 @@ end 'TestFileError'
 type TestFile
 	export var file as __ManagedFile
 
-	static function openWrite(path __ManagedMemory) returns TestFile throws TestFileError
+	static function openWrite(path __ManagedMemory with Byte) returns TestFile throws TestFileError
 		let handle = try __ManagedFile.openWrite(path) otherwise throw TestFileError.openFailed
 		return TestFile{file: handle}
 	end 'openWrite'
 
-	static function openRead(path __ManagedMemory) returns TestFile throws TestFileError
+	static function openRead(path __ManagedMemory with Byte) returns TestFile throws TestFileError
 		let handle = try __ManagedFile.openRead(path) otherwise throw TestFileError.openFailed
 		return TestFile{file: handle}
 	end 'openRead'
@@ -910,7 +911,7 @@ function main() returns ExitCode
 	try wf.file.write("0123456789".toByteArray().managed) otherwise panic("write: 10 bytes to a freshly opened file")
 	wf.file.close()
 	let rf = try TestFile.openRead(path.toByteArray().managed) otherwise panic("openRead: the file just written")
-	let mm = try __ManagedMemory.create(4, elementSize: 1) otherwise panic("create: a 4-byte owned buffer")
+	let mm = try ByteMemory.create(4, elementSize: 1) otherwise panic("create: a 4-byte owned buffer")
 	let atCapacity = try rf.file.read(mm, 4) otherwise 999
 	let overCapacity = try rf.file.read(mm, 5) otherwise 999
 	rf.file.close()

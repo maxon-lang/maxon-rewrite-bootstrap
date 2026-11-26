@@ -542,6 +542,7 @@ async-await.md: async-await.error.double-await
 async-await.md: async-await.error.double-await-in-loop
 async-await.md: async-await.error.no-yield
 async-await.md: async-await.error.non-promise
+async-await.md: async-await.error.qualified-spawn-compiler-owned-static-outside-the-library-tiers
 async-await.md: async-await.error.qualified-spawn-container-alias-static
 async-await.md: async-await.error.storage-erases-error-type
 async-await.md: async-await.error.storage-names-wrong-error-type
@@ -948,6 +949,8 @@ break.md: break.labeled-continue-outer
 break.md: break.labeled-continue-triple-nested
 break.md: break.multiple-conditions
 break.md: break.with-if
+builtin-type-checking.md: builtin-type-checking.error-managed-file-open-read-int
+builtin-type-checking.md: builtin-type-checking.error-managed-file-write-int
 builtin-type-checking.md: builtin-type-checking.error-subprocess-get-pid-cstring
 builtin-type-checking.md: builtin-type-checking.error-subprocess-resolve-on-path-int
 builtin-type-checking.md: builtin-type-checking.error-subprocess-resolve-on-path-managed
@@ -2442,6 +2445,7 @@ file-info.md: file-info.empty-file
 file-info.md: file-info.not-found
 file-info.md: file-info.read-only
 file-info.md: file-info.timestamps
+file-io.md: bytes-written-before-close-are-the-files-content-after
 file-io.md: create-text-of-an-existing-file-throws-already-exists
 file-io.md: create-text-refuses-an-existing-file
 file-io.md: file-exists
@@ -2533,6 +2537,7 @@ first-class-functions.md: error.a-call-through-a-type-parameter-outranks-a-top-l
 first-class-functions.md: error.a-closure-literal-result-outside-its-function-types-ranged-return-is-refused
 first-class-functions.md: error.a-closure-returned-from-a-function-declared-to-return-a-function-type-is-range-checked
 first-class-functions.md: error.a-closure-without-an-offered-result-does-not-fit-a-narrower-declared-result
+first-class-functions.md: error.a-compiler-owned-surface-static-is-not-a-function-value
 first-class-functions.md: error.a-container-alias-create-is-not-a-function-value
 first-class-functions.md: error.a-function-held-at-a-function-type-is-judged-at-that-type-by-every-door
 first-class-functions.md: error.a-function-of-the-wrong-shape-in-a-struct-literal-field-is-refused
@@ -2550,6 +2555,9 @@ first-class-functions.md: error.a-function-over-a-narrower-parameter-is-refused-
 first-class-functions.md: error.a-function-typed-parameter-is-judged-at-its-declared-type-at-an-argument-door
 first-class-functions.md: error.a-function-value-called-with-three-hundred-arguments-is-an-arity-error
 first-class-functions.md: error.a-primitive-keyword-static-call-at-module-scope-is-refused
+first-class-functions.md: error.a-raw-handle-static-read-as-a-value-in-user-code-is-not-reachable
+first-class-functions.md: error.a-raw-handle-static-stored-to-in-user-code-is-not-reachable
+first-class-functions.md: error.a-raw-handle-unknown-static-called-in-user-code-is-not-reachable
 first-class-functions.md: error.a-requirement-through-a-type-parameter-is-not-a-function-value
 first-class-functions.md: error.a-requirement-through-a-type-parameter-of-a-generic-type-is-not-a-function-value
 first-class-functions.md: error.a-requirement-through-a-type-parameter-outranks-a-top-level-type-of-that-name
@@ -4205,6 +4213,7 @@ library-tier-surface.md: a-cursor-member-compiles-in-the-library-tier
 library-tier-surface.md: a-scalar-builtins-member-compiles-in-the-library-tier
 library-tier-surface.md: error.a-builtins-call-is-refused-outside-the-library-tiers
 library-tier-surface.md: error.a-cstring-type-is-refused-outside-the-library-tiers
+library-tier-surface.md: error.a-managed-file-static-is-refused-outside-the-library-tiers
 library-tier-surface.md: error.a-managed-memory-static-is-refused-outside-the-library-tiers
 library-tier-surface.md: error.a-managed-memory-type-is-refused-outside-the-library-tiers
 library-tier-surface.md: error.a-managed-read-is-refused-outside-the-library-tiers
@@ -4212,10 +4221,12 @@ library-tier-surface.md: error.a-scalar-builtins-member-is-refused-too
 library-tier-surface.md: error.a-self-managed-call-in-an-array-extension-is-refused-at-the-field
 library-tier-surface.md: error.an-async-builtins-call-is-refused-outside-the-library-tiers
 library-tier-surface.md: error.the-cursor-type-is-refused-outside-the-library-tiers
+library-tier-surface.md: error.the-managed-file-type-is-refused-outside-the-library-tiers
 library-tier-surface.md: the-cursor-type-compiles-in-the-library-tier
 linear-types.md: a-closure-that-builds-a-linear-value-cannot-fill-a-mapped-array
 linear-types.md: a-conditional-expression-whose-arms-build-the-value-is-accepted
 linear-types.md: a-default-arm-over-a-linear-union-covers-cases-with-no-linear-payload
+linear-types.md: a-default-that-throws-over-a-linear-union-does-not-drop-the-scrutinee
 linear-types.md: a-finalizer-called-twice-on-a-parameter-is-refused
 linear-types.md: a-finalizer-ends-the-value-and-every-branch-consumes-it
 linear-types.md: a-finalizer-that-throws-after-destruct-is-caught-without-the-value-live
@@ -4393,8 +4404,10 @@ managed-directory.md: managed-directory.error-enum-name-is-reserved
 managed-field-store-order.md: field-store-aliasing-through-two-parameters
 managed-field-store-order.md: self-field-store-aliasing-its-own-receiver
 managed-field-store-order.md: string-field-store-aliasing-through-two-parameters
+managed-file.md: managed-file.open-read-not-found-variant
 managed-list-opaque-element.md: an-opaque-element-removed-from-one-chain-and-moved-into-another
 managed-list-opaque-element.md: removing-an-opaque-element-from-a-chain-releases-it
+managed-memory-builtin.md: a-typed-managed-memory-buffer-binds-to-a-var
 managed-memory-cursor.md: a-cursor-in-a-loop-strands-nothing
 managed-memory-cursor.md: a-cursor-over-a-word-element-strides-by-the-word
 managed-memory-cursor.md: a-cursor-over-an-empty-buffer-is-refused
@@ -8148,6 +8161,7 @@ subprocess.md: subprocess-a-path-to-a-missing-file-is-not-found
 subprocess.md: subprocess-a-program-path-holding-a-nul-is-refused-before-the-spawn
 subprocess.md: subprocess-a-redirect-file-path-holding-a-nul-is-refused-before-the-spawn
 subprocess.md: subprocess-a-short-payload-fed-to-a-child-that-exits-unread-ends-in-the-childs-own-exit
+subprocess.md: subprocess-a-spawn-of-an-executable-open-for-writing-follows-the-operating-systems-answer
 subprocess.md: subprocess-a-working-directory-holding-a-nul-is-refused-before-the-spawn
 subprocess.md: subprocess-a-write-after-the-stdin-pipe-is-closed-is-refused
 subprocess.md: subprocess-an-argument-holding-a-nul-is-refused-before-the-spawn

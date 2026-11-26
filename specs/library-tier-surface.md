@@ -302,7 +302,6 @@ error E3185: <fragment>:3:19: '__ManagedMemory' named outside the library tiers:
 ```
 
 <!-- test: a-managed-memory-static-compiles-in-the-library-tier -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon
@@ -744,7 +743,6 @@ declared
 ```
 
 <!-- test: error.a-managed-file-static-is-refused-outside-the-library-tiers -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 function main() returns ExitCode
 	let there = __ManagedFile.exists(b"no-such-file-for-this-case.bin".managed)
@@ -775,7 +773,6 @@ end 'main'
 ```
 
 <!-- test: error.the-managed-file-type-is-refused-outside-the-library-tiers -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 A field of the handle type is refused at the field's type, the first door in the file.
 ```maxon
 type Reader
@@ -801,7 +798,7 @@ error E3185: <fragment>:3:14: '__ManagedFile' named outside the library tiers: t
 ```
 
 <!-- test: the-managed-file-type-compiles-in-the-library-tier -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
+<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon

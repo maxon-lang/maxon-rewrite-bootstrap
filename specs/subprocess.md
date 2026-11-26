@@ -1778,13 +1778,13 @@ function main() returns ExitCode
 	#else
 		let copy = Directory.currentPath().join("maxon-spec-busy-image")
 	#endif
-	let writer = try FileWriter.open(copy, mode: FilePermission.executable) otherwise panic("the scratch image can be opened for writing")
+	var writer = try FileWriter.open(copy, mode: FilePermission.executable) otherwise panic("the scratch image can be opened for writing")
 	try writer.write(image) otherwise panic("the scratch image can be written")
-	let config = Configuration.create(MxExecutable.path(copy))
+	var config = Configuration.create(MxExecutable.path(copy.clone()))
 	config.arguments.push("child")
 	config.standardOutput = OutputDestination.discard
 	let verdict = verdictOf(config)
-	writer.close()
+	try writer.close() otherwise panic("out of range")
 	try File.delete(copy) otherwise panic("the scratch image can be removed")
 	#if os(Macos)
 		let expectedVerdict = "ran"
@@ -2886,7 +2886,6 @@ streamed: 4 bytes [97 0 98 10]
 ```
 
 <!-- test: subprocess-a-spawn-whose-pipes-cannot-be-made-fails-instead-of-panicking -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 A spawn whose stdin or stdout pipe cannot be made fails as `spawnFailed`, and nothing panics. The case runs
@@ -2904,15 +2903,15 @@ function attempt(label String, config Configuration)
 end 'attempt'
 
 function spawnWithoutDescriptors(exe MxExecutable)
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("grandchild")
-	let fed = Configuration.create(exe)
+	var fed = Configuration.create(exe)
 	fed.arguments = argv.clone()
 	fed.standardInput = InputSource.bytes("x")
 	fed.standardOutput = OutputDestination.inherit
 	fed.standardError = OutputDestination.inherit
 	attempt("stdin pipe", config: fed)
-	let collected = Configuration.create(exe)
+	var collected = Configuration.create(exe)
 	collected.arguments = argv
 	collected.standardInput = InputSource.inherit
 	collected.standardError = OutputDestination.inherit
@@ -2922,11 +2921,11 @@ end 'spawnWithoutDescriptors'
 function exhaustThenSpawn(me FilePath)
 	let held = try __ManagedFile.openRead(me.path.toByteArray().managed) otherwise 'exhausted'
 		print("exhausted\n")
-		spawnWithoutDescriptors(MxExecutable.path(me))
+		spawnWithoutDescriptors(MxExecutable.path(me.clone()))
 		return
 	end 'exhausted'
 	exhaustThenSpawn(me)
-	held.close()
+	try held.close() otherwise panic("out of range")
 end 'exhaustThenSpawn'
 
 function main() returns ExitCode
@@ -2940,7 +2939,7 @@ function main() returns ExitCode
 		exhaustThenSpawn(me)
 		return 0
 	end 'childMode'
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push("ulimit -n 64; exec \"$0\" child")
 	argv.push(me.path)

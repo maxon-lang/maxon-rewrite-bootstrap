@@ -3338,7 +3338,6 @@ target that is not a linked function is a link failure or a wrong answer at run 
 diagnostic.
 
 <!-- test: async-await.error.qualified-spawn-compiler-owned-static-outside-the-library-tiers -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 Outside the library tiers the raw type's name is refused first, at the type the spawn names.
 ```maxon
 function main() returns ExitCode

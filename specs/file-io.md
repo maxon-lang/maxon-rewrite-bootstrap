@@ -598,24 +598,26 @@ Binary read/write OK
 ```maxon
 function main() returns ExitCode
 	let path = FilePath from "test_file_writer.bin"
-	let first = ByteArray.create(0)
+	var first = ByteArray.create(0)
 	first.push(65 as Byte)
 	first.push(66 as Byte)
-	let second = ByteArray.create(0)
+	var second = ByteArray.create(0)
 	second.push(67 as Byte)
-	let writer = try FileWriter.open(path) otherwise 'open_err'
+	var writer = try FileWriter.open(path) otherwise 'open_err'
 		print("Open failed")
 		return 1
 	end 'open_err'
 	try writer.write(first) otherwise 'first_err'
 		print("First write failed")
+		try writer.close() otherwise ignore
 		return 2
 	end 'first_err'
 	try writer.write(second) otherwise 'second_err'
 		print("Second write failed")
+		try writer.close() otherwise ignore
 		return 3
 	end 'second_err'
-	writer.close()
+	try writer.close() otherwise panic("out of range")
 	let content = try File.readBinary(path) otherwise 'read_err'
 		print("Read failed")
 		return 4

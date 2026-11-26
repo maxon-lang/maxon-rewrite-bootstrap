@@ -839,3 +839,12 @@ test	regions-byref-types.md	a-mutable-type-parameter-handed-on-to-a-wider-formal
 test	regions-byref-types.md	a-private-generic-function-of-another-file-is-refused-as-not-exported-before-its-instance-is-judged	language difference: a generic body is checked once against its bounds, never per instance, so what its bounds do not give is refused in the body (README, Where it differs from Maxon: Generics are checked once against their bounds, never per instantiation)
 test	fixed-array-static-index.md	error.a-counter-reaching-past-the-size-requires-try	language difference: it tests one missing try in a program that has two, the addition around the access, which maxon checks at run time, and the try that the addition needs covers the access too
 test	sched-runqueue.md	sched-runqueue.a-runnext-ping-pong-pair-cannot-starve-a-bystander	not yet: a runnext chain does not yet inherit the running slice
+test	managed-file.md	managed-file.auto-close	language difference: an open file is a linear value, and nothing closes it but its close
+test	array-clone-managed-elements.md	an-array-of-a-handle-holding-struct-compiles-when-nothing-copies-it	language difference: an open file is a linear value, and nothing closes it but its close
+test	async-filesystem.md	async-filesystem.async-read-through-a-handle-holding-struct	language difference: an open file is a linear value, and nothing closes it but its close
+test	builtins-byte-order.md	builtins-byte-order.a-file-read-into-a-let-binding-is-accepted	language difference: an open file is a linear value, and nothing closes it but its close
+test	stream-reader.md	a-line-read-without-a-cap-returns-a-line-longer-than-any-cap-whole	language difference: an open file is a linear value, and nothing closes it but its close
+test	stream-reader.md	a-line-read-within-a-cap-answers-pastTheCap-past-it-and-the-line-within-it	language difference: an open file is a linear value, and nothing closes it but its close
+test	stream-reader.md	a-final-line-with-no-newline-is-a-line-and-then-the-stream-has-ended	language difference: an open file is a linear value, and nothing closes it but its close
+test	stream-reader.md	a-file-is-read-line-by-line-across-chunks	language difference: an open file is a linear value, and nothing closes it but its close
+test	library-tier-surface.md	the-managed-file-type-compiles-in-the-library-tier	language difference: an open file is a linear value, and nothing closes it but its close

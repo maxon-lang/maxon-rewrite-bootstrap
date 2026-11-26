@@ -198,7 +198,7 @@ end 'TestFileError'
 type TestFile
 	export var file as __ManagedFile
 
-	static function openWrite(path __ManagedMemory) returns TestFile throws TestFileError
+	static function openWrite(path __ManagedMemory with Byte) returns TestFile throws TestFileError
 		let wr = try __ManagedFile.openWrite(path) otherwise 'f'
 			throw TestFileError.openFailed
 		end 'f'
@@ -213,7 +213,7 @@ end 'TestDirError'
 type TestDir
 	export var dir as __ManagedDirectory
 
-	static function search(pattern __ManagedMemory) returns TestDir throws TestDirError
+	static function search(pattern __ManagedMemory with Byte) returns TestDir throws TestDirError
 		let handle = try __ManagedDirectory.openSearch(pattern) otherwise 'fail'
 			throw TestDirError.searchFailed
 		end 'fail'
