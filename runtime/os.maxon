@@ -617,7 +617,9 @@ let nanosPerFileTimeStep = 100 as Count
 
 	// closeFileHandle closes the HANDLE of an owned file handle in the blocking bracket, since a close may wait on its file system
 	// (an SMB server's), and gives its Win32 error, read before exitBlocking, or 0.
-	function closeFileHandle(file Count) returns Count
+	// A child that CreateProcessW makes inherits only the handles its attribute list names, so a writer's close has no child to
+	// wait for, and writes is not read.
+	function closeFileHandle(file Count, writes bool) returns Count
 		var win32 = 0 as Count
 		enterBlocking()
 		if dword(__Raw.callImport1("CloseHandle", arg1: file)) == 0 'failed'

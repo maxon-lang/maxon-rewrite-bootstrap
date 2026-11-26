@@ -381,8 +381,11 @@ let schedMachinesOffset = 344 as Count
 // schedPreemptOffOffset is where the scheduler's record holds 1 when MAXON_PREEMPT is off, so the monitor takes no processor from the thread holding it, resolved before main runs.
 let schedPreemptOffOffset = 352 as Count
 
+// schedForkEndsOffset is where the scheduler's record holds how many clones have given the fork lock back on Linux, stepped atomically, which the close of a file open for writing waits on to change while forkHeldBit is set; a futex word.
+let schedForkEndsOffset = 360 as Count
+
 // schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made.
-let schedProcessorsOffset = 360 as Count
+let schedProcessorsOffset = 368 as Count
 
 // procIdOffset is where a processor holds its index among the processors.
 let procIdOffset = 0 as Count

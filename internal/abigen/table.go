@@ -391,7 +391,9 @@ var layouts = []layoutConst{
 		"where the scheduler's record holds how many threads it has started, the last one's number, under the scheduler's lock."},
 	{"schedPreemptOffOffset", 44, false, toRuntime,
 		"where the scheduler's record holds 1 when MAXON_PREEMPT is off, so the monitor takes no processor from the thread holding it, resolved before main runs."},
-	{"schedProcessorsOffset", 45, false, toRuntime,
+	{"schedForkEndsOffset", 45, false, toRuntime,
+		"where the scheduler's record holds how many clones have given the fork lock back on Linux, stepped atomically, which the close of a file open for writing waits on to change while forkHeldBit is set; a futex word."},
+	{"schedProcessorsOffset", 46, false, toRuntime,
 		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made."},
 
 	// A processor (Go's P): what a thread must hold to run green threads, its local run queue (a ring that its owner puts

@@ -374,12 +374,16 @@
 		return fd
 	end 'openFileBytes'
 
-	// closeFileHandle closes the fd of an owned file handle in the blocking bracket, since a close may wait on its file system (a
-	// flush to NFS, a FUSE daemon's), and gives its errno, or 0. A close that a signal breaks off has still freed the fd on Linux, so
-	// it is not made again.
-	function closeFileHandle(fd Count) returns Count
+	// closeFileHandle closes the fd of an open file in the blocking bracket, since a close may wait on its file system (a flush
+	// to NFS, a FUSE daemon's), and gives its errno, or 0. A close that a signal breaks off has still freed the fd on Linux, so
+	// it is not made again. The close of a file open for writing then waits for the end of a clone in flight (waitCloneEnd),
+	// whose child may hold a copy of the fd, so that the file can be run once its close has returned.
+	function closeFileHandle(fd Count, writes bool) returns Count
 		enterBlocking()
 		let result = __Raw.syscall1(linuxSysClose, arg1: fd)
+		if writes 'writer'
+			waitCloneEnd()
+		end 'writer'
 		exitBlocking()
 		return osErrorOf(result)
 	end 'closeFileHandle'
@@ -835,14 +839,42 @@
 		end 'drain'
 	end 'holdForkAlone'
 
-	// releaseForkAlone gives back a clone's hold, and wakes the writes and clones that wait for it.
+	// releaseForkAlone gives back a clone's hold, and wakes the writes and clones that wait for it, and the closes that wait for
+	// a clone to end (waitCloneEnd), by a step of the count of the clones that have ended.
 	function releaseForkAlone(lock Count)
 		if lock == noForkLock 'single'
 			return
 		end 'single'
 		_ = __Raw.atomicExchange(lock, offset: 0, value: 0)
 		futexWakeAll(lock)
+		let ends = forkEnds(lock)
+		_ = __Raw.atomicAdd(ends, offset: 0, value: 1)
+		futexWakeAll(ends)
 	end 'releaseForkAlone'
+
+	// forkEnds is the address of the count of the clones that have given the fork lock back, beside the lock.
+	function forkEnds(lock Count) returns Count
+		return __Raw.wrappingAdd(lock, right: schedForkEndsOffset - schedForkLockOffset)
+	end 'forkEnds'
+
+	// waitCloneEnd waits, in the blocking bracket that the caller makes, until no clone that may hold a copy of an fd the caller
+	// closed before it runs: while forkHeldBit is set, until a clone gives the lock back. The child of a clone that holds the
+	// lock has its copy of the fd until its execve closes it, which is the end of the clone, so once this returns no child of
+	// this process holds the fd, and the file can be run (no ETXTBSY). It holds no lock, and a clone waits for no close, so it has
+	// no cycle; it waits at most for the clone in flight when it looked, since a clone that starts after the close has no copy
+	// of the fd. Not covered: a clone whose child outlives the clone call (qemu-user's fork, on the arm64-linux lane run under
+	// WSL), and an exec of the file by a process that this one did not start.
+	function waitCloneEnd()
+		let lock = forkLock()
+		if lock == noForkLock 'single'
+			return
+		end 'single'
+		let ends = forkEnds(lock)
+		let seen = __Raw.loadAcquire(ends, offset: 0)
+		while (__Raw.loadAcquire(lock, offset: 0) and forkHeldBit) != 0 and __Raw.loadAcquire(ends, offset: 0) == seen 'clone'
+			futexWait(ends, value: seen)
+		end 'clone'
+	end 'waitCloneEnd'
 
 	// startThread starts a worker's thread at once, on a stack of the main thread's reserve that the kernel maps and
 	// commits a page at a time, its lowest page the guard. The top word of the stack holds the thread's context, and is the

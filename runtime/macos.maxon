@@ -460,7 +460,9 @@
 	// closeFileHandle closes the fd of an owned file handle in the blocking bracket, since a close may wait on its file system (a
 	// flush to NFS or SMB, a macFUSE daemon's), and gives its errno, read before exitBlocking, or 0. A close that a signal breaks
 	// off has still freed the fd, so it is not made again.
-	function closeFileHandle(fd Count) returns Count
+	// A child that posix_spawn makes gets only the fds its file actions name (POSIX_SPAWN_CLOEXEC_DEFAULT), so a writer's close
+	// has no clone to wait for, and writes is not read.
+	function closeFileHandle(fd Count, writes bool) returns Count
 		enterBlocking()
 		let result = checkedInt(__Raw.callImport1("close", arg1: fd))
 		exitBlocking()

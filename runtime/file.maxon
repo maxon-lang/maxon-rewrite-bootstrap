@@ -4,7 +4,8 @@
 // closes the system's handle and frees the box, once, since the one owner of the record gives it up to the call, and sets the
 // error word with writeFailed when the system's close reports an error, the handle closed all the same, as Go's Close does. A
 // close is one call into the kernel in the blocking bracket (closeFileHandle), never made again after a signal, and never parks
-// the green thread or yields.
+// the green thread or yields; on Linux the close of a file open for writing then waits there for the end of a clone in flight,
+// whose child may hold a copy of its fd (waitCloneEnd), at most that one clone.
 //
 // Whether a read or a write waits on the event queue is decided once, at the open, as Go's os.File decides it: a FIFO, a
 // socket or a character device on Linux and macOS (fileEntryOf, by fstat), and a named pipe on Windows, which only its path
@@ -17,7 +18,10 @@ let fileHandleOffset = 0 as Count
 
 let fileEntryOffset = 8 as Count
 
-let fileBoxBytes = 16 as Count
+// fileWritesOffset is where the box holds 1 for a file open for writing, whose close on Linux waits for a clone in flight.
+let fileWritesOffset = 16 as Count
+
+let fileBoxBytes = 24 as Count
 
 // The ways an open opens a file, which each system's openFileBytes maps to its own flags: to read; to write, made where it is
 // not there and emptied where it is; the same, a file it makes getting the executable mode where the system has modes; and to
@@ -81,13 +85,14 @@ function fileOpen(path Count, how Count, errorAddress Count) returns Count
 	var unwaited = 0 as Count
 	let entry = fileEntryOf(handle, path: bytes, length: length, unwaitedAddress: __Raw.addressOf(unwaited))
 	if unwaited != 0 'unwaited'
-		_ = closeFileHandle(handle)
+		_ = closeFileHandle(handle, writes: how != openToRead)
 		failWith(errorAddress, errorCase: managedFileOpenFailed)
 		return 0
 	end 'unwaited'
 	let box = alloc(fileBoxBytes)
 	__Raw.storeWord(box, offset: fileHandleOffset, value: handle)
 	__Raw.storeWord(box, offset: fileEntryOffset, value: entry)
+	__Raw.storeWord(box, offset: fileWritesOffset, value: 0 if how == openToRead else 1)
 	succeed(errorAddress)
 	return box
 end 'fileOpen'
@@ -175,7 +180,7 @@ function fileClose(handle Count, errorAddress Count)
 	if entry != noEntry 'waits'
 		eventRelease(entry)
 	end 'waits'
-	let osError = closeFileHandle(__Raw.loadWord(handle, offset: fileHandleOffset))
+	let osError = closeFileHandle(__Raw.loadWord(handle, offset: fileHandleOffset), writes: __Raw.loadWord(handle, offset: fileWritesOffset) != 0)
 	free(handle)
 	endWithError(errorAddress, osError: osError, table: closeFailures())
 end 'fileClose'
