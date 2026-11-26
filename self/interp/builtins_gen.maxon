@@ -391,6 +391,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryArrayCapacity(vm, f: f, x: x)
 		return
 	end 'rtArrayCapacity'
+	if symbol == ir.Rt.rtBytesReserve 'rtBytesReserve'
+		try entryBytesReserve(vm, f: f, x: x)
+		return
+	end 'rtBytesReserve'
 	if symbol == ir.Rt.rtArrayReserve 'rtArrayReserve'
 		try entryArrayReserve(vm, f: f, x: x)
 		return

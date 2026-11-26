@@ -638,6 +638,12 @@ function entryArrayReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Ha
 	_ = try collection(vm, o: a, kind: kindArray, what: "a reserve")
 end 'entryArrayReserve'
 
+// entryBytesReserve is entryArrayReserve of a byte array.
+function entryBytesReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try live(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a reserve")
+	_ = try collection(vm, o: a, kind: kindBytes, what: "a reserve")
+end 'entryBytesReserve'
+
 // entryArrayShrink sets the length of an array or a byte array. The elements above it were dropped in place by the code
 // before it or hold no value that is owned, which a lowering that left one would show as a leak at the end of the run.
 function entryArrayShrink(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt

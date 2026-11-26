@@ -1261,6 +1261,7 @@ var entries = []entry{
 	{"ArrayPop", "rt.array.pop", "Arrays", roleCall, "(array of at least one element) -> element: moves the last out, with nothing after it to move"},
 	{"ArrayFill", "rt.array.fill", "Arrays", roleCall, "(array, count, word): appends count copies of a word that needs no copy of its own, a scalar or the 0 of an empty slot, as as many inserts at the end would"},
 	{"ArrayCapacity", "rt.array.capacity", "Arrays", roleCall, "(array or byte array) -> count: how many elements its buffer holds"},
+	{"BytesReserve", "rt.bytes.reserve", "Bytes", roleCall, "(ByteArray, count): makes the buffer hold count bytes, so as many inserts after it never grow it; the length and the bytes stay"},
 	{"ArrayReserve", "rt.array.reserve", "Arrays", roleCall, "(array, count): makes the buffer hold count elements, so as many inserts after it never grow it; the length and the elements stay"},
 	// An array of strings holds two words to an element, a String's, which the code moves in and out with stores and loads of
 	// the addresses these give: the runtime moves only bytes.
@@ -1501,6 +1502,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"ArrayPop", "arrayPop(array Count) Count"},
 	{"ArrayFill", "arrayFill(array Count, count Count, word Count)"},
 	{"ArrayCapacity", "arrayCapacity(array Count) Count"},
+	{"BytesReserve", "bytesReserve(array Count, count Count)"},
 	{"ArrayReserve", "arrayReserve(array Count, count Count)"},
 	{"StrsElem", "stringsElem(array Count, index Count) Count"},
 	{"StrsOpen", "stringsOpen(array Count, index Count) Count"},

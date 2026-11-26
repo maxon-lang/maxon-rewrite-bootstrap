@@ -33,6 +33,13 @@ function bytesInsert(array Count, index Count, value Byte)
 	__Raw.storeByte(at, offset: 0, value: value)
 end 'bytesInsert'
 
+// bytesReserve makes the buffer of a byte array hold a count of bytes, where it holds fewer, as arrayReserve does an array's.
+function bytesReserve(array Count, count Count)
+	if count > __Raw.loadWord(array, offset: arrayCapacityOffset) 'more'
+		collectionMove(array, capacity: count, elementBytes: byteBytes)
+	end 'more'
+end 'bytesReserve'
+
 // bytesRemove is the byte at an index, after what follows moves down by one.
 function bytesRemove(array Count, index Count) returns Byte
 	let at = collectionElementAddress(array, index: index, elementBytes: byteBytes)
