@@ -727,6 +727,11 @@ var tableFunctions = []function{
 	// elementSize is the bytes an element takes, what sizeof gives for it: a constant of the instance, which maxon's driftsort
 	// sizes its scratch by. No element is bit-packed here, so it is never maxon's negative bit width.
 	{Owner: "ManagedMemory", Name: "elementSize", Result: "FullRangeInt", Intrinsic: "ArrayElementSize"},
+	// create is maxon's buffer of a stated capacity: empty, with room for capacity elements, as Array.create(n, zeroed: false) is.
+	// maxon's buffer takes its element's layout from elementSize; here the instance has it, so the call names the instance
+	// (a typealias of it, or where the result goes), and an elementSize that is not the bytes an element of it takes in the
+	// buffer (1 for a byte, a word for a word) fails invalidAllocation.
+	{Owner: "ManagedMemory", Name: "create", Static: true, Params: []string{"capacity ElementIndex", "elementSize? Count"}, Result: "Self", Throws: "ManagedMemoryError", Intrinsic: "ManagedMemoryCreate"},
 	{Owner: "ManagedMemory", Name: "set", Self: "mutates", Params: []string{"index ElementIndex", "consumes value? T"}, Bounds: []string{"T Droppable"}, Throws: "ManagedMemoryError", Intrinsic: "ArraySet"},
 	// swap exchanges two elements where they are: neither is copied or dropped, so no element needs a bound. It is the buffer's
 	// row, and maxon's Array.swap, which its sorts call, is library code over it.

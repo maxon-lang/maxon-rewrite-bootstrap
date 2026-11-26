@@ -1,0 +1,74 @@
+// __ManagedMemory.create is maxon's buffer of a stated capacity: it is empty, grows to a length that setLength gives it, and an
+// array adopts it. The call names its instance by a typealias, and an element size that is not the bytes an element of the
+// instance takes in its buffer (1 for a byte, a word for a word) fails invalidAllocation.
+//> bytes: length=0 then 3, 7 8 9
+//> adopted: 3: 7 8 9
+//> words: length=2, 40 2
+//> a byte buffer of words: invalidAllocation
+//> a word buffer of bytes: invalidAllocation
+typealias Byte = int(0 to 255)
+
+typealias ByteMemory = __ManagedMemory with Byte
+
+typealias WordMemory = __ManagedMemory with FullRangeInt
+
+typealias ByteArray = Array with Byte
+
+// made is what a create of an instance's buffer with an element size answers: its length, or the case it fails with.
+function made(elementSize Count, words bool) returns String
+	if words 'words'
+		let wordBuffer = try WordMemory.create(2, elementSize: elementSize) otherwise (e) 'refusedWords'
+			match e 'kind'
+				invalidAllocation then return "invalidAllocation"
+				indexOutOfBounds or
+				emptySlot or
+				sliceOutOfBounds or
+				invalidLength or
+				invalidCapacity or
+				shiftOutOfBounds or
+				invalidByteRange then return "another failure"
+			end 'kind'
+		end 'refusedWords'
+		return "made {wordBuffer.length()}"
+	end 'words'
+	let byteBuffer = try ByteMemory.create(2, elementSize: elementSize) otherwise (e) 'refusedBytes'
+		match e 'kind'
+			invalidAllocation then return "invalidAllocation"
+			indexOutOfBounds or
+			emptySlot or
+			sliceOutOfBounds or
+			invalidLength or
+			invalidCapacity or
+			shiftOutOfBounds or
+			invalidByteRange then return "another failure"
+		end 'kind'
+	end 'refusedBytes'
+	return "made {byteBuffer.length()}"
+end 'made'
+
+function main() returns ExitCode
+	var bytes = try ByteMemory.create(4, elementSize: 1) otherwise return 1
+	let empty = bytes.length()
+	try bytes.setLength(3) otherwise return 2
+	for i in 0 upto 3 'fill'
+		try bytes.set(i, value: (i + 7) as Byte) otherwise return 3
+	end 'fill'
+	let first = try bytes.get(0) otherwise return 4
+	let second = try bytes.get(1) otherwise return 4
+	let third = try bytes.get(2) otherwise return 4
+	print("bytes: length={empty} then {bytes.length()}, {first} {second} {third}\n")
+	let adopted = ByteArray.init(bytes)
+	var seen = ""
+	for b in adopted 'each'
+		seen = "{seen} {b}"
+	end 'each'
+	print("adopted: {adopted.count()}:{seen}\n")
+	var words = try WordMemory.create(2, 8) otherwise return 5
+	try words.setLength(2) otherwise return 6
+	try words.set(0, value: 40) otherwise return 7
+	try words.set(1, value: 2) otherwise return 7
+	print("words: length={words.length()}, {try words.get(0) otherwise 0} {try words.get(1) otherwise 0}\n")
+	print("a byte buffer of words: {made(8, words: false)}\n")
+	print("a word buffer of bytes: {made(1, words: true)}\n")
+	return 0
+end 'main'

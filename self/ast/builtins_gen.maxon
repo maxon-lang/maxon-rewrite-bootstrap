@@ -250,6 +250,7 @@ export enum Intrinsic
 	intrFixedArrayRefill
 	intrManagedByteAt
 	intrArrayElementSize
+	intrManagedMemoryCreate
 	intrArraySwap
 	intrCursorCreate
 	intrCursorCurrent
@@ -1516,53 +1517,59 @@ function declareManagedMemoryMethods(mutates tt TypeSlot, reads TypeTable, mutat
 	ft.lists[funcList(ft, f: f6)][funcIndex(ft, f: f6)].errTy = b.managedMemoryErrorTy
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayCapacity, name: "capacity", isStatic: false, selfConv: Convention.convLet, ret: b.reportedCapacityTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayElementSize, name: "elementSize", isStatic: false, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ParamSpecList.create(0), listed: true)
-	let p7 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
+	let ty7 = selfType(tt, reads: reads, declTy: b.managedMemoryOrigin)
 	var ps8 = ParamSpecList.create(0)
-	ps8.push(ParamSpec.make("index", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps8.push(ParamSpec.mayOmitLabel("value", ty: p7, conv: Convention.convConsumes))
-	let f9 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArraySet, name: "set", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps8, listed: true)
-	let p10 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f9)][funcIndex(ft, f: f9)].bounds.push(ParamBound.make(p10, ifaceTy: b.droppableTy))
+	ps8.push(ParamSpec.make("capacity", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps8.push(ParamSpec.mayOmitLabel("elementSize", ty: b.countTy, conv: Convention.convLet))
+	let f9 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrManagedMemoryCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty7, params: ps8, listed: true)
 	ft.lists[funcList(ft, f: f9)][funcIndex(ft, f: f9)].errTy = b.managedMemoryErrorTy
+	let p10 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
 	var ps11 = ParamSpecList.create(0)
-	ps11.push(ParamSpec.make("i", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps11.push(ParamSpec.mayOmitLabel("j", ty: b.elementIndexTy, conv: Convention.convLet))
-	let f12 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArraySwap, name: "swap", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps11, listed: true)
+	ps11.push(ParamSpec.make("index", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps11.push(ParamSpec.mayOmitLabel("value", ty: p10, conv: Convention.convConsumes))
+	let f12 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArraySet, name: "set", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps11, listed: true)
+	let p13 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f12)][funcIndex(ft, f: f12)].bounds.push(ParamBound.make(p13, ifaceTy: b.droppableTy))
 	ft.lists[funcList(ft, f: f12)][funcIndex(ft, f: f12)].errTy = b.managedMemoryErrorTy
-	let ty13 = selfType(tt, reads: reads, declTy: b.managedMemoryOrigin)
 	var ps14 = ParamSpecList.create(0)
-	ps14.push(ParamSpec.make("other", ty: ty13, conv: Convention.convLet))
-	let f15 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayAppend, name: "append", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps14, listed: true)
-	let p16 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f15)][funcIndex(ft, f: f15)].bounds.push(ParamBound.make(p16, ifaceTy: b.copyableTy))
-	let p17 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
-	var ps18 = ParamSpecList.create(0)
-	ps18.push(ParamSpec.make("at", ty: b.elementIndexTy, conv: Convention.convLet))
-	let f19 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayRemove, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: p17, params: ps18, listed: true)
-	ft.lists[funcList(ft, f: f19)][funcIndex(ft, f: f19)].errTy = b.managedMemoryErrorTy
-	let f20 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayClear, name: "clear", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
-	let p21 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f20)][funcIndex(ft, f: f20)].bounds.push(ParamBound.make(p21, ifaceTy: b.droppableTy))
-	let ty22 = selfType(tt, reads: reads, declTy: b.managedMemoryOrigin)
-	var ps23 = ParamSpecList.create(0)
-	ps23.push(ParamSpec.make("start", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps23.push(ParamSpec.mayOmitLabel("endIndex", ty: b.elementIndexTy, conv: Convention.convLet))
-	let f24 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArraySlice, name: "slice", isStatic: false, selfConv: Convention.convLet, ret: ty22, params: ps23, listed: true)
-	let p25 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f24)][funcIndex(ft, f: f24)].bounds.push(ParamBound.make(p25, ifaceTy: b.copyableTy))
-	ft.lists[funcList(ft, f: f24)][funcIndex(ft, f: f24)].errTy = b.managedMemoryErrorTy
+	ps14.push(ParamSpec.make("i", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps14.push(ParamSpec.mayOmitLabel("j", ty: b.elementIndexTy, conv: Convention.convLet))
+	let f15 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArraySwap, name: "swap", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps14, listed: true)
+	ft.lists[funcList(ft, f: f15)][funcIndex(ft, f: f15)].errTy = b.managedMemoryErrorTy
+	let ty16 = selfType(tt, reads: reads, declTy: b.managedMemoryOrigin)
+	var ps17 = ParamSpecList.create(0)
+	ps17.push(ParamSpec.make("other", ty: ty16, conv: Convention.convLet))
+	let f18 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayAppend, name: "append", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps17, listed: true)
+	let p19 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f18)][funcIndex(ft, f: f18)].bounds.push(ParamBound.make(p19, ifaceTy: b.copyableTy))
+	let p20 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
+	var ps21 = ParamSpecList.create(0)
+	ps21.push(ParamSpec.make("at", ty: b.elementIndexTy, conv: Convention.convLet))
+	let f22 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayRemove, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: p20, params: ps21, listed: true)
+	ft.lists[funcList(ft, f: f22)][funcIndex(ft, f: f22)].errTy = b.managedMemoryErrorTy
+	let f23 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayClear, name: "clear", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
+	let p24 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f23)][funcIndex(ft, f: f23)].bounds.push(ParamBound.make(p24, ifaceTy: b.droppableTy))
+	let ty25 = selfType(tt, reads: reads, declTy: b.managedMemoryOrigin)
 	var ps26 = ParamSpecList.create(0)
-	ps26.push(ParamSpec.make("newCapacity", ty: b.elementIndexTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayReserve, name: "grow", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps26, listed: true)
-	var ps27 = ParamSpecList.create(0)
-	ps27.push(ParamSpec.make("newLength", ty: b.elementIndexTy, conv: Convention.convLet))
-	let f28 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayResize, name: "setLength", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps27, listed: true)
-	let p29 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f28)][funcIndex(ft, f: f28)].bounds.push(ParamBound.make(p29, ifaceTy: b.droppableTy))
-	let p30 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
-	let ty31 = instantiateType(tt, reads: reads, origin: b.managedMemoryCursorOrigin, args: oneArgList(p30))
-	let f32 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrCursorCreate, name: "createCursor", isStatic: false, selfConv: Convention.convLet, ret: ty31, params: ParamSpecList.create(0), listed: true)
-	ft.lists[funcList(ft, f: f32)][funcIndex(ft, f: f32)].errTy = b.managedMemoryErrorTy
+	ps26.push(ParamSpec.make("start", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps26.push(ParamSpec.mayOmitLabel("endIndex", ty: b.elementIndexTy, conv: Convention.convLet))
+	let f27 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArraySlice, name: "slice", isStatic: false, selfConv: Convention.convLet, ret: ty25, params: ps26, listed: true)
+	let p28 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f27)][funcIndex(ft, f: f27)].bounds.push(ParamBound.make(p28, ifaceTy: b.copyableTy))
+	ft.lists[funcList(ft, f: f27)][funcIndex(ft, f: f27)].errTy = b.managedMemoryErrorTy
+	var ps29 = ParamSpecList.create(0)
+	ps29.push(ParamSpec.make("newCapacity", ty: b.elementIndexTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayReserve, name: "grow", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps29, listed: true)
+	var ps30 = ParamSpecList.create(0)
+	ps30.push(ParamSpec.make("newLength", ty: b.elementIndexTy, conv: Convention.convLet))
+	let f31 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayResize, name: "setLength", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps30, listed: true)
+	let p32 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f31)][funcIndex(ft, f: f31)].bounds.push(ParamBound.make(p32, ifaceTy: b.droppableTy))
+	let p33 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
+	let ty34 = instantiateType(tt, reads: reads, origin: b.managedMemoryCursorOrigin, args: oneArgList(p33))
+	let f35 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrCursorCreate, name: "createCursor", isStatic: false, selfConv: Convention.convLet, ret: ty34, params: ParamSpecList.create(0), listed: true)
+	ft.lists[funcList(ft, f: f35)][funcIndex(ft, f: f35)].errTy = b.managedMemoryErrorTy
 end 'declareManagedMemoryMethods'
 
 function declareManagedMemoryCursorMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

@@ -1,0 +1,16 @@
+// __ManagedMemory.create gives an empty buffer whose capacity is at least the one stated, for bytes and for words, so the
+// first appends after it do not grow it; the interpreter has no buffer to report, so the program is native-only.
+// native-only
+//> bytes: length=0 room=true
+//> words: length=0 room=true
+typealias ByteMemory = __ManagedMemory with Byte
+
+typealias WordMemory = __ManagedMemory with FullRangeInt
+
+function main() returns ExitCode
+	let bytes = try ByteMemory.create(48, elementSize: 1) otherwise return 1
+	print("bytes: length={bytes.length()} room={bytes.capacity() >= 48}\n")
+	let words = try WordMemory.create(48, elementSize: 8) otherwise return 2
+	print("words: length={words.length()} room={words.capacity() >= 48}\n")
+	return 0
+end 'main'

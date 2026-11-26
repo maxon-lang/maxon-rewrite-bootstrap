@@ -375,6 +375,33 @@ function lowerArrayCreateZeroed(mutates l Lowerer, p ast.Project, mutates ms ast
 	return out
 end 'lowerArrayCreateZeroed'
 
+// lowerManagedMemoryCreate is maxon's buffer of a stated capacity: an empty buffer with room for it, as create(n, zeroed: false)
+// is, once the stated element size is the one the instance's buffer lays an element out in; any other fails invalidAllocation.
+function lowerManagedMemoryCreate(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let capacity = try args.get(0) otherwise panic("create takes a capacity, which the checker has seen")
+	let stated = try args.get(1) otherwise panic("create takes an element size, which the checker has seen")
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let stride = konst(l, value: bufferStride(p, ms: ms, box: a))
+	let laid = compare(l, op: CmpOp.cmpEq, a: stated, b: stride, unsigned: true)
+	failUnless(l, p: p, ms: ms, cond: laid, errorCase: ast.errorBufferInvalidAllocation)
+	let out = arrayNew(l, p: p, ms: ms, box: a)
+	arrayReserve(l, p: p, ms: ms, box: a, arr: out, count: capacity)
+	return out
+end 'lowerManagedMemoryCreate'
+
+// bufferStride is the bytes an element of the array takes in its buffer, which maxon's buffer states as its element size: a
+// byte, a word, a String's two words, or the words of a record held in place.
+function bufferStride(p ast.Project, ms ast.ModuleState, box ArrayBox) returns Word
+	return match elementWay(p, ms: ms, box: box) 'way'
+		heldPacked gives 1 as Word
+		heldWord gives wordBytes as Word
+		heldBox gives wordBytes as Word
+		heldString gives stringValueBytes as Word
+		heldInline(words) gives try wordOffset(words) as Word otherwise panic("lower: an element past a word")
+		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+end 'bufferStride'
+
 // arrayZeroed is the array of count zero elements that a call makes.
 function arrayZeroed(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, count Reg) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)

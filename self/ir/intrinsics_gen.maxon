@@ -128,6 +128,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrArrayElementSize 'intrArrayElementSize'
 		return lowerArrayElementSize(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayElementSize'
+	if op == ast.Intrinsic.intrManagedMemoryCreate 'intrManagedMemoryCreate'
+		return lowerManagedMemoryCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedMemoryCreate'
 	if op == ast.Intrinsic.intrArraySwap 'intrArraySwap'
 		return lowerArraySwap(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArraySwap'
@@ -1024,6 +1027,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrArrayElementSize 'intrArrayElementSize'
 		return false
 	end 'intrArrayElementSize'
+	if op == ast.Intrinsic.intrManagedMemoryCreate 'intrManagedMemoryCreate'
+		return false
+	end 'intrManagedMemoryCreate'
 	if op == ast.Intrinsic.intrArraySwap 'intrArraySwap'
 		return false
 	end 'intrArraySwap'
