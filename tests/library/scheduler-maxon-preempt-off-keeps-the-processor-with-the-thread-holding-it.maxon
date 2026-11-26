@@ -82,7 +82,7 @@ end 'runChild'
 function main() returns ExitCode
 	let args = CommandLine.args()
 	if args.count() > 1 'child'
-		let kind = try args.get(1) otherwise ""
+		let kind = args.get(1)
 		if kind == "child-on" 'on'
 			return child(onLimitMs, untilRan: true)
 		end 'on'
