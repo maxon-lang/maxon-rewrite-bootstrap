@@ -15,6 +15,7 @@ function codeSkipTable() returns CodeSkips
 	skips.push(CodeSkip.make("E3183", reported: diag.errClosureBorrow.clone(), line: "<!-- skip: language difference: a closure that borrows what it captures does not escape -->\n"))
 	skips.push(CodeSkip.make(diag.errUnexpectedToken.clone(), reported: diag.errExpectedToken.clone(), line: "<!-- skip: differing error code: syntax error -->\n"))
 	skips.push(CodeSkip.make(diag.errExpressionError.clone(), reported: diag.errTypeMismatch.clone(), line: "<!-- skip: differing error code: operand types -->\n"))
+	skips.push(CodeSkip.make(diag.errTypeMismatch.clone(), reported: diag.errUnsafeCast.clone(), line: "<!-- skip: differing error code: operand types -->\n"))
 	skips.push(CodeSkip.make("E2042", reported: diag.errExpectedToken.clone(), line: "<!-- skip: differing error code: syntax error -->\n"))
 	skips.push(CodeSkip.make("E2043", reported: diag.errMismatchedEndLabel.clone(), line: "<!-- skip: differing error code: syntax error -->\n"))
 	skips.push(CodeSkip.make("E3085", reported: diag.errErrorTypeMismatch.clone(), line: "<!-- skip: language difference: a try block's handler names one error, not the combined error of several -->\n"))

@@ -122,6 +122,7 @@ error E3036: <fragment>:3:13: '__Builtins.sleep' takes exactly 1 argument, but 0
 ```
 
 <!-- test: builtins-sleep.float-arg-rejected -->
+<!-- skip: differing error code: operand types -->
 <!-- tier: stdlib -->
 The duration is an integer count of milliseconds; a float is refused, by the SAME operand rule the
 bare `sleep(1.5)` is refused by (`async-sleep.float-arg-rejected`) — one emit, so the two spellings

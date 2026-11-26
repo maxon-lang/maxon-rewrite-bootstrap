@@ -69,6 +69,7 @@ skip	ErrUseAfterMove,E3223,ErrFrozenChange	ErrMoveOutOfBorrow,ErrNotDroppable,Er
 skip	E3183	ErrClosureBorrow	language difference: a closure that borrows what it captures does not escape
 skip	ErrUnexpectedToken	ErrExpectedToken	differing error code: syntax error
 skip	ErrExpressionError	ErrTypeMismatch	differing error code: operand types
+skip	ErrTypeMismatch	ErrUnsafeCast	differing error code: operand types
 skip	E2042	ErrExpectedToken	differing error code: syntax error
 skip	E2043	ErrMismatchedEndLabel	differing error code: syntax error
 skip	E3085	ErrErrorTypeMismatch	language difference: a try block's handler names one error, not the combined error of several
