@@ -1,0 +1,42 @@
+// An output the compiler cannot write or make (an executable, its symbol map or debug info, --emit-ir, a trace, the results
+// of a test run, a file that fmt, fix, rename or rewrite changes, the directory of temporary files) is a property of the
+// environment, not a fault of the program or of the compiler: it is reported as an error that names the path and the
+// system's reason, and the compiler exits with 1, never with a panic.
+
+// unwritableExitCode is the exit code of a run that stops at an output it cannot write, the code of a compile with errors.
+let unwritableExitCode = 1 as ExitCode
+
+// unwritableOutput reports that the compiler cannot write the output at a path, for a reason, and ends the compiler.
+export function unwritableOutput(path String, reason String)
+	printError("error: cannot write {path}: {reason}\n")
+	Process.exit(unwritableExitCode)
+end 'unwritableOutput'
+
+// writeRefusal is the reason the system gave for refusing a write, in words.
+export function writeRefusal(e FileWriteError) returns String
+	match e 'kind'
+		failed then return "the system refused the write"
+		notFound then return "a directory of the path does not exist"
+		accessDenied then return "permission denied"
+		alreadyExists then return "a file of that name exists already"
+		busy then return "the file is in use"
+		partialFileLeft then return "the write stopped part way and left part of the file"
+	end 'kind'
+end 'writeRefusal'
+
+// unwritablePath reports an output path that names no file the system can make, and ends the compiler.
+export function unwritablePath(path String)
+	unwritableOutput(path, reason: "it is not a path the system can name")
+end 'unwritablePath'
+
+// writeOutputText writes text to the output at a path, as the compiler's outputs are written: a path or a write the system
+// refuses ends the compiler with an error (unwritableOutput).
+export function writeOutputText(path String, content String)
+	let file = try FilePath.from(path) otherwise 'unnamed'
+		unwritablePath(path)
+		return
+	end 'unnamed'
+	try File.writeText(file, content: content) otherwise (e) 'refused'
+		unwritableOutput(path, reason: writeRefusal(e))
+	end 'refused'
+end 'writeOutputText'

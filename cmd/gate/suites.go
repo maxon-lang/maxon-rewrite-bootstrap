@@ -137,6 +137,7 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 		// The compiler's own source is a program too: a rule that it breaks would otherwise show only when the seed is renewed.
 		{step{"self", func() error { return mm("check", "self", "--tests", "--verify-reads") }}, "checks"},
 		{step{"TMPDIR unset", func() error { return compilesWithoutTmpdir(r.h, r.compiler) }}, "checks"},
+		{step{"unwritable output", func() error { return refusesUnwritableOutput(r.compiler) }}, "checks"},
 		{step{"layout", func() error { return mm("fmt", "--check", "self", "runtime", "tests", "stdlib") }}, "checks"},
 		// Every program the generator writes that the checker accepts must run clean under the interpreter: a violation is a
 		// hole in the checker.
@@ -546,6 +547,28 @@ func compilesWithoutTmpdir(h host, compiler string) error {
 	}
 	if !isDir(filepath.Join("/tmp", "minimaxon")) {
 		return errors.New("with TMPDIR unset the compiler did not make its directory of temporary files in /tmp")
+	}
+	return nil
+}
+
+// refusesUnwritableOutput builds a program into a directory that does not exist, which the compiler must refuse as an error
+// that names the path and the reason, with exit code 1, and not with a panic: an output it cannot write is the environment's.
+func refusesUnwritableOutput(compiler string) error {
+	dir, err := scratchDir("minimaxon-unwritable-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+	out := filepath.Join(dir, "no-such-directory", "program")
+	cmd := exec.Command(compiler, "build", filepath.Join("tests", "run", "a-function-with-no-statement-is-allowed.maxon"), "-o", out)
+	text, err := cmd.CombinedOutput()
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) || exit.ExitCode() != 1 {
+		return fmt.Errorf("%s%s: want exit code 1, got %v", text, strings.Join(cmd.Args, " "), err)
+	}
+	want := "error: cannot write " + out + ": a directory of the path does not exist\n"
+	if string(text) != want {
+		return fmt.Errorf("%s: want %q, got %q", strings.Join(cmd.Args, " "), want, text)
 	}
 	return nil
 }

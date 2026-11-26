@@ -802,7 +802,7 @@ function takeFixResult(mutates tally FixTally, result FixResult)
 end 'takeFixResult'
 
 function writeFixed(file String, text String)
-	try File.writeText(try FilePath.from(file) otherwise panic("fix: {file} is not a path"), content: text) otherwise panic("fix: cannot write {file}")
+	ast.writeOutputText(file, content: text)
 end 'writeFixed'
 
 // programAt is the program at path, a .maxon file or a project's directory, as its files read.

@@ -94,9 +94,12 @@ end 'temporaryDirectory'
 // that directory alone, and not every program's temporary files.
 export function temporaryPath(name String) returns String
 	let dir = "{temporaryDirectory()}{hostSeparator()}{temporaryFolder}"
-	let made = try FilePath.from(dir) otherwise panic("the directory of temporary files {dir} is no path")
+	let made = try FilePath.from(dir) otherwise 'unnamed'
+		unwritablePath(dir)
+		return ""
+	end 'unnamed'
 	if not Directory.create(made) 'unmade'
-		panic("cannot make the directory of temporary files {dir}")
+		unwritableOutput(dir, reason: "the system cannot make the directory of temporary files")
 	end 'unmade'
 	return "{dir}{hostSeparator()}{name}"
 end 'temporaryPath'

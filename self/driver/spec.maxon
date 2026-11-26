@@ -1082,7 +1082,7 @@ function writePassedList(path String, tally SpecRun)
 	var keys = tally.keptKeys.clone()
 	project.sortStrings(keys)
 	let text = "{joinLines(keys)}\n"
-	try File.writeText(try FilePath.from(path) otherwise panic("test: {path} is not a path"), content: text) otherwise panic("test: cannot write {path}")
+	ast.writeOutputText(path, content: text)
 end 'writePassedList'
 
 // printSummary prints the counts, and the skipped tests by reason, the most first; the reasons past the first ones are

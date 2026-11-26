@@ -112,8 +112,7 @@ export type Trace
 			text.append(event(name, category: "{spans[s].stage}", lane: lane, start: spans[s].start, finish: spans[s].finish, args: taskArgs(graph, task: spans[s].task)).toByteArray())
 		end 'events'
 		text.append("\n]\}\n".toByteArray())
-		let file = try FilePath.from(path) otherwise panic("driver: the trace's file {path} is not a path")
-		try File.writeText(file, content: String.from(text)) otherwise panic("driver: cannot write the trace to {path}")
+		ast.writeOutputText(path, content: String.from(text))
 	end 'write'
 
 	// event is a span of the trace from start to finish on lane.
