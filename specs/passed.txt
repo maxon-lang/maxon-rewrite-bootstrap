@@ -7156,6 +7156,7 @@ sched-park.md: sched-park.a-service-coroutine-runs-while-its-handler-sleeps
 sched-preempt.md: sched-preempt.a-switch-value-that-is-neither-off-nor-on-is-refused-at-start
 sched-processor.md: sched-processor.a-green-thread-kernel-call-round-trips-its-processor-stack
 sched-processor.md: sched-processor.a-scalar-program-still-runs-with-no-processor-at-all
+sched-runqueue.md: sched-runqueue.a-runnext-ping-pong-pair-cannot-starve-a-bystander
 sched-runqueue.md: sched-runqueue.a-yield-goes-behind-the-global-queue
 sched-runqueue.md: sched-runqueue.ring-overflow-runs-every-spawned-service
 sched-runqueue.md: sched-runqueue.the-last-spawned-thread-runs-first-at-one-processor
@@ -7209,9 +7210,11 @@ self-type-member-expression.md: static-call-through-Self-with-labelled-arguments
 self-type-member-expression.md: static-method-named-Self-through-Self
 self-type-member-expression.md: throwing-static-through-Self-under-try
 self-type-member-expression.md: union-payload-case-through-Self
+service-handle-cycles.md: a-chain-of-distinct-services-holding-each-others-handles-is-accepted
 service-handle-cycles.md: a-generic-that-expands-with-every-instantiation-is-refused-in-a-services-state-without-walking-it
 service-handle-cycles.md: a-service-holding-a-handle-to-its-own-type-is-refused
 service-handle-cycles.md: a-service-holding-its-own-handle-in-an-array-is-refused
+service-handle-cycles.md: passing-the-handle-with-each-message-is-accepted
 service-message-capabilities.md: a-unique-record-needs-no-word
 service-message-capabilities.md: an-isolated-parameters-number-is-read-in-the-statement-that-writes-self
 service-message-capabilities.md: error.a-promise-parameter-keeps-e3217-after-an-unmarked-record
@@ -7226,7 +7229,6 @@ services.md: a-borrowed-parameter-may-be-sent-as-a-fresh-interpolation
 services.md: a-borrowed-parameter-nothing-writes-is-shared-with-the-service
 services.md: a-borrowed-string-parameter-is-copied-into-the-send
 services.md: a-call-after-shutdown-fails-service-stopped
-services.md: a-capacity-that-is-not-a-power-of-two-fills-drains-and-fills-again-in-order
 services.md: a-cloned-handle-keeps-the-service-alive
 services.md: a-factory-may-be-spelled-with-a-keyword
 services.md: a-handle-moved-into-another-service
@@ -7236,12 +7238,13 @@ services.md: a-handler-that-awaits-its-coroutine-before-it-returns-leaves-nothin
 services.md: a-long-backlog-of-string-messages-keeps-fifo-order
 services.md: a-long-queue-refilled-after-it-drained-keeps-fifo-order
 services.md: a-message-that-spawns-a-service-keeps-that-services-unsent-messages-alive
+services.md: a-message-with-a-defaulted-first-parameter-may-name-it
+services.md: a-message-with-a-defaulted-first-parameter-takes-it-positionally
 services.md: a-module-let-record-is-shared-with-the-service
 services.md: a-monomorphic-handle-is-co-owned-in-a-struct-field
 services.md: a-private-method-is-not-a-message
 services.md: a-queue-refilled-after-it-drained-keeps-fifo-order
 services.md: a-reply-a-method-of-the-state-builds-fresh-crosses
-services.md: a-reply-bearing-send-to-a-full-mailbox-fails-at-the-send
 services.md: a-reply-completed-by-a-service-readies-a-waiting-coroutine
 services.md: a-reply-may-be-a-message-parameter
 services.md: a-reply-over-a-declared-type-stores-in-a-promise-naming-it
@@ -7289,12 +7292,10 @@ services.md: deepmove.a-string-whose-bytes-the-sender-still-views-crosses-the-se
 services.md: deepmove.a-union-payload-crosses-and-a-shared-one-aborts
 services.md: deepmove.dag.a-string-and-its-bytes-cross-together
 services.md: dropping-the-last-handle-shuts-the-service-down
-services.md: error.a-capacity-out-of-range-is-refused
 services.md: error.a-factory-that-fills-a-promise-array-the-state-keeps-is-refused
 services.md: error.a-factory-that-starts-a-promise-the-state-keeps-is-refused
 services.md: error.a-generic-service-argument-from-an-undefined-call-is-the-only-report
 services.md: error.a-handle-of-another-service-is-refused
-services.md: error.a-message-may-not-declare-a-send-timeout-parameter
 services.md: error.a-message-that-awaits-a-peer-of-its-own-type-is-refused
 services.md: error.a-message-that-waits-through-a-helper-is-refused
 services.md: error.a-message-with-two-awaits-is-refused-at-the-first
