@@ -6,6 +6,7 @@
 // so the opens, which wait for the other end, wait on another process and not on this program.
 // unsupported-targets: x64-windows
 // native-only
+// runs: alone
 //> read: 4 then 0: ping
 //> wrote: 4, the reader got pong
 //> /dev/null: read 0, wrote 3
