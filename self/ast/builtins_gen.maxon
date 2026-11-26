@@ -356,6 +356,7 @@ export enum Intrinsic
 	intrFilePathInit
 	intrFilePathToString
 	intrFileReadText
+	intrFileReadBinary
 	intrFileWriteText
 	intrFileWriteBinary
 	intrFileRename
@@ -2037,35 +2038,40 @@ function declareFileMethods(mutates tt TypeSlot, reads TypeTable, mutates ft Fun
 	ps1.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
 	let f2 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileReadText, name: "readText", isStatic: true, selfConv: Convention.convLet, ret: b.stringTy, params: ps1, listed: true)
 	ft.lists[funcList(ft, f: f2)][funcIndex(ft, f: f2)].errTy = b.fileReadErrorTy
-	var ps3 = ParamSpecList.create(0)
-	ps3.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
-	ps3.push(ParamSpec.make("content", ty: b.stringTy, conv: Convention.convLet))
-	ps3.push(ParamSpec.withCaseDefault("mode", ty: b.filePermissionTy, conv: Convention.convLet, defaultCase: 0))
-	let f4 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileWriteText, name: "writeText", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps3, listed: true)
-	ft.lists[funcList(ft, f: f4)][funcIndex(ft, f: f4)].errTy = b.fileWriteErrorTy
-	let ty5 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	let ty3 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps4 = ParamSpecList.create(0)
+	ps4.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
+	let f5 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileReadBinary, name: "readBinary", isStatic: true, selfConv: Convention.convLet, ret: ty3, params: ps4, listed: true)
+	ft.lists[funcList(ft, f: f5)][funcIndex(ft, f: f5)].errTy = b.fileReadErrorTy
 	var ps6 = ParamSpecList.create(0)
 	ps6.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
-	ps6.push(ParamSpec.make("content", ty: ty5, conv: Convention.convLet))
+	ps6.push(ParamSpec.make("content", ty: b.stringTy, conv: Convention.convLet))
 	ps6.push(ParamSpec.withCaseDefault("mode", ty: b.filePermissionTy, conv: Convention.convLet, defaultCase: 0))
-	let f7 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileWriteBinary, name: "writeBinary", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps6, listed: true)
+	let f7 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileWriteText, name: "writeText", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps6, listed: true)
 	ft.lists[funcList(ft, f: f7)][funcIndex(ft, f: f7)].errTy = b.fileWriteErrorTy
-	var ps8 = ParamSpecList.create(0)
-	ps8.push(ParamSpec.make("from", ty: b.filePathTy, conv: Convention.convLet))
-	ps8.push(ParamSpec.make("to", ty: b.filePathTy, conv: Convention.convLet))
-	let f9 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileRename, name: "rename", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps8, listed: true)
-	ft.lists[funcList(ft, f: f9)][funcIndex(ft, f: f9)].errTy = b.fileRenameErrorTy
-	var ps10 = ParamSpecList.create(0)
-	ps10.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
-	let f11 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileDelete, name: "delete", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps10, listed: true)
-	ft.lists[funcList(ft, f: f11)][funcIndex(ft, f: f11)].errTy = b.fileDeleteErrorTy
-	var ps12 = ParamSpecList.create(0)
-	ps12.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileExists, name: "exists", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps12, listed: true)
+	let ty8 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps9 = ParamSpecList.create(0)
+	ps9.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
+	ps9.push(ParamSpec.make("content", ty: ty8, conv: Convention.convLet))
+	ps9.push(ParamSpec.withCaseDefault("mode", ty: b.filePermissionTy, conv: Convention.convLet, defaultCase: 0))
+	let f10 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileWriteBinary, name: "writeBinary", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps9, listed: true)
+	ft.lists[funcList(ft, f: f10)][funcIndex(ft, f: f10)].errTy = b.fileWriteErrorTy
+	var ps11 = ParamSpecList.create(0)
+	ps11.push(ParamSpec.make("from", ty: b.filePathTy, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("to", ty: b.filePathTy, conv: Convention.convLet))
+	let f12 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileRename, name: "rename", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps11, listed: true)
+	ft.lists[funcList(ft, f: f12)][funcIndex(ft, f: f12)].errTy = b.fileRenameErrorTy
 	var ps13 = ParamSpecList.create(0)
 	ps13.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
-	let f14 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileInfo, name: "info", isStatic: true, selfConv: Convention.convLet, ret: b.fileInfoTy, params: ps13, listed: true)
-	ft.lists[funcList(ft, f: f14)][funcIndex(ft, f: f14)].errTy = b.fileInfoErrorTy
+	let f14 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileDelete, name: "delete", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps13, listed: true)
+	ft.lists[funcList(ft, f: f14)][funcIndex(ft, f: f14)].errTy = b.fileDeleteErrorTy
+	var ps15 = ParamSpecList.create(0)
+	ps15.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileExists, name: "exists", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps15, listed: true)
+	var ps16 = ParamSpecList.create(0)
+	ps16.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
+	let f17 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileInfo, name: "info", isStatic: true, selfConv: Convention.convLet, ret: b.fileInfoTy, params: ps16, listed: true)
+	ft.lists[funcList(ft, f: f17)][funcIndex(ft, f: f17)].errTy = b.fileInfoErrorTy
 end 'declareFileMethods'
 
 function declareDirectoryMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

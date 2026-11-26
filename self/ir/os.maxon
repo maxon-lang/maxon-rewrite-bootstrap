@@ -306,10 +306,19 @@ function lowerFilePathToString(mutates l Lowerer, p ast.Project, mutates ms ast.
 end 'lowerFilePathToString'
 
 function lowerFileReadText(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let dst = newReg(l, kind: IrKind.kindString)
-	let path = pathText(l, path: args[0])
-	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsReadText, args: argsOf1(path))
+	return lowerFileRead(l, p: p, ms: ms, c: c, args: args, kind: IrKind.kindString, symbol: Rt.rtOsReadText)
 end 'lowerFileReadText'
+
+function lowerFileReadBinary(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerFileRead(l, p: p, ms: ms, c: c, args: args, kind: IrKind.kindManaged, symbol: Rt.rtOsReadBinary)
+end 'lowerFileReadBinary'
+
+// lowerFileRead is a whole read of the file at the path that is the call's one argument, by the runtime's entry, into a value of a kind.
+function lowerFileRead(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, args RegList, kind IrKind, symbol Rt) returns Reg
+	let dst = newReg(l, kind: kind)
+	let path = pathText(l, path: try args.get(0) otherwise panic("a read of a file takes one argument, which the checker has seen"))
+	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: symbol, args: argsOf1(path))
+end 'lowerFileRead'
 
 // isExecutable is whether a FilePermission is the executable case, as the flag the runtime's write takes.
 function isExecutable(mutates l Lowerer, mode Reg) returns Reg

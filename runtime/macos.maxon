@@ -145,12 +145,13 @@
 		return ownedString(dest, length: length, ascii: __Raw.stringAscii(path))
 	end 'osPathFrom'
 
-	// osReadText is the whole content of a file.
-	function osReadText(path String, errorAddress Count) returns String
+	// readFileRoom is the whole content of a file in a string room that the caller owns: it stores the length at lengthAddress and
+	// gives the room, or sets the error word and gives nothing to use.
+	function readFileRoom(path String, lengthAddress Count, errorAddress Count) returns Count
 		let fd = openReading(path)
 		if failed(fd) 'open'
 			endWithError(errorAddress, osError: errnoOf(fd), table: readFailures())
-			return noString()
+			return 0
 		end 'open'
 		let stat = newStat()
 		enterBlocking()
@@ -161,7 +162,7 @@
 		if failed(statted) 'sized'
 			closeFd(fd)
 			endWithError(errorAddress, osError: errnoOf(statted), table: readFailures())
-			return noString()
+			return 0
 		end 'sized'
 		let bytes = __Raw.stringRoom(size)
 		var done = 0 as Count
@@ -186,11 +187,12 @@
 		if readError != 0 'failedRead'
 			__Raw.freeStringRoom(bytes)
 			endWithError(errorAddress, osError: readError, table: readFailures())
-			return noString()
+			return 0
 		end 'failedRead'
 		succeed(errorAddress)
-		return stringOfRoom(bytes, length: done)
-	end 'osReadText'
+		__Raw.storeWord(lengthAddress, offset: 0, value: done)
+		return bytes
+	end 'readFileRoom'
 
 	// writeFile replaces a file with bytes at an address, and gives the errno that stopped it, or 0. The mode applies to a
 	// file that it creates; one that is there keeps its own.

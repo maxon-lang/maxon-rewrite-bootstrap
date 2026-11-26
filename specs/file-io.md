@@ -552,7 +552,7 @@ end 'main'
 function main() returns ExitCode
 	let path = FilePath from "test_binary.bin"
 	// Create a byte array with known values
-	let data = ByteArray.create(0)
+	var data = ByteArray.create(0)
 	data.push(65 as Byte)
 	data.push(66 as Byte)
 	data.push(67 as Byte)
@@ -659,7 +659,7 @@ exists. Backed by `MoveFileEx` (Windows), `rename(2)` (POSIX), and
 function main() returns ExitCode
 	let src = FilePath from "test_rename_src.bin"
 	let dst = FilePath from "test_rename_dst.bin"
-	let data = ByteArray.create(0)
+	var data = ByteArray.create(0)
 	data.push(70 as Byte)
 	data.push(71 as Byte)
 	try File.writeBinary(src, content: data) otherwise 'write_err'

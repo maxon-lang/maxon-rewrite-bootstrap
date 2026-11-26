@@ -4460,6 +4460,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `FilePath.from(path)` | `FilePath`, with `/` made `\` | `FilePathError.invalidCharacter` for a control character or one of `<>"\|?*` |
 | `path.toString()` | `String` | — |
 | `File.readText(path)` | `String` | `FileReadError` |
+| `File.readBinary(path)` | `Array with Byte`, the whole content of the file, read as `readText` reads it (the same system calls; the bytes are copied from the read buffer to the array) | `FileReadError` |
 | `File.writeText(path, content: s)`, `File.writeBinary(path, content: bytes)`, each with an optional `mode: FilePermission` | — (a file that is there is replaced, and keeps its mode) | `FileWriteError` |
 | `File.rename(from, to: dest)` | — (what is at `dest` is replaced) | `FileRenameError` |
 | `File.delete(path)` | — (a directory is refused, `accessDenied`) | `FileDeleteError` |
@@ -5367,7 +5368,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   elements; maxon sizes a narrower integer's elements by their range too. `String.from(bytes)` copies the bytes where maxon's shares the
   array's buffer, and a `String` here is its bytes, so neither direction scans them.
 - The OS functions (see "The OS") have maxon's names, signatures and errors, but are a subset, built in rather than
-  stdlib code: `FilePath`'s built-in `from` does not resolve a `file://` URL (one is taken as a path); `File` has no `readBinary`, `createText`, `exists`, `renameNew`, `info` or `openRead`,
+  stdlib code: `FilePath`'s built-in `from` does not resolve a `file://` URL (one is taken as a path); `File` has no `createText`, `renameNew` or `openRead`,
   `Directory.exists`, `removeTree` and `removeContents` are maxon's (`stdlib/directory` extends the built-in with the last two), and
   `Directory.list` lists in the order the system gives; `Process` has `environmentVariable`, `executablePath`, `id`, `setExitCode`, `exit` and `enterBackgroundPriority` built in, and the library's environment functions (see "The OS"); `Subprocess.run`
   takes no `workingDirectory:` or `deadline:` (`runWithDeadline` takes the deadline), and `CollectedOutput` has no `status`, `pid` or `durationMs`;

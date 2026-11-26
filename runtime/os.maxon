@@ -606,13 +606,14 @@ let nanosPerFileTimeStep = 100 as Count
 		return dword(__Raw.callImport1("GetFileType", arg1: __Raw.callImport1("GetStdHandle", arg1: stdOutputHandle))) == fileTypeChar
 	end 'stdoutIsCharacterDevice'
 
-	// osReadText is the whole content of a file.
-	function osReadText(path String, errorAddress Count) returns String
+	// readFileRoom is the whole content of a file in a string room that the caller owns: it stores the length at lengthAddress and
+	// gives the room, or sets the error word and gives nothing to use.
+	function readFileRoom(path String, lengthAddress Count, errorAddress Count) returns Count
 		var win32 = 0 as Count
 		let file = openFile(path, access: genericRead, share: fileShareRead, disposition: openExisting, win32Address: __Raw.addressOf(win32))
 		if file == invalidHandle 'open'
 			endWithError(errorAddress, osError: win32, table: readFailures())
-			return noString()
+			return 0
 		end 'open'
 		var size = 0 as Count
 		var sizeError = 0 as Count
@@ -625,7 +626,7 @@ let nanosPerFileTimeStep = 100 as Count
 		if not sized 'sized'
 			closeHandle(file)
 			endWithError(errorAddress, osError: sizeError, table: readFailures())
-			return noString()
+			return 0
 		end 'sized'
 		let bytes = __Raw.stringRoom(size)
 		var done = 0 as Count
@@ -649,11 +650,12 @@ let nanosPerFileTimeStep = 100 as Count
 		if readError != 0 'failedRead'
 			__Raw.freeStringRoom(bytes)
 			endWithError(errorAddress, osError: readError, table: readFailures())
-			return noString()
+			return 0
 		end 'failedRead'
 		succeed(errorAddress)
-		return stringOfRoom(bytes, length: done)
-	end 'osReadText'
+		__Raw.storeWord(lengthAddress, offset: 0, value: done)
+		return bytes
+	end 'readFileRoom'
 
 	// writeFile replaces a file with bytes at an address, and gives the Win32 error that stopped it, or 0. Windows has no
 	// executable mode, so executable is not read, as maxon's is not.
@@ -701,6 +703,32 @@ end 'osWriteText'
 function osWriteBinary(path String, content Count, errorAddress Count)
 	osWriteBinaryMode(path, content: content, executable: false, errorAddress: errorAddress)
 end 'osWriteBinary'
+
+// osReadText is the whole content of a file as a String: the bytes of readFileRoom, which each system has its own.
+function osReadText(path String, errorAddress Count) returns String
+	var length = 0 as Count
+	let room = readFileRoom(path, lengthAddress: __Raw.addressOf(length), errorAddress: errorAddress)
+	if __Raw.loadWord(errorAddress, offset: 0) != 0 'failed'
+		return noString()
+	end 'failed'
+	return stringOfRoom(room, length: length)
+end 'osReadText'
+
+// osReadBinary is the whole content of a file as a new byte array, read as osReadText reads it: the bytes of the string room
+// are copied to the array and the room is freed.
+function osReadBinary(path String, errorAddress Count) returns Count
+	var length = 0 as Count
+	let room = readFileRoom(path, lengthAddress: __Raw.addressOf(length), errorAddress: errorAddress)
+	if __Raw.loadWord(errorAddress, offset: 0) != 0 'failed'
+		return 0
+	end 'failed'
+	let bytes = bytesNew()
+	if length > 0 'some'
+		copyBytes(room, target: collectionExtend(bytes, count: length, elementBytes: byteBytes), count: length)
+	end 'some'
+	__Raw.freeStringRoom(room)
+	return bytes
+end 'osReadBinary'
 
 #if os(Windows)
 	// osRename moves a file or a directory, and replaces what is at the destination.

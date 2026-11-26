@@ -185,6 +185,16 @@ function entryOsPathFrom(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 end 'entryOsPathFrom'
 
 function entryOsReadText(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try entryOsRead(vm, f: f, x: x, binary: false)
+end 'entryOsReadText'
+
+function entryOsReadBinary(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try entryOsRead(vm, f: f, x: x, binary: true)
+end 'entryOsReadBinary'
+
+// entryOsRead reads the file at the path the call names whole and gives it as a String, or as its bytes where binary: a String is
+// its bytes, which no read checks.
+function entryOsRead(mutates vm Vm, f ir.IrFunction, x ir.Instr, binary bool) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
 	let path = pathOf(vm.h.texts[at].clone())
 	var word = 0 as ir.Word
@@ -201,10 +211,10 @@ function entryOsReadText(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	end 'failed'
 	try errorWord(vm, f: f, x: x, word: word)
 	if word == 0 'read'
-		let made = newString(vm, text: value)
+		let made = newBytes(vm, buf: value.toByteArray()) if binary else newString(vm, text: value)
 		giveRef(vm, x: x, o: made)
 	end 'read'
-end 'entryOsReadText'
+end 'entryOsRead'
 
 // writeBytes writes a file with the mode and gives the error word of its failure, or 0.
 function writeBytes(path FilePath, content ByteArray, mode FilePermission) returns ir.Word
