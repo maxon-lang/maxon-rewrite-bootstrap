@@ -1,0 +1,43 @@
+// A destructor owns its receiver and ends it, so it may change it first: it calls a mutates method on self and assigns a field
+// of self, and what it reads of self after that, before self ends, is what it changed. The change is made through self's own
+// place, not a copy of it, so a mutates call made through a second destructor that self is passed to sees it too.
+//> finish: counted 3, notes 3, label done
+//> handed on: counted 1, label set
+type Tally
+	var n as Count
+	var notes as Array with String
+	var label as String
+
+	static function make() returns Tally
+		return Tally{n: 0, notes: Array.create(0), label: "fresh"}
+	end 'make'
+
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise 0
+		self.notes.push("bump")
+	end 'bump'
+
+	function finish(destructs self) returns String
+		bump()
+		bump()
+		bump()
+		self.label = "done"
+		return "counted {self.n}, notes {self.notes.count()}, label {self.label}"
+	end 'finish'
+
+	function handOn(destructs self) returns String
+		bump()
+		self.label = "set"
+		return report()
+	end 'handOn'
+
+	function report(destructs self) returns String
+		return "counted {self.n}, label {self.label}"
+	end 'report'
+end 'Tally'
+
+function main() returns ExitCode
+	print("finish: {Tally.make().finish()}\n")
+	print("handed on: {Tally.make().handOn()}\n")
+	return 0
+end 'main'

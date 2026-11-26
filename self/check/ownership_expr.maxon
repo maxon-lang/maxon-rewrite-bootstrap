@@ -470,7 +470,8 @@ function requireMutable(mutates o Ownership, p ast.Project, mutates ms ast.Modul
 		mutableFail(o, p: p, ms: ms, site: site, call: call, text: text, fix: conventionFix(ms.tree(), param: root.definedAt, keyword: fixKindMutates), code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a let parameter; write 'mutates' before it to change the caller's value, or copy it into a var")
 		return false
 	end 'let'
-	if root.isParam and ast.ownsValue(root.conv) 'owns'
+	// A destructor's receiver is a var (check.declareReceiverAndParams); a consumes parameter is not.
+	if root.isParam and ast.ownsValue(root.conv) and not root.isVar 'owns'
 		mutableFail(o, p: p, ms: ms, site: site, call: call, text: text, fix: diag.Fix.none(), code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a '{root.conv.keyword()}' parameter; move it into a var first")
 		return false
 	end 'owns'

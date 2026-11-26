@@ -3894,7 +3894,10 @@ is not `Copyable`, `Box with Count` is), and a type parameter has a capability o
 `Droppable`. A type that declares a destructor, a method whose receiver is `destructs self`, loses both, and so does
 whatever holds one. A destructor is allowed on a `type` and a `union`, never on an `enum` (`E3920`), and in an interface's
 signatures, so generic code can end a `T` through a bound. Calling one moves the receiver in like `consumes self`, and in
-the body `self` is owned and its fields may be moved out. Where the body ends, `self` is destroyed: the fields that were
+the body `self` is owned and its fields may be moved out. It is a mutable owned value too, as maxon's finalizer writes its
+receiver until its `destruct self` (specs/linear-types.md): its fields may be assigned and `mutates self` methods called on
+it, through its own place, so what a destructor changes is what it ends. A `consumes` parameter is not: it is owned but
+read-only, like a `let`, and is moved into a `var` to be changed. Where the body ends, `self` is destroyed: the fields that were
 moved out are skipped and the rest are dropped, so each must be `Droppable` (`E3919`), and no obligation remains. `self`
 may be passed whole only to another destructor of its type, which ends it there (`rollback` delegating to
 `abort(reason: r)`); moving it whole anywhere else is `E3920`. The query is `check.lacksCap` (`self/check/context.maxon`),

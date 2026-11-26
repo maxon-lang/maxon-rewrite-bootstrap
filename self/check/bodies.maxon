@@ -313,6 +313,8 @@ function declareReceiverAndParams(mutates c Checker, p ast.Project, mutates ms a
 	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).hasReceiver 'receiver'
 		var receiver = ast.LocalEntry.make("self", ty: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).ownerTy, isVar: false, isParam: true, conv: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).selfConv, definedAt: f.id)
 		receiver.isSelf = true
+		// A destructor owns its receiver and ends it, so it may change it first: no one else holds it.
+		receiver.isVar = receiver.conv == ast.Convention.convDestructs
 		receiver.paramIndex = index
 		let id = c.typing.allocLocal(receiver)
 		c.fnLocals.push(id)
