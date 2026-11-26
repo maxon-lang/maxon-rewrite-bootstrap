@@ -571,8 +571,8 @@
 	// negativeWordBit is set in a word that holds a negative number, such as the seconds of a time before 1970.
 	let negativeWordBit = 0x8000000000000000 as Count
 
-	// secondsAt is the seconds of the statx timestamp at an offset of a record, or 0 for a time before 1970, as the
-	// Windows entry gives.
+	// secondsAt is the seconds of the timestamp at an offset of a struct stat, or 0 for a time before 1970, as the Windows entry
+	// gives.
 	function secondsAt(record Count, offset Count) returns Count
 		let seconds = __Raw.loadWord(record, offset: offset)
 		if (seconds and negativeWordBit) != 0 'before'
@@ -581,28 +581,18 @@
 		return seconds
 	end 'secondsAt'
 
-	// osFileInfo is the time a file was last written, in Unix seconds, and stores its size, the times it was made and last
-	// read and a word of its attributes (infoDirectoryFlag, infoReadOnlyFlag) at the addresses given. A file system that
-	// records no birth time fails the entry, since the time it was made is not a time to invent.
+	// osFileInfo is the time a file was last written, in Unix seconds, and stores its size, the time it was made and last
+	// read and a word of its attributes (infoDirectoryFlag, infoReadOnlyFlag) at the addresses given. A struct stat has no
+	// birth time, so the time it was made is st_ctime, the last change of the inode, as maxon's Linux File.info gives.
 	function osFileInfo(path String, size Count, created Count, accessed Count, attributes Count, errorAddress Count) returns Count
-		let cPath = cStringOf(path)
-		let record = alloc(linuxStatxBytes)
-		enterBlocking()
-		let result = __Raw.syscall5(linuxSysStatx, arg1: atCwd(), arg2: cPath, arg3: noFlags, arg4: linuxStatxWanted, arg5: record)
-		exitBlocking()
-		free(cPath)
-		let osError = osErrorOf(result)
-		if osError == 0 and (__Raw.loadWord32(record, offset: linuxStatxMaskOffset) and linuxStatxBirthTime) == 0 'noBirthTime'
-			failWith(errorAddress, errorCase: infoFailed)
-			free(record)
-			return 0
-		end 'noBirthTime'
+		let record = alloc(linuxStatBytes)
+		let osError = osErrorOf(statPath(path, stat: record))
 		if osError != 0 'failed'
 			free(record)
 			endWithError(errorAddress, osError: osError, table: infoFailures())
 			return 0
 		end 'failed'
-		let mode = __Raw.loadWord32(record, offset: linuxStatxModeOffset)
+		let mode = __Raw.loadWord32(record, offset: linuxStatModeOffset)
 		var flags = 0 as Count
 		if (mode and linuxModeTypeMask) == linuxModeDirectory 'directory'
 			flags = flags or infoDirectoryFlag
@@ -610,11 +600,11 @@
 		if (mode and linuxModeOwnerWrite) == 0 'readOnly'
 			flags = flags or infoReadOnlyFlag
 		end 'readOnly'
-		__Raw.storeWord(size, offset: 0, value: __Raw.loadWord(record, offset: linuxStatxSizeOffset))
-		__Raw.storeWord(created, offset: 0, value: secondsAt(record, offset: linuxStatxCreatedOffset))
-		__Raw.storeWord(accessed, offset: 0, value: secondsAt(record, offset: linuxStatxAccessedOffset))
+		__Raw.storeWord(size, offset: 0, value: __Raw.loadWord(record, offset: linuxStatSizeOffset))
+		__Raw.storeWord(created, offset: 0, value: secondsAt(record, offset: linuxStatChangedOffset))
+		__Raw.storeWord(accessed, offset: 0, value: secondsAt(record, offset: linuxStatAccessedOffset))
 		__Raw.storeWord(attributes, offset: 0, value: flags)
-		let modified = secondsAt(record, offset: linuxStatxModifiedOffset)
+		let modified = secondsAt(record, offset: linuxStatModifiedOffset)
 		free(record)
 		succeed(errorAddress)
 		return modified

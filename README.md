@@ -74,7 +74,7 @@ its system names the host's with `#if os(...)`, as maxon's spec tests do: its sh
 elsewhere, so the same test runs on each host and none starts a Windows program on Linux.
 
 On a Windows machine the Linux gate is checked in WSL as a native Linux host would run it: in a clone on WSL's own file
-system (under `~`, not `/mnt/c`, whose files have no birth time, so `File.info` fails there as on no native disk), with
+system (under `~`, not `/mnt/c`), with
 WSL's interop with Windows off for the run, so that no Windows program can be started from Linux, and no Windows directory
 on `PATH`:
 
@@ -4515,7 +4515,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `File.rename(from, to: dest)` | — (what is at `dest` is replaced) | `FileRenameError` |
 | `File.delete(path)` | — (a directory is refused, `accessDenied`) | `FileDeleteError` |
 | `Directory.delete(path)` | — (removes an empty directory: one that still holds an entry is refused, `notEmpty`, a file or a link there is `deleteFailed`, and a path through a file `notFound`; `RemoveDirectoryW`, `rmdir`, and `unlinkat` with `AT_REMOVEDIR` on arm64 Linux, which has no `rmdir`; the interpreter runs no `Directory.delete`, so a program that calls it is `// native-only`) | `DirectoryDeleteError` |
-| `File.info(path)` | `FileInfo`: `size` (maxon's `FileSize`), `modifiedTime`, `createdTime` and `accessedTime` (maxon's `Timestamp`: Unix seconds on the file system's clock), `isDirectory`, `isReadOnly`; `FileSize` and `Timestamp` are built-in aliases of `int(0 to u64.max)`, as `Count` is, but types of their own (a `Count` is cast to one with `as`), and the library's `stdlib/file` gives `FileInfo` maxon's `FileInfo.create(size, modifiedTime:, createdTime:, accessedTime:, isDirectory:, isReadOnly:)`; read from the directory's record of the file (`FindFirstFileW`), so a file another process holds open is no failure | `FileInfoError` |
+| `File.info(path)` | `FileInfo`: `size` (maxon's `FileSize`), `modifiedTime`, `createdTime` and `accessedTime` (maxon's `Timestamp`: Unix seconds on the file system's clock), `isDirectory`, `isReadOnly`; on Linux `createdTime` is the inode change time (`st_ctime`, from `newfstatat`), not a creation time, because Linux file systems do not reliably give one, as maxon's File.info gives it (macOS reads `st_birthtime`, Windows the file's creation time); `FileSize` and `Timestamp` are built-in aliases of `int(0 to u64.max)`, as `Count` is, but types of their own (a `Count` is cast to one with `as`), and the library's `stdlib/file` gives `FileInfo` maxon's `FileInfo.create(size, modifiedTime:, createdTime:, accessedTime:, isDirectory:, isReadOnly:)`; read from the directory's record of the file (`FindFirstFileW`), so a file another process holds open is no failure | `FileInfoError` |
 | `Directory.isDirectory(path)` | `bool` | — |
 | `Directory.create(path)` | `bool`, whether the directory is there after it; the missing parents are made too | — |
 | `Directory.currentPath()` | `FilePath`, the working directory; a panic when Windows cannot give it | — |
