@@ -107,9 +107,9 @@ type ModuleWork
 	// (the library's names index, which the scan of its text made), and namesRead whether they were read.
 	var named as project.CountList
 	var namesRead as bool
-	// words are what the module gives the reach of the library (reachedLibrary): for a module of the program the words of its text
-	// that are words of the library (wordsIn), for one of the library the words that reach it, which its scan found. The resolve
-	// lets them go.
+	// words are what the module gives the reach of the library (reachedLibrary): for a module of the program the words of the
+	// library that its code writes (programWords), for one of the library the words that reach it, which its scan found. The
+	// resolve lets them go.
 	var words as ast.StringList
 	// texts are the files of a library module that its scan read, which its parse reads in place of reading them again.
 	var texts as project.SourceFiles
@@ -414,9 +414,9 @@ function parseTask(c Compile, mutates work ModuleWork, known Known, inputs ast.I
 	end 'files'
 	work.skimmed = ms.parsed.skimmed
 	if not ofLibrary and c.hasLibrary() 'program'
-		work.words = wordsIn(ms.parsed.tree.text, library: libraryWords(c, known: known))
-		addLiteralWords(work.words, tree: ms.parsed.tree)
+		work.words = programWords(ms.parsed, library: libraryWords(c, known: known))
 	end 'program'
+	ms.parsed.nameUses = ast.NameUses.create(0)
 	if c.cache.enabled() 'digests'
 		work.digests.source = sourceDigest(ms.source.path, text: ms.parsed.tree.text, files: ms.parsed.files)
 		if not view.modules[m].isRuntime 'shown'
@@ -598,7 +598,7 @@ function restoredTask(c Compile, mutates work ModuleWork, stage Stage) returns f
 end 'restoredTask'
 
 // resolveTask resolves the module, whose tree and resolution it is lent. The words that the module gave the reach of the library
-// (wordsIn, the scan) are read by the parses and the index's write, which ended before it, so its product holds none.
+// (programWords, the scan) are read by the parses and the index's write, which ended before it, so its product holds none.
 function resolveTask(c Compile, mutates work ModuleWork, known Known, inputs ast.Inputs, mutates errs diag.ErrorList) returns frozen with Product
 	var view as ast.Project
 	var ms = lendTask(c, work: work, stage: Stage.resolve, lent: ast.Lent.resolution, known: known, inputs: inputs, view: view)

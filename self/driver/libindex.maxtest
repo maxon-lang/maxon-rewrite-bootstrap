@@ -188,3 +188,41 @@ end 'a member that a library module adds to a type it does not declare is a word
 test 'the name of a library type is a word that reaches the module that declares it'
 	expectErrorsOnlyIn(compileWithFixtureLibrary("\tlet box = Box.create()\n"), name: "Shapes.maxon", what: "a program that writes the name of a library type")
 end 'the name of a library type is a word that reaches the module that declares it'
+
+test 'the text of a string is no word that reaches the library and an interpolation is'
+	for e in compileWithFixtureLibrary("\tlet text = \"stray Box shout\"\n") 'failed'
+		panic("a program that writes library names only in the text of a string: {e.format()}")
+	end 'failed'
+	expectErrorsOnlyIn(compileWithFixtureLibrary("\tlet s = \"x\"\n\tlet text = \"<\{s.shout()\}>\"\n"), name: "Loud.maxon", what: "a program that calls a library method only in an interpolation")
+end 'the text of a string is no word that reaches the library and an interpolation is'
+
+// reachedLibraryOf are the paths of the modules of the library of the checkout that a check of the program of the files, held
+// in memory, parses, in the project's order.
+function reachedLibraryOf(files project.SourceFiles) returns String
+	var errs = diag.ErrorList.create(0)
+	let options = Options.new()
+	var p = projectFor(options)
+	project.discoverFilesInto(p, rootPath: fixtureProgram, files: files, errs: errs)
+	project.addLibraryFiles(p, dir: libraryOfTheCheckout, files: project.SourceFiles.create(0), errs: errs)
+	_ = compileDiscovered(p, memory: files, first: 0, ready: noReadyUnits(), output: "", options: options, errs: errs)
+	for e in errs 'failed'
+		panic("the program does not check: {e.format()}")
+	end 'failed'
+	var reached = ""
+	for module in p.modules 'modules'
+		if module.isLibrary and module.decls.count() > 0 'parsed'
+			reached = "{reached} {module.path}"
+		end 'parsed'
+	end 'modules'
+	return reached
+end 'reachedLibraryOf'
+
+test 'a small program reaches the library modules that its code names and no more'
+	var files = project.SourceFiles.create(0)
+	files.push(fixtureFile(project.joinPath(fixtureProgram, name: "main.maxon"), text: "function main() returns ExitCode\n\tvar pieces = \"pear fig apple\".split(\" \")\n\tpieces.sort()\n\t// Map, sleep\n\tlet note = \"Random Console sha256 HeapStats\"\n\tprint(\"\{pieces.count()\} \{note\}\\n\")\n\treturn 0\nend 'main'\n"))
+	let reached = reachedLibraryOf(files)
+	let expected = " stdlib._helpers stdlib.array stdlib.core stdlib.string"
+	if reached != expected 'differs'
+		panic("the program reaches{reached}, not{expected}")
+	end 'differs'
+end 'a small program reaches the library modules that its code names and no more'

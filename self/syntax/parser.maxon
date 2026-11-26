@@ -160,6 +160,8 @@ type Parser
 	// nameWords is where each keyword that the parser took as a name starts, in text order: a rename of the keyword leaves
 	// these alone.
 	var nameWords as NameWords
+	// nameUses are the names that the code of the source writes, its interpolations' included (addNameUses).
+	var nameUses as ast.NameUses
 
 	static function new(consumes src Source, consumes toks Tokens, module diag.ModuleID) returns Parser
 		let text = src.text.clone()
@@ -167,7 +169,7 @@ type Parser
 		if src.files.count() > 0 'first'
 			prevEnd = src.files[0].start as Count
 		end 'first'
-		return Parser{src: src, toks: toks, tree: ast.Tree.new(module, text: text), lists: ListStacks.new(), pos: 0 as Count, fileIndex: 0 as Count, errors: diag.ErrorList.create(0), prevEnd: prevEnd, prevKind: TokenKind.fileEnd, joinNext: false, blanks: BlankRule.firstInFile, format: Formatter.new(), formatting: false, layoutOnly: false, directives: ast.StringList.create(0), directiveNext: 0 as Count, libraryTier: false, initializer: "", nameWords: NameWords.create(0)}
+		return Parser{src: src, toks: toks, tree: ast.Tree.new(module, text: text), lists: ListStacks.new(), pos: 0 as Count, fileIndex: 0 as Count, errors: diag.ErrorList.create(0), prevEnd: prevEnd, prevKind: TokenKind.fileEnd, joinNext: false, blanks: BlankRule.firstInFile, format: Formatter.new(), formatting: false, layoutOnly: false, directives: ast.StringList.create(0), directiveNext: 0 as Count, libraryTier: false, initializer: "", nameWords: NameWords.create(0), nameUses: ast.NameUses.create(0)}
 	end 'new'
 
 	function fileNumber() returns Count
@@ -1061,6 +1063,7 @@ function parseInterpolationAt(mutates p Parser, begin Count, until Count, mutate
 	let savedKind = p.prevKind
 	let savedJoin = p.joinNext
 	let savedBlanks = p.blanks
+	let keywordsBefore = p.nameWords.count()
 	p.pos = 0 as Count
 	p.prevEnd = begin
 	p.prevKind = TokenKind.lBrace
@@ -1073,6 +1076,7 @@ function parseInterpolationAt(mutates p Parser, begin Count, until Count, mutate
 	end 'interpolation' otherwise 'refused'
 		failed = true
 	end 'refused'
+	addNameUses(p.nameUses, toks: p.toks, keywords: p.nameWords, from: keywordsBefore)
 	p.toks = savedToks
 	p.pos = savedPos
 	p.prevEnd = savedEnd
@@ -1088,6 +1092,24 @@ function parseInterpolationAt(mutates p Parser, begin Count, until Count, mutate
 	end 'format'
 	return e
 end 'parseInterpolationAt'
+
+// addNameUses adds to found each name among toks, the parsed tokens of a source or of an interpolation: a token of a name, or of
+// a keyword that the parse took as a name, which keywords holds from the one at from on, in the order of the text.
+function addNameUses(mutates found ast.NameUses, toks Tokens, keywords NameWords, from Count)
+	var next = from
+	for t in toks 'tokens'
+		while next < keywords.count() and (try keywords.get(next) otherwise panic("syntax: a keyword past its list")) < t.start 'passed'
+			next = after(next)
+		end 'passed'
+		var named = t.kind == TokenKind.name
+		if not named and next < keywords.count() and (try keywords.get(next) otherwise panic("syntax: a keyword past its list")) == t.start 'keyword'
+			named = true
+		end 'keyword'
+		if named 'name'
+			found.push(ast.NameUse.make(t.start, length: t.length))
+		end 'name'
+	end 'tokens'
+end 'addNameUses'
 
 function parseInterpolation(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let e = try parseExpr(p)
@@ -1303,6 +1325,7 @@ function parseSourceInto(module diag.ModuleID, consumes path String, consumes sr
 	var p = Parser.new(src, toks: exchange(resolved.toks, value: Tokens.create(0)), module: module)
 	p.libraryTier = libraryTier
 	let decls = parseProgram(p)
+	addNameUses(p.nameUses, toks: p.toks, keywords: p.nameWords, from: 0)
 	if p.errors.count() > 0 'syntaxErrors'
 		return ParseResult.err(exchange(p.errors, value: diag.ErrorList.create(0)))
 	end 'syntaxErrors'
@@ -1310,6 +1333,7 @@ function parseSourceInto(module diag.ModuleID, consumes path String, consumes sr
 	m.tree = exchange(p.tree, value: ast.Tree.new(module, text: ""))
 	m.decls = decls
 	m.skimmed = skimmed
+	m.nameUses = exchange(p.nameUses, value: ast.NameUses.create(0))
 	return ParseResult.ok(m)
 end 'parseSourceInto'
 

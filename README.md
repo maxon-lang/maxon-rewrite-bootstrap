@@ -612,9 +612,11 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   records), and keeps the text it read for the module's parse. The
   library's names index (`libindex.maxon`) is a cache of these scans, kept under the digest of the compiler and every file of
   the library: a compile that finds it takes each module's words and names from it in place of reading the files, and one that
-  scanned them all writes it. A program's parse reads its text once for the words of the library (`wordsIn`: every run of name
-  bytes of a line that is no comment, strings included), which its parse waits on the scans for. A library module's parse
-  waits for the program's parses and for the scans of every library module, and runs only when a word the program's text
+  scanned them all writes it. A program's parse gives the names its code writes, its interpolations' included and its comments
+  and the text of its strings not (`ast.ParsedModule.nameUses`, from the tokens it parsed), and the module's words of the
+  library are read from those (`programWords`, with the name of the type that a map literal or a range value makes), for which
+  its parse waits on the scans. A library module's parse
+  waits for the program's parses and for the scans of every library module, and runs only when a word the program's code
   writes reaches it, closed over what those name (`reachedLibrary`, the one rule of reach, the same whether the scans read the
   files or the index), the core being reached always (its parse waits for its own scan only), a superset of what the resolves
   name (a known over-reach: a word is of a module whatever type the program writes it for, so `FilePath`'s member words `join`,
