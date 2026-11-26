@@ -882,7 +882,8 @@ function endTreeOf(child Count) returns Count
 end 'endTreeOf'
 
 // subprocessReleaseHandle gives back a child's slot and what it still holds; a word that names no child is skipped. A child that
-// no wait has taken is ended with its tree and given up, with the pipes it holds closed. A handle that a wait is parked on, or that
+// no wait has taken is given up, with the pipes it holds closed, and left running, as maxon's is: it is reaped by the event queue once
+// it ends (renounceRun). A handle that a wait is parked on, or that
 // subprocessEndTree is ending, is a program error, which stops the program as it does in maxon; a streaming child's is given back
 // once the calls that use it have returned (releaseStreaming).
 function subprocessReleaseHandle(handle Count)
@@ -903,7 +904,7 @@ function subprocessReleaseHandle(handle Count)
 	end 'gone'
 	let run = wordAt(child, offset: childRunOffset)
 	if state == childIdle 'abandoned'
-		abandonRun(run)
+		renounceRun(run)
 	end 'abandoned'
 	free(run)
 	if wordAt(child, offset: childInputOffset) != 0 'input'

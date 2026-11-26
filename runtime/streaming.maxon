@@ -418,8 +418,8 @@ end 'evictEntryOf'
 
 // releaseStreaming gives back a streaming child that a word named: it takes the child out of the table, so that no call finds it,
 // evicts what a call may be parked on (a read, a write, the writer of a queued payload, a wait for the exit), waits for the calls
-// that use the child to have returned and for the writer to have ended, ends the child with its tree where it still runs, closes its
-// pipes, and frees what it held.
+// that use the child to have returned and for the writer to have ended, closes its pipes and leaves the child where it still runs, as
+// maxon's release does, for the event queue to wait for once it ends (renounceRun), and frees what it held.
 function releaseStreaming(handle Count, child Count)
 	if handleFind(handle, kind: childKind, remove: true) == 0 'gone'
 		return
@@ -437,7 +437,7 @@ function releaseStreaming(handle Count, child Count)
 	if writer != noGreen 'written'
 		_ = greenAwait(writer)
 	end 'written'
-	abandonRun(run)
+	renounceRun(run)
 	freeStream(fieldAt(wait, offset: waitOutputOffset))
 	freeStream(fieldAt(wait, offset: waitErrorOffset))
 	if wordAt(child, offset: childQueueOffset) != 0 'queue'

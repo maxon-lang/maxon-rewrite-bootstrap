@@ -5639,11 +5639,6 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   row answers them, since only this program waits for its children); maxon's pumps over a streaming child
   (`helpers/stream/childPump.maxon`, `stdinFeed.maxon`), which are not in `stdlib/files.txt`; and maxon's own `subprocessKill` and
   `subprocessSendSignal`, which its library does not call either.
-- **A released streaming child that still runs is ended with its tree.** maxon's release gives back the handles a child owns;
-  here `subprocessReleaseHandle` of a streaming child takes it out of the table, wakes every call parked on it (a read answers
-  empty, a wait -1, the writer of a queued payload ends), waits for those calls to return and ends the child and the tree it
-  started where they still run, as an attached run's release of a child that no wait took does, so that no child is left
-  running or a zombie behind a program that forgot to wait.
 - **A payload queued for a streaming child's input is written by a green thread of the runtime.** maxon's pump pushes what the
   pipe takes itself (`subprocessPushStdin`) and waits for the pipe to take more (`subprocessAwaitStdinWritable`); here
   `subprocessQueueStdin` starts a green thread that writes the copy of the payload as the child reads it and then closes the input,

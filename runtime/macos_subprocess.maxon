@@ -315,15 +315,18 @@
 		return 0
 	end 'startChild'
 
-	// abandonRun ends a child that no wait has taken, with the processes of its group, and gives up what the run holds of it: its
-	// exit's entry, its pid, which is waited for unless a kill of its tree did, and the ends of its pipes.
-	function abandonRun(run Count)
+	// renounceRun gives up a child that no wait has taken, as maxon's release does: the ends of its pipes are closed, and the
+	// child is left running, with its group, for the event queue to wait for once it ends (eventProcessOrphan), which a child that
+	// has been waited for already needs no more of than its entry given back.
+	function renounceRun(run Count)
 		let wait = waitOf(run)
-		let pid = wordAt(wait, offset: waitChildOffset)
-		eventProcessFree(wordAt(wait, offset: waitProcessOffset))
-		endAndReap(run, pid: pid)
 		closeOurEnds(wait)
-	end 'abandonRun'
+		if isReaped(wait) 'reaped'
+			eventProcessFree(wordAt(wait, offset: waitProcessOffset))
+		end 'reaped' else 'running'
+			eventProcessOrphan(wordAt(wait, offset: waitProcessOffset), pid: wordAt(wait, offset: waitChildOffset))
+		end 'running'
+	end 'renounceRun'
 
 	// finishRun gives back what a child holds once its wait has ended, which on macOS is nothing: the pid was waited for.
 	function finishRun(run Count)

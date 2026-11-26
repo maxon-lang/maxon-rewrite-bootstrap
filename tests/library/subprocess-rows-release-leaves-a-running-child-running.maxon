@@ -1,0 +1,140 @@
+// A released child that still runs goes on running, as maxon's release only closes the handles a child owns: the streaming child and the
+// attached child that no wait took each write a file after a while that shows it was alive after its release, and once it has ended the
+// event queue has waited for it, so that no zombie of it is left (where `ps` can say: on a system with /bin/sh). The children are this
+// program run again, which waits a second, writes its file and ends.
+// native-only
+//> the file was not there at the release, a streaming child wrote it after it: true
+//> the file was not there at the release, an attached child wrote it after it: true
+//> neither child is a zombie once it has ended, with no wait and no later spawn: true
+
+typealias Blob = Array with Byte
+
+let terminator = 0 as Byte
+
+let parentEnvironment = 1
+
+let waitMs = 50
+
+let waitLimitMs = 30000
+
+let lateMs = 1000
+
+// settleMs lets the children that have written their file end, which a system that holds the program's executable open while one runs
+// needs before the runner deletes it.
+let settleMs = 500
+
+function appendToken(mutates out Blob, token String)
+	for b in token.bytes() 'each'
+		out.push(b)
+	end 'each'
+	out.push(terminator)
+end 'appendToken'
+
+function pathOf(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("not a path")
+end 'pathOf'
+
+function blobOf(executable String, file String) returns Blob
+	var argv = Blob.create(0)
+	appendToken(argv, token: executable)
+	appendToken(argv, token: "late")
+	appendToken(argv, token: file)
+	return argv
+end 'blobOf'
+
+function environment() returns Blob
+	var env = Blob.create(1)
+	env.push(terminator)
+	return env
+end 'environment'
+
+// spawnStreaming starts this program as a streaming child that writes the file late, and gives its handle.
+function spawnStreaming(executable String, file String) returns FullRangeInt
+	let argv = blobOf(executable, file: file)
+	let env = environment()
+	let empty = ""
+	return __Builtins.subprocessSpawnStreaming(argv.managed, 3, empty.cstr(), 0, env.managed, parentEnvironment)
+end 'spawnStreaming'
+
+// spawnAttached starts it as an attached child, its output collected, which no wait takes.
+function spawnAttached(executable String, file String) returns FullRangeInt
+	let argv = blobOf(executable, file: file)
+	let env = environment()
+	let empty = ""
+	return __Builtins.subprocessSpawn(argv.managed, 3, empty.cstr(), env.managed, parentEnvironment, 0, empty.cstr(), 2, empty.cstr(), 0, 2, empty.cstr(), 0, 0, 0)
+end 'spawnAttached'
+
+function waitForFile(path String) returns String
+	var waited = 0 as Count
+	var text = ""
+	while waited < waitLimitMs 'poll'
+		if File.exists(pathOf(path)) 'present'
+			text = try File.readText(pathOf(path)) otherwise ""
+			if text.byteLength() > 0 'written'
+				return text
+			end 'written'
+		end 'present'
+		sleep(waitMs)
+		waited = try waited + waitMs otherwise waitLimitMs
+	end 'poll'
+	return text
+end 'waitForFile'
+
+function stateOf(pid FullRangeInt) returns String
+	var arguments = StringArray.create(0)
+	arguments.push("-c")
+	arguments.push("ps -o stat= -p {pid}")
+	let out = try Subprocess.run(Executable.path(pathOf("/bin/sh")), arguments: arguments) otherwise return "unknown"
+	return out.stdout.trim().clone()
+end 'stateOf'
+
+function zombieGone(pid FullRangeInt) returns bool
+	var waited = 0 as Count
+	while waited < waitLimitMs 'poll'
+		if not stateOf(pid).startsWith("Z") 'gone'
+			return true
+		end 'gone'
+		sleep(waitMs)
+		waited = try waited + waitMs otherwise waitLimitMs
+	end 'poll'
+	return false
+end 'zombieGone'
+
+function removed(path String)
+	if File.exists(pathOf(path)) 'present'
+		try File.delete(pathOf(path)) otherwise return
+	end 'present'
+end 'removed'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() > 2 'child'
+		let file = try args.get(2) otherwise return 2
+		sleep(lateMs)
+		try File.writeText(pathOf("{file}.partial"), content: "late") otherwise return 3
+		try File.rename(pathOf("{file}.partial"), to: pathOf(file)) otherwise return 4
+		return 0
+	end 'child'
+	let executable = try Process.executablePath() otherwise return 5
+	let stem = "rows-release-{Process.id()}"
+	let streamed = "{stem}-streaming.tmp"
+	let attached = "{stem}-attached.tmp"
+	let streamingHandle = spawnStreaming(executable.path, file: streamed)
+	let streamingPid = __Builtins.subprocessGetPid(streamingHandle)
+	__Builtins.subprocessReleaseHandle(streamingHandle)
+	let attachedHandle = spawnAttached(executable.path, file: attached)
+	let attachedPid = __Builtins.subprocessGetPid(attachedHandle)
+	__Builtins.subprocessReleaseHandle(attachedHandle)
+	let absentAtRelease = not File.exists(pathOf(streamed)) and not File.exists(pathOf(attached))
+	print("the file was not there at the release, a streaming child wrote it after it: {absentAtRelease and waitForFile(streamed) == "late"}\n")
+	print("the file was not there at the release, an attached child wrote it after it: {absentAtRelease and waitForFile(attached) == "late"}\n")
+	var reaped = true
+	if File.exists(pathOf("/bin/sh")) 'zombies'
+		reaped = zombieGone(streamingPid) and zombieGone(attachedPid)
+	end 'zombies'
+	print("neither child is a zombie once it has ended, with no wait and no later spawn: {reaped}\n")
+	removed(streamed)
+	removed(attached)
+	sleep(settleMs)
+	return 0
+end 'main'

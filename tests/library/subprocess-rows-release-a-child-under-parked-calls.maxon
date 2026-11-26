@@ -1,7 +1,8 @@
 // A streaming child that is released while calls of other coroutines are parked on it gives those calls the answer of a handle that
 // names nothing, and the release waits for them to have returned before it frees what they use: a read parked on the output of a
 // child that writes nothing, a wait for its exit and the writer of a payload that the child does not read (its pipe is full) are each
-// woken. A child that still runs is ended with its tree by the release. The child is this program run again, which sleeps.
+// woken. A child that still runs is left running by the release, and ends after a while by itself. The child is this program run
+// again, which sleeps or, as the quiet one, ends at once.
 // native-only
 //> the parked read answered nothing: true
 //> the parked wait answered -1: true
@@ -16,6 +17,12 @@ let terminator = 0 as Byte
 let parentEnvironment = 1
 
 let streamOutput = 0 as FullRangeInt
+
+// sleeperLifeMs is how long the child that is released while it runs lives, and settleMs what the program gives it to end before it
+// ends itself, which a system that holds the program's executable open while one runs needs before the runner deletes it.
+let sleeperLifeMs = 2000
+
+let settleMs = 1500
 
 function appendToken(mutates out Blob, token String)
 	for b in token.bytes() 'each'
@@ -61,7 +68,10 @@ end 'payload'
 function main() returns ExitCode
 	let args = CommandLine.args()
 	if args.count() > 1 'child'
-		sleep(60000)
+		let mode = try args.get(1) otherwise return 2
+		if mode == "sleeper" 'sleeper'
+			sleep(sleeperLifeMs)
+		end 'sleeper'
 		return 0
 	end 'child'
 	let h = spawnSelf("sleeper")
@@ -83,12 +93,13 @@ function main() returns ExitCode
 	print("after the release the handle answers as one that names nothing: poll={__Builtins.subprocessPollExit(h)} state={__Builtins.subprocessStdoutState(h).name}\n")
 	var started = 0 as Count
 	for _ in 0 upto 100 'many'
-		let each = spawnSelf("sleeper")
-		if each != -1 and __Builtins.subprocessPollExit(each) == -1 'counted'
+		let each = spawnSelf("quiet")
+		if each != -1 and __Builtins.subprocessGetPid(each) > 0 'counted'
 			started = try started + 1 otherwise 0
 		end 'counted'
 		__Builtins.subprocessReleaseHandle(each)
 	end 'many'
 	print("a hundred streaming children each started, read and released: {started}\n")
+	sleep(sleeperLifeMs + settleMs)
 	return 0
 end 'main'

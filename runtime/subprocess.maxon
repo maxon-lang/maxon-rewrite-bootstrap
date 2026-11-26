@@ -895,17 +895,14 @@ end 'osRunInput'
 		closeOurEnds(wait)
 	end 'abandonChild'
 
-	// abandonRun ends a child that no wait has taken, with the tree it started, and gives up what the run holds of it: its exit's
-	// entry, its process handle and the ends of its pipes.
-	function abandonRun(run Count)
+	// renounceRun gives up a child that no wait has taken, as maxon's release does: its exit's entry, its process handle and the ends
+	// of its pipes are closed, and the child is left running, with the tree it started.
+	function renounceRun(run Count)
 		let wait = waitOf(run)
-		if endTree(wait) != 0 'refused'
-			killChild(wordAt(wait, offset: waitChildOffset))
-		end 'refused'
 		eventProcessFree(wordAt(wait, offset: waitProcessOffset))
 		closeHandle(wordAt(wait, offset: waitChildOffset))
 		closeOurEnds(wait)
-	end 'abandonRun'
+	end 'renounceRun'
 
 	// finishRun closes the child's process handle, once its wait has ended.
 	function finishRun(run Count)
