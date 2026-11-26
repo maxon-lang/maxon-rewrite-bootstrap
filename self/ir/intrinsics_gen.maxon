@@ -440,6 +440,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrServiceShutdown 'intrServiceShutdown'
 		return lowerServiceShutdown(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrServiceShutdown'
+	if op == ast.Intrinsic.intrServiceMostQueued 'intrServiceMostQueued'
+		return lowerServiceMostQueued(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrServiceMostQueued'
 	if op == ast.Intrinsic.intrPromiseCancel 'intrPromiseCancel'
 		return lowerPromiseCancel(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrPromiseCancel'
@@ -1330,6 +1333,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrServiceShutdown 'intrServiceShutdown'
 		return false
 	end 'intrServiceShutdown'
+	if op == ast.Intrinsic.intrServiceMostQueued 'intrServiceMostQueued'
+		return false
+	end 'intrServiceMostQueued'
 	if op == ast.Intrinsic.intrPromiseCancel 'intrPromiseCancel'
 		return false
 	end 'intrPromiseCancel'

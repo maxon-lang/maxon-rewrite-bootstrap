@@ -126,7 +126,7 @@ var builtinMethods = map[string][]string{
 	"Process":               {"environmentVariable", "executablePath", "id", "setExitCode", "exit", "enterBackgroundPriority"},
 	"Clock":                 {"nowNanos"},
 	"Scheduler":             {"processorCount", "yield", "pinToMachine", "unpinFromMachine", "pinDepth", "currentMachine", "machineCpuCount"},
-	"__ServiceHandle":       {"shutdown"},
+	"__ServiceHandle":       {"shutdown", "mostQueued"},
 	"Promise":               {"cancel", "isComplete"},
 	"FilePath":              {"from", "init", "toString"},
 	"File":                  {"readText", "readBinary", "writeText", "writeBinary", "rename", "delete", "exists", "info"},

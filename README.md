@@ -4726,16 +4726,26 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   is preempted still holds the service. A send fails, with `SendError`, only as `serviceStopped`, after `h.shutdown()`,
   which closes the mailbox and lets the queued messages run. A send without `try` where nothing catches is `E3057`.
 - **Backpressure** is the runtime's, Pony's (`runtime/service.maxon`), and no program chooses a number. A service is
-  behind when a turn of its messages ends at 64 with messages still queued, until a turn empties its queue, and while it
-  is muted with messages waiting: a flag of the gate that every send loads already. A service that sends to one that is
-  behind is muted when its handler ends: it keeps its cown and runs no next message until the receiver catches up, and
-  nothing waits inside a handler or holds a green thread meanwhile. A task (main, a coroutine, a `when` that is no
-  message) parks at the send instead. A sender that is itself behind is not muted, so services that flood each other keep
-  draining, and a service that catches up unmutes its senders in order, 64 at a time. A service that drives itself with
-  messages to itself is behind at the end of each turn, so it is not muted, and a service between two others that
-  falls behind passes its backlog on, as ponyc's does: only its own senders are slowed until it catches up. The interpreter models the same flag, mutes
-  and parks, with a turn of 1 to 4 messages drawn from the seed, and its deadlock report names each service muted with
-  nothing left to unmute it.
+  behind while a send finds a turn's worth (64, the runtime's turn) of its messages queued, counting its own; once a turn
+  of its messages ends at 64 with more queued, until a turn empties its queue; and while it is muted. The count and the
+  flags are in the gate that every send compare-exchanges already, so one comparison of it decides, and a send to a
+  service that is not behind costs what it did. A service that sends to one that is behind is listed on it and muted at
+  the end of a handler: it keeps its cown and runs no next message until the receiver catches up, and nothing waits
+  inside a handler or holds a green thread meanwhile. A listed service that is behind itself, or has senders waiting on
+  it, drains on until it holds no message and is muted then, so it is not stopped while overloaded but cannot pass on
+  a refill. A task (main, a coroutine, a `when` that is no message) parks at the send instead, and a service's sends to
+  itself never slow it. A slowed sender waits
+  until the receiver's queue empties, not until it falls under 64, so it is slowed at most once per turn's worth it
+  hands on; a service that catches up unmutes its senders in order, 64 at a time; and a service that is muted lets
+  its own senders go, which is what keeps any cycle of muted services from closing. The queue is bounded in messages
+  whatever the speeds: 64 plus what each sender sends in a stretch where the receiver holds 64 or more, one message for a
+  task and the handler that was slowed (and, if it drains on, what it holds) for a service, and a round more for each
+  if the receiver is muted in the stretch: main and a slow consumer, 65; main, a relay and the consumer, 66 at the relay
+  and 132 at the consumer. A service is listed on one receiver at a time, so a second receiver that is behind gets its next
+  handler after each unmute by the first. `h.mostQueued()`, in the library tier, is the most messages a slowed send to
+  the service found queued, exact once past 64, which tests hold the bound to. The interpreter models the same rules, with
+  a turn of 1 to 4 messages drawn from the seed, and its deadlock report names each service muted with nothing left to
+  unmute it.
 - A handler that returns or throws **replies**: the send gives `Promise with R` (or `Promise with (R, E)`), which the
   sender awaits as an async call's promise (`try await h.total() otherwise 0`, or `let p = try h.total()` and `await p`);
   `_ = try h.total() ...` drops the reply on the service, and a reply sent as a statement is `E3190`. A reply's promise is

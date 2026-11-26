@@ -146,8 +146,14 @@ var layouts = []layoutConst{
 	{"serviceGateOffset", 5, false, toRuntime,
 		"where a service holds its mailbox's gate, stepped atomically: how many messages are queued and not yet started, plus its flags: serviceClosed once it is shut down, serviceBehind and serviceMuted."},
 	{"serviceMutedOffset", 6, false, toRuntime,
-		"where a service holds the senders muted on it while it is behind, a ring of entries named by its newest, whose link names the oldest, 0 for none, with mutedLock added while one holds it."},
-	{"serviceBytes", 7, false, toRuntime,
+		"where a service holds the senders slowed on it, a ring of entries named by its newest, whose link names the oldest, 0 for none, with mutedLock added while one holds it."},
+	{"serviceMostOffset", 7, false, toRuntime,
+		"where a service holds the most messages a slowed send found queued with its own, which only a slowed send writes: every count past turnBehaviours is one."},
+	{"serviceLinkOffset", 8, false, toRuntime,
+		"where a service listed on another holds its link in that one's ring, and once its unmute queues its kept message, the rest of the ring that message unmutes when it runs."},
+	{"serviceWaitOffset", 9, false, toRuntime,
+		"where a service holds 0, waitListed while it is listed on another that slows it, or the record of its message whose release is kept while it is muted."},
+	{"serviceBytes", 10, false, toRuntime,
 		"the size of a service."},
 
 	// A behaviour's record: its header, its request slots in the order of their cowns' addresses, its cowns in the order
@@ -510,7 +516,7 @@ var layouts = []layoutConst{
 	{"greenServiceOffset", 64, false, toRuntime,
 		"where a green thread holds the service whose message it runs, which the message's start names, 0 while it runs none."},
 	{"greenMuteOffset", 65, false, toRuntime,
-		"where a green thread holds muteListed while the behaviour it runs is listed on a service that is behind, and a task readied from such a list holds the entries its wake goes on to unmute; 0 otherwise."},
+		"where a task readied from a list of slowed senders holds the entries its wake goes on to unmute; 0 otherwise."},
 	{"greenBytes", 66, false, toRuntime,
 		"the size of a green thread's record."},
 

@@ -241,11 +241,12 @@ end 'beginBehaviour'
 // finishBehaviour releases the cowns of a behaviour that has run, unless backpressure mutes it (keepMuted).
 function finishBehaviour(mutates vm Vm, b Count) throws Halt
 	let service = vm.threads[vm.cur].service
-	if vm.behaviours.mute[b] == muteListed 'muted'
-		try keepMuted(vm, b: b, service: service)
-		return
+	if mutes(vm, b: b, service: service) 'muted'
+		let kept = try keepMuted(vm, b: b, service: service)
+		if kept 'kept'
+			return
+		end 'kept'
 	end 'muted'
-	vm.behaviours.mute[b] = muteNone
 	try releaseBehaviour(vm, b: b, service: service)
 end 'finishBehaviour'
 

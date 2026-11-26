@@ -296,7 +296,7 @@ end 'Promises'
 typealias Threads = Array with Thread
 
 // Behaviour columns, by the id of the behaviour, from 1: a scheduled `when`, its body, what it captured, the cowns it
-// waits for, and how backpressure mutes it (strands.maxon): its mute state and the service it is listed on.
+// waits for, and how backpressure mutes it (strands.maxon): whether it is kept muted and the service it waits on.
 type Behaviours
 	var body as CountList
 	var capturesN as WordLists

@@ -902,6 +902,9 @@ var tableFunctions = []function{
 	// shutdown is maxon's: the service's mailbox closes, so every later send fails with serviceStopped, and the messages
 	// queued already run. It always succeeds.
 	{Owner: "Service", Name: "shutdown", Intrinsic: "ServiceShutdown"},
+	// mostQueued is the most messages the service has had queued at once, as its slowed sends counted them: exact once that
+	// passed a turn's worth, so a test holds backpressure to its bound without timing it.
+	{Owner: "Service", Name: "mostQueued", Result: "Count", Intrinsic: "ServiceMostQueued", Raw: &rawSurface{What: "a service's queue length is read", Instead: "let the runtime's backpressure bound it"}},
 	// cancel is maxon's: it consumes the promise; a coroutine that has not started never runs, and one that has runs on with
 	// each sleep it is in or makes ending at once, and the cancel waits for it to finish and drops what it gave.
 	{Owner: "Promise", Name: "cancel", Self: "consumes", Intrinsic: "PromiseCancel"},
@@ -1238,6 +1241,7 @@ var entries = []entry{
 	{"ServiceReserve", "rt.service.reserve", "Source", roleCall, "(handle) -> 0, or the SendError case plus 1: takes a place in the service's mailbox for a message, unless the service is shut down, and slows the sender when the service is behind"},
 	{"ServiceStart", "rt.service.start", "Source", roleCall, "(state address): what the behaviour of a message calls as it starts, which gives its place in the mailbox back and makes the service the one its green thread runs a message of"},
 	{"ServiceShutdown", "rt.service.shutdown", "Source", roleCall, "(handle): closes the service's mailbox, so every later send fails with serviceStopped; the messages queued still run"},
+	{"ServiceMostQueued", "rt.service.mostQueued", "Source", roleCall, "(handle) -> count: the most messages a slowed send to the service found queued with its own"},
 	{"ReplyNew", "rt.reply.new", "Source", roleCall, "() -> promise: the cell a message's reply comes back in, which an await of a promise waits for as it waits for a coroutine"},
 	{"ReplyGive", "rt.reply.give", "Source", roleCall, "(promise, value, error): what the behaviour of a message calls with what its handler returned and failed with, which readies the green thread that awaits the reply"},
 
@@ -1473,6 +1477,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"ServiceReserve", "serviceReserve(handle Count) Count"},
 	{"ServiceStart", "serviceStart(state Count)"},
 	{"ServiceShutdown", "serviceShutdown(handle Count)"},
+	{"ServiceMostQueued", "serviceMostQueued(handle Count) Count"},
 	{"ReplyNew", "replyNew() Count"},
 	{"ReplyGive", "replyGive(promise Count, value Count, error Count)"},
 	{"FrozenFreeze", "frozenFreeze(value Count) Count"},

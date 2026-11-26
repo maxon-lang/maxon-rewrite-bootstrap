@@ -173,8 +173,9 @@ function serviceMessage(mutates p ast.Project, name String, captures Count, send
 end 'serviceMessage'
 
 // A service muted on a receiver that never catches up has nothing left to unmute it, which the deadlock report names (the
-// progress check). Under seed 0 a turn is one message, so r's first message leaves r behind; its second starts a message
-// of x and waits for a reply that no one gives; x's message sends to r, which is behind, and x is muted as it ends.
+// progress check). Under seed 0 a turn is one message. r's second message starts a message of x and waits for a reply that
+// no one gives, so main's third send to r stays queued; x's message sends to r, which holds a turn's worth, and x is muted
+// as it ends.
 test 'a service muted for good is named in the deadlock report'
 	var p = ir.irProject()
 	var xm = serviceMessage(p, name: "xMessage", captures: 1, sends: 1)
@@ -183,6 +184,9 @@ test 'a service muted for good is named in the deadlock report'
 	var first = serviceMessage(p, name: "rFirst", captures: 0, sends: 0)
 	let firstZero = first.konst(0)
 	let firstFn = first.ret(firstZero)
+	var third = serviceMessage(p, name: "rThird", captures: 0, sends: 0)
+	let thirdZero = third.konst(0)
+	let thirdFn = third.ret(thirdZero)
 	var second = serviceMessage(p, name: "rSecond", captures: 2, sends: 1)
 	let x = second.param(1, kind: ir.IrKind.kindManaged)
 	let r = second.param(2, kind: ir.IrKind.kindManaged)
@@ -197,9 +201,11 @@ test 'a service muted for good is named in the deadlock report'
 	let xState = b.alloc(1)
 	let xService = b.runtime(ir.Rt.rtServiceNew, kind: ir.IrKind.kindManaged, args: ir.regs1(xState))
 	_ = b.runtime(ir.Rt.rtServiceReserve, kind: ir.IrKind.kindScalar, args: ir.regs1(rService))
-	_ = b.runtime(ir.Rt.rtServiceReserve, kind: ir.IrKind.kindScalar, args: ir.regs1(rService))
 	b.schedule(firstFn, cowns: ir.regs1(rService), captures: ir.RegList.create(0))
+	_ = b.runtime(ir.Rt.rtServiceReserve, kind: ir.IrKind.kindScalar, args: ir.regs1(rService))
 	b.schedule(secondFn, cowns: ir.regs1(rService), captures: ir.regs2(xService, b: rService))
+	_ = b.runtime(ir.Rt.rtServiceReserve, kind: ir.IrKind.kindScalar, args: ir.regs1(rService))
+	b.schedule(thirdFn, cowns: ir.regs1(rService), captures: ir.RegList.create(0))
 	let zero = b.konst(0)
 	let out = runSeed(p, main: b.ret(zero), seed: 0)
 	expectViolation("muted for good", out: out, kind: "deadlock", fragments: says("no thread can run and no timer is set", b: "is muted until", c: "catches up, which nothing left can make it do", d: ""))

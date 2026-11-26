@@ -210,3 +210,7 @@ function lowerServiceShutdown(mutates l Lowerer, p ast.Project, ms ast.ModuleSta
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceShutdown, args: argsOf1(recv))
 	return konst(l, value: 0 as Word)
 end 'lowerServiceShutdown'
+
+function lowerServiceMostQueued(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceMostQueued, kind: IrKind.kindScalar, args: argsOf1(recv))
+end 'lowerServiceMostQueued'

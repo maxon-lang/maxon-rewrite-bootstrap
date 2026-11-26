@@ -347,6 +347,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryServiceShutdown(vm, f: f, x: x)
 		return
 	end 'rtServiceShutdown'
+	if symbol == ir.Rt.rtServiceMostQueued 'rtServiceMostQueued'
+		try entryServiceMostQueued(vm, f: f, x: x)
+		return
+	end 'rtServiceMostQueued'
 	if symbol == ir.Rt.rtReplyNew 'rtReplyNew'
 		try entryReplyNew(vm, f: f, x: x)
 		return

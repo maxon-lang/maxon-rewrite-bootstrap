@@ -69,11 +69,20 @@ let cownBytes = 40 as Count
 // serviceGateOffset is where a service holds its mailbox's gate, stepped atomically: how many messages are queued and not yet started, plus its flags: serviceClosed once it is shut down, serviceBehind and serviceMuted.
 let serviceGateOffset = 40 as Count
 
-// serviceMutedOffset is where a service holds the senders muted on it while it is behind, a ring of entries named by its newest, whose link names the oldest, 0 for none, with mutedLock added while one holds it.
+// serviceMutedOffset is where a service holds the senders slowed on it, a ring of entries named by its newest, whose link names the oldest, 0 for none, with mutedLock added while one holds it.
 let serviceMutedOffset = 48 as Count
 
+// serviceMostOffset is where a service holds the most messages a slowed send found queued with its own, which only a slowed send writes: every count past turnBehaviours is one.
+let serviceMostOffset = 56 as Count
+
+// serviceLinkOffset is where a service listed on another holds its link in that one's ring, and once its unmute queues its kept message, the rest of the ring that message unmutes when it runs.
+let serviceLinkOffset = 64 as Count
+
+// serviceWaitOffset is where a service holds 0, waitListed while it is listed on another that slows it, or the record of its message whose release is kept while it is muted.
+let serviceWaitOffset = 72 as Count
+
 // serviceBytes is the size of a service.
-let serviceBytes = 56 as Count
+let serviceBytes = 80 as Count
 
 // behaviourPendingOffset is where a behaviour's record holds how many cowns it still waits for, plus one while it is being queued, stepped atomically: it runs when that reaches 0.
 let behaviourPendingOffset = 0 as Count
@@ -531,7 +540,7 @@ let greenEventOffset = 504 as Count
 // greenServiceOffset is where a green thread holds the service whose message it runs, which the message's start names, 0 while it runs none.
 let greenServiceOffset = 512 as Count
 
-// greenMuteOffset is where a green thread holds muteListed while the behaviour it runs is listed on a service that is behind, and a task readied from such a list holds the entries its wake goes on to unmute; 0 otherwise.
+// greenMuteOffset is where a task readied from a list of slowed senders holds the entries its wake goes on to unmute; 0 otherwise.
 let greenMuteOffset = 520 as Count
 
 // greenBytes is the size of a green thread's record.

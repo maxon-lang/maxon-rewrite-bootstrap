@@ -1,0 +1,120 @@
+// Backpressure's mute and unmute paths under load: main sends rounds to six producer services, each of which passes every
+// message on to one of three slow consumers, and sends one message of each round to a consumer itself. The consumers fall
+// behind and catch up again and again, muting the producers that send to them and parking main, and every message is
+// handled once.
+//
+// The bounds, with turn the runtime's turnBehaviours (the interpreter's turn is shorter, so they hold there with room): a
+// producer has main alone for a sender, which adds one message once slowed and one more should the producer be muted with
+// main waiting on it, so turn + 2. While a consumer holds a turn's worth every send to it is slowed and it cannot catch up;
+// each of its two producers then sends it the handler that was slowed, and, if it drains on, what it holds, at most turn +
+// 2, and the one more main's let-go adds: turn + 4; main sends it one and parks; a consumer sends nothing, so it is never
+// muted and lets no one go early. So a consumer holds at most turn + 2 * (turn + 4) + 1.
+// schedules: 6
+//> handled=2800, produced=2400, every queue within its bound
+export typealias Amount = int(0 to 1000000)
+
+let rounds = 400 as Amount
+
+let producerCount = 6 as Amount
+
+let consumerCount = 3 as Amount
+
+let work = 150 as Amount
+
+let sinkModulus = 1000 as Amount
+
+let handledInAll = 2800 as Amount
+
+let producedInAll = 2400 as Amount
+
+let turn = 64 as Count
+
+typealias Consumers = Array with Consumer.handle
+
+typealias Producers = Array with Producer.handle
+
+type Consumer
+	var handled as Amount
+	var sink as Amount
+
+	static function create() returns Self
+		return Self{handled: 0, sink: 0}
+	end 'create'
+
+	export function take(mutates self)
+		self.handled = try self.handled + 1 otherwise 0
+		var spun = self.sink
+		for i in 0 upto work 'work'
+			spun = (try spun + i otherwise 0) mod sinkModulus
+		end 'work'
+		self.sink = spun
+	end 'take'
+
+	export function count() returns Amount
+		return self.handled
+	end 'count'
+end 'Consumer'
+
+type Producer
+	var to as Consumer.handle
+	var produced as Amount
+
+	static function create(consumes to Consumer.handle) returns Self
+		return Self{to: to, produced: 0}
+	end 'create'
+
+	export function produce(mutates self)
+		self.produced = try self.produced + 1 otherwise 0
+		try self.to.take() otherwise ignore
+	end 'produce'
+
+	export function count() returns Amount
+		return self.produced
+	end 'count'
+end 'Producer'
+
+function handledBy(consumers Consumers) returns Amount
+	var sum = 0 as Amount
+	for c in consumers 'each'
+		sum = try sum + (try await c.count() otherwise 0) otherwise 0
+	end 'each'
+	return sum
+end 'handledBy'
+
+function main() returns ExitCode
+	var consumers = Consumers.create(0)
+	for i in 0 upto consumerCount 'consumers'
+		consumers.push(spawn Consumer.create())
+	end 'consumers'
+	var producers = Producers.create(0)
+	for i in 0 upto producerCount 'producers'
+		producers.push(spawn Producer.create(consumers[i mod consumerCount].clone()))
+	end 'producers'
+	for r in 0 upto rounds 'rounds'
+		for p in producers 'each'
+			try p.produce() otherwise ignore
+		end 'each'
+		try consumers[r mod consumerCount].take() otherwise ignore
+	end 'rounds'
+	while handledBy(consumers) < handledInAll 'drain'
+		sleep(1)
+	end 'drain'
+	var produced = 0 as Amount
+	var within = true
+	for p in producers 'producers'
+		produced = try produced + (try await p.count() otherwise 0) otherwise 0
+		if p.mostQueued() > try turn + 2 otherwise 0 'past'
+			print("a producer held {p.mostQueued()}\n")
+			within = false
+		end 'past'
+	end 'producers'
+	for c in consumers 'consumers'
+		if c.mostQueued() > try turn + (try 2 * (try turn + 4 otherwise 0) otherwise 0) + 1 otherwise 0 'past'
+			print("a consumer held {c.mostQueued()}\n")
+			within = false
+		end 'past'
+	end 'consumers'
+	let verdict = "every queue within its bound" if within else "a queue past its bound"
+	print("handled={handledBy(consumers)}, produced={produced}, {verdict}\n")
+	return 0
+end 'main'

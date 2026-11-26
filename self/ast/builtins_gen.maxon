@@ -354,6 +354,7 @@ export enum Intrinsic
 	intrSchedulerCurrentMachine
 	intrSchedulerMachineCpuCount
 	intrServiceShutdown
+	intrServiceMostQueued
 	intrPromiseCancel
 	intrArrayAwaitAny
 	intrPromiseIsComplete
@@ -965,6 +966,9 @@ export function rawMemberSurface(b Builtins, owner TypeID, name String) returns 
 	if owner == b.stringTy and name == "fromCString" 'stringFromCString'
 		return table.Option.some(RawSurface.make("a String is made of a NUL-terminated 'cstring'", instead: "use 'String.from(bytes)'"))
 	end 'stringFromCString'
+	if owner == b.serviceOrigin and name == "mostQueued" 'serviceMostQueued'
+		return table.Option.some(RawSurface.make("a service's queue length is read", instead: "let the runtime's backpressure bound it"))
+	end 'serviceMostQueued'
 	return table.Option.none
 end 'rawMemberSurface'
 
@@ -2076,6 +2080,7 @@ end 'declareSchedulerMethods'
 
 function declareServiceMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.serviceOrigin, op: Intrinsic.intrServiceShutdown, name: "shutdown", isStatic: false, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.serviceOrigin, op: Intrinsic.intrServiceMostQueued, name: "mostQueued", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 end 'declareServiceMethods'
 
 function declarePromiseMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

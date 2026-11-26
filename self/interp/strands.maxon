@@ -472,12 +472,27 @@ function entryServiceReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws 
 		giveNum(vm, x: x, n: caseWord(ast.sendServiceStopped))
 		return
 	end 'closed'
-	vm.h.shareds[at].gate = try gate + 1 otherwise panic("interp: a gate past a word")
+	let queued = try gate + 1 otherwise panic("interp: a gate past a word")
+	vm.h.shareds[at].gate = queued
 	giveNum(vm, x: x, n: 0)
-	if vm.h.shareds[at].behind or vm.h.shareds[at].muted 'slowing'
+	if slowsSenders(vm, at: at, queued: gate) 'slowing'
+		if queued > vm.h.shareds[at].most 'most'
+			vm.h.shareds[at].most = queued
+		end 'most'
 		senderSlowed(vm, receiver: service)
 	end 'slowing'
 end 'entryServiceReserve'
+
+// entryServiceMostQueued gives the most messages a slowed send to a service found queued with its own.
+function entryServiceMostQueued(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a service's queue")
+	giveNum(vm, x: x, n: ir.wordOfBits(vm.h.shareds[vm.h.oData[service]].most))
+end 'entryServiceMostQueued'
+
+// slowsSenders is whether a service whose mailbox holds queued messages, before a send's, is behind or muted.
+function slowsSenders(vm Vm, at Count, queued Count) returns bool
+	return vm.h.shareds[at].behind or vm.h.shareds[at].muted or queued >= vm.turnLimit
+end 'slowsSenders'
 
 // entryServiceStart gives a message's place in the mailbox back as its behaviour starts, given the address of the state, and
 // names the service as the one the thread runs a message of.
@@ -492,18 +507,15 @@ function entryServiceStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Ha
 	vm.threads[vm.cur].service = service
 end 'entryServiceStart'
 
-// Backpressure, as the runtime's (runtime/service.maxon): a service is behind once vm.turnLimit of its messages have run
-// with more queued, until its queue empties, and while it is muted with messages waiting. A message of another service that
-// sends to it is listed on it and muted when its handler ends: its behaviour keeps its cowns until the service catches up,
-// and a sender that is itself behind is not listed. A task, a thread that runs no message, parks at the send. A service
-// that catches up unmutes its senders in the order they were listed.
+// Backpressure, as the runtime's (runtime/service.maxon), with vm.turnLimit for its turn: a service is behind when a send
+// finds a turn's worth of its messages queued, counting its own; once a turn of its messages has run with more queued, until
+// its queue empties; and while it is muted. Another service whose message sends to it is listed on it until it catches up,
+// and muted at the end of a handler unless it drains on (drainsOn): its behaviour keeps its cowns until the receiver catches
+// up, and a service that is muted lets go the senders listed on it. A task, a thread that runs no message, parks at the
+// send. A service that catches up unmutes its senders in the order they were listed.
 let muteNone = 0 as Count
 
-let muteListed = 1 as Count
-
-let muteEarly = 2 as Count
-
-let muteKept = 3 as Count
+let muteKept = 1 as Count
 
 // turnLimits is how many turn limits a run may draw, from 1 up; turnLimitOf draws one from a seed without the run's random
 // numbers, so the interleavings a seed gives do not move.
@@ -513,44 +525,77 @@ function turnLimitOf(seed ir.Word) returns Count
 	return (ir.bitsOfWord(seed) mod turnLimits) + 1
 end 'turnLimitOf'
 
-// An entry of a service's senders is a behaviour, senderTag times its id, or a thread, senderTag times its id plus 1.
+// An entry of a service's senders is a service, senderTag times its object, or a thread, senderTag times its id plus 1.
 let senderTag = 2 as Count
 
-// senderSlowed lists the message that the thread runs on a receiver that is behind, once, unless its own service is behind;
-// a task parks on the receiver.
+// senderSlowed lists the service whose message the thread runs on a receiver that is behind, once, however many it sends
+// to, and never on itself; a task parks on the receiver.
 function senderSlowed(mutates vm Vm, receiver Count)
 	let t = vm.cur
-	let b = vm.threads[t].behaviour
-	let sender = vm.threads[t].service
+	let sender = messageOf(vm, t: t)
 	let at = vm.h.oData[receiver]
-	if b != 0 and sender != 0 'message'
-		if vm.behaviours.mute[b] != muteNone or vm.h.shareds[vm.h.oData[sender]].behind 'exempt'
+	if sender != 0 'message'
+		let own = vm.h.oData[sender]
+		if sender == receiver or vm.h.shareds[own].listedOn != 0 'listed'
 			return
-		end 'exempt'
-		vm.h.shareds[at].senders.push(try b * senderTag otherwise panic("interp: a behaviour past a word"))
-		vm.behaviours.mute[b] = muteListed
-		vm.behaviours.mutedOn[b] = receiver
+		end 'listed'
+		vm.h.shareds[at].senders.push(try sender * senderTag otherwise panic("interp: an object past a word"))
+		vm.h.shareds[own].listedOn = receiver
 		return
 	end 'message'
 	vm.h.shareds[at].senders.push(try t * senderTag + 1 otherwise panic("interp: a thread past a word"))
+	// The send has its place, so the task goes on after it once readied, and does not take another.
+	vm.post = true
 	parkThread(vm)
 end 'senderSlowed'
 
-// keepMuted mutes a listed behaviour as its handler ends: it keeps its cowns, and its service, which runs no message
-// meanwhile, is muted. A service whose queue is empty is not behind, so it lets its own senders go first.
-function keepMuted(mutates vm Vm, b Count, service Count) throws Halt
+// messageOf is the service whose message thread t runs, or 0 for a task.
+function messageOf(vm Vm, t Count) returns Count
+	let b = vm.threads[t].behaviour
+	let service = vm.threads[t].service
+	if b == 0 or service == 0 or not isMessageOf(vm, b: b, service: service) 'task'
+		return 0
+	end 'task'
+	return service
+end 'messageOf'
+
+function isMessageOf(vm Vm, b Count, service Count) returns bool
+	return vm.behaviours.cowns[b].count() == 1 and vm.behaviours.cowns[b][0] == service
+end 'isMessageOf'
+
+// mutes is whether behaviour b, a message of service that has run, is muted as its handler ends: its service is listed on
+// a receiver and does not drain on.
+function mutes(vm Vm, b Count, service Count) returns bool
+	if service == 0 or not isMessageOf(vm, b: b, service: service) 'other'
+		return false
+	end 'other'
+	let at = vm.h.oData[service]
+	return vm.h.shareds[at].listedOn != 0 and not drainsOn(vm, at: at)
+end 'mutes'
+
+// drainsOn is whether a listed service runs on instead of being muted: messages are queued behind the one that ran, the
+// first of its queue, and it is behind itself, by its turns or the length of its queue, or has senders waiting on it. The
+// queue is read and not the gate, which holds the message of a task parked at its send before it is queued.
+function drainsOn(vm Vm, at Count) returns bool
+	return vm.h.shareds[at].queue.count() > 1 and (vm.h.shareds[at].behind or vm.h.shareds[at].gate mod serviceClosed >= vm.turnLimit or vm.h.shareds[at].senders.count() > 0)
+end 'drainsOn'
+
+// keepMuted mutes a service as its message's handler ends, and says whether it did: it lets go the senders listed on it so
+// far (the progress argument), which may make the receiver it waits on catch up first. Muted, its behaviour keeps its
+// cowns and its service runs no message.
+function keepMuted(mutates vm Vm, b Count, service Count) returns bool throws Halt
+	let at = vm.h.oData[service]
+	vm.h.shareds[at].muted = true
+	try unmuteSenders(vm, service: service)
+	if vm.h.shareds[at].listedOn == 0 'caughtUp'
+		vm.h.shareds[at].muted = false
+		return false
+	end 'caughtUp'
+	vm.h.shareds[at].kept = b
 	vm.behaviours.mute[b] = muteKept
-	let cowns = vm.behaviours.cowns[b].count()
-	if service != 0 and cowns == 1 and vm.behaviours.cowns[b][0] == service 'message'
-		let at = vm.h.oData[service]
-		if vm.h.shareds[at].queue.count() == 1 'drained'
-			try caughtUp(vm, service: service)
-		end 'drained'
-		vm.h.shareds[at].muted = true
-	end 'message'
-	for i in 0 upto cowns 'cowns'
-		vm.h.shareds[vm.h.oData[vm.behaviours.cowns[b][i]]].running = 0
-	end 'cowns'
+	vm.behaviours.mutedOn[b] = vm.h.shareds[at].listedOn
+	vm.h.shareds[at].running = 0
+	return true
 end 'keepMuted'
 
 // countTurn counts a message of a service that has run: with none left the service catches up, and after vm.turnLimit with
@@ -569,11 +614,17 @@ function countTurn(mutates vm Vm, service Count) throws Halt
 	end 'full'
 end 'countTurn'
 
-// caughtUp is a service that is no longer behind: its senders are unmuted in order, a kept behaviour releasing its cowns,
-// a running one told to release them as it ends, and a parked task readied.
+// caughtUp is a service that is no longer behind: its senders are unmuted in order.
 function caughtUp(mutates vm Vm, service Count) throws Halt
+	vm.h.shareds[vm.h.oData[service]].behind = false
+	try unmuteSenders(vm, service: service)
+end 'caughtUp'
+
+// unmuteSenders unmutes the senders listed on a service, in order: a muted one's kept behaviour releases its cowns, a running
+// one is no longer listed, and a parked task is readied. A kept message's release counts as its service's own messages' do:
+// one that empties the queue makes the service catch up, which a task parked on it while it was muted waits for.
+function unmuteSenders(mutates vm Vm, service Count) throws Halt
 	let at = vm.h.oData[service]
-	vm.h.shareds[at].behind = false
 	let senders = exchange(vm.h.shareds[at].senders, value: CountList.create(0))
 	for i in 0 upto senders.count() 'senders'
 		let e = senders[i]
@@ -581,23 +632,19 @@ function caughtUp(mutates vm Vm, service Count) throws Halt
 			readyThread(vm, t: e / senderTag)
 			continue 'senders'
 		end 'task'
-		let b = e / senderTag
-		if vm.behaviours.mute[b] == muteListed 'running'
-			vm.behaviours.mute[b] = muteEarly
+		let s = e / senderTag
+		let sat = vm.h.oData[s]
+		vm.h.shareds[sat].listedOn = 0
+		let b = vm.h.shareds[sat].kept
+		if b == 0 'running'
 			continue 'senders'
 		end 'running'
+		vm.h.shareds[sat].kept = 0
+		vm.h.shareds[sat].muted = false
 		vm.behaviours.mute[b] = muteNone
-		// A kept message's release counts as its service's own messages' do: one that empties the queue makes the service catch
-		// up, which a task parked on it before its message was queued waits for.
-		var message = 0 as Count
-		let first = vm.behaviours.cowns[b][0]
-		if vm.behaviours.cowns[b].count() == 1 and vm.h.shareds[vm.h.oData[first]].muted 'message'
-			vm.h.shareds[vm.h.oData[first]].muted = false
-			message = first
-		end 'message'
-		try releaseBehaviour(vm, b: b, service: message)
+		try releaseBehaviour(vm, b: b, service: s)
 	end 'senders'
-end 'caughtUp'
+end 'unmuteSenders'
 
 // mutedBehaviours are the behaviours that backpressure keeps muted, in the order they were scheduled.
 function mutedBehaviours(vm Vm) returns CountList

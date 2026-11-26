@@ -1,0 +1,101 @@
+// No capacity is named, and a slow consumer's queue still stays within a bound in messages, whatever the speeds: the
+// runtime slows every send that finds a turn's worth (turnBehaviours, 64) queued, and a slowed sender adds nothing more
+// until the service catches up. The bound is held on the most messages the service ever had queued (mostQueued), not on a
+// time, so a loaded machine, a processor count or a schedule of the interpreter (whose turn is shorter) cannot move it.
+//
+// direct: main, a task, is the consumer's only sender. Once 64 are queued its send is slowed, and it parks after the
+// message it sent, until the consumer's queue empties: at most turn + 1.
+//
+// relayed: main sends to a relay, which passes each message to the consumer. The relay has main alone for a sender, which
+// adds one message once slowed and, should the relay be muted with main waiting on it, which lets main go, one more:
+// turn + 2. While the consumer's queue holds a turn's worth, every send to it is slowed and it cannot catch up, so the
+// relay is listed on it and muted after the handler that was slowed, unless it drains on, behind itself or with main
+// waiting on it: main is then slowed, and the relay passes on the message it runs and what it holds, at most turn + 2,
+// and the one main adds, and is muted for the rest. So the consumer holds at most turn + (turn + 4).
+// schedules: 6
+//> direct: handled=3000, within its bound
+//> relayed: handled=3000, the relay and the consumer within their bounds
+export typealias Amount = int(0 to 1000000)
+
+let messages = 3000 as Amount
+
+let work = 200 as Amount
+
+let sinkModulus = 1000 as Amount
+
+// turn is the runtime's turnBehaviours: the interpreter's turn is shorter, so the bounds hold there with room.
+let turn = 64 as Count
+
+type Consumer
+	var handled as Amount
+	var sink as Amount
+
+	static function create() returns Self
+		return Self{handled: 0, sink: 0}
+	end 'create'
+
+	export function take(mutates self)
+		self.handled = try self.handled + 1 otherwise 0
+		var spun = self.sink
+		for i in 0 upto work 'work'
+			spun = (try spun + i otherwise 0) mod sinkModulus
+		end 'work'
+		self.sink = spun
+	end 'take'
+
+	export function count() returns Amount
+		return self.handled
+	end 'count'
+end 'Consumer'
+
+type Relay
+	var to as Consumer.handle
+
+	static function create(consumes to Consumer.handle) returns Self
+		return Self{to: to}
+	end 'create'
+
+	export function pass()
+		try self.to.take() otherwise ignore
+	end 'pass'
+end 'Relay'
+
+function drained(consumer Consumer.handle) returns Amount
+	while (try await consumer.count() otherwise 0) < messages 'drain'
+		sleep(1)
+	end 'drain'
+	return try await consumer.count() otherwise 0
+end 'drained'
+
+function within(most Count, bound Count) returns String
+	return "within" if most <= bound else "past"
+end 'within'
+
+function main() returns ExitCode
+	let consumer = spawn Consumer.create()
+	for i in 0 upto messages 'direct'
+		try consumer.take() otherwise ignore
+	end 'direct'
+	let direct = drained(consumer)
+	let directMost = consumer.mostQueued()
+	print("direct: handled={direct}, {within(directMost, bound: try turn + 1 otherwise 0)} its bound\n")
+	if directMost > try turn + 1 otherwise 0 'directPast'
+		print("most queued: {directMost}\n")
+	end 'directPast'
+	let relayed = spawn Consumer.create()
+	let relay = spawn Relay.create(relayed.clone())
+	for i in 0 upto messages 'relayed'
+		try relay.pass() otherwise ignore
+	end 'relayed'
+	let handled = drained(relayed)
+	let relayMost = relay.mostQueued()
+	let consumerMost = relayed.mostQueued()
+	let relayBound = try turn + 2 otherwise 0
+	let consumerBound = try turn + turn + 4 otherwise 0
+	let both = "within" if relayMost <= relayBound and consumerMost <= consumerBound else "past"
+	print("relayed: handled={handled}, the relay and the consumer {both} their bounds\n")
+	if both == "past" 'relayedPast'
+		print("most queued: relay {relayMost}, consumer {consumerMost}\n")
+	end 'relayedPast'
+	return 0
+end 'main'
