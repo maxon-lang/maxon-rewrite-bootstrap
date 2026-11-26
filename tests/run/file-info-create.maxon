@@ -3,8 +3,7 @@
 // FileCreatedTime, a Timestamp or notReported. The fields have those types (sizeOf and modifiedOf return them as they are), a
 // record made by create reads back as it was made, and File.info of a file written in the working directory gives a FileInfo of
 // those types: its size, times after 2020 (the time it was made too, where the file system reports one, which the working
-// directory's may not) and its flags. The same program runs on every target.
-// native-only
+// directory's may not) and its flags. The same program runs on every target and under the interpreter.
 //> made=10 20 30 40 false true
 //> largest=18446744073709551615 18446744073709551615 0
 //> sizeOf=10
