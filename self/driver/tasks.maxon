@@ -38,6 +38,14 @@ type Compile
 		return heads.modules.count() > 0
 	end 'hasLibrary'
 
+	// isCore is whether module m is the core of the library, which every program reaches.
+	function isCore(m Count) returns bool
+		return match heads.coreModule() 'core'
+			some(core) gives core == m
+			none gives false
+		end 'core'
+	end 'isCore'
+
 	// laterAt is whether the module at slot is the standard library's in a program's compile (libraryLater).
 	function laterAt(slot Count) returns bool
 		return try libraryLater.get(slot) otherwise panic("driver: a slot past the modules of the compile")
@@ -99,8 +107,9 @@ type ModuleWork
 	// (the library's names index, which the scan of its text made), and namesRead whether they were read.
 	var named as project.CountList
 	var namesRead as bool
-	// words are what the module gives the reach of the library (reachedLibrary): for a module of the program the words its text
-	// writes (wordsIn), for one of the library the words that reach it, which its scan found. The resolve lets them go.
+	// words are what the module gives the reach of the library (reachedLibrary): for a module of the program the words of its text
+	// that are words of the library (wordsIn), for one of the library the words that reach it, which its scan found. The resolve
+	// lets them go.
 	var words as ast.StringList
 	// texts are the files of a library module that its scan read, which its parse reads in place of reading them again.
 	var texts as project.SourceFiles
@@ -397,7 +406,7 @@ function parseTask(c Compile, mutates work ModuleWork, known Known, inputs ast.I
 	var ms = lendTask(c, work: work, stage: Stage.parse, lent: ast.Lent.source, known: known, inputs: inputs, view: view)
 	let m = ast.modIndex(work.home.module)
 	let ofLibrary = c.laterAt(c.slotOf(m))
-	if ofLibrary and not reachedByProgram(c, known: known, m: m) 'unreached'
+	if ofLibrary and not c.isCore(m) and not reachedByProgram(c, known: known, m: m) 'unreached'
 		work.texts = project.SourceFiles.create(0)
 		return giveTask(work, ms: ms, stage: Stage.parse)
 	end 'unreached'
@@ -409,7 +418,7 @@ function parseTask(c Compile, mutates work ModuleWork, known Known, inputs ast.I
 	end 'files'
 	work.skimmed = ms.parsed.skimmed
 	if not ofLibrary and c.hasLibrary() 'program'
-		work.words = wordsIn(ms.parsed.tree.text)
+		work.words = wordsIn(ms.parsed.tree.text, library: libraryWords(c, known: known))
 		addLiteralWords(work.words, tree: ms.parsed.tree)
 	end 'program'
 	if c.cache.enabled() 'digests'

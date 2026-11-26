@@ -1,10 +1,10 @@
 // The library's names index: for each module of the standard library, the words by which a program can reach it, which are
-// the names it declares, the names of the members that its extensions add or that its types declare where its extensions
-// give a conformance (resolve.libraryMembersOf's rule), and the library modules its own source may name. All of it is read
+// the names it declares at the top level and the names of the members that its extensions of other types export (see
+// libscan.maxon), and the library modules its own source may name. All of it is read
 // from the text of the module's files by a scan of project.scanModule, which lexes and parses nothing: the scan stage of
 // each library module, which runs beside the program's parses, gives the module's words and what it names to the parse of
 // every library module. A program's compile parses a module of the library only when the program reaches it: each word that
-// the program's text writes, comments and strings included, reaches the modules it is a word of, closed over what those
+// the program's text writes, strings included, reaches the modules it is a word of, closed over what those
 // name, and the core is reached always (reachedLibrary). That is a superset of what the program's resolves name, so a module
 // the scan leaves out is one no resolve would have named, which is never resolved (resolvesModule) and is never parsed
 // either: a file of it with an error is no error of a program that does not reach it. Go's compiler reads a package's export
@@ -213,14 +213,34 @@ function loadIndexed(c Compile, mutates work ModuleWork, m Count)
 	end 'modules'
 end 'loadIndexed'
 
-// wordsIn are the words that text writes, each once: every run of name bytes, comments and strings included.
-function wordsIn(text String) returns ast.StringList
+// wordsIn are the words that text writes, each once, that are words of the library (the words that reach any of its modules):
+// every run of name bytes, strings and trailing comments included, but not a line that is a comment, which a string can never
+// span. The text is read once and no word of it is copied unless the library has it.
+function wordsIn(text String, library WordSet) returns ast.StringList
 	var seen = WordSet.new()
 	var words = ast.StringList.create(0)
 	let n = text.byteLength()
 	var i = 0 as Count
+	var atLineStart = true
 	while i < n 'scan'
-		if not ast.isIdentByte(text.byteAt(i)) 'other'
+		let b = text.byteAt(i)
+		if b == tabByte 'indent'
+			i = after(i)
+			continue 'scan'
+		end 'indent'
+		if b == newlineByte 'newline'
+			atLineStart = true
+			i = after(i)
+			continue 'scan'
+		end 'newline'
+		if atLineStart and b == slashByte and after(i) < n and text.byteAt(after(i)) == slashByte 'comment'
+			while i < n and text.byteAt(i) != newlineByte 'line'
+				i = after(i)
+			end 'line'
+			continue 'scan'
+		end 'comment'
+		atLineStart = false
+		if not ast.isIdentByte(b) 'other'
 			i = after(i)
 			continue 'scan'
 		end 'other'
@@ -228,14 +248,21 @@ function wordsIn(text String) returns ast.StringList
 		while i < n and ast.isIdentByte(text.byteAt(i)) 'word'
 			i = after(i)
 		end 'word'
-		let word = text.sliceBytes(start, endPos: i).clone()
-		if not seen.has(word) 'new'
+		if b >= digitZeroByte and b <= digitNineByte 'number'
+			continue 'scan'
+		end 'number'
+		let word = text.sliceBytes(start, endPos: i)
+		if library.has(word) and not seen.has(word) 'new'
 			seen.insert(word.clone(), value: 1)
-			words.push(word)
+			words.push(word.clone())
 		end 'new'
 	end 'scan'
 	return words
 end 'wordsIn'
+
+let digitZeroByte = 48 as Byte
+
+let digitNineByte = 57 as Byte
 
 // addLiteralWords adds to the words of a program the names of the library types that its literals make, which it never writes
 // and so would never reach the module of: a map literal makes the Map and a range value the Range or the OpenRange
@@ -274,3 +301,21 @@ typealias WordSet = table.StringMap with Count
 function after(at Count) returns Count
 	return try at + 1 otherwise panic("driver: a place past memory")
 end 'after'
+
+// libraryWords are the words of every module of the library, as the scans that known holds found them: the words a program's
+// text is read for (wordsIn).
+function libraryWords(c Compile, known Known) returns WordSet
+	var all = WordSet.new()
+	var slot = 0 as Count
+	for product in known 'modules'
+		if c.laterAt(slot) 'library'
+			for word in product.words 'words'
+				if not all.has(word) 'new'
+					all.insert(word.clone(), value: 1)
+				end 'new'
+			end 'words'
+		end 'library'
+		slot = after(slot)
+	end 'modules'
+	return all
+end 'libraryWords'

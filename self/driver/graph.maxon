@@ -205,22 +205,32 @@ type TaskGraph
 		groupOfModules = true
 	end 'addLowerTasks'
 
-	// addParseTasks adds the parse of each module of program and then of library, each waiting for the tasks of the stage
-	// added before (none, at the start of a compile). Each module of library is first scanned, which waits for nothing, so
-	// that the scans run beside the program's parses; its parse then waits for the parses of program and for the scans of
-	// every module of library: a module of the library is parsed only when the program's words reach it (reachedByProgram).
-	function addParseTasks(mutates self, program check.ModuleOrder, library check.ModuleOrder)
+	// addParseTasks adds the scan of each module of library, which waits for nothing, and the parse of each module of program and
+	// then of library, each waiting for the tasks of the stage added before (none, at the start of a compile). The parse of a
+	// module of program waits for the scans of the library, whose words it reads its text for (libraryWords), and the parse of
+	// a module of library for those and for the parses of program: a module of the library is parsed only when the program's
+	// words reach it (reachedByProgram). The core is reached whatever the program writes, so its parse waits for its own scan
+	// only, and runs beside the program's.
+	function addParseTasks(mutates self, program check.ModuleOrder, library check.ModuleOrder, core table.Option with Count)
 		let before = group.clone()
+		var scans = TaskIDs.create(0)
+		for i in 0 upto library.count() 'scans'
+			scans.push(addTaskAfter(Stage.scan, module: ast.modIndex(library[i]), before: before, also: TaskIDs.create(0)))
+		end 'scans'
 		var added = TaskIDs.create(0)
 		for i in 0 upto program.count() 'program'
-			added.push(addTaskAfter(Stage.parse, module: ast.modIndex(program[i]), before: before, also: TaskIDs.create(0)))
+			added.push(addTaskAfter(Stage.parse, module: ast.modIndex(program[i]), before: before, also: scans))
 		end 'program'
 		var waited = added.clone()
-		for i in 0 upto library.count() 'scans'
-			waited.push(addTaskAfter(Stage.scan, module: ast.modIndex(library[i]), before: before, also: TaskIDs.create(0)))
-		end 'scans'
+		waited.append(scans)
+		var place = 0 as Count
 		for i in 0 upto library.count() 'library'
-			added.push(addTaskAfter(Stage.parse, module: ast.modIndex(library[i]), before: before, also: waited))
+			var also = waited.clone()
+			if core.isSome() and ast.modIndex(library[i]) == core.clone().unwrap() 'core'
+				also = singleTask(try scans.get(place) otherwise panic("driver: a library module without its scan"))
+			end 'core'
+			added.push(addTaskAfter(Stage.parse, module: ast.modIndex(library[i]), before: before, also: also))
+			place = place + 1
 		end 'library'
 		group = added
 		groupOfModules = true
@@ -525,7 +535,7 @@ function startGraph(mutates graph TaskGraph, c Compile, from Stage)
 	let modules = independentOrder(c)
 	let none = ModuleDeps.create(0)
 	if from == Stage.parse 'parse'
-		graph.addParseTasks(modulesOf(c, order: modules, library: false), library: modulesOf(c, order: modules, library: true))
+		graph.addParseTasks(modulesOf(c, order: modules, library: false), library: modulesOf(c, order: modules, library: true), core: c.heads.coreModule())
 		graph.addProjectTask(Stage.parsed, also: TaskIDs.create(0))
 	end 'parse'
 	graph.addResolveTasks(modulesOf(c, order: modules, library: false), library: modulesOf(c, order: modules, library: true))

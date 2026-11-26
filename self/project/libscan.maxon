@@ -4,12 +4,15 @@
 // The scan reads those words and no others, so a module that nothing reaches is never lexed, and a file with an error in it
 // is no error until the module is reached.
 //
-// A module is reached by a word of a program: a name that the module declares, or the name of a member that it exports
-// where its extensions add it (every member of its extensions, and those of its types where an extension of the module gives
-// a conformance: resolve.libraryMembersOf's rule). It also names the library modules whose qualifier's first name its text
-// writes before a dot and a name, comments and strings read as code, and the core, which every module depends on
-// (resolve.noteCoreDependency). The scan counts the lines of every branch of a `#if`, whatever the target: a name that a
-// branch left out for the target declares is a word that reaches the module still, which a program never writes.
+// A module is reached by a word of a program in two ways only: a name that the module declares at the top level, which is
+// how a program names a type, a function or a constant of it; and the name of an exported member of an extension of a type
+// that the module does not declare (a built-in type, or a type of another module), which a program calls without naming the
+// module. The members of a type that the module declares are no words: a program that has a value of the type got it from a
+// module that names this one (or wrote the type's name, which is a top-level name), so the module is reached already.
+// The module also names the library modules whose qualifier's first name its text writes before a dot and a name, comments
+// and strings read as code, and the core, which every module depends on (resolve.noteCoreDependency). The scan counts the
+// lines of every branch of a `#if`, whatever the target: a name that a branch left out for the target declares is a word
+// that reaches the module still, which a program never writes.
 
 let tabByte = 9 as Byte
 
@@ -18,13 +21,6 @@ let newlineByte = 10 as Byte
 let spaceByte = 32 as Byte
 
 let hashByte = 35 as Byte
-
-// ScanBody is what the lines one tab deep belong to: the members of a type or of an extension, or nothing a scan reads.
-enum ScanBody
-	other
-	ofType
-	ofExtension
-end 'ScanBody'
 
 // LibraryHeads is the library modules that a scan names: each by the first name of its qualifier, in the order a scan numbers
 // them by, with the place of each in the project's modules, and the core among them.
@@ -77,9 +73,12 @@ end 'LibraryHeads'
 // LibraryScan is what the scan of the files of one library module found, or that a file could not be read.
 export type LibraryScan
 	var names as ast.StringList
+	// extensionMembers are the exported members of the module's extensions, and owners the type that the extension of each
+	// extends, by the name it writes.
 	var extensionMembers as ast.StringList
-	var typeMembers as ast.StringList
-	var conforms as bool
+	var owners as ast.StringList
+	// owner is the type that the extension whose lines are being read extends.
+	var owner as String
 	var named as BoolList
 	// readable is whether every file of the module was read; a scan of a module that was not says nothing of it.
 	export var readable as bool
@@ -92,7 +91,7 @@ export type LibraryScan
 		for _ in heads.heads 'modules'
 			named.push(false)
 		end 'modules'
-		var scan = LibraryScan{names: ast.StringList.create(0), extensionMembers: ast.StringList.create(0), typeMembers: ast.StringList.create(0), conforms: false, named: named, readable: true, texts: SourceFiles.create(0)}
+		var scan = LibraryScan{names: ast.StringList.create(0), extensionMembers: ast.StringList.create(0), owners: ast.StringList.create(0), owner: "", named: named, readable: true, texts: SourceFiles.create(0)}
 		match heads.core.clone() 'core'
 			some(k) then scan.markNamed(k)
 			none then _ = 0
@@ -100,15 +99,27 @@ export type LibraryScan
 		return scan
 	end 'of'
 
-	// words are the words that reach the module, each once, in the order the files declare them.
+	// words are the words that reach the module, each once: its top-level names, and the exported members of its extensions of
+	// a type that it does not declare.
 	export function words() returns ast.StringList
-		var seen = NameSet.new()
+		var declared = NameSet.new()
 		var words = ast.StringList.create(0)
-		addNew(words, from: names, seen: seen)
-		addNew(words, from: extensionMembers, seen: seen)
-		if conforms 'conforming'
-			addNew(words, from: typeMembers, seen: seen)
-		end 'conforming'
+		for name in names 'names'
+			if not declared.has(name) 'new'
+				declared.insert(name.clone(), value: 1)
+				words.push(name.clone())
+			end 'new'
+		end 'names'
+		var seen = NameSet.new()
+		var place = 0 as Count
+		for member in extensionMembers 'members'
+			let extended = try owners.get(place) otherwise panic("project: an extension member without its type")
+			if not declared.has(extended) and not seen.has(member) 'foreign'
+				seen.insert(member.clone(), value: 1)
+				words.push(member.clone())
+			end 'foreign'
+			place = after(place)
+		end 'members'
 		return words
 	end 'words'
 
@@ -140,7 +151,7 @@ export type LibraryScan
 		let n = text.byteLength()
 		var at = 0 as Count
 		var branches = 0 as Count
-		var body = ScanBody.other
+		var inExtension = false
 		while at < n 'lines'
 			var tabs = 0 as Count
 			while at < n and text.byteAt(at) == tabByte 'tabs'
@@ -169,15 +180,16 @@ export type LibraryScan
 			end 'directive'
 			let level = try tabs - branches otherwise continue 'lines'
 			if level == 0 'top'
-				body = self.declarationAt(text, from: from, stop: stop)
-			end 'top' else if level == 1 and body != ScanBody.other 'member'
-				self.memberAt(text, from: from, stop: stop, body: body)
+				inExtension = self.declarationAt(text, from: from, stop: stop)
+			end 'top' else if level == 1 and inExtension 'member'
+				self.memberAt(text, from: from, stop: stop)
 			end 'member'
 		end 'lines'
 	end 'scanLines'
 
-	// declarationAt reads the top-level declaration whose line is from to stop, adding its name, and gives what its body holds.
-	function declarationAt(mutates self, text String, from Count, stop Count) returns ScanBody
+	// declarationAt reads the top-level declaration whose line is from to stop, adding its name, and says whether it is an
+	// extension, whose members the lines one tab deeper are.
+	function declarationAt(mutates self, text String, from Count, stop Count) returns bool
 		var at = from
 		var keywordEnd = wordEnd(text, at: at, stop: stop)
 		if wordIs(text, at: at, endAt: keywordEnd, word: "export") or wordIs(text, at: at, endAt: keywordEnd, word: "public") 'visibility'
@@ -187,28 +199,19 @@ export type LibraryScan
 		let nameAt = wordAfter(text, endAt: keywordEnd, stop: stop)
 		let nameEnd = wordEnd(text, at: nameAt, stop: stop)
 		if wordIs(text, at: at, endAt: keywordEnd, word: "extension") 'extension'
-			if headerImplements(text, from: nameAt, stop: stop) 'conforms'
-				conforms = true
-			end 'conforms'
-			return ScanBody.ofExtension
+			owner = extendedName(text, from: nameAt, stop: stop)
+			return true
 		end 'extension'
-		if nameEnd == nameAt 'nameless'
-			return ScanBody.other
-		end 'nameless'
-		if wordIs(text, at: at, endAt: keywordEnd, word: "type") 'type'
-			names.push(text.sliceBytes(nameAt, endPos: nameEnd).clone())
-			return ScanBody.ofType
-		end 'type'
-		if declaresName(text, at: at, endAt: keywordEnd) 'declares'
+		if nameEnd > nameAt and declaresName(text, at: at, endAt: keywordEnd) 'declares'
 			names.push(text.sliceBytes(nameAt, endPos: nameEnd).clone())
 		end 'declares'
-		return ScanBody.other
+		return false
 	end 'declarationAt'
 
-	// memberAt reads the line of a member of a type or of an extension, from to stop: a method that it exports is a word that
-	// reaches the module where its extensions add it, and so is a static let of an extension. A member that has no visibility
-	// is the declaring module's own, which no other module names.
-	function memberAt(mutates self, text String, from Count, stop Count, body ScanBody)
+	// memberAt reads the line of a member of an extension, from to stop: a method that it exports is a word that reaches the
+	// module where the type it extends is no type of the module, and so is a static let. A member that has no visibility is the
+	// declaring module's own, which no other module names.
+	function memberAt(mutates self, text String, from Count, stop Count)
 		var at = from
 		var keywordEnd = wordEnd(text, at: at, stop: stop)
 		if not (wordIs(text, at: at, endAt: keywordEnd, word: "export") or wordIs(text, at: at, endAt: keywordEnd, word: "public")) 'private'
@@ -227,15 +230,10 @@ export type LibraryScan
 		if nameEnd == nameAt 'nameless'
 			return
 		end 'nameless'
-		if wordIs(text, at: at, endAt: keywordEnd, word: "function") 'method'
-			if body == ScanBody.ofExtension 'extension'
-				extensionMembers.push(text.sliceBytes(nameAt, endPos: nameEnd).clone())
-			end 'extension' else 'type'
-				typeMembers.push(text.sliceBytes(nameAt, endPos: nameEnd).clone())
-			end 'type'
-		end 'method' else if isStatic and body == ScanBody.ofExtension and wordIs(text, at: at, endAt: keywordEnd, word: "let") 'static'
+		if wordIs(text, at: at, endAt: keywordEnd, word: "function") or (isStatic and wordIs(text, at: at, endAt: keywordEnd, word: "let")) 'member'
 			extensionMembers.push(text.sliceBytes(nameAt, endPos: nameEnd).clone())
-		end 'static'
+			owners.push(owner.clone())
+		end 'member'
 	end 'memberAt'
 
 	// noteQualifier marks the library module whose qualifier's first name the text writes right before the dot at dot and a name
@@ -294,34 +292,24 @@ function addNew(mutates words ast.StringList, from ast.StringList, mutates seen 
 end 'addNew'
 
 // declaresName is whether the keyword from at to endAt opens a declaration that a module of the library declares by a name
-// that a program writes bare: everything but a type, which the caller reads, and an extension, which no name stands for.
+// that a program writes bare: everything but an extension, which no name stands for.
 function declaresName(text String, at Count, endAt Count) returns bool
-	return wordIs(text, at: at, endAt: endAt, word: "function") or wordIs(text, at: at, endAt: endAt, word: "let") or wordIs(text, at: at, endAt: endAt, word: "enum") or wordIs(text, at: at, endAt: endAt, word: "union") or wordIs(text, at: at, endAt: endAt, word: "typealias") or wordIs(text, at: at, endAt: endAt, word: "interface")
+	return wordIs(text, at: at, endAt: endAt, word: "function") or wordIs(text, at: at, endAt: endAt, word: "type") or wordIs(text, at: at, endAt: endAt, word: "let") or wordIs(text, at: at, endAt: endAt, word: "enum") or wordIs(text, at: at, endAt: endAt, word: "union") or wordIs(text, at: at, endAt: endAt, word: "typealias") or wordIs(text, at: at, endAt: endAt, word: "interface")
 end 'declaresName'
 
-// headerImplements is whether the header of an extension, from the name of the type that it extends to stop, gives a
-// conformance: `implements` before any `where`, and before a comment.
-function headerImplements(text String, from Count, stop Count) returns bool
+// extendedName is the name of the type that the extension whose header is from (the type it extends, after the keyword) to
+// stop extends, as it writes it: the last name of a qualified one.
+function extendedName(text String, from Count, stop Count) returns String
+	var start = from
 	var at = from
-	while at < stop 'header'
-		if text.byteAt(at) == slashByte 'comment'
-			return false
-		end 'comment'
-		if not ast.isIdentByte(text.byteAt(at)) 'other'
-			at = after(at)
-			continue 'header'
-		end 'other'
-		let last = wordEnd(text, at: at, stop: stop)
-		if wordIs(text, at: at, endAt: last, word: "where") 'where'
-			return false
-		end 'where'
-		if wordIs(text, at: at, endAt: last, word: "implements") 'implements'
-			return true
-		end 'implements'
-		at = last
-	end 'header'
-	return false
-end 'headerImplements'
+	while at < stop and (ast.isIdentByte(text.byteAt(at)) or text.byteAt(at) == dotByte) 'name'
+		if text.byteAt(at) == dotByte 'dot'
+			start = after(at)
+		end 'dot'
+		at = after(at)
+	end 'name'
+	return text.sliceBytes(start, endPos: at).clone()
+end 'extendedName'
 
 // wordEnd is where the word that starts at at ends: the first byte that is no part of a name, or stop.
 function wordEnd(text String, at Count, stop Count) returns Count

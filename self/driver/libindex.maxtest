@@ -1,5 +1,6 @@
-// parsedWords are the words that reach a library module by what its parse declared: its declared names, and the names of
-// its members under resolve.libraryMembersOf's rule, which the scan of project.scanLibrary reads from the text instead.
+// parsedWords are the words that reach a library module by what its parse declared: its top-level names, and the names of
+// the exported members of its extensions of a type that it does not declare, which the scan of project.scanModule reads from
+// the text instead.
 function parsedWords(module ast.Module) returns ast.StringList
 	var words = ast.StringList.create(0)
 	for i in 0 upto module.names.capacity() 'names'
@@ -7,35 +8,31 @@ function parsedWords(module ast.Module) returns ast.StringList
 			words.push(module.names.keyAt(i).clone())
 		end 'occupied'
 	end 'names'
-	var conforms = false
-	for decl in module.decls 'conformance'
-		if givesConformance(decl) 'conforms'
-			conforms = true
-		end 'conforms'
-	end 'conformance'
 	for decl in module.decls 'decls'
-		if conforms or decl.isExtension() 'members'
-			for name in decl.memberNames() 'names'
-				words.push(name.clone())
-			end 'names'
-		end 'members'
+		match decl 'd'
+			extensionDecl(xd) then addForeignMembers(words, module: module, extension: xd)
+			funcDecl(_) then _ = 0
+			constDecl(_) then _ = 0
+			typeDecl(_) then _ = 0
+			enumDecl(_) then _ = 0
+			unionDecl(_) then _ = 0
+			aliasDecl(_) then _ = 0
+			interfaceDecl(_) then _ = 0
+		end 'd'
 	end 'decls'
 	return words
 end 'parsedWords'
 
-// givesConformance is whether d is an extension that says a type implements an interface.
-function givesConformance(d ast.Decl) returns bool
-	return match d 'd'
-		extensionDecl(e) gives e.conforms != 0
-		funcDecl(_) gives false
-		constDecl(_) gives false
-		typeDecl(_) gives false
-		enumDecl(_) gives false
-		unionDecl(_) gives false
-		aliasDecl(_) gives false
-		interfaceDecl(_) gives false
-	end 'd'
-end 'givesConformance'
+// addForeignMembers adds the exported members of an extension of the module to words, unless it extends a type that the
+// module declares.
+function addForeignMembers(mutates words ast.StringList, module ast.Module, extension ast.ExtensionDecl)
+	if module.names.has(ast.extensionOwnerName(module.tree, xd: extension)) 'own'
+		return
+	end 'own'
+	for name in ast.Decl.extensionDecl(extension.clone()).memberNames() 'names'
+		words.push(name.clone())
+	end 'names'
+end 'addForeignMembers'
 
 function wordSetOf(words ast.StringList) returns WordSet
 	var set = WordSet.new()
@@ -111,8 +108,9 @@ function holdsBranch(module ast.Module) returns bool
 end 'holdsBranch'
 
 // The library that these tests compile programs with is held in memory: a core, a module `used` that names the module
-// `chained` (as `chained.reach`), and two modules that have a syntax error in them, `chained` and `stray`, which a program's
-// compile parses only when its words reach them.
+// `chained` (as `chained.reach`), and four modules that have a syntax error in them, which a program's compile parses only
+// when its words reach them: `chained`, `stray` (a function), `shapes` (a type with a method, and an extension of it that adds
+// another) and `loud` (an extension of String).
 let fixtureLibrary = "<library>"
 
 let fixtureProgram = "<program>"
@@ -128,6 +126,8 @@ function fixtureFiles(main String) returns project.SourceFiles
 	files.push(fixtureFile(project.joinPath(project.joinPath(fixtureLibrary, name: "used"), name: "Used.maxon"), text: "public function used() returns int\n\treturn chained.reach()\nend 'used'\n"))
 	files.push(fixtureFile(project.joinPath(project.joinPath(fixtureLibrary, name: "chained"), name: "Chained.maxon"), text: "public function reach() returns int\n\treturn 1\nend 'reach'\n\nexport let = 5\n"))
 	files.push(fixtureFile(project.joinPath(project.joinPath(fixtureLibrary, name: "stray"), name: "Stray.maxon"), text: "public function stray() returns int\n\treturn 2\nend 'stray'\n\nexport let = 6\n"))
+	files.push(fixtureFile(project.joinPath(project.joinPath(fixtureLibrary, name: "shapes"), name: "Shapes.maxon"), text: "public type Box\n\texport function size() returns int\n\t\treturn 1\n\tend 'size'\nend 'Box'\n\nextension Box\n\texport function area() returns int\n\t\treturn 2\n\tend 'area'\nend 'Box'\n\nexport let = 7\n"))
+	files.push(fixtureFile(project.joinPath(project.joinPath(fixtureLibrary, name: "loud"), name: "Loud.maxon"), text: "extension String\n\texport function shout() returns String\n\t\treturn self\n\tend 'shout'\nend 'String'\n\nexport let = 8\n"))
 	return files
 end 'fixtureFiles'
 
@@ -173,3 +173,18 @@ end 'a library file with a syntax error that a word of the program reaches is an
 test 'a library module that a reached module names is reached as well'
 	expectErrorsOnlyIn(compileWithFixtureLibrary("\tlet n = used()\n"), name: "Chained.maxon", what: "a program that writes the name of a module that names the broken one")
 end 'a library module that a reached module names is reached as well'
+
+test 'the members of a type that a library module declares are no words that reach it'
+	let errs = compileWithFixtureLibrary("\tlet text = \"size area\"\n")
+	for e in errs 'failed'
+		panic("a program that writes only the names of the members of a library type: {e.format()}")
+	end 'failed'
+end 'the members of a type that a library module declares are no words that reach it'
+
+test 'a member that a library module adds to a type it does not declare is a word that reaches it'
+	expectErrorsOnlyIn(compileWithFixtureLibrary("\tlet text = \"x\".shout()\n"), name: "Loud.maxon", what: "a program that calls a method that a module adds to String")
+end 'a member that a library module adds to a type it does not declare is a word that reaches it'
+
+test 'the name of a library type is a word that reaches the module that declares it'
+	expectErrorsOnlyIn(compileWithFixtureLibrary("\tlet box = Box.create()\n"), name: "Shapes.maxon", what: "a program that writes the name of a library type")
+end 'the name of a library type is a word that reaches the module that declares it'
