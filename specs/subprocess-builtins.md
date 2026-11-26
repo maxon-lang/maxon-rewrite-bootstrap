@@ -2144,6 +2144,7 @@ kind=0 code=0 capped=true
 ```
 
 <!-- test: subprocess-builtins.streaming-over-argv -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 `subprocessSpawnStreaming` takes the same argv blob and wires all three streams to pipes, which is
@@ -2187,7 +2188,7 @@ function main() returns ExitCode
 		if chunk.byteLength() == 0 'ended'
 			break
 		end 'ended'
-		output = "{output}{chunk}"
+		output.append(chunk)
 	end 'draining'
 	let code = __Builtins.subprocessWaitExit(h, 0)
 	let expected = "ping"
@@ -2205,6 +2206,7 @@ wrote=0 echoed=true outLen=8 code=0
 ```
 
 <!-- test: read-available-answers-at-most-most-and-keeps-the-rest-for-the-next-read -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 `subprocessReadAvailable(handle, stream, most)` answers AT MOST `most` bytes, and the bytes buffered past
@@ -2266,6 +2268,7 @@ wrote=0 first=abcd second=efgh restLen=6 eofLen=0 code=0
 ```
 
 <!-- test: read-available-answers-what-is-buffered-without-waiting-for-more -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 `subprocessReadAvailable(handle, stream, most)` answers the bytes already buffered for that stream, up to `most`, and parks only while none are. The child re-spawned from this program writes `first`, sleeps two seconds and writes `second`, so a read of 100 that waited for its count, or for the end of the stream, would answer both lines at once; answering the first line's six bytes alone is what tells the two apart. The second read parks until the second line arrives, and at the end of the stream each stream's read answers no bytes.
@@ -2318,6 +2321,7 @@ first=first firstLen=6 second=second secondLen=7 endLen=0 stderrLen=0 code=0
 
 
 <!-- test: read-available-with-a-most-of-zero-or-less-answers-empty-without-parking -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 A `most` of 0 or less answers no bytes at once, and leaves the stream exactly as it was. Both reads are made
@@ -2369,6 +2373,7 @@ negLen=0 zeroLen=0 state=open wrote=0 still=abcd code=0
 ```
 
 <!-- test: read-available-of-a-stream-other-than-stdout-or-stderr-answers-empty -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 The `stream` argument is `StdioStream`'s raw value, `0` for stdout and `1` for stderr; any other value answers
@@ -2419,6 +2424,7 @@ pastLen=0 belowLen=0 out=first outLen=6 code=0
 ```
 
 <!-- test: read-available-of-a-released-handle-answers-empty -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 A handle `subprocessReleaseHandle` has given back answers no bytes, even though the child wrote a line nothing
@@ -2469,6 +2475,7 @@ code=0 outLen=0 errLen=0 state=noSuchChild
 ```
 
 <!-- test: read-available-reads-stderr-apart-from-stdout -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 A `stream` of `1` reads the child's stderr. The child re-spawned from this program writes `oops` on stderr and
@@ -2577,6 +2584,7 @@ end 'main'
 ```
 
 <!-- test: subprocess-builtins.streaming-stream-state-follows-the-reader -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 `subprocessStdoutState(handle)` / `subprocessStderrState(handle)` answer `__SubprocessStreamState` — the
@@ -2656,19 +2664,19 @@ rather than throwing — and neither reaches the freed handle.
 ```maxon
 function shown(read LineOrEnd) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives "ended"
 	end 'read'
 end 'shown'
 
-function readLineAfterRelease(reader ChildOutputReader) returns String
+function readLineAfterRelease(mutates reader ChildOutputReader) returns String
 	let read = try reader.readLine() otherwise (e) 'refused'
 		return e.name
 	end 'refused'
 	return "answered {shown(read)}"
 end 'readLineAfterRelease'
 
-function takeAfterRelease(child StreamingSubprocess) returns String
+function takeAfterRelease(mutates child StreamingSubprocess) returns String
 	_ = try child.takeStdout() otherwise (e) 'refused'
 		return e.displayReason()
 	end 'refused'
@@ -2690,12 +2698,12 @@ function waitAfterRelease(child StreamingSubprocess) returns String
 end 'waitAfterRelease'
 
 function main() returns ExitCode
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("more")
-	let child = try StreamingSubprocess.spawn(Executable.name("cmd"), arguments: argv) otherwise return 3
-	let out = try child.takeStdout() otherwise return 4
-	let err = try child.takeStderr() otherwise return 5
+	var child = try StreamingSubprocess.spawn(MxExecutable.name("cmd"), arguments: argv) otherwise return 3
+	var out = try child.takeStdout() otherwise return 4
+	var err = try child.takeStderr() otherwise return 5
 	try child.writeStdinLine("abc") otherwise return 6
 	child.closeStdin()
 	let line = shown(try out.readLine() otherwise return 7)

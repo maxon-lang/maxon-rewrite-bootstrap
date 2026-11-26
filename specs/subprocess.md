@@ -229,13 +229,13 @@ end 'textOf'
 
 function main() returns ExitCode
 	#if os(Windows)
-	let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("findstr")
 	argv.push("x*")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("/bin/cat") otherwise return 2)
 	let argv = StringArray.create(0)
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
@@ -293,17 +293,17 @@ end 'shown'
 
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
-		let argv = StringArray.create(0)
+		let exe = MxExecutable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+		var argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("findstr")
 		argv.push("x*")
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/cat") otherwise return 2)
 		let argv = StringArray.create(0)
 	#endif
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
-	let reader = try child.takeStdout() otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var reader = try child.takeStdout() otherwise return 3
 	try child.writeStdinLine("alpha") otherwise return 4
 	try child.writeStdinLine("") otherwise return 4
 	try child.writeStdinLine("gamma") otherwise return 4
@@ -345,16 +345,16 @@ end 'directWriteRefusal'
 
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
-		let argv = StringArray.create(0)
+		let exe = MxExecutable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+		var argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("findstr")
 		argv.push("x*")
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/cat") otherwise return 2)
 		let argv = StringArray.create(0)
 	#endif
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	try child.queueStdin("queued\n") otherwise return 4
 	print("{directWriteRefusal(child)}\n")
 	child.closeStdin()
@@ -386,16 +386,16 @@ end 'secondQueueRefusal'
 
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
-		let argv = StringArray.create(0)
+		let exe = MxExecutable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+		var argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("findstr")
 		argv.push("x*")
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/cat") otherwise return 2)
 		let argv = StringArray.create(0)
 	#endif
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	try child.queueStdin("first\n") otherwise return 4
 	print("{secondQueueRefusal(child)}\n")
 	child.closeStdin()
@@ -426,16 +426,16 @@ end 'directWriteRefusal'
 
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
-		let argv = StringArray.create(0)
+		let exe = MxExecutable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+		var argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("findstr")
 		argv.push("x*")
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/cat") otherwise return 2)
 		let argv = StringArray.create(0)
 	#endif
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	try child.queueStdin("") otherwise return 4
 	print("{directWriteRefusal(child)}\n")
 	child.closeStdin()
@@ -478,13 +478,13 @@ end 'textOf'
 
 function echoFromGreenThread() returns StepCode
 	#if os(Windows)
-	let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("findstr")
 	argv.push("x*")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("/bin/cat") otherwise return 2)
 	let argv = StringArray.create(0)
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
@@ -778,7 +778,7 @@ function argumentsFor(mode String) returns StringArray
 	return argv
 end 'argumentsFor'
 
-function startGrandchild(me Executable) returns ExitCode
+function startGrandchild(me MxExecutable) returns ExitCode
 	let grandchild = try StreamingSubprocess.spawn(me, arguments: argumentsFor("grandchild")) otherwise return 3
 	let pid = try grandchild.processId() otherwise return 4
 	print("{pid}\n")
@@ -804,7 +804,7 @@ function treeEndedCleanly(found TreeEnd) returns bool
 end 'treeEndedCleanly'
 
 function main() returns ExitCode
-	let me = Executable.path(try Process.executablePath() otherwise return 2)
+	let me = MxExecutable.path(try Process.executablePath() otherwise return 2)
 	let args = CommandLine.args()
 	let mode = try args.get(1) otherwise ""
 	if mode == "grandchild" 'sleeper'
@@ -893,8 +893,8 @@ let StartSpanMs = 7
 
 typealias ChildArray = Array with StreamingSubprocess
 
-function spawnShell(script String) returns StreamingSubprocess throws SubprocessError
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise panic("/bin/sh is a path"))
+function spawnShell(script String) returns StreamingSubprocess throws MxSubprocessError
+	let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise panic("/bin/sh is a path"))
 	let argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push(script)
@@ -968,7 +968,7 @@ end 'treeEndedCleanly'
 
 function main() returns ExitCode
 	let armed = Process.endDescendants()
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 	var endedCleanly = 0 as Count
 	var leaked = 0 as Count
 	var lap = 0 as Count
@@ -1016,7 +1016,7 @@ end 'treeEndedCleanly'
 
 function main() returns ExitCode
 	let armed = Process.endDescendants()
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 	var endedCleanly = 0 as Count
 	var leaked = 0 as Count
 	var lap = 0 as Count
@@ -1070,7 +1070,7 @@ end 'argumentsFor'
 
 function main() returns ExitCode
 	let exePath = try Process.executablePath() otherwise return 2
-	let me = Executable.path(exePath)
+	let me = MxExecutable.path(exePath)
 	let mode = try CommandLine.args().get(1) otherwise ""
 	if mode == "sleeper" 'sleeper'
 		sleep(SleeperLifeMs)
@@ -1084,7 +1084,7 @@ function main() returns ExitCode
 		return 0
 	end 'member'
 	let armed = Process.endDescendants()
-	let sh = Executable.path(try FilePath.from("/bin/sh") otherwise return 4)
+	let sh = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 4)
 	let argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push("\"$0\" member & exit 0")
@@ -1241,7 +1241,7 @@ it, and the operating system's error code for the part of the tree that could no
 timeout the kill completed, so `timedOut()` is false for it.
 ```maxon
 function main() returns ExitCode
-	let e = SubprocessError.treeNotEnded(300, stdout: "", stderr: "", osError: 13)
+	let e = MxSubprocessError.treeNotEnded(300, stdout: "", stderr: "", osError: 13)
 	print("{e.displayReason()}\n")
 	print("timedOut {e.timedOut()}\n")
 	print("name {e.name}\n")
@@ -1276,7 +1276,7 @@ allow breakaway refuses that, and `runDetached()` throws `detachRefused(osError)
 system's error code.
 ```maxon
 function main() returns ExitCode
-	let e = SubprocessError.detachRefused(5)
+	let e = MxSubprocessError.detachRefused(5)
 	print("{e.displayReason()}\n")
 	print("timedOut {e.timedOut()}\n")
 	print("name {e.name}\n")
@@ -2107,18 +2107,18 @@ end 'describePoll'
 function main() returns ExitCode
 	#if os(Windows)
 		let exe = MxExecutable.name("cmd")
-		let argv = StringArray.create(0)
+		var argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("exit 42")
 		let expected = "exited 42"
 	#else
 		let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
-		let argv = StringArray.create(0)
+		var argv = StringArray.create(0)
 		argv.push("-c")
 		argv.push("kill -9 $$")
 		let expected = "signalled 9"
 	#endif
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	_ = try child.wait() otherwise return 4
 	let seen = describePoll(child.pollTermination())
 	child.release()
@@ -2549,14 +2549,14 @@ end 'describe'
 
 function textOf(read LineOrEnd) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives "<ended>"
 	end 'read'
 end 'textOf'
 
 function runChild()
 	// Payload for the count reader: "ab\0cd", no terminator.
-	let payload = ByteArray.create(0)
+	var payload = ByteArray.create(0)
 	payload.push(97)
 	payload.push(98)
 	payload.push(0)
@@ -2564,7 +2564,7 @@ function runChild()
 	payload.push(100)
 	print(String.from(payload))
 	// Then a line for the line reader: "ef\0g\n".
-	let line = ByteArray.create(0)
+	var line = ByteArray.create(0)
 	line.push(101)
 	line.push(102)
 	line.push(0)
@@ -2572,7 +2572,7 @@ function runChild()
 	line.push(10)
 	print(String.from(line))
 	// And one on the other stream: "w\0xy\n".
-	let errLine = ByteArray.create(0)
+	var errLine = ByteArray.create(0)
 	errLine.push(119)
 	errLine.push(0)
 	errLine.push(120)
@@ -2586,13 +2586,13 @@ function main() returns ExitCode
 		runChild()
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
+	var argv = StringArray.create(0)
 	argv.push("emit")
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
-	let out = try child.takeStdout() otherwise return 4
-	let err = try child.takeStderr() otherwise return 4
+	var out = try child.takeStdout() otherwise return 4
+	var err = try child.takeStderr() otherwise return 4
 	let counted = String.from(try out.readBytes(5) otherwise return 4)
 	let lined = textOf(try out.readLine() otherwise return 5)
 	let errored = textOf(try err.readLine() otherwise return 6)
@@ -2972,22 +2972,22 @@ spawn's stdin pipe takes one of those names, and Windows refuses a second instan
 `ERROR_PIPE_BUSY`, 231.
 ```maxon
 function main() returns ExitCode
-	let holderArgv = StringArray.create(0)
+	var holderArgv = StringArray.create(0)
 	holderArgv.push("-NoProfile")
 	holderArgv.push("-Command")
 	holderArgv.push("$parent = (Get-CimInstance Win32_Process -Filter ('ProcessId=' + $PID)).ParentProcessId; $held = @(); foreach ($letters in 87) \{ foreach ($seq in 0..63) \{ $v = ([int64]$parent -shl 32) -bor $seq; $name = 'mx' + (-join (15..0 | ForEach-Object \{ $n = ($v -shr (4 * $_)) -band 15; [char]($n + $(if ($n -lt 10) \{ 48 \} else \{ $letters \})) \})); try \{ $held += New-Object System.IO.Pipes.NamedPipeServerStream($name, 'InOut', 1) \} catch \{ \} \} \}; [Console]::Out.WriteLine('ready'); [Console]::Out.Flush(); [void][Console]::In.ReadLine()")
-	let holder = try StreamingSubprocess.spawn(MxExecutable.name("powershell"), arguments: holderArgv) otherwise return 2
-	let reader = try holder.takeStdout() otherwise return 3
+	var holder = try StreamingSubprocess.spawn(MxExecutable.name("powershell"), arguments: holderArgv) otherwise return 2
+	var reader = try holder.takeStdout() otherwise return 3
 	let read = try reader.readLine() otherwise return 3
 	let announced = match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives "ended"
 	end 'read'
 	print("holder ready: {announced.startsWith("ready")}\n")
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("exit")
-	let fed = Configuration.create(MxExecutable.name("cmd"))
+	var fed = Configuration.create(MxExecutable.name("cmd"))
 	fed.arguments = argv
 	fed.standardInput = InputSource.bytes("x")
 	if let result = try fed.run() 'ran'
@@ -3255,12 +3255,12 @@ pings=30 collects=30 answered=30 slow=0 running=0
 ```maxon
 function textOf(read LineOrEnd) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives "<ended>"
 	end 'read'
 end 'textOf'
 
-function secondTakeIsRefused(child StreamingSubprocess) returns bool
+function secondTakeIsRefused(mutates child StreamingSubprocess) returns bool
 	_ = try child.takeStdout() otherwise (e) 'refused'
 		return match e 'why'
 			ioFailed gives true
@@ -3279,17 +3279,17 @@ end 'secondTakeIsRefused'
 
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
-		let argv = StringArray.create(0)
+		let exe = MxExecutable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+		var argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("findstr")
 		argv.push("x*")
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/cat") otherwise return 2)
 		let argv = StringArray.create(0)
 	#endif
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
-	let reader = try child.takeStdout() otherwise return 4
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var reader = try child.takeStdout() otherwise return 4
 	try child.writeStdinLine("alpha") otherwise return 5
 	try child.writeStdinLine("beta") otherwise return 5
 	child.closeStdin()
@@ -3313,6 +3313,7 @@ alpha beta
 ```
 
 <!-- test: subprocess-a-reader-moved-into-a-coroutine-drains-to-the-end-before-the-child-is-released -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 <!-- unsupported-targets: wasm32-wasi -->
 A coroutine drains a taken reader, moved into it through an `isolated` parameter, to the end of the stream; the child is waited for and released once the drain has been awaited, on the error path and the plain path alike. The lines are written and the child's stdin closed before the coroutine starts, so every read the coroutine makes has its answer on the way.
 ```maxon
@@ -3331,13 +3332,13 @@ end 'drainOf'
 
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
 		let argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("findstr")
 		argv.push("x*")
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/cat") otherwise return 2)
 		let argv = StringArray.create(0)
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
@@ -3365,6 +3366,7 @@ end 'main'
 ```
 
 <!-- test: subprocess-a-taken-reader-handed-to-a-coroutine-leaves-its-promise-storable -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 <!-- unsupported-targets: wasm32-wasi -->
 A taken reader moved into a coroutine through an `isolated` parameter leaves the caller nothing the coroutine holds, so the promise of the coroutine that drains it may be stored and awaited later.
 ```maxon
@@ -3387,13 +3389,13 @@ end 'drainOf'
 
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
 		let argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("findstr")
 		argv.push("x*")
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/cat") otherwise return 2)
 		let argv = StringArray.create(0)
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
@@ -3431,12 +3433,12 @@ function main() returns ExitCode
 		print("abcdefghij")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
+	var argv = StringArray.create(0)
 	argv.push("emit")
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
-	let reader = try child.takeStdout() otherwise return 4
+	var reader = try child.takeStdout() otherwise return 4
 	let first = String.from(try reader.readBytes(4) otherwise return 5)
 	let second = String.from(try reader.readBytes(4) otherwise return 6)
 	let third = String.from(try reader.readBytes(2) otherwise return 7)
@@ -3462,12 +3464,12 @@ function main() returns ExitCode
 		print("abcdef")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
+	var argv = StringArray.create(0)
 	argv.push("emit")
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
-	let reader = try child.takeStdout() otherwise return 4
+	var reader = try child.takeStdout() otherwise return 4
 	let whole = String.from(try reader.readBytes(4) otherwise return 5)
 	let remainder = String.from(try reader.readBytes(4) otherwise return 6)
 	let atEnd = try reader.readBytes(4) otherwise return 7
@@ -3491,7 +3493,7 @@ whole=abcd remainder=ef atEnd=0 none=0
 ```maxon
 function textOf(read LineOrEnd) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives "<ended>"
 	end 'read'
 end 'textOf'
@@ -3502,12 +3504,12 @@ function main() returns ExitCode
 		print("\nlast\n")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
+	var argv = StringArray.create(0)
 	argv.push("emit")
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
-	let reader = try child.takeStdout() otherwise return 4
+	var reader = try child.takeStdout() otherwise return 4
 	let header = textOf(try reader.readLine() otherwise return 5)
 	let body = String.from(try reader.readBytes(4) otherwise return 6)
 	let rest = textOf(try reader.readLine() otherwise return 7)
@@ -3530,7 +3532,7 @@ Length: 4|WXYZ|0|last|0
 <!-- unsupported-targets: wasm32-wasi -->
 A reader kept past `release` names a child that no longer exists, so once its buffered bytes are spent `readBytes` throws `StreamError.closed` rather than reading a closed handle. The first read takes every byte the child wrote without meeting the end of the stream, so the read after the release has nothing buffered and must ask the stream.
 ```maxon
-function readAfterRelease(reader ChildOutputReader) returns String
+function readAfterRelease(mutates reader ChildOutputReader) returns String
 	let bytes = try reader.readBytes(4) otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -3542,12 +3544,12 @@ function main() returns ExitCode
 		print("abcdefghij")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
+	var argv = StringArray.create(0)
 	argv.push("emit")
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
-	let reader = try child.takeStdout() otherwise return 4
+	var reader = try child.takeStdout() otherwise return 4
 	let first = String.from(try reader.readBytes(10) otherwise return 5)
 	_ = try child.wait() otherwise panic("the child ends once its input is closed")
 	child.release()
@@ -3568,12 +3570,12 @@ abcdefghij closed
 ```maxon
 function textOf(read LineOrEnd) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives "<ended>"
 	end 'read'
 end 'textOf'
 
-function takeRefusal(child StreamingSubprocess) returns String
+function takeRefusal(mutates child StreamingSubprocess) returns String
 	_ = try child.takeStderr() otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -3585,12 +3587,12 @@ function main() returns ExitCode
 		printError("alpha\nbeta\n")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
+	var argv = StringArray.create(0)
 	argv.push("emit")
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
-	let reader = try child.takeStderr() otherwise return 4
+	var reader = try child.takeStderr() otherwise return 4
 	let first = textOf(try reader.readLine() otherwise return 5)
 	let again = takeRefusal(child)
 	let second = textOf(try reader.readLine() otherwise return 10)
@@ -3615,7 +3617,7 @@ A stderr reader's `readLine` answers each line the child wrote to stderr without
 ```maxon
 function shown(read LineOrEnd) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives "ended"
 	end 'read'
 end 'shown'
@@ -3625,12 +3627,12 @@ function main() returns ExitCode
 		printError("one\n\nthree\r\n")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
+	var argv = StringArray.create(0)
 	argv.push("emit")
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
-	let reader = try child.takeStderr() otherwise return 4
+	var reader = try child.takeStderr() otherwise return 4
 	let one = shown(try reader.readLine() otherwise return 5)
 	let blank = shown(try reader.readLine() otherwise return 6)
 	let three = shown(try reader.readLine() otherwise return 7)
@@ -3654,12 +3656,12 @@ A stderr reader kept past `release` names a child that no longer exists, so once
 ```maxon
 function textOf(read LineOrEnd) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives "<ended>"
 	end 'read'
 end 'textOf'
 
-function readAfterRelease(reader ChildOutputReader) returns String
+function readAfterRelease(mutates reader ChildOutputReader) returns String
 	let read = try reader.readLine() otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -3671,12 +3673,12 @@ function main() returns ExitCode
 		printError("alpha\n")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
+	var argv = StringArray.create(0)
 	argv.push("emit")
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
-	let reader = try child.takeStderr() otherwise return 4
+	var reader = try child.takeStderr() otherwise return 4
 	let first = textOf(try reader.readLine() otherwise return 5)
 	_ = try child.wait() otherwise panic("the child ends once its input is closed")
 	child.release()
@@ -3697,19 +3699,19 @@ Both readers can be out at once, each reading its own stream: a second take of e
 ```maxon
 function textOf(read LineOrEnd) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives "<ended>"
 	end 'read'
 end 'textOf'
 
-function stdoutTakeRefusal(child StreamingSubprocess) returns String
+function stdoutTakeRefusal(mutates child StreamingSubprocess) returns String
 	_ = try child.takeStdout() otherwise (e) 'refused'
 		return e.name
 	end 'refused'
 	return "took a second stdout reader"
 end 'stdoutTakeRefusal'
 
-function stderrTakeRefusal(child StreamingSubprocess) returns String
+function stderrTakeRefusal(mutates child StreamingSubprocess) returns String
 	_ = try child.takeStderr() otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -3722,13 +3724,13 @@ function main() returns ExitCode
 		printError("err-1\nerr-2\n")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
+	var argv = StringArray.create(0)
 	argv.push("emit")
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
-	let outReader = try child.takeStdout() otherwise return 4
-	let errReader = try child.takeStderr() otherwise return 5
+	var outReader = try child.takeStdout() otherwise return 4
+	var errReader = try child.takeStderr() otherwise return 5
 	let out1 = textOf(try outReader.readLine() otherwise return 6)
 	let err1 = textOf(try errReader.readLine() otherwise return 7)
 	let bothOut = "{stdoutTakeRefusal(child)} / {stderrTakeRefusal(child)}"
@@ -3751,6 +3753,7 @@ out-2
 ```
 
 <!-- test: subprocess-a-stderr-reader-moved-into-a-coroutine-drains-to-the-end-before-the-child-is-released -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 <!-- unsupported-targets: wasm32-wasi -->
 A coroutine drains a taken stderr reader, moved into it through an `isolated` parameter, to the end of the stream; the child is waited for and released once the drain has been awaited, on the error path and the plain path alike.
 ```maxon
@@ -3772,7 +3775,7 @@ function main() returns ExitCode
 		printError("one\ntwo\n")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("emit")
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
@@ -3798,6 +3801,7 @@ end 'main'
 ```
 
 <!-- test: subprocess-a-taken-stderr-reader-handed-to-a-coroutine-leaves-its-promise-storable -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 <!-- unsupported-targets: wasm32-wasi -->
 A taken stderr reader moved into a coroutine through an `isolated` parameter leaves the caller nothing the coroutine holds, so the promise of the coroutine that drains it may be stored and awaited later.
 ```maxon
@@ -3823,7 +3827,7 @@ function main() returns ExitCode
 		printError("one\ntwo\n")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("emit")
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
@@ -3851,6 +3855,7 @@ end 'main'
 ```
 
 <!-- test: a-reader-moved-into-a-coroutine-comes-back-with-its-line-and-its-promise-is-storable -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 <!-- unsupported-targets: wasm32-wasi -->
 A taken reader moves into its read coroutine through an `isolated` parameter and comes back in an `isolated` field of the coroutine's `returns isolated` result with the line it read, so the promise is untied and storable, and the reader handed back reads the next line where the coroutine left off.
 ```maxon
@@ -3884,7 +3889,7 @@ function main() returns ExitCode
 		print("alpha\nbeta\n")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("emit")
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
@@ -3968,13 +3973,13 @@ running is not known to be gone, and neither would be one whose exit status went
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
+		let exe = MxExecutable.name("cmd")
 		let argv = StringArray from ["/c", "set /p line="]
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 		let argv = StringArray from ["-c", "read line"]
 	#endif
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	print("while it reads: gone {child.pollExit().childIsKnownGone()}\n")
 	child.closeStdin()
 	_ = try child.wait() otherwise return 4
@@ -3998,13 +4003,13 @@ whatever descriptor the closed end used to be.
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
+		let exe = MxExecutable.name("cmd")
 		let argv = StringArray from ["/c", "exit 0"]
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 		let argv = StringArray from ["-c", "exit 0"]
 	#endif
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
 	try child.writeStdinLine("late") otherwise (e) 'refused'
 		print("refused {e.name}\n")
@@ -4204,13 +4209,13 @@ parent is not ended by SIGPIPE, and the child's exit status is still there to be
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
+		let exe = MxExecutable.name("cmd")
 		let argv = StringArray from ["/c", "exit 7"]
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 		let argv = StringArray from ["-c", "exit 7"]
 	#endif
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let code = try child.wait() otherwise return 4
 	try child.writeStdin("late\n") otherwise (e) 'refused'
 		print("refused {e.name}\n")
@@ -4245,10 +4250,10 @@ end 'block'
 
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
+		let exe = MxExecutable.name("cmd")
 		let argv = StringArray from ["/c", "exit 7"]
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 		let argv = StringArray from ["-c", "exit 7"]
 	#endif
 	let chunk = block()
@@ -4256,7 +4261,7 @@ function main() returns ExitCode
 	for _ in 0 upto payloadBlocks 'fill'
 		payload = "{payload}{chunk}"
 	end 'fill'
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let code = try child.wait() otherwise return 4
 	try child.writeStdin(payload) otherwise (e) 'refused'
 		print("refused {e.name}\n")
@@ -4288,13 +4293,13 @@ end 'refusalOf'
 
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
+		let exe = MxExecutable.name("cmd")
 		let argv = StringArray from ["/c", "exit 7"]
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 		let argv = StringArray from ["-c", "exit 7"]
 	#endif
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let code = try child.wait() otherwise return 4
 	let first = refusalOf(child, line: "one")
 	let second = refusalOf(child, line: "two")
@@ -4316,13 +4321,13 @@ A child may close its standard input and keep running. Once it has said so, the 
 refused as `ioFailed`; the child is still alive and ends on its own.
 ```maxon
 function main() returns ExitCode
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+	let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 	let argv = StringArray from ["-c", "exec 0<&-; echo closed; sleep 0.3; exit 6"]
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
-	let out = try child.takeStdout() otherwise return 4
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var out = try child.takeStdout() otherwise return 4
 	let read = try out.readLine() otherwise return 5
 	let announced = match read 'announced'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives "ended"
 	end 'announced'
 	try child.writeStdin("late\n") otherwise (e) 'refused'
@@ -4349,10 +4354,10 @@ exited, so the pipe has no reader: the push meets the broken pipe, the feed is s
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
+		let exe = MxExecutable.name("cmd")
 		let argv = StringArray from ["/c", "exit 7"]
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 		let argv = StringArray from ["-c", "exit 7"]
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
@@ -4379,10 +4384,10 @@ The same feed with a line larger than a pipe holds: the first push meets the bro
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.name("cmd")
+		let exe = MxExecutable.name("cmd")
 		let argv = StringArray from ["/c", "exit 7"]
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 2)
 		let argv = StringArray from ["-c", "exit 7"]
 	#endif
 	var builder = ""

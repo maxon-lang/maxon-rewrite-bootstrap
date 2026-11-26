@@ -104,7 +104,7 @@ function main() returns ExitCode
 	argv.push("-NoProfile")
 	argv.push("-Command")
 	argv.push("$PID")
-	let child = try StreamingSubprocess.spawn(Executable.name("powershell"), arguments: argv) otherwise return 2
+	let child = try StreamingSubprocess.spawn(MxExecutable.name("powershell"), arguments: argv) otherwise return 2
 	let output = try child.takeStdout() otherwise return 4
 	let read = try output.readLine() otherwise return 4
 	let printed = match read 'read'

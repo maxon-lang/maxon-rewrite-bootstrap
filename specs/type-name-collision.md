@@ -4010,9 +4010,9 @@ export enum ParseError implements Error
 end 'ParseError'
 
 // --- file: app/main.maxon
-function check(n ExitCode) returns ExitCode throws ParseError
+function check(n ExitCode) returns ExitCode throws lib.ParseError
 	if n > 5 'big'
-		throw ParseError.malformed
+		throw lib.ParseError.malformed
 	end 'big'
 	return n
 end 'check'

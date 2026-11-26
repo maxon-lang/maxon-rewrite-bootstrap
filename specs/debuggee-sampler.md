@@ -478,7 +478,7 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 1
 	let childArguments = StringArray.create(0)
 	childArguments.push("child")
-	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: childArguments) otherwise return 2
+	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: childArguments) otherwise return 2
 	let readiness = try child.takeStdout() otherwise return 7
 	_ = try readiness.readLine() otherwise return 7
 	let pid = try child.processId() otherwise return 3
@@ -493,7 +493,7 @@ function main() returns ExitCode
 		captured(stack) then print("captured {stack.programCounter != 0} {stack.window.byteCount() > 0}\n")
 	end 'result'
 	sampled.close()
-	_ = try child.wait(WaitDeadline.within(1)) otherwise 0
+	_ = try child.wait(MxWaitDeadline.within(1)) otherwise 0
 	child.release()
 	return 0
 end 'main'
@@ -533,7 +533,7 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 1
 	let childArguments = StringArray.create(0)
 	childArguments.push("child")
-	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: childArguments) otherwise return 2
+	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: childArguments) otherwise return 2
 	let pid = try child.processId() otherwise return 3
 	let sampled = try SampledProcess.open(pid) otherwise return 4
 	let modules = try sampled.modules() otherwise return 5
@@ -581,7 +581,7 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 1
 	let childArguments = StringArray.create(0)
 	childArguments.push("child")
-	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: childArguments) otherwise return 2
+	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: childArguments) otherwise return 2
 	let readiness = try child.takeStdout() otherwise return 7
 	_ = try readiness.readLine() otherwise return 7
 	let pid = try child.processId() otherwise return 3
@@ -592,7 +592,7 @@ function main() returns ExitCode
 		unreadable then status = 6
 		captured(stack) then status = readAfterTheDrop(stack.window)
 	end 'result'
-	_ = try child.wait(WaitDeadline.within(1)) otherwise 0
+	_ = try child.wait(MxWaitDeadline.within(1)) otherwise 0
 	child.release()
 	return status
 end 'main'
@@ -753,14 +753,14 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 1
 	let childArguments = StringArray.create(0)
 	childArguments.push("child")
-	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: childArguments) otherwise return 2
+	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: childArguments) otherwise return 2
 	let readiness = try child.takeStdout() otherwise return 7
 	_ = try readiness.readLine() otherwise return 7
 	let pid = try child.processId() otherwise return 3
 	let status = seizeAndDrop(pid)
 	print("traced after the drop {isTraced(pid)}\n")
 	print("pin depth after the drop {Scheduler.pinDepth()}\n")
-	_ = try child.wait(WaitDeadline.within(1)) otherwise 0
+	_ = try child.wait(MxWaitDeadline.within(1)) otherwise 0
 	child.release()
 	return status
 end 'main'
@@ -1128,13 +1128,13 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 1
 	let childArguments = StringArray.create(0)
 	childArguments.push("child")
-	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: childArguments) otherwise return 2
+	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: childArguments) otherwise return 2
 	let readiness = try child.takeStdout() otherwise return 7
 	_ = try readiness.readLine() otherwise return 7
 	let pid = try child.processId() otherwise return 3
 	let status = openAndDrop(pid)
 	print("caller pin depth {Scheduler.pinDepth()}\n")
-	_ = try child.wait(WaitDeadline.within(1)) otherwise 0
+	_ = try child.wait(MxWaitDeadline.within(1)) otherwise 0
 	child.release()
 	return status
 end 'main'
@@ -1170,12 +1170,12 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 1
 	let childArguments = StringArray.create(0)
 	childArguments.push("child")
-	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: childArguments) otherwise return 2
+	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: childArguments) otherwise return 2
 	let readiness = try child.takeStdout() otherwise return 7
 	_ = try readiness.readLine() otherwise return 7
 	let pid = try child.processId() otherwise return 3
 	let status = releaseAndDrop(pid)
-	_ = try child.wait(WaitDeadline.within(1)) otherwise 0
+	_ = try child.wait(MxWaitDeadline.within(1)) otherwise 0
 	child.release()
 	return status
 end 'main'
@@ -1213,12 +1213,12 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 1
 	let childArguments = StringArray.create(0)
 	childArguments.push("child")
-	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: childArguments) otherwise return 2
+	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: childArguments) otherwise return 2
 	let readiness = try child.takeStdout() otherwise return 7
 	_ = try readiness.readLine() otherwise return 7
 	let pid = try child.processId() otherwise return 3
 	let status = closeAndDrop(pid)
-	_ = try child.wait(WaitDeadline.within(1)) otherwise 0
+	_ = try child.wait(MxWaitDeadline.within(1)) otherwise 0
 	child.release()
 	return status
 end 'main'

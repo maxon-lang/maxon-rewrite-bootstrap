@@ -1930,7 +1930,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function stamped(n Count) returns ByteArray
-	let raw = (try __ManagedMemory.create(n, 1) otherwise panic("stamped: create")) as __ManagedMemory
+	let raw = (try __ManagedMemory.create(n, 1) otherwise panic("stamped: create"))
 	try raw.setLength(n) otherwise panic("stamped: setLength")
 	try raw.setByte(0, value: 5) otherwise panic("stamped: setByte")
 	return ByteArray.init(raw)
@@ -2200,7 +2200,7 @@ type Shelf
 end 'Shelf'
 
 function main() returns ExitCode
-	let raw = (try __ManagedMemory.create(4, 1) otherwise panic("main: create")) as __ManagedMemory
+	let raw = (try __ManagedMemory.create(4, 1) otherwise panic("main: create"))
 	try raw.setLength(4) otherwise panic("main: setLength")
 	try raw.setByte(0, value: 5) otherwise panic("main: setByte")
 	let shelf = Shelf.holding(ByteArray.init(raw))

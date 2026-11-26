@@ -67,7 +67,7 @@ function describePoll(poll ExitPoll) returns String
 end 'describePoll'
 
 function gatedChildArguments() returns StringArray
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("set")
 	argv.push("/p")
@@ -79,7 +79,7 @@ function gatedChildArguments() returns StringArray
 end 'gatedChildArguments'
 
 function main() returns ExitCode
-	let child = try StreamingSubprocess.spawn(Executable.name("cmd"), arguments: gatedChildArguments()) otherwise return 3
+	var child = try StreamingSubprocess.spawn(MxExecutable.name("cmd"), arguments: gatedChildArguments()) otherwise return 3
 	let before = describePoll(child.pollExit())
 	try child.writeStdinLine("go") otherwise return 5
 	let code = try child.wait() otherwise return 4
@@ -116,7 +116,7 @@ typealias PollTally = int(0 to 1000)
 typealias SeenCode = int(-1 to i64.max)
 
 function gatedChildArguments() returns StringArray
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("set")
 	argv.push("/p")
@@ -128,13 +128,13 @@ function gatedChildArguments() returns StringArray
 end 'gatedChildArguments'
 
 function main() returns ExitCode
-	let child = try StreamingSubprocess.spawn(Executable.name("cmd"), arguments: gatedChildArguments()) otherwise return 3
+	var child = try StreamingSubprocess.spawn(MxExecutable.name("cmd"), arguments: gatedChildArguments()) otherwise return 3
 	var runningSeen = 0 as PollTally
 	var exitedSeen = -1 as SeenCode
 	var polls = 0 as PollTally
 	while polls < 5 'poll'
 		match child.pollExit() 'answer'
-			running then runningSeen = runningSeen + 1
+			running then runningSeen = try runningSeen + 1 otherwise panic("out of range")
 			reapedElsewhere then return 6
 			exited(code) then exitedSeen = code as SeenCode
 		end 'answer'
@@ -220,7 +220,7 @@ function gatedChildArguments() returns StringArray
 end 'gatedChildArguments'
 
 function main() returns ExitCode
-	let child = try StreamingSubprocess.spawn(Executable.name("cmd"), arguments: gatedChildArguments()) otherwise return 3
+	let child = try StreamingSubprocess.spawn(MxExecutable.name("cmd"), arguments: gatedChildArguments()) otherwise return 3
 	let reader = try child.takeStdout() otherwise return 4
 	let service = spawn LineService.create(reader)
 	let arrivals = Arrivals.create(0)
@@ -315,7 +315,7 @@ function partialThenRestArguments() returns StringArray
 end 'partialThenRestArguments'
 
 function main() returns ExitCode
-	let child = try StreamingSubprocess.spawn(Executable.name("cmd"), arguments: partialThenRestArguments()) otherwise return 3
+	let child = try StreamingSubprocess.spawn(MxExecutable.name("cmd"), arguments: partialThenRestArguments()) otherwise return 3
 	let announcements = try child.takeStderr() otherwise return 4
 	_ = try announcements.readLine() otherwise return 5
 	let reader = try child.takeStdout() otherwise return 6
@@ -349,13 +349,13 @@ code packs both lengths (`7*10 + 7`), so a stream that answered nothing shows up
 ```maxon
 function shown(read LineOrEnd) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives "ended"
 	end 'read'
 end 'shown'
 
 function bothStreamsArguments() returns StringArray
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("echo")
 	argv.push("errline>&2&")
@@ -365,16 +365,16 @@ function bothStreamsArguments() returns StringArray
 end 'bothStreamsArguments'
 
 function main() returns ExitCode
-	let child = try StreamingSubprocess.spawn(Executable.name("cmd"), arguments: bothStreamsArguments()) otherwise return 3
-	let out = try child.takeStdout() otherwise return 4
-	let err = try child.takeStderr() otherwise return 5
+	var child = try StreamingSubprocess.spawn(MxExecutable.name("cmd"), arguments: bothStreamsArguments()) otherwise return 3
+	var out = try child.takeStdout() otherwise return 4
+	var err = try child.takeStderr() otherwise return 5
 	let outLine = shown(try out.readLine() otherwise return 6)
 	let errLine = shown(try err.readLine() otherwise return 7)
 	let extra = shown(try out.readLine() otherwise return 8)
 	let code = try child.wait() otherwise return 9
 	child.release()
 	print("out={outLine} err={errLine} extra={extra} code={code}\n")
-	return (outLine.byteLength() * 10 + errLine.byteLength()) as ExitCode
+	return try (outLine.byteLength() * 10 + errLine.byteLength()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout
@@ -404,12 +404,12 @@ end 'describeExit'
 
 function shown(read LineOrEnd) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives "ended"
 	end 'read'
 end 'shown'
 
-function afterRelease(reader ChildOutputReader) returns String
+function afterRelease(mutates reader ChildOutputReader) returns String
 	let read = try reader.readLine() otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -417,7 +417,7 @@ function afterRelease(reader ChildOutputReader) returns String
 end 'afterRelease'
 
 function echoChildArguments() returns StringArray
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("echo")
 	argv.push("hello")
@@ -425,9 +425,9 @@ function echoChildArguments() returns StringArray
 end 'echoChildArguments'
 
 function main() returns ExitCode
-	let child = try StreamingSubprocess.spawn(Executable.name("cmd"), arguments: echoChildArguments()) otherwise return 3
-	let out = try child.takeStdout() otherwise return 4
-	let err = try child.takeStderr() otherwise return 5
+	var child = try StreamingSubprocess.spawn(MxExecutable.name("cmd"), arguments: echoChildArguments()) otherwise return 3
+	var out = try child.takeStdout() otherwise return 4
+	var err = try child.takeStderr() otherwise return 5
 	let line = shown(try out.readLine() otherwise return 6)
 	let code = try child.wait() otherwise return 7
 	child.release()
@@ -435,7 +435,7 @@ function main() returns ExitCode
 	let afterOut = afterRelease(out)
 	let afterErr = afterRelease(err)
 	print("line={line} code={code} afterPoll={afterPoll} afterOut={afterOut} afterErr={afterErr}\n")
-	return line.byteLength() as ExitCode
+	return try line.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout
@@ -467,7 +467,7 @@ function shown(read LineOrEnd) returns String
 end 'shown'
 
 function blankBetweenArguments() returns StringArray
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("echo")
 	argv.push("first&")
@@ -478,8 +478,8 @@ function blankBetweenArguments() returns StringArray
 end 'blankBetweenArguments'
 
 function main() returns ExitCode
-	let child = try StreamingSubprocess.spawn(Executable.name("cmd"), arguments: blankBetweenArguments()) otherwise return 3
-	let reader = try child.takeStdout() otherwise return 4
+	var child = try StreamingSubprocess.spawn(MxExecutable.name("cmd"), arguments: blankBetweenArguments()) otherwise return 3
+	var reader = try child.takeStdout() otherwise return 4
 	let first = shown(try reader.readLine() otherwise return 5)
 	let blank = shown(try reader.readLine() otherwise return 6)
 	let last = shown(try reader.readLine() otherwise return 7)
@@ -487,7 +487,7 @@ function main() returns ExitCode
 	let code = try child.wait() otherwise return 9
 	child.release()
 	print("{first} {blank} {last} {atEnd} code={code}\n")
-	return (first.byteLength() + blank.byteLength() + last.byteLength()) as ExitCode
+	return try (first.byteLength() + blank.byteLength() + last.byteLength()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout
@@ -539,7 +539,7 @@ function drained(reader ChildOutputReader, marker String) returns String
 end 'drained'
 
 function main() returns ExitCode
-	let child = try StreamingSubprocess.spawn(Executable.name("cmd"), arguments: linesArguments()) otherwise return 3
+	let child = try StreamingSubprocess.spawn(MxExecutable.name("cmd"), arguments: linesArguments()) otherwise return 3
 	let openAtStart = not child.streamHasEnded(StdioStream.stdout) and not child.streamHasEnded(StdioStream.stderr)
 	let out = try child.takeStdout() otherwise return 4
 	let err = try child.takeStderr() otherwise return 5
@@ -590,7 +590,7 @@ function drained(reader ChildOutputReader, marker String) returns String
 end 'drained'
 
 function main() returns ExitCode
-	let child = try StreamingSubprocess.spawn(Executable.name("sh"), arguments: linesArguments()) otherwise return 3
+	let child = try StreamingSubprocess.spawn(MxExecutable.name("sh"), arguments: linesArguments()) otherwise return 3
 	let openAtStart = not child.streamHasEnded(StdioStream.stdout) and not child.streamHasEnded(StdioStream.stderr)
 	let out = try child.takeStdout() otherwise return 4
 	let err = try child.takeStderr() otherwise return 5

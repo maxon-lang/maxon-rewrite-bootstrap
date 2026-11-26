@@ -429,7 +429,7 @@ end 'main'
 function verdictOverARunningCopy(copy FilePath) returns ExitCode
 	let argv = StringArray.create(0)
 	argv.push("hold")
-	let running = try StreamingSubprocess.spawn(Executable.path(copy), arguments: argv) otherwise return 4
+	let running = try StreamingSubprocess.spawn(MxExecutable.path(copy), arguments: argv) otherwise return 4
 	let verdict = verdictWhileItRuns(running, copy: copy)
 	running.closeStdin()
 	let ended = endedCleanly(running)
