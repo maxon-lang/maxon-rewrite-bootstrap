@@ -448,6 +448,48 @@ let nanosPerFileTimeStep = 100 as Count
 		return noString()
 	end 'osEnvironmentVariable'
 
+	// osEnvironmentBytes writes the first bytes of the value of a variable to room, as UTF-8, at most capacity of them, and
+	// gives how many: 0 for a variable that is not set and for an empty one. Unlike osEnvironmentVariable it allocates nothing
+	// from the program's heap: its working memory is the runtime's own.
+	function osEnvironmentBytes(name String, room Count, capacity Count) returns Count
+		let nameLength = __Raw.stringLength(name)
+		if nameLength >= textUnitLimit 'outside'
+			panic("environment variable name too long to read")
+		end 'outside'
+		let nameBytes = (nameLength + 1) * wideUnitBytes
+		let wideName = keep(nameBytes)
+		_ = utf16FromUtf8(__Raw.stringBytes(name), byteLength: nameLength, dst: wideName)
+		var length = 0 as Count
+		var needed = dword(__Raw.callImport3("GetEnvironmentVariableW", arg1: wideName, arg2: noBytes, arg3: 0))
+		var reads = 0 as Count
+		while needed != 0 and reads < maxEnvironmentReads 'read'
+			if needed >= textUnitLimit 'outside'
+				panic("environment variable too long to read")
+			end 'outside'
+			let valueBytes = needed * wideUnitBytes
+			let blockBytes = valueBytes + needed * maxUtf8BytesPerUnit
+			let block = keep(blockBytes)
+			let units = dword(__Raw.callImport3("GetEnvironmentVariableW", arg1: wideName, arg2: block, arg3: needed))
+			if units < needed 'fits'
+				let staging = __Raw.wrappingAdd(block, right: valueBytes)
+				length = utf8FromUtf16(block, units: units, dst: staging)
+				if length > capacity 'long'
+					length = capacity
+				end 'long'
+				if length != 0 'some'
+					copyBytes(staging, target: room, count: length)
+				end 'some'
+				needed = 0
+			end 'fits' else 'grown'
+				needed = units
+				reads = reads + 1
+			end 'grown'
+			unkeep(block, bytes: blockBytes)
+		end 'read'
+		unkeep(wideName, bytes: nameBytes)
+		return length
+	end 'osEnvironmentBytes'
+
 	// osExecutablePath is the full path of the running executable, which Windows may not be able to give.
 	function osExecutablePath(errorAddress Count) returns String
 		let buffer = alloc(longPathUnits * wideUnitBytes)

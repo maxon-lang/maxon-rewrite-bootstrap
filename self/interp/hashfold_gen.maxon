@@ -51,6 +51,10 @@ let hashSecretDigits = 16 as Count
 
 let hashDigitsPerByte = 2 as Count
 
+let hashDigitsPerWord = 8 as Count
+
+let hashDigitPlaceMask = 7 as HashWord
+
 let hashDigitBits = 4 as HashWord
 
 let hashDigitZero = 0x30 as Byte
@@ -171,28 +175,62 @@ function hashIsSecretText(text String) returns bool
 	if text.byteLength() != hashSecretDigits 'length'
 		return false
 	end 'length'
-	for i in 0 upto hashSecretDigits 'digits'
-		if not hashIsDigit(text.byteAt(i)) 'digit'
-			return false
-		end 'digit'
-	end 'digits'
-	return true
+	return hashIsSecretWords(hashDigitWordOfText(text, first: 0), high: hashDigitWordOfText(text, first: hashDigitsPerWord))
 end 'hashIsSecretText'
 
 // hashSecretOfText is the secret that a text hashIsSecretText holds of pins: its digits in pairs, a byte each, the first
 // pair the least significant byte.
 function hashSecretOfText(text String) returns HashWord
+	return hashSecretOfWords(hashDigitWordOfText(text, first: 0), high: hashDigitWordOfText(text, first: hashDigitsPerWord))
+end 'hashSecretOfText'
+
+// hashDigitWordOfText is the word that holds the hashDigitsPerWord bytes of a text from an index, the first in the low byte:
+// a pin as two words, which is how the runtime has it where it read it from the environment without making a String.
+function hashDigitWordOfText(text String, first Count) returns HashWord
+	var word = 0 as HashWord
+	var shift = 0 as HashWord
+	for i in 0 upto hashDigitsPerWord 'bytes'
+		let at = try first + i otherwise panic("a pinned secret past its digits")
+		word = word or ((text.byteAt(at) as HashWord) shl shift)
+		shift = shift + hashBitsPerByte
+	end 'bytes'
+	return word
+end 'hashDigitWordOfText'
+
+// hashDigitOfWords is the digit at an index of the 16 that two words hold, 8 to a word, the first in the low byte.
+function hashDigitOfWords(low HashWord, high HashWord, index Count) returns Byte
+	var word = low
+	if index >= hashDigitsPerWord 'second'
+		word = high
+	end 'second'
+	let shift = ((index as HashWord) and hashDigitPlaceMask) * hashBitsPerByte
+	return ((word shr shift) and hashByteMask) as Byte
+end 'hashDigitOfWords'
+
+// hashIsSecretWords is whether two words hold 16 hexadecimal digits, of either case.
+function hashIsSecretWords(low HashWord, high HashWord) returns bool
+	for i in 0 upto hashSecretDigits 'digits'
+		if not hashIsDigit(hashDigitOfWords(low, high: high, index: i)) 'digit'
+			return false
+		end 'digit'
+	end 'digits'
+	return true
+end 'hashIsSecretWords'
+
+// hashSecretOfWords is the secret that two words hashIsSecretWords holds of hold: their digits in pairs, a byte each, the
+// first pair the least significant byte.
+function hashSecretOfWords(low HashWord, high HashWord) returns HashWord
 	var secret = 0 as HashWord
 	var shift = 0 as HashWord
 	for pair in 0 upto hashSecretDigits / hashDigitsPerByte 'bytes'
 		let at = pair * hashDigitsPerByte
-		let high = hashDigitValue(text.byteAt(at))
-		let low = hashDigitValue(text.byteAt(at + 1))
-		secret = secret or (((high shl hashDigitBits) or low) shl shift)
+		let upper = hashDigitValue(hashDigitOfWords(low, high: high, index: at))
+		let lower = hashDigitValue(hashDigitOfWords(low, high: high, index: at + 1))
+		secret = secret or (((upper shl hashDigitBits) or lower) shl shift)
 		shift = shift + hashBitsPerByte
 	end 'bytes'
 	return secret
-end 'hashSecretOfText'
+end 'hashSecretOfWords'
 
 function hashIsDigit(c Byte) returns bool
 	let folded = c or hashLetterCaseBit

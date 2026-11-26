@@ -114,23 +114,50 @@
 		return __Raw.loadByte(entry, offset: length) == equalsByte
 	end 'namesEntry'
 
-	// osEnvironmentVariable is the value of a variable of the environment the process started with, which a variable that
-	// is not set has none of.
-	function osEnvironmentVariable(name String, errorAddress Count) returns String
+	// environmentValueOf is the address of the zero-terminated value of a variable of the environment the process started with,
+	// or noBox for a variable that is not set.
+	function environmentValueOf(name String) returns Count
 		let length = __Raw.stringLength(name)
 		var at = environment()
 		while __Raw.loadWord(at, offset: 0) != 0 'entries'
 			let entry = __Raw.loadWord(at, offset: 0)
 			if namesEntry(entry, name: __Raw.stringBytes(name), length: length) 'found'
-				let value = __Raw.wrappingAdd(entry, right: __Raw.wrappingAdd(length, right: 1))
-				succeed(errorAddress)
-				return stringOfBytes(value, length: cLength(value))
+				return __Raw.wrappingAdd(entry, right: __Raw.wrappingAdd(length, right: 1))
 			end 'found'
 			at = __Raw.wrappingAdd(at, right: wordBytes)
 		end 'entries'
-		failWith(errorAddress, errorCase: variableUnset)
-		return noString()
+		return noBox
+	end 'environmentValueOf'
+
+	// osEnvironmentVariable is the value of a variable of the environment the process started with, which a variable that
+	// is not set has none of.
+	function osEnvironmentVariable(name String, errorAddress Count) returns String
+		let value = environmentValueOf(name)
+		if value == noBox 'unset'
+			failWith(errorAddress, errorCase: variableUnset)
+			return noString()
+		end 'unset'
+		succeed(errorAddress)
+		return stringOfBytes(value, length: cLength(value))
 	end 'osEnvironmentVariable'
+
+	// osEnvironmentBytes writes the first bytes of the value of a variable to room, at most capacity of them, and gives how
+	// many: 0 for a variable that is not set and for an empty one. Unlike osEnvironmentVariable it allocates nothing from
+	// the program's heap.
+	function osEnvironmentBytes(name String, room Count, capacity Count) returns Count
+		let value = environmentValueOf(name)
+		if value == noBox 'unset'
+			return 0
+		end 'unset'
+		var length = cLength(value)
+		if length > capacity 'long'
+			length = capacity
+		end 'long'
+		if length != 0 'some'
+			copyBytes(value, target: room, count: length)
+		end 'some'
+		return length
+	end 'osEnvironmentBytes'
 
 	// osPathFrom is a path with the native separator in place of the other one; a macOS path may hold any other byte.
 	function osPathFrom(path String, errorAddress Count) returns String

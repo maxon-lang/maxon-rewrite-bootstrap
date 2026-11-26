@@ -25,6 +25,10 @@ let hashSeedRefusalTail = " is not a hash seed: expected 16 hexadecimal digits\n
 // hashSeedShownBytes is the most of a refused pin that the message shows, as maxon's buffer of 32 bytes, one its end, does.
 let hashSeedShownBytes = 31 as Count
 
+// hashPinBytes is how much of a pin is read: the message shows hashSeedShownBytes of it, and one more tells a pin that is
+// longer than that.
+let hashPinBytes = 32 as Count
+
 let hashSeedRefusalExitCode = 1 as Count
 
 // hashSecretBytes is the size of a secret drawn from the system.
@@ -38,6 +42,12 @@ let hashPinned = 1 as Count
 	let entropyLibrary = "bcryptprimitives.dll"
 
 	let entropyFunction = "ProcessPrng"
+
+	// The two names are zero-terminated in one block of the runtime's own memory, which a draw makes and gives back, so that
+	// it allocates nothing from the program's heap: the library's at its start, the function's at entropyFunctionOffset.
+	let entropyNamesBytes = 64 as Count
+
+	let entropyFunctionOffset = 32 as Count
 #endif
 
 // hashSeed is __Builtins.hashSeed: the fold of no bytes under the process's secret.
@@ -101,35 +111,40 @@ function mainContext(context Count) returns Count
 	return __Raw.loadWord(scheduler, offset: schedMainThreadOffset)
 end 'mainContext'
 
-// makeHashState is a new hash state, of the pinned secret or a drawn one. An empty pin is no pin, as in maxon.
+// makeHashState is a new hash state, of the pinned secret or a drawn one. An empty pin is no pin, as in maxon. Nothing of it
+// comes from the program's heap, whose counts a program reads (HeapStats), which the first hash of the program would move:
+// the pin is read into a block of the runtime's own memory, and parsed from there as two words.
 function makeHashState() returns Count
 	let state = keep(hashStateBytes)
-	var unset = 0 as Count
-	let pin = osEnvironmentVariable(hashSeedVariable, errorAddress: __Raw.addressOf(unset))
+	let room = keep(hashPinBytes)
+	let length = osEnvironmentBytes(hashSeedVariable, room: room, capacity: hashPinBytes)
 	var secret = 0 as Count
-	if unset == 0 and pin.byteLength() > 0 'pinned'
-		if not hashIsSecretText(pin) 'malformed'
-			refuseHashSeed(pin)
+	if length != 0 'pinned'
+		let low = __Raw.loadWord(room, offset: 0) as HashWord
+		let high = __Raw.loadWord(room, offset: wordBytes) as HashWord
+		if length != hashSecretDigits or not hashIsSecretWords(low, high: high) 'malformed'
+			refuseHashSeed(room, length: length)
 		end 'malformed'
-		secret = hashSecretOfText(pin) as Count
+		secret = hashSecretOfWords(low, high: high) as Count
 		__Raw.storeWord(state, offset: hashPinnedOffset, value: hashPinned)
 	end 'pinned' else 'drawn'
 		secret = drawEntropy()
 	end 'drawn'
+	unkeep(room, bytes: hashPinBytes)
 	__Raw.storeWord(state, offset: hashSecretOffset, value: secret)
 	__Raw.storeWord(state, offset: hashSeedOffset, value: hashEmptyFold(secret as HashWord) as Count)
 	return state
 end 'makeHashState'
 
-// refuseHashSeed ends the process over a pin that is not a secret, with maxon's message.
-function refuseHashSeed(pin String)
+// refuseHashSeed ends the process over a pin of length bytes at an address that is not a secret, with maxon's message.
+function refuseHashSeed(pin Count, length Count)
 	let handle = standardError()
 	writeHandle(handle, text: hashSeedRefusalPrefix)
-	var shown = pin.byteLength()
+	var shown = length
 	if shown > hashSeedShownBytes 'long'
 		shown = hashSeedShownBytes
 	end 'long'
-	writeHandle(handle, text: pin.sliceBytes(0, endPos: shown))
+	writeHandle(handle, text: stringOfBytes(pin, length: shown))
 	writeHandle(handle, text: hashSeedRefusalTail)
 	exitProcess(hashSeedRefusalExitCode)
 end 'refuseHashSeed'
@@ -138,15 +153,15 @@ end 'refuseHashSeed'
 	// fillEntropy overwrites count bytes at an address with the system's entropy, from ProcessPrng, which is found by name and
 	// asked once for all of them.
 	function fillEntropy(at Count, count Count)
-		let library = cStringOf(entropyLibrary)
-		let module = __Raw.callImport1("LoadLibraryA", arg1: library)
-		free(library)
+		let names = keep(entropyNamesBytes)
+		copyBytes(__Raw.stringBytes(entropyLibrary), target: names, count: __Raw.stringLength(entropyLibrary))
+		copyBytes(__Raw.stringBytes(entropyFunction), target: __Raw.wrappingAdd(names, right: entropyFunctionOffset), count: __Raw.stringLength(entropyFunction))
+		let module = __Raw.callImport1("LoadLibraryA", arg1: names)
 		if module == 0 'noLibrary'
 			panic("the operating system refused to supply the entropy for a hash seed")
 		end 'noLibrary'
-		let name = cStringOf(entropyFunction)
-		let prng = __Raw.callImport2("GetProcAddress", arg1: module, arg2: name)
-		free(name)
+		let prng = __Raw.callImport2("GetProcAddress", arg1: module, arg2: __Raw.wrappingAdd(names, right: entropyFunctionOffset))
+		unkeep(names, bytes: entropyNamesBytes)
 		if prng == 0 'noFunction'
 			panic("the operating system refused to supply the entropy for a hash seed")
 		end 'noFunction'
