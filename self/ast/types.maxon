@@ -1142,7 +1142,7 @@ function endTypeSegment(mutates back TypeSlot)
 	let later = segmentList(try phase + 1 otherwise panic("a segment past memory"), kind: nominalTypes)
 	let n = back.sealed.count()
 	for open in 0 upto back.lists.count() 'later'
-		let l = table.sum(n, b: open)
+		let l = n + open
 		if l >= later and back.lists[open].count() > 0 'shells'
 			back.shells.push(Shell.make(phase, list: l, entries: freeze(back.lists[open].clone())))
 		end 'shells'

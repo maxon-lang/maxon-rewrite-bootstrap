@@ -282,7 +282,7 @@ function divU128(aHi Count, aLo Count, bHi Count, bLo Count) returns I128
 				rLo = rLo - bLo
 				rHi = try rHi - bHi otherwise 0 as Count
 			end 'noB' else 'subB'
-				let diff = table.difference(table.difference(bLo, b: rLo), b: 1)
+				let diff = bLo - rLo - 1
 				rLo = u64MaxCount - diff
 				rHi = try (rHi - bHi) - 1 otherwise 0 as Count
 			end 'subB'

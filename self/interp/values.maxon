@@ -293,7 +293,7 @@ type Heap
 		if spareCells[data].count() > 0 'spare'
 			c = try spareCells[data].pop() otherwise panic("interp: no spare place")
 		end 'spare' else if freePlaces.count() > 0 'freed'
-			c = table.popLast(freePlaces)
+			c = freePlaces.pop()
 			cellHolder[c] = a
 		end 'freed' else 'new'
 			return self.newCell(a)

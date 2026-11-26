@@ -132,7 +132,7 @@ type DirectiveWalker
 	function keep(mutates self, at Count)
 		let kind = self.kindAt(at)
 		if kind == TokenKind.dedent and out.count() > 0 and out[before(out.count())].kind == TokenKind.indent 'empty'
-			_ = table.popLast(out)
+			_ = out.pop()
 			return
 		end 'empty'
 		out.push(raw[at].clone())
@@ -285,7 +285,7 @@ type DirectiveWalker
 		if not self.atLineStart(at) 'inLine'
 			throw self.refuse(diag.errExpectedToken, message: diag.expectedToken("a directive at the start of a line", got: hashEndifText), at: at)
 		end 'inLine'
-		table.dropLast(frames)
+		_ = frames.pop()
 		pos = after(pos)
 		try self.endLine(at, opens: false)
 	end 'close'
@@ -382,7 +382,7 @@ export function resolveDirectives(src Source, consumes toks Tokens, target ast.T
 		failed = true
 	end 'refused'
 	while w.errors.count() > 0 'errors'
-		errs.push(table.popLast(w.errors))
+		errs.push(w.errors.pop())
 	end 'errors'
 	if failed 'failed'
 		throw SyntaxError.refused

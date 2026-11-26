@@ -254,7 +254,7 @@ export type Rotator
 		stack.clear()
 		stack.push(root)
 		while stack.count() > 0 'walk'
-			let s = table.popLast(stack)
+			let s = stack.pop()
 			regs.clear()
 			for k in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
 				ir.instrReads(f, x: f.instrs[k], out: regs)
@@ -276,7 +276,7 @@ export type Rotator
 		stack.clear()
 		stack.push(root)
 		while stack.count() > 0 'walk'
-			let s = table.popLast(stack)
+			let s = stack.pop()
 			for k in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
 				ir.renameInstrReads(f.instrs[k], args: f.args, names: names)
 			end 'instrs'
@@ -366,7 +366,7 @@ export type Rotator
 			f.blockParams.push(more[i])
 		end 'more'
 		f.blocks[b].params = first
-		f.blocks[b].paramCount = table.difference(f.blockParams.count(), b: first)
+		f.blocks[b].paramCount = f.blockParams.count() - first
 	end 'addParams'
 
 	// renameAs makes the reads in the region root dominates of the parameters exitParams or loopParams lists read the

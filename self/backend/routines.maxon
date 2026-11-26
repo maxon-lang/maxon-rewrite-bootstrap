@@ -215,7 +215,7 @@ export function emitTypeRoutines(p ast.Project, mutates ms ast.ModuleState, unit
 		var wave = UnitList.create(0)
 		var start = 0 as Count
 		while start < pending.count() 'chunks'
-			var stop = table.sum(start, b: routinesPerUnit)
+			var stop = (start + routinesPerUnit) as Count
 			if stop > pending.count() 'clamp'
 				stop = pending.count()
 			end 'clamp'

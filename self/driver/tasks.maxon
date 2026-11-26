@@ -560,7 +560,7 @@ function resolvesModule(c Compile, p ast.Project, known Known, m Count) returns 
 		end 'deps'
 	end 'program'
 	while pending.count() > 0 'closure'
-		let d = table.popLast(pending)
+		let d = pending.pop()
 		let slot = c.slotOf(d)
 		if not known[slot].namesRead 'unread'
 			return true
@@ -919,7 +919,7 @@ function reachedModules(c Compile, p ast.Project) returns Placed
 		end 'holds'
 	end 'tested'
 	while pending.count() > 0 'closure'
-		let m = table.popLast(pending)
+		let m = pending.pop()
 		for j in 0 upto p.resolutions[m].deps.count() 'deps'
 			let d = ast.modIndex(p.resolutions[m].deps[j].module)
 			if not reached[d] 'new'

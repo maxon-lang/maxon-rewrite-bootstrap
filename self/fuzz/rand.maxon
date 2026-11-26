@@ -98,12 +98,12 @@ type Rand
 		if tap == 0 'wrapTap'
 			tap = rngLen - 1
 		end 'wrapTap' else 'stepTap'
-			tap = table.difference(tap, b: 1)
+			tap = tap - 1
 		end 'stepTap'
 		if feed == 0 'wrapFeed'
 			feed = rngLen - 1
 		end 'wrapFeed' else 'stepFeed'
-			feed = table.difference(feed, b: 1)
+			feed = feed - 1
 		end 'stepFeed'
 		let x = wrapAdd(vec[feed], b: vec[tap])
 		vec[feed] = x

@@ -222,7 +222,7 @@ type ProofGen
 
 	function focusRelease(mutates self, mark Count)
 		while focusArrays.count() > mark 'drop'
-			table.dropLast(focusArrays)
+			_ = focusArrays.pop()
 			try focusPlaces.pop() otherwise ignore
 		end 'drop'
 	end 'focusRelease'

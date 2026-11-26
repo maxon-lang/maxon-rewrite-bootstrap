@@ -242,13 +242,13 @@ export type IrFunction
 		var low = 0 as Count
 		var high = floatStarts.count()
 		while low < high 'search'
-			let mid = table.midpoint(low, high: high)
+			let mid = low + (high - low) / 2
 			let at = floatStarts[mid]
 			if at == start 'found'
 				return floatMasks[mid]
 			end 'found'
 			if at < start 'above'
-				low = try mid + 1 otherwise panic("ir: a float pool past memory")
+				low = mid + 1
 			end 'above' else 'below'
 				high = mid
 			end 'below'

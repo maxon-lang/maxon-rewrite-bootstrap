@@ -145,7 +145,7 @@ export type Analysis
 				self.admit(tail, mark: mark)
 			end 'latches'
 			while work.count() > 0 'members'
-				let n = table.popLast(work)
+				let n = work.pop()
 				for e in flow.predStart[n] upto flow.predStart[plusOne(n)] 'preds'
 					let q = flow.pred[e]
 					if flow.reached[q] 'live'

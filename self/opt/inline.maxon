@@ -194,7 +194,7 @@ function calleesFirst(fns ir.IrFunctionList, slot Count) returns Array with Coun
 			if next == noPlace 'done'
 				state[i] = doneFunction
 				order.push(i)
-				_ = table.popLast(stack)
+				_ = stack.pop()
 				_ = try cursor.pop() otherwise panic("opt: an empty walk")
 			end 'done' else 'deeper'
 				let j = linkIndex(next)
@@ -472,7 +472,7 @@ export type Inliner
 		if err != ir.noReg 'error'
 			f.blockParams.push(err)
 		end 'error'
-		let rest = ir.Block.make(tail.count(), endAt: tail.count(), params: params, paramCount: (1 if dst != ir.noReg else 0) + (1 if err != ir.noReg else 0), term: ir.newTrap())
+		let rest = ir.Block.make(tail.count(), endAt: tail.count(), params: params, paramCount: f.blockParams.count() - params, term: ir.newTrap())
 		writingAdded = true
 		writing = added.count()
 		added.push(rest)

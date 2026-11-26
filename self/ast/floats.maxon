@@ -413,12 +413,6 @@ function exponentOf(bits Count) returns BinaryExponent
 	return field - unitExponent
 end 'exponentOf'
 
-// exponentDistance is how far the exponent e lies above the exponent below, which is at most e. The caller's analysis proves
-// the cast cannot fail and the seed's does not yet, so the seed's next renewal moves it back to the caller.
-function exponentDistance(e BinaryExponent, below BinaryExponent) returns Count
-	return try (e - below) as Count otherwise panic("floats: an exponent below the least")
-end 'exponentDistance'
-
 // --- arithmetic ---
 
 export function floatFromInt(v I128) returns Count
@@ -453,8 +447,8 @@ export function floatAdd(a Count, b Count) returns Count
 	if eb < e 'lower'
 		e = eb
 	end 'lower'
-	let ma = bigShl(bigOf((significandOf(a) as Count)), n: exponentDistance(ea, below: e))
-	let mb = bigShl(bigOf((significandOf(b) as Count)), n: exponentDistance(eb, below: e))
+	let ma = bigShl(bigOf((significandOf(a) as Count)), n: (ea - e) as Count)
+	let mb = bigShl(bigOf((significandOf(b) as Count)), n: (eb - e) as Count)
 	let na = floatIsNegative(a)
 	let nb = floatIsNegative(b)
 	if na == nb 'same'

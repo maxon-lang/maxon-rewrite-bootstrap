@@ -101,7 +101,7 @@ type DebugTypes
 		end 'known'
 		pending.push(ref)
 		while pending.count() > 0 'work'
-			let next = table.popLast(pending)
+			let next = pending.pop()
 			if found.has(next) 'described'
 				continue 'work'
 			end 'described'
@@ -319,7 +319,7 @@ function sortByName(mutates order CountList, mutates scratch CountList, names as
 	if from >= to or nextCount(from) >= to 'sorted'
 		return
 	end 'sorted'
-	let mid = table.midpoint(from, high: to)
+	let mid = from + (to - from) / 2
 	sortByName(order, scratch: scratch, names: names, from: from, to: mid)
 	sortByName(order, scratch: scratch, names: names, from: mid, to: to)
 	var i = from as Count

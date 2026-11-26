@@ -131,7 +131,7 @@ type Formatter
 		end 'splice'
 		appendRange(literal, text: source, begin: at, until: t.endOffset())
 		while out.count() > tokenStart 'cut'
-			_ = table.popLast(out)
+			_ = out.pop()
 		end 'cut'
 		out.append(literal)
 	end 'replaceString'
@@ -249,7 +249,7 @@ function verifyFormat(file String, input String, toks Tokens, out String)
 			p.layoutOnly = true
 			_ = parseProgram(p)
 			if p.errors.count() > 0 'refused'
-				errs.push(table.popLast(p.errors))
+				errs.push(p.errors.pop())
 			end 'refused'
 		end 'check'
 	end 'parse'

@@ -513,7 +513,7 @@ export type CodeUnit
 		asm.importFixups.truncate(s.importFixups)
 		asm.endLabels()
 		while lineOffsets.count() > 0 and lineOffsets[try lineOffsets.count() - 1 otherwise panic("backend: no row")] >= s.code 'rows'
-			table.dropLast(lineOffsets)
+			_ = lineOffsets.pop()
 			try lineSpans.pop() otherwise panic("backend: no row")
 		end 'rows'
 	end 'rewindSection'

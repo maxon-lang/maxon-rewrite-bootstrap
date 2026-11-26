@@ -56,10 +56,11 @@ function buildInfo(mutates vm Vm, f ir.IrFunction, fi Count)
 				if def != 0 'defined'
 					let at = def - 1
 					if borrowsStorage(f.instrs[at]) 'borrows'
+						let entry = info.calls.count()
 						info.calls.push(k)
 						info.blocks.push(bi)
 						info.next.push(0)
-						let link = info.calls.count()
+						let link = entry + 1
 						if info.head[at] == 0 'first'
 							info.head[at] = link
 						end 'first' else 'later'
@@ -105,7 +106,7 @@ function skipWindows(mutates vm Vm, f ir.IrFunction, target Count)
 	var i = 0 as Count
 	while i < vm.windows.count() 'each'
 		if vm.windows[i].frame == vm.top and not pathEnters(f, start: target, goal: vm.windows[i].block, avoid: vm.windows[i].def) 'skipped'
-			table.dropAt(vm.windows, at: i)
+			_ = vm.windows.remove(i)
 		end 'skipped' else 'kept'
 			i = i + 1
 		end 'kept'
@@ -117,7 +118,7 @@ function endWindows(mutates vm Vm)
 	var i = 0 as Count
 	while i < vm.windows.count() 'each'
 		if vm.windows[i].frame == vm.top 'ended'
-			table.dropAt(vm.windows, at: i)
+			_ = vm.windows.remove(i)
 		end 'ended' else 'kept'
 			i = i + 1
 		end 'kept'
@@ -137,7 +138,7 @@ function pathEnters(f ir.IrFunction, start Count, goal Count, avoid Count) retur
 	work.push(start)
 	reached[start] = true
 	while work.count() > 0 'walk'
-		let b = table.popLast(work)
+		let b = work.pop()
 		var next = CountList.create(0)
 		for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
 			match consumes ir.instrFail(f.instrs[k]) 'fail'
@@ -168,7 +169,7 @@ function closeWindows(mutates vm Vm, call Count)
 		n = n - 1
 	end 'closing'
 	while vm.windows.count() > n 'drop'
-		table.dropLast(vm.windows)
+		_ = vm.windows.pop()
 	end 'drop'
 end 'closeWindows'
 

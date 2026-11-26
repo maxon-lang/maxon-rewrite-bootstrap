@@ -831,7 +831,7 @@ type Liveness
 				end 'live'
 			end 'uses'
 			while work.count() > 0 'walk'
-				let b = table.popLast(work)
+				let b = work.pop()
 				for e in g.predStart[b] upto g.predStart[nextCount(b)] 'preds'
 					let p = g.pred[e]
 					if g.reached[p] and p != home and stamp[p] != mark 'live'

@@ -184,7 +184,7 @@ export type Editor
 			f.args.push(more[j])
 		end 'more'
 		edges.argsStart[i] = at
-		edges.argsCount[i] = table.difference(f.args.count(), b: at)
+		edges.argsCount[i] = f.args.count() - at
 	end 'extendEdge'
 
 	// storeEdges writes edges back into the terminator of block b, whose edges loadEdges read: the same kind of terminator
@@ -292,7 +292,7 @@ export type Editor
 		reached[0] = true
 		work.push(0)
 		while work.count() > 0 'walk'
-			let b = table.popLast(work)
+			let b = work.pop()
 			if b < original 'own'
 				for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
 					if not removed[k] 'kept'

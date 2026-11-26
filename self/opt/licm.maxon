@@ -266,7 +266,7 @@ export type Licm
 		stack.push(fail)
 		var seen = 0 as Count
 		while stack.count() > 0 'walk'
-			let s = table.popLast(stack)
+			let s = stack.pop()
 			seen = plusOne(seen)
 			if seen > maxFailPathSegments 'large'
 				return false

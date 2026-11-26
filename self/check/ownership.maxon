@@ -537,7 +537,7 @@ end 'Ownership'
 // truncate shortens a stack to its first mark entries.
 function truncate(mutates xs Array with T, mark Count) uses T where T implements Droppable
 	while xs.count() > mark 'pop'
-		_ = table.popLast(xs)
+		_ = xs.pop()
 	end 'pop'
 end 'truncate'
 

@@ -60,7 +60,7 @@ export function graphReversePostorder(succStart Array with Count, succ Array wit
 		end 'more' else 'done'
 			order.push(node)
 			walk.open[node] = false
-			_ = table.popLast(walk.stack)
+			_ = walk.stack.pop()
 			_ = try walk.cursor.pop() otherwise panic("ir: an empty walk")
 		end 'done'
 	end 'walk'
@@ -197,7 +197,7 @@ export type GraphLoops
 				end 'new'
 			end 'latches'
 			while walk.work.count() > 0 'members'
-				let n = table.popLast(walk.work)
+				let n = walk.work.pop()
 				for e in predStart[n] upto predStart[plusOne(n)] 'preds'
 					let q = pred[e]
 					if reached[q] and walk.stamp[q] != mark 'new'

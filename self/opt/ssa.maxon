@@ -306,7 +306,7 @@ export type Ssa
 			work.push(s)
 		end 'uses'
 		while work.count() > 0 'walk'
-			let s = table.popLast(work)
+			let s = work.pop()
 			for e in analysis.flow.predStart[s] upto analysis.flow.predStart[plusOne(s)] 'preds'
 				let q = analysis.flow.pred[e]
 				if analysis.flow.reached[q] and liveMark[q] != stamp and defHere[q] != stamp 'through'
@@ -328,7 +328,7 @@ export type Ssa
 			work.push(d)
 		end 'defs'
 		while work.count() > 0 'walk'
-			let d = table.popLast(work)
+			let d = work.pop()
 			for e in analysis.frontStart[d] upto analysis.frontStart[plusOne(d)] 'front'
 				let join = analysis.front[e]
 				if placed[join] == stamp or liveMark[join] != stamp 'skip'
@@ -390,10 +390,10 @@ export type Ssa
 			end 'child' else 'done'
 				let height = heights[top]
 				while undoSlot.count() > height 'undo'
-					let v = table.popLast(undoSlot)
+					let v = undoSlot.pop()
 					cur[v] = try undoValue.pop() otherwise panic("opt: an empty undo")
 				end 'undo'
-				_ = table.popLast(stack)
+				_ = stack.pop()
 				_ = try cursor.pop() otherwise panic("opt: an empty walk")
 				_ = try heights.pop() otherwise panic("opt: an empty walk")
 			end 'done'
@@ -646,7 +646,7 @@ export type Ssa
 			f.blocks[b].first = first
 			f.blocks[b].endAt = order.count()
 			f.blocks[b].params = firstParam
-			f.blocks[b].paramCount = table.difference(blockParams.count(), b: firstParam)
+			f.blocks[b].paramCount = blockParams.count() - firstParam
 		end 'blocks'
 		table.arrange(f.instrs, source: order, taken: listed)
 		if f.keepsSpans 'spans'
@@ -664,7 +664,7 @@ export type Ssa
 			end 'stays'
 		end 'slots'
 		while f.slots.count() > stays 'trim'
-			_ = table.popLast(f.slots)
+			_ = f.slots.pop()
 		end 'trim'
 	end 'compact'
 end 'Ssa'

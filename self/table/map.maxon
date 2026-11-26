@@ -203,7 +203,7 @@ export type StringMap uses V
 		if cap == 0 'first'
 			self.grow(firstCapacity)
 		end 'first' else if (try (used + 1) * 10 otherwise cap) >= (try cap * 7 otherwise cap) 'needGrow'
-			self.grow(sum(cap, b: cap))
+			self.grow(cap + cap)
 		end 'needGrow'
 		let curCap = states.count()
 		if curCap == 0 'noCap'
@@ -391,7 +391,7 @@ export type IntMap uses V
 		if cap == 0 'first'
 			self.grow(firstCapacity)
 		end 'first' else if (try (used + 1) * 10 otherwise cap) >= (try cap * 7 otherwise cap) 'needGrow'
-			self.grow(sum(cap, b: cap))
+			self.grow(cap + cap)
 		end 'needGrow'
 		let curCap = states.count()
 		if curCap == 0 'noCap'

@@ -328,7 +328,7 @@ end 'localAt'
 
 function truncatePlaces(mutates places PlaceList, count Count)
 	while places.count() > count 'pop'
-		table.dropLast(places)
+		_ = places.pop()
 	end 'pop'
 end 'truncatePlaces'
 
@@ -812,7 +812,7 @@ function rangeForStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast
 	let breaks = rangePopFrame(r)
 	r.st = r.states.joined(top, b: breaks)
 	while r.bounds.count() > bounded 'unbind'
-		table.dropLast(r.bounds)
+		_ = r.bounds.pop()
 	end 'unbind'
 	rangeRestoreTimes(r, outer: times)
 end 'rangeForStmt'

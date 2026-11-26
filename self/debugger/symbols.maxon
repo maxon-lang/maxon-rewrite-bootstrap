@@ -281,14 +281,13 @@ function popsBeforeReturn(code ByteArray, at Count) returns FullRangeInt
 	var pops = 0 as FullRangeInt
 	while i < code.count() 'scan'
 		let b = code[i]
-		let next = i + 1
 		if b == returnByte 'ret'
 			return pops
 		end 'ret'
 		if b >= firstPop and b <= lastPop 'pop'
-			i = next
-		end 'pop' else if b == rexB and next < code.count() and code[next] >= firstPop and code[next] <= lastPop 'popHigh'
-			i = next + 1
+			i = i + 1
+		end 'pop' else if b == rexB and i + 1 < code.count() and code[i + 1] >= firstPop and code[i + 1] <= lastPop 'popHigh'
+			i = i + 2
 		end 'popHigh' else 'other'
 			return -1
 		end 'other'

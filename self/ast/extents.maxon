@@ -440,7 +440,7 @@ export function exprExtent(t Tree, e NodeID) returns table.Option with Extent
 			return table.Option.none
 		end 'unbalanced'
 		begin = stepBack(back)
-		unopened = table.difference(unopened, b: 1)
+		unopened = unopened - 1
 	end 'opens'
 	while unclosed > 0 'closes'
 		let next = skipSpace(t.text, at: until)

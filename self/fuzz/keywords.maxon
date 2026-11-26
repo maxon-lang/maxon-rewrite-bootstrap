@@ -204,6 +204,6 @@ end 'isWordByte'
 // truncate drops the lines of out from index keep on.
 function truncate(mutates out StringList, keep Count)
 	while out.count() > keep 'drop'
-		table.dropLast(out)
+		_ = out.pop()
 	end 'drop'
 end 'truncate'

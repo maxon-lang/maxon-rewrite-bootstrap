@@ -95,10 +95,10 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	let name = behaviourBodyName(irSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: l.b.f), index: l.b.f.bodies.count())
 	let fn = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).clone()
 	let params = fn.params.count()
-	let cellIndex = table.sum(params, b: 1)
+	let cellIndex = params + 1
 	var inner = Lowerer.new(exchange(l.instances, value: InstanceSet.new()))
 	begin(inner, p: p, ms: ms, fn: c.info.body, bindParams: ast.cloneTypeArgs(l.bindParams), bindArgs: ast.cloneTypeArgs(l.bindArgs), bindWitnesses: l.bindWitnesses.clone(), name: name)
-	inner.b.f.paramCount = table.sum(cellIndex, b: 1 if cell else 0)
+	inner.b.f.paramCount = cellIndex + (1 if cell else 0)
 	let state = paramReg(inner, index: 0 as Count, kind: IrKind.kindScalar)
 	var args = RegList.create(0)
 	if not factory 'message'

@@ -171,13 +171,13 @@ export type Hasher
 			var w = 0 as Word64
 			var at = 0 as Word64
 			for k in 0 upto bytesPerWord 'word'
-				w = w or ((bytes[sum(i, b: k)] as Word64) shl at)
+				w = w or ((bytes[i + k] as Word64) shl at)
 				at = at + bitsPerByte
 			end 'word'
 			word = w
 			length = length + 8
 			self.take()
-			i = sum(i, b: bytesPerWord)
+			i = i + bytesPerWord
 		end 'words'
 		while i < bytes.count() 'rest'
 			self.addByte(bytes[i])

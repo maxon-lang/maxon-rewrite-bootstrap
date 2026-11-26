@@ -889,7 +889,7 @@ type States
 
 	function release(mutates self, m Count)
 		while list.count() > m 'pop'
-			table.dropLast(list)
+			_ = list.pop()
 		end 'pop'
 	end 'release'
 

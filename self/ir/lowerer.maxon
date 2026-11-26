@@ -265,14 +265,14 @@ end 'setModule'
 // popPending forgets the values in flight past the first n.
 function popPending(mutates l Lowerer, n Count)
 	while l.pending.count() > n 'pop'
-		table.dropLast(l.pending)
+		_ = l.pending.pop()
 	end 'pop'
 end 'popPending'
 
 // popArgs forgets the arguments of the calls being lowered past the first n.
 function popArgs(mutates l Lowerer, n Count)
 	while l.args.count() > n 'pop'
-		table.dropLast(l.args)
+		_ = l.args.pop()
 	end 'pop'
 end 'popArgs'
 

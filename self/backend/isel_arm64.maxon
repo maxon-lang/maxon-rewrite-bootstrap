@@ -449,7 +449,7 @@ export type WordSharing
 			walk.clear()
 			walk.push(latch)
 			while walk.count() > 0 'body'
-				let s = table.popLast(walk)
+				let s = walk.pop()
 				if seen[s] == stamp 'reached'
 					continue 'body'
 				end 'reached'

@@ -432,9 +432,9 @@ export type MxdbgReader
 		var lo = 0 as Count
 		var hi = funcs.count
 		while lo < hi 'search'
-			let mid = table.midpoint(lo, high: hi)
+			let mid = lo + (hi - lo) / 2
 			if self.funcEnd(mid) <= offset 'after'
-				lo = try mid + 1 otherwise panic("mxdbg: a search past its bounds")
+				lo = mid + 1
 			end 'after' else 'before'
 				hi = mid
 			end 'before'
@@ -452,9 +452,9 @@ export type MxdbgReader
 		let stop = try first + self.funcLineCount(f) otherwise panic("mxdbg: a window past memory")
 		var hi = stop as Count
 		while lo < hi 'search'
-			let mid = table.midpoint(lo, high: hi)
+			let mid = lo + (hi - lo) / 2
 			if self.lineOffset(mid) <= offset 'atOrBefore'
-				lo = try mid + 1 otherwise panic("mxdbg: a search past its bounds")
+				lo = mid + 1
 			end 'atOrBefore' else 'after'
 				hi = mid
 			end 'after'
@@ -470,9 +470,9 @@ export type MxdbgReader
 		var lo = 0 as Count
 		var hi = ranges.count
 		while lo < hi 'search'
-			let mid = table.midpoint(lo, high: hi)
+			let mid = lo + (hi - lo) / 2
 			if self.rangeEnd(mid) <= offset 'after'
-				lo = try mid + 1 otherwise panic("mxdbg: a search past its bounds")
+				lo = mid + 1
 			end 'after' else 'before'
 				hi = mid
 			end 'before'

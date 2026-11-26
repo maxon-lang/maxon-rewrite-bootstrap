@@ -482,7 +482,7 @@ function execCallValue(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		let at = vm.regAt(r)
 		vm.argN.push(vm.regN[at])
 		vm.argR.push(vm.regR[at])
-		let index = table.difference(i, b: first)
+		let index = i - first
 		try checkArgument(vm, f: f, callee: callee, i: index, r: r)
 	end 'args'
 	let given = try count - first otherwise panic("interp: a call through a function value without the value")
@@ -654,7 +654,7 @@ end 'execIsType'
 // clearArguments empties the arguments of the call being made.
 function clearArguments(mutates vm Vm)
 	while vm.argN.count() > 0 'each'
-		table.dropLast(vm.argN)
+		_ = vm.argN.pop()
 		try vm.argR.pop() otherwise ignore
 	end 'each'
 end 'clearArguments'

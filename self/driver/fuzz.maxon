@@ -658,7 +658,7 @@ function fuzzWorker(options FuzzOptions, library String) returns ExitCode
 				end 'ran'
 			end 'native'
 		end 'accepted'
-		seed = table.sum(seed, b: 1)
+		seed = seed + 1
 	end 'seeds'
 	print("{tally.line()}\n")
 	return 0

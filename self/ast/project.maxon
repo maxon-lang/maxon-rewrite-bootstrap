@@ -614,7 +614,7 @@ export function moduleReads(p Project, m Count, first Count) returns SlotList
 	var pending = SlotList.create(0)
 	pending.push(m)
 	while pending.count() > 0 'reach'
-		let at = table.popLast(pending)
+		let at = pending.pop()
 		for j in 0 upto p.resolutions[at].deps.count() 'deps'
 			let d = modIndex(p.resolutions[at].deps[j].module)
 			if not reached[d] 'new'

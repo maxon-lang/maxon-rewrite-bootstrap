@@ -25,12 +25,12 @@ export type ListStack uses T where T implements Droppable
 		var reversed as Array with T
 		reversed = Array.create(0)
 		while items.count() > mark 'pop'
-			reversed.push(table.popLast(items))
+			reversed.push(items.pop())
 		end 'pop'
 		var list as Array with T
 		list = Array.create(0)
 		while reversed.count() > 0 'unreverse'
-			list.push(table.popLast(reversed))
+			list.push(reversed.pop())
 		end 'unreverse'
 		return list
 	end 'take'
@@ -38,7 +38,7 @@ export type ListStack uses T where T implements Droppable
 	// reset empties the stack, after a syntax error has abandoned the lists that were open.
 	export function reset(mutates self)
 		while items.count() > 0 'drop'
-			_ = table.popLast(items)
+			_ = items.pop()
 		end 'drop'
 	end 'reset'
 end 'ListStack'

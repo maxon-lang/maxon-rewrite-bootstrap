@@ -7,7 +7,7 @@ export function arrange(mutates xs Array with T, mutates source Array with Count
 	taken.clear()
 	taken.resize(xs.count())
 	for t in 0 upto keep 'listed'
-		try taken.set(countAt(source, i: t), value: true) otherwise panic("table: an order that names an element past the end of its list")
+		try taken.set(source[t], value: true) otherwise panic("table: an order that names an element past the end of its list")
 	end 'listed'
 	for k in 0 upto xs.count() 'unlisted'
 		if not (try taken.get(k) otherwise panic("table: an element past the end of its flags")) 'dropped'
@@ -19,7 +19,7 @@ export function arrange(mutates xs Array with T, mutates source Array with Count
 	end 'twice'
 	for start in 0 upto source.count() 'cycles'
 		var at = start
-		var from = countAt(source, i: at)
+		var from = source[at]
 		while from != start 'cycle'
 			try xs.managed.swap(at, j: from) otherwise panic("table: an order that names an element past the end of its list")
 			try source.set(at, value: at) otherwise panic("table: an order shorter than it is")

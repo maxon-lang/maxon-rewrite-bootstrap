@@ -1146,7 +1146,7 @@ export function lowerReached(p ast.Project, mutates ms ast.ModuleState, function
 	var made = IrFunctionList.create(0)
 	while reach.pending.count() > 0 or made.count() < instances.list.count() 'reach'
 		if reach.pending.count() > 0 'plain'
-			let fn = functions[table.popLast(reach.pending)]
+			let fn = functions[reach.pending.pop()]
 			if calling.has(fn as Count) and not addInstancesOf(p, ms: ms, caller: fn, found: instances, errs: errs) 'deep'
 				return IrFunctionList.create(0)
 			end 'deep'

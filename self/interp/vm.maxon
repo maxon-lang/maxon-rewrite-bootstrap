@@ -183,7 +183,7 @@ type Frames
 	// push makes the frame of a call and gives its serial: a free one, or the next.
 	function push(mutates self, fnIndex Count, onThread Count, params Count, regs Count, slots Count, frameBoxes Count, dst ir.Word, err ir.Word, call Count) returns Count
 		if free.count() > 0 'reuse'
-			let reused = table.popLast(free)
+			let reused = free.pop()
 			fn[reused] = fnIndex
 			thread[reused] = onThread
 			epoch[reused] = call

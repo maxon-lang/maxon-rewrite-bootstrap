@@ -272,20 +272,20 @@ export type Cse
 			end 'child' else 'leave'
 				let mark = try marks.pop() otherwise panic("opt: an empty walk")
 				while filled.count() > mark 'empty'
-					let slot = table.popLast(filled)
+					let slot = filled.pop()
 					slotStamp[slot] = 0
 				end 'empty'
 				let learnedMark = try learnedMarks.pop() otherwise panic("opt: an empty walk")
 				while learned.count() > learnedMark 'forget'
-					let r = table.popLast(learned)
+					let r = learned.pop()
 					known[regIndex(r)] = unknownCondition
 				end 'forget'
 				let provenMark = try provenMarks.pop() otherwise panic("opt: an empty walk")
 				while provenIndex.count() > provenMark 'unprove'
-					_ = table.popLast(provenIndex)
+					_ = provenIndex.pop()
 					_ = try provenLength.pop() otherwise panic("opt: an empty walk")
 				end 'unprove'
-				_ = table.popLast(stack)
+				_ = stack.pop()
 				_ = try cursor.pop() otherwise panic("opt: an empty walk")
 			end 'leave'
 		end 'pending'

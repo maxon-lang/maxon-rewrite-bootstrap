@@ -458,7 +458,7 @@ export type Builder
 	function paramStarts() returns Array with Count
 		let n = terms.count()
 		var start as Array with Count
-		start = Array.create(table.sum(n, b: 1))
+		start = Array.create(n + 1)
 		for i in 0 upto paramBlock.count() 'count'
 			let at = try blockIndex(paramBlock[i]) + 1 otherwise panic("ir: too many blocks")
 			start[at] = try start[at] + 1 otherwise panic("ir: a block has too many parameters")
@@ -498,7 +498,7 @@ export type Builder
 			panic("ir: a function has no blocks")
 		end 'empty'
 		var edgeStart as Array with Count
-		edgeStart = Array.create(table.sum(n, b: 1))
+		edgeStart = Array.create(n + 1)
 		for i in 0 upto instrs.count() 'count'
 			if failTarget(instrs[i]) != noBlock 'fails'
 				let at = try blockIndex(instrBlock[i]) + 1 otherwise panic("ir: too many blocks")
@@ -516,7 +516,7 @@ export type Builder
 		reached[0] = true
 		var next = SuccessorVisitor.new()
 		while work.count() > 0 'walk'
-			let blk = blockIndex(table.popLast(work))
+			let blk = blockIndex(work.pop())
 			next.clear()
 			visitTerm(next, f: f, t: terms[blk])
 			let after = try blk + 1 otherwise panic("ir: too many blocks")
@@ -624,7 +624,7 @@ export type Builder
 				for at in paramStart[blk] upto paramStart[blk + 1] 'params'
 					blockParams.push(grouped[at])
 				end 'params'
-				let paramCount = table.difference(blockParams.count(), b: params)
+				let paramCount = blockParams.count() - params
 				blocks.push(Block.make(places[blk], endAt: stop, params: params, paramCount: paramCount, term: renumber.out.clone()))
 			end 'live'
 		end 'blocks'

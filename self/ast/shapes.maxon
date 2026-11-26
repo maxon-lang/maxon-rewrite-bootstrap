@@ -375,7 +375,7 @@ type ShapeIndex
 				cells[at] = old[i]
 				cells[try at + 1 otherwise panic("a place past the cells of a shape index")] = old[i + 1]
 			end 'held'
-			i = table.sum(i, b: shapeCell)
+			i = i + shapeCell
 		end 'rehash'
 	end 'grow'
 end 'ShapeIndex'
