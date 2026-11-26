@@ -152,11 +152,15 @@ function serviceMostQueued(handle Count) returns Count
 end 'serviceMostQueued'
 
 // serviceStart gives a message's place in the mailbox back as its behaviour starts, and names the service as the one the
-// green thread runs a message of. state is the address of the cown's value, which the behaviour is given.
+// green thread runs a message of, and honours a stop the monitor asked for (honourAsk). state is the address of the
+// cown's value, which the behaviour is given.
 function serviceStart(state Count)
 	let handle = __Raw.wrappingSub(state, right: cownValueOffset)
 	_ = __Raw.atomicAdd(handle, offset: serviceGateOffset, value: stepDown)
-	__Raw.storeWord(__Raw.loadWord(__Raw.threadContext(), offset: contextGreenOffset), offset: greenServiceOffset, value: handle)
+	let context = __Raw.threadContext()
+	let g = __Raw.loadWord(context, offset: contextGreenOffset)
+	__Raw.storeWord(g, offset: greenServiceOffset, value: handle)
+	honourAsk(context, g: g)
 end 'serviceStart'
 
 // serviceNew, serviceTaken and cownRelease are the entries that the code of the seed's compiler calls (seed/README.md),

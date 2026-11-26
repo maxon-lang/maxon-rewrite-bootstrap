@@ -447,8 +447,14 @@ let procRunqSlots = 256 as Count
 // procAskGapOffset is where a processor holds how long the monitor waits before it asks again the green thread it asked to stop on the schedtick it saw last, 0 while it has not asked on that tick, which only the monitor reads and writes.
 let procAskGapOffset = 2192 as Count
 
+// procSliceAskedOffset is where a processor holds 1 while the monitor's ask to stop the green thread running on its schedtick went unanswered when that green thread switched back, which the next green thread that inherits the slice takes as its own ask.
+let procSliceAskedOffset = 2200 as Count
+
+// procInheritOffset is where a processor holds 1 while the entry its thread's search for work took last came from its runnext, which then runs on the slice of the green thread that readied it (Go's inheritTime).
+let procInheritOffset = 2208 as Count
+
 // procBytes is the size of a processor.
-let procBytes = 2200 as Count
+let procBytes = 2216 as Count
 
 // greenStatusOffset is where a green thread holds its status (greenIdle, greenRunnable, ...), changed with compare-exchanges where a reader of another thread may race.
 let greenStatusOffset = 0 as Count

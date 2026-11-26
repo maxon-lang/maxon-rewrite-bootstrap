@@ -442,7 +442,11 @@ var layouts = []layoutConst{
 	// The monitor's word past the run queue, which it writes only while a green thread holds the processor past its slice.
 	{"procAskGapOffset", 274, false, toRuntime,
 		"where a processor holds how long the monitor waits before it asks again the green thread it asked to stop on the schedtick it saw last, 0 while it has not asked on that tick, which only the monitor reads and writes."},
-	{"procBytes", 275, false, toRuntime,
+	{"procSliceAskedOffset", 275, false, toRuntime,
+		"where a processor holds 1 while the monitor's ask to stop the green thread running on its schedtick went unanswered when that green thread switched back, which the next green thread that inherits the slice takes as its own ask."},
+	{"procInheritOffset", 276, false, toRuntime,
+		"where a processor holds 1 while the entry its thread's search for work took last came from its runnext, which then runs on the slice of the green thread that readied it (Go's inheritTime)."},
+	{"procBytes", 277, false, toRuntime,
 		"the size of a processor."},
 
 	// A green thread (Go's g): its state, the code it runs and the word it runs it with, the arguments the code reads, the
