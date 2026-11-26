@@ -753,12 +753,6 @@ let stackReserveBytes = 268435456 as Count
 // byteBytes is the size of an element of a byte array.
 let byteBytes = 1 as Count
 
-// linuxSysGetpriority is getpriority(which, who): 20 minus the nice value, as the kernel answers it.
-let linuxSysGetpriority = 140 as Count
-
-// linuxSysSetpriority is setpriority(which, who, nice): the nice value of the calling thread, and of the threads and processes it starts.
-let linuxSysSetpriority = 141 as Count
-
 // linuxSysPidfdOpen is pidfd_open(pid, flags): an fd that the event queue sees readable once the process has ended, which the kernel has from 5.3, under the same number on every architecture.
 let linuxSysPidfdOpen = 434 as Count
 
@@ -1276,6 +1270,12 @@ let macosSpawnSetSid = 1024 as Count
 	// linuxSysGetpid is getpid().
 	let linuxSysGetpid = 172 as Count
 
+	// linuxSysGetpriority is getpriority(which, who): 20 minus the nice value, as the kernel answers it.
+	let linuxSysGetpriority = 141 as Count
+
+	// linuxSysSetpriority is setpriority(which, who, nice): the nice value of the calling thread, and of the threads and processes it starts.
+	let linuxSysSetpriority = 140 as Count
+
 	// linuxSysClone is clone(flags, stack, parent tid, child tid, tls), x86-64's order of the last two.
 	let linuxSysClone = 220 as Count
 
@@ -1428,6 +1428,12 @@ let macosSpawnSetSid = 1024 as Count
 
 	// linuxSysGetpid is getpid().
 	let linuxSysGetpid = 39 as Count
+
+	// linuxSysGetpriority is getpriority(which, who): 20 minus the nice value, as the kernel answers it.
+	let linuxSysGetpriority = 140 as Count
+
+	// linuxSysSetpriority is setpriority(which, who, nice): the nice value of the calling thread, and of the threads and processes it starts.
+	let linuxSysSetpriority = 141 as Count
 
 	// linuxSysClone is clone(flags, stack, parent tid, child tid, tls), x86-64's order of the last two.
 	let linuxSysClone = 56 as Count
