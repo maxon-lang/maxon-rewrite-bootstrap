@@ -768,8 +768,8 @@
 	// to its close and a clone holds it alone, so that no child is made holding such an fd. The lock is the scheduler's word
 	// (schedForkLockOffset): a process with no scheduler has one thread, which has nothing to order. Both sides wait in a futex
 	// on the word, inside a blocking call's bracket, which the caller makes. A clone that makes its child as vfork does holds the lock until
-	// the child has executed its program, since the clone returns only then; the child's copy of the fds is the table at the
-	// clone all the same.
+	// the child's execve has replaced its memory, since the clone returns only then; the child's copy of the fds is the table at
+	// the clone all the same, and it lets go of the copy later, at the end of that execve.
 	let forkHeldBit = 0x40000000 as Count
 
 	// noForkLock is the lock of a process that has no scheduler.
@@ -858,12 +858,14 @@
 	end 'forkEnds'
 
 	// waitCloneEnd waits, in the blocking bracket that the caller makes, until no clone that may hold a copy of an fd the caller
-	// closed before it runs: while forkHeldBit is set, until a clone gives the lock back. The child of a clone that holds the
-	// lock has its copy of the fd until its execve closes it, which is the end of the clone, so once this returns no child of
-	// this process holds the fd, and the file can be run (no ETXTBSY). It holds no lock, and a clone waits for no close, so it has
-	// no cycle; it waits at most for the clone in flight when it looked, since a clone that starts after the close has no copy
-	// of the fd. Not covered: a clone whose child outlives the clone call (qemu-user's fork, on the arm64-linux lane run under
-	// WSL), and an exec of the file by a process that this one did not start.
+	// closed before it runs: while forkHeldBit is set, until a clone gives the lock back. It holds no lock, and a clone waits for
+	// no close, so it has no cycle; it waits at most for the clone in flight when it looked, since a clone that starts after the
+	// close has no copy of the fd. The end of the clone is not the end of the child's copy: a clone as vfork makes one returns
+	// once the child's execve has replaced its memory (exec_mmap), and the execve closes the child's close-on-exec fds after
+	// that, and the kernel releases their files at its end, so a child whose clone ended just before the close may still hold
+	// the file, and a run of it fail busy (ETXTBSY), with more than one worker. Not covered either: a clone whose child outlives
+	// the clone call (qemu-user's fork, on the arm64-linux lane run under WSL), and an exec of the file by a process that this
+	// one did not start (runtime/README.md).
 	function waitCloneEnd()
 		let lock = forkLock()
 		if lock == noForkLock 'single'
