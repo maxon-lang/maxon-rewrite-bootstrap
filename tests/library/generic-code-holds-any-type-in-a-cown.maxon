@@ -1,0 +1,10 @@
+// A generic function of the library tier holds a value of any Droppable type in a cown.
+function hold(consumes x T) uses T returns cown with T where T implements Droppable
+	return cown(x)
+end 'hold'
+
+function main() returns ExitCode
+	let c = hold("a")
+	let d = hold(3 as Count)
+	return 0
+end 'main'

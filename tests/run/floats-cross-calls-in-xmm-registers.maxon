@@ -1,6 +1,6 @@
 // Floats cross calls in xmm registers: integer and float arguments mixed past the registers of each class, so some of
 // each go on the stack, float results, and floats through a function value, a closure, an interface's table, a
-// behaviour, a generic function and a method of a generic type instantiated with a float, a function that throws, and a
+// service's message, a generic function and a method of a generic type instantiated with a float, a function that throws, and a
 // recursion that keeps floats live across its calls.
 typealias Real = float(f64.min to f64.max)
 
@@ -118,11 +118,19 @@ function fall(n Integer, a Real, b Real) returns Real
 end 'fall'
 
 type Total
-	export var sum as Real
+	var sum as Real
 
 	static function create() returns Self
 		return Self{sum: 0.0}
 	end 'create'
+
+	export function add(mutates self, part Real, step Real)
+		self.sum = self.sum + part + step
+	end 'add'
+
+	export function sum() returns Real
+		return self.sum
+	end 'sum'
 end 'Total'
 
 function main() returns ExitCode
@@ -140,17 +148,13 @@ function main() returns ExitCode
 	let bad = try root(-1.0) otherwise -1.0
 	print("{good} {bad}\n")
 	print("{fall(10, a: 1.0, b: 2.0)}\n")
-	let total = cown(Total.create())
+	let total = spawn Total.create()
 	let step = 0.5
 	for i in 0 upto 3 'each'
 		let part = i as Real * step
-		when total as t 'add'
-			t.sum = t.sum + part + step
-		end 'add'
+		try total.add(part, step: step) otherwise panic("the service runs")
 	end 'each'
-	when total as t 'show'
-		print("{t.sum}\n")
-	end 'show'
+	print("{try await total.sum() otherwise -1.0}\n")
 	return 0
 end 'main'
 

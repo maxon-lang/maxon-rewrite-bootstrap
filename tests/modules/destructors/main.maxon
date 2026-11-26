@@ -9,7 +9,7 @@ function main() returns ExitCode
 	pending.push(ledger.Txn.begin(3))
 	(try pending.remove(0) otherwise panic("index out of range")).commit()
 	pending.dropEmpty()
-	let held = cown(ledger.Txn.begin(4), dropWith: rollback)
+	ledger.Txn.begin(4).rollback()
 	return 0
 end 'main'
 

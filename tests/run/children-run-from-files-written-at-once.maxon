@@ -1,12 +1,13 @@
 // Children started at the same time each from a file written just before run, however their writes and starts interleave:
 // a child that another run starts while a file is open for writing must not hold the file open past its own start, which
-// would make the start of the file's run fail as busy (ETXTBSY on Linux). Each behaviour writes and runs its own files one
-// after another, so that with more than one worker the writes of some overlap the starts of others.
+// would make the start of the file's run fail as busy (ETXTBSY on Linux). Each service writes and runs its own files one
+// after another in one message, and the services' messages run at once, so that with more than one worker the writes of
+// some overlap the starts of others.
 // unsupported-targets: x64-windows
 // native-only
 typealias Arguments = Array with String
 
-// How many behaviours write and run files at once, and how many files each writes and runs.
+// How many services write and run files at once, and how many files each writes and runs.
 let writers = 8
 
 let rounds = 40
@@ -24,14 +25,42 @@ function scriptText() returns String
 	return String.from(text)
 end 'scriptText'
 
-type Tally
-	export var failures as Count
-	export var first as String
+typealias Writers = Array with Writer.handle
 
-	static function make() returns Tally
-		return Tally{failures: 0, first: ""}
-	end 'make'
-end 'Tally'
+// A Writer writes and runs files and counts the runs that did not end as the file says, keeping how the first one ended.
+type Writer
+	var failures as Count
+	var first as String
+
+	static function create() returns Self
+		return Self{failures: 0, first: ""}
+	end 'create'
+
+	export function writeAndRun(mutates self, label Count, dir String)
+		let script = scriptText()
+		for round in 0 upto rounds 'rounds'
+			let name = "{dir}/child-{label}-{round}"
+			let file = path(name)
+			try File.writeText(file, content: script, mode: FilePermission.executable) otherwise panic("cannot write {name}")
+			let ended = outcome(file)
+			if ended != "ran {exitCode}" 'failed'
+				if self.failures == 0 'first'
+					self.first = ended.clone()
+				end 'first'
+				self.failures = try self.failures + 1 otherwise panic("too many failures")
+			end 'failed'
+			try File.delete(file) otherwise panic("cannot delete {name}")
+		end 'rounds'
+	end 'writeAndRun'
+
+	export function failures() returns Count
+		return self.failures
+	end 'failures'
+
+	export function first() returns String
+		return self.first.clone()
+	end 'first'
+end 'Writer'
 
 function path(text String) returns FilePath
 	return try FilePath.from(text) otherwise panic("not a path: {text}")
@@ -58,26 +87,6 @@ function outcome(file FilePath) returns String
 	return "unreachable"
 end 'outcome'
 
-function writeAndRun(label Count, dir String, slot cown with Tally)
-	let own = dir.clone()
-	when slot as tally 'files'
-		let script = scriptText()
-		for round in 0 upto rounds 'rounds'
-			let name = "{own}/child-{label}-{round}"
-			let file = path(name)
-			try File.writeText(file, content: script, mode: FilePermission.executable) otherwise panic("cannot write {name}")
-			let ended = outcome(file)
-			if ended != "ran {exitCode}" 'failed'
-				if tally.failures == 0 'first'
-					tally.first = ended.clone()
-				end 'first'
-				tally.failures = try tally.failures + 1 otherwise panic("too many failures")
-			end 'failed'
-			try File.delete(file) otherwise panic("cannot delete {name}")
-		end 'rounds'
-	end 'files'
-end 'writeAndRun'
-
 // earlier is the first of two failures that is one, or "" when neither is.
 function earlier(first String, later String) returns String
 	if first != "" 'first'
@@ -89,32 +98,27 @@ end 'earlier'
 function main() returns ExitCode
 	let dir = "/tmp/minimaxon_children_from_written_files_{Process.id()}"
 	_ = Directory.create(path(dir))
-	let a = cown(Tally.make())
-	let b = cown(Tally.make())
-	let c = cown(Tally.make())
-	let d = cown(Tally.make())
-	let e = cown(Tally.make())
-	let f = cown(Tally.make())
-	let g = cown(Tally.make())
-	let h = cown(Tally.make())
-	writeAndRun(0, dir: dir, slot: share(a))
-	writeAndRun(1, dir: dir, slot: share(b))
-	writeAndRun(2, dir: dir, slot: share(c))
-	writeAndRun(3, dir: dir, slot: share(d))
-	writeAndRun(4, dir: dir, slot: share(e))
-	writeAndRun(5, dir: dir, slot: share(f))
-	writeAndRun(6, dir: dir, slot: share(g))
-	writeAndRun(7, dir: dir, slot: share(h))
-	when a, b, c, d, e, f, g, h as ta, tb, tc, td, te, tf, tg, th 'report'
-		let failures = try ta.failures + tb.failures + tc.failures + td.failures + te.failures + tf.failures + tg.failures + th.failures otherwise panic("too many failures")
-		let first = earlier(earlier(earlier(ta.first, later: tb.first), later: earlier(tc.first, later: td.first)), later: earlier(earlier(te.first, later: tf.first), later: earlier(tg.first, later: th.first)))
-		if failures == 0 'clean'
-			print("every run ran\n")
-		end 'clean' else 'failed'
-			print("{failures} of {writers * rounds} runs failed, the first: {first}\n")
-		end 'failed'
-		try Directory.delete(path(dir)) otherwise panic("cannot remove the directory")
+	var pool = Writers.create(0)
+	for _ in 0 upto writers 'spawn'
+		pool.push(spawn Writer.create())
+	end 'spawn'
+	var label = 0 as Count
+	for w in pool 'send'
+		try w.writeAndRun(label, dir: dir.clone()) otherwise panic("the service runs")
+		label = try label + 1 otherwise panic("too many writers")
+	end 'send'
+	var failures = 0 as Count
+	var first = ""
+	for w in pool 'report'
+		failures = try failures + (try await w.failures() otherwise panic("the service runs")) otherwise panic("too many failures")
+		first = earlier(first, later: try await w.first() otherwise panic("the service runs"))
 	end 'report'
+	if failures == 0 'clean'
+		print("every run ran\n")
+	end 'clean' else 'failed'
+		print("{failures} of {writers * rounds} runs failed, the first: {first}\n")
+	end 'failed'
+	try Directory.delete(path(dir)) otherwise panic("cannot remove the directory")
 	return 0
 end 'main'
 

@@ -26,36 +26,38 @@ typealias Arguments = Array with String
 	end 'pauseThenEcho'
 #endif
 
-type Output
-	export var text as String
+// A Runner runs one child in each message. Each child is run by a service of its own, and messages of different services
+// run at once, so the four children overlap.
+type Runner
+	var shell as String
 
-	static function make() returns Output
-		return Output{text: ""}
-	end 'make'
-end 'Output'
+	static function create() returns Self
+		return Self{shell: shellName}
+	end 'create'
 
-function run(label Count, slot cown with Output)
-	when slot as output 'child'
+	export function run(label Count) returns String
 		var script = Arguments.create(0)
 		script.push(shellRuns)
 		script.push(pauseThenEcho(label))
-		let out = try Subprocess.run(Executable.name(shellName), arguments: script) otherwise panic("cannot run {shellName}")
-		output.text = out.stdout.clone()
-	end 'child'
-end 'run'
+		let out = try Subprocess.run(Executable.name(self.shell.clone()), arguments: script) otherwise panic("cannot run {self.shell}")
+		return out.stdout.clone()
+	end 'run'
+end 'Runner'
 
 function main() returns ExitCode
-	let first = cown(Output.make())
-	let second = cown(Output.make())
-	let third = cown(Output.make())
-	let fourth = cown(Output.make())
-	run(1, slot: share(first))
-	run(2, slot: share(second))
-	run(3, slot: share(third))
-	run(4, slot: share(fourth))
-	when first, second, third, fourth as a, b, c, d 'report'
-		print("{a.text.trim()} | {b.text.trim()} | {c.text.trim()} | {d.text.trim()}\n")
-	end 'report'
+	let first = spawn Runner.create()
+	let second = spawn Runner.create()
+	let third = spawn Runner.create()
+	let fourth = spawn Runner.create()
+	let a = try first.run(1) otherwise panic("the service runs")
+	let b = try second.run(2) otherwise panic("the service runs")
+	let c = try third.run(3) otherwise panic("the service runs")
+	let d = try fourth.run(4) otherwise panic("the service runs")
+	let ta = try await a otherwise panic("the service runs")
+	let tb = try await b otherwise panic("the service runs")
+	let tc = try await c otherwise panic("the service runs")
+	let td = try await d otherwise panic("the service runs")
+	print("{ta.trim()} | {tb.trim()} | {tc.trim()} | {td.trim()}\n")
 	return 0
 end 'main'
 

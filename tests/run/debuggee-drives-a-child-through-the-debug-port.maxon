@@ -1,8 +1,8 @@
 // native-only
 // unsupported-targets: x64-linux, arm64-linux, arm64-macos
 // The debug port drives a child from outside it, as the debugger does: the program starts itself as its debuggee, pinned to
-// its machine since only the thread that started the child may wait for its events, and waits for them while behaviours
-// keep the other threads busy. At the child's creation it reads the image's header and the main thread's registers; past
+// its machine since only the thread that started the child may wait for its events, and waits for them while a service's
+// messages keep the other threads busy. At the child's creation it reads the image's header and the main thread's registers; past
 // the loader's breakpoint it plants a breakpoint at the image's entry, and when the child stops there it restores the byte,
 // moves the instruction pointer back onto it and lets the child run to its exit. The interpreter drives no debuggee.
 // expect-scheduler: used
@@ -100,15 +100,22 @@ type Session
 	end 'threadOf'
 end 'Session'
 
-function busy(tally cown with Count)
-	when tally as t 'spin'
+// Spinner is busy for a while in each message, on whichever thread runs it.
+type Spinner
+	var spins as Count
+
+	static function create() returns Self
+		return Self{spins: 0}
+	end 'create'
+
+	export function spin(mutates self)
 		var n = 0 as Count
 		for i in 0 upto 100000 'work'
 			n = (try n + i otherwise 0) and 0xFFFF
 		end 'work'
-		t = try t + 1 otherwise 0
+		self.spins = try self.spins + 1 otherwise 0
 	end 'spin'
-end 'busy'
+end 'Spinner'
 
 function created(mutates s Session, event Array with Byte)
 	Debuggee.closeHandle(word(event, at: eventFileAt, width: 8))
@@ -165,9 +172,9 @@ function drive() returns ExitCode
 	arguments.push("child")
 	var s = Session.make()
 	s.processId = try Debuggee.launch(Executable.path(me), arguments: arguments, outputToError: true) otherwise panic("the child cannot be started")
-	let tally = cown(0 as Count)
+	let spinner = spawn Spinner.create()
 	while not s.done 'events'
-		busy(share(tally))
+		try spinner.spin() otherwise ignore
 		sleep(1)
 		let event = Debuggee.waitEvent(waitMs)
 		if event.count() == 0 'none'

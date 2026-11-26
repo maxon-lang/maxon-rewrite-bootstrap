@@ -24,15 +24,11 @@ function stop(code ExitCode) returns Count
 end 'stop'
 
 function main() returns ExitCode
-	let guarded = cown(Txn.begin(1), dropWith: rollback)
 	let open = Txn.begin(2)
 	print("written before\n")
 	_ = stop(7)
 	print("not reached\n")
 	open.commit()
-	when guarded as t 'never'
-		print("never {t.id}\n")
-	end 'never'
 	return 0
 end 'main'
 
