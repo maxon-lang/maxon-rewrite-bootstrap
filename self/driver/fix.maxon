@@ -472,19 +472,32 @@ end 'addKind'
 
 // chooseFixes is the fixes of the diagnostics, in their order, that can be made together. A diagnostic whose code is the
 // expected one gets none: what a test expects is what it is about, whatever fix its message names. Nor does one that the
-// program keeps (Kept).
+// program keeps (Kept). The ending of a value that an exit would drop (check.fixKindEnding) waits for a round with no other
+// fix: another fix may end the value itself, as a parameter declared consumes ends what is passed to it, and an ending
+// written before it would end the value twice.
 function chooseFixes(prog FixProgram, errs diag.ErrorList, expected table.Option with String) returns Choice
 	var choice = Choice.new()
+	addFixes(choice, prog: prog, errs: errs, expected: expected, endings: false)
+	if choice.edits.count() == 0 'settled'
+		addFixes(choice, prog: prog, errs: errs, expected: expected, endings: true)
+	end 'settled'
+	return choice
+end 'chooseFixes'
+
+// addFixes adds to choice the fixes of the diagnostics that fit, the endings or the others.
+function addFixes(mutates choice Choice, prog FixProgram, errs diag.ErrorList, expected table.Option with String, endings bool)
 	for e in errs 'errors'
 		if isExpectedCode(e.code, expected: expected) or (prog.kept.isActive() and prog.kept.leaves(e)) 'about'
 			continue 'errors'
 		end 'about'
+		if (e.fix.kind == check.fixKindEnding) != endings 'later'
+			continue 'errors'
+		end 'later'
 		if e.fix.isSome() and choice.fits(prog, fix: e.fix) 'fits'
 			choice.add(e.fix)
 		end 'fits'
 	end 'errors'
-	return choice
-end 'chooseFixes'
+end 'addFixes'
 
 // isExpectedCode is whether code is the first code that a test expects, when it expects a compile error.
 function isExpectedCode(code String, expected table.Option with String) returns bool

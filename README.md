@@ -3926,7 +3926,12 @@ can say where it comes from and how to get it back. Every copy decision goes thr
   nothing on both or neither (a partly moved one is judged by what is left of it), else `E3919` at the move that happened on one path only (or at the declaration of a variable
   assigned on one path only). A path that ends in a trap needs no destructor, and a `while true` loop is left by its `break`s alone, so
   only they reach the code after it. In a generic body a `T` without the bound
-  is such a type, so code that lets a `T` die writes `where T implements Droppable`. A function whose locals all have
+  is such a type, so code that lets a `T` die writes `where T implements Droppable`. At a `return`, a `break` or a
+  `continue` that leaves a local holding such a value, `minimaxon fix` (kind `ending`) writes the call that ends it before
+  the exit, where its type has one way to end it that takes nothing: its one destructor without parameters, or, for a
+  record without destructors, that of its one part that cannot be dropped (`h.file.close()`), a destructor that throws
+  called `try ... otherwise ignore`. The exit's own line takes the call before it, and the handler of a `try` on one line
+  (`otherwise return 1`) becomes a block that ends the value and then leaves. A function whose locals all have
   `Droppable` does no more than one length check per scope and per join.
 - `match consumes x` moves an owned `x` into the match and each arm owns the payload it binds, where a plain `match`
   borrows the payload from `x`. Lowering moves each payload out of the box with `moveat` and drops the box alone.

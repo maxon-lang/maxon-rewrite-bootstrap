@@ -1,0 +1,67 @@
+// A local that holds a value with one destructor that takes nothing, left by a return, is ended there by fix with that
+// destructor: before a return on its own line, and, for the handler of a try on one line, in a block that fix makes of the
+// handler. A record without destructors is ended through its one part that cannot be dropped, and a destructor that throws
+// is called with try ... otherwise ignore, since the return says what the function does next.
+type Txn
+	var id as Count
+
+	static function begin(id Count) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit {id}\n")
+	end 'commit'
+
+	function abort(destructs self, why String)
+		print("abort {id}: {why}\n")
+	end 'abort'
+end 'Txn'
+
+type Holder
+	var txn as Txn
+	var count as Count
+
+	static function holding(consumes txn Txn) returns Holder
+		return Holder{txn: txn, count: 0}
+	end 'holding'
+end 'Holder'
+
+enum Refusal implements Error
+	refused
+end 'Refusal'
+
+function check(n Count) throws Refusal
+	if n == 0 'zero'
+		throw Refusal.refused
+	end 'zero'
+end 'check'
+
+function early(stop bool) returns Count
+	let t = Txn.begin(1)
+	if stop 'stop'
+		return 1
+	end 'stop'
+	t.commit()
+	return 2
+end 'early'
+
+function handled(n Count) returns Count
+	let h = Holder.holding(Txn.begin(2))
+	try check(n) otherwise return 1
+	h.txn.commit()
+	return 0
+end 'handled'
+
+function written(path FilePath) returns Count
+	var writer = try FileWriter.open(path) otherwise return 1
+	try writer.write("x".toByteArray()) otherwise return 2
+	try writer.close() otherwise return 3
+	return 0
+end 'written'
+
+function main() returns ExitCode
+	_ = early(true)
+	_ = handled(1)
+	return 0
+end 'main'
