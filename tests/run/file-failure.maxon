@@ -1,0 +1,46 @@
+// Every error of File answers why the operation failed through failure(), as maxon's FileFailure: the library extends the five
+// built-in error enums, so a caller can judge the error of any File function in one place. partialFileLeft, which only
+// createText throws, is failed.
+//> read: notFound=notFound accessDenied=accessDenied busy=busy failed=failed
+//> write: failed=failed notFound=notFound accessDenied=accessDenied alreadyExists=alreadyExists busy=busy partialFileLeft=failed
+//> delete: notFound=notFound accessDenied=accessDenied busy=busy failed=failed
+//> rename: failed=failed notFound=notFound accessDenied=accessDenied busy=busy alreadyExists=alreadyExists
+//> info: notFound=notFound accessDenied=accessDenied busy=busy failed=failed
+//> missing file: notFound
+//> same file, any operation: true
+
+function name(failure FileFailure) returns String
+	return match failure 'which'
+		notFound gives "notFound"
+		accessDenied gives "accessDenied"
+		alreadyExists gives "alreadyExists"
+		busy gives "busy"
+		failed gives "failed"
+	end 'which'
+end 'name'
+
+function missing(path FilePath) returns String
+	try 'read'
+		let text = File.readText(path)
+		return text
+	end 'read' otherwise (e) 'failed'
+		match e 'kind'
+			notFound or
+			accessDenied or
+			busy or
+			failed then return name(e.failure())
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'missing'
+
+function main() returns ExitCode
+	print("read: notFound={name(FileReadError.notFound.failure())} accessDenied={name(FileReadError.accessDenied.failure())} busy={name(FileReadError.busy.failure())} failed={name(FileReadError.failed.failure())}\n")
+	print("write: failed={name(FileWriteError.failed.failure())} notFound={name(FileWriteError.notFound.failure())} accessDenied={name(FileWriteError.accessDenied.failure())} alreadyExists={name(FileWriteError.alreadyExists.failure())} busy={name(FileWriteError.busy.failure())} partialFileLeft={name(FileWriteError.partialFileLeft.failure())}\n")
+	print("delete: notFound={name(FileDeleteError.notFound.failure())} accessDenied={name(FileDeleteError.accessDenied.failure())} busy={name(FileDeleteError.busy.failure())} failed={name(FileDeleteError.failed.failure())}\n")
+	print("rename: failed={name(FileRenameError.failed.failure())} notFound={name(FileRenameError.notFound.failure())} accessDenied={name(FileRenameError.accessDenied.failure())} busy={name(FileRenameError.busy.failure())} alreadyExists={name(FileRenameError.alreadyExists.failure())}\n")
+	print("info: notFound={name(FileInfoError.notFound.failure())} accessDenied={name(FileInfoError.accessDenied.failure())} busy={name(FileInfoError.busy.failure())} failed={name(FileInfoError.failed.failure())}\n")
+	print("missing file: {missing(try FilePath.from("minimaxon_file_failure_missing_file") otherwise panic("not a path"))}\n")
+	print("same file, any operation: {FileReadError.notFound.failure() == FileDeleteError.notFound.failure()}\n")
+	return 0
+end 'main'

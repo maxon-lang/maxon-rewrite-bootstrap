@@ -56,7 +56,7 @@ function main() returns ExitCode
 	end 'refused4x27'
 	let argv = StringArray.create(0)
 	argv.push("child")
-	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: argv) otherwise 'refused5x31'
+	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: argv) otherwise 'refused5x31'
 		reader.cancel()
 		return 5
 	end 'refused5x31'
@@ -121,7 +121,7 @@ function main() returns ExitCode
 	end 'refused4x34'
 	let argv = StringArray.create(0)
 	argv.push("child")
-	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: argv) otherwise 'refused5x38'
+	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: argv) otherwise 'refused5x38'
 		closer.cancel()
 		return 5
 	end 'refused5x38'

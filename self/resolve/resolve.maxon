@@ -1108,10 +1108,6 @@ function resolveExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, id a
 	end 'un' else if k == ast.NodeKind.asyncExpr 'async'
 		resolveExpr(r, p: p, ms: ms, id: ast.asyncExprCall(r.tree, id: id), errs: errs)
 	end 'async' else if k == ast.NodeKind.spawnExpr 'spawn'
-		let capacity = ast.spawnExprCapacity(r.tree, id: id)
-		if capacity != 0 'capacity'
-			resolveExpr(r, p: p, ms: ms, id: ast.argValue(r.tree, id: capacity), errs: errs)
-		end 'capacity'
 		resolveExpr(r, p: p, ms: ms, id: ast.spawnExprCall(r.tree, id: id), errs: errs)
 	end 'spawn' else if k == ast.NodeKind.awaitExpr 'await'
 		resolveExpr(r, p: p, ms: ms, id: ast.awaitExprE(r.tree, id: id), errs: errs)

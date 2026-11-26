@@ -1,4 +1,3 @@
-// native-only
 // A service handles one message at a time, even when the monitor preempts a long one: each message holds the service's
 // cown until it ends. Senders on other green threads queue behind each other. A frozen value is shared with a message, and
 // a handle crosses as an argument.

@@ -3831,7 +3831,7 @@ type Pair uses T where T implements Comparable
 	end 'pick'
 
 	static function bump(n Integer) returns Integer
-		return n + 1
+		return try n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Pair'
 

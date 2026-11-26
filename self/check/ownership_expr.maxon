@@ -52,10 +52,14 @@ end 'movedCloneFix'
 // allows; everything else is refused and says to copy.
 function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes dest OwnDest, consumes s OwnState) returns OwnState
 	if ms.tree().kindOf(e) == ast.NodeKind.tryExpr and ast.isTransparent(ms.tree(), e: e) 'transparent'
+		let mark = o.inFlight.count()
 		let added = enterTry(o, handles: not ast.propagates(ms.tree(), e: e))
 		let after = consume(o, p: p, ms: ms, e: ast.tryExprE(ms.tree(), id: e), dest: dest, s: s)
 		let entry = leaveTryEntry(o, added: added)
+		// What leaves on a failure runs where the expression failed, without what the expression would have given.
+		let computed = takeInFlight(o, mark: mark)
 		handled(o, p: p, ms: ms, e: e, entry: entry)
+		giveInFlight(o, taken: computed)
 		return after
 	end 'transparent'
 	if isView(o, ms: ms, e: e) 'view'
@@ -466,7 +470,8 @@ function requireMutable(mutates o Ownership, p ast.Project, mutates ms ast.Modul
 		mutableFail(o, p: p, ms: ms, site: site, call: call, text: text, fix: conventionFix(ms.tree(), param: root.definedAt, keyword: fixKindMutates), code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a let parameter; write 'mutates' before it to change the caller's value, or copy it into a var")
 		return false
 	end 'let'
-	if root.isParam and ast.ownsValue(root.conv) 'owns'
+	// A destructor's receiver is a var (check.declareReceiverAndParams); a consumes parameter is not.
+	if root.isParam and ast.ownsValue(root.conv) and not root.isVar 'owns'
 		mutableFail(o, p: p, ms: ms, site: site, call: call, text: text, fix: diag.Fix.none(), code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a '{root.conv.keyword()}' parameter; move it into a var first")
 		return false
 	end 'owns'
@@ -708,13 +713,8 @@ function visitExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 		return awaitExprOwn(o, p: p, ms: ms, e: e, s: s)
 	end 'await'
 	if k == ast.NodeKind.spawnExpr 'spawn'
-		var out = s
-		let capacity = ast.spawnExprCapacity(ms.tree(), id: e)
-		if capacity != 0 'capacity'
-			out = expr(o, p: p, ms: ms, e: ast.argValue(ms.tree(), id: capacity), s: out)
-		end 'capacity'
 		// What the factory makes moves into the service.
-		return consume(o, p: p, ms: ms, e: ast.spawnExprCall(ms.tree(), id: e), dest: OwnDest.make(OwnDestKind.destParameter, name: "the state of the service"), s: out)
+		return consume(o, p: p, ms: ms, e: ast.spawnExprCall(ms.tree(), id: e), dest: OwnDest.make(OwnDestKind.destParameter, name: "the state of the service"), s: s)
 	end 'spawn'
 	if k == ast.NodeKind.castExpr 'cast'
 		let operand = ast.castExprE(ms.tree(), id: e)

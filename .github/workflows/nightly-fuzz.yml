@@ -70,7 +70,9 @@ jobs:
           mkdir -p bin
           ./seed/minimaxon-arm64-macos build self -o bin/minimaxon
       - name: Cross-build the compiler for arm64 Linux
-        run: ./bin/minimaxon build self --target=arm64-linux --no-cache -o bin/minimaxon-arm64-linux
+        env:
+          MINIMAXON_CACHE: "off"
+        run: ./bin/minimaxon build self --target=arm64-linux -o bin/minimaxon-arm64-linux
       - uses: actions/upload-artifact@v4
         with:
           name: minimaxon-arm64-linux

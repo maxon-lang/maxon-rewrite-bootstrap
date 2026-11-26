@@ -1,0 +1,17 @@
+// The 'where' of a conditional conformance constrains a type parameter of the type it extends; any other name is maxon's
+// E2015.
+type Pair uses A
+	export var a as A
+end 'Pair'
+
+extension Pair implements Equatable where B implements Equatable
+	public function equals(other Self) returns bool
+		return true
+	end 'equals'
+end 'Pair'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2015 at 7:43

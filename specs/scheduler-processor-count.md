@@ -93,12 +93,12 @@ function main() returns ExitCode
 		return child()
 	end 'iAmTheChild'
 	let me = try Process.executablePath() otherwise return 2
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	var config = Configuration.create(MxExecutable.path(me))
 	config.arguments = argv
 	config.environment = Environment.inheritUpdating(["MAXON_MAX_PROCS": "18446744073709551621"])
-	let run = try Subprocess.runConfiguration(config) otherwise return 4
+	let run = try MxSubprocess.runConfiguration(config) otherwise return 4
 	print("child {run.stdout}")
 	print("child exit={run.exitCode()}\n")
 	return 0
@@ -129,12 +129,12 @@ function main() returns ExitCode
 		return child()
 	end 'iAmTheChild'
 	let me = try Process.executablePath() otherwise return 2
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	var config = Configuration.create(MxExecutable.path(me))
 	config.arguments = argv
 	config.environment = Environment.inheritUpdating(["MAXON_MAX_PROCS": "12abc"])
-	let run = try Subprocess.runConfiguration(config) otherwise return 4
+	let run = try MxSubprocess.runConfiguration(config) otherwise return 4
 	print("child {run.stdout}")
 	print("child exit={run.exitCode()}\n")
 	return 0
@@ -163,12 +163,12 @@ function main() returns ExitCode
 		return child()
 	end 'iAmTheChild'
 	let me = try Process.executablePath() otherwise return 2
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	var config = Configuration.create(MxExecutable.path(me))
 	config.arguments = argv
 	config.environment = Environment.inheritUpdating(["MAXON_MAX_PROCS": "+4"])
-	let run = try Subprocess.runConfiguration(config) otherwise return 4
+	let run = try MxSubprocess.runConfiguration(config) otherwise return 4
 	print("child {run.stdout}")
 	print("child exit={run.exitCode()}\n")
 	return 0
@@ -198,12 +198,12 @@ function main() returns ExitCode
 		return child()
 	end 'iAmTheChild'
 	let me = try Process.executablePath() otherwise return 2
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	var config = Configuration.create(MxExecutable.path(me))
 	config.arguments = argv
 	config.environment = Environment.inheritUpdating(["MAXON_MAX_PROCS": "00000000000000000000000000000000000000004"])
-	let run = try Subprocess.runConfiguration(config) otherwise return 4
+	let run = try MxSubprocess.runConfiguration(config) otherwise return 4
 	print("child {run.stdout}")
 	print("child exit={run.exitCode()}\n")
 	return 0

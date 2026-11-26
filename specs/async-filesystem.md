@@ -250,7 +250,7 @@ FileAFileB
 ```
 
 <!-- test: async-filesystem.async-read-through-a-handle-holding-struct -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
+<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->
 <!-- tier: stdlib -->
 ### A struct holding a `__ManagedFile`, spawned as an `async` argument
 ⭐ **AN `async` ARGUMENT THAT HOLDS A HANDLE IS LENT, NEVER DEEP-COPIED, AND A HANDLE BOX IS WHY THAT
@@ -267,7 +267,7 @@ end 'HolderError'
 type Holder
 	export var f as __ManagedFile
 
-	static function openRead(path __ManagedMemory) returns Holder throws HolderError
+	static function openRead(path __ManagedMemory with Byte) returns Holder throws HolderError
 		let handle = try __ManagedFile.openRead(path) otherwise 'fail'
 			throw HolderError.openFailed
 		end 'fail'
@@ -279,7 +279,7 @@ function readOn(h Holder) returns String throws HolderError
 	let size = try h.f.size() otherwise 'sizeFail'
 		throw HolderError.openFailed
 	end 'sizeFail'
-	let buffer = try __ManagedMemory.create(size + 1, 1) otherwise 'allocFail'
+	let buffer = try ByteMemory.create(size + 1, 1) otherwise 'allocFail'
 		throw HolderError.openFailed
 	end 'allocFail'
 	let bytesRead = try h.f.read(buffer, size) otherwise 'readFail'

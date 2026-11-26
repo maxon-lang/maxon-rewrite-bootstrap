@@ -169,7 +169,7 @@ func debugInfo(h host, compiler string) error {
 		return err
 	}
 	buildOne := func(source, out string, flags []string) ([]byte, error) {
-		if text, err := output(nil, "", compiler, append([]string{"build", source, "-o", out, "--no-cache"}, flags...)...); err != nil {
+		if text, err := output(cacheOffEnvironment(), "", compiler, append([]string{"build", source, "-o", out}, flags...)...); err != nil {
 			return nil, fmt.Errorf("debug info: the build of %s %v failed: %s", source, flags, text)
 		}
 		return os.ReadFile(out)

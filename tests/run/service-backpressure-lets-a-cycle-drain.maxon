@@ -1,0 +1,51 @@
+// Two services that flood each other keep draining: a service that is itself behind is not muted when it sends to one that
+// is behind, so neither waits on the other for ever, and every message of the cycle is handled under every schedule.
+// schedules: 30
+//> handled=600
+export typealias Amount = int(0 to 1000000)
+
+let starts = 60 as Amount
+
+let hops = 4 as Amount
+
+// handledInAll is every message of the cycle: each start, and the hops it is passed on for, to each of the two.
+let handledInAll = 600 as Amount
+
+type Peer
+	var handled as Amount
+
+	static function create() returns Self
+		return Self{handled: 0}
+	end 'create'
+
+	export function ping(mutates self, left Amount, me Peer.handle, other Peer.handle)
+		self.handled = try self.handled + 1 otherwise 0
+		if left > 0 'on'
+			try other.ping(left - 1, me: other.clone(), other: me.clone()) otherwise ignore
+		end 'on'
+	end 'ping'
+
+	export function count() returns Amount
+		return self.handled
+	end 'count'
+end 'Peer'
+
+function handledBy(a Peer.handle, b Peer.handle) returns Amount
+	let first = try await a.count() otherwise 0
+	let second = try await b.count() otherwise 0
+	return try first + second otherwise 0
+end 'handledBy'
+
+function main() returns ExitCode
+	let a = spawn Peer.create()
+	let b = spawn Peer.create()
+	for i in 0 upto starts 'start'
+		try a.ping(hops, me: a.clone(), other: b.clone()) otherwise ignore
+		try b.ping(hops, me: b.clone(), other: a.clone()) otherwise ignore
+	end 'start'
+	while handledBy(a, b: b) < handledInAll 'drain'
+		sleep(1)
+	end 'drain'
+	print("handled={handledBy(a, b: b)}\n")
+	return 0
+end 'main'

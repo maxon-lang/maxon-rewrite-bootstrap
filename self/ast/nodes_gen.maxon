@@ -2261,8 +2261,6 @@ end 'setArgValue'
 
 export function newSpawnExpr(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.spawnExpr, start: start)
-	let blk = t.reserve(2 as Count)
-	t.records[id as Count].b = blk
 	return id
 end 'newSpawnExpr'
 
@@ -2278,20 +2276,12 @@ export function setSpawnExprSpawnRef(mutates t Tree, id NodeID, ref diag.U32)
 	t.records[id as Count].a = ref
 end 'setSpawnExprSpawnRef'
 
-export function spawnExprCapacity(t Tree, id NodeID) returns NodeID
-	return t.blockWordAt(id, offset: 0 as Count) as NodeID
-end 'spawnExprCapacity'
-
-export function setSpawnExprCapacity(mutates t Tree, id NodeID, value NodeID)
-	t.setBlockWordAt(id, offset: 0 as Count, value: value as diag.U32)
-end 'setSpawnExprCapacity'
-
 export function spawnExprCall(t Tree, id NodeID) returns NodeID
-	return t.blockWordAt(id, offset: 1 as Count) as NodeID
+	return t.records[id as Count].b as NodeID
 end 'spawnExprCall'
 
 export function setSpawnExprCall(mutates t Tree, id NodeID, value NodeID)
-	t.setBlockWordAt(id, offset: 1 as Count, value: value as diag.U32)
+	t.records[id as Count].b = value as diag.U32
 end 'setSpawnExprCall'
 
 export function newPanicExpr(mutates t Tree, start diag.U32) returns NodeID

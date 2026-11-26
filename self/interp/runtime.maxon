@@ -679,6 +679,12 @@ function entryArrayReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Ha
 	_ = try collection(vm, o: a, kind: kindArray, what: "a reserve")
 end 'entryArrayReserve'
 
+// entryBytesReserve is entryArrayReserve of a byte array.
+function entryBytesReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try live(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a reserve")
+	_ = try collection(vm, o: a, kind: kindBytes, what: "a reserve")
+end 'entryBytesReserve'
+
 // entryArrayShrink sets the length of an array or a byte array. The elements above it were dropped in place by the code
 // before it or hold no value that is owned, which a lowering that left one would show as a leak at the end of the run.
 function entryArrayShrink(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
@@ -871,77 +877,3 @@ function copyCell(mutates vm Vm, dst Count, source Count) throws Halt
 	let copy = try copyObject(vm, o: ref)
 	try adopt(vm, c: dst, o: copy, what: "the copy")
 end 'copyCell'
-
-// The interpreter runs no coroutine: an async call ends the run (asyncUnsupported) before an await of what it made can be
-// reached, so each entry of a promise ends it too.
-function entryAsyncAwait(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw asyncUnsupported(vm)
-end 'entryAsyncAwait'
-
-function entryAsyncWait(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw asyncUnsupported(vm)
-end 'entryAsyncWait'
-
-function entryAsyncError(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw asyncUnsupported(vm)
-end 'entryAsyncError'
-
-function entryAsyncTake(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw asyncUnsupported(vm)
-end 'entryAsyncTake'
-
-function entryAsyncCancel(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw asyncUnsupported(vm)
-end 'entryAsyncCancel'
-
-function entryAsyncAwaitAny(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw asyncUnsupported(vm)
-end 'entryAsyncAwaitAny'
-
-function entryAsyncComplete(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw asyncUnsupported(vm)
-end 'entryAsyncComplete'
-
-// asyncUnsupported ends a run that starts a coroutine, which the interpreter has no strand to run in: it says so on
-// standard error and exits as a panic does, so that the run fails where the executable would go on.
-function asyncUnsupported(mutates vm Vm) returns Halt
-	return panicLine(vm, prefix: "", message: "async calls are not supported by the interpreter")
-end 'asyncUnsupported'
-
-// serviceUnsupported ends a run that starts a service or sends to one: a message's behaviour may suspend, which the
-// interpreter's behaviours cannot, and a reply is awaited as a coroutine is.
-function serviceUnsupported(mutates vm Vm) returns Halt
-	return panicLine(vm, prefix: "", message: "services are not supported by the interpreter")
-end 'serviceUnsupported'
-
-function entryServiceNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw serviceUnsupported(vm)
-end 'entryServiceNew'
-
-function entryServiceReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw serviceUnsupported(vm)
-end 'entryServiceReserve'
-
-function entryServiceTaken(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw serviceUnsupported(vm)
-end 'entryServiceTaken'
-
-function entryServiceShutdown(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw serviceUnsupported(vm)
-end 'entryServiceShutdown'
-
-function entryReplyNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw serviceUnsupported(vm)
-end 'entryReplyNew'
-
-function entryReplyGive(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw serviceUnsupported(vm)
-end 'entryReplyGive'
-
-// A sleep or a yield changes nothing the interpreter can see: it keeps no clock that a sleep would wait on, and the
-// scheduler interleaves the threads at random whatever they do, which every order a sleep or a yield allows is among.
-function entrySleep(mutates vm Vm, f ir.IrFunction, x ir.Instr)
-end 'entrySleep'
-
-function entryYield(mutates vm Vm, f ir.IrFunction, x ir.Instr)
-end 'entryYield'

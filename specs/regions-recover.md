@@ -521,7 +521,6 @@ function main() returns ExitCode
 	let bay = spawn Bay.create()
 	try bay.load(Parcel.box(Box.create(8))) otherwise (failure) 'refused'
 		match failure 'why'
-			mailboxFull(back) then settle(back)
 			serviceStopped(back) then settle(back)
 		end 'why'
 	end 'refused'
@@ -648,7 +647,6 @@ function main() returns ExitCode
 	let shed = spawn Shed.create(Box.create(0))
 	try shed.store(Parcel.box(Box.create(1))) otherwise (failure) 'refused'
 		match failure 'why'
-			mailboxFull(back) then settle(back)
 			serviceStopped(back) then settle(back)
 		end 'why'
 	end 'refused'
@@ -709,7 +707,6 @@ function main() returns ExitCode
 	let counter = spawn Counter.create()
 	try counter.take(Parcel.pad(Pad.create(2))) otherwise (failure) 'refused'
 		match failure 'why'
-			mailboxFull(back) then settle(back)
 			serviceStopped(back) then settle(back)
 		end 'why'
 	end 'refused'
@@ -782,7 +779,6 @@ function main() returns ExitCode
 	let b = Bx.create(1)
 	try s.take(Mp.m1(b)) otherwise (failure) 'refused'
 		match failure 'why'
-			mailboxFull(back) then drain(back)
 			serviceStopped(back) then drain(back)
 		end 'why'
 	end 'refused'
@@ -854,7 +850,6 @@ function main() returns ExitCode
 	let m = Mp.m1(b)
 	try s.take(m) otherwise (failure) 'refused'
 		match failure 'why'
-			mailboxFull(back) then drain(back)
 			serviceStopped(back) then drain(back)
 		end 'why'
 	end 'refused'
@@ -1542,7 +1537,6 @@ function main() returns ExitCode
 	let shed = spawn Shed.create(Bx.create(0))
 	try shed.store(Parcel.box(Bx.create(1))) otherwise (failure) 'refused'
 		match failure 'why'
-			mailboxFull(back) then settle(back)
 			serviceStopped(back) then settle(back)
 		end 'why'
 	end 'refused'
@@ -1589,7 +1583,6 @@ function main() returns ExitCode
 	print("peek {r.code}\n")
 	try s.take(r) otherwise (failure) 'refused'
 		match failure 'why'
-			mailboxFull(back) then back.fin()
 			serviceStopped(back) then back.fin()
 		end 'why'
 	end 'refused'
@@ -1663,7 +1656,6 @@ function main() returns ExitCode
 	drainQ(Mq.q0(Rl.create(2)))
 	try s.take(m) otherwise (failure) 'refused'
 		match failure 'why'
-			mailboxFull(back) then drainQ(back)
 			serviceStopped(back) then drainQ(back)
 		end 'why'
 	end 'refused'
@@ -1736,7 +1728,6 @@ function main() returns ExitCode
 	drain(Mp.m0(Rl.create(3)))
 	try s.take(m) otherwise (failure) 'refused'
 		match failure 'why'
-			mailboxFull(back) then drain(back)
 			serviceStopped(back) then drain(back)
 		end 'why'
 	end 'refused'

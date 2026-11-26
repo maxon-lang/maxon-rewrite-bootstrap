@@ -1,0 +1,138 @@
+// A spawn with the flag detach (4), which subprocessDetach is the entry of too, starts a child that nothing waits for and answers its
+// process id, not a handle: the id names no child of the runtime's table, the streams are none and discarded, the child outlives the
+// call and does its work alone, and the spawn gives no slot to a table that a hundred of them would run out of. On Linux the child
+// leads a session of its own, which a shell in the child says of itself where the system has /proc; the Mac's `ps` prints no session
+// that could be compared, so there the line is taken as true, and the Mac's gate checks POSIX_SPAWN_SETSID by this program. The
+// children are this program run again, and a shell on a system that has one.
+// native-only
+//> a detached child answers a process id: true
+//> the id names no child of the table: true
+//> the child did its work alone: written=[detached child wrote this]
+//> the child leads a session of its own: true
+//> a hundred detached children each answered an id: 100, and each did its work: 100
+
+typealias Blob = Array with Byte
+
+typealias Words = Array with String
+
+let terminator = 0 as Byte
+
+let stdinNone = 0
+
+let outputDiscard = 0
+
+let detachFlag = 4
+
+let parentEnvironment = 1
+
+let waitMs = 50
+
+let waitLimitMs = 30000
+
+// settleMs lets the children that have written their file end, which a system that holds the program's executable open while one runs
+// needs before the runner deletes it.
+let settleMs = 500
+
+function appendToken(mutates out Blob, token String)
+	for b in token.bytes() 'each'
+		out.push(b)
+	end 'each'
+	out.push(terminator)
+end 'appendToken'
+
+function pathOf(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("not a path")
+end 'pathOf'
+
+// detach starts a program of the tokens detached and gives what the spawn answered.
+function detach(tokens Words) returns FullRangeInt
+	var argv = Blob.create(0)
+	for token in tokens 'tokens'
+		appendToken(argv, token: token)
+	end 'tokens'
+	var env = Blob.create(1)
+	env.push(terminator)
+	let empty = ""
+	return __Builtins.subprocessDetach(argv.managed, tokens.count(), empty.cstr(), env.managed, parentEnvironment, stdinNone, empty.cstr(), outputDiscard, empty.cstr(), 0, outputDiscard, empty.cstr(), 0, detachFlag, 0)
+end 'detach'
+
+// waitForFile gives the text of a file once it holds some, or what is there after the limit.
+function waitForFile(path String) returns String
+	var waited = 0 as Count
+	var text = ""
+	while waited < waitLimitMs 'poll'
+		if File.exists(pathOf(path)) 'present'
+			text = try File.readText(pathOf(path)) otherwise ""
+			if text.byteLength() > 0 'written'
+				return text
+			end 'written'
+		end 'present'
+		sleep(waitMs)
+		waited = waited + waitMs
+	end 'poll'
+	return text
+end 'waitForFile'
+
+function removed(path String)
+	if File.exists(pathOf(path)) 'present'
+		try File.delete(pathOf(path)) otherwise return
+	end 'present'
+end 'removed'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() > 2 'child'
+		let file = args.get(2)
+		try File.writeText(pathOf("{file}.partial"), content: "detached child wrote this") otherwise return 3
+		try File.rename(pathOf("{file}.partial"), to: pathOf(file)) otherwise return 4
+		return 0
+	end 'child'
+	if args.count() > 1 'quiet'
+		return 0
+	end 'quiet'
+	let executable = try Process.executablePath() otherwise return 5
+	let file = "rows-detach-{Process.id()}.tmp"
+	var tokens = Words.create(0)
+	tokens.push(executable.path.clone())
+	tokens.push("write")
+	tokens.push(file.clone())
+	let pid = detach(tokens)
+	print("a detached child answers a process id: {pid > 0}\n")
+	print("the id names no child of the table: {__Builtins.subprocessGetPid(pid) == -1}\n")
+	print("the child did its work alone: written=[{waitForFile(file)}]\n")
+	removed(file)
+	var own = true
+	if File.exists(pathOf("/bin/sh")) and File.exists(pathOf("/proc/self")) 'probe'
+		let probe = "rows-detach-{Process.id()}-session.tmp"
+		var shell = Words.create(0)
+		shell.push("/bin/sh")
+		shell.push("-c")
+		shell.push("if [ \"$(ps -o sid= -p $$ | tr -d ' ')\" = \"$$\" ]; then echo own > {probe}.partial; else echo shared > {probe}.partial; fi; mv {probe}.partial {probe}")
+		let sessionPid = detach(shell)
+		own = sessionPid > 0 and waitForFile(probe).trim() == "own"
+		removed(probe)
+	end 'probe'
+	print("the child leads a session of its own: {own}\n")
+	var answered = 0 as Count
+	var finished = 0 as Count
+	for i in 0 upto 100 'many'
+		let each = "rows-detach-{Process.id()}-{i}.tmp"
+		var many = Words.create(0)
+		many.push(executable.path.clone())
+		many.push("write")
+		many.push(each)
+		if detach(many) > 0 'counted'
+			answered = try answered + 1 otherwise 0
+		end 'counted'
+	end 'many'
+	for i in 0 upto 100 'each'
+		let each = "rows-detach-{Process.id()}-{i}.tmp"
+		if waitForFile(each).byteLength() > 0 'done'
+			finished = try finished + 1 otherwise 0
+		end 'done'
+		removed(each)
+	end 'each'
+	sleep(settleMs)
+	print("a hundred detached children each answered an id: {answered}, and each did its work: {finished}\n")
+	return 0
+end 'main'

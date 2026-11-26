@@ -1,0 +1,131 @@
+// On Windows a path \\.\pipe\... names a named pipe, which an open file opens overlapped and gives an event entry, so a read that
+// comes before the server has written parks the green thread on the completion port until it has, and gives 0 once the server
+// has closed it, and a write to a pipe that a server reads writes all of it. Each server is PowerShell's NamedPipeServerStream,
+// run by a coroutine of this program's while the program opens the pipe; until the server has made its pipe an open finds none
+// (notFound), so the open is tried again every 100 ms, which lets the coroutine run, until the server has made it.
+// unsupported-targets: x64-linux, arm64-linux, arm64-macos
+// native-only
+//> read: 4 then 0: ping
+//> wrote: 4, the server got pong
+typealias Bytes = __ManagedMemory with Byte
+
+typealias Arguments = Array with String
+
+let tries = 200 as Count
+
+// serve runs a PowerShell script to its end and says how it ended.
+function serve(script String) returns String
+	var arguments = Arguments.create(0)
+	arguments.push("-NoProfile")
+	arguments.push("-Command")
+	arguments.push(script.clone())
+	let out = try Subprocess.run(Executable.name("powershell.exe"), arguments: arguments) otherwise return "not run"
+	return "ran {out.exitCode()}"
+end 'serve'
+
+function failureName(e __ManagedFileError) returns String
+	return match e 'kind'
+		notFound gives "notFound"
+		accessDenied gives "accessDenied"
+		openFailed gives "openFailed"
+		readFailed gives "readFailed"
+		writeFailed gives "writeFailed"
+		sizeFailed gives "sizeFailed"
+		deleteFailed gives "deleteFailed"
+		statFailed gives "statFailed"
+		invalidStatBuffer gives "invalidStatBuffer"
+		invalidStatIndex gives "invalidStatIndex"
+		closed gives "closed"
+		alreadyExists gives "alreadyExists"
+		busy gives "busy"
+	end 'kind'
+end 'failureName'
+
+// opened is the pipe opened to read or to write, once its server has made it.
+function opened(path String, reads bool) returns __ManagedFile throws __ManagedFileError
+	for _ in 0 upto tries 'wait'
+		if reads 'read'
+			let reader = try __ManagedFile.openRead(path.addressableBytes()) otherwise (e) 'unread'
+				if e != __ManagedFileError.notFound 'refused'
+					throw e
+				end 'refused'
+				sleep(100)
+				continue 'wait'
+			end 'unread'
+			return reader
+		end 'read'
+		let writer = try __ManagedFile.openWrite(path.addressableBytes()) otherwise (e) 'unwritten'
+			if e != __ManagedFileError.notFound 'refused'
+				throw e
+			end 'refused'
+			sleep(100)
+			continue 'wait'
+		end 'unwritten'
+		return writer
+	end 'wait'
+	throw __ManagedFileError.notFound
+end 'opened'
+
+function readPipe(path String, mutates buffer Bytes) returns String throws __ManagedFileError
+	var file = try opened(path, reads: true)
+	let first = try file.readAppending(buffer, most: 8) otherwise (e) 'first'
+		try file.close() otherwise ignore
+		throw e
+	end 'first'
+	let second = try file.readAppending(buffer, most: 8) otherwise (e) 'second'
+		try file.close() otherwise ignore
+		throw e
+	end 'second'
+	try file.close()
+	return "{first} then {second}"
+end 'readPipe'
+
+function writePipe(path String) returns Count throws __ManagedFileError
+	var file = try opened(path, reads: false)
+	let wrote = try file.write("pong".toByteArray().managed) otherwise (e) 'unwritten'
+		try file.close() otherwise ignore
+		throw e
+	end 'unwritten'
+	try file.close()
+	return wrote
+end 'writePipe'
+
+// received is what the second server wrote to its file, once it has written all of it.
+function received(out FilePath) returns String
+	for _ in 0 upto tries 'wait'
+		let text = try File.readText(out) otherwise ""
+		if text == "pong" 'whole'
+			return text
+		end 'whole'
+		sleep(50)
+	end 'wait'
+	return "nothing"
+end 'received'
+
+function main() returns ExitCode
+	let name = "minimaxon_pipe_{Process.id()}"
+	let here = Directory.currentPath()
+	let copy = "{here.toString()}/{name}_copy.txt"
+	let sends = "$s = New-Object System.IO.Pipes.NamedPipeServerStream('{name}_in', [System.IO.Pipes.PipeDirection]::Out); $s.WaitForConnection(); Start-Sleep -Milliseconds 500; $b = [Text.Encoding]::ASCII.GetBytes('ping'); $s.Write($b, 0, 4); $s.Flush(); $s.WaitForPipeDrain(); $s.Dispose()"
+	var buffer = try Bytes.create(16, elementSize: 1) otherwise return 3
+	let sender = async serve(sends)
+	let reads = try readPipe("\\\\.\\pipe\\{name}_in", buffer: buffer) otherwise (e) 'unread'
+		let sent = await sender
+		print("read: {failureName(e)}, the server {sent}\n")
+		return 4
+	end 'unread'
+	_ = await sender
+	print("read: {reads}: {String.from(ByteArray.init(buffer))}\n")
+	let takes = "$s = New-Object System.IO.Pipes.NamedPipeServerStream('{name}_out', [System.IO.Pipes.PipeDirection]::In); $s.WaitForConnection(); $r = New-Object System.IO.StreamReader($s); $t = $r.ReadToEnd(); [IO.File]::WriteAllText('{copy}', $t); $s.Dispose()"
+	let taker = async serve(takes)
+	let wrote = try writePipe("\\\\.\\pipe\\{name}_out") otherwise (e) 'unwritten'
+		let took = await taker
+		print("write: {failureName(e)}, the server {took}\n")
+		return 6
+	end 'unwritten'
+	_ = await taker
+	let out = try FilePath.from(copy) otherwise return 7
+	print("wrote: {wrote}, the server got {received(out)}\n")
+	try File.delete(out) otherwise return 8
+	return 0
+end 'main'

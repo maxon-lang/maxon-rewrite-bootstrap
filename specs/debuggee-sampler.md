@@ -478,7 +478,7 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 1
 	let childArguments = StringArray.create(0)
 	childArguments.push("child")
-	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: childArguments) otherwise return 2
+	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: childArguments) otherwise return 2
 	let readiness = try child.takeStdout() otherwise return 7
 	_ = try readiness.readLine() otherwise return 7
 	let pid = try child.processId() otherwise return 3
@@ -493,7 +493,7 @@ function main() returns ExitCode
 		captured(stack) then print("captured {stack.programCounter != 0} {stack.window.byteCount() > 0}\n")
 	end 'result'
 	sampled.close()
-	_ = try child.wait(WaitDeadline.within(1)) otherwise 0
+	_ = try child.wait(MxWaitDeadline.within(1)) otherwise 0
 	child.release()
 	return 0
 end 'main'
@@ -533,7 +533,7 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 1
 	let childArguments = StringArray.create(0)
 	childArguments.push("child")
-	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: childArguments) otherwise return 2
+	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: childArguments) otherwise return 2
 	let pid = try child.processId() otherwise return 3
 	let sampled = try SampledProcess.open(pid) otherwise return 4
 	let modules = try sampled.modules() otherwise return 5
@@ -581,7 +581,7 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 1
 	let childArguments = StringArray.create(0)
 	childArguments.push("child")
-	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: childArguments) otherwise return 2
+	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: childArguments) otherwise return 2
 	let readiness = try child.takeStdout() otherwise return 7
 	_ = try readiness.readLine() otherwise return 7
 	let pid = try child.processId() otherwise return 3
@@ -592,7 +592,7 @@ function main() returns ExitCode
 		unreadable then status = 6
 		captured(stack) then status = readAfterTheDrop(stack.window)
 	end 'result'
-	_ = try child.wait(WaitDeadline.within(1)) otherwise 0
+	_ = try child.wait(MxWaitDeadline.within(1)) otherwise 0
 	child.release()
 	return status
 end 'main'
@@ -647,7 +647,7 @@ function main() returns ExitCode
 	let directory = try me.parent() otherwise return 1
 	let childArguments = StringArray.create(0)
 	childArguments.push("child")
-	let child = try StreamingSubprocess.spawnTraceable(Executable.path(me), arguments: childArguments, workingDirectory: WorkingDirectory.at(directory), environment: Environment.inherit, traced: true) otherwise return 2
+	let child = try StreamingSubprocess.spawnTraceable(MxExecutable.path(me), arguments: childArguments, workingDirectory: WorkingDirectory.at(directory), environment: Environment.inherit, traced: true) otherwise return 2
 	let pid = try child.processId() otherwise return 3
 	let pin = MachinePin.acquire()
 	let port = DebugPort.create()
@@ -753,14 +753,14 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 1
 	let childArguments = StringArray.create(0)
 	childArguments.push("child")
-	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: childArguments) otherwise return 2
+	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: childArguments) otherwise return 2
 	let readiness = try child.takeStdout() otherwise return 7
 	_ = try readiness.readLine() otherwise return 7
 	let pid = try child.processId() otherwise return 3
 	let status = seizeAndDrop(pid)
 	print("traced after the drop {isTraced(pid)}\n")
 	print("pin depth after the drop {Scheduler.pinDepth()}\n")
-	_ = try child.wait(WaitDeadline.within(1)) otherwise 0
+	_ = try child.wait(MxWaitDeadline.within(1)) otherwise 0
 	child.release()
 	return status
 end 'main'
@@ -825,14 +825,14 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 1
 	let targetArguments = StringArray.create(0)
 	targetArguments.push("target")
-	let target = try StreamingSubprocess.spawn(Executable.path(me), arguments: targetArguments) otherwise return 2
+	let target = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: targetArguments) otherwise return 2
 	let readiness = try target.takeStdout() otherwise return 7
 	_ = try readiness.readLine() otherwise return 7
 	let pid = try target.processId() otherwise return 3
 	let samplerArguments = StringArray.create(0)
 	samplerArguments.push("sampler")
 	samplerArguments.push("{pid}")
-	let sampler = try Subprocess.run(Executable.path(me), arguments: samplerArguments) otherwise return 4
+	let sampler = try MxSubprocess.run(MxExecutable.path(me), arguments: samplerArguments) otherwise return 4
 	print("stderr is the one line {sampler.stderr == "sampler: thread {pid} of process {pid} could not be detached within 10000 ms, so the process was killed rather than left stopped\n"}\n")
 	let code = try target.wait() otherwise return 8
 	print("ended {code}\n")
@@ -1128,13 +1128,13 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 1
 	let childArguments = StringArray.create(0)
 	childArguments.push("child")
-	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: childArguments) otherwise return 2
+	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: childArguments) otherwise return 2
 	let readiness = try child.takeStdout() otherwise return 7
 	_ = try readiness.readLine() otherwise return 7
 	let pid = try child.processId() otherwise return 3
 	let status = openAndDrop(pid)
 	print("caller pin depth {Scheduler.pinDepth()}\n")
-	_ = try child.wait(WaitDeadline.within(1)) otherwise 0
+	_ = try child.wait(MxWaitDeadline.within(1)) otherwise 0
 	child.release()
 	return status
 end 'main'
@@ -1170,12 +1170,12 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 1
 	let childArguments = StringArray.create(0)
 	childArguments.push("child")
-	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: childArguments) otherwise return 2
+	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: childArguments) otherwise return 2
 	let readiness = try child.takeStdout() otherwise return 7
 	_ = try readiness.readLine() otherwise return 7
 	let pid = try child.processId() otherwise return 3
 	let status = releaseAndDrop(pid)
-	_ = try child.wait(WaitDeadline.within(1)) otherwise 0
+	_ = try child.wait(MxWaitDeadline.within(1)) otherwise 0
 	child.release()
 	return status
 end 'main'
@@ -1213,12 +1213,12 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 1
 	let childArguments = StringArray.create(0)
 	childArguments.push("child")
-	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: childArguments) otherwise return 2
+	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: childArguments) otherwise return 2
 	let readiness = try child.takeStdout() otherwise return 7
 	_ = try readiness.readLine() otherwise return 7
 	let pid = try child.processId() otherwise return 3
 	let status = closeAndDrop(pid)
-	_ = try child.wait(WaitDeadline.within(1)) otherwise 0
+	_ = try child.wait(MxWaitDeadline.within(1)) otherwise 0
 	child.release()
 	return status
 end 'main'
@@ -1327,13 +1327,13 @@ true
 ```
 
 <!-- test: error.a-debug-port-cannot-be-a-registry-value -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 A `DebugPort` owns an OS reservation that exactly one holder releases, so the share walk refuses it: every thread
 would read a registry value at once, and a close on one would unmap the pages under another.
 
 ```maxon
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default DebugPort = DebugPort.create()
 
 function main() returns ExitCode

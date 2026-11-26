@@ -98,6 +98,23 @@ let abortNameEnd = ")\n"
 // emptied, which the compiler could not see was the same slot.
 let promiseSlotConsumedTwice = 118 as Count
 
+// A fatal error, maxon's RuntimeFatal: a program's misuse of the runtime that no handler can catch, which writes `fatal error:
+// <reason>` to standard error and exits with fatalExitCode.
+let fatalPrefix = "fatal error: "
+
+let fatalEnd = "\n"
+
+let fatalExitCode = 70 as Count
+
+// runtimeFatal writes the fatal error of a reason and exits with fatalExitCode.
+function runtimeFatal(reason String)
+	let handle = standardError()
+	writeHandle(handle, text: fatalPrefix)
+	writeHandle(handle, text: reason)
+	writeHandle(handle, text: fatalEnd)
+	exitProcess(fatalExitCode)
+end 'runtimeFatal'
+
 // runtimeAbort writes the abort of a code and its name and exits with the code.
 function runtimeAbort(code Count, name String)
 	let handle = standardError()

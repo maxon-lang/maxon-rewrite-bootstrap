@@ -1,0 +1,16 @@
+// An account is a service of this module: another module spawns it and sends it messages through its handles.
+export type Account
+	var balance as Count
+
+	export static function open(balance Count) returns Account
+		return Account{balance: balance}
+	end 'open'
+
+	export function credit(mutates self, amount Count)
+		self.balance = try self.balance + amount otherwise self.balance
+	end 'credit'
+
+	export function report(label String) returns String
+		return "{label}: {self.balance}"
+	end 'report'
+end 'Account'

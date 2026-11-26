@@ -1,0 +1,29 @@
+// A call that throws, and an operation that may leave its range, outside a try in a function that throws the same error, are
+// covered by a try that passes the failure to the caller, as the program would write; a failure of another error than the
+// function's is covered by a try that panics.
+enum Refusal implements Error
+	refused
+end 'Refusal'
+
+typealias Score = int(0 to 100)
+
+function check(n Score) throws Refusal
+	if n == 0 'zero'
+		throw Refusal.refused
+	end 'zero'
+end 'check'
+
+function both(n Score) returns Score throws Refusal
+	try check(n)
+	return try n * 2 otherwise panic("out of range")
+end 'both'
+
+function sum(n Score) returns Score throws ArithmeticError
+	return try n * 2
+end 'sum'
+
+function main() returns ExitCode
+	_ = try both(3) otherwise 0
+	_ = try sum(3) otherwise 0
+	return 0
+end 'main'

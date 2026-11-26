@@ -104,7 +104,9 @@ function renameKeyword(rename Rename, paths ast.StringList) returns ExitCode
 		if edits.count() == 0 'unchanged'
 			continue 'files'
 		end 'unchanged'
-		try File.writeText(filePath, content: syntax.applyEdits(text, edits: edits)) otherwise panic("rewrite: cannot write {file}")
+		try File.writeText(filePath, content: syntax.applyEdits(text, edits: edits)) otherwise (e) 'refused'
+			ast.unwritableOutput(file, reason: ast.writeRefusal(e))
+		end 'refused'
 		renamed = try renamed + edits.count() otherwise panic("rewrite: more edits than memory")
 		changedFiles = increment(changedFiles)
 	end 'files'

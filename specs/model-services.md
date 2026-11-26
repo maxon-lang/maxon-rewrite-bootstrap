@@ -665,7 +665,6 @@ type Sf
 	export function go(me Sf.handle)
 		try me.again(me.clone()) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull then break
 				serviceStopped then break
 			end 'x2'
 		end 'h1'
@@ -718,7 +717,6 @@ end 'Hr2'
 function give(h Hr2.handle, consumes tV Tok)
 	try h.take(tV) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
@@ -771,7 +769,6 @@ function main() returns ExitCode
 	let k = spawn Kq.create(0)
 	try k.go(Tok.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
@@ -3080,7 +3077,6 @@ function main() returns ExitCode
 	for t in xs 'f1'
 		try su.takeA(xs) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
-				mailboxFull then break
 				serviceStopped then break
 			end 'x3'
 		end 'h2'
@@ -3140,7 +3136,6 @@ function main() returns ExitCode
 	for t in h.xs 'f1'
 		try su.takeA(h.xs) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
-				mailboxFull then break
 				serviceStopped then break
 			end 'x3'
 		end 'h2'
@@ -3405,23 +3400,20 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	let k = spawn(capacity: 1) Cap1.create(0)
+	let k = spawn Cap1.create(0)
 	let s = spawn Sc.create(0)
 	try k.busy() otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
 	try k.poke() otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x4'
 	end 'h3'
 	try k.takeH(s.clone()) otherwise (sendFailure) 'h5'
 		match sendFailure 'x6'
-			mailboxFull then try s.poke() otherwise ignore
 			serviceStopped then try s.poke() otherwise ignore
 		end 'x6'
 	end 'h5'
@@ -10541,7 +10533,6 @@ function main() returns ExitCode
 	let k = spawn Kz.create(0, b: Bx.create(0))
 	try k.eat(Ub.u1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
@@ -10600,7 +10591,6 @@ function main() returns ExitCode
 	let k = spawn Kt.create(0)
 	try k.eatTwice(Ub.u1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
@@ -10694,7 +10684,6 @@ function main() returns ExitCode
 	end 'x1'
 	try k.eat(u) otherwise (sendFailure) 'h2'
 		match sendFailure 'x3'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x3'
 	end 'h2'
@@ -20234,7 +20223,6 @@ function main() returns ExitCode
 	let k = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	try k.eatUb(Ub.u1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
@@ -20319,7 +20307,6 @@ function main() returns ExitCode
 	let k = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	try k.eatPc(Pc.u1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
@@ -20404,13 +20391,11 @@ function main() returns ExitCode
 	let k = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	try k.eatMq(Mq.q1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
 	try k.eatMq(Mq.q0(Bx.create(2))) otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x4'
 	end 'h3'
@@ -25376,7 +25361,6 @@ function main() returns ExitCode
 	_ = peekUT(u)
 	try s.take(u) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull then _ = peekUT(u)
 			serviceStopped then _ = peekUT(u)
 		end 'x2'
 	end 'h1'

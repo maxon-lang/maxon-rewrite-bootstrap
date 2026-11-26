@@ -47,7 +47,7 @@ A taken stdout reader answers each line without its terminator: a blank line is 
 ```maxon
 function shown(read LineOrEnd) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives "ended"
 	end 'read'
 end 'shown'
@@ -57,12 +57,12 @@ function main() returns ExitCode
 		print("one\n\nthree\r\n")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
+	var argv = StringArray.create(0)
 	argv.push("emit")
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
-	let reader = try child.takeStdout() otherwise return 4
+	var reader = try child.takeStdout() otherwise return 4
 	let one = shown(try reader.readLine() otherwise return 5)
 	let blank = shown(try reader.readLine() otherwise return 6)
 	let three = shown(try reader.readLine() otherwise return 7)
@@ -89,12 +89,12 @@ function main() returns ExitCode
 		printError("abcdefghij")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
+	var argv = StringArray.create(0)
 	argv.push("emit")
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
-	let reader = try child.takeStderr() otherwise return 4
+	var reader = try child.takeStderr() otherwise return 4
 	let first = try reader.readBytes(4) otherwise return 5
 	let second = try reader.readBytes(4) otherwise return 6
 	let third = try reader.readBytes(2) otherwise return 7
@@ -118,7 +118,7 @@ A line read whose cap passes before an LF answers `pastTheCap` and leaves every 
 ```maxon
 function shown(read LineRead) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives "ended"
 		pastTheCap gives "pastTheCap"
 	end 'read'
@@ -126,7 +126,7 @@ end 'shown'
 
 function shownLine(read LineOrEnd) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives "ended"
 	end 'read'
 end 'shownLine'
@@ -136,12 +136,12 @@ function main() returns ExitCode
 		print("xxxxxxxxxxxxxxxxxxxx\nshort\n")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
+	var argv = StringArray.create(0)
 	argv.push("emit")
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
-	let reader = try child.takeStdout() otherwise return 4
+	var reader = try child.takeStdout() otherwise return 4
 	let refused = shown(try reader.readLineWithin(8) otherwise return 5)
 	let taken = try reader.readBytes(21) otherwise return 6
 	let short = shownLine(try reader.readLine() otherwise return 7)
@@ -160,6 +160,7 @@ pastTheCap|21|short|ended
 ```
 
 <!-- test: a-line-read-without-a-cap-returns-a-line-longer-than-any-cap-whole -->
+<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->
 `readLine()` takes no cap: a line of 1,100,000 bytes, longer than a mebibyte, comes back whole, the line after it reads whole too, and the read after the last line answers `ended`.
 ```maxon
 function shown(read LineOrEnd) returns String
@@ -174,9 +175,9 @@ function main() returns ExitCode
 	let chunk = "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"
 	var content = ""
 	for _ in 0 upto 11000 'eachChunk'
-		content = "{content}{chunk}"
+		content.append(chunk)
 	end 'eachChunk'
-	content = "{content}\nshort\n"
+	content.append("\nshort\n")
 	try File.writeText(path, content: content) otherwise return 1
 	let reader = try File.openRead(path) otherwise return 2
 	let long = shown(try reader.readLine() otherwise return 3)
@@ -195,6 +196,7 @@ end 'main'
 ```
 
 <!-- test: a-line-read-within-a-cap-answers-pastTheCap-past-it-and-the-line-within-it -->
+<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->
 `readLineWithin(cap)` answers `pastTheCap` for a line of twelve bytes under a cap of eight and consumes nothing, answers that same line under a cap of twelve, reads the short line after it under the cap of eight, and answers `ended` after the last line.
 ```maxon
 function shown(read LineRead) returns String
@@ -226,6 +228,7 @@ pastTheCap|twelve chars|short|ended
 ```
 
 <!-- test: a-final-line-with-no-newline-is-a-line-and-then-the-stream-has-ended -->
+<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->
 A stream whose last line has no LF answers that text as a `line` and every read after it `ended`, from `readLine()` and from `readLineWithin(cap)` alike, as Go's `bufio.Reader.ReadString` answers the partial text beside its end-of-file.
 ```maxon
 function shownWithin(read LineRead) returns String
@@ -279,7 +282,7 @@ line.
 ```maxon
 function shown(read LineOrEnd) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives "ended"
 	end 'read'
 end 'shown'
@@ -289,12 +292,12 @@ function main() returns ExitCode
 		print("first\nabcdefghij\n")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
+	var argv = StringArray.create(0)
 	argv.push("emit")
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
-	let reader = try child.takeStdout() otherwise return 4
+	var reader = try child.takeStdout() otherwise return 4
 	let first = shown(try reader.readLine() otherwise return 5)
 	let counted = try reader.readBytes(4) otherwise return 6
 	let rest = shown(try reader.readLine() otherwise return 7)
@@ -318,7 +321,7 @@ A reader taken from a child that is then released has no stream left to read: it
 `StreamError.closed`, although the child wrote a line nothing read, and so does the read after that, so a
 caller cannot mistake the released stream for one that ended.
 ```maxon
-function afterRelease(reader ChildOutputReader) returns String
+function afterRelease(mutates reader ChildOutputReader) returns String
 	let read = try reader.readLine() otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -328,7 +331,7 @@ function afterRelease(reader ChildOutputReader) returns String
 	end 'read'
 end 'afterRelease'
 
-function bytesAfterRelease(reader ChildOutputReader) returns String
+function bytesAfterRelease(mutates reader ChildOutputReader) returns String
 	let bytes = try reader.readBytes(4) otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -340,12 +343,12 @@ function main() returns ExitCode
 		print("unread\n")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let argv = StringArray.create(0)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
+	var argv = StringArray.create(0)
 	argv.push("emit")
-	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
+	var child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
-	let reader = try child.takeStdout() otherwise return 4
+	var reader = try child.takeStdout() otherwise return 4
 	_ = try child.wait() otherwise panic("the child ends once its input is closed")
 	child.release()
 	let line = afterRelease(reader)
@@ -371,8 +374,8 @@ at once and the program must end, rather than wait for the grandchild to let go 
 grandchild itself before it returns, because a descendant a case leaves running fails it.
 ```maxon
 #if os(Windows)
-	function holderExecutable() returns Executable
-		return Executable.name("cmd")
+	function holderExecutable() returns MxExecutable
+		return MxExecutable.name("cmd")
 	end 'holderExecutable'
 
 	function holderArguments() returns StringArray
@@ -390,8 +393,8 @@ grandchild itself before it returns, because a descendant a case leaves running 
 		return argv
 	end 'holderArguments'
 #else
-	function holderExecutable() returns Executable
-		return Executable.path(try FilePath.from("/bin/sh") otherwise panic("/bin/sh is a valid path"))
+	function holderExecutable() returns MxExecutable
+		return MxExecutable.path(try FilePath.from("/bin/sh") otherwise panic("/bin/sh is a valid path"))
 	end 'holderExecutable'
 
 	function holderArguments() returns StringArray
@@ -447,13 +450,13 @@ anchor settles it as spent, nothing is written, and the program goes on.
 ```maxon
 function main() returns ExitCode
 	#if os(Windows)
-		let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
 		let argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("findstr")
 		argv.push("x*")
 	#else
-		let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+		let exe = MxExecutable.path(try FilePath.from("/bin/cat") otherwise return 2)
 		let argv = StringArray.create(0)
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
@@ -497,7 +500,7 @@ function main() returns ExitCode
 		builder = "{builder}x"
 		filled = filled + 1
 	end 'fill'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
 	let outcome = try runChildFedAfterLine(exe, argv: argv, workingDirectory: WorkingDirectory.inherit, environment: Environment.inherit, deadlineMs: 20000, endsWhen: RunEndsWhen.outputEnds, tailSilenceMs: 200, tailCapMs: 1000, anchor: "ready", feed: builder) otherwise return 3
 	match outcome 'outcome'
 		ran(report) then print(report.stdout)
@@ -532,7 +535,7 @@ function main() returns ExitCode
 		print("late\n")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("emit")
 	var builder = ""
@@ -633,7 +636,7 @@ function main() returns ExitCode
 		sleep(60000)
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("emit")
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
@@ -675,7 +678,7 @@ function main() returns ExitCode
 		print("one\n\nthree\n")
 		return 0
 	end 'childMode'
-	let exe = Executable.path(try Process.executablePath() otherwise return 2)
+	let exe = MxExecutable.path(try Process.executablePath() otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("emit")
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
@@ -914,6 +917,7 @@ dropped: client heard [first line;second line;] then secure(truncated)
 ```
 
 <!-- test: a-file-is-read-line-by-line-across-chunks -->
+<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->
 A reader over a file reads every line of one larger than a single read, so lines that straddle two reads come back whole and the count and the last line are exact.
 ```maxon
 function linesOf(path FilePath) returns String
@@ -939,7 +943,7 @@ function main() returns ExitCode
 	let path = FilePath from "stream-reader-a-file-is-read-line-by-line.txt"
 	var content = ""
 	for i in 0 upto 1000 'eachLine'
-		content = "{content}line {i}\n"
+		content.append("line {i}\n")
 	end 'eachLine'
 	try File.writeText(path, content: content) otherwise return 1
 	let outcome = linesOf(path)

@@ -720,9 +720,98 @@ function requireDroppable(mutates o Ownership, p ast.Project, mutates ms ast.Mod
 	if l.missing 'lacking'
 		let why = lackWhyText(ms.types, reads: p.types, info: l, capName: "Droppable")
 		let fix = lackFixText(ms.types, reads: p.types, info: l, capName: "Droppable")
-		failFixed(o, p: p, site: site, code: diag.errNotDroppable, msg: "{d.text()}, but '{ast.typeName(ms.types, reads: p.types, t: t)}' cannot be dropped ({why}); {fix}, or end it with one of its destructors or move it on", fix: lackBoundFix(p, ms: ms, fn: o.fn, info: l, capName: "Droppable"))
+		var change = lackBoundFix(p, ms: ms, fn: o.fn, info: l, capName: "Droppable")
+		if not change.isSome() 'ending'
+			change = endingFixFor(o, p: p, ms: ms, site: site, t: t, d: d)
+		end 'ending'
+		failFixed(o, p: p, site: site, code: diag.errNotDroppable, msg: "{d.text()}, but '{ast.typeName(ms.types, reads: p.types, t: t)}' cannot be dropped ({why}); {fix}, or end it with one of its destructors or move it on", fix: change)
 	end 'lacking'
 end 'requireDroppable'
+
+// Ending is how fix ends a value that cannot be dropped: the member path to the call that ends it, and whether that throws.
+type Ending
+	var path as String
+	var fails as bool
+
+	static function make(consumes path String, fails bool) returns Ending
+		return Ending{path: path, fails: fails}
+	end 'make'
+end 'Ending'
+
+// endingFixFor is the fix of E3919 at a return, a break or a continue that leaves a local holding a value that cannot be
+// dropped: the call that ends the local, written before the exit (fixes.endingFix), where its type has one way to end it that
+// takes nothing (endingOf). A call that throws is written `try ... otherwise ignore`, since the exit already says what the
+// function does next.
+function endingFixFor(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, site diag.U32, t ast.TypeID, d OwnDrop) returns diag.Fix
+	let exits = d.kind == OwnDropKind.dropReturn or d.kind == OwnDropKind.dropBreak or d.kind == OwnDropKind.dropContinue
+	if not exits or d.name == "" or d.name.contains(".") 'notLocal'
+		return diag.Fix.none()
+	end 'notLocal'
+	match consumes endingOf(o, p: p, ms: ms, t: t, depth: 0) 'ending'
+		some(ending) then return endingFix(ms.tree(), at: site, call: endingCall(d.name, ending: ending), label: "{d.name}Ended")
+		none then return diag.Fix.none()
+	end 'ending'
+end 'endingFixFor'
+
+function endingCall(name String, ending Ending) returns String
+	if ending.fails 'fails'
+		return "try {name}{ending.path} otherwise ignore"
+	end 'fails'
+	return "{name}{ending.path}"
+end 'endingCall'
+
+// endingParts is how deep endingOf looks through the parts of a value for the one that ends it.
+let endingParts = 4 as Count
+
+// endingOf is the one way to end a value of type t that takes nothing: its one destructor without parameters (`.close()`),
+// or, for a record without destructors, the ending of its one part that cannot be dropped (`.file.close()`); none where
+// there is no single such way.
+function endingOf(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, depth Count) returns table.Option with Ending
+	if depth >= endingParts or ast.typeKind(ms.types, reads: p.types, t: t) != ast.TypeKind.record 'opaque'
+		return table.Option.none
+	end 'opaque'
+	let orig = ast.originOf(ms.types, reads: p.types, t: t)
+	var ended = false
+	var nullary = ast.StringList.create(0)
+	var throwing = false
+	for m in ast.typeEntry(ms.types, reads: p.types, t: orig).methods 'methods'
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m.func).isDestructor 'destructor'
+			ended = true
+			if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m.func).params.count() == 0 'nullary'
+				nullary.push(m.name.clone())
+				throwing = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m.func).errTy != ast.noType
+			end 'nullary'
+		end 'destructor'
+	end 'methods'
+	if ended 'destructors'
+		if nullary.count() != 1 'ambiguous'
+			return table.Option.none
+		end 'ambiguous'
+		for only in nullary 'only'
+			return table.Option.some(Ending.make(".{only}()", fails: throwing))
+		end 'only'
+		return table.Option.none
+	end 'destructors'
+	var parts = ast.StringList.create(0)
+	var partType = ast.noType
+	for f in ast.typeEntry(ms.types, reads: p.types, t: orig).fields.clone() 'fields'
+		let fTy = ast.fieldType(ms.types, reads: p.types, owner: t, index: f.index)
+		if isManagedOwn(p, ms: ms, t: fTy) and lacksDroppable(o, p: p, ms: ms, t: fTy) 'linear'
+			parts.push(f.name.clone())
+			partType = fTy
+		end 'linear'
+	end 'fields'
+	if parts.count() != 1 'parts'
+		return table.Option.none
+	end 'parts'
+	for part in parts 'part'
+		match consumes endingOf(o, p: p, ms: ms, t: partType, depth: depth + 1) 'inner'
+			some(ending) then return table.Option.some(Ending.make(".{part}{ending.path}", fails: ending.fails))
+			none then return table.Option.none
+		end 'inner'
+	end 'part'
+	return table.Option.none
+end 'endingOf'
 
 // requireTemporaryDroppable is the drop of a fresh value that the statement does not give to anything.
 function requireTemporaryDroppable(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, s OwnState, kind OwnDropKind)

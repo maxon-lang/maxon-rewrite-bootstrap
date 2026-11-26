@@ -1,0 +1,355 @@
+// The scan of a library module's text: what reaches the module, read from its lines, not from a parse. The layout is part of
+// the syntax (Maxon.g4): a declaration starts a line, its members are the lines one tab deeper, and the lines of a branch of a
+// `#if` are one tab deeper than its directives, so a line says what it declares by its indentation and its first words.
+// The scan reads those words and no others, so a module that nothing reaches is never lexed, and a file with an error in it
+// is no error until the module is reached.
+//
+// A module is reached by a word of a program in two ways only: a name that the module declares at the top level, which is
+// how a program names a type, a function or a constant of it; and the name of an exported member of an extension of a type
+// that the module does not declare (a built-in type, or a type of another module), which a program calls without naming the
+// module. The members of a type that the module declares are no words: a program that has a value of the type got it from a
+// module that names this one (or wrote the type's name, which is a top-level name), so the module is reached already.
+// The module also names the library modules whose qualifier's first name its text writes before a dot and a name, comments
+// and strings read as code, and the core, which every module depends on (resolve.noteCoreDependency). The scan counts the
+// lines of every branch of a `#if`, whatever the target: a name that a branch left out for the target declares is a word
+// that reaches the module still, which a program never writes.
+
+let tabByte = 9 as Byte
+
+let newlineByte = 10 as Byte
+
+let spaceByte = 32 as Byte
+
+let hashByte = 35 as Byte
+
+// LibraryHeads is the library modules that a scan names: each by the first name of its qualifier, in the order a scan numbers
+// them by, with the place of each in the project's modules, and the core among them.
+export type LibraryHeads
+	// modules are the project's modules that the heads name, in order.
+	export var modules as CountList
+	var heads as ast.StringList
+	// core is the place of the core among the heads, if the library has one.
+	var core as table.Option with Count
+
+	static function make(consumes modules CountList, consumes heads ast.StringList, consumes core table.Option with Count) returns LibraryHeads
+		return LibraryHeads{modules: modules, heads: heads, core: core}
+	end 'make'
+
+	// none is the heads of a compile that has no library.
+	export static function none() returns LibraryHeads
+		return LibraryHeads.make(CountList.create(0), heads: ast.StringList.create(0), core: table.Option.none)
+	end 'none'
+
+	// of is the heads of the library modules of p from the module at first on.
+	export static function of(p ast.Project, first Count) returns LibraryHeads
+		var modules = CountList.create(0)
+		var heads = ast.StringList.create(0)
+		var core as table.Option with Count
+		core = table.Option.none
+		let coreModule = ast.libraryModuleNamed(p, name: ast.libraryCoreModule)
+		var m = 0 as Count
+		for candidate in p.modules 'modules'
+			if m >= first and candidate.isLibrary 'library'
+				if coreModule.isSome() and candidate.id == coreModule.clone().unwrap() 'core'
+					core = table.Option.some(heads.count())
+				end 'core'
+				modules.push(m)
+				heads.push(qualifierHead(ast.qualifierOf(candidate)))
+			end 'library'
+			m = after(m)
+		end 'modules'
+		return LibraryHeads.make(modules, heads: heads, core: core)
+	end 'of'
+
+	// coreModule is the core's place among the project's modules, if the library has one.
+	export function coreModule() returns table.Option with Count
+		return match core.clone() 'core'
+			some(k) gives table.Option.some(try modules.get(k) otherwise panic("project: the core is no module of the library"))
+			none gives table.Option.none
+		end 'core'
+	end 'coreModule'
+end 'LibraryHeads'
+
+// LibraryScan is what the scan of the files of one library module found, or that a file could not be read.
+export type LibraryScan
+	var names as ast.StringList
+	// extensionMembers are the exported members of the module's extensions, and owners the type that the extension of each
+	// extends, by the name it writes.
+	var extensionMembers as ast.StringList
+	var owners as ast.StringList
+	// owner is the type that the extension whose lines are being read extends.
+	var owner as String
+	var named as BoolList
+	// readable is whether every file of the module was read; a scan of a module that was not says nothing of it.
+	export var readable as bool
+	// texts are the files that were read, which a parse of the module can use in place of reading them again.
+	export var texts as SourceFiles
+
+	// of is the scan of no file yet, of a library whose modules are heads.
+	static function of(heads LibraryHeads) returns LibraryScan
+		var named = BoolList.create(0)
+		for _ in heads.heads 'modules'
+			named.push(false)
+		end 'modules'
+		var scan = LibraryScan{names: ast.StringList.create(0), extensionMembers: ast.StringList.create(0), owners: ast.StringList.create(0), owner: "", named: named, readable: true, texts: SourceFiles.create(0)}
+		match heads.core.clone() 'core'
+			some(k) then scan.markNamed(k)
+			none then _ = 0
+		end 'core'
+		return scan
+	end 'of'
+
+	// words are the words that reach the module, each once: its top-level names, and the exported members of its extensions of
+	// a type that it does not declare.
+	export function words() returns ast.StringList
+		var declared = NameSet.new()
+		var words = ast.StringList.create(0)
+		for name in names 'names'
+			if not declared.has(name) 'new'
+				declared.insert(name.clone(), value: 1)
+				words.push(name.clone())
+			end 'new'
+		end 'names'
+		var seen = NameSet.new()
+		var place = 0 as Count
+		for member in extensionMembers 'members'
+			let extended = try owners.get(place) otherwise panic("project: an extension member without its type")
+			if not declared.has(extended) and not seen.has(member) 'foreign'
+				seen.insert(member.clone(), value: 1)
+				words.push(member.clone())
+			end 'foreign'
+			place = after(place)
+		end 'members'
+		return words
+	end 'words'
+
+	// namedModules are the modules among the heads, as the project's modules, that the files may name.
+	export function namedModules(heads LibraryHeads) returns CountList
+		var modules = CountList.create(0)
+		var ordinal = 0 as Count
+		for isNamed in named 'named'
+			if isNamed 'kept'
+				modules.push(try heads.modules.get(ordinal) otherwise panic("project: a head past the library's modules"))
+			end 'kept'
+			ordinal = after(ordinal)
+		end 'named'
+		return modules
+	end 'namedModules'
+
+	function markNamed(mutates self, ordinal Count)
+		try named.set(ordinal, value: true) otherwise panic("project: a library module past the library's modules")
+	end 'markNamed'
+
+	// addText adds what the file at path, whose text is given, declares and names, and keeps its text.
+	function addText(mutates self, path String, consumes text String, heads LibraryHeads)
+		self.scanLines(text, heads: heads)
+		texts.push(SourceFile.make(path.clone(), text: text))
+	end 'addText'
+
+	// scanLines reads the declarations of the text from the first words of its lines, and the qualifiers it writes anywhere.
+	function scanLines(mutates self, text String, heads LibraryHeads)
+		let n = text.byteLength()
+		var at = 0 as Count
+		var branches = 0 as Count
+		var inExtension = false
+		while at < n 'lines'
+			var tabs = 0 as Count
+			while at < n and text.byteAt(at) == tabByte 'tabs'
+				at = after(at)
+				tabs = after(tabs)
+			end 'tabs'
+			let from = at
+			var stop = at
+			while stop < n and text.byteAt(stop) != newlineByte 'line'
+				if text.byteAt(stop) == dotByte 'dot'
+					self.noteQualifier(text, dot: stop, heads: heads)
+				end 'dot'
+				stop = after(stop)
+			end 'line'
+			at = after(stop)
+			if stop == from or text.byteAt(from) == slashByte 'blank'
+				continue 'lines'
+			end 'blank'
+			if text.byteAt(from) == hashByte 'directive'
+				if startsWithWord(text, at: from, stop: stop, word: "#if") 'open'
+					branches = after(branches)
+				end 'open' else if startsWithWord(text, at: from, stop: stop, word: "#endif") and branches > 0 'close'
+					branches = before(branches)
+				end 'close'
+				continue 'lines'
+			end 'directive'
+			let level = try tabs - branches otherwise continue 'lines'
+			if level == 0 'top'
+				inExtension = self.declarationAt(text, from: from, stop: stop)
+			end 'top' else if level == 1 and inExtension 'member'
+				self.memberAt(text, from: from, stop: stop)
+			end 'member'
+		end 'lines'
+	end 'scanLines'
+
+	// declarationAt reads the top-level declaration whose line is from to stop, adding its name, and says whether it is an
+	// extension, whose members the lines one tab deeper are.
+	function declarationAt(mutates self, text String, from Count, stop Count) returns bool
+		var at = from
+		var keywordEnd = wordEnd(text, at: at, stop: stop)
+		if wordIs(text, at: at, endAt: keywordEnd, word: "export") or wordIs(text, at: at, endAt: keywordEnd, word: "public") 'visibility'
+			at = wordAfter(text, endAt: keywordEnd, stop: stop)
+			keywordEnd = wordEnd(text, at: at, stop: stop)
+		end 'visibility'
+		let nameAt = wordAfter(text, endAt: keywordEnd, stop: stop)
+		let nameEnd = wordEnd(text, at: nameAt, stop: stop)
+		if wordIs(text, at: at, endAt: keywordEnd, word: "extension") 'extension'
+			owner = extendedName(text, from: nameAt, stop: stop)
+			return true
+		end 'extension'
+		if nameEnd > nameAt and declaresName(text, at: at, endAt: keywordEnd) 'declares'
+			names.push(text.sliceBytes(nameAt, endPos: nameEnd).clone())
+		end 'declares'
+		return false
+	end 'declarationAt'
+
+	// memberAt reads the line of a member of an extension, from to stop: a method that it exports is a word that reaches the
+	// module where the type it extends is no type of the module, and so is a static let. A member that has no visibility is the
+	// declaring module's own, which no other module names.
+	function memberAt(mutates self, text String, from Count, stop Count)
+		var at = from
+		var keywordEnd = wordEnd(text, at: at, stop: stop)
+		if not (wordIs(text, at: at, endAt: keywordEnd, word: "export") or wordIs(text, at: at, endAt: keywordEnd, word: "public")) 'private'
+			return
+		end 'private'
+		at = wordAfter(text, endAt: keywordEnd, stop: stop)
+		keywordEnd = wordEnd(text, at: at, stop: stop)
+		var isStatic = false
+		if wordIs(text, at: at, endAt: keywordEnd, word: "static") 'static'
+			isStatic = true
+			at = wordAfter(text, endAt: keywordEnd, stop: stop)
+			keywordEnd = wordEnd(text, at: at, stop: stop)
+		end 'static'
+		let nameAt = wordAfter(text, endAt: keywordEnd, stop: stop)
+		let nameEnd = wordEnd(text, at: nameAt, stop: stop)
+		if nameEnd == nameAt 'nameless'
+			return
+		end 'nameless'
+		if wordIs(text, at: at, endAt: keywordEnd, word: "function") or (isStatic and wordIs(text, at: at, endAt: keywordEnd, word: "let")) 'member'
+			extensionMembers.push(text.sliceBytes(nameAt, endPos: nameEnd).clone())
+			owners.push(owner.clone())
+		end 'member'
+	end 'memberAt'
+
+	// noteQualifier marks the library module whose qualifier's first name the text writes right before the dot at dot and a name
+	// (`_helpers.slotScan` for stdlib._helpers), where a name stands there at all.
+	function noteQualifier(mutates self, text String, dot Count, heads LibraryHeads)
+		let next = after(dot)
+		if next >= text.byteLength() or not ast.isIdentByte(text.byteAt(next)) 'unnamed'
+			return
+		end 'unnamed'
+		var start = dot
+		while start > 0 and ast.isIdentByte(text.byteAt(before(start))) 'name'
+			start = before(start)
+		end 'name'
+		if start == dot or (start > 0 and text.byteAt(before(start)) == dotByte) 'qualified'
+			return
+		end 'qualified'
+		let first = text.sliceBytes(start, endPos: dot)
+		var ordinal = 0 as Count
+		for head in heads.heads 'heads'
+			if head == first 'named'
+				self.markNamed(ordinal)
+			end 'named'
+			ordinal = after(ordinal)
+		end 'heads'
+	end 'noteQualifier'
+end 'LibraryScan'
+
+typealias NameSet = table.StringMap with Count
+
+// scanModule is the scan of the files of a library module, at the paths, which are read from memory where they are held there
+// and from disk otherwise, for a library whose modules are heads. A module with a file that cannot be read is not readable,
+// which the parse of the module then reports.
+export function scanModule(paths ast.StringList, heads LibraryHeads, memory SourceFiles) returns LibraryScan
+	var scan = LibraryScan.of(heads)
+	for path in paths 'files'
+		let text = match consumes memoryText(memory, path: path) 'held'
+			some(held) gives table.Option.some(held)
+			none gives readTextFile(path)
+		end 'held'
+		match consumes text 'read'
+			some(content) then scan.addText(path, text: content, heads: heads)
+			none then scan.readable = false
+		end 'read'
+	end 'files'
+	return scan
+end 'scanModule'
+
+// addNew adds to words each word of from that seen has not seen, and marks it seen.
+function addNew(mutates words ast.StringList, from ast.StringList, mutates seen NameSet)
+	for word in from 'from'
+		if not seen.has(word) 'new'
+			seen.insert(word.clone(), value: 1)
+			words.push(word.clone())
+		end 'new'
+	end 'from'
+end 'addNew'
+
+// declaresName is whether the keyword from at to endAt opens a declaration that a module of the library declares by a name
+// that a program writes bare: everything but an extension, which no name stands for.
+function declaresName(text String, at Count, endAt Count) returns bool
+	return wordIs(text, at: at, endAt: endAt, word: "function") or wordIs(text, at: at, endAt: endAt, word: "type") or wordIs(text, at: at, endAt: endAt, word: "let") or wordIs(text, at: at, endAt: endAt, word: "enum") or wordIs(text, at: at, endAt: endAt, word: "union") or wordIs(text, at: at, endAt: endAt, word: "typealias") or wordIs(text, at: at, endAt: endAt, word: "interface")
+end 'declaresName'
+
+// extendedName is the name of the type that the extension whose header is from (the type it extends, after the keyword) to
+// stop extends, as it writes it: the last name of a qualified one.
+function extendedName(text String, from Count, stop Count) returns String
+	var start = from
+	var at = from
+	while at < stop and (ast.isIdentByte(text.byteAt(at)) or text.byteAt(at) == dotByte) 'name'
+		if text.byteAt(at) == dotByte 'dot'
+			start = after(at)
+		end 'dot'
+		at = after(at)
+	end 'name'
+	return text.sliceBytes(start, endPos: at).clone()
+end 'extendedName'
+
+// wordEnd is where the word that starts at at ends: the first byte that is no part of a name, or stop.
+function wordEnd(text String, at Count, stop Count) returns Count
+	var last = at
+	while last < stop and ast.isIdentByte(text.byteAt(last)) 'word'
+		last = after(last)
+	end 'word'
+	return last
+end 'wordEnd'
+
+// wordAfter is where the word after the one that ends at endAt starts: past the spaces, or stop.
+function wordAfter(text String, endAt Count, stop Count) returns Count
+	var at = endAt
+	while at < stop and text.byteAt(at) == spaceByte 'spaces'
+		at = after(at)
+	end 'spaces'
+	return at
+end 'wordAfter'
+
+// wordIs is whether the text from at to endAt is the word.
+function wordIs(text String, at Count, endAt Count, word String) returns bool
+	let length = try endAt - at otherwise return false
+	return length == word.byteLength() and text.sliceBytes(at, endPos: endAt) == word
+end 'wordIs'
+
+// startsWithWord is whether the line from at to stop begins with the word, which ends where the line does or at a space.
+function startsWithWord(text String, at Count, stop Count, word String) returns bool
+	let last = try at + word.byteLength() otherwise return false
+	if last > stop or text.sliceBytes(at, endPos: last) != word 'differs'
+		return false
+	end 'differs'
+	return last == stop or text.byteAt(last) == spaceByte
+end 'startsWithWord'
+
+// after is the place after at: a text is at most 4 GB, and a library has few modules, so it never overflows.
+function after(at Count) returns Count
+	return try at + 1 otherwise panic("project: a place past memory")
+end 'after'
+
+// before is the place before at, where there is one.
+function before(at Count) returns Count
+	return try at - 1 otherwise panic("project: a place before the start")
+end 'before'

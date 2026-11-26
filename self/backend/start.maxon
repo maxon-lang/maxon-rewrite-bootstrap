@@ -18,6 +18,17 @@ let unbracketedSymbol = "rt.unbracketed"
 // setExitCodeAloneSymbol is Process.setExitCode without the scheduler, which keeps the code in exitCodeSymbol.
 let setExitCodeAloneSymbol = "rt.setExitCodeAlone"
 
+// pinAloneSymbol, unpinAloneSymbol and pinDepthAloneSymbol are Scheduler.pinToMachine, unpinFromMachine and pinDepth without
+// the scheduler, which count the pins of the one thread in pinDepthSymbol: a pin always holds, and an unpin with none is the
+// fatal error that rt.unpin's is.
+let pinAloneSymbol = "rt.pinAlone"
+
+let unpinAloneSymbol = "rt.unpinAlone"
+
+let pinDepthAloneSymbol = "rt.pinDepthAlone"
+
+let pinDepthSymbol = "g.pinDepth"
+
 // exitCodeSymbol and exitSetSymbol are the code that Process.setExitCode set last in a program without the scheduler, and
 // whether it set one.
 let exitCodeSymbol = "g.exitCode"
@@ -35,13 +46,17 @@ export function schedulerChoice() returns SchedulerChoice
 	substitutes.push(Substitute.make(ir.rtSymbol(ir.Rt.rtExitBlocking), alone: unbracketedSymbol))
 	substitutes.push(Substitute.make(ir.rtSymbol(ir.Rt.rtExitClaim), alone: unbracketedSymbol))
 	substitutes.push(Substitute.make(ir.rtSymbol(ir.Rt.rtOsSetExitCode), alone: setExitCodeAloneSymbol))
+	substitutes.push(Substitute.make(ir.rtSymbol(ir.Rt.rtSchedPin), alone: pinAloneSymbol))
+	substitutes.push(Substitute.make(ir.rtSymbol(ir.Rt.rtSchedUnpin), alone: unpinAloneSymbol))
+	substitutes.push(Substitute.make(ir.rtSymbol(ir.Rt.rtSchedPinDepth), alone: pinDepthAloneSymbol))
 	return SchedulerChoice.make(ir.rtSymbol(ir.Rt.rtStackSwitch), substitutes: substitutes)
 end 'schedulerChoice'
 
-// emitStartData reserves the words of Process.setExitCode in a program without the scheduler.
+// emitStartData reserves the words of Process.setExitCode and of the pins in a program without the scheduler.
 function emitStartData(mutates u CodeUnit)
 	u.defineData(exitCodeSymbol, size: wordBytes)
 	u.defineData(exitSetSymbol, size: wordBytes)
+	u.defineData(pinDepthSymbol, size: wordBytes)
 end 'emitStartData'
 
 // emitStartRoutines writes rt.mainGreen, which calls main, and the two ways of running it, each a section that the link keeps
@@ -79,10 +94,37 @@ function emitStartRoutines(mutates u CodeUnit, a ast.TargetArch, calls EntryCall
 	u.beginSection()
 	u.defineCode(unbracketedSymbol)
 	rRet(u, a: a)
+	emitPinsAlone(u, a: a)
 	u.beginSection()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtCopyBytes))
 	emitCopyBytes(u, a: a)
 end 'emitStartRoutines'
+
+// emitPinsAlone writes the single-thread forms of the pins, each a section of its own.
+function emitPinsAlone(mutates u CodeUnit, a ast.TargetArch)
+	u.beginSection()
+	u.defineCode(pinAloneSymbol)
+	rLoadSymbol(u, a: a, dst: rWork, symbol: pinDepthSymbol)
+	rAddImm(u, a: a, dst: rWork, imm: 1)
+	rStoreSymbol(u, a: a, symbol: pinDepthSymbol, src: rWork)
+	rMovImm(u, a: a, dst: rResult, imm: 1)
+	rRet(u, a: a)
+	u.beginSection()
+	u.defineCode(unpinAloneSymbol)
+	let unheld = u.asm.newLabel()
+	rLoadSymbol(u, a: a, dst: rWork, symbol: pinDepthSymbol)
+	rTest(u, a: a, left: rWork, right: rWork)
+	rBranch(u, a: a, cond: MCond.equal, label: unheld)
+	rAddImm(u, a: a, dst: rWork, imm: -1)
+	rStoreSymbol(u, a: a, symbol: pinDepthSymbol, src: rWork)
+	rRet(u, a: a)
+	u.asm.bind(unheld)
+	rJumpSymbol(u, a: a, symbol: ir.rtSymbol(ir.Rt.rtPinUnheld))
+	u.beginSection()
+	u.defineCode(pinDepthAloneSymbol)
+	rLoadSymbol(u, a: a, dst: rResult, symbol: pinDepthSymbol)
+	rRet(u, a: a)
+end 'emitPinsAlone'
 
 // emitCopyBytes writes rt.copyBytes, which __Raw.copyBytes calls by the internal convention with the source, the target
 // and the count: the copy routines' copy (rCopyBytes), whose registers every call may leave holding anything. The count is

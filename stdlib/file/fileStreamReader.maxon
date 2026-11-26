@@ -1,0 +1,5 @@
+// maxon's `FileStreamReader`, which its Stream.maxon declares over the `FileSource` of its File.maxon: here the reader of a file
+// is declared beside that type, since the library's stream module is written below the file module and cannot name a type of
+// it (stdlib/stream/Stream.maxon), as the reader of a child's output is (stdlib/subprocess/childOutputReader.maxon).
+
+public typealias FileStreamReader = stream.StreamReader with FileSource

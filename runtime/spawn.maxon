@@ -57,6 +57,9 @@ let resultTreeNotEnded = 3 as Count
 // A word that names no live child or result, which every row that answers a word answers.
 let noHandle = 0xFFFFFFFFFFFFFFFF as Count
 
+// What a detach answers where the child could not leave the job this process runs in.
+let detachRefused = 0xFFFFFFFFFFFFFFFE as Count
+
 // A spawn that fails says so in a word: the code in its low 32 bits, the step of the spawn that failed above them, and what
 // the code is, in the bits above the step. A code of a system (a Win32 error, or an errno) is what the system's call failed with;
 // the others are codes of the contract's own, for a spawn that is refused before anything starts, and for one that could not set
@@ -75,6 +78,10 @@ let failureClassSystem = 0 as Count
 let failureClassRefused = 1 as Count
 
 let failureClassSetup = 2 as Count
+
+// The class of a detach whose child could not leave the job this process runs in, which does not allow breakaway: a failure of the
+// system's call (its code is the system's), which the row answers apart from a spawn that failed.
+let failureClassBreakaway = 3 as Count
 
 // The steps: the program, the standard streams (which a file kind opens) and the working directory.
 let failureStepProgram = 0 as Count
@@ -95,7 +102,8 @@ let codeGeneralFailure = 31 as Count
 let codeInvalidHandle = 6 as Count
 
 // The Win32 codes that maxon's runtime says an errno is on a system that has no Win32: a file or a directory that is not there,
-// access that is refused and a table of files that is full.
+// access that is refused, a table of files that is full, and a file that is busy (EBUSY, and ETXTBSY for an executable open for
+// writing), which is Windows's sharing violation, so that a spawn of it throws busy on every system.
 let codeFileNotFound = 2 as Count
 
 let codePathNotFound = 3 as Count
@@ -103,6 +111,8 @@ let codePathNotFound = 3 as Count
 let codeAccessDenied = 5 as Count
 
 let codeTooManyOpenFiles = 4 as Count
+
+let codeSharingViolation = 32 as Count
 
 function failureWord(failureClass Count, step Count, code Count) returns Count
 	return __Raw.wrappingAdd(__Raw.wrappingAdd(try failureClass shl failureClassShift otherwise panic("a failure class past a word"), right: try step shl failureStepShift otherwise panic("a failure step past a word")), right: code)
@@ -209,10 +219,16 @@ let requestEnvironmentLengthOffset = 160 as Count
 // Whether the child has an environment of its own, the block above, where 0 is the caller's.
 let requestEnvironmentOwnOffset = 168 as Count
 
-let requestBytes = 176 as Count
+// Whether the input is a pipe that the run holds open, never writes and closes once the child has exited: its kind is then the
+// bytes' (a pipe with none to write), which every system's start serves.
+let requestInputHoldOffset = 176 as Count
+
+let requestBytes = 184 as Count
 
 // A child: the record that a handle names. It holds whether a wait has taken it, the run that the child's system record is (its
-// pipes, its exit and its wait), and the copy of the input that the child reads, which the run's input stream points into.
+// pipes, its exit and its wait), and the copy of the input that the child reads, which the run's input stream points into. A
+// streaming child's holds also how many calls use it (the users, which a release waits to be none), whether a wait for its exit is
+// parked and the copy of the payload queued for its input.
 let childKind = 1 as Count
 
 let childKindOffset = 0 as Count
@@ -223,7 +239,21 @@ let childRunOffset = 16 as Count
 
 let childInputOffset = 24 as Count
 
-let childBytes = 32 as Count
+let childModeOffset = 32 as Count
+
+let childUsersOffset = 40 as Count
+
+let childWaitingOffset = 48 as Count
+
+let childQueueOffset = 56 as Count
+
+let childBytes = 64 as Count
+
+// A child's mode: whether its output is collected by a wait (the attached run's), or read on demand while the child goes on and its
+// input written by calls (the streaming child's).
+let childAttached = 0 as Count
+
+let childStreaming = 1 as Count
 
 // A child's states: not waited for, being waited for by a green thread, and waited for, its output in a result, and having its
 // tree ended, which only the caller of subprocessEndTree is in.
@@ -377,6 +407,25 @@ end 'handleInsert'
 // remove is set, which makes every word of it stale. The lock is held for the lookup alone: a record is the caller's to use until
 // it takes it out.
 function handleFind(word Count, kind Count, remove bool) returns Count
+	return handleFindHolding(word, kind: kind, remove: remove, hold: holdNothing)
+end 'handleFind'
+
+// holdNothing is the hold of a lookup that keeps its record in no count of users.
+let holdNothing = 0xFFFFFFFFFFFFFFFF as Count
+
+// childHold is the record of a child that a word names, or 0, with one more user of it, which the caller gives back (childDrop)
+// when it has done: a lookup that counts the user under the table's lock, so that a release that has taken the child out of the
+// table and finds no users left has no call that holds it.
+function childHold(word Count) returns Count
+	return handleFindHolding(word, kind: childKind, remove: false, hold: childUsersOffset)
+end 'childHold'
+
+function childDrop(child Count)
+	_ = __Raw.atomicAdd(child, offset: childUsersOffset, value: stepDown)
+end 'childDrop'
+
+// handleFindHolding is handleFind that adds one to the word of the record at the offset hold where it finds one, under the lock.
+function handleFindHolding(word Count, kind Count, remove bool, hold Count) returns Count
 	let table = handleTable()
 	spinLock(table, offset: tableLockOffset)
 	let slot = word and failureCodeMask
@@ -387,6 +436,9 @@ function handleFind(word Count, kind Count, remove bool) returns Count
 		let held = __Raw.loadWord(at, offset: slotGenerationOffset)
 		if held == generation and held mod 2 == 1 and __Raw.loadWord(__Raw.loadWord(at, offset: slotRecordOffset), offset: 0) == kind 'live'
 			record = __Raw.loadWord(at, offset: slotRecordOffset)
+			if hold != holdNothing 'held'
+				_ = __Raw.atomicAdd(record, offset: hold, value: 1)
+			end 'held'
 			if remove 'taken'
 				if generation < lastGeneration 'reusable'
 					__Raw.storeWord(at, offset: slotGenerationOffset, value: __Raw.wrappingAdd(generation, right: 1))
@@ -401,7 +453,7 @@ function handleFind(word Count, kind Count, remove bool) returns Count
 	end 'inside'
 	spinUnlock(table, offset: tableLockOffset)
 	return record
-end 'handleFind'
+end 'handleFindHolding'
 
 // setLastError records the failure of a spawn, which subprocessLastErrorCode and subprocessLastErrorMessage answer from.
 function setLastError(word Count)
@@ -479,16 +531,12 @@ function pathHoldsNul(path String) returns bool
 end 'pathHoldsNul'
 
 // spawnRefusal is the failure of a spawn that is not served or whose words are malformed, which is refused before anything starts
-// or is allocated, and 0 for one that is neither. A stream held open (the streaming child's), a detach and a trace are the ones it
-// does not serve; an environment block that is not a block, a path or a working directory that holds a NUL and the words that name
-// no kind or flag are the malformed ones.
+// or is allocated, and 0 for one that is neither. A trace is the one it does not serve; an environment block that is not a block, a
+// path or a working directory that holds a NUL and the words that name no kind or flag are the malformed ones.
 function spawnRefusal(argv Count, argc Count, cwd String, env Count, envInherit Count, stdinKind Count, stdinData String, stdoutKind Count, stdoutData String, stderrKind Count, stderrData String, flags Count, stdinLength Count) returns Count
 	if envInherit > spawnEnvironmentParent or (envInherit == spawnEnvironmentBlock and not environmentIsWhole(env)) 'environment'
 		return refusedFailure(codeInvalidParameter)
 	end 'environment'
-	if stdinKind == spawnStdinHold 'inputUnserved'
-		return refusedFailure(codeNotSupported)
-	end 'inputUnserved'
 	if stdinKind > spawnStdinHold 'inputKind'
 		return refusedFailure(codeInvalidParameter)
 	end 'inputKind'
@@ -498,9 +546,13 @@ function spawnRefusal(argv Count, argc Count, cwd String, env Count, envInherit 
 	if (flags and spawnFlagsKnown) != flags 'flags'
 		return refusedFailure(codeInvalidParameter)
 	end 'flags'
-	if (flags and (spawnFlagDetach or spawnFlagTraced)) != 0 'unserved'
+	if (flags and spawnFlagTraced) != 0 'unserved'
 		return refusedFailure(codeNotSupported)
 	end 'unserved'
+	// A detached child is never waited for, so no pipe of the caller's could be served or drained.
+	if (flags and spawnFlagDetach) != 0 and (stdinKind == spawnStdinBytes or stdinKind == spawnStdinHold or stdoutKind == spawnOutputCollect or stderrKind == spawnOutputCollect) 'piped'
+		return refusedFailure(codeInvalidParameter)
+	end 'piped'
 	if not blobHoldsTokens(collectionData(argv), length: collectionLength(argv), argc: argc) 'tokens'
 		return refusedFailure(codeInvalidParameter)
 	end 'tokens'
@@ -520,7 +572,13 @@ function prepareRun(wait Count, request Count)
 	__Raw.storeWord(fieldAt(wait, offset: waitErrorOffset), offset: streamLimitOffset, value: wordAt(request, offset: requestErrorLimitOffset))
 	__Raw.storeWord(fieldAt(wait, offset: waitInputOffset), offset: inputTextOffset, value: wordAt(request, offset: requestInputOffset))
 	__Raw.storeWord(fieldAt(wait, offset: waitInputOffset), offset: inputLengthOffset, value: wordAt(request, offset: requestInputLengthOffset))
+	__Raw.storeWord(fieldAt(wait, offset: waitInputOffset), offset: inputHoldOffset, value: wordAt(request, offset: requestInputHoldOffset))
 end 'prepareRun'
+
+// isDetached is whether a request is for a child that is never waited for.
+function isDetached(request Count) returns bool
+	return (wordAt(request, offset: requestFlagsOffset) and spawnFlagDetach) != 0
+end 'isDetached'
 
 // newRequest is a new request with every word 0.
 function newRequest() returns Count
@@ -529,10 +587,12 @@ function newRequest() returns Count
 	return request
 end 'newRequest'
 
-// storePath puts the bytes and the length of a cstring, the path of a stream's file, in a request at the offsets of its two words.
-function storePath(request Count, offset Count, path String)
-	__Raw.storeWord(request, offset: offset, value: __Raw.stringBytes(path))
-	__Raw.storeWord(request, offset: __Raw.wrappingAdd(offset, right: wordBytes), value: __Raw.stringLength(path))
+// storePath puts the bytes and the length of a cstring's text, the path of a stream's file, in a request at the offsets of its two
+// words. The text is given as its address and length, which the caller reads of its own parameter: the bytes of a short string are
+// held in the words of the String that a call hands over, which are gone once the function that was handed them has returned.
+function storePath(request Count, offset Count, bytes Count, length Count)
+	__Raw.storeWord(request, offset: offset, value: bytes)
+	__Raw.storeWord(request, offset: __Raw.wrappingAdd(offset, right: wordBytes), value: length)
 end 'storePath'
 
 // subprocessSpawn starts the child that its words describe and gives its handle, or -1 with the failure recorded. The program is
@@ -542,7 +602,10 @@ end 'storePath'
 // child's record keeps a copy of, or the file that stdinData names; and its standard output and error are discarded, inherited,
 // collected up to a limit, or the file that stdoutData and stderrData name, made or emptied. A kind, a flag or an environment that
 // is not served is refused. The cstrings are the two words of Strings: each system's start makes the zero-terminated copy it passes
-// the system and frees it before it returns.
+// the system and frees it before it returns. With the flag detach the child is one that is never waited for: its streams are none,
+// discarded, inherited or files, it leads a session of its own (on Windows it leaves every job it is in), no handle names it, and the
+// answer is its process id, or -2 (detachRefused) where the job that this process runs in does not allow the breakaway, with the
+// code of the system's refusal recorded. A child of a POSIX system that has ended is waited for when the event queue takes its exit (eventProcessOrphan).
 function subprocessSpawn(argv Count, argc Count, cwd String, env Count, envInherit Count, stdinKind Count, stdinData String, stdoutKind Count, stdoutData String, stdoutLimit Count, stderrKind Count, stderrData String, stderrLimit Count, flags Count, stdinLength Count) returns Count
 	let refused = spawnRefusal(argv, argc: argc, cwd: cwd, env: env, envInherit: envInherit, stdinKind: stdinKind, stdinData: stdinData, stdoutKind: stdoutKind, stdoutData: stdoutData, stderrKind: stderrKind, stderrData: stderrData, flags: flags, stdinLength: stdinLength)
 	if refused != 0 'refused'
@@ -556,13 +619,34 @@ function subprocessSpawn(argv Count, argc Count, cwd String, env Count, envInher
 		heldLength = stdinLength
 		copyBytes(__Raw.stringBytes(stdinData), target: held, count: stdinLength)
 	end 'copy'
+	let request = spawnRequest(argv, argc: argc, env: env, envInherit: envInherit, stdinKind: stdinKind, stdoutKind: stdoutKind, stdoutLimit: stdoutLimit, stderrKind: stderrKind, stderrLimit: stderrLimit, flags: flags, held: held, heldLength: heldLength)
+	storePath(request, offset: requestDirectoryOffset, bytes: __Raw.stringBytes(cwd), length: __Raw.stringLength(cwd))
+	if stdinKind == spawnStdinFile 'inputFile'
+		storePath(request, offset: requestInputPathOffset, bytes: __Raw.stringBytes(stdinData), length: __Raw.stringLength(stdinData))
+	end 'inputFile'
+	if stdoutKind == spawnOutputFile 'outputFile'
+		storePath(request, offset: requestOutputPathOffset, bytes: __Raw.stringBytes(stdoutData), length: __Raw.stringLength(stdoutData))
+	end 'outputFile'
+	if stderrKind == spawnOutputFile 'errorFile'
+		storePath(request, offset: requestErrorPathOffset, bytes: __Raw.stringBytes(stderrData), length: __Raw.stringLength(stderrData))
+	end 'errorFile'
+	return spawnAnswer(request, held: held, mode: childAttached)
+end 'subprocessSpawn'
+
+// spawnRequest is the request that the words of a spawn describe, whose input's bytes are the held copy, if there are any. It holds
+// no text: the caller puts in the working directory and the paths of the streams' files (storePath) from its own Strings, whose
+// bytes, where the string is short, are held in the words that the call handed it, so that they stay while it makes its start.
+function spawnRequest(argv Count, argc Count, env Count, envInherit Count, stdinKind Count, stdoutKind Count, stdoutLimit Count, stderrKind Count, stderrLimit Count, flags Count, held Count, heldLength Count) returns Count
 	let request = newRequest()
 	__Raw.storeWord(request, offset: requestArgvOffset, value: collectionData(argv))
 	__Raw.storeWord(request, offset: requestArgvLengthOffset, value: collectionLength(argv))
 	__Raw.storeWord(request, offset: requestArgcOffset, value: argc)
-	__Raw.storeWord(request, offset: requestDirectoryOffset, value: __Raw.stringBytes(cwd))
-	__Raw.storeWord(request, offset: requestDirectoryLengthOffset, value: __Raw.stringLength(cwd))
-	__Raw.storeWord(request, offset: requestInputKindOffset, value: stdinKind)
+	if stdinKind == spawnStdinHold 'held'
+		__Raw.storeWord(request, offset: requestInputKindOffset, value: spawnStdinBytes)
+		__Raw.storeWord(request, offset: requestInputHoldOffset, value: set)
+	end 'held' else 'kind'
+		__Raw.storeWord(request, offset: requestInputKindOffset, value: stdinKind)
+	end 'kind'
 	__Raw.storeWord(request, offset: requestInputOffset, value: held)
 	__Raw.storeWord(request, offset: requestInputLengthOffset, value: heldLength)
 	__Raw.storeWord(request, offset: requestOutputKindOffset, value: stdoutKind)
@@ -570,22 +654,21 @@ function subprocessSpawn(argv Count, argc Count, cwd String, env Count, envInher
 	__Raw.storeWord(request, offset: requestErrorKindOffset, value: stderrKind)
 	__Raw.storeWord(request, offset: requestErrorLimitOffset, value: stderrLimit)
 	__Raw.storeWord(request, offset: requestFlagsOffset, value: flags)
-	if stdinKind == spawnStdinFile 'inputFile'
-		storePath(request, offset: requestInputPathOffset, path: stdinData)
-	end 'inputFile'
-	if stdoutKind == spawnOutputFile 'outputFile'
-		storePath(request, offset: requestOutputPathOffset, path: stdoutData)
-	end 'outputFile'
-	if stderrKind == spawnOutputFile 'errorFile'
-		storePath(request, offset: requestErrorPathOffset, path: stderrData)
-	end 'errorFile'
 	if envInherit == spawnEnvironmentBlock 'block'
 		__Raw.storeWord(request, offset: requestEnvironmentOffset, value: collectionData(env))
 		__Raw.storeWord(request, offset: requestEnvironmentLengthOffset, value: collectionLength(env))
 		__Raw.storeWord(request, offset: requestEnvironmentOwnOffset, value: set)
 	end 'block'
+	return request
+end 'spawnRequest'
+
+// spawnAnswer starts the child that a request describes, which it frees, and gives its handle, the process id of a detached one,
+// or the answer of a failed start with the failure recorded. The held copy of the input goes to the child's record, or is freed
+// where there is none. A child of the mode streaming has its two output streams made, to be read on demand.
+function spawnAnswer(request Count, held Count, mode Count) returns Count
 	let run = newRun()
 	let failure = startChild(request, run: run)
+	let detached = isDetached(request)
 	free(request)
 	if failure != 0 'failed'
 		if held != 0 'kept'
@@ -593,16 +676,56 @@ function subprocessSpawn(argv Count, argc Count, cwd String, env Count, envInher
 		end 'kept'
 		free(run)
 		setLastError(lastErrorOf(failure))
+		if failureClassOf(failure) == failureClassBreakaway 'refused'
+			return detachRefused
+		end 'refused'
 		return noHandle
 	end 'failed'
-	__Raw.storeWord(waitOf(run), offset: waitStartedOffset, value: osClockNanos())
+	if detached 'detached'
+		let pid = wordAt(waitOf(run), offset: waitPidOffset)
+		noteDetached(pid)
+		free(run)
+		if held != 0 'input'
+			free(held)
+		end 'input'
+		return pid
+	end 'detached'
+	let wait = waitOf(run)
+	__Raw.storeWord(wait, offset: waitStartedOffset, value: osClockNanos())
 	let child = alloc(childBytes)
+	zeroRange(child, from: 0, to: childBytes)
 	__Raw.storeWord(child, offset: childKindOffset, value: childKind)
 	__Raw.storeWord(child, offset: childStateOffset, value: childIdle)
 	__Raw.storeWord(child, offset: childRunOffset, value: run)
 	__Raw.storeWord(child, offset: childInputOffset, value: held)
+	__Raw.storeWord(child, offset: childModeOffset, value: mode)
+	if mode == childStreaming 'streaming'
+		startStream(fieldAt(wait, offset: waitOutputOffset), wait: wait)
+		startStream(fieldAt(wait, offset: waitErrorOffset), wait: wait)
+	end 'streaming'
 	return handleInsert(child)
-end 'subprocessSpawn'
+end 'spawnAnswer'
+
+// subprocessSpawnStreaming starts a child as subprocessSpawn does, with the caller's environment or the block of env as all of it
+// (envInherit), whose standard input is a pipe that the caller writes (subprocessWriteStdinBytes, subprocessQueueStdin) and holds
+// open until it closes it, and whose standard output and error are pipes that the caller reads on demand
+// (subprocessReadAvailable), with no cap, and gives its handle, or -1 with the failure recorded. A detached or traced child is
+// refused.
+function subprocessSpawnStreaming(argv Count, argc Count, cwd String, flags Count, env Count, envInherit Count) returns Count
+	var refused = 0 as Count
+	if (flags and (spawnFlagDetach or spawnFlagTraced)) != 0 'unserved'
+		refused = refusedFailure(codeNotSupported)
+	end 'unserved' else 'served'
+		refused = spawnRefusal(argv, argc: argc, cwd: cwd, env: env, envInherit: envInherit, stdinKind: spawnStdinHold, stdinData: "", stdoutKind: spawnOutputCollect, stdoutData: "", stderrKind: spawnOutputCollect, stderrData: "", flags: flags, stdinLength: 0)
+	end 'served'
+	if refused != 0 'refused'
+		setLastError(lastErrorOf(refused))
+		return noHandle
+	end 'refused'
+	let request = spawnRequest(argv, argc: argc, env: env, envInherit: envInherit, stdinKind: spawnStdinHold, stdoutKind: spawnOutputCollect, stdoutLimit: 0, stderrKind: spawnOutputCollect, stderrLimit: 0, flags: flags, held: 0, heldLength: 0)
+	storePath(request, offset: requestDirectoryOffset, bytes: __Raw.stringBytes(cwd), length: __Raw.stringLength(cwd))
+	return spawnAnswer(request, held: 0, mode: childStreaming)
+end 'subprocessSpawnStreaming'
 
 // subprocessGetPid is the process id that the spawn recorded for a child.
 function subprocessGetPid(handle Count) returns Count
@@ -620,7 +743,7 @@ end 'subprocessGetPid'
 // is -1, with ERROR_INVALID_HANDLE recorded.
 function subprocessWaitCollect(handle Count, ms Count) returns Count
 	let child = handleFind(handle, kind: childKind, remove: false)
-	if child == 0 'none'
+	if child == 0 or wordAt(child, offset: childModeOffset) != childAttached 'none'
 		setLastError(systemFailure(failureStepProgram, code: codeInvalidHandle))
 		return noHandle
 	end 'none'
@@ -720,33 +843,57 @@ let endTreeSurvived = 0xFFFFFFFFFFFFFFFD as Count
 // that no wait has taken, or for a kill that the system refused (its error recorded). A child whose tree is ended and that is waited
 // for after answers what became of it as any other.
 function subprocessEndTree(handle Count) returns Count
-	let child = handleFind(handle, kind: childKind, remove: false)
-	if child == 0 or __Raw.compareExchange(child, offset: childStateOffset, expected: childIdle, desired: childEnding) != childIdle 'none'
+	let child = childHold(handle)
+	if child == 0 'none'
 		setLastError(systemFailure(failureStepProgram, code: codeInvalidHandle))
 		return noHandle
 	end 'none'
-	let wait = waitOf(wordAt(child, offset: childRunOffset))
 	var answer = 0 as Count
-	let refused = endTree(wait)
-	if refused != 0 'refused'
-		setLastError(systemFailure(failureStepProgram, code: win32CodeOf(refused)))
-		answer = noHandle
-	end 'refused' else if not treeEnded(wait) 'survived'
-		setLastError(systemFailure(failureStepProgram, code: codeGeneralFailure))
-		answer = endTreeSurvived
-	end 'survived'
-	__Raw.storeRelease(child, offset: childStateOffset, value: childIdle)
+	if wordAt(child, offset: childModeOffset) == childStreaming 'streaming'
+		answer = endTreeOf(child)
+	end 'streaming' else 'attached'
+		if __Raw.compareExchange(child, offset: childStateOffset, expected: childIdle, desired: childEnding) != childIdle 'taken'
+			setLastError(systemFailure(failureStepProgram, code: codeInvalidHandle))
+			childDrop(child)
+			return noHandle
+		end 'taken'
+		answer = endTreeOf(child)
+		__Raw.storeRelease(child, offset: childStateOffset, value: childIdle)
+	end 'attached'
+	childDrop(child)
 	return answer
 end 'subprocessEndTree'
 
+// endTreeOf ends the tree of a child and gives subprocessEndTree's answer for it: 0, -3 for a tree still running after the bound, or
+// -1 for a kill that the system refused.
+function endTreeOf(child Count) returns Count
+	let wait = waitOf(wordAt(child, offset: childRunOffset))
+	let refused = endTree(wait)
+	if refused != 0 'refused'
+		setLastError(systemFailure(failureStepProgram, code: win32CodeOf(refused)))
+		return noHandle
+	end 'refused'
+	if not treeEnded(wait) 'survived'
+		setLastError(systemFailure(failureStepProgram, code: codeGeneralFailure))
+		return endTreeSurvived
+	end 'survived'
+	return 0
+end 'endTreeOf'
+
 // subprocessReleaseHandle gives back a child's slot and what it still holds; a word that names no child is skipped. A child that
-// no wait has taken is ended with its tree and given up, with the pipes it holds closed. A handle that a wait is parked on, or that
-// subprocessEndTree is ending, is a program error, which stops the program as it does in maxon.
+// no wait has taken is given up, with the pipes it holds closed, and left running, as maxon's is: it is reaped by the event queue once
+// it ends (renounceRun). A handle that a wait is parked on, or that
+// subprocessEndTree is ending, is a program error, which stops the program as it does in maxon; a streaming child's is given back
+// once the calls that use it have returned (releaseStreaming).
 function subprocessReleaseHandle(handle Count)
 	let child = handleFind(handle, kind: childKind, remove: false)
 	if child == 0 'none'
 		return
 	end 'none'
+	if wordAt(child, offset: childModeOffset) == childStreaming 'streaming'
+		releaseStreaming(handle, child: child)
+		return
+	end 'streaming'
 	let state = wordAt(child, offset: childStateOffset)
 	if state == childCollecting or state == childEnding 'busy'
 		panic("subprocessReleaseHandle: the handle is released while a wait is parked on it")
@@ -756,7 +903,7 @@ function subprocessReleaseHandle(handle Count)
 	end 'gone'
 	let run = wordAt(child, offset: childRunOffset)
 	if state == childIdle 'abandoned'
-		abandonRun(run)
+		renounceRun(run)
 	end 'abandoned'
 	free(run)
 	if wordAt(child, offset: childInputOffset) != 0 'input'

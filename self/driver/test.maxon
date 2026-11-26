@@ -37,6 +37,11 @@ let expectMemoryPrefix = "// memory-limit:"
 
 let nativeOnlyDirective = "// native-only"
 
+// A program that holds every processor while it runs, as a test of preemption does, runs with no other test's executable
+// running, as a spec test of maxon's that says `runs: alone` does: beside it, a program whose run is a chain of short waits on
+// the system, such as one that starts a hundred children one after another, waits a slice for each and outlives its deadline.
+let runsAloneDirective = "// runs: alone"
+
 // Each line of this directive is a line of the program's standard input, as maxon's spec tests feed one; a program without one
 // reads the end of its input at once.
 let stdinPrefix = "// stdin:"
@@ -114,6 +119,8 @@ type Expectation
 	var stdin as String
 	var memoryLimitMB as Count
 	var nativeOnly as bool
+	// runsAlone is whether the program's executable runs with no other test's running (runsAloneDirective).
+	var runsAlone as bool
 	// frees is the order in which the interpreter must free the values of the program, when the program says it.
 	var frees as ast.StringList
 	var checkOnly as bool
@@ -135,7 +142,7 @@ type Expectation
 	var scheduled as bool
 
 	static function new() returns Expectation
-		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", stdin: "", memoryLimitMB: 0, nativeOnly: false, frees: ast.StringList.create(0), checkOnly: false, runtimeTier: false, libraryTier: false, irClaims: ast.StringList.create(0), irTier: false, schedules: scheduleSeeds, mentionsConcurrency: false, unsupportedTargets: "", saysScheduler: false, scheduled: false}
+		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", stdin: "", memoryLimitMB: 0, nativeOnly: false, runsAlone: false, frees: ast.StringList.create(0), checkOnly: false, runtimeTier: false, libraryTier: false, irClaims: ast.StringList.create(0), irTier: false, schedules: scheduleSeeds, mentionsConcurrency: false, unsupportedTargets: "", saysScheduler: false, scheduled: false}
 	end 'new'
 end 'Expectation'
 
@@ -345,7 +352,9 @@ function applyDirective(mutates expect Expectation, mutates stdout ByteArray, mu
 		expect.schedules = n
 	end 'schedules' else if line == nativeOnlyDirective 'native'
 		expect.nativeOnly = true
-	end 'native' else if hasPrefix(line, prefix: unsupportedTargetsPrefix) 'targets'
+	end 'native' else if line == runsAloneDirective 'alone'
+		expect.runsAlone = true
+	end 'alone' else if hasPrefix(line, prefix: unsupportedTargetsPrefix) 'targets'
 		expect.unsupportedTargets = trimSpace(afterPrefix(line, prefix: unsupportedTargetsPrefix)).clone()
 	end 'targets' else if hasPrefix(line, prefix: expectSchedulerPrefix) 'scheduler'
 		let answer = trimSpace(afterPrefix(line, prefix: expectSchedulerPrefix))
@@ -543,7 +552,6 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 			corpusFlags = true
 		end 'workerCounts' else if hasPrefix(rest[i], prefix: envRunnerFlag) 'envRunner'
 			corpus.envRunner = afterPrefix(rest[i], prefix: envRunnerFlag).clone()
-			corpusFlags = true
 		end 'envRunner' else if rest[i] == verboseFlag 'verbose'
 			options.verbose = true
 		end 'verbose' else if rest[i] == updatePositionsFlag 'positions'
@@ -597,7 +605,7 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 	let width = RunWidth.of(runWorkers(), executables: executables)
 	if hasPath and isSpecPath(path) 'specs'
 		if corpusFlags 'corpusFlags'
-			printError("test: {behavioursFlag}, {repeatFlag}N, {workerCountsFlag} and {envRunnerFlag} are for the corpus, not the spec files\n")
+			printError("test: {behavioursFlag}, {repeatFlag}N and {workerCountsFlag} are for the corpus, not the spec files\n")
 			return usageExitCode
 		end 'corpusFlags'
 		if corpus.compilesOnly and (options.needsList() or options.results != ResultsMode.resultsOff) 'compileOnlyList'
@@ -993,16 +1001,17 @@ let inheritedDirectory = ""
 
 // runExecutable runs the executable at exe with no arguments and the input as its standard input, which then ends, through the
 // runner of its target, in directory, or in the runner's working directory for inheritedDirectory, for no longer than
-// testRunDeadlineMs.
-function runExecutable(exe String, runner TargetRunner, directory String, workers Count, envRunner String, input String) returns ExecutableRun
+// testRunDeadlineMs. An environment of assignments (NAME=VALUE) is set for the executable alone by envRunner, cmd/envrun; with
+// none it inherits the runner's.
+function runExecutable(exe String, runner TargetRunner, directory String, environment CommandNames, envRunner String, input String) returns ExecutableRun
 	let exePath = try FilePath.from(exe) otherwise return ExecutableRun.cannotStart("{exe} is not a path")
 	let deadline = WaitDeadline.within(testRunDeadlineMs)
 	var started = runnerExecutable(runner, exe: exePath)
 	var arguments = runnerArguments(runner, exe: exe)
-	if workers > 0 'counted'
-		arguments = envRunnerArguments(workers, started: started, arguments: arguments)
+	if environment.count() > 0 'environment'
+		arguments = envRunnerArguments(environment, started: started, arguments: arguments)
 		started = Executable.name(envRunner.clone())
-	end 'counted'
+	end 'environment'
 	try 'run'
 		let out = startExecutable(started, arguments: arguments, directory: directory, input: input, deadline: deadline)
 		return ExecutableRun.ran(out)
@@ -1038,7 +1047,11 @@ end 'startExecutable'
 // runNative runs the executable and checks its output and exit code against what the program expects. The memory limit
 // of the directive is not enforced.
 function runNative(exe String, expect Expectation, runner TargetRunner, workers Count, envRunner String) returns TestResult
-	match consumes runExecutable(exe, runner: runner, directory: inheritedDirectory, workers: workers, envRunner: envRunner, input: expect.stdin) 'run'
+	var environment = CommandNames.create(0)
+	if workers > 0 'counted'
+		environment.push("{workerCountVariable}={workers}")
+	end 'counted'
+	match consumes runExecutable(exe, runner: runner, directory: inheritedDirectory, environment: environment, envRunner: envRunner, input: expect.stdin) 'run'
 		ran(out) then return checkNativeOutput(out, exe: exe, expect: expect)
 		cannotStart(reason) then return TestResult.failed("cannot run {exe}: {reason}")
 		timedOut then return TestResult.failed("timed out")

@@ -1,4 +1,3 @@
-// native-only
 // awaitAny waits until a promise of an array of them has finished and gives the index of the first that has, consuming
 // none: each is still awaited after, the winner too. A slot that a take left empty holds no promise and is skipped, so a
 // loop can drain an array in the order its promises finish. Replies of services are promises like any other.

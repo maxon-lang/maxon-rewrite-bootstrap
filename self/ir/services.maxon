@@ -1,8 +1,9 @@
 // Services. A service is a cown whose value is its state (rt.service.new), and each message is a behaviour on it, so a send
 // is a `when` on the one cown whose body calls the handler with the state: the cown's queue is the mailbox, and a
 // behaviour holds its cown until it ends, so two messages of one service never run at once. Before it queues the
-// behaviour, a send takes a place in the mailbox (rt.service.reserve), which fails with SendError where a call fails,
-// dropping the arguments that were to move in; the behaviour gives the place back as it starts (rt.service.taken). A reply
+// behaviour, a send takes a place in the mailbox (rt.service.reserve), which fails with SendError where a call fails only
+// once the service is shut down, dropping the arguments that were to move in, and slows the sender when the service is
+// behind; the behaviour gives the place back as it starts (rt.service.start). A reply
 // is a cell the behaviour finishes with what the handler returned and failed with (rt.reply.give), awaited as a coroutine
 // is. A spawn whose factory cannot throw runs it as the service's first behaviour, which stores the state; one whose
 // factory throws calls it where the spawn is, and the service starts with what it made.
@@ -13,18 +14,11 @@ function visitSpawnExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	let site = siteOf(l, p: p, node: e)
 	let c = callSite(l, p: p, node: call)
 	let mark = l.pending.count()
-	var capacity = noReg
-	let capArg = ast.spawnExprCapacity(p.modules[l.mi].tree, id: e)
-	if capArg != 0 'capacity'
-		capacity = lowerConverted(l, p: p, ms: ms, e: ast.argValue(p.modules[l.mi].tree, id: capArg), target: p.builtins.mailboxCapacityTy)
-	end 'capacity' else 'default'
-		capacity = konst(l, value: ast.defaultMailboxCapacity as Word)
-	end 'default'
 	let handleTy = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e))
 	if c.info.body == ast.noFunc 'here'
 		let made = lowerExpr(l, p: p, ms: ms, e: call)
 		let state = boxed(l, p: p, ms: ms, v: made, t: exprType(p, module: l.module, node: call))
-		let handle = entry(l, p: p, site: site, symbol: Rt.rtServiceNew, kind: IrKind.kindManaged, args: argsOf2(state, b: capacity))
+		let handle = entry(l, p: p, site: site, symbol: Rt.rtServiceNew, kind: IrKind.kindManaged, args: argsOf1(state))
 		popPending(l, n: mark)
 		return handle
 	end 'here'
@@ -33,7 +27,7 @@ function visitSpawnExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	let captures = messageArgs(l, p: p, ms: ms, c: c, base: base)
 	popArgs(l, n: base)
 	let empty = konst(l, value: 0 as Word)
-	let handle = entry(l, p: p, site: site, symbol: Rt.rtServiceNew, kind: IrKind.kindManaged, args: argsOf2(empty, b: capacity))
+	let handle = entry(l, p: p, site: site, symbol: Rt.rtServiceNew, kind: IrKind.kindManaged, args: argsOf1(empty))
 	let body = lowerServiceBody(l, p: p, ms: ms, c: c, handleTy: handleTy, factory: true, cell: false)
 	emitWhen(l, behaviour: body, cowns: argsOf1(handle), captures: captures)
 	popPending(l, n: mark)
@@ -41,7 +35,7 @@ function visitSpawnExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 end 'visitSpawnExpr'
 
 // lowerSend sends a message: the handle is read, the arguments move into the behaviour, and the send fails, dropping them,
-// when the mailbox has no place. It gives the reply's promise where the sender keeps it.
+// when the service is shut down. It gives the reply's promise where the sender keeps it.
 function lowerSend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite) returns Reg
 	let site = siteOf(l, p: p, node: c.node)
 	let mark = l.pending.count()
@@ -102,7 +96,7 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	let state = paramReg(inner, index: 0 as Count, kind: IrKind.kindScalar)
 	var args = RegList.create(0)
 	if not factory 'message'
-		entryVoid(inner, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceTaken, args: argsOf1(state))
+		entryVoid(inner, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceStart, args: argsOf1(state))
 		let recv = newReg(inner, kind: IrKind.kindManaged)
 		emit(inner, i: newLoadAt(recv, addr: state, filled: false))
 		args.push(recv)
@@ -217,3 +211,7 @@ function lowerServiceShutdown(mutates l Lowerer, p ast.Project, ms ast.ModuleSta
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceShutdown, args: argsOf1(recv))
 	return konst(l, value: 0 as Word)
 end 'lowerServiceShutdown'
+
+function lowerServiceMostQueued(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceMostQueued, kind: IrKind.kindScalar, args: argsOf1(recv))
+end 'lowerServiceMostQueued'

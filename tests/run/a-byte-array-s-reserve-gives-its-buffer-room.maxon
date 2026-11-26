@@ -1,0 +1,24 @@
+// A reserve of a byte array makes its buffer hold the count, as an array's of words does, so the inserts after it do not grow
+// it: Array.reserve, and the raw buffer's grow and create of a capacity, which are the same routine.
+// native-only
+//> bytes: empty=true room=true kept=3
+//> words: room=true
+typealias Bytes = Array with Byte
+
+typealias Words = Array with Count
+
+function main() returns ExitCode
+	var bytes = Bytes.create(0)
+	bytes.reserve(64)
+	let empty = bytes.isEmpty()
+	let room = bytes.capacity() >= 64
+	bytes.push(1)
+	bytes.push(2)
+	bytes.push(3)
+	bytes.reserve(128)
+	print("bytes: empty={empty} room={room and bytes.capacity() >= 128} kept={bytes.count()}\n")
+	var words = Words.create(0)
+	words.reserve(64)
+	print("words: room={words.capacity() >= 64}\n")
+	return 0
+end 'main'

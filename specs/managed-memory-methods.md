@@ -731,7 +731,6 @@ landing on the case the operation is documented to report. A shifted ordinal rer
 the `default panic` says which.
 
 <!-- test: managed-memory-error-variants -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -839,7 +838,6 @@ end 'main'
 ```
 
 <!-- test: byte-at-reads-the-word-buffer-a-byte-at-a-time -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 `byteAt` addresses BYTES where `get` addresses ELEMENTS, and at element size 8 the two differ — which is the
@@ -861,7 +859,6 @@ end 'main'
 ```
 
 <!-- test: byte-at-stops-at-the-live-length -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 `byteAt`'s bound is `length · element_size` — the LIVE length, not the capacity that `setByte` is bounded by.
@@ -881,7 +878,6 @@ end 'main'
 ```
 
 <!-- test: grow-to-the-same-capacity-then-below-it -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 `grow` raises the capacity to EXACTLY what it is asked for. Asked for what it already has it is a no-op;
@@ -937,7 +933,6 @@ error E2015: <fragment>:7:8: Unsupported: `Array` member 'setLength' — the com
 ### An element size the compiler has no element TYPE for is refused, not silently truncated
 
 <!-- test: error.create-element-size-with-no-element-type -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 `create`'s `elementSize` is read TWICE: the runtime stores it into `element_size@24` — the stride every
@@ -962,7 +957,6 @@ error E2015: <fragment>:3:37: Unsupported: `__ManagedMemory.create`'s `elementSi
 ### A buffer mark minted in one function does not reach another function's value
 
 <!-- test: error.buffer-mark-does-not-leak-across-functions -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The buffer surface rides the VALUE (`Parser.bufferSurfaceValues`), and `ValueId`s restart at 0 in every
@@ -1004,7 +998,6 @@ length** — `set` against `capacity`, `setByte` against `capacity · elementSiz
 what a capacity bound permits and a length bound forbids. The first case below is that round trip.
 
 <!-- test: set-stages-into-capacity-then-set-length-publishes -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The round trip `setLength`'s contract names: four elements written while `length()` is still 0, then ONE
@@ -1033,7 +1026,6 @@ end 'main'
 ```
 
 <!-- test: set-past-the-live-length-lands-and-reads-back-published -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The same rule with a NON-zero length, so the staged slot is genuinely past a live range rather than past an
@@ -1055,7 +1047,6 @@ end 'main'
 ```
 
 <!-- test: set-at-the-capacity-and-below-zero-is-refused -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The bound is the capacity, so the LAST slot inside it takes a write and the first slot outside it does not.
@@ -1098,7 +1089,6 @@ end 'main'
 ```
 
 <!-- test: get-stops-at-the-live-length-where-set-does-not -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The ASYMMETRY, pinned in one program so the two bounds cannot silently converge: index 1 accepts a write while
@@ -1208,7 +1198,6 @@ error E3109: <fragment>:7:16: 'managed.set' cannot store an element of 'String':
 ```
 
 <!-- test: staging-a-trivial-element-twice-releases-nothing-and-still-publishes -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **THE RULING'S MAIN LINE, KEPT ALIVE FOR THE ELEMENT KIND THAT STILL HAS IT.** The refusal above takes the
@@ -1239,7 +1228,6 @@ end 'main'
 ```
 
 <!-- test: set-byte-past-the-live-length-is-allowed-within-capacity -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⚖ The capacity USER RULING itself, pinned as behaviour rather than as prose: `setByte` at an offset past
@@ -1522,7 +1510,6 @@ error E3110: <fragment>:7:25: 'managed.byteAt' cannot address the bytes of an el
 ```
 
 <!-- test: raw-byte-access-still-works-for-every-trivial-element-kind -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **THE FALSE-REJECT GUARD, and the case that makes the two refusals above safe to keep.** Byte access is the
@@ -1630,7 +1617,6 @@ BUFFER" below close that: each of the three spellings has a case in both directi
 `__ManagedDirectory.filename`/`currentPath`, and the `.managed` field.
 
 <!-- test: buffer-surface-serves-every-member-its-roster-names -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **THE FALSE-REJECT GUARD — eleven of the roster's twenty members, in one program, returning a
@@ -1737,7 +1723,6 @@ beta is also long enough to be heap allocated
 ```
 
 <!-- test: error.buffer-has-no-push -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **`push` IS NOT A BUFFER MEMBER.** `push` is an `Array` method and
@@ -1757,7 +1742,6 @@ error E2015: <fragment>:4:5: Unsupported: `__ManagedMemory` member 'push' — th
 ```
 
 <!-- test: error.buffer-has-no-push-in-value-position -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **THE VALUE POSITION IS THE SAME SHAPE ONE SURFACE OVER, AND IT IS WHY THIS GATE MUST PRECEDE THE
@@ -1777,7 +1761,6 @@ error E2015: <fragment>:4:13: Unsupported: `__ManagedMemory` member 'push' — t
 ```
 
 <!-- test: the-buffer-does-have-remove -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **THE BUFFER HAS `remove`, AND BOTH HALVES SAY SO.** The roster names `remove`, and the arm emits the
@@ -1800,7 +1783,6 @@ end 'main'
 ```
 
 <!-- test: error.buffer-has-no-count -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **THE FOLDED NAME IS THE SHARPEST CASE IN THIS BLOCK: `length` IS the buffer's spelling and `count` is
@@ -1819,7 +1801,6 @@ error E2015: <fragment>:4:13: Unsupported: `__ManagedMemory` member 'count' — 
 ```
 
 <!-- test: error.buffer-has-no-appendMemory -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **`count`'s ARGUMENT, ONE MEMBER OVER — AND THE DIRECTION THAT NEEDED ITS OWN CASE.** `appendMemory` is
@@ -1842,7 +1823,6 @@ error E2015: <fragment>:5:9: Unsupported: `__ManagedMemory` member 'appendMemory
 ```
 
 <!-- test: error.buffer-has-no-managed-field -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **`.managed` IS THE `Array`'s FIELD, SO A BUFFER DOES NOT HAVE IT — AND THE CHAIN IS WHAT MAKES THAT
@@ -1861,7 +1841,6 @@ error E2015: <fragment>:4:9: Unsupported: `__ManagedMemory` member 'managed' —
 ```
 
 <!-- test: buffer-reports-its-element-size -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⚠ **THE BUFFER REPORTS ITS ELEMENT SIZE.** The packed stride is read through exactly this door. The roster
@@ -1881,7 +1860,6 @@ end 'main'
 ```
 
 <!-- test: error.buffer-has-no-pop -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 `pop`, `first` and `last` are the `Array`'s alone; of the move-out accessors the buffer serves only `remove`
@@ -1899,7 +1877,6 @@ error E2015: <fragment>:4:17: Unsupported: `__ManagedMemory` member 'pop' — th
 ```
 
 <!-- test: error.buffer-has-no-first -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -1913,7 +1890,6 @@ error E2015: <fragment>:4:17: Unsupported: `__ManagedMemory` member 'first' — 
 ```
 
 <!-- test: error.buffer-has-no-last -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -1927,7 +1903,6 @@ error E2015: <fragment>:4:17: Unsupported: `__ManagedMemory` member 'last' — t
 ```
 
 <!-- test: error.buffer-has-no-insert -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **A SECOND DIAGNOSTIC THAT WOULD ASSERT A BUFFER MEMBER INTO EXISTENCE, and it is why the `try` here is
@@ -1948,7 +1923,6 @@ error E2015: <fragment>:4:9: Unsupported: `__ManagedMemory` member 'insert' — 
 ```
 
 <!-- test: error.buffer-has-no-reserve -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⚠ `reserve` and `grow` are the pair most easily mistaken for one another, and refusing `reserve` is what
@@ -1967,7 +1941,6 @@ error E2015: <fragment>:4:5: Unsupported: `__ManagedMemory` member 'reserve' —
 ```
 
 <!-- test: error.buffer-has-no-resize -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⚠ And `resize`/`setLength` are the other such pair, already stated one block up: `resize` GROWS the
@@ -1986,7 +1959,6 @@ error E2015: <fragment>:4:5: Unsupported: `__ManagedMemory` member 'resize' — 
 ```
 
 <!-- test: error.buffer-has-no-is-empty -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -2000,7 +1972,6 @@ error E2015: <fragment>:4:13: Unsupported: `__ManagedMemory` member 'isEmpty' �
 ```
 
 <!-- test: error.buffer-has-no-clone -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⚠ `slice` is the buffer's copy, and it is on the roster — so refusing `clone` takes nothing away. What it
@@ -2018,7 +1989,6 @@ error E2015: <fragment>:4:13: Unsupported: `__ManagedMemory` member 'clone' — 
 ```
 
 <!-- test: error.buffer-of-a-slice-has-no-array-members-either -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **ONE NESTING LEVEL DOWN — a buffer the SOURCE never named, reached as the result of a `slice` through
@@ -2174,7 +2144,7 @@ end 'main'
 ```
 
 <!-- test: error.declared-field-has-the-buffer-surface -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
+<!-- positions: moved -->
 <!-- tier: stdlib -->
 
 The FIELD spelling. The bit rides `StructLayout` beside the field's declared type, in the column the SWEEP
@@ -2182,7 +2152,7 @@ records — the whole-program layout every read door consults — and is read at
 its value, so `h.buf`, `self.buf` and a bare `buf` inside a method all answer alike.
 ```maxon
 type Holder
-	export var buf as __ManagedMemory
+	export var buf
 
 	static function create(buf __ManagedMemory) returns Self
 		return Self{buf: buf}
@@ -2199,7 +2169,7 @@ error E2015: <fragment>:12:15: Unsupported: `__ManagedMemory` member 'count' —
 ```
 
 <!-- test: declared-field-serves-the-roster -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
+<!-- skip: minimaxon does not parse the converted source: Expected '=' or 'as' but got '\n' -->
 <!-- tier: stdlib -->
 
 The field spelling's false-reject half, and it reaches the buffer surface through TWO different doors on one
@@ -2207,7 +2177,7 @@ layout: `h.buf` from outside the type, and a bare `self.buf` from inside a metho
 the same place, which is why one column answers for both.
 ```maxon
 type Holder
-	export var buf as __ManagedMemory
+	export var buf
 
 	static function create(buf __ManagedMemory) returns Self
 		return Self{buf: buf}
@@ -2850,7 +2820,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: buffer-surface-survives-a-var-reassignment -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 A `var` reassigned from another buffer keeps the buffer surface. The mark rides the VALUE, and a reassignment
@@ -2871,7 +2840,6 @@ end 'main'
 ```
 
 <!-- test: buffer-surface-survives-a-var-reassigned-from-a-slice -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The same rebinding, from a `slice` of the buffer's OWN value — the one producer whose result is marked by
@@ -4671,7 +4639,6 @@ error E3185: <fragment>:3:15: '__ManagedMemory' named outside the library tiers:
 ```
 
 <!-- test: error.buffer-makeCharFromBytes-needs-a-byte-record-receiver -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### Library code calling `makeCharFromBytes` on a bare buffer is refused, not a compiler panic
 

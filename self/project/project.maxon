@@ -218,9 +218,7 @@ function isCompilerDirectory(path String) returns bool
 	end 'found'
 end 'isCompilerDirectory'
 
-// markCompiler makes every module of p a module of the compiler's own source, which is in the library tiers. A project is
-// so by where it lies (isCompilerDirectory), and a test that loads the compiler's source from an executable that does not
-// lie beside it says so.
+// markCompiler marks every module of p as the compiler's own source, a library tier (ast.Module.isCompiler).
 export function markCompiler(mutates p ast.Project)
 	for m in 0 upto p.modules.count() 'modules'
 		p.modules[m].isCompiler = true
@@ -246,13 +244,19 @@ end 'addLibrary'
 // loaded by a program that is not a compiler, such as the executable of the compiler's own tests, which runs from the
 // temporary directory and so has no library beside it.
 export function addLibraryFrom(mutates p ast.Project, dir String, mutates errs diag.ErrorList)
+	let first = p.modules.count()
+	addLibraryFiles(p, dir: dir, files: SourceFiles.create(0), errs: errs)
+	parseModules(p, first: first, memory: SourceFiles.create(0), errs: errs)
+end 'addLibraryFrom'
+
+// addLibraryFiles adds the modules of the library's source at dir, whose files are the ones in memory when there are any, to a
+// project that has no library, and parses none of them: a compile that reaches a module parses it.
+export function addLibraryFiles(mutates p ast.Project, dir String, files SourceFiles, mutates errs diag.ErrorList)
 	if p.library.isSome() or not getsLibrary(p.root) 'none'
 		return
 	end 'none'
-	let first = p.modules.count()
-	_ = addLibraryAt(p, dir: dir, memory: SourceFiles.create(0), errs: errs)
-	parseModules(p, first: first, memory: SourceFiles.create(0), errs: errs)
-end 'addLibraryFrom'
+	_ = addLibraryAt(p, dir: dir, memory: files, errs: errs)
+end 'addLibraryFiles'
 
 // getsLibrary is whether the program at rootPath is compiled with the standard library: any but the runtime's source, the
 // library's own and the compiler's.
@@ -290,56 +294,6 @@ function refuseLibraryRootFiles(nodes DiscDirList, mutates errs diag.ErrorList)
 		end 'files'
 	end 'nodes'
 end 'refuseLibraryRootFiles'
-
-// libraryModulesNamedIn are the modules of the standard library in p that a library module whose source is text may name: each
-// whose qualifier's first name text writes right before a dot and a name (`_helpers.slotScan` for stdlib._helpers), and the
-// core, which every module depends on (resolve.noteCoreDependency).
-// Comments and strings are read as code, so it is a superset of what the module's resolve records, known from the text alone
-// before any module resolved, which is what lets a program resolve only the library modules it reaches.
-export function libraryModulesNamedIn(p ast.Project, text String) returns CountList
-	var modules = CountList.create(0)
-	var heads = ast.StringList.create(0)
-	for m in 0 upto p.modules.count() 'modules'
-		if p.modules[m].isLibrary 'library'
-			modules.push(m)
-			heads.push(qualifierHead(ast.qualifierOf(p.modules[m])))
-		end 'library'
-	end 'modules'
-	let core = ast.libraryModuleNamed(p, name: ast.libraryCoreModule)
-	var named = BoolList.create(0)
-	for m in modules 'none'
-		named.push(core.isSome() and ast.modIndex(core.clone().unwrap()) == m)
-	end 'none'
-	let n = text.byteLength()
-	var i = 0 as Count
-	while i < n 'scan'
-		if not ast.isIdentByte(text.byteAt(i)) 'other'
-			i = i + 1
-			continue 'scan'
-		end 'other'
-		let start = i
-		let afterDot = start > 0 and text.byteAt(start - 1) == dotByte
-		while i < n and ast.isIdentByte(text.byteAt(i)) 'name'
-			i = i + 1
-		end 'name'
-		let next = try i + 1 otherwise panic("project: a text past memory")
-		if next < n and not afterDot and text.byteAt(i) == dotByte and ast.isIdentByte(text.byteAt(next)) 'qualifier'
-			let width = try i - start otherwise panic("project: a name ends before it starts")
-			for k in 0 upto heads.count() 'heads'
-				if heads[k].byteLength() == width and heads[k] == text.sliceBytes(start, endPos: i) 'named'
-					named[k] = true
-				end 'named'
-			end 'heads'
-		end 'qualifier'
-	end 'scan'
-	var result = CountList.create(0)
-	for k in 0 upto modules.count() 'kept'
-		if named[k] 'named'
-			result.push(modules[k])
-		end 'named'
-	end 'kept'
-	return result
-end 'libraryModulesNamedIn'
 
 // qualifierHead is the first name of a qualifier: the module's own for a top-level one, its ancestor's below the top.
 function qualifierHead(qualifier String) returns String

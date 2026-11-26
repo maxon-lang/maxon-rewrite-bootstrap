@@ -1,0 +1,13 @@
+// An unpin by a green thread that holds no pin is maxon's fatal error, which exits with 70: here main runs as a green
+// thread, since it sleeps. The interpreter's pins pin nothing.
+// expect-scheduler: used
+// expect-exit: 70
+//> slept
+
+function main() returns ExitCode
+	sleep(1)
+	print("slept\n")
+	Scheduler.unpinFromMachine()
+	print("unreached\n")
+	return 0
+end 'main'

@@ -34,14 +34,15 @@ The case makes sense only on wasm32-wasi — on native targets the same program
 compiles and runs — so it excludes the four native lanes.
 
 <!-- test: subprocess-unsupported-on-wasm -->
+<!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 ```maxon
 function main() returns ExitCode
-	let exe = Executable.name("cmd")
+	let exe = MxExecutable.name("cmd")
 	var argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("echo")
-	let result = try Subprocess.run(exe, arguments: argv) otherwise return 1
+	let result = try MxSubprocess.run(exe, arguments: argv) otherwise return 1
 	if not result.succeeded() 'check'
 		return 2
 	end 'check'

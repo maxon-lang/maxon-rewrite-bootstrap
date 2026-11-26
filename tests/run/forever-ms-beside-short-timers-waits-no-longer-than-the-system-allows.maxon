@@ -1,0 +1,35 @@
+// A coroutine asleep for ForeverMs holds the far end of the timer heap while others sleep a few milliseconds and finish:
+// whenever the forever timer is the earliest left, the thread in the event queue waits until it, and each system's wait
+// is given no more than its longest timeout (kevent's 1,000,000 seconds, epoll's INT_MAX milliseconds, the completion
+// port's 0xFFFFFFFE milliseconds), so no wait is refused or misread; then the program cancels the sleeper and exits 0.
+// macOS refused the forever wait with EINVAL, and the runtime panicked "the event queue's wait failed".
+//> short rounds: 21
+//> the sleeper woke
+//> cancelled
+
+typealias Integer = int(i64.min to i64.max)
+
+function foreverAsleep() returns Integer
+	sleep(ForeverMs)
+	print("the sleeper woke\n")
+	return 1
+end 'foreverAsleep'
+
+function shortAsleep(n Integer) returns Integer
+	sleep(3)
+	return n
+end 'shortAsleep'
+
+function main() returns ExitCode
+	let holder = async foreverAsleep()
+	Scheduler.yield()
+	var total = 0 as Integer
+	for i in 1 upto 7 'rounds'
+		let p = async shortAsleep(i)
+		total = try total + (await p) otherwise panic("out of range")
+	end 'rounds'
+	print("short rounds: {total}\n")
+	holder.cancel()
+	print("cancelled\n")
+	return 0
+end 'main'

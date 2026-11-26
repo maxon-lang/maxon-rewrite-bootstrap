@@ -1,0 +1,9 @@
+// A program keeps shared state in a service: the cown type is the library tiers' machinery, so naming it is refused (E3185).
+// expect-error: E3185 at 3:17
+function keep(c cown with Count) returns Count
+	return 0
+end 'keep'
+
+function main() returns ExitCode
+	return 0
+end 'main'

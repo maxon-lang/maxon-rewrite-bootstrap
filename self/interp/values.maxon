@@ -32,6 +32,10 @@ let kindBytes = 8 as Count
 // the function it calls (here the function's index) and its drop routine (unused here), then what it captured.
 let kindClosure = 9 as Count
 
+// kindPromise is the promise of an async call or of a reply, which has no words: its contents are a row of the Vm's
+// promises (oData), which the coroutine or the message fills and an await reads.
+let kindPromise = 10 as Count
+
 // closureFnWord is the word of a closure that holds the function it calls.
 let closureFnWord = 1 as Count
 
@@ -55,6 +59,7 @@ function kindName(kind Count) returns String
 		7 gives "cown"
 		8 gives "byte array"
 		9 gives "function value"
+		10 gives "promise"
 		default gives panic("interp: {kind} is no object kind")
 	end 'k'
 end 'kindName'
@@ -108,9 +113,22 @@ type SharedData
 	var cell as Count
 	// owned are, for a closure, whether it owns each value it captured, which freeing it frees, or only borrows it.
 	var owned as BoolList
+	// gate is a service's mailbox, as the runtime's gate is: the messages sent and not started, with serviceClosed added once
+	// the service is shut down. behind, muted, turn, senders and most are its backpressure (strands.maxon): whether it is
+	// behind, whether a message of it is kept muted, how many of its messages ran since its queue was last empty, the senders
+	// slowed on it, in order, and the most messages a slowed send found queued with its own.
+	var gate as Count
+	var behind as bool
+	var muted as bool
+	var turn as Count
+	var senders as CountList
+	var most as Count
+	// listedOn is the service this one is listed on, 0 for none, and kept the behaviour of its message kept while it is muted.
+	var listedOn as Count
+	var kept as Count
 
 	static function new() returns SharedData
-		return SharedData{count: 1, holders: CountList.create(0), queue: CountList.create(0), running: 0, ending: 0, cell: 0, owned: BoolList.create(0)}
+		return SharedData{count: 1, holders: CountList.create(0), queue: CountList.create(0), running: 0, ending: 0, cell: 0, owned: BoolList.create(0), gate: 0, behind: false, muted: false, turn: 0, senders: CountList.create(0), most: 0, listedOn: 0, kept: 0}
 	end 'new'
 end 'SharedData'
 

@@ -1,0 +1,32 @@
+// A Character is Hashable, Equatable, Comparable and Cloneable, as maxon's primitives are: it orders by its bytes, meets a
+// bound of Comparable and one of Cloneable, is a Set element, and hashes as the String of its bytes.
+typealias Letters = Set with Character
+
+function larger(a T, b T) uses T returns T where T implements Comparable and Copyable
+	if a.compare(b) == Ordering.greaterThan 'first'
+		return a.clone()
+	end 'first'
+	return b.clone()
+end 'larger'
+
+function copied(a T) uses T returns T where T implements Cloneable
+	return a.clone()
+end 'copied'
+
+function main() returns ExitCode
+	print("{'a' < 'b'} {'é' > 'z'} {'a' <= 'a'} {'b' >= 'c'} {'a'.compare('é')}\n")
+	print("{larger('q', b: 'é')} {larger('🎉', b: 'a')} {copied('€')}\n")
+	print("{'é'.hash() == "é".hash()} {'a'.hash() == "a".hash()} {'é' == 'é'} {'é' != 'e'}\n")
+	var seen = Letters.create()
+	for c in 'a' upto 'e' 'letters'
+		seen.insert(c.clone())
+	end 'letters'
+	seen.insert('a')
+	print("{seen.count()} {seen.contains('c')} {seen.contains('é')}\n")
+	return 0
+end 'main'
+
+//> true true true false lessThan
+//> é 🎉 €
+//> true true true true
+//> 4 true false

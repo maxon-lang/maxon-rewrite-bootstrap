@@ -1,0 +1,17 @@
+// A continue that leaves a file open in the loop drops it.
+// expect-error: E3919
+typealias Bytes = __ManagedMemory with Byte
+
+function continued(path Bytes) throws __ManagedFileError
+	for i in 0 upto 3 'each'
+		let file = try __ManagedFile.openRead(path)
+		if i == 1 'next'
+			continue 'each'
+		end 'next'
+		try file.close()
+	end 'each'
+end 'continued'
+
+function main() returns ExitCode
+	return 0
+end 'main'

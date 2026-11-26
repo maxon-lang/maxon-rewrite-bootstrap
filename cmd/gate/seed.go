@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"minimaxon/internal/hosts"
+	"minimaxon/internal/specsource"
 )
 
 // renewSeeds renews the three seeds from self/, and refuses unless each reproduces itself. On x64 Windows the Windows seed
@@ -54,7 +55,7 @@ func renewSeeds(h host, staged bool) error {
 		return err
 	}
 	linuxSeed := filepath.Join("bin", "seed-x64-linux")
-	if err := stage("the Linux compiler", abs(c2), "build", "self", "--target=x64-linux", "-o", linuxSeed); err != nil {
+	if err := stage("the Linux compiler", nil, abs(c2), "build", "self", "--target=x64-linux", "-o", linuxSeed); err != nil {
 		return err
 	}
 	l1, l2, l3 := filepath.Join("bin", "c1-x64-linux"), filepath.Join("bin", "c2-x64-linux"), filepath.Join("bin", "c3-x64-linux")
@@ -69,7 +70,7 @@ func renewSeeds(h host, staged bool) error {
 	if err := os.MkdirAll(filepath.Dir(macSeed), 0o755); err != nil {
 		return err
 	}
-	if err := stage("the macOS compiler", abs(c2), "build", "self", "--target=arm64-macos", "--no-cache", "-o", macSeed); err != nil {
+	if err := stage("the macOS compiler", cacheOffEnvironment(), abs(c2), "build", "self", "--target=arm64-macos", "-o", macSeed); err != nil {
 		return err
 	}
 	if err := proveMacSeed(macSeed); err != nil {
@@ -118,7 +119,7 @@ func stageSeed(h host, c0 string) error {
 	if err := copyFile(h.seed, seed); err != nil {
 		return err
 	}
-	if err := stage(filepath.Base(c0)+", the new self/ against the runtime of "+stagedRuntimeRevision, abs(seed), "build", abs(filepath.Join(dir, "self")), "--no-cache", "-o", c0); err != nil {
+	if err := stage(filepath.Base(c0)+", the new self/ against the runtime of "+stagedRuntimeRevision, cacheOffEnvironment(), abs(seed), "build", abs(filepath.Join(dir, "self")), "-o", c0); err != nil {
 		return fmt.Errorf("%w\na staged renewal is run before the change of the layout is committed, so that the seed compiles the runtime of %s", err, stagedRuntimeRevision)
 	}
 	return nil
@@ -170,14 +171,14 @@ func extractTree(revision, path, dir string) error {
 // not nil, and refuses unless c2 and c3 are the same bytes.
 func chain(seed, c1, c2, c3 string, wrap func(compiler string, args ...string) (string, []string)) error {
 	for _, s := range [][2]string{{seed, c1}, {c1, c2}, {c2, c3}} {
-		name, args := s[0], []string{"build", "self", "--no-cache", "-o", s[1]}
+		name, args := s[0], []string{"build", "self", "-o", s[1]}
 		if s[1] == c3 {
 			args = append(args, "--verify-ir")
 		}
 		if wrap != nil {
 			name, args = wrap(s[0], args...)
 		}
-		if err := stage(filepath.Base(s[1]), name, args...); err != nil {
+		if err := stage(filepath.Base(s[1]), cacheOffEnvironment(), name, args...); err != nil {
 			return err
 		}
 	}
@@ -191,8 +192,8 @@ func chain(seed, c1, c2, c3 string, wrap func(compiler string, args ...string) (
 	return nil
 }
 
-func stage(name, compiler string, args ...string) error {
-	if out, err := output(nil, "", compiler, args...); err != nil {
+func stage(name string, env []string, compiler string, args ...string) error {
+	if out, err := output(env, "", compiler, args...); err != nil {
 		return fmt.Errorf("%s\nseed not renewed: %s failed: %w", out, name, err)
 	}
 	return nil
@@ -216,13 +217,13 @@ func wslCommand(compiler string, args ...string) (string, []string) {
 // as they are (currentCompiler). The run at the end runs every test (replayed when it can, specRun) and writes specs/passed.txt again: the
 // new passes are added, a listed test that the conversion now skips is dropped (the line "DROPPED"), and a listed test that
 // fails stays, so the gate goes on failing until it is fixed.
-func regenerateSpecs(h host, maxonSpecs string) error {
+func regenerateSpecs(h host, maxonSpecs string, advance bool) error {
 	pinHashSeed()
 	compiler, err := currentCompiler(h)
 	if err != nil {
 		return err
 	}
-	if err := convertSpecsIfStale(compiler, maxonSpecs); err != nil {
+	if err := convertSpecsIfStale(compiler, maxonSpecs, advance); err != nil {
 		return err
 	}
 	out, replayed, err := specRun(compiler, "--record-passed")
@@ -239,7 +240,7 @@ func regenerateSpecs(h host, maxonSpecs string) error {
 // maxon's spec files, the converter's source, and the compiler that formats and fixes with the runtime and the library it
 // finds beside itself and the skip table, and the specs they wrote, which anything may have edited since. Whatever differs,
 // or if the last conversion did not end, they run, and the stamp is written last.
-func convertSpecsIfStale(compiler, maxonSpecs string) error {
+func convertSpecsIfStale(compiler, maxonSpecs string, advance bool) error {
 	conversionStamp := filepath.Join("bin", "specs-conversion.stamp")
 	inputs := []string{maxonSpecs, filepath.Join("cmd", "convert"), "go.mod", compiler, "runtime", "stdlib", filepath.Join("self", "driver", "skips.tsv")}
 	stampOf := func() (string, string, error) {
@@ -262,7 +263,7 @@ func convertSpecsIfStale(compiler, maxonSpecs string) error {
 		return nil
 	}
 	os.Remove(conversionStamp)
-	if err := convertSpecs(compiler, maxonSpecs); err != nil {
+	if err := convertSpecs(compiler, maxonSpecs, advance); err != nil {
 		return err
 	}
 	// The inputs are read again: a change while the conversion ran leaves it with no stamp.
@@ -276,8 +277,12 @@ func convertSpecsIfStale(compiler, maxonSpecs string) error {
 	return nil
 }
 
-// convertSpecs writes specs/ again: maxon's spec files converted, then fixed.
-func convertSpecs(compiler, maxonSpecs string) error {
+// convertSpecs writes specs/ again: maxon's spec files converted, then fixed. A source of other content than specs/SOURCE
+// pins is refused before anything is deleted, unless advance moves the pin (internal/specsource).
+func convertSpecs(compiler, maxonSpecs string, advance bool) error {
+	if _, err := specsource.Check(maxonSpecs, "specs", advance); err != nil {
+		return err
+	}
 	// The conversion lays out what it writes with the same compiler, whatever the environment names.
 	env := []string{"MINIMAXON=" + compiler}
 	old, err := filepath.Glob(filepath.Join("specs", "*.md"))
@@ -291,7 +296,11 @@ func convertSpecs(compiler, maxonSpecs string) error {
 			}
 		}
 	}
-	if err := run(env, "go", "run", "./cmd/convert", "--specs", "--out=specs", maxonSpecs); err != nil {
+	args := []string{"run", "./cmd/convert", "--specs", "--out=specs"}
+	if advance {
+		args = append(args, specsource.AdvanceFlag)
+	}
+	if err := run(env, "go", append(args, maxonSpecs)...); err != nil {
 		return err
 	}
 	return run(env, compiler, "fix", "specs")

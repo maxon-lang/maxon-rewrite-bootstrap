@@ -1,4 +1,3 @@
-// native-only
 // A cancel consumes a promise and waits for its coroutine: one that has not started never runs, and what it was given to
 // own is dropped; one that has started runs on, the sleep it is in and every later one ending at once, and what it gave
 // is dropped. A promise that a coroutine cancelled before it started was given is dropped by cancelling it, which waits

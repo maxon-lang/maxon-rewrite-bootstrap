@@ -459,7 +459,7 @@ function main() returns ExitCode
 	for c in s 'each'
 		for d in s 'inner'
 			if c < d 'lt'
-				seen = seen + 1
+				seen = try seen + 1 otherwise panic("out of range")
 			end 'lt'
 		end 'inner'
 	end 'each'

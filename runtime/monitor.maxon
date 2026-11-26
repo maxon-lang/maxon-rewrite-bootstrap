@@ -66,6 +66,7 @@ function monitorMain(context Count)
 	var idle = 0 as Count
 	var delay = monitorFirstMicros
 	var nap = preemptNanos
+	let preempts = __Raw.loadWord(scheduler, offset: schedPreemptOffOffset) == unset
 	while true 'rounds'
 		if idle == 0 'busy'
 			delay = monitorFirstMicros
@@ -88,7 +89,7 @@ function monitorMain(context Count)
 			startThreadFor(scheduler, proc: noProc, spinning: false)
 		end 'timer'
 		nap = preemptNanos
-		if retake(scheduler, now: now, nap: nap) 'retook'
+		if preempts and retake(scheduler, now: now, nap: nap) 'retook'
 			idle = 0
 		end 'retook' else 'none'
 			idle = __Raw.wrappingAdd(idle, right: 1)
@@ -132,7 +133,8 @@ end 'takeEventsIfStale'
 // stop, and asked again while the tick does not move (askAgain), and a processor in a blocking call since the monitor's
 // last look, or on a tick a slice old, is taken from it, unless it has nothing queued, a thread spins or a processor is
 // idle, and the call is younger than syscallRetakeNanos. It says whether it took a processor, the only thing that keeps
-// the monitor waking often, as Go's sysmon counts only retake's n, and lowers nap to how soon an ask again is due.
+// the monitor waking often, as Go's sysmon counts only retake's n, and lowers nap to how soon an ask again is due. The monitor
+// does not call it when MAXON_PREEMPT is off (schedPreemptOffOffset).
 function retake(scheduler Count, now Count, mutates nap Count) returns bool
 	var retook = false
 	for i in 0 upto madeProcs(scheduler) 'procs'
@@ -224,7 +226,8 @@ end 'askAgain'
 // preemptOne is Go's preemptone: the green thread of the thread that holds the processor is asked to stop, and the thread
 // is stopped where it may be. A thread in a blocking call holds no processor's thread word, so it is never asked: retake
 // takes its processor instead. It says whether there was one to ask, and counts in the scheduler's record each ask that is
-// not an ask again.
+// not an ask again: again on the tick, to the green thread asked before on it. A tick that green threads inherit from one
+// another (runqGet) holds more than one, and each is asked once before it is asked again.
 function preemptOne(scheduler Count, proc Count, again bool) returns bool
 	let thread = __Raw.loadAcquire(proc, offset: procThreadOffset)
 	if thread == noThread 'none'
@@ -236,9 +239,10 @@ function preemptOne(scheduler Count, proc Count, again bool) returns bool
 	end 'scheduler'
 	__Raw.storeRelease(g, offset: greenPreemptOffset, value: set)
 	preemptThread(scheduler, context: thread, g: g)
-	if not again 'first'
+	if not again or __Raw.loadWord(proc, offset: procAskedGreenOffset) != g 'first'
 		countMonitorWord(scheduler, offset: schedPreemptAsksOffset)
 	end 'first'
+	__Raw.storeWord(proc, offset: procAskedGreenOffset, value: g)
 	return true
 end 'preemptOne'
 

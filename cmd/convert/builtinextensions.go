@@ -1,6 +1,7 @@
 package main
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -14,16 +15,27 @@ var builtinTypeParams = map[string]string{
 // maxonElementParam is the name of the type parameter of maxon's generic collections.
 const maxonElementParam = "Element"
 
-// unavailableIntrinsicConditions are the conditions of an `if` of maxon's library that ask the compiler about its native
-// storage hashing, which minimaxon has no counterpart of: the block takes a shortcut that the code after it must agree with, so
-// the converter leaves the block out and the code after it is the whole of the method.
-var unavailableIntrinsicConditions = []string{"__Builtins.elementsHashAsStorage()"}
+// storageHashCalls are the calls of maxon's library that ask the compiler about an array's native storage hashing, and what
+// minimaxon writes for each: the library's own members of the built-in Array that answer them (internal/builtingen),
+// whether the array hashes as the bytes of its storage, and their fold under the process's seed.
+var storageHashCalls = []struct{ maxon, here []token }{
+	{
+		maxon: []token{{kind: tokIdent, text: "__Builtins"}, {kind: tokPunct, text: "."}, {kind: tokIdent, text: "elementsHashAsStorage"}, {kind: tokPunct, text: "("}, {kind: tokPunct, text: ")"}},
+		here:  []token{{kind: tokIdent, text: "self"}, {kind: tokPunct, text: "."}, {kind: tokIdent, text: "hashesAsStorage"}, {kind: tokPunct, text: "("}, {kind: tokPunct, text: ")"}},
+	},
+	{
+		maxon: []token{{kind: tokIdent, text: "__Builtins"}, {kind: tokPunct, text: "."}, {kind: tokIdent, text: "hashArrayStorage"}, {kind: tokPunct, text: "("}, {kind: tokIdent, text: "self"}, {kind: tokPunct, text: ")"}},
+		here: []token{
+			{kind: tokIdent, text: "hashValueOfDigest"}, {kind: tokPunct, text: "("}, {kind: tokIdent, text: "self"}, {kind: tokPunct, text: "."}, {kind: tokIdent, text: "storageHash"}, {kind: tokPunct, text: "("},
+			{kind: tokIdent, text: "processFoldStart"}, {kind: tokPunct, text: "("}, {kind: tokPunct, text: ")"}, {kind: tokPunct, text: ")"}, {kind: tokPunct, text: ")"},
+		},
+	},
+}
 
 // rewriteBuiltinExtensions writes each extension of a type that minimaxon builds in (Array) as minimaxon has it:
 // the type parameter under the built-in table's name, the receiver's own storage as `self.managed`, the members the
-// built-in declares left out (the table has them natively), no conformance where the extension has a `where` (minimaxon
-// has no conditional conformance, so the methods stay and the interface is not implemented), and no block that asks for the
-// native storage hash.
+// built-in declares left out (the table has them natively), and the calls that ask for the native storage hash as the
+// members that answer them here.
 func rewriteBuiltinExtensions(lines []sourceLine) {
 	for i := 0; i < len(lines); i++ {
 		l := &lines[i]
@@ -40,12 +52,13 @@ func rewriteBuiltinExtensions(lines []sourceLine) {
 			continue
 		}
 		last := topLevelEnd(lines, i)
-		dropConformanceBeforeWhere(l)
 		for k := i; k <= last; k++ {
 			renameInLine(&lines[k], param)
 		}
 		dropNativeMembers(lines, i, last, target)
-		dropUnavailableIntrinsicBlocks(lines, i, last)
+		for k := i; k <= last; k++ {
+			rewriteStorageHashCalls(&lines[k])
+		}
 		i = last
 	}
 }
@@ -66,27 +79,30 @@ func renameInLine(l *sourceLine, param string) {
 	l.code = out
 }
 
-// dropConformanceBeforeWhere removes the `implements` clause of an extension header that has a `where`.
-func dropConformanceBeforeWhere(l *sourceLine) {
-	impl := findToken(l.code, 0, "implements")
-	where := findToken(l.code, 0, "where")
-	if impl < 0 || where < impl {
-		return
-	}
-	l.code = slices.Delete(l.code, impl, where)
-}
-
 // extendedBuiltinRecords are the record types minimaxon builds in whose library declaration has members that the built-in
 // lacks (Clock's `nowMs`, Directory's `removeTree`, Process's `currentEnvironmentEntries`): the declaration is kept as an
 // extension of the built-in, which a program reaches as it reaches the type.
-var extendedBuiltinRecords = []string{"Clock", "Directory", "FilePath", "Process"}
+var extendedBuiltinRecords = []string{"Clock", "Directory", "File", "FileInfo", "FilePath", "Process"}
 
 // builtinRecordConformances are the interfaces of a declaration of extendedBuiltinRecords that its extension leaves out:
 // FilePath is a literal's type and has its toString as a built-in until the seed that compiles its library type.
-var builtinRecordConformances = map[string][]string{"FilePath": {"InitableFromStringLiteral", "Stringable"}}
+var builtinRecordConformances = map[string][]string{
+	"FilePath":        {"InitableFromStringLiteral", "Stringable"},
+	"FileReadError":   {"Error"},
+	"FileWriteError":  {"Error"},
+	"FileDeleteError": {"Error"},
+	"FileRenameError": {"Error"},
+	"FileInfoError":   {"Error"},
+}
 
-// rewriteBuiltinRecords writes the declaration of each of extendedBuiltinRecords as an extension of the built-in type, with
-// the members that the built-in declares left out, and the fields, which the built-in's own storage replaces.
+// extendedBuiltinEnums are the enums minimaxon builds in whose library declaration has members that the built-in lacks (the
+// `failure()` that maxon's File.maxon gives each error of File): the declaration is kept as an extension of the built-in, with
+// the cases, which the built-in declares, left out.
+var extendedBuiltinEnums = []string{"FileReadError", "FileWriteError", "FileDeleteError", "FileRenameError", "FileInfoError"}
+
+// rewriteBuiltinRecords writes the declaration of each of extendedBuiltinRecords and extendedBuiltinEnums as an extension of the
+// built-in type, with the members that the built-in declares left out, and the fields or the cases, which the built-in's own
+// declaration replaces.
 func rewriteBuiltinRecords(lines []sourceLine) {
 	for i := 0; i < len(lines); i++ {
 		l := &lines[i]
@@ -94,7 +110,12 @@ func rewriteBuiltinRecords(lines []sourceLine) {
 			continue
 		}
 		declIdx := skipModifiers(l.code)
-		if declIdx+1 >= len(l.code) || l.code[declIdx].text != "type" || !slices.Contains(extendedBuiltinRecords, l.code[declIdx+1].text) {
+		if declIdx+1 >= len(l.code) {
+			continue
+		}
+		isRecord := l.code[declIdx].text == "type" && slices.Contains(extendedBuiltinRecords, l.code[declIdx+1].text)
+		isEnum := l.code[declIdx].text == "enum" && slices.Contains(extendedBuiltinEnums, l.code[declIdx+1].text)
+		if !isRecord && !isEnum {
 			continue
 		}
 		last := topLevelEnd(lines, i)
@@ -104,9 +125,41 @@ func rewriteBuiltinRecords(lines []sourceLine) {
 			dropConformance(l, iface)
 		}
 		dropEmptyImplements(l)
-		dropFields(lines, i, last)
+		if isEnum {
+			dropCases(lines, i, last)
+		} else {
+			dropFields(lines, i, last)
+		}
 		dropNativeMembers(lines, i, last, target)
+		if isRecord {
+			dropOrphanedMembers(lines, i, last)
+		}
 		i = last
+	}
+}
+
+// dropOrphanedMembers leaves out each member of the extension from header to last that only its own file may call and that
+// nothing left in it names: a helper of members that the built-in declares, which dropNativeMembers left out (File.maxon's
+// readWhole, of readText and readBinary).
+func dropOrphanedMembers(lines []sourceLine, header, last int) {
+	for k := header + 1; k < last; k++ {
+		l := &lines[k]
+		if l.removed || len(l.code) == 0 || l.indent != "	" {
+			continue
+		}
+		declIdx := skipModifiers(l.code)
+		if declIdx+1 >= len(l.code) || l.code[declIdx].text != "function" || hasModifier(l.code[:declIdx], "public") || hasModifier(l.code[:declIdx], "export") {
+			continue
+		}
+		end := memberEnd(lines, k)
+		if namedOutside(lines, l.code[declIdx+1].text, k, end) {
+			k = end
+			continue
+		}
+		for j := commentsAbove(lines, k); j <= end; j++ {
+			lines[j].removed = true
+		}
+		k = end
 	}
 }
 
@@ -118,6 +171,20 @@ func dropFields(lines []sourceLine, header, last int) {
 			continue
 		}
 		if word := l.code[skipModifiers(l.code)].text; word == "var" || word == "let" {
+			l.removed = true
+		}
+	}
+}
+
+// dropCases leaves out the cases of the enum from header to last, each a line of its own that holds a name and nothing else
+// (its comment goes with it).
+func dropCases(lines []sourceLine, header, last int) {
+	for k := header + 1; k < last; k++ {
+		l := &lines[k]
+		if l.removed || len(l.code) == 0 || l.indent != "\t" {
+			continue
+		}
+		if len(l.code) == 1 && l.code[0].kind == tokIdent {
 			l.removed = true
 		}
 	}
@@ -142,46 +209,123 @@ func dropNativeMembers(lines []sourceLine, header, last int, target string) {
 	}
 }
 
-// dropUnavailableIntrinsicBlocks leaves out each `if` block between header and last whose condition is one of
-// unavailableIntrinsicConditions.
-func dropUnavailableIntrinsicBlocks(lines []sourceLine, header, last int) {
-	for k := header + 1; k < last; k++ {
-		l := &lines[k]
-		if l.removed || len(l.code) < 2 || l.code[0].text != "if" || !slices.Contains(unavailableIntrinsicConditions, conditionText(l.code[1:])) {
-			continue
+// rewriteStorageHashCalls writes each of storageHashCalls in the line as minimaxon has it.
+func rewriteStorageHashCalls(l *sourceLine) {
+	for _, call := range storageHashCalls {
+		for k := 0; k+len(call.maxon) <= len(l.code); k++ {
+			if !slices.EqualFunc(l.code[k:k+len(call.maxon)], call.maxon, func(a, b token) bool { return a.kind == b.kind && a.text == b.text }) {
+				continue
+			}
+			l.code = slices.Concat(l.code[:k], call.here, l.code[k+len(call.maxon):])
+			k += len(call.here) - 1
 		}
-		end := memberEnd(lines, k)
-		for j := k; j <= end; j++ {
-			lines[j].removed = true
-		}
-		k = end
 	}
-}
-
-// conditionText is the tokens of an `if` condition, up to its label, written without spaces.
-func conditionText(toks []token) string {
-	var text strings.Builder
-	for _, t := range toks {
-		if t.kind == tokLabel {
-			break
-		}
-		text.WriteString(t.text)
-	}
-	return text.String()
 }
 
 // typeNamesHere are the types of maxon's that minimaxon types as another: the payload of WaitDeadline.within is a Count here,
 // where maxon's is its own alias of that range.
 var typeNamesHere = map[string]string{"WaitDeadlineMs": "Count"}
 
-// rewriteTypeNames writes each name of typeNamesHere as minimaxon's.
+// rewriteTypeNames writes each name of typeNamesHere as minimaxon's, but in a text that declares the type itself, as the
+// library's Subprocess declares WaitDeadlineMs for its own WaitDeadline.
 func rewriteTypeNames(lines []sourceLine) {
 	for i := range lines {
 		l := &lines[i]
 		for k, t := range l.code {
 			here, ok := typeNamesHere[t.text]
-			if ok && t.kind == tokIdent && (k == 0 || l.code[k-1].text != ".") {
+			if ok && t.kind == tokIdent && (k == 0 || l.code[k-1].text != ".") && !declaresType(lines, t.text) {
 				l.code[k].text = here
+			}
+		}
+	}
+}
+
+// libraryBesideBuiltins are the types of maxon's Subprocess library that minimaxon also builds in. The library declares each
+// as its own, so that a program can name either: the library's is written with besideBuiltinPrefix until the built-ins go.
+var libraryBesideBuiltins = []string{"CollectedOutput", "Executable", "Subprocess", "SubprocessError", "WaitDeadline"}
+
+// besideBuiltinPrefix starts the name of a type of libraryBesideBuiltins that the library declares.
+const besideBuiltinPrefix = "Mx"
+
+// builtinsOfTheBuiltInTypes are the built-ins that take the built-in Executable (Debuggee.launch, runWithInput) or WaitDeadline
+// (the waiting removeTree and removeContents), so that a program that reaches one cannot name the library's.
+var builtinsOfTheBuiltInTypes = []string{"Debuggee", "runWithInput"}
+
+// builtinsTakingWaitDeadline are the built-ins whose WaitDeadline is the built-in one, which a program names beside them.
+var builtinsTakingWaitDeadline = []string{"removeTree", "removeContents"}
+
+// libraryOnlySubprocessTypes are the types of the library's Subprocess that the built-ins have no counterpart of, besides
+// Subprocess itself: a program that names one runs a child through the library.
+var libraryOnlySubprocessTypes = []string{"Subprocess", "Configuration", "InputSource", "OutputDestination", "WorkingDirectory", "TerminationStatus", "PlatformOptions", "StreamingSubprocess", "StdioStream", "TreeEnd", "ExitPoll", "TerminationPoll"}
+
+// buildsLibraryError matches a program's making of a case of SubprocessError that carries a payload, which the library's union
+// has and the built-in enum, whose cases carry none, does not.
+var buildsLibraryError = regexp.MustCompile(`(^|[^A-Za-z0-9_.])SubprocessError[.](executableNotFound|spawnFailed|ioFailed|timeout|treeNotEnded|detachRefused|statusLost)[(]`)
+
+// programNames is what the whole of a program (every file of a spec test) says about the names its files write.
+type programNames struct {
+	// own are the types of libraryTypeNamesHere and libraryBesideBuiltins that the program declares itself, which it keeps.
+	own []string
+	// usesLibrarySubprocess is whether the program runs a child through Subprocess and so names the library's types.
+	usesLibrarySubprocess bool
+}
+
+// programNamesOf reads the names of a program from its source, all its files together.
+func programNamesOf(src string) programNames {
+	lines := splitLines(src)
+	names := programNames{}
+	for _, name := range libraryTypeNamesHere {
+		if declaresType(lines, name.maxon) {
+			names.own = append(names.own, name.maxon)
+		}
+	}
+	for _, name := range libraryBesideBuiltins {
+		if declaresType(lines, name) {
+			names.own = append(names.own, name)
+		}
+	}
+	words := wordsOf(src)
+	names.usesLibrarySubprocess = (slices.ContainsFunc(libraryOnlySubprocessTypes, func(word string) bool { return words[word] && !declaresType(lines, word) }) || buildsLibraryError.MatchString(src) && !declaresType(lines, "SubprocessError")) &&
+		!slices.ContainsFunc(builtinsOfTheBuiltInTypes, func(word string) bool { return words[word] }) &&
+		!(words["WaitDeadline"] && slices.ContainsFunc(builtinsTakingWaitDeadline, func(word string) bool { return words[word] }))
+	return names
+}
+
+// renameBesideBuiltins writes each type of libraryBesideBuiltins that the library file declares with its prefix, wherever the
+// file writes it: in code, labels, strings and comments.
+func renameBesideBuiltins(lines []sourceLine) {
+	for _, name := range libraryBesideBuiltins {
+		if !declaresType(lines, name) {
+			continue
+		}
+		here := besideBuiltinPrefix + name
+		label := "'" + name + "'"
+		for i := range lines {
+			l := &lines[i]
+			for k, t := range l.code {
+				switch {
+				case t.kind == tokIdent && t.text == name && (k == 0 || l.code[k-1].text != "."):
+					l.code[k].text = here
+				case t.kind == tokLabel && t.text == label:
+					l.code[k].text = "'" + here + "'"
+				case t.kind == tokString:
+					l.code[k].text = replaceWholeWord(t.text, name, here)
+				}
+			}
+			l.comment = replaceWholeWord(l.comment, name, here)
+			l.trailing = replaceWholeWord(l.trailing, name, here)
+		}
+	}
+}
+
+// renameProgramBesideBuiltins writes each type of libraryBesideBuiltins that a program names, and does not declare, as the
+// library's.
+func renameProgramBesideBuiltins(lines []sourceLine, own []string) {
+	for i := range lines {
+		l := &lines[i]
+		for k, t := range l.code {
+			if t.kind == tokIdent && slices.Contains(libraryBesideBuiltins, t.text) && !slices.Contains(own, t.text) && (k == 0 || l.code[k-1].text != ".") {
+				l.code[k].text = besideBuiltinPrefix + t.text
 			}
 		}
 	}
@@ -227,6 +371,39 @@ func renameLibraryTypes(file string, lines []sourceLine, kind inputKind, ownType
 	}
 }
 
+// namesHidingModules are the names of library modules that a field, a parameter or a local of maxon's library would hide where
+// it writes the module before a name of another module (stream.StreamError), and the name each is written as here. maxon's
+// library writes no module, and its Subprocess has a field and parameters named stream.
+var namesHidingModules = map[string]string{"stream": "which"}
+
+// renameNamesHidingModules writes each name of namesHidingModules as its replacement, wherever the file writes it as a name:
+// in code and in the interpolations of strings, and not in their text or in comments.
+func renameNamesHidingModules(lines []sourceLine) {
+	for i := range lines {
+		l := &lines[i]
+		for k, t := range l.code {
+			here, ok := namesHidingModules[t.text]
+			switch {
+			case ok && t.kind == tokIdent:
+				l.code[k].text = here
+			case t.kind == tokString:
+				l.code[k].text = renameInInterpolations(t.text, namesHidingModules)
+			}
+		}
+	}
+}
+
+// renameInInterpolations writes each whole word of an interpolation of a string that names is a key of names, as its value.
+func renameInInterpolations(text string, names map[string]string) string {
+	return interpolationPart.ReplaceAllStringFunc(text, func(part string) string {
+		var pairs [][2]string
+		for old, here := range names {
+			pairs = append(pairs, [2]string{old, here})
+		}
+		return replaceWords(part, pairs)
+	})
+}
+
 // declaresType says whether the text declares a type, an enum, a union, an interface or a typealias named name, or takes
 // a type parameter of that name.
 func declaresType(lines []sourceLine, name string) bool {
@@ -250,28 +427,26 @@ func declaresType(lines []sourceLine, name string) bool {
 	return false
 }
 
-// ownLibraryTypes are the types of libraryTypeNamesHere that the program src declares itself.
-func ownLibraryTypes(src string) []string {
-	lines := splitLines(src)
-	var own []string
-	for _, name := range libraryTypeNamesHere {
-		if declaresType(lines, name.maxon) {
-			own = append(own, name.maxon)
-		}
-	}
-	return own
-}
-
 // renameWord writes each whole word old in text, and the word with its first letter lower case, as here likewise.
 func renameWord(text, old, here string) string {
 	lowerOld, lowerHere := strings.ToLower(old[:1])+old[1:], strings.ToLower(here[:1])+here[1:]
+	return replaceWords(text, [][2]string{{old, here}, {lowerOld, lowerHere}})
+}
+
+// replaceWholeWord writes each whole word old in text as here.
+func replaceWholeWord(text, old, here string) string {
+	return replaceWords(text, [][2]string{{old, here}})
+}
+
+// replaceWords writes each whole word of text that a pair names as the pair's second.
+func replaceWords(text string, pairs [][2]string) string {
 	var b strings.Builder
 	isWord := func(c byte) bool {
 		return c == '_' || '0' <= c && c <= '9' || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z'
 	}
 	for i := 0; i < len(text); {
 		matched := false
-		for _, w := range [][2]string{{old, here}, {lowerOld, lowerHere}} {
+		for _, w := range pairs {
 			end := i + len(w[0])
 			if (i == 0 || !isWord(text[i-1])) && strings.HasPrefix(text[i:], w[0]) && (end == len(text) || !isWord(text[end])) {
 				b.WriteString(w[1])

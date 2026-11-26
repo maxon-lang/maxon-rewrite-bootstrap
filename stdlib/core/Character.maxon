@@ -2,7 +2,7 @@
 // members, which minimaxon builds in (README, "Text"), so what is left of it is these, with the methods that the built-in
 // Character lacks. Equality and order are of the bytes, as maxon's are; the built-in equals meets Equatable. The surrogate
 // code points that the same file declares are in the character module.
-extension Character implements Hashable, Equatable, Comparable
+extension Character implements Hashable, Equatable, Comparable, Cloneable
 	public function hash() returns HashValue
 		return hashValueOfDigest(__Builtins.hashCharacter(self, processFoldStart()))
 	end 'hash'

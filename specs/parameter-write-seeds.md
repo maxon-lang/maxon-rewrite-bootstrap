@@ -281,12 +281,12 @@ error E3207: <fragment>:26:10: 'stretch' writes 'g' (line 21: it is passed to a 
 ```
 
 <!-- test: error.releasing-a-raw-resource-writes-the-parameter-that-owns-it -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 `close()` writes the mapping the segment owns, so `retire` writes `s`, and a registry read, which every thread shares, cannot be handed to it.
 
 ```maxon
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default SharedSegment = try SharedSegment.create("maxon-spec-write-seeds", bytes: 4096) otherwise panic("no segment")
 
 function retire(s SharedSegment)

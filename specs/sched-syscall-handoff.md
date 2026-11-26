@@ -209,6 +209,7 @@ aggregate=80 last=1
 ```
 
 <!-- test: a-blocking-subprocess-wait-does-not-stall-a-sibling -->
+<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 <!-- procs: 2 -->
 **THE SAME SHAPE ON THE WAIT THAT COSTS THE MOST.** `Subprocess.run` is the surface the timing paragraph at
@@ -242,12 +243,12 @@ type Runner
 	end 'create'
 
 	export function child() returns Integer
-		let exe = Executable.name("cmd")
+		let exe = MxExecutable.name("cmd")
 		let argv = StringArray.create(0)
 		argv.push("/c")
 		argv.push("exit")
 		argv.push("0")
-		let result = try Subprocess.run(exe, arguments: argv) otherwise 'e'
+		let result = try MxSubprocess.run(exe, arguments: argv) otherwise 'e'
 			return 0
 		end 'e'
 		if result.succeeded() 'ok'
@@ -591,16 +592,16 @@ two durations orders the two lines, and they are nearly two seconds apart.
 ```maxon
 let napMs = 100
 
-function spawnTimedChild() returns StreamingSubprocess throws SubprocessError
-	let argv = StringArray.create(0)
+function spawnTimedChild() returns StreamingSubprocess throws MxSubprocessError
+	var argv = StringArray.create(0)
 	#if os(Windows)
 		argv.push("-n")
 		argv.push("3")
 		argv.push("127.0.0.1")
-		return try StreamingSubprocess.spawn(Executable.name("ping"), arguments: argv)
+		return try StreamingSubprocess.spawn(MxExecutable.name("ping"), arguments: argv)
 	#else
 		argv.push("2")
-		return try StreamingSubprocess.spawn(Executable.path(FilePath from "/bin/sleep"), arguments: argv)
+		return try StreamingSubprocess.spawn(MxExecutable.path(FilePath from "/bin/sleep"), arguments: argv)
 	#endif
 end 'spawnTimedChild'
 
@@ -609,7 +610,7 @@ function exitedOnItsOwn(child StreamingSubprocess) returns bool
 	return true
 end 'exitedOnItsOwn'
 
-function outlast(child StreamingSubprocess) returns bool
+function outlast(mutates child StreamingSubprocess) returns bool
 	print("W: waiting\n")
 	let exited = exitedOnItsOwn(child)
 	print("W: wait returned\n")
@@ -624,7 +625,7 @@ function nap() returns bool
 end 'nap'
 
 function main() returns ExitCode
-	let child = try spawnTimedChild() otherwise return 1
+	var child = try spawnTimedChild() otherwise return 1
 	let watcher = async outlast(child)
 	let napper = async nap()
 	let slept = await napper
@@ -644,6 +645,7 @@ slept=true exited=true
 ```
 
 <!-- test: a-child-wait-parks-instead-of-holding-a-processor -->
+<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 <!-- procs: 1 -->
 <!-- unsupported-targets: wasm32-wasi -->
 A streaming child's `wait` parks its green thread until the child exits. The child ends on its own about two
@@ -655,16 +657,16 @@ are nearly two seconds apart.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-function spawnTimedChild() returns StreamingSubprocess throws SubprocessError
+function spawnTimedChild() returns StreamingSubprocess throws MxSubprocessError
 	let argv = StringArray.create(0)
 	#if os(Windows)
 		argv.push("-n")
 		argv.push("3")
 		argv.push("127.0.0.1")
-		return try StreamingSubprocess.spawn(Executable.name("ping"), arguments: argv)
+		return try StreamingSubprocess.spawn(MxExecutable.name("ping"), arguments: argv)
 	#else
 		argv.push("2")
-		return try StreamingSubprocess.spawn(Executable.path(FilePath from "/bin/sleep"), arguments: argv)
+		return try StreamingSubprocess.spawn(MxExecutable.path(FilePath from "/bin/sleep"), arguments: argv)
 	#endif
 end 'spawnTimedChild'
 

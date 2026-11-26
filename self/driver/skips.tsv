@@ -65,10 +65,12 @@ code	E3156	a function whose parameter is an interface, used as a function value
 code	E2042	a match arm whose block has no label
 code	E2043	a match arm whose block label differs from the one it opened
 code	E3085	a bare case name in a match on the combined error of several errors that two of them declare
+code	E3192	a message parameter named sendTimeout, which every send kept for its wait for room in the mailbox
 skip	ErrUseAfterMove,E3223,ErrFrozenChange	ErrMoveOutOfBorrow,ErrNotDroppable,ErrAssignToImmutable	language difference: ownership is refused by another rule
 skip	E3183	ErrClosureBorrow	language difference: a closure that borrows what it captures does not escape
 skip	ErrUnexpectedToken	ErrExpectedToken	differing error code: syntax error
 skip	ErrExpressionError	ErrTypeMismatch	differing error code: operand types
+skip	ErrTypeMismatch	ErrUnsafeCast	differing error code: operand types
 skip	E2042	ErrExpectedToken	differing error code: syntax error
 skip	E2043	ErrMismatchedEndLabel	differing error code: syntax error
 skip	E3085	ErrErrorTypeMismatch	language difference: a try block's handler names one error, not the combined error of several
@@ -79,6 +81,7 @@ expect	E3055,E3083	language difference: a try that covers nothing that can fail 
 expect	E3168	language difference: a throws that nothing can make fail is allowed, so a sharper analysis never breaks a program
 expect	E3196,E3198,E3199,E3200,E3201,E3202,E3203,E3205,E3206,E3207,E3208,E3209,E3211,E3214,E3226	language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist
 expect	E3224	language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse
+expect	E3192	language difference: a mailbox has no capacity, so a spawn names none, no send fails mailboxFull or waits with sendTimeout:, and the runtime slows a sender of a service that is behind instead (README, Where it differs from Maxon: Services)
 expect	E3156	language difference: an interface value is one word that owns its value, so it may stand where any value may
 run	ErrUseAfterMove	language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count
 run	ErrAssignToImmutable	language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name
@@ -96,6 +99,8 @@ run	ErrClosureBorrow	language difference: a closure that borrows what it capture
 run	ErrHolderMayWait	language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service
 run	ErrValueNotShareable	language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value at an interface type, whose conformer the check does not know, is refused there
 first	ErrValueNotShareable	language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value at an interface type, whose conformer the check does not know, is refused there
+test	services.md	a-reply-bearing-send-to-a-full-mailbox-fails-at-the-send	language difference: a mailbox has no capacity, so a spawn names none, no send fails mailboxFull or waits with sendTimeout:, and the runtime slows a sender of a service that is behind instead (README, Where it differs from Maxon: Services)
+test	services.md	a-capacity-that-is-not-a-power-of-two-fills-drains-and-fills-again-in-order	language difference: a mailbox has no capacity, so a spawn names none, no send fails mailboxFull or waits with sendTimeout:, and the runtime slows a sender of a service that is behind instead (README, Where it differs from Maxon: Services)
 test	fold-constants.md	a-float-division-by-a-constant-zero-is-not-folded	language difference: a float division by 0 is IEEE's, infinity or NaN, where maxon's throws divisionByZero
 test	nominal-generic-alias.md	error.xs-into-ys-parameter	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
 test	nominal-generic-alias.md	error.rebind-across-brands	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
@@ -835,3 +840,12 @@ test	regions-byref-types.md	a-mutable-type-parameter-handed-on-to-a-wider-formal
 test	regions-byref-types.md	a-mutable-type-parameter-handed-on-to-a-wider-formal-is-refused-at-the-caller-sync	language difference: a generic body is checked once against its bounds, never per instance, so what its bounds do not give is refused in the body (README, Where it differs from Maxon: Generics are checked once against their bounds, never per instantiation)
 test	regions-byref-types.md	a-private-generic-function-of-another-file-is-refused-as-not-exported-before-its-instance-is-judged	language difference: a generic body is checked once against its bounds, never per instance, so what its bounds do not give is refused in the body (README, Where it differs from Maxon: Generics are checked once against their bounds, never per instantiation)
 test	fixed-array-static-index.md	error.a-counter-reaching-past-the-size-requires-try	language difference: it tests one missing try in a program that has two, the addition around the access, which maxon checks at run time, and the try that the addition needs covers the access too
+test	managed-file.md	managed-file.auto-close	language difference: an open file is a linear value, and nothing closes it but its close
+test	array-clone-managed-elements.md	an-array-of-a-handle-holding-struct-compiles-when-nothing-copies-it	language difference: an open file is a linear value, and nothing closes it but its close
+test	async-filesystem.md	async-filesystem.async-read-through-a-handle-holding-struct	language difference: an open file is a linear value, and nothing closes it but its close
+test	builtins-byte-order.md	builtins-byte-order.a-file-read-into-a-let-binding-is-accepted	language difference: an open file is a linear value, and nothing closes it but its close
+test	stream-reader.md	a-line-read-without-a-cap-returns-a-line-longer-than-any-cap-whole	language difference: an open file is a linear value, and nothing closes it but its close
+test	stream-reader.md	a-line-read-within-a-cap-answers-pastTheCap-past-it-and-the-line-within-it	language difference: an open file is a linear value, and nothing closes it but its close
+test	stream-reader.md	a-final-line-with-no-newline-is-a-line-and-then-the-stream-has-ended	language difference: an open file is a linear value, and nothing closes it but its close
+test	stream-reader.md	a-file-is-read-line-by-line-across-chunks	language difference: an open file is a linear value, and nothing closes it but its close
+test	library-tier-surface.md	the-managed-file-type-compiles-in-the-library-tier	language difference: an open file is a linear value, and nothing closes it but its close

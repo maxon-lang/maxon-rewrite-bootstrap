@@ -811,19 +811,19 @@ instance they fix.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-function larger(a T, b T) uses T returns T where T implements Comparable
+function larger(a T, b T) uses T returns T where T implements Comparable and Copyable
 	Scheduler.yield()
 	if a > b 'first'
-		return a
+		return a.clone()
 	end 'first'
-	return b
+	return b.clone()
 end 'larger'
 
 function main() returns ExitCode
 	let p = async larger(30 as Integer, b: 42)
 	let q = async larger("ab", b: "cd")
 	print("{await q}\n")
-	return (await p) as ExitCode
+	return try (await p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout

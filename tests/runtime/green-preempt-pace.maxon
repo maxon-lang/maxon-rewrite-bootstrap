@@ -10,6 +10,7 @@
 // until the first ask has come and testBlockMillis have passed, and the spinners until the ticker has run, each up to
 // testDeadlineNanos, and only then is a missing ask or tick an error. The most asks allowed is measured against the time
 // that really passed.
+// runs: alone
 //> a raw call was asked to stop once a slice, and the ticker ran while every processor spun
 
 // testBlockMillis is the least time the raw call lasts, so that a monitor asking on every round shows in the count.

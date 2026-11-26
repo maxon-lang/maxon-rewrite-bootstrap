@@ -429,10 +429,6 @@ function effectsOfCollection(r Ranges, p ast.Project, ms ast.ModuleState, e ast.
 end 'effectsOfCollection'
 
 function effectsOfSpawn(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates scans LoopScans)
-	let capacity = ast.spawnExprCapacity(ms.tree(), id: e)
-	if capacity != 0 'capacity'
-		effectsOfExpr(r, p: p, ms: ms, e: ast.argValue(ms.tree(), id: capacity), scans: scans)
-	end 'capacity'
 	effectsOfExpr(r, p: p, ms: ms, e: ast.spawnExprCall(ms.tree(), id: e), scans: scans)
 end 'effectsOfSpawn'
 

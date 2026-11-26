@@ -1,0 +1,95 @@
+// native-only
+// unsupported-targets: x64-windows
+// MAXON_PREEMPT=off has the monitor take no processor from the thread holding it, as maxon's runtime reads it, and any
+// value but off, on and empty is maxon's runtime abort 116. The program runs itself as a child at one processor under each
+// switch, through sh, which sets the variables: main spins, reading the clock, while a behaviour it scheduled first waits
+// to run. With preemption the monitor takes main's processor after its slice and the behaviour runs during the spin; with
+// it off the behaviour runs only once main parks. Main sees the behaviour run without parking or yielding: the behaviour
+// allocates markBoxes boxes and keeps them, and main reads the process's count of live boxes (HeapStats.allocationsLive,
+// plain loads of each thread's counters) until it has grown by that many, far more than the few boxes the runtime's own
+// threads hold meanwhile; a box that a reading of the clock allocates and frees (Linux's timespec) does not stay. With preemption on, main spins until it sees that, so the spin ends in milliseconds on an idle machine and
+// lasts as long as a loaded one runs the monitor late, up to a limit that only a failure reaches; with it off, main spins a
+// fixed time past the slice, since what it shows is that the behaviour did not run. What main saw is the verdict.
+typealias Arguments = Array with String
+
+typealias Marks = Array with Count
+
+typealias MarkSets = Array with Marks
+
+// markBoxes is how many boxes the behaviour allocates, which main waits to see in the count.
+let markBoxes = 1000 as Count
+
+// offSpinMs is how long the child's main holds its processor with preemption off, well past the monitor's 10 ms slice.
+let offSpinMs = 200 as Count
+
+// onLimitMs is the longest main spins with preemption on, waiting to see the behaviour run: a run reaches it only when the
+// monitor never stopped main.
+let onLimitMs = 10000 as Count
+
+let nanosPerMilli = 1000000 as Count
+
+type Boxes
+	export var marks as MarkSets
+
+	static function make() returns Boxes
+		return Boxes{marks: MarkSets.create(0)}
+	end 'make'
+end 'Boxes'
+
+// child spins for spinMs, or with untilRan until it sees that the behaviour ran, spinMs being then the limit, and says whether
+// it saw the behaviour run during the spin.
+function child(spinMs Count, untilRan bool) returns ExitCode
+	let boxes = cown(Boxes.make())
+	when boxes as b 'ran'
+		var marks = MarkSets.create(0)
+		for i in 0 upto markBoxes 'boxes'
+			var one = Marks.create(0)
+			one.push(i)
+			marks.push(one)
+		end 'boxes'
+		b.marks = marks
+	end 'ran'
+	let start = Clock.nowNanos()
+	let seen = try HeapStats.allocationsLive() as Count + markBoxes otherwise panic("the count is past its end")
+	let until = try start + spinMs * nanosPerMilli otherwise panic("the clock is past its end")
+	var ran = false
+	while Clock.nowNanos() < until 'spin'
+		if HeapStats.allocationsLive() as Count >= seen 'seen'
+			ran = true
+			if untilRan 'done'
+				break 'spin'
+			end 'done'
+		end 'seen'
+	end 'spin'
+	print("ran during the spin {ran}\n")
+	return 0
+end 'child'
+
+function runChild(switch String)
+	let me = try Process.executablePath() otherwise panic("no executable path")
+	var script = Arguments.create(0)
+	script.push("-c")
+	let kind = "child-on" if switch == "on" else "child"
+	script.push("MAXON_MAX_PROCS=1 MAXON_PREEMPT={switch} exec '{me.toString()}' {kind}")
+	let out = try Subprocess.run(Executable.name("sh"), arguments: script) otherwise panic("cannot run sh")
+	print("{switch}: {out.stdout.trim()}{out.stderr.trim()}, exit {out.exitCode()}\n")
+end 'runChild'
+
+//> off: ran during the spin false, exit 0
+//> on: ran during the spin true, exit 0
+//> bogus: fatal error: runtime abort 116 (schedulerPreemptSwitchUnreadable), exit 116
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() > 1 'child'
+		let kind = try args.get(1) otherwise ""
+		if kind == "child-on" 'on'
+			return child(onLimitMs, untilRan: true)
+		end 'on'
+		return child(offSpinMs, untilRan: false)
+	end 'child'
+	runChild("off")
+	runChild("on")
+	runChild("bogus")
+	return 0
+end 'main'

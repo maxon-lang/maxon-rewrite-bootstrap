@@ -89,10 +89,22 @@ function noteCallee(mutates c Checker, p ast.Project, ms ast.ModuleState, callee
 end 'noteCallee'
 
 // waitingIntrinsic is whether a built-in parks the green thread that calls it: sleep and yield, a promise's cancel, which
-// waits for its coroutine, and file, directory and process I/O and the wait for a debuggee's event.
+// waits for its coroutine, and file, directory and process I/O and the wait for a debuggee's event and the waits of the subprocess rows.
 function waitingIntrinsic(op ast.Intrinsic) returns bool
-	return op == ast.Intrinsic.intrSleep or op == ast.Intrinsic.intrSchedulerYield or op == ast.Intrinsic.intrPromiseCancel or op == ast.Intrinsic.intrFileReadText or op == ast.Intrinsic.intrFileWriteText or op == ast.Intrinsic.intrFileWriteBinary or op == ast.Intrinsic.intrFileRename or op == ast.Intrinsic.intrFileDelete or op == ast.Intrinsic.intrFileInfo or op == ast.Intrinsic.intrFileExists or op == ast.Intrinsic.intrDirectoryIsDirectory or op == ast.Intrinsic.intrDirectoryCreate or op == ast.Intrinsic.intrDirectoryDelete or op == ast.Intrinsic.intrDirectoryList or op == ast.Intrinsic.intrSubprocessRun or op == ast.Intrinsic.intrSubprocessRunWithDeadline or op == ast.Intrinsic.intrSubprocessRunInDirectory or op == ast.Intrinsic.intrDebuggeeWaitEvent
+	return op == ast.Intrinsic.intrSleep or op == ast.Intrinsic.intrSchedulerYield or op == ast.Intrinsic.intrPromiseCancel or op == ast.Intrinsic.intrFileReadText or op == ast.Intrinsic.intrFileReadBinary or op == ast.Intrinsic.intrFileWriteText or op == ast.Intrinsic.intrFileWriteBinary or op == ast.Intrinsic.intrFileRename or op == ast.Intrinsic.intrFileDelete or op == ast.Intrinsic.intrFileInfo or op == ast.Intrinsic.intrFileExists or op == ast.Intrinsic.intrDirectoryIsDirectory or op == ast.Intrinsic.intrDirectoryCreate or op == ast.Intrinsic.intrDirectoryDelete or op == ast.Intrinsic.intrDirectoryList or op == ast.Intrinsic.intrSubprocessRun or op == ast.Intrinsic.intrSubprocessRunWithDeadline or op == ast.Intrinsic.intrSubprocessRunInDirectory or op == ast.Intrinsic.intrDebuggeeWaitEvent or waitingSubprocessRow(op) or waitingHandleRow(op)
 end 'waitingIntrinsic'
+
+// waitingHandleRow is whether a row of an open file waits: an open, a read and a write, which park the green thread on a
+// handle that waits on the event queue, and the close, which is a call into the kernel that a file system may hold.
+function waitingHandleRow(op ast.Intrinsic) returns bool
+	return op == ast.Intrinsic.intrManagedFileOpenRead or op == ast.Intrinsic.intrManagedFileOpenWrite or op == ast.Intrinsic.intrManagedFileOpenWriteExecutable or op == ast.Intrinsic.intrManagedFileOpenCreateNew or op == ast.Intrinsic.intrManagedFileReadAppending or op == ast.Intrinsic.intrManagedFileWrite or op == ast.Intrinsic.intrManagedFileClose
+end 'waitingHandleRow'
+
+// waitingSubprocessRow is whether a row of maxon's subprocess surface parks the green thread that calls it: the waits for a child's
+// output and for its exit, the read of a streaming child's output and the writes of its input.
+function waitingSubprocessRow(op ast.Intrinsic) returns bool
+	return op == ast.Intrinsic.intrSubprocessWaitCollect or op == ast.Intrinsic.intrSubprocessWaitExit or op == ast.Intrinsic.intrSubprocessReadAvailable or op == ast.Intrinsic.intrSubprocessWriteStdinAll or op == ast.Intrinsic.intrSubprocessWriteStdinBytes or op == ast.Intrinsic.intrSubprocessAwaitStdinWritable
+end 'waitingSubprocessRow'
 
 // verifyAsyncs is E3073 for each async call of the module whose function never waits.
 function verifyAsyncs(mutates c Checker, p ast.Project, ms ast.ModuleState, mutates errs diag.ErrorList)

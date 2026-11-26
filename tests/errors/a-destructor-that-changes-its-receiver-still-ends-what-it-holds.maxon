@@ -1,0 +1,29 @@
+// A destructor may change its receiver, but the end of its body still drops what of it is left, so a part that cannot be
+// dropped must be ended or moved on: changing self first changes nothing of that.
+type Txn
+	var id as Count
+
+	function commit(destructs self)
+		print("commit {id}\n")
+	end 'commit'
+end 'Txn'
+
+type Holder
+	var count as Count
+	var txn as Txn
+
+	function bump(mutates self)
+		self.count = try self.count + 1 otherwise 0
+	end 'bump'
+
+	function finish(destructs self)
+		bump()
+		self.count = 7
+	end 'finish'
+end 'Holder'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3919

@@ -2396,11 +2396,11 @@ type Store
 end 'Store'
 
 function push(h Store.handle)
-	try h.fill(sendTimeout: ForeverMs) otherwise panic("a send that waits without end returns only when it is delivered or the service stops")
+	try h.fill() otherwise panic("a send that waits without end returns only when it is delivered or the service stops")
 end 'push'
 
 function main() returns ExitCode
-	let h = spawn(capacity: 1) Store.create()
+	let h = spawn Store.create()
 	let batch = LineArray.create(0) as LineArray
 	// TODO: modify blocks are not supported in minimaxon
 	modify batch 'edit'

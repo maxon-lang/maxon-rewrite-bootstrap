@@ -1,0 +1,10 @@
+// A program keeps shared state in a service and sends it messages: a behaviour over cowns, 'when', is the library tiers'
+// machinery, so writing one is refused (E3185).
+// expect-error: E3185 at 6:2
+function main() returns ExitCode
+	let c = 1 as Count
+	when c as x 'touch'
+		print("{x}\n")
+	end 'touch'
+	return 0
+end 'main'

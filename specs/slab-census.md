@@ -1687,7 +1687,7 @@ function main() returns ExitCode
 		let fill = try fills.get(i) otherwise panic("churn: fills.get OOB at {i}")
 		let pad = try pads.get(i) otherwise panic("churn: pads.get OOB at {i}")
 		let population = try populations.get(i) otherwise panic("churn: populations.get OOB at {i}")
-		handles.push(spawn(capacity: 2048) Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
+		handles.push(spawn Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
 	end 'spawnEach'
 	var roundBytes = 0 as Tally
 	var reads = 0 as Tally

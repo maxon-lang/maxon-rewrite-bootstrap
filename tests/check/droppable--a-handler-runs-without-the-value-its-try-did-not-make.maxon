@@ -1,0 +1,43 @@
+// A handler of a try runs where its expression failed, so what that expression would have given was never made and is not in
+// flight there: the handler of the second open may end the first transaction with a destructor that can fail.
+type Txn
+	var id as Count
+
+	static function begin(id Count) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	function commit(destructs self) throws Refusal
+		if id == 0 'empty'
+			throw Refusal.refused
+		end 'empty'
+	end 'commit'
+end 'Txn'
+
+enum Refusal implements Error
+	refused
+end 'Refusal'
+
+function open(id Count) returns Txn throws Refusal
+	if id == 0 'none'
+		throw Refusal.refused
+	end 'none'
+	return Txn.begin(id)
+end 'open'
+
+function both() throws Refusal
+	let first = try open(1)
+	let second = try open(2) otherwise (e) 'refused'
+		try first.commit()
+		throw e
+	end 'refused'
+	try second.commit() otherwise (e) 'unsettled'
+		try first.commit()
+		throw e
+	end 'unsettled'
+	try first.commit()
+end 'both'
+
+function main() returns ExitCode
+	return 0
+end 'main'

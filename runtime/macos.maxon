@@ -145,12 +145,13 @@
 		return ownedString(dest, length: length, ascii: __Raw.stringAscii(path))
 	end 'osPathFrom'
 
-	// osReadText is the whole content of a file.
-	function osReadText(path String, errorAddress Count) returns String
+	// readFileRoom is the whole content of a file in a string room that the caller owns: it stores the length at lengthAddress and
+	// gives the room, or sets the error word and gives nothing to use.
+	function readFileRoom(path String, lengthAddress Count, errorAddress Count) returns Count
 		let fd = openReading(path)
 		if failed(fd) 'open'
 			endWithError(errorAddress, osError: errnoOf(fd), table: readFailures())
-			return noString()
+			return 0
 		end 'open'
 		let stat = newStat()
 		enterBlocking()
@@ -161,7 +162,7 @@
 		if failed(statted) 'sized'
 			closeFd(fd)
 			endWithError(errorAddress, osError: errnoOf(statted), table: readFailures())
-			return noString()
+			return 0
 		end 'sized'
 		let bytes = __Raw.stringRoom(size)
 		var done = 0 as Count
@@ -186,14 +187,15 @@
 		if readError != 0 'failedRead'
 			__Raw.freeStringRoom(bytes)
 			endWithError(errorAddress, osError: readError, table: readFailures())
-			return noString()
+			return 0
 		end 'failedRead'
 		succeed(errorAddress)
-		return stringOfRoom(bytes, length: done)
-	end 'osReadText'
+		__Raw.storeWord(lengthAddress, offset: 0, value: done)
+		return bytes
+	end 'readFileRoom'
 
-	// writeFile replaces a file with bytes at an address, and gives the errno that stopped it, or 0. The mode applies to a
-	// file that it creates; one that is there keeps its own.
+	// writeFile replaces a file with bytes at an address, and gives the errno that stopped it, or 0. The mode applies to a file
+	// that it creates; one that is there keeps its own.
 	function writeFile(path String, data Count, length Count, executable bool) returns Count
 		let fd = openReplacing(path, executable: executable)
 		if failed(fd) 'open'
@@ -220,12 +222,20 @@
 	end 'secondsAt'
 
 	function osIsDirectory(path String) returns bool
-		let stat = newStat()
-		let result = statPath(path, stat: stat)
-		let directory = statIsDirectory(stat)
-		free(stat)
-		return not failed(result) and directory
+		let cPath = cStringOf(path)
+		let directory = directoryAt(cPath)
+		free(cPath)
+		return directory
 	end 'osIsDirectory'
+
+	// directoryAt is whether a directory is at a zero-terminated path.
+	function directoryAt(cPath Count) returns bool
+		let stat = newStat()
+		let result = statCString(cPath, stat: stat)
+		let directory = not failed(result) and statIsDirectory(stat)
+		free(stat)
+		return directory
+	end 'directoryAt'
 
 	// osExists is whether a file or a directory is at a path: it has a status.
 	function osExists(path String) returns bool
@@ -418,8 +428,8 @@
 		return openPathBytes(__Raw.stringBytes(path), length: __Raw.stringLength(path), flags: flags, mode: mode)
 	end 'openPath'
 
-	// openReading opens a file to read, and openReplacing opens one to replace, made with the executable mode when it is
-	// not there: each gives the fd or -errno.
+	// openReading opens a file to read, and openReplacing opens one to replace, made with the executable mode when it is not
+	// there: each gives the fd or -errno.
 	function openReading(path String) returns Count
 		return openPath(path, flags: macosOpenReadOnly, mode: 0)
 	end 'openReading'
@@ -427,6 +437,86 @@
 	function openReplacing(path String, executable bool) returns Count
 		return openPath(path, flags: macosOpenReplace, mode: macosExecutableFileMode if executable else macosFileMode)
 	end 'openReplacing'
+
+	// openFileBytes is the fd of an owned file handle (file.maxon), the file that the bytes of a path name opened in a way, close
+	// on exec as every open of the runtime is; or it stores the errno at osErrorAddress and gives 0.
+	function openFileBytes(path Count, length Count, how Count, osErrorAddress Count) returns Count
+		var flags = macosOpenReplace
+		if how == openToRead 'read'
+			flags = macosOpenReadOnly
+		end 'read' else if how == openToCreate 'create'
+			flags = macosOpenCreateNew
+		end 'create'
+		let fd = openPathBytes(path, length: length, flags: flags, mode: macosExecutableFileMode if how == openToWriteExecutable else macosFileMode)
+		if failed(fd) 'refused'
+			__Raw.storeWord(osErrorAddress, offset: 0, value: errnoOf(fd))
+			return 0
+		end 'refused'
+		return fd
+	end 'openFileBytes'
+
+	// closeFileHandle closes the fd of an owned file handle in the blocking bracket, since a close may wait on its file system (a
+	// flush to NFS or SMB, a macFUSE daemon's), and gives its errno, read before exitBlocking, or 0. A close that a signal breaks
+	// off has still freed the fd, so it is not made again.
+	// A child that posix_spawn makes gets only the fds its file actions name (POSIX_SPAWN_CLOEXEC_DEFAULT), so a writer's close
+	// has no clone to wait for, and writes is not read.
+	function closeFileHandle(fd Count, writes bool) returns Count
+		enterBlocking()
+		let result = checkedInt(__Raw.callImport1("close", arg1: fd))
+		exitBlocking()
+		return osErrorOf(result)
+	end 'closeFileHandle'
+
+	// fileEntryOf is the event entry of an open file's fd that waits on the event queue, as Go's os.File decides: a FIFO's, a
+	// socket's or a character device's, which it makes not wait (O_NONBLOCK) and registers. A regular file, a directory and a
+	// block device have none, since a kqueue takes a regular file and says it is always ready, and neither has an fd the kqueue
+	// refuses, whose flags are put back. No fd of macOS must wait there, so the open is never unwaited.
+	function fileEntryOf(fd Count, path Count, length Count, unwaitedAddress Count) returns Count
+		let stat = newStat()
+		enterBlocking()
+		let statted = sysFstat(fd, stat: stat)
+		exitBlocking()
+		let kind = statMode(stat) and macosModeTypeMask
+		free(stat)
+		if failed(statted) or not (kind == macosModeFifo or kind == macosModeSocket or kind == macosModeCharacter) 'plain'
+			return noEntry
+		end 'plain'
+		let flags = intResult(__Raw.callImport3("fcntl", arg1: fd, arg2: macosFcntlGetFlags, arg3: 0))
+		if failed(flags) 'unflagged'
+			return noEntry
+		end 'unflagged'
+		_ = __Raw.callImport3("fcntl", arg1: fd, arg2: macosFcntlSetFlags, arg3: flags or macosOpenNonblock)
+		let entry = eventRegister(fd)
+		if entry == noEntry 'refused'
+			_ = __Raw.callImport3("fcntl", arg1: fd, arg2: macosFcntlSetFlags, arg3: flags)
+		end 'refused'
+		return entry
+	end 'fileEntryOf'
+
+	// readFileHandle is one read of up to length bytes of an open file's fd that does not wait on the event queue, in the
+	// blocking bracket, made again after a signal: its count, 0 at the end of the file, or 0 with the errno at osErrorAddress.
+	function readFileHandle(fd Count, buffer Count, length Count, osErrorAddress Count) returns Count
+		enterBlocking()
+		var result = sysRead(fd, buffer: buffer, length: length)
+		while failed(result) and interrupted(result) 'again'
+			result = sysRead(fd, buffer: buffer, length: length)
+		end 'again'
+		exitBlocking()
+		if failed(result) 'refused'
+			__Raw.storeWord(osErrorAddress, offset: 0, value: errnoOf(result))
+			return 0
+		end 'refused'
+		return result
+	end 'readFileHandle'
+
+	// writeFileHandle writes length bytes to an open file's fd that does not wait on the event queue, all of them, in the
+	// blocking bracket, and gives the errno that stopped it, or 0.
+	function writeFileHandle(fd Count, buffer Count, length Count) returns Count
+		enterBlocking()
+		let errno = writeAll(fd, data: buffer, length: length)
+		exitBlocking()
+		return errno
+	end 'writeFileHandle'
 
 	// statPath fills a struct stat of the file a path names and gives 0, or gives -errno, as statCString does for a
 	// zero-terminated path.

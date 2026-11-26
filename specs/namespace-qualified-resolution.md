@@ -2070,8 +2070,8 @@ The same holds for "always throws": the root `pick` returns normally, so a propa
 followed by the next statement.
 ```maxon
 // --- file: alpha/f.maxon
-public function pick() throws Oops
-	throw Oops.bad
+public function pick() throws export.Oops
+	throw export.Oops.bad
 end 'pick'
 
 // --- file: beta/f.maxon

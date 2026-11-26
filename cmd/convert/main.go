@@ -9,6 +9,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+
+	"minimaxon/internal/specsource"
 )
 
 const (
@@ -19,7 +21,7 @@ const (
 )
 
 const usageText = `usage:
-  convert [--specs] [--write] [--check] [--out=DIR [--split=TABLE]] [--listing=FILE] [<path>...]
+  convert [--specs [--advance-source]] [--write] [--check] [--out=DIR [--split=TABLE]] [--listing=FILE] [<path>...]
 
 Converts existing Maxon (.maxon) source files to minimaxon syntax and layout.
 Unsupported constructs are preserved with inline // TODO comments and warnings on stderr.
@@ -37,7 +39,9 @@ Flags:
   --specs          the inputs are maxon spec files (.md): each test's maxon block is converted and a test that
                    warned gets a '<!-- skip: kind; kind -->' line after its test marker; files with no test are
                    left out; the warnings are not printed one by one (each is a // TODO in its test) and the summary
-                   counts tests, not warnings
+                   counts tests, not warnings. With --out, the one path is maxon's specs directory, and DIR/SOURCE
+                   pins its content (internal/specsource): a directory of other content than the pinned one is refused
+  --advance-source with --specs --out: convert from a directory of other content on purpose, and pin it
 
 With no paths (or '-'), reads from stdin and writes to stdout.
 With a single file and neither --write nor --out, writes to stdout.`
@@ -47,7 +51,7 @@ func main() {
 }
 
 func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	var writeInPlace, checkOnly, specs bool
+	var writeInPlace, checkOnly, specs, advance bool
 	var outDir, splitPath, listingPath string
 	var paths []string
 
@@ -59,6 +63,8 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return exitOK
 		case arg == "--specs":
 			specs = true
+		case arg == specsource.AdvanceFlag:
+			advance = true
 		case arg == "-w" || arg == "--write":
 			writeInPlace = true
 		case arg == "--check":
@@ -114,6 +120,25 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if checkOnly && (writeInPlace || outDir != "") {
 		fmt.Fprintln(stderr, "convert: --check cannot be combined with --write or --out")
 		return exitUsage
+	}
+
+	// A conversion of spec files into a directory converts maxon's specs directory, and pins its content there.
+	var pin specsource.Pin
+	pinned := specs && outDir != ""
+	if advance && !pinned {
+		fmt.Fprintf(stderr, "convert: %s needs --specs and --out=DIR\n", specsource.AdvanceFlag)
+		return exitUsage
+	}
+	if pinned {
+		if len(paths) != 1 {
+			fmt.Fprintln(stderr, "convert: --specs with --out converts one directory, maxon's specs directory")
+			return exitUsage
+		}
+		var err error
+		if pin, err = specsource.Check(paths[0], outDir, advance); err != nil {
+			fmt.Fprintf(stderr, "convert: %v\n", err)
+			return exitUsage
+		}
 	}
 
 	// Read from stdin when no paths or '-' is given.
@@ -261,6 +286,13 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			}
 		default:
 			fmt.Fprint(stdout, res.Text)
+		}
+	}
+
+	if pinned {
+		if err := specsource.Write(outDir, pin); err != nil {
+			fmt.Fprintf(stderr, "convert: %v\n", err)
+			return exitUsage
 		}
 	}
 

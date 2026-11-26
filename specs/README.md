@@ -10,6 +10,13 @@ the maxon repository, from the root of this one, once `.\check.ps1` has built `b
 `specs.ps1` runs `go run ./cmd/convert --specs --out=specs`, then `bin\minimaxon.exe fix specs`, and then `bin\minimaxon.exe test specs
 --skip-passed --record-passed`, which runs the tests that `passed.txt` does not list and adds those that pass to it.
 
+`SOURCE` pins the maxon specs the directory is converted from, in one line, `tree <hash> commit <commit>`: the git tree hash
+of maxon's `specs/` (`git rev-parse <commit>:specs`, which the conversion computes over the files of the directory it is
+given, so an archive gets the same hash) and, for people, the commit it was taken at (`unknown` when the directory is no
+clean checkout). The conversion refuses a directory of other content, naming both hashes, before it deletes anything; a
+later commit whose specs are the same passes. `.\specs.ps1 --advance-source <dir>` converts from other specs on purpose,
+and writes the new line.
+
 The files keep maxon's format (`docs/SPECS.md` in the maxon repository): front matter, prose, and under `## Tests` each
 test as `<!-- test: name -->`, optional directives, a ```` ```maxon ```` block and the expectation blocks
 (```` ```exitcode ````, ```` ```stdout ````, ```` ```stderr ````, ```` ```maxoncstderr ```` and the target-qualified forms).

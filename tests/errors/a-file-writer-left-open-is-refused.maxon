@@ -1,0 +1,12 @@
+// A FileWriter holds an open file, which has no drop, so a function that ends holding one, or returns past one, is refused:
+// it is ended by close() or by one of the writes that close it.
+function left(path FilePath) throws FileWriteError
+	var writer = try FileWriter.open(path)
+	try writer.write("text".toByteArray())
+end 'left'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3919

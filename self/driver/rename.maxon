@@ -1368,8 +1368,7 @@ function renameCommand(rest CommandNames) returns ExitCode
 		let text = readSourceText(names[i])
 		let out = renderEdits(text, edits: r.edits[at])
 		if out != text 'differs'
-			let path = try FilePath.from(names[i]) otherwise panic("rename: {names[i]} is not a path")
-			try File.writeText(path, content: out) otherwise panic("rename: cannot write {names[i]}")
+			ast.writeOutputText(names[i], content: out)
 			changed = increment(changed)
 		end 'differs'
 	end 'files'

@@ -155,21 +155,25 @@ export function seenInterfaces(p Project, ms ModuleState, from diag.ModuleID, t 
 	let key = extensionKey(p, ms: ms, t: t)
 	if key.isSome() and from != diag.stdlibID 'extensions'
 		let owner = key.unwrap()
-		appendConformsOf(p, ms: ms, module: from, owner: owner, outside: false, out: out)
+		var written = ExtConformList.create(0)
+		appendConformsOf(p, ms: ms, module: from, owner: owner, outside: false, out: written)
 		for i in 0 upto namedCount(p, ms: ms, module: from) 'deps'
 			let dep = namedModule(p, ms: ms, module: from, index: i)
 			if dep != from 'other'
-				appendConformsOf(p, ms: ms, module: dep, owner: owner, outside: true, out: out)
+				appendConformsOf(p, ms: ms, module: dep, owner: owner, outside: true, out: written)
 			end 'other'
 		end 'deps'
+		for entry in written 'written'
+			out.push(entry.iface)
+		end 'written'
 	end 'extensions'
 	return out
 end 'seenInterfaces'
 
-function appendConformsInModule(p Project, ms ModuleState, module diag.ModuleID, tables ModuleTables, owner TypeID, outside bool, mutates out TypeIDList)
+function appendConformsInModule(p Project, ms ModuleState, module diag.ModuleID, tables ModuleTables, owner TypeID, outside bool, mutates out ExtConformList)
 	for i in 0 upto tables.extConformCount() 'each'
 		if tables.extConform(i).owner == owner and givesConformance(p, ms: ms, module: module, tables: tables, index: i, outside: outside) 'hit'
-			out.push(tables.extConform(i).iface)
+			out.push(tables.extConform(i).clone())
 		end 'hit'
 	end 'each'
 end 'appendConformsInModule'
@@ -387,12 +391,12 @@ export function conformanceSource(p Project, mutates ms ModuleState, from diag.M
 	let key = extensionKey(p, ms: ms, t: t)
 	if key.isSome() and from != diag.stdlibID 'extensions'
 		let owner = key.unwrap()
-		if conformsOf(p, ms: ms, module: from, t: t, owner: owner, iface: iface, outside: false) 'own'
+		if conformsOf(p, ms: ms, from: from, module: from, t: t, owner: owner, iface: iface, outside: false) 'own'
 			seen.push(Conformance.make(from, inBody: false))
 		end 'own'
 		for i in 0 upto namedCount(p, ms: ms, module: from) 'deps'
 			let dep = namedModule(p, ms: ms, module: from, index: i)
-			if dep != from and conformsOf(p, ms: ms, module: dep, t: t, owner: owner, iface: iface, outside: true) 'hit'
+			if dep != from and conformsOf(p, ms: ms, from: from, module: dep, t: t, owner: owner, iface: iface, outside: true) 'hit'
 				seen.push(Conformance.make(dep, inBody: false))
 			end 'hit'
 		end 'deps'
@@ -629,24 +633,50 @@ end 'aliasOf'
 // iface, or an interface that extends it. Seen from another module, only a conformance that m may give counts: one of a type or
 // to an interface that m declares (Hylo's rule for orphans), so a module cannot change what a type it does not own means to
 // an interface it does not own anywhere but in itself.
-function conformsOf(p Project, mutates ms ModuleState, module diag.ModuleID, t TypeID, owner TypeID, iface TypeID, outside bool) returns bool
-	var written = TypeIDList.create(0)
+// A conditional conformance counts where t's type arguments meet its conditions, as code in the module from sees them.
+function conformsOf(p Project, mutates ms ModuleState, from diag.ModuleID, module diag.ModuleID, t TypeID, owner TypeID, iface TypeID, outside bool) returns bool
+	var written = ExtConformList.create(0)
 	if module == ms.module 'own'
 		appendConformsInModule(p, ms: ms, module: module, tables: ms.tables, owner: owner, outside: outside, out: written)
 	end 'own' else 'other'
 		p.modules[modIndex(module)].tables.requireHeld()
 		appendConformsInModule(p, ms: ms, module: module, tables: p.modules[modIndex(module)].tables, owner: owner, outside: outside, out: written)
 	end 'other'
-	for i in 0 upto written.count() 'each'
-		let have = conformanceAt(p, ms: ms, written: written[i], t: t)
-		if extendsInterface(ms.types, reads: p.types, have: have, want: iface) 'hit'
+	for entry in written 'each'
+		let have = conformanceAt(p, ms: ms, written: entry.iface, t: t)
+		if extendsInterface(ms.types, reads: p.types, have: have, want: iface) and conditionsMet(p, ms: ms, from: from, conditions: entry.conditions, t: t) 'hit'
 			return true
 		end 'hit'
 	end 'each'
 	return false
 end 'conformsOf'
 
-function appendConformsOf(p Project, ms ModuleState, module diag.ModuleID, owner TypeID, outside bool, mutates out TypeIDList)
+// conditionsMet is whether the type arguments of t meet the conditions of a conformance, written over the parameters of t's
+// declaration, where code in the module from sees what implements what. A type parameter meets one, since the code it is
+// a parameter of is checked against its own bounds, and so does a capability, which a type has by its parts and which the
+// type's instances are checked for where they are made.
+function conditionsMet(p Project, mutates ms ModuleState, from diag.ModuleID, conditions ParamBoundList, t TypeID) returns bool
+	if conditions.count() == 0 'unconditional'
+		return true
+	end 'unconditional'
+	let params = cloneTypeArgs(typeEntry(ms.types, reads: p.types, t: originOf(ms.types, reads: p.types, t: t)).typeParams)
+	let args = typeArgsOf(ms.types, reads: p.types, t: t)
+	for condition in conditions 'each'
+		let arg = substituteType(ms.types, reads: p.types, t: condition.paramTy, params: params, args: args)
+		if typeKind(ms.types, reads: p.types, t: arg) == TypeKind.typeParam or p.builtins.isCapability(condition.ifaceTy) 'met'
+			continue 'each'
+		end 'met'
+		let want = substituteType(ms.types, reads: p.types, t: condition.ifaceTy, params: params, args: args)
+		match consumes conformanceSource(p, ms: ms, from: from, t: arg, iface: want) 'source'
+			absent then return false
+			found(_) then _ = 0
+			ambiguous(_, _) then _ = 0
+		end 'source'
+	end 'each'
+	return true
+end 'conditionsMet'
+
+function appendConformsOf(p Project, ms ModuleState, module diag.ModuleID, owner TypeID, outside bool, mutates out ExtConformList)
 	if module == ms.module 'own'
 		appendConformsInModule(p, ms: ms, module: module, tables: ms.tables, owner: owner, outside: outside, out: out)
 		return

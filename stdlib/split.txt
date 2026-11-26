@@ -4,8 +4,8 @@
 # I; what the file keeps is the type's methods, in the module a programmer finds them by.
 #
 # file | module | declaration | members
-Array.maxon | core | extension Array implements | ArrayIter createIterator cursor
+Array.maxon | core | extension Array implements Iterable | ArrayIter createIterator cursor
 Array.maxon | core | type ArrayIterator
-Array.maxon | core | extension Array where T implements Hashable
+Array.maxon | core | extension Array implements Hashable
 String.maxon | core | extension String implements
 FilePath.maxon | core | extension FilePath implements | canonicalForCompare comparisonSpelling equals hash

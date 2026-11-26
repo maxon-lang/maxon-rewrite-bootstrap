@@ -1,0 +1,19 @@
+// A record that holds an open file has no drop either, so a scope that ends holding one is refused.
+// expect-error: E3919
+typealias Bytes = __ManagedMemory with Byte
+
+type Holder
+	let file as __ManagedFile
+
+	static function holding(consumes file __ManagedFile) returns Holder
+		return Holder{file: file}
+	end 'holding'
+end 'Holder'
+
+function held(path Bytes) throws __ManagedFileError
+	let holder = Holder.holding(try __ManagedFile.openRead(path))
+end 'held'
+
+function main() returns ExitCode
+	return 0
+end 'main'

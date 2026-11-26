@@ -36,13 +36,13 @@ var primTypes = []primType{
 	{"NetworkPort", "b.networkPortTy"},
 	{"CodeUnit16", "b.codeUnit16Ty"},
 	{"ExitCode", "b.exitCodeTy"},
-	{"Milliseconds", "b.millisecondsTy"},
 	{"InstantNanos", "b.instantNanosTy"},
 	{"InstantMs", "b.instantMsTy"},
 	{"ThreadCpuTicks", "b.threadCpuTicksTy"},
 	{"UnixSeconds", "b.unixSecondsTy"},
 	{"UnixNanos", "b.unixNanosTy"},
-	{"MailboxCapacity", "b.mailboxCapacityTy"},
+	{"FileSize", "b.fileSizeTy"},
+	{"Timestamp", "b.timestampTy"},
 	{"ReportedCapacity", "b.reportedCapacityTy"},
 	{"FullRangeInt", "b.fullRangeIntTy"},
 	// Float is the type of a float whose range is not known, which maxon names FullRangeFloat.
@@ -60,6 +60,20 @@ var rawPrimTypes = []struct {
 	Named rawSurface
 }{
 	{"CString", rawSurface{What: "the NUL-terminated pointer type is nameable", Instead: "use 'String'"}},
+}
+
+// rawLibraryTypes are the types of maxon's raw surface that the library declares, where maxon's compiler does: a type of the
+// name that a module of the library declares is named only in the library tiers (E3185), as a type of the table is. File is
+// the library's file that declares it, whose functions are its Members, which builtingen holds to the file; cmd/convert keeps
+// a declaration of maxon's library over the type where it calls only those.
+var rawLibraryTypes = []struct {
+	Name    string
+	File    string
+	Members []string
+	Named   rawSurface
+}{
+	// __ManagedFile is maxon's owned handle of an open file, which FileSource and FileWriter hold.
+	{"__ManagedFile", "stdlib/file/managedFile.maxon", []string{"openRead", "openWrite", "openWriteExecutable", "openCreateNew", "readAppending", "write", "close"}, rawSurface{What: "the raw OS file handle type is nameable", Instead: "use 'File'"}},
 }
 
 // stdAlias is a built-in ranged alias of maxon's stdlib (`Count`, `ExitCode`...), which the rows of the table name and
@@ -92,7 +106,6 @@ var stdAliases = []stdAlias{
 	// NetworkPort is maxon's (stdlib/TcpClient.maxon): a TCP or UDP port, which URL's port() gives.
 	{Name: "NetworkPort", Field: "networkPortTy", Lo: "I128.zero()", Hi: "I128.fromCount(65535 as Count)"},
 	{Name: "CodeUnit16", Field: "codeUnit16Ty", Lo: "I128.zero()", Hi: "I128.fromCount(65535 as Count)"},
-	{Name: "Milliseconds", Field: "millisecondsTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
 	// InstantNanos is maxon's (stdlib/Clock.maxon): a reading of the monotonic clock in nanoseconds.
 	{Name: "InstantNanos", Field: "instantNanosTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
 	{Name: "InstantMs", Field: "instantMsTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
@@ -103,8 +116,10 @@ var stdAliases = []stdAlias{
 	// and HashDigest a seeded 64-bit digest (maxon's stdlib/Hasher.maxon), which the hash intrinsics give and take.
 	{Name: "OrderedWord", Field: "orderedWordTy", Bits: 64},
 	{Name: "HashDigest", Field: "hashDigestTy", Bits: 64},
-	// MailboxCapacity is maxon's: how many messages a service's mailbox holds at most, `spawn(capacity: n)`.
-	{Name: "MailboxCapacity", Field: "mailboxCapacityTy", Lo: "I128.fromCount(1 as Count)", Hi: "I128.fromCount(2147483648 as Count)"},
+	// FileSize and Timestamp are maxon's (stdlib/File.maxon): a size in bytes, and a moment in whole Unix seconds, which
+	// FileInfo's fields are.
+	{Name: "FileSize", Field: "fileSizeTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
+	{Name: "Timestamp", Field: "timestampTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
 }
 
 // extraField is a field of self's Builtins record that no row of the table gives it: a type that initBuiltins registers
@@ -195,7 +210,11 @@ var builtinTypes = []builtinType{
 	}},
 	{Key: "SlotKey", Name: "SlotKey", Params: []string{"T"}},
 	{Key: "Frozen", Name: "frozen", Params: []string{"T"}, Managed: true, Shared: true},
-	{Key: "Cown", Name: "cown", Params: []string{"T"}, Managed: true, Shared: true},
+	// Cown is the library tiers' machinery of services (README, "Immutable values, cowns and behaviours"): a program keeps
+	// shared state in a service, so naming the type, and making one, is a door of the raw surface.
+	{Key: "Cown", Name: "cown", Params: []string{"T"}, Managed: true, Shared: true, Raw: &rawType{
+		Named: rawSurface{What: "the cown type is nameable", Instead: "keep shared state in a service and send it messages"},
+	}},
 	// Promise is maxon's: what an async call gives, the coroutine it started, which an await consumes. `Promise with T` is of
 	// a function that throws nothing, and `Promise with (T, E)` of one that throws E, whose E is then void.
 	{Key: "Promise", Name: "Promise", Params: []string{"T", "E"}, Managed: true},
@@ -260,7 +279,7 @@ var recordTypes = []recordType{
 	{Key: "Utf16Iterator", Name: "UTF16Iterator", Fields: []string{"private let text String", "private var position Count"}},
 	{Key: "CollectedOutput", Name: "CollectedOutput", Fields: []string{"var stdout String", "var stderr String", "private let code ExitCode"}},
 	// FileInfo is maxon's: the size and the times of a file, in Unix seconds on the file system's clock, and its attributes.
-	{Key: "FileInfo", Name: "FileInfo", Fields: []string{"let size Count", "let modifiedTime Count", "let createdTime Count", "let accessedTime Count", "let isDirectory Bool", "let isReadOnly Bool"}},
+	{Key: "FileInfo", Name: "FileInfo", Fields: []string{"let size FileSize", "let modifiedTime Timestamp", "let createdTime Timestamp", "let accessedTime Timestamp", "let isDirectory Bool", "let isReadOnly Bool"}},
 	{Key: "Subprocess", Name: "Subprocess"},
 	// Debuggee is the host's debug interface that the compiler's debugger drives a program through from outside it, maxon's
 	// stdlib Debuggee.maxon: its DebugPort's Win32 verbs (maxon's __Builtins.debug* under it) as static functions over
@@ -368,15 +387,31 @@ var enumTypes = []enumType{
 		{"busy", "ErrorWriteBusy"},
 		{"partialFileLeft", "ErrorWritePartialFileLeft"},
 	}},
+	// ManagedFileError is what maxon's __ManagedFile rows throw, its cases maxon's (stdlib/Builtins.maxon), of which the open of
+	// a file throws notFound, accessDenied, alreadyExists, busy and openFailed, and its close writeFailed.
+	{Key: "ManagedFileError", Name: "__ManagedFileError", Cases: []enumCase{
+		{"notFound", "ErrorFileNotFound"},
+		{"accessDenied", "ErrorFileAccessDenied"},
+		{"openFailed", "ErrorFileOpenFailed"},
+		{"readFailed", "ErrorFileReadFailed"},
+		{"writeFailed", "ErrorFileWriteFailed"},
+		{"sizeFailed", "ErrorFileSizeFailed"},
+		{"deleteFailed", "ErrorFileDeleteFailed"},
+		{"statFailed", "ErrorFileStatFailed"},
+		{"invalidStatBuffer", "ErrorFileInvalidStatBuffer"},
+		{"invalidStatIndex", "ErrorFileInvalidStatIndex"},
+		{"closed", "ErrorFileClosed"},
+		{"alreadyExists", "ErrorFileAlreadyExists"},
+		{"busy", "ErrorFileBusy"},
+	}},
 	// FilePermission is maxon's: the mode of a file that a write creates, 0666 or 0755 on a system that has modes.
 	{Key: "FilePermission", Name: "FilePermission", Cases: []enumCase{
 		{"normal", "FilePermissionNormal"},
 		{"executable", "FilePermissionExecutable"},
 	}},
-	// SendError is what a send to a service fails with: maxon's cases of `<Service>.<message>.sendError`, in its order, whose
-	// index plus 1 is the word rt.service.reserve gives for each.
+	// SendError is what a send to a service fails with: maxon's cases of `<Service>.<message>.sendError` but mailboxFull, since a
+	// mailbox has no capacity, whose index plus 1 is the word rt.service.reserve gives for each.
 	{Key: "SendError", Name: "SendError", Cases: []enumCase{
-		{"mailboxFull", "SendMailboxFull"},
 		{"serviceStopped", "SendServiceStopped"},
 	}},
 	{Key: "FileDeleteError", Name: "FileDeleteError", Cases: []enumCase{
@@ -424,6 +459,13 @@ var enumTypes = []enumType{
 		{"detachRefused", "ErrorDetachRefused"},
 		{"inputTooLarge", "ErrorInputTooLarge"},
 		{"statusLost", "ErrorStatusLost"},
+	}},
+	// SubprocessStreamState is maxon's (stdlib/Builtins.maxon): what a read of a streaming child's output or error answers next.
+	{Key: "SubprocessStreamState", Name: "__SubprocessStreamState", Cases: []enumCase{
+		{"open", "StreamStateOpen"},
+		{"atEof", "StreamStateAtEof"},
+		{"readFailed", "StreamStateReadFailed"},
+		{"noSuchChild", "StreamStateNoSuchChild"},
 	}},
 	// DebuggeeError is maxon's: what a read or a write of a debuggee's memory or registers fails with.
 	{Key: "DebuggeeError", Name: "DebuggeeError", Cases: []enumCase{
@@ -722,8 +764,14 @@ var tableFunctions = []function{
 	{Owner: "Array", Name: "slice", Params: []string{"start ElementIndex", "endIndex ElementIndex"}, Result: "Self", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArraySlice"},
 	{Owner: "Array", Name: "growFilled", Self: "mutates", Params: []string{"newLength ElementIndex", "value T"}, Bounds: []string{"T Copyable"}, Intrinsic: "ArrayGrowFilled"},
 	{Owner: "Array", Name: "refill", Self: "mutates", Params: []string{"newLength ElementIndex", "value T"}, Bounds: []string{"T Copyable"}, Intrinsic: "ArrayRefill"},
+	// hashesAsStorage and storageHash are maxon's __Builtins.elementsHashAsStorage() and __Builtins.hashArrayStorage(self),
+	// which cmd/convert writes as them: whether the array hashes as the fold of the bytes of its storage (ast.storageHashes),
+	// and that fold under a seed, the library's alone.
+	{Owner: "Array", Name: "hashesAsStorage", Result: "Bool", Intrinsic: "ArrayHashesAsStorage", Raw: &rawSurface{What: "an array is asked whether it hashes as its storage", Instead: "use 'hash()'"}},
+	{Owner: "Array", Name: "storageHash", Params: []string{"seed HashDigest"}, Result: "HashDigest", Intrinsic: "ArrayStorageHash", Raw: &rawSurface{What: "the storage of an array is hashed", Instead: "use 'hash()'"}},
 	// contains, containsSequence and equals are maxon's for an element that is Equatable; the checker holds them to the
-	// elements this compiler compares itself (checkElementsComparable).
+	// elements this compiler compares itself (checkElementsComparable), and the library's equalsByElements is an array's
+	// equals of any other element (ast.runsBuiltin).
 	{Owner: "Array", Name: "contains", Params: []string{"element T"}, Result: "Bool", Intrinsic: "ArrayContains", Checked: true},
 	{Owner: "Array", Name: "containsSequence", Params: []string{"sequence Self"}, Result: "Bool", Intrinsic: "ArrayContainsSequence", Checked: true},
 	{Owner: "Array", Name: "equals", Params: []string{"other Self"}, Result: "Bool", Intrinsic: "ArrayEquals", Checked: true},
@@ -790,6 +838,11 @@ var tableFunctions = []function{
 	// elementSize is the bytes an element takes, what sizeof gives for it: a constant of the instance, which maxon's driftsort
 	// sizes its scratch by. No element is bit-packed here, so it is never maxon's negative bit width.
 	{Owner: "ManagedMemory", Name: "elementSize", Result: "FullRangeInt", Intrinsic: "ArrayElementSize"},
+	// create is maxon's buffer of a stated capacity: empty, with room for capacity elements, as Array.create(n, zeroed: false) is.
+	// maxon's buffer takes its element's layout from elementSize; here the instance has it, so the call names the instance
+	// (a typealias of it, or where the result goes), and an elementSize that is not the bytes an element of it takes in the
+	// buffer (1 for a byte, a word for a word) fails invalidAllocation.
+	{Owner: "ManagedMemory", Name: "create", Static: true, Params: []string{"capacity ElementIndex", "elementSize? Count"}, Result: "Self", Throws: "ManagedMemoryError", Intrinsic: "ManagedMemoryCreate"},
 	{Owner: "ManagedMemory", Name: "set", Self: "mutates", Params: []string{"index ElementIndex", "consumes value? T"}, Bounds: []string{"T Droppable"}, Throws: "ManagedMemoryError", Intrinsic: "ArraySet"},
 	// swap exchanges two elements where they are: neither is copied or dropped, so no element needs a bound. It is the buffer's
 	// row, and maxon's Array.swap, which its sorts call, is library code over it.
@@ -968,12 +1021,18 @@ var tableFunctions = []function{
 	// whether there is a machine to pin to, which off a green thread is the thread itself.
 	{Owner: "Scheduler", Name: "pinToMachine", Static: true, Result: "Bool", Intrinsic: "SchedulerPinToMachine"},
 	{Owner: "Scheduler", Name: "unpinFromMachine", Static: true, Intrinsic: "SchedulerUnpinFromMachine"},
-	// sleep is maxon's: the running green thread parks for at least the milliseconds, and its strand's other coroutines run
-	// meanwhile.
-	{Name: "sleep", Params: []string{"milliseconds Milliseconds"}, Intrinsic: "Sleep"},
+	// pinDepth is how many pins the calling green thread holds, and currentMachine the machine (thread) running it, numbered
+	// from 1 in the order the threads started; 0 is no machine.
+	{Owner: "Scheduler", Name: "pinDepth", Static: true, Result: "Count", Intrinsic: "SchedulerPinDepth"},
+	{Owner: "Scheduler", Name: "currentMachine", Static: true, Result: "Count", Intrinsic: "SchedulerCurrentMachine"},
+	// machineCpuCount is maxon's: the machine's logical processors, at least 1, whatever MAXON_MAX_PROCS asks.
+	{Owner: "Scheduler", Name: "machineCpuCount", Static: true, Result: "Count", Intrinsic: "SchedulerMachineCpuCount"},
 	// shutdown is maxon's: the service's mailbox closes, so every later send fails with serviceStopped, and the messages
 	// queued already run. It always succeeds.
 	{Owner: "Service", Name: "shutdown", Intrinsic: "ServiceShutdown"},
+	// mostQueued is the most messages the service has had queued at once, as its slowed sends counted them: exact once that
+	// passed a turn's worth, so a test holds backpressure to its bound without timing it.
+	{Owner: "Service", Name: "mostQueued", Result: "Count", Intrinsic: "ServiceMostQueued", Raw: &rawSurface{What: "a service's queue length is read", Instead: "let the runtime's backpressure bound it"}},
 	// cancel is maxon's: it consumes the promise; a coroutine that has not started never runs, and one that has runs on with
 	// each sleep it is in or makes ending at once, and the cancel waits for it to finish and drops what it gave.
 	{Owner: "Promise", Name: "cancel", Self: "consumes", Intrinsic: "PromiseCancel"},
@@ -986,6 +1045,8 @@ var tableFunctions = []function{
 	{Owner: "FilePath", Name: "init", Static: true, Params: []string{"value String"}, Result: "Self", Intrinsic: "FilePathInit"},
 	{Owner: "FilePath", Name: "toString", Result: "String", Intrinsic: "FilePathToString"},
 	{Owner: "File", Name: "readText", Static: true, Params: []string{"path FilePath"}, Result: "String", Throws: "FileReadError", Intrinsic: "FileReadText"},
+	// readBinary is maxon's: the whole content of a file as bytes, read as readText reads it.
+	{Owner: "File", Name: "readBinary", Static: true, Params: []string{"path FilePath"}, Result: "Array with Byte", Throws: "FileReadError", Intrinsic: "FileReadBinary"},
 	{Owner: "File", Name: "writeText", Static: true, Params: []string{"path FilePath", "content String", "mode FilePermission = normal"}, Throws: "FileWriteError", Intrinsic: "FileWriteText"},
 	{Owner: "File", Name: "writeBinary", Static: true, Params: []string{"path FilePath", "content Array with Byte", "mode FilePermission = normal"}, Throws: "FileWriteError", Intrinsic: "FileWriteBinary"},
 	{Owner: "File", Name: "rename", Static: true, Params: []string{"from FilePath", "to FilePath"}, Throws: "FileRenameError", Intrinsic: "FileRename"},
@@ -1034,6 +1095,10 @@ var tableFunctions = []function{
 	{Owner: "Debuggee", Name: "terminate", Static: true, Params: []string{"process Count", "exitCode Count"}, Result: "Bool", Intrinsic: "DebuggeeTerminate"},
 	{Owner: "CollectedOutput", Name: "succeeded", Result: "Bool", Intrinsic: "CollectedOutputSucceeded"},
 
+	// The floors of maxon's Sleep and Scheduler, which the library tiers call. sleep is maxon's: the running green thread
+	// parks for at least the milliseconds, and its strand's other coroutines run meanwhile; the library's sleep calls it.
+	{Owner: "Builtins", Name: "sleep", Static: true, Params: []string{"_ Natural"}, Intrinsic: "Sleep", Instead: "sleep(milliseconds)"},
+	{Owner: "Builtins", Name: "cpuCount", Static: true, Result: "Count", Intrinsic: "SchedulerMachineCpuCount", Instead: "Scheduler.machineCpuCount()"},
 	{Owner: "Builtins", Name: "currentProcessId", Static: true, Result: "Count", Intrinsic: "ProcessId", Instead: "Process.id()"},
 	{Owner: "Builtins", Name: "currentTimeNanos", Static: true, Result: "Count", Intrinsic: "ClockNowNanos", Instead: "Clock.nowNanos()"},
 	// The other readings of the clocks maxon's Clock and WallClock are written on. A wall-clock reading is signed: it is
@@ -1053,14 +1118,16 @@ var tableFunctions = []function{
 	// reports them, in a fresh buffer of bytes: empty past the last entry, and one NUL byte where the system handed over no
 	// environment, neither of which an entry can be.
 	{Owner: "Builtins", Name: "osEnvironmentEntry", Static: true, Params: []string{"_ ElementIndex"}, Result: "ManagedMemory with Byte", Intrinsic: "OsEnvironmentEntry", Instead: "Process.currentEnvironmentEntries()"},
-	// The subprocess rows are maxon's `__Builtins.subprocess*` (specs/subprocess-builtins.md), the floor of its Subprocess.maxon, as
-	// far as the first step of them goes: a spawn that gives a handle (or -1), a wait that collects the output of the child it names
-	// into a result, the readers of that result, and the helpers. A handle and a result are each a word that names a slot of the
+	// The subprocess rows are maxon's `__Builtins.subprocess*` (specs/subprocess-builtins.md), the floor of its Subprocess.maxon, but
+	// for the kill and the signal that no corpus file calls: a spawn that gives a handle (or -1), or the id of a detached child, a wait
+	// that collects the output of the child it names into a result, the readers of that result, the streaming child (a spawn whose
+	// input is written and whose output is read by calls, its waits and polls) and the helpers. A handle and a result are each a word that names a slot of the
 	// runtime's table and the generation the slot is in, so a word that names nothing live (a released one, one that was
 	// never given, -1) is a failure and never a fault. A cstring is the two words of a String, which the row copies where it
 	// hands the bytes to the system and frees on every way out. The results that are words are signed where maxon's are, and
 	// subprocessResultDurationMs is a natural number, which maxon's library passes on as a DurationMs.
 	{Owner: "Builtins", Name: "subprocessSpawn", Static: true, Params: []string{"_ ManagedMemory with Byte", "_ ElementIndex", "_ CString", "_ ManagedMemory with Byte", "_ Natural", "_ Natural", "_ CString", "_ Natural", "_ CString", "_ Natural", "_ Natural", "_ CString", "_ Natural", "_ Natural", "_ Natural"}, Result: "FullRangeInt", Intrinsic: "SubprocessSpawn", Instead: "Subprocess.run or a Configuration's run()"},
+	{Owner: "Builtins", Name: "subprocessDetach", Static: true, Params: []string{"_ ManagedMemory with Byte", "_ ElementIndex", "_ CString", "_ ManagedMemory with Byte", "_ Natural", "_ Natural", "_ CString", "_ Natural", "_ CString", "_ Natural", "_ Natural", "_ CString", "_ Natural", "_ Natural", "_ Natural"}, Result: "FullRangeInt", Intrinsic: "SubprocessSpawn", Instead: "Subprocess.run or a Configuration's run()"},
 	{Owner: "Builtins", Name: "subprocessGetPid", Static: true, Params: []string{"_ FullRangeInt"}, Result: "FullRangeInt", Intrinsic: "SubprocessGetPid", Instead: "Subprocess.run or a Configuration's run()"},
 	{Owner: "Builtins", Name: "subprocessWaitCollect", Static: true, Params: []string{"_ FullRangeInt", "_ Natural"}, Result: "FullRangeInt", Intrinsic: "SubprocessWaitCollect", Instead: "Subprocess.run or a Configuration's run()"},
 	{Owner: "Builtins", Name: "subprocessResultStatusKind", Static: true, Params: []string{"_ FullRangeInt"}, Result: "FullRangeInt", Intrinsic: "SubprocessResultStatusKind", Instead: "Subprocess.run or a Configuration's run()"},
@@ -1071,6 +1138,19 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "subprocessResultRelease", Static: true, Params: []string{"_ FullRangeInt"}, Intrinsic: "SubprocessResultRelease", Instead: "Subprocess.run or a Configuration's run()"},
 	{Owner: "Builtins", Name: "subprocessReleaseHandle", Static: true, Params: []string{"_ FullRangeInt"}, Intrinsic: "SubprocessReleaseHandle", Instead: "Subprocess.run or a Configuration's run()"},
 	{Owner: "Builtins", Name: "subprocessEndTree", Static: true, Params: []string{"_ FullRangeInt"}, Result: "FullRangeInt", Intrinsic: "SubprocessEndTree", Instead: "Subprocess.run or a Configuration's run()"},
+	{Owner: "Builtins", Name: "subprocessSpawnStreaming", Static: true, Params: []string{"_ ManagedMemory with Byte", "_ ElementIndex", "_ CString", "_ Natural", "_ ManagedMemory with Byte", "_ Natural"}, Result: "FullRangeInt", Intrinsic: "SubprocessSpawnStreaming", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessReadAvailable", Static: true, Params: []string{"_ FullRangeInt", "_ FullRangeInt", "_ FullRangeInt"}, Result: "ManagedMemory with Byte", Intrinsic: "SubprocessReadAvailable", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessStdoutState", Static: true, Params: []string{"_ FullRangeInt"}, Result: "SubprocessStreamState", Intrinsic: "SubprocessStdoutState", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessStderrState", Static: true, Params: []string{"_ FullRangeInt"}, Result: "SubprocessStreamState", Intrinsic: "SubprocessStderrState", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessWriteStdinAll", Static: true, Params: []string{"_ FullRangeInt", "_ CString"}, Result: "FullRangeInt", Intrinsic: "SubprocessWriteStdinAll", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessWriteStdinBytes", Static: true, Params: []string{"_ FullRangeInt", "_ CString", "_ Natural"}, Result: "FullRangeInt", Intrinsic: "SubprocessWriteStdinBytes", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessQueueStdin", Static: true, Params: []string{"_ FullRangeInt", "_ CString", "_ Natural"}, Result: "FullRangeInt", Intrinsic: "SubprocessQueueStdin", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessPushStdin", Static: true, Params: []string{"_ FullRangeInt"}, Result: "FullRangeInt", Intrinsic: "SubprocessPushStdin", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessAwaitStdinWritable", Static: true, Params: []string{"_ FullRangeInt", "_ Natural"}, Result: "FullRangeInt", Intrinsic: "SubprocessAwaitStdinWritable", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessCloseStdin", Static: true, Params: []string{"_ FullRangeInt"}, Intrinsic: "SubprocessCloseStdin", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessWaitExit", Static: true, Params: []string{"_ FullRangeInt", "_ Natural"}, Result: "FullRangeInt", Intrinsic: "SubprocessWaitExit", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessPollExit", Static: true, Params: []string{"_ FullRangeInt"}, Result: "FullRangeInt", Intrinsic: "SubprocessPollExit", Instead: "StreamingSubprocess"},
+	{Owner: "Builtins", Name: "subprocessExitSignal", Static: true, Params: []string{"_ FullRangeInt"}, Result: "FullRangeInt", Intrinsic: "SubprocessExitSignal", Instead: "StreamingSubprocess"},
 	{Owner: "Builtins", Name: "subprocessLastErrorCode", Static: true, Result: "FullRangeInt", Intrinsic: "SubprocessLastErrorCode", Instead: "Subprocess.run or a Configuration's run()"},
 	{Owner: "Builtins", Name: "subprocessLastErrorMessage", Static: true, Result: "ManagedMemory with Byte", Intrinsic: "SubprocessLastErrorMessage", Instead: "Subprocess.run or a Configuration's run()"},
 	{Owner: "Builtins", Name: "subprocessResolveOnPath", Static: true, Params: []string{"_ CString"}, Result: "ManagedMemory with Byte", Intrinsic: "SubprocessResolveOnPath", Instead: "Subprocess.run or a Configuration's run()"},
@@ -1121,6 +1201,20 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "readLittleEndian", Static: true, Params: []string{"_ Array with Byte", "_ ElementIndex", "_ Count"}, Result: "OrderedWord", Throws: "ArrayError", Intrinsic: "ReadLittleEndian", Instead: "readOrderedWord", Checked: true},
 	{Owner: "Builtins", Name: "appendBigEndian", Static: true, Params: []string{"mutates _ Array with Byte", "_ OrderedWord", "_ Count"}, Intrinsic: "AppendBigEndian", Instead: "appendOrderedWord", Checked: true},
 	{Owner: "Builtins", Name: "appendLittleEndian", Static: true, Params: []string{"mutates _ Array with Byte", "_ OrderedWord", "_ Count"}, Intrinsic: "AppendLittleEndian", Instead: "appendOrderedWord", Checked: true},
+	// The rows of an open file under the library's __ManagedFile (stdlib/file/managedFile.maxon), whose word they give and take:
+	// the opens of the bytes of a path, to read, to write (made or emptied, with the executable mode for a file it makes, or made
+	// where nothing is), and the close, which ends the handle whether or not it throws and throws writeFailed with what the
+	// system's close reports, as Go's Close does. A handle's word is one that exactly one __ManagedFile holds.
+	{Owner: "Builtins", Name: "fileOpenRead", Static: true, Params: []string{"_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileOpenRead", Instead: "File"},
+	{Owner: "Builtins", Name: "fileOpenWrite", Static: true, Params: []string{"_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileOpenWrite", Instead: "File"},
+	{Owner: "Builtins", Name: "fileOpenWriteExecutable", Static: true, Params: []string{"_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileOpenWriteExecutable", Instead: "File"},
+	{Owner: "Builtins", Name: "fileOpenCreateNew", Static: true, Params: []string{"_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileOpenCreateNew", Instead: "File"},
+	// The read appends to the buffer after its length, up to most bytes, within its capacity (readFailed past it), and gives the
+	// count, 0 at the end of the file; the write writes the whole buffer. Either parks the green thread on a handle that waits on
+	// the event queue and is a plain call in the blocking bracket on any other.
+	{Owner: "Builtins", Name: "fileReadAppending", Static: true, Params: []string{"_ Count", "mutates _ ManagedMemory with Byte", "_ Count"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileReadAppending", Instead: "File"},
+	{Owner: "Builtins", Name: "fileWrite", Static: true, Params: []string{"_ Count", "_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileWrite", Instead: "File"},
+	{Owner: "Builtins", Name: "fileClose", Static: true, Params: []string{"_ Count"}, Throws: "ManagedFileError", Intrinsic: "ManagedFileClose", Instead: "File"},
 }
 
 // unit is a code unit of the backend's runtime, or a place an entry lives that has no code of its own.
@@ -1249,7 +1343,9 @@ var entries = []entry{
 	{"ExitBlocking", "rt.exitBlocking", "Source", roleInternal, "(): the end of a blocking call's bracket, which may wait for a processor; the link puts a routine that does nothing in its place in a program without the scheduler"},
 	{"ExitClaim", "rt.exitClaim", "Source", roleInternal, "(context): what a thread that ends the process takes first, so that the monitor stops no thread again; the link puts a routine that does nothing in its place in a program without the scheduler"},
 	{"CownAcquire", "rt.cown.acquire", "Source", roleInternal, "(behaviour record): what a when calls with the record it made, which queues the behaviour on each cown it names and makes it runnable once it holds them all"},
-	{"CownRelease", "rt.cown.release", "Source", roleInternal, "(behaviour record): what a behaviour's thunk calls after its body, which hands each cown to the behaviour queued after it"},
+	{"BehaviourRelease", "rt.behaviour.release", "Source", roleInternal, "(behaviour record, finish) -> kept: what a behaviour's thunk calls after its body, which hands each cown to the behaviour queued after it, or gives 1 and keeps them while the behaviour is muted, the thunk's finish to run once it is unmuted"},
+	{"BehaviourResumed", "rt.behaviour.resumed", "Source", roleInternal, "(behaviour record): what the finish of a behaviour's thunk calls once the behaviour is unmuted, which hands each cown it kept to the behaviour queued after it"},
+	{"PinUnheld", "rt.pinUnheld", "Source", roleInternal, "(): the fatal error of an unpin by a thread that holds no pin, which the single-thread form of rt.unpin jumps to"},
 	{"MainRun", "rt.mainRun", "Source", roleInternal, "(code) -> exit code: what the entry calls in place of main, with the address of rt.mainGreen: main runs as a green thread, and the main thread runs the scheduler until nothing is left"},
 	{"MainGreen", "rt.mainGreen", "Runtime", roleInternal, "(green thread) -> exit code: the stub's code that main's green thread runs, which calls main, or each test of an executable of tests"},
 	{"AsyncNew", "rt.async.new", "Source", roleInternal, "(thunk) -> coroutine: what an async call makes, a green thread of the caller's strand that runs the thunk of the function it starts, before its arguments are written"},
@@ -1265,6 +1361,8 @@ var entries = []entry{
 	{"Yield", "rt.yield", "Source", roleCall, "(): lets the members of the strand that wait, else the runnable green threads, run first"},
 	{"SchedPin", "rt.pin", "Source", roleCall, "() -> bool: pins the running green thread to its thread, Go's LockOSThread, one level deeper"},
 	{"SchedUnpin", "rt.unpin", "Source", roleCall, "(): undoes one pin of the running green thread, Go's UnlockOSThread"},
+	{"SchedPinDepth", "rt.pinDepth", "Source", roleCall, "() -> Count: how many pins the running green thread holds"},
+	{"SchedCurrentMachine", "rt.currentMachine", "Source", roleCall, "() -> Count: the number of the thread running the green thread, from 1"},
 	{"HashSeed", "rt.hash.seed", "Source", roleCall, "() -> the fold of no bytes under the process's secret, which the first hash of the process draws or reads from MAXON_HASH_SEED"},
 	{"HashSeedDraw", "rt.hash.draw", "Source", roleCall, "() -> a fresh secret from the system, or the next of the sequence a pinned process draws"},
 	{"HeapThreadAllocs", "rt.heap.threadAllocs", "Source", roleCall, "() -> how many boxes the running thread allocated"},
@@ -1281,10 +1379,11 @@ var entries = []entry{
 	{"HashStringBytes", "rt.hash.string", "Source", roleCall, "(String, at, count, seed) -> the fold of the count bytes of the string from at under the seed; a span past the end panics"},
 	{"BytesReadWord", "rt.bytes.readWord", "Source", roleCall, "(ByteArray, at, width, bigEndian, error) -> the width bytes from at as a word, the first the most significant where bigEndian; past the end sets the error to indexOutOfBounds"},
 	{"BytesAppendWord", "rt.bytes.appendWord", "Source", roleCall, "(ByteArray, word, width, bigEndian): appends the word's low width bytes, the most significant first where bigEndian"},
-	{"ServiceNew", "rt.service.new", "Source", roleCall, "(state, capacity) -> handle: a service, a cown that holds its state and its mailbox's gate, whose state the factory's behaviour stores when it is 0"},
-	{"ServiceReserve", "rt.service.reserve", "Source", roleCall, "(handle) -> 0, or the SendError case plus 1: takes a place in the service's mailbox for a message, unless the mailbox holds its capacity or the service is shut down"},
-	{"ServiceTaken", "rt.service.taken", "Source", roleCall, "(state address): what the behaviour of a message calls as it starts, which gives its place in the mailbox back"},
+	{"ServiceNew", "rt.service.new", "Source", roleCall, "(state) -> handle: a service, a cown that holds its state and its mailbox's gate, whose state the factory's behaviour stores when it is 0"},
+	{"ServiceReserve", "rt.service.reserve", "Source", roleCall, "(handle) -> 0, or the SendError case plus 1: takes a place in the service's mailbox for a message, unless the service is shut down, and slows the sender when the service is behind"},
+	{"ServiceStart", "rt.service.start", "Source", roleCall, "(state address): what the behaviour of a message calls as it starts, which gives its place in the mailbox back and makes the service the one its green thread runs a message of"},
 	{"ServiceShutdown", "rt.service.shutdown", "Source", roleCall, "(handle): closes the service's mailbox, so every later send fails with serviceStopped; the messages queued still run"},
+	{"ServiceMostQueued", "rt.service.mostQueued", "Source", roleCall, "(handle) -> count: the most messages a slowed send to the service found queued with its own"},
 	{"ReplyNew", "rt.reply.new", "Source", roleCall, "() -> promise: the cell a message's reply comes back in, which an await of a promise waits for as it waits for a coroutine"},
 	{"ReplyGive", "rt.reply.give", "Source", roleCall, "(promise, value, error): what the behaviour of a message calls with what its handler returned and failed with, which readies the green thread that awaits the reply"},
 
@@ -1296,6 +1395,7 @@ var entries = []entry{
 	{"ArrayPop", "rt.array.pop", "Arrays", roleCall, "(array of at least one element) -> element: moves the last out, with nothing after it to move"},
 	{"ArrayFill", "rt.array.fill", "Arrays", roleCall, "(array, count, word): appends count copies of a word that needs no copy of its own, a scalar or the 0 of an empty slot, as as many inserts at the end would"},
 	{"ArrayCapacity", "rt.array.capacity", "Arrays", roleCall, "(array or byte array) -> count: how many elements its buffer holds"},
+	{"BytesReserve", "rt.bytes.reserve", "Bytes", roleCall, "(ByteArray, count): makes the buffer hold count bytes, so as many inserts after it never grow it; the length and the bytes stay"},
 	{"ArrayReserve", "rt.array.reserve", "Arrays", roleCall, "(array, count): makes the buffer hold count elements, so as many inserts after it never grow it; the length and the elements stay"},
 	// An array of strings holds two words to an element, a String's, which the code moves in and out with stores and loads of
 	// the addresses these give: the runtime moves only bytes.
@@ -1345,9 +1445,11 @@ var entries = []entry{
 	{"OsThreadCpuTicks", "rt.os.threadCpuTicks", "Os", roleCall, "() -> Count: the CPU time the calling green thread has used, on whichever threads it ran, in the cycles QueryThreadCycleTime counts on Windows and in nanoseconds under POSIX"},
 	{"OsUnixNanos", "rt.os.unixNanos", "Os", roleCall, "() -> Count: the nanoseconds since 1970-01-01 UTC, in steps of the host calendar's own tick, the word of a signed 64-bit count"},
 	{"OsUnixSeconds", "rt.os.unixSeconds", "Os", roleCall, "() -> Count: the whole seconds since 1970-01-01 UTC, which is OsUnixNanos divided by a billion, the word of a signed 64-bit count"},
+	{"OsMachineCpuCount", "rt.os.machineCpuCount", "Os", roleCall, "() -> Count: the machine's logical processors, at least 1, whatever MAXON_MAX_PROCS asks"},
 	{"OsProcessorCount", "rt.os.processorCount", "Os", roleCall, "() -> Count: how many workers the runtime runs behaviours on, as the scheduler counts them: the processors, or what MAXON_MAX_PROCS asks"},
 	{"OsPathFrom", "rt.os.pathFrom", "Os", roleCall, "(path String, error) -> String: the path with the native separator for the other one"},
 	{"OsReadText", "rt.os.readText", "Os", roleCall, "(path String, error) -> String"},
+	{"OsReadBinary", "rt.os.readBinary", "Os", roleCall, "(path String, error) -> ByteArray: the whole content of a file, which osReadText reads as a String"},
 	{"OsWriteTextMode", "rt.os.writeTextMode", "Os", roleCall, "(path String, content String, executable, error): executable is whether a file that the write creates gets the executable mode"},
 	{"OsWriteBinaryMode", "rt.os.writeBinaryMode", "Os", roleCall, "(path String, content ByteArray, executable, error): executable is whether a file that the write creates gets the executable mode"},
 	{"OsRename", "rt.os.rename", "Os", roleCall, "(from String, to String, error): replaces what is at to"},
@@ -1358,6 +1460,15 @@ var entries = []entry{
 	{"OsCreateDirectory", "rt.os.createDirectory", "Os", roleCall, "(path String) -> bool: makes the missing parents too, and is whether the directory is there after it"},
 	{"OsDeleteDirectory", "rt.os.deleteDirectory", "Os", roleCall, "(path String, error): removes an empty directory"},
 	{"OsList", "rt.os.list", "Os", roleCall, "(path String, error) -> Array with String: the path joined to the name of each entry"},
+	// The entries of an owned file handle (runtime/file.maxon): an open gives the handle, a box of the runtime's that is never 0, or
+	// sets the error word with a __ManagedFileError's case; the close is the one call that ends a handle.
+	{"FileOpenRead", "rt.file.openRead", "Os", roleCall, "(path ByteArray, error) -> handle: the file the bytes of the path name, opened to read"},
+	{"FileOpenWrite", "rt.file.openWrite", "Os", roleCall, "(path ByteArray, error) -> handle: the file opened to write, made where it is not there and emptied where it is"},
+	{"FileOpenWriteExecutable", "rt.file.openWriteExecutable", "Os", roleCall, "(path ByteArray, error) -> handle: rt.file.openWrite, a file it makes getting the executable mode where the system has modes"},
+	{"FileOpenCreateNew", "rt.file.openCreateNew", "Os", roleCall, "(path ByteArray, error) -> handle: a file that must not be there (alreadyExists), made and opened to write in one step"},
+	{"FileReadAppending", "rt.file.readAppending", "Os", roleCall, "(handle, buffer ByteArray, most, error) -> count: reads up to most bytes after the buffer's length, which grows by them, within its capacity; 0 at the end of the file"},
+	{"FileWrite", "rt.file.write", "Os", roleCall, "(handle, buffer ByteArray, error) -> count: writes the whole buffer"},
+	{"FileClose", "rt.file.close", "Os", roleCall, "(handle, error): closes the handle and frees its box, in one bracketed call into the kernel, which never parks the green thread or yields; what the system's close reports sets the error word with writeFailed, the handle closed all the same"},
 	// The debug port's entries, on Windows; a read or a write that fails sets its error word as an OS entry's does.
 	{"DebugLaunch", "rt.debug.launch", "Os", roleCall, "(executable String, arguments Array with String, outputToError, error) -> process id: starts the executable as the calling thread's debuggee"},
 	{"DebugWaitEvent", "rt.debug.waitEvent", "Os", roleCall, "(budgetMs) -> ByteArray: the debug event that came within the milliseconds, empty for none"},
@@ -1375,7 +1486,7 @@ var entries = []entry{
 	{"OsRun", "rt.os.run", "Os", roleCall, "(executable String, arguments Array with String, deadlineMs, stdout, stderr, error) -> exit code: runs the executable with the arguments quoted as the C runtime splits them, and stores what the child wrote to each stream as a String at the address given for it; a child still running deadlineMs milliseconds after it started, when that is not 0, is terminated and the run fails with the timeout case"},
 	{"OsRunIn", "rt.os.runIn", "Os", roleCall, "(executable String, arguments Array with String, directory String, deadlineMs, stdout, stderr, error) -> exit code: rt.os.run with the child started in directory, relative to the caller's working directory"},
 	{"OsRunInput", "rt.os.runInput", "Os", roleCall, "(executable String, arguments Array with String, input String, deadlineMs, stdout, stderr, error) -> exit code: rt.os.run with the child's standard input a pipe that holds the input and then ends"},
-	{"SubprocessSpawn", "rt.subprocess.spawn", "Os", roleCall, "(argv ByteArray, argc, cwd cstring, env ByteArray, envInherit, stdinKind, stdinData cstring, stdoutKind, stdoutData cstring, stdoutLimit, stderrKind, stderrData cstring, stderrLimit, flags, stdinLength) -> handle or -1: starts the child that argc NUL-ended tokens of the argv blob name, the first the program, in the directory cwd names ('' for the caller's own) with the caller's environment (an env block is refused), its standard input none, inherited or the stdinLength bytes of stdinData, and its standard output and error inherited or collected up to a limit (0 for none); a kind, a flag or a block that this step does not serve is refused, as a spawn that fails; the handle names a slot of the runtime's table and its generation"},
+	{"SubprocessSpawn", "rt.subprocess.spawn", "Os", roleCall, "(argv ByteArray, argc, cwd cstring, env ByteArray, envInherit, stdinKind, stdinData cstring, stdoutKind, stdoutData cstring, stdoutLimit, stderrKind, stderrData cstring, stderrLimit, flags, stdinLength) -> handle or -1: starts the child that argc NUL-ended tokens of the argv blob name, the first the program, in the directory cwd names ('' for the caller's own) with the caller's environment or an env block that is all of it (envInherit 0), its standard input none, inherited, held open, the stdinLength bytes of stdinData or a file, and its standard output and error discarded, inherited, collected up to a limit (0 for none) or a file; a kind, a flag or a block that this step does not serve is refused, as a spawn that fails; the handle names a slot of the runtime's table and its generation; with the flag detach (subprocessDetach is the same entry) the child's streams are none, discarded, inherited or files, it leads a session of its own and, on Windows, leaves the jobs this process is in, and the answer is its process id, -1 for a spawn that failed, or -2 where the job this process is in does not allow the breakaway"},
 	{"SubprocessGetPid", "rt.subprocess.getPid", "Os", roleCall, "(handle) -> the process id the spawn recorded, or -1 for a word that names no live child"},
 	{"SubprocessWaitCollect", "rt.subprocess.waitCollect", "Os", roleCall, "(handle, ms) -> result or -1: parks until the child has exited and its output has ended, or until ms milliseconds (0 for none) have passed, which ends the child and keeps the output it had written; the result names what became of it, a word of the same kind as a handle, or is -1 for a word that names no child that no wait has taken"},
 	{"SubprocessResultStatusKind", "rt.subprocess.resultStatusKind", "Os", roleCall, "(result) -> how the child ended: exited 0, signalled 1, timedOut 2, treeNotEnded 3, reapedElsewhere 4; 0 for a word that names no result"},
@@ -1386,6 +1497,19 @@ var entries = []entry{
 	{"SubprocessResultRelease", "rt.subprocess.resultRelease", "Os", roleCall, "(result): gives back the result and the output it holds; a word that names no result is skipped"},
 	{"SubprocessReleaseHandle", "rt.subprocess.releaseHandle", "Os", roleCall, "(handle): gives back the child's slot and what it still holds; a word that names no live child is skipped"},
 	{"SubprocessEndTree", "rt.subprocess.endTree", "Os", roleCall, "(handle) -> 0 when the child and every process it started are gone, -3 when part of the tree is still running after the kill, -1 for a word that names no child that no wait has taken or a kill the system refused"},
+	{"SubprocessSpawnStreaming", "rt.subprocess.spawnStreaming", "Os", roleCall, "(argv ByteArray, argc, cwd cstring, flags, env ByteArray, envInherit) -> handle or -1: starts the child as the attached spawn does, its standard input a pipe that the caller writes and holds open and its standard output and error pipes that the caller reads on demand, with no cap; a traced or a detached child is refused, as a spawn that fails; the handle names a slot of the runtime's table and its generation, as the attached spawn's does"},
+	{"SubprocessReadAvailable", "rt.subprocess.readAvailable", "Os", roleCall, "(handle, stream, most) -> ByteArray: at most most bytes of the child's output (stream 0) or error (1) that were read from its pipe and not given yet, a fresh copy, and where there are none parks until there are some or the stream ends; empty at the end, for a stream that is neither, for most of 0 or less, for a failed read and for a word that names no live streaming child"},
+	{"SubprocessStdoutState", "rt.subprocess.stdoutState", "Os", roleCall, "(handle) -> __SubprocessStreamState: what a read of the child's output answers next: open, atEof once a read found the end, readFailed once a read failed, noSuchChild for a word that names no live streaming child"},
+	{"SubprocessStderrState", "rt.subprocess.stderrState", "Os", roleCall, "(handle) -> __SubprocessStreamState: stdoutState of the child's error"},
+	{"SubprocessWriteStdinAll", "rt.subprocess.writeStdinAll", "Os", roleCall, "(handle, data cstring) -> 0 when every byte of the text up to its NUL was written to the child's input, parking while the pipe is full, 1 when the input is closed or the child no longer reads it, 2 while a payload queued for it is not written out, -1 for a word that names no live streaming child"},
+	{"SubprocessWriteStdinBytes", "rt.subprocess.writeStdinBytes", "Os", roleCall, "(handle, data cstring, length) -> writeStdinAll of the length bytes of data, the NUL bytes among them"},
+	{"SubprocessQueueStdin", "rt.subprocess.queueStdin", "Os", roleCall, "(handle, data cstring, length) -> 0 when a copy of the length bytes is queued, which the pushes write to the child's input and the last of them closes (nothing is written before a push), 2 while a payload is queued already, -1 for an input that is closed or a word that names no live streaming child"},
+	{"SubprocessPushStdin", "rt.subprocess.pushStdin", "Os", roleCall, "(handle) -> how many bytes of the queued payload are not written yet (0 for none or once it is written out and the input closed), after one write that never waits; -1 for a word that names no live streaming child"},
+	{"SubprocessAwaitStdinWritable", "rt.subprocess.awaitStdinWritable", "Os", roleCall, "(handle, passes) -> 0 once the input may take more (the event queue reported it writable, or the write in flight completed) or is closed, at once where the last push was not blocked; -1 for a word that names no live streaming child"},
+	{"SubprocessCloseStdin", "rt.subprocess.closeStdin", "Os", roleCall, "(handle): closes the caller's end of the child's input, which ends a payload that is queued, and does nothing for an input that is closed or a word that names no live streaming child"},
+	{"SubprocessWaitExit", "rt.subprocess.waitExit", "Os", roleCall, "(handle, ms) -> the child's exit code (a POSIX child that a signal ended gives 128 plus the signal), parking until it has exited or until ms milliseconds (0 for none) have passed, which ends the child's tree: -2 for a deadline that ended it, -3 for one after which part of the tree still ran, -1 for a word that names no live streaming child or a wait that another is parked in"},
+	{"SubprocessPollExit", "rt.subprocess.pollExit", "Os", roleCall, "(handle) -> the child's exit code once it has exited, -1 while it runs, -5 for a word that names no live streaming child; never waits and never ends the child"},
+	{"SubprocessExitSignal", "rt.subprocess.exitSignal", "Os", roleCall, "(handle) -> the number of the signal that ended the child (0 for one that exited, always on Windows) once it has exited, -1 while it runs, -5 for a word that names no live streaming child"},
 	{"SubprocessLastErrorCode", "rt.subprocess.lastErrorCode", "Os", roleCall, "() -> the failed step of the last spawn above 32 bits and the Win32 code of its failure in them (a POSIX errno mapped to 2, 3, 5 or 31), 0 when nothing has failed"},
 	{"SubprocessLastErrorMessage", "rt.subprocess.lastErrorMessage", "Os", roleCall, "() -> ByteArray: 'os error N' for the code of the last failure, empty when nothing has failed"},
 	{"SubprocessResolveOnPath", "rt.subprocess.resolveOnPath", "Os", roleCall, "(name cstring) -> ByteArray: the path of the program that the name asks for, searched for as the system's own lookup does (PATH and PATHEXT on Windows, PATH on POSIX), or the name itself where none is found"},
@@ -1466,7 +1590,9 @@ var runtimeFunctions = []runtimeFunction{
 	{"ExitBlocking", "exitBlocking()"},
 	{"ExitClaim", "takeExitClaim(context Count)"},
 	{"CownAcquire", "cownAcquire(record Count)"},
-	{"CownRelease", "cownRelease(record Count)"},
+	{"BehaviourRelease", "behaviourRelease(record Count, finish Count) Count"},
+	{"BehaviourResumed", "behaviourResumed(record Count)"},
+	{"PinUnheld", "pinUnheld()"},
 	{"MainRun", "mainRun(code Count) Count"},
 	{"AsyncNew", "asyncNew(code Count) Count"},
 	{"AsyncStart", "asyncStart(g Count)"},
@@ -1481,6 +1607,8 @@ var runtimeFunctions = []runtimeFunction{
 	{"Yield", "schedYield()"},
 	{"SchedPin", "schedPin() Bool"},
 	{"SchedUnpin", "schedUnpin()"},
+	{"SchedPinDepth", "schedPinDepth() Count"},
+	{"SchedCurrentMachine", "schedCurrentMachine() Count"},
 	{"HashSeed", "hashSeed() Count"},
 	{"HashSeedDraw", "drawHashSeed() Count"},
 	{"HeapThreadAllocs", "heapThreadAllocs() Count"},
@@ -1497,10 +1625,11 @@ var runtimeFunctions = []runtimeFunction{
 	{"HashStringBytes", "hashStringBytes(text String, at Count, count Count, seed Count) Count"},
 	{"BytesReadWord", "bytesReadWord(array Count, at Count, width Count, bigEndian Bool, errorAddress Count) Count"},
 	{"BytesAppendWord", "bytesAppendWord(array Count, word Count, width Count, bigEndian Bool)"},
-	{"ServiceNew", "serviceNew(state Count, capacity Count) Count"},
+	{"ServiceNew", "serviceCreate(state Count) Count"},
 	{"ServiceReserve", "serviceReserve(handle Count) Count"},
-	{"ServiceTaken", "serviceTaken(state Count)"},
+	{"ServiceStart", "serviceStart(state Count)"},
 	{"ServiceShutdown", "serviceShutdown(handle Count)"},
+	{"ServiceMostQueued", "serviceMostQueued(handle Count) Count"},
 	{"ReplyNew", "replyNew() Count"},
 	{"ReplyGive", "replyGive(promise Count, value Count, error Count)"},
 	{"FrozenFreeze", "frozenFreeze(value Count) Count"},
@@ -1515,6 +1644,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"ArrayPop", "arrayPop(array Count) Count"},
 	{"ArrayFill", "arrayFill(array Count, count Count, word Count)"},
 	{"ArrayCapacity", "arrayCapacity(array Count) Count"},
+	{"BytesReserve", "bytesReserve(array Count, count Count)"},
 	{"ArrayReserve", "arrayReserve(array Count, count Count)"},
 	{"StrsElem", "stringsElem(array Count, index Count) Count"},
 	{"StrsOpen", "stringsOpen(array Count, index Count) Count"},
@@ -1552,9 +1682,11 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsThreadCpuTicks", "osThreadCpuTicks() Count"},
 	{"OsUnixNanos", "osUnixNanos() Count"},
 	{"OsUnixSeconds", "osUnixSeconds() Count"},
+	{"OsMachineCpuCount", "machineCpuCount() Count"},
 	{"OsProcessorCount", "osProcessorCount() Count"},
 	{"OsPathFrom", "osPathFrom(path String, errorAddress Count) String"},
 	{"OsReadText", "osReadText(path String, errorAddress Count) String"},
+	{"OsReadBinary", "osReadBinary(path String, errorAddress Count) Count"},
 	{"OsWriteTextMode", "osWriteTextMode(path String, content String, executable Bool, errorAddress Count)"},
 	{"OsWriteBinaryMode", "osWriteBinaryMode(path String, content Count, executable Bool, errorAddress Count)"},
 	{"OsRename", "osRename(source String, destination String, errorAddress Count)"},
@@ -1565,6 +1697,13 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsCreateDirectory", "osCreateDirectory(path String) Bool"},
 	{"OsDeleteDirectory", "osDeleteDirectory(path String, errorAddress Count)"},
 	{"OsList", "osList(path String, errorAddress Count) Count"},
+	{"FileOpenRead", "fileOpenRead(path Count, errorAddress Count) Count"},
+	{"FileOpenWrite", "fileOpenWrite(path Count, errorAddress Count) Count"},
+	{"FileOpenWriteExecutable", "fileOpenWriteExecutable(path Count, errorAddress Count) Count"},
+	{"FileOpenCreateNew", "fileOpenCreateNew(path Count, errorAddress Count) Count"},
+	{"FileReadAppending", "fileReadAppending(handle Count, buffer Count, most Count, errorAddress Count) Count"},
+	{"FileWrite", "fileWrite(handle Count, buffer Count, errorAddress Count) Count"},
+	{"FileClose", "fileClose(handle Count, errorAddress Count)"},
 	{"OsRun", "osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 	{"OsRunIn", "osRunIn(executable String, arguments Count, directory String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 	{"OsRunInput", "osRunInput(executable String, arguments Count, input String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
@@ -1579,6 +1718,19 @@ var runtimeFunctions = []runtimeFunction{
 	{"SubprocessResultRelease", "subprocessResultRelease(result Count)"},
 	{"SubprocessReleaseHandle", "subprocessReleaseHandle(handle Count)"},
 	{"SubprocessEndTree", "subprocessEndTree(handle Count) Count"},
+	{"SubprocessSpawnStreaming", "subprocessSpawnStreaming(argv Count, argc Count, cwd String, flags Count, env Count, envInherit Count) Count"},
+	{"SubprocessReadAvailable", "subprocessReadAvailable(handle Count, stream Count, most Count) Count"},
+	{"SubprocessStdoutState", "subprocessStdoutState(handle Count) Count"},
+	{"SubprocessStderrState", "subprocessStderrState(handle Count) Count"},
+	{"SubprocessWriteStdinAll", "subprocessWriteStdinAll(handle Count, data String) Count"},
+	{"SubprocessWriteStdinBytes", "subprocessWriteStdinBytes(handle Count, data String, length Count) Count"},
+	{"SubprocessQueueStdin", "subprocessQueueStdin(handle Count, data String, length Count) Count"},
+	{"SubprocessPushStdin", "subprocessPushStdin(handle Count) Count"},
+	{"SubprocessAwaitStdinWritable", "subprocessAwaitStdinWritable(handle Count, passes Count) Count"},
+	{"SubprocessCloseStdin", "subprocessCloseStdin(handle Count)"},
+	{"SubprocessWaitExit", "subprocessWaitExit(handle Count, ms Count) Count"},
+	{"SubprocessPollExit", "subprocessPollExit(handle Count) Count"},
+	{"SubprocessExitSignal", "subprocessExitSignal(handle Count) Count"},
 	{"SubprocessLastErrorCode", "subprocessLastErrorCode() Count"},
 	{"SubprocessLastErrorMessage", "subprocessLastErrorMessage() Count"},
 	{"SubprocessResolveOnPath", "subprocessResolveOnPath(name String) Count"},

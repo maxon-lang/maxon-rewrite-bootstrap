@@ -1,0 +1,212 @@
+// sleeper is a function that writes one word, sleeps for some milliseconds on the interpreter's clock, and writes another.
+function sleeper(mutates p ast.Project, name String, convs ir.ConvList, before String, ms ir.Word, after String) returns ir.IrFunction
+	var b = Fn.new(p, name: name, convs: convs)
+	if before != "" 'before'
+		b.write(before)
+	end 'before'
+	let delay = b.konst(ms)
+	_ = b.runtime(ir.Rt.rtSleep, kind: ir.IrKind.kindScalar, args: ir.regs1(delay))
+	b.write(after)
+	let zero = b.konst(0)
+	return b.ret(zero)
+end 'sleeper'
+
+// startAsync starts a function that takes nothing as a coroutine, and gives the register of its promise.
+function startAsync(mutates b Fn, target ast.FuncID) returns ir.Reg
+	let d = b.reg(ir.IrKind.kindManaged)
+	let i = b.b.asyncInstr(d, target: target, args: ir.RegList.create(0))
+	b.emit(i)
+	return d
+end 'startAsync'
+
+function awaitPromise(mutates b Fn, promise ir.Reg)
+	_ = b.runtime(ir.Rt.rtAsyncAwait, kind: ir.IrKind.kindScalar, args: ir.regs1(promise))
+end 'awaitPromise'
+
+function twoFunctions(a ir.IrFunction, b ir.IrFunction) returns ir.IrFunctionList
+	var out = ir.IrFunctionList.create(0)
+	out.push(a.clone())
+	out.push(b.clone())
+	return out
+end 'twoFunctions'
+
+// Timers wake in the order of their deadlines on the clock, not in the order they were set, and the run takes no time:
+// the clock moves to the earliest timer when nothing can run.
+test 'the clock orders timers by their deadlines'
+	var p = ir.irProject()
+	let slow = sleeper(p, name: "slow", convs: ir.convs0(), before: "", ms: 30, after: "slow;")
+	let quick = sleeper(p, name: "quick", convs: ir.convs0(), before: "", ms: 10, after: "quick;")
+	var b = Fn.new(p, name: "main", convs: ir.convs0())
+	let first = startAsync(b, target: slow.decl)
+	let second = startAsync(b, target: quick.decl)
+	awaitPromise(b, promise: first)
+	awaitPromise(b, promise: second)
+	b.write("main;")
+	let zero = b.konst(0)
+	let out = runWith(p, main: b.ret(zero), others: twoFunctions(slow, b: quick), seed: 0)
+	if out.violations.count() != 0 or out.stdout != "quick;slow;main;" 'wrong'
+		panic("{out.violations.count()} violations, {out.stdout}")
+	end 'wrong'
+end 'the clock orders timers by their deadlines'
+
+// A coroutine runs only once the members of its strand before it wait, whatever the seed: the members of a strand never
+// interleave.
+test 'a coroutine runs once its caller waits'
+	var p = ir.irProject()
+	var co = Fn.new(p, name: "co", convs: ir.convs0())
+	co.write("co1;")
+	co.write("co2;")
+	let coZero = co.konst(0)
+	let coFn = co.ret(coZero)
+	for seed in 0 upto seedsToTry 'seeds'
+		var b = Fn.new(p, name: "main", convs: ir.convs0())
+		let promise = startAsync(b, target: coFn.decl)
+		b.write("m1;")
+		b.write("m2;")
+		awaitPromise(b, promise: promise)
+		b.write("m3;")
+		let zero = b.konst(0)
+		var others = ir.IrFunctionList.create(0)
+		others.push(coFn.clone())
+		let out = runWith(p, main: b.ret(zero), others: others, seed: seedOfTest(seed))
+		if out.violations.count() != 0 or out.stdout != "m1;m2;co1;co2;m3;" 'wrong'
+			panic("seed {seed}: {out.violations.count()} violations, {out.stdout}")
+		end 'wrong'
+	end 'seeds'
+end 'a coroutine runs once its caller waits'
+
+// sleepyMain schedules two behaviours on disjoint cowns, each of which writes, sleeps and writes again.
+function sleepyMain(mutates p ast.Project, left ir.IrFunction, right ir.IrFunction) returns ir.IrFunction
+	return twoCownMain(p, left: left, right: right)
+end 'sleepyMain'
+
+// The schedule is a function of the seed: one seed gives one interleaving each time, and the seeds between them give
+// others, so a program whose output depends on the order of two behaviours that sleep shows each order under some seed.
+test 'a seed decides the interleaving of threads that sleep'
+	var p = ir.irProject()
+	let left = sleeper(p, name: "left", convs: convs1(ast.Convention.convMutates), before: "L1;", ms: 5, after: "L2;")
+	let right = sleeper(p, name: "right", convs: convs1(ast.Convention.convMutates), before: "R1;", ms: 5, after: "R2;")
+	var outputs = ast.StringList.create(0)
+	var leftFirst = 0 as Count
+	var rightFirst = 0 as Count
+	for seed in 0 upto seedsToTry 'seeds'
+		let mainOne = sleepyMain(p, left: left, right: right)
+		let mainTwo = sleepyMain(p, left: left, right: right)
+		let first = runSeed(p, main: mainOne, seed: seedOfTest(seed))
+		let second = runSeed(p, main: mainTwo, seed: seedOfTest(seed))
+		if first.violations.count() != 0 'violated'
+			panic("seed {seed}: {first.violations[0]}")
+		end 'violated'
+		if first.stdout != second.stdout or first.steps != second.steps 'differs'
+			panic("seed {seed} gave {first.stdout} and {second.stdout}")
+		end 'differs'
+		if first.stdout.byteLength() != 12 'lost'
+			panic("seed {seed} gave {first.stdout}")
+		end 'lost'
+		if first.stdout.sliceBytes(0, endPos: 3) == "L1;" 'left'
+			leftFirst = try leftFirst + 1 otherwise panic("count")
+		end 'left' else 'right'
+			rightFirst = try rightFirst + 1 otherwise panic("count")
+		end 'right'
+		var seen = false
+		for i in 0 upto outputs.count() 'known'
+			if outputs[i] == first.stdout 'same'
+				seen = true
+			end 'same'
+		end 'known'
+		if not seen 'new'
+			outputs.push(first.stdout.clone())
+		end 'new'
+	end 'seeds'
+	if leftFirst == 0 or rightFirst == 0 or outputs.count() < 3 'few'
+		panic("the seeds gave {outputs.count()} interleavings, left first {leftFirst} times and right first {rightFirst} times")
+	end 'few'
+end 'a seed decides the interleaving of threads that sleep'
+
+// A wait that nothing can end is a deadlock, which the interpreter reports where the thread waits, never a hang: main
+// awaits a reply that no message gives.
+test 'a wait that nothing ends is a deadlock'
+	var p = ir.irProject()
+	var b = Fn.new(p, name: "main", convs: ir.convs0())
+	let reply = b.runtime(ir.Rt.rtReplyNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
+	awaitPromise(b, promise: reply)
+	let zero = b.konst(0)
+	let out = runMain(p, main: b.ret(zero))
+	expectViolation("deadlock", out: out, kind: "deadlock", fragments: says("no thread can run and no timer is set", b: "main waits at main b0", c: "rt.async.await", d: ""))
+end 'a wait that nothing ends is a deadlock'
+
+// A cancel ends the sleep a coroutine is in at once, so a sleep that only a cancel ends costs the run nothing.
+test 'a cancel ends the sleep of its coroutine'
+	var p = ir.irProject()
+	let long = sleeper(p, name: "long", convs: ir.convs0(), before: "", ms: 4000000000000, after: "woke;")
+	var b = Fn.new(p, name: "main", convs: ir.convs0())
+	let promise = startAsync(b, target: long.decl)
+	let delay = b.konst(1)
+	_ = b.runtime(ir.Rt.rtSleep, kind: ir.IrKind.kindScalar, args: ir.regs1(delay))
+	_ = b.runtime(ir.Rt.rtAsyncCancel, kind: ir.IrKind.kindScalar, args: ir.regs1(promise))
+	awaitPromise(b, promise: promise)
+	b.write("main;")
+	let zero = b.konst(0)
+	var others = ir.IrFunctionList.create(0)
+	others.push(long.clone())
+	let out = runWith(p, main: b.ret(zero), others: others, seed: 0)
+	if out.violations.count() != 0 or out.stdout != "woke;main;" 'wrong'
+		panic("{out.violations.count()} violations, {out.stdout}")
+	end 'wrong'
+end 'a cancel ends the sleep of its coroutine'
+
+// serviceMessage is the body of a message of a service that captures a number of services: it starts, then sends to the
+// first sends of them, a place taken in each mailbox.
+function serviceMessage(mutates p ast.Project, name String, captures Count, sends Count) returns Fn
+	var convs = convs1(ast.Convention.convMutates)
+	for i in 0 upto captures 'captures'
+		convs.push(ast.Convention.convLet)
+	end 'captures'
+	var b = Fn.new(p, name: name, convs: convs)
+	let state = b.param(0, kind: ir.IrKind.kindScalar)
+	_ = b.runtime(ir.Rt.rtServiceStart, kind: ir.IrKind.kindScalar, args: ir.regs1(state))
+	for i in 0 upto sends 'sends'
+		let to = b.param(i + 1, kind: ir.IrKind.kindManaged)
+		_ = b.runtime(ir.Rt.rtServiceReserve, kind: ir.IrKind.kindScalar, args: ir.regs1(to))
+	end 'sends'
+	return b
+end 'serviceMessage'
+
+// A service muted on a receiver that never catches up has nothing left to unmute it, which the deadlock report names (the
+// progress check). Under seed 0 a turn is one message. r's second message starts a message of x and waits for a reply that
+// no one gives, so main's third send to r stays queued; x's message sends to r, which holds a turn's worth, and x is muted
+// as it ends.
+test 'a service muted for good is named in the deadlock report'
+	var p = ir.irProject()
+	var xm = serviceMessage(p, name: "xMessage", captures: 1, sends: 1)
+	let xZero = xm.konst(0)
+	let xFn = xm.ret(xZero)
+	var first = serviceMessage(p, name: "rFirst", captures: 0, sends: 0)
+	let firstZero = first.konst(0)
+	let firstFn = first.ret(firstZero)
+	var third = serviceMessage(p, name: "rThird", captures: 0, sends: 0)
+	let thirdZero = third.konst(0)
+	let thirdFn = third.ret(thirdZero)
+	var second = serviceMessage(p, name: "rSecond", captures: 2, sends: 1)
+	let x = second.param(1, kind: ir.IrKind.kindManaged)
+	let r = second.param(2, kind: ir.IrKind.kindManaged)
+	second.schedule(xFn, cowns: ir.regs1(x), captures: ir.regs1(r))
+	let reply = second.runtime(ir.Rt.rtReplyNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
+	awaitPromise(second, promise: reply)
+	let secondZero = second.konst(0)
+	let secondFn = second.ret(secondZero)
+	var b = Fn.new(p, name: "main", convs: ir.convs0())
+	let rState = b.alloc(1)
+	let rService = b.runtime(ir.Rt.rtServiceNew, kind: ir.IrKind.kindManaged, args: ir.regs1(rState))
+	let xState = b.alloc(1)
+	let xService = b.runtime(ir.Rt.rtServiceNew, kind: ir.IrKind.kindManaged, args: ir.regs1(xState))
+	_ = b.runtime(ir.Rt.rtServiceReserve, kind: ir.IrKind.kindScalar, args: ir.regs1(rService))
+	b.schedule(firstFn, cowns: ir.regs1(rService), captures: ir.RegList.create(0))
+	_ = b.runtime(ir.Rt.rtServiceReserve, kind: ir.IrKind.kindScalar, args: ir.regs1(rService))
+	b.schedule(secondFn, cowns: ir.regs1(rService), captures: ir.regs2(xService, b: rService))
+	_ = b.runtime(ir.Rt.rtServiceReserve, kind: ir.IrKind.kindScalar, args: ir.regs1(rService))
+	b.schedule(thirdFn, cowns: ir.regs1(rService), captures: ir.RegList.create(0))
+	let zero = b.konst(0)
+	let out = runSeed(p, main: b.ret(zero), seed: 0)
+	expectViolation("muted for good", out: out, kind: "deadlock", fragments: says("no thread can run and no timer is set", b: "is muted until", c: "catches up, which nothing left can make it do", d: ""))
+end 'a service muted for good is named in the deadlock report'

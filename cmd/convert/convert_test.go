@@ -559,6 +559,21 @@ func TestConvertEarlyDestructIsWarned(t *testing.T) {
 	}
 }
 
+// TestConvertDropsMailboxCapacity covers the mailbox that has no capacity: a spawn's capacity, a send's sendTimeout and a
+// mailboxFull arm go, and any other use of the case is warned.
+func TestConvertDropsMailboxCapacity(t *testing.T) {
+	in := "function main() returns ExitCode\n\tlet h = spawn(capacity: 4) Store.create()\n\ttry h.keep(\"a\", sendTimeout: 5) otherwise (e) 'refused'\n\t\tmatch e 'why'\n\t\t\tmailboxFull then print(\"full\")\n\t\t\tserviceStopped then print(\"stopped\")\n\t\tend 'why'\n\tend 'refused'\n\ttry h.ping(sendTimeout: 5) otherwise ignore\n\treturn 0\nend 'main'\n"
+	want := "function main() returns ExitCode\n\tlet h = spawn Store.create()\n\ttry h.keep(\"a\") otherwise (e) 'refused'\n\t\tmatch e 'why'\n\t\t\tserviceStopped then print(\"stopped\")\n\t\tend 'why'\n\tend 'refused'\n\ttry h.ping() otherwise ignore\n\treturn 0\nend 'main'\n"
+	res := Convert("test.maxon", in, specProgram)
+	if len(res.Warnings) != 0 || res.Text != want {
+		t.Fatalf("warnings %v, got:\n%q\nwant:\n%q", res.Warnings, res.Text, want)
+	}
+	other := Convert("test.maxon", "function full(e SendError) returns bool\n\treturn e == SendError.mailboxFull\nend 'full'\n", specProgram)
+	if len(other.Warnings) != 1 || other.Warnings[0].Message != mailboxWarning {
+		t.Fatalf("warnings %v", other.Warnings)
+	}
+}
+
 func TestConvertTupleElementSpelling(t *testing.T) {
 	in := "function f(p (Count, Count)) returns Count\n\treturn p._0 + p._1\nend 'f'\n"
 	want := "function f(p (Count, Count)) returns Count\n\treturn p.0 + p.1\nend 'f'\n"
@@ -613,13 +628,13 @@ func TestConvertLibraryRules(t *testing.T) {
 			name: "a built-in type keeps the conformances it can declare, with the methods it lacks",
 			file: "String.maxon",
 			in:   "let Unused = 1\n\npublic type String implements BuiltinStringLiteral, Hashable, Cloneable, Iterable with (Count, Count)\n\tpublic function hash() returns HashValue\n\t\treturn hashText(self)\n\tend 'hash'\n\n\tpublic function clone() returns String\n\t\treturn self\n\tend 'clone'\nend 'String'\n\nfunction hashText(s String) returns HashValue\n\treturn 0\nend 'hashText'\n",
-			want: "extension String implements Hashable\n\tpublic function hash() returns HashValue\n\t\treturn hashText(self)\n\tend 'hash'\nend 'String'\n\nfunction hashText(s String) returns HashValue\n\treturn 0\nend 'hashText'\n",
+			want: "extension String implements Hashable, Cloneable\n\tpublic function hash() returns HashValue\n\t\treturn hashText(self)\n\tend 'hash'\nend 'String'\n\nfunction hashText(s String) returns HashValue\n\treturn 0\nend 'hashText'\n",
 		},
 		{
-			name: "an extension of a built-in generic type names its parameter as the table does, and gives no conditional conformance",
+			name: "an extension of a built-in generic type names its parameter as the table does, keeps its conditional conformance and asks for the storage hash as minimaxon does",
 			file: "Array.maxon",
-			in:   "public type Array uses Element implements Iterable with (Element, ArrayIter)\n\tpublic typealias ArrayIter = ArrayIterator with Element\n\tpublic typealias ElementMemory = __ManagedMemory with Element\n\n\tpublic function count() returns Count\n\t\treturn 0\n\tend 'count'\n\n\tpublic function appendMemory(source ElementMemory)\n\t\tmanaged.append(source)\n\tend 'appendMemory'\n\n\tpublic function createIterator() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(managed)\n\tend 'createIterator'\n\n\tpublic function cursor() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(managed)\n\tend 'cursor'\nend 'Array'\n\npublic extension Array implements Hashable where Element implements Hashable\n\tpublic function hash() returns HashValue\n\t\tif __Builtins.elementsHashAsStorage() 'storage'\n\t\t\treturn 0\n\t\tend 'storage'\n\t\treturn managed.length() as HashValue\n\tend 'hash'\n\n\tpublic function count() returns Count\n\t\treturn 0\n\tend 'count'\nend 'Array'\n",
-			want: "extension Array implements Iterable with (T, ArrayIter)\n\tpublic typealias ArrayIter = ArrayIterator with T\n\tpublic typealias ElementMemory = __ManagedMemory with T\n\n\tpublic function appendMemory(source ElementMemory)\n\t\tself.managed.append(source)\n\tend 'appendMemory'\n\n\tpublic function createIterator() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(self.managed)\n\tend 'createIterator'\n\n\tpublic function cursor() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(self.managed)\n\tend 'cursor'\nend 'Array'\n\npublic extension Array where T implements Hashable\n\tpublic function hash() returns HashValue\n\t\treturn self.managed.length() as HashValue\n\tend 'hash'\nend 'Array'\n",
+			in:   "public type Array uses Element implements Iterable with (Element, ArrayIter)\n\tpublic typealias ArrayIter = ArrayIterator with Element\n\tpublic typealias ElementMemory = __ManagedMemory with Element\n\n\tpublic function count() returns Count\n\t\treturn 0\n\tend 'count'\n\n\tpublic function appendMemory(source ElementMemory)\n\t\tmanaged.append(source)\n\tend 'appendMemory'\n\n\tpublic function createIterator() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(managed)\n\tend 'createIterator'\n\n\tpublic function cursor() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(managed)\n\tend 'cursor'\nend 'Array'\n\npublic extension Array implements Hashable where Element implements Hashable\n\tpublic function hash() returns HashValue\n\t\tif __Builtins.elementsHashAsStorage() 'storage'\n\t\t\treturn __Builtins.hashArrayStorage(self)\n\t\tend 'storage'\n\t\treturn managed.length() as HashValue\n\tend 'hash'\n\n\tpublic function count() returns Count\n\t\treturn 0\n\tend 'count'\nend 'Array'\n",
+			want: "extension Array implements Iterable with (T, ArrayIter)\n\tpublic typealias ArrayIter = ArrayIterator with T\n\tpublic typealias ElementMemory = __ManagedMemory with T\n\n\tpublic function appendMemory(source ElementMemory)\n\t\tself.managed.append(source)\n\tend 'appendMemory'\n\n\tpublic function createIterator() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(self.managed)\n\tend 'createIterator'\n\n\tpublic function cursor() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(self.managed)\n\tend 'cursor'\nend 'Array'\n\npublic extension Array implements Hashable where T implements Hashable\n\tpublic function hash() returns HashValue\n\t\tif self.hashesAsStorage() 'storage'\n\t\t\treturn hashValueOfDigest(self.storageHash(processFoldStart()))\n\t\tend 'storage'\n\t\treturn self.managed.length() as HashValue\n\tend 'hash'\nend 'Array'\n",
 		},
 		{
 			name: "a region that declares a built-in name for each system goes with it",
@@ -632,6 +647,12 @@ func TestConvertLibraryRules(t *testing.T) {
 			file: "Process.maxon",
 			in:   "public let Limit = 65536\n\npublic let Kept = 1\n\npublic type Process\n\tpublic static function dropped() returns Count\n\t\treturn Limit + helper(__Builtins.notProvided())\n\tend 'dropped'\n\n\tstatic function helper(n Count) returns Count\n\t\treturn n\n\tend 'helper'\n\n\tpublic static function keeps() returns Count\n\t\treturn Kept\n\tend 'keeps'\nend 'Process'\n",
 			want: "public let Kept = 1\n\nextension Process\n\tpublic static function keeps() returns Count\n\t\treturn Kept\n\tend 'keeps'\nend 'Process'\n",
+		},
+		{
+			name: "an enum that minimaxon builds in is kept as an extension with its cases and conformance left out, and a function over a raw type the table lacks goes",
+			file: "File.maxon",
+			in:   "public enum FileReadError implements Error\n\tnotFound\n\tfailed  // the rest\n\n\tpublic function failure() returns FileFailure\n\t\treturn match self 'cause'\n\t\t\tnotFound gives FileFailure.notFound\n\t\t\tfailed gives FileFailure.failed\n\t\tend 'cause'\n\tend 'failure'\nend 'FileReadError'\n\npublic enum FileFailure\n\tnotFound\n\tfailed\nend 'FileFailure'\n\nfunction readFailureOf(cause __ManagedListenerError) returns FileReadError\n\treturn FileReadError.failed\nend 'readFailureOf'\n",
+			want: "extension FileReadError\n\tpublic function failure() returns FileFailure\n\t\treturn match self 'cause'\n\t\t\tnotFound gives FileFailure.notFound\n\t\t\tfailed gives FileFailure.failed\n\t\tend 'cause'\n\tend 'failure'\nend 'FileReadError'\n\npublic enum FileFailure\n\tnotFound\n\tfailed\nend 'FileFailure'\n",
 		},
 	}
 	for _, tc := range cases {
@@ -920,5 +941,43 @@ func TestConvertExportsWhatOtherModulesName(t *testing.T) {
 	helper := "function insideOnly() returns Count\n\treturn 0\nend 'insideOnly'\n"
 	if got := Convert(filepath.Join(root, "helpers", "area", "Inside.maxon"), helper, sourceFile).Text; got != helper {
 		t.Errorf("a helper that only a file outside its directory names:\n%s", got)
+	}
+}
+
+// TestConvertDeclaresMaxonsSubprocessBesideTheBuiltIns: the types of maxon's Subprocess that minimaxon also builds in are
+// declared by the library under the prefix Mx, a method that calls a raw function the table lacks goes with the method
+// that calls it, and a cstring of a toString() views the path field, which outlives it.
+func TestConvertDeclaresMaxonsSubprocessBesideTheBuiltIns(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "stdlib")
+	in := "public typealias WaitDeadlineMs = int(1 to u64.max)\n\n" +
+		"/// The deadline of a Subprocess.\npublic union WaitDeadline\n\tnone\n\twithin(timeoutMs WaitDeadlineMs)\nend 'WaitDeadline'\n\n" +
+		"public type Subprocess\n\tpublic static function run(deadline WaitDeadline) returns Count\n\t\tpanic(\"Subprocess.run: {deadline}\")\n\tend 'run'\n\n" +
+		"\tpublic static function runKilled() returns Count\n\t\treturn __Builtins.subprocessKill(0)\n\tend 'runKilled'\nend 'Subprocess'\n\n" +
+		"public type Configuration\n\tpublic function run() returns Count\n\t\treturn Subprocess.run(WaitDeadline.none)\n\tend 'run'\n\n" +
+		"\tpublic function runKilled() returns Count\n\t\treturn Subprocess.runKilled()\n\tend 'runKilled'\nend 'Configuration'\n\n" +
+		"function operand(path FilePath) returns cstring\n\treturn path.toString().cstr()\nend 'operand'\n"
+	want := "public typealias WaitDeadlineMs = int(1 to u64.max)\n\n" +
+		"/// The deadline of a MxSubprocess.\npublic union MxWaitDeadline\n\tnone\n\twithin(timeoutMs WaitDeadlineMs)\nend 'MxWaitDeadline'\n\n" +
+		"public type MxSubprocess\n\tpublic static function run(deadline MxWaitDeadline) returns Count\n\t\tpanic(\"MxSubprocess.run: {deadline}\")\n\tend 'run'\nend 'MxSubprocess'\n\n" +
+		"public type Configuration\n\tpublic function run() returns Count\n\t\treturn MxSubprocess.run(MxWaitDeadline.none)\n\tend 'run'\nend 'Configuration'\n\n" +
+		"function operand(path FilePath) returns cstring\n\treturn path.path.cstr()\nend 'operand'\n"
+	res := Convert(filepath.Join(root, "Subprocess.maxon"), in, sourceFile)
+	if len(res.Warnings) > 0 || !res.Formatted {
+		t.Fatalf("warnings %v, formatted %v:\n%s", res.Warnings, res.Formatted, res.Text)
+	}
+	if res.Text != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", res.Text, want)
+	}
+}
+
+// TestConvertWritesNamesThatHideModulesAndDropsRawBufferCasts: a field named after a library module is written as another name,
+// in code and in the interpolations of strings but not in their text, and a cast of a raw buffer to the bare __ManagedMemory,
+// with its capability word, is left out.
+func TestConvertWritesNamesThatHideModulesAndDropsRawBufferCasts(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "stdlib")
+	in := "type Reader\n\tlet stream as Count\n\n\tfunction name() returns String\n\t\tlet raw = __Builtins.subprocessReadAvailable(stream, 1, 2) as isolated __ManagedMemory\n\t\treturn \"{stream} the stream\"\n\tend 'name'\nend 'Reader'\n"
+	want := "type Reader\n\tlet which as Count\n\n\tfunction name() returns String\n\t\tlet raw = __Builtins.subprocessReadAvailable(which, 1, 2)\n\t\treturn \"{which} the stream\"\n\tend 'name'\nend 'Reader'\n"
+	if got := Convert(filepath.Join(root, "Reader.maxon"), in, sourceFile).Text; got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
 }

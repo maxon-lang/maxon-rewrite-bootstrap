@@ -29,7 +29,6 @@ library tier (`<!-- tier: stdlib -->`).
 ## Tests
 
 <!-- test: builtin-type-checking.error-managed-file-open-read-int -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -42,7 +41,6 @@ error E3005: specs/builtin-type-checking/builtin-type-checking.error-managed-fil
 ```
 
 <!-- test: builtin-type-checking.error-managed-file-write-int -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 enum TestFileError implements Error
@@ -84,7 +82,6 @@ error E3005: specs/builtin-type-checking/builtin-type-checking.error-managed-dir
 ```
 
 <!-- test: builtin-type-checking.error-managed-memory-set-length-string -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -98,7 +95,6 @@ error E3005: specs/builtin-type-checking/builtin-type-checking.error-managed-mem
 ```
 
 <!-- test: builtin-type-checking.error-managed-memory-append-int -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode

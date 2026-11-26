@@ -1,4 +1,3 @@
-// native-only
 function main() returns ExitCode
 	let p = async vault.make(3)
 	let q = vault.promised(4)

@@ -1,0 +1,70 @@
+// libraryHeads is a library of two modules, the core and `chained`.
+function libraryHeads() returns LibraryHeads
+	var heads = ast.StringList.create(0)
+	heads.push("core")
+	heads.push("chained")
+	var modules = CountList.create(0)
+	modules.push(10)
+	modules.push(11)
+	return LibraryHeads.make(modules, heads: heads, core: table.Option.some(0 as Count))
+end 'libraryHeads'
+
+function wordsText(words ast.StringList) returns String
+	var text = ""
+	for word in words 'words'
+		text = "{text}{word} "
+	end 'words'
+	return text
+end 'wordsText'
+
+// scannedText is a file of a library module that declares a function, a type with two methods, only one of which is exported,
+// an extension of the type whose name is extended, with a member that is not exported, one that is, a static let and one in
+// a branch of a directive, and a constant that names `chained`.
+function scannedText(extended String) returns String
+	var text = "public function util() returns int\n\treturn 1\nend 'util'\n\n"
+	text = "{text}type Box\n\texport var n as int\n\n\texport function size() returns int\n\t\treturn n\n\tend 'size'\n\n"
+	text = "{text}\tfunction hidden() returns int\n\t\treturn 0\n\tend 'hidden'\nend 'Box'\n\n"
+	text = "{text}// reads other.thing\nextension {extended} implements Sized\n\texport function area() returns int\n\t\treturn 2\n\tend 'area'\n\n"
+	text = "{text}\tstatic function internal() returns int\n\t\treturn 3\n\tend 'internal'\n\n\tpublic static let unit = 1\n\n"
+	text = "{text}\t#if os(Windows)\n\t\texport function branch() returns int\n\t\t\treturn 4\n\t\tend 'branch'\n\t#endif\nend '{extended}'\n\n"
+	text = "{text}#if os(Windows)\n\tlet leftOut = 1\n#endif\n\nlet value = chained.reach()\n"
+	return text
+end 'scannedText'
+
+function scanOfText(text String) returns LibraryScan
+	let heads = libraryHeads()
+	var scan = LibraryScan.of(heads)
+	scan.addText("<test>", text: text.clone(), heads: heads)
+	return scan
+end 'scanOfText'
+
+test 'a scan of a library file reads the names it declares, and the members that its extensions of other types export, in every branch of a directive'
+	let scan = scanOfText(scannedText("String"))
+	table.assertEqStr(wordsText(scan.words()), expected: "util Box leftOut value area unit branch ", label: "the words of a module whose extension is of String")
+	let named = scan.namedModules(libraryHeads())
+	if named.count() != 2 or not named.contains(10 as Count) or not named.contains(11 as Count) 'named'
+		panic("a file that writes chained.reach names {named.count()} modules, not the core and chained")
+	end 'named'
+end 'a scan of a library file reads the names it declares, and the members that its extensions of other types export, in every branch of a directive'
+
+test 'a scan of a library file leaves out the members of the types it declares'
+	table.assertEqStr(wordsText(scanOfText(scannedText("Box")).words()), expected: "util Box leftOut value ", label: "the words of a module whose extension is of its own type")
+	let scan = scanOfText("export function plain() returns int\n\treturn 1\nend 'plain'\n")
+	let named = scan.namedModules(libraryHeads())
+	if named.count() != 1 or not named.contains(10 as Count) 'core'
+		panic("a file that writes no qualifier names {named.count()} modules, not only the core")
+	end 'core'
+end 'a scan of a library file leaves out the members of the types it declares'
+
+test 'a scan of a library file with a syntax error reads its declarations all the same'
+	let scan = scanOfText("public function stray() returns int\n\treturn 2\nend 'stray'\n\nexport let = 6\n")
+	table.assertEqStr(wordsText(scan.words()), expected: "stray ", label: "the words of a file with an error")
+end 'a scan of a library file with a syntax error reads its declarations all the same'
+
+test 'a scan of a library file reads the type that an extension names last, and a member of an extension in another file'
+	let heads = libraryHeads()
+	var scan = LibraryScan.of(heads)
+	scan.addText("<one>", text: "extension a.String\n\texport function shout() returns String\n\t\treturn self\n\tend 'shout'\nend 'String'\n".clone(), heads: heads)
+	scan.addText("<two>", text: "type String\n\texport var n as int\nend 'String'\n".clone(), heads: heads)
+	table.assertEqStr(wordsText(scan.words()), expected: "String ", label: "the words of a module that declares the type that another of its files extends")
+end 'a scan of a library file reads the type that an extension names last, and a member of an extension in another file'

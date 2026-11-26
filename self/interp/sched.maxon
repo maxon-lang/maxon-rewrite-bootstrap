@@ -6,7 +6,8 @@
 // is the interleaving, which is where a data race would show.
 //
 // A thread is a stack of frames that runs only while the scheduler has handed it the turn. It gives the turn back after a
-// random number of instructions (its burst), and again when it finishes.
+// random number of instructions (its burst), when it waits (strands.maxon), and when it finishes. A coroutine is a thread
+// too, which takes the turn only while it holds its strand.
 
 // shortBurst, mediumBurst and longBurst are the longest stretches of instructions a thread runs without giving the turn
 // back. Each stretch is a random length up to one of them, so a run has a few very fine interleavings and a few coarse ones.
@@ -31,6 +32,9 @@ let burstLimitCount = 3 as Count
 function describeThread(vm Vm, t Count) returns String
 	let name = vm.prog.symbols[vm.threads[t].name].clone()
 	let b = vm.threads[t].behaviour
+	if vm.threads[t].promise != 0 'coroutine'
+		return "{name} (coroutine)"
+	end 'coroutine'
 	if b == 0 'main'
 		return name
 	end 'main'
@@ -139,14 +143,14 @@ end 'requireReachableCell'
 
 function requireDomain(mutates vm Vm, d Domain, what String, use String) throws Halt
 	if d.kind == domainThread 'thread'
-		if d.thread != vm.cur 'foreign'
+		if not sameStrand(vm, a: d.thread, b: vm.cur) 'foreign'
 			let message = "{use} uses {what}, which belongs to the thread {describeThread(vm, t: d.thread)}, and this is the thread {describeThread(vm, t: vm.cur)}: a data race"
 			throw violation(vm, kind: race, message: message)
 		end 'foreign'
 	end 'thread'
 	if d.kind == domainCown 'cown'
 		let running = vm.h.shareds[vm.h.oData[d.cown]].running
-		if running == 0 or running != vm.threads[vm.cur].behaviour 'unheld'
+		if running == 0 or running != behaviourOf(vm, t: vm.cur) 'unheld'
 			let message = "{use} uses {what}, the value of {objectText(vm, o: d.cown)}, but the thread {describeThread(vm, t: vm.cur)} holds no behaviour that has the cown: a data race"
 			throw violation(vm, kind: race, message: message)
 		end 'unheld'
@@ -209,6 +213,8 @@ function schedule(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	vm.behaviours.capturesR.push(capturesR)
 	vm.behaviours.seq.push(vm.scheduled)
 	vm.behaviours.started.push(false)
+	vm.behaviours.mute.push(muteNone)
+	vm.behaviours.mutedOn.push(0)
 	vm.scheduled = try vm.scheduled + 1 otherwise panic("interp: more behaviours than memory")
 	for i in 0 upto cowns.count() 'queues'
 		let at = vm.h.oData[cowns[i]]
@@ -237,9 +243,22 @@ function beginBehaviour(mutates vm Vm, b Count) returns Count
 	return t
 end 'beginBehaviour'
 
-// finishBehaviour releases the cowns of a behaviour that has run: the next behaviour in each queue may now start, and the count
-// the behaviour held on each is given back, which frees a cown that nothing else refers to.
+// finishBehaviour releases the cowns of a behaviour that has run, unless backpressure mutes it (keepMuted).
 function finishBehaviour(mutates vm Vm, b Count) throws Halt
+	let service = vm.threads[vm.cur].service
+	if mutes(vm, b: b, service: service) 'muted'
+		let kept = try keepMuted(vm, b: b, service: service)
+		if kept 'kept'
+			return
+		end 'kept'
+	end 'muted'
+	try releaseBehaviour(vm, b: b, service: service)
+end 'finishBehaviour'
+
+// releaseBehaviour gives back the cowns of a behaviour: the next behaviour in each queue may now start, and the count the
+// behaviour held on each is given back, which frees a cown that nothing else refers to. service is the service whose message
+// the behaviour is, or 0, whose turn the release counts (countTurn).
+function releaseBehaviour(mutates vm Vm, b Count, service Count) throws Halt
 	for i in 0 upto vm.behaviours.cowns[b].count() 'cowns'
 		let c = vm.behaviours.cowns[b][i]
 		let at = vm.h.oData[c]
@@ -248,9 +267,12 @@ function finishBehaviour(mutates vm Vm, b Count) throws Halt
 		end 'order'
 		try vm.h.shareds[at].queue.remove(0) otherwise ignore
 		vm.h.shareds[at].running = 0
+		if c == service 'message'
+			try countTurn(vm, service: c)
+		end 'message'
 		try unref(vm, o: c)
 	end 'cowns'
-end 'finishBehaviour'
+end 'releaseBehaviour'
 
 // FunctionJob is work to do on a function that is found by where it is in the program: the function is a borrow of the lists
 // the program is in, so what is done with it is the job's, and the job is handed to withFunction.
@@ -311,6 +333,7 @@ function saveThread(mutates vm Vm)
 	vm.threads[t].regR = exchange(vm.regR, value: ir.WordList.create(0))
 	vm.threads[t].frames = exchange(vm.frames, value: CountList.create(0))
 	vm.threads[t].windows = exchange(vm.windows, value: Windows.create(0))
+	vm.threads[t].dropWaits = exchange(vm.dropWaits, value: CountList.create(0))
 	vm.threads[t].stackTop = vm.stackTop
 	vm.threads[t].ticked = vm.ticked
 end 'saveThread'
@@ -321,6 +344,7 @@ function restoreThread(mutates vm Vm, t Count)
 	vm.regR = exchange(vm.threads[t].regR, value: ir.WordList.create(0))
 	vm.frames = exchange(vm.threads[t].frames, value: CountList.create(0))
 	vm.windows = exchange(vm.threads[t].windows, value: Windows.create(0))
+	vm.dropWaits = exchange(vm.threads[t].dropWaits, value: CountList.create(0))
 	vm.stackTop = vm.threads[t].stackTop
 	vm.ticked = vm.threads[t].ticked
 	vm.top = 0
@@ -334,6 +358,11 @@ end 'restoreThread'
 // then what was captured.
 function beginFrame(mutates vm Vm, t Count) throws Halt
 	vm.threads[t].begun = true
+	let row = vm.threads[t].promise
+	if row != 0 'coroutine'
+		try beginCoroutine(vm, t: t, row: row)
+		return
+	end 'coroutine'
 	clearArguments(vm)
 	let b = vm.threads[t].behaviour
 	if b != 0 'behaviour'
@@ -353,26 +382,31 @@ function beginFrame(mutates vm Vm, t Count) throws Halt
 end 'beginFrame'
 
 // endThread ends the thread that has the turn when its last frame has returned, and gives whether it has more to run: a behaviour
-// that has run gives back its cowns, which may free a cown whose destructor then runs in the thread.
+// that has run gives back its cowns, which may free a cown whose destructor then runs in the thread, and a coroutine keeps what
+// its function gave for its promise, which it finishes once the drops it made are done, which it may wait for.
 function endThread(mutates vm Vm) returns bool
 	let t = vm.cur
-	if vm.threads[t].finished 'finished'
-		vm.threads[t].done = true
-		return false
-	end 'finished'
-	vm.threads[t].finished = true
-	let b = vm.threads[t].behaviour
-	if b == 0 'main'
-		vm.mainExit = int32Of(vm.baseN)
-		vm.threads[t].done = true
-		return false
-	end 'main'
-	try finishBehaviour(vm, b: b) otherwise return false
+	if not vm.threads[t].finished 'last'
+		vm.threads[t].finished = true
+		let row = vm.threads[t].promise
+		let b = vm.threads[t].behaviour
+		if row != 0 'coroutine'
+			keepOutcome(vm, t: t, row: row)
+		end 'coroutine' else if b == 0 'main'
+			vm.mainExit = int32Of(vm.threads[t].retN)
+		end 'main' else 'behaviour'
+			try finishBehaviour(vm, b: b) otherwise return false
+		end 'behaviour'
+	end 'last'
 	if vm.endingFn.count() > 0 'endings'
 		try runEndings(vm) otherwise return false
 		return true
 	end 'endings'
-	vm.threads[t].done = true
+	if vm.dropWaits.count() > 0 'dropped'
+		let settled = try settleDrops(vm) otherwise return false
+		return settled
+	end 'dropped'
+	finishThread(vm, t: t)
 	return false
 end 'endThread'
 
@@ -411,11 +445,14 @@ end 'resumeThread'
 function runScheduler(mutates job Interp, p ast.Project, modules ModuleFunctions, paths CountLists)
 	job.m.vm.threads.push(Thread.new(job.m.vm.prog.mainFn, behaviour: 0))
 	while job.m.vm.fatal == fatalNone 'turns'
-		// The threads that can take the next step: every one that has started and not finished, and every behaviour that has not
-		// started and holds the front of the queue of each cown it names.
+		if job.m.vm.sleepers.count() > 0 'timers'
+			wakeDue(job.m.vm)
+		end 'timers'
+		// The threads that can take the next step: every one that has not finished and waits for nothing and holds its strand,
+		// and every behaviour that has not started and holds the front of the queue of each cown it names.
 		var threadIds = CountList.create(0)
 		for t in 1 upto job.m.vm.threads.count() 'threads'
-			if not job.m.vm.threads[t].done 'running'
+			if not job.m.vm.threads[t].done and not job.m.vm.threads[t].parked and holdsTurn(job.m.vm, t: t) 'running'
 				threadIds.push(t)
 			end 'running'
 		end 'threads'
@@ -428,6 +465,13 @@ function runScheduler(mutates job Interp, p ast.Project, modules ModuleFunctions
 		end 'pending'
 		let total = try threadIds.count() + startable.count() otherwise panic("interp: more threads than memory")
 		if total == 0 'none'
+			if job.m.vm.sleepers.count() > 0 'sleeping'
+				advanceClock(job.m.vm)
+				continue 'turns'
+			end 'sleeping'
+			if waitsOn(job.m.vm) 'stuck'
+				reportDeadlock(job.m.vm)
+			end 'stuck'
 			break 'turns'
 		end 'none'
 		let choice = job.m.vm.rng.intN(total)
@@ -439,7 +483,18 @@ function runScheduler(mutates job Interp, p ast.Project, modules ModuleFunctions
 		end 'behaviour'
 		resumeThread(job, p: p, modules: modules, paths: paths, t: t)
 	end 'turns'
-	if job.m.vm.fatal == fatalNone and job.m.vm.pending.count() > 0 'stuck'
-		panic("interp: {job.m.vm.pending.count()} behaviours are queued and none can run")
-	end 'stuck'
 end 'runScheduler'
+
+// waitsOn is whether something of the program has not run to its end: a thread that has not finished, a behaviour queued,
+// or one that backpressure keeps muted.
+function waitsOn(vm Vm) returns bool
+	if vm.pending.count() > 0 or mutedBehaviours(vm).count() > 0 'queued'
+		return true
+	end 'queued'
+	for t in 1 upto vm.threads.count() 'threads'
+		if not vm.threads[t].done 'unfinished'
+			return true
+		end 'unfinished'
+	end 'threads'
+	return false
+end 'waitsOn'

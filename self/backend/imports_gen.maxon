@@ -25,6 +25,8 @@ export function macosImports() returns NameList
 	names.push("nanosleep")
 	names.push("__error")
 	names.push("rename")
+	names.push("renamex_np")
+	names.push("fsync")
 	names.push("unlink")
 	names.push("mkdir")
 	names.push("rmdir")

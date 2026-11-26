@@ -1,0 +1,18 @@
+// sleep is maxon's library function (stdlib/sleep), so it is a value: passed to a function and called through it, it
+// parks as the direct call does, and ForeverMs is its module's constant.
+//> napped twice
+//> 18446744073709551615
+
+typealias Nap = function(Milliseconds)
+
+function twice(nap Nap)
+	nap(1)
+	nap(1)
+end 'twice'
+
+function main() returns ExitCode
+	twice(sleep)
+	print("napped twice\n")
+	print("{ForeverMs}\n")
+	return 0
+end 'main'

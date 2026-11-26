@@ -74,6 +74,7 @@ the library tier (`<!-- tier: stdlib -->`). A program writes `Scheduler.parallel
 ## Tests
 
 <!-- test: builtins-parallel-boundary.marks-a-cpu-bound-spawn -->
+<!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 <!-- tier: stdlib -->
 A CPU-bound function whose only concession to the scheduler is `__Builtins.parallelBoundary()` is a
 legal `async` target: the spawn compiles, runs, and hands back the value it computed.
@@ -93,6 +94,7 @@ green-thread substrate rather than to refuse whatever the callee happened to cal
 skip reason of every running `async` case. This case names the lane it can run on.
 ```maxon
 function work(n ExitCode) returns ExitCode
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	__Builtins.parallelBoundary()
 	return n + 1
 end 'work'
@@ -131,12 +133,14 @@ error E3073: <fragment>:7:10: 'async work(6)' — function never yields; 'async'
 ```
 
 <!-- test: builtins-parallel-boundary.statement-position -->
+<!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 <!-- tier: stdlib -->
 It returns nothing, so it is written on a line of its own — the statement door `builtins-sleep.md`
 opened for `__Builtins.<member>(…)`, which is a SHAPE and not a name list. A program whose whole body
 is the marker compiles and exits normally.
 ```maxon
 function checkpoint()
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	__Builtins.parallelBoundary()
 end 'checkpoint'
 
@@ -151,11 +155,14 @@ end 'main'
 ```
 
 <!-- test: builtins-parallel-boundary.error.value-position-rejected -->
+<!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
+<!-- positions: moved -->
 <!-- tier: stdlib -->
 It returns nothing, so reading its result is reading a value that is not there — the same rejection
 `__Builtins.sleep`'s result gets, quoting the QUALIFIED name the user wrote.
 ```maxon
 function main() returns ExitCode
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	let ignored = __Builtins.parallelBoundary()
 	return 0
 end 'main'
@@ -165,6 +172,8 @@ error E2004: <fragment>:3:27: Function '__Builtins.parallelBoundary' does not re
 ```
 
 <!-- test: builtins-parallel-boundary.error.arity-rejected -->
+<!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
+<!-- positions: moved -->
 <!-- tier: stdlib -->
 An intrinsic has no signature registry entry for the ordinary arity check to consult, so the arity is
 enforced at the emit — and the diagnostic quotes what the user wrote, not the bare spelling. It takes
@@ -175,6 +184,7 @@ already earns it (`builtins-clock`, `process-executable-path`, `process-id` pin 
 to rather than corrected here: the wording is one renderer's and moving it moves four specs at once.
 ```maxon
 function main() returns ExitCode
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	__Builtins.parallelBoundary(1)
 	return 0
 end 'main'

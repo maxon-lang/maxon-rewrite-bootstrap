@@ -66,14 +66,23 @@ let cownValueOffset = 24 as Count
 // cownBytes is the size of a cown.
 let cownBytes = 40 as Count
 
-// serviceGateOffset is where a service holds its mailbox's gate, stepped atomically: how many messages are queued and not yet started, plus serviceClosed once it is shut down.
+// serviceGateOffset is where a service holds its mailbox's gate, stepped atomically: how many messages are queued and not yet started, plus its flags: serviceClosed once it is shut down, serviceBehind and serviceMuted.
 let serviceGateOffset = 40 as Count
 
-// serviceCapacityOffset is where a service holds how many messages its mailbox holds at most.
-let serviceCapacityOffset = 48 as Count
+// serviceMutedOffset is where a service holds the senders slowed on it, a ring of entries named by its newest, whose link names the oldest, 0 for none, with mutedLock added while one holds it.
+let serviceMutedOffset = 48 as Count
+
+// serviceMostOffset is where a service holds the most messages a slowed send found queued with its own, which only a slowed send writes: every count past turnBehaviours is one.
+let serviceMostOffset = 56 as Count
+
+// serviceLinkOffset is where a service listed on another holds its link in that one's ring, and once its unmute queues its kept message, the rest of the ring that message unmutes when it runs.
+let serviceLinkOffset = 64 as Count
+
+// serviceWaitOffset is where a service holds 0, waitListed while it is listed on another that slows it, or the record of its message whose release is kept while it is muted.
+let serviceWaitOffset = 72 as Count
 
 // serviceBytes is the size of a service.
-let serviceBytes = 56 as Count
+let serviceBytes = 80 as Count
 
 // behaviourPendingOffset is where a behaviour's record holds how many cowns it still waits for, plus one while it is being queued, stepped atomically: it runs when that reaches 0.
 let behaviourPendingOffset = 0 as Count
@@ -342,7 +351,7 @@ let schedFreeStackCountOffset = 264 as Count
 // schedPinnedOffset is where the scheduler's record holds how many green threads are pinned to their threads, stepped atomically, so a scheduler with none never reads a green thread's pin.
 let schedPinnedOffset = 272 as Count
 
-// schedPreemptAsksOffset is where the scheduler's record holds how many times the monitor has asked a green thread to stop (preemptOne), once for each slice it held a processor on one schedtick and not again for an ask it repeats, which only the monitor writes and the tests of its pace read.
+// schedPreemptAsksOffset is where the scheduler's record holds how many times the monitor has asked a green thread to stop (preemptOne), once for each green thread it asks on one schedtick and not again for an ask it repeats to it, which only the monitor writes and the tests of its pace read.
 let schedPreemptAsksOffset = 280 as Count
 
 // schedForkLockOffset is where the scheduler's record holds the fork lock on Linux (Go's syscall.ForkLock): how many writes of a file hold it shared, with forkHeldBit set while a clone holds it or waits to; a futex word.
@@ -366,8 +375,17 @@ let schedHandlesOffset = 328 as Count
 // schedProcessEntryFreeOffset is where the scheduler's record holds the first free event entry that was a process's, linked through entryLinkOffset, under the lock: such an entry is taken again only as a process's, since a system may still hold a notification keyed by it that no other kind of entry could tell from its own.
 let schedProcessEntryFreeOffset = 336 as Count
 
+// schedMachinesOffset is where the scheduler's record holds how many threads it has started, the last one's number, under the scheduler's lock.
+let schedMachinesOffset = 344 as Count
+
+// schedPreemptOffOffset is where the scheduler's record holds 1 when MAXON_PREEMPT is off, so the monitor takes no processor from the thread holding it, resolved before main runs.
+let schedPreemptOffOffset = 352 as Count
+
+// schedForkEndsOffset is where the scheduler's record holds how many clones have given the fork lock back on Linux, stepped atomically, which the close of a file open for writing waits on to change while forkHeldBit is set; a futex word.
+let schedForkEndsOffset = 360 as Count
+
 // schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made.
-let schedProcessorsOffset = 344 as Count
+let schedProcessorsOffset = 368 as Count
 
 // procIdOffset is where a processor holds its index among the processors.
 let procIdOffset = 0 as Count
@@ -381,7 +399,7 @@ let procThreadOffset = 16 as Count
 // procLinkOffset is where a processor holds the next idle processor, under the scheduler's lock.
 let procLinkOffset = 24 as Count
 
-// procSchedTickOffset is where a processor holds how many green threads it has started running (Go's schedtick).
+// procSchedTickOffset is where a processor holds how many slices it has started (Go's schedtick): one for each green thread it starts that does not inherit the slice.
 let procSchedTickOffset = 32 as Count
 
 // procSyscallTickOffset is where a processor holds how many blocking calls its threads have entered (Go's syscalltick).
@@ -432,8 +450,17 @@ let procRunqSlots = 256 as Count
 // procAskGapOffset is where a processor holds how long the monitor waits before it asks again the green thread it asked to stop on the schedtick it saw last, 0 while it has not asked on that tick, which only the monitor reads and writes.
 let procAskGapOffset = 2192 as Count
 
+// procAskedGreenOffset is where a processor holds the green thread the monitor last asked to stop on the schedtick it saw last, so that an ask on that tick is an ask again only to that green thread and is counted for one that inherited the slice, which only the monitor reads and writes.
+let procAskedGreenOffset = 2200 as Count
+
+// procSliceAskedOffset is where a processor holds 1 while the monitor's ask to stop the slice it runs is not answered: left by the green thread that switched back with it, for the next green thread that inherits the slice to take as its own ask.
+let procSliceAskedOffset = 2208 as Count
+
+// procInheritOffset is where a processor holds 1 while the entry its thread's search for work took last came from its runnext, which then runs on the slice of the green thread that readied it (Go's inheritTime).
+let procInheritOffset = 2216 as Count
+
 // procBytes is the size of a processor.
-let procBytes = 2200 as Count
+let procBytes = 2224 as Count
 
 // greenStatusOffset is where a green thread holds its status (greenIdle, greenRunnable, ...), changed with compare-exchanges where a reader of another thread may race.
 let greenStatusOffset = 0 as Count
@@ -522,8 +549,14 @@ let greenTimerIndexOffset = 496 as Count
 // greenEventOffset is where a green thread holds the address of the state word of the event entry it waits on, 0 while it waits on none: a timer that falls due for it and a cancel claim its wake there.
 let greenEventOffset = 504 as Count
 
+// greenServiceOffset is where a green thread holds the service whose message it runs, which the message's start names, 0 while it runs none.
+let greenServiceOffset = 512 as Count
+
+// greenMuteOffset is where a task readied from a list of slowed senders holds the entries its wake goes on to unmute; 0 otherwise.
+let greenMuteOffset = 520 as Count
+
 // greenBytes is the size of a green thread's record.
-let greenBytes = 512 as Count
+let greenBytes = 528 as Count
 
 // selectorGreenOffset is where a selector holds the green thread that waits.
 let selectorGreenOffset = 0 as Count
@@ -567,8 +600,11 @@ let threadBlockLockedOffset = 2304 as Count
 // threadBlockChangeOffset is where a thread's block holds the one change of a user event that the thread makes to the event queue, a struct kevent on macOS.
 let threadBlockChangeOffset = 2312 as Count
 
-// threadBlockBytes is the size of a thread's block: room for eventSlots events of windowsEntryBytes each, the larger of the two systems', the pinned green thread and a change of a user event.
-let threadBlockBytes = 2344 as Count
+// threadBlockMachineOffset is where a thread's block holds the thread's number among those the scheduler started, from 1 in the order they started, which Scheduler.currentMachine gives.
+let threadBlockMachineOffset = 2344 as Count
+
+// threadBlockBytes is the size of a thread's block: room for eventSlots events of windowsEntryBytes each, the larger of the two systems', the pinned green thread, a change of a user event and the thread's number.
+let threadBlockBytes = 2352 as Count
 
 // entryReadStateOffset is where an event entry holds the state of a wait to read, or of a user event: the green thread that waits, eventQueued once an event came that no wait has taken, or what claimed the wake of the waiter (a deadline, a close, a cancel), exchanged atomically.
 let entryReadStateOffset = 0 as Count
@@ -597,8 +633,11 @@ let entryReadOverlappedOffset = 56 as Count
 // entryWriteOverlappedOffset is where an event entry holds the OVERLAPPED of a write of its handle, on Windows, four words, whose completion readies the wait to write.
 let entryWriteOverlappedOffset = 88 as Count
 
+// entryOrphanOffset is where a process's event entry holds the pid of the child whose exit it is watched for by no green thread (0 for none): the take of its event reaps the child and gives the entry back, and whoever exchanges the word to 0 first owns that.
+let entryOrphanOffset = 120 as Count
+
 // eventEntryBytes is the size of an event entry.
-let eventEntryBytes = 120 as Count
+let eventEntryBytes = 128 as Count
 
 // windowsEntryKeyOffset is where an OVERLAPPED_ENTRY holds the completion key.
 let windowsEntryKeyOffset = 0 as Count
@@ -846,6 +885,9 @@ let linuxOpenReadOnly = 524288 as Count
 // linuxOpenReplace is O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC.
 let linuxOpenReplace = 524865 as Count
 
+// linuxOpenCreateNew is O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC: a file that must not be there, made and opened in one step.
+let linuxOpenCreateNew = 524481 as Count
+
 // linuxOpenCloseOnExec is O_CLOEXEC: an fd that an execve closes, as pipe2 takes it.
 let linuxOpenCloseOnExec = 524288 as Count
 
@@ -873,38 +915,26 @@ let linuxDirectoryMode = 511 as Count
 // linuxStatSizeOffset is where a struct stat holds st_size.
 let linuxStatSizeOffset = 48 as Count
 
-// linuxStatxBytes is the size of a struct statx.
-let linuxStatxBytes = 256 as Count
+// linuxStatAccessedOffset is where a struct stat holds st_atim, whose first word is its seconds.
+let linuxStatAccessedOffset = 72 as Count
 
-// linuxStatxMaskOffset is where a struct statx holds stx_mask, 32 bits: the fields the kernel filled.
-let linuxStatxMaskOffset = 0 as Count
+// linuxStatModifiedOffset is where a struct stat holds st_mtim, whose first word is its seconds.
+let linuxStatModifiedOffset = 88 as Count
 
-// linuxStatxModeOffset is where a struct statx holds stx_mode, 16 bits.
-let linuxStatxModeOffset = 28 as Count
-
-// linuxStatxSizeOffset is where a struct statx holds stx_size.
-let linuxStatxSizeOffset = 40 as Count
-
-// linuxStatxAccessedOffset is where a struct statx holds stx_atime, whose first word is its seconds.
-let linuxStatxAccessedOffset = 64 as Count
-
-// linuxStatxCreatedOffset is where a struct statx holds stx_btime, whose first word is its seconds.
-let linuxStatxCreatedOffset = 80 as Count
-
-// linuxStatxModifiedOffset is where a struct statx holds stx_mtime, whose first word is its seconds.
-let linuxStatxModifiedOffset = 112 as Count
-
-// linuxStatxWanted is STATX_BASIC_STATS | STATX_BTIME: the fields to fill.
-let linuxStatxWanted = 4095 as Count
-
-// linuxStatxBirthTime is STATX_BTIME: set in stx_mask when the file system records when a file was made.
-let linuxStatxBirthTime = 2048 as Count
+// linuxStatChangedOffset is where a struct stat holds st_ctim, the last status change, whose first word is its seconds: what maxon's File.info gives as createdTime on Linux, where a struct stat has no birth time.
+let linuxStatChangedOffset = 104 as Count
 
 // linuxModeTypeMask is S_IFMT: the bits of st_mode that say what a file is.
 let linuxModeTypeMask = 61440 as Count
 
 // linuxModeDirectory is S_IFDIR.
 let linuxModeDirectory = 16384 as Count
+
+// linuxModeFifo is S_IFIFO: a FIFO, which an open file waits on through the event queue.
+let linuxModeFifo = 4096 as Count
+
+// linuxModeSocket is S_IFSOCK: a socket, which an open file waits on through the event queue.
+let linuxModeSocket = 49152 as Count
 
 // linuxModeCharacter is S_IFCHR: a character device, a terminal among them.
 let linuxModeCharacter = 8192 as Count
@@ -1002,6 +1032,9 @@ let macosOpenReadOnly = 16777216 as Count
 // macosOpenReplace is O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC.
 let macosOpenReplace = 16778753 as Count
 
+// macosOpenCreateNew is O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC: a file that must not be there, made and opened in one step.
+let macosOpenCreateNew = 16779777 as Count
+
 // macosFileMode is 0666, which the umask narrows: the mode of a file the runtime makes.
 let macosFileMode = 438 as Count
 
@@ -1037,6 +1070,12 @@ let macosModeTypeMask = 61440 as Count
 
 // macosModeDirectory is S_IFDIR.
 let macosModeDirectory = 16384 as Count
+
+// macosModeFifo is S_IFIFO: a FIFO, which an open file waits on through the event queue.
+let macosModeFifo = 4096 as Count
+
+// macosModeSocket is S_IFSOCK: a socket, which an open file waits on through the event queue.
+let macosModeSocket = 49152 as Count
 
 // macosModeCharacter is S_IFCHR: a character device, a terminal among them.
 let macosModeCharacter = 8192 as Count
@@ -1197,6 +1236,9 @@ let macosSpawnCloexecDefault = 16384 as Count
 // macosSpawnSetPgroup is POSIX_SPAWN_SETPGROUP: the child joins the process group that posix_spawnattr_setpgroup names, 0 being a group of its own.
 let macosSpawnSetPgroup = 2 as Count
 
+// macosSpawnSetSid is POSIX_SPAWN_SETSID: the child leads a new session, and a process group of its own, with no controlling terminal.
+let macosSpawnSetSid = 1024 as Count
+
 #if arch(arm64)
 	// linuxSysRead is read(fd, buffer, count).
 	let linuxSysRead = 63 as Count
@@ -1252,6 +1294,9 @@ let macosSpawnSetPgroup = 2 as Count
 	// linuxSysSetpgid is setpgid(pid, group): 0 and 0 make the calling process the leader of a process group of its own.
 	let linuxSysSetpgid = 154 as Count
 
+	// linuxSysSetsid is setsid(): the calling process leads a new session, and a process group of its own, with no controlling terminal.
+	let linuxSysSetsid = 157 as Count
+
 	// linuxSysGetcwd is getcwd(buffer, size).
 	let linuxSysGetcwd = 17 as Count
 
@@ -1278,9 +1323,6 @@ let macosSpawnSetPgroup = 2 as Count
 
 	// linuxSysNewfstatat is newfstatat(directory fd, path, stat, flags).
 	let linuxSysNewfstatat = 79 as Count
-
-	// linuxSysStatx is statx(directory fd, path, flags, mask, statx): the times of a file with the one it was made, which stat has no field for.
-	let linuxSysStatx = 291 as Count
 
 	// linuxSysReadlinkat is readlinkat(directory fd, path, buffer, size).
 	let linuxSysReadlinkat = 78 as Count
@@ -1405,6 +1447,9 @@ let macosSpawnSetPgroup = 2 as Count
 	// linuxSysSetpgid is setpgid(pid, group): 0 and 0 make the calling process the leader of a process group of its own.
 	let linuxSysSetpgid = 109 as Count
 
+	// linuxSysSetsid is setsid(): the calling process leads a new session, and a process group of its own, with no controlling terminal.
+	let linuxSysSetsid = 112 as Count
+
 	// linuxSysGetcwd is getcwd(buffer, size).
 	let linuxSysGetcwd = 79 as Count
 
@@ -1443,9 +1488,6 @@ let macosSpawnSetPgroup = 2 as Count
 
 	// linuxSysNewfstatat is newfstatat(directory fd, path, stat, flags).
 	let linuxSysNewfstatat = 262 as Count
-
-	// linuxSysStatx is statx(directory fd, path, flags, mask, statx): the times of a file with the one it was made, which stat has no field for.
-	let linuxSysStatx = 332 as Count
 
 	// linuxSysReadlinkat is readlinkat(directory fd, path, buffer, size).
 	let linuxSysReadlinkat = 267 as Count

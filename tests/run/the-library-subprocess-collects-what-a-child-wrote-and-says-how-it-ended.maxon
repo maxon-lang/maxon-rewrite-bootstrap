@@ -1,0 +1,166 @@
+// The library's Subprocess (maxon's, over the subprocess rows) runs a child to its end and collects its output and error: how it
+// ended (`exited` with its code, `signalled` with the signal where the system has them), what it wrote, its process id and how
+// long it ran. The child is this program run again, so every system runs the same. Its standard input is none, inherited or
+// bytes that hold a NUL, which reach it whole; its output and error are collected, capped (a limit caps what is kept and never
+// what is read), discarded or, for the output, inherited, where it is this program's own; a deadline ends a child that goes on,
+// and the error that says so carries what it had written.
+// native-only
+//> plain: exited 3 succeeded=false exitCode=3 stdout=[out:one two] stderr=[err:one two] pid=true timed=true
+//> run: exited 3 stdout=[out:one two] stderr=[err:one two]
+//> none: exited 0 stdout=[read=0] stderr=[]
+//> inherited input: exited 0 stdout=[read=0] stderr=[]
+//> bytes: exited 0 stdout=[read=5 nul=true] stderr=[]
+//> discarded: exited 3 stdout=[] stderr=[]
+//> from the child
+//> inherited: exited 0 stdout=[] stderr=[err:one two]
+//> capped: exited 0 stdout=10 whole=true
+//> deadline: timeout timedOut=true fired=true stdout=[partial] timed=true
+//> abnormal: true
+
+typealias Arguments = Array with String
+
+// childArguments are the arguments that make this program a child of a mode.
+function childArguments(mode String) returns Arguments
+	var arguments = Arguments.create(0)
+	arguments.push("child")
+	arguments.push(mode.clone())
+	return arguments
+end 'childArguments'
+
+// configurationOf is a child of a mode, with the library's defaults for everything else.
+function configurationOf(executable MxExecutable, mode String) returns Configuration
+	var configuration = Configuration.create(executable)
+	configuration.arguments = childArguments(mode)
+	return configuration
+end 'configurationOf'
+
+// describeStatus says how a child ended.
+function describeStatus(status TerminationStatus) returns String
+	return match status 'status'
+		exited(code) gives "exited {code}"
+		signalled(signal) gives "signalled {signal}"
+	end 'status'
+end 'describeStatus'
+
+// describe runs the configuration to its end and prints how the child ended and what it wrote, as one line.
+function describe(label String, configuration Configuration, capped bool)
+	let out = try configuration.run() otherwise (e) 'failed'
+		print("{label}: failed {e.displayReason()}\n")
+		return
+	end 'failed'
+	print("{label}: {describeStatus(out.status)}")
+	if capped 'cap'
+		print(" stdout={out.stdout.byteLength()} whole={out.stdout.byteLength() == 10}\n")
+	end 'cap' else 'text'
+		print(" stdout=[{out.stdout}] stderr=[{out.stderr}]\n")
+	end 'text'
+end 'describe'
+
+function child(mode String) returns ExitCode
+	if mode == "plain" 'plain'
+		print("out:one two")
+		printError("err:one two")
+		return 3
+	end 'plain'
+	if mode == "echo" 'echo'
+		var input = Console.stdin()
+		let got = try input.readToEnd() otherwise return 4
+		print("read={got.count()}")
+		if got.count() > 2 and (got.get(2)) == 0 'holdsNul'
+			print(" nul=true")
+		end 'holdsNul'
+		return 0
+	end 'echo'
+	if mode == "inherited" 'inherited'
+		print("from the child\n")
+		printError("err:one two")
+		return 0
+	end 'inherited'
+	if mode == "capped" 'capped'
+		var text = "0123456789"
+		for i in 0 upto 14 'grow'
+			text = "{text}{text}"
+		end 'grow'
+		print(text)
+		return 0
+	end 'capped'
+	if mode == "sleeper" 'sleeper'
+		print("partial")
+		sleep(60000)
+		return 0
+	end 'sleeper'
+	return 9
+end 'child'
+
+// abnormal is whether a child that ends other than by returning says how: the signal's number where the system has signals,
+// and the code it exited with where it has none.
+function abnormal() returns bool
+	var arguments = Arguments.create(0)
+	#if os(Windows)
+		arguments.push("/c")
+		arguments.push("exit 9")
+		let shell = MxExecutable.name("cmd.exe")
+	#else
+		arguments.push("-c")
+		arguments.push("kill -9 $$")
+		let shell = MxExecutable.name("sh")
+	#endif
+	let out = try MxSubprocess.run(shell, arguments: arguments) otherwise return false
+	return match out.status 'status'
+		exited(code) gives code == 9 and out.exitCode() == 9
+		signalled(signal) gives signal == 9 and out.exitCode() == 9
+	end 'status'
+end 'abnormal'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() > 1 'child'
+		return child(try args.get(2) otherwise "")
+	end 'child'
+	let own = try Process.executablePath() otherwise return 1
+	let executable = MxExecutable.path(own)
+	let plain = try MxSubprocess.run(executable.clone(), arguments: childArguments("plain")) otherwise return 2
+	print("plain: {describeStatus(plain.status)} succeeded={plain.succeeded()} exitCode={plain.exitCode()} stdout=[{plain.stdout}] stderr=[{plain.stderr}] pid={plain.pid > 0} timed={plain.durationMs < 60000}\n")
+	describe("run", configuration: configurationOf(executable.clone(), mode: "plain"), capped: false)
+	var none = configurationOf(executable.clone(), mode: "echo")
+	none.standardInput = InputSource.none
+	describe("none", configuration: none, capped: false)
+	var inheritedInput = configurationOf(executable.clone(), mode: "echo")
+	inheritedInput.standardInput = InputSource.inherit
+	describe("inherited input", configuration: inheritedInput, capped: false)
+	var bytes = configurationOf(executable.clone(), mode: "echo")
+	bytes.standardInput = InputSource.bytes("he\0lo")
+	describe("bytes", configuration: bytes, capped: false)
+	var discarded = configurationOf(executable.clone(), mode: "plain")
+	discarded.standardOutput = OutputDestination.discard
+	discarded.standardError = OutputDestination.discard
+	describe("discarded", configuration: discarded, capped: false)
+	var inherited = configurationOf(executable.clone(), mode: "inherited")
+	inherited.standardOutput = OutputDestination.inherit
+	describe("inherited", configuration: inherited, capped: false)
+	var capped = configurationOf(executable.clone(), mode: "capped")
+	capped.standardOutput = OutputDestination.collect(10)
+	capped.standardError = OutputDestination.discard
+	describe("capped", configuration: capped, capped: true)
+	var sleeper = configurationOf(executable.clone(), mode: "sleeper")
+	sleeper.deadline = MxWaitDeadline.within(400)
+	sleeper.standardError = OutputDestination.discard
+	try 'deadline'
+		_ = sleeper.run()
+		print("deadline: ran to its end\n")
+	end 'deadline' otherwise (e) 'late'
+		match e 'kind'
+			timeout(elapsedMs, stdout, _) then print("deadline: timeout timedOut={e.timedOut()} fired={e.deadlineFired()} stdout=[{stdout}] timed={elapsedMs >= 300 and elapsedMs < 30000}\n")
+			executableNotFound or
+			spawnFailed or
+			busy or
+			ioFailed or
+			treeNotEnded or
+			detachRefused or
+			inputTooLarge or
+			statusLost then print("deadline: failed {e.displayReason()}\n")
+		end 'kind'
+	end 'late'
+	print("abnormal: {abnormal()}\n")
+	return 0
+end 'main'

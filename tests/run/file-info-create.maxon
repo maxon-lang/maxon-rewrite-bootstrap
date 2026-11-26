@@ -1,0 +1,57 @@
+// FileInfo.create makes the record that File.info gives, from maxon's types: the size is a FileSize and the three times are
+// Timestamps (Unix seconds), whose range is the unsigned 64-bit word as Count's is. The fields have those types (sizeOf and
+// modifiedOf return them as they are), a record made by create reads back as it was made, and File.info of a file written in
+// the working directory gives a FileInfo of those types: its size, times after 2020 (createdTime is the inode change time on
+// Linux, which every file system gives) and its flags. The same program runs on every target and under the interpreter.
+//> made=10 20 30 40 false true
+//> largest=18446744073709551615 18446744073709551615
+//> sizeOf=10
+//> modifiedOf=20
+//> again=10 false
+//> read size=5
+//> read typed=true
+//> read times=true
+//> read flags=false false
+//> read again=5 true
+//> directory=true
+// tempName is a name in the working directory, which every target and the interpreter can write.
+function tempName() returns String
+	return "minimaxon_file_info_create_{Process.id()}.txt"
+end 'tempName'
+
+// lateIn2020 is a time in Unix seconds that a file written now is later than.
+let lateIn2020 = 1600000000 as Timestamp
+
+function sizeOf(info FileInfo) returns FileSize
+	return info.size
+end 'sizeOf'
+
+function modifiedOf(info FileInfo) returns Timestamp
+	return info.modifiedTime
+end 'modifiedOf'
+
+function main() returns ExitCode
+	let made = FileInfo.create(10, modifiedTime: 20, createdTime: 30, accessedTime: 40, isDirectory: false, isReadOnly: true)
+	print("made={made.size} {made.modifiedTime} {made.createdTime} {made.accessedTime} {made.isDirectory} {made.isReadOnly}\n")
+	let most = FileInfo.create(18446744073709551615, modifiedTime: 18446744073709551615, createdTime: 0, accessedTime: 0, isDirectory: true, isReadOnly: false)
+	print("largest={most.size} {most.modifiedTime}\n")
+	print("sizeOf={sizeOf(made)}\n")
+	print("modifiedOf={modifiedOf(made)}\n")
+	let again = FileInfo.create(made.size, modifiedTime: made.modifiedTime, createdTime: made.createdTime, accessedTime: made.accessedTime, isDirectory: made.isDirectory, isReadOnly: not made.isReadOnly)
+	print("again={again.size} {again.isReadOnly}\n")
+	let file = try FilePath.from(tempName()) otherwise panic("not a path")
+	try File.writeText(file, content: "hello") otherwise panic("cannot write")
+	let info = try File.info(file) otherwise panic("cannot read the information")
+	print("read size={sizeOf(info)}\n")
+	let typedSize = info.size as FileSize
+	print("read typed={typedSize == info.size}\n")
+	print("read times={modifiedOf(info) > lateIn2020 and info.createdTime > lateIn2020 and info.accessedTime > lateIn2020}\n")
+	print("read flags={info.isDirectory} {info.isReadOnly}\n")
+	let copy = FileInfo.create(info.size, modifiedTime: info.modifiedTime, createdTime: info.createdTime, accessedTime: info.accessedTime, isDirectory: info.isDirectory, isReadOnly: not info.isDirectory)
+	print("read again={copy.size} {copy.isReadOnly}\n")
+	try File.delete(file) otherwise panic("cannot delete")
+	let here = try FilePath.from(".") otherwise panic("not a path")
+	let directory = try File.info(here) otherwise panic("cannot read the information of a directory")
+	print("directory={directory.isDirectory}\n")
+	return 0
+end 'main'

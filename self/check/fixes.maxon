@@ -18,6 +18,8 @@ export let fixKindBorrowed = "borrowed"
 
 export let fixKindVar = "var"
 
+export let fixKindEnding = "ending"
+
 export let fixKindBound = "bound"
 
 export let fixKindInterpolation = "interpolation"
@@ -59,6 +61,8 @@ let openBraceByte = 123 as Byte
 let closeBraceByte = 125 as Byte
 
 let returnsKeyword = "returns"
+
+let otherwiseKeyword = "otherwise"
 
 let borrowedKeyword = "borrowed"
 
@@ -258,6 +262,12 @@ function tryEnd(t ast.Tree, e ast.NodeID, covered Count) returns table.Option wi
 	end 'passes'
 	return wrappedEnd(t, begin: ast.wordEnd(t.text, at: ast.skipSpace(t.text, at: covered)), e: fallback)
 end 'tryEnd'
+
+// passingTryFix covers the failure of e with a try that passes it to the caller, around the whole arithmetic expression it is
+// part of, where the function throws the failure's error itself.
+export function passingTryFix(t ast.Tree, e ast.NodeID) returns diag.Fix
+	return wrapFix(t, kind: fixKindTry, e: ast.outermostArithmetic(t, e: e), before: "try ", after: "")
+end 'passingTryFix'
 
 // returnFix writes the conversion that a return makes to the integer type named target as a cast that a try covers.
 export function returnFix(t ast.Tree, e ast.NodeID, target String) returns diag.Fix
@@ -500,6 +510,53 @@ export function toStringFix(t ast.Tree, call ast.NodeID) returns diag.Fix
 	edits.push(diag.FixEdit.make(t.module, begin: extent.begin, until: extent.until, text: written))
 	return fixOf(fixKindInterpolation, edits: edits)
 end 'toStringFix'
+
+// endingFix ends a value that the exit at the offset at would drop, with call, the call that ends it, written before the exit:
+// on a line of its own where the exit starts its line, and, where the exit is the handler of a try on the line
+// (`otherwise return 1`), by making the handler a block named label that ends the value and then leaves. An exit inside
+// parentheses, which a block cannot be, has no fix.
+export function endingFix(t ast.Tree, at diag.U32, call String, label String) returns diag.Fix
+	let start = at as Count
+	var lineStart = start
+	while lineStart > 0 'back'
+		let prev = lineStart - 1
+		if t.text.byteAt(prev) == newlineByte 'line'
+			break 'back'
+		end 'line'
+		lineStart = prev
+	end 'back'
+	var indentEnd = lineStart
+	while indentEnd < start and isBlank(t.text.byteAt(indentEnd)) 'indent'
+		indentEnd = nextOf(indentEnd)
+	end 'indent'
+	let indent = t.text.sliceBytes(lineStart, endPos: indentEnd).clone()
+	var edits = diag.FixEdits.create(0)
+	if indentEnd == start 'ownLine'
+		edits.push(diag.FixEdit.insert(t.module, at: at, text: "{call}\n{indent}"))
+		return fixOf(fixKindEnding, edits: edits)
+	end 'ownLine'
+	let before = table.blankTrimmed(t.text.sliceBytes(indentEnd, endPos: start), fromStart: false, fromEnd: true)
+	if not before.endsWith(otherwiseKeyword) 'inside'
+		return diag.Fix.none()
+	end 'inside'
+	var lineEnd = start
+	var opens = 0 as Count
+	var closes = 0 as Count
+	while lineEnd < t.text.byteLength() and t.text.byteAt(lineEnd) != newlineByte and t.text.byteAt(lineEnd) != carriageReturnByte 'rest'
+		if t.text.byteAt(lineEnd) == openParenByte 'open'
+			opens = nextOf(opens)
+		end 'open' else if t.text.byteAt(lineEnd) == closeParenByte 'close'
+			closes = nextOf(closes)
+		end 'close'
+		lineEnd = nextOf(lineEnd)
+	end 'rest'
+	if closes > opens 'parenthesized'
+		return diag.Fix.none()
+	end 'parenthesized'
+	edits.push(diag.FixEdit.insert(t.module, at: at, text: "'{label}'\n{indent}\t{call}\n{indent}\t"))
+	edits.push(diag.FixEdit.insert(t.module, at: at32(lineEnd), text: "\n{indent}end '{label}'"))
+	return fixOf(fixKindEnding, edits: edits)
+end 'endingFix'
 
 function nextOf(at Count) returns Count
 	return try at + 1 otherwise panic("fixes: an offset past a module")

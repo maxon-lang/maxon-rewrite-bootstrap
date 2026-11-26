@@ -1,0 +1,200 @@
+/// File reading, writing, and manipulation operations.
+/// @category System
+/// Error for file read operations
+extension FileReadError
+	public function failure() returns FileFailure
+		return match self 'cause'
+			notFound gives FileFailure.notFound
+			accessDenied gives FileFailure.accessDenied
+			busy gives FileFailure.busy
+			failed gives FileFailure.failed
+		end 'cause'
+	end 'failure'
+end 'FileReadError'
+
+/// Error for file write operations
+extension FileWriteError
+	public function failure() returns FileFailure
+		return match self 'cause'
+			failed gives FileFailure.failed
+			notFound gives FileFailure.notFound
+			accessDenied gives FileFailure.accessDenied
+			alreadyExists gives FileFailure.alreadyExists
+			busy gives FileFailure.busy
+			partialFileLeft gives FileFailure.failed
+		end 'cause'
+	end 'failure'
+end 'FileWriteError'
+
+/// Error for file delete operations
+extension FileDeleteError
+	public function failure() returns FileFailure
+		return match self 'cause'
+			notFound gives FileFailure.notFound
+			accessDenied gives FileFailure.accessDenied
+			busy gives FileFailure.busy
+			failed gives FileFailure.failed
+		end 'cause'
+	end 'failure'
+end 'FileDeleteError'
+
+/// Error for file rename operations
+extension FileRenameError
+	public function failure() returns FileFailure
+		return match self 'cause'
+			failed gives FileFailure.failed
+			notFound gives FileFailure.notFound
+			accessDenied gives FileFailure.accessDenied
+			busy gives FileFailure.busy
+			alreadyExists gives FileFailure.alreadyExists
+		end 'cause'
+	end 'failure'
+end 'FileRenameError'
+
+/// Error for file info operations
+extension FileInfoError
+	public function failure() returns FileFailure
+		return match self 'cause'
+			notFound gives FileFailure.notFound
+			accessDenied gives FileFailure.accessDenied
+			busy gives FileFailure.busy
+			failed gives FileFailure.failed
+		end 'cause'
+	end 'failure'
+end 'FileInfoError'
+
+/// Metadata about a file
+extension FileInfo
+	public static function create(size FileSize, modifiedTime Timestamp, createdTime Timestamp, accessedTime Timestamp, isDirectory bool, isReadOnly bool) returns FileInfo
+		return FileInfo{size: size, modifiedTime: modifiedTime, createdTime: createdTime, accessedTime: accessedTime, isDirectory: isDirectory, isReadOnly: isReadOnly}
+	end 'create'
+end 'FileInfo'
+
+let FileReadFailedReason = "reading the file failed"
+
+public type FileSource implements stream.ByteSource
+	export var file as __ManagedFile
+
+	export static function open(path String) returns FileSource throws FileReadError
+		let result = try __ManagedFile.openRead(path.addressableBytes()) otherwise (e) 'openFailed'
+			throw readFailureOf(e)
+		end 'openFailed'
+		return FileSource{file: result}
+	end 'open'
+
+	public function readSome(mutates self, most stream.ReadCapacity) returns ByteArray throws stream.StreamError
+		let managedBlock = try ByteMemory.create(most as ElementIndex, 1) otherwise 'createErr'
+			panic("FileSource.readSome: create — most >= 1 guaranteed")
+		end 'createErr'
+		var managed = managedBlock
+		_ = try file.readAppending(managed, most: most as Count) otherwise 'readFailed'
+			throw stream.StreamError.failed(FileReadFailedReason)
+		end 'readFailed'
+		return ByteArray.init(managed)
+	end 'readSome'
+
+	public function close(destructs self) throws FileReadError
+		try file.close() otherwise (e) 'unclosed'
+			throw readFailureOf(e)
+		end 'unclosed'
+	end 'close'
+end 'FileSource'
+
+function openForWriting(path __ManagedMemory with Byte, mode FilePermission) returns __ManagedFile throws __ManagedFileError
+	return match mode 'perm'
+		executable gives try __ManagedFile.openWriteExecutable(path)
+		normal gives try __ManagedFile.openWrite(path)
+	end 'perm'
+end 'openForWriting'
+
+/// Static file operations.
+extension File
+	/// Open a file for reading as a `FileStreamReader`: lines, exact byte counts and the rest of the file.
+	public static function openRead(path FilePath) returns FileStreamReader throws FileReadError
+		return stream.StreamReader.over(try FileSource.open(path.path))
+	end 'openRead'
+
+	/// Create a new file holding `content`. Throws `alreadyExists` when the path is already there. A
+	/// failed write deletes the file it created and throws the write's error; `partialFileLeft` when
+	/// that delete fails too.
+	public static function createText(path FilePath, content String) throws FileWriteError
+		let writer = try FileWriter.openNew(path)
+		try writer.writeAllText(content) otherwise (e) 'unwritten'
+			try File.delete(path) otherwise (cleanup) 'kept'
+				if cleanup == FileDeleteError.notFound 'nothingLeft'
+					throw e
+				end 'nothingLeft'
+				throw FileWriteError.partialFileLeft
+			end 'kept'
+			throw e
+		end 'unwritten'
+	end 'createText'
+end 'File'
+
+/// Why a file operation failed, whichever operation it was: every `File` error answers it through
+/// `failure()`, so a caller can judge them all in one place.
+public enum FileFailure
+	notFound
+	accessDenied
+	alreadyExists
+	busy
+	failed
+end 'FileFailure'
+
+function fileFailureOf(cause __ManagedFileError) returns FileFailure
+	return match cause 'cause'
+		notFound gives FileFailure.notFound
+		accessDenied gives FileFailure.accessDenied
+		alreadyExists gives FileFailure.alreadyExists
+		busy gives FileFailure.busy
+		openFailed or
+		readFailed or
+		writeFailed or
+		sizeFailed or
+		deleteFailed or
+		statFailed or
+		invalidStatBuffer or
+		invalidStatIndex or
+		closed gives FileFailure.failed
+	end 'cause'
+end 'fileFailureOf'
+
+function readFailureOf(cause __ManagedFileError) returns FileReadError
+	return match fileFailureOf(cause) 'failure'
+		notFound gives FileReadError.notFound
+		accessDenied gives FileReadError.accessDenied
+		busy gives FileReadError.busy
+		alreadyExists or
+		failed gives FileReadError.failed
+	end 'failure'
+end 'readFailureOf'
+
+function writeFailureOf(cause __ManagedFileError) returns FileWriteError
+	return match fileFailureOf(cause) 'failure'
+		notFound gives FileWriteError.notFound
+		accessDenied gives FileWriteError.accessDenied
+		alreadyExists gives FileWriteError.alreadyExists
+		busy gives FileWriteError.busy
+		failed gives FileWriteError.failed
+	end 'failure'
+end 'writeFailureOf'
+
+function deleteFailureOf(cause __ManagedFileError) returns FileDeleteError
+	return match fileFailureOf(cause) 'failure'
+		notFound gives FileDeleteError.notFound
+		accessDenied gives FileDeleteError.accessDenied
+		busy gives FileDeleteError.busy
+		alreadyExists or
+		failed gives FileDeleteError.failed
+	end 'failure'
+end 'deleteFailureOf'
+
+function infoFailureOf(cause __ManagedFileError) returns FileInfoError
+	return match fileFailureOf(cause) 'failure'
+		notFound gives FileInfoError.notFound
+		accessDenied gives FileInfoError.accessDenied
+		busy gives FileInfoError.busy
+		alreadyExists or
+		failed gives FileInfoError.failed
+	end 'failure'
+end 'infoFailureOf'

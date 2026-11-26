@@ -1,12 +1,15 @@
-// native-only
 // A green thread pinned to its machine (Go's LockOSThread) parks, yields and sleeps while behaviours run on the other
 // threads, and its thread runs no other green thread meanwhile: every wait hands the processor on and has the green thread
 // handed back to its own thread. Pins nest, the last unpin frees it, and a coroutine that finishes pinned frees its
-// thread. The interpreter runs one thread and no sleep.
+// thread. Scheduler.pinDepth counts the pins, and Scheduler.currentMachine, the thread's number, stays the same across the
+// waits of a pinned green thread. The interpreter runs one thread and no sleep.
 // expect-scheduler: used
 //> pinned true
 //> nested true
+//> depth 2
+//> on a machine true, stayed true
 //> unpinned
+//> depth 0
 //> a coroutine pinned and finished
 //> 64 behaviours, sum 2016
 
@@ -49,10 +52,15 @@ function main() returns ExitCode
 		Scheduler.yield()
 	end 'waits'
 	print("nested {Scheduler.pinToMachine()}\n")
+	print("depth {Scheduler.pinDepth()}\n")
+	let machine = Scheduler.currentMachine()
+	sleep(1)
+	print("on a machine {machine != 0}, stayed {Scheduler.currentMachine() == machine}\n")
 	Scheduler.unpinFromMachine()
 	sleep(1)
 	Scheduler.unpinFromMachine()
 	print("unpinned\n")
+	print("depth {Scheduler.pinDepth()}\n")
 	let worker = async pinnedWorker()
 	if await worker 'held'
 		print("a coroutine pinned and finished\n")

@@ -24,6 +24,7 @@ var macosABI = []layoutConst{
 	// Files.
 	{"macosOpenReadOnly", 0x1000000, true, toRuntime, "O_RDONLY | O_CLOEXEC."},
 	{"macosOpenReplace", 0x1000601, true, toRuntime, "O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC."},
+	{"macosOpenCreateNew", 0x1000A01, true, toRuntime, "O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC: a file that must not be there, made and opened in one step."},
 	{"macosFileMode", 0x1B6, true, toRuntime, "0666, which the umask narrows: the mode of a file the runtime makes."},
 	{"macosExecutableFileMode", 0x1ED, true, toRuntime, "0755, which the umask narrows: the mode of a file the runtime makes for FilePermission.executable."},
 	{"macosDirectoryMode", 0x1FF, true, toRuntime, "0777, which the umask narrows: the mode of a directory the runtime makes."},
@@ -36,6 +37,8 @@ var macosABI = []layoutConst{
 	{"macosStatSizeOffset", 96, true, toRuntime, "where a struct stat holds st_size."},
 	{"macosModeTypeMask", 0xF000, true, toRuntime, "S_IFMT: the bits of st_mode that say what a file is."},
 	{"macosModeDirectory", 0x4000, true, toRuntime, "S_IFDIR."},
+	{"macosModeFifo", 0x1000, true, toRuntime, "S_IFIFO: a FIFO, which an open file waits on through the event queue."},
+	{"macosModeSocket", 0xC000, true, toRuntime, "S_IFSOCK: a socket, which an open file waits on through the event queue."},
 	{"macosModeCharacter", 0x2000, true, toRuntime, "S_IFCHR: a character device, a terminal among them."},
 	{"macosModeOwnerWrite", 0x80, true, toRuntime, "S_IWUSR: a file without it is the read-only one of FileInfo."},
 	{"macosEpipe", 32, true, toRuntime, "EPIPE: a write to a pipe whose reader has closed it."},
@@ -112,4 +115,5 @@ var macosABI = []layoutConst{
 	{"macosSpawnObjectBytes", 8, true, toRuntime, "the size of a posix_spawn_file_actions_t and of a posix_spawnattr_t, each the address of what the init call allocates."},
 	{"macosSpawnCloexecDefault", 0x4000, true, toRuntime, "POSIX_SPAWN_CLOEXEC_DEFAULT: the child has only the fds the file actions give it, so no other run's pipe stays open in it."},
 	{"macosSpawnSetPgroup", 0x2, true, toRuntime, "POSIX_SPAWN_SETPGROUP: the child joins the process group that posix_spawnattr_setpgroup names, 0 being a group of its own."},
+	{"macosSpawnSetSid", 0x400, true, toRuntime, "POSIX_SPAWN_SETSID: the child leads a new session, and a process group of its own, with no controlling terminal."},
 }

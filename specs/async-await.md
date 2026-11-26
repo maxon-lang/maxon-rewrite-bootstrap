@@ -3172,12 +3172,12 @@ function main() returns ExitCode
 	var plain = 0 as Integer
 	for _ in 0 upto 6 'plainRound'
 		let p = async timedPlain()
-		plain = plain + (await p)
+		plain = try plain + (await p) otherwise panic("out of range")
 	end 'plainRound'
 	var thrown = 0 as Integer
 	for _ in 0 upto 6 'tryRound'
 		let p = async timedThrowing()
-		thrown = thrown + (try await p otherwise 0)
+		thrown = try thrown + (try await p otherwise 0) otherwise panic("out of range")
 	end 'tryRound'
 	print("plain={plain} thrown={thrown} held={not holder.isComplete()}\n")
 	holder.cancel()
@@ -3338,7 +3338,6 @@ target that is not a linked function is a link failure or a wrong answer at run 
 diagnostic.
 
 <!-- test: async-await.error.qualified-spawn-compiler-owned-static-outside-the-library-tiers -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 Outside the library tiers the raw type's name is refused first, at the type the spawn names.
 ```maxon
 function main() returns ExitCode

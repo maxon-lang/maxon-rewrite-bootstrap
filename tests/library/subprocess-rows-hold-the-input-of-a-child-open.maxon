@@ -1,0 +1,98 @@
+// A spawn whose input is held (kind 4) gives the child a pipe that the run keeps open and never writes: a read of it in the child
+// waits instead of seeing the end that none and an empty input give, and the run closes its end once the child has exited, so a
+// child that never reads it ends the run as any other does. A deadline ends the child that waits on it, with its tree. The child is
+// this program run again.
+// native-only
+//> held input, a child that reads: kind=2
+//> held input, a child that does not: kind=0 code=0 collected=[quiet]
+//> no input, a child that reads: kind=0 code=0 collected=[read 0 bytes]
+//> empty bytes, a child that reads: kind=0 code=0 collected=[read 0 bytes]
+
+typealias Blob = Array with Byte
+
+let terminator = 0 as Byte
+
+let stdinNone = 0
+
+let stdinBytes = 2
+
+let stdinHold = 4
+
+let outputCollect = 2
+
+let noFlags = 0
+
+let parentEnvironment = 1
+
+function appendToken(mutates out Blob, token String)
+	for b in token.bytes() 'each'
+		out.push(b)
+	end 'each'
+	out.push(terminator)
+end 'appendToken'
+
+// child reads its standard input to the end and says how much it read, or, as the quiet child, says one word and reads nothing.
+function child(mode String) returns ExitCode
+	if mode == "quiet" 'quiet'
+		print("quiet")
+		return 0
+	end 'quiet'
+	var total = 0 as Count
+	var reading = true
+	while reading 'reads'
+		let got = __Builtins.readStdin(65536)
+		if got.length() == 0 'end'
+			reading = false
+		end 'end' else 'more'
+			total = try total + got.length() otherwise panic("a count of bytes past a word")
+		end 'more'
+	end 'reads'
+	print("read {total} bytes")
+	return 0
+end 'child'
+
+// spawnSelf starts this program as the child in a mode, its input of a kind, and gives its handle, or -1.
+function spawnSelf(mode String, inputKind Count) returns FullRangeInt
+	var argv = Blob.create(0)
+	let executable = try Process.executablePath() otherwise return -1
+	appendToken(argv, token: executable.path)
+	appendToken(argv, token: mode)
+	var env = Blob.create(1)
+	env.push(terminator)
+	let empty = ""
+	return __Builtins.subprocessSpawn(argv.managed, 2, empty.cstr(), env.managed, parentEnvironment, inputKind, empty.cstr(), outputCollect, empty.cstr(), 0, outputCollect, empty.cstr(), 0, noFlags, 0)
+end 'spawnSelf'
+
+// ran waits for a child, until a deadline of ms (0 for none), and gives how it ended as a line of text.
+function ran(handle FullRangeInt, ms Count) returns String
+	let result = __Builtins.subprocessWaitCollect(handle, ms)
+	let kind = __Builtins.subprocessResultStatusKind(result)
+	var line = "kind={kind}"
+	if kind == 0 'exited'
+		line = "kind={kind} code={__Builtins.subprocessResultStatusCode(result)} collected=[{String.init(__Builtins.subprocessResultStdout(result))}]"
+	end 'exited'
+	__Builtins.subprocessResultRelease(result)
+	__Builtins.subprocessReleaseHandle(handle)
+	return line
+end 'ran'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() > 1 'child'
+		let mode = args.get(1)
+		return child(mode)
+	end 'child'
+	let waiting = spawnSelf("read", inputKind: stdinHold)
+	if waiting == -1 'unstarted'
+		print("the spawn failed: {String.init(__Builtins.subprocessLastErrorMessage())}\n")
+		return 3
+	end 'unstarted'
+	print("held input, a child that reads: {ran(waiting, ms: 500)}\n")
+	let quiet = spawnSelf("quiet", inputKind: stdinHold)
+	print("held input, a child that does not: {ran(quiet, ms: 0)}\n")
+	let none = spawnSelf("read", inputKind: stdinNone)
+	print("no input, a child that reads: {ran(none, ms: 0)}\n")
+	let empty = spawnSelf("read", inputKind: stdinBytes)
+	print("empty bytes, a child that reads: {ran(empty, ms: 0)}\n")
+	return 0
+end 'main'

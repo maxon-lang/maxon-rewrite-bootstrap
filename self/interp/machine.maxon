@@ -264,9 +264,8 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		try execWhen(vm, f: f, x: x) otherwise ignore
 	end 'visitWhen'
 
-	// The interpreter has no strand to run a coroutine in, so an async call ends the run (asyncUnsupported).
 	function visitAsync(mutates self, f ir.IrFunction, x ir.Instr)
-		_ = asyncUnsupported(vm)
+		try execAsync(vm, f: f, x: x) otherwise ignore
 	end 'visitAsync'
 
 	function visitBox(mutates self, f ir.IrFunction, x ir.Instr)
@@ -587,7 +586,10 @@ function leaveFrame(mutates vm Vm, n ir.Word, r ir.Word, err ir.Word, errRef ir.
 	vm.switched = true
 	if vm.frames.count() == 0 'base'
 		vm.top = 0
-		vm.baseN = n
+		vm.threads[vm.cur].retN = n
+		vm.threads[vm.cur].retR = r
+		vm.threads[vm.cur].errN = err
+		vm.threads[vm.cur].errR = errRef
 		return
 	end 'base'
 	vm.top = vm.frames[try vm.frames.count() - 1 otherwise panic("interp: no frames")]
@@ -624,6 +626,12 @@ end 'runEndings'
 // finishInstruction is what follows an instruction that has run: the destructors of the cowns it freed, and the windows its
 // result opens for the calls that wait for the arguments after it.
 function finishInstruction(mutates m Machine, info Count, f ir.IrFunction)
+	if m.vm.dropWaits.count() > 0 'dropped'
+		let settled = try settleDrops(m.vm) otherwise return
+		if not settled 'waits'
+			return
+		end 'waits'
+	end 'dropped'
 	if m.vm.endingFn.count() > 0 'endings'
 		m.vm.post = true
 		try runEndings(m.vm) otherwise ignore
@@ -703,7 +711,7 @@ function runFrame(mutates m Machine, f ir.IrFunction)
 			m.vm.curPc = 0
 			continue 'run'
 		end 'failed'
-		if m.vm.endingFn.count() == 0 and m.vm.prog.infos[fi].head[idx] == 0 'plain'
+		if m.vm.endingFn.count() == 0 and m.vm.dropWaits.count() == 0 and m.vm.prog.infos[fi].head[idx] == 0 'plain'
 			m.vm.curPc = try m.vm.curPc + 1 otherwise panic("interp: an instruction past a word")
 		end 'plain' else 'followed'
 			m.vm.post = true

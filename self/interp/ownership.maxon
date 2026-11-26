@@ -446,6 +446,10 @@ function free(mutates vm Vm, o Count) throws Halt
 		vm.h.freeElementPlaces(o)
 		return
 	end 'array'
+	if kind == kindPromise 'promise'
+		try dropPromise(vm, row: data)
+		return
+	end 'promise'
 	panic("interp: unknown object kind {kind}")
 end 'free'
 

@@ -81,7 +81,7 @@ neither.
 ## Self-build A/B and the run-time checks in the compiler
 
 One row per measurement of `go run ./cmd/selfab --note <stage>` (README, "Tools"). A is a base revision and B the working
-tree, each built as C1 by its own seed; the medians are of `<C1> build self --no-cache` run alternately on both, in
+tree, each built as C1 by its own seed; the medians are of `<C1> build self` with `MINIMAXON_CACHE=off` (`--full`) run alternately on both, in
 milliseconds. B/A is the ratio of the medians, and its range is over the pairs of runs, so the row of two identical
 versions (the baseline) is the noise floor: a ratio inside it says nothing. Check is the share of the build that the
 `bodies` and `verify` stages of `--timings` take, and bounds and empty-slot count the `bounds` operations and the calls of

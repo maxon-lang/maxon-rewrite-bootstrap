@@ -345,7 +345,7 @@ let KEYWORDS = [b"hi": 1]
 function main() returns ExitCode
 	var made = Bytes.create(0)
 	made.push(1)
-	return made.count() + KEYWORDS.count()
+	return try made.count() + KEYWORDS.count() otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -1015,7 +1015,7 @@ error E2015: <fragment>:6:10: Unsupported: a `b"…"` byte-string literal in a p
 ```
 
 <!-- test: a-buffer-field-strides-its-declaring-directorys-byte -->
-<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
+<!-- skip: minimaxon does not parse the converted source: Expected '=' or 'as' but got '\n' -->
 <!-- tier: stdlib -->
 ### A `__ManagedMemory` FIELD strides its DECLARING directory's `Byte`, not its reader's
 `ProgramSignatures.declaredSlotType` resolves a slot's compiler-minted alias against the file that
@@ -1026,7 +1026,7 @@ with no diagnostic anywhere; `first()` returning `a` is what says it did not.
 ```maxon
 // --- file: holder.maxon
 type Holder
-	var buf as __ManagedMemory
+	var buf
 
 	static function ofText(t String) returns Holder
 		return Holder{buf: t.toByteArray()}
@@ -1055,7 +1055,8 @@ end 'main'
 ```
 
 <!-- test: a-buffer-field-refuses-another-directorys-byte-at-the-construction -->
-<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
+<!-- skip: minimaxon does not parse the converted source: Expected '=' or 'as' but got '\n' -->
+<!-- positions: moved -->
 <!-- tier: stdlib -->
 ### …and the disagreement lands LOUDLY, at the construction
 The same two files with the buffer handed IN rather than built inside `holder.maxon`. `app/main.maxon`'s
@@ -1072,7 +1073,7 @@ buffer inside `holder.maxon` where the corpus's `Byte` and that directory's `Byt
 ```maxon
 // --- file: holder.maxon
 type Holder
-	var buf as __ManagedMemory
+	var buf
 
 	static function of(b __ManagedMemory) returns Holder
 		return Holder{buf: b}
@@ -1198,7 +1199,7 @@ The door is asked ONCE — `aggregatesConflict` takes the (tag, nameId) pair bes
 ask the identity question without asking the boundary one.
 
 <!-- test: a-synthesized-buffer-crosses-every-declared-byte-buffer-door -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
+<!-- skip: minimaxon does not parse the converted source: Expected '=' or 'as' but got '\n' -->
 <!-- tier: stdlib -->
 ### One synthesized buffer, through six declared byte-buffer doors
 The cwd differs per machine, so every assertion is on a LENGTH — the failure this case guards is a
@@ -1210,7 +1211,7 @@ typealias Byte = int(0 to u8.max)
 typealias Bytes = Array with Byte
 
 type Holder
-	export var mem as __ManagedMemory
+	export var mem
 
 	static function create() returns Holder
 		return Holder{mem: try __ManagedDirectory.currentPath() otherwise panic("Holder.create: currentPath")}
@@ -1607,7 +1608,6 @@ hi
 ```
 
 <!-- test: a-narrow-byte-refuses-a-raw-byte-write-through-the-buffer-surface -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### `setByte` is a raw-byte write, so a narrow `Byte` refuses it too
@@ -1711,7 +1711,6 @@ end 'main'
 ```
 
 <!-- test: raw-byte-reads-survive-a-narrow-byte -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### `byteAt` yields a plain `int`, never the element, so a narrow `Byte` does not touch it
 ```maxon
@@ -1760,7 +1759,7 @@ end 'takes'
 
 function main() returns ExitCode
 	let f = try __ManagedFile.openRead(b"DATA.BIN".managed) otherwise return 3
-	var buf = try __ManagedMemory.create(8, 1) otherwise return 1
+	var buf = try ByteMemory.create(8, 1) otherwise return 1
 	_ = try f.read(buf, 4) otherwise return 4
 	f.close()
 	return takes(buf)
@@ -1894,7 +1893,7 @@ function main() returns ExitCode
 	b.push(65)
 	let cwd = try __ManagedDirectory.currentPath() otherwise return 1
 	let before = cwd.length()
-	cwd.append(b as __ManagedMemory)
+	cwd.append(b)
 	return 0 if cwd.length() == before + 1 else 2
 end 'main'
 ```
@@ -1919,7 +1918,7 @@ function main() returns ExitCode
 	b.push(65)
 	let cwd = try __ManagedDirectory.currentPath() otherwise return 1
 	let before = cwd.length()
-	cwd.append(b as __ManagedMemory)
+	cwd.append(b)
 	return 0 if cwd.length() == before + 1 else 2
 end 'main'
 ```
@@ -1946,7 +1945,6 @@ module writes `__ManagedMemory.create(size + extraBytes, 1)` and is parsed by ev
 `wide-byte-program-still-round-trips-a-file` below is what holds that shut.
 
 <!-- test: error.a-byte-packed-buffer-is-refused-when-byte-is-wider-than-one-byte -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### `__ManagedMemory.create(n, 1)` is refused where the `b"…"` literal is
@@ -1971,7 +1969,6 @@ error E2015: <fragment>:10:38: Unsupported: `__ManagedMemory.create(count, eleme
 ```
 
 <!-- test: a-byte-packed-buffer-is-accepted-at-the-canonical-byte -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### The canonical `Byte` keeps the two producers agreeing, so the buffer is built and read normally
 The acceptance half: the refusal is about the DISAGREEMENT and not about `elementSize: 1`.
@@ -1996,7 +1993,6 @@ end 'main'
 ```
 
 <!-- test: a-word-buffer-is-untouched-by-a-wide-byte -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### A MACHINE-WORD buffer in the same wide-`Byte` program is untouched
 Only the byte arm can disagree: `create(n, 8)` takes the bare-`int` instance, whose stride is the machine
@@ -2263,7 +2259,6 @@ end 'main'
 ```
 
 <!-- test: a-byte-packed-buffer-under-the-canonical-byte-still-takes-a-raw-byte-write -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### The two rules COMPOSED: a byte-packed `create` buffer under the canonical `Byte`, written raw
 ⭐ **THE ONE CASE THAT CROSSES BOTH RULES.** `a-wide-byte-still-writes-raw-bytes-through-the-buffer-surface`

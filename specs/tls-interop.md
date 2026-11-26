@@ -159,10 +159,10 @@ enum InteropError implements Error
 	spawnFailed
 end 'InteropError'
 
-function opensslExecutable() returns Executable
-	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return Executable.name("openssl")
+function opensslExecutable() returns MxExecutable
+	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return MxExecutable.name("openssl")
 	let path = try FilePath.from(configured) otherwise panic("MAXON_OPENSSL is not a path")
-	return Executable.path(path)
+	return MxExecutable.path(path)
 end 'opensslExecutable'
 
 function pemOf(label String, hex String) returns String
@@ -262,7 +262,7 @@ function drainLines(lines StringArray, reader ChildOutputReader)
 end 'drainLines'
 
 function finish(server OpensslServer) returns String
-	let code = try server.child.wait(WaitDeadline.within(probeTimeoutMs)) otherwise (error) 'stuck'
+	let code = try server.child.wait(MxWaitDeadline.within(probeTimeoutMs)) otherwise (error) 'stuck'
 		return "wait: {error.displayReason()}"
 	end 'stuck'
 	let lines = StringArray.create(0)
@@ -486,10 +486,10 @@ enum InteropError implements Error
 	spawnFailed
 end 'InteropError'
 
-function opensslExecutable() returns Executable
-	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return Executable.name("openssl")
+function opensslExecutable() returns MxExecutable
+	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return MxExecutable.name("openssl")
 	let path = try FilePath.from(configured) otherwise panic("MAXON_OPENSSL is not a path")
-	return Executable.path(path)
+	return MxExecutable.path(path)
 end 'opensslExecutable'
 
 function pemOf(label String, hex String) returns String
@@ -589,7 +589,7 @@ function drainLines(lines StringArray, reader ChildOutputReader)
 end 'drainLines'
 
 function finish(server OpensslServer) returns String
-	let code = try server.child.wait(WaitDeadline.within(probeTimeoutMs)) otherwise (error) 'stuck'
+	let code = try server.child.wait(MxWaitDeadline.within(probeTimeoutMs)) otherwise (error) 'stuck'
 		return "wait: {error.displayReason()}"
 	end 'stuck'
 	let lines = StringArray.create(0)
@@ -832,10 +832,10 @@ enum InteropError implements Error
 	spawnFailed
 end 'InteropError'
 
-function opensslExecutable() returns Executable
-	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return Executable.name("openssl")
+function opensslExecutable() returns MxExecutable
+	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return MxExecutable.name("openssl")
 	let path = try FilePath.from(configured) otherwise panic("MAXON_OPENSSL is not a path")
-	return Executable.path(path)
+	return MxExecutable.path(path)
 end 'opensslExecutable'
 
 function pemOf(label String, hex String) returns String
@@ -935,7 +935,7 @@ function drainLines(lines StringArray, reader ChildOutputReader)
 end 'drainLines'
 
 function finish(server OpensslServer) returns String
-	let code = try server.child.wait(WaitDeadline.within(probeTimeoutMs)) otherwise (error) 'stuck'
+	let code = try server.child.wait(MxWaitDeadline.within(probeTimeoutMs)) otherwise (error) 'stuck'
 		return "wait: {error.displayReason()}"
 	end 'stuck'
 	let lines = StringArray.create(0)
@@ -1159,10 +1159,10 @@ enum InteropError implements Error
 	spawnFailed
 end 'InteropError'
 
-function opensslExecutable() returns Executable
-	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return Executable.name("openssl")
+function opensslExecutable() returns MxExecutable
+	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return MxExecutable.name("openssl")
 	let path = try FilePath.from(configured) otherwise panic("MAXON_OPENSSL is not a path")
-	return Executable.path(path)
+	return MxExecutable.path(path)
 end 'opensslExecutable'
 
 function pemOf(label String, hex String) returns String
@@ -1262,7 +1262,7 @@ function drainLines(lines StringArray, reader ChildOutputReader)
 end 'drainLines'
 
 function finish(server OpensslServer) returns String
-	let code = try server.child.wait(WaitDeadline.within(probeTimeoutMs)) otherwise (error) 'stuck'
+	let code = try server.child.wait(MxWaitDeadline.within(probeTimeoutMs)) otherwise (error) 'stuck'
 		return "wait: {error.displayReason()}"
 	end 'stuck'
 	let lines = StringArray.create(0)
@@ -1495,10 +1495,10 @@ let maxClientAttempts = 5
 
 let abandonedInputMarker = "SSL_write:bad length"
 
-function opensslExecutable() returns Executable
-	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return Executable.name("openssl")
+function opensslExecutable() returns MxExecutable
+	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return MxExecutable.name("openssl")
 	let path = try FilePath.from(configured) otherwise panic("MAXON_OPENSSL is not a path")
-	return Executable.path(path)
+	return MxExecutable.path(path)
 end 'opensslExecutable'
 
 function pemOf(label String, hex String) returns String
@@ -1606,7 +1606,7 @@ function attemptClient(directory String, port NetworkPort, options StringArray) 
 	let configuration = Configuration.create(opensslExecutable())
 	configuration.arguments = arguments
 	configuration.standardInput = InputSource.bytes("ping\n")
-	configuration.deadline = WaitDeadline.within(probeTimeoutMs)
+	configuration.deadline = MxWaitDeadline.within(probeTimeoutMs)
 	let result = try configuration.run() otherwise (error) 'failed'
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
@@ -1775,10 +1775,10 @@ let maxClientAttempts = 5
 
 let abandonedInputMarker = "SSL_write:bad length"
 
-function opensslExecutable() returns Executable
-	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return Executable.name("openssl")
+function opensslExecutable() returns MxExecutable
+	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return MxExecutable.name("openssl")
 	let path = try FilePath.from(configured) otherwise panic("MAXON_OPENSSL is not a path")
-	return Executable.path(path)
+	return MxExecutable.path(path)
 end 'opensslExecutable'
 
 function pemOf(label String, hex String) returns String
@@ -1886,7 +1886,7 @@ function attemptClient(directory String, port NetworkPort, options StringArray) 
 	let configuration = Configuration.create(opensslExecutable())
 	configuration.arguments = arguments
 	configuration.standardInput = InputSource.bytes("ping\n")
-	configuration.deadline = WaitDeadline.within(probeTimeoutMs)
+	configuration.deadline = MxWaitDeadline.within(probeTimeoutMs)
 	let result = try configuration.run() otherwise (error) 'failed'
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
@@ -2068,10 +2068,10 @@ let maxClientAttempts = 5
 
 let abandonedInputMarker = "SSL_write:bad length"
 
-function opensslExecutable() returns Executable
-	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return Executable.name("openssl")
+function opensslExecutable() returns MxExecutable
+	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return MxExecutable.name("openssl")
 	let path = try FilePath.from(configured) otherwise panic("MAXON_OPENSSL is not a path")
-	return Executable.path(path)
+	return MxExecutable.path(path)
 end 'opensslExecutable'
 
 function pemOf(label String, hex String) returns String
@@ -2179,7 +2179,7 @@ function attemptClient(directory String, port NetworkPort, options StringArray) 
 	let configuration = Configuration.create(opensslExecutable())
 	configuration.arguments = arguments
 	configuration.standardInput = InputSource.bytes("ping\n")
-	configuration.deadline = WaitDeadline.within(probeTimeoutMs)
+	configuration.deadline = MxWaitDeadline.within(probeTimeoutMs)
 	let result = try configuration.run() otherwise (error) 'failed'
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
@@ -2353,10 +2353,10 @@ enum InteropError implements Error
 	timedOut
 end 'InteropError'
 
-function opensslExecutable() returns Executable
-	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return Executable.name("openssl")
+function opensslExecutable() returns MxExecutable
+	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return MxExecutable.name("openssl")
 	let path = try FilePath.from(configured) otherwise panic("MAXON_OPENSSL is not a path")
-	return Executable.path(path)
+	return MxExecutable.path(path)
 end 'opensslExecutable'
 
 function pemOf(label String, hex String) returns String
@@ -2465,7 +2465,7 @@ function drainLines(lines StringArray, reader ChildOutputReader)
 end 'drainLines'
 
 function sentCloseNotify(server OpensslServer) returns bool throws InteropError
-	_ = try server.child.wait(WaitDeadline.within(probeTimeoutMs)) otherwise throw InteropError.timedOut
+	_ = try server.child.wait(MxWaitDeadline.within(probeTimeoutMs)) otherwise throw InteropError.timedOut
 	let lines = StringArray.create(0)
 	drainLines(lines, reader: server.output)
 	server.child.release()
@@ -2670,10 +2670,10 @@ let abandonedInputMarker = "SSL_write:bad length"
 
 let FileRows = 1500
 
-function opensslExecutable() returns Executable
-	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return Executable.name("openssl")
+function opensslExecutable() returns MxExecutable
+	let configured = try Process.environmentVariable("MAXON_OPENSSL") otherwise return MxExecutable.name("openssl")
 	let path = try FilePath.from(configured) otherwise panic("MAXON_OPENSSL is not a path")
-	return Executable.path(path)
+	return MxExecutable.path(path)
 end 'opensslExecutable'
 
 function pemOf(label String, hex String) returns String
@@ -2799,7 +2799,7 @@ function attemptClient(directory String, port NetworkPort, request String, optio
 	let configuration = Configuration.create(opensslExecutable())
 	configuration.arguments = arguments
 	configuration.standardInput = InputSource.bytes(request)
-	configuration.deadline = WaitDeadline.within(probeTimeoutMs)
+	configuration.deadline = MxWaitDeadline.within(probeTimeoutMs)
 	let result = try configuration.run() otherwise (error) 'failed'
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'

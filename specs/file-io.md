@@ -409,7 +409,7 @@ let CopyDeleteRetryMs = 50
 function main() returns ExitCode
 	if CommandLine.args().count() > 1 'theRunningCopy'
 		print("running\n")
-		let input = Console.stdin()
+		var input = Console.stdin()
 		_ = try input.readLine() otherwise return 0
 		return 0
 	end 'theRunningCopy'
@@ -427,9 +427,9 @@ function main() returns ExitCode
 end 'main'
 
 function verdictOverARunningCopy(copy FilePath) returns ExitCode
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("hold")
-	let running = try StreamingSubprocess.spawn(Executable.path(copy), arguments: argv) otherwise return 4
+	var running = try StreamingSubprocess.spawn(MxExecutable.path(copy.clone()), arguments: argv) otherwise return 4
 	let verdict = verdictWhileItRuns(running, copy: copy)
 	running.closeStdin()
 	let ended = endedCleanly(running)
@@ -437,11 +437,11 @@ function verdictOverARunningCopy(copy FilePath) returns ExitCode
 	return verdict if ended else 6
 end 'verdictOverARunningCopy'
 
-function verdictWhileItRuns(running StreamingSubprocess, copy FilePath) returns ExitCode
-	let output = try running.takeStdout() otherwise return 5
+function verdictWhileItRuns(mutates running StreamingSubprocess, copy FilePath) returns ExitCode
+	var output = try running.takeStdout() otherwise return 5
 	_ = try output.readLine() otherwise return 5
 	try File.writeText(copy, content: "") otherwise (e) 'refused'
-		return 42 if e == FileWriteError.busy else (10 + e.ordinal) as ExitCode
+		return 42 if e == FileWriteError.busy else (try (10 + e.ordinal) as ExitCode otherwise panic("out of range"))
 	end 'refused'
 	return 2
 end 'verdictWhileItRuns'
@@ -552,7 +552,7 @@ end 'main'
 function main() returns ExitCode
 	let path = FilePath from "test_binary.bin"
 	// Create a byte array with known values
-	let data = ByteArray.create(0)
+	var data = ByteArray.create(0)
 	data.push(65 as Byte)
 	data.push(66 as Byte)
 	data.push(67 as Byte)
@@ -576,9 +576,7 @@ function main() returns ExitCode
 		return 3
 	end 'count_check'
 	// Verify first value
-	let b0 = try readData.get(0) otherwise 'e0'
-		return 10
-	end 'e0'
+	let b0 = readData.get(0)
 	if b0 != 65 as Byte 'check0'
 		print("Wrong value")
 		return 20
@@ -598,24 +596,26 @@ Binary read/write OK
 ```maxon
 function main() returns ExitCode
 	let path = FilePath from "test_file_writer.bin"
-	let first = ByteArray.create(0)
+	var first = ByteArray.create(0)
 	first.push(65 as Byte)
 	first.push(66 as Byte)
-	let second = ByteArray.create(0)
+	var second = ByteArray.create(0)
 	second.push(67 as Byte)
-	let writer = try FileWriter.open(path) otherwise 'open_err'
+	var writer = try FileWriter.open(path) otherwise 'open_err'
 		print("Open failed")
 		return 1
 	end 'open_err'
 	try writer.write(first) otherwise 'first_err'
 		print("First write failed")
+		try writer.close() otherwise ignore
 		return 2
 	end 'first_err'
 	try writer.write(second) otherwise 'second_err'
 		print("Second write failed")
+		try writer.close() otherwise ignore
 		return 3
 	end 'second_err'
-	writer.close()
+	try writer.close() otherwise panic("out of range")
 	let content = try File.readBinary(path) otherwise 'read_err'
 		print("Read failed")
 		return 4
@@ -627,9 +627,7 @@ function main() returns ExitCode
 		print("Wrong count: {content.count()}")
 		return 5
 	end 'count_check'
-	let last = try content.get(2) otherwise 'e2'
-		return 10
-	end 'e2'
+	let last = content.get(2)
 	if last != 67 as Byte 'check_last'
 		print("Wrong value")
 		return 20
@@ -659,7 +657,7 @@ exists. Backed by `MoveFileEx` (Windows), `rename(2)` (POSIX), and
 function main() returns ExitCode
 	let src = FilePath from "test_rename_src.bin"
 	let dst = FilePath from "test_rename_dst.bin"
-	let data = ByteArray.create(0)
+	var data = ByteArray.create(0)
 	data.push(70 as Byte)
 	data.push(71 as Byte)
 	try File.writeBinary(src, content: data) otherwise 'write_err'

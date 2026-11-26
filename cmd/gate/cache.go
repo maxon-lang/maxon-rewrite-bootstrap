@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -40,24 +41,28 @@ func cacheRun(h host, compiler, testCase, procs string) error {
 		return err
 	}
 	cache := filepath.Join(root, "cache")
-	env := []string{"MINIMAXON_CACHE=" + cache}
+	env := []string{cacheVariable + "=" + cache}
 	if procs != "" {
 		env = append(env, "MAXON_MAX_PROCS="+procs)
 	}
+	// Later entries of an environment win, so the cache variable of the uncached one is off.
+	uncachedEnv := append(slices.Clone(env), cacheOffEnvironment()...)
 	// Every build is under one file name, each in a directory of its own: a Mach-O image is signed under its file's name.
 	exeOf := func(name string) string { return filepath.Join(root, name, "program"+h.exe) }
-	build := func(name string, flags ...string) ([]byte, error) {
+	buildIn := func(buildEnv []string, name string, flags ...string) ([]byte, error) {
 		exe := exeOf(name)
 		if err := os.MkdirAll(filepath.Dir(exe), 0o755); err != nil {
 			return nil, err
 		}
-		if out, err := output(env, "", compiler, append([]string{"build", project, "-o", exe}, flags...)...); err != nil {
+		if out, err := output(buildEnv, "", compiler, append([]string{"build", project, "-o", exe}, flags...)...); err != nil {
 			return nil, fmt.Errorf("the %s build failed: %s%w", name, out, err)
 		}
 		return os.ReadFile(exe)
 	}
-	same := func(name string, want []byte, what string, flags ...string) error {
-		got, err := build(name, flags...)
+	build := func(name string, flags ...string) ([]byte, error) { return buildIn(env, name, flags...) }
+	buildUncached := func(name string) ([]byte, error) { return buildIn(uncachedEnv, name) }
+	same := func(name string, want []byte, what string) error {
+		got, err := build(name)
 		if err != nil {
 			return err
 		}
@@ -66,7 +71,7 @@ func cacheRun(h host, compiler, testCase, procs string) error {
 		}
 		return nil
 	}
-	uncached, err := build("uncached", "--no-cache")
+	uncached, err := buildUncached("uncached")
 	if err != nil {
 		return err
 	}
@@ -88,7 +93,7 @@ func cacheRun(h host, compiler, testCase, procs string) error {
 	if err := os.WriteFile(leaf, []byte(edited), 0o644); err != nil {
 		return err
 	}
-	editedUncached, err := build("edited-uncached", "--no-cache")
+	editedUncached, err := buildUncached("edited-uncached")
 	if err != nil {
 		return err
 	}
@@ -117,7 +122,7 @@ func cacheRun(h host, compiler, testCase, procs string) error {
 		if err := os.WriteFile(mainPath, []byte(strings.ReplaceAll(string(mainText), "\tprint(", probe)), 0o644); err != nil {
 			return err
 		}
-		mainUncached, err := build(fmt.Sprintf("main%d-uncached", n), "--no-cache")
+		mainUncached, err := buildUncached(fmt.Sprintf("main%d-uncached", n))
 		if err != nil {
 			return err
 		}

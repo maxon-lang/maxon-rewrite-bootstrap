@@ -78,7 +78,7 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
+	if let result = try MxSubprocess.run(MxExecutable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
 			outcome.append("powershell exit {result.exitCode()}: {result.stderr}\n")
@@ -142,7 +142,7 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
+	if let result = try MxSubprocess.run(MxExecutable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
 			outcome.append("powershell exit {result.exitCode()}: {result.stderr}\n")
@@ -194,7 +194,7 @@ function main() returns ExitCode
 	argv.push("-Command")
 	argv.push("& \{ ([int[]][char[]]$args[0]) -join ',' \}")
 	argv.push("'日本'")
-	let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) otherwise return 2
+	let result = try MxSubprocess.run(MxExecutable.name("powershell"), arguments: argv) otherwise return 2
 	printLines(result.stdout)
 	return result.exitCode() as ExitCode
 end 'main'
@@ -230,7 +230,7 @@ function main() returns ExitCode
 	argv.push("-NonInteractive")
 	argv.push("-Command")
 	argv.push("([int[]][char[]]$env:MAXON_WIDE_TEXT) -join ','")
-	let config = Configuration.create(Executable.name("powershell"))
+	let config = Configuration.create(MxExecutable.name("powershell"))
 	config.arguments = argv
 	config.environment = Environment.inheritUpdating(["MAXON_WIDE_TEXT": "日本"])
 	let result = try config.run() otherwise return 2
@@ -267,7 +267,7 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
+	if let result = try MxSubprocess.run(MxExecutable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
 			outcome.append("powershell exit {result.exitCode()}: {result.stderr}\n")
@@ -325,7 +325,7 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
+	if let result = try MxSubprocess.run(MxExecutable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
 			outcome.append("powershell exit {result.exitCode()}: {result.stderr}\n")
@@ -402,7 +402,7 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
+	if let result = try MxSubprocess.run(MxExecutable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
 			outcome.append("powershell exit {result.exitCode()}: {result.stderr}\n")
@@ -485,7 +485,7 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
+	if let result = try MxSubprocess.run(MxExecutable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
 			outcome.append("powershell exit {result.exitCode()}: {result.stderr}\n")
@@ -553,7 +553,7 @@ function powershell(script String, workingDirectory FilePath) returns String
 	argv.push("-NonInteractive")
 	argv.push("-Command")
 	argv.push(script)
-	let config = Configuration.create(Executable.name("powershell"))
+	let config = Configuration.create(MxExecutable.name("powershell"))
 	config.arguments = argv
 	config.workingDirectory = WorkingDirectory.at(workingDirectory)
 	var outcome = ""
@@ -620,7 +620,7 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
+	if let result = try MxSubprocess.run(MxExecutable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
 			outcome.append("powershell exit {result.exitCode()}: {result.stderr}\n")
@@ -685,7 +685,7 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
+	if let result = try MxSubprocess.run(MxExecutable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
 			outcome.append("powershell exit {result.exitCode()}: {result.stderr}\n")
@@ -745,7 +745,7 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
+	if let result = try MxSubprocess.run(MxExecutable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
 			outcome.append("powershell exit {result.exitCode()}: {result.stderr}\n")
@@ -808,7 +808,7 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
+	if let result = try MxSubprocess.run(MxExecutable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
 			outcome.append("powershell exit {result.exitCode()}: {result.stderr}\n")
@@ -843,7 +843,7 @@ function main() returns ExitCode
 		end 'probe'
 		let argv = StringArray.create(0)
 		argv.push("probe")
-		let probe = Configuration.create(Executable.name("maxon-wide-probe"))
+		let probe = Configuration.create(MxExecutable.name("maxon-wide-probe"))
 		probe.arguments = argv
 		print(outcomeOf(probe))
 		return 0
@@ -858,7 +858,7 @@ function main() returns ExitCode
 	overrides.upsert("PATH", value: "{directory.path};{inheritedPath}")
 	let argv = StringArray.create(0)
 	argv.push("resolve")
-	let resolver = Configuration.create(Executable.path(me))
+	let resolver = Configuration.create(MxExecutable.path(me))
 	resolver.arguments = argv
 	resolver.environment = Environment.inheritUpdating(overrides)
 	print(outcomeOf(resolver))
@@ -899,7 +899,7 @@ function powershellConfiguration(script String) returns Configuration
 	argv.push("-NonInteractive")
 	argv.push("-Command")
 	argv.push(script)
-	let config = Configuration.create(Executable.name("powershell"))
+	let config = Configuration.create(MxExecutable.name("powershell"))
 	config.arguments = argv
 	return config
 end 'powershellConfiguration'
@@ -973,7 +973,7 @@ function powershellConfiguration(script String) returns Configuration
 	argv.push("-NonInteractive")
 	argv.push("-Command")
 	argv.push(script)
-	let config = Configuration.create(Executable.name("powershell"))
+	let config = Configuration.create(MxExecutable.name("powershell"))
 	config.arguments = argv
 	return config
 end 'powershellConfiguration'
@@ -1046,7 +1046,7 @@ function powershell(script String) returns String
 	argv.push("-Command")
 	argv.push(script)
 	var outcome = ""
-	if let result = try Subprocess.run(Executable.name("powershell"), arguments: argv) 'ran'
+	if let result = try MxSubprocess.run(MxExecutable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
 			outcome.append("powershell exit {result.exitCode()}: {result.stderr}\n")

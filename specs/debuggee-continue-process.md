@@ -30,7 +30,7 @@ there; wasm32-wasi also cannot spawn the child.
 ```maxon
 function reapedChildId() returns Pid
 	let shell = try FilePath.from("/bin/sh") otherwise panic("/bin/sh is a spellable path")
-	let finished = try Subprocess.run(Executable.path(shell), arguments: ["-c", "exit 0"]) otherwise panic("the short child could not run")
+	let finished = try MxSubprocess.run(MxExecutable.path(shell), arguments: ["-c", "exit 0"]) otherwise panic("the short child could not run")
 	return finished.pid
 end 'reapedChildId'
 
@@ -57,7 +57,7 @@ because they have no POSIX signals to send, so the call panics there; wasm32-was
 ```maxon
 function main() returns ExitCode
 	let cat = try FilePath.from("/bin/cat") otherwise panic("/bin/cat is a spellable path")
-	let child = try StreamingSubprocess.spawn(Executable.path(cat), arguments: StringArray.create(0)) otherwise panic("the child could not be spawned")
+	let child = try StreamingSubprocess.spawn(MxExecutable.path(cat), arguments: StringArray.create(0)) otherwise panic("the child could not be spawned")
 	let id = try child.processId() otherwise panic("the child has no process id")
 	print("stopped {stopProcess(id as DebuggeeProcessId)}\n")
 	print("continued {continueProcess(id as DebuggeeProcessId)}\n")

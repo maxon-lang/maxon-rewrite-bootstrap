@@ -215,6 +215,7 @@ not interchangeable. Passing the wrong one is always a mistake, and is rejected
 rather than reinterpreted.
 
 <!-- test: builtins-type.error.bits-to-float-float-arg -->
+<!-- skip: differing error code: operand types -->
 <!-- tier: stdlib -->
 ⚠ **ONE SENTENCE FOR THE WHOLE SURFACE.** The compiler words a `__Builtins.*` operand rejection
 the same way for every intrinsic, naming the callee and the two SOURCE types and anchoring on the callee,

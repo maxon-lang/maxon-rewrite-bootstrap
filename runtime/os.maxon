@@ -29,6 +29,8 @@ let osBytesDataOffset = 16 as Count
 
 	let noSharing = 0
 
+	let createNew = 1
+
 	let createAlways = 2
 
 	let openExisting = 3
@@ -113,6 +115,8 @@ let writeAlreadyExists = 3
 
 let writeBusy = 4
 
+let writePartialFileLeft = 5
+
 let renameFailed = 0
 
 let renameNotFound = 1
@@ -165,6 +169,17 @@ let infoReadOnlyFlag = 2
 	let pathSeparator = 0x5C
 
 	let otherSeparator = 0x2F
+
+	// pipePrefix is how a path that names a named pipe starts, as isPipePath reads it: backslashes and a lower-case pipe.
+	let pipePrefix = "\\\\.\\pipe\\"
+
+	let pipePrefixBytes = 9 as Count
+
+	let asciiUpperA = 0x41
+
+	let asciiUpperZ = 0x5A
+
+	let asciiCaseOffset = 0x20
 
 	let dotByte = 0x2E
 
@@ -574,16 +589,132 @@ let nanosPerFileTimeStep = 100 as Count
 	// The error is read before anything else runs, since another call would replace it, and before exitBlocking, which may
 	// move the green thread to another thread, whose last error is its own; every call that may block reads it so.
 	function openFile(path String, access Count, share Count, disposition Count, win32Address Count) returns Count
-		let widePath = wideOf(path)
+		return openWide(wideOf(path), access: access, share: share, disposition: disposition, flags: fileAttributeNormal, win32Address: win32Address)
+	end 'openFile'
+
+	// openFileBytes is the HANDLE of an owned file handle (file.maxon), the file that the bytes of a path name opened in a way, which
+	// no child inherits; or it stores the Win32 error at osErrorAddress and gives 0. A file open to read shares reading, and one open
+	// to write shares nothing, as the whole-file reads and writes do.
+	function openFileBytes(path Count, length Count, how Count, osErrorAddress Count) returns Count
+		var access = genericWrite as Count
+		var share = noSharing as Count
+		var disposition = createAlways as Count
+		if how == openToRead 'read'
+			access = genericRead
+			share = fileShareRead
+			disposition = openExisting
+		end 'read' else if how == openToCreate 'create'
+			disposition = createNew
+		end 'create'
+		// A named pipe is opened overlapped, so that its reads and writes wait on the completion port (fileEntryOf).
+		let flags = fileFlagOverlapped if isPipePath(path, length: length) else fileAttributeNormal
+		let file = openWide(wideOfBytes(path, length: length), access: access, share: share, disposition: disposition, flags: flags, win32Address: osErrorAddress)
+		if file == invalidHandle 'refused'
+			return 0
+		end 'refused'
+		return file
+	end 'openFileBytes'
+
+	// closeFileHandle closes the HANDLE of an owned file handle in the blocking bracket, since a close may wait on its file system
+	// (an SMB server's), and gives its Win32 error, read before exitBlocking, or 0.
+	// A child that CreateProcessW makes inherits only the handles its attribute list names, so a writer's close has no child to
+	// wait for, and writes is not read.
+	function closeFileHandle(file Count, writes bool) returns Count
+		var win32 = 0 as Count
 		enterBlocking()
-		let file = __Raw.callImport7("CreateFileW", arg1: widePath, arg2: access, arg3: share, arg4: noSecurity, arg5: disposition, arg6: fileAttributeNormal, arg7: noTemplate)
+		if dword(__Raw.callImport1("CloseHandle", arg1: file)) == 0 'failed'
+			win32 = win32Error()
+		end 'failed'
+		exitBlocking()
+		return win32
+	end 'closeFileHandle'
+
+	// fileEntryOf is the event entry of an open file's HANDLE that waits on the event queue: a named pipe's, which only its path
+	// tells, before the open, so that openFileBytes opened it overlapped, and which the completion port takes; any other file
+	// has none. A pipe the port refuses cannot be read or written without an OVERLAPPED, so its open is unwaited.
+	function fileEntryOf(file Count, path Count, length Count, unwaitedAddress Count) returns Count
+		if not isPipePath(path, length: length) 'plain'
+			return noEntry
+		end 'plain'
+		let entry = eventRegister(file)
+		if entry == noEntry 'refused'
+			__Raw.storeWord(unwaitedAddress, offset: 0, value: 1)
+		end 'refused'
+		return entry
+	end 'fileEntryOf'
+
+	// isPipePath is whether the bytes of a path name a named pipe, \\.\pipe\ and its name, either separator and any case of
+	// pipe, as Windows reads them.
+	function isPipePath(path Count, length Count) returns bool
+		if length <= pipePrefixBytes 'short'
+			return false
+		end 'short'
+		for i in 0 upto pipePrefixBytes 'prefix'
+			var byte = __Raw.loadByte(path, offset: i)
+			if byte == otherSeparator 'slash'
+				byte = pathSeparator
+			end 'slash'
+			if byte >= asciiUpperA and byte <= asciiUpperZ 'upper'
+				byte = byte + asciiCaseOffset
+			end 'upper'
+			if byte != stringByteAt(pipePrefix, index: i) 'other'
+				return false
+			end 'other'
+		end 'prefix'
+		return true
+	end 'isPipePath'
+
+	// readFileHandle is one read of up to length bytes of an open file's HANDLE that does not wait on the event queue, in the
+	// blocking bracket: its count, 0 at the end of the file, or 0 with the Win32 error at osErrorAddress, read before
+	// exitBlocking.
+	function readFileHandle(file Count, buffer Count, length Count, osErrorAddress Count) returns Count
+		var got = 0 as Count
+		var win32 = 0 as Count
+		enterBlocking()
+		if dword(__Raw.callImport5("ReadFile", arg1: file, arg2: buffer, arg3: dword(length), arg4: __Raw.addressOf(got), arg5: noOverlapped)) == 0 'failed'
+			win32 = dword(win32Error())
+		end 'failed'
+		exitBlocking()
+		if win32 == errorHandleEof or win32 == errorBrokenPipe 'end'
+			return 0
+		end 'end'
+		if win32 != 0 'refused'
+			__Raw.storeWord(osErrorAddress, offset: 0, value: win32)
+			return 0
+		end 'refused'
+		return dword(got)
+	end 'readFileHandle'
+
+	// writeFileHandle writes length bytes to an open file's HANDLE that does not wait on the event queue, all of them, in the
+	// blocking bracket, and gives the Win32 error that stopped it, or 0.
+	function writeFileHandle(file Count, buffer Count, length Count) returns Count
+		var win32 = 0 as Count
+		var done = 0 as Count
+		enterBlocking()
+		while done < length and win32 == 0 'write'
+			var written = 0 as Count
+			let ok = __Raw.callImport5("WriteFile", arg1: file, arg2: __Raw.wrappingAdd(buffer, right: done), arg3: dword(length - done), arg4: __Raw.addressOf(written), arg5: noOverlapped)
+			if dword(ok) == 0 'failed'
+				win32 = win32Error()
+			end 'failed' else 'more'
+				done = __Raw.wrappingAdd(done, right: dword(written))
+			end 'more'
+		end 'write'
+		exitBlocking()
+		return win32
+	end 'writeFileHandle'
+
+	// openWide is openFile of a zero-terminated UTF-16 path, which it frees.
+	function openWide(widePath Count, access Count, share Count, disposition Count, flags Count, win32Address Count) returns Count
+		enterBlocking()
+		let file = __Raw.callImport7("CreateFileW", arg1: widePath, arg2: access, arg3: share, arg4: noSecurity, arg5: disposition, arg6: flags, arg7: noTemplate)
 		if file == invalidHandle 'failed'
 			__Raw.storeWord(win32Address, offset: 0, value: win32Error())
 		end 'failed'
 		exitBlocking()
 		free(widePath)
 		return file
-	end 'openFile'
+	end 'openWide'
 
 	// readStandardInput reads up to count bytes of standard input to room and gives how many it read: 0 at the end of the
 	// stream, which a closed handle, a broken pipe and a failure are as well, as maxon's runtime does not tell them apart.
@@ -606,13 +737,14 @@ let nanosPerFileTimeStep = 100 as Count
 		return dword(__Raw.callImport1("GetFileType", arg1: __Raw.callImport1("GetStdHandle", arg1: stdOutputHandle))) == fileTypeChar
 	end 'stdoutIsCharacterDevice'
 
-	// osReadText is the whole content of a file.
-	function osReadText(path String, errorAddress Count) returns String
+	// readFileRoom is the whole content of a file in a string room that the caller owns: it stores the length at lengthAddress and
+	// gives the room, or sets the error word and gives nothing to use.
+	function readFileRoom(path String, lengthAddress Count, errorAddress Count) returns Count
 		var win32 = 0 as Count
 		let file = openFile(path, access: genericRead, share: fileShareRead, disposition: openExisting, win32Address: __Raw.addressOf(win32))
 		if file == invalidHandle 'open'
 			endWithError(errorAddress, osError: win32, table: readFailures())
-			return noString()
+			return 0
 		end 'open'
 		var size = 0 as Count
 		var sizeError = 0 as Count
@@ -625,7 +757,7 @@ let nanosPerFileTimeStep = 100 as Count
 		if not sized 'sized'
 			closeHandle(file)
 			endWithError(errorAddress, osError: sizeError, table: readFailures())
-			return noString()
+			return 0
 		end 'sized'
 		let bytes = __Raw.stringRoom(size)
 		var done = 0 as Count
@@ -649,11 +781,12 @@ let nanosPerFileTimeStep = 100 as Count
 		if readError != 0 'failedRead'
 			__Raw.freeStringRoom(bytes)
 			endWithError(errorAddress, osError: readError, table: readFailures())
-			return noString()
+			return 0
 		end 'failedRead'
 		succeed(errorAddress)
-		return stringOfRoom(bytes, length: done)
-	end 'osReadText'
+		__Raw.storeWord(lengthAddress, offset: 0, value: done)
+		return bytes
+	end 'readFileRoom'
 
 	// writeFile replaces a file with bytes at an address, and gives the Win32 error that stopped it, or 0. Windows has no
 	// executable mode, so executable is not read, as maxon's is not.
@@ -680,16 +813,22 @@ let nanosPerFileTimeStep = 100 as Count
 	end 'writeFile'
 #endif
 
+// writeContent writes a file whole, as osWriteTextMode and osWriteBinaryMode do, and ends the entry.
+function writeContent(path String, data Count, length Count, executable bool, errorAddress Count)
+	let osError = writeFile(path, data: data, length: length, executable: executable)
+	endWithError(errorAddress, osError: osError, table: writeFailures())
+end 'writeContent'
+
 // osWriteTextMode replaces a file with a string. A file that it creates gets the executable mode when executable is set.
 function osWriteTextMode(path String, content String, executable bool, errorAddress Count)
-	endWithError(errorAddress, osError: writeFile(path, data: __Raw.stringBytes(content), length: __Raw.stringLength(content), executable: executable), table: writeFailures())
+	writeContent(path, data: __Raw.stringBytes(content), length: __Raw.stringLength(content), executable: executable, errorAddress: errorAddress)
 end 'osWriteTextMode'
 
 // osWriteBinaryMode replaces a file with the bytes of a byte array, as osWriteTextMode does.
 function osWriteBinaryMode(path String, content Count, executable bool, errorAddress Count)
 	let data = __Raw.loadWord(content, offset: osBytesDataOffset)
 	let length = __Raw.loadWord(content, offset: osBytesLengthOffset)
-	endWithError(errorAddress, osError: writeFile(path, data: data, length: length, executable: executable), table: writeFailures())
+	writeContent(path, data: data, length: length, executable: executable, errorAddress: errorAddress)
 end 'osWriteBinaryMode'
 
 // osWriteText and osWriteBinary are entries of the seed's table, which holds the runtime it compiles to every entry it
@@ -701,6 +840,32 @@ end 'osWriteText'
 function osWriteBinary(path String, content Count, errorAddress Count)
 	osWriteBinaryMode(path, content: content, executable: false, errorAddress: errorAddress)
 end 'osWriteBinary'
+
+// osReadText is the whole content of a file as a String: the bytes of readFileRoom, which each system has its own.
+function osReadText(path String, errorAddress Count) returns String
+	var length = 0 as Count
+	let room = readFileRoom(path, lengthAddress: __Raw.addressOf(length), errorAddress: errorAddress)
+	if __Raw.loadWord(errorAddress, offset: 0) != 0 'failed'
+		return noString()
+	end 'failed'
+	return stringOfRoom(room, length: length)
+end 'osReadText'
+
+// osReadBinary is the whole content of a file as a new byte array, read as osReadText reads it: the bytes of the string room
+// are copied to the array and the room is freed.
+function osReadBinary(path String, errorAddress Count) returns Count
+	var length = 0 as Count
+	let room = readFileRoom(path, lengthAddress: __Raw.addressOf(length), errorAddress: errorAddress)
+	if __Raw.loadWord(errorAddress, offset: 0) != 0 'failed'
+		return 0
+	end 'failed'
+	let bytes = bytesNew()
+	if length > 0 'some'
+		copyBytes(room, target: collectionExtend(bytes, count: length, elementBytes: byteBytes), count: length)
+	end 'some'
+	__Raw.freeStringRoom(room)
+	return bytes
+end 'osReadBinary'
 
 #if os(Windows)
 	// osRename moves a file or a directory, and replaces what is at the destination.

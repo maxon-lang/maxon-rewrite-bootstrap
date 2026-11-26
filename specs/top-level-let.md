@@ -3740,7 +3740,7 @@ error E3004: <fragment>:9:9: call to undefined function 'nothere'
 ```
 
 <!-- test: error.an-unclosed-bracket-ends-at-a-column-one-default-declaration -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -3749,7 +3749,7 @@ function broken() returns Digit
 	return foo(1,
 end 'broken'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Feed = nothere(7)
 
 function main() returns ExitCode
@@ -3762,14 +3762,14 @@ error E3011: <fragment>:8:9: Unknown type 'Feed'
 ```
 
 <!-- test: error.an-abandoned-declaration-ends-at-a-default-declaration -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
 typealias Bad =
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Feed = nothere(7)
 
 function main() returns ExitCode

@@ -80,6 +80,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrArrayRefill 'intrArrayRefill'
 		return lowerArrayRefill(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayRefill'
+	if op == ast.Intrinsic.intrArrayHashesAsStorage 'intrArrayHashesAsStorage'
+		return lowerArrayHashesAsStorage(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArrayHashesAsStorage'
+	if op == ast.Intrinsic.intrArrayStorageHash 'intrArrayStorageHash'
+		return lowerArrayStorageHash(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArrayStorageHash'
 	if op == ast.Intrinsic.intrArrayContains 'intrArrayContains'
 		return lowerArrayContains(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayContains'
@@ -146,6 +152,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrArrayElementSize 'intrArrayElementSize'
 		return lowerArrayElementSize(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayElementSize'
+	if op == ast.Intrinsic.intrManagedMemoryCreate 'intrManagedMemoryCreate'
+		return lowerManagedMemoryCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedMemoryCreate'
 	if op == ast.Intrinsic.intrArraySwap 'intrArraySwap'
 		return lowerArraySwap(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArraySwap'
@@ -443,12 +452,21 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrSchedulerUnpinFromMachine 'intrSchedulerUnpinFromMachine'
 		return lowerSchedulerUnpinFromMachine(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSchedulerUnpinFromMachine'
-	if op == ast.Intrinsic.intrSleep 'intrSleep'
-		return lowerSleep(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrSleep'
+	if op == ast.Intrinsic.intrSchedulerPinDepth 'intrSchedulerPinDepth'
+		return lowerSchedulerPinDepth(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSchedulerPinDepth'
+	if op == ast.Intrinsic.intrSchedulerCurrentMachine 'intrSchedulerCurrentMachine'
+		return lowerSchedulerCurrentMachine(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSchedulerCurrentMachine'
+	if op == ast.Intrinsic.intrSchedulerMachineCpuCount 'intrSchedulerMachineCpuCount'
+		return lowerSchedulerMachineCpuCount(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSchedulerMachineCpuCount'
 	if op == ast.Intrinsic.intrServiceShutdown 'intrServiceShutdown'
 		return lowerServiceShutdown(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrServiceShutdown'
+	if op == ast.Intrinsic.intrServiceMostQueued 'intrServiceMostQueued'
+		return lowerServiceMostQueued(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrServiceMostQueued'
 	if op == ast.Intrinsic.intrPromiseCancel 'intrPromiseCancel'
 		return lowerPromiseCancel(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrPromiseCancel'
@@ -470,6 +488,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrFileReadText 'intrFileReadText'
 		return lowerFileReadText(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFileReadText'
+	if op == ast.Intrinsic.intrFileReadBinary 'intrFileReadBinary'
+		return lowerFileReadBinary(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrFileReadBinary'
 	if op == ast.Intrinsic.intrFileWriteText 'intrFileWriteText'
 		return lowerFileWriteText(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFileWriteText'
@@ -557,6 +578,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrCollectedOutputSucceeded 'intrCollectedOutputSucceeded'
 		return lowerCollectedOutputSucceeded(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrCollectedOutputSucceeded'
+	if op == ast.Intrinsic.intrSleep 'intrSleep'
+		return lowerSleep(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSleep'
 	if op == ast.Intrinsic.intrClockNowMillis 'intrClockNowMillis'
 		return lowerClockNowMillis(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrClockNowMillis'
@@ -611,6 +635,45 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrSubprocessEndTree 'intrSubprocessEndTree'
 		return lowerSubprocessEndTree(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSubprocessEndTree'
+	if op == ast.Intrinsic.intrSubprocessSpawnStreaming 'intrSubprocessSpawnStreaming'
+		return lowerSubprocessSpawnStreaming(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessSpawnStreaming'
+	if op == ast.Intrinsic.intrSubprocessReadAvailable 'intrSubprocessReadAvailable'
+		return lowerSubprocessReadAvailable(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessReadAvailable'
+	if op == ast.Intrinsic.intrSubprocessStdoutState 'intrSubprocessStdoutState'
+		return lowerSubprocessStdoutState(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessStdoutState'
+	if op == ast.Intrinsic.intrSubprocessStderrState 'intrSubprocessStderrState'
+		return lowerSubprocessStderrState(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessStderrState'
+	if op == ast.Intrinsic.intrSubprocessWriteStdinAll 'intrSubprocessWriteStdinAll'
+		return lowerSubprocessWriteStdinAll(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessWriteStdinAll'
+	if op == ast.Intrinsic.intrSubprocessWriteStdinBytes 'intrSubprocessWriteStdinBytes'
+		return lowerSubprocessWriteStdinBytes(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessWriteStdinBytes'
+	if op == ast.Intrinsic.intrSubprocessQueueStdin 'intrSubprocessQueueStdin'
+		return lowerSubprocessQueueStdin(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessQueueStdin'
+	if op == ast.Intrinsic.intrSubprocessPushStdin 'intrSubprocessPushStdin'
+		return lowerSubprocessPushStdin(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessPushStdin'
+	if op == ast.Intrinsic.intrSubprocessAwaitStdinWritable 'intrSubprocessAwaitStdinWritable'
+		return lowerSubprocessAwaitStdinWritable(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessAwaitStdinWritable'
+	if op == ast.Intrinsic.intrSubprocessCloseStdin 'intrSubprocessCloseStdin'
+		return lowerSubprocessCloseStdin(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessCloseStdin'
+	if op == ast.Intrinsic.intrSubprocessWaitExit 'intrSubprocessWaitExit'
+		return lowerSubprocessWaitExit(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessWaitExit'
+	if op == ast.Intrinsic.intrSubprocessPollExit 'intrSubprocessPollExit'
+		return lowerSubprocessPollExit(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessPollExit'
+	if op == ast.Intrinsic.intrSubprocessExitSignal 'intrSubprocessExitSignal'
+		return lowerSubprocessExitSignal(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessExitSignal'
 	if op == ast.Intrinsic.intrSubprocessLastErrorCode 'intrSubprocessLastErrorCode'
 		return lowerSubprocessLastErrorCode(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSubprocessLastErrorCode'
@@ -695,6 +758,27 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrAppendLittleEndian 'intrAppendLittleEndian'
 		return lowerAppendLittleEndian(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrAppendLittleEndian'
+	if op == ast.Intrinsic.intrManagedFileOpenRead 'intrManagedFileOpenRead'
+		return lowerManagedFileOpenRead(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedFileOpenRead'
+	if op == ast.Intrinsic.intrManagedFileOpenWrite 'intrManagedFileOpenWrite'
+		return lowerManagedFileOpenWrite(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedFileOpenWrite'
+	if op == ast.Intrinsic.intrManagedFileOpenWriteExecutable 'intrManagedFileOpenWriteExecutable'
+		return lowerManagedFileOpenWriteExecutable(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedFileOpenWriteExecutable'
+	if op == ast.Intrinsic.intrManagedFileOpenCreateNew 'intrManagedFileOpenCreateNew'
+		return lowerManagedFileOpenCreateNew(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedFileOpenCreateNew'
+	if op == ast.Intrinsic.intrManagedFileReadAppending 'intrManagedFileReadAppending'
+		return lowerManagedFileReadAppending(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedFileReadAppending'
+	if op == ast.Intrinsic.intrManagedFileWrite 'intrManagedFileWrite'
+		return lowerManagedFileWrite(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedFileWrite'
+	if op == ast.Intrinsic.intrManagedFileClose 'intrManagedFileClose'
+		return lowerManagedFileClose(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedFileClose'
 	if op == ast.Intrinsic.intrRawLoad8 'intrRawLoad8'
 		return lowerRawLoad8(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawLoad8'
@@ -934,6 +1018,12 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrArrayRefill 'intrArrayRefill'
 		return false
 	end 'intrArrayRefill'
+	if op == ast.Intrinsic.intrArrayHashesAsStorage 'intrArrayHashesAsStorage'
+		return false
+	end 'intrArrayHashesAsStorage'
+	if op == ast.Intrinsic.intrArrayStorageHash 'intrArrayStorageHash'
+		return false
+	end 'intrArrayStorageHash'
 	if op == ast.Intrinsic.intrArrayContains 'intrArrayContains'
 		return false
 	end 'intrArrayContains'
@@ -1000,6 +1090,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrArrayElementSize 'intrArrayElementSize'
 		return false
 	end 'intrArrayElementSize'
+	if op == ast.Intrinsic.intrManagedMemoryCreate 'intrManagedMemoryCreate'
+		return false
+	end 'intrManagedMemoryCreate'
 	if op == ast.Intrinsic.intrArraySwap 'intrArraySwap'
 		return false
 	end 'intrArraySwap'
@@ -1297,12 +1390,21 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrSchedulerUnpinFromMachine 'intrSchedulerUnpinFromMachine'
 		return false
 	end 'intrSchedulerUnpinFromMachine'
-	if op == ast.Intrinsic.intrSleep 'intrSleep'
+	if op == ast.Intrinsic.intrSchedulerPinDepth 'intrSchedulerPinDepth'
 		return false
-	end 'intrSleep'
+	end 'intrSchedulerPinDepth'
+	if op == ast.Intrinsic.intrSchedulerCurrentMachine 'intrSchedulerCurrentMachine'
+		return false
+	end 'intrSchedulerCurrentMachine'
+	if op == ast.Intrinsic.intrSchedulerMachineCpuCount 'intrSchedulerMachineCpuCount'
+		return false
+	end 'intrSchedulerMachineCpuCount'
 	if op == ast.Intrinsic.intrServiceShutdown 'intrServiceShutdown'
 		return false
 	end 'intrServiceShutdown'
+	if op == ast.Intrinsic.intrServiceMostQueued 'intrServiceMostQueued'
+		return false
+	end 'intrServiceMostQueued'
 	if op == ast.Intrinsic.intrPromiseCancel 'intrPromiseCancel'
 		return false
 	end 'intrPromiseCancel'
@@ -1324,6 +1426,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrFileReadText 'intrFileReadText'
 		return false
 	end 'intrFileReadText'
+	if op == ast.Intrinsic.intrFileReadBinary 'intrFileReadBinary'
+		return false
+	end 'intrFileReadBinary'
 	if op == ast.Intrinsic.intrFileWriteText 'intrFileWriteText'
 		return false
 	end 'intrFileWriteText'
@@ -1411,6 +1516,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrCollectedOutputSucceeded 'intrCollectedOutputSucceeded'
 		return false
 	end 'intrCollectedOutputSucceeded'
+	if op == ast.Intrinsic.intrSleep 'intrSleep'
+		return false
+	end 'intrSleep'
 	if op == ast.Intrinsic.intrClockNowMillis 'intrClockNowMillis'
 		return false
 	end 'intrClockNowMillis'
@@ -1465,6 +1573,45 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrSubprocessEndTree 'intrSubprocessEndTree'
 		return false
 	end 'intrSubprocessEndTree'
+	if op == ast.Intrinsic.intrSubprocessSpawnStreaming 'intrSubprocessSpawnStreaming'
+		return false
+	end 'intrSubprocessSpawnStreaming'
+	if op == ast.Intrinsic.intrSubprocessReadAvailable 'intrSubprocessReadAvailable'
+		return false
+	end 'intrSubprocessReadAvailable'
+	if op == ast.Intrinsic.intrSubprocessStdoutState 'intrSubprocessStdoutState'
+		return false
+	end 'intrSubprocessStdoutState'
+	if op == ast.Intrinsic.intrSubprocessStderrState 'intrSubprocessStderrState'
+		return false
+	end 'intrSubprocessStderrState'
+	if op == ast.Intrinsic.intrSubprocessWriteStdinAll 'intrSubprocessWriteStdinAll'
+		return false
+	end 'intrSubprocessWriteStdinAll'
+	if op == ast.Intrinsic.intrSubprocessWriteStdinBytes 'intrSubprocessWriteStdinBytes'
+		return false
+	end 'intrSubprocessWriteStdinBytes'
+	if op == ast.Intrinsic.intrSubprocessQueueStdin 'intrSubprocessQueueStdin'
+		return false
+	end 'intrSubprocessQueueStdin'
+	if op == ast.Intrinsic.intrSubprocessPushStdin 'intrSubprocessPushStdin'
+		return false
+	end 'intrSubprocessPushStdin'
+	if op == ast.Intrinsic.intrSubprocessAwaitStdinWritable 'intrSubprocessAwaitStdinWritable'
+		return false
+	end 'intrSubprocessAwaitStdinWritable'
+	if op == ast.Intrinsic.intrSubprocessCloseStdin 'intrSubprocessCloseStdin'
+		return false
+	end 'intrSubprocessCloseStdin'
+	if op == ast.Intrinsic.intrSubprocessWaitExit 'intrSubprocessWaitExit'
+		return false
+	end 'intrSubprocessWaitExit'
+	if op == ast.Intrinsic.intrSubprocessPollExit 'intrSubprocessPollExit'
+		return false
+	end 'intrSubprocessPollExit'
+	if op == ast.Intrinsic.intrSubprocessExitSignal 'intrSubprocessExitSignal'
+		return false
+	end 'intrSubprocessExitSignal'
 	if op == ast.Intrinsic.intrSubprocessLastErrorCode 'intrSubprocessLastErrorCode'
 		return false
 	end 'intrSubprocessLastErrorCode'
@@ -1549,6 +1696,27 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrAppendLittleEndian 'intrAppendLittleEndian'
 		return false
 	end 'intrAppendLittleEndian'
+	if op == ast.Intrinsic.intrManagedFileOpenRead 'intrManagedFileOpenRead'
+		return false
+	end 'intrManagedFileOpenRead'
+	if op == ast.Intrinsic.intrManagedFileOpenWrite 'intrManagedFileOpenWrite'
+		return false
+	end 'intrManagedFileOpenWrite'
+	if op == ast.Intrinsic.intrManagedFileOpenWriteExecutable 'intrManagedFileOpenWriteExecutable'
+		return false
+	end 'intrManagedFileOpenWriteExecutable'
+	if op == ast.Intrinsic.intrManagedFileOpenCreateNew 'intrManagedFileOpenCreateNew'
+		return false
+	end 'intrManagedFileOpenCreateNew'
+	if op == ast.Intrinsic.intrManagedFileReadAppending 'intrManagedFileReadAppending'
+		return false
+	end 'intrManagedFileReadAppending'
+	if op == ast.Intrinsic.intrManagedFileWrite 'intrManagedFileWrite'
+		return false
+	end 'intrManagedFileWrite'
+	if op == ast.Intrinsic.intrManagedFileClose 'intrManagedFileClose'
+		return false
+	end 'intrManagedFileClose'
 	if op == ast.Intrinsic.intrRawLoad8 'intrRawLoad8'
 		return false
 	end 'intrRawLoad8'

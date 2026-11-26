@@ -1,0 +1,17 @@
+// An array is not Comparable, and a String and a Character are never compared, so neither pair is ordered (maxon's E3005).
+typealias Texts = Array with String
+
+function main() returns ExitCode
+	let a = Texts from ["a"]
+	let b = Texts from ["b"]
+	if a < b 'arrays'
+		return 1
+	end 'arrays'
+	if "a" <= 'a' 'mixed'
+		return 2
+	end 'mixed'
+	return 0
+end 'main'
+
+// expect-error: E3005 at 7:7
+// expect-error: E3005 at 10:9

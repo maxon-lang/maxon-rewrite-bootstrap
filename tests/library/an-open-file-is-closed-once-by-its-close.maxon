@@ -1,0 +1,205 @@
+// A file opened through the library's __ManagedFile has no drop, so it is closed by its close and by nothing else, once,
+// whichever owner ends it: the function that opened it, a callee it was passed to consumes, a record's field taken out of the
+// record, an array's element taken out of the array, a union's payload bound by match consumes, and the handler of a throw that
+// the handle outlived. close() ends the handle whether or not it throws. Each close frees the box the runtime holds the handle
+// in, so the heap's live count after each way is the count before it: a handle not closed leaves a box live, and one closed
+// twice frees one more. On Windows the file is opened to write sharing nothing, so a handle left open would make the next open
+// fail busy; each way ends with the file opened and closed again.
+// native-only
+//> close: closed once
+//> consumes parameter: closed once
+//> record field: closed once
+//> array element: closed once
+//> union payload: closed once
+//> a throw past the handle: closed once, alreadyExists
+//> a missing file: notFound, nothing live
+typealias Files = Array with __ManagedFile
+
+type Holder
+	let file as __ManagedFile
+
+	static function holding(consumes file __ManagedFile) returns Holder
+		return Holder{file: file}
+	end 'holding'
+end 'Holder'
+
+union Held
+	file(handle __ManagedFile)
+	nothing
+end 'Held'
+
+// name is a file in the working directory, which every target can write.
+function name() returns String
+	return "minimaxon_file_close_{Process.id()}"
+end 'name'
+
+function open(path String) returns __ManagedFile throws __ManagedFileError
+	return try __ManagedFile.openWrite(path.addressableBytes())
+end 'open'
+
+function closed(path String) throws __ManagedFileError
+	let file = try open(path)
+	try file.close()
+end 'closed'
+
+function closes(consumes file __ManagedFile) throws __ManagedFileError
+	try file.close()
+end 'closes'
+
+function consumed(path String) throws __ManagedFileError
+	try closes(try open(path))
+end 'consumed'
+
+function inRecord(path String) throws __ManagedFileError
+	let holder = Holder.holding(try open(path))
+	try holder.file.close()
+end 'inRecord'
+
+// inArray puts two handles in an array and closes each as it takes it out; the array then holds nothing and ends.
+function inArray(path String) returns bool throws __ManagedFileError
+	let first = try open(path)
+	let second = try open("{path}_other") otherwise (e) 'unopened'
+		try first.close()
+		throw e
+	end 'unopened'
+	var files = Files.create(0)
+	files.push(first)
+	files.push(second)
+	var failed = false
+	while not files.isEmpty() 'each'
+		let file = files.pop()
+		try file.close() otherwise 'unclosed'
+			failed = true
+		end 'unclosed'
+	end 'each'
+	files.dropEmpty()
+	return not failed
+end 'inArray'
+
+function inUnion(path String) throws __ManagedFileError
+	let held = Held.file(try open(path))
+	match consumes held 'held'
+		file(handle) then try handle.close()
+		nothing then return
+	end 'held'
+end 'inUnion'
+
+// thrown opens the file and then makes it anew where it is there already, which throws alreadyExists past the open handle: the
+// handler closes it before it throws on.
+function thrown(path String) throws __ManagedFileError
+	let file = try open(path)
+	let again = try __ManagedFile.openCreateNew(path.addressableBytes()) otherwise (e) 'exists'
+		try file.close()
+		throw e
+	end 'exists'
+	try again.close() otherwise (e) 'unclosed'
+		try file.close()
+		throw e
+	end 'unclosed'
+	try file.close()
+end 'thrown'
+
+// failureName is the case of a failure of an open or a close.
+function failureName(e __ManagedFileError) returns String
+	return match e 'kind'
+		notFound gives "notFound"
+		accessDenied gives "accessDenied"
+		openFailed gives "openFailed"
+		readFailed gives "readFailed"
+		writeFailed gives "writeFailed"
+		sizeFailed gives "sizeFailed"
+		deleteFailed gives "deleteFailed"
+		statFailed gives "statFailed"
+		invalidStatBuffer gives "invalidStatBuffer"
+		invalidStatIndex gives "invalidStatIndex"
+		closed gives "closed"
+		alreadyExists gives "alreadyExists"
+		busy gives "busy"
+	end 'kind'
+end 'failureName'
+
+// verdict says whether the heap's live count is back where it was, and that the file opens to write again.
+function verdict(before HeapCount, path String) returns String
+	let after = HeapStats.allocationsLive()
+	let reopened = try open(path) otherwise (e) 'refused'
+		return "the file does not open again: {failureName(e)}"
+	end 'refused'
+	try reopened.close() otherwise (e) 'unclosed'
+		return "the file does not close: {failureName(e)}"
+	end 'unclosed'
+	if after == before 'same'
+		return "closed once"
+	end 'same'
+	if after > before 'more'
+		return "{after - before} left live"
+	end 'more'
+	return "{before - after} freed twice"
+end 'verdict'
+
+function report(way String, before HeapCount, path String)
+	let text = verdict(before, path: path)
+	print("{way}: {text}\n")
+end 'report'
+
+function main() returns ExitCode
+	let path = name()
+	let other = "{path}_other"
+	// A first open and close, so that what the runtime makes once is made before the counts are read.
+	try closed(path) otherwise return 1
+	try closed(other) otherwise return 1
+	var before = HeapStats.allocationsLive()
+	try closed(path) otherwise return 2
+	report("close", before: before, path: path)
+	before = HeapStats.allocationsLive()
+	try consumed(path) otherwise return 3
+	report("consumes parameter", before: before, path: path)
+	before = HeapStats.allocationsLive()
+	try inRecord(path) otherwise return 4
+	report("record field", before: before, path: path)
+	before = HeapStats.allocationsLive()
+	let allClosed = try inArray(path) otherwise return 5
+	if not allClosed 'unclosed'
+		return 5
+	end 'unclosed'
+	report("array element", before: before, path: path)
+	before = HeapStats.allocationsLive()
+	try inUnion(path) otherwise return 6
+	report("union payload", before: before, path: path)
+	before = HeapStats.allocationsLive()
+	var why = "nothing thrown"
+	try thrown(path) otherwise (e) 'failed'
+		why = failureName(e)
+	end 'failed'
+	let thrownVerdict = verdict(before, path: path)
+	print("a throw past the handle: {thrownVerdict}, {why}\n")
+	let nowhere = "{path}_missing/file"
+	before = HeapStats.allocationsLive()
+	var missing = "no error"
+	try 'missing'
+		let file = __ManagedFile.openRead(nowhere.addressableBytes())
+		file.close()
+	end 'missing' otherwise (e) 'refused'
+		match e 'kind'
+			notFound then missing = "notFound"
+			accessDenied or
+			openFailed or
+			readFailed or
+			writeFailed or
+			sizeFailed or
+			deleteFailed or
+			statFailed or
+			invalidStatBuffer or
+			invalidStatIndex or
+			closed or
+			alreadyExists or
+			busy then missing = "another failure"
+		end 'kind'
+	end 'refused'
+	let after = HeapStats.allocationsLive()
+	print("a missing file: {missing}, {"nothing live" if after == before else "a box left live"}\n")
+	let pathFile = try FilePath.from(path) otherwise return 7
+	let otherFile = try FilePath.from(other) otherwise return 7
+	try File.delete(pathFile) otherwise return 8
+	try File.delete(otherFile) otherwise return 8
+	return 0
+end 'main'

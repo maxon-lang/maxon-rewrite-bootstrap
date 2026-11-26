@@ -184,7 +184,7 @@ function formatFiles(paths ast.StringList, check bool) returns ExitCode
 			print("not formatted  {path}\n")
 			continue 'files'
 		end 'listed'
-		try File.writeText(try FilePath.from(path) otherwise panic("fmt: {path} is not a path"), content: formatted) otherwise panic("fmt: cannot write {path}")
+		ast.writeOutputText(path, content: formatted)
 		print("formatted  {path}\n")
 	end 'files'
 	var verb = "formatted"

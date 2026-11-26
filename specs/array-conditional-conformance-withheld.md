@@ -152,8 +152,8 @@ function copyIt(c Cloneable) returns Cloneable
 end 'copyIt'
 
 function main() returns ExitCode
-	let src = Nested.create(0)
-	let inner = StrArr.create(0)
+	var src = Nested.create(0)
+	var inner = StrArr.create(0)
 	inner.push("ab")
 	src.push(inner)
 	_ = copyIt(src)
@@ -169,7 +169,6 @@ cloned
 ```
 
 <!-- test: error.the-suppression-may-not-read-a-weaker-index-than-the-report -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### A `where` clause satisfied by an EXTENSION still refuses the copy gate
@@ -433,12 +432,12 @@ typealias IntArr = Array with Val
 typealias IntArrArr = Array with IntArr
 
 function main() returns ExitCode
-	let outer = IntArrArr.create(0)
-	let inner = IntArr.create(0)
+	var outer = IntArrArr.create(0)
+	var inner = IntArr.create(0)
 	inner.push(3)
 	outer.push(inner)
-	let other = IntArrArr.create(0)
-	let innerOther = IntArr.create(0)
+	var other = IntArrArr.create(0)
+	var innerOther = IntArr.create(0)
 	innerOther.push(3)
 	other.push(innerOther)
 	let h = outer.hash()

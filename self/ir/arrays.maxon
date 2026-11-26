@@ -66,7 +66,7 @@ function arrayReserve(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box 
 		heldString then entryVoid(l, p: p, site: box.site, symbol: Rt.rtStrsReserve, args: argsOf2(arr, b: count))
 		heldWord or
 		heldBox then entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayReserve, args: argsOf2(arr, b: count))
-		heldPacked then _ = 0
+		heldPacked then entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesReserve, args: argsOf2(arr, b: count))
 		heldAddress(_) panic("ir: an element held as the address of words elsewhere")
 	end 'way'
 end 'arrayReserve'

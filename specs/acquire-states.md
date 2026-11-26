@@ -72,7 +72,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'held'
 		let held = s.cell
 		s.cell.n = 5
@@ -143,7 +143,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'held'
 		let held = s.peek()
 		s.cell.n = 5
@@ -164,7 +164,7 @@ error E3202: <fragment>:47:14: 's.peek()' is mutable and cannot leave the statem
 ```
 
 <!-- test: a-value-read-from-a-closed-state-outlives-its-statement -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 A value read out of the state (`s.cell.n`) may be kept: a number holds nothing of the state.
 
 ```maxon
@@ -213,7 +213,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'held'
 		let before = s.cell.n
 		s.cell.n = 5
@@ -237,7 +237,7 @@ end 'main'
 ```
 
 <!-- test: a-clone-of-a-closed-state-field-outlives-its-statement -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 `s.cell.clone()` is a fresh record of its own, so the binding may outlive the statement.
 
 ```maxon
@@ -286,7 +286,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'held'
 		let copy = s.cell.clone()
 		s.cell.n = 5
@@ -360,7 +360,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		let held = t.cell
 		s.cell.n = 5
@@ -433,7 +433,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'edit'
@@ -510,7 +510,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'edit'
@@ -536,7 +536,7 @@ error E3202: <fragment>:48:15: 't.peek()' is mutable and cannot leave the statem
 ```
 
 <!-- test: inside-a-window-another-state-cannot-be-written -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 `t` is read-only while `modify s` is open: a store into one of its fields is refused.
@@ -587,7 +587,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'edit'
@@ -612,7 +612,7 @@ error E3197: <fragment>:48:4: cannot write 'total' through 't', which is read-on
 ```
 
 <!-- test: inside-a-window-another-state-cannot-be-written-through-a-record -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 A write through `t.cell` is a write to `t`, which is read-only while `modify s` is open.
@@ -663,7 +663,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'edit'
@@ -739,7 +739,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'edit'
@@ -819,7 +819,7 @@ function poke(cell Cell)
 end 'poke'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'edit'
@@ -895,7 +895,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'edit'
@@ -973,7 +973,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'edit'
@@ -1051,7 +1051,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'edit'
@@ -1076,7 +1076,7 @@ error E3207: <fragment>:48:11: 'bump' needs a writable receiver at line 13; the 
 ```
 
 <!-- test: inside-a-window-a-value-of-another-state-cannot-be-stored-in-one-statement -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 `s.total = t.total` reads `t` and writes `s` in one statement; the read opens `t`, so `s` is read-only in it.
@@ -1127,7 +1127,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'edit'
@@ -1202,7 +1202,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'edit'
@@ -1277,7 +1277,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'held'
 		let read = function() gives s.total
 		s.cell.n = 5
@@ -1298,7 +1298,7 @@ error E3202: <fragment>:47:31: 's' is the state of an acquired service and canno
 ```
 
 <!-- test: a-for-head-over-another-state-holds-a-window-for-its-whole-body -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 <!-- positions: moved -->
 The `for` head reads `t.cells`, which keeps `t` open for the whole loop, so the body may not write `s`.
 
@@ -1348,7 +1348,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		for cell in t.cells 'each'
 			s.total = cell.n
@@ -1425,7 +1425,7 @@ function add(first Tally, second Tally) returns Tally
 end 'add'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		return add(s.total, second: t.total)
 	end 'held' otherwise 'stopped'
@@ -1499,7 +1499,7 @@ function add(first Tally, second Tally) returns Tally
 end 'add'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		return add(t.total, second: s.total)
 	end 'held' otherwise 'stopped'
@@ -1574,7 +1574,7 @@ function copyOver(target Cell, source Cell) returns Tally
 end 'copyOver'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		return copyOver(s.cell, source: t.cell)
 	end 'held' otherwise 'stopped'
@@ -1649,7 +1649,7 @@ function copyOver(target Cell, source Cell) returns Tally
 end 'copyOver'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		return copyOver(t.cell, source: s.cell)
 	end 'held' otherwise 'stopped'
@@ -1719,7 +1719,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		return t.cell.give(s.cell)
 	end 'held' otherwise 'stopped'
@@ -1793,7 +1793,7 @@ function add(first Tally, second Tally) returns Tally
 end 'add'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		return add(s.size(), second: t.size())
 	end 'held' otherwise 'stopped'
@@ -1875,7 +1875,7 @@ function pick(cell Cell, fresh bool) returns Cell
 end 'pick'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		return copyOver(s.cell, source: pick(t.cell, fresh: false))
 	end 'held' otherwise 'stopped'
@@ -1949,7 +1949,7 @@ function add(first Tally, second Tally) returns Tally
 end 'add'
 
 function work(s Ledger.handle, t Ledger.handle, u Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t, u 'held'
 		return add(add(s.total, second: t.total), second: u.total)
 	end 'held' otherwise 'stopped'
@@ -2024,7 +2024,7 @@ function add(first Tally, second Tally) returns Tally
 end 'add'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		if add(s.total, second: t.total) > 0 'positive'
 			return 1
@@ -2097,7 +2097,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		let text = "{s.total} {t.total}"
 		return text.count() as Tally
@@ -2118,7 +2118,7 @@ error E3201: <fragment>:47:26: one statement reaches through two acquired states
 ```
 
 <!-- test: modify-of-an-isolated-field-makes-another-state-read-only -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 `modify s.spare` opens `s`, so a value of `t` cannot be stored into `s.spare` in the statement that reads it.
@@ -2169,7 +2169,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s.spare 'edit'
@@ -2244,7 +2244,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s.spare 'edit'
@@ -2320,7 +2320,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s.spare 'edit'
@@ -2347,7 +2347,7 @@ error E3199: <fragment>:48:11: 't.spare' cannot be opened: the value that holds 
 ```
 
 <!-- test: a-value-of-one-state-is-bound-before-the-other-is-written -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 Read the value in its own statement, then write the other state.
 
 ```maxon
@@ -2396,7 +2396,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		let n = t.cell.n
 		s.cell.n = n
@@ -2421,7 +2421,7 @@ end 'main'
 ```
 
 <!-- test: a-clone-of-one-state-is-handed-to-a-write-of-the-other -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 `t.cell.clone()` is fresh data, so the call that writes `s.cell` takes no view of `t`.
 
 ```maxon
@@ -2475,7 +2475,7 @@ function copyOver(target Cell, source Cell) returns Tally
 end 'copyOver'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		let copy = t.cell.clone()
 		return copyOver(s.cell, source: copy)
@@ -2499,7 +2499,7 @@ end 'main'
 ```
 
 <!-- test: two-states-are-read-in-two-statements -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 Each state is read in its own statement and the values are combined afterwards.
 
 ```maxon
@@ -2552,7 +2552,7 @@ function add(first Tally, second Tally) returns Tally
 end 'add'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		let first = s.total
 		let second = t.total
@@ -2577,7 +2577,7 @@ end 'main'
 ```
 
 <!-- test: one-state-is-read-twice-in-one-statement -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 One state named twice in a statement is one state.
 
 ```maxon
@@ -2630,7 +2630,7 @@ function add(first Tally, second Tally) returns Tally
 end 'add'
 
 function work(s Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'held'
 		return add(s.total, second: s.cell.n)
 	end 'held' otherwise 'stopped'
@@ -2652,7 +2652,7 @@ end 'main'
 ```
 
 <!-- test: inside-a-window-another-state-is-read-one-statement-at-a-time -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 Inside `modify s`, `t` is read in statements of its own and the values are stored into `s`.
 
@@ -2702,7 +2702,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'edit'
@@ -2731,7 +2731,7 @@ end 'main'
 ```
 
 <!-- test: inside-a-window-reads-of-two-states-that-write-nothing-are-one-statement -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 A statement inside `modify s` that only reads values of `t` may name `t` twice.
 
@@ -2785,7 +2785,7 @@ function add(first Tally, second Tally) returns Tally
 end 'add'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'edit'
@@ -2814,7 +2814,7 @@ end 'main'
 ```
 
 <!-- test: inside-a-window-the-opened-states-own-data-may-be-viewed -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 The state the window opens may be viewed and written inside it.
 
@@ -2864,7 +2864,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'edit'
@@ -2892,7 +2892,7 @@ end 'main'
 ```
 
 <!-- test: conditions-of-an-else-if-chain-may-read-different-states -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 Each condition of the chain is its own statement.
 
 ```maxon
@@ -2941,7 +2941,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		if s.total > 100 'first'
 			return 1
@@ -2970,7 +2970,7 @@ end 'main'
 ```
 
 <!-- test: a-return-inside-modify-inside-acquire-releases-both -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 A `return` from inside `modify` leaves the `acquire` block too, so the next `acquire` of the same service is granted.
 
@@ -3020,7 +3020,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, t 'held'
 		// TODO: modify blocks are not supported in minimaxon
 		modify s 'edit'

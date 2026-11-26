@@ -1,0 +1,139 @@
+// A file written through an open file runs as soon as its close has returned, however the writes and the starts of children
+// interleave: an open file holds no fork lock between its calls, so a child that another service starts may be made while
+// the file is open for writing and get a copy of its fd, which it holds until its own execve; the close of a file open for
+// writing waits for the end of a clone in flight, whose child may hold a copy, so that the run of the file does not fail busy
+// (ETXTBSY). Each service writes and runs its own files one after another in one message, and the services'
+// messages run at once, so that with more than one worker the writes of some overlap the starts of others; the close's wait is
+// what the many rounds test. It is not run on Linux: the close waits for the clone, and a clone as vfork makes one ends once
+// the child's execve has replaced its memory, before the execve lets go of the child's copy of the fd, so with more than one
+// worker a close that comes in that gap returns while the child still holds the file, and a run of it fails busy, which is
+// not covered (runtime/README.md, linux.maxon); the arm64-linux lane runs under qemu-user besides, whose fork lets the child
+// outlive the clone call. On macOS, which runs a file open for writing, it checks that the writes, the closes and the runs
+// interleave.
+// unsupported-targets: x64-windows, x64-linux, arm64-linux
+// native-only
+//> every run ran
+typealias Arguments = Array with String
+
+typealias Writers = Array with Writer.handle
+
+// How many services write and run files at once, and how many files each writes and runs.
+let writers = 6
+
+let rounds = 24
+
+// A script that exits with exitCode, padded with a comment so that each write takes a while.
+let exitCode = 7
+
+let paddingLines = 512
+
+function scriptHead() returns String
+	return "#!/bin/sh\nexit {exitCode}\n"
+end 'scriptHead'
+
+function scriptPadding() returns String
+	var text = "".toByteArray()
+	for i in 0 upto paddingLines 'padding'
+		text.append("# the run of a file written just before must not find the file busy: line {i}\n".toByteArray())
+	end 'padding'
+	return String.from(text)
+end 'scriptPadding'
+
+// written writes a script to a file through an open file, in two writes, and closes it: "" when it did, or why not.
+function written(name String, head String, padding String) returns String
+	var file = try __ManagedFile.openWriteExecutable(name.addressableBytes()) otherwise return "unopened"
+	_ = try file.write(head.toByteArray().managed) otherwise 'head'
+		try file.close() otherwise ignore
+		return "unwritten"
+	end 'head'
+	_ = try file.write(padding.toByteArray().managed) otherwise 'padding'
+		try file.close() otherwise ignore
+		return "unwritten"
+	end 'padding'
+	try file.close() otherwise return "unclosed"
+	return ""
+end 'written'
+
+// A Writer writes and runs files and counts the runs that did not end as the file says, keeping how the first one ended.
+type Writer
+	var failed as bool
+	var first as String
+
+	static function create() returns Self
+		return Self{failed: false, first: ""}
+	end 'create'
+
+	export function writeAndRun(mutates self, label Count, dir String)
+		let head = scriptHead()
+		let padding = scriptPadding()
+		for round in 0 upto rounds 'rounds'
+			let name = "{dir}/child-{label}-{round}"
+			var ended = written(name, head: head, padding: padding)
+			if ended == "" 'run'
+				ended = outcome(path(name))
+			end 'run'
+			if ended != "ran {exitCode}" and not self.failed 'failed'
+				self.failed = true
+				self.first = "{name}: {ended}"
+			end 'failed'
+			try File.delete(path(name)) otherwise panic("cannot delete {name}")
+		end 'rounds'
+	end 'writeAndRun'
+
+	export function first() returns String
+		return self.first.clone()
+	end 'first'
+end 'Writer'
+
+function path(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("not a path: {text}")
+end 'path'
+
+// outcome runs the file and says how the run ended.
+function outcome(file FilePath) returns String
+	try 'run'
+		let out = Subprocess.run(Executable.path(file.clone()), arguments: Arguments.create(0))
+		return "ran {out.exitCode()}"
+	end 'run' otherwise (e) 'failed'
+		match e 'kind'
+			executableNotFound then return "executableNotFound"
+			spawnFailed then return "spawnFailed"
+			busy then return "busy"
+			ioFailed then return "ioFailed"
+			timeout then return "timeout"
+			treeNotEnded then return "treeNotEnded"
+			detachRefused then return "detachRefused"
+			inputTooLarge then return "inputTooLarge"
+			statusLost then return "statusLost"
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'outcome'
+
+function main() returns ExitCode
+	let dir = "/tmp/minimaxon_open_file_runs_{Process.id()}"
+	_ = Directory.create(path(dir))
+	var pool = Writers.create(0)
+	for _ in 0 upto writers 'spawn'
+		pool.push(spawn Writer.create())
+	end 'spawn'
+	var label = 0 as Count
+	for w in pool 'send'
+		try w.writeAndRun(label, dir: dir.clone()) otherwise panic("the service runs")
+		label = try label + 1 otherwise panic("too many writers")
+	end 'send'
+	var first = ""
+	for w in pool 'report'
+		let theirs = try await w.first() otherwise panic("the service runs")
+		if first == "" 'earliest'
+			first = theirs
+		end 'earliest'
+	end 'report'
+	if first == "" 'clean'
+		print("every run ran\n")
+	end 'clean' else 'failed'
+		print("a run failed, the first: {first}\n")
+	end 'failed'
+	try Directory.delete(path(dir)) otherwise panic("cannot remove the directory")
+	return 0
+end 'main'

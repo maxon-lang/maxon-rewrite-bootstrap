@@ -1,0 +1,117 @@
+// A detached child that ends is waited for by the event queue when it takes the child's exit, with no spawn after it and no thread of
+// the runtime that waits: on a system that has zombies `ps` shows the child's state, which is never Z once it has ended and the program
+// has had the scheduler for a while (a sleep). The child is this program run again, which says it is going to end by writing a file
+// and ends at once. Where there is no /bin/sh (Windows, which has no zombies) the line is taken as true.
+// native-only
+//> the detached child ended and wrote its file: written=[brief]
+//> no zombie of it is left, and no later spawn was made: true
+
+typealias Blob = Array with Byte
+
+typealias Words = Array with String
+
+let terminator = 0 as Byte
+
+let stdinNone = 0
+
+let outputDiscard = 0
+
+let detachFlag = 4
+
+let parentEnvironment = 1
+
+let waitMs = 50
+
+let waitLimitMs = 30000
+
+// settleMs lets the child that has written its file end, which a system that holds the program's executable open while one runs
+// needs before the runner deletes it.
+let settleMs = 500
+
+function appendToken(mutates out Blob, token String)
+	for b in token.bytes() 'each'
+		out.push(b)
+	end 'each'
+	out.push(terminator)
+end 'appendToken'
+
+function pathOf(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("not a path")
+end 'pathOf'
+
+function detach(tokens Words) returns FullRangeInt
+	var argv = Blob.create(0)
+	for token in tokens 'tokens'
+		appendToken(argv, token: token)
+	end 'tokens'
+	var env = Blob.create(1)
+	env.push(terminator)
+	let empty = ""
+	return __Builtins.subprocessDetach(argv.managed, tokens.count(), empty.cstr(), env.managed, parentEnvironment, stdinNone, empty.cstr(), outputDiscard, empty.cstr(), 0, outputDiscard, empty.cstr(), 0, detachFlag, 0)
+end 'detach'
+
+function waitForFile(path String) returns String
+	var waited = 0 as Count
+	var text = ""
+	while waited < waitLimitMs 'poll'
+		if File.exists(pathOf(path)) 'present'
+			text = try File.readText(pathOf(path)) otherwise ""
+			if text.byteLength() > 0 'written'
+				return text
+			end 'written'
+		end 'present'
+		sleep(waitMs)
+		waited = waited + waitMs
+	end 'poll'
+	return text
+end 'waitForFile'
+
+// stateOf is what `ps` says of a process's state, empty where there is no such process.
+function stateOf(pid FullRangeInt) returns String
+	var arguments = StringArray.create(0)
+	arguments.push("-c")
+	arguments.push("ps -o stat= -p {pid}")
+	let out = try Subprocess.run(Executable.path(pathOf("/bin/sh")), arguments: arguments) otherwise return "unknown"
+	return out.stdout.trim().clone()
+end 'stateOf'
+
+// zombieGone says whether the process is no zombie within the limit, which is where it stays when nothing waits for it.
+function zombieGone(pid FullRangeInt) returns bool
+	var waited = 0 as Count
+	while waited < waitLimitMs 'poll'
+		if not stateOf(pid).startsWith("Z") 'gone'
+			return true
+		end 'gone'
+		sleep(waitMs)
+		waited = waited + waitMs
+	end 'poll'
+	return false
+end 'zombieGone'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() > 2 'child'
+		let file = args.get(2)
+		try File.writeText(pathOf("{file}.partial"), content: "brief") otherwise return 3
+		try File.rename(pathOf("{file}.partial"), to: pathOf(file)) otherwise return 4
+		return 0
+	end 'child'
+	let executable = try Process.executablePath() otherwise return 5
+	let file = "rows-reap-{Process.id()}.tmp"
+	var tokens = Words.create(0)
+	tokens.push(executable.path.clone())
+	tokens.push("write")
+	tokens.push(file.clone())
+	let pid = detach(tokens)
+	print("the detached child ended and wrote its file: written=[{waitForFile(file)}]\n")
+	var reaped = true
+	if File.exists(pathOf("/bin/sh")) 'zombies'
+		reaped = zombieGone(pid)
+	end 'zombies'
+	print("no zombie of it is left, and no later spawn was made: {reaped}\n")
+	if File.exists(pathOf(file)) 'present'
+		try File.delete(pathOf(file)) otherwise return 6
+	end 'present'
+	sleep(settleMs)
+	return 0
+end 'main'

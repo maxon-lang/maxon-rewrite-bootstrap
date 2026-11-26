@@ -104,13 +104,37 @@ export let errorWriteBusy = 4 as Count
 
 export let errorWritePartialFileLeft = 5 as Count
 
+export let errorFileNotFound = 0 as Count
+
+export let errorFileAccessDenied = 1 as Count
+
+export let errorFileOpenFailed = 2 as Count
+
+export let errorFileReadFailed = 3 as Count
+
+export let errorFileWriteFailed = 4 as Count
+
+export let errorFileSizeFailed = 5 as Count
+
+export let errorFileDeleteFailed = 6 as Count
+
+export let errorFileStatFailed = 7 as Count
+
+export let errorFileInvalidStatBuffer = 8 as Count
+
+export let errorFileInvalidStatIndex = 9 as Count
+
+export let errorFileClosed = 10 as Count
+
+export let errorFileAlreadyExists = 11 as Count
+
+export let errorFileBusy = 12 as Count
+
 export let filePermissionNormal = 0 as Count
 
 export let filePermissionExecutable = 1 as Count
 
-export let sendMailboxFull = 0 as Count
-
-export let sendServiceStopped = 1 as Count
+export let sendServiceStopped = 0 as Count
 
 export let errorDeleteNotFound = 0 as Count
 
@@ -174,6 +198,14 @@ export let errorInputTooLarge = 7 as Count
 
 export let errorStatusLost = 8 as Count
 
+export let streamStateOpen = 0 as Count
+
+export let streamStateAtEof = 1 as Count
+
+export let streamStateReadFailed = 2 as Count
+
+export let streamStateNoSuchChild = 3 as Count
+
 export let errorDebuggeeUnreadable = 0 as Count
 
 export let errorDebuggeeUnwritable = 1 as Count
@@ -228,6 +260,8 @@ export enum Intrinsic
 	intrArraySlice
 	intrArrayGrowFilled
 	intrArrayRefill
+	intrArrayHashesAsStorage
+	intrArrayStorageHash
 	intrArrayContains
 	intrArrayContainsSequence
 	intrArrayEquals
@@ -250,6 +284,7 @@ export enum Intrinsic
 	intrFixedArrayRefill
 	intrManagedByteAt
 	intrArrayElementSize
+	intrManagedMemoryCreate
 	intrArraySwap
 	intrCursorCurrent
 	intrCursorIndex
@@ -349,8 +384,11 @@ export enum Intrinsic
 	intrSchedulerYield
 	intrSchedulerPinToMachine
 	intrSchedulerUnpinFromMachine
-	intrSleep
+	intrSchedulerPinDepth
+	intrSchedulerCurrentMachine
+	intrSchedulerMachineCpuCount
 	intrServiceShutdown
+	intrServiceMostQueued
 	intrPromiseCancel
 	intrArrayAwaitAny
 	intrPromiseIsComplete
@@ -358,6 +396,7 @@ export enum Intrinsic
 	intrFilePathInit
 	intrFilePathToString
 	intrFileReadText
+	intrFileReadBinary
 	intrFileWriteText
 	intrFileWriteBinary
 	intrFileRename
@@ -387,6 +426,7 @@ export enum Intrinsic
 	intrDebuggeeCloseHandle
 	intrDebuggeeTerminate
 	intrCollectedOutputSucceeded
+	intrSleep
 	intrClockNowMillis
 	intrClockTickMillis
 	intrClockThreadCpuTicks
@@ -405,6 +445,19 @@ export enum Intrinsic
 	intrSubprocessResultRelease
 	intrSubprocessReleaseHandle
 	intrSubprocessEndTree
+	intrSubprocessSpawnStreaming
+	intrSubprocessReadAvailable
+	intrSubprocessStdoutState
+	intrSubprocessStderrState
+	intrSubprocessWriteStdinAll
+	intrSubprocessWriteStdinBytes
+	intrSubprocessQueueStdin
+	intrSubprocessPushStdin
+	intrSubprocessAwaitStdinWritable
+	intrSubprocessCloseStdin
+	intrSubprocessWaitExit
+	intrSubprocessPollExit
+	intrSubprocessExitSignal
 	intrSubprocessLastErrorCode
 	intrSubprocessLastErrorMessage
 	intrSubprocessResolveOnPath
@@ -433,6 +486,13 @@ export enum Intrinsic
 	intrReadLittleEndian
 	intrAppendBigEndian
 	intrAppendLittleEndian
+	intrManagedFileOpenRead
+	intrManagedFileOpenWrite
+	intrManagedFileOpenWriteExecutable
+	intrManagedFileOpenCreateNew
+	intrManagedFileReadAppending
+	intrManagedFileWrite
+	intrManagedFileClose
 	intrRawLoad8
 	intrRawLoad16
 	intrRawLoad32
@@ -673,6 +733,8 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrArraySlice or
 		intrArrayGrowFilled or
 		intrArrayRefill or
+		intrArrayHashesAsStorage or
+		intrArrayStorageHash or
 		intrArrayContains or
 		intrArrayContainsSequence or
 		intrArrayEquals or
@@ -691,6 +753,7 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrFixedArrayRefill or
 		intrManagedByteAt or
 		intrArrayElementSize or
+		intrManagedMemoryCreate or
 		intrArraySwap or
 		intrCursorCurrent or
 		intrCursorIndex or
@@ -790,8 +853,11 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrSchedulerYield or
 		intrSchedulerPinToMachine or
 		intrSchedulerUnpinFromMachine or
-		intrSleep or
+		intrSchedulerPinDepth or
+		intrSchedulerCurrentMachine or
+		intrSchedulerMachineCpuCount or
 		intrServiceShutdown or
+		intrServiceMostQueued or
 		intrPromiseCancel or
 		intrArrayAwaitAny or
 		intrPromiseIsComplete or
@@ -799,6 +865,7 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrFilePathInit or
 		intrFilePathToString or
 		intrFileReadText or
+		intrFileReadBinary or
 		intrFileWriteText or
 		intrFileWriteBinary or
 		intrFileRename or
@@ -828,6 +895,7 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrDebuggeeCloseHandle or
 		intrDebuggeeTerminate or
 		intrCollectedOutputSucceeded or
+		intrSleep or
 		intrClockNowMillis or
 		intrClockTickMillis or
 		intrClockThreadCpuTicks or
@@ -846,6 +914,19 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrSubprocessResultRelease or
 		intrSubprocessReleaseHandle or
 		intrSubprocessEndTree or
+		intrSubprocessSpawnStreaming or
+		intrSubprocessReadAvailable or
+		intrSubprocessStdoutState or
+		intrSubprocessStderrState or
+		intrSubprocessWriteStdinAll or
+		intrSubprocessWriteStdinBytes or
+		intrSubprocessQueueStdin or
+		intrSubprocessPushStdin or
+		intrSubprocessAwaitStdinWritable or
+		intrSubprocessCloseStdin or
+		intrSubprocessWaitExit or
+		intrSubprocessPollExit or
+		intrSubprocessExitSignal or
 		intrSubprocessLastErrorCode or
 		intrSubprocessLastErrorMessage or
 		intrSubprocessResolveOnPath or
@@ -874,6 +955,13 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrReadLittleEndian or
 		intrAppendBigEndian or
 		intrAppendLittleEndian or
+		intrManagedFileOpenRead or
+		intrManagedFileOpenWrite or
+		intrManagedFileOpenWriteExecutable or
+		intrManagedFileOpenCreateNew or
+		intrManagedFileReadAppending or
+		intrManagedFileWrite or
+		intrManagedFileClose or
 		intrRawLoad8 or
 		intrRawLoad16 or
 		intrRawLoad32 or
@@ -968,6 +1056,8 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrArraySetProven or
 		intrArrayReserve or
 		intrArraySlice or
+		intrArrayHashesAsStorage or
+		intrArrayStorageHash or
 		intrArrayContains or
 		intrArrayContainsSequence or
 		intrArrayEquals or
@@ -986,6 +1076,7 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrFixedArrayRefill or
 		intrManagedByteAt or
 		intrArrayElementSize or
+		intrManagedMemoryCreate or
 		intrCursorCurrent or
 		intrCursorIndex or
 		intrCursorPeek or
@@ -1071,14 +1162,18 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrSchedulerYield or
 		intrSchedulerPinToMachine or
 		intrSchedulerUnpinFromMachine or
-		intrSleep or
+		intrSchedulerPinDepth or
+		intrSchedulerCurrentMachine or
+		intrSchedulerMachineCpuCount or
 		intrServiceShutdown or
+		intrServiceMostQueued or
 		intrArrayAwaitAny or
 		intrPromiseIsComplete or
 		intrFilePathFrom or
 		intrFilePathInit or
 		intrFilePathToString or
 		intrFileReadText or
+		intrFileReadBinary or
 		intrFileWriteText or
 		intrFileWriteBinary or
 		intrFileRename or
@@ -1108,6 +1203,7 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrDebuggeeCloseHandle or
 		intrDebuggeeTerminate or
 		intrCollectedOutputSucceeded or
+		intrSleep or
 		intrClockNowMillis or
 		intrClockTickMillis or
 		intrClockThreadCpuTicks or
@@ -1126,6 +1222,19 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrSubprocessResultRelease or
 		intrSubprocessReleaseHandle or
 		intrSubprocessEndTree or
+		intrSubprocessSpawnStreaming or
+		intrSubprocessReadAvailable or
+		intrSubprocessStdoutState or
+		intrSubprocessStderrState or
+		intrSubprocessWriteStdinAll or
+		intrSubprocessWriteStdinBytes or
+		intrSubprocessQueueStdin or
+		intrSubprocessPushStdin or
+		intrSubprocessAwaitStdinWritable or
+		intrSubprocessCloseStdin or
+		intrSubprocessWaitExit or
+		intrSubprocessPollExit or
+		intrSubprocessExitSignal or
 		intrSubprocessLastErrorCode or
 		intrSubprocessLastErrorMessage or
 		intrSubprocessResolveOnPath or
@@ -1154,6 +1263,13 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrReadLittleEndian or
 		intrAppendBigEndian or
 		intrAppendLittleEndian or
+		intrManagedFileOpenRead or
+		intrManagedFileOpenWrite or
+		intrManagedFileOpenWriteExecutable or
+		intrManagedFileOpenCreateNew or
+		intrManagedFileReadAppending or
+		intrManagedFileWrite or
+		intrManagedFileClose or
 		intrRawLoad8 or
 		intrRawLoad16 or
 		intrRawLoad32 or
@@ -1276,6 +1392,8 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrArraySlice or
 		intrArrayGrowFilled or
 		intrArrayRefill or
+		intrArrayHashesAsStorage or
+		intrArrayStorageHash or
 		intrArrayContains or
 		intrArrayContainsSequence or
 		intrArrayEquals or
@@ -1297,6 +1415,7 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrFixedArrayRefill or
 		intrManagedByteAt or
 		intrArrayElementSize or
+		intrManagedMemoryCreate or
 		intrArraySwap or
 		intrCursorCurrent or
 		intrCursorIndex or
@@ -1396,8 +1515,11 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrSchedulerYield or
 		intrSchedulerPinToMachine or
 		intrSchedulerUnpinFromMachine or
-		intrSleep or
+		intrSchedulerPinDepth or
+		intrSchedulerCurrentMachine or
+		intrSchedulerMachineCpuCount or
 		intrServiceShutdown or
+		intrServiceMostQueued or
 		intrPromiseCancel or
 		intrArrayAwaitAny or
 		intrPromiseIsComplete or
@@ -1405,6 +1527,7 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrFilePathInit or
 		intrFilePathToString or
 		intrFileReadText or
+		intrFileReadBinary or
 		intrFileWriteText or
 		intrFileWriteBinary or
 		intrFileRename or
@@ -1434,6 +1557,7 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrDebuggeeCloseHandle or
 		intrDebuggeeTerminate or
 		intrCollectedOutputSucceeded or
+		intrSleep or
 		intrClockNowMillis or
 		intrClockTickMillis or
 		intrClockThreadCpuTicks or
@@ -1452,6 +1576,19 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrSubprocessResultRelease or
 		intrSubprocessReleaseHandle or
 		intrSubprocessEndTree or
+		intrSubprocessSpawnStreaming or
+		intrSubprocessReadAvailable or
+		intrSubprocessStdoutState or
+		intrSubprocessStderrState or
+		intrSubprocessWriteStdinAll or
+		intrSubprocessWriteStdinBytes or
+		intrSubprocessQueueStdin or
+		intrSubprocessPushStdin or
+		intrSubprocessAwaitStdinWritable or
+		intrSubprocessCloseStdin or
+		intrSubprocessWaitExit or
+		intrSubprocessPollExit or
+		intrSubprocessExitSignal or
 		intrSubprocessLastErrorCode or
 		intrSubprocessLastErrorMessage or
 		intrSubprocessResolveOnPath or
@@ -1480,6 +1617,13 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrReadLittleEndian or
 		intrAppendBigEndian or
 		intrAppendLittleEndian or
+		intrManagedFileOpenRead or
+		intrManagedFileOpenWrite or
+		intrManagedFileOpenWriteExecutable or
+		intrManagedFileOpenCreateNew or
+		intrManagedFileReadAppending or
+		intrManagedFileWrite or
+		intrManagedFileClose or
 		intrRawLoad8 or
 		intrRawLoad16 or
 		intrRawLoad32 or
@@ -1599,6 +1743,9 @@ export function rawTypeSurface(b Builtins, origin TypeID) returns table.Option w
 	if origin == b.groupMemoryOrigin 'rawGroupMemory'
 		return table.Option.some(RawSurface.make("the raw buffer of a table's groups is nameable", instead: "use 'Map'"))
 	end 'rawGroupMemory'
+	if origin == b.cownOrigin 'rawCown'
+		return table.Option.some(RawSurface.make("the cown type is nameable", instead: "keep shared state in a service and send it messages"))
+	end 'rawCown'
 	if origin == b.serviceOrigin 'rawService'
 		return table.Option.some(RawSurface.make("the handle type of a service is nameable by its built-in name", instead: "write 'T.handle'"))
 	end 'rawService'
@@ -1631,10 +1778,25 @@ export function rawMethodSurface(b Builtins, origin TypeID) returns table.Option
 	return table.Option.none
 end 'rawMethodSurface'
 
+// rawLibraryTypeSurface is the door of the raw surface that naming a type the library declares by the name is, or none for
+// a name that is no part of it.
+export function rawLibraryTypeSurface(name String) returns table.Option with RawSurface
+	if name == "__ManagedFile" 'rawManagedFile'
+		return table.Option.some(RawSurface.make("the raw OS file handle type is nameable", instead: "use 'File'"))
+	end 'rawManagedFile'
+	return table.Option.none
+end 'rawLibraryTypeSurface'
+
 // rawCallInstead is what a program calls in place of a static function of a record of the table whose calls are raw, or
 // none for a function of any other owner.
 export function rawCallInstead(b Builtins, owner TypeID, name String) returns table.Option with String
 	if owner == b.builtinsTy 'rawBuiltins'
+		if name == "sleep" 'sleep'
+			return table.Option.some("sleep(milliseconds)")
+		end 'sleep'
+		if name == "cpuCount" 'cpuCount'
+			return table.Option.some("Scheduler.machineCpuCount()")
+		end 'cpuCount'
 		if name == "currentProcessId" 'currentProcessId'
 			return table.Option.some("Process.id()")
 		end 'currentProcessId'
@@ -1665,6 +1827,9 @@ export function rawCallInstead(b Builtins, owner TypeID, name String) returns ta
 		if name == "subprocessSpawn" 'subprocessSpawn'
 			return table.Option.some("Subprocess.run or a Configuration's run()")
 		end 'subprocessSpawn'
+		if name == "subprocessDetach" 'subprocessDetach'
+			return table.Option.some("Subprocess.run or a Configuration's run()")
+		end 'subprocessDetach'
 		if name == "subprocessGetPid" 'subprocessGetPid'
 			return table.Option.some("Subprocess.run or a Configuration's run()")
 		end 'subprocessGetPid'
@@ -1695,6 +1860,45 @@ export function rawCallInstead(b Builtins, owner TypeID, name String) returns ta
 		if name == "subprocessEndTree" 'subprocessEndTree'
 			return table.Option.some("Subprocess.run or a Configuration's run()")
 		end 'subprocessEndTree'
+		if name == "subprocessSpawnStreaming" 'subprocessSpawnStreaming'
+			return table.Option.some("StreamingSubprocess")
+		end 'subprocessSpawnStreaming'
+		if name == "subprocessReadAvailable" 'subprocessReadAvailable'
+			return table.Option.some("StreamingSubprocess")
+		end 'subprocessReadAvailable'
+		if name == "subprocessStdoutState" 'subprocessStdoutState'
+			return table.Option.some("StreamingSubprocess")
+		end 'subprocessStdoutState'
+		if name == "subprocessStderrState" 'subprocessStderrState'
+			return table.Option.some("StreamingSubprocess")
+		end 'subprocessStderrState'
+		if name == "subprocessWriteStdinAll" 'subprocessWriteStdinAll'
+			return table.Option.some("StreamingSubprocess")
+		end 'subprocessWriteStdinAll'
+		if name == "subprocessWriteStdinBytes" 'subprocessWriteStdinBytes'
+			return table.Option.some("StreamingSubprocess")
+		end 'subprocessWriteStdinBytes'
+		if name == "subprocessQueueStdin" 'subprocessQueueStdin'
+			return table.Option.some("StreamingSubprocess")
+		end 'subprocessQueueStdin'
+		if name == "subprocessPushStdin" 'subprocessPushStdin'
+			return table.Option.some("StreamingSubprocess")
+		end 'subprocessPushStdin'
+		if name == "subprocessAwaitStdinWritable" 'subprocessAwaitStdinWritable'
+			return table.Option.some("StreamingSubprocess")
+		end 'subprocessAwaitStdinWritable'
+		if name == "subprocessCloseStdin" 'subprocessCloseStdin'
+			return table.Option.some("StreamingSubprocess")
+		end 'subprocessCloseStdin'
+		if name == "subprocessWaitExit" 'subprocessWaitExit'
+			return table.Option.some("StreamingSubprocess")
+		end 'subprocessWaitExit'
+		if name == "subprocessPollExit" 'subprocessPollExit'
+			return table.Option.some("StreamingSubprocess")
+		end 'subprocessPollExit'
+		if name == "subprocessExitSignal" 'subprocessExitSignal'
+			return table.Option.some("StreamingSubprocess")
+		end 'subprocessExitSignal'
 		if name == "subprocessLastErrorCode" 'subprocessLastErrorCode'
 			return table.Option.some("Subprocess.run or a Configuration's run()")
 		end 'subprocessLastErrorCode'
@@ -1788,6 +1992,27 @@ export function rawCallInstead(b Builtins, owner TypeID, name String) returns ta
 		if name == "appendLittleEndian" 'appendLittleEndian'
 			return table.Option.some("appendOrderedWord")
 		end 'appendLittleEndian'
+		if name == "fileOpenRead" 'fileOpenRead'
+			return table.Option.some("File")
+		end 'fileOpenRead'
+		if name == "fileOpenWrite" 'fileOpenWrite'
+			return table.Option.some("File")
+		end 'fileOpenWrite'
+		if name == "fileOpenWriteExecutable" 'fileOpenWriteExecutable'
+			return table.Option.some("File")
+		end 'fileOpenWriteExecutable'
+		if name == "fileOpenCreateNew" 'fileOpenCreateNew'
+			return table.Option.some("File")
+		end 'fileOpenCreateNew'
+		if name == "fileReadAppending" 'fileReadAppending'
+			return table.Option.some("File")
+		end 'fileReadAppending'
+		if name == "fileWrite" 'fileWrite'
+			return table.Option.some("File")
+		end 'fileWrite'
+		if name == "fileClose" 'fileClose'
+			return table.Option.some("File")
+		end 'fileClose'
 		panic("'{name}' is no static function of __Builtins")
 	end 'rawBuiltins'
 	return table.Option.none
@@ -1796,6 +2021,12 @@ end 'rawCallInstead'
 // rawMemberSurface is the door of the raw surface that calling a method of that name of a type of the table is, for a
 // method that is one, or none.
 export function rawMemberSurface(b Builtins, owner TypeID, name String) returns table.Option with RawSurface
+	if owner == b.arrayOrigin and name == "hashesAsStorage" 'arrayHashesAsStorage'
+		return table.Option.some(RawSurface.make("an array is asked whether it hashes as its storage", instead: "use 'hash()'"))
+	end 'arrayHashesAsStorage'
+	if owner == b.arrayOrigin and name == "storageHash" 'arrayStorageHash'
+		return table.Option.some(RawSurface.make("the storage of an array is hashed", instead: "use 'hash()'"))
+	end 'arrayStorageHash'
 	if owner == b.slotKeyOrigin and name == "fromWord" 'slotKeyFromWord'
 		return table.Option.some(RawSurface.make("a slot key is made of a word", instead: "use the slot key a slot map's 'insert' gives"))
 	end 'slotKeyFromWord'
@@ -1814,6 +2045,9 @@ export function rawMemberSurface(b Builtins, owner TypeID, name String) returns 
 	if owner == b.stringTy and name == "fromCString" 'stringFromCString'
 		return table.Option.some(RawSurface.make("a String is made of a NUL-terminated 'cstring'", instead: "use 'String.from(bytes)'"))
 	end 'stringFromCString'
+	if owner == b.serviceOrigin and name == "mostQueued" 'serviceMostQueued'
+		return table.Option.some(RawSurface.make("a service's queue length is read", instead: "let the runtime's backpressure bound it"))
+	end 'serviceMostQueued'
 	return table.Option.none
 end 'rawMemberSurface'
 
@@ -1850,7 +2084,6 @@ function declareStdAliases(mutates tt TypeSlot, reads TypeTable, mutates std Par
 	b.codepointDeltaTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "CodepointDelta", lo: I128.fromCount(1114111 as Count).neg(), hi: I128.fromCount(1114111 as Count))
 	b.networkPortTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "NetworkPort", lo: I128.zero(), hi: I128.fromCount(65535 as Count))
 	b.codeUnit16Ty = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "CodeUnit16", lo: I128.zero(), hi: I128.fromCount(65535 as Count))
-	b.millisecondsTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "Milliseconds", lo: I128.zero(), hi: I128.u64Max())
 	b.instantNanosTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "InstantNanos", lo: I128.zero(), hi: I128.u64Max())
 	b.instantMsTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "InstantMs", lo: I128.zero(), hi: I128.u64Max())
 	b.threadCpuTicksTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "ThreadCpuTicks", lo: I128.zero(), hi: I128.u64Max())
@@ -1858,7 +2091,8 @@ function declareStdAliases(mutates tt TypeSlot, reads TypeTable, mutates std Par
 	b.unixNanosTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "UnixNanos", lo: I128.i64Min(), hi: I128.i64Max())
 	b.orderedWordTy = registerStdBitsAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "OrderedWord", width: 64)
 	b.hashDigestTy = registerStdBitsAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "HashDigest", width: 64)
-	b.mailboxCapacityTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "MailboxCapacity", lo: I128.fromCount(1 as Count), hi: I128.fromCount(2147483648 as Count))
+	b.fileSizeTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "FileSize", lo: I128.zero(), hi: I128.u64Max())
+	b.timestampTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "Timestamp", lo: I128.zero(), hi: I128.u64Max())
 end 'declareStdAliases'
 
 function declareBuiltinTable(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates typeMap TypeIDMap, mutates funcMap FuncIDMap)
@@ -1973,10 +2207,10 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std P
 	addRecordField(tt, reads: reads, owner: b.collectedOutputTy, name: "stdout", ty: b.stringTy, isVar: true, exported: true)
 	addRecordField(tt, reads: reads, owner: b.collectedOutputTy, name: "stderr", ty: b.stringTy, isVar: true, exported: true)
 	addRecordField(tt, reads: reads, owner: b.collectedOutputTy, name: "code", ty: b.exitCodeTy, isVar: false, exported: false)
-	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "size", ty: b.countTy, isVar: false, exported: true)
-	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "modifiedTime", ty: b.countTy, isVar: false, exported: true)
-	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "createdTime", ty: b.countTy, isVar: false, exported: true)
-	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "accessedTime", ty: b.countTy, isVar: false, exported: true)
+	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "size", ty: b.fileSizeTy, isVar: false, exported: true)
+	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "modifiedTime", ty: b.timestampTy, isVar: false, exported: true)
+	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "createdTime", ty: b.timestampTy, isVar: false, exported: true)
+	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "accessedTime", ty: b.timestampTy, isVar: false, exported: true)
 	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "isDirectory", ty: b.boolTy, isVar: false, exported: true)
 	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "isReadOnly", ty: b.boolTy, isVar: false, exported: true)
 	b.executableTy = registerUnionType(tt, reads: reads, std: std, typeMap: typeMap, name: "Executable", paramNames: StringList.create(0))
@@ -2031,101 +2265,121 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std P
 	names21.push("partialFileLeft")
 	b.fileWriteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileWriteError", cases: names21)
 	var names22 = StringList.create(0)
-	names22.push("normal")
-	names22.push("executable")
-	b.filePermissionTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FilePermission", cases: names22)
+	names22.push("notFound")
+	names22.push("accessDenied")
+	names22.push("openFailed")
+	names22.push("readFailed")
+	names22.push("writeFailed")
+	names22.push("sizeFailed")
+	names22.push("deleteFailed")
+	names22.push("statFailed")
+	names22.push("invalidStatBuffer")
+	names22.push("invalidStatIndex")
+	names22.push("closed")
+	names22.push("alreadyExists")
+	names22.push("busy")
+	b.managedFileErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__ManagedFileError", cases: names22)
 	var names23 = StringList.create(0)
-	names23.push("mailboxFull")
-	names23.push("serviceStopped")
-	b.sendErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SendError", cases: names23)
+	names23.push("normal")
+	names23.push("executable")
+	b.filePermissionTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FilePermission", cases: names23)
 	var names24 = StringList.create(0)
-	names24.push("notFound")
-	names24.push("accessDenied")
-	names24.push("busy")
-	names24.push("failed")
-	b.fileDeleteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileDeleteError", cases: names24)
+	names24.push("serviceStopped")
+	b.sendErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SendError", cases: names24)
 	var names25 = StringList.create(0)
-	names25.push("failed")
 	names25.push("notFound")
 	names25.push("accessDenied")
 	names25.push("busy")
-	names25.push("alreadyExists")
-	b.fileRenameErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileRenameError", cases: names25)
+	names25.push("failed")
+	b.fileDeleteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileDeleteError", cases: names25)
 	var names26 = StringList.create(0)
+	names26.push("failed")
 	names26.push("notFound")
 	names26.push("accessDenied")
 	names26.push("busy")
-	names26.push("failed")
-	b.fileInfoErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileInfoError", cases: names26)
+	names26.push("alreadyExists")
+	b.fileRenameErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileRenameError", cases: names26)
 	var names27 = StringList.create(0)
 	names27.push("notFound")
 	names27.push("accessDenied")
-	names27.push("listFailed")
-	b.directoryListErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryListError", cases: names27)
+	names27.push("busy")
+	names27.push("failed")
+	b.fileInfoErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileInfoError", cases: names27)
 	var names28 = StringList.create(0)
 	names28.push("notFound")
-	names28.push("notEmpty")
-	names28.push("deleteFailed")
-	b.directoryDeleteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryDeleteError", cases: names28)
+	names28.push("accessDenied")
+	names28.push("listFailed")
+	b.directoryListErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryListError", cases: names28)
 	var names29 = StringList.create(0)
-	names29.push("pathUnavailable")
-	names29.push("variableUnset")
-	names29.push("environmentUnreadable")
-	b.processIntrospectionErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "ProcessIntrospectionError", cases: names29)
+	names29.push("notFound")
+	names29.push("notEmpty")
+	names29.push("deleteFailed")
+	b.directoryDeleteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryDeleteError", cases: names29)
 	var names30 = StringList.create(0)
-	names30.push("executableNotFound")
-	names30.push("spawnFailed")
-	names30.push("busy")
-	names30.push("ioFailed")
-	names30.push("timeout")
-	names30.push("treeNotEnded")
-	names30.push("detachRefused")
-	names30.push("inputTooLarge")
-	names30.push("statusLost")
-	b.subprocessErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SubprocessError", cases: names30)
+	names30.push("pathUnavailable")
+	names30.push("variableUnset")
+	names30.push("environmentUnreadable")
+	b.processIntrospectionErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "ProcessIntrospectionError", cases: names30)
 	var names31 = StringList.create(0)
-	names31.push("unreadable")
-	names31.push("unwritable")
-	names31.push("outOfBounds")
-	b.debuggeeErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebuggeeError", cases: names31)
+	names31.push("executableNotFound")
+	names31.push("spawnFailed")
+	names31.push("busy")
+	names31.push("ioFailed")
+	names31.push("timeout")
+	names31.push("treeNotEnded")
+	names31.push("detachRefused")
+	names31.push("inputTooLarge")
+	names31.push("statusLost")
+	b.subprocessErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SubprocessError", cases: names31)
 	var names32 = StringList.create(0)
-	names32.push("handled")
-	names32.push("unhandled")
-	b.debugDispositionTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebugDisposition", cases: names32)
+	names32.push("open")
+	names32.push("atEof")
+	names32.push("readFailed")
+	names32.push("noSuchChild")
+	b.subprocessStreamStateTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__SubprocessStreamState", cases: names32)
 	var names33 = StringList.create(0)
-	names33.push("notAscii")
-	b.characterErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CharacterError", cases: names33)
+	names33.push("unreadable")
+	names33.push("unwritable")
+	names33.push("outOfBounds")
+	b.debuggeeErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebuggeeError", cases: names33)
 	var names34 = StringList.create(0)
-	names34.push("notFound")
-	names34.push("invalidIndex")
-	b.stringErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "StringError", cases: names34)
+	names34.push("handled")
+	names34.push("unhandled")
+	b.debugDispositionTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebugDisposition", cases: names34)
 	var names35 = StringList.create(0)
-	names35.push("exhausted")
-	names35.push("atStart")
-	b.iterationErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "IterationError", cases: names35)
+	names35.push("notAscii")
+	b.characterErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CharacterError", cases: names35)
 	var names36 = StringList.create(0)
-	names36.push("otherType")
-	b.castErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CastError", cases: names36)
+	names36.push("notFound")
+	names36.push("invalidIndex")
+	b.stringErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "StringError", cases: names36)
 	var names37 = StringList.create(0)
-	names37.push("noSuchRawValue")
-	names37.push("noSuchCaseName")
-	b.enumLookupErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__EnumLookupError", cases: names37)
+	names37.push("exhausted")
+	names37.push("atStart")
+	b.iterationErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "IterationError", cases: names37)
+	var names38 = StringList.create(0)
+	names38.push("otherType")
+	b.castErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CastError", cases: names38)
+	var names39 = StringList.create(0)
+	names39.push("noSuchRawValue")
+	names39.push("noSuchCaseName")
+	b.enumLookupErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__EnumLookupError", cases: names39)
 	b.copyableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Copyable")
 	b.droppableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Droppable")
 	b.errorTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Error")
 	b.initableFromStringLiteralTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "InitableFromStringLiteral")
 	tt.lists[typeList(tt, t: b.filePathTy)][typeIndex(tt, t: b.filePathTy)].conforms.push(b.initableFromStringLiteralTy)
-	let ty38 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty38)
-	let ty39 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	let ty40 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(ty39))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArrays", ty: ty40)
-	let ty41 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty41)
-	let ty42 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty42)
-	let ty43 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty43)
+	let ty40 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty40)
+	let ty41 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	let ty42 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(ty41))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArrays", ty: ty42)
+	let ty43 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty43)
+	let ty44 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty44)
+	let ty45 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty45)
 end 'declareBuiltinTypes'
 
 function declareArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -2260,40 +2514,44 @@ function declareArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft Fu
 	let f68 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayRefill, name: "refill", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps67, listed: true)
 	let p69 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
 	ft.lists[funcList(ft, f: f68)][funcIndex(ft, f: f68)].bounds.push(ParamBound.make(p69, ifaceTy: b.copyableTy))
-	let p70 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	var ps71 = ParamSpecList.create(0)
-	ps71.push(ParamSpec.make("element", ty: p70, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayContains, name: "contains", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps71, listed: true)
-	let ty72 = selfType(tt, reads: reads, declTy: b.arrayOrigin)
-	var ps73 = ParamSpecList.create(0)
-	ps73.push(ParamSpec.make("sequence", ty: ty72, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayContainsSequence, name: "containsSequence", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps73, listed: true)
-	let ty74 = selfType(tt, reads: reads, declTy: b.arrayOrigin)
-	var ps75 = ParamSpecList.create(0)
-	ps75.push(ParamSpec.make("other", ty: ty74, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayEquals, name: "equals", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps75, listed: true)
-	let p76 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	let f77 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayFirst, name: "first", isStatic: false, selfConv: Convention.convLet, ret: p76, params: ParamSpecList.create(0), listed: true)
-	let p78 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f77)][funcIndex(ft, f: f77)].bounds.push(ParamBound.make(p78, ifaceTy: b.copyableTy))
-	ft.lists[funcList(ft, f: f77)][funcIndex(ft, f: f77)].errTy = b.arrayErrorTy
-	b.arrayFirstFunc = f77
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayHashesAsStorage, name: "hashesAsStorage", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
+	var ps70 = ParamSpecList.create(0)
+	ps70.push(ParamSpec.make("seed", ty: b.hashDigestTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayStorageHash, name: "storageHash", isStatic: false, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ps70, listed: true)
+	let p71 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	var ps72 = ParamSpecList.create(0)
+	ps72.push(ParamSpec.make("element", ty: p71, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayContains, name: "contains", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps72, listed: true)
+	let ty73 = selfType(tt, reads: reads, declTy: b.arrayOrigin)
+	var ps74 = ParamSpecList.create(0)
+	ps74.push(ParamSpec.make("sequence", ty: ty73, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayContainsSequence, name: "containsSequence", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps74, listed: true)
+	let ty75 = selfType(tt, reads: reads, declTy: b.arrayOrigin)
+	var ps76 = ParamSpecList.create(0)
+	ps76.push(ParamSpec.make("other", ty: ty75, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayEquals, name: "equals", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps76, listed: true)
+	let p77 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	let f78 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayFirst, name: "first", isStatic: false, selfConv: Convention.convLet, ret: p77, params: ParamSpecList.create(0), listed: true)
 	let p79 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	let f80 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayFirstProven, name: "first", isStatic: false, selfConv: Convention.convLet, ret: p79, params: ParamSpecList.create(0), listed: false)
-	let p81 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f80)][funcIndex(ft, f: f80)].bounds.push(ParamBound.make(p81, ifaceTy: b.copyableTy))
-	b.arrayFirstProvenFunc = f80
+	ft.lists[funcList(ft, f: f78)][funcIndex(ft, f: f78)].bounds.push(ParamBound.make(p79, ifaceTy: b.copyableTy))
+	ft.lists[funcList(ft, f: f78)][funcIndex(ft, f: f78)].errTy = b.arrayErrorTy
+	b.arrayFirstFunc = f78
+	let p80 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	let f81 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayFirstProven, name: "first", isStatic: false, selfConv: Convention.convLet, ret: p80, params: ParamSpecList.create(0), listed: false)
 	let p82 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	let f83 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayLast, name: "last", isStatic: false, selfConv: Convention.convLet, ret: p82, params: ParamSpecList.create(0), listed: true)
-	let p84 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f83)][funcIndex(ft, f: f83)].bounds.push(ParamBound.make(p84, ifaceTy: b.copyableTy))
-	ft.lists[funcList(ft, f: f83)][funcIndex(ft, f: f83)].errTy = b.arrayErrorTy
-	b.arrayLastFunc = f83
+	ft.lists[funcList(ft, f: f81)][funcIndex(ft, f: f81)].bounds.push(ParamBound.make(p82, ifaceTy: b.copyableTy))
+	b.arrayFirstProvenFunc = f81
+	let p83 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	let f84 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayLast, name: "last", isStatic: false, selfConv: Convention.convLet, ret: p83, params: ParamSpecList.create(0), listed: true)
 	let p85 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	let f86 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayLastProven, name: "last", isStatic: false, selfConv: Convention.convLet, ret: p85, params: ParamSpecList.create(0), listed: false)
-	let p87 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f86)][funcIndex(ft, f: f86)].bounds.push(ParamBound.make(p87, ifaceTy: b.copyableTy))
-	b.arrayLastProvenFunc = f86
+	ft.lists[funcList(ft, f: f84)][funcIndex(ft, f: f84)].bounds.push(ParamBound.make(p85, ifaceTy: b.copyableTy))
+	ft.lists[funcList(ft, f: f84)][funcIndex(ft, f: f84)].errTy = b.arrayErrorTy
+	b.arrayLastFunc = f84
+	let p86 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	let f87 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayLastProven, name: "last", isStatic: false, selfConv: Convention.convLet, ret: p86, params: ParamSpecList.create(0), listed: false)
+	let p88 = typeEntry(tt, reads: reads, t: b.arrayOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f87)][funcIndex(ft, f: f87)].bounds.push(ParamBound.make(p88, ifaceTy: b.copyableTy))
+	b.arrayLastProvenFunc = f87
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayAwaitAny, name: "awaitAny", isStatic: false, selfConv: Convention.convLet, ret: b.elementIndexTy, params: ParamSpecList.create(0), listed: true)
 end 'declareArrayMethods'
 
@@ -2436,53 +2694,59 @@ function declareManagedMemoryMethods(mutates tt TypeSlot, reads TypeTable, mutat
 	ft.lists[funcList(ft, f: f6)][funcIndex(ft, f: f6)].errTy = b.managedMemoryErrorTy
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayCapacity, name: "capacity", isStatic: false, selfConv: Convention.convLet, ret: b.reportedCapacityTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayElementSize, name: "elementSize", isStatic: false, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ParamSpecList.create(0), listed: true)
-	let p7 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
+	let ty7 = selfType(tt, reads: reads, declTy: b.managedMemoryOrigin)
 	var ps8 = ParamSpecList.create(0)
-	ps8.push(ParamSpec.make("index", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps8.push(ParamSpec.mayOmitLabel("value", ty: p7, conv: Convention.convConsumes))
-	let f9 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArraySet, name: "set", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps8, listed: true)
-	let p10 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f9)][funcIndex(ft, f: f9)].bounds.push(ParamBound.make(p10, ifaceTy: b.droppableTy))
+	ps8.push(ParamSpec.make("capacity", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps8.push(ParamSpec.mayOmitLabel("elementSize", ty: b.countTy, conv: Convention.convLet))
+	let f9 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrManagedMemoryCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty7, params: ps8, listed: true)
 	ft.lists[funcList(ft, f: f9)][funcIndex(ft, f: f9)].errTy = b.managedMemoryErrorTy
+	let p10 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
 	var ps11 = ParamSpecList.create(0)
-	ps11.push(ParamSpec.make("i", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps11.push(ParamSpec.mayOmitLabel("j", ty: b.elementIndexTy, conv: Convention.convLet))
-	let f12 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArraySwap, name: "swap", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps11, listed: true)
+	ps11.push(ParamSpec.make("index", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps11.push(ParamSpec.mayOmitLabel("value", ty: p10, conv: Convention.convConsumes))
+	let f12 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArraySet, name: "set", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps11, listed: true)
+	let p13 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f12)][funcIndex(ft, f: f12)].bounds.push(ParamBound.make(p13, ifaceTy: b.droppableTy))
 	ft.lists[funcList(ft, f: f12)][funcIndex(ft, f: f12)].errTy = b.managedMemoryErrorTy
-	let ty13 = selfType(tt, reads: reads, declTy: b.managedMemoryOrigin)
 	var ps14 = ParamSpecList.create(0)
-	ps14.push(ParamSpec.make("other", ty: ty13, conv: Convention.convLet))
-	let f15 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayAppend, name: "append", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps14, listed: true)
-	let p16 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f15)][funcIndex(ft, f: f15)].bounds.push(ParamBound.make(p16, ifaceTy: b.copyableTy))
-	let p17 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
-	var ps18 = ParamSpecList.create(0)
-	ps18.push(ParamSpec.make("at", ty: b.elementIndexTy, conv: Convention.convLet))
-	let f19 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayRemove, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: p17, params: ps18, listed: true)
-	ft.lists[funcList(ft, f: f19)][funcIndex(ft, f: f19)].errTy = b.managedMemoryErrorTy
-	let f20 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayClear, name: "clear", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
-	let p21 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f20)][funcIndex(ft, f: f20)].bounds.push(ParamBound.make(p21, ifaceTy: b.droppableTy))
-	let ty22 = selfType(tt, reads: reads, declTy: b.managedMemoryOrigin)
-	var ps23 = ParamSpecList.create(0)
-	ps23.push(ParamSpec.make("start", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps23.push(ParamSpec.mayOmitLabel("endIndex", ty: b.elementIndexTy, conv: Convention.convLet))
-	let f24 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArraySlice, name: "slice", isStatic: false, selfConv: Convention.convLet, ret: ty22, params: ps23, listed: true)
-	let p25 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f24)][funcIndex(ft, f: f24)].bounds.push(ParamBound.make(p25, ifaceTy: b.copyableTy))
-	ft.lists[funcList(ft, f: f24)][funcIndex(ft, f: f24)].errTy = b.managedMemoryErrorTy
+	ps14.push(ParamSpec.make("i", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps14.push(ParamSpec.mayOmitLabel("j", ty: b.elementIndexTy, conv: Convention.convLet))
+	let f15 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArraySwap, name: "swap", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps14, listed: true)
+	ft.lists[funcList(ft, f: f15)][funcIndex(ft, f: f15)].errTy = b.managedMemoryErrorTy
+	let ty16 = selfType(tt, reads: reads, declTy: b.managedMemoryOrigin)
+	var ps17 = ParamSpecList.create(0)
+	ps17.push(ParamSpec.make("other", ty: ty16, conv: Convention.convLet))
+	let f18 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayAppend, name: "append", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps17, listed: true)
+	let p19 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f18)][funcIndex(ft, f: f18)].bounds.push(ParamBound.make(p19, ifaceTy: b.copyableTy))
+	let p20 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
+	var ps21 = ParamSpecList.create(0)
+	ps21.push(ParamSpec.make("at", ty: b.elementIndexTy, conv: Convention.convLet))
+	let f22 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayRemove, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: p20, params: ps21, listed: true)
+	ft.lists[funcList(ft, f: f22)][funcIndex(ft, f: f22)].errTy = b.managedMemoryErrorTy
+	let f23 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayClear, name: "clear", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
+	let p24 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f23)][funcIndex(ft, f: f23)].bounds.push(ParamBound.make(p24, ifaceTy: b.droppableTy))
+	let ty25 = selfType(tt, reads: reads, declTy: b.managedMemoryOrigin)
 	var ps26 = ParamSpecList.create(0)
-	ps26.push(ParamSpec.make("newCapacity", ty: b.elementIndexTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayReserve, name: "grow", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps26, listed: true)
-	var ps27 = ParamSpecList.create(0)
-	ps27.push(ParamSpec.make("newLength", ty: b.elementIndexTy, conv: Convention.convLet))
-	let f28 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayResize, name: "setLength", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps27, listed: true)
-	let p29 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
-	ft.lists[funcList(ft, f: f28)][funcIndex(ft, f: f28)].bounds.push(ParamBound.make(p29, ifaceTy: b.droppableTy))
-	let p30 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
-	let ty31 = instantiateType(tt, reads: reads, origin: b.managedMemoryCursorOrigin, args: oneArgList(p30))
-	let f32 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrCursorCreate, name: "createCursor", isStatic: false, selfConv: Convention.convLet, ret: ty31, params: ParamSpecList.create(0), listed: true)
-	ft.lists[funcList(ft, f: f32)][funcIndex(ft, f: f32)].errTy = b.managedMemoryErrorTy
+	ps26.push(ParamSpec.make("start", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps26.push(ParamSpec.mayOmitLabel("endIndex", ty: b.elementIndexTy, conv: Convention.convLet))
+	let f27 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArraySlice, name: "slice", isStatic: false, selfConv: Convention.convLet, ret: ty25, params: ps26, listed: true)
+	let p28 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f27)][funcIndex(ft, f: f27)].bounds.push(ParamBound.make(p28, ifaceTy: b.copyableTy))
+	ft.lists[funcList(ft, f: f27)][funcIndex(ft, f: f27)].errTy = b.managedMemoryErrorTy
+	var ps29 = ParamSpecList.create(0)
+	ps29.push(ParamSpec.make("newCapacity", ty: b.elementIndexTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayReserve, name: "grow", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps29, listed: true)
+	var ps30 = ParamSpecList.create(0)
+	ps30.push(ParamSpec.make("newLength", ty: b.elementIndexTy, conv: Convention.convLet))
+	let f31 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrArrayResize, name: "setLength", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps30, listed: true)
+	let p32 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
+	ft.lists[funcList(ft, f: f31)][funcIndex(ft, f: f31)].bounds.push(ParamBound.make(p32, ifaceTy: b.droppableTy))
+	let p33 = typeEntry(tt, reads: reads, t: b.managedMemoryOrigin).typeParams[0]
+	let ty34 = instantiateType(tt, reads: reads, origin: b.managedMemoryCursorOrigin, args: oneArgList(p33))
+	let f35 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.managedMemoryOrigin, op: Intrinsic.intrCursorCreate, name: "createCursor", isStatic: false, selfConv: Convention.convLet, ret: ty34, params: ParamSpecList.create(0), listed: true)
+	ft.lists[funcList(ft, f: f35)][funcIndex(ft, f: f35)].errTy = b.managedMemoryErrorTy
 end 'declareManagedMemoryMethods'
 
 function declareManagedMemoryCursorMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -2985,9 +3249,6 @@ function declareBuiltinFunctions(mutates tt TypeSlot, reads TypeTable, mutates f
 	ps34.push(ParamSpec.make("place", ty: g33, conv: Convention.convMutates))
 	ps34.push(ParamSpec.make("value", ty: g33, conv: Convention.convConsumes))
 	_ = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrExchange, name: "exchange", generics: oneArgList(g33), ret: g33, params: ps34, declareInStd: true)
-	var ps35 = ParamSpecList.create(0)
-	ps35.push(ParamSpec.make("milliseconds", ty: b.millisecondsTy, conv: Convention.convLet))
-	_ = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrSleep, name: "sleep", generics: TypeIDList.create(0), ret: b.voidTy, params: ps35, declareInStd: true)
 end 'declareBuiltinFunctions'
 
 function declareCommandLineMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -3021,10 +3282,14 @@ function declareSchedulerMethods(mutates tt TypeSlot, reads TypeTable, mutates f
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.schedulerTy, op: Intrinsic.intrSchedulerYield, name: "yield", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.schedulerTy, op: Intrinsic.intrSchedulerPinToMachine, name: "pinToMachine", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.schedulerTy, op: Intrinsic.intrSchedulerUnpinFromMachine, name: "unpinFromMachine", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.schedulerTy, op: Intrinsic.intrSchedulerPinDepth, name: "pinDepth", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.schedulerTy, op: Intrinsic.intrSchedulerCurrentMachine, name: "currentMachine", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.schedulerTy, op: Intrinsic.intrSchedulerMachineCpuCount, name: "machineCpuCount", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 end 'declareSchedulerMethods'
 
 function declareServiceMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.serviceOrigin, op: Intrinsic.intrServiceShutdown, name: "shutdown", isStatic: false, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.serviceOrigin, op: Intrinsic.intrServiceMostQueued, name: "mostQueued", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 end 'declareServiceMethods'
 
 function declarePromiseMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -3050,35 +3315,40 @@ function declareFileMethods(mutates tt TypeSlot, reads TypeTable, mutates ft Fun
 	ps1.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
 	let f2 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileReadText, name: "readText", isStatic: true, selfConv: Convention.convLet, ret: b.stringTy, params: ps1, listed: true)
 	ft.lists[funcList(ft, f: f2)][funcIndex(ft, f: f2)].errTy = b.fileReadErrorTy
-	var ps3 = ParamSpecList.create(0)
-	ps3.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
-	ps3.push(ParamSpec.make("content", ty: b.stringTy, conv: Convention.convLet))
-	ps3.push(ParamSpec.withCaseDefault("mode", ty: b.filePermissionTy, conv: Convention.convLet, defaultCase: 0))
-	let f4 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileWriteText, name: "writeText", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps3, listed: true)
-	ft.lists[funcList(ft, f: f4)][funcIndex(ft, f: f4)].errTy = b.fileWriteErrorTy
-	let ty5 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	let ty3 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps4 = ParamSpecList.create(0)
+	ps4.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
+	let f5 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileReadBinary, name: "readBinary", isStatic: true, selfConv: Convention.convLet, ret: ty3, params: ps4, listed: true)
+	ft.lists[funcList(ft, f: f5)][funcIndex(ft, f: f5)].errTy = b.fileReadErrorTy
 	var ps6 = ParamSpecList.create(0)
 	ps6.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
-	ps6.push(ParamSpec.make("content", ty: ty5, conv: Convention.convLet))
+	ps6.push(ParamSpec.make("content", ty: b.stringTy, conv: Convention.convLet))
 	ps6.push(ParamSpec.withCaseDefault("mode", ty: b.filePermissionTy, conv: Convention.convLet, defaultCase: 0))
-	let f7 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileWriteBinary, name: "writeBinary", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps6, listed: true)
+	let f7 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileWriteText, name: "writeText", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps6, listed: true)
 	ft.lists[funcList(ft, f: f7)][funcIndex(ft, f: f7)].errTy = b.fileWriteErrorTy
-	var ps8 = ParamSpecList.create(0)
-	ps8.push(ParamSpec.make("from", ty: b.filePathTy, conv: Convention.convLet))
-	ps8.push(ParamSpec.make("to", ty: b.filePathTy, conv: Convention.convLet))
-	let f9 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileRename, name: "rename", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps8, listed: true)
-	ft.lists[funcList(ft, f: f9)][funcIndex(ft, f: f9)].errTy = b.fileRenameErrorTy
-	var ps10 = ParamSpecList.create(0)
-	ps10.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
-	let f11 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileDelete, name: "delete", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps10, listed: true)
-	ft.lists[funcList(ft, f: f11)][funcIndex(ft, f: f11)].errTy = b.fileDeleteErrorTy
-	var ps12 = ParamSpecList.create(0)
-	ps12.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileExists, name: "exists", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps12, listed: true)
+	let ty8 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps9 = ParamSpecList.create(0)
+	ps9.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
+	ps9.push(ParamSpec.make("content", ty: ty8, conv: Convention.convLet))
+	ps9.push(ParamSpec.withCaseDefault("mode", ty: b.filePermissionTy, conv: Convention.convLet, defaultCase: 0))
+	let f10 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileWriteBinary, name: "writeBinary", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps9, listed: true)
+	ft.lists[funcList(ft, f: f10)][funcIndex(ft, f: f10)].errTy = b.fileWriteErrorTy
+	var ps11 = ParamSpecList.create(0)
+	ps11.push(ParamSpec.make("from", ty: b.filePathTy, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("to", ty: b.filePathTy, conv: Convention.convLet))
+	let f12 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileRename, name: "rename", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps11, listed: true)
+	ft.lists[funcList(ft, f: f12)][funcIndex(ft, f: f12)].errTy = b.fileRenameErrorTy
 	var ps13 = ParamSpecList.create(0)
 	ps13.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
-	let f14 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileInfo, name: "info", isStatic: true, selfConv: Convention.convLet, ret: b.fileInfoTy, params: ps13, listed: true)
-	ft.lists[funcList(ft, f: f14)][funcIndex(ft, f: f14)].errTy = b.fileInfoErrorTy
+	let f14 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileDelete, name: "delete", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps13, listed: true)
+	ft.lists[funcList(ft, f: f14)][funcIndex(ft, f: f14)].errTy = b.fileDeleteErrorTy
+	var ps15 = ParamSpecList.create(0)
+	ps15.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileExists, name: "exists", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps15, listed: true)
+	var ps16 = ParamSpecList.create(0)
+	ps16.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
+	let f17 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileInfo, name: "info", isStatic: true, selfConv: Convention.convLet, ret: b.fileInfoTy, params: ps16, listed: true)
+	ft.lists[funcList(ft, f: f17)][funcIndex(ft, f: f17)].errTy = b.fileInfoErrorTy
 end 'declareFileMethods'
 
 function declareDirectoryMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -3196,6 +3466,10 @@ function declareDebuggeeMethods(mutates tt TypeSlot, reads TypeTable, mutates ft
 end 'declareDebuggeeMethods'
 
 function declareBuiltinsMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
+	var ps1 = ParamSpecList.create(0)
+	ps1.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSleep, name: "sleep", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps1, listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSchedulerMachineCpuCount, name: "cpuCount", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrProcessId, name: "currentProcessId", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrClockNowNanos, name: "currentTimeNanos", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrClockNowMillis, name: "currentTimeMs", isStatic: true, selfConv: Convention.convLet, ret: b.instantMsTy, params: ParamSpecList.create(0), listed: true)
@@ -3203,104 +3477,179 @@ function declareBuiltinsMethods(mutates tt TypeSlot, reads TypeTable, mutates ft
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrClockThreadCpuTicks, name: "threadCpuTicks", isStatic: true, selfConv: Convention.convLet, ret: b.threadCpuTicksTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrClockUnixSeconds, name: "currentUnixTimeSeconds", isStatic: true, selfConv: Convention.convLet, ret: b.unixSecondsTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrClockUnixNanos, name: "currentUnixTimeNanos", isStatic: true, selfConv: Convention.convLet, ret: b.unixNanosTy, params: ParamSpecList.create(0), listed: true)
-	let ty1 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
-	var ps2 = ParamSpecList.create(0)
-	ps2.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrReadStdin, name: "readStdin", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ps2, listed: true)
-	let ty3 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
-	var ps4 = ParamSpecList.create(0)
-	ps4.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrOsEnvironmentEntry, name: "osEnvironmentEntry", isStatic: true, selfConv: Convention.convLet, ret: ty3, params: ps4, listed: true)
-	let ty5 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	let ty2 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps3 = ParamSpecList.create(0)
+	ps3.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrReadStdin, name: "readStdin", isStatic: true, selfConv: Convention.convLet, ret: ty2, params: ps3, listed: true)
+	let ty4 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps5 = ParamSpecList.create(0)
+	ps5.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrOsEnvironmentEntry, name: "osEnvironmentEntry", isStatic: true, selfConv: Convention.convLet, ret: ty4, params: ps5, listed: true)
 	let ty6 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
-	var ps7 = ParamSpecList.create(0)
-	ps7.push(ParamSpec.make("_", ty: ty5, conv: Convention.convLet))
-	ps7.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps7.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
-	ps7.push(ParamSpec.make("_", ty: ty6, conv: Convention.convLet))
-	ps7.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
-	ps7.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
-	ps7.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
-	ps7.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
-	ps7.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
-	ps7.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
-	ps7.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
-	ps7.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
-	ps7.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
-	ps7.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
-	ps7.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessSpawn, name: "subprocessSpawn", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps7, listed: true)
+	let ty7 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
 	var ps8 = ParamSpecList.create(0)
-	ps8.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessGetPid, name: "subprocessGetPid", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps8, listed: true)
-	var ps9 = ParamSpecList.create(0)
-	ps9.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
-	ps9.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessWaitCollect, name: "subprocessWaitCollect", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps9, listed: true)
-	var ps10 = ParamSpecList.create(0)
-	ps10.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessResultStatusKind, name: "subprocessResultStatusKind", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps10, listed: true)
+	ps8.push(ParamSpec.make("_", ty: ty6, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("_", ty: ty7, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessSpawn, name: "subprocessSpawn", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps8, listed: true)
+	let ty9 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	let ty10 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
 	var ps11 = ParamSpecList.create(0)
-	ps11.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessResultStatusCode, name: "subprocessResultStatusCode", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps11, listed: true)
-	let ty12 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	ps11.push(ParamSpec.make("_", ty: ty9, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("_", ty: ty10, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessSpawn, name: "subprocessDetach", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps11, listed: true)
+	var ps12 = ParamSpecList.create(0)
+	ps12.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessGetPid, name: "subprocessGetPid", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps12, listed: true)
 	var ps13 = ParamSpecList.create(0)
 	ps13.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessResultStdout, name: "subprocessResultStdout", isStatic: true, selfConv: Convention.convLet, ret: ty12, params: ps13, listed: true)
-	let ty14 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	ps13.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessWaitCollect, name: "subprocessWaitCollect", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps13, listed: true)
+	var ps14 = ParamSpecList.create(0)
+	ps14.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessResultStatusKind, name: "subprocessResultStatusKind", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps14, listed: true)
 	var ps15 = ParamSpecList.create(0)
 	ps15.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessResultStderr, name: "subprocessResultStderr", isStatic: true, selfConv: Convention.convLet, ret: ty14, params: ps15, listed: true)
-	var ps16 = ParamSpecList.create(0)
-	ps16.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessResultDurationMs, name: "subprocessResultDurationMs", isStatic: true, selfConv: Convention.convLet, ret: b.anonU64Ty, params: ps16, listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessResultStatusCode, name: "subprocessResultStatusCode", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps15, listed: true)
+	let ty16 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
 	var ps17 = ParamSpecList.create(0)
 	ps17.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessResultRelease, name: "subprocessResultRelease", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps17, listed: true)
-	var ps18 = ParamSpecList.create(0)
-	ps18.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessReleaseHandle, name: "subprocessReleaseHandle", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps18, listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessResultStdout, name: "subprocessResultStdout", isStatic: true, selfConv: Convention.convLet, ret: ty16, params: ps17, listed: true)
+	let ty18 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
 	var ps19 = ParamSpecList.create(0)
 	ps19.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessEndTree, name: "subprocessEndTree", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps19, listed: true)
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessLastErrorCode, name: "subprocessLastErrorCode", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ParamSpecList.create(0), listed: true)
-	let ty20 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessLastErrorMessage, name: "subprocessLastErrorMessage", isStatic: true, selfConv: Convention.convLet, ret: ty20, params: ParamSpecList.create(0), listed: true)
-	let ty21 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessResultStderr, name: "subprocessResultStderr", isStatic: true, selfConv: Convention.convLet, ret: ty18, params: ps19, listed: true)
+	var ps20 = ParamSpecList.create(0)
+	ps20.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessResultDurationMs, name: "subprocessResultDurationMs", isStatic: true, selfConv: Convention.convLet, ret: b.anonU64Ty, params: ps20, listed: true)
+	var ps21 = ParamSpecList.create(0)
+	ps21.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessResultRelease, name: "subprocessResultRelease", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps21, listed: true)
 	var ps22 = ParamSpecList.create(0)
-	ps22.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessResolveOnPath, name: "subprocessResolveOnPath", isStatic: true, selfConv: Convention.convLet, ret: ty21, params: ps22, listed: true)
-	let ty23 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
-	var ps24 = ParamSpecList.create(0)
-	ps24.push(ParamSpec.make("executable", ty: b.executableTy, conv: Convention.convLet))
-	ps24.push(ParamSpec.make("arguments", ty: ty23, conv: Convention.convLet))
-	ps24.push(ParamSpec.make("input", ty: b.stringTy, conv: Convention.convLet))
-	ps24.push(ParamSpec.make("deadline", ty: b.waitDeadlineTy, conv: Convention.convLet))
-	let f25 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessRunWithInput, name: "runWithInput", isStatic: true, selfConv: Convention.convLet, ret: b.collectedOutputTy, params: ps24, listed: true)
-	ft.lists[funcList(ft, f: f25)][funcIndex(ft, f: f25)].errTy = b.subprocessErrorTy
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrStdoutWantsColor, name: "stdoutWantsAnsiColor", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
+	ps22.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessReleaseHandle, name: "subprocessReleaseHandle", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps22, listed: true)
+	var ps23 = ParamSpecList.create(0)
+	ps23.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessEndTree, name: "subprocessEndTree", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps23, listed: true)
+	let ty24 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	let ty25 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
 	var ps26 = ParamSpecList.create(0)
-	ps26.push(ParamSpec.make("_", ty: b.anonFloatTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrFloatToBits, name: "floatToBits", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps26, listed: true)
+	ps26.push(ParamSpec.make("_", ty: ty24, conv: Convention.convLet))
+	ps26.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps26.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
+	ps26.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	ps26.push(ParamSpec.make("_", ty: ty25, conv: Convention.convLet))
+	ps26.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessSpawnStreaming, name: "subprocessSpawnStreaming", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps26, listed: true)
 	let ty27 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
 	var ps28 = ParamSpecList.create(0)
-	ps28.push(ParamSpec.make("_", ty: ty27, conv: Convention.convMutates))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrRandomFill, name: "fillRandom", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps28, listed: true)
+	ps28.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	ps28.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	ps28.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessReadAvailable, name: "subprocessReadAvailable", isStatic: true, selfConv: Convention.convLet, ret: ty27, params: ps28, listed: true)
 	var ps29 = ParamSpecList.create(0)
 	ps29.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrBitsToFloat, name: "bitsToFloat", isStatic: true, selfConv: Convention.convLet, ret: b.anonFloatTy, params: ps29, listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessStdoutState, name: "subprocessStdoutState", isStatic: true, selfConv: Convention.convLet, ret: b.subprocessStreamStateTy, params: ps29, listed: true)
 	var ps30 = ParamSpecList.create(0)
-	ps30.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrTrailingZeros, name: "trailingZeros", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps30, listed: true)
+	ps30.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessStderrState, name: "subprocessStderrState", isStatic: true, selfConv: Convention.convLet, ret: b.subprocessStreamStateTy, params: ps30, listed: true)
+	var ps31 = ParamSpecList.create(0)
+	ps31.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	ps31.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessWriteStdinAll, name: "subprocessWriteStdinAll", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps31, listed: true)
+	var ps32 = ParamSpecList.create(0)
+	ps32.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	ps32.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
+	ps32.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessWriteStdinBytes, name: "subprocessWriteStdinBytes", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps32, listed: true)
+	var ps33 = ParamSpecList.create(0)
+	ps33.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	ps33.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
+	ps33.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessQueueStdin, name: "subprocessQueueStdin", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps33, listed: true)
+	var ps34 = ParamSpecList.create(0)
+	ps34.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessPushStdin, name: "subprocessPushStdin", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps34, listed: true)
+	var ps35 = ParamSpecList.create(0)
+	ps35.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	ps35.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessAwaitStdinWritable, name: "subprocessAwaitStdinWritable", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps35, listed: true)
+	var ps36 = ParamSpecList.create(0)
+	ps36.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessCloseStdin, name: "subprocessCloseStdin", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps36, listed: true)
+	var ps37 = ParamSpecList.create(0)
+	ps37.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	ps37.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessWaitExit, name: "subprocessWaitExit", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps37, listed: true)
+	var ps38 = ParamSpecList.create(0)
+	ps38.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessPollExit, name: "subprocessPollExit", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps38, listed: true)
+	var ps39 = ParamSpecList.create(0)
+	ps39.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessExitSignal, name: "subprocessExitSignal", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps39, listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessLastErrorCode, name: "subprocessLastErrorCode", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ParamSpecList.create(0), listed: true)
+	let ty40 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessLastErrorMessage, name: "subprocessLastErrorMessage", isStatic: true, selfConv: Convention.convLet, ret: ty40, params: ParamSpecList.create(0), listed: true)
+	let ty41 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps42 = ParamSpecList.create(0)
+	ps42.push(ParamSpec.make("_", ty: b.cStringTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessResolveOnPath, name: "subprocessResolveOnPath", isStatic: true, selfConv: Convention.convLet, ret: ty41, params: ps42, listed: true)
+	let ty43 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
+	var ps44 = ParamSpecList.create(0)
+	ps44.push(ParamSpec.make("executable", ty: b.executableTy, conv: Convention.convLet))
+	ps44.push(ParamSpec.make("arguments", ty: ty43, conv: Convention.convLet))
+	ps44.push(ParamSpec.make("input", ty: b.stringTy, conv: Convention.convLet))
+	ps44.push(ParamSpec.make("deadline", ty: b.waitDeadlineTy, conv: Convention.convLet))
+	let f45 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSubprocessRunWithInput, name: "runWithInput", isStatic: true, selfConv: Convention.convLet, ret: b.collectedOutputTy, params: ps44, listed: true)
+	ft.lists[funcList(ft, f: f45)][funcIndex(ft, f: f45)].errTy = b.subprocessErrorTy
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrStdoutWantsColor, name: "stdoutWantsAnsiColor", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
+	var ps46 = ParamSpecList.create(0)
+	ps46.push(ParamSpec.make("_", ty: b.anonFloatTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrFloatToBits, name: "floatToBits", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ps46, listed: true)
+	let ty47 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps48 = ParamSpecList.create(0)
+	ps48.push(ParamSpec.make("_", ty: ty47, conv: Convention.convMutates))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrRandomFill, name: "fillRandom", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps48, listed: true)
+	var ps49 = ParamSpecList.create(0)
+	ps49.push(ParamSpec.make("_", ty: b.fullRangeIntTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrBitsToFloat, name: "bitsToFloat", isStatic: true, selfConv: Convention.convLet, ret: b.anonFloatTy, params: ps49, listed: true)
+	var ps50 = ParamSpecList.create(0)
+	ps50.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrTrailingZeros, name: "trailingZeros", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps50, listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHeapProcessAllocs, name: "mmAllocTotal", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHeapProcessLive, name: "mmAllocLive", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHeapProcessBytes, name: "mmAllocBytes", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
-	var ps31 = ParamSpecList.create(0)
-	ps31.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHeapByTag, name: "mmAllocTotalByTag", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps31, listed: true)
-	var ps32 = ParamSpecList.create(0)
-	ps32.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHeapByTag, name: "mmAllocBytesByTag", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps32, listed: true)
+	var ps51 = ParamSpecList.create(0)
+	ps51.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHeapByTag, name: "mmAllocTotalByTag", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps51, listed: true)
+	var ps52 = ParamSpecList.create(0)
+	ps52.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHeapByTag, name: "mmAllocBytesByTag", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps52, listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHeapThreadAllocs, name: "threadAllocTotal", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHeapThreadFrees, name: "threadFreeTotal", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHeapThreadBytes, name: "threadAllocBytes", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
@@ -3310,54 +3659,91 @@ function declareBuiltinsMethods(mutates tt TypeSlot, reads TypeTable, mutates ft
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHeapScavenge, name: "scavengeMemory", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHashSeed, name: "hashSeed", isStatic: true, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHashSeedDraw, name: "drawHashSeed", isStatic: true, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ParamSpecList.create(0), listed: true)
-	var ps33 = ParamSpecList.create(0)
-	ps33.push(ParamSpec.make("_", ty: b.hashDigestTy, conv: Convention.convLet))
-	ps33.push(ParamSpec.make("_", ty: b.hashDigestTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHashWord, name: "hashWord", isStatic: true, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ps33, listed: true)
-	let ty34 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	var ps35 = ParamSpecList.create(0)
-	ps35.push(ParamSpec.make("_", ty: ty34, conv: Convention.convLet))
-	ps35.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps35.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps35.push(ParamSpec.make("_", ty: b.hashDigestTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHashBytes, name: "hashBytes", isStatic: true, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ps35, listed: true)
-	var ps36 = ParamSpecList.create(0)
-	ps36.push(ParamSpec.make("_", ty: b.stringTy, conv: Convention.convLet))
-	ps36.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps36.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps36.push(ParamSpec.make("_", ty: b.hashDigestTy, conv: Convention.convLet))
-	let f37 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHashStringBytes, name: "hashBytes", isStatic: true, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ps36, listed: false)
-	b.hashStringBytesFunc = f37
-	var ps38 = ParamSpecList.create(0)
-	ps38.push(ParamSpec.make("_", ty: b.characterTy, conv: Convention.convLet))
-	ps38.push(ParamSpec.make("_", ty: b.hashDigestTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHashCharacter, name: "hashCharacter", isStatic: true, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ps38, listed: true)
-	let ty39 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	var ps40 = ParamSpecList.create(0)
-	ps40.push(ParamSpec.make("_", ty: ty39, conv: Convention.convLet))
-	ps40.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps40.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	let f41 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrReadBigEndian, name: "readBigEndian", isStatic: true, selfConv: Convention.convLet, ret: b.orderedWordTy, params: ps40, listed: true)
-	ft.lists[funcList(ft, f: f41)][funcIndex(ft, f: f41)].errTy = b.arrayErrorTy
-	let ty42 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	var ps43 = ParamSpecList.create(0)
-	ps43.push(ParamSpec.make("_", ty: ty42, conv: Convention.convLet))
-	ps43.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
-	ps43.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	let f44 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrReadLittleEndian, name: "readLittleEndian", isStatic: true, selfConv: Convention.convLet, ret: b.orderedWordTy, params: ps43, listed: true)
-	ft.lists[funcList(ft, f: f44)][funcIndex(ft, f: f44)].errTy = b.arrayErrorTy
-	let ty45 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	var ps46 = ParamSpecList.create(0)
-	ps46.push(ParamSpec.make("_", ty: ty45, conv: Convention.convMutates))
-	ps46.push(ParamSpec.make("_", ty: b.orderedWordTy, conv: Convention.convLet))
-	ps46.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrAppendBigEndian, name: "appendBigEndian", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps46, listed: true)
-	let ty47 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	var ps48 = ParamSpecList.create(0)
-	ps48.push(ParamSpec.make("_", ty: ty47, conv: Convention.convMutates))
-	ps48.push(ParamSpec.make("_", ty: b.orderedWordTy, conv: Convention.convLet))
-	ps48.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrAppendLittleEndian, name: "appendLittleEndian", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps48, listed: true)
+	var ps53 = ParamSpecList.create(0)
+	ps53.push(ParamSpec.make("_", ty: b.hashDigestTy, conv: Convention.convLet))
+	ps53.push(ParamSpec.make("_", ty: b.hashDigestTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHashWord, name: "hashWord", isStatic: true, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ps53, listed: true)
+	let ty54 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps55 = ParamSpecList.create(0)
+	ps55.push(ParamSpec.make("_", ty: ty54, conv: Convention.convLet))
+	ps55.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps55.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps55.push(ParamSpec.make("_", ty: b.hashDigestTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHashBytes, name: "hashBytes", isStatic: true, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ps55, listed: true)
+	var ps56 = ParamSpecList.create(0)
+	ps56.push(ParamSpec.make("_", ty: b.stringTy, conv: Convention.convLet))
+	ps56.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps56.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps56.push(ParamSpec.make("_", ty: b.hashDigestTy, conv: Convention.convLet))
+	let f57 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHashStringBytes, name: "hashBytes", isStatic: true, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ps56, listed: false)
+	b.hashStringBytesFunc = f57
+	var ps58 = ParamSpecList.create(0)
+	ps58.push(ParamSpec.make("_", ty: b.characterTy, conv: Convention.convLet))
+	ps58.push(ParamSpec.make("_", ty: b.hashDigestTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrHashCharacter, name: "hashCharacter", isStatic: true, selfConv: Convention.convLet, ret: b.hashDigestTy, params: ps58, listed: true)
+	let ty59 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps60 = ParamSpecList.create(0)
+	ps60.push(ParamSpec.make("_", ty: ty59, conv: Convention.convLet))
+	ps60.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps60.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f61 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrReadBigEndian, name: "readBigEndian", isStatic: true, selfConv: Convention.convLet, ret: b.orderedWordTy, params: ps60, listed: true)
+	ft.lists[funcList(ft, f: f61)][funcIndex(ft, f: f61)].errTy = b.arrayErrorTy
+	let ty62 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps63 = ParamSpecList.create(0)
+	ps63.push(ParamSpec.make("_", ty: ty62, conv: Convention.convLet))
+	ps63.push(ParamSpec.make("_", ty: b.elementIndexTy, conv: Convention.convLet))
+	ps63.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f64 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrReadLittleEndian, name: "readLittleEndian", isStatic: true, selfConv: Convention.convLet, ret: b.orderedWordTy, params: ps63, listed: true)
+	ft.lists[funcList(ft, f: f64)][funcIndex(ft, f: f64)].errTy = b.arrayErrorTy
+	let ty65 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps66 = ParamSpecList.create(0)
+	ps66.push(ParamSpec.make("_", ty: ty65, conv: Convention.convMutates))
+	ps66.push(ParamSpec.make("_", ty: b.orderedWordTy, conv: Convention.convLet))
+	ps66.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrAppendBigEndian, name: "appendBigEndian", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps66, listed: true)
+	let ty67 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps68 = ParamSpecList.create(0)
+	ps68.push(ParamSpec.make("_", ty: ty67, conv: Convention.convMutates))
+	ps68.push(ParamSpec.make("_", ty: b.orderedWordTy, conv: Convention.convLet))
+	ps68.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrAppendLittleEndian, name: "appendLittleEndian", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps68, listed: true)
+	let ty69 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps70 = ParamSpecList.create(0)
+	ps70.push(ParamSpec.make("_", ty: ty69, conv: Convention.convLet))
+	let f71 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedFileOpenRead, name: "fileOpenRead", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps70, listed: true)
+	ft.lists[funcList(ft, f: f71)][funcIndex(ft, f: f71)].errTy = b.managedFileErrorTy
+	let ty72 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps73 = ParamSpecList.create(0)
+	ps73.push(ParamSpec.make("_", ty: ty72, conv: Convention.convLet))
+	let f74 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedFileOpenWrite, name: "fileOpenWrite", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps73, listed: true)
+	ft.lists[funcList(ft, f: f74)][funcIndex(ft, f: f74)].errTy = b.managedFileErrorTy
+	let ty75 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps76 = ParamSpecList.create(0)
+	ps76.push(ParamSpec.make("_", ty: ty75, conv: Convention.convLet))
+	let f77 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedFileOpenWriteExecutable, name: "fileOpenWriteExecutable", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps76, listed: true)
+	ft.lists[funcList(ft, f: f77)][funcIndex(ft, f: f77)].errTy = b.managedFileErrorTy
+	let ty78 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps79 = ParamSpecList.create(0)
+	ps79.push(ParamSpec.make("_", ty: ty78, conv: Convention.convLet))
+	let f80 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedFileOpenCreateNew, name: "fileOpenCreateNew", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps79, listed: true)
+	ft.lists[funcList(ft, f: f80)][funcIndex(ft, f: f80)].errTy = b.managedFileErrorTy
+	let ty81 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps82 = ParamSpecList.create(0)
+	ps82.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps82.push(ParamSpec.make("_", ty: ty81, conv: Convention.convMutates))
+	ps82.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f83 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedFileReadAppending, name: "fileReadAppending", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps82, listed: true)
+	ft.lists[funcList(ft, f: f83)][funcIndex(ft, f: f83)].errTy = b.managedFileErrorTy
+	let ty84 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps85 = ParamSpecList.create(0)
+	ps85.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps85.push(ParamSpec.make("_", ty: ty84, conv: Convention.convLet))
+	let f86 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedFileWrite, name: "fileWrite", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps85, listed: true)
+	ft.lists[funcList(ft, f: f86)][funcIndex(ft, f: f86)].errTy = b.managedFileErrorTy
+	var ps87 = ParamSpecList.create(0)
+	ps87.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f88 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedFileClose, name: "fileClose", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps87, listed: true)
+	ft.lists[funcList(ft, f: f88)][funcIndex(ft, f: f88)].errTy = b.managedFileErrorTy
 end 'declareBuiltinsMethods'
 
 function declareRawMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

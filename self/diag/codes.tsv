@@ -116,11 +116,10 @@ ErrAliasRangeDoesNotFit	E3178	aliasImplementsRangeDoesNotFit	A typealias impleme
 ErrCannotInfer	E3179	genericTypeParameterNotInferable	A type parameter of a generic function is fixed by no argument.
 ErrBadModuleName	E3182	namespaceDirectoryNotNameable	A directory of the program cannot be spelled as a module name.
 ErrGenericGrowsWithoutBound	E3184	genericTypeGrowsWithoutBound	A field of a generic type holds that type again over a type built from its own parameters, so its instances never end.
-ErrRawSurfaceOutsideLibrary	E3185	rawSurfaceOutsideLibraryTier	A source file outside the library tiers names a part of the raw surface: a __Builtins call, a .managed read, a __ManagedMemory type or a method of one.
+ErrRawSurfaceOutsideLibrary	E3185	rawSurfaceOutsideLibraryTier	A source file outside the library tiers names a part of the raw surface or of the library tiers' machinery: a __Builtins call, a .managed read, a __ManagedMemory type or a method of one, a cown or a when.
 ErrExclusivity	E3186	argumentOverlapsWrittenParameter	An argument handed to a written parameter overlaps another operand of the call.
 ErrComparisonMethodWrites	E3187	comparisonMethodWritesItsParameter	A method that the comparison operators call (equals, compare) writes its operand or its receiver, which the operators pass by value.
 ErrReplyDropped	E3190	semanticServiceReplyDropped	A message that replies is sent as a statement, so its reply is neither awaited, kept nor dropped on purpose.
-ErrSendTimeoutReserved	E3192	semanticServiceSendTimeoutReserved	A message declares a parameter named sendTimeout, which every send keeps.
 ErrInstanceMethodWithoutReceiver	E3193	semanticInstanceMethodCalledWithoutReceiver	An instance method is called by its type's name or, in a static method, by its bare name, with no value to call it on.
 ErrFixedArrayCreateForm	E3194	fixedArrayCreateLengthForm	A fixed array's create takes a length its type does not need, or lacks one it does.
 ErrFrozenChange	E3197	semanticWriteThroughReadOnly	A write or a consuming call goes through the contents of a frozen value.

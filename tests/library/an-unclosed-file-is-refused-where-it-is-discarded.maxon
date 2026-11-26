@@ -1,0 +1,11 @@
+// Discarding an open file drops it.
+// expect-error: E3919
+typealias Bytes = __ManagedMemory with Byte
+
+function discarded(path Bytes) throws __ManagedFileError
+	_ = try __ManagedFile.openRead(path)
+end 'discarded'
+
+function main() returns ExitCode
+	return 0
+end 'main'

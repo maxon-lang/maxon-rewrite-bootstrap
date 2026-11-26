@@ -213,7 +213,7 @@ function main() returns ExitCode
 	let r = await q
 	let done = 1 if s.isComplete() else 0
 	s.cancel()
-	return (r + done) as ExitCode
+	return try (r + done) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -248,7 +248,7 @@ function main() returns ExitCode
 	p.cancel()
 	p = async fast()
 	let s = await p
-	return (r + s - 42) as ExitCode
+	return try (r + s - 42) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -590,11 +590,11 @@ function fast() returns Integer
 end 'fast'
 
 function psCount(condition String) returns String
-	let shell = Executable.path(try FilePath.from("/bin/sh") otherwise panic("/bin/sh is a valid path"))
+	let shell = MxExecutable.path(try FilePath.from("/bin/sh") otherwise panic("/bin/sh is a valid path"))
 	let argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push("ps -A -o ppid=,stat=,args= | awk -v me=$PPID '$1 == me && ({condition}) \{ n++ \} END \{ print n + 0 \}'")
-	let result = try Subprocess.run(shell, arguments: argv) otherwise panic("ps could not run")
+	let result = try MxSubprocess.run(shell, arguments: argv) otherwise panic("ps could not run")
 	return result.stdout
 end 'psCount'
 
@@ -647,11 +647,11 @@ function shortProc() returns Integer
 end 'shortProc'
 
 function psCount(condition String) returns String
-	let shell = Executable.path(try FilePath.from("/bin/sh") otherwise panic("/bin/sh is a valid path"))
+	let shell = MxExecutable.path(try FilePath.from("/bin/sh") otherwise panic("/bin/sh is a valid path"))
 	let argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push("ps -A -o ppid=,stat=,args= | awk -v me=$PPID '$1 == me && ({condition}) \{ n++ \} END \{ print n + 0 \}'")
-	let result = try Subprocess.run(shell, arguments: argv) otherwise panic("ps could not run")
+	let result = try MxSubprocess.run(shell, arguments: argv) otherwise panic("ps could not run")
 	return result.stdout
 end 'psCount'
 

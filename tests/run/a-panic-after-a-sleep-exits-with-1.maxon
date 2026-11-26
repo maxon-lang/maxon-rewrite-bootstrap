@@ -1,4 +1,3 @@
-// native-only
 // A panic of main as a green thread, after a sleep has started the scheduler and its monitor, ends the process with 1
 // once it has taken the exit claim. The interpreter runs no sleep.
 // expect-scheduler: used

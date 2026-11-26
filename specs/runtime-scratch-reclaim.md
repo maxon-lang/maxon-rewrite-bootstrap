@@ -172,11 +172,11 @@ enum Door
 	streamingWithEnvironment
 end 'Door'
 
-function shell() returns Executable
+function shell() returns MxExecutable
 	#if os(Windows)
-		return Executable.name("cmd")
+		return MxExecutable.name("cmd")
 	#else
-		return Executable.name("sh")
+		return MxExecutable.name("sh")
 	#endif
 end 'shell'
 
@@ -192,17 +192,17 @@ function exitZero() returns StringArray
 end 'exitZero'
 
 function childRuns() returns bool
-	let result = try Subprocess.run(shell(), arguments: exitZero()) otherwise return false
+	let result = try MxSubprocess.run(shell(), arguments: exitZero()) otherwise return false
 	return result.exitCode() == 0
 end 'childRuns'
 
 function executableMissing() returns bool
-	_ = try Subprocess.run(Executable.path(Directory.currentPath().join("maxon-spec-no-such-executable-xyzzy")), arguments: StringArray.create(0)) otherwise return true
+	_ = try MxSubprocess.run(MxExecutable.path(Directory.currentPath().join("maxon-spec-no-such-executable-xyzzy")), arguments: StringArray.create(0)) otherwise return true
 	return false
 end 'executableMissing'
 
 function workingDirectoryMissing() returns bool
-	_ = try Subprocess.run(shell(), arguments: exitZero(), workingDirectory: WorkingDirectory.at(Directory.currentPath().join("maxon-spec-no-such-working-directory-xyzzy"))) otherwise return true
+	_ = try MxSubprocess.run(shell(), arguments: exitZero(), workingDirectory: WorkingDirectory.at(Directory.currentPath().join("maxon-spec-no-such-working-directory-xyzzy"))) otherwise return true
 	return false
 end 'workingDirectoryMissing'
 
@@ -256,6 +256,7 @@ streamingWithEnvironment: answered=true took=true gaveBack=true
 ```
 
 <!-- test: runtime-scratch-reclaim.spawn-await-loop-is-bounded -->
+<!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 <!-- procs: 1 -->
 **THE GT RECORD ITSELF, AND IT IS RECYCLED RATHER THAN RETURNED.** `__gt_reclaim` puts a finished
 thread's record on its processor's free list (Go's `gfput`), and `__gt_spawn` takes the next one from
@@ -278,6 +279,7 @@ stack from `osAllocPages`, and the raw columns count neither), and nothing is le
 while every reclaim and spawn share one processor's list, and a preempted `main` can resume on another.
 ```maxon
 function work(n Integer) returns Integer
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	Scheduler.parallelBoundary()
 	return n + 1
 end 'work'

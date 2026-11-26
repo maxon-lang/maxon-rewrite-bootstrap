@@ -37,7 +37,8 @@ public static extern bool K32GetProcessMemoryInfo(IntPtr process, out Counters c
 # bytes, or $null if it cannot build it.
 function Measure-SelfBuild([string]$compilerExe, [string]$outExe) {
 	$start = [Diagnostics.ProcessStartInfo]::new($compilerExe)
-	foreach ($argument in 'build', 'self', '--no-cache', '-o', $outExe) { $start.ArgumentList.Add($argument) }
+	foreach ($argument in 'build', 'self', '-o', $outExe) { $start.ArgumentList.Add($argument) }
+	$start.EnvironmentVariables['MINIMAXON_CACHE'] = 'off'
 	$start.WorkingDirectory = $Tree
 	$start.UseShellExecute = $false
 	$start.RedirectStandardOutput = $true

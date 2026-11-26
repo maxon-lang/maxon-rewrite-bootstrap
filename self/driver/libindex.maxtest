@@ -1,0 +1,228 @@
+// parsedWords are the words that reach a library module by what its parse declared: its top-level names, and the names of
+// the exported members of its extensions of a type that it does not declare, which the scan of project.scanModule reads from
+// the text instead.
+function parsedWords(module ast.Module) returns ast.StringList
+	var words = ast.StringList.create(0)
+	for i in 0 upto module.names.capacity() 'names'
+		if table.mapSlotOccupied(module.names.stateAt(i)) and isPlainName(module.names.keyAt(i)) 'occupied'
+			words.push(module.names.keyAt(i).clone())
+		end 'occupied'
+	end 'names'
+	for decl in module.decls 'decls'
+		match decl 'd'
+			extensionDecl(xd) then addForeignMembers(words, module: module, extension: xd)
+			funcDecl(_) then _ = 0
+			constDecl(_) then _ = 0
+			typeDecl(_) then _ = 0
+			enumDecl(_) then _ = 0
+			unionDecl(_) then _ = 0
+			aliasDecl(_) then _ = 0
+			interfaceDecl(_) then _ = 0
+		end 'd'
+	end 'decls'
+	return words
+end 'parsedWords'
+
+// addForeignMembers adds the exported members of an extension of the module to words, unless it extends a type that the
+// module declares.
+function addForeignMembers(mutates words ast.StringList, module ast.Module, extension ast.ExtensionDecl)
+	if module.names.has(ast.extensionOwnerName(module.tree, xd: extension)) 'own'
+		return
+	end 'own'
+	for name in ast.Decl.extensionDecl(extension.clone()).memberNames() 'names'
+		words.push(name.clone())
+	end 'names'
+end 'addForeignMembers'
+
+function wordSetOf(words ast.StringList) returns WordSet
+	var set = WordSet.new()
+	for word in words 'words'
+		set.insert(word.clone(), value: 1)
+	end 'words'
+	return set
+end 'wordSetOf'
+
+test 'the scan of the library finds every word that its parse declares'
+	var errs = diag.ErrorList.create(0)
+	var p = match consumes project.loadProject("tests/run/generics.maxon", errs: errs) 'pr'
+		some(pv) gives pv
+		none panic("tests/run/generics.maxon cannot be loaded")
+	end 'pr'
+	project.addLibraryFrom(p, dir: libraryOfTheCheckout, errs: errs)
+	for e in errs 'failed'
+		panic("the library is not parsed: {e.format()}")
+	end 'failed'
+	let heads = project.LibraryHeads.of(p, first: 0)
+	var report = ""
+	var scanned = 0 as Count
+	for module in p.modules 'modules'
+		if not module.isLibrary 'program'
+			continue 'modules'
+		end 'program'
+		let scan = project.scanModule(module.filePaths, heads: heads, memory: project.SourceFiles.create(0))
+		let found = wordSetOf(scan.words())
+		let wanted = parsedWords(module)
+		let wantedSet = wordSetOf(wanted)
+		let isBranched = holdsBranch(module)
+		for word in wanted 'missing'
+			if not found.has(word) 'missed'
+				report = "{report}{module.path} misses {word}\n"
+			end 'missed'
+		end 'missing'
+		for word in scan.words() 'extra'
+			if not wantedSet.has(word) and not isBranched 'extras'
+				report = "{report}{module.path} adds {word}\n"
+			end 'extras'
+		end 'extra'
+		scanned = scanned + 1
+	end 'modules'
+	if scanned == 0 or report != "" 'differs'
+		panic("the scan of {scanned} modules differs from the parse:\n{report}")
+	end 'differs'
+end 'the scan of the library finds every word that its parse declares'
+
+// isPlainName is whether a key of a module's names is a name that a program may write, which a nested typealias's or static
+// let's key, `Owner.name`, is not.
+function isPlainName(key String) returns bool
+	for i in 0 upto key.byteLength() 'bytes'
+		if not ast.isIdentByte(key.byteAt(i)) 'other'
+			return false
+		end 'other'
+	end 'bytes'
+	return true
+end 'isPlainName'
+
+// holdsBranch is whether a file of the module has a `#if`, whose branch that the target leaves out the scan counts, as the
+// parse does not.
+function holdsBranch(module ast.Module) returns bool
+	for path in module.filePaths 'files'
+		let text = match consumes project.readTextFile(path) 'read'
+			some(held) gives held
+			none gives ""
+		end 'read'
+		if text.contains("#if") 'holds'
+			return true
+		end 'holds'
+	end 'files'
+	return false
+end 'holdsBranch'
+
+// The library that these tests compile programs with is held in memory: a core, a module `used` that names the module
+// `chained` (as `chained.reach`), and four modules that have a syntax error in them, which a program's compile parses only
+// when its words reach them: `chained`, `stray` (a function), `shapes` (a type with a method, and an extension of it that adds
+// another) and `loud` (an extension of String).
+let fixtureLibrary = "<library>"
+
+let fixtureProgram = "<program>"
+
+function fixtureFile(path String, text String) returns project.SourceFile
+	return project.SourceFile.make(path.clone(), text: text.clone())
+end 'fixtureFile'
+
+function fixtureFiles(main String) returns project.SourceFiles
+	var files = project.SourceFiles.create(0)
+	files.push(fixtureFile(project.joinPath(fixtureProgram, name: "main.maxon"), text: main))
+	files.push(fixtureFile(project.joinPath(project.joinPath(fixtureLibrary, name: "core"), name: "Core.maxon"), text: "export let One = 1\n"))
+	files.push(fixtureFile(project.joinPath(project.joinPath(fixtureLibrary, name: "used"), name: "Used.maxon"), text: "public function used() returns int\n\treturn chained.reach()\nend 'used'\n"))
+	files.push(fixtureFile(project.joinPath(project.joinPath(fixtureLibrary, name: "chained"), name: "Chained.maxon"), text: "public function reach() returns int\n\treturn 1\nend 'reach'\n\nexport let = 5\n"))
+	files.push(fixtureFile(project.joinPath(project.joinPath(fixtureLibrary, name: "stray"), name: "Stray.maxon"), text: "public function stray() returns int\n\treturn 2\nend 'stray'\n\nexport let = 6\n"))
+	files.push(fixtureFile(project.joinPath(project.joinPath(fixtureLibrary, name: "shapes"), name: "Shapes.maxon"), text: "public type Box\n\texport function size() returns int\n\t\treturn 1\n\tend 'size'\nend 'Box'\n\nextension Box\n\texport function area() returns int\n\t\treturn 2\n\tend 'area'\nend 'Box'\n\nexport let = 7\n"))
+	files.push(fixtureFile(project.joinPath(project.joinPath(fixtureLibrary, name: "loud"), name: "Loud.maxon"), text: "extension String\n\texport function shout() returns String\n\t\treturn self\n\tend 'shout'\nend 'String'\n\nexport let = 8\n"))
+	return files
+end 'fixtureFiles'
+
+// compileWithFixtureLibrary is the errors of a compile, with no build cache, of the program whose main has the body, with the
+// fixture library.
+function compileWithFixtureLibrary(body String) returns diag.ErrorList
+	let files = fixtureFiles("function main() returns ExitCode\n{body}\treturn 0\nend 'main'\n")
+	var errs = diag.ErrorList.create(0)
+	let options = Options.new()
+	var p = projectFor(options)
+	project.discoverFilesInto(p, rootPath: fixtureProgram, files: files, errs: errs)
+	project.addLibraryFiles(p, dir: fixtureLibrary, files: files, errs: errs)
+	if not p.library.isSome() 'library'
+		panic("the fixture library is not the library of the project")
+	end 'library'
+	_ = compileDiscovered(p, memory: files, first: 0, ready: noReadyUnits(), output: "", options: options, errs: errs)
+	return errs
+end 'compileWithFixtureLibrary'
+
+// expectErrorsOnlyIn fails unless errs holds an error and every one is in the file called name.
+function expectErrorsOnlyIn(errs diag.ErrorList, name String, what String)
+	if errs.count() == 0 'none'
+		panic("{what}: the library module with the error was not parsed")
+	end 'none'
+	for e in errs 'errors'
+		if not project.endsWithText(e.file, suffix: name) 'elsewhere'
+			panic("{what}: unexpected error {e.format()}")
+		end 'elsewhere'
+	end 'errors'
+end 'expectErrorsOnlyIn'
+
+test 'a library file with a syntax error that no word of the program reaches is no error of a build with no cache'
+	let errs = compileWithFixtureLibrary("")
+	for e in errs 'failed'
+		panic("a program that writes no word of the broken modules: {e.format()}")
+	end 'failed'
+end 'a library file with a syntax error that no word of the program reaches is no error of a build with no cache'
+
+test 'a library file with a syntax error that a word of the program reaches is an error of the build'
+	expectErrorsOnlyIn(compileWithFixtureLibrary("\tlet n = stray()\n"), name: "Stray.maxon", what: "a program that writes a name that the broken module declares")
+end 'a library file with a syntax error that a word of the program reaches is an error of the build'
+
+test 'a library module that a reached module names is reached as well'
+	expectErrorsOnlyIn(compileWithFixtureLibrary("\tlet n = used()\n"), name: "Chained.maxon", what: "a program that writes the name of a module that names the broken one")
+end 'a library module that a reached module names is reached as well'
+
+test 'the members of a type that a library module declares are no words that reach it'
+	let errs = compileWithFixtureLibrary("\tlet text = \"size area\"\n")
+	for e in errs 'failed'
+		panic("a program that writes only the names of the members of a library type: {e.format()}")
+	end 'failed'
+end 'the members of a type that a library module declares are no words that reach it'
+
+test 'a member that a library module adds to a type it does not declare is a word that reaches it'
+	expectErrorsOnlyIn(compileWithFixtureLibrary("\tlet text = \"x\".shout()\n"), name: "Loud.maxon", what: "a program that calls a method that a module adds to String")
+end 'a member that a library module adds to a type it does not declare is a word that reaches it'
+
+test 'the name of a library type is a word that reaches the module that declares it'
+	expectErrorsOnlyIn(compileWithFixtureLibrary("\tlet box = Box.create()\n"), name: "Shapes.maxon", what: "a program that writes the name of a library type")
+end 'the name of a library type is a word that reaches the module that declares it'
+
+test 'the text of a string is no word that reaches the library and an interpolation is'
+	for e in compileWithFixtureLibrary("\tlet text = \"stray Box shout\"\n") 'failed'
+		panic("a program that writes library names only in the text of a string: {e.format()}")
+	end 'failed'
+	expectErrorsOnlyIn(compileWithFixtureLibrary("\tlet s = \"x\"\n\tlet text = \"<\{s.shout()\}>\"\n"), name: "Loud.maxon", what: "a program that calls a library method only in an interpolation")
+end 'the text of a string is no word that reaches the library and an interpolation is'
+
+// reachedLibraryOf are the paths of the modules of the library of the checkout that a check of the program of the files, held
+// in memory, parses, in the project's order.
+function reachedLibraryOf(files project.SourceFiles) returns String
+	var errs = diag.ErrorList.create(0)
+	let options = Options.new()
+	var p = projectFor(options)
+	project.discoverFilesInto(p, rootPath: fixtureProgram, files: files, errs: errs)
+	project.addLibraryFiles(p, dir: libraryOfTheCheckout, files: project.SourceFiles.create(0), errs: errs)
+	_ = compileDiscovered(p, memory: files, first: 0, ready: noReadyUnits(), output: "", options: options, errs: errs)
+	for e in errs 'failed'
+		panic("the program does not check: {e.format()}")
+	end 'failed'
+	var reached = ""
+	for module in p.modules 'modules'
+		if module.isLibrary and module.decls.count() > 0 'parsed'
+			reached = "{reached} {module.path}"
+		end 'parsed'
+	end 'modules'
+	return reached
+end 'reachedLibraryOf'
+
+test 'a small program reaches the library modules that its code names and no more'
+	var files = project.SourceFiles.create(0)
+	files.push(fixtureFile(project.joinPath(fixtureProgram, name: "main.maxon"), text: "function main() returns ExitCode\n\tvar pieces = \"pear fig apple\".split(\" \")\n\tpieces.sort()\n\t// Map, sleep\n\tlet note = \"Random Console sha256 HeapStats\"\n\tprint(\"\{pieces.count()\} \{note\}\\n\")\n\treturn 0\nend 'main'\n"))
+	let reached = reachedLibraryOf(files)
+	let expected = " stdlib._helpers stdlib.array stdlib.core stdlib.string"
+	if reached != expected 'differs'
+		panic("the program reaches{reached}, not{expected}")
+	end 'differs'
+end 'a small program reaches the library modules that its code names and no more'

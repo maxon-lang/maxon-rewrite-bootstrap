@@ -58,12 +58,12 @@ const (
 
 // Convert converts existing Maxon source code to minimaxon syntax and layout.
 func Convert(file, src string, kind inputKind) Result {
-	return convertProgram(file, src, kind, nil)
+	return convertProgram(file, src, kind, programNames{})
 }
 
-// convertProgram is Convert for one file of a program whose other files declare the types ownTypes names, of those that
-// libraryTypeNamesHere renames.
-func convertProgram(file, src string, kind inputKind, ownTypes []string) Result {
+// convertProgram is Convert for one file of a program, whose names (all its files together) decide which of the library's
+// types it names as minimaxon does.
+func convertProgram(file, src string, kind inputKind, names programNames) Result {
 	text := normalizeText(src)
 	if strings.TrimSpace(text) == "" {
 		return Result{Text: "", Formatted: true}
@@ -83,6 +83,7 @@ func convertProgram(file, src string, kind inputKind, ownTypes []string) Result 
 	}
 
 	if kind == sourceFile {
+		renameBesideBuiltins(lines)
 		lines = hoistRangedTypealiases(lines)
 		if isLibraryHelper(file) {
 			exportPublicModifiers(lines)
@@ -108,14 +109,23 @@ func convertProgram(file, src string, kind inputKind, ownTypes []string) Result 
 		}
 	}
 	rewriteTypeNames(lines)
-	renameLibraryTypes(file, lines, kind, ownTypes)
+	if kind == sourceFile && libraryRoot(file) != "" {
+		renameNamesHidingModules(lines)
+	}
+	renameLibraryTypes(file, lines, kind, names.own)
+	if kind == specProgram && names.usesLibrarySubprocess {
+		renameProgramBesideBuiltins(lines, names.own)
+	}
 	joinEndOtherwise(lines)
 	rewriteDestructors(lines, addWarn)
 	rewriteStringBuilders(lines)
 	lines = rewriteMergeScratch(lines)
 	lines = rewriteFilledPrefix(lines)
 	rewriteWithIterator(lines, addWarn)
+	dropMailboxCapacity(lines, addWarn)
 	transformLines(lines, addWarn)
+	lines = rewriteFileEndings(lines)
+	rewriteFileBuffers(lines)
 	warnIdentityOperators(lines, addWarn)
 
 	candidate := renderFallbackLayout(lines)
@@ -997,7 +1007,7 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 			}
 		case "default":
 			if line.indent == "" && len(line.code) >= 3 && line.code[2].text == "=" {
-				warn(line, "top-level default declarations are not supported in minimaxon")
+				warn(line, registryWarning)
 				continue
 			}
 		case "let", "var":
@@ -1251,15 +1261,22 @@ func isLibraryHelper(file string) bool {
 
 // publicHelperNames are the names that a helper's file declares and that a program calls, as `Array.swap(i, j: j)`, or that a
 // public member of the library's root names in its signature (`Array.sortBy(cmp)`'s `SortComparator`): they stay public, where a
-// helper's other names become export, since a public function may not name a less visible type (E3167).
-var publicHelperNames = []string{"SortComparator", "swap"}
+// helper's other names become export, since a public function may not name a less visible type (E3167). A type of them keeps
+// its public members too: a program writes to a file through maxon's FileWriter (`FileWriter.open(path)`).
+var publicHelperNames = []string{"SortComparator", "swap", "FileWriter"}
 
-// exportPublicModifiers makes each public of a helper export, but for the names of publicHelperNames: a helper module is a
-// direct child of the library's root, so export reaches the whole library and no program.
+// exportPublicModifiers makes each public of a helper export, but for the names of publicHelperNames and the members of a type
+// of them: a helper module is a direct child of the library's root, so export reaches the whole library and no program.
 func exportPublicModifiers(lines []sourceLine) {
+	inPublicType := false
 	for i := range lines {
 		l := &lines[i]
-		if declIdx := skipModifiers(l.code); declIdx+1 < len(l.code) && (l.code[declIdx].text == "typealias" || l.code[declIdx].text == "function") && slices.Contains(publicHelperNames, l.code[declIdx+1].text) {
+		declIdx := skipModifiers(l.code)
+		named := declIdx+1 < len(l.code) && slices.Contains(publicHelperNames, l.code[declIdx+1].text)
+		if l.indent == "" && len(l.code) > 0 {
+			inPublicType = named && l.code[declIdx].text == "type"
+		}
+		if named && (l.code[declIdx].text == "typealias" || l.code[declIdx].text == "function" || l.code[declIdx].text == "type") || inPublicType && l.indent != "" {
 			continue
 		}
 		makeExport(l)
@@ -1367,7 +1384,8 @@ func libraryInterfaces(root string) map[string][]string {
 }
 
 // cloneRequirement is the requirement that the copy every Copyable value has meets here (x.clone()): no type declares a
-// method of that name, so a conformance that requires it is not one a built-in type can declare.
+// method of that name, so a built-in type that is always Copyable meets it with the built-in copy, and a generic one, which
+// is Copyable only where its type arguments are, cannot declare a conformance that requires it.
 const cloneRequirement = "clone"
 
 // staticRequirement starts the name of a requirement that is a static function (libraryInterfaces).
@@ -1386,8 +1404,8 @@ var keptBuiltinMembers = map[string][]string{
 // keptBuiltinMembers may), with each method they require that the built-in type lacks, as the file writes it, the members
 // that keptBuiltinMembers names, and the file's declarations that those methods name. The rest of the file is the
 // built-in's own implementation, which minimaxon has natively. A conformance whose requirements neither the built-in nor
-// the file meets, that requires clone, or that requires a static function, which makes a value of the type where the
-// compiler makes the built-in's, is left out.
+// the file meets, that requires clone of a generic type, or that requires a static function, which makes a value of the
+// type where the compiler makes the built-in's, is left out.
 func keepBuiltinConformances(lines []sourceLine, interfaces map[string][]string) {
 	header := -1
 	name := ""
@@ -1416,13 +1434,13 @@ func keepBuiltinConformances(lines []sourceLine, interfaces map[string][]string)
 	needed := slices.Clone(keptBuiltinMembers[name])
 	for _, item := range implementedInterfaces(lines[header].code) {
 		reqs, ok := interfaces[item.name]
-		if !ok || item.hasArgs && !typeArgs || slices.Contains(reqs, cloneRequirement) || slices.ContainsFunc(reqs, func(r string) bool { return strings.HasPrefix(r, staticRequirement) }) {
+		if !ok || item.hasArgs && !typeArgs || typeArgs && slices.Contains(reqs, cloneRequirement) || slices.ContainsFunc(reqs, func(r string) bool { return strings.HasPrefix(r, staticRequirement) }) {
 			continue
 		}
 		var mine []string
 		met := true
 		for _, req := range reqs {
-			if slices.Contains(builtinMethods[name], req) {
+			if req == cloneRequirement || slices.Contains(builtinMethods[name], req) {
 				continue
 			}
 			if _, ok := declared[req]; !ok {
@@ -2181,13 +2199,41 @@ func checkUnionCase(line *sourceLine, warn func(*sourceLine, string)) {
 	}
 }
 
+// registryWarning is maxon's program-wide registry, a top-level `default Key = ...`, which minimaxon drops.
+const registryWarning = "language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)"
+
+// droppedSchedulerMembers are maxon's members of Scheduler and __Builtins that minimaxon drops, with the reason a test that
+// calls one is skipped for (README, Where it differs from Maxon: "There is no `parallelBoundary` and no
+// `currentStackBytes`").
+var droppedSchedulerMembers = map[string]string{
+	"parallelBoundary":  "language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)",
+	"currentStackBytes": stackBytesWarning,
+	"gtStackBytes":      stackBytesWarning,
+}
+
+const stackBytesWarning = "language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes)"
+
+// warnDroppedSchedulerMembers warns for a call of a member of Scheduler or __Builtins that minimaxon drops.
+func warnDroppedSchedulerMembers(toks []token, line *sourceLine, warn func(*sourceLine, string)) {
+	for i := 2; i < len(toks); i++ {
+		if toks[i-1].text != "." || (toks[i-2].text != "Scheduler" && toks[i-2].text != "__Builtins") {
+			continue
+		}
+		if reason, ok := droppedSchedulerMembers[toks[i].text]; ok {
+			warn(line, reason)
+		}
+	}
+}
+
 func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 	toks := line.code
+	warnDroppedSchedulerMembers(toks, line, warn)
 
 	// Rewrite `freeze <unary_expr>` -> `freeze(<unary_expr>)` and `swap <target> with <expr>` -> `exchange(<target>, value: <expr>)`.
 	toks = rewriteRegionExprs(toks, line, warn)
 	toks = rewriteArmThrows(toks)
 	toks = rewriteDiscards(toks)
+	toks = dropRawBufferCasts(toks)
 	toks = rewriteClosureParams(toks, line, warn)
 	toks = rewriteTupleElements(toks)
 	toks = rewriteToStringCalls(toks)
@@ -2349,6 +2395,26 @@ func rewriteDiscards(toks []token) []token {
 	return toks
 }
 
+// dropRawBufferCasts leaves out the cast of a call's result, or of a local that holds one, to the bare `__ManagedMemory`, with its
+// capability word or without it:
+// maxon's `as isolated __ManagedMemory` says the buffer that a row gave is a fresh one a caller owns, which the built-in table's
+// rows (`ManagedMemory with Byte`) give already, and minimaxon's buffer has an element type that a bare name does not write.
+func dropRawBufferCasts(toks []token) []token {
+	for i := 0; i+1 < len(toks); i++ {
+		if toks[i].kind != tokIdent || toks[i].text != "as" || i == 0 || toks[i-1].text != ")" && toks[i-1].kind != tokIdent {
+			continue
+		}
+		at := i + 1
+		if isCapabilityWord(toks[at].text) {
+			at++
+		}
+		if at < len(toks) && toks[at].text == "__ManagedMemory" && (at+1 == len(toks) || toks[at+1].text != "with") {
+			return dropRawBufferCasts(slices.Concat(toks[:i], toks[at+1:]))
+		}
+	}
+	return toks
+}
+
 // rewriteTupleElements writes maxon's second spelling of a tuple's element, `t._0`, as `t.0`, the one minimaxon has.
 func rewriteTupleElements(toks []token) []token {
 	var out []token
@@ -2382,6 +2448,14 @@ func rewriteToStringCalls(toks []token) []token {
 			continue
 		}
 		if t.kind == tokIdent && t.text == "toString" && i+2 < len(toks) && toks[i+1].text == "(" && toks[i+2].text == ")" && i > 0 && toks[i-1].text == "." {
+			if isCStrCall(toks, i+3) {
+				// maxon's FilePath.toString() is the path's own String, which its cstring views; here it is a new String, which
+				// would be gone once the cstring is made, so the cstring views the path field.
+				t.text = "path"
+				out = append(out, t)
+				i += 2
+				continue
+			}
 			if start := receiverStart(toks, i-2); start >= 0 {
 				// The operand and the dot are the last tokens out took, unless a rewrite earlier on the line joined some.
 				n := len(out) - (i - start)
@@ -2399,6 +2473,11 @@ func rewriteToStringCalls(toks []token) []token {
 		out = append(out, t)
 	}
 	return out
+}
+
+// isCStrCall says whether the tokens from i are `.cstr()`.
+func isCStrCall(toks []token, i int) bool {
+	return i+3 < len(toks) && toks[i].text == "." && toks[i+1].text == "cstr" && toks[i+2].text == "(" && toks[i+3].text == ")"
 }
 
 // toStringPart is an interpolated part that is a call of toString() on an expression with no braces or quotes in it.

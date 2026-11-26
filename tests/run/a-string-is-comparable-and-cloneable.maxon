@@ -1,0 +1,49 @@
+// A String is Comparable, as maxon's compiler makes it: ordered by its bytes, a shorter String that the other starts with
+// first, through `<`, `<=`, `>`, `>=` and compare. It meets a bound of Comparable, so a generic orders it and a sort sorts
+// it, and one of Cloneable; its equality and its hash are the built-in ones a Map of String keys uses.
+typealias Texts = Array with String
+
+typealias Counts = Map with (String, Count)
+
+function smaller(a T, b T) uses T returns T where T implements Comparable and Copyable
+	if a <= b 'first'
+		return a.clone()
+	end 'first'
+	return b.clone()
+end 'smaller'
+
+function copied(a T) uses T returns T where T implements Cloneable
+	return a.clone()
+end 'copied'
+
+function main() returns ExitCode
+	let apple = "apple"
+	let app = "app"
+	let banana = "banana"
+	print("{apple < banana} {app < apple} {banana <= apple} {apple >= app} {banana > apple} {apple >= apple}\n")
+	print("{apple.compare(banana)} {apple.compare(app)} {apple.compare("apple")}\n")
+	// The bytes of 'é' (0xC3 0xA9) come after every ASCII byte.
+	print("{"zebra" < "école"} {"" < "a"} {"" <= ""}\n")
+	print("{smaller(banana, b: apple)} {smaller("b", b: "a")} {copied(apple)}\n")
+	var words = Texts from ["pear", "fig", "apple", "figs", "Zed"]
+	words.sort()
+	for w in words 'each'
+		print("{w}\n")
+	end 'each'
+	var counts = Counts.create()
+	counts.upsert("fig", value: 1)
+	counts.upsert("pear", value: 2)
+	print("{counts.contains("fig")} {counts.contains("figs")} {"fig".hash() == "f{"ig"}".hash()} {"fig" == "f{"ig"}"}\n")
+	return 0
+end 'main'
+
+//> true true false true true true
+//> lessThan greaterThan equalTo
+//> true true true
+//> apple a apple
+//> Zed
+//> apple
+//> fig
+//> figs
+//> pear
+//> true false true true

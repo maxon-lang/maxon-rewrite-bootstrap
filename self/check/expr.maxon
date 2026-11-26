@@ -818,7 +818,8 @@ function checkComparison(mutates c Checker, p ast.Project, mutates ms ast.Module
 		setOperand(c, node: e, operand: l)
 		return boundOperatorCall(c, p: p, ms: ms, e: e, op: op, param: l, errs: errs)
 	end 'parameter'
-	if l == r and (typeHasKind(p, ms: ms, t: l, kind: ast.TypeKind.record) or typeHasKind(p, ms: ms, t: l, kind: ast.TypeKind.builtinArray)) 'method'
+	// Two Strings are equal by the built-in comparison above, and ordered by the compare of their Comparable conformance.
+	if l == r and (l == p.builtins.stringTy or typeHasKind(p, ms: ms, t: l, kind: ast.TypeKind.record) or typeHasKind(p, ms: ms, t: l, kind: ast.TypeKind.builtinArray)) 'method'
 		setOperand(c, node: e, operand: l)
 		return methodOperatorCall(c, p: p, ms: ms, e: e, op: op, t: l, errs: errs)
 	end 'method'

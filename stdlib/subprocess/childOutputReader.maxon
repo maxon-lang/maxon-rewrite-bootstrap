@@ -1,0 +1,5 @@
+// maxon's `ChildOutputReader`, which its Stream.maxon declares over the `ChildOutput` of its Subprocess: here the reader of a
+// streaming child's output is declared beside that type, since the library's stream module is written below the subprocess module
+// and cannot name a type of it (stdlib/stream/Stream.maxon).
+
+public typealias ChildOutputReader = stream.StreamReader with ChildOutput

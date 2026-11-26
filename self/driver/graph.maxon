@@ -7,6 +7,9 @@
 
 // Stage is a step of the compile. A stage of the project as a whole is marked so; every other one is of one module.
 enum Stage
+	// scan (of a library module in a program's compile) reads from the text of the module's files the words that reach it and
+	// the library modules it may name, which the parse of every library module waits on (reachedByProgram); it makes no segment.
+	scan
 	parse
 	// parsed (project) joins the parses: resolve may read the declaration table of any module that a qualified name passes
 	// through, which it knows only as it resolves.
@@ -155,65 +158,32 @@ type TaskGraph
 		groupOfModules = true
 	end 'addModuleTasks'
 
-	// addLowerTasks adds the lower of each module of order. Without modules on demand (onDemand, by module) it is
-	// addModuleTasks. A module on demand lowers only what the lowers before it call (lowersOnDemand), so it comes after them
-	// instead of in order: first the lower of every other module, in order, each waiting for its verify; then the modules on
-	// demand, in the reverse of order, each waiting for its verify, for the lower of every module of the first pass, since a
-	// module of the program can lower an instance of another's generic whose body calls the library without naming it, and for
-	// the lower of every module on demand that names it, which the reverse order adds first.
-	function addLowerTasks(mutates self, order check.ModuleOrder, deps ModuleDeps, onDemand Placed, first Count)
-		var any = false
-		for i in 0 upto order.count() 'any'
-			if demandedAt(onDemand, m: ast.modIndex(order[i])) 'demanded'
-				any = true
-			end 'demanded'
-		end 'any'
-		if not any 'whole'
-			self.addModuleTasks(Stage.lower, order: order, deps: deps, first: first)
-			return
-		end 'whole'
-		var added = TaskIDs.create(0)
-		var firstPass = TaskIDs.create(0)
-		for i in 0 upto order.count() 'whole'
-			let m = ast.modIndex(order[i])
-			if not demandedAt(onDemand, m: m) 'own'
-				let id = addTaskAfter(Stage.lower, module: m, before: singleTask(moduleTask[m]), also: TaskIDs.create(0))
-				firstPass.push(id)
-				added.push(id)
-			end 'own'
-		end 'whole'
-		var i = order.count()
-		while i > 0 'demanded'
-			i = i - 1
-			let m = ast.modIndex(order[i])
-			if not demandedAt(onDemand, m: m) 'own'
-				continue 'demanded'
-			end 'own'
-			var also = firstPass.clone()
-			for j in 0 upto order.count() 'namers'
-				let k = ast.modIndex(order[j])
-				if k != m and demandedAt(onDemand, m: k) and namesModule(deps[k], module: m) 'names'
-					also.push(namedTask(Stage.lower, module: k, by: m))
-				end 'names'
-			end 'namers'
-			added.push(addTaskAfter(Stage.lower, module: m, before: singleTask(moduleTask[m]), also: also))
-		end 'demanded'
-		group = added
-		groupOfModules = true
-	end 'addLowerTasks'
-
-	// addParseTasks adds the parse of each module of program and then of library, each waiting for the tasks of the stage
-	// added before (none, at the start of a compile), and each of library for the parses of program as well: with the
-	// library's names index, a module of the library is parsed only when the program's words reach it (reachedByProgram).
-	function addParseTasks(mutates self, program check.ModuleOrder, library check.ModuleOrder)
+	// addParseTasks adds the scan of each module of library, which waits for nothing, and the parse of each module of program and
+	// then of library, each waiting for the tasks of the stage added before (none, at the start of a compile). The parse of a
+	// module of program waits for the scans of the library, whose words it reads its text for (libraryWords), and the parse of
+	// a module of library for those and for the parses of program: a module of the library is parsed only when the program's
+	// words reach it (reachedByProgram). The core is reached whatever the program writes, so its parse waits for its own scan
+	// only, and runs beside the program's.
+	function addParseTasks(mutates self, program check.ModuleOrder, library check.ModuleOrder, core table.Option with Count)
 		let before = group.clone()
+		var scans = TaskIDs.create(0)
+		for i in 0 upto library.count() 'scans'
+			scans.push(addTaskAfter(Stage.scan, module: ast.modIndex(library[i]), before: before, also: TaskIDs.create(0)))
+		end 'scans'
 		var added = TaskIDs.create(0)
 		for i in 0 upto program.count() 'program'
-			added.push(addTaskAfter(Stage.parse, module: ast.modIndex(program[i]), before: before, also: TaskIDs.create(0)))
+			added.push(addTaskAfter(Stage.parse, module: ast.modIndex(program[i]), before: before, also: scans))
 		end 'program'
-		let programTasks = added.clone()
+		var waited = added.clone()
+		waited.append(scans)
+		var place = 0 as Count
 		for i in 0 upto library.count() 'library'
-			added.push(addTaskAfter(Stage.parse, module: ast.modIndex(library[i]), before: before, also: programTasks))
+			var also = waited.clone()
+			if core.isSome() and ast.modIndex(library[i]) == core.clone().unwrap() 'core'
+				also = singleTask(try scans.get(place) otherwise panic("driver: a library module without its scan"))
+			end 'core'
+			added.push(addTaskAfter(Stage.parse, module: ast.modIndex(library[i]), before: before, also: also))
+			place = place + 1
 		end 'library'
 		group = added
 		groupOfModules = true
@@ -278,14 +248,6 @@ type TaskGraph
 	end 'dependents'
 end 'TaskGraph'
 
-// demandedAt is whether onDemand marks module m, which a module past its end is not.
-function demandedAt(onDemand Placed, m Count) returns bool
-	if m >= onDemand.count() 'past'
-		return false
-	end 'past'
-	return onDemand[m]
-end 'demandedAt'
-
 // singleTask is a list of the one task id.
 function singleTask(id Count) returns TaskIDs
 	var one = TaskIDs.create(0)
@@ -293,19 +255,10 @@ function singleTask(id Count) returns TaskIDs
 	return one
 end 'singleTask'
 
-// namesModule is whether the modules a module names (named) hold module.
-function namesModule(named TaskIDs, module Count) returns bool
-	for j in 0 upto named.count() 'named'
-		if named[j] == module 'found'
-			return true
-		end 'found'
-	end 'named'
-	return false
-end 'namesModule'
-
 // readsNamedModules is whether a module's stage reads what the same stage made of the modules the module names.
 function readsNamedModules(stage Stage) returns bool
 	return match stage 's'
+		scan gives false
 		parse gives false
 		parsed gives false
 		resolve gives false
@@ -368,6 +321,7 @@ end 'makesCode'
 // isModuleStage is whether a stage is of one module, as against a stage of the project as a whole.
 function isModuleStage(stage Stage) returns bool
 	return match stage 's'
+		scan gives true
 		parse gives true
 		parsed gives false
 		resolve gives true
@@ -392,6 +346,7 @@ end 'isModuleStage'
 // product.
 function phaseOfStage(stage Stage) returns ast.Phase
 	match stage 's'
+		scan then panic("driver: the scan makes no segment of its module")
 		parse then return ast.Phase.parse
 		parsed then panic("driver: parsed is a stage of the project")
 		resolve then return ast.Phase.resolve
@@ -496,13 +451,17 @@ function compileOf(mutates p ast.Project, from Stage, first Count, goal Goal, ma
 	end 'from'
 	let modules = try p.modules.count() - first otherwise panic("driver: a compile from past the modules")
 	let libraryLater = libraryLaterOf(p, first: first)
+	var heads = project.LibraryHeads.none()
 	var indexSetup = IndexSetup.off()
 	var index = LibraryIndex.absent()
 	if from == Stage.parse 'parsing'
+		if libraryLater.contains(true) 'library'
+			heads = project.LibraryHeads.of(p, first: first)
+		end 'library'
 		indexSetup = indexSetupOf(p, libraryLater: libraryLater, first: first, options: options)
 		index = readIndex(indexSetup)
 	end 'parsing'
-	return Compile.make(goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options.clone(), output: output.clone(), base: freeze(ast.baseOf(p, first: first)), cache: cacheSetupOf(p, first: first, options: options), libraryLater: libraryLater, indexSetup: indexSetup, index: index)
+	return Compile.make(goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options.clone(), output: output.clone(), base: freeze(ast.baseOf(p, first: first)), cache: cacheSetupOf(p, first: first, options: options), libraryLater: libraryLater, heads: heads, indexSetup: indexSetup, index: index)
 end 'compileOf'
 
 // startGraph adds the tasks of the compile c up to the order, from the stage from: those that every compile has, before it
@@ -511,7 +470,7 @@ function startGraph(mutates graph TaskGraph, c Compile, from Stage)
 	let modules = independentOrder(c)
 	let none = ModuleDeps.create(0)
 	if from == Stage.parse 'parse'
-		graph.addParseTasks(modulesOf(c, order: modules, library: false), library: modulesOf(c, order: modules, library: true))
+		graph.addParseTasks(modulesOf(c, order: modules, library: false), library: modulesOf(c, order: modules, library: true), core: c.heads.coreModule())
 		graph.addProjectTask(Stage.parsed, also: TaskIDs.create(0))
 	end 'parse'
 	graph.addResolveTasks(modulesOf(c, order: modules, library: false), library: modulesOf(c, order: modules, library: true))
@@ -656,8 +615,9 @@ function runTask(mutates run Run, mutates p ast.Project, task Count, mutates out
 		return
 	end 'ofModule'
 	match stage 's'
+		scan then panic("driver: the scan is a stage of a module")
 		parse then panic("driver: the parse is a stage of a module")
-		parsed then writeIndexWhenMissing(run.compile, p: p, known: outcome.known)
+		parsed then writeIndexWhenMissing(run.compile, known: outcome.known)
 		resolve then panic("driver: the resolve is a stage of a module")
 		order then orderModules(run, known: outcome.known, errs: errs)
 		aliases then panic("driver: the aliases are a stage of a module")

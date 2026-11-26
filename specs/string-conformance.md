@@ -498,13 +498,13 @@ function child() returns ExitCode
 	return 0
 end 'child'
 
-function spawnChild(me FilePath) returns CollectedOutput
-	let argv = StringArray.create(0)
+function spawnChild(me FilePath) returns MxCollectedOutput
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	var config = Configuration.create(MxExecutable.path(me.clone()))
 	config.arguments = argv
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": ""])
-	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
+	return try MxSubprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'spawnChild'
 
 function main() returns ExitCode

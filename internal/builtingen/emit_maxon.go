@@ -343,6 +343,13 @@ func emitMaxonRawSurface(sb *strings.Builder, t table) {
 		}
 		fmt.Fprintf(sb, "\treturn table.Option.none\nend '%s'\n\n", door.name)
 	}
+	sb.WriteString("// rawLibraryTypeSurface is the door of the raw surface that naming a type the library declares by the name is, or none for\n// a name that is no part of it.\n")
+	sb.WriteString("export function rawLibraryTypeSurface(name String) returns table.Option with RawSurface\n")
+	for _, r := range rawLibraryTypes {
+		label := "raw" + strings.TrimLeft(r.Name, "_")
+		fmt.Fprintf(sb, "\tif name == %q '%s'\n\t\treturn %s\n\tend '%s'\n", r.Name, label, some(r.Named), label)
+	}
+	sb.WriteString("\treturn table.Option.none\nend 'rawLibraryTypeSurface'\n\n")
 	sb.WriteString("// rawCallInstead is what a program calls in place of a static function of a record of the table whose calls are raw, or\n// none for a function of any other owner.\n")
 	sb.WriteString("export function rawCallInstead(b Builtins, owner TypeID, name String) returns table.Option with String\n")
 	for _, r := range recordTypes {

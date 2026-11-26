@@ -784,7 +784,7 @@ function main() returns ExitCode
 		if not landsIn(fill, length: pad, sizeClass: sizeClass as HeapBucketIndex) 'misplaced'
 			return 4
 		end 'misplaced'
-		handles.push(spawn(capacity: 2048) Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
+		handles.push(spawn Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
 	end 'spawnEach'
 	var roundBytes = 0 as Tally
 	for _ in 0 upto Rounds 'eachRound'
@@ -973,7 +973,7 @@ function main() returns ExitCode
 		let fill = try fills.get(i) otherwise panic("churn: fills.get OOB at {i}")
 		let pad = try pads.get(i) otherwise panic("churn: pads.get OOB at {i}")
 		let population = try populations.get(i) otherwise panic("churn: populations.get OOB at {i}")
-		handles.push(spawn(capacity: 2048) Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
+		handles.push(spawn Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
 	end 'spawnEach'
 	var roundBytes = 0 as Tally
 	var sweeps = 0 as Tally
@@ -1165,7 +1165,7 @@ function main() returns ExitCode
 		if not landsIn(fill, length: pad, sizeClass: SharedClass) 'misplaced'
 			return 4
 		end 'misplaced'
-		handles.push(spawn(capacity: 2048) Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
+		handles.push(spawn Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
 	end 'spawnEach'
 	var roundBytes = 0 as Tally
 	for _ in 0 upto Rounds 'eachRound'
@@ -1383,7 +1383,7 @@ function main() returns ExitCode
 		if not landsIn(fill, length: pad, sizeClass: SharedClass) 'misplaced'
 			return 4
 		end 'misplaced'
-		handles.push(spawn(capacity: 2048) Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
+		handles.push(spawn Churn.create(fill, fillByte: (FirstFillByte + i) as Tally, padLength: pad, population: population))
 	end 'spawnEach'
 	let scavenger = spawn Scavenger.create()
 	var roundBytes = 0 as Tally

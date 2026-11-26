@@ -560,7 +560,7 @@ instance, which is a fact about that base name and no other — so a conformer o
 gets the sentence about the two names the compiler owns a record for.
 ```maxon
 type Holder implements BuiltinArrayLiteral
-	export var managed as __ManagedMemory
+	export var managed
 
 	static function init(mutates managed __ManagedMemory) returns Self
 		return Self{managed: managed}
@@ -1745,7 +1745,7 @@ its marker is about. A container name is disqualifying for the ARRAY marker spec
 whole of the rule.
 ```maxon
 type FixedArray implements BuiltinStringLiteral
-	var managed as __ManagedMemory
+	var managed
 	var flag as bool
 
 	static function init(mutates value __ManagedMemory) returns Self

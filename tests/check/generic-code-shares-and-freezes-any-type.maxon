@@ -10,14 +10,9 @@ function open(x frozen with T) uses T returns T where T implements Copyable
 	return thaw(x)
 end 'open'
 
-function hold(consumes x T) uses T returns cown with T where T implements Droppable
-	return cown(x)
-end 'hold'
-
 function main() returns ExitCode
 	let f = wrap("a")
 	let g = again(f)
 	let s = open(g)
-	let c = hold(s)
 	return 0
 end 'main'

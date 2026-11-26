@@ -1,0 +1,30 @@
+// A type implements an interface once wherever it is used: two conditional conformances of Pair to Equatable whose
+// conditions an instance can meet both (a Count is Hashable and Comparable) would leave the choice to the compiler, so the
+// second is refused (E3941), as a second unconditional one is.
+type Pair uses A
+	export var a as A
+
+	static function make(consumes a A) returns Self
+		return Self{a: a}
+	end 'make'
+end 'Pair'
+
+extension Pair implements Equatable where A implements Hashable
+	public function equals(other Self) returns bool
+		return true
+	end 'equals'
+end 'Pair'
+
+extension Pair implements Equatable where A implements Comparable
+end 'Pair'
+
+typealias Counts = Pair with Count
+
+function main() returns ExitCode
+	if Counts.make(1) == Counts.make(1) 'same'
+		return 1
+	end 'same'
+	return 0
+end 'main'
+
+// expect-error: E3941 at 18:11

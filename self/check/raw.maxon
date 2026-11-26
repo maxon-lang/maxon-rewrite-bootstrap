@@ -2,18 +2,39 @@
 // They read and write memory past the ownership model's bookkeeping, so only a module of a library tier goes through one;
 // each refusal is at the door, in maxon's words, with what a program uses instead.
 
+// checksLibraryTier is whether the module being checked is in a library tier, which may go through the raw surface's doors
+// and write cowns and behaviours.
+function checksLibraryTier(c Checker, p ast.Project) returns bool
+	return p.modules[c.modIdx].inLibraryTier()
+end 'checksLibraryTier'
+
 // refusesRawType refuses a type of the raw surface that a module outside the library tiers names at off.
 function refusesRawType(c Checker, p ast.Project, ms ast.ModuleState, off diag.U32, t ast.TypeID, mutates errs diag.ErrorList) returns bool
-	if p.modules[c.modIdx].inLibraryTier() 'tier'
+	if checksLibraryTier(c, p: p) 'tier'
 		return false
 	end 'tier'
 	let origin = ast.originOf(ms.types, reads: p.types, t: t)
 	match consumes ast.rawTypeSurface(p.builtins, origin: origin) 'raw'
 		some(door) then checkFail(c.modID, off: off, code: diag.errRawSurfaceOutsideLibrary, msg: diag.rawTypeOutsideLibrary(ast.typeEntry(ms.types, reads: p.types, t: origin).name.clone(), what: door.what, instead: door.instead), errs: errs)
-		none then return false
+		none then return refusesRawLibraryType(c, p: p, ms: ms, off: off, origin: origin, errs: errs)
 	end 'raw'
 	return true
 end 'refusesRawType'
+
+// refusesRawLibraryType refuses a type of the raw surface that the library declares (__ManagedFile), named at off outside the
+// library tiers. Only a module of a library tier declares a name that starts with `__` (E2051), so a declared type of such a
+// name is the library's.
+function refusesRawLibraryType(c Checker, p ast.Project, ms ast.ModuleState, off diag.U32, origin ast.TypeID, mutates errs diag.ErrorList) returns bool
+	if not ast.typeEntry(ms.types, reads: p.types, t: origin).hasDecl 'undeclared'
+		return false
+	end 'undeclared'
+	let name = ast.typeEntry(ms.types, reads: p.types, t: origin).name.clone()
+	match consumes ast.rawLibraryTypeSurface(name.clone()) 'raw'
+		some(door) then checkFail(c.modID, off: off, code: diag.errRawSurfaceOutsideLibrary, msg: diag.rawTypeOutsideLibrary(name, what: door.what, instead: door.instead), errs: errs)
+		none then return false
+	end 'raw'
+	return true
+end 'refusesRawLibraryType'
 
 // refusesRawCall refuses a call that a module outside the library tiers makes of a raw static function, of a raw member of a
 // type that is not raw (a door such as `SlotKey.fromWord`), or of a method of a type of the raw surface. Any other static

@@ -77,7 +77,6 @@ type AuthHandler implements HttpHandler
 		let token = exchange.request().url().path
 		try self.auth.check(token, responder: responder) otherwise (e) 'busy'
 			match e 'why'
-				mailboxFull(_, back) then refuse(back)
 				serviceStopped(_, back) then refuse(back)
 			end 'why'
 		end 'busy'
@@ -170,7 +169,6 @@ type AuthHandler implements HttpHandler
 		let token = exchange.request().url().path
 		try self.auth.check(token, responder: responder) otherwise (e) 'busy'
 			match e 'why'
-				mailboxFull(_, back) then refuse(back)
 				serviceStopped(_, back) then refuse(back)
 			end 'why'
 		end 'busy'
@@ -257,7 +255,6 @@ type Auth
 	export function check(token String, responder HttpResponder)
 		try self.directory.lookup(token, responder: responder) otherwise (e) 'busy'
 			match e 'why'
-				mailboxFull(_, back) then refuse(back)
 				serviceStopped(_, back) then refuse(back)
 			end 'why'
 		end 'busy'
@@ -276,7 +273,6 @@ type AuthHandler implements HttpHandler
 		let token = exchange.request().url().path
 		try self.auth.check(token, responder: responder) otherwise (e) 'busy'
 			match e 'why'
-				mailboxFull(_, back) then refuse(back)
 				serviceStopped(_, back) then refuse(back)
 			end 'why'
 		end 'busy'
@@ -610,7 +606,6 @@ type CheckHandler implements HttpHandler
 		let responder = try exchange.respondLater()
 		try self.auth.check(responder) otherwise (e) 'busy'
 			match e 'why'
-				mailboxFull(back) then answerValid(back)
 				serviceStopped(back) then answerValid(back)
 			end 'why'
 		end 'busy'

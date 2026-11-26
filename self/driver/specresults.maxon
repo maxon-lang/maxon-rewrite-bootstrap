@@ -162,7 +162,7 @@ end 'resultsText'
 
 // writeResults writes the file of results at path.
 function writeResults(path String, lines ast.StringList)
-	try File.writeText(try FilePath.from(path) otherwise panic("test: {path} is not a path"), content: resultsText(lines)) otherwise panic("test: cannot write {path}")
+	ast.writeOutputText(path, content: resultsText(lines))
 end 'writeResults'
 
 // readReplayedResults reads the file of results at path, or says why it is not a whole one that a run wrote.

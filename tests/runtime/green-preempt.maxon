@@ -1,6 +1,7 @@
 // Preemption: as many busy green threads as there are processors spin, calling nothing, until a green thread that sleeps
 // sets their flag once they have all started. Every processor is then held by a spinner, so the setter runs only once the
 // monitor stops a spinner that has run past its slice; the spinners then see the flag and end.
+// runs: alone
 //> every processor's spinner was stopped for the setter
 
 // testSleepNanos is how long the setter sleeps before it looks again whether every spinner has started.

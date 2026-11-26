@@ -144,10 +144,16 @@ var layouts = []layoutConst{
 	// A service is a cown with its mailbox's gate after the cown's words, so a behaviour, a share and a drop of the handle
 	// are a cown's.
 	{"serviceGateOffset", 5, false, toRuntime,
-		"where a service holds its mailbox's gate, stepped atomically: how many messages are queued and not yet started, plus serviceClosed once it is shut down."},
-	{"serviceCapacityOffset", 6, false, toRuntime,
-		"where a service holds how many messages its mailbox holds at most."},
-	{"serviceBytes", 7, false, toRuntime,
+		"where a service holds its mailbox's gate, stepped atomically: how many messages are queued and not yet started, plus its flags: serviceClosed once it is shut down, serviceBehind and serviceMuted."},
+	{"serviceMutedOffset", 6, false, toRuntime,
+		"where a service holds the senders slowed on it, a ring of entries named by its newest, whose link names the oldest, 0 for none, with mutedLock added while one holds it."},
+	{"serviceMostOffset", 7, false, toRuntime,
+		"where a service holds the most messages a slowed send found queued with its own, which only a slowed send writes: every count past turnBehaviours is one."},
+	{"serviceLinkOffset", 8, false, toRuntime,
+		"where a service listed on another holds its link in that one's ring, and once its unmute queues its kept message, the rest of the ring that message unmutes when it runs."},
+	{"serviceWaitOffset", 9, false, toRuntime,
+		"where a service holds 0, waitListed while it is listed on another that slows it, or the record of its message whose release is kept while it is muted."},
+	{"serviceBytes", 10, false, toRuntime,
 		"the size of a service."},
 
 	// A behaviour's record: its header, its request slots in the order of their cowns' addresses, its cowns in the order
@@ -366,7 +372,7 @@ var layouts = []layoutConst{
 	{"schedPinnedOffset", 34, false, toRuntime,
 		"where the scheduler's record holds how many green threads are pinned to their threads, stepped atomically, so a scheduler with none never reads a green thread's pin."},
 	{"schedPreemptAsksOffset", 35, false, toRuntime,
-		"where the scheduler's record holds how many times the monitor has asked a green thread to stop (preemptOne), once for each slice it held a processor on one schedtick and not again for an ask it repeats, which only the monitor writes and the tests of its pace read."},
+		"where the scheduler's record holds how many times the monitor has asked a green thread to stop (preemptOne), once for each green thread it asks on one schedtick and not again for an ask it repeats to it, which only the monitor writes and the tests of its pace read."},
 	{"schedForkLockOffset", 36, false, toRuntime,
 		"where the scheduler's record holds the fork lock on Linux (Go's syscall.ForkLock): how many writes of a file hold it shared, with forkHeldBit set while a clone holds it or waits to; a futex word."},
 	{"schedPreemptStopsOffset", 37, false, toRuntime,
@@ -381,7 +387,13 @@ var layouts = []layoutConst{
 		"where the scheduler's record holds the address of the table that names the children and the results of subprocess spawns (a word that a handle packs a slot and the slot's generation into), 0 until the first spawn."},
 	{"schedProcessEntryFreeOffset", 42, false, toRuntime,
 		"where the scheduler's record holds the first free event entry that was a process's, linked through entryLinkOffset, under the lock: such an entry is taken again only as a process's, since a system may still hold a notification keyed by it that no other kind of entry could tell from its own."},
-	{"schedProcessorsOffset", 43, false, toRuntime,
+	{"schedMachinesOffset", 43, false, toRuntime,
+		"where the scheduler's record holds how many threads it has started, the last one's number, under the scheduler's lock."},
+	{"schedPreemptOffOffset", 44, false, toRuntime,
+		"where the scheduler's record holds 1 when MAXON_PREEMPT is off, so the monitor takes no processor from the thread holding it, resolved before main runs."},
+	{"schedForkEndsOffset", 45, false, toRuntime,
+		"where the scheduler's record holds how many clones have given the fork lock back on Linux, stepped atomically, which the close of a file open for writing waits on to change while forkHeldBit is set; a futex word."},
+	{"schedProcessorsOffset", 46, false, toRuntime,
 		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made."},
 
 	// A processor (Go's P): what a thread must hold to run green threads, its local run queue (a ring that its owner puts
@@ -396,7 +408,7 @@ var layouts = []layoutConst{
 	{"procLinkOffset", 3, false, toRuntime,
 		"where a processor holds the next idle processor, under the scheduler's lock."},
 	{"procSchedTickOffset", 4, false, toRuntime,
-		"where a processor holds how many green threads it has started running (Go's schedtick)."},
+		"where a processor holds how many slices it has started (Go's schedtick): one for each green thread it starts that does not inherit the slice."},
 	{"procSyscallTickOffset", 5, false, toRuntime,
 		"where a processor holds how many blocking calls its threads have entered (Go's syscalltick)."},
 	{"procSeenTickOffset", 6, false, toRuntime,
@@ -432,7 +444,25 @@ var layouts = []layoutConst{
 	// The monitor's word past the run queue, which it writes only while a green thread holds the processor past its slice.
 	{"procAskGapOffset", 274, false, toRuntime,
 		"where a processor holds how long the monitor waits before it asks again the green thread it asked to stop on the schedtick it saw last, 0 while it has not asked on that tick, which only the monitor reads and writes."},
-	{"procBytes", 275, false, toRuntime,
+	{"procAskedGreenOffset", 275, false, toRuntime,
+		"where a processor holds the green thread the monitor last asked to stop on the schedtick it saw last, so that an ask on that tick is an ask again only to that green thread and is counted for one that inherited the slice, which only the monitor reads and writes."},
+	// The owner's words of the inherited slice (Go's inheritTime), which only the thread holding the processor reads and
+	// writes. procInheritOffset lives from the search for work to the start of what it found: findRunnable clears it each
+	// time round, on the processor it holds then, runqGet sets it only when it takes runnext, and scheduleLoop reads it right
+	// after findRunnable, before anything can hand the processor on; a pinned green thread started for its thread never
+	// inherits. procSliceAskedOffset is the ask of the slice the processor runs and no other: execute takes it when it starts
+	// an entry that inherits (into the green thread's ask) and clears it when it starts one that does not, and when the green
+	// thread switches back writes there the ask it left unanswered: none after a preemption, which answers it; the one it had
+	// after a finish, a park, a yield, which an inherited successor then takes. A green thread that loses its processor in a
+	// blocking call writes nothing. As in Go, acquiring a processor starts no slice: a processor goes idle only with
+	// runnext empty, so what a thread runs first on one it took from the idle list starts a slice of its own, and one handed
+	// on from a blocking call with runnext set runs it on the slice of the green thread that readied it, which the monitor
+	// asks to stop once that slice is over.
+	{"procSliceAskedOffset", 276, false, toRuntime,
+		"where a processor holds 1 while the monitor's ask to stop the slice it runs is not answered: left by the green thread that switched back with it, for the next green thread that inherits the slice to take as its own ask."},
+	{"procInheritOffset", 277, false, toRuntime,
+		"where a processor holds 1 while the entry its thread's search for work took last came from its runnext, which then runs on the slice of the green thread that readied it (Go's inheritTime)."},
+	{"procBytes", 278, false, toRuntime,
 		"the size of a processor."},
 
 	// A green thread (Go's g): its state, the code it runs and the word it runs it with, the arguments the code reads, the
@@ -502,7 +532,12 @@ var layouts = []layoutConst{
 		"where a green thread holds its index in the timers' heap while it is on it, under the scheduler's lock, so it is taken off in a logarithmic time."},
 	{"greenEventOffset", 63, false, toRuntime,
 		"where a green thread holds the address of the state word of the event entry it waits on, 0 while it waits on none: a timer that falls due for it and a cancel claim its wake there."},
-	{"greenBytes", 64, false, toRuntime,
+	// What a green thread that runs behaviours knows of backpressure (service.maxon).
+	{"greenServiceOffset", 64, false, toRuntime,
+		"where a green thread holds the service whose message it runs, which the message's start names, 0 while it runs none."},
+	{"greenMuteOffset", 65, false, toRuntime,
+		"where a task readied from a list of slowed senders holds the entries its wake goes on to unmute; 0 otherwise."},
+	{"greenBytes", 66, false, toRuntime,
 		"the size of a green thread's record."},
 
 	// A selector: the record of an awaitAny that waits, which every promise it waits on names as its waiter, tagged, as the
@@ -546,8 +581,10 @@ var layouts = []layoutConst{
 	// after a drain counts when another thread breaks the event queue's wait at the end.
 	{"threadBlockChangeOffset", 289, false, toRuntime,
 		"where a thread's block holds the one change of a user event that the thread makes to the event queue, a struct kevent on macOS."},
-	{"threadBlockBytes", 293, false, toRuntime,
-		"the size of a thread's block: room for eventSlots events of windowsEntryBytes each, the larger of the two systems', the pinned green thread and a change of a user event."},
+	{"threadBlockMachineOffset", 293, false, toRuntime,
+		"where a thread's block holds the thread's number among those the scheduler started, from 1 in the order they started, which Scheduler.currentMachine gives."},
+	{"threadBlockBytes", 294, false, toRuntime,
+		"the size of a thread's block: room for eventSlots events of windowsEntryBytes each, the larger of the two systems', the pinned green thread, a change of a user event and the thread's number."},
 
 	// An event entry: what a green thread waits on in the event queue, a system handle registered with it (eventRegister) or a user
 	// event (eventUserNew), with a state word for each way it is waited on, reading and writing, readied by an event or a
@@ -570,7 +607,9 @@ var layouts = []layoutConst{
 		"where an event entry holds the OVERLAPPED of a read of its handle, on Windows, four words, whose completion readies the wait to read."},
 	{"entryWriteOverlappedOffset", 11, false, toRuntime,
 		"where an event entry holds the OVERLAPPED of a write of its handle, on Windows, four words, whose completion readies the wait to write."},
-	{"eventEntryBytes", 15, false, toRuntime,
+	{"entryOrphanOffset", 15, false, toRuntime,
+		"where a process's event entry holds the pid of the child whose exit it is watched for by no green thread (0 for none): the take of its event reaps the child and gives the entry back, and whoever exchanges the word to 0 first owns that."},
+	{"eventEntryBytes", 16, false, toRuntime,
 		"the size of an event entry."},
 
 	// A Windows OVERLAPPED_ENTRY, which GetQueuedCompletionStatusEx fills one of for each completion.

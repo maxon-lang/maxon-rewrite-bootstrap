@@ -21,14 +21,35 @@ type Compile
 	// libraryLater is, by slot, whether the module is the standard library's in a program's compile, whose resolve waits for
 	// the program's (resolvesModule).
 	var libraryLater as Placed
+	// heads are the library's modules, by the first name of their qualifiers, which the scan of each reads the modules a text
+	// names by (project.scanModule); none in a compile that has no library.
+	var heads as project.LibraryHeads
 	// indexSetup is where the library's names index is kept for this compile, and index the index it found there: with one,
-	// a module of the library that the program does not reach is never parsed (libindex.maxon).
+	// the scan of a library module takes its words and names from it, and without, from the module's files (libindex.maxon).
 	var indexSetup as IndexSetup
 	var index as LibraryIndex
 
-	static function make(goal Goal, first Count, modules Count, begun Count, makesProgram bool, consumes options Options, consumes output String, consumes base frozen with ast.Project, consumes cache CacheSetup, consumes libraryLater Placed, consumes indexSetup IndexSetup, consumes index LibraryIndex) returns Compile
-		return Compile{goal: goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options, output: output, base: base, cache: cache, libraryLater: libraryLater, indexSetup: indexSetup, index: index}
+	static function make(goal Goal, first Count, modules Count, begun Count, makesProgram bool, consumes options Options, consumes output String, consumes base frozen with ast.Project, consumes cache CacheSetup, consumes libraryLater Placed, consumes heads project.LibraryHeads, consumes indexSetup IndexSetup, consumes index LibraryIndex) returns Compile
+		return Compile{goal: goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options, output: output, base: base, cache: cache, libraryLater: libraryLater, heads: heads, indexSetup: indexSetup, index: index}
 	end 'make'
+
+	// hasLibrary is whether the compile is a program's with the standard library.
+	function hasLibrary() returns bool
+		return heads.modules.count() > 0
+	end 'hasLibrary'
+
+	// isCore is whether module m is the core of the library, which every program reaches.
+	function isCore(m Count) returns bool
+		return match heads.coreModule() 'core'
+			some(core) gives core == m
+			none gives false
+		end 'core'
+	end 'isCore'
+
+	// laterAt is whether the module at slot is the standard library's in a program's compile (libraryLater).
+	function laterAt(slot Count) returns bool
+		return try libraryLater.get(slot) otherwise panic("driver: a slot past the modules of the compile")
+	end 'laterAt'
 
 	// slotOf is the place among the modules the compile compiles of module m.
 	function slotOf(m Count) returns Count
@@ -83,21 +104,21 @@ type ModuleWork
 	var checkedFound as table.Option with CheckedEntry
 	var restored as Restored
 	// named are, for a module of the standard library that the compile parsed, the modules of the library its source may name
-	// (project.libraryModulesNamedIn), and namesRead whether they were read.
+	// (the library's names index, which the scan of its text made), and namesRead whether they were read.
 	var named as project.CountList
 	var namesRead as bool
-	// words are what the module gives the library's names index: for a module of the program, the words its text writes
-	// (wordsIn), which reach the library's modules, and for one of the library, the words that reach it (wordsOfParsed).
+	// words are what the module gives the reach of the library (reachedLibrary): for a module of the program the words of the
+	// library that its code writes (programWords), for one of the library the words that reach it, which its scan found. The
+	// resolve lets them go.
 	var words as ast.StringList
+	// texts are the files of a library module that its scan read, which its parse reads in place of reading them again.
+	var texts as project.SourceFiles
 	// skimmed is how many bodies of functions the module's parse skimmed (Options.skimsBodies).
 	var skimmed as Count
-	// calls are the functions of other modules that the module's lower named, for a compile that lowers the library's modules
-	// on demand (lowersOnDemand), whose lowers are given them.
-	var calls as ast.FuncIDList
 
 	static function make(consumes home ast.ModuleHome) returns ModuleWork
 		let module = home.module
-		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), unit: backend.CodeUnit.new(), reach: Reach.whole, digests: ModuleDigests.none(), key: table.Digest.none(), found: FoundEntry.none, speculated: false, mispredicted: false, checkedState: ByteArray.create(0), checkedKey: table.Digest.none(), checkedFound: FoundChecked.none, restored: Restored.none(), named: project.CountList.create(0), namesRead: false, words: ast.StringList.create(0), skimmed: 0, calls: ast.FuncIDList.create(0)}
+		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), unit: backend.CodeUnit.new(), reach: Reach.whole, digests: ModuleDigests.none(), key: table.Digest.none(), found: FoundEntry.none, speculated: false, mispredicted: false, checkedState: ByteArray.create(0), checkedKey: table.Digest.none(), checkedFound: FoundChecked.none, restored: Restored.none(), named: project.CountList.create(0), namesRead: false, words: ast.StringList.create(0), texts: project.SourceFiles.create(0), skimmed: 0}
 	end 'make'
 
 	// startCheck starts the module's check as the order decided it (start).
@@ -131,7 +152,7 @@ type ModuleWork
 
 	// product is what the module's stages made, up to the first segments, which a task that waits on the last of them reads.
 	function product(segments Count) returns frozen with Product
-		return freeze(Product.make(freeze(ast.publish(home, segments: segments)), code: share(code), leaves: share(leaves), entry: checked.entry, tests: checked.tests.clone(), digests: digests.clone(), mispredicted: mispredicted, named: named.clone(), namesRead: namesRead, words: words.clone(), calls: calls.clone()))
+		return freeze(Product.make(freeze(ast.publish(home, segments: segments)), code: share(code), leaves: share(leaves), entry: checked.entry, tests: checked.tests.clone(), digests: digests.clone(), mispredicted: mispredicted, named: named.clone(), namesRead: namesRead, words: words.clone()))
 	end 'product'
 end 'ModuleWork'
 
@@ -199,10 +220,9 @@ type Product
 	var named as project.CountList
 	var namesRead as bool
 	var words as ast.StringList
-	var calls as ast.FuncIDList
 
-	static function make(consumes model frozen with ast.ModuleProducts, consumes code frozen with ir.IrFunctionList, consumes leaves frozen with opt.Leaves, entry ast.FuncID, consumes tests ast.FuncIDList, consumes digests ModuleDigests, mispredicted bool, consumes named project.CountList, namesRead bool, consumes words ast.StringList, consumes calls ast.FuncIDList) returns Product
-		return Product{model: model, code: code, leaves: leaves, entry: entry, tests: tests, digests: digests, mispredicted: mispredicted, named: named, namesRead: namesRead, words: words, calls: calls}
+	static function make(consumes model frozen with ast.ModuleProducts, consumes code frozen with ir.IrFunctionList, consumes leaves frozen with opt.Leaves, entry ast.FuncID, consumes tests ast.FuncIDList, consumes digests ModuleDigests, mispredicted bool, consumes named project.CountList, namesRead bool, consumes words ast.StringList) returns Product
+		return Product{model: model, code: code, leaves: leaves, entry: entry, tests: tests, digests: digests, mispredicted: mispredicted, named: named, namesRead: namesRead, words: words}
 	end 'make'
 
 	function segments() returns Count
@@ -213,6 +233,12 @@ end 'Product'
 // Known is what a task reads of each module the compile compiles, by module from first on: the product of the latest stage of
 // it that the task waited on, directly or through the tasks it waited on, or what the module held when the compile began.
 typealias Known = Array with frozen with Product
+
+// supersedes is whether product a of a module is what a task that knows the product than of it should know instead: it has more of the
+// module's segments, or as many and a has read the names of the library module (its scan, which makes no segment).
+function supersedes(a frozen with Product, than frozen with Product) returns bool
+	return a.segments() > than.segments() or (a.segments() == than.segments() and a.namesRead and not than.namesRead)
+end 'supersedes'
 
 // Outcome is what a task that ended gives the tasks that wait on it: what it knew, and whether it or a task it waited on,
 // directly or not, failed, and in which phase at the earliest (failedPhase), or was skipped.
@@ -244,7 +270,7 @@ type Outcome
 			known = other.known.clone()
 		end 'first' else 'later'
 			for k in 0 upto known.count() 'modules'
-				if other.known[k].segments() > known[k].segments() 'longer'
+				if supersedes(other.known[k], than: known[k]) 'longer'
 					known[k] = share(other.known[k])
 				end 'longer'
 			end 'modules'
@@ -350,6 +376,7 @@ function moduleTask(c Compile, mutates work ModuleWork, stage Stage, m Count, kn
 	var inputs = inputsOf(c, known: known)
 	inputs.reader = "the {stage} of module {m} ({work.home.path()})"
 	match stage 's'
+		scan then return scanTask(c, work: work, m: m, memory: memory)
 		parse then return parseTask(c, work: work, known: known, inputs: inputs, memory: memory, errs: errs)
 		parsed then panic("driver: parsed is a stage of the project")
 		resolve then return resolveTask(c, work: work, known: known, inputs: inputs, errs: errs)
@@ -375,23 +402,22 @@ function parseTask(c Compile, mutates work ModuleWork, known Known, inputs ast.I
 	var view as ast.Project
 	var ms = lendTask(c, work: work, stage: Stage.parse, lent: ast.Lent.source, known: known, inputs: inputs, view: view)
 	let m = ast.modIndex(work.home.module)
-	let ofLibrary = c.libraryLater[c.slotOf(m)]
-	if ofLibrary and c.index.present and not reachedByProgram(c, p: view, known: known, m: m) 'unreached'
-		work.namesRead = true
+	let ofLibrary = c.laterAt(c.slotOf(m))
+	if ofLibrary and not c.isCore(m) and not reachedByProgram(c, known: known, m: m) 'unreached'
+		work.texts = project.SourceFiles.create(0)
 		return giveTask(work, ms: ms, stage: Stage.parse)
 	end 'unreached'
-	project.parseModuleSkimming(ms, p: view, memory: memory, skims: c.options.skimsBodies, errs: errs)
+	if ofLibrary and work.texts.count() > 0 'scanned'
+		let read = exchange(work.texts, value: project.SourceFiles.create(0))
+		project.parseModuleSkimming(ms, p: view, memory: read, skims: c.options.skimsBodies, errs: errs)
+	end 'scanned' else 'files'
+		project.parseModuleSkimming(ms, p: view, memory: memory, skims: c.options.skimsBodies, errs: errs)
+	end 'files'
 	work.skimmed = ms.parsed.skimmed
-	if ofLibrary 'library'
-		work.named = project.libraryModulesNamedIn(view, text: ms.parsed.tree.text)
-		work.namesRead = true
-		if c.indexSetup.enabled() and not c.index.present 'indexing'
-			work.words = wordsOfParsed(ms.parsed)
-		end 'indexing'
-	end 'library' else if c.index.present 'program'
-		work.words = wordsIn(ms.parsed.tree.text)
-		addLiteralWords(work.words, tree: ms.parsed.tree)
+	if not ofLibrary and c.hasLibrary() 'program'
+		work.words = programWords(ms.parsed, library: libraryWords(c, known: known))
 	end 'program'
+	ms.parsed.nameUses = ast.NameUses.create(0)
 	if c.cache.enabled() 'digests'
 		work.digests.source = sourceDigest(ms.source.path, text: ms.parsed.tree.text, files: ms.parsed.files)
 		if not view.modules[m].isRuntime 'shown'
@@ -414,64 +440,131 @@ end 'checkBodies'
 // skimmedBodyNeeded is the code of the error of a compile that needs a body its parse skimmed, which no compile reports.
 let skimmedBodyNeeded = "E9998"
 
-// reachedByProgram is whether the program reaches library module m by the library's names index: the words of the program's
-// modules, whose parses the parse of m waited on, reach the library's core, each library module one of whose words they are,
-// and what those may name (reachedQualifiers).
-function reachedByProgram(c Compile, p ast.Project, known Known, m Count) returns bool
-	var words = WordSet.new()
-	for slot in 0 upto c.modules 'program'
-		if c.libraryLater[slot] 'library'
-			continue 'program'
-		end 'library'
-		for j in 0 upto known[slot].words.count() 'words'
-			if not words.has(known[slot].words[j]) 'new'
-				words.insert(known[slot].words[j].clone(), value: 1)
-			end 'new'
-		end 'words'
-	end 'program'
-	let core = match consumes ast.libraryModuleNamed(p, name: ast.libraryCoreModule) 'core'
-		some(id) gives libraryKey(c, m: ast.modIndex(id))
-		none gives ""
-	end 'core'
-	let reached = reachedQualifiers(c.index, words: words, always: core)
-	return reached.has(libraryKey(c, m: m))
+// scanTask scans a module of the library: the words that reach it and the library modules its source may name, read from the
+// text of its files, or taken from the library's names index where the cache held one. It parses nothing and lends nothing of
+// the module, so it gives the module's product as the compile began with it, which now holds the scan, and the parse of every
+// library module waits on the scan of every one (reachedByProgram). A module with a file that cannot be read is not scanned
+// (namesRead), which reaches it always, so that its parse reports the file.
+function scanTask(c Compile, mutates work ModuleWork, m Count, memory project.SourceFiles) returns frozen with Product
+	if c.index.present 'indexed'
+		loadIndexed(c, work: work, m: m)
+	end 'indexed' else 'files'
+		var scan = project.scanModule(work.home.filePaths(), heads: c.heads, memory: memory)
+		work.texts = exchange(scan.texts, value: project.SourceFiles.create(0))
+		if scan.readable 'readable'
+			work.words = scan.words()
+			work.named = scan.namedModules(c.heads)
+			work.namesRead = true
+		end 'readable'
+	end 'files'
+	return work.product(c.begun)
+end 'scanTask'
+
+// reachedByProgram is whether the program reaches library module m: the words of the program's modules, whose parses the parse
+// of m waited on, reach the library's core, each library module one of whose words they are, and what those may name, as the
+// scans of the modules, which the parse of m waited on too, found them (reachedLibrary).
+function reachedByProgram(c Compile, known Known, m Count) returns bool
+	var written = WordSet.new()
+	var slot = 0 as Count
+	for product in known 'modules'
+		if not c.laterAt(slot) 'program'
+			for word in product.words 'words'
+				if not written.has(word) 'new'
+					written.insert(word.clone(), value: 1)
+				end 'new'
+			end 'words'
+		end 'program'
+		slot = after(slot)
+	end 'modules'
+	let reached = reachedLibrary(c, known: known, written: written)
+	return try reached.get(c.slotOf(m)) otherwise panic("driver: a library module past the compile's")
 end 'reachedByProgram'
 
-// libraryKey is what the index names library module m by: its place among the library's modules, in the project's order,
-// which the files the index is keyed by decide.
-function libraryKey(c Compile, m Count) returns String
-	var k = 0 as Count
-	for slot in 0 upto c.slotOf(m) 'before'
-		if c.libraryLater[slot] 'library'
-			k = k + 1
-		end 'library'
-	end 'before'
-	return "{k}"
-end 'libraryKey'
+// reachedLibrary are, by slot, the library modules that a program whose text writes the words written reaches: the core, which
+// is reached always, as is a module that was not scanned, each module one of whose words the program writes, and what those
+// may name, to the end. This is the one rule of what a program reaches of the library, whether the scans read the files or
+// the cache's index.
+function reachedLibrary(c Compile, known Known, written WordSet) returns Placed
+	var reached = Placed.create(0)
+	for _ in known 'none'
+		reached.push(false)
+	end 'none'
+	match c.heads.coreModule() 'core'
+		some(core) then try reached.set(c.slotOf(core), value: true) otherwise panic("driver: the core is no module of the compile")
+		none then _ = 0
+	end 'core'
+	var slot = 0 as Count
+	for product in known 'written'
+		if c.laterAt(slot) and (not product.namesRead or writesAny(product.words, written: written)) 'reached'
+			try reached.set(slot, value: true) otherwise panic("driver: a slot past the compile's modules")
+		end 'reached'
+		slot = after(slot)
+	end 'written'
+	var grew = true
+	while grew 'closure'
+		grew = false
+		slot = 0
+		for product in known 'modules'
+			let isReached = try reached.get(slot) otherwise panic("driver: a slot past the compile's modules")
+			if isReached and c.laterAt(slot) 'reached'
+				for named in product.named 'edges'
+					let at = c.slotOf(named)
+					let seen = try reached.get(at) otherwise panic("driver: a slot past the compile's modules")
+					if not seen 'new'
+						try reached.set(at, value: true) otherwise panic("driver: a slot past the compile's modules")
+						grew = true
+					end 'new'
+				end 'edges'
+			end 'reached'
+			slot = after(slot)
+		end 'modules'
+	end 'closure'
+	return reached
+end 'reachedLibrary'
 
-// writeIndexWhenMissing writes the library's names index once a compile that has none parsed every module of the library:
-// the words of each, from its parse, and the qualifiers of the library modules it may name.
-function writeIndexWhenMissing(c Compile, p ast.Project, known Known)
-	if not c.indexSetup.enabled() or c.index.present 'kept'
-		return
-	end 'kept'
-	var modules = IndexedModules.create(0)
-	for slot in 0 upto c.modules 'library'
-		if not c.libraryLater[slot] 'program'
-			continue 'library'
-		end 'program'
-		let m = c.moduleOf(slot)
-		if not known[slot].namesRead 'unparsed'
-			return
-		end 'unparsed'
-		var named = ast.StringList.create(0)
-		for j in 0 upto known[slot].named.count() 'named'
-			named.push(libraryKey(c, m: known[slot].named[j]))
-		end 'named'
-		modules.push(IndexedModule.make(libraryKey(c, m: m), words: known[slot].words.clone(), named: named))
-	end 'library'
-	writeIndex(c.indexSetup, modules: modules)
-end 'writeIndexWhenMissing'
+// writesAny is whether one of the words is among the written ones.
+function writesAny(words ast.StringList, written WordSet) returns bool
+	for word in words 'words'
+		if written.has(word) 'written'
+			return true
+		end 'written'
+	end 'words'
+	return false
+end 'writesAny'
+
+// libraryOrdinal is what the index names library module m by: its place among the library's modules, in the project's order,
+// which the files the index is keyed by decide.
+function libraryOrdinal(c Compile, m Count) returns Count
+	let slot = c.slotOf(m)
+	var ordinal = 0 as Count
+	var at = 0 as Count
+	for later in c.libraryLater 'slots'
+		if at >= slot 'found'
+			break 'slots'
+		end 'found'
+		if later 'library'
+			ordinal = after(ordinal)
+		end 'library'
+		at = after(at)
+	end 'slots'
+	return ordinal
+end 'libraryOrdinal'
+
+// libraryModuleAt is the library module that the index names by ordinal.
+function libraryModuleAt(c Compile, ordinal Count) returns Count
+	var seen = 0 as Count
+	var slot = 0 as Count
+	for later in c.libraryLater 'slots'
+		if later and seen == ordinal 'found'
+			return c.moduleOf(slot)
+		end 'found'
+		if later 'library'
+			seen = after(seen)
+		end 'library'
+		slot = after(slot)
+	end 'slots'
+	panic("driver: the index names a library module that the compile has not")
+end 'libraryModuleAt'
 
 // endLoadedCheck ends the check of a module whose unit the cache holds where its constants ended: what the link reads of its
 // check, the entry function and the tests, is what its declare found.
@@ -505,13 +598,15 @@ function restoredTask(c Compile, mutates work ModuleWork, stage Stage) returns f
 	return work.product(try phaseOfStage(stage).ordinal + 1 otherwise panic("driver: a phase past memory"))
 end 'restoredTask'
 
-// resolveTask resolves the module, whose tree and resolution it is lent.
+// resolveTask resolves the module, whose tree and resolution it is lent. The words that the module gave the reach of the library
+// (programWords, the scan) are read by the parses and the index's write, which ended before it, so its product holds none.
 function resolveTask(c Compile, mutates work ModuleWork, known Known, inputs ast.Inputs, mutates errs diag.ErrorList) returns frozen with Product
 	var view as ast.Project
 	var ms = lendTask(c, work: work, stage: Stage.resolve, lent: ast.Lent.resolution, known: known, inputs: inputs, view: view)
 	if resolvesModule(c, p: view, known: known, m: ast.modIndex(work.home.module)) 'named'
 		resolve.resolveModule(ms, p: view, errs: errs)
 	end 'named'
+	work.words = ast.StringList.create(0)
 	return giveTask(work, ms: ms, stage: Stage.resolve)
 end 'resolveTask'
 
@@ -599,6 +694,7 @@ function checkTask(c Compile, mutates work ModuleWork, stage Stage, known Known,
 	let unit = lendTask(c, work: work, stage: stage, lent: ast.Lent.tree, known: known, inputs: inputs, view: view)
 	work.checkState.unit = unit
 	match stage 's'
+		scan then panic("driver: the scan is no stage of the check")
 		parse then panic("driver: the parse is no stage of the check")
 		parsed then panic("driver: parsed is no stage of the check")
 		resolve then panic("driver: the resolve is no stage of the check")
@@ -642,16 +738,7 @@ function lowerModule(c Compile, mutates work ModuleWork, known Known, inputs ast
 		appendErrors(errs, found: found)
 		return giveTask(work, ms: ms, stage: Stage.lower)
 	end 'instances'
-	var lowered as ir.IrFunctionList
-	let m = ast.modIndex(work.home.module)
-	if lowersOnDemand(c) and c.libraryLater[c.slotOf(m)] 'demanded'
-		lowered = ir.lowerReached(view, ms: ms, functions: work.checked.functions, callers: work.checked.callers, demanded: demandedOf(c, p: view, ms: ms, known: known, m: m), calls: work.calls, errs: found)
-	end 'demanded' else 'whole'
-		lowered = ir.lowerModule(view, ms: ms, functions: work.checked.functions, callers: work.checked.callers, errs: found)
-		if lowersOnDemand(c) 'calls'
-			work.calls = ir.callsOutside(view, ms: ms, fns: lowered)
-		end 'calls'
-	end 'whole'
+	var lowered = ir.lowerModule(view, ms: ms, functions: work.checked.functions, callers: work.checked.callers, errs: found)
 	if c.options.keepsLowered 'keep'
 		work.kept = lowered.clone()
 		opt.expandModule(work.kept)
@@ -674,46 +761,6 @@ function lowerModule(c Compile, mutates work ModuleWork, known Known, inputs ast
 	appendErrors(errs, found: found)
 	return giveTask(work, ms: ms, stage: Stage.lower)
 end 'lowerModule'
-
-// lowersOnDemand is whether the compile lowers, of each module of the standard library, only what the program reaches: a
-// program's compile that makes code without the build cache, which would keep the module's unit for another program that
-// reaches more of it. The module's lower then waits for the lowers of the program and of the library's modules that name it,
-// whose calls name what it lowers (TaskGraph.addLowerTasks), and the functions nothing calls are never lowered, optimized
-// or emitted.
-function lowersOnDemand(c Compile) returns bool
-	return makesCode(c.goal) and not c.cache.enabled() and resolvesLibraryLater(c)
-end 'lowersOnDemand'
-
-// onDemandModules are, by module, the modules whose lower lowers only what the others call (lowersOnDemand).
-function onDemandModules(c Compile) returns Placed
-	var marks = Placed.create(0)
-	let demands = lowersOnDemand(c)
-	for m in 0 upto try c.first + c.modules otherwise panic("driver: a module past memory") 'modules'
-		var demanded = false
-		if demands and m >= c.first 'compiled'
-			demanded = c.libraryLater[c.slotOf(m)]
-		end 'compiled'
-		marks.push(demanded)
-	end 'modules'
-	return marks
-end 'onDemandModules'
-
-// demandedOf are the functions of module m that the lowers before its own, which it knows, call.
-function demandedOf(c Compile, p ast.Project, ms ast.ModuleState, known Known, m Count) returns ast.FuncIDList
-	var demanded = ast.FuncIDList.create(0)
-	for slot in 0 upto known.count() 'modules'
-		if c.moduleOf(slot) == m 'own'
-			continue 'modules'
-		end 'own'
-		for j in 0 upto known[slot].calls.count() 'calls'
-			let fn = known[slot].calls[j]
-			if ast.holdsFunc(ms.funcs, f: fn) 'here'
-				demanded.push(fn)
-			end 'here'
-		end 'calls'
-	end 'modules'
-	return demanded
-end 'demandedOf'
 
 // inlineTask runs the passes of the optimizer from leaf inlining on (inlineModule) on the functions the module's lower left,
 // which then are the module's code, so --emit-ir and --verify-ir see what codegen gets, and makes the module's summary for
@@ -974,7 +1021,7 @@ function addCheckTasks(mutates graph TaskGraph, c Compile, ordered Ordered)
 	entries.push(entry)
 	var ended = TaskIDs.create(0)
 	ended.push(graph.addSideTask(Stage.endCheck, also: entries))
-	graph.addLowerTasks(ordered.order, deps: ordered.deps, onDemand: onDemandModules(c), first: first)
+	graph.addModuleTasks(Stage.lower, order: ordered.order, deps: ordered.deps, first: first)
 	if c.goal == Goal.lowered 'lowered'
 		return
 	end 'lowered'
@@ -1100,12 +1147,15 @@ function linkUnits(c Compile, mutates p ast.Project, consumes units backend.Unit
 	if c.goal != Goal.executable 'goal'
 		panic("driver: a compile whose goal is {c.goal} links no executable")
 	end 'goal'
-	let out = try FilePath.from(c.output) otherwise panic("driver: the output {c.output} is not a path")
+	let out = try FilePath.from(c.output) otherwise 'unnamed'
+		ast.unwritablePath(c.output)
+		return false
+	end 'unnamed'
 	var symbolMap = ""
 	if c.options.emitMap 'emitMap'
 		symbolMap = "{c.output}{mapExtension}"
 	end 'emitMap'
-	return try backend.compileProgram(p, modules: units, ready: ready, entry: entry, tests: tests, options: backend.RuntimeOptions.make(c.options.countAllocations), out: out, symbolMap: symbolMap) otherwise panic("driver: cannot write {c.output}")
+	return backend.compileProgram(p, modules: units, ready: ready, entry: entry, tests: tests, options: backend.RuntimeOptions.make(c.options.countAllocations), out: out, symbolMap: symbolMap)
 end 'linkUnits'
 
 typealias ErrorLists = Array with diag.ErrorList

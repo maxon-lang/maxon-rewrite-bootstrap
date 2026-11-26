@@ -1,0 +1,38 @@
+// The rows of an open file, run on a descriptor or a HANDLE of the system's, which the interpreter's file layer has none of (it
+// reads and writes whole files): it stops at each with the operation's name, never giving a result, and a program that opens a
+// file through the library's __ManagedFile says `// native-only`. The interpreter stops at the operation and not before the
+// program runs, since a module is lowered whole and a program that never opens a file may hold code that does.
+
+// haltHandleRow is the halt of the interpreter at a row of an open file: what it does not model, which a run of the spec tests
+// under the interpreter meets in a test that passes natively.
+function haltHandleRow(mutates vm Vm, row String) returns Halt
+	return unmodelled(vm, what: "{row} is not run by the interpreter, which has no file streams: mark the program native-only")
+end 'haltHandleRow'
+
+function entryFileOpenRead(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltHandleRow(vm, row: "__Builtins.fileOpenRead")
+end 'entryFileOpenRead'
+
+function entryFileOpenWrite(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltHandleRow(vm, row: "__Builtins.fileOpenWrite")
+end 'entryFileOpenWrite'
+
+function entryFileOpenWriteExecutable(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltHandleRow(vm, row: "__Builtins.fileOpenWriteExecutable")
+end 'entryFileOpenWriteExecutable'
+
+function entryFileOpenCreateNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltHandleRow(vm, row: "__Builtins.fileOpenCreateNew")
+end 'entryFileOpenCreateNew'
+
+function entryFileReadAppending(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltHandleRow(vm, row: "__Builtins.fileReadAppending")
+end 'entryFileReadAppending'
+
+function entryFileWrite(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltHandleRow(vm, row: "__Builtins.fileWrite")
+end 'entryFileWrite'
+
+function entryFileClose(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltHandleRow(vm, row: "__Builtins.fileClose")
+end 'entryFileClose'

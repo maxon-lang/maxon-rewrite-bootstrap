@@ -64,8 +64,11 @@ end 'ArrayIterator'
 // The compiler's native `__managed_hash` and `__managed_hash_float` compute these same two folds, chosen
 // by the `ProgramSignatures.conformerHashesAsStorage` that `elementsHashAsStorage` reads; they must agree.
 // Conditional conformance: Array implements Hashable and Equatable when Element does
-public extension Array where T implements Hashable and Equatable
+public extension Array implements Hashable, Equatable where T implements Hashable and Equatable
 	public function hash() returns HashValue
+		if self.hashesAsStorage() 'asStorage'
+			return hashValueOfDigest(self.storageHash(processFoldStart()))
+		end 'asStorage'
 		var state = processFoldStart()
 		for item in self 'eachElement'
 			state = KeyedHasher.combined(state, value: item.hash() as HashDigest)

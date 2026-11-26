@@ -282,7 +282,7 @@ function scheduleLoop(context Count)
 	while true 'schedule'
 		if anyPinned(scheduler) and pinnedGreen(context) != noGreen 'pinned'
 			stopPinned(context)
-			execute(context, entry: pinnedGreen(context))
+			execute(context, entry: pinnedGreen(context), inherit: false)
 			continue 'schedule'
 		end 'pinned'
 		if __Raw.loadWord(context, offset: contextProcOffset) == noProc 'noProc'
@@ -301,7 +301,7 @@ function scheduleLoop(context Count)
 			startPinned(context, g: g)
 			continue 'schedule'
 		end 'elsewhere'
-		execute(context, entry: g)
+		execute(context, entry: g, inherit: __Raw.loadWord(__Raw.loadWord(context, offset: contextProcOffset), offset: procInheritOffset) == set)
 	end 'schedule'
 end 'scheduleLoop'
 
@@ -349,11 +349,12 @@ end 'startPinned'
 // findRunnable is Go's: the next green thread for the thread's processor, from its timers, its run queue, the global run
 // queue, the event queue and the other processors' queues, or else the processor goes idle and the thread waits, in the event queue
 // when something is pending there, until it is handed a processor. It gives noGreen only on the main thread's drain,
-// once nothing is left.
+// once nothing is left. procInheritOffset of the processor it gave it for says whether it came from runnext (runqGet).
 function findRunnable(context Count) returns Count
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	while true 'top'
 		let proc = __Raw.loadWord(context, offset: contextProcOffset)
+		__Raw.storeWord(proc, offset: procInheritOffset, value: unset)
 		if __Raw.loadWord(proc, offset: procSchedTickOffset) mod fairnessTicks == 0 and globalQueued(scheduler) 'fair'
 			lockScheduler(scheduler)
 			let fair = globalGet(scheduler, proc: proc, most: 1)
@@ -868,10 +869,13 @@ function runqPutSlow(proc Count, g Count, head Count, tail Count) returns bool
 	return true
 end 'runqPutSlow'
 
-// runqGet is Go's runqget: runnext first, then the head of the ring, or noGreen.
+// runqGet is Go's runqget: runnext first, then the head of the ring, or noGreen. One taken from runnext inherits the
+// running slice (procInheritOffset), as Go's does, so that green threads that ready each other read to the monitor as
+// one slice and are asked to stop when it is over, letting the ring behind them run.
 function runqGet(proc Count) returns Count
 	let next = __Raw.loadWord(proc, offset: procRunNextOffset)
 	if next != noGreen and __Raw.compareExchange(proc, offset: procRunNextOffset, expected: next, desired: noGreen) == next 'next'
+		__Raw.storeWord(proc, offset: procInheritOffset, value: set)
 		return next
 	end 'next'
 	while true 'take'
@@ -1136,6 +1140,7 @@ function makeScheduler(mainContext Count) returns Count
 	__Raw.storeWord(scheduler, offset: schedMainThreadOffset, value: mainContext)
 	__Raw.storeWord(scheduler, offset: schedLastTakeOffset, value: 1)
 	__Raw.storeWord(scheduler, offset: schedIdleProcCountOffset, value: __Raw.wrappingSub(procs, right: 1))
+	__Raw.storeWord(scheduler, offset: schedPreemptOffOffset, value: set if preemptSwitchedOff() else unset)
 	let main = makeProc(scheduler)
 	initThread(scheduler, context: mainContext)
 	setThreadIdentity(mainContext)
@@ -1164,6 +1169,9 @@ function initThread(scheduler Count, context Count)
 	lockScheduler(scheduler)
 	__Raw.storeWord(context, offset: contextAllNextOffset, value: __Raw.loadWord(scheduler, offset: schedAllThreadsOffset))
 	__Raw.storeWord(scheduler, offset: schedAllThreadsOffset, value: context)
+	let machine = __Raw.wrappingAdd(__Raw.loadWord(scheduler, offset: schedMachinesOffset), right: 1)
+	__Raw.storeWord(scheduler, offset: schedMachinesOffset, value: machine)
+	__Raw.storeWord(threadBlockSwitch(context), offset: threadBlockMachineOffset, value: machine)
 	unlockScheduler(scheduler)
 end 'initThread'
 
@@ -1227,13 +1235,19 @@ end 'carve'
 	end 'newEvent'
 #endif
 
-// workerCount is how many processors run green threads: the processors of every group, which Windows may fail to
-// count, or the count MAXON_MAX_PROCS asks for.
+// workerCount is how many processors run green threads: the machine's (machineCpuCount), or the count MAXON_MAX_PROCS asks
+// for.
 function workerCount() returns Count
 	let requested = requestedWorkers()
 	if requested != noRequest 'requested'
 		return requested
 	end 'requested'
+	return machineCpuCount()
+end 'workerCount'
+
+// machineCpuCount is Scheduler.machineCpuCount, as maxon's __cpu_count reads it: the logical processors of every group, which
+// Windows may fail to count, or those this process may run on under Linux, and at least 1.
+function machineCpuCount() returns Count
 	#if os(Windows)
 		let processors = dword(__Raw.callImport1("GetActiveProcessorCount", arg1: allProcessorGroups))
 	#else
@@ -1243,13 +1257,39 @@ function workerCount() returns Count
 		return fewestWorkers
 	end 'uncounted'
 	return processors
-end 'workerCount'
+end 'machineCpuCount'
 
 // osProcessorCount is Scheduler.processorCount: the processors the runtime runs green threads on, which is fixed by the
 // machine and the environment alone, so it is the same before the first behaviour is scheduled as after it.
 function osProcessorCount() returns Count
 	return workerCount()
 end 'osProcessorCount'
+
+// MAXON_PREEMPT=off has the monitor take no processor from the thread holding it, neither asking a green thread that has
+// run for preemptNanos to stop nor taking a processor from a blocking call, as maxon's runtime reads it; unset, empty or on
+// is the ordinary monitor, and any other value is maxon's runtime abort, since a switch read as its default would run a
+// program that asked for no preemption under it.
+let preemptVariable = "MAXON_PREEMPT"
+
+let preemptOff = "off"
+
+let preemptOn = "on"
+
+let preemptSwitchUnreadable = 116 as Count
+
+// preemptSwitchedOff is whether MAXON_PREEMPT is off.
+function preemptSwitchedOff() returns bool
+	var failed = 0 as Count
+	let text = osEnvironmentVariable(preemptVariable, errorAddress: __Raw.addressOf(failed))
+	if failed != 0 or text == "" or text == preemptOn 'on'
+		return false
+	end 'on'
+	if text == preemptOff 'off'
+		return true
+	end 'off'
+	runtimeAbort(preemptSwitchUnreadable, name: "schedulerPreemptSwitchUnreadable")
+	return false
+end 'preemptSwitchedOff'
 
 // requestedWorkers is the count MAXON_MAX_PROCS asks for, or noRequest when it is unset or asks for none it may.
 function requestedWorkers() returns Count

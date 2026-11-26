@@ -367,7 +367,7 @@ end 'main'
 ```
 
 <!-- test: error.an-unmarked-record-parameter-of-a-default-service-is-refused -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 A `default` service is spawned by the declaration, and the declaration is where the refusal lands.
 
@@ -399,7 +399,7 @@ type Polite implements Greeter
 	end 'greet'
 end 'Polite'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Greeter = spawn Polite.create()
 
 function main() returns ExitCode

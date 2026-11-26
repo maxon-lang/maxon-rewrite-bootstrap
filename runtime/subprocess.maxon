@@ -183,7 +183,7 @@ let waitBytes = waitInputOffset + inputRecordBytes
 // A stream and the input each hold, first, the event entry of the end of its pipe that the run uses, noEntry for a stream that is
 // not collected, for the input of a run without and once the end is closed. A stream then holds the room of the string read so
 // far (__Raw.stringRoom) with its length and its capacity, the run's wait and the most it keeps (0 for no cap), and the input the
-// bytes and the length of the text it writes. Both hold the run's wait.
+// bytes and the length of the text it writes, and whether it is held open and not written. Both hold the run's wait.
 let endEntryOffset = 0
 
 let streamTextOffset = 8
@@ -196,7 +196,23 @@ let streamWaitOffset = 32
 
 let streamLimitOffset = 40
 
-let streamBytes = 48
+// A stream that is read on demand (a streaming child's) holds the bytes of its text that were given already (its read position), what
+// a read of it found (streamOpen, streamAtEof or streamReadFailed) and whether a read is in progress.
+let streamReadOffset = 48
+
+let streamStateOffset = 56
+
+let streamBusyOffset = 64
+
+let streamBytes = 72
+
+let streamOpen = 0 as Count
+
+let streamAtEof = 1 as Count
+
+let streamReadFailed = 2 as Count
+
+let streamNoSuchChild = 3 as Count
 
 // noLimit is the limit of a stream that keeps all it reads.
 let noLimit = 0
@@ -207,7 +223,21 @@ let inputLengthOffset = 16
 
 let inputWaitOffset = 24
 
-let inputRecordBytes = 32
+// inputHoldOffset says whether the input is held open and never written (InputSource.hold).
+let inputHoldOffset = 32
+
+// The input of a streaming child holds also how many of the bytes of the payload queued for it are written, whether a payload is
+// queued and not written out, how many bytes of a write that is in flight on Windows are not counted yet, and whether the last turn
+// of the payload met a pipe that takes no more, which a wait for the input waits to change.
+let inputDoneOffset = 40
+
+let inputQueuedOffset = 48
+
+let inputInflightOffset = 56
+
+let inputBlockedOffset = 64
+
+let inputRecordBytes = 72
 
 // readChunkBytes is the least room a stream's text has past its length before a read, and readMostBytes the most one read asks
 // for, which the system's counts of 32 bits hold.
@@ -318,12 +348,11 @@ function closeOurEnds(wait Count)
 	releaseOurEnd(fieldAt(wait, offset: waitInputOffset))
 end 'closeOurEnds'
 
-// releaseOurEnd closes the end of a record's entry, unless it has none or it is closed.
+// releaseOurEnd closes the end of a record's entry, unless it has none or it is closed, which one of the calls that race for it does.
 function releaseOurEnd(record Count)
-	let entry = wordAt(record, offset: endEntryOffset)
+	let entry = __Raw.atomicExchange(record, offset: endEntryOffset, value: noEntry)
 	if entry != noEntry 'open'
 		releaseEnd(entry)
-		__Raw.storeWord(record, offset: endEntryOffset, value: noEntry)
 	end 'open'
 end 'releaseOurEnd'
 
@@ -350,6 +379,9 @@ function startStream(stream Count, wait Count)
 	__Raw.storeWord(stream, offset: streamLengthOffset, value: 0)
 	__Raw.storeWord(stream, offset: streamCapacityOffset, value: 0)
 	__Raw.storeWord(stream, offset: streamWaitOffset, value: wait)
+	__Raw.storeWord(stream, offset: streamReadOffset, value: 0)
+	__Raw.storeWord(stream, offset: streamStateOffset, value: streamOpen)
+	__Raw.storeWord(stream, offset: streamBusyOffset, value: 0)
 end 'startStream'
 
 // streamRoom makes room for a read past a stream's text, which grows by doubling, and gives how much there is.
@@ -401,33 +433,39 @@ function killTree(wait Count)
 	__Raw.storeWord(wait, offset: waitKilledOffset, value: set)
 end 'killTree'
 
-// exitWaiterMain waits for the child of a run to exit, in the run's wait that is its green thread's argument, until the run's
-// deadline; a child still running then is ended with its tree (killTree) and waited for on. An entry may hold an event of its last owner,
-// so a wake says nothing of the child (childExited does), as a wake of a handle's entry says nothing of what its call finds.
-function exitWaiterMain(g Count) returns Count
-	let wait = greenArgument(g, index: 0)
+// waitForExit parks the running green thread until the child of a wait has exited, which it says, until the wait's deadline, which
+// ends the child's tree (killTree) and is waited on, or until the entry of the child's exit is evicted or the green thread is
+// cancelled, which it says too. An entry may hold an event of its last owner, and one that was taken by an earlier wait is not
+// there again, so a wake says nothing of the child (childExited does), which is asked before every wait.
+function waitForExit(wait Count) returns bool
 	let process = wordAt(wait, offset: waitProcessOffset)
 	let child = wordAt(wait, offset: waitChildOffset)
 	var deadline = wordAt(wait, offset: waitDeadlineOffset)
 	while true 'exit'
+		if childExited(wait, child: child) 'exited'
+			return true
+		end 'exited'
 		let status = eventWait(process, mode: eventRead, deadline: deadline)
 		if status == eventReady 'ready'
-			if childExited(wait, child: child) 'exited'
-				break 'exit'
-			end 'exited'
 			continue 'exit'
 		end 'ready'
-		if status != eventExpired 'unexpected'
-			panic("the wait for a child's exit ended otherwise than by its exit or the run's deadline")
-		end 'unexpected'
+		if status != eventExpired 'ended'
+			return false
+		end 'ended'
 		markExpired(wait)
 		killTree(wait)
 		deadline = eventNoDeadline
-		// The kill may have waited for the child already, and an event that its exit made is no longer to be waited for.
-		if childExited(wait, child: child) 'ended'
-			break 'exit'
-		end 'ended'
 	end 'exit'
+	return false
+end 'waitForExit'
+
+// exitWaiterMain waits for the child of a run to exit, in the run's wait that is its green thread's argument (waitForExit), until
+// the run's deadline.
+function exitWaiterMain(g Count) returns Count
+	let wait = greenArgument(g, index: 0)
+	if not waitForExit(wait) 'unexpected'
+		panic("the wait for a child's exit ended otherwise than by its exit or the run's deadline")
+	end 'unexpected'
 	return 0
 end 'exitWaiterMain'
 
@@ -474,16 +512,20 @@ end 'keptOf'
 
 // inputWriterMain writes the input of a run to its pipe, in the input record that is its green thread's argument, until the
 // run's deadline, and closes the end, which ends the child's input. A write that fails is a child that stopped reading, which
-// is no failure of the run.
+// is no failure of the run, and an end that a caller closed is the end of what is written.
 function inputWriterMain(g Count) returns Count
 	let input = greenArgument(g, index: 0)
 	let wait = wordAt(input, offset: inputWaitOffset)
-	let entry = wordAt(input, offset: endEntryOffset)
 	let deadline = wordAt(wait, offset: waitDeadlineOffset)
 	let bytes = wordAt(input, offset: inputTextOffset)
 	let length = wordAt(input, offset: inputLengthOffset)
 	var done = 0 as Count
 	while done < length 'write'
+		// An input that a caller closed meanwhile has no entry: the end of what is written.
+		let entry = wordAt(input, offset: endEntryOffset)
+		if entry == noEntry 'closed'
+			break 'write'
+		end 'closed'
 		let left = __Raw.wrappingSub(length, right: done)
 		let asked = left if left < inputChunkBytes else inputChunkBytes
 		let wrote = eventTransfer(entry, mode: eventWrite, buffer: __Raw.wrappingAdd(bytes, right: done), length: asked, deadline: deadline)
@@ -523,11 +565,15 @@ function awaitChild(wait Count, deadlineMs Count) returns bool
 		errorReader = startHelper(__Raw.codeAddress("streamReaderMain"), argument: errorRecord)
 	end 'errors'
 	var inputWriter = noGreen
-	if wordAt(inputRecord, offset: endEntryOffset) != noEntry 'input'
+	let held = wordAt(inputRecord, offset: inputHoldOffset) != 0
+	if wordAt(inputRecord, offset: endEntryOffset) != noEntry and not held 'input'
 		__Raw.storeWord(inputRecord, offset: inputWaitOffset, value: wait)
 		inputWriter = startHelper(__Raw.codeAddress("inputWriterMain"), argument: inputRecord)
 	end 'input'
 	_ = greenAwait(exitWaiter)
+	if held 'unheld'
+		releaseOurEnd(inputRecord)
+	end 'unheld'
 	if outputReader != noGreen 'outputEnded'
 		_ = greenAwait(outputReader)
 	end 'outputEnded'
@@ -539,17 +585,22 @@ function awaitChild(wait Count, deadlineMs Count) returns bool
 	end 'written'
 	let expired = wordAt(wait, offset: waitExpiredOffset) != 0
 	if expired 'late'
-		// A child that exited before the deadline left processes that hold its pipes, which the deadline ends too.
-		if wordAt(wait, offset: waitKilledOffset) == 0 'unended'
-			killTree(wait)
-		end 'unended'
-		if not treeEnded(wait) 'survived'
-			__Raw.storeWord(wait, offset: waitSurvivedOffset, value: set)
-		end 'survived'
+		endDeadlineTree(wait)
 	end 'late'
 	eventProcessFree(wordAt(wait, offset: waitProcessOffset))
 	return expired
 end 'awaitChild'
+
+// endDeadlineTree is what a deadline that ended a wait leaves to do once the wait has: a child that exited before the deadline left
+// processes that hold its pipes, which the deadline ends too, and the wait says whether part of the tree was still running after.
+function endDeadlineTree(wait Count)
+	if wordAt(wait, offset: waitKilledOffset) == 0 'unended'
+		killTree(wait)
+	end 'unended'
+	if not treeEnded(wait) 'survived'
+		__Raw.storeWord(wait, offset: waitSurvivedOffset, value: set)
+	end 'survived'
+end 'endDeadlineTree'
 
 // argumentAt is the address of the argument at an index of an array of strings, which stays there: its bytes are
 // __Raw.stringBytesAt and its length __Raw.stringLengthAt of it at 0.
@@ -772,6 +823,10 @@ end 'osRunInput'
 		return failure
 	end 'createChild'
 
+	// noteDetached has nothing to keep: a detached child's handles are closed once it is created, and Windows has no zombie.
+	function noteDetached(pid Count)
+	end 'noteDetached'
+
 	// killChild ends a child alone that is still running, which is what a child whose tree is not held yet is ended by.
 	function killChild(child Count)
 		_ = __Raw.callImport2("TerminateProcess", arg1: child, arg2: killedExitCode)
@@ -843,17 +898,14 @@ end 'osRunInput'
 		closeOurEnds(wait)
 	end 'abandonChild'
 
-	// abandonRun ends a child that no wait has taken, with the tree it started, and gives up what the run holds of it: its exit's
-	// entry, its process handle and the ends of its pipes.
-	function abandonRun(run Count)
+	// renounceRun gives up a child that no wait has taken, as maxon's release does: its exit's entry, its process handle and the ends
+	// of its pipes are closed, and the child is left running, with the tree it started.
+	function renounceRun(run Count)
 		let wait = waitOf(run)
-		if endTree(wait) != 0 'refused'
-			killChild(wordAt(wait, offset: waitChildOffset))
-		end 'refused'
 		eventProcessFree(wordAt(wait, offset: waitProcessOffset))
 		closeHandle(wordAt(wait, offset: waitChildOffset))
 		closeOurEnds(wait)
-	end 'abandonRun'
+	end 'renounceRun'
 
 	// finishRun closes the child's process handle, once its wait has ended.
 	function finishRun(run Count)
@@ -864,6 +916,11 @@ end 'osRunInput'
 	function exitCodeOf(status Count) returns Count
 		return status
 	end 'exitCodeOf'
+
+	// signalOf is the signal that ended a child that the status says, which on Windows is none.
+	function signalOf(status Count) returns Count
+		return 0
+	end 'signalOf'
 
 	// statusKindOf is how a child ended that the status says: a Windows child that ended abnormally is exited, with its NTSTATUS
 	// for its code.
@@ -936,6 +993,28 @@ end 'osRunInput'
 	let createNewProcessGroup = 0x200
 
 	let createUnicodeEnvironment = 0x400
+
+	// createDetachedProcess is DETACHED_PROCESS, which a child with no console of its parent's is created with, and
+	// createBreakawayFromJob CREATE_BREAKAWAY_FROM_JOB, which leaves the jobs the caller is in, as a detached child does.
+	let createDetachedProcess = 0x8
+
+	let createBreakawayFromJob = 0x01000000
+
+	// jobSilentBreakawayOk is JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK, which, as jobBreakawayOk does, lets a job's process start one
+	// outside it.
+	let jobSilentBreakawayOk = 0x1000
+
+	// jobForbidsBreakaway is whether this process runs in a job that lets no process of it start one outside it, which is what makes
+	// the creation of a detached child fail with access denied: a directory or a file that is not a program fails with it too, so the
+	// job's limits say which it was.
+	function jobForbidsBreakaway() returns bool
+		let record = alloc(jobRecordBytes)
+		zeroRange(record, from: 0, to: jobRecordBytes)
+		let known = dword(__Raw.callImport5("QueryInformationJobObject", arg1: 0, arg2: jobExtendedLimitInformation, arg3: record, arg4: jobRecordBytes, arg5: noReturnSize)) != 0
+		let limits = __Raw.loadWord32(record, offset: jobLimitFlagsOffset)
+		free(record)
+		return known and (limits and (jobBreakawayOk or jobSilentBreakawayOk)) == 0
+	end 'jobForbidsBreakaway'
 
 	// The handles that a start opens for the standard streams, a word each in the run's frame: the null device, which a stream
 	// that is none or discarded is, and the file of each stream whose kind is a file. invalidHandle for one that is not open.
@@ -1096,11 +1175,17 @@ end 'osRunInput'
 		if directoryLength != 0 'directory'
 			wideDirectory = wideOfBytes(wordAt(request, offset: requestDirectoryOffset), length: directoryLength)
 		end 'directory'
-		var creation = (extendedStartupInfoPresent or createSuspended) as Count
+		let detached = isDetached(request)
+		var creation = extendedStartupInfoPresent as Count
 		let flags = wordAt(request, offset: requestFlagsOffset)
-		if (flags and spawnFlagHideWindow) != 0 'hidden'
-			creation = creation or createNoWindow
-		end 'hidden'
+		if detached 'detach'
+			creation = creation or createDetachedProcess or createBreakawayFromJob
+		end 'detach' else 'watched'
+			creation = creation or createSuspended
+			if (flags and spawnFlagHideWindow) != 0 'hidden'
+				creation = creation or createNoWindow
+			end 'hidden'
+		end 'watched'
 		if (flags and spawnFlagNewGroup) != 0 'group'
 			creation = creation or createNewProcessGroup
 		end 'group'
@@ -1121,10 +1206,19 @@ end 'osRunInput'
 		free(command)
 		if win32 != 0 'spawn'
 			closeOurEnds(wait)
+			if detached and win32 == codeAccessDenied and jobForbidsBreakaway() 'refused'
+				return failureWord(failureClassBreakaway, step: failureStepProgram, code: win32)
+			end 'refused'
 			return systemFailure(failureStepProgram, code: win32)
 		end 'spawn'
 		let child = wordAt(process, offset: processHandleOffset)
 		let thread = wordAt(process, offset: processThreadOffset)
+		if detached 'left'
+			closeHandle(thread)
+			closeHandle(child)
+			__Raw.storeWord(wait, offset: waitPidOffset, value: __Raw.loadWord32(process, offset: processIdOffset))
+			return 0
+		end 'left'
 		let watch = eventProcessNew(child)
 		if watch == noEntry 'unwatched'
 			abandonChild(child, thread: thread, wait: wait)
@@ -1417,6 +1511,11 @@ end 'osRunInput'
 		return (status shr waitExitShift) and waitExitMask
 	end 'exitCodeOf'
 
+	// signalOf is the signal that ended a child that a wait status says, 0 for a child that exited.
+	function signalOf(status Count) returns Count
+		return status and waitSignalMask
+	end 'signalOf'
+
 	// statusKindOf is how a child ended that a wait status says: a child that a signal ended is signalled.
 	function statusKindOf(status Count) returns Count
 		if (status and waitSignalMask) != 0 'signalled'
@@ -1548,6 +1647,16 @@ end 'osRunInput'
 	function markReaped(wait Count)
 		__Raw.storeWord(wait, offset: waitReapedOffset, value: set)
 	end 'markReaped'
+
+	// noteDetached has the event queue reap a detached child once it has ended: a child that nothing waits for stays a zombie of
+	// this process until something does, and no thread of the runtime may wait for it, since a thread parked on a child that never
+	// ends would keep the program from ending.
+	function noteDetached(pid Count)
+		let watch = eventProcessNew(pid)
+		if watch != noEntry 'watched'
+			eventProcessOrphan(watch, pid: pid)
+		end 'watched'
+	end 'noteDetached'
 
 	// killChild sends the kill to the processes of the child's group: every child leads a group of its own. It gives the errno of a
 	// kill that was refused, or 0: a group with no member left is ended.

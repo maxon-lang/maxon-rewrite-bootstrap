@@ -609,11 +609,11 @@ function namedSettled(c Compile, p ast.Project, m Count, settled Placed, plans A
 	return true
 end 'namedSettled'
 
-// withCache is options with the build cache that the environment names, unless the command line turned it off or the compile
+// withCache is options with the build cache that the environment names (cacheVariable, off for none), unless the compile
 // writes or verifies the IR, which needs every module's, or writes debug info, whose lines a cached unit does not keep.
 function withCache(options Options) returns Options
 	var cached = options.clone()
-	if not options.usesCache or options.emitIr or options.verifyIr or options.debugInfo 'off'
+	if options.emitIr or options.verifyIr or options.debugInfo 'off'
 		return cached
 	end 'off'
 	cached.cacheDir = cacheDirectory()
@@ -699,7 +699,7 @@ end 'temporarySuffix'
 function fileTime(path String) returns table.Option with Count
 	let at = try FilePath.from(path) otherwise return table.Option.none
 	let info = try File.info(at) otherwise return table.Option.none
-	return table.Option.some(info.modifiedTime)
+	return table.Option.some(info.modifiedTime as Count)
 end 'fileTime'
 
 // fileSystemNow is the file system's time now, as the time of a file of the cache at dir that this process writes and
@@ -848,7 +848,7 @@ function cacheCommand(rest CommandNames) returns ExitCode
 		for i in 0 upto files.count() 'files'
 			let at = try FilePath.from(files[i].path) otherwise continue 'files'
 			let info = try File.info(at) otherwise continue 'files'
-			bytes = try bytes + info.size otherwise panic("cache: more bytes than memory")
+			bytes = try bytes + (info.size as Count) otherwise panic("cache: more bytes than memory")
 		end 'files'
 		print("{dir}: {files.count()} files, {bytes} bytes\n")
 		return 0

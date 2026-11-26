@@ -98,6 +98,8 @@ function newGreen(context Count, code Count, kind Count) returns Count
 	__Raw.storeWord(g, offset: greenCancelOffset, value: unset)
 	__Raw.storeWord(g, offset: greenHandedOffset, value: noBehaviour)
 	__Raw.storeWord(g, offset: greenCpuKeptOffset, value: unset)
+	__Raw.storeWord(g, offset: greenServiceOffset, value: noService)
+	__Raw.storeWord(g, offset: greenMuteOffset, value: 0)
 	return g
 end 'newGreen'
 
@@ -450,22 +452,34 @@ function switchStacks(context Count, from Count, onto Count)
 end 'switchStacks'
 
 // execute is Go's execute: the thread runs a run queue's entry, a green thread or a behaviour that starts on one, on its
-// stack, giving it one when it first runs, until it switches back, then does what it asked.
-function execute(context Count, entry Count)
+// stack, giving it one when it first runs, until it switches back, then does what it asked. One that inherits the slice
+// (runqGet) starts no schedtick of its own, and takes the monitor's ask of the slice that the green thread before it
+// switched back with unanswered, so a chain of green threads that each live shorter than an ask still honours it.
+function execute(context Count, entry Count, inherit bool)
 	let g = greenOf(context, entry: entry)
 	let proc = __Raw.loadWord(context, offset: contextProcOffset)
-	__Raw.storeWord(proc, offset: procSchedTickOffset, value: __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procSchedTickOffset), right: 1))
+	var asked = unset
+	if inherit 'inherit'
+		asked = __Raw.loadWord(proc, offset: procSliceAskedOffset)
+	end 'inherit' else 'own'
+		__Raw.storeWord(proc, offset: procSchedTickOffset, value: __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procSchedTickOffset), right: 1))
+	end 'own'
+	__Raw.storeWord(proc, offset: procSliceAskedOffset, value: unset)
 	if __Raw.atomicExchange(g, offset: greenStatusOffset, value: greenRunning) == greenNotified 'permit'
 		// A ready that came while the green thread ran or waited on a queue is still its permit (markReady, requeue).
 		_ = __Raw.compareExchange(g, offset: greenStatusOffset, expected: greenRunning, desired: greenNotified)
 	end 'permit'
-	__Raw.storeWord(g, offset: greenPreemptOffset, value: unset)
+	__Raw.storeWord(g, offset: greenPreemptOffset, value: asked)
 	if __Raw.loadWord(g, offset: greenStackOffset) == noStack 'first'
 		giveStack(context, g: g)
 	end 'first'
 	__Raw.storeWord(context, offset: contextGreenOffset, value: g)
 	switchStacks(context, from: threadBlockSwitch(context), onto: __Raw.wrappingAdd(g, right: greenSwitchOffset))
 	__Raw.storeWord(context, offset: contextGreenOffset, value: noGreen)
+	let held = __Raw.loadWord(context, offset: contextProcOffset)
+	if held != noProc 'held'
+		__Raw.storeWord(held, offset: procSliceAskedOffset, value: __Raw.loadAcquire(g, offset: greenPreemptOffset))
+	end 'held'
 	let intent = __Raw.loadWord(context, offset: contextIntentOffset)
 	if intent == intentPark 'park'
 		parked(context, g: g)
@@ -536,9 +550,10 @@ function finished(context Count, g Count)
 end 'finished'
 
 // schedPin is Scheduler.pinToMachine, Go's LockOSThread: the running green thread is pinned to the thread that runs it, one
-// pin deeper, so it runs on that thread alone and the thread runs no other until the last unpin (scheduleLoop). Off a
-// green thread, in a program without the scheduler, the code runs on its thread anyway, and there is nothing to note.
-// The runtime's code is never preempted, so the green thread is on this thread throughout.
+// pin deeper, so it runs on that thread alone and the thread runs no other until the last unpin (scheduleLoop). A program
+// without the scheduler has the link's single-thread form in its place (self/backend/start.maxon), which counts the pins of
+// its one thread; off a green thread here the code runs on its thread anyway, and there is nothing to note. The runtime's
+// code is never preempted, so the green thread is on this thread throughout.
 function schedPin() returns bool
 	let context = __Raw.threadContext()
 	let g = __Raw.loadWord(context, offset: contextGreenOffset)
@@ -556,22 +571,54 @@ function schedPin() returns bool
 end 'schedPin'
 
 // schedUnpin is Scheduler.unpinFromMachine, Go's UnlockOSThread: one pin of the running green thread less, and with the
-// last the green thread and its thread are free of each other. A green thread that holds no pin is a fatal error, as
-// maxon's is.
+// last the green thread and its thread are free of each other. An unpin by a green thread that holds no pin is a fatal error,
+// as maxon's is, since it would release a pin another owner of the thread took (pinUnheld). In a program without the
+// scheduler the link puts its single-thread form in its place (self/backend/start.maxon), which keeps the depth itself.
 function schedUnpin()
 	let g = __Raw.loadWord(__Raw.threadContext(), offset: contextGreenOffset)
 	if g == noGreen 'off'
-		return
+		pinUnheld()
 	end 'off'
 	let pins = __Raw.loadWord(g, offset: greenPinsOffset)
 	if pins == 0 'none'
-		panic("Scheduler.unpinFromMachine: the green thread holds no pin")
+		pinUnheld()
 	end 'none'
 	__Raw.storeWord(g, offset: greenPinsOffset, value: __Raw.wrappingSub(pins, right: 1))
 	if pins == 1 'last'
 		unpinGreen(g)
 	end 'last'
 end 'schedUnpin'
+
+// pinNotHeld is maxon's message for an unpin by a green thread that holds no pin.
+let pinNotHeld = "a machine pin was released by a green thread that holds none"
+
+// pinUnheld is the fatal error of an unpin by a green thread that holds no pin.
+function pinUnheld()
+	runtimeFatal(pinNotHeld)
+end 'pinUnheld'
+
+// schedPinDepth is how many pins the running green thread holds; off a green thread, none. A program without the scheduler
+// has the link's single-thread form in its place.
+function schedPinDepth() returns Count
+	let g = __Raw.loadWord(__Raw.threadContext(), offset: contextGreenOffset)
+	if g == noGreen 'off'
+		return 0
+	end 'off'
+	return __Raw.loadWord(g, offset: greenPinsOffset)
+end 'schedPinDepth'
+
+// mainMachine is the number of the main thread, the one machine of a program without the scheduler.
+let mainMachine = 1 as Count
+
+// schedCurrentMachine is Scheduler.currentMachine: the number of the thread running the green thread, which a pin keeps the
+// same across a park.
+function schedCurrentMachine() returns Count
+	let context = __Raw.threadContext()
+	if __Raw.loadWord(context, offset: contextSchedulerOffset) == noScheduler 'oneThread'
+		return mainMachine
+	end 'oneThread'
+	return __Raw.loadWord(threadBlockSwitch(context), offset: threadBlockMachineOffset)
+end 'schedCurrentMachine'
 
 // unpinGreen frees a green thread and the thread it is pinned to of each other: at its last unpin, or when it finishes
 // pinned, which leaves the thread to run the scheduler as before. A record is carved zeroed and one that finishes is
@@ -606,7 +653,8 @@ end 'greenMain'
 // has asked the green thread to stop, which it could not do in the runtime's code between two behaviours, or when a
 // behaviour made a coroutine, whose strand the green thread now roots and which the next behaviour is no member of: the
 // behaviour handed on then goes to the tail of the processor's run queue, behind what waited meanwhile, as maxon's
-// runner yields after its 64, and the green thread finishes. A behaviour of the turn may be preempted, or park, as the
+// runner yields after its 64, and the green thread finishes. A turn that ends at turnBehaviours with the service's next
+// message handed on leaves the service behind (markBehind). A behaviour of the turn may be preempted, or park, as the
 // first may; the green thread holds only the cowns of the behaviour it runs, and the thread it runs on is read again after
 // each.
 function runTurn(g Count)
@@ -619,10 +667,14 @@ function runTurn(g Count)
 		__Raw.storeWord(g, offset: greenHandedOffset, value: noBehaviour)
 		let preempted = __Raw.loadAcquire(g, offset: greenPreemptOffset) == set
 		if ran >= turnBehaviours or preempted or __Raw.loadWord(g, offset: greenStrandOffset) != noGreen 'ended'
+			if ran >= turnBehaviours 'full'
+				markBehind(g, record: record)
+			end 'full'
 			behaviourYields(record, preempted: preempted)
 			return
 		end 'ended'
 		ran = __Raw.wrappingAdd(ran, right: 1)
+		__Raw.storeWord(g, offset: greenArgOffset, value: record)
 		_ = __Raw.callCode1(__Raw.loadWord(record, offset: behaviourRunOffset), arg1: record)
 	end 'turn'
 end 'runTurn'
@@ -816,9 +868,23 @@ end 'exitBlocking'
 function asyncPreempted(context Count)
 	let g = __Raw.loadWord(context, offset: contextGreenOffset)
 	__Raw.storeWord(__Raw.loadWord(g, offset: greenResumeSlotOffset), offset: 0, value: __Raw.loadWord(g, offset: greenResumeOffset))
+	stopAsked(context, g: g)
+end 'asyncPreempted'
+
+// stopAsked is Go's gopreempt_m: the running green thread g, which the monitor asked to stop, goes to the global run queue.
+function stopAsked(context Count, g Count)
 	__Raw.storeWord(g, offset: greenPreemptOffset, value: unset)
 	switchToScheduler(context, intent: intentPreempted)
-end 'asyncPreempted'
+end 'stopAsked'
+
+// honourAsk is the check of a message's start (serviceStart), as Go's function prologue checks g.preempt: a green thread
+// the monitor asked to stop stops there. Messages that ready one another run almost wholly in the runtime's code, where no
+// asynchronous stop lands, and each on a green thread of its own, so without the check their slice would never end.
+function honourAsk(context Count, g Count)
+	if __Raw.loadAcquire(g, offset: greenPreemptOffset) == set 'asked'
+		stopAsked(context, g: g)
+	end 'asked'
+end 'honourAsk'
 
 // stoppable is whether a thread the monitor has stopped (suspended on Windows, in the preemption signal's handler on
 // Linux), at an instruction and a stack pointer, may be made to return into rt.asyncPreempt: it runs a green thread that

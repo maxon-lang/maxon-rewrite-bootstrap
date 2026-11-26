@@ -254,11 +254,14 @@ function isSyntaxCode(code String) returns bool
 end 'isSyntaxCode'
 
 // runGenerated checks a program and runs it under the interpreter, under as many schedules as the program's behaviours want.
+// A generated program is staged in the library tier, as every check of one is: it tests the rules of cowns and behaviours,
+// which only the library tiers write (E3185 elsewhere).
 function runGenerated(source String, schedules Count) returns GeneratedRun
 	var outcome = GeneratedRun.new()
 	var errs = diag.ErrorList.create(0)
 	var p = ast.Project.new("")
 	project.loadSourceInto(p, path: generatedPath, text: source, errs: errs)
+	stageInLibrary(p, first: 0)
 	runLoaded(p, schedules: schedules, outcome: outcome, errs: errs)
 	return outcome
 end 'runGenerated'
@@ -323,6 +326,7 @@ function compareNative(shared SharedRuntime, source String, outcome GeneratedRun
 	let exe = temporaryExecutable("fuzz.maxon", suffix: executableExtension(hostTarget()))
 	var options = Options.new()
 	options.countAllocations = true
+	options.stagesInLibrary = true
 	var errs = diag.ErrorList.create(0)
 	_ = compileSourceWith(shared, path: generatedPath, text: source, output: exe, options: options, errs: errs)
 	diag.sortErrors(errs)
@@ -574,6 +578,7 @@ function plantedRefusal(generated fuzz.GeneratedProgram) returns String
 	var errs = diag.ErrorList.create(0)
 	var p = ast.Project.new("")
 	project.loadSourceInto(p, path: generatedPath, text: generated.planted, errs: errs)
+	stageInLibrary(p, first: 0)
 	_ = checkLoaded(p, goal: Goal.checked, makesProgram: true, errs: errs)
 	ast.locateAllErrors(p.modules, errs: errs)
 	for e in errs 'errors'

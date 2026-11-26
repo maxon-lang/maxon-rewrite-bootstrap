@@ -1,4 +1,4 @@
-extension String implements Hashable, Equatable
+extension String implements Hashable, Equatable, Cloneable
 	public function hash() returns HashValue
 		return hashString(self)
 	end 'hash'

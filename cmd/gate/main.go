@@ -8,7 +8,7 @@
 //	go run ./cmd/gate check [--record-specs=<maxon specs dir>] [test args...]
 //	go run ./cmd/gate suites <compiler> [test args...]
 //	go run ./cmd/gate seed [--staged]
-//	go run ./cmd/gate specs <maxon specs dir>
+//	go run ./cmd/gate specs [--advance-source] <maxon specs dir>
 //	go run ./cmd/gate stdlib [--check] <maxon stdlib dir>
 //	go run ./cmd/gate build
 //	go run ./cmd/gate compiler
@@ -28,6 +28,7 @@ import (
 
 	"minimaxon/internal/heavylock"
 	"minimaxon/internal/hosts"
+	"minimaxon/internal/specsource"
 )
 
 const usage = `usage:
@@ -36,7 +37,9 @@ const usage = `usage:
                                      flag it first converts the specs from maxon's and its spec step also writes specs/passed.txt
   gate suites <compiler> [args...]   the suites a compiler must pass (on arm64 Linux, which has no seed, the lanes it runs natively)
   gate seed [--staged]               renew the seeds, each proven to reproduce itself; --staged for a change of a layout\n                                     the seed bakes in, which it cannot compile the runtime of: run before committing it
-  gate specs <maxon specs dir>       regenerate specs/ from maxon's spec tests and write specs/passed.txt again
+  gate specs [--advance-source] <maxon specs dir>
+                                     regenerate specs/ from maxon's spec tests and write specs/passed.txt again; specs/SOURCE
+                                     pins the content they are converted from, and the flag moves the pin on purpose
   gate stdlib [--check] <maxon stdlib dir>
                                      regenerate stdlib/ from maxon's library; --check fails when that differs from what is committed
   gate build                         build bin/minimaxon, the day-to-day compiler: the seed builds C1, C1 builds self/
@@ -103,10 +106,14 @@ func gate() {
 		err = renewSeeds(h, staged)
 		printStepTable()
 	case "specs":
+		advance := len(args) > 0 && args[0] == specsource.AdvanceFlag
+		if advance {
+			args = args[1:]
+		}
 		if len(args) != 1 {
 			fail(errors.New("specs: name maxon's specs directory"))
 		}
-		err = regenerateSpecs(h, args[0])
+		err = regenerateSpecs(h, args[0], advance)
 	case "stdlib":
 		checkOnly := len(args) > 0 && args[0] == "--check"
 		if checkOnly {
@@ -251,6 +258,15 @@ func quiet(env []string, name string, args ...string) error {
 		return fmt.Errorf("%s%w", out, err)
 	}
 	return nil
+}
+
+// cacheVariable names the environment variable that turns the compiler's build cache off, or names its directory.
+const cacheVariable = "MINIMAXON_CACHE"
+
+// cacheOffEnvironment is the environment of a compile that neither reads nor writes the build cache. It also names the variable
+// in WSLENV, since a compiler that wsl.exe starts gets only the variables that WSLENV names.
+func cacheOffEnvironment() []string {
+	return []string{cacheVariable + "=off", "WSLENV=" + wslVariables(os.Getenv("WSLENV"), cacheVariable)}
 }
 
 // skip says that a step does not run on this host and why.

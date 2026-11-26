@@ -103,6 +103,38 @@
 		return 0
 	end 'reap'
 
+	// orphanEnded is whether a child that nothing waits for has ended, which it waits for if so: without waiting for one that has
+	// not, and a pid that is not a child of this process, one that something else waited for, is gone.
+	function orphanEnded(pid Count) returns bool
+		let result = waitChild(pid, status: 0, options: waitNoHang)
+		if failed(result) 'refused'
+			return not interrupted(result)
+		end 'refused'
+		return result == pid
+	end 'orphanEnded'
+
+	// orphanReap waits for a child that nothing waits for, whose exit the kqueue reported or which has started to exit, and ends
+	// with it: the kqueue reports NOTE_EXIT before waitpid can take the child, so the one wait here blocks for the moment the exit
+	// takes, as the reap of a child that a wait found exiting does.
+	function orphanReap(pid Count)
+		while true 'wait'
+			let result = waitChild(pid, status: 0, options: noWaitOptions)
+			if not interrupted(result) 'done'
+				return
+			end 'done'
+		end 'wait'
+	end 'orphanReap'
+
+	// orphanArmed is whether the kqueue watches the process of an orphan's entry, and not that it has started to exit.
+	function orphanArmed(entry Count) returns bool
+		return processArm(entry)
+	end 'orphanArmed'
+
+	// orphanClose takes the exit filter of an orphan's entry off the kqueue, where the exit has not removed it.
+	function orphanClose(scheduler Count, entry Count)
+		entryUnregister(scheduler, entry: entry)
+	end 'orphanClose'
+
 	// childExited is whether the child has exited, which it waits for if so, its wait status kept in the wait. A wake of the
 	// exit's entry proves nothing either way: the entry may hold an event of its last owner, and the kqueue reports NOTE_EXIT as
 	// the child starts to exit, before waitpid can take it. So a child that waitpid does not yet find ended is watched again
@@ -244,6 +276,12 @@
 			start = cStringOfBytes(wordAt(request, offset: requestDirectoryOffset), length: directoryLength)
 		end 'directory'
 		let pid = spawnChild(run, request: request, path: program, vector: vector, directory: start, nullFd: nullFd, envp: envp)
+		// posix_spawn gives a directory it cannot move to the not-found codes of a missing program, so a refusal is the directory's
+		// when the directory is not one.
+		var failedStep = failureStepProgram
+		if failed(pid) and start != noDirectory and not directoryAt(start) 'unmoved'
+			failedStep = failureStepDirectory
+		end 'unmoved'
 		if start != noDirectory 'started'
 			free(start)
 		end 'started'
@@ -259,8 +297,12 @@
 		end 'closeNull'
 		if failed(pid) 'spawn'
 			closeOurEnds(wait)
-			return systemFailure(failureStepProgram, code: errnoOf(pid))
+			return systemFailure(failedStep, code: errnoOf(pid))
 		end 'spawn'
+		if isDetached(request) 'left'
+			__Raw.storeWord(wait, offset: waitPidOffset, value: pid)
+			return 0
+		end 'left'
 		let watch = eventProcessNew(pid)
 		if watch == noEntry 'unwatched'
 			endAndReap(run, pid: pid)
@@ -273,23 +315,26 @@
 		return 0
 	end 'startChild'
 
-	// abandonRun ends a child that no wait has taken, with the processes of its group, and gives up what the run holds of it: its
-	// exit's entry, its pid, which is waited for unless a kill of its tree did, and the ends of its pipes.
-	function abandonRun(run Count)
+	// renounceRun gives up a child that no wait has taken, as maxon's release does: the ends of its pipes are closed, and the
+	// child is left running, with its group, for the event queue to wait for once it ends (eventProcessOrphan), which a child that
+	// has been waited for already needs no more of than its entry given back.
+	function renounceRun(run Count)
 		let wait = waitOf(run)
-		let pid = wordAt(wait, offset: waitChildOffset)
-		eventProcessFree(wordAt(wait, offset: waitProcessOffset))
-		endAndReap(run, pid: pid)
 		closeOurEnds(wait)
-	end 'abandonRun'
+		if isReaped(wait) 'reaped'
+			eventProcessFree(wordAt(wait, offset: waitProcessOffset))
+		end 'reaped' else 'running'
+			eventProcessOrphan(wordAt(wait, offset: waitProcessOffset), pid: wordAt(wait, offset: waitChildOffset))
+		end 'running'
+	end 'renounceRun'
 
 	// finishRun gives back what a child holds once its wait has ended, which on macOS is nothing: the pid was waited for.
 	function finishRun(run Count)
 	end 'finishRun'
 
 	// win32CodeOf is an errno in the words of Win32 that maxon's runtime uses on every system: a file or a directory that is not
-	// there, access that is refused and a table of files that is full are the codes of Windows that say so; any other errno is
-	// ERROR_GEN_FAILURE.
+	// there, access that is refused, a table of files that is full and a file that is busy are the codes of Windows that say so;
+	// any other errno is ERROR_GEN_FAILURE.
 	function win32CodeOf(errno Count) returns Count
 		if errno == macosEnoent 'missing'
 			return codeFileNotFound
@@ -303,6 +348,9 @@
 		if errno == errnoTooManyFiles or errno == errnoFileTableOverflow 'full'
 			return codeTooManyOpenFiles
 		end 'full'
+		if errno == macosEbusy or errno == macosEtxtbsy 'busy'
+			return codeSharingViolation
+		end 'busy'
 		return codeGeneralFailure
 	end 'win32CodeOf'
 
@@ -346,7 +394,7 @@
 	end 'addStream'
 
 	// spawnWith fills the file actions and the attributes of the run's child, whose standard streams are what the request's kinds
-	// say, which leads a process group of its own, moves to the zero-terminated directory unless that is noDirectory and executes
+	// say, which leads a process group of its own (a session of its own, where it is detached), moves to the zero-terminated directory unless that is noDirectory and executes
 	// the program with the environment that the vector of its entries is, and spawns it. It gives its pid, or -errno of the first
 	// step that failed: a file action or an attribute that is refused fails the spawn, as posix_spawn's own refusal does.
 	function spawnWith(run Count, request Count, path Count, vector Count, directory Count, nullFd Count, envp Count, actions Count, attributes Count) returns Count
@@ -357,8 +405,12 @@
 		if directory != noDirectory 'directory'
 			failure = firstFailure(failure, result: __Raw.callImport2("posix_spawn_file_actions_addchdir_np", arg1: actions, arg2: directory))
 		end 'directory'
-		failure = firstFailure(failure, result: __Raw.callImport2("posix_spawnattr_setflags", arg1: attributes, arg2: macosSpawnCloexecDefault or macosSpawnSetPgroup))
-		failure = firstFailure(failure, result: __Raw.callImport2("posix_spawnattr_setpgroup", arg1: attributes, arg2: 0))
+		if isDetached(request) 'detached'
+			failure = firstFailure(failure, result: __Raw.callImport2("posix_spawnattr_setflags", arg1: attributes, arg2: macosSpawnCloexecDefault or macosSpawnSetSid))
+		end 'detached' else 'attached'
+			failure = firstFailure(failure, result: __Raw.callImport2("posix_spawnattr_setflags", arg1: attributes, arg2: macosSpawnCloexecDefault or macosSpawnSetPgroup))
+			failure = firstFailure(failure, result: __Raw.callImport2("posix_spawnattr_setpgroup", arg1: attributes, arg2: 0))
+		end 'attached'
 		if failure != 0 'refused'
 			return __Raw.wrappingSub(0, right: failure)
 		end 'refused'

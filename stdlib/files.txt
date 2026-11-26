@@ -24,6 +24,7 @@ Hmac.maxon sha2
 Hkdf.maxon sha2
 Slot.maxon cell Cell.maxon
 Clock.maxon clock
+Sleep.maxon sleep
 Process.maxon process
 Directory.maxon directory
 Ascii.maxon ascii
@@ -35,3 +36,7 @@ CharacterSet.maxon characterset
 helpers/string/utf8.maxon json
 helpers/string/utf16.maxon json
 Json.maxon json
+helpers/file/osErrorCodes.maxon subprocess
+Subprocess.maxon subprocess
+helpers/file/fileWriter.maxon file
+File.maxon file

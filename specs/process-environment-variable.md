@@ -106,12 +106,12 @@ function main() returns ExitCode
 		return child()
 	end 'iAmTheChild'
 	let me = try Process.executablePath() otherwise return 2
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(Executable.path(me))
+	var config = Configuration.create(MxExecutable.path(me))
 	config.arguments = argv
 	config.environment = Environment.inheritUpdating(["MAXON_SPEC_ENV_EQ": "a=b"])
-	let run = try Subprocess.runConfiguration(config) otherwise return 4
+	let run = try MxSubprocess.runConfiguration(config) otherwise return 4
 	print("child said {run.stdout.trim()}\n")
 	return 7
 end 'main'

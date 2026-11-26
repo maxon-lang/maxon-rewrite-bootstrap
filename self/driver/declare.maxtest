@@ -18,19 +18,11 @@ end 'loadParsed'
 function expectDeclared(path String)
 	var errs = diag.ErrorList.create(0)
 	var p = loadParsed(path, errs: errs)
-	expectDeclaredProject(p, path: path, errs: errs)
-end 'expectDeclared'
-
-// expectCompilerDeclared is expectDeclared of the compiler's own source, which the executable of the tests, in the temporary
-// directory, does not find beside it.
-function expectCompilerDeclared(path String)
-	var errs = diag.ErrorList.create(0)
-	var p = loadParsed(path, errs: errs)
-	project.markCompiler(p)
-	expectDeclaredProject(p, path: path, errs: errs)
-end 'expectCompilerDeclared'
-
-function expectDeclaredProject(mutates p ast.Project, path String, mutates errs diag.ErrorList)
+	if path == "self" 'compiler'
+		// The compiler's own source is a library tier, which names cowns (executor.maxon); a test's executable is not beside
+		// it, so the load cannot tell (project.isCompilerDirectory), and the test says so as discoverDirectory would.
+		project.markCompiler(p)
+	end 'compiler'
 	let entry = declareProject(p, errs: errs)
 	if errs.count() > 0 'de'
 		ast.locateAllErrors(p.modules, errs: errs)
@@ -39,7 +31,7 @@ function expectDeclaredProject(mutates p ast.Project, path String, mutates errs 
 	if entry == ast.noFunc or ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: entry).retTy != p.builtins.exitCodeTy 'main'
 		panic("{path}: main is not declared with the return type ExitCode")
 	end 'main'
-end 'expectDeclaredProject'
+end 'expectDeclared'
 
 function expectDeclareError(path String, code String, line Count, col Count)
 	var errs = diag.ErrorList.create(0)
@@ -55,7 +47,7 @@ function expectDeclareError(path String, code String, line Count, col Count)
 end 'expectDeclareError'
 
 test 'declare'
-	expectCompilerDeclared("self")
+	expectDeclared("self")
 	expectDeclared("tests/run/constant-depends-through-match.maxon")
 	expectDeclared("tests/modules/constants")
 	expectDeclared("tests/modules/generics")

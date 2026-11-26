@@ -1,0 +1,7 @@
+// A program keeps shared state in a service: a cown is the library tiers' machinery, so making one is refused (E3185).
+// expect-error: E3185 at 5:10
+function main() returns ExitCode
+	let n = 1 as Count
+	let c = cown(n)
+	return 0
+end 'main'

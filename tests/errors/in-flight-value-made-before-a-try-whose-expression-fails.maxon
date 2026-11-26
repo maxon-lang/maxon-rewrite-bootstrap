@@ -1,0 +1,45 @@
+// A handler runs without what its own try's expression would have given, but a value made before the try for what takes them
+// both is in flight where that expression fails, whatever its handler does: the failure would drop it before finish runs.
+type Txn
+	var id as Count
+
+	static function begin(id Count) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	function commit(destructs self) throws Refusal
+		if id == 0 'empty'
+			throw Refusal.refused
+		end 'empty'
+	end 'commit'
+end 'Txn'
+
+enum Refusal implements Error
+	refused
+end 'Refusal'
+
+union Step
+	done(txn Txn)
+	none
+end 'Step'
+
+function steps(n Count) returns Count throws Refusal
+	if n == 0 'none'
+		throw Refusal.refused
+	end 'none'
+	return n
+end 'steps'
+
+function finish(consumes t Txn, n Count) throws Refusal
+	try t.commit()
+end 'finish'
+
+function before() throws Refusal
+	try finish(Txn.begin(1), n: try steps(0) otherwise throw Refusal.refused)
+end 'before'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3919 at 38:17

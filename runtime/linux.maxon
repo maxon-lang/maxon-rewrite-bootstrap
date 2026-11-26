@@ -356,6 +356,89 @@
 		return openPathBytes(__Raw.stringBytes(path), length: __Raw.stringLength(path), flags: flags, mode: mode)
 	end 'openPath'
 
+	// openFileBytes is the fd of an owned file handle (file.maxon), the file that the bytes of a path name opened in a way, close
+	// on exec as every open of the runtime is; or it stores the errno at osErrorAddress and gives 0. No fork lock is held: the
+	// close on exec is in the open itself, so a clone sees the fd only between the open and the child's execve.
+	function openFileBytes(path Count, length Count, how Count, osErrorAddress Count) returns Count
+		var flags = linuxOpenReplace
+		if how == openToRead 'read'
+			flags = linuxOpenReadOnly
+		end 'read' else if how == openToCreate 'create'
+			flags = linuxOpenCreateNew
+		end 'create'
+		let fd = openPathBytes(path, length: length, flags: flags, mode: linuxExecutableFileMode if how == openToWriteExecutable else linuxFileMode)
+		if failed(fd) 'refused'
+			__Raw.storeWord(osErrorAddress, offset: 0, value: errnoOf(fd))
+			return 0
+		end 'refused'
+		return fd
+	end 'openFileBytes'
+
+	// closeFileHandle closes the fd of an open file in the blocking bracket, since a close may wait on its file system (a flush
+	// to NFS, a FUSE daemon's), and gives its errno, or 0. A close that a signal breaks off has still freed the fd on Linux, so
+	// it is not made again. The close of a file open for writing then waits for the end of a clone in flight (waitCloneEnd),
+	// whose child may hold a copy of the fd, so that the file can be run once its close has returned.
+	function closeFileHandle(fd Count, writes bool) returns Count
+		enterBlocking()
+		let result = __Raw.syscall1(linuxSysClose, arg1: fd)
+		if writes 'writer'
+			waitCloneEnd()
+		end 'writer'
+		exitBlocking()
+		return osErrorOf(result)
+	end 'closeFileHandle'
+
+	// fileEntryOf is the event entry of an open file's fd that waits on the event queue, as Go's os.File decides: a FIFO's, a
+	// socket's or a character device's, which it makes not wait (O_NONBLOCK) and registers. A regular file, a directory and a
+	// block device have none, and neither has an fd the event queue refuses (epoll's EPERM, as /dev/null's), whose flags are
+	// put back. No fd of Linux must wait there, so the open is never unwaited.
+	function fileEntryOf(fd Count, path Count, length Count, unwaitedAddress Count) returns Count
+		let stat = alloc(linuxStatBytes)
+		enterBlocking()
+		let statted = __Raw.syscall2(linuxSysFstat, arg1: fd, arg2: stat)
+		exitBlocking()
+		let kind = __Raw.loadWord32(stat, offset: linuxStatModeOffset) and linuxModeTypeMask
+		free(stat)
+		if failed(statted) or not (kind == linuxModeFifo or kind == linuxModeSocket or kind == linuxModeCharacter) 'plain'
+			return noEntry
+		end 'plain'
+		let flags = __Raw.syscall2(linuxSysFcntl, arg1: fd, arg2: linuxFcntlGetFlags)
+		if failed(flags) 'unflagged'
+			return noEntry
+		end 'unflagged'
+		_ = __Raw.syscall3(linuxSysFcntl, arg1: fd, arg2: linuxFcntlSetFlags, arg3: flags or linuxOpenNonblock)
+		let entry = eventRegister(fd)
+		if entry == noEntry 'refused'
+			_ = __Raw.syscall3(linuxSysFcntl, arg1: fd, arg2: linuxFcntlSetFlags, arg3: flags)
+		end 'refused'
+		return entry
+	end 'fileEntryOf'
+
+	// readFileHandle is one read of up to length bytes of an open file's fd that does not wait on the event queue, in the
+	// blocking bracket, made again after a signal: its count, 0 at the end of the file, or 0 with the errno at osErrorAddress.
+	function readFileHandle(fd Count, buffer Count, length Count, osErrorAddress Count) returns Count
+		enterBlocking()
+		var result = __Raw.syscall3(linuxSysRead, arg1: fd, arg2: buffer, arg3: length)
+		while failed(result) and errnoOf(result) == linuxEintr 'again'
+			result = __Raw.syscall3(linuxSysRead, arg1: fd, arg2: buffer, arg3: length)
+		end 'again'
+		exitBlocking()
+		if failed(result) 'refused'
+			__Raw.storeWord(osErrorAddress, offset: 0, value: errnoOf(result))
+			return 0
+		end 'refused'
+		return result
+	end 'readFileHandle'
+
+	// writeFileHandle writes length bytes to an open file's fd that does not wait on the event queue, all of them, in the
+	// blocking bracket, and gives the errno that stopped it, or 0.
+	function writeFileHandle(fd Count, buffer Count, length Count) returns Count
+		enterBlocking()
+		let errno = writeAll(fd, data: buffer, length: length)
+		exitBlocking()
+		return errno
+	end 'writeFileHandle'
+
 	// statPath fills a struct stat of the file a path names and gives 0, or gives -errno, as statCString does for a
 	// zero-terminated path.
 	function statPath(path String, stat Count) returns Count
@@ -372,12 +455,13 @@
 		return result
 	end 'statCString'
 
-	// osReadText is the whole content of a file.
-	function osReadText(path String, errorAddress Count) returns String
+	// readFileRoom is the whole content of a file in a string room that the caller owns: it stores the length at lengthAddress and
+	// gives the room, or sets the error word and gives nothing to use.
+	function readFileRoom(path String, lengthAddress Count, errorAddress Count) returns Count
 		let fd = openPath(path, flags: linuxOpenReadOnly, mode: 0)
 		if failed(fd) 'open'
 			endWithError(errorAddress, osError: errnoOf(fd), table: readFailures())
-			return noString()
+			return 0
 		end 'open'
 		let stat = alloc(linuxStatBytes)
 		enterBlocking()
@@ -388,7 +472,7 @@
 		if failed(statted) 'sized'
 			closeFd(fd)
 			endWithError(errorAddress, osError: errnoOf(statted), table: readFailures())
-			return noString()
+			return 0
 		end 'sized'
 		let bytes = __Raw.stringRoom(size)
 		var done = 0 as Count
@@ -413,15 +497,16 @@
 		if readError != 0 'failedRead'
 			__Raw.freeStringRoom(bytes)
 			endWithError(errorAddress, osError: readError, table: readFailures())
-			return noString()
+			return 0
 		end 'failedRead'
 		succeed(errorAddress)
-		return stringOfRoom(bytes, length: done)
-	end 'osReadText'
+		__Raw.storeWord(lengthAddress, offset: 0, value: done)
+		return bytes
+	end 'readFileRoom'
 
-	// writeFile replaces a file with bytes at an address, and gives the errno that stopped it, or 0. The mode applies to a
-	// file that it creates; one that is there keeps its own.
-	// The file is open for writing only while the write holds the fork lock shared.
+	// writeFile replaces a file with bytes at an address, and gives the errno that stopped it, or 0. The mode applies to a file
+	// that it creates; one that is there keeps its own. The file is open for writing only while the write holds the fork lock
+	// shared.
 	function writeFile(path String, data Count, length Count, executable bool) returns Count
 		let cPath = cStringOf(path)
 		let lock = forkLock()
@@ -486,8 +571,8 @@
 	// negativeWordBit is set in a word that holds a negative number, such as the seconds of a time before 1970.
 	let negativeWordBit = 0x8000000000000000 as Count
 
-	// secondsAt is the seconds of the statx timestamp at an offset of a record, or 0 for a time before 1970, as the
-	// Windows entry gives.
+	// secondsAt is the seconds of the timestamp at an offset of a struct stat, or 0 for a time before 1970, as the Windows entry
+	// gives.
 	function secondsAt(record Count, offset Count) returns Count
 		let seconds = __Raw.loadWord(record, offset: offset)
 		if (seconds and negativeWordBit) != 0 'before'
@@ -496,28 +581,18 @@
 		return seconds
 	end 'secondsAt'
 
-	// osFileInfo is the time a file was last written, in Unix seconds, and stores its size, the times it was made and last
-	// read and a word of its attributes (infoDirectoryFlag, infoReadOnlyFlag) at the addresses given. A file system that
-	// records no birth time fails the entry, since the time it was made is not a time to invent.
+	// osFileInfo is the time a file was last written, in Unix seconds, and stores its size, the time it was made and last
+	// read and a word of its attributes (infoDirectoryFlag, infoReadOnlyFlag) at the addresses given. A struct stat has no
+	// birth time, so the time it was made is st_ctime, the last change of the inode, as maxon's Linux File.info gives.
 	function osFileInfo(path String, size Count, created Count, accessed Count, attributes Count, errorAddress Count) returns Count
-		let cPath = cStringOf(path)
-		let record = alloc(linuxStatxBytes)
-		enterBlocking()
-		let result = __Raw.syscall5(linuxSysStatx, arg1: atCwd(), arg2: cPath, arg3: noFlags, arg4: linuxStatxWanted, arg5: record)
-		exitBlocking()
-		free(cPath)
-		let osError = osErrorOf(result)
-		if osError == 0 and (__Raw.loadWord32(record, offset: linuxStatxMaskOffset) and linuxStatxBirthTime) == 0 'noBirthTime'
-			failWith(errorAddress, errorCase: infoFailed)
-			free(record)
-			return 0
-		end 'noBirthTime'
+		let record = alloc(linuxStatBytes)
+		let osError = osErrorOf(statPath(path, stat: record))
 		if osError != 0 'failed'
 			free(record)
 			endWithError(errorAddress, osError: osError, table: infoFailures())
 			return 0
 		end 'failed'
-		let mode = __Raw.loadWord32(record, offset: linuxStatxModeOffset)
+		let mode = __Raw.loadWord32(record, offset: linuxStatModeOffset)
 		var flags = 0 as Count
 		if (mode and linuxModeTypeMask) == linuxModeDirectory 'directory'
 			flags = flags or infoDirectoryFlag
@@ -525,11 +600,11 @@
 		if (mode and linuxModeOwnerWrite) == 0 'readOnly'
 			flags = flags or infoReadOnlyFlag
 		end 'readOnly'
-		__Raw.storeWord(size, offset: 0, value: __Raw.loadWord(record, offset: linuxStatxSizeOffset))
-		__Raw.storeWord(created, offset: 0, value: secondsAt(record, offset: linuxStatxCreatedOffset))
-		__Raw.storeWord(accessed, offset: 0, value: secondsAt(record, offset: linuxStatxAccessedOffset))
+		__Raw.storeWord(size, offset: 0, value: __Raw.loadWord(record, offset: linuxStatSizeOffset))
+		__Raw.storeWord(created, offset: 0, value: secondsAt(record, offset: linuxStatChangedOffset))
+		__Raw.storeWord(accessed, offset: 0, value: secondsAt(record, offset: linuxStatAccessedOffset))
 		__Raw.storeWord(attributes, offset: 0, value: flags)
-		let modified = secondsAt(record, offset: linuxStatxModifiedOffset)
+		let modified = secondsAt(record, offset: linuxStatModifiedOffset)
 		free(record)
 		succeed(errorAddress)
 		return modified
@@ -681,8 +756,8 @@
 	// to its close and a clone holds it alone, so that no child is made holding such an fd. The lock is the scheduler's word
 	// (schedForkLockOffset): a process with no scheduler has one thread, which has nothing to order. Both sides wait in a futex
 	// on the word, inside a blocking call's bracket, which the caller makes. A clone that makes its child as vfork does holds the lock until
-	// the child has executed its program, since the clone returns only then; the child's copy of the fds is the table at the
-	// clone all the same.
+	// the child's execve has replaced its memory, since the clone returns only then; the child's copy of the fds is the table at
+	// the clone all the same, and it lets go of the copy later, at the end of that execve.
 	let forkHeldBit = 0x40000000 as Count
 
 	// noForkLock is the lock of a process that has no scheduler.
@@ -752,14 +827,44 @@
 		end 'drain'
 	end 'holdForkAlone'
 
-	// releaseForkAlone gives back a clone's hold, and wakes the writes and clones that wait for it.
+	// releaseForkAlone gives back a clone's hold, and wakes the writes and clones that wait for it, and the closes that wait for
+	// a clone to end (waitCloneEnd), by a step of the count of the clones that have ended.
 	function releaseForkAlone(lock Count)
 		if lock == noForkLock 'single'
 			return
 		end 'single'
 		_ = __Raw.atomicExchange(lock, offset: 0, value: 0)
 		futexWakeAll(lock)
+		let ends = forkEnds(lock)
+		_ = __Raw.atomicAdd(ends, offset: 0, value: 1)
+		futexWakeAll(ends)
 	end 'releaseForkAlone'
+
+	// forkEnds is the address of the count of the clones that have given the fork lock back, beside the lock.
+	function forkEnds(lock Count) returns Count
+		return __Raw.wrappingAdd(lock, right: schedForkEndsOffset - schedForkLockOffset)
+	end 'forkEnds'
+
+	// waitCloneEnd waits, in the blocking bracket that the caller makes, until no clone that may hold a copy of an fd the caller
+	// closed before it runs: while forkHeldBit is set, until a clone gives the lock back. It holds no lock, and a clone waits for
+	// no close, so it has no cycle; it waits at most for the clone in flight when it looked, since a clone that starts after the
+	// close has no copy of the fd. The end of the clone is not the end of the child's copy: a clone as vfork makes one returns
+	// once the child's execve has replaced its memory (exec_mmap), and the execve closes the child's close-on-exec fds after
+	// that, and the kernel releases their files at its end, so a child whose clone ended just before the close may still hold
+	// the file, and a run of it fail busy (ETXTBSY), with more than one worker. Not covered either: a clone whose child outlives
+	// the clone call (qemu-user's fork, on the arm64-linux lane run under WSL), and an exec of the file by a process that this
+	// one did not start (runtime/README.md).
+	function waitCloneEnd()
+		let lock = forkLock()
+		if lock == noForkLock 'single'
+			return
+		end 'single'
+		let ends = forkEnds(lock)
+		let seen = __Raw.loadAcquire(ends, offset: 0)
+		while (__Raw.loadAcquire(lock, offset: 0) and forkHeldBit) != 0 and __Raw.loadAcquire(ends, offset: 0) == seen 'clone'
+			futexWait(ends, value: seen)
+		end 'clone'
+	end 'waitCloneEnd'
 
 	// startThread starts a worker's thread at once, on a stack of the main thread's reserve that the kernel maps and
 	// commits a page at a time, its lowest page the guard. The top word of the stack holds the thread's context, and is the

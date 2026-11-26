@@ -60,3 +60,57 @@ end 'lowerSubprocessResolveOnPath'
 function lowerSubprocessEndTree(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessEndTree, kind: IrKind.kindScalar, args: args)
 end 'lowerSubprocessEndTree'
+
+function lowerSubprocessSpawnStreaming(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessSpawnStreaming, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessSpawnStreaming'
+
+function lowerSubprocessStdoutState(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessStdoutState, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessStdoutState'
+
+function lowerSubprocessStderrState(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessStderrState, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessStderrState'
+
+function lowerSubprocessWriteStdinAll(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessWriteStdinAll, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessWriteStdinAll'
+
+function lowerSubprocessWriteStdinBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessWriteStdinBytes, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessWriteStdinBytes'
+
+function lowerSubprocessQueueStdin(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessQueueStdin, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessQueueStdin'
+
+function lowerSubprocessPushStdin(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessPushStdin, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessPushStdin'
+
+function lowerSubprocessAwaitStdinWritable(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessAwaitStdinWritable, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessAwaitStdinWritable'
+
+function lowerSubprocessWaitExit(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessWaitExit, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessWaitExit'
+
+function lowerSubprocessPollExit(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessPollExit, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessPollExit'
+
+function lowerSubprocessExitSignal(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessExitSignal, kind: IrKind.kindScalar, args: args)
+end 'lowerSubprocessExitSignal'
+
+// lowerSubprocessReadAvailable is a fresh byte array of the bytes that were read: the box of an array of bytes.
+function lowerSubprocessReadAvailable(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessReadAvailable, kind: IrKind.kindManaged, args: args)
+end 'lowerSubprocessReadAvailable'
+
+function lowerSubprocessCloseStdin(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSubprocessCloseStdin, args: args)
+	return konst(l, value: 0 as Word)
+end 'lowerSubprocessCloseStdin'

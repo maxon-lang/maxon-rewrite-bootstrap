@@ -1,0 +1,95 @@
+// File.readBinary gives the whole content of a file as bytes: every byte value, a carriage return and a line feed, a zero, a
+// file longer than one read, and an empty file; a path with no file fails notFound. The same program runs on every target,
+// under the host's temporary directory.
+// native-only
+//> empty=0
+//> every byte=true 76800
+//> text=ABC 3
+//> crlf and zero=13 10 0 255
+//> same as readText=true
+//> missing=notFound
+//> gone=true
+#if os(Windows)
+	function tempRoot() returns String
+		let temp = try Process.environmentVariable("TEMP") otherwise panic("TEMP is not set")
+		return "{temp}\\minimaxon_read_binary_test"
+	end 'tempRoot'
+
+	let separator = "\\"
+#else
+	function tempRoot() returns String
+		return "/tmp/minimaxon_read_binary_test_{Process.id()}"
+	end 'tempRoot'
+
+	let separator = "/"
+#endif
+
+function path(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("not a path")
+end 'path'
+
+function readError(path FilePath) returns String
+	try 'read'
+		let bytes = File.readBinary(path)
+		return "read {bytes.count()}"
+	end 'read' otherwise (e) 'failed'
+		match e 'kind'
+			notFound then return "notFound"
+			accessDenied then return "accessDenied"
+			busy then return "busy"
+			failed then return "failed"
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'readError'
+
+let rounds = 300
+
+function main() returns ExitCode
+	let root = tempRoot()
+	_ = Directory.create(path(root))
+	let file = path("{root}{separator}a.bin")
+	try File.writeBinary(file, content: ByteArray.create(0)) otherwise panic("cannot write")
+	print("empty={(try File.readBinary(file) otherwise panic("cannot read")).count()}\n")
+	var every = ByteArray.create(0)
+	for round in 0 upto rounds 'rounds'
+		for value in 0 upto 256 'values'
+			every.push(value as Byte)
+		end 'values'
+	end 'rounds'
+	try File.writeBinary(file, content: every) otherwise panic("cannot write")
+	let back = try File.readBinary(file) otherwise panic("cannot read")
+	var same = back.count() == every.count()
+	var position = 0 as Count
+	for b in back 'compare'
+		let expected = (position mod 256) as Byte
+		if b != expected 'differs'
+			same = false
+		end 'differs'
+		position = try position + 1 otherwise 0
+	end 'compare'
+	print("every byte={same} {back.count()}\n")
+	try File.writeText(file, content: "ABC") otherwise panic("cannot write")
+	let text = try File.readBinary(file) otherwise panic("cannot read")
+	print("text={String.from(text)} {text.count()}\n")
+	var odd = ByteArray.create(0)
+	odd.push(13 as Byte)
+	odd.push(10 as Byte)
+	odd.push(0 as Byte)
+	odd.push(255 as Byte)
+	try File.writeBinary(file, content: odd) otherwise panic("cannot write")
+	var shown = ""
+	let odds = try File.readBinary(file) otherwise panic("cannot read")
+	for b in odds 'shown'
+		shown = "{shown}{b} "
+	end 'shown'
+	print("crlf and zero={shown.trim()}\n")
+	let asText = try File.readText(file) otherwise panic("cannot read")
+	let asBytes = try File.readBinary(file) otherwise panic("cannot read")
+	print("same as readText={String.from(asBytes) == asText}\n")
+	try File.delete(file) otherwise panic("cannot delete")
+	print("missing={readError(file)}\n")
+	try Directory.delete(path(root)) otherwise panic("cannot remove the directory")
+	print("gone={not File.exists(path(root))}\n")
+	return 0
+end 'main'

@@ -1,0 +1,21 @@
+// ForeverMs is maxon's u64.max as Milliseconds, a sleep that only a cancel ends: the sleep's timer sits at the far end of
+// the heap, the cancel ends it early, and the coroutine runs to its end and leaves nothing behind. The interpreter runs no
+// coroutine.
+//> 18446744073709551615
+//> the sleeper woke
+//> cancelled
+
+function sleeper() returns Count
+	sleep(ForeverMs)
+	print("the sleeper woke\n")
+	return 1
+end 'sleeper'
+
+function main() returns ExitCode
+	print("{ForeverMs}\n")
+	let p = async sleeper()
+	Scheduler.yield()
+	p.cancel()
+	print("cancelled\n")
+	return 0
+end 'main'

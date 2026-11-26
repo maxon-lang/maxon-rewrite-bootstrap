@@ -165,10 +165,10 @@ type Adder
 		return Self{acc: 0}
 	end 'create'
 
-	export function grind(seed Integer, work Integer)
+	export function grind(mutates self, seed Integer, work Integer)
 		var j = 0 as Integer
 		while j < work 'spin'
-			self.acc = self.acc + ((seed + j) mod mixModulus)
+			self.acc = try self.acc + ((seed + j) mod mixModulus) otherwise panic("out of range")
 			j = j + 1
 		end 'spin'
 	end 'grind'
@@ -179,7 +179,7 @@ type Adder
 end 'Adder'
 
 function main() returns ExitCode
-	let hs = AdderHandleArray.create(0)
+	var hs = AdderHandleArray.create(0)
 	var i = 0 as Integer
 	while i < serviceCount 'spawnEach'
 		hs.push(spawn Adder.create())
@@ -195,7 +195,7 @@ function main() returns ExitCode
 	var n = 0 as Integer
 	while n < serviceCount 'collect'
 		let h = try hs.get(n as ElementIndex) otherwise panic("hs.get OOB at {n} — the loop is bounded by the count the pushes above filled")
-		aggregate = aggregate + (try await h.total() otherwise 0)
+		aggregate = try aggregate + (try await h.total() otherwise 0) otherwise panic("out of range")
 		n = n + 1
 	end 'collect'
 	// ⭐ The default's contract, as a comparison this program can make on any machine: with no

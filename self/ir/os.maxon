@@ -306,10 +306,19 @@ function lowerFilePathToString(mutates l Lowerer, p ast.Project, mutates ms ast.
 end 'lowerFilePathToString'
 
 function lowerFileReadText(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let dst = newReg(l, kind: IrKind.kindString)
-	let path = pathText(l, path: args[0])
-	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsReadText, args: argsOf1(path))
+	return lowerFileRead(l, p: p, ms: ms, c: c, args: args, kind: IrKind.kindString, symbol: Rt.rtOsReadText)
 end 'lowerFileReadText'
+
+function lowerFileReadBinary(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerFileRead(l, p: p, ms: ms, c: c, args: args, kind: IrKind.kindManaged, symbol: Rt.rtOsReadBinary)
+end 'lowerFileReadBinary'
+
+// lowerFileRead is a whole read of the file at the path that is the call's one argument, by the runtime's entry, into a value of a kind.
+function lowerFileRead(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, args RegList, kind IrKind, symbol Rt) returns Reg
+	let dst = newReg(l, kind: kind)
+	let path = pathText(l, path: try args.get(0) otherwise panic("a read of a file takes one argument, which the checker has seen"))
+	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: symbol, args: argsOf1(path))
+end 'lowerFileRead'
 
 // isExecutable is whether a FilePermission is the executable case, as the flag the runtime's write takes.
 function isExecutable(mutates l Lowerer, mode Reg) returns Reg
@@ -323,6 +332,57 @@ function lowerFileWriteText(mutates l Lowerer, p ast.Project, ms ast.ModuleState
 	_ = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsWriteTextMode, args: argsOf3(path, b: args[1], c: executable))
 	return konst(l, value: 0 as Word)
 end 'lowerFileWriteText'
+
+function lowerManagedFileOpenRead(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return openHandle(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtFileOpenRead)
+end 'lowerManagedFileOpenRead'
+
+function lowerManagedFileOpenWrite(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return openHandle(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtFileOpenWrite)
+end 'lowerManagedFileOpenWrite'
+
+function lowerManagedFileOpenWriteExecutable(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return openHandle(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtFileOpenWriteExecutable)
+end 'lowerManagedFileOpenWriteExecutable'
+
+function lowerManagedFileOpenCreateNew(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return openHandle(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtFileOpenCreateNew)
+end 'lowerManagedFileOpenCreateNew'
+
+// openHandle is an open of the file whose path is the bytes of the call's one argument, by the runtime's entry, which gives the
+// handle's word, which the library's __ManagedFile holds until its close, and whose error word is a __ManagedFileError's.
+function openHandle(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, args RegList, symbol Rt) returns Reg
+	let dst = newReg(l, kind: IrKind.kindScalar)
+	let path = try args.get(0) otherwise panic("an open of a file takes a path, which the checker has seen")
+	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: symbol, args: argsOf1(path))
+end 'openHandle'
+
+// lowerManagedFileReadAppending reads into the buffer that the call's second argument changes, after its length, by the runtime's
+// entry, which grows the length and gives the count.
+function lowerManagedFileReadAppending(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let handle = try args.get(0) otherwise panic("a read of a file takes its handle's word, which the checker has seen")
+	let buffer = try args.get(1) otherwise panic("a read of a file takes a buffer, which the checker has seen")
+	let most = try args.get(2) otherwise panic("a read of a file takes a count, which the checker has seen")
+	let dst = newReg(l, kind: IrKind.kindScalar)
+	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtFileReadAppending, args: argsOf3(handle, b: buffer, c: most))
+end 'lowerManagedFileReadAppending'
+
+// lowerManagedFileWrite writes the whole of the buffer that is the call's second argument by the runtime's entry.
+function lowerManagedFileWrite(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let handle = try args.get(0) otherwise panic("a write of a file takes its handle's word, which the checker has seen")
+	let buffer = try args.get(1) otherwise panic("a write of a file takes a buffer, which the checker has seen")
+	let dst = newReg(l, kind: IrKind.kindScalar)
+	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtFileWrite, args: argsOf2(handle, b: buffer))
+end 'lowerManagedFileWrite'
+
+// lowerManagedFileClose ends the handle whose word is the call's one argument, which the library's __ManagedFile.close gives up:
+// the runtime's close, which closes it whether or not it fails and sets the error word with writeFailed when the system's
+// close reports an error, as Go's Close does.
+function lowerManagedFileClose(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let handle = try args.get(0) otherwise panic("a close of a file takes its handle's word, which the checker has seen")
+	_ = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtFileClose, args: argsOf1(handle))
+	return konst(l, value: 0 as Word)
+end 'lowerManagedFileClose'
 
 function lowerFileWriteBinary(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let path = pathText(l, path: args[0])
@@ -553,6 +613,18 @@ function lowerSchedulerUnpinFromMachine(mutates l Lowerer, p ast.Project, ms ast
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSchedUnpin, args: RegList.create(0))
 	return konst(l, value: 0 as Word)
 end 'lowerSchedulerUnpinFromMachine'
+
+function lowerSchedulerPinDepth(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSchedPinDepth, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerSchedulerPinDepth'
+
+function lowerSchedulerCurrentMachine(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSchedCurrentMachine, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerSchedulerCurrentMachine'
+
+function lowerSchedulerMachineCpuCount(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsMachineCpuCount, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerSchedulerMachineCpuCount'
 
 // The debug port's functions call their entries with their words, byte arrays and the executable's text as they are.
 function lowerDebuggeeLaunch(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg

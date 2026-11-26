@@ -39,11 +39,11 @@ end 'main'
 ```
 
 <!-- test: error.a-registry-segment-cannot-be-closed-by-a-reader -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 Every thread reads a registry `default`, so no thread may unmap it under the others.
 ```maxon
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default SharedSegment = try SharedSegment.create("maxon-spec-raw-registry", bytes: 4096) otherwise panic("no segment")
 
 function main() returns ExitCode

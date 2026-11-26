@@ -137,6 +137,7 @@ Publishing last removes that window rather than narrowing it.
 ## Tests
 
 <!-- test: sched-processor.spawn-carries-every-argument -->
+<!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 **THE FULL INLINE ARGUMENT REGION, AND THE SUBJECT OF THE PUBLISH-LAST ORDERING.** `MaxAsyncArgs` is
 six, so this is the widest spawn the language admits: every slot of the GT struct's inline region is
 written by the lowering and read back by the trampoline. A slot missed, mis-strided or read before it
@@ -144,6 +145,7 @@ was written shows up as a wrong sum rather than as a crash — which is exactly 
 before the arguments are filled presents.
 ```maxon
 function widest(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer) returns Integer
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	Scheduler.parallelBoundary()
 	return a + b * 2 + c * 4 + d * 8 + e * 16 + f * 32
 end 'widest'
@@ -160,12 +162,14 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: sched-processor.many-green-threads-through-one-processor -->
+<!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 Thirty-two coroutines spawned before any is awaited, so all thirty-two are on `main`'s strand queue at
 once and one machine runs every one of them: the scheduler's `currentGt` is written and restored around
 each switch, and an M that lost track of which thread it was running would return one thread's result
 for another. The sum is index-derived, so any mis-pairing lands on a different number.
 ```maxon
 function step(n Counted) returns Counted
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	Scheduler.parallelBoundary()
 	return n * 3
 end 'step'

@@ -264,7 +264,6 @@ function send(s Sink.handle) throws Oops
 	let r = Resp.create(extra)
 	try s.take(r, extra: extra) otherwise (e) 'refused'
 		match e 'why'
-			mailboxFull(back, _) then back.fin()
 			serviceStopped(back, _) then back.fin()
 		end 'why'
 	end 'refused'
@@ -323,7 +322,6 @@ function main() returns ExitCode
 	let r = Resp.create(1)
 	try s.take(r) otherwise (e) 'refused'
 		match e 'why'
-			mailboxFull(back) then back.fin()
 			serviceStopped(back) then back.fin()
 		end 'why'
 	end 'refused'
@@ -1706,6 +1704,7 @@ error E3223: <fragment>:29:10: the linear value 'r' is live across this wait: a 
 ```
 
 <!-- test: a-send-with-a-timeout-is-a-wait-a-live-linear-value-may-not-cross -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 
@@ -1743,7 +1742,7 @@ end 'Sink'
 function main() returns ExitCode
 	let s = spawn Sink.create()
 	let r = Resp.create(1)
-	try s.bump(sendTimeout: 5) otherwise ignore
+	try s.bump() otherwise ignore
 	r.fin()
 	return 0
 end 'main'
@@ -1930,7 +1929,6 @@ end 'Sink'
 function send(s Sink.handle, r Resp) throws Oops
 	try s.take(r, extra: try thrv(1)) otherwise (e) 'refused'
 		match e 'why'
-			mailboxFull(back, _) then back.fin()
 			serviceStopped(back, _) then back.fin()
 		end 'why'
 	end 'refused'
@@ -2345,7 +2343,7 @@ error E3223: <fragment>:25:2: this drops 'cell', a linear value that was never c
 ```
 
 <!-- test: a-linear-value-live-across-an-acquire-is-refused -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 
@@ -2381,7 +2379,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, r Resp) returns Code
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'held'
 		print("inside\n")
 	end 'held' otherwise 'stopped'
@@ -2806,7 +2804,6 @@ function main() returns ExitCode
 	modify bx 'w'
 		try s.take(v) otherwise (e) 'refused'
 			match e 'why'
-				mailboxFull(back) then useS(giveS(back))
 				serviceStopped(back) then useS(giveS(back))
 			end 'why'
 		end 'refused'
@@ -2883,7 +2880,6 @@ function main() returns ExitCode
 			s.take(v)
 		end 'send' otherwise (e) 'refused'
 			match e 'why'
-				mailboxFull(back) then useS(giveS(back))
 				serviceStopped(back) then useS(giveS(back))
 			end 'why'
 		end 'refused'
@@ -2974,7 +2970,6 @@ function main() returns ExitCode
 			print("sent {n}\n")
 		end 'both' otherwise (e) 'refused'
 			match e 'why'
-				Sink.take.sendError.mailboxFull(back) then useS(giveS(back))
 				Sink.take.sendError.serviceStopped(back) then useS(giveS(back))
 				// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 				FileError.notFound then print("missing\n")
@@ -3052,7 +3047,6 @@ function main() returns ExitCode
 	modify bx 'w'
 		try await s.take(v) otherwise (e) 'refused'
 			match e 'why'
-				mailboxFull(back) then useS(giveS(back))
 				serviceStopped(back) then useS(giveS(back))
 			end 'why'
 		end 'refused'
@@ -3672,7 +3666,7 @@ error E3210: <fragment>:44:11: 'Waiting.ask' may wait (it awaits a reply from 'D
 ```
 
 <!-- test: a-timed-send-takes-no-linear-argument -->
-<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
+<!-- skip: language difference: a mailbox has no capacity, so a spawn names none, no send fails mailboxFull or waits with sendTimeout:, and the runtime slows a sender of a service that is behind instead (README, Where it differs from Maxon: Services) -->
 <!-- positions: moved -->
 
 ```maxon
@@ -3710,9 +3704,8 @@ end 'Sink'
 function main() returns ExitCode
 	let s = spawn Sink.create()
 	let r = Resp.create(1)
-	try s.take(r, sendTimeout: 5) otherwise (e) 'refused'
+	try s.take(r) otherwise (e) 'refused'
 		match e 'why'
-			mailboxFull(back) then back.fin()
 			serviceStopped(back) then back.fin()
 		end 'why'
 	end 'refused'
@@ -4498,7 +4491,6 @@ function sendOne(s Sink.handle, code Code)
 	let r = Resp.create(code)
 	try s.take(r) otherwise (e) 'refused'
 		match e 'why'
-			mailboxFull(back) then back.fin()
 			serviceStopped(back) then back.fin()
 		end 'why'
 	end 'refused'
@@ -6908,7 +6900,6 @@ function main() returns ExitCode
 	let desk = spawn Desk.create()
 	try desk.serve(Maybe.some(Resp.create(5)), direct: true) otherwise (failure) 'refused'
 		match failure 'why'
-			mailboxFull(back, _) then settle(back)
 			serviceStopped(back, _) then settle(back)
 		end 'why'
 	end 'refused'
@@ -7860,7 +7851,6 @@ end 'Hq'
 function relay(a Hq.handle, s Sn)
 	try a.takeS(s) otherwise (q) 'h'
 		match q 'x'
-			mailboxFull(z) then drain(z)
 			serviceStopped(z) then drain(z)
 		end 'x'
 	end 'h'
@@ -7927,7 +7917,6 @@ end 'Hq'
 function relay(a Hq.handle, s Sn)
 	try a.takeS(s) otherwise (q) 'h'
 		match q 'x'
-			mailboxFull(z) then drain(z)
 			serviceStopped(z) then drain(z)
 		end 'x'
 	end 'h'
@@ -7998,7 +7987,6 @@ function main() returns ExitCode
 	let t = spawn Taker.create(0)
 	try t.take(Reply.create(Box.create(1), code: 1)) otherwise (sendFailure) 'failed'
 		match sendFailure 'why'
-			mailboxFull(r) then settle(r)
 			serviceStopped(r) then settle(r)
 		end 'why'
 	end 'failed'

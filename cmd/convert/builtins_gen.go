@@ -18,7 +18,6 @@ var builtinNames = map[string]bool{
 	"CodepointDelta":            true,
 	"NetworkPort":               true,
 	"CodeUnit16":                true,
-	"Milliseconds":              true,
 	"InstantNanos":              true,
 	"InstantMs":                 true,
 	"ThreadCpuTicks":            true,
@@ -26,7 +25,8 @@ var builtinNames = map[string]bool{
 	"UnixNanos":                 true,
 	"OrderedWord":               true,
 	"HashDigest":                true,
-	"MailboxCapacity":           true,
+	"FileSize":                  true,
+	"Timestamp":                 true,
 	"Array":                     true,
 	"FixedArray":                true,
 	"__ManagedMemory":           true,
@@ -68,6 +68,7 @@ var builtinNames = map[string]bool{
 	"FilePathError":             true,
 	"FileReadError":             true,
 	"FileWriteError":            true,
+	"__ManagedFileError":        true,
 	"FilePermission":            true,
 	"SendError":                 true,
 	"FileDeleteError":           true,
@@ -77,6 +78,7 @@ var builtinNames = map[string]bool{
 	"DirectoryDeleteError":      true,
 	"ProcessIntrospectionError": true,
 	"SubprocessError":           true,
+	"__SubprocessStreamState":   true,
 	"DebuggeeError":             true,
 	"DebugDisposition":          true,
 	"CharacterError":            true,
@@ -105,15 +107,14 @@ var builtinNames = map[string]bool{
 	"min":                       true,
 	"max":                       true,
 	"exchange":                  true,
-	"sleep":                     true,
 }
 
 // builtinMethods are the methods minimaxon declares on each type it builds in, by the type's name, in the table's order.
 var builtinMethods = map[string][]string{
-	"Array":                 {"create", "init", "filled", "count", "isEmpty", "capacity", "get", "set", "push", "append", "insert", "remove", "pop", "dropEmpty", "clear", "truncate", "reserve", "resize", "slice", "growFilled", "refill", "contains", "containsSequence", "equals", "first", "last", "awaitAny"},
+	"Array":                 {"create", "init", "filled", "count", "isEmpty", "capacity", "get", "set", "push", "append", "insert", "remove", "pop", "dropEmpty", "clear", "truncate", "reserve", "resize", "slice", "growFilled", "refill", "hashesAsStorage", "storageHash", "contains", "containsSequence", "equals", "first", "last", "awaitAny"},
 	"__SlotArray":           {"create", "adopt", "count", "get", "push", "isFilled", "clearSlot", "fillSlot", "takeSlot", "lendSlot", "createCursor", "clear", "dropEmpty"},
 	"FixedArray":            {"create", "count", "get", "set", "refill"},
-	"__ManagedMemory":       {"length", "get", "byteAt", "capacity", "elementSize", "set", "swap", "append", "remove", "clear", "slice", "grow", "setLength", "createCursor"},
+	"__ManagedMemory":       {"length", "get", "byteAt", "capacity", "elementSize", "create", "set", "swap", "append", "remove", "clear", "slice", "grow", "setLength", "createCursor"},
 	"__ManagedMemoryCursor": {"current", "index", "advance", "retreat", "seek", "peek"},
 	"__SlotArrayCursor":     {"current", "index", "advance", "retreat", "seek", "peek"},
 	"__StringCursor":        {"create", "current", "advance"},
@@ -131,15 +132,21 @@ var builtinMethods = map[string][]string{
 	"CommandLine":           {"args"},
 	"Process":               {"environmentVariable", "executablePath", "id", "setExitCode", "exit", "enterBackgroundPriority"},
 	"Clock":                 {"nowNanos"},
-	"Scheduler":             {"processorCount", "yield", "pinToMachine", "unpinFromMachine"},
-	"__ServiceHandle":       {"shutdown"},
+	"Scheduler":             {"processorCount", "yield", "pinToMachine", "unpinFromMachine", "pinDepth", "currentMachine", "machineCpuCount"},
+	"__ServiceHandle":       {"shutdown", "mostQueued"},
 	"Promise":               {"cancel", "isComplete"},
 	"FilePath":              {"from", "init", "toString"},
-	"File":                  {"readText", "writeText", "writeBinary", "rename", "delete", "exists", "info"},
+	"File":                  {"readText", "readBinary", "writeText", "writeBinary", "rename", "delete", "exists", "info"},
 	"Directory":             {"isDirectory", "exists", "create", "currentPath", "delete", "list"},
 	"Subprocess":            {"run", "runWithDeadline", "runInDirectory"},
 	"CollectedOutput":       {"exitCode", "succeeded"},
 	"Debuggee":              {"launch", "waitEvent", "continueEvent", "readMemory", "writeCode", "readContext", "writeContext", "suspend", "resume", "breakIn", "detach", "closeHandle", "terminate"},
-	"Builtins":              {"currentProcessId", "currentTimeNanos", "currentTimeMs", "tickCountMs", "threadCpuTicks", "currentUnixTimeSeconds", "currentUnixTimeNanos", "readStdin", "osEnvironmentEntry", "subprocessSpawn", "subprocessGetPid", "subprocessWaitCollect", "subprocessResultStatusKind", "subprocessResultStatusCode", "subprocessResultStdout", "subprocessResultStderr", "subprocessResultDurationMs", "subprocessResultRelease", "subprocessReleaseHandle", "subprocessEndTree", "subprocessLastErrorCode", "subprocessLastErrorMessage", "subprocessResolveOnPath", "runWithInput", "stdoutWantsAnsiColor", "floatToBits", "fillRandom", "bitsToFloat", "trailingZeros", "mmAllocTotal", "mmAllocLive", "mmAllocBytes", "mmAllocTotalByTag", "mmAllocBytesByTag", "threadAllocTotal", "threadFreeTotal", "threadAllocBytes", "processAllocTotal", "processFreeTotal", "processAllocBytes", "scavengeMemory", "hashSeed", "drawHashSeed", "hashWord", "hashBytes", "hashCharacter", "readBigEndian", "readLittleEndian", "appendBigEndian", "appendLittleEndian"},
+	"Builtins":              {"sleep", "cpuCount", "currentProcessId", "currentTimeNanos", "currentTimeMs", "tickCountMs", "threadCpuTicks", "currentUnixTimeSeconds", "currentUnixTimeNanos", "readStdin", "osEnvironmentEntry", "subprocessSpawn", "subprocessDetach", "subprocessGetPid", "subprocessWaitCollect", "subprocessResultStatusKind", "subprocessResultStatusCode", "subprocessResultStdout", "subprocessResultStderr", "subprocessResultDurationMs", "subprocessResultRelease", "subprocessReleaseHandle", "subprocessEndTree", "subprocessSpawnStreaming", "subprocessReadAvailable", "subprocessStdoutState", "subprocessStderrState", "subprocessWriteStdinAll", "subprocessWriteStdinBytes", "subprocessQueueStdin", "subprocessPushStdin", "subprocessAwaitStdinWritable", "subprocessCloseStdin", "subprocessWaitExit", "subprocessPollExit", "subprocessExitSignal", "subprocessLastErrorCode", "subprocessLastErrorMessage", "subprocessResolveOnPath", "runWithInput", "stdoutWantsAnsiColor", "floatToBits", "fillRandom", "bitsToFloat", "trailingZeros", "mmAllocTotal", "mmAllocLive", "mmAllocBytes", "mmAllocTotalByTag", "mmAllocBytesByTag", "threadAllocTotal", "threadFreeTotal", "threadAllocBytes", "processAllocTotal", "processFreeTotal", "processAllocBytes", "scavengeMemory", "hashSeed", "drawHashSeed", "hashWord", "hashBytes", "hashCharacter", "readBigEndian", "readLittleEndian", "appendBigEndian", "appendLittleEndian", "fileOpenRead", "fileOpenWrite", "fileOpenWriteExecutable", "fileOpenCreateNew", "fileReadAppending", "fileWrite", "fileClose"},
 	"Raw":                   {"loadByte", "loadWord16", "loadWord32", "loadWord", "storeByte", "storeWord16", "storeWord32", "storeWord", "loadAcquire", "storeRelease", "wrappingAdd", "wrappingSub", "mulHigh", "addressOf", "stringBytes", "stringLength", "stringAscii", "stringRoom", "freeStringRoom", "stringOf", "stringSize", "storeString", "stringBytesAt", "stringLengthAt", "stringFirstWord", "stringSecondWord", "stringOfWords", "heapAddress", "stdoutAddress", "stderrAddress", "atomicAdd", "atomicExchange", "compareExchange", "spinPause", "copyBytes", "threadContext", "callCode1", "callHost2", "threadStartAddress", "stackSwitchAddress", "greenStartAddress", "asyncPreemptAddress", "preemptibleCodeAddress", "codeAddress", "callImport0", "callImport1", "callImport2", "callImport3", "callImport4", "callImport5", "callImport6", "callImport7", "callImport8", "callImport9", "callImport10", "syscall0", "syscall1", "syscall2", "syscall3", "syscall4", "syscall5", "syscall6", "processStartAddress", "preemptHandlerAddress", "signalReturnAddress"},
+}
+
+// libraryRawMembers are the functions of each type of maxon's raw surface that minimaxon's library declares, by the type's
+// name.
+var libraryRawMembers = map[string][]string{
+	"__ManagedFile": {"openRead", "openWrite", "openWriteExecutable", "openCreateNew", "readAppending", "write", "close"},
 }

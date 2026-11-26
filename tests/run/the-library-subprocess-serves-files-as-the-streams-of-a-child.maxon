@@ -1,0 +1,119 @@
+// A stream of a child can be a file, by the library's Subprocess: its standard input `InputSource.file`, which the child reads to
+// its end, and its output and its error each an `OutputDestination.file`, made where it is not there and emptied where it is. The
+// child is this program run again. Nothing of such a stream is collected and a stream that is not a file still is. A file that
+// cannot be opened fails the spawn, and the child leaves no file open, which the program shows by deleting each file after (a
+// system that keeps a file open refuses that).
+// native-only
+//> files: exited 0 collected=[] [] written out=[got:from a file] err=[err:from a file]
+//> emptied: out=[got:from a file] longer text was there before=true
+//> mixed: err collected=[err:from a file] out=[got:from a file]
+//> a missing input file: spawnFailed
+//> a missing directory for the output: spawnFailed
+//> every file was deleted: true
+
+typealias Arguments = Array with String
+
+let inputName = "mx-subprocess-files-input.txt"
+
+let outputName = "mx-subprocess-files-output.txt"
+
+let errorName = "mx-subprocess-files-error.txt"
+
+let inputText = "from a file"
+
+// child reads its standard input to the end, says what it read on its output, and says it on its error with another word.
+function child() returns ExitCode
+	var input = Console.stdin()
+	let got = try input.readToEnd() otherwise return 4
+	let text = String.from(got)
+	print("got:{text}")
+	printError("err:{text}")
+	return 0
+end 'child'
+
+function pathOf(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("not a path")
+end 'pathOf'
+
+function configurationOf(executable MxExecutable) returns Configuration
+	var configuration = Configuration.create(executable)
+	configuration.arguments.push("child")
+	return configuration
+end 'configurationOf'
+
+// contents is what a file holds, or `missing` where it cannot be read.
+function contents(name String) returns String
+	return try File.readText(pathOf(name)) otherwise "missing"
+end 'contents'
+
+// refusal says how a run that fails before the child starts failed.
+function refusal(configuration Configuration) returns String
+	try 'run'
+		_ = configuration.run()
+		return "ran"
+	end 'run' otherwise (e) 'failed'
+		match e 'kind'
+			spawnFailed then return "spawnFailed"
+			executableNotFound or
+			busy or
+			ioFailed or
+			timeout or
+			treeNotEnded or
+			detachRefused or
+			inputTooLarge or
+			statusLost then return "failed {e.displayReason()}"
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'refusal'
+
+// removed is whether a file that the test made is gone, which a file that a child left open would prevent on some systems.
+function removed(name String) returns bool
+	try 'delete'
+		File.delete(pathOf(name))
+	end 'delete' otherwise 'refused'
+		return false
+	end 'refused'
+	return not File.exists(pathOf(name))
+end 'removed'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() > 1 'child'
+		return child()
+	end 'child'
+	let own = try Process.executablePath() otherwise return 1
+	let executable = MxExecutable.path(own)
+	try 'prepare'
+		File.writeText(pathOf(inputName), content: inputText)
+	end 'prepare' otherwise 'cannotWrite'
+		return 2
+	end 'cannotWrite'
+	var files = configurationOf(executable.clone())
+	files.standardInput = InputSource.file(pathOf(inputName))
+	files.standardOutput = OutputDestination.file(pathOf(outputName))
+	files.standardError = OutputDestination.file(pathOf(errorName))
+	let ran = try files.run() otherwise return 3
+	print("files: exited {ran.exitCode()} collected=[{ran.stdout}] [{ran.stderr}] written out=[{contents(outputName)}] err=[{contents(errorName)}]\n")
+	try 'longer'
+		File.writeText(pathOf(outputName), content: "{inputText} and a longer text that was there before")
+	end 'longer' otherwise 'cannotWrite'
+		return 4
+	end 'cannotWrite'
+	let longerBefore = contents(outputName).byteLength() > inputText.byteLength()
+	_ = try files.run() otherwise return 5
+	print("emptied: out=[{contents(outputName)}] longer text was there before={longerBefore}\n")
+	var mixed = configurationOf(executable.clone())
+	mixed.standardInput = InputSource.file(pathOf(inputName))
+	mixed.standardOutput = OutputDestination.file(pathOf(outputName))
+	let mixedRan = try mixed.run() otherwise return 6
+	print("mixed: err collected=[{mixedRan.stderr}] out=[{contents(outputName)}]\n")
+	var missingInput = configurationOf(executable.clone())
+	missingInput.standardInput = InputSource.file(pathOf("mx-subprocess-no-such-input.txt"))
+	print("a missing input file: {refusal(missingInput)}\n")
+	var missingDirectory = configurationOf(executable.clone())
+	missingDirectory.standardOutput = OutputDestination.file(pathOf("mx-subprocess-no-such-directory/output.txt"))
+	print("a missing directory for the output: {refusal(missingDirectory)}\n")
+	print("every file was deleted: {removed(inputName) and removed(outputName) and removed(errorName)}\n")
+	return 0
+end 'main'

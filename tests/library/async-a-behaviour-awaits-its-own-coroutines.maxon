@@ -1,4 +1,3 @@
-// native-only
 // A behaviour is a green thread, so it may start coroutines of its strand and await them while it holds its cown; main
 // waits for its own after it scheduled the behaviour, and its exit code is what that gave. The interpreter runs no
 // coroutine.

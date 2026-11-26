@@ -1,0 +1,26 @@
+// An array is Cloneable only where its element is, and an element that cannot be copied is not, so such an array does not
+// meet a bound of Cloneable (maxon's E3017).
+typealias Score = int(i64.min to i64.max)
+
+type Socket is noncopyable
+	var fd as Score
+
+	static function open() returns Socket
+		return Socket{fd: 3}
+	end 'open'
+end 'Socket'
+
+typealias Sockets = Array with Socket
+
+function copied(a T) uses T returns T where T implements Cloneable
+	return a.clone()
+end 'copied'
+
+function main() returns ExitCode
+	var sockets = Sockets.create(0)
+	sockets.push(Socket.open())
+	let copy = copied(sockets)
+	return copy.count()
+end 'main'
+
+// expect-error: E3017 at 22:13

@@ -97,17 +97,27 @@ function eventRegister(handle Count) returns Count
 	return entry
 end 'eventRegister'
 
-// eventForget evicts a handle's entry, waits until no wait on it is in progress, takes the handle off the event queue and
-// gives the entry back. The handle is the caller's to close after.
+// eventForget evicts a handle's entry that other green threads may be waiting on, waits until no wait on it is in progress,
+// and releases it (eventRelease). The handle is the caller's to close after.
 function eventForget(entry Count)
 	eventEvict(entry)
 	while __Raw.atomicAdd(entry, offset: entryWaitingOffset, value: 0) != 0 'waits'
 		greenYield()
 	end 'waits'
+	eventRelease(entry)
+end 'eventForget'
+
+// eventRelease takes a handle's entry off the event queue and gives it back, where no wait on it is in progress: an entry whose
+// one owner releases it, as an open file's close does, has none, so the release never yields. The handle is the caller's to
+// close after.
+function eventRelease(entry Count)
+	if __Raw.atomicAdd(entry, offset: entryWaitingOffset, value: 0) != 0 'waiting'
+		panic("runtime: an event entry is released while a wait on it is in progress")
+	end 'waiting'
 	let scheduler = schedulerOf(__Raw.threadContext())
 	entryUnregister(scheduler, entry: entry)
 	entryGive(scheduler, entry: entry)
-end 'eventForget'
+end 'eventRelease'
 
 // eventEvict ends the waits on an entry with eventClosed, and every wait after it at once (Go's pollUnblock).
 function eventEvict(entry Count)
@@ -151,6 +161,46 @@ function eventProcessFree(entry Count)
 	eventForget(entry)
 	processWatchClose(handle)
 end 'eventProcessFree'
+
+// eventProcessOrphan gives up the wait for a process that the caller started and that may still run, and has the event queue reap
+// it when it ends, which no green thread waits for (a thread of the runtime that waited would be live, and keep the program from
+// ending while the child runs): a POSIX child that nothing waits for stays a zombie of this process until something does. The
+// entry's event is taken as any is, and reaps the child (takeOrphan); a child that has ended already is reaped here. Whoever
+// exchanges the entry's orphan word to 0 first gives the entry back. Windows has no zombie: the entry is given back, and the
+// process goes on.
+function eventProcessOrphan(entry Count, pid Count)
+	#if os(Windows)
+		eventProcessFree(entry)
+	#else
+		__Raw.storeRelease(entry, offset: entryOrphanOffset, value: pid)
+		var ended = orphanEnded(pid)
+		if not ended and not orphanArmed(entry) 'unwatched'
+			// The process has started to exit, which no event is reported for from now on: it is waited for as it ends.
+			orphanReap(pid)
+			ended = true
+		end 'unwatched'
+		if ended and __Raw.atomicExchange(entry, offset: entryOrphanOffset, value: 0) != 0 'ours'
+			eventProcessFree(entry)
+		end 'ours'
+	#endif
+end 'eventProcessOrphan'
+
+#if os(Linux) or os(macOS)
+	// takeOrphan is what the take of an event of an entry does where the entry's process was given up (eventProcessOrphan), and says
+	// whether the entry was one: it waits for the process, which the event says has ended or is ending, and gives the entry back.
+	function takeOrphan(scheduler Count, entry Count) returns bool
+		if __Raw.loadAcquire(entry, offset: entryOrphanOffset) == 0 'none'
+			return false
+		end 'none'
+		let pid = __Raw.atomicExchange(entry, offset: entryOrphanOffset, value: 0)
+		if pid != 0 'claimed'
+			orphanReap(pid)
+			orphanClose(scheduler, entry: entry)
+			entryGive(scheduler, entry: entry)
+		end 'claimed'
+		return true
+	end 'takeOrphan'
+#endif
 
 // eventWait parks the running green thread until an event of a mode of the entry, its deadline (eventNoDeadline for
 // none), its eviction or its coroutine's cancel, and gives which.
@@ -319,6 +369,7 @@ function entryTake(scheduler Count, kind Count, handle Count) returns Count
 	__Raw.storeWord(entry, offset: entryClosingOffset, value: unset)
 	__Raw.storeWord(entry, offset: entryWaitingOffset, value: 0)
 	__Raw.storeWord(entry, offset: entryLinkOffset, value: noEntry)
+	__Raw.storeWord(entry, offset: entryOrphanOffset, value: 0)
 	__Raw.storeRelease(entry, offset: entryKindOffset, value: kind)
 	return entry
 end 'entryTake'
@@ -334,18 +385,31 @@ function entryGive(scheduler Count, entry Count)
 	unlockScheduler(scheduler)
 end 'entryGive'
 
-// eventWaitMillis is a take's delay in nanoseconds as the milliseconds the system waits, rounded up so that a timer is never
-// woken for early, below the system's forever.
-function eventWaitMillis(delay Count, forever Count) returns Count
-	if delay == takeEventsForever 'forever'
-		return forever
-	end 'forever'
-	let millis = __Raw.wrappingAdd(delay, right: nanosPerMilli - 1) / nanosPerMilli
-	if millis >= forever 'long'
-		return __Raw.wrappingSub(forever, right: 1)
-	end 'long'
-	return millis
-end 'eventWaitMillis'
+// eventWaitArgument is a take's delay in nanoseconds as the timeout argument of the system's wait, the one place a delay
+// reaches it: takeEventsForever is the system's wait with no end, and any other delay is cut to the longest wait the system
+// is given (longestEventWaitNanos, from longestKeventSeconds, longestEpollMillis or longestPortWaitMillis), since each system
+// refuses or misreads a longer timeout. A wait so cut that ends with nothing come takes no event, and its thread looks for
+// work again (findRunnable): it runs the timers that are due and waits anew with the time that is left. On macOS the
+// argument is the thread's block's timespec, which it fills; elsewhere it counts milliseconds, rounded up so that a timer
+// is never woken for early.
+function eventWaitArgument(context Count, delay Count) returns Count
+	#if os(macOS)
+		if delay == takeEventsForever 'forever'
+			return noTimeout
+		end 'forever'
+		let cut = delay if delay < longestEventWaitNanos else longestEventWaitNanos
+		let timeout = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockClockOffset)
+		__Raw.storeWord(timeout, offset: 0, value: cut / nanosPerSecond)
+		__Raw.storeWord(timeout, offset: wordBytes, value: cut mod nanosPerSecond)
+		return timeout
+	#else
+		if delay == takeEventsForever 'forever'
+			return eventWaitForeverMillis
+		end 'forever'
+		let cut = delay if delay < longestEventWaitNanos else longestEventWaitNanos
+		return __Raw.wrappingAdd(cut, right: nanosPerMilli - 1) / nanosPerMilli
+	#endif
+end 'eventWaitArgument'
 
 // breakEventWait ends the wait of the thread in the event queue, once for any number of breaks before it takes one.
 function breakEventWait(scheduler Count)
@@ -372,6 +436,14 @@ end 'tookBreak'
 	let anyConcurrency = 0 as Count
 
 	let waitTimeout = 258 as Count
+
+	// eventWaitForeverMillis is GetQueuedCompletionStatusEx's timeout of a wait with no end, INFINITE, and
+	// longestPortWaitMillis the longest finite one it is given, the largest DWORD below it.
+	let eventWaitForeverMillis = waitForever
+
+	let longestPortWaitMillis = 0xFFFFFFFE as Count
+
+	let longestEventWaitNanos = (longestPortWaitMillis * nanosPerMilli) as Count
 
 	let notAlertable = 0 as Count
 
@@ -441,7 +513,7 @@ end 'tookBreak'
 		let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 		let entries = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockEventsOffset)
 		var got = 0 as Count
-		let wait = eventWaitMillis(delay, forever: waitForever)
+		let wait = eventWaitArgument(context, delay: delay)
 		if __Raw.callImport6("GetQueuedCompletionStatusEx", arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: entries, arg3: eventSlots, arg4: __Raw.addressOf(got), arg5: wait, arg6: notAlertable) == 0 'none'
 			if dword(__Raw.callImport0("GetLastError")) == waitTimeout 'timedOut'
 				return noGreen

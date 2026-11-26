@@ -1,0 +1,1429 @@
+/// Launch and manage child processes.
+///
+/// Modeled after Swift's `MxSubprocess` (swift-foundation SF-0007). The hot path
+/// is `MxSubprocess.run(.name("git"), arguments: ["status"])`, which captures
+/// stdout/stderr into a `MxCollectedOutput` value. For more control, build a
+/// `Configuration` and call `.run()` on it.
+///
+/// Async use: `let p = async MxSubprocess.run(...); let r = try await p`. The
+/// same `MxSubprocess.run` is callable from both sync and async contexts —
+/// from a green thread it yields to the scheduler at the wait, from a plain
+/// call it blocks the OS thread.
+///
+/// Not available on `wasm32-wasi` — WASI has no process-spawn primitives.
+/// Code that needs to compile on every supported target must `#if os(Wasi)`
+/// around its MxSubprocess use.
+///
+/// @category System
+// MxSubprocess: child-process execution. Not supported on WASI; do not target WASI from code that uses MxSubprocess.
+
+// =============================================================================
+// Shared integer types
+// =============================================================================
+
+public typealias ExitInt = int(0 to u32.max)
+
+/// The Windows error code a `MxSubprocessError` case carries: `GetLastError` on Windows; on Linux and
+/// macOS the errno mapped onto its Windows equivalent, 31 when it has none.
+public typealias OsErrorCode = int(0 to u32.max)
+
+// An OS process id, which is a `pid_t` on POSIX and a DWORD on Windows — never negative, and never
+// wider than the i64 the spawn builtins answer in. Narrowing it makes every `Pid` position a guarded
+// door, so it is worth being exact about where the builtins' `-1` is decoded, because it is NOT
+// decoded uniformly:
+//
+//   • `runDetachedConfiguration` gets the pid FROM the spawn, where a negative answer means the
+//     spawn failed, and decodes it before the value reaches this alias's return door.
+//   • `runConfiguration` does NOT decode — it reads `subprocessGetPid(handle)` and hands the result
+//     straight to `MxCollectedOutput.create`'s `pid Pid` parameter. That is sound rather than an
+//     oversight, and only because of what the entry answers `-1` FOR: both runtimes return it for a
+//     handle that is null / out of range / already released, and this handle was proved live one
+//     statement earlier and is released only after the read. A live handle carries the pid the spawn
+//     recorded.
+//
+// ⚠ So the guard here is the backstop for a `-1` that ESCAPED the first case, not a check the second
+// case is relying on. If a future runtime ever answers `-1` for a LIVE handle — a platform that
+// cannot report a pid — `runConfiguration` becomes an uncatchable range panic, and the fix is a
+// decode at that call, not a wider `Pid`.
+public typealias Pid = int(0 to u64.max)
+
+// A cap on how many bytes of a child's output are collected. Every capped read materialises a
+// `String`, so the backing `__ManagedMemory`'s signed machine-word length bounds it.
+public typealias ByteLimit = int(0 to u64.max)
+
+public typealias WaitDeadlineMs = int(1 to u64.max)
+
+public union MxWaitDeadline
+	none
+	within(timeoutMs WaitDeadlineMs)
+end 'MxWaitDeadline'
+
+let RuntimeNoDeadlineMs = 0
+
+function runtimeWaitMs(deadline MxWaitDeadline) returns clock.DurationMs
+	return match deadline 'bound'
+		none gives RuntimeNoDeadlineMs
+		within(timeoutMs) gives timeoutMs as clock.DurationMs
+	end 'bound'
+end 'runtimeWaitMs'
+
+function expiredAfterMs(deadline MxWaitDeadline) returns clock.DurationMs
+	match deadline 'bound'
+		none then panic("the runtime reported an expired deadline for a wait that has none")
+		within(timeoutMs) then return timeoutMs as clock.DurationMs
+	end 'bound'
+end 'expiredAfterMs'
+
+// Stdin discriminator passed across the builtin boundary. Raw values match
+// the runtime contract (see X86/ARM64 emitters and the parent plan).
+//
+// ⭐ `hold` IS A STDIN PIPE WITH NO PAYLOAD QUEUED. The number is 4 because that is the value the compiler's
+// runtime decodes; its constant is `SubpStdinHold` (`maxon-bin/Compiler/Runtime/GtRuntime.maxon`), and
+// a value the language can spell must not answer to a second name inside one compiler.
+//
+// ⚠ `emitSubpStdinKindWantsPipe` is the ONE place the compiler's runtime asks which kinds want a pipe.
+// ⇒ **the divergence to watch for is a NEW kind added to this enum and not to that set.**
+enum StdinKind
+	none = 0
+	inherit = 1
+	bytes = 2
+	file = 3
+	hold = 4
+end 'StdinKind'
+
+// Stdout / stderr discriminator passed across the builtin boundary. Shared
+// across both stdout and stderr slots — the runtime treats them identically.
+enum OutputKind
+	discard = 0
+	inherit = 1
+	collect = 2
+	file = 3
+end 'OutputKind'
+
+// Spawn-flags bitfield bits passed in the `flags` argument to
+// `subprocessSpawn` / `subprocessDetach`. Each case's `rawValue` is a single
+// bit position; the actual `flags` int is built by OR-ing selected
+// `.rawValue`s. Kept as enum (rather than constants) so the set of legal
+// bits is named in one place.
+enum SpawnFlag
+	hideWindow = 1
+	newProcessGroup = 2
+	detach = 4
+	traced = 8
+end 'SpawnFlag'
+
+// Result-struct status-kind discriminator. Matches the runtime's
+// `subprocessResultStatusKind` return values.
+enum ResultStatusKind
+	exited = 0
+	signalled = 1
+	timedOut = 2
+	treeNotEnded = 3
+	reapedElsewhere = 4
+end 'ResultStatusKind'
+
+// =============================================================================
+// MxExecutable
+// =============================================================================
+
+/// Error raised by `MxExecutable.resolve()` for a name that is not a well-formed path. A missing
+/// executable is not this error: the spawn reports it as `MxSubprocessError.executableNotFound`.
+public enum ExecutableError implements Error
+	notFound
+end 'ExecutableError'
+
+/// What to run. Either a name (`"git"`, searched for on the host when the
+/// child is spawned) or an explicit `FilePath`, which when relative is
+/// relative to the child's working directory.
+public union MxExecutable
+	name(value String)
+	path(value FilePath)
+
+	/// Wrap either arm as a `FilePath`, without resolving anything. For
+	/// `.path(p)` this is `p` unchanged; for `.name(n)` it is the name as
+	/// a path, and the search for it happens at the spawn.
+	/// Throws `ExecutableError.notFound` only if `n` is not a well-formed path
+	/// string; a name that is simply absent from PATH resolves fine here and
+	/// fails later, at the spawn.
+	///
+	/// ⚠ This is not a path lookup and cannot be used as an existence check.
+	/// "Is this tool installed?" built on `resolve()` answers a confident
+	/// `notFound` for a tool that is plainly on PATH. To probe for a tool,
+	/// spawn it.
+	public function resolve() returns FilePath throws ExecutableError
+		return match self 'r'
+			name(n) gives try FilePath.from(n) otherwise throw ExecutableError.notFound
+			path(p) gives p.clone()
+		end 'r'
+	end 'resolve'
+
+	/// Human-readable form for diagnostics.
+	public function displayName() returns String
+		return match self 'd'
+			name(n) gives n.clone()
+			path(p) gives p.path.clone()
+		end 'd'
+	end 'displayName'
+end 'MxExecutable'
+
+/// Where the child starts: `inherit` is the parent's working directory, `at(path)` is `path`,
+/// relative to the parent's. An empty `path` fails the spawn with `MxSubprocessError.spawnFailed`.
+public union WorkingDirectory
+	inherit
+	at(path FilePath)
+end 'WorkingDirectory'
+
+// =============================================================================
+// Environment
+// =============================================================================
+
+/// The variables an `Environment` arm names, keyed by variable name. Public so a caller can build one up.
+public typealias EnvMap = map.Map with String, String
+
+/// How the child process's environment is constructed.
+///
+/// - `inherit` — the child sees the parent's environment unchanged.
+/// - `inheritUpdating(map)` — the child inherits, then `map`'s entries
+///   overwrite any colliding keys.
+/// - `custom(map)` — the child sees exactly `map` and nothing else.
+///
+/// The three-arm union (rather than a single `Map` field) makes
+/// `inherit`-vs-empty unambiguous.
+public union Environment
+	inherit
+	inheritUpdating(overrides EnvMap)
+	custom(vars EnvMap)
+end 'Environment'
+
+// What the spawn contract's `envInherit` slot says about the `env` slot beside it.
+//
+// ⚠ THE TRUTHY VALUE IS `parent`, WHICH READS BACKWARDS FOR A SLOT NAMED AFTER THE OTHER ANSWER. The
+// numbers are the runtime contract's, not this file's: `inherit` was the only arm any emitter served
+// for long enough that all of them spell it as the 1. Naming the pair is what stops a call site from
+// spelling either as a bare literal and getting the sense inverted.
+enum EnvSource
+	// `env` points at a caller-built block and IS the child's whole environment.
+	block = 0
+	// The child inherits this process's environment; the `env` slot is not read.
+	parent = 1
+end 'EnvSource'
+
+public typealias EnvSourceValue = int(0 to 1)
+
+// The NUL that ends ONE TOKEN of a runtime blob — an argv token, an environment entry, and, one more
+// of it after the last entry, the environment block itself. Declared as the BYTE it is because that is
+// the only form its readers use: these blobs are assembled byte by byte here and walked byte by byte
+// by both runtimes.
+let BlobTokenTerminator = 0 as Byte
+
+/// Carries the (block, source) pair the spawn contract's `env` / `envInherit` slots take. A type for
+/// `StdioRuntimeTriple`'s reason: the two are one decision and a caller that computed them separately
+/// could compute a block for a spawn that will not read it, or the reverse.
+public type SpawnEnvironment
+	public var block as String
+	public var source as EnvSourceValue
+
+	public static function create(block String, source EnvSourceValue) returns SpawnEnvironment
+		return SpawnEnvironment{block: block.clone(), source: source}
+	end 'create'
+end 'SpawnEnvironment'
+
+type SpawnOperands
+	export let executablePath as String
+	export let argv as String
+	export let argc as ElementIndex
+	export let environment as SpawnEnvironment
+	export let workingDirectory as WorkingDirectory
+
+	static function prepare(executable MxExecutable, arguments StringArray, workingDirectory WorkingDirectory, environment Environment) returns SpawnOperands throws MxSubprocessError
+		try requireNulFreeSpawn(executable, arguments: arguments, workingDirectory: workingDirectory, environment: environment)
+		let exePath = try resolveExecutablePath(executable, workingDirectory: workingDirectory)
+		return SpawnOperands{executablePath: exePath.clone(), argv: buildArgvBlob(exePath, args: arguments), argc: try arguments.count() + 1 otherwise panic("out of range"), environment: try spawnEnvironmentFor(environment), workingDirectory: workingDirectory.clone()}
+	end 'prepare'
+
+	function workingDirectoryOperand() returns cstring
+		return match self.workingDirectory 'directory'
+			inherit gives subprocessEmptyCString()
+			at(path) gives path.path.cstr()
+		end 'directory'
+	end 'workingDirectoryOperand'
+end 'SpawnOperands'
+
+// =============================================================================
+// Input / Output sources
+// =============================================================================
+
+/// What the child reads on stdin.
+///
+/// - `none` — stdin is closed immediately.
+/// - `inherit` — pass through the parent's stdin.
+/// - `bytes(s)` — write `s` to stdin, NUL bytes included, then close.
+/// - `file(p)` — read stdin from a file on disk.
+/// - `hold` — stdin is a pipe the parent opens, hands the read end of to the
+///   child, and then holds open WITHOUT EVER WRITING TO IT, until the child is
+///   reaped. A read in the child therefore BLOCKS IN THE KERNEL instead of
+///   seeing EOF, which is what `none` and a spent `bytes` payload both give.
+///
+/// ⭐ `hold` IS THE ONLY ARM THAT LEAVES THE CHILD BLOCKED RATHER THAN ANSWERED,
+/// and it exists because nothing else can express that. `none` opens the null
+/// device (instant EOF), `bytes("")` writes nothing and then closes (also EOF —
+/// and the two runtimes disagree about even that; see `StdinKind`), and
+/// `inherit` hands over whatever the parent's own stdin happens to be, which is
+/// not a property any caller controls. A caller that needs a child to be stuck
+/// in a real blocking syscall has this and no other way to ask for it.
+///
+/// `file` routes its path through the `subprocessSpawn` stdio triple, and
+/// `bytes` its payload with the payload's length, so it reaches the child whole.
+public union InputSource
+	none
+	inherit
+	bytes(data String)
+	file(path FilePath)
+	hold
+end 'InputSource'
+
+/// Where the child's stdout (or stderr) is sent.
+///
+/// - `discard` — output is dropped.
+/// - `inherit` — pass through to the parent's stream.
+/// - `collect(limitBytes)` — read into the `MxCollectedOutput.stdout`/`.stderr`
+///   field, truncated at `limitBytes`.
+/// - `file(p)` — redirect to a file on disk.
+///
+/// Each variant routes through the `subprocessSpawn` stdio triple.
+public union OutputDestination
+	discard
+	inherit
+	collect(limitBytes ByteLimit)
+	file(path FilePath)
+end 'OutputDestination'
+
+// =============================================================================
+// Termination status
+// =============================================================================
+
+/// How the child terminated.
+///
+/// - `exited(code)` — the child called `exit(code)` (or its main returned
+///   `code`). On Windows this includes any value `GetExitCodeProcess` returned
+///   that isn't an NTSTATUS-class abnormal exit.
+/// - `signalled(code)` — Linux and macOS: the child was killed by signal `code`.
+///
+/// A Windows child that terminated abnormally is `exited` with its NTSTATUS code
+/// (e.g. `0xC0000005` for an access violation).
+public union TerminationStatus
+	exited(code ExitInt)
+	signalled(code ExitInt)
+
+	/// True iff the child exited cleanly with code 0.
+	public function isSuccess() returns bool
+		return match self 's'
+			exited(c) gives c == 0
+			signalled gives false
+		end 's'
+	end 'isSuccess'
+
+	/// The raw integer code, regardless of how the child terminated. Useful
+	/// for logging; for control flow prefer matching on the union directly.
+	public function code() returns ExitInt
+		return match self 'c'
+			exited(c) gives c
+			signalled(c) gives c
+		end 'c'
+	end 'code'
+end 'TerminationStatus'
+
+// =============================================================================
+// Errors
+// =============================================================================
+
+/// The error `__Builtins.runProcess` throws: `spawnFailed` when the command names nothing the host can
+/// start, `statusLost` when the child ended while another process took its exit status.
+public enum RunProcessError implements Error
+	spawnFailed
+	statusLost
+end 'RunProcessError'
+
+/// Errors raised by `MxSubprocess.run` / `Configuration.run` and by a
+/// `StreamingSubprocess`. Each carries the actionable detail rather than just a
+/// kind tag.
+///
+/// `timeout` carries the output the child had already produced when the
+/// deadline killed it, because that partial text is usually the only evidence
+/// of why it hung. Both fields are empty where the layer that threw was not
+/// collecting output — see `StreamingSubprocess.wait`.
+///
+/// `treeNotEnded` is a deadline whose kill could not fully end the child's
+/// process tree. It carries the output as `timeout` does; `deadlineFired()` is
+/// true for it and `timedOut()` false.
+///
+/// `statusLost` is a child that ended while another process took its exit status, so a wait or a collect
+/// has no status to report. It carries the output as `timeout` does; the fields are empty where the layer
+/// that threw was not collecting output. Whether the status is available depends on whether the child
+/// finished dying before the process holding it, such as a debugger's stub, let it go.
+public union MxSubprocessError implements Error
+	executableNotFound(name String)
+	spawnFailed(reason String)
+	busy
+	ioFailed(reason String)
+	timeout(elapsedMs clock.DurationMs, stdout String, stderr String)
+	treeNotEnded(elapsedMs clock.DurationMs, stdout String, stderr String, osError OsErrorCode)
+	detachRefused(osError OsErrorCode)
+	inputTooLarge
+	statusLost(stdout String, stderr String)
+
+	/// Human-readable rendering for diagnostics. Centralises the wording so
+	/// every callsite produces the same single-line description of a spawn /
+	/// timeout / I/O failure.
+	public function displayReason() returns String
+		return match self 'e'
+			executableNotFound(name) gives "executable not found: {name}"
+			spawnFailed(reason) gives "spawn failed: {reason}"
+			busy gives "the executable is open for writing by another process or handle, so the operating system will not run it"
+			ioFailed(reason) gives "I/O failed: {reason}"
+			timeout(elapsedMs, _, _) gives "timed out after {elapsedMs}ms, and the kill was sent to the child's whole process tree"
+			treeNotEnded(elapsedMs, _, _, osError) gives "timed out after {elapsedMs}ms, but the child's process tree could not be fully ended: os error {osError}"
+			detachRefused(osError) gives "runDetached: the process could not leave the job this program runs in, because that job does not allow breakaway (os error {osError}); run the program outside that job or allow breakaway on it"
+			inputTooLarge gives "stdin payload too large"
+			statusLost gives "the child ended, and its exit status went to another process, so it is not available"
+		end 'e'
+	end 'displayReason'
+
+	/// True for `timeout`.
+	public function timedOut() returns bool
+		return match self 'e'
+			timeout gives true
+			executableNotFound or
+			spawnFailed or
+			busy or
+			ioFailed or
+			treeNotEnded or
+			detachRefused or
+			inputTooLarge or
+			statusLost gives false
+		end 'e'
+	end 'timedOut'
+
+	/// True for `timeout` and `treeNotEnded`: the deadline fired, whether or not
+	/// the child's process tree ended.
+	public function deadlineFired() returns bool
+		return match self 'e'
+			timeout or
+			treeNotEnded gives true
+			executableNotFound or
+			spawnFailed or
+			busy or
+			ioFailed or
+			detachRefused or
+			inputTooLarge or
+			statusLost gives false
+		end 'e'
+	end 'deadlineFired'
+end 'MxSubprocessError'
+
+// =============================================================================
+// Collected output
+// =============================================================================
+
+/// Result of a synchronous (or awaited-async) run that captured its output.
+public type MxCollectedOutput
+	public var status as TerminationStatus
+	public var stdout as String
+	public var stderr as String
+	public var pid as Pid
+	public var durationMs as clock.DurationMs
+
+	public static function create(status TerminationStatus, stdout String, stderr String, pid Pid, durationMs clock.DurationMs) returns MxCollectedOutput
+		return MxCollectedOutput{status: status.clone(), stdout: stdout.clone(), stderr: stderr.clone(), pid: pid, durationMs: durationMs}
+	end 'create'
+
+	/// True iff `status.isSuccess()` — exited cleanly with code 0.
+	public function succeeded() returns bool
+		return status.isSuccess()
+	end 'succeeded'
+
+	/// Convenience for callers that only care about a raw integer.
+	public function exitCode() returns ExitInt
+		return status.code()
+	end 'exitCode'
+end 'MxCollectedOutput'
+
+// =============================================================================
+// PlatformOptions
+// =============================================================================
+
+/// OS-specific knobs that don't fit cleanly into the cross-platform surface.
+public type PlatformOptions
+	public var windowsHideWindow as bool
+	public var windowsCreateNewProcessGroup as bool
+
+	public static function defaults() returns PlatformOptions
+		return PlatformOptions{windowsHideWindow: false, windowsCreateNewProcessGroup: false}
+	end 'defaults'
+end 'PlatformOptions'
+
+// =============================================================================
+// Configuration
+// =============================================================================
+
+let defaultCaptureLimit = 16 * 1024 * 1024
+
+/// Builder for a subprocess invocation. The fields are public mutable — set
+/// what you need with direct assignment after `Configuration.create(...)`,
+/// then call `.run()` or `.runDetached()`. There's no chained-setter form
+/// because Maxon mutating methods can't return `Self` without forcing a
+/// per-setter struct copy.
+public type Configuration
+	public var executable as MxExecutable
+	public var arguments as StringArray
+	public var workingDirectory as WorkingDirectory
+	public var environment as Environment
+	public var standardInput as InputSource
+	public var standardOutput as OutputDestination
+	public var standardError as OutputDestination
+	/// The kill-after deadline. What it kills is the child's whole process
+	/// TREE: a child that is a shell takes every process it started with it.
+	public var deadline as MxWaitDeadline
+	public var platformOptions as PlatformOptions
+
+	/// Build a Configuration with sensible defaults: empty argv, the given working directory, inherited
+	/// env, no stdin, both output streams collected up to 16 MiB, no timeout.
+	public static function create(executable MxExecutable, workingDirectory WorkingDirectory = WorkingDirectory.inherit) returns Configuration
+		return Configuration{executable: executable.clone(), arguments: StringArray.create(0), workingDirectory: workingDirectory.clone(), environment: Environment.inherit, standardInput: InputSource.none, standardOutput: OutputDestination.collect(defaultCaptureLimit), standardError: OutputDestination.collect(defaultCaptureLimit), deadline: MxWaitDeadline.none, platformOptions: PlatformOptions.defaults()}
+	end 'create'
+
+	/// Run the configured subprocess and collect its output. Blocks the
+	/// caller; from a green thread the spawn yields to the scheduler so
+	/// other green threads make progress while the child runs.
+	public function run() returns MxCollectedOutput throws MxSubprocessError
+		return try MxSubprocess.runConfiguration(self)
+	end 'run'
+
+	/// Spawn the configured subprocess detached from the parent and return
+	/// its pid. stdin/stdout/stderr are forced to discard since the parent
+	/// won't be around to drain pipe ends. The child is outside every process
+	/// tree a deadline ends. Throws `detachRefused` on Windows when the job this
+	/// program runs in does not allow breakaway, and `spawnFailed` on Linux when
+	/// the child cannot start its own session.
+	public function runDetached() returns Pid throws MxSubprocessError
+		return try MxSubprocess.runDetachedConfiguration(self)
+	end 'runDetached'
+end 'Configuration'
+
+// =============================================================================
+// MxSubprocess — top-level entry
+// =============================================================================
+
+public type MxSubprocess
+	/// Run `executable arguments...` and collect output.
+	public static function run(executable MxExecutable, arguments StringArray, workingDirectory WorkingDirectory = WorkingDirectory.inherit, deadline MxWaitDeadline = MxWaitDeadline.none) returns MxCollectedOutput throws MxSubprocessError
+		var c = Configuration.create(executable, workingDirectory: workingDirectory)
+		c.arguments = arguments.clone()
+		c.deadline = deadline.clone()
+		return try c.run()
+	end 'run'
+
+	/// Internal entry — `Configuration.run()` routes through here. Lowers to
+	/// the `__Builtins.subprocess*` runtime contract: build argv/cwd/stdio
+	/// payloads, spawn, wait-collect, decode the result struct, release.
+	public static function runConfiguration(config Configuration) returns MxCollectedOutput throws MxSubprocessError
+		try requireNulFreeStandardStreams(config.standardInput, stdout: config.standardOutput, stderr: config.standardError)
+		let operands = try SpawnOperands.prepare(config.executable, arguments: config.arguments, workingDirectory: config.workingDirectory, environment: config.environment)
+		let stdinTriple = stdinTripleFromSource(config.standardInput)
+		let stdoutTriple = outputTripleFromDestination(config.standardOutput)
+		let stderrTriple = outputTripleFromDestination(config.standardError)
+		let flags = attachedFlagsFor(config.platformOptions)
+		let handle = __Builtins.subprocessSpawn(operands.argv.addressableBytes(), operands.argc, operands.workingDirectoryOperand(), operands.environment.block.addressableBytes(), operands.environment.source, stdinTriple.kind, stdinTriple.data.cstr(), stdoutTriple.kind, stdoutTriple.data.cstr(), stdoutTriple.limit, stderrTriple.kind, stderrTriple.data.cstr(), stderrTriple.limit, flags, stdinTriple.data.byteLength())
+		if handle == SpawnFailedAnswer 'spawnFailed'
+			throw spawnFailure(operands.executablePath)
+		end 'spawnFailed'
+		let pid = __Builtins.subprocessGetPid(handle)
+		let result = __Builtins.subprocessWaitCollect(handle, runtimeWaitMs(config.deadline))
+		let osError = lastOsErrorCode()
+		if result == WaitFailedAnswer 'waitFailed'
+			let reason = lastErrorMessage()
+			__Builtins.subprocessReleaseHandle(handle)
+			throw MxSubprocessError.ioFailed(reason)
+		end 'waitFailed'
+		let statusKindRaw = __Builtins.subprocessResultStatusKind(result)
+		let statusCode = __Builtins.subprocessResultStatusCode(result)
+		let stdoutManaged = __Builtins.subprocessResultStdout(result)
+		let stderrManaged = __Builtins.subprocessResultStderr(result)
+		let durationMs = __Builtins.subprocessResultDurationMs(result)
+		let stdout = String.init(stdoutManaged)
+		let stderr = String.init(stderrManaged)
+		__Builtins.subprocessResultRelease(result)
+		__Builtins.subprocessReleaseHandle(handle)
+		let statusKind = try ResultStatusKind.fromRawValue(statusKindRaw) otherwise panic("MxSubprocess.runConfiguration: runtime returned unexpected statusKind raw={statusKindRaw}")
+		let status = try terminationStatusFromKind(statusKind, statusCode: try statusCode as ExitInt otherwise panic("out of range"), durationMs: durationMs, stdout: stdout, stderr: stderr, osError: osError)
+		return MxCollectedOutput.create(status, stdout: stdout, stderr: stderr, pid: try pid as Pid otherwise panic("out of range"), durationMs: durationMs)
+	end 'runConfiguration'
+
+	/// Spawn detached. Uses the same 15-arg layout as `subprocessSpawn` with
+	/// the detach flag bit set; the runtime returns the OS pid instead of an
+	/// attached handle, -1 for a failed spawn, or -2 for a detach the job this
+	/// program runs in refuses. stdin/stdout/stderr are forced to discard so the
+	/// child doesn't inherit pipe ends the caller would have to drain.
+	public static function runDetachedConfiguration(config Configuration) returns Pid throws MxSubprocessError
+		let operands = try SpawnOperands.prepare(config.executable, arguments: config.arguments, workingDirectory: config.workingDirectory, environment: config.environment)
+		let emptyCStr = subprocessEmptyCString()
+		let flags = attachedFlagsFor(config.platformOptions) or SpawnFlag.detach.rawValue
+		let pid = __Builtins.subprocessDetach(operands.argv.addressableBytes(), operands.argc, operands.workingDirectoryOperand(), operands.environment.block.addressableBytes(), operands.environment.source, StdinKind.none.rawValue, emptyCStr, OutputKind.discard.rawValue, emptyCStr, UncollectedStreamLimit, OutputKind.discard.rawValue, emptyCStr, UncollectedStreamLimit, flags, 0)
+		if pid == SpawnFailedAnswer 'spawnFailed'
+			throw spawnFailure(operands.executablePath)
+		end 'spawnFailed'
+		if pid == DetachRefusedAnswer 'detachRefused'
+			throw MxSubprocessError.detachRefused(lastOsErrorCode())
+		end 'detachRefused'
+		if pid < 0 'unknownAnswer'
+			panic("MxSubprocess.runDetachedConfiguration: the runtime answered {pid}, which is none of a process id, {SpawnFailedAnswer} and {DetachRefusedAnswer}")
+		end 'unknownAnswer'
+		return pid as Pid
+	end 'runDetachedConfiguration'
+end 'MxSubprocess'
+
+// =============================================================================
+// Internal helpers — argv blob, executable resolution, runtime triple plumbing
+// =============================================================================
+
+// Stdio-kind discriminator carried into spawn. Narrowed to the values the
+// contract defines so an out-of-range value can't be produced by an accidental
+// assignment. The upper bound is stdin's, which has one kind more than the
+// output side (`StdinKind.hold`); an output slot never produces it.
+public typealias StdioKindValue = int(0 to 4)
+
+// Spawn-flags bitfield. Bits past the documented 3 are reserved.
+typealias SpawnFlagsValue = int(0 to 15)
+
+/// Carries the (kind, data, limit) triple passed to subprocessSpawn for one
+/// stdio stream. The limit field is meaningful only for `collect`; for other
+/// kinds the runtime ignores it but we still set it to 0 for clarity. The
+/// data field stays a `String` here so the rest of the helper chain is
+/// type-checked at the source language level; the conversion to `cstring`
+/// happens at the spawn call site via `.cstr()`. For kinds whose contract
+/// has no payload (e.g. inherit/discard), pass the empty string and the
+/// runtime treats the leading-NUL cstring as "no payload". `bytes` passes its
+/// payload, and the spawn passes the payload's byte length beside it, so a NUL
+/// inside it is delivered.
+public type StdioRuntimeTriple
+	public var kind as StdioKindValue
+	public var data as String
+	public var limit as ByteLimit
+
+	public static function create(kind StdioKindValue, data String, limit ByteLimit) returns StdioRuntimeTriple
+		return StdioRuntimeTriple{kind: kind, data: data.clone(), limit: limit}
+	end 'create'
+end 'StdioRuntimeTriple'
+
+/// Resolve `MxExecutable.name(n)` to a launchable path, and `MxExecutable.path(p)` to the path the child runs.
+function resolveExecutablePath(executable MxExecutable, workingDirectory WorkingDirectory) returns String throws MxSubprocessError
+	return match executable 'r'
+		name(n) gives try resolveByName(n, workingDirectory: workingDirectory)
+		path(p) gives launchPathInWorkingDirectory(p, workingDirectory: workingDirectory)
+	end 'r'
+end 'resolveExecutablePath'
+
+// ⭐ **A RELATIVE `MxExecutable.path` IS RELATIVE TO THE CHILD'S `workingDirectory` ON EVERY OS, BY
+// CONSTRUCTION.** Whether the OS reads a launch path before or after the child enters its directory differs
+// between hosts — `CreateProcessW` and macOS 15's `posix_spawn` read it first, `execve` after — so the launch
+// path is made ABSOLUTE here and reads the same either way. The directory is anchored to the parent's own
+// first, because a relative directory joined onto a relative path would be applied twice by a child that
+// has already entered it. An inherited `workingDirectory` is the parent's, which the OS already resolves against.
+function launchPathInWorkingDirectory(executablePath FilePath, workingDirectory WorkingDirectory) returns String
+	if executablePath.isAbsolute() 'asGiven'
+		return executablePath.path.clone()
+	end 'asGiven'
+	return match workingDirectory 'directory'
+		inherit gives executablePath.path.clone()
+		at(path) gives executablePath.resolve(path.resolve(Directory.currentPath())).path.clone()
+	end 'directory'
+end 'launchPathInWorkingDirectory'
+
+// A name carrying a directory is anchored to the child's working directory, as `MxExecutable.path`
+// is, and looked for there alone. ⚠ This test and `SubprocessRuntime.emitSubpWindowsNameRules`'s
+// must agree on which names carry a directory: the walk tries such a name only as given, so one
+// this side leaves unanchored resolves against the parent's working directory.
+//
+// On POSIX a bare name the walk misses is not found: `execve` reads a slash-less path against the
+// working directory, and would run a file there that shadows the tool.
+function resolveByName(name String, workingDirectory WorkingDirectory) returns String throws MxSubprocessError
+	let asPath = try FilePath.from(name) otherwise throw MxSubprocessError.executableNotFound(name.clone())
+	let carriesADirectory = asPath.rootByteLength() > 0 or asPath.filename() != asPath.path
+	let lookup = launchPathInWorkingDirectory(asPath, workingDirectory: workingDirectory) if carriesADirectory else name.clone()
+	#if os(Windows)
+		return String.init(__Builtins.subprocessResolveOnPath(lookup.cstr()))
+	#else
+		let dirSeparator = "/"
+		if carriesADirectory 'isAPath'
+			return lookup
+		end 'isAPath'
+		let resolved = String.init(__Builtins.subprocessResolveOnPath(lookup.cstr()))
+		// The walk never answers the working directory on POSIX, so a hit always carries a directory.
+		if not resolved.contains(dirSeparator) 'notOnPath'
+			throw MxSubprocessError.executableNotFound(name.clone())
+		end 'notOnPath'
+		return resolved
+	#endif
+end 'resolveByName'
+
+/// Pack argc strings (executable name + argv) back-to-back into a single
+/// NUL-separated buffer. Each token contributes `utf-8 bytes + 0x00`. The
+/// resulting String wraps the buffer; callers pass `.addressableBytes()` to the builtin.
+/// The runtime walks the blob using argc as the token count (NUL bytes act as
+/// separators; the runtime advances past each NUL between tokens).
+function buildArgvBlob(executablePath String, args StringArray) returns String
+	var out = ByteArray.create(0)
+	appendNulTerminated(out, source: executablePath)
+	let n = args.count()
+	for i in 0 upto n 'arg'
+		let arg = args.get(i)
+		appendNulTerminated(out, source: arg)
+	end 'arg'
+	return String.from(out)
+end 'buildArgvBlob'
+
+function appendNulTerminated(mutates out ByteArray, source String)
+	appendBytesOf(out, source: source)
+	out.push(BlobTokenTerminator)
+end 'appendNulTerminated'
+
+function requireNulFree(text String, operand String) throws MxSubprocessError
+	for b in text.bytes() 'eachByte'
+		if b == BlobTokenTerminator 'holdsNul'
+			throw MxSubprocessError.spawnFailed("{operand} holds a NUL byte, which no operating system passes to a child intact")
+		end 'holdsNul'
+	end 'eachByte'
+end 'requireNulFree'
+
+function requireNulFreeSpawn(executable MxExecutable, arguments StringArray, workingDirectory WorkingDirectory, environment Environment) throws MxSubprocessError
+	match executable 'program'
+		name(n) then try requireNulFree(n, operand: "the program name")
+		path(p) then try requireNulFree(p.path, operand: "the program path")
+	end 'program'
+	match workingDirectory 'directory'
+		inherit then break
+		at(path) then try requireNamedWorkingDirectory(path)
+	end 'directory'
+	for (iter, argument) in arguments.enumerated() 'eachArgument'
+		try requireNulFree(argument, operand: "argument {try iter + 1 otherwise panic("out of range")}")
+	end 'eachArgument'
+	match environment 'env'
+		inherit then return
+		inheritUpdating(overrides) then try requireNulFreeEnvironment(overrides)
+		custom(vars) then try requireNulFreeEnvironment(vars)
+	end 'env'
+end 'requireNulFreeSpawn'
+
+function requireNamedWorkingDirectory(path FilePath) throws MxSubprocessError
+	if path.path.byteLength() == 0 'empty'
+		throw MxSubprocessError.spawnFailed("the working directory is the empty path, which names no directory; pass WorkingDirectory.inherit to start the child in the parent's working directory")
+	end 'empty'
+	try requireNulFree(path.path, operand: "the working directory")
+end 'requireNamedWorkingDirectory'
+
+function requireNulFreeEnvironment(vars EnvMap) throws MxSubprocessError
+	for (name, value) in vars 'eachVariable'
+		try requireNulFree(name, operand: "an environment variable name")
+		try requireNulFree(value, operand: "the value of environment variable '{name}'")
+	end 'eachVariable'
+end 'requireNulFreeEnvironment'
+
+function requireNulFreeStandardStreams(stdin InputSource, stdout OutputDestination, stderr OutputDestination) throws MxSubprocessError
+	try requireNulFreeInputFile(stdin)
+	try requireNulFreeOutputFile(stdout, operand: "the standard output file path")
+	try requireNulFreeOutputFile(stderr, operand: "the standard error file path")
+end 'requireNulFreeStandardStreams'
+
+function requireNulFreeInputFile(source InputSource) throws MxSubprocessError
+	match source 'in'
+		file(path) then try requireNulFree(path.path, operand: "the standard input file path")
+		none or
+		inherit or
+		bytes or
+		hold then return
+	end 'in'
+end 'requireNulFreeInputFile'
+
+function requireNulFreeOutputFile(destination OutputDestination, operand String) throws MxSubprocessError
+	match destination 'out'
+		file(path) then try requireNulFree(path.path, operand: operand)
+		discard or
+		inherit or
+		collect then return
+	end 'out'
+end 'requireNulFreeOutputFile'
+
+/// Empty cstring sentinel for the slots
+/// whose runtime contract is a cstring but whose value carries no payload
+/// (`StdinKind.none`, `OutputKind.discard`, `OutputKind.inherit`,
+/// `OutputKind.collect`). Hoisted out of the spawn call site so the same
+/// pointer is reused across all empty slots in a single spawn.
+function subprocessEmptyCString() returns cstring
+	let empty = ""
+	return empty.cstr()
+end 'subprocessEmptyCString'
+
+/// ⭐⭐ THE CHILD'S ENVIRONMENT, AND THE ONE PLACE ALL THREE `Environment` ARMS ARE ANSWERED.
+///
+/// The answer is a BLOCK — NUL-terminated `NAME=VALUE` entries back-to-back, then one more NUL — plus
+/// the flag that says whether the spawn should read it at all. That shape is the platform's own on
+/// Windows and is trivially turned into `char *const envp[]` on POSIX, so each runtime does a
+/// conversion and no runtime does any LOGIC: which entries survive, which are replaced and which are
+/// added is decided here, once, in a language that has a Map.
+///
+/// ⚠ THE BLOCK IS SELF-DELIMITING BECAUSE IT HAS TO BE. Only its BYTES reach the OS — the bootstrap's
+/// intrinsic lowering extracts the `__ManagedMemory`'s buffer pointer before the call and the compiler's runtime
+/// entry reads the same field itself — and no length travels beside them, so the terminating NUL after
+/// the last entry is the only thing that tells a runtime where the block ends.
+function spawnEnvironmentFor(env Environment) returns SpawnEnvironment throws MxSubprocessError
+	var out = ByteArray.create(0)
+	match env 'e'
+		inherit then return SpawnEnvironment.create(emptyEnvBlock(), source: EnvSource.parent.rawValue)
+		inheritUpdating(overrides) then try appendInheritedEntries(out, overrides: overrides)
+		custom(vars) then appendEnvEntries(out, vars: vars, names: try namesByKey(vars))
+	end 'e'
+	out.push(BlobTokenTerminator)
+	return SpawnEnvironment.create(String.from(out), source: EnvSource.block.rawValue)
+end 'spawnEnvironmentFor'
+
+/// The block handed over when the child INHERITS: zero entries, so nothing but the block's own
+/// terminator. The runtime never reads it — `EnvSource.parent` tells it not to — but the slot is a
+/// buffer pointer that the argument lowering dereferences either way, so it has to be a real one.
+function emptyEnvBlock() returns String
+	var out = ByteArray.create(0)
+	out.push(BlobTokenTerminator)
+	return String.from(out)
+end 'emptyEnvBlock'
+
+/// This process's own entries, each one an override names (under any spelling `Process.envNameKey`
+/// folds together) replaced by the override's name and value, then the overrides that named nothing
+/// inherited.
+///
+/// The inherited order is preserved rather than rebuilt from a map: the block a child receives is
+/// then byte-identical to this process's own except at the names the caller named. Windows reports
+/// its block sorted and CreateProcess documents wanting a sorted one; a map's iteration order would
+/// answer neither, and would move the platform's own `=X:=X:\dir` drive entries, which come first.
+function appendInheritedEntries(mutates out ByteArray, overrides EnvMap) throws MxSubprocessError
+	var pending = try namesByKey(overrides)
+	let inherited = try Process.currentEnvironmentEntries() otherwise throw MxSubprocessError.spawnFailed("this process's environment could not be read, so no child can inherit it")
+	for entry in inherited 'eachInherited'
+		let key = Process.envNameKey(Process.envEntryName(entry))
+		if let name = try pending.get(key) 'overridden'
+			appendEnvEntry(out, vars: overrides, name: name)
+			_ = pending.remove(key)
+		end 'overridden' else 'kept'
+			appendNulTerminated(out, source: entry)
+		end 'kept'
+	end 'eachInherited'
+	appendEnvEntries(out, vars: overrides, names: pending)
+end 'appendInheritedEntries'
+
+// Two spellings of one Windows variable are refused: which one Windows would keep is undefined.
+function namesByKey(vars EnvMap) returns EnvMap throws MxSubprocessError
+	var names = EnvMap.create()
+	for (name, _) in vars 'eachVar'
+		let key = Process.envNameKey(name)
+		try names.insert(key.clone(), value: name.clone()) otherwise throw MxSubprocessError.spawnFailed("two names in the environment are the variable '{key}', and Windows reads a variable name without regard to case")
+	end 'eachVar'
+	return names
+end 'namesByKey'
+
+function appendEnvEntries(mutates out ByteArray, vars EnvMap, names EnvMap)
+	for (_, name) in names 'eachName'
+		appendEnvEntry(out, vars: vars, name: name)
+	end 'eachName'
+end 'appendEnvEntries'
+
+function appendEnvEntry(mutates out ByteArray, vars EnvMap, name String)
+	let value = try vars.get(name) otherwise panic("appendEnvEntry: '{name}' was read out of the very map it is looked up in")
+	appendBytesOf(out, source: name)
+	out.push(process.EnvNameValueSeparator)
+	appendNulTerminated(out, source: value)
+end 'appendEnvEntry'
+
+/// One String's bytes, appended verbatim. `appendNulTerminated` is this plus the terminator; an entry's
+/// NAME needs the half without it, because the entry does not end there.
+function appendBytesOf(mutates out ByteArray, source String)
+	let bytes = source.toByteArray()
+	let n = bytes.count()
+	for i in 0 upto n 'byte'
+		let b = bytes.get(i)
+		out.push(b)
+	end 'byte'
+end 'appendBytesOf'
+
+/// Convert a runtime-reported `ResultStatusKind` + payload into the
+/// user-facing TerminationStatus, or throw `MxSubprocessError.timeout` or
+/// `treeNotEnded` for a deadline. The collected output is threaded in so those
+/// arms can carry it: a killed child's `MxCollectedOutput` is never returned, so the
+/// throw is the only thing that can hand back what it had written.
+function terminationStatusFromKind(statusKind ResultStatusKind, statusCode ExitInt, durationMs clock.DurationMs, stdout String, stderr String, osError OsErrorCode) returns TerminationStatus throws MxSubprocessError
+	match statusKind 's'
+		exited then return TerminationStatus.exited(statusCode)
+		signalled then return TerminationStatus.signalled(statusCode)
+		timedOut then throw MxSubprocessError.timeout(durationMs, stdout: stdout.clone(), stderr: stderr.clone())
+		treeNotEnded then throw MxSubprocessError.treeNotEnded(durationMs, stdout: stdout.clone(), stderr: stderr.clone(), osError: osError)
+		reapedElsewhere then throw MxSubprocessError.statusLost(stdout.clone(), stderr: stderr.clone())
+	end 's'
+end 'terminationStatusFromKind'
+
+function stdinTripleFromSource(src InputSource) returns StdioRuntimeTriple
+	return match src 's'
+		none gives StdioRuntimeTriple.create(StdinKind.none.rawValue, data: "", limit: UncollectedStreamLimit)
+		inherit gives StdioRuntimeTriple.create(StdinKind.inherit.rawValue, data: "", limit: UncollectedStreamLimit)
+		bytes(data) gives StdioRuntimeTriple.create(StdinKind.bytes.rawValue, data: data, limit: UncollectedStreamLimit)
+		file(path) gives StdioRuntimeTriple.create(StdinKind.file.rawValue, data: path.path, limit: UncollectedStreamLimit)
+		hold gives StdioRuntimeTriple.create(StdinKind.hold.rawValue, data: "", limit: UncollectedStreamLimit)
+	end 's'
+end 'stdinTripleFromSource'
+
+function outputTripleFromDestination(dst OutputDestination) returns StdioRuntimeTriple
+	return match dst 'o'
+		discard gives StdioRuntimeTriple.create(OutputKind.discard.rawValue, data: "", limit: UncollectedStreamLimit)
+		inherit gives StdioRuntimeTriple.create(OutputKind.inherit.rawValue, data: "", limit: UncollectedStreamLimit)
+		collect(limitBytes) gives StdioRuntimeTriple.create(OutputKind.collect.rawValue, data: "", limit: limitBytes)
+		file(path) gives StdioRuntimeTriple.create(OutputKind.file.rawValue, data: path.path, limit: UncollectedStreamLimit)
+	end 'o'
+end 'outputTripleFromDestination'
+
+/// Compose the spawn-flags bitfield for an attached spawn (detach bit set
+/// separately by `runDetachedConfiguration`).
+function attachedFlagsFor(opts PlatformOptions) returns SpawnFlagsValue
+	var flags = 0 as SpawnFlagsValue
+	if opts.windowsHideWindow 'hide'
+		flags = flags or SpawnFlag.hideWindow.rawValue
+	end 'hide'
+	if opts.windowsCreateNewProcessGroup 'newGroup'
+		flags = flags or SpawnFlag.newProcessGroup.rawValue
+	end 'newGroup'
+	return flags
+end 'attachedFlagsFor'
+
+// Which step of a spawn failed, as the runtime records it above the OS code in the word
+// `__Builtins.subprocessLastErrorCode` answers; `GtRuntime` stores them from this enum.
+// A spawn opens its standard streams, and on POSIX its working directory, before it launches anything, and
+// each fails with the same not-found codes a missing executable does; only the runtime knows which step it was.
+public enum SpawnPreparation
+	none = 0
+	standardStream = 1
+	workingDirectory = 2
+end 'SpawnPreparation'
+
+let spawnPreparationShift = 32
+
+let osErrorCodeMask = 0xFFFFFFFF
+
+// What a failed spawn of `launchPath` throws: `executableNotFound` exactly when the launch itself found no file.
+function spawnFailure(launchPath String) returns MxSubprocessError
+	let word = __Builtins.subprocessLastErrorCode()
+	let preparation = try SpawnPreparation.fromRawValue(word shr spawnPreparationShift) otherwise panic("MxSubprocess.spawnFailure: the runtime recorded a spawn step this library does not know")
+	let code = lastOsErrorCode()
+	let fileMissing = code == OsErrorFileNotFound or code == OsErrorPathNotFound
+	if fileMissing and preparation == SpawnPreparation.none 'executableAbsent'
+		return MxSubprocessError.executableNotFound(launchPath.clone())
+	end 'executableAbsent'
+	if code == OsErrorSharingViolation and preparation == SpawnPreparation.none 'executableBusy'
+		return MxSubprocessError.busy
+	end 'executableBusy'
+	return MxSubprocessError.spawnFailed(lastErrorMessage())
+end 'spawnFailure'
+
+function lastOsErrorCode() returns OsErrorCode
+	return try (__Builtins.subprocessLastErrorCode() and osErrorCodeMask) as OsErrorCode otherwise panic("out of range")
+end 'lastOsErrorCode'
+
+function lastErrorMessage() returns String
+	let managed = __Builtins.subprocessLastErrorMessage()
+	return String.init(managed)
+end 'lastErrorMessage'
+
+// =============================================================================
+// StreamingSubprocess — long-lived child with caller-driven stdio
+// =============================================================================
+
+// Opaque runtime handle for a streaming child: the runtime's table slot index in the low bits and the
+// slot's generation above it, so a handle names one child for all time and a released one never reaches
+// the slot's next occupant. -1 is the spawn builtin's "spawn failed" answer and never a live handle. The
+// generation grows by one per spawn on a slot, so the range holds 2^57 spawns of one slot.
+export typealias StreamingHandle = int(0 to u64.max)
+
+public type ChildOutput implements stream.ByteSource
+	export let handle as StreamingHandle
+	export let which as StdioStream
+
+	export static function over(handle StreamingHandle, which StdioStream) returns ChildOutput
+		return Self{handle: handle, which: which}
+	end 'over'
+
+	public function readSome(mutates self, most stream.ReadCapacity) returns ByteArray throws stream.StreamError
+		let raw = __Builtins.subprocessReadAvailable(try handle as FullRangeInt otherwise panic("out of range"), try which.rawValue as FullRangeInt otherwise panic("out of range"), most as FullRangeInt)
+		if raw.length() == 0 'nothingRead'
+			try requireEnded()
+		end 'nothingRead'
+		return ByteArray.init(raw)
+	end 'readSome'
+
+	function requireEnded() throws stream.StreamError
+		match streamState(handle, which: which) 'state'
+			atEof then return
+			open then throw stream.StreamError.failed("a read on the child's {streamName(which)} answered nothing with the stream still open")
+			readFailed then throw stream.StreamError.failed("a read on the child's {streamName(which)} failed")
+			noSuchChild then throw stream.StreamError.closed
+		end 'state'
+	end 'requireEnded'
+end 'ChildOutput'
+
+type ChildInput
+	export let handle as StreamingHandle
+
+	export static function over(handle StreamingHandle) returns ChildInput
+		return Self{handle: handle}
+	end 'over'
+
+	export function write(text String) throws MxSubprocessError
+		let rc = __Builtins.subprocessWriteStdinBytes(try handle as FullRangeInt otherwise panic("out of range"), text.cstr(), text.byteLength())
+		if rc == StdinQueuePendingAnswer 'queued'
+			throw MxSubprocessError.ioFailed(stdinQueuedReason)
+		end 'queued'
+		if rc != StdinAcceptedAnswer 'writeFailed'
+			throw MxSubprocessError.ioFailed("write to child stdin failed: {lastErrorMessage()}")
+		end 'writeFailed'
+	end 'write'
+end 'ChildInput'
+
+export typealias BlockedPasses = int(0 to 5)
+
+export let BlockedPassesNone = 0 as BlockedPasses
+
+export let BlockedPassesMax = 5 as BlockedPasses
+
+export type StdinWatch
+	export let handle as StreamingHandle
+
+	export static function over(handle StreamingHandle) returns Self
+		return Self{handle: handle}
+	end 'over'
+
+	export function untilWritable(passes BlockedPasses)
+		let answer = __Builtins.subprocessAwaitStdinWritable(try handle as FullRangeInt otherwise panic("out of range"), passes)
+		if answer != StdinAcceptedAnswer 'refused'
+			panic("StdinWatch.untilWritable: the runtime answered {answer} for handle {handle}, which is not {StdinAcceptedAnswer}; the pump cancels its watch before the child is released")
+		end 'refused'
+	end 'untilWritable'
+end 'StdinWatch'
+
+/// A child process whose stdin / stdout / stderr the caller drives by hand.
+///
+/// Unlike `MxSubprocess.run(...)` (which fires the process, drains both output
+/// streams from one green thread, and returns a `MxCollectedOutput` when the
+/// child exits), `StreamingSubprocess` keeps the pipes open and exposes
+/// `writeStdinLine` and, through `takeStdout` / `takeStderr`, a `StreamReader` per output stream.
+/// Use it when the parent needs interactive request/response with a long-lived
+/// child — e.g. a worker pool that handles many jobs over its lifetime.
+///
+/// Lifecycle:
+///   let child = try StreamingSubprocess.spawn(MxExecutable.path(p), arguments: argv)
+///   let output = try child.takeStdout()
+///   try child.writeStdinLine("JOB:1")
+///   let line = try output.readLine()
+///   ...
+///   child.closeStdin()  // optional — signals EOF to child
+///   let code = try child.wait()  // blocks until child exits
+///   child.release()  // frees the OS handle
+///
+/// Forgetting `release()` leaks the handle and an OS process slot. Treat
+/// `release()` like `close()` on a file.
+public type StreamingSubprocess is noncopyable
+	// Raw runtime handle from subprocessSpawnStreaming. Valid until release()
+	// is called; the runtime owns the underlying pipe + process objects keyed
+	// off this integer.
+	export var handle as StreamingHandle
+	// Latched once release() runs so subsequent release() calls are no-ops
+	// (matches the "treat like file close" contract documented above).
+	public var released as bool
+	var stdoutTaken as bool
+	var stderrTaken as bool
+
+	/// Spawn `executable arguments...` with stdin/stdout/stderr as pipes the
+	/// caller drives. Working directory defaults to the parent's cwd; pass
+	/// `spawnWithCwd` if you need to set it.
+	public static function spawn(executable MxExecutable, arguments StringArray) returns StreamingSubprocess throws MxSubprocessError
+		return try Self.spawnWithCwd(executable, arguments: arguments, workingDirectory: WorkingDirectory.inherit)
+	end 'spawn'
+
+	/// Same as `spawn` with an explicit working directory.
+	public static function spawnWithCwd(executable MxExecutable, arguments StringArray, workingDirectory WorkingDirectory) returns StreamingSubprocess throws MxSubprocessError
+		return try Self.spawnWithEnvironment(executable, arguments: arguments, workingDirectory: workingDirectory, environment: Environment.inherit)
+	end 'spawnWithCwd'
+
+	/// Same as `spawnWithCwd`, with the child's ENVIRONMENT taken by the caller rather than inherited.
+	///
+	/// ⭐ It matters because a streaming parent may have to TELL its child something before the child's
+	/// first instruction runs: a DebugStream producer finds the ring it writes into by reading a name out
+	/// of its environment, so a parent that could only inherit could only ever watch a child that was
+	/// already being watched. `Environment` answers all three arms — `inherit`, `inheritUpdating` and
+	/// `custom` — and `spawnEnvironmentFor` turns any of them into the (block, source) pair the spawn
+	/// contract takes, exactly as the attached spawn does.
+	public static function spawnWithEnvironment(executable MxExecutable, arguments StringArray, workingDirectory WorkingDirectory, environment Environment) returns StreamingSubprocess throws MxSubprocessError
+		return try Self.spawnTraceable(executable, arguments: arguments, workingDirectory: workingDirectory, environment: environment, traced: false)
+	end 'spawnWithEnvironment'
+
+	/// Same as `spawnWithEnvironment`, with the child created for a debugger when `traced` is set. On
+	/// Windows and Linux this process becomes its debugger; on macOS the child is created suspended, for
+	/// a debugger to attach to by its `processId()` before its first instruction runs.
+	public static function spawnTraceable(executable MxExecutable, arguments StringArray, workingDirectory WorkingDirectory, environment Environment, traced bool) returns StreamingSubprocess throws MxSubprocessError
+		let operands = try SpawnOperands.prepare(executable, arguments: arguments, workingDirectory: workingDirectory, environment: environment)
+		// 4th arg is the spawn-flags bitfield. Streaming spawns never detach — the parent has to keep the
+		// pipes open — and don't take platform-options today, so `traced` is the only bit they ever carry.
+		// The environment block and its source flag follow it.
+		let flags = SpawnFlag.traced.rawValue if traced else 0
+		let rawHandle = __Builtins.subprocessSpawnStreaming(operands.argv.addressableBytes(), operands.argc, operands.workingDirectoryOperand(), flags, operands.environment.block.addressableBytes(), operands.environment.source)
+		if rawHandle == SpawnFailedAnswer 'spawnFailed'
+			throw spawnFailure(operands.executablePath)
+		end 'spawnFailed'
+		// rawHandle is the wide builtin return; -1 is excluded above, so the
+		// narrow StreamingHandle range is satisfied.
+		return StreamingSubprocess{handle: try rawHandle as StreamingHandle otherwise panic("out of range"), released: false, stdoutTaken: false, stderrTaken: false}
+	end 'spawnTraceable'
+
+	/// Write `line + "\n"` to the child's stdin, NUL bytes included. Throws on broken pipe.
+	/// Embeds the newline; pass payload WITHOUT a trailing newline.
+	public function writeStdinLine(line String) throws MxSubprocessError
+		try self.writeStdin("{line}\n")
+	end 'writeStdinLine'
+
+	/// Write `text` as given, NUL bytes included. Throws on a broken pipe, and while a queued payload
+	/// is still being pushed.
+	public function writeStdin(text String) throws MxSubprocessError
+		try requireLive()
+		try ChildInput.over(handle).write(text)
+	end 'writeStdin'
+
+	export function queueStdin(text String) throws MxSubprocessError
+		try requireLive()
+		let rc = __Builtins.subprocessQueueStdin(try handle as FullRangeInt otherwise panic("out of range"), text.cstr(), text.byteLength())
+		if rc == StdinQueuePendingAnswer 'queued'
+			throw MxSubprocessError.ioFailed(stdinQueuedReason)
+		end 'queued'
+		if rc != StdinAcceptedAnswer 'refused'
+			throw MxSubprocessError.ioFailed(stdinClosedReason)
+		end 'refused'
+	end 'queueStdin'
+
+	export function stdinWatch() returns StdinWatch throws MxSubprocessError
+		try requireLive()
+		return StdinWatch.over(handle)
+	end 'stdinWatch'
+
+	export function pushQueuedStdin() returns BytePos throws MxSubprocessError
+		try requireLive()
+		let remaining = __Builtins.subprocessPushStdin(try handle as FullRangeInt otherwise panic("out of range"))
+		if remaining == StdinPushRefusedAnswer 'refused'
+			throw MxSubprocessError.ioFailed(stdinClosedReason)
+		end 'refused'
+		return try remaining as BytePos otherwise panic("out of range")
+	end 'pushQueuedStdin'
+
+	/// Take the child's stdout out as a `ChildOutputReader`, once: a second take throws `ioFailed`. The
+	/// reader can run in a coroutine beside the child's owner because it shares no data with the child.
+	public function takeStdout(mutates self) returns ChildOutputReader throws MxSubprocessError
+		try requireUntaken(StdioStream.stdout)
+		self.stdoutTaken = true
+		return stream.StreamReader.over(ChildOutput.over(self.handle, which: StdioStream.stdout))
+	end 'takeStdout'
+
+	/// Take the child's stderr out as a `ChildOutputReader`, once: a second take throws `ioFailed`.
+	public function takeStderr(mutates self) returns ChildOutputReader throws MxSubprocessError
+		try requireUntaken(StdioStream.stderr)
+		self.stderrTaken = true
+		return stream.StreamReader.over(ChildOutput.over(self.handle, which: StdioStream.stderr))
+	end 'takeStderr'
+
+	/// Close our write end of the child's stdin pipe. After this the child
+	/// will see EOF on its stdin and (for typical line-reading workers) exit
+	/// gracefully. Idempotent at the runtime layer; calling it on an
+	/// already-closed pipe is a no-op — and after `release()` it is one here
+	/// instead, because the postcondition already holds and the handle is a
+	/// pointer to a freed struct on some lanes.
+	public function closeStdin()
+		if not released 'stillOpen'
+			__Builtins.subprocessCloseStdin(try handle as FullRangeInt otherwise panic("out of range"))
+		end 'stillOpen'
+	end 'closeStdin'
+
+	/// Park the calling green thread until the child exits or `deadline` elapses; other green threads,
+	/// `async` coroutines of the same strand included, keep running meanwhile. Returns the exit code on
+	/// success; throws `MxSubprocessError.timeout` if the deadline fires (the runtime forcibly terminates
+	/// the child's whole process tree in that case), `MxSubprocessError.treeNotEnded` if the kill could not
+	/// fully end that tree, `MxSubprocessError.statusLost` for a child whose exit status went to another
+	/// process (with empty output fields), or `MxSubprocessError.ioFailed` on a wait error (e.g. the
+	/// runtime can no longer locate the handle). Both deadline errors carry empty output fields: a
+	/// streaming child's bytes belong to the caller draining the streams, and this layer never sees them.
+	public function wait(deadline MxWaitDeadline = MxWaitDeadline.none) returns ExitInt throws MxSubprocessError
+		try requireLive()
+		let rc = __Builtins.subprocessWaitExit(try handle as FullRangeInt otherwise panic("out of range"), runtimeWaitMs(deadline))
+		if rc >= 0 'exited'
+			return try rc as ExitInt otherwise panic("out of range")
+		end 'exited'
+		if rc == WaitFailedAnswer 'failed'
+			throw MxSubprocessError.ioFailed("wait failed: {lastErrorMessage()}")
+		end 'failed'
+		if rc == WaitTimedOutAnswer 'timedOut'
+			throw MxSubprocessError.timeout(expiredAfterMs(deadline), stdout: "", stderr: "")
+		end 'timedOut'
+		if rc == WaitTreeSurvivedAnswer 'treeSurvived'
+			throw MxSubprocessError.treeNotEnded(expiredAfterMs(deadline), stdout: "", stderr: "", osError: lastOsErrorCode())
+		end 'treeSurvived'
+		if rc == ReapedElsewhereAnswer 'statusLost'
+			throw MxSubprocessError.statusLost("", stderr: "")
+		end 'statusLost'
+		panic("StreamingSubprocess.wait: the runtime answered {rc}, which is none of an exit code, {WaitFailedAnswer}, {WaitTimedOutAnswer}, {WaitTreeSurvivedAnswer} and {ReapedElsewhereAnswer}")
+	end 'wait'
+
+	/// End the child's whole process tree at once, the kill a `wait` deadline sends but with no
+	/// wait to expire, and return once the child itself is gone. The child may already have exited: what it
+	/// left running is the tree. A process started with `runDetached()` is outside it. A handle
+	/// `release()` has given back answers `unconfirmed`.
+	public function endTree() returns TreeEnd
+		if released 'gone'
+			return TreeEnd.unconfirmed("the child was released")
+		end 'gone'
+		let rc = __Builtins.subprocessEndTree(try handle as FullRangeInt otherwise panic("out of range"))
+		if rc == EndTreeEndedAnswer 'ended'
+			return TreeEnd.ended
+		end 'ended'
+		if rc == EndTreeUnconfirmedAnswer 'unconfirmed'
+			return TreeEnd.unconfirmed(lastErrorMessage())
+		end 'unconfirmed'
+		if rc == EndTreeSurvivedAnswer 'survived'
+			return TreeEnd.survived(lastOsErrorCode())
+		end 'survived'
+		panic("StreamingSubprocess.endTree: the runtime answered {rc}, which is none of {EndTreeEndedAnswer}, {EndTreeUnconfirmedAnswer} and {EndTreeSurvivedAnswer}")
+	end 'endTree'
+
+	/// The child's operating-system process id. Throws once the handle is released.
+	public function processId() returns Pid throws MxSubprocessError
+		try requireLive()
+		let pid = __Builtins.subprocessGetPid(try handle as FullRangeInt otherwise panic("out of range"))
+		if pid < 0 'noProcessRecorded'
+			throw MxSubprocessError.ioFailed("the runtime holds no process id for this child")
+		end 'noProcessRecorded'
+		return pid as Pid
+	end 'processId'
+
+	/// Has the child exited? Answers without blocking and WITHOUT killing it.
+	///
+	/// ⭐ `wait()` cannot be asked this: with no deadline it blocks until the child ends, and with one it
+	/// TERMINATES the child when the deadline fires. A parent that has to stay responsive —
+	/// draining output while the child runs — needs an answer that changes nothing.
+	///
+	/// ⚠ A handle `release()` has given back answers `running`, because after `release()` there is no live
+	/// child left to report an exit for.
+	public function pollExit() returns ExitPoll
+		if released 'gone'
+			return ExitPoll.running
+		end 'gone'
+		return exitPollOf(__Builtins.subprocessPollExit(try handle as FullRangeInt otherwise panic("out of range")))
+	end 'pollExit'
+
+	/// Has the child ended, and how? `pollExit`'s answer, naming the signal that killed a child on Linux or
+	/// macOS as `signalled(signal)`. Never blocks and never kills.
+	public function pollTermination() returns TerminationPoll
+		return match self.pollExit() 'polled'
+			running gives TerminationPoll.running
+			reapedElsewhere gives TerminationPoll.reapedElsewhere
+			exited(code) gives TerminationPoll.ended(self.terminationAfterExit(code))
+		end 'polled'
+	end 'pollTermination'
+
+	/// Has a read of this child's `stream` found its end? Never blocks and never kills.
+	///
+	/// A stream's end is latched by a read, so reading the stream is what moves this to `true`; a stream
+	/// nothing reads stays `false`. A read that failed and a released handle also answer `true`.
+	public function streamHasEnded(which StdioStream) returns bool
+		if released 'gone'
+			return true
+		end 'gone'
+		return match streamState(handle, which: which) 'state'
+			open gives false
+			atEof or
+			readFailed or
+			noSuchChild gives true
+		end 'state'
+	end 'streamHasEnded'
+
+	/// Have reads found the end of both `stdout` and `stderr`? `streamHasEnded` for each.
+	public function outputHasEnded() returns bool
+		return self.streamHasEnded(StdioStream.stdout) and self.streamHasEnded(StdioStream.stderr)
+	end 'outputHasEnded'
+
+	function terminationAfterExit(code ExitInt) returns TerminationStatus
+		let signalPoll = exitPollOf(__Builtins.subprocessExitSignal(try handle as FullRangeInt otherwise panic("out of range")))
+		return match signalPoll 'signal'
+			running or
+			reapedElsewhere panic("StreamingSubprocess.pollTermination: the child answered that it had exited and then that it was {signalPoll.name}")
+			exited(signal) gives terminationWithSignal(code, signal: signal)
+		end 'signal'
+	end 'terminationAfterExit'
+
+	/// Refuse every operation that would reach the runtime with a handle `release()` has given back.
+	/// The check belongs here rather than in a runtime guard because a handle is a raw pointer to a
+	/// freed struct on some lanes, so asking the runtime about it is already the bug.
+	function requireLive() throws MxSubprocessError
+		if released 'gone'
+			throw MxSubprocessError.ioFailed(usedAfterReleaseReason)
+		end 'gone'
+	end 'requireLive'
+
+	function requireUntaken(which StdioStream) throws MxSubprocessError
+		try requireLive()
+		let taken = match which 'which'
+			stdout gives stdoutTaken
+			stderr gives stderrTaken
+		end 'which'
+		if taken 'twice'
+			throw MxSubprocessError.ioFailed("the child's {streamName(which)} was already taken")
+		end 'twice'
+	end 'requireUntaken'
+
+	/// Release the OS handles this child owns — its process handle, its pipe
+	/// ends, and the job object naming its process tree where the platform
+	/// made one. Idempotent; safe to call at the end of a
+	/// using-block or from a guard path. Nothing reaches the runtime with a
+	/// released handle afterwards: the throwing methods refuse it through
+	/// `requireLive`, and `closeStdin` and `release` are idempotent no-ops
+	/// whose postcondition a released child already satisfies. A reader taken from this child
+	/// answers `StreamError.closed` afterwards.
+	public function release(mutates self)
+		if not released 'notYet'
+			__Builtins.subprocessReleaseHandle(try handle as FullRangeInt otherwise panic("out of range"))
+			released = true
+		end 'notYet'
+	end 'release'
+end 'StreamingSubprocess'
+
+/// What `StreamingSubprocess.endTree` found. `ended`: the child and everything it left running are
+/// gone. `survived`: the child is gone but part of its tree could not be ended, with the
+/// operating-system code of the refusal. `unconfirmed`: the kill was refused and no wait saw the child
+/// end within five seconds, so it may still run, or the handle was released, with the reason.
+public union TreeEnd
+	ended
+	survived(osError OsErrorCode)
+	unconfirmed(reason String)
+
+	/// One-line description for diagnostics.
+	public function displayReason() returns String
+		return match self 'e'
+			ended gives "the process tree ended"
+			survived(osError) gives "the process tree could not be fully ended: os error {osError}"
+			unconfirmed(reason) gives "no kill of the process tree was confirmed: {reason}"
+		end 'e'
+	end 'displayReason'
+end 'TreeEnd'
+
+/// What `pollExit` found. A union rather than a code-plus-sentinel because "it has not finished" is not an
+/// exit code and there is no number that could stand for it: a Windows exit code is a full DWORD. A child a
+/// signal killed on Linux or macOS is `exited(128 + signal)`; `pollTermination` names the signal.
+public union ExitPoll
+	running
+	reapedElsewhere
+	exited(code ExitInt)
+
+	public function childIsKnownGone() returns bool
+		return match self 'poll'
+			exited gives true
+			running or
+			reapedElsewhere gives false
+		end 'poll'
+	end 'childIsKnownGone'
+end 'ExitPoll'
+
+/// What `pollTermination` found: the child is still running, or how it ended.
+public union TerminationPoll
+	running
+	reapedElsewhere
+	ended(status TerminationStatus)
+end 'TerminationPoll'
+
+// The runtime's answer for a child no signal ended, pinned against `SubprocessRuntime.SubpNoExitSignal` by
+// `checkSubprocessAnswers` on every compile.
+let NoTerminatingSignal = 0
+
+let SpawnFailedAnswer = -1
+
+let DetachRefusedAnswer = -2
+
+let WaitFailedAnswer = -1
+
+let WaitTimedOutAnswer = -2
+
+let WaitTreeSurvivedAnswer = -3
+
+let ReapedElsewhereAnswer = -4
+
+let EndTreeEndedAnswer = 0
+
+let EndTreeUnconfirmedAnswer = -1
+
+let EndTreeSurvivedAnswer = -3
+
+let StillRunningAnswer = -1
+
+let NoSuchChildAnswer = -5
+
+let StdinAcceptedAnswer = 0
+
+let StdinQueuePendingAnswer = 2
+
+let StdinPushRefusedAnswer = -1
+
+let stdinClosedReason = "the child's stdin is closed"
+
+let stdinQueuedReason = "a payload is already queued for the child's stdin"
+
+let UncollectedStreamLimit = 0
+
+function exitPollOf(raw FullRangeInt) returns ExitPoll
+	if raw >= 0 'exited'
+		return ExitPoll.exited(try raw as ExitInt otherwise panic("out of range"))
+	end 'exited'
+	if raw == StillRunningAnswer 'stillRunning'
+		return ExitPoll.running
+	end 'stillRunning'
+	if raw == ReapedElsewhereAnswer 'reapedElsewhere'
+		return ExitPoll.reapedElsewhere
+	end 'reapedElsewhere'
+	if raw == NoSuchChildAnswer 'noSuchChild'
+		panic("exitPollOf: the runtime answered {NoSuchChildAnswer}, naming no live child, for a handle the stdlib had not released")
+	end 'noSuchChild'
+	panic("exitPollOf: the runtime answered {raw}, which is none of an exit code, {StillRunningAnswer}, {ReapedElsewhereAnswer} and {NoSuchChildAnswer}")
+end 'exitPollOf'
+
+function terminationWithSignal(code ExitInt, signal ExitInt) returns TerminationStatus
+	return TerminationStatus.exited(code) if signal == NoTerminatingSignal else TerminationStatus.signalled(signal)
+end 'terminationWithSignal'
+
+/// One of a streaming child's two output streams.
+public enum StdioStream
+	stdout
+	stderr
+end 'StdioStream'
+
+let usedAfterReleaseReason = "used after release()"
+
+function streamState(handle StreamingHandle, which StdioStream) returns __SubprocessStreamState
+	match which 'ask'
+		stdout then return __Builtins.subprocessStdoutState(try handle as FullRangeInt otherwise panic("out of range"))
+		stderr then return __Builtins.subprocessStderrState(try handle as FullRangeInt otherwise panic("out of range"))
+	end 'ask'
+end 'streamState'
+
+function streamName(which StdioStream) returns String
+	match which 'name'
+		stdout then return "stdout"
+		stderr then return "stderr"
+	end 'name'
+end 'streamName'
+
+function filepathAnchor(anchored filepath.PathResolveError)
+end 'filepathAnchor'

@@ -1,0 +1,24 @@
+// A destructor may change its receiver, but passes it whole only to another destructor of its type: moving it anywhere else
+// is refused, as it is without the change.
+type Tally
+	var n as Count
+
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise 0
+	end 'bump'
+
+	function finish(destructs self) returns Tally
+		bump()
+		return self
+	end 'finish'
+
+	function close(destructs self)
+		print("{n}\n")
+	end 'close'
+end 'Tally'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3920

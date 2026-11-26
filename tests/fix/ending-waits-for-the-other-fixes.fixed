@@ -1,0 +1,54 @@
+// The ending of a value that a return would drop waits for the other fixes: here declaring use's parameter consumes ends what
+// main passes to it, so main's q needs no ending of its own, which would end it twice.
+typealias Code = int(0 to 999)
+
+type Resp
+	var code as Code
+
+	static function create(code Code) returns Self
+		return Self{code: code}
+	end 'create'
+
+	function peek() returns Code
+		return self.code
+	end 'peek'
+
+	function fin(destructs self)
+		print("fin {self.code}\n")
+	end 'fin'
+end 'Resp'
+
+function use(consumes r Resp)
+	print("use {r.peek()}\n")
+	r.fin()
+end 'use'
+
+function branches(consumes r Resp, flag bool)
+	if flag 'a'
+		r.fin()
+	end 'a' else 'b'
+		use(r)
+	end 'b'
+end 'branches'
+
+function viaReturn(consumes r Resp, flag bool) returns Code
+	if flag 'a'
+		let c = r.peek()
+		r.fin()
+		return c
+	end 'a'
+	r.fin()
+	return 0
+end 'viaReturn'
+
+function main() returns ExitCode
+	let r = Resp.create(1)
+	print("peek {r.peek()}\n")
+	r.fin()
+	let q = Resp.create(2)
+	use(q)
+	branches(Resp.create(3), flag: true)
+	branches(Resp.create(4), flag: false)
+	print("{viaReturn(Resp.create(5), flag: true)}\n")
+	return 0
+end 'main'

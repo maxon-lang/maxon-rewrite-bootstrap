@@ -1,0 +1,15 @@
+// An array of open files has no drop, so a scope that ends holding one is refused; each element is taken out and closed, and the array ends with dropEmpty.
+// expect-error: E3919
+typealias Bytes = __ManagedMemory with Byte
+
+typealias Files = Array with __ManagedFile
+
+function held(path Bytes) throws __ManagedFileError
+	let file = try __ManagedFile.openRead(path)
+	var files = Files.create(0)
+	files.push(file)
+end 'held'
+
+function main() returns ExitCode
+	return 0
+end 'main'

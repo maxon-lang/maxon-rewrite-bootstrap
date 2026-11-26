@@ -141,6 +141,7 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 		// The compiler's own source is a program too: a rule that it breaks would otherwise show only when the seed is renewed.
 		{step{"self", func() error { return mm("check", "self", "--tests", "--verify-reads") }}, "checks"},
 		{step{"TMPDIR unset", func() error { return compilesWithoutTmpdir(r.h, r.compiler) }}, "checks"},
+		{step{"unwritable output", func() error { return refusesUnwritableOutput(r.compiler) }}, "checks"},
 		{step{"layout", func() error { return mm("fmt", "--check", "self", "runtime", "tests", "stdlib") }}, "checks"},
 		// Every program the generator writes that the checker accepts must run clean under the interpreter: a violation is a
 		// hole in the checker.
@@ -168,7 +169,7 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 	}
 	// The conversion writes specs/, which the other lanes read: it runs before any of them.
 	if r.recordSpecs != "" {
-		steps = append(steps, laneStep{step{"specs conversion", func() error { return convertSpecsIfStale(r.compiler, r.recordSpecs) }}, "prelude"})
+		steps = append(steps, laneStep{step{"specs conversion", func() error { return convertSpecsIfStale(r.compiler, r.recordSpecs, false) }}, "prelude"})
 	}
 	first := []string{"checks", "builds", "specs", "native"}
 	second := []string{"native-behaviours"}
@@ -332,15 +333,18 @@ func eachTarget(f func(t string) error) error {
 
 // passToWsl names a variable in WSLENV, so that the Linux programs WSL starts get it.
 func passToWsl(name string) {
-	have := os.Getenv("WSLENV")
+	os.Setenv("WSLENV", wslVariables(os.Getenv("WSLENV"), name))
+}
+
+// wslVariables is the value of WSLENV that names the variables of have and name.
+func wslVariables(have, name string) string {
 	if slices.Contains(strings.Split(have, ":"), name) {
-		return
+		return have
 	}
 	if have == "" {
-		os.Setenv("WSLENV", name)
-		return
+		return name
 	}
-	os.Setenv("WSLENV", have+":"+name)
+	return have + ":" + name
 }
 
 // runsTarget is why the host cannot run the executables of a target, or "" when it can: Windows runs Linux's under WSL,
@@ -528,7 +532,7 @@ func selfCompilesForArm64(compiler string) error {
 	}
 	defer os.RemoveAll(dir)
 	for _, t := range []string{"arm64-linux", "arm64-macos"} {
-		if err := quiet(nil, compiler, "build", "self", "--target="+t, "--verify-ir", "--no-cache", "-o", filepath.Join(dir, "minimaxon")); err != nil {
+		if err := quiet(cacheOffEnvironment(), compiler, "build", "self", "--target="+t, "--verify-ir", "-o", filepath.Join(dir, "minimaxon")); err != nil {
 			return err
 		}
 	}
@@ -550,6 +554,28 @@ func compilesWithoutTmpdir(h host, compiler string) error {
 	}
 	if !isDir(filepath.Join("/tmp", "minimaxon")) {
 		return errors.New("with TMPDIR unset the compiler did not make its directory of temporary files in /tmp")
+	}
+	return nil
+}
+
+// refusesUnwritableOutput builds a program into a directory that does not exist, which the compiler must refuse as an error
+// that names the path and the reason, with exit code 1, and not with a panic: an output it cannot write is the environment's.
+func refusesUnwritableOutput(compiler string) error {
+	dir, err := scratchDir("minimaxon-unwritable-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+	out := filepath.Join(dir, "no-such-directory", "program")
+	cmd := exec.Command(compiler, "build", filepath.Join("tests", "run", "a-function-with-no-statement-is-allowed.maxon"), "-o", out)
+	text, err := cmd.CombinedOutput()
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) || exit.ExitCode() != 1 {
+		return fmt.Errorf("%s%s: want exit code 1, got %v", text, strings.Join(cmd.Args, " "), err)
+	}
+	want := "error: cannot write " + out + ": a directory of the path does not exist\n"
+	if string(text) != want {
+		return fmt.Errorf("%s: want %q, got %q", strings.Join(cmd.Args, " "), want, text)
 	}
 	return nil
 }
@@ -612,7 +638,7 @@ const specInterpretFlag = "--interpret"
 const replayRefusedCode = 3
 
 // specStampEnvironment is the environment that a test inherits and a result can follow.
-var specStampEnvironment = []string{"MAXON_MAX_PROCS", "MAXON_HASH_SEED", "MINIMAXON_CACHE"}
+var specStampEnvironment = []string{"MAXON_MAX_PROCS", "MAXON_HASH_SEED", cacheVariable}
 
 // specStampOf is the text a spec run's results are kept under, equal texts being equal inputs: the compiler, which holds the
 // runner and finds the runtime and the library beside itself, the spec files (the conversion's skips are lines of them),
@@ -636,8 +662,13 @@ func specStampOf(compiler string) (string, error) {
 
 // specRun runs every spec test with the flags that say what the run makes of the results (--require-passed, --record-passed
 // or both), replaying the kept results when their stamp is the current one, and gives what the runner wrote, the
-// line that says it replayed, and whether it ended as required.
+// line that says it replayed, and whether it ended as required. cmd/envrun sets the environment a test's directives ask for
+// (procs, preempt) for its program alone.
 func specRun(compiler string, classifying ...string) (string, string, error) {
+	if err := buildEnvRunner(); err != nil {
+		return "", "", err
+	}
+	classifying = append(classifying, "--env-runner="+abs(envRunnerPath()))
 	stamp, err := specStampOf(compiler)
 	if err != nil {
 		return "", "", err

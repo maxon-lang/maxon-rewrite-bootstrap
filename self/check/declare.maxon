@@ -315,6 +315,13 @@ function errorOf(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s
 		t = resolveNamedTypeRef(c, p: p, ms: ms, tr: throwsRef, selfTy: ast.noType, errs: unresolved)
 	end 'named'
 	if t == ast.noType 'unresolved'
+		// A name that another module declares is written with its module, as any other type name is, which the error's fix does.
+		for missed in unresolved 'bare'
+			if missed.unqualified != "" 'another'
+				diag.pushUnqualifiedErrorAt(errs, code: diag.errThrowsNotAnErrorEnum, message: diag.throwsNamesNoError(ast.typeRefName(ms.tree(), id: throwsRef)), module: c.modID, offset: off, name: missed.unqualified.clone(), at: missed.unqualifiedAt)
+				return ast.noType
+			end 'another'
+		end 'bare'
 		checkFail(c.modID, off: off, code: diag.errThrowsNotAnErrorEnum, msg: diag.throwsNamesNoError(ast.typeRefName(ms.tree(), id: throwsRef)), errs: errs)
 		return ast.noType
 	end 'unresolved'

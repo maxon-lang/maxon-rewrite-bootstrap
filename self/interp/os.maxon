@@ -99,6 +99,12 @@ function entryOsProcessorCount(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	giveNum(vm, x: x, n: interpretedWorkers)
 end 'entryOsProcessorCount'
 
+// entryOsMachineCpuCount is the interpreter's one processor: it is the machine its scheduler runs on, which the default
+// processor count is all of, as a native run's is.
+function entryOsMachineCpuCount(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: interpretedWorkers)
+end 'entryOsMachineCpuCount'
+
 // clockStepNanos is how far one reading moves the interpreter's clock.
 let clockStepNanos = 1000 as ir.Word
 
@@ -179,6 +185,16 @@ function entryOsPathFrom(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 end 'entryOsPathFrom'
 
 function entryOsReadText(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try entryOsRead(vm, f: f, x: x, binary: false)
+end 'entryOsReadText'
+
+function entryOsReadBinary(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try entryOsRead(vm, f: f, x: x, binary: true)
+end 'entryOsReadBinary'
+
+// entryOsRead reads the file at the path the call names whole and gives it as a String, or as its bytes where binary: a String is
+// its bytes, which no read checks.
+function entryOsRead(mutates vm Vm, f ir.IrFunction, x ir.Instr, binary bool) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
 	let path = pathOf(vm.h.texts[at].clone())
 	var word = 0 as ir.Word
@@ -195,10 +211,10 @@ function entryOsReadText(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	end 'failed'
 	try errorWord(vm, f: f, x: x, word: word)
 	if word == 0 'read'
-		let made = newString(vm, text: value)
+		let made = newBytes(vm, buf: value.toByteArray()) if binary else newString(vm, text: value)
 		giveRef(vm, x: x, o: made)
 	end 'read'
-end 'entryOsReadText'
+end 'entryOsRead'
 
 // writeBytes writes a file with the mode and gives the error word of its failure, or 0.
 function writeBytes(path FilePath, content ByteArray, mode FilePermission) returns ir.Word
@@ -230,7 +246,8 @@ function writeTextEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr, mode FilePer
 	let pathAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
 	let path = pathOf(vm.h.texts[pathAt].clone())
 	let contentAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 1), what: "a file's content")
-	let word = writeBytes(path, content: vm.h.texts[contentAt].toByteArray(), mode: mode)
+	let content = vm.h.texts[contentAt].toByteArray()
+	let word = writeBytes(path, content: content, mode: mode)
 	try errorWord(vm, f: f, x: x, word: word)
 end 'writeTextEntry'
 
@@ -325,10 +342,10 @@ function entryOsFileInfo(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	var flags = 0 as ir.Word
 	try 'info'
 		let info = File.info(path)
-		size = wordOf(info.size)
-		modified = wordOf(info.modifiedTime)
-		created = wordOf(info.createdTime)
-		accessed = wordOf(info.accessedTime)
+		size = wordOf(info.size as Count)
+		modified = wordOf(info.modifiedTime as Count)
+		created = wordOf(info.createdTime as Count)
+		accessed = wordOf(info.accessedTime as Count)
 		if info.isDirectory 'directory'
 			flags = flags or infoDirectoryFlag
 		end 'directory'
@@ -535,7 +552,7 @@ end 'entryOsReadStdin'
 // entryOsEnvironmentEntry halts: the compiler has no way to walk its own environment that its seed compiles, so a program that
 // reads the environment's entries says `// native-only`.
 function entryOsEnvironmentEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	panic("interp: the process's environment entries are not run by the interpreter: mark the program native-only")
+	throw unmodelled(vm, what: "the process's environment entries are not run by the interpreter: mark the program native-only")
 end 'entryOsEnvironmentEntry'
 
 // entryOsStdoutWantsColor is false: the interpreter's standard output is a capture, which no escape sequence may go into.
@@ -543,13 +560,38 @@ function entryOsStdoutWantsColor(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	giveFlag(vm, x: x, b: false)
 end 'entryOsStdoutWantsColor'
 
-// entrySchedPin pins nothing: the interpreter runs one thread, which every green thread is on.
+// entrySchedPin counts a pin of the thread that runs: the interpreter runs one machine, which every thread is on, so a pin
+// holds nothing else, and its depth is what the program reads.
 function entrySchedPin(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	vm.threads[vm.cur].pins = try vm.threads[vm.cur].pins + 1 otherwise panic("interp: more pins than a word")
 	giveNum(vm, x: x, n: 1)
 end 'entrySchedPin'
 
-function entrySchedUnpin(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+// pinNotHeldMessage is the runtime's fatal error of an unpin by a thread that holds no pin (runtime/green.maxon).
+let pinNotHeldMessage = "fatal error: a machine pin was released by a green thread that holds none"
+
+// fatalExitCode is what the runtime's fatal errors exit with.
+let fatalExitCode = 70 as ir.Word
+
+function entrySchedUnpin(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let pins = vm.threads[vm.cur].pins
+	if pins == 0 'unheld'
+		vm.stderr.append("{pinNotHeldMessage}\n".toByteArray())
+		throw exitWith(vm, code: fatalExitCode)
+	end 'unheld'
+	vm.threads[vm.cur].pins = pins - 1
 end 'entrySchedUnpin'
+
+function entrySchedPinDepth(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: try vm.threads[vm.cur].pins as ir.Word otherwise panic("interp: more pins than a word"))
+end 'entrySchedPinDepth'
+
+// interpretedMachine is the number of the one thread the interpreter runs every green thread on.
+let interpretedMachine = 1 as ir.Word
+
+function entrySchedCurrentMachine(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: interpretedMachine)
+end 'entrySchedCurrentMachine'
 
 // The debug port's entries halt: the interpreter drives no debuggee, so a program that does says `// native-only`.
 function entryDebugLaunch(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt

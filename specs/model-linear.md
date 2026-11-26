@@ -198,7 +198,6 @@ function main() returns ExitCode
 	let s = spawn S.create(0)
 	try s.bgo(Rl.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -571,7 +570,6 @@ function main() returns ExitCode
 	let s = spawn S.create(0, b: Bx.create(0))
 	try s.go(Rl.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -2094,7 +2092,6 @@ function main() returns ExitCode
 	let a = spawn Auth.create(0)
 	try a.check(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(b) then b.fin(1)
 			serviceStopped(b) then b.fin(1)
 		end 'x2'
 	end 'h1'
@@ -3098,11 +3095,10 @@ type Auth
 end 'Auth'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Auth.create(0)
+	let a = spawn Auth.create(0)
 	let r = Resp.create(0) as Resp
 	try a.check(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(r) then r.fin(2)
 			serviceStopped(r) then r.fin(2)
 		end 'x2'
 	end 'h1'
@@ -3154,11 +3150,10 @@ type Auth
 end 'Auth'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Auth.create(0)
+	let a = spawn Auth.create(0)
 	let r = Resp.create(0) as Resp
 	try a.check(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(b) then b.fin(3)
 			serviceStopped(b) then b.fin(3)
 		end 'x2'
 	end 'h1'
@@ -3210,12 +3205,11 @@ type Auth
 end 'Auth'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Auth.create(0)
+	let a = spawn Auth.create(0)
 	let o = Resp.create(5)
 	let r = Resp.create(0) as Resp
 	try a.check(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(b) then b.fin(3)
 			serviceStopped(b) then b.fin(3)
 		end 'x2'
 	end 'h1'
@@ -3271,13 +3265,12 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Auth.create(0)
+	let a = spawn Auth.create(0)
 	var i = 3 as Num
 	while i != 0 'w1'
 		let r = Resp.create(0) as Resp
 		try a.check(r) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
-				mailboxFull(b) then b.fin(3)
 				serviceStopped(b) then b.fin(3)
 			end 'x3'
 		end 'h2'
@@ -3335,13 +3328,12 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Auth.create(0)
+	let a = spawn Auth.create(0)
 	let r = Resp.create(0) as Resp
 	var i = 3 as Num
 	while i != 0 'w1'
 		try a.check(r) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
-				mailboxFull(b) then b.fin(3)
 				serviceStopped(b) then b.fin(3)
 			end 'x3'
 		end 'h2'
@@ -4584,7 +4576,6 @@ type Sv
 	export function viaSelf(me Sv.handle)
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(b) then b.fin(9)
 				serviceStopped(b) then b.fin(9)
 			end 'x2'
 		end 'h1'
@@ -4605,18 +4596,16 @@ type Sv
 end 'Sv'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Sv.create(0)
+	let a = spawn Sv.create(0)
 	let r = Resp.create(0) as Resp
 	let q = Resp.create(1) as Resp
 	try a.one(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(b) then b.fin(1)
 			serviceStopped(b) then b.fin(1)
 		end 'x2'
 	end 'h1'
 	try a.one(q) otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
-			mailboxFull(b) then b.fin(2)
 			serviceStopped(b) then b.fin(2)
 		end 'x4'
 	end 'h3'
@@ -4690,7 +4679,6 @@ type Sv
 	export function viaSelf(me Sv.handle)
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(b) then b.fin(9)
 				serviceStopped(b) then b.fin(9)
 			end 'x2'
 		end 'h1'
@@ -4715,10 +4703,9 @@ function mkR() returns Resp
 end 'mkR'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Sv.create(0)
+	let a = spawn Sv.create(0)
 	try a.one(mkR()) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(b) then b.fin(1)
 			serviceStopped(b) then b.fin(1)
 		end 'x2'
 	end 'h1'
@@ -4792,7 +4779,6 @@ type Sv
 	export function viaSelf(me Sv.handle)
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(b) then b.fin(9)
 				serviceStopped(b) then b.fin(9)
 			end 'x2'
 		end 'h1'
@@ -4813,10 +4799,9 @@ type Sv
 end 'Sv'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 2) Sv.create(0)
+	let a = spawn Sv.create(0)
 	try a.viaSelf(a.clone()) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
@@ -4890,7 +4875,6 @@ type Sv
 	export function viaSelf(me Sv.handle)
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(b) then b.fin(9)
 				serviceStopped(b) then b.fin(9)
 			end 'x2'
 		end 'h1'
@@ -4911,13 +4895,12 @@ type Sv
 end 'Sv'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Sv.create(0)
+	let a = spawn Sv.create(0)
 	try a.touch() otherwise ignore
 	try a.touch() otherwise ignore
 	try a.touch() otherwise ignore
 	try a.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(b) then b.fin(1)
 			serviceStopped(b) then b.fin(1)
 		end 'x2'
 	end 'h1'
@@ -4991,7 +4974,6 @@ type Sv
 	export function viaSelf(me Sv.handle)
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(b) then b.fin(9)
 				serviceStopped(b) then b.fin(9)
 			end 'x2'
 		end 'h1'
@@ -5084,7 +5066,6 @@ type Sv
 	export function viaSelf(me Sv.handle)
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(b) then b.fin(9)
 				serviceStopped(b) then b.fin(9)
 			end 'x2'
 		end 'h1'
@@ -6476,10 +6457,9 @@ end 'Sfn'
 
 function g()
 	let r = Resp.create(0)
-	let s = spawn(capacity: 1) Sfn.create(0)
+	let s = spawn Sfn.create(0)
 	try s.m() otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
@@ -7053,7 +7033,6 @@ type Fz
 	function f(consumes self, a Hq.handle)
 		try a.take(self) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(q) then q.g()
 				serviceStopped(q) then q.g()
 			end 'x2'
 		end 'h1'
@@ -7075,7 +7054,7 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	let t = Fz.create(0)
 	t.f(a)
 	return 0
@@ -7086,7 +7065,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-fin-self-send-drop-handler -->
-<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
+<!-- skip: language difference: a mailbox has no capacity, so a spawn names none, no send fails mailboxFull or waits with sendTimeout:, and the runtime slows a sender of a service that is behind instead (README, Where it differs from Maxon: Services) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `fin-self-send-drop-handler` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7103,7 +7082,6 @@ type Fz
 	function f(consumes self, a Hq.handle)
 		try a.take(self) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull then break
 				serviceStopped then break
 			end 'x2'
 		end 'h1'
@@ -7125,7 +7103,7 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	let t = Fz.create(0)
 	t.f(a)
 	return 0
@@ -7290,7 +7268,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-two-linear-two-names -->
-<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
+<!-- skip: language difference: a mailbox has no capacity, so a spawn names none, no send fails mailboxFull or waits with sendTimeout:, and the runtime slows a sender of a service that is behind instead (README, Where it differs from Maxon: Services) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `hb-two-linear-two-names` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7327,10 +7305,9 @@ type H2
 end 'H2'
 
 function main() returns ExitCode
-	let s = spawn(capacity: 1) H2.create(0)
+	let s = spawn H2.create(0)
 	try s.two(Resp.create(0), b: Resp.create(1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q, _) then q.fin(1)
 			serviceStopped(q, _) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -7378,10 +7355,9 @@ type H2
 end 'H2'
 
 function main() returns ExitCode
-	let s = spawn(capacity: 1) H2.create(0)
+	let s = spawn H2.create(0)
 	try s.m(1, a: Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(_, q) then q.fin(1)
 			serviceStopped(_, q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -7429,11 +7405,10 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	var r = Resp.create(0)
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then r = q
 			serviceStopped(q) then r = q
 		end 'x2'
 	end 'h1'
@@ -7482,11 +7457,10 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	var r = Resp.create(0)
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then r = q
 			serviceStopped(q) then r = q
 		end 'x2'
 	end 'h1'
@@ -7538,13 +7512,12 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	var r = Resp.create(0)
 	var i = 2 as Num
 	while i != 0 'w1'
 		try a.take(r) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
-				mailboxFull(q) then r = q
 				serviceStopped(q) then r = q
 			end 'x3'
 		end 'h2'
@@ -7597,12 +7570,11 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	var i = 3 as Num
 	while i != 0 'w1'
 		try a.take(Resp.create(0)) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
-				mailboxFull(q) then q.fin(1)
 				serviceStopped(q) then q.fin(1)
 			end 'x3'
 		end 'h2'
@@ -7616,7 +7588,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-handler-breaks -->
-<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
+<!-- skip: language difference: a mailbox has no capacity, so a spawn names none, no send fails mailboxFull or waits with sendTimeout:, and the runtime slows a sender of a service that is behind instead (README, Where it differs from Maxon: Services) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `hb-handler-breaks` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7656,12 +7628,11 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	var i = 3 as Num
 	while i != 0 'w1'
 		try a.take(Resp.create(0)) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
-				mailboxFull then break
 				serviceStopped then break
 			end 'x3'
 		end 'h2'
@@ -7675,7 +7646,7 @@ error E3224: <fragment>:43:5: the case 'mailboxFull' carries the linear value 't
 ```
 
 <!-- test: model-hand-ac-hb-handler-returns -->
-<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
+<!-- skip: language difference: a mailbox has no capacity, so a spawn names none, no send fails mailboxFull or waits with sendTimeout:, and the runtime slows a sender of a service that is behind instead (README, Where it differs from Maxon: Services) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `hb-handler-returns` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7713,14 +7684,13 @@ end 'Hq'
 function f(a Hq.handle)
 	try a.take(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull then return
 			serviceStopped then return
 		end 'x2'
 	end 'h1'
 end 'f'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	f(a)
 	return 0
 end 'main'
@@ -7784,10 +7754,9 @@ function useS(s Sent)
 end 'useS'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	try a.takeS(giveS(Resp.create(0))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then useS(q)
 			serviceStopped(q) then useS(q)
 		end 'x2'
 	end 'h1'
@@ -7799,7 +7768,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-union-arg-handler-drops -->
-<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
+<!-- skip: language difference: a mailbox has no capacity, so a spawn names none, no send fails mailboxFull or waits with sendTimeout:, and the runtime slows a sender of a service that is behind instead (README, Where it differs from Maxon: Services) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `hb-union-arg-handler-drops` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7847,10 +7816,9 @@ function giveS(r Resp) returns Sent
 end 'giveS'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	try a.takeS(giveS(Resp.create(0))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
@@ -7898,17 +7866,15 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	let r = Resp.create(0)
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
 	try a.take(r) otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x4'
 	end 'h3'
@@ -7956,11 +7922,10 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	let r = Resp.create(0)
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -8017,7 +7982,6 @@ type Kq
 	export function go(a Hq.handle)
 		try a.take(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(q) then q.fin(1)
 				serviceStopped(q) then q.fin(1)
 			end 'x2'
 		end 'h1'
@@ -8025,7 +7989,7 @@ type Kq
 end 'Kq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	let k = spawn Kq.create(0)
 	try k.go(a.clone()) otherwise ignore
 	return 0
@@ -8080,7 +8044,6 @@ type Kq
 	export function go(a Hq.handle, r Resp)
 		try a.take(r) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(q) then q.fin(1)
 				serviceStopped(q) then q.fin(1)
 			end 'x2'
 		end 'h1'
@@ -8088,11 +8051,10 @@ type Kq
 end 'Kq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	let k = spawn Kq.create(0)
 	try k.go(a.clone(), r: Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(_, q) then q.fin(1)
 			serviceStopped(_, q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -8104,7 +8066,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-forward-param-no-handler-consume -->
-<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
+<!-- skip: language difference: a mailbox has no capacity, so a spawn names none, no send fails mailboxFull or waits with sendTimeout:, and the runtime slows a sender of a service that is behind instead (README, Where it differs from Maxon: Services) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `hb-forward-param-no-handler-consume` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8149,7 +8111,6 @@ type Kq
 	export function go(a Hq.handle, r Resp)
 		try a.take(r) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull then break
 				serviceStopped then break
 			end 'x2'
 		end 'h1'
@@ -8157,11 +8118,10 @@ type Kq
 end 'Kq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	let k = spawn Kq.create(0)
 	try k.go(a.clone(), r: Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(_, q) then q.fin(1)
 			serviceStopped(_, q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -8784,7 +8744,7 @@ error E3224: <fragment>:30:3: the case 'both' carries the linear value 'a', and 
 ```
 
 <!-- test: model-hand-ac-wc-underscore-handler -->
-<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
+<!-- skip: language difference: a mailbox has no capacity, so a spawn names none, no send fails mailboxFull or waits with sendTimeout:, and the runtime slows a sender of a service that is behind instead (README, Where it differs from Maxon: Services) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `wc-underscore-handler` of redteamAC.hand_ac11, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8820,22 +8780,19 @@ type Hq5
 end 'Hq5'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq5.create(0)
+	let a = spawn Hq5.create(0)
 	try a.take(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
 	try a.take(Resp.create(1)) otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x4'
 	end 'h3'
 	try a.take(Resp.create(2)) otherwise (sendFailure) 'h5'
 		match sendFailure 'x6'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x6'
 	end 'h5'
@@ -9465,7 +9422,7 @@ type Hq5
 end 'Hq5'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq5.create(0)
+	let a = spawn Hq5.create(0)
 	try a.take(Resp.create(0)) otherwise ignore
 	return 0
 end 'main'
@@ -9652,10 +9609,9 @@ type Hq9
 end 'Hq9'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq9.create(0)
+	let a = spawn Hq9.create(0)
 	try a.take(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -10265,11 +10221,10 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	let r = Resp.create(0) as Resp
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -10317,17 +10272,15 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	let r = Resp.create(0) as Resp
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
 	try a.take(r) otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x4'
 	end 'h3'
@@ -10375,11 +10328,10 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	let r = Resp.create(0) as Resp
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -10428,11 +10380,10 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	var r = Resp.create(0) as Resp
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then r = q
 			serviceStopped(q) then r = q
 		end 'x2'
 	end 'h1'
@@ -10482,11 +10433,10 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	var r = Resp.create(0) as Resp
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then r = q
 			serviceStopped(q) then r = q
 		end 'x2'
 	end 'h1'
@@ -10538,13 +10488,12 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	var r = Resp.create(0) as Resp
 	var i = 2 as Num
 	while i != 0 'w1'
 		try a.take(r) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
-				mailboxFull(q) then r = q
 				serviceStopped(q) then r = q
 			end 'x3'
 		end 'h2'
@@ -10598,13 +10547,12 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	var r = Resp.create(0) as Resp
 	var i = 2 as Num
 	while i != 0 'w1'
 		try a.take(r) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
-				mailboxFull(q) then r = q
 				serviceStopped(q) then r = q
 			end 'x3'
 		end 'h2'
@@ -10655,11 +10603,10 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	let r = Resp.create(0) as Resp
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -10707,11 +10654,10 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	let r = Resp.create(0) as Resp
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(r) then r.fin(1)
 			serviceStopped(r) then r.fin(1)
 		end 'x2'
 	end 'h1'
@@ -10759,11 +10705,10 @@ type Hq
 end 'Hq'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	let r = Resp.create(0) as Resp
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(r) then r.fin(1)
 			serviceStopped(r) then r.fin(1)
 		end 'x2'
 	end 'h1'
@@ -10905,7 +10850,6 @@ function main() returns ExitCode
 	let k = spawn Kq.create(0)
 	try k.go(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -11745,7 +11689,6 @@ function main() returns ExitCode
 	let k = spawn Kq.create(0)
 	try k.go(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -11867,7 +11810,6 @@ function main() returns ExitCode
 	let k = spawn Kb.create(0)
 	try k.go(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -11937,7 +11879,6 @@ function main() returns ExitCode
 	let k = spawn Kb.create(0)
 	try k.go1(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -12007,7 +11948,6 @@ function main() returns ExitCode
 	let k = spawn Kb.create(0)
 	try k.go2(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -12420,11 +12360,10 @@ type Hq2
 end 'Hq2'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq2.create(0)
+	let a = spawn Hq2.create(0)
 	let r = Resp.create(0)
 	try a.take(Resp.create(1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(r) then r.fin(1)
 			serviceStopped(r) then r.fin(1)
 		end 'x2'
 	end 'h1'
@@ -12474,11 +12413,10 @@ type Hq2
 end 'Hq2'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq2.create(0)
+	let a = spawn Hq2.create(0)
 	let r = Resp.create(0)
 	try a.take(Resp.create(1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(r) then r.fin(1)
 			serviceStopped(r) then r.fin(1)
 		end 'x2'
 	end 'h1'
@@ -13363,12 +13301,11 @@ function useR(r Resp)
 end 'useR'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq3.create(0)
+	let a = spawn Hq3.create(0)
 	let r = Resp.create(0) as Resp
 	useR(r)
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -14133,22 +14070,19 @@ type Hq4
 end 'Hq4'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq4.create(0)
+	let a = spawn Hq4.create(0)
 	try a.take(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
 	try a.take(Resp.create(1)) otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x4'
 	end 'h3'
 	try a.take(Resp.create(2)) otherwise (sendFailure) 'h5'
 		match sendFailure 'x6'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x6'
 	end 'h5'
@@ -14199,22 +14133,19 @@ function useR(r Resp)
 end 'useR'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq4.create(0)
+	let a = spawn Hq4.create(0)
 	try a.take(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then useR(q)
 			serviceStopped(q) then useR(q)
 		end 'x2'
 	end 'h1'
 	try a.take(Resp.create(1)) otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
-			mailboxFull(q) then useR(q)
 			serviceStopped(q) then useR(q)
 		end 'x4'
 	end 'h3'
 	try a.take(Resp.create(2)) otherwise (sendFailure) 'h5'
 		match sendFailure 'x6'
-			mailboxFull(q) then useR(q)
 			serviceStopped(q) then useR(q)
 		end 'x6'
 	end 'h5'
@@ -14277,22 +14208,19 @@ function useS(s Sent)
 end 'useS'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hu.create(0)
+	let a = spawn Hu.create(0)
 	try a.takeS(giveS(Resp.create(0))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then useS(q)
 			serviceStopped(q) then useS(q)
 		end 'x2'
 	end 'h1'
 	try a.takeS(giveS(Resp.create(1))) otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
-			mailboxFull(q) then useS(q)
 			serviceStopped(q) then useS(q)
 		end 'x4'
 	end 'h3'
 	try a.takeS(giveS(Resp.create(2))) otherwise (sendFailure) 'h5'
 		match sendFailure 'x6'
-			mailboxFull(q) then useS(q)
 			serviceStopped(q) then useS(q)
 		end 'x6'
 	end 'h5'
@@ -16653,16 +16581,14 @@ end 'useS'
 
 function main() returns ExitCode
 	let r = Resp.create(0)
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	try a.take(Resp.create(1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(r) then r.fin(1)
 			serviceStopped(r) then r.fin(1)
 		end 'x2'
 	end 'h1'
 	try a.take(Resp.create(2)) otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
-			mailboxFull(r) then r.fin(1)
 			serviceStopped(r) then r.fin(1)
 		end 'x4'
 	end 'h3'
@@ -16736,10 +16662,9 @@ end 'useS'
 
 function main() returns ExitCode
 	let r = Resp.create(0)
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	try a.take(Resp.create(1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(r) then r.fin(1)
 			serviceStopped(r) then r.fin(1)
 		end 'x2'
 	end 'h1'
@@ -16814,10 +16739,9 @@ end 'useS'
 
 function main() returns ExitCode
 	let r = Resp.create(0)
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(r) then r.fin(1)
 			serviceStopped(r) then r.fin(1)
 		end 'x2'
 	end 'h1'
@@ -16892,10 +16816,9 @@ end 'useS'
 
 function main() returns ExitCode
 	let r = Resp.create(0)
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(r) then r.fin(1)
 			serviceStopped(r) then r.fin(1)
 		end 'x2'
 	end 'h1'
@@ -16970,10 +16893,9 @@ end 'useS'
 
 function main() returns ExitCode
 	let r = Resp.create(0)
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	try a.mix(1, r: r, y: 2) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(_, q, _) then q.fin(1)
 			serviceStopped(_, q, _) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -17327,7 +17249,7 @@ error E3224: <fragment>:34:3: the case 'notSent' carries the linear value 'r', a
 ```
 
 <!-- test: model-hand-ad-j-handler-return -->
-<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
+<!-- skip: language difference: a mailbox has no capacity, so a spawn names none, no send fails mailboxFull or waits with sendTimeout:, and the runtime slows a sender of a service that is behind instead (README, Where it differs from Maxon: Services) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `j-handler-return` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17391,14 +17313,13 @@ end 'useS'
 function f(a Hq.handle)
 	try a.take(Resp.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull then return
 			serviceStopped then return
 		end 'x2'
 	end 'h1'
 end 'f'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	f(a)
 	f(a)
 	f(a)
@@ -17475,13 +17396,12 @@ function useS(s Sent)
 end 'useS'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	var r = Resp.create(0)
 	var i = 3 as Num
 	while i != 0 'w1'
 		try a.take(r) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
-				mailboxFull(q) then q.fin(1)
 				serviceStopped(q) then q.fin(1)
 			end 'x3'
 		end 'h2'
@@ -17563,13 +17483,12 @@ function useS(s Sent)
 end 'useS'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	let r = Resp.create(0)
 	var i = 3 as Num
 	while i != 0 'w1'
 		try a.take(r) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
-				mailboxFull(q) then q.fin(1)
 				serviceStopped(q) then q.fin(1)
 			end 'x3'
 		end 'h2'
@@ -17648,13 +17567,12 @@ function useS(s Sent)
 end 'useS'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Hq.create(0)
+	let a = spawn Hq.create(0)
 	var r = Resp.create(0)
 	var i = 3 as Num
 	while i != 0 'w1'
 		try a.take(r) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
-				mailboxFull(q) then q.fin(1)
 				serviceStopped(q) then q.fin(1)
 			end 'x3'
 		end 'h2'
@@ -18778,7 +18696,6 @@ function main() returns ExitCode
 		let q = Rl.create(3) as Rl
 		try k.go(q) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
-				mailboxFull(z) then z.fin(2)
 				serviceStopped(z) then z.fin(2)
 			end 'x3'
 		end 'h2'
@@ -21834,7 +21751,6 @@ function main() returns ExitCode
 	let k = spawn Bm.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	try k.eat(Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2)))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMr(z)
 			serviceStopped(z) then eatMr(z)
 		end 'x2'
 	end 'h1'
@@ -21948,7 +21864,6 @@ function main() returns ExitCode
 	let k = spawn Bm.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	try k.eat(Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2)))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMr(z)
 			serviceStopped(z) then eatMr(z)
 		end 'x2'
 	end 'h1'
@@ -22061,7 +21976,6 @@ function main() returns ExitCode
 	let k = spawn Bm.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	try k.eat(Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2)))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMr(z)
 			serviceStopped(z) then eatMr(z)
 		end 'x2'
 	end 'h1'
@@ -22217,7 +22131,6 @@ function main() returns ExitCode
 	let k = spawn K.create(0)
 	try k.eat(Sh.held(Rl.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatSh(z)
 			serviceStopped(z) then eatSh(z)
 		end 'x2'
 	end 'h1'
@@ -22303,7 +22216,6 @@ function main() returns ExitCode
 	let k = spawn K.create(0)
 	try k.eat(Sh.held(Rl.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatSh(z)
 			serviceStopped(z) then eatSh(z)
 		end 'x2'
 	end 'h1'
@@ -22800,7 +22712,6 @@ function main() returns ExitCode
 	let k = spawn K.create(0)
 	try k.eat(Sh.held(Rl.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatSh(z)
 			serviceStopped(z) then eatSh(z)
 		end 'x2'
 	end 'h1'
@@ -23001,17 +22912,15 @@ function eatSh(pV Sh)
 end 'eatSh'
 
 function main() returns ExitCode
-	let k = spawn(capacity: 1) Cap1.create(0)
+	let k = spawn Cap1.create(0)
 	try k.poke() otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
 	var v = Sh.none
 	try k.takeSh(Sh.held(Rl.create(1))) otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
-			mailboxFull(z) then v = z
 			serviceStopped(z) then v = z
 		end 'x4'
 	end 'h3'
@@ -23150,17 +23059,15 @@ function eatSh(pV Sh)
 end 'eatSh'
 
 function main() returns ExitCode
-	let k = spawn(capacity: 1) Cap1.create(0)
+	let k = spawn Cap1.create(0)
 	try k.poke() otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
 	var v = Sh.none
 	try k.takeSh(Sh.held(Rl.create(1))) otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
-			mailboxFull(z) then v = z
 			serviceStopped(z) then v = z
 		end 'x4'
 	end 'h3'
@@ -23387,7 +23294,6 @@ function main() returns ExitCode
 	let k = spawn Bm.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	try k.eat(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMp(z)
 			serviceStopped(z) then eatMp(z)
 		end 'x2'
 	end 'h1'
@@ -23490,7 +23396,6 @@ function main() returns ExitCode
 	let k = spawn Bm.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	try k.eat(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMp(z)
 			serviceStopped(z) then eatMp(z)
 		end 'x2'
 	end 'h1'
@@ -23593,7 +23498,6 @@ function main() returns ExitCode
 	let k = spawn Bm.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	try k.eat(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMp(z)
 			serviceStopped(z) then eatMp(z)
 		end 'x2'
 	end 'h1'
@@ -23697,7 +23601,6 @@ function main() returns ExitCode
 	let k = spawn Bm.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	try k.eat(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMp(z)
 			serviceStopped(z) then eatMp(z)
 		end 'x2'
 	end 'h1'
@@ -23800,7 +23703,6 @@ function main() returns ExitCode
 	let k = spawn Bm.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	try k.eat(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMp(z)
 			serviceStopped(z) then eatMp(z)
 		end 'x2'
 	end 'h1'
@@ -23899,7 +23801,6 @@ function main() returns ExitCode
 	let k = spawn Bm.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	try k.eat(Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2)))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMr(z)
 			serviceStopped(z) then eatMr(z)
 		end 'x2'
 	end 'h1'
@@ -23998,7 +23899,6 @@ function main() returns ExitCode
 	let k = spawn Bm.create(0, item: Bx.create(0), plain: Bx.create(1), hq: Hq.create(Bx.create(1), q: Bx.create(1)))
 	try k.eat(Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2)))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMr(z)
 			serviceStopped(z) then eatMr(z)
 		end 'x2'
 	end 'h1'
@@ -25675,7 +25575,6 @@ function main() returns ExitCode
 		let u = Sh.held(Rl.create(1))
 		try a.eat(u) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
-				mailboxFull(z) then eatSh(z)
 				serviceStopped(z) then eatSh(z)
 			end 'x3'
 		end 'h2'
@@ -26942,7 +26841,6 @@ function main() returns ExitCode
 	let u = Mp.m1(Bx.create(1)) as Mp
 	try bm.eat(u, k: k.clone()) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z, _) then eatMp(z)
 			serviceStopped(z, _) then eatMp(z)
 		end 'x2'
 	end 'h1'
@@ -27065,7 +26963,6 @@ function main() returns ExitCode
 	let u = Mp.m1(Bx.create(1)) as Mp
 	try bm.eat(u, k: k.clone()) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z, _) then eatMp(z)
 			serviceStopped(z, _) then eatMp(z)
 		end 'x2'
 	end 'h1'
@@ -27332,7 +27229,6 @@ type Rs
 	function go(consumes self, k Sm2.handle)
 		try k.takeS(self) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(q) then q.fin()
 				serviceStopped(q) then q.fin()
 			end 'x2'
 		end 'h1'
@@ -27481,7 +27377,6 @@ end 'eatMp'
 function sendIso(m Mp, k Sm.handle)
 	try k.takeI(m) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then eatMp(q)
 			serviceStopped(q) then eatMp(q)
 		end 'x2'
 	end 'h1'
@@ -27757,7 +27652,6 @@ function main() returns ExitCode
 	let u = isoGo(m)
 	try k.takeI(u) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then eatMp(q)
 			serviceStopped(q) then eatMp(q)
 		end 'x2'
 	end 'h1'
@@ -27844,7 +27738,6 @@ end 'eatMp'
 function sendIso(m Mp, k Sm.handle)
 	try k.takeI(m) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then eatMp(q)
 			serviceStopped(q) then eatMp(q)
 		end 'x2'
 	end 'h1'
@@ -28801,7 +28694,6 @@ function f(m Mp)
 	let u = m
 	try k.takeI(u) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then eatMp(q)
 			serviceStopped(q) then eatMp(q)
 		end 'x2'
 	end 'h1'
@@ -28897,7 +28789,6 @@ function f(m Mp)
 	let u = m
 	try k.take(u) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then eatMp(q)
 			serviceStopped(q) then eatMp(q)
 		end 'x2'
 	end 'h1'
@@ -28995,7 +28886,6 @@ function f(m Mp)
 	let k = spawn Sm.create(0)
 	try k.take(Mp.m0(Rl.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then takeMpI(q)
 			serviceStopped(q) then takeMpI(q)
 		end 'x2'
 	end 'h1'
@@ -29510,7 +29400,6 @@ function main() returns ExitCode
 	let q = Bx.create(3)
 	try k.take(RpL.create(Bx.create(1), code: 1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -29570,7 +29459,6 @@ function main() returns ExitCode
 	let s = spawn SRf.create(0)
 	try s.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin()
 			serviceStopped(q) then q.fin()
 		end 'x2'
 	end 'h1'
@@ -29630,7 +29518,6 @@ function main() returns ExitCode
 	let s = spawn SRg.create(0)
 	try s.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin()
 			serviceStopped(q) then q.fin()
 		end 'x2'
 	end 'h1'
@@ -29694,7 +29581,6 @@ function main() returns ExitCode
 	let s = spawn SRf.create(0)
 	try s.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin()
 			serviceStopped(q) then q.fin()
 		end 'x2'
 	end 'h1'
@@ -30371,20 +30257,18 @@ end 'useS'
 function sendIt(r Rl, a Zr.handle)
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
 	try a.take(r) otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x4'
 	end 'h3'
 end 'sendIt'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Zr.create(0)
+	let a = spawn Zr.create(0)
 	sendIt(Rl.create(0), a: a)
 	return 0
 end 'main'
@@ -30411,7 +30295,6 @@ type Fz
 	function f(a Zr2.handle)
 		try a.take(self) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(q) then q.g()
 				serviceStopped(q) then q.g()
 			end 'x2'
 		end 'h1'
@@ -30433,7 +30316,7 @@ type Zr2
 end 'Zr2'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Zr2.create(0)
+	let a = spawn Zr2.create(0)
 	let t = Fz.create(0)
 	t.f(a)
 	t.g()
@@ -30462,7 +30345,6 @@ type Fz
 	function f(consumes self, a Zr2.handle)
 		try a.take(self) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(q) then q.g()
 				serviceStopped(q) then q.g()
 			end 'x2'
 		end 'h1'
@@ -30485,7 +30367,7 @@ type Zr2
 end 'Zr2'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Zr2.create(0)
+	let a = spawn Zr2.create(0)
 	let t = Fz.create(0)
 	t.f(a)
 	return 0
@@ -30531,7 +30413,7 @@ type Zr2
 end 'Zr2'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Zr2.create(0)
+	let a = spawn Zr2.create(0)
 	let t = Fz.create(0)
 	t.f(a)
 	return 0
@@ -30613,7 +30495,6 @@ type Fz
 	function f(consumes self, a Zr2.handle)
 		try a.take(self) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(q) then q.g()
 				serviceStopped(q) then q.g()
 			end 'x2'
 		end 'h1'
@@ -30643,7 +30524,7 @@ type Zr2
 end 'Zr2'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Zr2.create(0)
+	let a = spawn Zr2.create(0)
 	let t = Fz.create(0)
 	t.f(a)
 	return 0
@@ -30675,7 +30556,6 @@ type Fz
 	function f(consumes self, a Zr2.handle)
 		try a.take(self) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(q) then q.g()
 				serviceStopped(q) then q.g()
 			end 'x2'
 		end 'h1'
@@ -30709,7 +30589,7 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 2) Zr2.create(0)
+	let a = spawn Zr2.create(0)
 	var i = 2 as Num
 	var t = Fz.create(0)
 	while i != 0 'w1'
@@ -30968,14 +30848,13 @@ end 'lg'
 function sendIt(r Rl, a Zr.handle)
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
 end 'sendIt'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 2) Zr.create(0)
+	let a = spawn Zr.create(0)
 	var i = 2 as Num
 	while i != 0 'w1'
 		sendIt(Rl.create(i), a: a)
@@ -31100,7 +30979,6 @@ end 'Zr'
 function g(r Rl, a Zr.handle)
 	try a.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -31108,7 +30986,7 @@ function g(r Rl, a Zr.handle)
 end 'g'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Zr.create(0)
+	let a = spawn Zr.create(0)
 	g(Rl.create(0), a: a)
 	return 0
 end 'main'
@@ -31183,20 +31061,18 @@ end 'later2'
 function g(s Sn, k Zs.handle)
 	try k.takeS(s) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then later2(z)
 			serviceStopped(z) then later2(z)
 		end 'x2'
 	end 'h1'
 	try k.takeS(s) otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
-			mailboxFull(z) then later2(z)
 			serviceStopped(z) then later2(z)
 		end 'x4'
 	end 'h3'
 end 'g'
 
 function main() returns ExitCode
-	let k = spawn(capacity: 2) Zs.create(0)
+	let k = spawn Zs.create(0)
 	g(Sn.notSent(Rl.create(1)), k: k)
 	return 0
 end 'main'
@@ -31316,14 +31192,13 @@ function g(r Rl, a Zr.handle)
 	q = Rl.create(3)
 	try a.take(q) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(w) then w.fin(1)
 			serviceStopped(w) then w.fin(1)
 		end 'x2'
 	end 'h1'
 end 'g'
 
 function main() returns ExitCode
-	let a = spawn(capacity: 1) Zr.create(0)
+	let a = spawn Zr.create(0)
 	g(Rl.create(0), a: a)
 	return 0
 end 'main'
@@ -31411,7 +31286,6 @@ function main() returns ExitCode
 	let b = Bx.create(1)
 	try k.take(Mp.m1(b)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then eatMp(q)
 			serviceStopped(q) then eatMp(q)
 		end 'x2'
 	end 'h1'
@@ -31503,7 +31377,6 @@ function main() returns ExitCode
 	let m = Mp.m1(b)
 	try k.take(m) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then eatMp(q)
 			serviceStopped(q) then eatMp(q)
 		end 'x2'
 	end 'h1'
@@ -31592,7 +31465,6 @@ function main() returns ExitCode
 	let b = Bx.create(1)
 	try k.takeI(Mp.m1(b)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then eatMp(q)
 			serviceStopped(q) then eatMp(q)
 		end 'x2'
 	end 'h1'
@@ -31681,7 +31553,6 @@ function main() returns ExitCode
 	let k = spawn Sm2.create(0, keep: Bx.create(0))
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then eatMp(q)
 			serviceStopped(q) then eatMp(q)
 		end 'x2'
 	end 'h1'
@@ -31772,7 +31643,6 @@ function main() returns ExitCode
 	let k = spawn Sm3.create(0)
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then eatMp(q)
 			serviceStopped(q) then eatMp(q)
 		end 'x2'
 	end 'h1'
@@ -31861,7 +31731,6 @@ function main() returns ExitCode
 	let m = Mp.m1(Bx.create(1))
 	try k.take(m) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then takeMpI(q)
 			serviceStopped(q) then takeMpI(q)
 		end 'x2'
 	end 'h1'
@@ -31949,7 +31818,6 @@ end 'takeMpI'
 function fwd(k Sm2.handle, m Mp)
 	try k.take(m) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then takeMpI(q)
 			serviceStopped(q) then takeMpI(q)
 		end 'x2'
 	end 'h1'
@@ -32989,7 +32857,6 @@ function main() returns ExitCode
 	let k = spawn Sm3.create(0)
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMp(z)
 			serviceStopped(z) then eatMp(z)
 		end 'x2'
 	end 'h1'
@@ -33079,7 +32946,6 @@ type Sm3
 		let s = self.k
 		try s.take(m) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
-				mailboxFull(z) then eatMp(z)
 				serviceStopped(z) then eatMp(z)
 			end 'x2'
 		end 'h1'
@@ -33098,7 +32964,6 @@ function main() returns ExitCode
 	let kV = spawn Sm3.create(0, k: s.clone())
 	try kV.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMp(z)
 			serviceStopped(z) then eatMp(z)
 		end 'x2'
 	end 'h1'
@@ -33183,7 +33048,6 @@ function main() returns ExitCode
 	let k = spawn Sm3.create(0)
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMp(z)
 			serviceStopped(z) then eatMp(z)
 		end 'x2'
 	end 'h1'
@@ -33275,7 +33139,6 @@ function main() returns ExitCode
 	let k = spawn Sm3.create(0)
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMp(z)
 			serviceStopped(z) then eatMp(z)
 		end 'x2'
 	end 'h1'
@@ -33361,7 +33224,6 @@ function main() returns ExitCode
 	let k = spawn Sm3.create(0)
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMp(z)
 			serviceStopped(z) then eatMp(z)
 		end 'x2'
 	end 'h1'
@@ -33452,7 +33314,6 @@ function main() returns ExitCode
 	let k = spawn Sm3.create(0)
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMp(z)
 			serviceStopped(z) then eatMp(z)
 		end 'x2'
 	end 'h1'
@@ -33512,7 +33373,6 @@ function main() returns ExitCode
 	let k = spawn Sr2.create(0)
 	try k.take(RpL.create(Bx.create(1), code: 1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then z.fin(1)
 			serviceStopped(z) then z.fin(1)
 		end 'x2'
 	end 'h1'
@@ -33674,7 +33534,6 @@ function main() returns ExitCode
 	let k = spawn Sm3.create(0)
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMp(z)
 			serviceStopped(z) then eatMp(z)
 		end 'x2'
 	end 'h1'
@@ -33762,7 +33621,6 @@ function main() returns ExitCode
 	let k = spawn Sm2.create(0, keep: Bx.create(0))
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMp(z)
 			serviceStopped(z) then eatMp(z)
 		end 'x2'
 	end 'h1'
@@ -33852,7 +33710,6 @@ function main() returns ExitCode
 	let k = spawn Sm3.create(0)
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMp(z)
 			serviceStopped(z) then eatMp(z)
 		end 'x2'
 	end 'h1'
@@ -33940,7 +33797,6 @@ function main() returns ExitCode
 	let k = spawn Sm3.create(0)
 	try k.take(Mx.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(z) then eatMx(z)
 			serviceStopped(z) then eatMx(z)
 		end 'x2'
 	end 'h1'
@@ -34028,7 +33884,6 @@ function main() returns ExitCode
 	let k = spawn Sm2.create(0, keep: Bx.create(0))
 	try k.take(Mp.m1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then takeMpI(q)
 			serviceStopped(q) then takeMpI(q)
 		end 'x2'
 	end 'h1'
@@ -34093,7 +33948,6 @@ function main() returns ExitCode
 	let k = spawn Sr.create(0, keep: Bx.create(0))
 	try k.take(RpL.create(Bx.create(1), code: 1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then takeRI(q)
 			serviceStopped(q) then takeRI(q)
 		end 'x2'
 	end 'h1'
@@ -34154,7 +34008,6 @@ function main() returns ExitCode
 	let k = spawn Sr.create(0, keep: Bx.create(0))
 	try k.take(RpL.create(Bx.create(1), code: 1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(2)
 			serviceStopped(q) then q.fin(2)
 		end 'x2'
 	end 'h1'
@@ -34225,7 +34078,6 @@ function main() returns ExitCode
 	let k = spawn Kx.create(0)
 	try k.take(Rl.create(1)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then useI(q)
 			serviceStopped(q) then useI(q)
 		end 'x2'
 	end 'h1'
@@ -34293,7 +34145,6 @@ function main() returns ExitCode
 	let s = spawn S.create(0)
 	try s.go(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -34567,7 +34418,6 @@ function main() returns ExitCode
 	let s = spawn S.create(0)
 	try s.go(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -34637,7 +34487,6 @@ function main() returns ExitCode
 	let s = spawn S.create(0)
 	try s.go(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -34714,7 +34563,6 @@ function main() returns ExitCode
 	let s = spawn S.create(0)
 	try s.go(r) otherwise (sendFailure) 'h2'
 		match sendFailure 'x3'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x3'
 	end 'h2'
@@ -34776,7 +34624,6 @@ function main() returns ExitCode
 	let s = spawn Sx.create(0)
 	try s.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -35196,7 +35043,6 @@ function main() returns ExitCode
 	let s = spawn SqL.create(0)
 	try s.take(r) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(q) then q.fin(1)
 			serviceStopped(q) then q.fin(1)
 		end 'x2'
 	end 'h1'
@@ -35372,7 +35218,6 @@ function main() returns ExitCode
 	let s = spawn S.create(0)
 	try s.go((Rl.create(3) if lg(1) != 0 else (r if lg(1) != 0 else r))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
-			mailboxFull(h) then h.fin(1)
 			serviceStopped(h) then h.fin(1)
 		end 'x2'
 	end 'h1'

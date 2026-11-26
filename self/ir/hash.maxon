@@ -21,6 +21,32 @@ function lowerHashBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c 
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHashBytes, kind: IrKind.kindScalar, args: argsOf4(args[0], b: args[1], c: args[2], d: args[3]))
 end 'lowerHashBytes'
 
+// lowerArrayHashesAsStorage is whether the array hashes as the fold of the bytes of its storage (ast.storageHashes), which
+// its instance knows.
+function lowerArrayHashesAsStorage(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	if ast.storageHashes(ms.types, reads: p.types, b: p.builtins, elem: arrayElem(p, ms: ms, box: a)) 'storage'
+		return konst(l, value: 1 as Word)
+	end 'storage'
+	return konst(l, value: 0 as Word)
+end 'lowerArrayHashesAsStorage'
+
+// lowerArrayStorageHash is the fold of the bytes of an array that hashes as its storage under a seed, the hashBytes of all
+// of them. Of any other array it is never reached, since the library asks hashesAsStorage first, and traps.
+function lowerArrayStorageHash(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	if not ast.storageHashes(ms.types, reads: p.types, b: p.builtins, elem: arrayElem(p, ms: ms, box: a)) 'elements'
+		seal(l, t: newTrap())
+		return konst(l, value: 0 as Word)
+	end 'elements'
+	let length = arrayLength(l, p: p, ms: ms, box: a, arr: recv)
+	let from = konst(l, value: 0 as Word)
+	for seed in args 'seed'
+		return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHashBytes, kind: IrKind.kindScalar, args: argsOf4(recv, b: from, c: length, d: seed))
+	end 'seed'
+	panic("lower: an array's storageHash is given no seed")
+end 'lowerArrayStorageHash'
+
 function lowerHashStringBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHashStringBytes, kind: IrKind.kindScalar, args: argsOf4(args[0], b: args[1], c: args[2], d: args[3]))
 end 'lowerHashStringBytes'

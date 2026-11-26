@@ -443,6 +443,22 @@ export type Module
 	end 'takeParsed'
 end 'Module'
 
+// NameUse is a name that a module's code writes, by its place in the module's text.
+export type NameUse
+	export var start as diag.U32
+	export var length as diag.U32
+
+	export static function make(start diag.U32, length diag.U32) returns NameUse
+		return NameUse{start: start, length: length}
+	end 'make'
+
+	export function endOffset() returns Count
+		return (start as Count) + (length as Count)
+	end 'endOffset'
+end 'NameUse'
+
+export typealias NameUses = Array with NameUse
+
 // ParsedModule is a module's source as its parse makes it, which the parse owns and writes: its files, its tree, its
 // declarations, their names and the typealiases its types nest.
 export type ParsedModule
@@ -453,9 +469,12 @@ export type ParsedModule
 	export var nested as NestedAliasList
 	// skimmed is how many bodies of functions the parse skimmed, which it holds empty (syntax.parseModuleFilesSkimming).
 	export var skimmed as Count
+	// nameUses are the names that the module's code writes, its interpolations included, in neither its comments nor the text of
+	// its strings, which the driver reads the module's words of the library from (libindex.maxon) and lets go.
+	export var nameUses as NameUses
 
 	export static function new(id diag.ModuleID, consumes text String, consumes files FileSpanList) returns ParsedModule
-		return ParsedModule{files: files, tree: Tree.new(id, text: text), decls: DeclList.create(0), names: DeclIndex.new(), nested: NestedAliasList.create(0), skimmed: 0}
+		return ParsedModule{files: files, tree: Tree.new(id, text: text), decls: DeclList.create(0), names: DeclIndex.new(), nested: NestedAliasList.create(0), skimmed: 0, nameUses: NameUses.create(0)}
 	end 'new'
 
 	export function appendRawDecl(mutates self, consumes d Decl)

@@ -1,0 +1,43 @@
+// A Pair is Equatable and Hashable only where its element is, so a Pair of a record that is neither is no Map key (maxon's
+// E3017 for a type argument that does not meet the bound) and has no equals for == (maxon's E4006).
+type Plain
+	export var n as Count
+
+	static function make(n Count) returns Plain
+		return Plain{n: n}
+	end 'make'
+end 'Plain'
+
+type Pair uses A
+	export var a as A
+
+	static function make(consumes a A) returns Self
+		return Self{a: a}
+	end 'make'
+end 'Pair'
+
+extension Pair implements Hashable, Equatable where A implements Hashable and Equatable
+	public function hash() returns HashValue
+		return a.hash()
+	end 'hash'
+
+	public function equals(other Self) returns bool
+		return a == other.a
+	end 'equals'
+end 'Pair'
+
+typealias Plains = Pair with Plain
+
+typealias Table = Map with (Plains, Count)
+
+function main() returns ExitCode
+	var table = Table.create()
+	table.upsert(Plains.make(Plain.make(1)), value: 1)
+	if Plains.make(Plain.make(1)) == Plains.make(Plain.make(1)) 'same'
+		return 1
+	end 'same'
+	return 0
+end 'main'
+
+// expect-error: E3017 at 31:19
+// expect-error: E4006 at 36:32

@@ -1,0 +1,20 @@
+// A method whose receiver is a let borrows it, so it cannot call a mutates method on it: only a destructor, which owns its
+// receiver, may change it without saying mutates self.
+type Tally
+	var n as Count
+
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise 0
+	end 'bump'
+
+	function look() returns Count
+		bump()
+		return self.n
+	end 'look'
+end 'Tally'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2013

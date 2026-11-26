@@ -1,0 +1,88 @@
+// An open file writes the whole of each buffer it is given, and reads back what it wrote, appending to a buffer after its
+// length: a read gives what it read, a read whose bytes would run past the buffer's capacity is readFailed and reads nothing,
+// and a read at the end of the file gives 0. A regular file's reads and writes are plain calls in the blocking bracket. Each
+// failure ends the handle that is open with its close before it goes on, as every way out of a function must.
+// native-only
+//> wrote: 6 and 5
+//> reads: 5 3 readFailed 3 0
+//> text: hello wo|rld
+typealias Bytes = __ManagedMemory with Byte
+
+// name is a file in the working directory, which every target can write.
+function name() returns String
+	return "minimaxon_file_read_write_{Process.id()}"
+end 'name'
+
+// failureName is the case of a failure of an open, a read, a write or a close.
+function failureName(e __ManagedFileError) returns String
+	return match e 'kind'
+		notFound gives "notFound"
+		accessDenied gives "accessDenied"
+		openFailed gives "openFailed"
+		readFailed gives "readFailed"
+		writeFailed gives "writeFailed"
+		sizeFailed gives "sizeFailed"
+		deleteFailed gives "deleteFailed"
+		statFailed gives "statFailed"
+		invalidStatBuffer gives "invalidStatBuffer"
+		invalidStatIndex gives "invalidStatIndex"
+		closed gives "closed"
+		alreadyExists gives "alreadyExists"
+		busy gives "busy"
+	end 'kind'
+end 'failureName'
+
+// writeTwice writes two buffers and closes the file: a write that fails closes it before the failure goes on, and the close
+// is the last thing that can fail.
+function writeTwice(path String) returns String throws __ManagedFileError
+	var file = try __ManagedFile.openWrite(path.addressableBytes())
+	let first = try file.write("hello ".toByteArray().managed) otherwise (e) 'first'
+		try file.close() otherwise ignore
+		throw e
+	end 'first'
+	let second = try file.write("world".toByteArray().managed) otherwise (e) 'second'
+		try file.close() otherwise ignore
+		throw e
+	end 'second'
+	try file.close()
+	return "{first} and {second}"
+end 'writeTwice'
+
+// attempt is a read of up to most bytes into a buffer: the count, or the case it failed with.
+function attempt(mutates file __ManagedFile, mutates buffer Bytes, most Count) returns String
+	let got = try file.readAppending(buffer, most: most) otherwise (e) 'refused'
+		return failureName(e)
+	end 'refused'
+	return "{got}"
+end 'attempt'
+
+function readBack(path String, mutates head Bytes, mutates tail Bytes) returns String throws __ManagedFileError
+	var file = try __ManagedFile.openRead(path.addressableBytes())
+	let five = attempt(file, buffer: head, most: 5)
+	let three = attempt(file, buffer: head, most: 3)
+	let past = attempt(file, buffer: head, most: 1)
+	let rest = attempt(file, buffer: tail, most: 8)
+	let after = attempt(file, buffer: tail, most: 5)
+	try file.close()
+	return "{five} {three} {past} {rest} {after}"
+end 'readBack'
+
+function main() returns ExitCode
+	let path = name()
+	let wrote = try writeTwice(path) otherwise (e) 'unwritten'
+		print("write: {failureName(e)}\n")
+		return 1
+	end 'unwritten'
+	print("wrote: {wrote}\n")
+	var head = try Bytes.create(8, elementSize: 1) otherwise return 2
+	var tail = try Bytes.create(8, elementSize: 1) otherwise return 2
+	let reads = try readBack(path, head: head, tail: tail) otherwise (e) 'unread'
+		print("read: {failureName(e)}\n")
+		return 3
+	end 'unread'
+	print("reads: {reads}\n")
+	print("text: {String.from(ByteArray.init(head))}|{String.from(ByteArray.init(tail))}\n")
+	let file = try FilePath.from(path) otherwise return 4
+	try File.delete(file) otherwise return 5
+	return 0
+end 'main'

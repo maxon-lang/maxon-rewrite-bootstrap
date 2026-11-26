@@ -1,0 +1,123 @@
+// The environment of a child, by the library's Subprocess: `Environment.inherit` leaves it this program's own, `inheritUpdating`
+// gives it the program's with the named variables added or replaced, and `custom` gives it the named variables and nothing else.
+// The child is this program run again and reads its own variables. Text that is not ASCII arrives whole, a name or a value that
+// holds a NUL is refused before anything starts, and two names that differ in case only are one variable on Windows, which refuses
+// them, and two elsewhere.
+// native-only
+//> inherit: probe=unset other=unset witness=set
+//> inheritUpdating: probe=seen other=two witness=set
+//> inheritUpdating replaces: probe=unset other=unset witness=replaced
+//> custom: probe=seen other=two witness=unset
+//> custom empty: probe=unset other=unset witness=unset
+//> text: probe=héllo wörld other=unset witness=unset
+//> nul in a name: spawnFailed
+//> nul in a value: spawnFailed
+//> names that differ in case: as the system reads them=true
+
+typealias Arguments = Array with String
+
+// witness is a variable that every program has and a custom environment lacks.
+#if os(Windows)
+	let witness = "SystemRoot"
+#else
+	let witness = "HOME"
+#endif
+
+let replaced = "replaced"
+
+let unset = "unset"
+
+let probe = "MX_SUBPROCESS_PROBE"
+
+let other = "MX_SUBPROCESS_OTHER"
+
+// seen is what this program reads of a variable: its value, or `unset`.
+function seen(name String) returns String
+	return try Process.environmentVariable(name) otherwise unset
+end 'seen'
+
+// kindOf is what the child says of the witness: that it is unset, that it is the replacement, or that it is some value.
+function kindOf(value String) returns String
+	if value == unset or value == replaced 'known'
+		return value.clone()
+	end 'known'
+	return "set"
+end 'kindOf'
+
+function child() returns ExitCode
+	print("probe={seen(probe)} other={seen(other)} witness={kindOf(seen(witness))}")
+	return 0
+end 'child'
+
+// whatHappens runs the child with the environment and gives what it printed, or `spawnFailed` where nothing started.
+function whatHappens(executable MxExecutable, environment Environment) returns String
+	var configuration = Configuration.create(executable)
+	configuration.arguments.push("child")
+	configuration.environment = environment.clone()
+	try 'run'
+		let out = configuration.run()
+		return out.stdout.clone()
+	end 'run' otherwise (e) 'failed'
+		match e 'kind'
+			spawnFailed then return "spawnFailed"
+			executableNotFound or
+			busy or
+			ioFailed or
+			timeout or
+			treeNotEnded or
+			detachRefused or
+			inputTooLarge or
+			statusLost then return "failed {e.displayReason()}"
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'whatHappens'
+
+// variables is the map of the variables that the names and the values give, each name its value.
+function variables(entries Arguments) returns EnvMap
+	var vars = EnvMap.create()
+	var at = 0 as ElementIndex
+	while at < entries.count() 'each'
+		let name = entries.get(at)
+		let value = try entries.get(at + 1) otherwise return vars
+		try vars.insert(name.clone(), value: value.clone()) otherwise ignore
+		at = at + 2
+	end 'each'
+	return vars
+end 'variables'
+
+function entriesOf(first String, second String, third String, fourth String) returns Arguments
+	var entries = Arguments.create(0)
+	entries.push(first.clone())
+	entries.push(second.clone())
+	if third != "" 'more'
+		entries.push(third.clone())
+		entries.push(fourth.clone())
+	end 'more'
+	return entries
+end 'entriesOf'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() > 1 'child'
+		return child()
+	end 'child'
+	let own = try Process.executablePath() otherwise return 1
+	let executable = MxExecutable.path(own)
+	let both = entriesOf(probe, second: "seen", third: other, fourth: "two")
+	print("inherit: {whatHappens(executable.clone(), environment: Environment.inherit)}\n")
+	print("inheritUpdating: {whatHappens(executable.clone(), environment: Environment.inheritUpdating(variables(both)))}\n")
+	print("inheritUpdating replaces: {whatHappens(executable.clone(), environment: Environment.inheritUpdating(variables(entriesOf(witness, second: replaced, third: "", fourth: ""))))}\n")
+	print("custom: {whatHappens(executable.clone(), environment: Environment.custom(variables(both)))}\n")
+	print("custom empty: {whatHappens(executable.clone(), environment: Environment.custom(EnvMap.create()))}\n")
+	print("text: {whatHappens(executable.clone(), environment: Environment.custom(variables(entriesOf(probe, second: "héllo wörld", third: "", fourth: ""))))}\n")
+	print("nul in a name: {whatHappens(executable.clone(), environment: Environment.custom(variables(entriesOf("MX\0NAME", second: "x", third: "", fourth: ""))))}\n")
+	print("nul in a value: {whatHappens(executable.clone(), environment: Environment.custom(variables(entriesOf(probe, second: "a\0b", third: "", fourth: ""))))}\n")
+	let folded = whatHappens(executable.clone(), environment: Environment.custom(variables(entriesOf("MX_Case", second: "one", third: "mx_case", fourth: "two")))) == "spawnFailed"
+	#if os(Windows)
+		print("names that differ in case: as the system reads them={folded}\n")
+	#else
+		print("names that differ in case: as the system reads them={not folded}\n")
+	#endif
+	return 0
+end 'main'

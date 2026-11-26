@@ -1,8 +1,9 @@
 // Command selfab compares two versions of the compiler by what each costs to build self/ and by the run-time checks
 // that the compiler it makes still holds. It builds C1 of each version (the version's own seed builds self/, so only
-// the work the compiler does differs, not the quality of the code that built it), then runs `<C1> build self --no-cache`
-// alternately on both, and reports the medians, their ratio, the share of the check in a build and the count of bounds
-// tests and empty-slot tests in the IR of the compiler (README, "Tools").
+// the work the compiler does differs, not the quality of the code that built it), then times a rebuild of self/ with a warm
+// build cache after one module's source is touched, alternately on both, for a leaf module and for a low one, or with --full
+// a build of self/ with the cache off. It reports the medians, their ratios, the share of the check in a build and the count
+// of bounds tests and empty-slot tests in the IR of the compiler (README, "Tools").
 package main
 
 import (
@@ -28,13 +29,16 @@ const (
 	outputName   = "selfab-out"
 )
 
-const usageText = `usage: selfab [--base=<git revision>] [--base-compiler=<C1 executable>] [--runs=N] [--root=.] [--note=TEXT]
+const usageText = `usage: selfab [--base=<git revision>] [--base-compiler=<C1 executable>] [--runs=N] [--full] [--root=.] [--note=TEXT]
   A is the version to compare with (default HEAD, built in a temporary worktree), B the working tree. Each is built as C1
-  by its seed, and then <C1> build self --no-cache is timed N times (default 11) on both, interleaved with the order
-  alternating, after one run of each that is not counted.
+  by its seed. Each is then copied, with its C1, into a temporary directory with a build cache of its own, built once to
+  warm the cache, and N times (default 11) one comment line is written to a source file of the leaf module (driver) or of a
+  low one (diag) and the rebuild of self/ is timed, on both, interleaved with the order alternating. That makes two ratios,
+  one for each module. The checkout is not touched.
+  --full times a build of self/ with the cache off (MINIMAXON_CACHE=off) instead, after one run of each that is not counted.
   --base-compiler uses an executable made of A's sources instead of building the revision; it finds runtime/ by its
   place, so it must lie in a checkout, and it builds the working tree's self/.
-  --note adds a row for docs/self-compile-times.md, with the note as its description.
+  --note, with --full, adds a row for docs/self-compile-times.md, with the note as its description.
 Run from the repository's root, on a machine with nothing else running.`
 
 func main() {
@@ -48,6 +52,7 @@ type options struct {
 	base         string
 	baseCompiler string
 	runs         int
+	full         bool
 	root         string
 	note         string
 }
@@ -59,12 +64,13 @@ func run(args []string) error {
 	flags.StringVar(&o.base, "base", "HEAD", "git revision of A")
 	flags.StringVar(&o.baseCompiler, "base-compiler", "", "compiler executable of A")
 	flags.IntVar(&o.runs, "runs", defaultRuns, "timed runs of each")
+	flags.BoolVar(&o.full, "full", false, "time a build with the cache off instead of a rebuild after a touch")
 	flags.StringVar(&o.root, "root", ".", "the repository")
 	flags.StringVar(&o.note, "note", "", "description of the row to print")
 	if err := flags.Parse(args); err != nil {
 		os.Exit(exitUsage)
 	}
-	if flags.NArg() != 0 || o.runs < 1 {
+	if flags.NArg() != 0 || o.runs < 1 || (o.note != "" && !o.full) {
 		flags.Usage()
 		os.Exit(exitUsage)
 	}
@@ -83,7 +89,12 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	timesA, timesB, err := interleave(a, b, o.runs)
+	var timesA, timesB []time.Duration
+	if o.full {
+		timesA, timesB, err = measureFullBuilds(a, b, o.runs)
+	} else {
+		err = measureTouches(a, b, o.runs)
+	}
 	if err != nil {
 		return err
 	}
@@ -95,7 +106,7 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	printReport(a, b, timesA, timesB, reportA, reportB)
+	printChecks(a, b, reportA, reportB)
 	if o.note != "" {
 		row, err := tableRow(root, o.note, timesA, timesB, reportB)
 		if err != nil {
@@ -202,31 +213,38 @@ func checkoutRevision(root, revision string) (string, func(), error) {
 	return tree, remove, nil
 }
 
-// interleave times builds of both sides, one of each in turn with the order alternating, so that a drift of the machine's
-// speed reaches both the same.
-func interleave(a, b side, runs int) (timesA, timesB []time.Duration, err error) {
+// measureFullBuilds times builds of self/ with the build cache off on both sides, interleaved.
+func measureFullBuilds(a, b side, runs int) (timesA, timesB []time.Duration, err error) {
 	fmt.Fprintln(os.Stderr, "warming up")
-	for _, s := range []side{a, b} {
+	sides := []side{a, b}
+	for _, s := range sides {
 		if _, err = timeBuild(s); err != nil {
 			return
 		}
 	}
+	timesA, timesB, err = interleave(runs, func(i int) (time.Duration, error) { return timeBuild(sides[i]) })
+	if err == nil {
+		printTimes("self-build, cache off", a, b, timesA, timesB)
+	}
+	return
+}
+
+// interleave calls measure with 0, the index of A, and with 1, the index of B, runs times, in one order and in the other in
+// turn, so that a drift of the machine's speed reaches both the same.
+func interleave(runs int, measure func(side int) (time.Duration, error)) (timesA, timesB []time.Duration, err error) {
 	for i := range runs {
-		first, second := &timesA, &timesB
-		sides := []side{a, b}
+		order := [2]int{0, 1}
 		if i%2 == 1 {
-			first, second = second, first
-			sides = []side{b, a}
+			order = [2]int{1, 0}
 		}
-		for j, times := range []*[]time.Duration{first, second} {
-			elapsed, buildErr := timeBuild(sides[j])
-			if buildErr != nil {
-				err = buildErr
+		var pair [2]time.Duration
+		for _, side := range order {
+			if pair[side], err = measure(side); err != nil {
 				return
 			}
-			*times = append(*times, elapsed)
 		}
-		fmt.Fprintf(os.Stderr, "run %d of %d: A %v, B %v\n", i+1, runs, timesA[i].Round(time.Millisecond), timesB[i].Round(time.Millisecond))
+		timesA, timesB = append(timesA, pair[0]), append(timesB, pair[1])
+		fmt.Fprintf(os.Stderr, "run %d of %d: A %v, B %v\n", i+1, runs, pair[0].Round(time.Millisecond), pair[1].Round(time.Millisecond))
 	}
 	return
 }
@@ -234,18 +252,18 @@ func interleave(a, b side, runs int) (timesA, timesB []time.Duration, err error)
 // timeBuild is the wall time of the side's compiler building self/ without the build cache.
 func timeBuild(s side) (time.Duration, error) {
 	start := time.Now()
-	if err := execute(s.tree, nil, s.compiler, "build", "self", "--no-cache", "-o", s.output()); err != nil {
+	if err := execute(s.tree, cacheOffEnvironment, s.compiler, "build", "self", "-o", s.output()); err != nil {
 		return 0, err
 	}
 	return time.Since(start), nil
 }
 
 func tableRow(root, note string, timesA, timesB []time.Duration, b report) (string, error) {
-	commit, err := capture(root, "git", "rev-parse", "--short", "HEAD")
+	commit, err := capture(root, nil, "git", "rev-parse", "--short", "HEAD")
 	if err != nil {
 		return "", err
 	}
-	dirty, err := capture(root, "git", "status", "--porcelain", "--untracked-files=no")
+	dirty, err := capture(root, nil, "git", "status", "--porcelain", "--untracked-files=no")
 	if err != nil {
 		return "", err
 	}

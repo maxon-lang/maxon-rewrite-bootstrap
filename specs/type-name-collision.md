@@ -4010,9 +4010,9 @@ export enum ParseError implements Error
 end 'ParseError'
 
 // --- file: app/main.maxon
-function check(n ExitCode) returns ExitCode throws ParseError
+function check(n ExitCode) returns ExitCode throws lib.ParseError
 	if n > 5 'big'
-		throw ParseError.malformed
+		throw lib.ParseError.malformed
 	end 'big'
 	return n
 end 'check'
@@ -4162,7 +4162,7 @@ public interface Comparable
 end 'Comparable'
 
 function main() returns ExitCode
-	let words = ["b", "a"]
+	var words = ["b", "a"]
 	words.sort()
 	let first = try words.get(0) otherwise return 3
 	print("{first}\n")

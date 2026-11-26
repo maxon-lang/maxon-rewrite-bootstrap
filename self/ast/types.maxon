@@ -313,9 +313,12 @@ export type ExtConform
 	export var iface as TypeID
 	// site is the extension that says it.
 	export var site as NodeID
+	// conditions are the bounds of the extension's 'where', over the parameters of the extended type: the conformance is
+	// of the instances whose type arguments meet them, maxon's conditional conformance.
+	export var conditions as ParamBoundList
 
-	export static function make(owner TypeID, iface TypeID, site NodeID) returns ExtConform
-		return ExtConform{owner: owner, iface: iface, site: site}
+	export static function make(owner TypeID, iface TypeID, site NodeID, consumes conditions ParamBoundList) returns ExtConform
+		return ExtConform{owner: owner, iface: iface, site: site, conditions: conditions}
 	end 'make'
 end 'ExtConform'
 
@@ -2305,11 +2308,6 @@ export function funcSlotOf(f FuncID) returns Count
 	return handleSlot(f as Count)
 end 'funcSlotOf'
 
-// holdsFunc is whether the slot ft is the one that holds the entry of the function f, which is then of ft's module.
-export function holdsFunc(ft FuncSlot, f FuncID) returns bool
-	return handleSlot(f as Count) == ft.slot
-end 'holdsFunc'
-
 // funcListOf is the number of the list (the segment) of its slot that holds the entry of the function f.
 export function funcListOf(f FuncID) returns Count
 	return handleList(f as Count)
@@ -2517,6 +2515,43 @@ export function packsByte(tt TypeSlot, reads TypeTable, b Builtins, elem TypeID)
 	return typeEntry(tt, reads: reads, t: elem).minVal.ge(typeEntry(tt, reads: reads, t: byteTy).minVal) and typeEntry(tt, reads: reads, t: elem).maxVal.le(typeEntry(tt, reads: reads, t: byteTy).maxVal)
 end 'packsByte'
 
+// comparesInPlace is whether the built-in methods of an array that compare its elements (equals, contains and
+// containsSequence) compare elements of type elem themselves: an integer, a bool or an enum by its word, a String by its
+// bytes. An array of any other element is equal to another through the element's own equals, by the library's
+// elementwiseEquals.
+export function comparesInPlace(tt TypeSlot, reads TypeTable, elem TypeID) returns bool
+	let kind = typeKind(tt, reads: reads, t: elem)
+	return kind == TypeKind.intRange or kind == TypeKind.primBool or kind == TypeKind.primString or kind == TypeKind.enumTy
+end 'comparesInPlace'
+
+// elementwiseEquals is the method of the library's conditional conformance of Array to Equatable that compares two arrays
+// element by element through the element's equals, as maxon's Array.equals does: what an array's equals, and == and != of
+// two arrays, run where the built-in equals does not compare the elements in place.
+export let elementwiseEquals = "equalsByElements"
+
+// runsBuiltin is whether a call of the built-in method fid of the type t runs it: every one but the equals of an instance
+// of Array whose elements it does not compare in place, or are bools, for which the call runs the library's
+// elementwiseEquals.
+export function runsBuiltin(p Project, ms ModuleState, t TypeID, fid FuncID) returns bool
+	if funcEntry(ms.funcs, funcReads: p.funcs, f: fid).intrinsic != Intrinsic.intrArrayEquals 'other'
+		return true
+	end 'other'
+	for elem in typeEntry(ms.types, reads: p.types, t: contentType(ms.types, reads: p.types, t: t)).typeArgs 'element'
+		// A bool is Equatable and not Hashable, so an array of bools meets no condition of the library's conformance and has
+		// no equals, as in maxon, though contains compares its elements in place.
+		return comparesInPlace(ms.types, reads: p.types, elem: elem) and typeKind(ms.types, reads: p.types, t: elem) != TypeKind.primBool
+	end 'element'
+	// The declaration of Array itself, whose own methods its conformances are checked against.
+	return true
+end 'runsBuiltin'
+
+// storageHashes is whether an array of elements of type elem hashes as the fold of the bytes of its storage, maxon's
+// elementsHashAsStorage: an array of integers that holds each in one byte (packsByte), whose elements are equal exactly
+// where their bytes are, Array with Byte among them. Any other array folds the hash of each element in turn.
+export function storageHashes(tt TypeSlot, reads TypeTable, b Builtins, elem TypeID) returns bool
+	return typeKind(tt, reads: reads, t: elem) == TypeKind.intRange and packsByte(tt, reads: reads, b: b, elem: elem)
+end 'storageHashes'
+
 // byteEnumCases is the most cases an enum whose values a byte holds has: ordinals 0 to 255.
 let byteEnumCases = 256 as Count
 
@@ -2706,9 +2741,6 @@ end 'promiseError'
 
 // serviceHandleMember is the member that names the type of a service's handle after the service's type: `Calc.handle`.
 export let serviceHandleMember = "handle"
-
-// defaultMailboxCapacity is maxon's DefaultMailboxCapacity: how many messages a mailbox holds when the spawn names none.
-export let defaultMailboxCapacity = 1024 as Count
 
 // isServiceType is whether a type is the handle of a service, which `spawn` gives and a send goes through.
 export function isServiceType(tt TypeSlot, reads TypeTable, t TypeID) returns bool

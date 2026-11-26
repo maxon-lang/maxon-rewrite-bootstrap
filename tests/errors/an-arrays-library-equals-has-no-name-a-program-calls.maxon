@@ -1,0 +1,16 @@
+// Two arrays of floats are equal through the library's equals of an array, which == and equals run; a program does not
+// reach that method by a name of its own.
+typealias Real = float(f64.min to f64.max)
+
+typealias Reals = Array with Real
+
+function main() returns ExitCode
+	let a = Reals from [1.0]
+	let b = Reals from [1.0]
+	if a == b and a.equals(b) and a.equalsByElements(b) 'same'
+		return 1
+	end 'same'
+	return 0
+end 'main'
+
+// expect-error: E3004 at 10:34

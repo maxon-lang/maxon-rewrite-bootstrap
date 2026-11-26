@@ -47,6 +47,8 @@ var macosImports = []libSystemFunction{
 	{name: "nanosleep"},
 	{name: "__error"},
 	{name: "rename"},
+	{name: "renamex_np"},
+	{name: "fsync"},
 	{name: "unlink"},
 	{name: "mkdir"},
 	{name: "rmdir"},

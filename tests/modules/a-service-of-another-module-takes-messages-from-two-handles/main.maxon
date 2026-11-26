@@ -1,0 +1,11 @@
+function main() returns ExitCode
+	let savings = spawn ledger.Account.open(10)
+	let again = savings.clone()
+	try savings.credit(5) otherwise ignore
+	try again.credit(7) otherwise ignore
+	let last = again.clone()
+	print("{try await last.report("savings") otherwise "stopped"}\n")
+	return 0
+end 'main'
+
+//> savings: 22
