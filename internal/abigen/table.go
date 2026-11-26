@@ -299,7 +299,7 @@ var layouts = []layoutConst{
 
 	// The scheduler's record (Go's sched), made when the first behaviour or green thread is made or an exit code set: the
 	// counts every thread reads, the global run queue, the idle processors and threads, the free green threads and stacks,
-	// the timers, the event queue, the fork lock, then the address of each processor, the main thread's first. The words that several fields
+	// the timers, the event queue, the fork lock and the writers' list, then the address of each processor, the main thread's first. The words that several fields
 	// change together are under its lock.
 	{"schedProcsOffset", 0, false, toRuntime,
 		"where the scheduler's record holds how many processors there are (Go's gomaxprocs): the processors of the machine, or what MAXON_MAX_PROCS asks."},
@@ -374,7 +374,7 @@ var layouts = []layoutConst{
 	{"schedPreemptAsksOffset", 35, false, toRuntime,
 		"where the scheduler's record holds how many times the monitor has asked a green thread to stop (preemptOne), once for each green thread it asks on one schedtick and not again for an ask it repeats to it, which only the monitor writes and the tests of its pace read."},
 	{"schedForkLockOffset", 36, false, toRuntime,
-		"where the scheduler's record holds the fork lock on Linux (Go's syscall.ForkLock): how many writes of a file hold it shared, with forkHeldBit set while a clone holds it or waits to; a futex word."},
+		"where the scheduler's record holds the fork lock on Linux (Go's syscall.ForkLock): how many writes of a file and opens and closes of one open for writing hold it shared, with forkHeldBit set while a clone holds it or waits to; a futex word."},
 	{"schedPreemptStopsOffset", 37, false, toRuntime,
 		"where the scheduler's record holds how many times the monitor has signalled or suspended a thread to stop its green thread, an ask or an ask again, which only the monitor writes and the tests of its pace read."},
 	{"schedMonitorTimerOffset", 38, false, toRuntime,
@@ -391,9 +391,13 @@ var layouts = []layoutConst{
 		"where the scheduler's record holds how many threads it has started, the last one's number, under the scheduler's lock."},
 	{"schedPreemptOffOffset", 44, false, toRuntime,
 		"where the scheduler's record holds 1 when MAXON_PREEMPT is off, so the monitor takes no processor from the thread holding it, resolved before main runs."},
-	{"schedForkEndsOffset", 45, false, toRuntime,
-		"where the scheduler's record holds how many clones have given the fork lock back on Linux, stepped atomically, which the close of a file open for writing waits on to change while forkHeldBit is set; a futex word."},
-	{"schedProcessorsOffset", 46, false, toRuntime,
+	{"schedWriterCountOffset", 45, false, toRuntime,
+		"where the scheduler's record holds how many fds the writers' list holds on Linux: those of the files open for writing through an open file, which the child of a clone closes before its execve; changed under the lock by a thread that holds the fork lock shared, and read by a clone, which holds it alone."},
+	{"schedWritersOffset", 46, false, toRuntime,
+		"where the scheduler's record holds the writers' list on Linux, schedWriterSlots fds of a word each, of which the first schedWriterCountOffset's count are listed."},
+	{"schedWriterSlots", 256, true, toRuntime,
+		"how many fds the writers' list holds at most: an open for writing past them fails as the kernel's EMFILE does, before the file is opened."},
+	{"schedProcessorsOffset", 302, false, toRuntime,
 		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made."},
 
 	// A processor (Go's P): what a thread must hold to run green threads, its local run queue (a ring that its owner puts

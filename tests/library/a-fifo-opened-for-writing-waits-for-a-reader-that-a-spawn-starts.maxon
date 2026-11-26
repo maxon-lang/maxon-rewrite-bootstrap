@@ -1,0 +1,102 @@
+// An open for writing of a FIFO that no reader has open waits for the reader without holding the starts of children back:
+// one service opens the FIFO through an open file while the program starts the reader, a shell's cat of it. On Linux the
+// open of a file for writing is made under the fork lock, which a spawn waits for, so it is made there without waiting
+// (O_NONBLOCK), and a FIFO with no reader is opened again, waiting, after the lock is given back (runtime/linux.maxon,
+// openWriterBytes); a wait under the lock would never end, since the reader is never started. A watchdog ends the program
+// with a message after 5 seconds, so that such a hang fails the test with that message, before the runner's time limit.
+// unsupported-targets: x64-windows
+// native-only
+//> the reader got pong
+typealias Arguments = Array with String
+
+let watchMillis = 5000 as Milliseconds
+
+// A Writer writes to a FIFO through an open file, and says how it went.
+type Writer
+	var ended as String
+
+	static function create() returns Self
+		return Self{ended: ""}
+	end 'create'
+
+	export function write(mutates self, path String)
+		var file = try __ManagedFile.openWrite(path.addressableBytes()) otherwise 'unopened'
+			self.ended = "unopened"
+			return
+		end 'unopened'
+		_ = try file.write("pong".toByteArray().managed) otherwise 'unwritten'
+			try file.close() otherwise ignore
+			self.ended = "unwritten"
+			return
+		end 'unwritten'
+		try file.close() otherwise 'unclosed'
+			self.ended = "unclosed"
+			return
+		end 'unclosed'
+		self.ended = "written"
+	end 'write'
+
+	export function ended() returns String
+		return self.ended.clone()
+	end 'ended'
+end 'Writer'
+
+// A Watchdog ends the program when it is still running after watchMillis.
+type Watchdog
+	var unused as Count
+
+	static function create() returns Self
+		return Self{unused: 0}
+	end 'create'
+
+	export function watch()
+		sleep(watchMillis)
+		print("the start of the reader waited for the open of the FIFO\n")
+		Process.exit(1)
+	end 'watch'
+end 'Watchdog'
+
+function shellArguments(script String) returns Arguments
+	var arguments = Arguments.create(0)
+	arguments.push("-c")
+	arguments.push(script.clone())
+	return arguments
+end 'shellArguments'
+
+// shell runs a script to its end and says whether it ran and exited 0.
+function shell(script String) returns bool
+	let sh = try FilePath.from("/bin/sh") otherwise return false
+	let out = try Subprocess.run(Executable.path(sh), arguments: shellArguments(script)) otherwise return false
+	return out.exitCode() == 0
+end 'shell'
+
+// finish says how the program ended and ends it at once, without waiting for the watchdog.
+function finish(text String, code ExitCode) returns ExitCode
+	print("{text}\n")
+	Process.exit(code)
+end 'finish'
+
+function main() returns ExitCode
+	let base = "/tmp/minimaxon_fifo_spawn_{Process.id()}"
+	let fifo = "{base}_fifo"
+	let copy = "{base}_copy"
+	if not shell("mkfifo '{fifo}'") 'unmade'
+		return finish("no FIFO", code: 2)
+	end 'unmade'
+	let dog = spawn Watchdog.create()
+	try dog.watch() otherwise return finish("no watchdog", code: 3)
+	let writer = spawn Writer.create()
+	try writer.write(fifo.clone()) otherwise return finish("no writer", code: 4)
+	sleep(200)
+	if not shell("cat '{fifo}' > '{copy}'") 'unread'
+		return finish("the reader did not run", code: 5)
+	end 'unread'
+	let ended = try await writer.ended() otherwise return finish("the writer did not answer", code: 6)
+	if ended != "written" 'unwritten'
+		return finish("the writer: {ended}", code: 7)
+	end 'unwritten'
+	let out = try FilePath.from(copy) otherwise return finish("not a path: {copy}", code: 8)
+	let text = try File.readText(out) otherwise "nothing"
+	_ = shell("rm -f '{fifo}' '{copy}'")
+	return finish("the reader got {text}", code: 0)
+end 'main'

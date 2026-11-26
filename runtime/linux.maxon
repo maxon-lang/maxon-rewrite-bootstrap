@@ -357,16 +357,15 @@
 	end 'openPath'
 
 	// openFileBytes is the fd of an owned file handle (file.maxon), the file that the bytes of a path name opened in a way, close
-	// on exec as every open of the runtime is; or it stores the errno at osErrorAddress and gives 0. No fork lock is held: the
-	// close on exec is in the open itself, so a clone sees the fd only between the open and the child's execve.
+	// on exec as every open of the runtime is; or it stores the errno at osErrorAddress and gives 0. A file opened to write is
+	// put on the writers' list (openWriterBytes), whose fds the child of a clone closes before its execve.
 	function openFileBytes(path Count, length Count, how Count, osErrorAddress Count) returns Count
-		var flags = linuxOpenReplace
+		var fd = 0 as Count
 		if how == openToRead 'read'
-			flags = linuxOpenReadOnly
-		end 'read' else if how == openToCreate 'create'
-			flags = linuxOpenCreateNew
-		end 'create'
-		let fd = openPathBytes(path, length: length, flags: flags, mode: linuxExecutableFileMode if how == openToWriteExecutable else linuxFileMode)
+			fd = openPathBytes(path, length: length, flags: linuxOpenReadOnly, mode: 0)
+		end 'read' else 'write'
+			fd = openWriterBytes(path, length: length, flags: linuxOpenCreateNew if how == openToCreate else linuxOpenReplace, mode: linuxExecutableFileMode if how == openToWriteExecutable else linuxFileMode)
+		end 'write'
 		if failed(fd) 'refused'
 			__Raw.storeWord(osErrorAddress, offset: 0, value: errnoOf(fd))
 			return 0
@@ -374,16 +373,60 @@
 		return fd
 	end 'openFileBytes'
 
+	// openWriterBytes is the fd of the file that the bytes of a path name, opened with flags to write, or -errno, put on the
+	// writers' list. It holds the fork lock shared for the open and the list, so that no clone comes between them: a slot of the
+	// list is taken first (takeWriterSlot), so that a list that is full refuses the open with EMFILE before the file is made or
+	// emptied, as the kernel refuses an open past the process's fds, and the open's fd is put in it then, or the slot given back.
+	// The lock is the scheduler's, made when there is none yet (writersLock), so that the fd is on the list a later clone reads.
+	//
+	// Every spawn waits while the lock is held, so the open under it is made with O_NONBLOCK, so that it never waits for
+	// another process: a FIFO that no reader has open refuses it with ENXIO, and is opened again after the lock is given
+	// back, a plain open that waits for the reader (who may be a child that this process is about to start), and is left off
+	// the list, since a FIFO is never run and so never busy. Any other fd has the flag cleared again (F_SETFL), before anything
+	// else sees it, so that it waits as an open file's fd does (fileEntryOf decides that from what it is). An open that a file
+	// system holds (a hung NFS server's, a FUSE daemon's) holds every spawn back as long.
+	function openWriterBytes(path Count, length Count, flags Count, mode Count) returns Count
+		let lock = writersLock()
+		let cPath = cStringOfBytes(path, length: length)
+		enterBlocking()
+		holdForkShared(lock)
+		var fd = __Raw.wrappingSub(0, right: errnoTooManyFiles)
+		if takeWriterSlot(lock) 'listed'
+			fd = __Raw.syscall4(linuxSysOpenat, arg1: atCwd(), arg2: cPath, arg3: flags or linuxOpenNonblock, arg4: mode)
+			replaceWriter(lock, fd: noFd, with: noFd if failed(fd) else fd)
+		end 'listed'
+		releaseForkShared(lock)
+		if failed(fd) and errnoOf(fd) == linuxEnxio 'unreadFifo'
+			fd = __Raw.syscall4(linuxSysOpenat, arg1: atCwd(), arg2: cPath, arg3: flags, arg4: mode)
+		end 'unreadFifo' else if not failed(fd) 'opened'
+			let status = __Raw.syscall2(linuxSysFcntl, arg1: fd, arg2: linuxFcntlGetFlags)
+			if not failed(status) and (status and linuxOpenNonblock) != 0 'waits'
+				_ = __Raw.syscall3(linuxSysFcntl, arg1: fd, arg2: linuxFcntlSetFlags, arg3: __Raw.wrappingSub(status, right: linuxOpenNonblock))
+			end 'waits'
+		end 'opened'
+		exitBlocking()
+		free(cPath)
+		return fd
+	end 'openWriterBytes'
+
 	// closeFileHandle closes the fd of an open file in the blocking bracket, since a close may wait on its file system (a flush
 	// to NFS, a FUSE daemon's), and gives its errno, or 0. A close that a signal breaks off has still freed the fd on Linux, so
-	// it is not made again. The close of a file open for writing then waits for the end of a clone in flight (waitCloneEnd),
-	// whose child may hold a copy of the fd, so that the file can be run once its close has returned.
+	// it is not made again. A file open for writing is taken off the writers' list (a FIFO opened before its reader, which is
+	// not on it, leaves the list as it is) and closed under the fork lock held shared,
+	// so that no clone comes between them: a clone in flight has made its child close the fd before its execve, and the clone's
+	// hold of the lock lasts till then, so the close waits for it and the file can be run once the close has returned.
 	function closeFileHandle(fd Count, writes bool) returns Count
+		let lock = writersLock() if writes else noForkLock
 		enterBlocking()
-		let result = __Raw.syscall1(linuxSysClose, arg1: fd)
+		var result = 0 as Count
 		if writes 'writer'
-			waitCloneEnd()
-		end 'writer'
+			holdForkShared(lock)
+			replaceWriter(lock, fd: fd, with: noFd)
+			result = __Raw.syscall1(linuxSysClose, arg1: fd)
+			releaseForkShared(lock)
+		end 'writer' else 'reader'
+			result = __Raw.syscall1(linuxSysClose, arg1: fd)
+		end 'reader'
 		exitBlocking()
 		return osErrorOf(result)
 	end 'closeFileHandle'
@@ -752,12 +795,16 @@
 	// The fork lock, Go's syscall.ForkLock. A child that clone makes gets a copy of every fd the process has open at that
 	// moment and keeps it until its execve closes it, close-on-exec as every fd of the runtime is. So a file that one thread
 	// has open for writing while another clones is open for writing in that child too, and a run of the file started in that
-	// time fails with ETXTBSY, however soon the writer closes its own fd. A write of a file holds the lock shared from its open
-	// to its close and a clone holds it alone, so that no child is made holding such an fd. The lock is the scheduler's word
-	// (schedForkLockOffset): a process with no scheduler has one thread, which has nothing to order. Both sides wait in a futex
-	// on the word, inside a blocking call's bracket, which the caller makes. A clone that makes its child as vfork does holds the lock until
-	// the child's execve has replaced its memory, since the clone returns only then; the child's copy of the fds is the table at
-	// the clone all the same, and it lets go of the copy later, at the end of that execve.
+	// time fails with ETXTBSY, however soon the writer closes its own fd. A write of a whole file (writeFile) holds the lock
+	// shared from its open to its close and a clone holds it alone, so that no child is made holding such an fd. A file open
+	// for writing through an open file holds it only for its open and for its close (openWriterBytes, closeFileHandle), and is
+	// on the writers' list between them, whose fds the child of a clone closes before anything else (closeWriters). The kernel
+	// lets go of a file whose last fd a close ends when that close returns, so the child's copies are gone before its execve,
+	// and a clone that makes its child as vfork does holds the lock until the child's execve has replaced its memory, since the
+	// clone returns only then, so the close of the writer, which waits for the lock, ends the file's last fd. The lock is the
+	// scheduler's word (schedForkLockOffset): a process with no scheduler has one thread, which has nothing to order, and an
+	// open for writing through an open file makes the scheduler, whose list a later clone reads. Both sides wait in a futex on
+	// the word, inside a blocking call's bracket, which the caller makes.
 	let forkHeldBit = 0x40000000 as Count
 
 	// noForkLock is the lock of a process that has no scheduler.
@@ -772,7 +819,8 @@
 		return __Raw.wrappingAdd(scheduler, right: schedForkLockOffset)
 	end 'forkLock'
 
-	// holdForkShared takes the fork lock as one of the writes that may hold it at once, once no clone holds it or waits to.
+	// holdForkShared takes the fork lock as one of the holders that may hold it at once (a write of a file, the open or the
+	// close of a file open for writing), once no clone holds it or waits to.
 	function holdForkShared(lock Count)
 		if lock == noForkLock 'single'
 			return
@@ -787,7 +835,7 @@
 		end 'take'
 	end 'holdForkShared'
 
-	// releaseForkShared gives back a write's hold, and wakes a clone that waits for the last write to end.
+	// releaseForkShared gives back a shared hold, and wakes a clone that waits for the last one to end.
 	function releaseForkShared(lock Count)
 		if lock == noForkLock 'single'
 			return
@@ -804,8 +852,8 @@
 		end 'give'
 	end 'releaseForkShared'
 
-	// holdForkAlone takes the fork lock for a clone: it sets forkHeldBit, which keeps new writes out, and then waits for the
-	// writes that hold the lock to end.
+	// holdForkAlone takes the fork lock for a clone: it sets forkHeldBit, which keeps new shared holds out, and then waits for
+	// the shared holds there are to end.
 	function holdForkAlone(lock Count)
 		if lock == noForkLock 'single'
 			return
@@ -827,44 +875,91 @@
 		end 'drain'
 	end 'holdForkAlone'
 
-	// releaseForkAlone gives back a clone's hold, and wakes the writes and clones that wait for it, and the closes that wait for
-	// a clone to end (waitCloneEnd), by a step of the count of the clones that have ended.
+	// releaseForkAlone gives back a clone's hold, and wakes the shared holds and the clones that wait for it.
 	function releaseForkAlone(lock Count)
 		if lock == noForkLock 'single'
 			return
 		end 'single'
 		_ = __Raw.atomicExchange(lock, offset: 0, value: 0)
 		futexWakeAll(lock)
-		let ends = forkEnds(lock)
-		_ = __Raw.atomicAdd(ends, offset: 0, value: 1)
-		futexWakeAll(ends)
 	end 'releaseForkAlone'
 
-	// forkEnds is the address of the count of the clones that have given the fork lock back, beside the lock.
-	function forkEnds(lock Count) returns Count
-		return __Raw.wrappingAdd(lock, right: schedForkEndsOffset - schedForkLockOffset)
-	end 'forkEnds'
+	// The writers' list: the fds of the files open for writing through an open file, in no order, the first of the
+	// schedWriterSlots slots at schedWritersOffset, as many as schedWriterCountOffset holds. A thread changes it only while it
+	// holds the fork lock shared, and under the scheduler's lock, which orders those threads; a clone, which holds the fork lock
+	// alone, and its child only read it, so the child, which shares the memory, reads it as the clone found it. Each open and
+	// each close changes it in the one hold of the fork lock that the open or the close of the fd is made in, so a clone finds
+	// on it the fds of the files open for writing and only those, none of whose numbers another fd can have; the one file open
+	// for writing that is left off is a FIFO opened before its reader (openWriterBytes), which is never run. An open past the
+	// slots is refused (takeWriterSlot), since a file left off the list would be a child's to hold.
 
-	// waitCloneEnd waits, in the blocking bracket that the caller makes, until no clone that may hold a copy of an fd the caller
-	// closed before it runs: while forkHeldBit is set, until a clone gives the lock back. It holds no lock, and a clone waits for
-	// no close, so it has no cycle; it waits at most for the clone in flight when it looked, since a clone that starts after the
-	// close has no copy of the fd. The end of the clone is not the end of the child's copy: a clone as vfork makes one returns
-	// once the child's execve has replaced its memory (exec_mmap), and the execve closes the child's close-on-exec fds after
-	// that, and the kernel releases their files at its end, so a child whose clone ended just before the close may still hold
-	// the file, and a run of it fail busy (ETXTBSY), with more than one worker. Not covered either: a clone whose child outlives
-	// the clone call (qemu-user's fork, on the arm64-linux lane run under WSL), and an exec of the file by a process that this
-	// one did not start (runtime/README.md).
-	function waitCloneEnd()
-		let lock = forkLock()
+	// writersLock is the fork lock of an open or a close of a file open for writing: the scheduler's, which it makes when there
+	// is none yet.
+	function writersLock() returns Count
+		return __Raw.wrappingAdd(schedulerOf(__Raw.threadContext()), right: schedForkLockOffset)
+	end 'writersLock'
+
+	// writersOf is the scheduler's record of a fork lock that is not noForkLock, which holds the writers' list.
+	function writersOf(lock Count) returns Count
+		return __Raw.wrappingSub(lock, right: schedForkLockOffset)
+	end 'writersOf'
+
+	// writerSlot is the address of the slot of the writers' list at an index.
+	function writerSlot(lock Count, index Count) returns Count
+		return __Raw.wrappingAdd(writersOf(lock), right: __Raw.wrappingAdd(schedWritersOffset, right: (index mod schedWriterSlots) * wordBytes))
+	end 'writerSlot'
+
+	// takeWriterSlot takes a slot of the writers' list for an open that the caller is about to make, holding the fork lock
+	// shared, and gives whether one was left. The slot holds noFd until the open's fd takes its place, or it is given back
+	// (replaceWriter), in the same hold, so a clone never finds one taken.
+	function takeWriterSlot(lock Count) returns bool
+		let scheduler = writersOf(lock)
+		lockScheduler(scheduler)
+		let count = __Raw.loadWord(scheduler, offset: schedWriterCountOffset)
+		let room = count < schedWriterSlots
+		if room 'room'
+			__Raw.storeWord(writerSlot(lock, index: count), offset: 0, value: noFd)
+			__Raw.storeWord(scheduler, offset: schedWriterCountOffset, value: __Raw.wrappingAdd(count, right: 1))
+		end 'room'
+		unlockScheduler(scheduler)
+		return room
+	end 'takeWriterSlot'
+
+	// replaceWriter puts an fd in the place of one on the writers' list, the caller holding the fork lock shared: an open's fd
+	// in the place of the noFd of a slot taken for it, or noFd in the place of a closed fd or of the slot of an open that
+	// failed, which takes it off the list, the last of the list moved into its slot. An fd that is not on the list changes
+	// nothing.
+	function replaceWriter(lock Count, fd Count, with Count)
+		let scheduler = writersOf(lock)
+		lockScheduler(scheduler)
+		let count = __Raw.loadWord(scheduler, offset: schedWriterCountOffset)
+		for index in 0 upto count 'find'
+			let slot = writerSlot(lock, index: index)
+			if __Raw.loadWord(slot, offset: 0) == fd 'found'
+				if with == noFd 'unlisted'
+					let last = __Raw.wrappingSub(count, right: 1)
+					__Raw.storeWord(slot, offset: 0, value: __Raw.loadWord(writerSlot(lock, index: last), offset: 0))
+					__Raw.storeWord(scheduler, offset: schedWriterCountOffset, value: last)
+				end 'unlisted' else 'listed'
+					__Raw.storeWord(slot, offset: 0, value: with)
+				end 'listed'
+				break 'find'
+			end 'found'
+		end 'find'
+		unlockScheduler(scheduler)
+	end 'replaceWriter'
+
+	// closeWriters is the first step of the child of a clone that holds the fork lock alone: it closes its copy of each fd on the
+	// writers' list, with raw system calls, allocating nothing and taking no lock. A process with no scheduler has no list, and
+	// no file open for writing through an open file, whose open makes the scheduler.
+	function closeWriters(lock Count)
 		if lock == noForkLock 'single'
 			return
 		end 'single'
-		let ends = forkEnds(lock)
-		let seen = __Raw.loadAcquire(ends, offset: 0)
-		while (__Raw.loadAcquire(lock, offset: 0) and forkHeldBit) != 0 and __Raw.loadAcquire(ends, offset: 0) == seen 'clone'
-			futexWait(ends, value: seen)
-		end 'clone'
-	end 'waitCloneEnd'
+		for index in 0 upto __Raw.loadWord(writersOf(lock), offset: schedWriterCountOffset) 'writers'
+			closeFd(__Raw.loadWord(writerSlot(lock, index: index), offset: 0))
+		end 'writers'
+	end 'closeWriters'
 
 	// startThread starts a worker's thread at once, on a stack of the main thread's reserve that the kernel maps and
 	// commits a page at a time, its lowest page the guard. The top word of the stack holds the thread's context, and is the
