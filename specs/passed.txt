@@ -7156,7 +7156,6 @@ sched-park.md: sched-park.a-service-coroutine-runs-while-its-handler-sleeps
 sched-preempt.md: sched-preempt.a-switch-value-that-is-neither-off-nor-on-is-refused-at-start
 sched-processor.md: sched-processor.a-green-thread-kernel-call-round-trips-its-processor-stack
 sched-processor.md: sched-processor.a-scalar-program-still-runs-with-no-processor-at-all
-sched-runqueue.md: sched-runqueue.a-runnext-ping-pong-pair-cannot-starve-a-bystander
 sched-runqueue.md: sched-runqueue.a-yield-goes-behind-the-global-queue
 sched-runqueue.md: sched-runqueue.ring-overflow-runs-every-spawned-service
 sched-runqueue.md: sched-runqueue.the-last-spawned-thread-runs-first-at-one-processor

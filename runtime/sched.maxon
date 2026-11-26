@@ -282,7 +282,7 @@ function scheduleLoop(context Count)
 	while true 'schedule'
 		if anyPinned(scheduler) and pinnedGreen(context) != noGreen 'pinned'
 			stopPinned(context)
-			execute(context, entry: pinnedGreen(context), inherit: false)
+			execute(context, entry: pinnedGreen(context))
 			continue 'schedule'
 		end 'pinned'
 		if __Raw.loadWord(context, offset: contextProcOffset) == noProc 'noProc'
@@ -301,7 +301,7 @@ function scheduleLoop(context Count)
 			startPinned(context, g: g)
 			continue 'schedule'
 		end 'elsewhere'
-		execute(context, entry: g, inherit: __Raw.loadWord(__Raw.loadWord(context, offset: contextProcOffset), offset: procInheritOffset) == set)
+		execute(context, entry: g)
 	end 'schedule'
 end 'scheduleLoop'
 
@@ -349,12 +349,11 @@ end 'startPinned'
 // findRunnable is Go's: the next green thread for the thread's processor, from its timers, its run queue, the global run
 // queue, the event queue and the other processors' queues, or else the processor goes idle and the thread waits, in the event queue
 // when something is pending there, until it is handed a processor. It gives noGreen only on the main thread's drain,
-// once nothing is left. procInheritOffset of the processor it gave it for says whether it came from runnext (runqGet).
+// once nothing is left.
 function findRunnable(context Count) returns Count
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	while true 'top'
 		let proc = __Raw.loadWord(context, offset: contextProcOffset)
-		__Raw.storeWord(proc, offset: procInheritOffset, value: unset)
 		if __Raw.loadWord(proc, offset: procSchedTickOffset) mod fairnessTicks == 0 and globalQueued(scheduler) 'fair'
 			lockScheduler(scheduler)
 			let fair = globalGet(scheduler, proc: proc, most: 1)
@@ -869,13 +868,10 @@ function runqPutSlow(proc Count, g Count, head Count, tail Count) returns bool
 	return true
 end 'runqPutSlow'
 
-// runqGet is Go's runqget: runnext first, then the head of the ring, or noGreen. One taken from runnext inherits the
-// running slice (procInheritOffset), as Go's does, so that green threads that ready each other read to the monitor as
-// one slice and are asked to stop when it is over, letting the ring behind them run.
+// runqGet is Go's runqget: runnext first, then the head of the ring, or noGreen.
 function runqGet(proc Count) returns Count
 	let next = __Raw.loadWord(proc, offset: procRunNextOffset)
 	if next != noGreen and __Raw.compareExchange(proc, offset: procRunNextOffset, expected: next, desired: noGreen) == next 'next'
-		__Raw.storeWord(proc, offset: procInheritOffset, value: set)
 		return next
 	end 'next'
 	while true 'take'
