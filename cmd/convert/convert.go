@@ -109,6 +109,9 @@ func convertProgram(file, src string, kind inputKind, names programNames) Result
 		}
 	}
 	rewriteTypeNames(lines)
+	if kind == sourceFile && libraryRoot(file) != "" {
+		renameNamesHidingModules(lines)
+	}
 	renameLibraryTypes(file, lines, kind, names.own)
 	if kind == specProgram && names.usesLibrarySubprocess {
 		renameProgramBesideBuiltins(lines, names.own)
@@ -2191,6 +2194,7 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 	toks = rewriteRegionExprs(toks, line, warn)
 	toks = rewriteArmThrows(toks)
 	toks = rewriteDiscards(toks)
+	toks = dropRawBufferCasts(toks)
 	toks = rewriteClosureParams(toks, line, warn)
 	toks = rewriteTupleElements(toks)
 	toks = rewriteToStringCalls(toks)
@@ -2347,6 +2351,25 @@ func rewriteDiscards(toks []token) []token {
 	for i := 0; i+2 < len(toks); i++ {
 		if toks[i].text == "let" && toks[i+1].text == "_" && toks[i+2].text == "=" && (i == 0 || toks[i-1].text == "then") {
 			return slices.Delete(slices.Clone(toks), i, i+1)
+		}
+	}
+	return toks
+}
+
+// dropRawBufferCasts leaves out the cast of a call's result to the bare `__ManagedMemory`, with its capability word or without it:
+// maxon's `as isolated __ManagedMemory` says the buffer that a row gave is a fresh one a caller owns, which the built-in table's
+// rows (`ManagedMemory with Byte`) give already, and minimaxon's buffer has an element type that a bare name does not write.
+func dropRawBufferCasts(toks []token) []token {
+	for i := 0; i+1 < len(toks); i++ {
+		if toks[i].kind != tokIdent || toks[i].text != "as" || i == 0 || toks[i-1].text != ")" {
+			continue
+		}
+		at := i + 1
+		if isCapabilityWord(toks[at].text) {
+			at++
+		}
+		if at < len(toks) && toks[at].text == "__ManagedMemory" && (at+1 == len(toks) || toks[at+1].text != "with") {
+			return dropRawBufferCasts(slices.Concat(toks[:i], toks[at+1:]))
 		}
 	}
 	return toks

@@ -67,6 +67,13 @@ function runtimeWaitMs(deadline MxWaitDeadline) returns clock.DurationMs
 	end 'bound'
 end 'runtimeWaitMs'
 
+function expiredAfterMs(deadline MxWaitDeadline) returns clock.DurationMs
+	match deadline 'bound'
+		none then panic("the runtime reported an expired deadline for a wait that has none")
+		within(timeoutMs) then return timeoutMs as clock.DurationMs
+	end 'bound'
+end 'expiredAfterMs'
+
 // Stdin discriminator passed across the builtin boundary. Raw values match
 // the runtime contract (see X86/ARM64 emitters and the parent plan).
 //
@@ -491,6 +498,16 @@ public type Configuration
 	public function run() returns MxCollectedOutput throws MxSubprocessError
 		return try MxSubprocess.runConfiguration(self)
 	end 'run'
+
+	/// Spawn the configured subprocess detached from the parent and return
+	/// its pid. stdin/stdout/stderr are forced to discard since the parent
+	/// won't be around to drain pipe ends. The child is outside every process
+	/// tree a deadline ends. Throws `detachRefused` on Windows when the job this
+	/// program runs in does not allow breakaway, and `spawnFailed` on Linux when
+	/// the child cannot start its own session.
+	public function runDetached() returns Pid throws MxSubprocessError
+		return try MxSubprocess.runDetachedConfiguration(self)
+	end 'runDetached'
 end 'Configuration'
 
 // =============================================================================
@@ -541,6 +558,28 @@ public type MxSubprocess
 		let status = try terminationStatusFromKind(statusKind, statusCode: try statusCode as ExitInt otherwise panic("out of range"), durationMs: durationMs, stdout: stdout, stderr: stderr, osError: osError)
 		return MxCollectedOutput.create(status, stdout: stdout, stderr: stderr, pid: try pid as Pid otherwise panic("out of range"), durationMs: durationMs)
 	end 'runConfiguration'
+
+	/// Spawn detached. Uses the same 15-arg layout as `subprocessSpawn` with
+	/// the detach flag bit set; the runtime returns the OS pid instead of an
+	/// attached handle, -1 for a failed spawn, or -2 for a detach the job this
+	/// program runs in refuses. stdin/stdout/stderr are forced to discard so the
+	/// child doesn't inherit pipe ends the caller would have to drain.
+	public static function runDetachedConfiguration(config Configuration) returns Pid throws MxSubprocessError
+		let operands = try SpawnOperands.prepare(config.executable, arguments: config.arguments, workingDirectory: config.workingDirectory, environment: config.environment)
+		let emptyCStr = subprocessEmptyCString()
+		let flags = attachedFlagsFor(config.platformOptions) or SpawnFlag.detach.rawValue
+		let pid = __Builtins.subprocessDetach(operands.argv.addressableBytes(), operands.argc, operands.workingDirectoryOperand(), operands.environment.block.addressableBytes(), operands.environment.source, StdinKind.none.rawValue, emptyCStr, OutputKind.discard.rawValue, emptyCStr, UncollectedStreamLimit, OutputKind.discard.rawValue, emptyCStr, UncollectedStreamLimit, flags, 0)
+		if pid == SpawnFailedAnswer 'spawnFailed'
+			throw spawnFailure(operands.executablePath)
+		end 'spawnFailed'
+		if pid == DetachRefusedAnswer 'detachRefused'
+			throw MxSubprocessError.detachRefused(lastOsErrorCode())
+		end 'detachRefused'
+		if pid < 0 'unknownAnswer'
+			panic("MxSubprocess.runDetachedConfiguration: the runtime answered {pid}, which is none of a process id, {SpawnFailedAnswer} and {DetachRefusedAnswer}")
+		end 'unknownAnswer'
+		return pid as Pid
+	end 'runDetachedConfiguration'
 end 'MxSubprocess'
 
 // =============================================================================
@@ -902,17 +941,489 @@ end 'lastErrorMessage'
 // StreamingSubprocess — long-lived child with caller-driven stdio
 // =============================================================================
 
+// Opaque runtime handle for a streaming child: the runtime's table slot index in the low bits and the
+// slot's generation above it, so a handle names one child for all time and a released one never reaches
+// the slot's next occupant. -1 is the spawn builtin's "spawn failed" answer and never a live handle. The
+// generation grows by one per spawn on a slot, so the range holds 2^57 spawns of one slot.
+export typealias StreamingHandle = int(0 to u64.max)
+
+public type ChildOutput implements stream.ByteSource
+	export let handle as StreamingHandle
+	export let which as StdioStream
+
+	export static function over(handle StreamingHandle, which StdioStream) returns ChildOutput
+		return Self{handle: handle, which: which}
+	end 'over'
+
+	public function readSome(mutates self, most stream.ReadCapacity) returns ByteArray throws stream.StreamError
+		let raw = __Builtins.subprocessReadAvailable(try handle as FullRangeInt otherwise panic("out of range"), try which.rawValue as FullRangeInt otherwise panic("out of range"), most as FullRangeInt)
+		if raw.length() == 0 'nothingRead'
+			try requireEnded()
+		end 'nothingRead'
+		return ByteArray.init(raw)
+	end 'readSome'
+
+	function requireEnded() throws stream.StreamError
+		match streamState(handle, which: which) 'state'
+			atEof then return
+			open then throw stream.StreamError.failed("a read on the child's {streamName(which)} answered nothing with the stream still open")
+			readFailed then throw stream.StreamError.failed("a read on the child's {streamName(which)} failed")
+			noSuchChild then throw stream.StreamError.closed
+		end 'state'
+	end 'requireEnded'
+end 'ChildOutput'
+
+type ChildInput
+	export let handle as StreamingHandle
+
+	export static function over(handle StreamingHandle) returns ChildInput
+		return Self{handle: handle}
+	end 'over'
+
+	export function write(text String) throws MxSubprocessError
+		let rc = __Builtins.subprocessWriteStdinBytes(try handle as FullRangeInt otherwise panic("out of range"), text.cstr(), text.byteLength())
+		if rc == StdinQueuePendingAnswer 'queued'
+			throw MxSubprocessError.ioFailed(stdinQueuedReason)
+		end 'queued'
+		if rc != StdinAcceptedAnswer 'writeFailed'
+			throw MxSubprocessError.ioFailed("write to child stdin failed: {lastErrorMessage()}")
+		end 'writeFailed'
+	end 'write'
+end 'ChildInput'
+
 export typealias BlockedPasses = int(0 to 5)
 
 export let BlockedPassesNone = 0 as BlockedPasses
 
 export let BlockedPassesMax = 5 as BlockedPasses
 
+export type StdinWatch
+	export let handle as StreamingHandle
+
+	export static function over(handle StreamingHandle) returns Self
+		return Self{handle: handle}
+	end 'over'
+
+	export function untilWritable(passes BlockedPasses)
+		let answer = __Builtins.subprocessAwaitStdinWritable(try handle as FullRangeInt otherwise panic("out of range"), passes)
+		if answer != StdinAcceptedAnswer 'refused'
+			panic("StdinWatch.untilWritable: the runtime answered {answer} for handle {handle}, which is not {StdinAcceptedAnswer}; the pump cancels its watch before the child is released")
+		end 'refused'
+	end 'untilWritable'
+end 'StdinWatch'
+
+/// A child process whose stdin / stdout / stderr the caller drives by hand.
+///
+/// Unlike `MxSubprocess.run(...)` (which fires the process, drains both output
+/// streams from one green thread, and returns a `MxCollectedOutput` when the
+/// child exits), `StreamingSubprocess` keeps the pipes open and exposes
+/// `writeStdinLine` and, through `takeStdout` / `takeStderr`, a `StreamReader` per output stream.
+/// Use it when the parent needs interactive request/response with a long-lived
+/// child — e.g. a worker pool that handles many jobs over its lifetime.
+///
+/// Lifecycle:
+///   let child = try StreamingSubprocess.spawn(MxExecutable.path(p), arguments: argv)
+///   let output = try child.takeStdout()
+///   try child.writeStdinLine("JOB:1")
+///   let line = try output.readLine()
+///   ...
+///   child.closeStdin()  // optional — signals EOF to child
+///   let code = try child.wait()  // blocks until child exits
+///   child.release()  // frees the OS handle
+///
+/// Forgetting `release()` leaks the handle and an OS process slot. Treat
+/// `release()` like `close()` on a file.
+public type StreamingSubprocess is noncopyable
+	// Raw runtime handle from subprocessSpawnStreaming. Valid until release()
+	// is called; the runtime owns the underlying pipe + process objects keyed
+	// off this integer.
+	export var handle as StreamingHandle
+	// Latched once release() runs so subsequent release() calls are no-ops
+	// (matches the "treat like file close" contract documented above).
+	public var released as bool
+	var stdoutTaken as bool
+	var stderrTaken as bool
+
+	/// Spawn `executable arguments...` with stdin/stdout/stderr as pipes the
+	/// caller drives. Working directory defaults to the parent's cwd; pass
+	/// `spawnWithCwd` if you need to set it.
+	public static function spawn(executable MxExecutable, arguments StringArray) returns StreamingSubprocess throws MxSubprocessError
+		return try Self.spawnWithCwd(executable, arguments: arguments, workingDirectory: WorkingDirectory.inherit)
+	end 'spawn'
+
+	/// Same as `spawn` with an explicit working directory.
+	public static function spawnWithCwd(executable MxExecutable, arguments StringArray, workingDirectory WorkingDirectory) returns StreamingSubprocess throws MxSubprocessError
+		return try Self.spawnWithEnvironment(executable, arguments: arguments, workingDirectory: workingDirectory, environment: Environment.inherit)
+	end 'spawnWithCwd'
+
+	/// Same as `spawnWithCwd`, with the child's ENVIRONMENT taken by the caller rather than inherited.
+	///
+	/// ⭐ It matters because a streaming parent may have to TELL its child something before the child's
+	/// first instruction runs: a DebugStream producer finds the ring it writes into by reading a name out
+	/// of its environment, so a parent that could only inherit could only ever watch a child that was
+	/// already being watched. `Environment` answers all three arms — `inherit`, `inheritUpdating` and
+	/// `custom` — and `spawnEnvironmentFor` turns any of them into the (block, source) pair the spawn
+	/// contract takes, exactly as the attached spawn does.
+	public static function spawnWithEnvironment(executable MxExecutable, arguments StringArray, workingDirectory WorkingDirectory, environment Environment) returns StreamingSubprocess throws MxSubprocessError
+		return try Self.spawnTraceable(executable, arguments: arguments, workingDirectory: workingDirectory, environment: environment, traced: false)
+	end 'spawnWithEnvironment'
+
+	/// Same as `spawnWithEnvironment`, with the child created for a debugger when `traced` is set. On
+	/// Windows and Linux this process becomes its debugger; on macOS the child is created suspended, for
+	/// a debugger to attach to by its `processId()` before its first instruction runs.
+	public static function spawnTraceable(executable MxExecutable, arguments StringArray, workingDirectory WorkingDirectory, environment Environment, traced bool) returns StreamingSubprocess throws MxSubprocessError
+		let operands = try SpawnOperands.prepare(executable, arguments: arguments, workingDirectory: workingDirectory, environment: environment)
+		// 4th arg is the spawn-flags bitfield. Streaming spawns never detach — the parent has to keep the
+		// pipes open — and don't take platform-options today, so `traced` is the only bit they ever carry.
+		// The environment block and its source flag follow it.
+		let flags = SpawnFlag.traced.rawValue if traced else 0
+		let rawHandle = __Builtins.subprocessSpawnStreaming(operands.argv.addressableBytes(), operands.argc, operands.workingDirectoryOperand(), flags, operands.environment.block.addressableBytes(), operands.environment.source)
+		if rawHandle == SpawnFailedAnswer 'spawnFailed'
+			throw spawnFailure(operands.executablePath)
+		end 'spawnFailed'
+		// rawHandle is the wide builtin return; -1 is excluded above, so the
+		// narrow StreamingHandle range is satisfied.
+		return StreamingSubprocess{handle: try rawHandle as StreamingHandle otherwise panic("out of range"), released: false, stdoutTaken: false, stderrTaken: false}
+	end 'spawnTraceable'
+
+	/// Write `line + "\n"` to the child's stdin, NUL bytes included. Throws on broken pipe.
+	/// Embeds the newline; pass payload WITHOUT a trailing newline.
+	public function writeStdinLine(line String) throws MxSubprocessError
+		try self.writeStdin("{line}\n")
+	end 'writeStdinLine'
+
+	/// Write `text` as given, NUL bytes included. Throws on a broken pipe, and while a queued payload
+	/// is still being pushed.
+	public function writeStdin(text String) throws MxSubprocessError
+		try requireLive()
+		try ChildInput.over(handle).write(text)
+	end 'writeStdin'
+
+	export function queueStdin(text String) throws MxSubprocessError
+		try requireLive()
+		let rc = __Builtins.subprocessQueueStdin(try handle as FullRangeInt otherwise panic("out of range"), text.cstr(), text.byteLength())
+		if rc == StdinQueuePendingAnswer 'queued'
+			throw MxSubprocessError.ioFailed(stdinQueuedReason)
+		end 'queued'
+		if rc != StdinAcceptedAnswer 'refused'
+			throw MxSubprocessError.ioFailed(stdinClosedReason)
+		end 'refused'
+	end 'queueStdin'
+
+	export function stdinWatch() returns StdinWatch throws MxSubprocessError
+		try requireLive()
+		return StdinWatch.over(handle)
+	end 'stdinWatch'
+
+	export function pushQueuedStdin() returns BytePos throws MxSubprocessError
+		try requireLive()
+		let remaining = __Builtins.subprocessPushStdin(try handle as FullRangeInt otherwise panic("out of range"))
+		if remaining == StdinPushRefusedAnswer 'refused'
+			throw MxSubprocessError.ioFailed(stdinClosedReason)
+		end 'refused'
+		return try remaining as BytePos otherwise panic("out of range")
+	end 'pushQueuedStdin'
+
+	/// Take the child's stdout out as a `ChildOutputReader`, once: a second take throws `ioFailed`. The
+	/// reader can run in a coroutine beside the child's owner because it shares no data with the child.
+	public function takeStdout(mutates self) returns ChildOutputReader throws MxSubprocessError
+		try requireUntaken(StdioStream.stdout)
+		self.stdoutTaken = true
+		return stream.StreamReader.over(ChildOutput.over(self.handle, which: StdioStream.stdout))
+	end 'takeStdout'
+
+	/// Take the child's stderr out as a `ChildOutputReader`, once: a second take throws `ioFailed`.
+	public function takeStderr(mutates self) returns ChildOutputReader throws MxSubprocessError
+		try requireUntaken(StdioStream.stderr)
+		self.stderrTaken = true
+		return stream.StreamReader.over(ChildOutput.over(self.handle, which: StdioStream.stderr))
+	end 'takeStderr'
+
+	/// Close our write end of the child's stdin pipe. After this the child
+	/// will see EOF on its stdin and (for typical line-reading workers) exit
+	/// gracefully. Idempotent at the runtime layer; calling it on an
+	/// already-closed pipe is a no-op — and after `release()` it is one here
+	/// instead, because the postcondition already holds and the handle is a
+	/// pointer to a freed struct on some lanes.
+	public function closeStdin()
+		if not released 'stillOpen'
+			__Builtins.subprocessCloseStdin(try handle as FullRangeInt otherwise panic("out of range"))
+		end 'stillOpen'
+	end 'closeStdin'
+
+	/// Park the calling green thread until the child exits or `deadline` elapses; other green threads,
+	/// `async` coroutines of the same strand included, keep running meanwhile. Returns the exit code on
+	/// success; throws `MxSubprocessError.timeout` if the deadline fires (the runtime forcibly terminates
+	/// the child's whole process tree in that case), `MxSubprocessError.treeNotEnded` if the kill could not
+	/// fully end that tree, `MxSubprocessError.statusLost` for a child whose exit status went to another
+	/// process (with empty output fields), or `MxSubprocessError.ioFailed` on a wait error (e.g. the
+	/// runtime can no longer locate the handle). Both deadline errors carry empty output fields: a
+	/// streaming child's bytes belong to the caller draining the streams, and this layer never sees them.
+	public function wait(deadline MxWaitDeadline = MxWaitDeadline.none) returns ExitInt throws MxSubprocessError
+		try requireLive()
+		let rc = __Builtins.subprocessWaitExit(try handle as FullRangeInt otherwise panic("out of range"), runtimeWaitMs(deadline))
+		if rc >= 0 'exited'
+			return try rc as ExitInt otherwise panic("out of range")
+		end 'exited'
+		if rc == WaitFailedAnswer 'failed'
+			throw MxSubprocessError.ioFailed("wait failed: {lastErrorMessage()}")
+		end 'failed'
+		if rc == WaitTimedOutAnswer 'timedOut'
+			throw MxSubprocessError.timeout(expiredAfterMs(deadline), stdout: "", stderr: "")
+		end 'timedOut'
+		if rc == WaitTreeSurvivedAnswer 'treeSurvived'
+			throw MxSubprocessError.treeNotEnded(expiredAfterMs(deadline), stdout: "", stderr: "", osError: lastOsErrorCode())
+		end 'treeSurvived'
+		if rc == ReapedElsewhereAnswer 'statusLost'
+			throw MxSubprocessError.statusLost("", stderr: "")
+		end 'statusLost'
+		panic("StreamingSubprocess.wait: the runtime answered {rc}, which is none of an exit code, {WaitFailedAnswer}, {WaitTimedOutAnswer}, {WaitTreeSurvivedAnswer} and {ReapedElsewhereAnswer}")
+	end 'wait'
+
+	/// End the child's whole process tree at once, the kill a `wait` deadline sends but with no
+	/// wait to expire, and return once the child itself is gone. The child may already have exited: what it
+	/// left running is the tree. A process started with `runDetached()` is outside it. A handle
+	/// `release()` has given back answers `unconfirmed`.
+	public function endTree() returns TreeEnd
+		if released 'gone'
+			return TreeEnd.unconfirmed("the child was released")
+		end 'gone'
+		let rc = __Builtins.subprocessEndTree(try handle as FullRangeInt otherwise panic("out of range"))
+		if rc == EndTreeEndedAnswer 'ended'
+			return TreeEnd.ended
+		end 'ended'
+		if rc == EndTreeUnconfirmedAnswer 'unconfirmed'
+			return TreeEnd.unconfirmed(lastErrorMessage())
+		end 'unconfirmed'
+		if rc == EndTreeSurvivedAnswer 'survived'
+			return TreeEnd.survived(lastOsErrorCode())
+		end 'survived'
+		panic("StreamingSubprocess.endTree: the runtime answered {rc}, which is none of {EndTreeEndedAnswer}, {EndTreeUnconfirmedAnswer} and {EndTreeSurvivedAnswer}")
+	end 'endTree'
+
+	/// The child's operating-system process id. Throws once the handle is released.
+	public function processId() returns Pid throws MxSubprocessError
+		try requireLive()
+		let pid = __Builtins.subprocessGetPid(try handle as FullRangeInt otherwise panic("out of range"))
+		if pid < 0 'noProcessRecorded'
+			throw MxSubprocessError.ioFailed("the runtime holds no process id for this child")
+		end 'noProcessRecorded'
+		return pid as Pid
+	end 'processId'
+
+	/// Has the child exited? Answers without blocking and WITHOUT killing it.
+	///
+	/// ⭐ `wait()` cannot be asked this: with no deadline it blocks until the child ends, and with one it
+	/// TERMINATES the child when the deadline fires. A parent that has to stay responsive —
+	/// draining output while the child runs — needs an answer that changes nothing.
+	///
+	/// ⚠ A handle `release()` has given back answers `running`, because after `release()` there is no live
+	/// child left to report an exit for.
+	public function pollExit() returns ExitPoll
+		if released 'gone'
+			return ExitPoll.running
+		end 'gone'
+		return exitPollOf(__Builtins.subprocessPollExit(try handle as FullRangeInt otherwise panic("out of range")))
+	end 'pollExit'
+
+	/// Has the child ended, and how? `pollExit`'s answer, naming the signal that killed a child on Linux or
+	/// macOS as `signalled(signal)`. Never blocks and never kills.
+	public function pollTermination() returns TerminationPoll
+		return match self.pollExit() 'polled'
+			running gives TerminationPoll.running
+			reapedElsewhere gives TerminationPoll.reapedElsewhere
+			exited(code) gives TerminationPoll.ended(self.terminationAfterExit(code))
+		end 'polled'
+	end 'pollTermination'
+
+	/// Has a read of this child's `stream` found its end? Never blocks and never kills.
+	///
+	/// A stream's end is latched by a read, so reading the stream is what moves this to `true`; a stream
+	/// nothing reads stays `false`. A read that failed and a released handle also answer `true`.
+	public function streamHasEnded(which StdioStream) returns bool
+		if released 'gone'
+			return true
+		end 'gone'
+		return match streamState(handle, which: which) 'state'
+			open gives false
+			atEof or
+			readFailed or
+			noSuchChild gives true
+		end 'state'
+	end 'streamHasEnded'
+
+	/// Have reads found the end of both `stdout` and `stderr`? `streamHasEnded` for each.
+	public function outputHasEnded() returns bool
+		return self.streamHasEnded(StdioStream.stdout) and self.streamHasEnded(StdioStream.stderr)
+	end 'outputHasEnded'
+
+	function terminationAfterExit(code ExitInt) returns TerminationStatus
+		let signalPoll = exitPollOf(__Builtins.subprocessExitSignal(try handle as FullRangeInt otherwise panic("out of range")))
+		return match signalPoll 'signal'
+			running or
+			reapedElsewhere panic("StreamingSubprocess.pollTermination: the child answered that it had exited and then that it was {signalPoll.name}")
+			exited(signal) gives terminationWithSignal(code, signal: signal)
+		end 'signal'
+	end 'terminationAfterExit'
+
+	/// Refuse every operation that would reach the runtime with a handle `release()` has given back.
+	/// The check belongs here rather than in a runtime guard because a handle is a raw pointer to a
+	/// freed struct on some lanes, so asking the runtime about it is already the bug.
+	function requireLive() throws MxSubprocessError
+		if released 'gone'
+			throw MxSubprocessError.ioFailed(usedAfterReleaseReason)
+		end 'gone'
+	end 'requireLive'
+
+	function requireUntaken(which StdioStream) throws MxSubprocessError
+		try requireLive()
+		let taken = match which 'which'
+			stdout gives stdoutTaken
+			stderr gives stderrTaken
+		end 'which'
+		if taken 'twice'
+			throw MxSubprocessError.ioFailed("the child's {streamName(which)} was already taken")
+		end 'twice'
+	end 'requireUntaken'
+
+	/// Release the OS handles this child owns — its process handle, its pipe
+	/// ends, and the job object naming its process tree where the platform
+	/// made one. Idempotent; safe to call at the end of a
+	/// using-block or from a guard path. Nothing reaches the runtime with a
+	/// released handle afterwards: the throwing methods refuse it through
+	/// `requireLive`, and `closeStdin` and `release` are idempotent no-ops
+	/// whose postcondition a released child already satisfies. A reader taken from this child
+	/// answers `StreamError.closed` afterwards.
+	public function release(mutates self)
+		if not released 'notYet'
+			__Builtins.subprocessReleaseHandle(try handle as FullRangeInt otherwise panic("out of range"))
+			released = true
+		end 'notYet'
+	end 'release'
+end 'StreamingSubprocess'
+
+/// What `StreamingSubprocess.endTree` found. `ended`: the child and everything it left running are
+/// gone. `survived`: the child is gone but part of its tree could not be ended, with the
+/// operating-system code of the refusal. `unconfirmed`: the kill was refused and no wait saw the child
+/// end within five seconds, so it may still run, or the handle was released, with the reason.
+public union TreeEnd
+	ended
+	survived(osError OsErrorCode)
+	unconfirmed(reason String)
+
+	/// One-line description for diagnostics.
+	public function displayReason() returns String
+		return match self 'e'
+			ended gives "the process tree ended"
+			survived(osError) gives "the process tree could not be fully ended: os error {osError}"
+			unconfirmed(reason) gives "no kill of the process tree was confirmed: {reason}"
+		end 'e'
+	end 'displayReason'
+end 'TreeEnd'
+
+/// What `pollExit` found. A union rather than a code-plus-sentinel because "it has not finished" is not an
+/// exit code and there is no number that could stand for it: a Windows exit code is a full DWORD. A child a
+/// signal killed on Linux or macOS is `exited(128 + signal)`; `pollTermination` names the signal.
+public union ExitPoll
+	running
+	reapedElsewhere
+	exited(code ExitInt)
+
+	public function childIsKnownGone() returns bool
+		return match self 'poll'
+			exited gives true
+			running or
+			reapedElsewhere gives false
+		end 'poll'
+	end 'childIsKnownGone'
+end 'ExitPoll'
+
+/// What `pollTermination` found: the child is still running, or how it ended.
+public union TerminationPoll
+	running
+	reapedElsewhere
+	ended(status TerminationStatus)
+end 'TerminationPoll'
+
+// The runtime's answer for a child no signal ended, pinned against `SubprocessRuntime.SubpNoExitSignal` by
+// `checkSubprocessAnswers` on every compile.
+let NoTerminatingSignal = 0
+
 let SpawnFailedAnswer = -1
+
+let DetachRefusedAnswer = -2
 
 let WaitFailedAnswer = -1
 
+let WaitTimedOutAnswer = -2
+
+let WaitTreeSurvivedAnswer = -3
+
+let ReapedElsewhereAnswer = -4
+
+let EndTreeEndedAnswer = 0
+
+let EndTreeUnconfirmedAnswer = -1
+
+let EndTreeSurvivedAnswer = -3
+
+let StillRunningAnswer = -1
+
+let NoSuchChildAnswer = -5
+
+let StdinAcceptedAnswer = 0
+
+let StdinQueuePendingAnswer = 2
+
+let StdinPushRefusedAnswer = -1
+
+let stdinClosedReason = "the child's stdin is closed"
+
+let stdinQueuedReason = "a payload is already queued for the child's stdin"
+
 let UncollectedStreamLimit = 0
+
+function exitPollOf(raw FullRangeInt) returns ExitPoll
+	if raw >= 0 'exited'
+		return ExitPoll.exited(try raw as ExitInt otherwise panic("out of range"))
+	end 'exited'
+	if raw == StillRunningAnswer 'stillRunning'
+		return ExitPoll.running
+	end 'stillRunning'
+	if raw == ReapedElsewhereAnswer 'reapedElsewhere'
+		return ExitPoll.reapedElsewhere
+	end 'reapedElsewhere'
+	if raw == NoSuchChildAnswer 'noSuchChild'
+		panic("exitPollOf: the runtime answered {NoSuchChildAnswer}, naming no live child, for a handle the stdlib had not released")
+	end 'noSuchChild'
+	panic("exitPollOf: the runtime answered {raw}, which is none of an exit code, {StillRunningAnswer}, {ReapedElsewhereAnswer} and {NoSuchChildAnswer}")
+end 'exitPollOf'
+
+function terminationWithSignal(code ExitInt, signal ExitInt) returns TerminationStatus
+	return TerminationStatus.exited(code) if signal == NoTerminatingSignal else TerminationStatus.signalled(signal)
+end 'terminationWithSignal'
+
+/// One of a streaming child's two output streams.
+public enum StdioStream
+	stdout
+	stderr
+end 'StdioStream'
+
+let usedAfterReleaseReason = "used after release()"
+
+function streamState(handle StreamingHandle, which StdioStream) returns __SubprocessStreamState
+	match which 'ask'
+		stdout then return __Builtins.subprocessStdoutState(try handle as FullRangeInt otherwise panic("out of range"))
+		stderr then return __Builtins.subprocessStderrState(try handle as FullRangeInt otherwise panic("out of range"))
+	end 'ask'
+end 'streamState'
+
+function streamName(which StdioStream) returns String
+	match which 'name'
+		stdout then return "stdout"
+		stderr then return "stderr"
+	end 'name'
+end 'streamName'
 
 function filepathAnchor(anchored filepath.PathResolveError)
 end 'filepathAnchor'

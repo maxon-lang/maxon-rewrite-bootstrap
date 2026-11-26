@@ -911,9 +911,9 @@ func TestConvertDeclaresMaxonsSubprocessBesideTheBuiltIns(t *testing.T) {
 	in := "public typealias WaitDeadlineMs = int(1 to u64.max)\n\n" +
 		"/// The deadline of a Subprocess.\npublic union WaitDeadline\n\tnone\n\twithin(timeoutMs WaitDeadlineMs)\nend 'WaitDeadline'\n\n" +
 		"public type Subprocess\n\tpublic static function run(deadline WaitDeadline) returns Count\n\t\tpanic(\"Subprocess.run: {deadline}\")\n\tend 'run'\n\n" +
-		"\tpublic static function runDetached() returns Count\n\t\treturn __Builtins.subprocessDetach(0)\n\tend 'runDetached'\nend 'Subprocess'\n\n" +
+		"\tpublic static function runKilled() returns Count\n\t\treturn __Builtins.subprocessKill(0)\n\tend 'runKilled'\nend 'Subprocess'\n\n" +
 		"public type Configuration\n\tpublic function run() returns Count\n\t\treturn Subprocess.run(WaitDeadline.none)\n\tend 'run'\n\n" +
-		"\tpublic function runDetached() returns Count\n\t\treturn Subprocess.runDetached()\n\tend 'runDetached'\nend 'Configuration'\n\n" +
+		"\tpublic function runKilled() returns Count\n\t\treturn Subprocess.runKilled()\n\tend 'runKilled'\nend 'Configuration'\n\n" +
 		"function operand(path FilePath) returns cstring\n\treturn path.toString().cstr()\nend 'operand'\n"
 	want := "public typealias WaitDeadlineMs = int(1 to u64.max)\n\n" +
 		"/// The deadline of a MxSubprocess.\npublic union MxWaitDeadline\n\tnone\n\twithin(timeoutMs WaitDeadlineMs)\nend 'MxWaitDeadline'\n\n" +
@@ -926,5 +926,17 @@ func TestConvertDeclaresMaxonsSubprocessBesideTheBuiltIns(t *testing.T) {
 	}
 	if res.Text != want {
 		t.Fatalf("got:\n%q\nwant:\n%q", res.Text, want)
+	}
+}
+
+// TestConvertWritesNamesThatHideModulesAndDropsRawBufferCasts: a field named after a library module is written as another name,
+// in code and in the interpolations of strings but not in their text, and a cast of a raw buffer to the bare __ManagedMemory,
+// with its capability word, is left out.
+func TestConvertWritesNamesThatHideModulesAndDropsRawBufferCasts(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "stdlib")
+	in := "type Reader\n\tlet stream as Count\n\n\tfunction name() returns String\n\t\tlet raw = __Builtins.subprocessReadAvailable(stream, 1, 2) as isolated __ManagedMemory\n\t\treturn \"{stream} the stream\"\n\tend 'name'\nend 'Reader'\n"
+	want := "type Reader\n\tlet which as Count\n\n\tfunction name() returns String\n\t\tlet raw = __Builtins.subprocessReadAvailable(which, 1, 2)\n\t\treturn \"{which} the stream\"\n\tend 'name'\nend 'Reader'\n"
+	if got := Convert(filepath.Join(root, "Reader.maxon"), in, sourceFile).Text; got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
 }

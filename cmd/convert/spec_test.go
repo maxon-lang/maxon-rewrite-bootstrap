@@ -155,3 +155,14 @@ func TestConvertSpecNamesTheLibrarysSubprocessWhereAProgramRunsAChild(t *testing
 		t.Errorf("a program that reaches a built-in that takes the built-in's names the library's:\n%s", got)
 	}
 }
+
+// TestConvertSpecNamesTheLibrarysErrorWhereAProgramBuildsOne: a spec program that makes a case of SubprocessError with a payload
+// names the library's union, which the built-in enum, whose cases carry none, is not.
+func TestConvertSpecNamesTheLibrarysErrorWhereAProgramBuildsOne(t *testing.T) {
+	spec := "## Tests\n\n<!-- test: builds -->\n```maxon\nfunction main() returns ExitCode\n\tlet e = SubprocessError.detachRefused(5)\n\treturn 0\nend 'main'\n```\n\n" +
+		"<!-- test: names -->\n```maxon\nfunction f(e SubprocessError) returns Bool\n\treturn e.timedOut()\nend 'f'\n```\n"
+	got := ConvertSpec("demo.md", spec).Text
+	if !strings.Contains(got, "let e = MxSubprocessError.detachRefused(5)") || !strings.Contains(got, "function f(e SubprocessError)") {
+		t.Errorf("the case with a payload names the library's union and a name alone the built-in:\n%s", got)
+	}
+}

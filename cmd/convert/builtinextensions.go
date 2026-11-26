@@ -1,6 +1,7 @@
 package main
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -191,7 +192,11 @@ var builtinsTakingWaitDeadline = []string{"removeTree", "removeContents"}
 
 // libraryOnlySubprocessTypes are the types of the library's Subprocess that the built-ins have no counterpart of, besides
 // Subprocess itself: a program that names one runs a child through the library.
-var libraryOnlySubprocessTypes = []string{"Subprocess", "Configuration", "InputSource", "OutputDestination", "WorkingDirectory", "TerminationStatus", "PlatformOptions"}
+var libraryOnlySubprocessTypes = []string{"Subprocess", "Configuration", "InputSource", "OutputDestination", "WorkingDirectory", "TerminationStatus", "PlatformOptions", "StreamingSubprocess", "StdioStream", "TreeEnd", "ExitPoll", "TerminationPoll"}
+
+// buildsLibraryError matches a program's making of a case of SubprocessError that carries a payload, which the library's union
+// has and the built-in enum, whose cases carry none, does not.
+var buildsLibraryError = regexp.MustCompile(`(^|[^A-Za-z0-9_.])SubprocessError[.](executableNotFound|spawnFailed|ioFailed|timeout|treeNotEnded|detachRefused|statusLost)[(]`)
 
 // programNames is what the whole of a program (every file of a spec test) says about the names its files write.
 type programNames struct {
@@ -216,7 +221,7 @@ func programNamesOf(src string) programNames {
 		}
 	}
 	words := wordsOf(src)
-	names.usesLibrarySubprocess = slices.ContainsFunc(libraryOnlySubprocessTypes, func(word string) bool { return words[word] && !declaresType(lines, word) }) &&
+	names.usesLibrarySubprocess = (slices.ContainsFunc(libraryOnlySubprocessTypes, func(word string) bool { return words[word] && !declaresType(lines, word) }) || buildsLibraryError.MatchString(src) && !declaresType(lines, "SubprocessError")) &&
 		!slices.ContainsFunc(builtinsOfTheBuiltInTypes, func(word string) bool { return words[word] }) &&
 		!(words["WaitDeadline"] && slices.ContainsFunc(builtinsTakingWaitDeadline, func(word string) bool { return words[word] }))
 	return names
@@ -300,6 +305,39 @@ func renameLibraryTypes(file string, lines []sourceLine, kind inputKind, ownType
 			}
 		}
 	}
+}
+
+// namesHidingModules are the names of library modules that a field, a parameter or a local of maxon's library would hide where
+// it writes the module before a name of another module (stream.StreamError), and the name each is written as here. maxon's
+// library writes no module, and its Subprocess has a field and parameters named stream.
+var namesHidingModules = map[string]string{"stream": "which"}
+
+// renameNamesHidingModules writes each name of namesHidingModules as its replacement, wherever the file writes it as a name:
+// in code and in the interpolations of strings, and not in their text or in comments.
+func renameNamesHidingModules(lines []sourceLine) {
+	for i := range lines {
+		l := &lines[i]
+		for k, t := range l.code {
+			here, ok := namesHidingModules[t.text]
+			switch {
+			case ok && t.kind == tokIdent:
+				l.code[k].text = here
+			case t.kind == tokString:
+				l.code[k].text = renameInInterpolations(t.text, namesHidingModules)
+			}
+		}
+	}
+}
+
+// renameInInterpolations writes each whole word of an interpolation of a string that names is a key of names, as its value.
+func renameInInterpolations(text string, names map[string]string) string {
+	return interpolationPart.ReplaceAllStringFunc(text, func(part string) string {
+		var pairs [][2]string
+		for old, here := range names {
+			pairs = append(pairs, [2]string{old, here})
+		}
+		return replaceWords(part, pairs)
+	})
 }
 
 // declaresType says whether the text declares a type, an enum, a union, an interface or a typealias named name, or takes

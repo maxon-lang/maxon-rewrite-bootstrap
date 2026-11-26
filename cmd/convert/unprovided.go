@@ -6,8 +6,7 @@ import "slices"
 
 // dropUnprovidedMembers leaves out each method and each top-level function of maxon's library that calls a static of a raw type
 // that minimaxon does not provide, since what it reads has no counterpart here (README, "Where it differs from Maxon": HeapStats'
-// slab, census and raw-allocation figures, Subprocess' streaming and detached children), so a call of it is the unknown-member
-// error. A top-level declaration that only such code named goes with it, and so on, so the file declares nothing that nothing
+// slab, census and raw-allocation figures), so a call of it is the unknown-member error. A top-level declaration that only such code named goes with it, and so on, so the file declares nothing that nothing
 // reaches.
 func dropUnprovidedMembers(lines []sourceLine) {
 	named := map[string]bool{}
