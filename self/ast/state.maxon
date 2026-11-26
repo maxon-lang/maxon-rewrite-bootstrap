@@ -93,6 +93,11 @@ export type ModuleHome
 		return record.path.clone()
 	end 'path'
 
+	// filePaths are the paths of the module's source files.
+	export function filePaths() returns StringList
+		return record.filePaths.clone()
+	end 'filePaths'
+
 	// setShapeReads records the slots of the modules whose shapes the stages of the module read besides its own and sharedSlot.
 	export function setShapeReads(mutates self, consumes slots SlotList)
 		types.reads = slots

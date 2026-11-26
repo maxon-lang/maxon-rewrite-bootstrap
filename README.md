@@ -598,18 +598,27 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   names, directly or through others, are compiled past their resolve (`reachedModules`), so a program pays for no other, and
   resolves only those it reaches: in a program's compile the library's resolves wait for the program's, and a library module
   resolves only when a module of the program names it or names a library module whose source may name it, directly or
-  through others (`resolvesModule`; what a library module may name is read from its text when it is parsed,
-  `project.libraryModulesNamedIn`: each module whose qualifier's first name it writes before a dot and a name, comments
-  included, and the core, a superset of what its resolve records). With the build cache, a library module the program does
-  not reach is not parsed either: the library's names index (`libindex.maxon`), kept in the cache under the digest of the
-  compiler and every file of the library, gives each module the words that reach it (its declared names and the members
-  `libraryMembersOf` counts) and the modules its source may name, and a library module's parse waits for the program's parses
-  and runs only when a word the program's text writes reaches it, closed over what those name (`reachedByProgram`), the core
-  being reached always, a superset of what the resolves name (a known over-reach: a word is of a module whatever type
-  the program writes it for, so `FilePath`'s member words `join`, `parent`, `isEmpty`, `empty`, `resolve`, `startsWith` and
-  `separator` still reach the `filepath` module in a program that uses no `FilePath`); a compile that has no index parses every library module and
-  writes the index; each is a module of the build cache like any other, with its own key, and is compiled for the compile's
-  target. A project that is the runtime's source or `stdlib/` itself is compiled without a second library, and the compiler's
+  through others (`resolvesModule`). A library module that the program does not reach is not parsed either, with the build
+  cache or without it: what reaches a module is read from the text of its files by a scan of their lines that lexes and parses
+  nothing (`project.scanModule`, `libscan.maxon`; the layout says what a line declares, since a declaration starts a line, its
+  members are the lines one tab deeper and a branch of a `#if` is one tab deeper than its directives). The scan is a stage of
+  each library module (`scan`), which waits for nothing and so runs beside the program's parses, and it gives the module the
+  words that reach it (its declared names and the members `libraryMembersOf` counts: those of its extensions, and those of its
+  types where an extension of the module gives a conformance; the lines of every branch of a `#if` count, whatever the target)
+  and the modules its source may name (each module whose qualifier's first name it writes before a dot and a name, comments
+  included, and the core, a superset of what its resolve records); it keeps the text it read for the module's parse. The
+  library's names index (`libindex.maxon`) is a cache of these scans, kept under the digest of the compiler and every file of
+  the library: a compile that finds it takes each module's words and names from it in place of reading the files, and one that
+  scanned them all writes it. A library module's parse waits for the program's parses and for the scans of every library
+  module, and runs only when a word the program's text writes reaches it, closed over what those name (`reachedLibrary`, the
+  one rule of reach, the same whether the scans read the files or the index), the core being reached always, a superset of what
+  the resolves name (a known over-reach: a word is of a module whatever type the program writes it for, so `FilePath`'s member
+  words `join`, `parent`, `isEmpty`, `empty`, `resolve`, `startsWith` and `separator`
+  still reach the `filepath` module in a program that uses no `FilePath`). A library file that nothing reaches is no error
+  of a build, even with a syntax error in it, since the scan reads the first words of its declaration lines only; a file the
+  scan cannot read is reached always, so that its parse reports it. Each parsed module is a module of the build cache like
+  any other, with its own key, and is compiled for the compile's target. A project that is the runtime's source or `stdlib/`
+  itself is compiled without a second library, and the compiler's
   own source, `self/` (found as `runtime/` is, `project.isCompilerDirectory`), without any: it names nothing of the library, so
   its build never reads `stdlib/` and a library file may use syntax that the compiler building `self/` (the seed) does not
   parse once that compiler has this rule; a seed from before it still parses every library module when it builds `self/`. A
@@ -984,7 +993,7 @@ gives the IR to the interpreter instead of the backend.
 
 The driver runs each module's stages, from parse to emit, as tasks of one graph (`self/driver/graph.maxon`), as Go's build
 does. A task is a stage of one module (`Task`: the stage, the module and a range of the graph's flat list of inputs), or a
-stage of the project as a whole: `parsed` joins the parses, since resolve may read the declaration table of any module that a
+stage of the project as a whole: in a program's compile each library module's `scan` (words that reach it, modules it may name; no segment) runs beside the parses, which the library's parses wait on, `parsed` joins the parses, since resolve may read the declaration table of any module that a
 qualified name passes through, and in a program's compile the resolve of each module of the standard library waits for the
 program's resolves too, and runs only for a library module the program reaches (`resolvesModule`); `order` makes the module graph and refuses a cycle, and only then adds the tasks of the check
 and after it, since a module's dependencies are known once it is resolved; `entry` reports a program with no `main`;

@@ -1,39 +1,41 @@
 // The library's names index: for each module of the standard library, the words by which a program can reach it, which are
 // the names it declares, the names of the members that its extensions add or that its types declare where its extensions
-// give a conformance (resolve.libraryMembersOf's rule), and the library modules its own
-// source may name (project.libraryModulesNamedIn). A program's compile that has the index parses a module of the library
-// only when the program reaches it: each word that the program's text writes, comments and strings included, reaches the
-// modules it is a word of, closed over what those name, and the core is reached always. That is a superset of what the
-// program's resolves name, so a module the index leaves out is one no resolve would have named, which is never resolved
-// (resolvesModule) and now is never parsed either. Go's compiler reads a package's export data instead of its source in the
-// same way.
+// give a conformance (resolve.libraryMembersOf's rule), and the library modules its own source may name. All of it is read
+// from the text of the module's files by a scan of project.scanModule, which lexes and parses nothing: the scan stage of
+// each library module, which runs beside the program's parses, gives the module's words and what it names to the parse of
+// every library module. A program's compile parses a module of the library only when the program reaches it: each word that
+// the program's text writes, comments and strings included, reaches the modules it is a word of, closed over what those
+// name, and the core is reached always (reachedLibrary). That is a superset of what the program's resolves name, so a module
+// the scan leaves out is one no resolve would have named, which is never resolved (resolvesModule) and is never parsed
+// either: a file of it with an error is no error of a program that does not reach it. Go's compiler reads a package's export
+// data instead of its source in the same way.
 //
-// The index is kept in the build cache, under the digest of the compiler and of every file of the library, path and bytes,
-// so it is the library's as it is on disk. A compile with no cache, or whose cache has no index yet, parses every module of the
-// library, as before, and one that parsed them all writes the index, so the next compile has it.
+// The index is what the scans of the library's modules made, kept in the build cache under the digest of the compiler and of
+// every file of the library, path and bytes, so it is the library's as it is on disk: a compile that finds it there takes each
+// module's words and names from it, where it would read the module's files, and one that read them all writes it, so the next
+// compile has it. It is a cache of the scan, and no second rule of what reaches what.
 
 let indexMagic = "minimaxon library names index"
 
-let indexFormat = 1 as Count
+let indexFormat = 2 as Count
 
 let indexExtension = ".names"
 
-// IndexedModule is what the index holds of one module of the library: its key (libraryKey), the words that reach it, and the
-// keys of the library modules it may name.
+// IndexedModule is what the index holds of one module of the library, which its place among the library's modules in the
+// project's order names (libraryOrdinal): the words that reach it, and the places of the library modules it may name.
 type IndexedModule
-	var key as String
 	var words as ast.StringList
-	var named as ast.StringList
+	var named as project.CountList
 
-	static function make(consumes key String, consumes words ast.StringList, consumes named ast.StringList) returns IndexedModule
-		return IndexedModule{key: key, words: words, named: named}
+	static function make(consumes words ast.StringList, consumes named project.CountList) returns IndexedModule
+		return IndexedModule{words: words, named: named}
 	end 'make'
 end 'IndexedModule'
 
 typealias IndexedModules = Array with IndexedModule
 
 // LibraryIndex is the index as a compile reads it: the modules it holds, and whether it holds any (a compile with no index
-// parses every module of the library).
+// scans the modules' files).
 type LibraryIndex
 	var modules as IndexedModules
 	var present as bool
@@ -124,18 +126,21 @@ function readIndex(setup IndexSetup) returns LibraryIndex
 	var modules = IndexedModules.create(0)
 	let count = r.items()
 	for _ in 0 upto count 'modules'
-		let key = r.text()
 		var words = ast.StringList.create(0)
 		let wordCount = r.items()
 		for _ in 0 upto wordCount 'words'
 			words.push(r.text())
 		end 'words'
-		var named = ast.StringList.create(0)
+		var named = project.CountList.create(0)
 		let namedCount = r.items()
 		for _ in 0 upto namedCount 'named'
-			named.push(r.text())
+			let ordinal = r.count()
+			if ordinal >= count 'past'
+				return LibraryIndex.absent()
+			end 'past'
+			named.push(ordinal)
 		end 'named'
-		modules.push(IndexedModule.make(key, words: words, named: named))
+		modules.push(IndexedModule.make(words, named: named))
 	end 'modules'
 	if r.broken or not r.atEnd() 'broken'
 		return LibraryIndex.absent()
@@ -151,61 +156,62 @@ function writeIndex(setup IndexSetup, modules IndexedModules)
 	w.count(indexFormat)
 	w.digest(setup.key)
 	w.count(modules.count())
-	for i in 0 upto modules.count() 'modules'
-		w.text(modules[i].key)
-		w.count(modules[i].words.count())
-		for j in 0 upto modules[i].words.count() 'words'
-			w.text(modules[i].words[j])
+	for module in modules 'modules'
+		w.count(module.words.count())
+		for word in module.words 'words'
+			w.text(word)
 		end 'words'
-		w.count(modules[i].named.count())
-		for j in 0 upto modules[i].named.count() 'named'
-			w.text(modules[i].named[j])
+		w.count(module.named.count())
+		for ordinal in module.named 'named'
+			w.count(ordinal)
 		end 'named'
 	end 'modules'
 	writeWhole(indexPath(setup), bytes: w.bytes)
 end 'writeIndex'
 
-// wordsOfParsed are the words that reach a library module that the parse made: its declared names, the names of its members
-// under resolve.libraryMembersOf's rule (every member its extensions add, and those its types declare where an extension of
-// the module gives a conformance). A program names no library module by a qualifier (ast.sameTier), so these are all.
-function wordsOfParsed(parsed ast.ParsedModule) returns ast.StringList
-	var words = ast.StringList.create(0)
-	for i in 0 upto parsed.names.capacity() 'names'
-		if table.mapSlotOccupied(parsed.names.stateAt(i)) 'occupied'
-			words.push(parsed.names.keyAt(i).clone())
-		end 'occupied'
-	end 'names'
-	var conforms = false
-	for i in 0 upto parsed.decls.count() 'conformance'
-		if extensionConforms(parsed.decls[i]) 'conforms'
-			conforms = true
-		end 'conforms'
-	end 'conformance'
-	for i in 0 upto parsed.decls.count() 'decls'
-		if not conforms and not parsed.decls[i].isExtension() 'ownType'
-			continue 'decls'
-		end 'ownType'
-		let names = parsed.decls[i].memberNames()
-		for j in 0 upto names.count() 'members'
-			words.push(names[j].clone())
-		end 'members'
-	end 'decls'
-	return words
-end 'wordsOfParsed'
+// writeIndexWhenMissing writes the library's names index once a compile that has none scanned every module of the library:
+// the words of each and the library modules it may name, as its scan found them. A module whose files could not be read
+// leaves the index unwritten.
+function writeIndexWhenMissing(c Compile, known Known)
+	if not c.indexSetup.enabled() or c.index.present 'kept'
+		return
+	end 'kept'
+	var modules = IndexedModules.create(0)
+	var slot = 0 as Count
+	for product in known 'slots'
+		if c.laterAt(slot) 'library'
+			if not product.namesRead 'unread'
+				return
+			end 'unread'
+			var named = project.CountList.create(0)
+			for m in product.named 'named'
+				named.push(libraryOrdinal(c, m: m))
+			end 'named'
+			modules.push(IndexedModule.make(product.words.clone(), named: named))
+		end 'library'
+		slot = after(slot)
+	end 'slots'
+	writeIndex(c.indexSetup, modules: modules)
+end 'writeIndexWhenMissing'
 
-// extensionConforms is whether d is an extension that says a type implements an interface.
-function extensionConforms(d ast.Decl) returns bool
-	return match d 'd'
-		extensionDecl(e) gives e.conforms != 0
-		funcDecl(_) gives false
-		constDecl(_) gives false
-		typeDecl(_) gives false
-		enumDecl(_) gives false
-		unionDecl(_) gives false
-		aliasDecl(_) gives false
-		interfaceDecl(_) gives false
-	end 'd'
-end 'extensionConforms'
+// loadIndexed gives the module's work the words and the names that the index holds of library module m, in place of the scan
+// of its files.
+function loadIndexed(c Compile, mutates work ModuleWork, m Count)
+	let ordinal = libraryOrdinal(c, m: m)
+	var place = 0 as Count
+	for module in c.index.modules 'modules'
+		if place == ordinal 'found'
+			work.words = module.words.clone()
+			var named = project.CountList.create(0)
+			for n in module.named 'named'
+				named.push(libraryModuleAt(c, ordinal: n))
+			end 'named'
+			work.named = named
+			work.namesRead = true
+		end 'found'
+		place = after(place)
+	end 'modules'
+end 'loadIndexed'
 
 // wordsIn are the words that text writes, each once: every run of name bytes, comments and strings included.
 function wordsIn(text String) returns ast.StringList
@@ -215,12 +221,12 @@ function wordsIn(text String) returns ast.StringList
 	var i = 0 as Count
 	while i < n 'scan'
 		if not ast.isIdentByte(text.byteAt(i)) 'other'
-			i = i + 1
+			i = after(i)
 			continue 'scan'
 		end 'other'
 		let start = i
 		while i < n and ast.isIdentByte(text.byteAt(i)) 'word'
-			i = i + 1
+			i = after(i)
 		end 'word'
 		let word = text.sliceBytes(start, endPos: i).clone()
 		if not seen.has(word) 'new'
@@ -264,41 +270,7 @@ end 'addLiteralWords'
 
 typealias WordSet = table.StringMap with Count
 
-// reachedQualifiers are the keys (libraryKey) of the library modules that a program whose words are words reaches by the index:
-// the always-reached module's (the core's), each module one of whose words the program writes, and what those may name, to
-// the end.
-function reachedQualifiers(index LibraryIndex, words WordSet, always String) returns WordSet
-	var reached = WordSet.new()
-	var pending = ast.StringList.create(0)
-	reached.insert(always.clone(), value: 1)
-	pending.push(always.clone())
-	for i in 0 upto index.modules.count() 'modules'
-		let q = index.modules[i].key.clone()
-		if reached.has(q) 'known'
-			continue 'modules'
-		end 'known'
-		for j in 0 upto index.modules[i].words.count() 'words'
-			if words.has(index.modules[i].words[j]) 'written'
-				reached.insert(q.clone(), value: 1)
-				pending.push(q.clone())
-				break 'words'
-			end 'written'
-		end 'words'
-	end 'modules'
-	while pending.count() > 0 'closure'
-		let q = try pending.pop() otherwise panic("driver: the pending library modules ran out")
-		for i in 0 upto index.modules.count() 'modules'
-			if index.modules[i].key != q 'other'
-				continue 'modules'
-			end 'other'
-			for j in 0 upto index.modules[i].named.count() 'named'
-				let n = index.modules[i].named[j].clone()
-				if not reached.has(n) 'new'
-					reached.insert(n.clone(), value: 1)
-					pending.push(n)
-				end 'new'
-			end 'named'
-		end 'modules'
-	end 'closure'
-	return reached
-end 'reachedQualifiers'
+// after is the place after at: a library has few modules, so it never overflows.
+function after(at Count) returns Count
+	return try at + 1 otherwise panic("driver: a place past memory")
+end 'after'

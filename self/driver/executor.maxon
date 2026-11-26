@@ -306,6 +306,7 @@ end 'runModule'
 function moduleGives(ctx frozen with Context, mutates work ModuleWork, dependent Count) returns Payload
 	let module = work.home.module
 	match ctx.graph.tasks[dependent].stage 's'
+		scan then return Payload.none
 		parse then return Payload.none
 		parsed then return Payload.none
 		resolve then return Payload.none
@@ -409,8 +410,9 @@ end 'extendedBy'
 // projectTask runs the task of stage, a stage of the project other than the order, which knows known.
 function projectTask(ctx frozen with Context, mutates station ProjectStation, stage Stage, known Known, mutates errs diag.ErrorList)
 	match stage 's'
+		scan then panic("driver: the scan is a stage of a module")
 		parse then panic("driver: the parse is a stage of a module")
-		parsed then writeIndexWhenMissing(ctx.compile, p: station.p, known: known)
+		parsed then writeIndexWhenMissing(ctx.compile, known: known)
 		resolve then panic("driver: the resolve is a stage of a module")
 		order then panic("driver: the order is run by orderProject")
 		aliases then panic("driver: the aliases are a stage of a module")
