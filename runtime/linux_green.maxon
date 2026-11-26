@@ -10,6 +10,12 @@
 	// eventWaitForeverMillis is epoll_wait's timeout of a wait with no end, -1.
 	let eventWaitForeverMillis = 0xFFFFFFFFFFFFFFFF as Count
 
+	// longestEpollMillis is the longest wait epoll_wait is given, INT_MAX milliseconds (about 24.8 days): its timeout is a C
+	// int, of which the kernel reads the low 32 bits, any negative as a wait with no end.
+	let longestEpollMillis = 0x7FFFFFFF as Count
+
+	let longestEventWaitNanos = (longestEpollMillis * nanosPerMilli) as Count
+
 	// eventfdWordBytes is what a read or a write of an eventfd moves, its 64-bit count.
 	let eventfdWordBytes = 8 as Count
 
@@ -182,9 +188,9 @@
 		let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 		let events = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockEventsOffset)
 		#if arch(arm64)
-			let got = __Raw.syscall6(linuxSysEpollPwait, arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: events, arg3: eventSlots, arg4: eventWaitMillis(delay, forever: eventWaitForeverMillis), arg5: noSignalMask, arg6: linuxSignalMaskBytes)
+			let got = __Raw.syscall6(linuxSysEpollPwait, arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: events, arg3: eventSlots, arg4: eventWaitArgument(context, delay: delay), arg5: noSignalMask, arg6: linuxSignalMaskBytes)
 		#else
-			let got = __Raw.syscall4(linuxSysEpollWait, arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: events, arg3: eventSlots, arg4: eventWaitMillis(delay, forever: eventWaitForeverMillis))
+			let got = __Raw.syscall4(linuxSysEpollWait, arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: events, arg3: eventSlots, arg4: eventWaitArgument(context, delay: delay))
 		#endif
 		if failed(got) 'failed'
 			if errnoOf(got) == linuxEintr 'interrupted'

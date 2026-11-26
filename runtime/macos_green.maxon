@@ -184,6 +184,8 @@
 	// EINVAL, and a wait that ends at it with nothing come is taken again with the time that is left.
 	let longestKeventSeconds = 1000000 as Count
 
+	let longestEventWaitNanos = (longestKeventSeconds * nanosPerSecond) as Count
+
 	// takeEvents takes what is ready, waiting up to delay nanoseconds for something when nothing is, into the thread's block,
 	// whose timespec holds the wait, and gives the list of the green threads it readied. An event that came was reset as
 	// it was reported (EV_CLEAR); a handle's read filter readies a wait to read and its write filter a wait to write, an
@@ -191,13 +193,7 @@
 	function takeEvents(context Count, delay Count) returns Count
 		let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 		let events = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockEventsOffset)
-		var timeout = noTimeout
-		if delay != takeEventsForever 'bounded'
-			timeout = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockClockOffset)
-			let seconds = delay / nanosPerSecond
-			__Raw.storeWord(timeout, offset: 0, value: seconds if seconds < longestKeventSeconds else longestKeventSeconds)
-			__Raw.storeWord(timeout, offset: wordBytes, value: delay mod nanosPerSecond)
-		end 'bounded'
+		let timeout = eventWaitArgument(context, delay: delay)
 		let got = checkedInt(__Raw.callImport6("kevent", arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: noChanges, arg3: 0, arg4: events, arg5: eventSlots, arg6: timeout))
 		if failed(got) 'failed'
 			if interrupted(got) 'interrupted'

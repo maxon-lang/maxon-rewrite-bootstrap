@@ -334,18 +334,31 @@ function entryGive(scheduler Count, entry Count)
 	unlockScheduler(scheduler)
 end 'entryGive'
 
-// eventWaitMillis is a take's delay in nanoseconds as the milliseconds the system waits, rounded up so that a timer is never
-// woken for early, below the system's forever.
-function eventWaitMillis(delay Count, forever Count) returns Count
-	if delay == takeEventsForever 'forever'
-		return forever
-	end 'forever'
-	let millis = __Raw.wrappingAdd(delay, right: nanosPerMilli - 1) / nanosPerMilli
-	if millis >= forever 'long'
-		return __Raw.wrappingSub(forever, right: 1)
-	end 'long'
-	return millis
-end 'eventWaitMillis'
+// eventWaitArgument is a take's delay in nanoseconds as the timeout argument of the system's wait, the one place a delay
+// reaches it: takeEventsForever is the system's wait with no end, and any other delay is cut to the longest wait the system
+// is given (longestEventWaitNanos, from longestKeventSeconds, longestEpollMillis or longestPortWaitMillis), since each system
+// refuses or misreads a longer timeout. A wait so cut that ends with nothing come takes no event, and its thread looks for
+// work again (findRunnable): it runs the timers that are due and waits anew with the time that is left. On macOS the
+// argument is the thread's block's timespec, which it fills; elsewhere it counts milliseconds, rounded up so that a timer
+// is never woken for early.
+function eventWaitArgument(context Count, delay Count) returns Count
+	#if os(macOS)
+		if delay == takeEventsForever 'forever'
+			return noTimeout
+		end 'forever'
+		let cut = delay if delay < longestEventWaitNanos else longestEventWaitNanos
+		let timeout = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockClockOffset)
+		__Raw.storeWord(timeout, offset: 0, value: cut / nanosPerSecond)
+		__Raw.storeWord(timeout, offset: wordBytes, value: cut mod nanosPerSecond)
+		return timeout
+	#else
+		if delay == takeEventsForever 'forever'
+			return eventWaitForeverMillis
+		end 'forever'
+		let cut = delay if delay < longestEventWaitNanos else longestEventWaitNanos
+		return __Raw.wrappingAdd(cut, right: nanosPerMilli - 1) / nanosPerMilli
+	#endif
+end 'eventWaitArgument'
 
 // breakEventWait ends the wait of the thread in the event queue, once for any number of breaks before it takes one.
 function breakEventWait(scheduler Count)
@@ -372,6 +385,14 @@ end 'tookBreak'
 	let anyConcurrency = 0 as Count
 
 	let waitTimeout = 258 as Count
+
+	// eventWaitForeverMillis is GetQueuedCompletionStatusEx's timeout of a wait with no end, INFINITE, and
+	// longestPortWaitMillis the longest finite one it is given, the largest DWORD below it.
+	let eventWaitForeverMillis = waitForever
+
+	let longestPortWaitMillis = 0xFFFFFFFE as Count
+
+	let longestEventWaitNanos = (longestPortWaitMillis * nanosPerMilli) as Count
 
 	let notAlertable = 0 as Count
 
@@ -441,7 +462,7 @@ end 'tookBreak'
 		let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 		let entries = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockEventsOffset)
 		var got = 0 as Count
-		let wait = eventWaitMillis(delay, forever: waitForever)
+		let wait = eventWaitArgument(context, delay: delay)
 		if __Raw.callImport6("GetQueuedCompletionStatusEx", arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: entries, arg3: eventSlots, arg4: __Raw.addressOf(got), arg5: wait, arg6: notAlertable) == 0 'none'
 			if dword(__Raw.callImport0("GetLastError")) == waitTimeout 'timedOut'
 				return noGreen
