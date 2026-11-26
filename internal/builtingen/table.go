@@ -41,6 +41,8 @@ var primTypes = []primType{
 	{"ThreadCpuTicks", "b.threadCpuTicksTy"},
 	{"UnixSeconds", "b.unixSecondsTy"},
 	{"UnixNanos", "b.unixNanosTy"},
+	{"FileSize", "b.fileSizeTy"},
+	{"Timestamp", "b.timestampTy"},
 	{"ReportedCapacity", "b.reportedCapacityTy"},
 	{"FullRangeInt", "b.fullRangeIntTy"},
 	// Float is the type of a float whose range is not known, which maxon names FullRangeFloat.
@@ -100,6 +102,10 @@ var stdAliases = []stdAlias{
 	// and HashDigest a seeded 64-bit digest (maxon's stdlib/Hasher.maxon), which the hash intrinsics give and take.
 	{Name: "OrderedWord", Field: "orderedWordTy", Bits: 64},
 	{Name: "HashDigest", Field: "hashDigestTy", Bits: 64},
+	// FileSize and Timestamp are maxon's (stdlib/File.maxon): a size in bytes, and a moment in whole Unix seconds, which
+	// FileInfo's fields are.
+	{Name: "FileSize", Field: "fileSizeTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
+	{Name: "Timestamp", Field: "timestampTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
 }
 
 // extraField is a field of self's Builtins record that no row of the table gives it: a type that initBuiltins registers
@@ -246,7 +252,7 @@ var recordTypes = []recordType{
 	{Key: "Utf16Iterator", Name: "UTF16Iterator", Fields: []string{"private let text String", "private var position Count"}},
 	{Key: "CollectedOutput", Name: "CollectedOutput", Fields: []string{"var stdout String", "var stderr String", "private let code ExitCode"}},
 	// FileInfo is maxon's: the size and the times of a file, in Unix seconds on the file system's clock, and its attributes.
-	{Key: "FileInfo", Name: "FileInfo", Fields: []string{"let size Count", "let modifiedTime Count", "let createdTime Count", "let accessedTime Count", "let isDirectory Bool", "let isReadOnly Bool"}},
+	{Key: "FileInfo", Name: "FileInfo", Fields: []string{"let size FileSize", "let modifiedTime Timestamp", "let createdTime Timestamp", "let accessedTime Timestamp", "let isDirectory Bool", "let isReadOnly Bool"}},
 	{Key: "Subprocess", Name: "Subprocess"},
 	// Debuggee is the host's debug interface that the compiler's debugger drives a program through from outside it, maxon's
 	// stdlib Debuggee.maxon: its DebugPort's Win32 verbs (maxon's __Builtins.debug* under it) as static functions over

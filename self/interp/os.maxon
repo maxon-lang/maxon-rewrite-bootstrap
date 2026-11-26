@@ -385,10 +385,10 @@ function entryOsFileInfo(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	var flags = 0 as ir.Word
 	try 'info'
 		let info = File.info(path)
-		size = wordOf(info.size)
-		modified = wordOf(info.modifiedTime)
-		created = wordOf(info.createdTime)
-		accessed = wordOf(info.accessedTime)
+		size = wordOf(info.size as Count)
+		modified = wordOf(info.modifiedTime as Count)
+		created = wordOf(info.createdTime as Count)
+		accessed = wordOf(info.accessedTime as Count)
 		if info.isDirectory 'directory'
 			flags = flags or infoDirectoryFlag
 		end 'directory'

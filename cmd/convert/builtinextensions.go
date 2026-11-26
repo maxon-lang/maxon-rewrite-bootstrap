@@ -82,7 +82,7 @@ func renameInLine(l *sourceLine, param string) {
 // extendedBuiltinRecords are the record types minimaxon builds in whose library declaration has members that the built-in
 // lacks (Clock's `nowMs`, Directory's `removeTree`, Process's `currentEnvironmentEntries`): the declaration is kept as an
 // extension of the built-in, which a program reaches as it reaches the type.
-var extendedBuiltinRecords = []string{"Clock", "Directory", "FilePath", "Process"}
+var extendedBuiltinRecords = []string{"Clock", "Directory", "FileInfo", "FilePath", "Process"}
 
 // builtinRecordConformances are the interfaces of a declaration of extendedBuiltinRecords that its extension leaves out:
 // FilePath is a literal's type and has its toString as a built-in until the seed that compiles its library type.

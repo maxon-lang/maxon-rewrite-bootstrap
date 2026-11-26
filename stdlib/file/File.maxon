@@ -51,13 +51,6 @@ extension FileRenameError
 	end 'failure'
 end 'FileRenameError'
 
-/// A size in bytes, and a moment in whole Unix seconds. Both come out of `__ManagedFile.statField`,
-/// which answers an i64 on every platform: a size is `off_t`/`GetFileSizeEx` and a timestamp has
-/// already been converted from FILETIME's 100 ns ticks to seconds since 1970 by the runtime.
-public typealias FileSize = int(0 to u64.max)
-
-public typealias Timestamp = int(0 to u64.max)
-
 /// Error for file info operations
 extension FileInfoError
 	public function failure() returns FileFailure
@@ -69,6 +62,13 @@ extension FileInfoError
 		end 'cause'
 	end 'failure'
 end 'FileInfoError'
+
+/// Metadata about a file
+extension FileInfo
+	public static function create(size FileSize, modifiedTime Timestamp, createdTime Timestamp, accessedTime Timestamp, isDirectory bool, isReadOnly bool) returns FileInfo
+		return FileInfo{size: size, modifiedTime: modifiedTime, createdTime: createdTime, accessedTime: accessedTime, isDirectory: isDirectory, isReadOnly: isReadOnly}
+	end 'create'
+end 'FileInfo'
 
 /// Why a file operation failed, whichever operation it was: every `File` error answers it through
 /// `failure()`, so a caller can judge them all in one place.

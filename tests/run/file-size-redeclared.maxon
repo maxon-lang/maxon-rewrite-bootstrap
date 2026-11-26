@@ -1,0 +1,24 @@
+// FileSize and Timestamp are maxon's names for a size and a moment, which a library declares there: a program may declare either
+// itself, as it may declare any library name, and its own declaration is the name in its code, with no error. FileInfo, made by
+// the library's create, still has the library's: a size past the program's own range is no error.
+//> own size=7 true
+//> own timestamp=3
+//> library size=100
+typealias FileSize = int(0 to 10)
+
+type Timestamp
+	export var seconds as Count
+
+	static function make(seconds Count) returns Timestamp
+		return Timestamp{seconds: seconds}
+	end 'make'
+end 'Timestamp'
+
+function main() returns ExitCode
+	let own = 7 as FileSize
+	print("own size={own} {own <= 10}\n")
+	print("own timestamp={Timestamp.make(3).seconds}\n")
+	let info = FileInfo.create(100, modifiedTime: 1, createdTime: 2, accessedTime: 3, isDirectory: false, isReadOnly: false)
+	print("library size={info.size}\n")
+	return 0
+end 'main'

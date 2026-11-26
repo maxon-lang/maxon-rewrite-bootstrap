@@ -1013,6 +1013,8 @@ function declareStdAliases(mutates tt TypeSlot, reads TypeTable, mutates std Par
 	b.unixNanosTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "UnixNanos", lo: I128.i64Min(), hi: I128.i64Max())
 	b.orderedWordTy = registerStdBitsAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "OrderedWord", width: 64)
 	b.hashDigestTy = registerStdBitsAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "HashDigest", width: 64)
+	b.fileSizeTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "FileSize", lo: I128.zero(), hi: I128.u64Max())
+	b.timestampTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "Timestamp", lo: I128.zero(), hi: I128.u64Max())
 end 'declareStdAliases'
 
 function declareBuiltinTable(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates typeMap TypeIDMap, mutates funcMap FuncIDMap)
@@ -1119,10 +1121,10 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std P
 	addRecordField(tt, reads: reads, owner: b.collectedOutputTy, name: "stdout", ty: b.stringTy, isVar: true, exported: true)
 	addRecordField(tt, reads: reads, owner: b.collectedOutputTy, name: "stderr", ty: b.stringTy, isVar: true, exported: true)
 	addRecordField(tt, reads: reads, owner: b.collectedOutputTy, name: "code", ty: b.exitCodeTy, isVar: false, exported: false)
-	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "size", ty: b.countTy, isVar: false, exported: true)
-	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "modifiedTime", ty: b.countTy, isVar: false, exported: true)
-	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "createdTime", ty: b.countTy, isVar: false, exported: true)
-	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "accessedTime", ty: b.countTy, isVar: false, exported: true)
+	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "size", ty: b.fileSizeTy, isVar: false, exported: true)
+	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "modifiedTime", ty: b.timestampTy, isVar: false, exported: true)
+	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "createdTime", ty: b.timestampTy, isVar: false, exported: true)
+	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "accessedTime", ty: b.timestampTy, isVar: false, exported: true)
 	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "isDirectory", ty: b.boolTy, isVar: false, exported: true)
 	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "isReadOnly", ty: b.boolTy, isVar: false, exported: true)
 	b.executableTy = registerUnionType(tt, reads: reads, std: std, typeMap: typeMap, name: "Executable", paramNames: StringList.create(0))
