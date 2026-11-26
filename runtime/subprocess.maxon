@@ -966,7 +966,7 @@ end 'osRunInput'
 	// made or emptied for writing, with every share mode as maxon's, or invalidHandle.
 	function openStreamFile(path Count, length Count, forWrite bool) returns Count
 		let security = inheritableSecurity()
-		let name = wideOfBytes(path, length: length)
+		let name = widePathOfBytes(path, length: length)
 		var access = genericRead as Count
 		var disposition = openExisting as Count
 		if forWrite 'write'
@@ -1261,18 +1261,17 @@ end 'osRunInput'
 	// fullPathOf is a new zero-terminated UTF-8 full path of the zero-terminated UTF-16 path at an address, or 0 when Windows
 	// gives none.
 	function fullPathOf(wide Count) returns Count
-		let units = dword(__Raw.callImport4("GetFullPathNameW", arg1: wide, arg2: 0, arg3: 0, arg4: 0))
-		if units == 0 or units >= textUnitLimit 'none'
+		let buffer = fullWidePath(wide, slack: 0)
+		if buffer == 0 'none'
 			return 0
 		end 'none'
-		let buffer = alloc(units * wideUnitBytes)
-		let written = dword(__Raw.callImport4("GetFullPathNameW", arg1: wide, arg2: units, arg3: buffer, arg4: 0))
-		var path = 0 as Count
-		if written != 0 and written < units 'read'
-			path = alloc(written * maxUtf8BytesPerUnit + 1)
-			let length = utf8FromUtf16(buffer, units: written, dst: path)
-			__Raw.storeByte(path, offset: length, value: 0)
-		end 'read'
+		let units = wideLength(buffer)
+		if units >= textUnitLimit 'outside'
+			panic("text too long to convert")
+		end 'outside'
+		let path = alloc(units * maxUtf8BytesPerUnit + 1)
+		let length = utf8FromUtf16(buffer, units: units, dst: path)
+		__Raw.storeByte(path, offset: length, value: 0)
 		free(buffer)
 		return path
 	end 'fullPathOf'

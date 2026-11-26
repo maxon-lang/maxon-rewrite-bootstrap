@@ -561,6 +561,159 @@ let nanosPerFileTimeStep = 100 as Count
 		return dword(__Raw.callImport1("GetPriorityClass", arg1: process))
 	end 'osEnterBackgroundPriority'
 
+	// The form in which a path reaches Win32, as maxon's runtime gives it. Win32 reads a path of 260 units or more, and one
+	// with a `.` or `..` part, only in the extended form that begins \\?\, which it takes as it is. So a path of
+	// extendedPathThresholdUnits or more, and a path that is not rooted at a drive or a share, is resolved to its full path
+	// first, and a full path of that length or more takes the prefix. A path of the device form is never resolved, since
+	// GetFullPathNameW would collapse a `..` even inside \\?\.
+	let extendedPathThresholdUnits = 248 as Count
+
+	let extendedPrefix = "\\\\?\\"
+
+	let extendedSharePrefix = "\\\\?\\UNC\\"
+
+	// extendedPrefixUnits is the length of extendedPrefix.
+	let extendedPrefixUnits = 4 as Count
+
+	// shareSkippedUnits is how many units of a share's path the extended form drops: \\server becomes \\?\UNC\server.
+	let shareSkippedUnits = 2 as Count
+
+	// extendedPrefixSlackUnits is how many units more than the full path the buffer of its extension holds: the longer of the
+	// two prefixes, less the units a share drops.
+	let extendedPrefixSlackUnits = 6 as Count
+
+	// rootProbeUnits is how many units a drive's or a share's root is read from.
+	let rootProbeUnits = 3 as Count
+
+	let questionMarkByte = 0x3F
+
+	// maxPathReads is how many times a full path is read again when the working directory grows between the call that sizes it
+	// and the one that reads it.
+	let maxPathReads = 4 as Count
+
+	// The kinds of root that a path has (widePathRootOf).
+	let widePathRelative = 0 as Count
+
+	let widePathDrive = 1 as Count
+
+	let widePathShare = 2 as Count
+
+	let widePathDevice = 3 as Count
+
+	// isSeparatorUnit is whether a unit is either separator.
+	function isSeparatorUnit(unit Count) returns bool
+		return unit == pathSeparator or unit == otherSeparator
+	end 'isSeparatorUnit'
+
+	// isLetterUnit is whether a unit is a letter of the alphabet, in either case.
+	function isLetterUnit(unit Count) returns bool
+		let folded = unit or asciiCaseOffset
+		return folded >= asciiUpperA + asciiCaseOffset and folded <= asciiUpperZ + asciiCaseOffset
+	end 'isLetterUnit'
+
+	// hasDevicePrefix is whether a zero-terminated UTF-16 path of units units begins \\?\ or \\.\.
+	function hasDevicePrefix(text Count, units Count) returns bool
+		if units < extendedPrefixUnits 'short'
+			return false
+		end 'short'
+		let marker = unitAt(text, index: 2)
+		return unitAt(text, index: 0) == pathSeparator and unitAt(text, index: 1) == pathSeparator and (marker == questionMarkByte or marker == dotByte) and unitAt(text, index: 3) == pathSeparator
+	end 'hasDevicePrefix'
+
+	// widePathRootOf is the kind of root that a zero-terminated UTF-16 path of units units has: widePathDevice for \\?\ or
+	// \\.\, widePathShare for two separators, widePathDrive for a letter, a colon and a separator, and otherwise
+	// widePathRelative.
+	function widePathRootOf(text Count, units Count) returns Count
+		if hasDevicePrefix(text, units: units) 'device'
+			return widePathDevice
+		end 'device'
+		if units < rootProbeUnits 'short'
+			return widePathRelative
+		end 'short'
+		let first = unitAt(text, index: 0)
+		let second = unitAt(text, index: 1)
+		if isSeparatorUnit(first) and isSeparatorUnit(second) 'share'
+			return widePathShare
+		end 'share'
+		if isLetterUnit(first) and second == driveColonByte and isSeparatorUnit(unitAt(text, index: 2)) 'drive'
+			return widePathDrive
+		end 'drive'
+		return widePathRelative
+	end 'widePathRootOf'
+
+	// fullWidePath is a new zero-terminated UTF-16 full path of the zero-terminated UTF-16 path at an address, in a buffer that
+	// holds slack units more than the text, or 0 when Windows gives none.
+	function fullWidePath(wide Count, slack Count) returns Count
+		var needed = dword(__Raw.callImport4("GetFullPathNameW", arg1: wide, arg2: 0, arg3: 0, arg4: 0))
+		var reads = 0 as Count
+		while needed != 0 and reads < maxPathReads 'read'
+			let capacity = __Raw.wrappingAdd(needed, right: slack)
+			if capacity >= textUnitLimit 'outside'
+				return 0
+			end 'outside'
+			let buffer = alloc(capacity * wideUnitBytes)
+			let written = dword(__Raw.callImport4("GetFullPathNameW", arg1: wide, arg2: capacity, arg3: buffer, arg4: 0))
+			if written != 0 and __Raw.wrappingAdd(written, right: slack) < capacity 'fits'
+				return buffer
+			end 'fits'
+			free(buffer)
+			needed = __Raw.wrappingAdd(written, right: 1) if written != 0 else 0
+			reads = reads + 1
+		end 'read'
+		return 0
+	end 'fullWidePath'
+
+	// extendWidePath puts the extended prefix before a full path of drive or share root in the buffer that holds it and the
+	// slack of extendedPrefixSlackUnits.
+	function extendWidePath(text Count, units Count, root Count)
+		var prefix = extendedPrefix
+		var skipped = 0 as Count
+		if root == widePathShare 'share'
+			prefix = extendedSharePrefix
+			skipped = shareSkippedUnits
+		end 'share'
+		let prefixUnits = stringLength(prefix)
+		let shift = __Raw.wrappingSub(prefixUnits, right: skipped)
+		for step in 0 upto __Raw.wrappingSub(__Raw.wrappingAdd(units, right: 1), right: skipped) 'move'
+			let unit = __Raw.wrappingSub(units, right: step)
+			storeUnit(text, index: __Raw.wrappingAdd(unit, right: shift), value: unitAt(text, index: unit))
+		end 'move'
+		for i in 0 upto prefixUnits 'prefix'
+			storeUnit(text, index: i, value: stringByteAt(prefix, index: i) as Count)
+		end 'prefix'
+	end 'extendWidePath'
+
+	// widePathOfBytes is a new zero-terminated UTF-16 copy of the length bytes of a path at an address in the form that Win32
+	// takes (above), which the caller frees. A path that Windows cannot resolve goes as it is, for the call that uses it to
+	// report its own error.
+	function widePathOfBytes(source Count, length Count) returns Count
+		let wide = wideOfBytes(source, length: length)
+		let units = wideLength(wide)
+		let root = widePathRootOf(wide, units: units)
+		if root == widePathDevice or (units < extendedPathThresholdUnits and root != widePathRelative) 'asIs'
+			return wide
+		end 'asIs'
+		let full = fullWidePath(wide, slack: extendedPrefixSlackUnits)
+		if full == 0 'unresolved'
+			return wide
+		end 'unresolved'
+		free(wide)
+		let fullUnits = wideLength(full)
+		let fullRoot = widePathRootOf(full, units: fullUnits)
+		if fullUnits >= extendedPathThresholdUnits and fullRoot != widePathDevice 'extend'
+			if fullRoot == widePathRelative 'unextendable'
+				panic("a resolved path has no extended form")
+			end 'unextendable'
+			extendWidePath(full, units: fullUnits, root: fullRoot)
+		end 'extend'
+		return full
+	end 'widePathOfBytes'
+
+	// widePathOf is widePathOfBytes of a string.
+	function widePathOf(path String) returns Count
+		return widePathOfBytes(__Raw.stringBytes(path), length: __Raw.stringLength(path))
+	end 'widePathOf'
+
 	// osPathFrom is a path with the native separator in place of the other one, which refuses a character that Windows does
 	// not allow in a path.
 	function osPathFrom(path String, errorAddress Count) returns String
@@ -592,7 +745,7 @@ let nanosPerFileTimeStep = 100 as Count
 	// The error is read before anything else runs, since another call would replace it, and before exitBlocking, which may
 	// move the green thread to another thread, whose last error is its own; every call that may block reads it so.
 	function openFile(path String, access Count, share Count, disposition Count, win32Address Count) returns Count
-		return openWide(wideOf(path), access: access, share: share, disposition: disposition, flags: fileAttributeNormal, win32Address: win32Address)
+		return openWide(widePathOf(path), access: access, share: share, disposition: disposition, flags: fileAttributeNormal, win32Address: win32Address)
 	end 'openFile'
 
 	// openFileBytes is the HANDLE of an owned file handle (file.maxon), the file that the bytes of a path name opened in a way, which
@@ -611,7 +764,7 @@ let nanosPerFileTimeStep = 100 as Count
 		end 'create'
 		// A named pipe is opened overlapped, so that its reads and writes wait on the completion port (fileEntryOf).
 		let flags = fileFlagOverlapped if isPipePath(path, length: length) else fileAttributeNormal
-		let file = openWide(wideOfBytes(path, length: length), access: access, share: share, disposition: disposition, flags: flags, win32Address: osErrorAddress)
+		let file = openWide(widePathOfBytes(path, length: length), access: access, share: share, disposition: disposition, flags: flags, win32Address: osErrorAddress)
 		if file == invalidHandle 'refused'
 			return 0
 		end 'refused'
@@ -873,8 +1026,8 @@ end 'osReadBinary'
 #if os(Windows)
 	// osRename moves a file or a directory, and replaces what is at the destination.
 	function osRename(source String, destination String, errorAddress Count)
-		let wideSource = wideOf(source)
-		let wideDestination = wideOf(destination)
+		let wideSource = widePathOf(source)
+		let wideDestination = widePathOf(destination)
 		var win32 = 0 as Count
 		enterBlocking()
 		if dword(__Raw.callImport3("MoveFileExW", arg1: wideSource, arg2: wideDestination, arg3: moveFileReplaceExisting)) == 0 'failed'
@@ -888,7 +1041,7 @@ end 'osReadBinary'
 
 	// osDelete deletes a file, which a directory is not: DeleteFileW refuses it.
 	function osDelete(path String, errorAddress Count)
-		let widePath = wideOf(path)
+		let widePath = widePathOf(path)
 		var win32 = 0 as Count
 		enterBlocking()
 		if dword(__Raw.callImport1("DeleteFileW", arg1: widePath)) == 0 'failed'
@@ -901,7 +1054,7 @@ end 'osReadBinary'
 
 	// osDeleteDirectory removes an empty directory: RemoveDirectoryW refuses one that holds an entry, and a file or a link.
 	function osDeleteDirectory(path String, errorAddress Count)
-		let widePath = wideOf(path)
+		let widePath = widePathOf(path)
 		var win32 = 0 as Count
 		enterBlocking()
 		if dword(__Raw.callImport1("RemoveDirectoryW", arg1: widePath)) == 0 'failed'
@@ -925,7 +1078,7 @@ end 'osReadBinary'
 	// read and a word of its attributes (infoDirectoryFlag, infoReadOnlyFlag) at the addresses given. FindFirstFileW reads
 	// the directory's record of the file, as maxon does, so a file that another process holds open is no failure.
 	function osFileInfo(path String, size Count, created Count, accessed Count, attributes Count, errorAddress Count) returns Count
-		let widePath = wideOf(path)
+		let widePath = widePathOf(path)
 		let findData = alloc(findDataBytes)
 		var win32 = 0 as Count
 		let search = findFirst(widePath, findData: findData, win32Address: __Raw.addressOf(win32))
@@ -985,7 +1138,7 @@ end 'osReadBinary'
 	end 'directoryAt'
 
 	function osIsDirectory(path String) returns bool
-		let widePath = wideOf(path)
+		let widePath = widePathOf(path)
 		let there = directoryAt(widePath)
 		free(widePath)
 		return there
@@ -993,7 +1146,7 @@ end 'osReadBinary'
 
 	// osExists is whether a file or a directory is at a path: it has attributes.
 	function osExists(path String) returns bool
-		let widePath = wideOf(path)
+		let widePath = widePathOf(path)
 		let attributes = attributesAt(widePath)
 		free(widePath)
 		return attributes != invalidFileAttributes
@@ -1010,7 +1163,7 @@ end 'osReadBinary'
 	// and gives whether the directory is there after it. A directory that is there already fails to be made, which is no
 	// matter.
 	function osCreateDirectory(path String) returns bool
-		let widePath = wideOf(path)
+		let widePath = widePathOf(path)
 		let units = wideLength(widePath)
 		for i in 1 upto units 'prefixes'
 			let unit = unitAt(widePath, index: i)
@@ -1058,7 +1211,7 @@ end 'osReadBinary'
 	// osList is the path joined to the name of each entry of a directory, `.` and `..` left out, in the order Windows gives.
 	function osList(path String, errorAddress Count) returns Count
 		let pattern = concat(path, right: listPatternSuffix)
-		let widePattern = wideOf(pattern)
+		let widePattern = widePathOf(pattern)
 		let findData = alloc(findDataBytes)
 		var win32 = 0 as Count
 		let search = findFirst(widePattern, findData: findData, win32Address: __Raw.addressOf(win32))
