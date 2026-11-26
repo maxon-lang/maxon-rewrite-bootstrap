@@ -4478,6 +4478,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `File.readText(path)` | `String` | `FileReadError` |
 | `File.readBinary(path)` | `Array with Byte`, the whole content of the file, read as `readText` reads it (the same system calls; the bytes are copied from the read buffer to the array) | `FileReadError` |
 | `File.writeText(path, content: s)`, `File.writeBinary(path, content: bytes)`, each with an optional `mode: FilePermission` | — (a file that is there is replaced, and keeps its mode) | `FileWriteError` |
+| `File.createText(path, content: s)` | — (makes a file that must not be there, in one step: `CreateFileW` with `CREATE_NEW`, `open` with `O_CREAT \| O_EXCL`; one that is there fails `alreadyExists` and is left as it was; a write that fails after the file was made deletes it, and the error is the write's, or `partialFileLeft` when that delete fails too and not as `notFound`) | `FileWriteError` |
 | `File.rename(from, to: dest)` | — (what is at `dest` is replaced) | `FileRenameError` |
 | `File.delete(path)` | — (a directory is refused, `accessDenied`) | `FileDeleteError` |
 | `Directory.delete(path)` | — (removes an empty directory: one that still holds an entry is refused, `notEmpty`, a file or a link there is `deleteFailed`, and a path through a file `notFound`; `RemoveDirectoryW`, `rmdir`, and `unlinkat` with `AT_REMOVEDIR` on arm64 Linux, which has no `rmdir`; the interpreter runs no `Directory.delete`, so a program that calls it is `// native-only`) | `DirectoryDeleteError` |
@@ -5438,7 +5439,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   elements; maxon sizes a narrower integer's elements by their range too. `String.from(bytes)` copies the bytes where maxon's shares the
   array's buffer, and a `String` here is its bytes, so neither direction scans them.
 - The OS functions (see "The OS") have maxon's names, signatures and errors, but are a subset, built in rather than
-  stdlib code: `FilePath`'s built-in `from` does not resolve a `file://` URL (one is taken as a path); `File` has no `createText`, `renameNew` or `openRead`,
+  stdlib code: `FilePath`'s built-in `from` does not resolve a `file://` URL (one is taken as a path); `File` has no `renameNew` or `openRead`,
   `Directory.exists`, `removeTree` and `removeContents` are maxon's (`stdlib/directory` extends the built-in with the last two), and
   `Directory.list` lists in the order the system gives; `Process` has `environmentVariable`, `executablePath`, `id`, `setExitCode`, `exit` and `enterBackgroundPriority` built in, and the library's environment functions (see "The OS"); `Subprocess.run`
   takes no `workingDirectory:` or `deadline:` (`runWithDeadline` takes the deadline), and `CollectedOutput` has no `status`, `pid` or `durationMs`;

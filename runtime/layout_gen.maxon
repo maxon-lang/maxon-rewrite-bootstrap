@@ -873,6 +873,9 @@ let linuxOpenReadOnly = 524288 as Count
 // linuxOpenReplace is O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC.
 let linuxOpenReplace = 524865 as Count
 
+// linuxOpenCreateNew is O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC: a file that must not be there, made and opened in one step.
+let linuxOpenCreateNew = 524481 as Count
+
 // linuxOpenCloseOnExec is O_CLOEXEC: an fd that an execve closes, as pipe2 takes it.
 let linuxOpenCloseOnExec = 524288 as Count
 
@@ -1028,6 +1031,9 @@ let macosOpenReadOnly = 16777216 as Count
 
 // macosOpenReplace is O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC.
 let macosOpenReplace = 16778753 as Count
+
+// macosOpenCreateNew is O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC: a file that must not be there, made and opened in one step.
+let macosOpenCreateNew = 16779777 as Count
 
 // macosFileMode is 0666, which the umask narrows: the mode of a file the runtime makes.
 let macosFileMode = 438 as Count

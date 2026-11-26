@@ -194,13 +194,15 @@
 		return bytes
 	end 'readFileRoom'
 
-	// writeFile replaces a file with bytes at an address, and gives the errno that stopped it, or 0. The mode applies to a
-	// file that it creates; one that is there keeps its own.
-	function writeFile(path String, data Count, length Count, executable bool) returns Count
-		let fd = openReplacing(path, executable: executable)
+	// writeFile replaces a file with bytes at an address, or, when exclusive, makes a file that must not be there, and gives the
+	// errno that stopped it, or 0. It stores 1 at openedAddress when the file was open, so that a caller that made the file knows
+	// a failure after that left one. The mode applies to a file that it creates; one that is there keeps its own.
+	function writeFile(path String, data Count, length Count, executable bool, exclusive bool, openedAddress Count) returns Count
+		let fd = openReplacing(path, executable: executable, exclusive: exclusive)
 		if failed(fd) 'open'
 			return errnoOf(fd)
 		end 'open'
+		__Raw.storeWord(openedAddress, offset: 0, value: 1)
 		enterBlocking()
 		let errno = writeAll(fd, data: data, length: length)
 		exitBlocking()
@@ -428,14 +430,14 @@
 		return openPathBytes(__Raw.stringBytes(path), length: __Raw.stringLength(path), flags: flags, mode: mode)
 	end 'openPath'
 
-	// openReading opens a file to read, and openReplacing opens one to replace, made with the executable mode when it is
-	// not there: each gives the fd or -errno.
+	// openReading opens a file to read, and openReplacing opens one to replace, or when exclusive to make, which must not be
+	// there, made with the executable mode when it is not there: each gives the fd or -errno.
 	function openReading(path String) returns Count
 		return openPath(path, flags: macosOpenReadOnly, mode: 0)
 	end 'openReading'
 
-	function openReplacing(path String, executable bool) returns Count
-		return openPath(path, flags: macosOpenReplace, mode: macosExecutableFileMode if executable else macosFileMode)
+	function openReplacing(path String, executable bool, exclusive bool) returns Count
+		return openPath(path, flags: macosOpenCreateNew if exclusive else macosOpenReplace, mode: macosExecutableFileMode if executable else macosFileMode)
 	end 'openReplacing'
 
 	// statPath fills a struct stat of the file a path names and gives 0, or gives -errno, as statCString does for a

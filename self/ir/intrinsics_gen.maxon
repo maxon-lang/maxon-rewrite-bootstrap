@@ -470,6 +470,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrFileWriteText 'intrFileWriteText'
 		return lowerFileWriteText(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFileWriteText'
+	if op == ast.Intrinsic.intrFileCreateText 'intrFileCreateText'
+		return lowerFileCreateText(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrFileCreateText'
 	if op == ast.Intrinsic.intrFileWriteBinary 'intrFileWriteBinary'
 		return lowerFileWriteBinary(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFileWriteBinary'
@@ -1363,6 +1366,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrFileWriteText 'intrFileWriteText'
 		return false
 	end 'intrFileWriteText'
+	if op == ast.Intrinsic.intrFileCreateText 'intrFileCreateText'
+		return false
+	end 'intrFileCreateText'
 	if op == ast.Intrinsic.intrFileWriteBinary 'intrFileWriteBinary'
 		return false
 	end 'intrFileWriteBinary'

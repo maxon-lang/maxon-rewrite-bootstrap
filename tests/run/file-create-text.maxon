@@ -1,0 +1,68 @@
+// File.createText makes a file that must not be there: it holds the content, a second create at the path fails alreadyExists
+// and leaves the first file as it was, a path in a directory that is not there fails notFound, and once the file is deleted the
+// path can be created again. The same program runs on every target, in the working directory, and under the
+// interpreter, whose own file layer makes the check and the write one step.
+//> made=created
+//> read=hello
+//> again=alreadyExists
+//> kept=hello
+//> empty made=created
+//> empty=0
+//> nowhere=notFound
+//> first=created
+//> second=alreadyExists
+//> deleted=true
+//> recreated=created
+//> text=second
+//> gone=true
+// tempRoot is a name in the working directory, which every target and the interpreter can write.
+function tempRoot() returns String
+	return "minimaxon_create_text_{Process.id()}"
+end 'tempRoot'
+
+function path(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("not a path")
+end 'path'
+
+function createError(path FilePath, content String) returns String
+	try 'create'
+		File.createText(path, content: content)
+		return "created"
+	end 'create' otherwise (e) 'failed'
+		match e 'kind'
+			failed then return "failed"
+			notFound then return "notFound"
+			accessDenied then return "accessDenied"
+			alreadyExists then return "alreadyExists"
+			busy then return "busy"
+			partialFileLeft then return "partialFileLeft"
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'createError'
+
+function main() returns ExitCode
+	let root = tempRoot()
+	let file = path("{root}.txt")
+	if File.exists(file) 'stale'
+		try File.delete(file) otherwise panic("cannot delete")
+	end 'stale'
+	print("made={createError(file, content: "hello")}\n")
+	print("read={try File.readText(file) otherwise panic("cannot read")}\n")
+	print("again={createError(file, content: "other")}\n")
+	print("kept={try File.readText(file) otherwise panic("cannot read")}\n")
+	try File.delete(file) otherwise panic("cannot delete")
+	print("empty made={createError(file, content: "")}\n")
+	print("empty={(try File.readText(file) otherwise panic("cannot read")).count()}\n")
+	try File.delete(file) otherwise panic("cannot delete")
+	print("nowhere={createError(path("{root}/a.txt"), content: "x")}\n")
+	print("first={createError(file, content: "first")}\n")
+	print("second={createError(file, content: "second")}\n")
+	try File.delete(file) otherwise panic("cannot delete")
+	print("deleted={not File.exists(file)}\n")
+	print("recreated={createError(file, content: "second")}\n")
+	print("text={try File.readText(file) otherwise panic("cannot read")}\n")
+	try File.delete(file) otherwise panic("cannot delete")
+	print("gone={not File.exists(file)}\n")
+	return 0
+end 'main'

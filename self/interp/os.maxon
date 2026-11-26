@@ -241,12 +241,52 @@ function writeMode(vm Vm, f ir.IrFunction, x ir.Instr, i Count) returns FilePerm
 	return FilePermission.normal
 end 'writeMode'
 
-// writeTextEntry is the write of a string, which gives the file the mode.
-function writeTextEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr, mode FilePermission) throws Halt
+// afterUnwrittenCreate is the error word of a create whose write failed with word: the file that the create made, if one is there,
+// is deleted, and a delete that fails too, and not because the file is gone, is partialFileLeft.
+function afterUnwrittenCreate(path FilePath, word ir.Word) returns ir.Word
+	if not File.exists(path) 'none'
+		return word
+	end 'none'
+	try 'cleanup'
+		File.delete(path)
+	end 'cleanup' otherwise (e) 'kept'
+		match e 'kind'
+			notFound then return word
+			accessDenied or
+			busy or
+			failed then return caseWord(ast.errorWritePartialFileLeft)
+		end 'kind'
+	end 'kept'
+	return word
+end 'afterUnwrittenCreate'
+
+// createBytes makes a file that must not be there, in the interpreter's own file layer, as one step: the interpreter runs one
+// function of the program at a time, so nothing of the program runs between the check that no file is at the path and the write,
+// and the program cannot tell it from the exclusive create the compiled entry makes. (A process outside the program that makes
+// the file between the two is not excluded, as it is by the compiled entry.) It gives the error word, or 0.
+function createBytes(path FilePath, content ByteArray) returns ir.Word
+	if File.exists(path) 'there'
+		return caseWord(ast.errorWriteAlreadyExists)
+	end 'there'
+	let word = writeBytes(path, content: content, mode: FilePermission.normal)
+	if word != 0 'unwritten'
+		return afterUnwrittenCreate(path, word: word)
+	end 'unwritten'
+	return 0
+end 'createBytes'
+
+// writeTextEntry is the write of a string, which gives the file the mode, or, when exclusive, makes a file that must not be there.
+function writeTextEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr, mode FilePermission, exclusive bool) throws Halt
 	let pathAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
 	let path = pathOf(vm.h.texts[pathAt].clone())
 	let contentAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 1), what: "a file's content")
-	let word = writeBytes(path, content: vm.h.texts[contentAt].toByteArray(), mode: mode)
+	let content = vm.h.texts[contentAt].toByteArray()
+	var word = 0 as ir.Word
+	if exclusive 'create'
+		word = createBytes(path, content: content)
+	end 'create' else 'replace'
+		word = writeBytes(path, content: content, mode: mode)
+	end 'replace'
 	try errorWord(vm, f: f, x: x, word: word)
 end 'writeTextEntry'
 
@@ -260,12 +300,16 @@ function writeBinaryEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr, mode FileP
 end 'writeBinaryEntry'
 
 function entryOsWriteTextMode(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	try writeTextEntry(vm, f: f, x: x, mode: writeMode(vm, f: f, x: x, i: 2))
+	try writeTextEntry(vm, f: f, x: x, mode: writeMode(vm, f: f, x: x, i: 2), exclusive: false)
 end 'entryOsWriteTextMode'
 
 function entryOsWriteBinaryMode(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	try writeBinaryEntry(vm, f: f, x: x, mode: writeMode(vm, f: f, x: x, i: 2))
 end 'entryOsWriteBinaryMode'
+
+function entryOsCreateText(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try writeTextEntry(vm, f: f, x: x, mode: FilePermission.normal, exclusive: true)
+end 'entryOsCreateText'
 
 function entryOsRename(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let fromAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")

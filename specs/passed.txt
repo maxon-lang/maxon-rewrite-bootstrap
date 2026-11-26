@@ -2442,6 +2442,8 @@ file-info.md: file-info.empty-file
 file-info.md: file-info.not-found
 file-info.md: file-info.read-only
 file-info.md: file-info.timestamps
+file-io.md: create-text-of-an-existing-file-throws-already-exists
+file-io.md: create-text-refuses-an-existing-file
 file-io.md: file-exists
 file-io.md: read-binary-nonexistent
 file-io.md: read-nonexistent-file

@@ -24,6 +24,7 @@ var macosABI = []layoutConst{
 	// Files.
 	{"macosOpenReadOnly", 0x1000000, true, toRuntime, "O_RDONLY | O_CLOEXEC."},
 	{"macosOpenReplace", 0x1000601, true, toRuntime, "O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC."},
+	{"macosOpenCreateNew", 0x1000A01, true, toRuntime, "O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC: a file that must not be there, made and opened in one step."},
 	{"macosFileMode", 0x1B6, true, toRuntime, "0666, which the umask narrows: the mode of a file the runtime makes."},
 	{"macosExecutableFileMode", 0x1ED, true, toRuntime, "0755, which the umask narrows: the mode of a file the runtime makes for FilePermission.executable."},
 	{"macosDirectoryMode", 0x1FF, true, toRuntime, "0777, which the umask narrows: the mode of a directory the runtime makes."},

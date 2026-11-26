@@ -123,6 +123,7 @@ var linuxABI = []layoutConst{
 	{"linuxAtRemoveDirectory", 0x200, true, toRuntime, "AT_REMOVEDIR: the flag that makes unlinkat remove an empty directory, as rmdir does, on arm64, which has no rmdir."},
 	{"linuxOpenReadOnly", 0x80000, true, toRuntime, "O_RDONLY | O_CLOEXEC."},
 	{"linuxOpenReplace", 0x80241, true, toRuntime, "O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC."},
+	{"linuxOpenCreateNew", 0x800C1, true, toRuntime, "O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC: a file that must not be there, made and opened in one step."},
 	{"linuxOpenCloseOnExec", 0x80000, true, toRuntime, "O_CLOEXEC: an fd that an execve closes, as pipe2 takes it."},
 	{"linuxOpenNonblock", 0x800, true, toRuntime, "O_NONBLOCK: a write that would wait writes what fits, or fails with EAGAIN."},
 	{"linuxFcntlSetDescriptorFlags", 2, true, toRuntime, "F_SETFD: with 0, an fd that an execve keeps."},

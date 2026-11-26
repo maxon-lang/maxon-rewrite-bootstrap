@@ -29,6 +29,8 @@ let osBytesDataOffset = 16 as Count
 
 	let noSharing = 0
 
+	let createNew = 1
+
 	let createAlways = 2
 
 	let openExisting = 3
@@ -112,6 +114,8 @@ let writeAccessDenied = 2
 let writeAlreadyExists = 3
 
 let writeBusy = 4
+
+let writePartialFileLeft = 5
 
 let renameFailed = 0
 
@@ -657,14 +661,16 @@ let nanosPerFileTimeStep = 100 as Count
 		return bytes
 	end 'readFileRoom'
 
-	// writeFile replaces a file with bytes at an address, and gives the Win32 error that stopped it, or 0. Windows has no
-	// executable mode, so executable is not read, as maxon's is not.
-	function writeFile(path String, data Count, length Count, executable bool) returns Count
+	// writeFile replaces a file with bytes at an address, or, when exclusive, makes a file that must not be there, and gives the
+	// Win32 error that stopped it, or 0. It stores 1 at openedAddress when the file was open, so that a caller that made the file
+	// knows a failure after that left one. Windows has no executable mode, so executable is not read, as maxon's is not.
+	function writeFile(path String, data Count, length Count, executable bool, exclusive bool, openedAddress Count) returns Count
 		var win32 = 0 as Count
-		let file = openFile(path, access: genericWrite, share: noSharing, disposition: createAlways, win32Address: __Raw.addressOf(win32))
+		let file = openFile(path, access: genericWrite, share: noSharing, disposition: createNew if exclusive else createAlways, win32Address: __Raw.addressOf(win32))
 		if file == invalidHandle 'open'
 			return win32
 		end 'open'
+		__Raw.storeWord(openedAddress, offset: 0, value: 1)
 		var done = 0 as Count
 		enterBlocking()
 		while done < length and win32 == 0 'write'
@@ -682,17 +688,40 @@ let nanosPerFileTimeStep = 100 as Count
 	end 'writeFile'
 #endif
 
+// writeContent writes a file whole, as osWriteTextMode, osWriteBinaryMode and osCreateText do, and ends the entry. A write that
+// is exclusive makes a file that must not be there (an existing one fails alreadyExists), and when it fails after it made the
+// file it deletes it: the write's own error is the entry's, unless the delete fails too, and not because the file is already
+// gone, which is partialFileLeft.
+function writeContent(path String, data Count, length Count, executable bool, exclusive bool, errorAddress Count)
+	var opened = 0 as Count
+	let osError = writeFile(path, data: data, length: length, executable: executable, exclusive: exclusive, openedAddress: __Raw.addressOf(opened))
+	if osError != 0 and opened != 0 and exclusive 'left'
+		var deleted = 0 as Count
+		osDelete(path, errorAddress: __Raw.addressOf(deleted))
+		if deleted != 0 and deleted != deleteNotFound + 1 'kept'
+			failWith(errorAddress, errorCase: writePartialFileLeft)
+			return
+		end 'kept'
+	end 'left'
+	endWithError(errorAddress, osError: osError, table: writeFailures())
+end 'writeContent'
+
 // osWriteTextMode replaces a file with a string. A file that it creates gets the executable mode when executable is set.
 function osWriteTextMode(path String, content String, executable bool, errorAddress Count)
-	endWithError(errorAddress, osError: writeFile(path, data: __Raw.stringBytes(content), length: __Raw.stringLength(content), executable: executable), table: writeFailures())
+	writeContent(path, data: __Raw.stringBytes(content), length: __Raw.stringLength(content), executable: executable, exclusive: false, errorAddress: errorAddress)
 end 'osWriteTextMode'
 
 // osWriteBinaryMode replaces a file with the bytes of a byte array, as osWriteTextMode does.
 function osWriteBinaryMode(path String, content Count, executable bool, errorAddress Count)
 	let data = __Raw.loadWord(content, offset: osBytesDataOffset)
 	let length = __Raw.loadWord(content, offset: osBytesLengthOffset)
-	endWithError(errorAddress, osError: writeFile(path, data: data, length: length, executable: executable), table: writeFailures())
+	writeContent(path, data: data, length: length, executable: executable, exclusive: false, errorAddress: errorAddress)
 end 'osWriteBinaryMode'
+
+// osCreateText makes a file that must not be there, holding a string: maxon's File.createText.
+function osCreateText(path String, content String, errorAddress Count)
+	writeContent(path, data: __Raw.stringBytes(content), length: __Raw.stringLength(content), executable: false, exclusive: true, errorAddress: errorAddress)
+end 'osCreateText'
 
 // osWriteText and osWriteBinary are entries of the seed's table, which holds the runtime it compiles to every entry it
 // names (E3004), though no compiler since it calls them; they go with the next seed.

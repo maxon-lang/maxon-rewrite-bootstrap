@@ -421,17 +421,19 @@
 		return bytes
 	end 'readFileRoom'
 
-	// writeFile replaces a file with bytes at an address, and gives the errno that stopped it, or 0. The mode applies to a
-	// file that it creates; one that is there keeps its own.
+	// writeFile replaces a file with bytes at an address, or, when exclusive, makes a file that must not be there, and gives the
+	// errno that stopped it, or 0. It stores 1 at openedAddress when the file was open, so that a caller that made the file knows
+	// a failure after that left one. The mode applies to a file that it creates; one that is there keeps its own.
 	// The file is open for writing only while the write holds the fork lock shared.
-	function writeFile(path String, data Count, length Count, executable bool) returns Count
+	function writeFile(path String, data Count, length Count, executable bool, exclusive bool, openedAddress Count) returns Count
 		let cPath = cStringOf(path)
 		let lock = forkLock()
 		enterBlocking()
 		holdForkShared(lock)
-		let fd = __Raw.syscall4(linuxSysOpenat, arg1: atCwd(), arg2: cPath, arg3: linuxOpenReplace, arg4: linuxExecutableFileMode if executable else linuxFileMode)
+		let fd = __Raw.syscall4(linuxSysOpenat, arg1: atCwd(), arg2: cPath, arg3: linuxOpenCreateNew if exclusive else linuxOpenReplace, arg4: linuxExecutableFileMode if executable else linuxFileMode)
 		var errno = osErrorOf(fd)
 		if errno == 0 'opened'
+			__Raw.storeWord(openedAddress, offset: 0, value: 1)
 			errno = writeAll(fd, data: data, length: length)
 			closeFd(fd)
 		end 'opened'
