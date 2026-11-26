@@ -5591,6 +5591,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `setpgid`) escapes it. A POSIX child that a signal ended is `signalled` (the code is the
   signal's number) in a result, whose record keeps the raw wait status, while `Subprocess.run` goes on giving 128 plus the signal;
   a child whose tree was killed and that the kill ended reports the kill's code (1). `Subprocess.run`'s deadline ends the tree too.
+  `subprocessReleaseHandle` closes the handles of a child that no wait took and leaves it running, as maxon's does; on Linux and macOS the event
+  queue waits for it once it ends, so that it is no zombie.
   A handle and a result are `generation * 2^32 + slot`, a `SlotKey`'s word, where maxon's handle is `generation * 64 + slot`, and the
   last failure is one word for the process, as maxon's. A spawn copies the input's bytes into the child's record, where maxon borrows
   the caller's until the wait ends: a cstring of a short `String` is two words that hold its bytes, which are gone once the row has
