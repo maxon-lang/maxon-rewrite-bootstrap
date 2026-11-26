@@ -606,8 +606,11 @@ let entryReadOverlappedOffset = 56 as Count
 // entryWriteOverlappedOffset is where an event entry holds the OVERLAPPED of a write of its handle, on Windows, four words, whose completion readies the wait to write.
 let entryWriteOverlappedOffset = 88 as Count
 
+// entryOrphanOffset is where a process's event entry holds the pid of the child whose exit it is watched for by no green thread (0 for none): the take of its event reaps the child and gives the entry back, and whoever exchanges the word to 0 first owns that.
+let entryOrphanOffset = 120 as Count
+
 // eventEntryBytes is the size of an event entry.
-let eventEntryBytes = 120 as Count
+let eventEntryBytes = 128 as Count
 
 // windowsEntryKeyOffset is where an OVERLAPPED_ENTRY holds the completion key.
 let windowsEntryKeyOffset = 0 as Count

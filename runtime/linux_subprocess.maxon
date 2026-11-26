@@ -289,15 +289,36 @@
 		return false
 	end 'childWaited'
 
-	// detachedEnded is whether a detached child has ended, which it waits for if so: without waiting for one that has not, and a pid
-	// that is not a child of this process, one that something else waited for, is gone.
-	function detachedEnded(pid Count) returns bool
+	// orphanEnded is whether a child that nothing waits for has ended, which it waits for if so: without waiting for one that has
+	// not, and a pid that is not a child of this process, one that something else waited for, is gone.
+	function orphanEnded(pid Count) returns bool
 		let result = __Raw.syscall4(linuxSysWait4, arg1: pid, arg2: 0, arg3: waitNoHang, arg4: noUsage)
 		if failed(result) 'refused'
 			return errnoOf(result) != linuxEintr
 		end 'refused'
 		return result == pid
-	end 'detachedEnded'
+	end 'orphanEnded'
+
+	// orphanReap waits for a child that nothing waits for, which its pidfd says has ended, and ends with it, or with the wait's
+	// failure where it is no child of this process.
+	function orphanReap(pid Count)
+		while true 'wait'
+			let result = __Raw.syscall4(linuxSysWait4, arg1: pid, arg2: 0, arg3: noWaitOptions, arg4: noUsage)
+			if not (failed(result) and errnoOf(result) == linuxEintr) 'done'
+				return
+			end 'done'
+		end 'wait'
+	end 'orphanReap'
+
+	// orphanArmed is whether the event queue watches the process of an orphan's entry, which a pidfd always does.
+	function orphanArmed(entry Count) returns bool
+		return true
+	end 'orphanArmed'
+
+	// orphanClose closes the pidfd of an orphan's entry, which takes it off the event queue.
+	function orphanClose(scheduler Count, entry Count)
+		closeFd(__Raw.loadWord(entry, offset: entryHandleOffset))
+	end 'orphanClose'
 
 	// childExited is whether the child has exited, which it waits for if so, its wait status kept in the wait then. It never waits
 	// otherwise: the entry that its pidfd is may hold an event of its last owner, so a wake of the entry is no proof.

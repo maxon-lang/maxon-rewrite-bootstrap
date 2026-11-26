@@ -207,7 +207,9 @@
 			let key = __Raw.loadWord(event, offset: macosKeventUdataOffset)
 			if key == eventBreakKey 'break'
 				tookBreak(scheduler, delay: delay)
-			end 'break' else if __Raw.loadAcquire(key, offset: entryKindOffset) != entryKindFree 'entry'
+			end 'break' else if __Raw.loadAcquire(key, offset: entryKindOffset) != entryKindFree and takeOrphan(scheduler, entry: key) 'orphan'
+				_ = 0
+			end 'orphan' else if __Raw.loadAcquire(key, offset: entryKindOffset) != entryKindFree 'entry'
 				if __Raw.loadWord16(event, offset: macosKeventFilterOffset) == macosEvfiltWrite 'write'
 					list = eventQueuedInto(key, mode: eventWrite, list: list)
 				end 'write' else 'read'

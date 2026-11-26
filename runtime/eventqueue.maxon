@@ -152,6 +152,46 @@ function eventProcessFree(entry Count)
 	processWatchClose(handle)
 end 'eventProcessFree'
 
+// eventProcessOrphan gives up the wait for a process that the caller started and that may still run, and has the event queue reap
+// it when it ends, which no green thread waits for (a thread of the runtime that waited would be live, and keep the program from
+// ending while the child runs): a POSIX child that nothing waits for stays a zombie of this process until something does. The
+// entry's event is taken as any is, and reaps the child (takeOrphan); a child that has ended already is reaped here. Whoever
+// exchanges the entry's orphan word to 0 first gives the entry back. Windows has no zombie: the entry is given back, and the
+// process goes on.
+function eventProcessOrphan(entry Count, pid Count)
+	#if os(Windows)
+		eventProcessFree(entry)
+	#else
+		__Raw.storeRelease(entry, offset: entryOrphanOffset, value: pid)
+		var ended = orphanEnded(pid)
+		if not ended and not orphanArmed(entry) 'unwatched'
+			// The process has started to exit, which no event is reported for from now on: it is waited for as it ends.
+			orphanReap(pid)
+			ended = true
+		end 'unwatched'
+		if ended and __Raw.atomicExchange(entry, offset: entryOrphanOffset, value: 0) != 0 'ours'
+			eventProcessFree(entry)
+		end 'ours'
+	#endif
+end 'eventProcessOrphan'
+
+#if os(Linux) or os(macOS)
+	// takeOrphan is what the take of an event of an entry does where the entry's process was given up (eventProcessOrphan), and says
+	// whether the entry was one: it waits for the process, which the event says has ended or is ending, and gives the entry back.
+	function takeOrphan(scheduler Count, entry Count) returns bool
+		if __Raw.loadAcquire(entry, offset: entryOrphanOffset) == 0 'none'
+			return false
+		end 'none'
+		let pid = __Raw.atomicExchange(entry, offset: entryOrphanOffset, value: 0)
+		if pid != 0 'claimed'
+			orphanReap(pid)
+			orphanClose(scheduler, entry: entry)
+			entryGive(scheduler, entry: entry)
+		end 'claimed'
+		return true
+	end 'takeOrphan'
+#endif
+
 // eventWait parks the running green thread until an event of a mode of the entry, its deadline (eventNoDeadline for
 // none), its eviction or its coroutine's cancel, and gives which.
 function eventWait(entry Count, mode Count, deadline Count) returns Count
@@ -319,6 +359,7 @@ function entryTake(scheduler Count, kind Count, handle Count) returns Count
 	__Raw.storeWord(entry, offset: entryClosingOffset, value: unset)
 	__Raw.storeWord(entry, offset: entryWaitingOffset, value: 0)
 	__Raw.storeWord(entry, offset: entryLinkOffset, value: noEntry)
+	__Raw.storeWord(entry, offset: entryOrphanOffset, value: 0)
 	__Raw.storeRelease(entry, offset: entryKindOffset, value: kind)
 	return entry
 end 'entryTake'

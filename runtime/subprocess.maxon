@@ -824,10 +824,6 @@ end 'osRunInput'
 	function noteDetached(pid Count)
 	end 'noteDetached'
 
-	// reapDetached has nothing to wait for.
-	function reapDetached()
-	end 'reapDetached'
-
 	// killChild ends a child alone that is still running, which is what a child whose tree is not held yet is ended by.
 	function killChild(child Count)
 		_ = __Raw.callImport2("TerminateProcess", arg1: child, arg2: killedExitCode)
@@ -1652,44 +1648,15 @@ end 'osRunInput'
 		__Raw.storeWord(wait, offset: waitReapedOffset, value: set)
 	end 'markReaped'
 
-	// The nodes of the list of the detached children that wait to be waited for: the next node and the child's pid.
-	let detachedNextOffset = 0
-
-	let detachedPidOffset = 8
-
-	let detachedNodeBytes = 16
-
-	// noteDetached puts a detached child on the list of those that reapDetached waits for once they have ended: a child that nothing
-	// waits for stays a zombie until its parent does, and no thread of the runtime may wait for it, since a thread parked on a child
-	// that never ends would keep the program from ending. A node is kept memory, not counted as a box that a program leaks.
+	// noteDetached has the event queue reap a detached child once it has ended: a child that nothing waits for stays a zombie of
+	// this process until something does, and no thread of the runtime may wait for it, since a thread parked on a child that never
+	// ends would keep the program from ending.
 	function noteDetached(pid Count)
-		let table = handleTable()
-		let node = keep(detachedNodeBytes)
-		__Raw.storeWord(node, offset: detachedPidOffset, value: pid)
-		spinLock(table, offset: tableLockOffset)
-		__Raw.storeWord(node, offset: detachedNextOffset, value: __Raw.loadWord(table, offset: tableDetachedOffset))
-		__Raw.storeWord(table, offset: tableDetachedOffset, value: node)
-		spinUnlock(table, offset: tableLockOffset)
+		let watch = eventProcessNew(pid)
+		if watch != noEntry 'watched'
+			eventProcessOrphan(watch, pid: pid)
+		end 'watched'
 	end 'noteDetached'
-
-	// reapDetached waits for the detached children that have ended, without waiting for one that has not, and takes them off the list.
-	function reapDetached()
-		let table = handleTable()
-		spinLock(table, offset: tableLockOffset)
-		var link = __Raw.wrappingAdd(table, right: tableDetachedOffset)
-		var node = __Raw.loadWord(link, offset: 0)
-		while node != 0 'nodes'
-			let next = __Raw.loadWord(node, offset: detachedNextOffset)
-			if detachedEnded(__Raw.loadWord(node, offset: detachedPidOffset)) 'ended'
-				__Raw.storeWord(link, offset: 0, value: next)
-				unkeep(node, bytes: detachedNodeBytes)
-			end 'ended' else 'running'
-				link = __Raw.wrappingAdd(node, right: detachedNextOffset)
-			end 'running'
-			node = next
-		end 'nodes'
-		spinUnlock(table, offset: tableLockOffset)
-	end 'reapDetached'
 
 	// killChild sends the kill to the processes of the child's group: every child leads a group of its own. It gives the errno of a
 	// kill that was refused, or 0: a group with no member left is ended.

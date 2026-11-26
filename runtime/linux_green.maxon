@@ -210,7 +210,9 @@
 				if kind == entryKindUser 'user'
 					drainEventfd(context, fd: __Raw.loadWord(key, offset: entryHandleOffset))
 					list = eventQueuedInto(key, mode: eventRead, list: list)
-				end 'user' else if kind == entryKindHandle 'handle'
+				end 'user' else if kind == entryKindHandle and takeOrphan(scheduler, entry: key) 'orphan'
+					_ = 0
+				end 'orphan' else if kind == entryKindHandle 'handle'
 					let mask = __Raw.loadWord32(event, offset: 0)
 					if (mask and (linuxEpollIn or linuxEpollRdhup or linuxEpollHup or linuxEpollErr)) != 0 'readable'
 						list = eventQueuedInto(key, mode: eventRead, list: list)

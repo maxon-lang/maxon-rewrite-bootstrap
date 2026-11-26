@@ -576,7 +576,9 @@ var layouts = []layoutConst{
 		"where an event entry holds the OVERLAPPED of a read of its handle, on Windows, four words, whose completion readies the wait to read."},
 	{"entryWriteOverlappedOffset", 11, false, toRuntime,
 		"where an event entry holds the OVERLAPPED of a write of its handle, on Windows, four words, whose completion readies the wait to write."},
-	{"eventEntryBytes", 15, false, toRuntime,
+	{"entryOrphanOffset", 15, false, toRuntime,
+		"where a process's event entry holds the pid of the child whose exit it is watched for by no green thread (0 for none): the take of its event reaps the child and gives the entry back, and whoever exchanges the word to 0 first owns that."},
+	{"eventEntryBytes", 16, false, toRuntime,
 		"the size of an event entry."},
 
 	// A Windows OVERLAPPED_ENTRY, which GetQueuedCompletionStatusEx fills one of for each completion.

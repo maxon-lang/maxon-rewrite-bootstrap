@@ -291,8 +291,8 @@ let resultBytes = 72 as Count
 
 // The handle table: one per process, its record made with the first spawn and hung on the scheduler's, and kept for good. It holds
 // its lock, the slots (kept, and moved to a larger run when they are full), how many slots have been taken, the first free slot
-// plus 1 (0 for none), linked through the free slots' records, the last failure of a spawn, which subprocessLastErrorCode
-// answers, a word for the whole process as maxon's is, and the detached children that wait to be waited for.
+// plus 1 (0 for none), linked through the free slots' records, and the last failure of a spawn, which subprocessLastErrorCode
+// answers, a word for the whole process as maxon's is.
 let tableLockOffset = 0 as Count
 
 let tableSlotsOffset = 8 as Count
@@ -305,10 +305,7 @@ let tableFreeOffset = 32 as Count
 
 let tableLastErrorOffset = 40 as Count
 
-// The head of the list of the detached children of a POSIX system that have not been waited for, a node of the pid and its link.
-let tableDetachedOffset = 48 as Count
-
-let tableBytes = 56 as Count
+let tableBytes = 48 as Count
 
 // A slot holds its generation and its record, or the link of the free list.
 let slotGenerationOffset = 0 as Count
@@ -607,9 +604,8 @@ end 'storePath'
 // the system and frees it before it returns. With the flag detach the child is one that is never waited for: its streams are none,
 // discarded, inherited or files, it leads a session of its own (on Windows it leaves every job it is in), no handle names it, and the
 // answer is its process id, or -2 (detachRefused) where the job that this process runs in does not allow the breakaway, with the
-// code of the system's refusal recorded. A child of a POSIX system that has ended is waited for by a later spawn (reapDetached).
+// code of the system's refusal recorded. A child of a POSIX system that has ended is waited for when the event queue takes its exit (eventProcessOrphan).
 function subprocessSpawn(argv Count, argc Count, cwd String, env Count, envInherit Count, stdinKind Count, stdinData String, stdoutKind Count, stdoutData String, stdoutLimit Count, stderrKind Count, stderrData String, stderrLimit Count, flags Count, stdinLength Count) returns Count
-	reapDetached()
 	let refused = spawnRefusal(argv, argc: argc, cwd: cwd, env: env, envInherit: envInherit, stdinKind: stdinKind, stdinData: stdinData, stdoutKind: stdoutKind, stdoutData: stdoutData, stderrKind: stderrKind, stderrData: stderrData, flags: flags, stdinLength: stdinLength)
 	if refused != 0 'refused'
 		setLastError(lastErrorOf(refused))
@@ -717,7 +713,6 @@ end 'spawnAnswer'
 // (subprocessReadAvailable), with no cap, and gives its handle, or -1 with the failure recorded. A detached or traced child is
 // refused.
 function subprocessSpawnStreaming(argv Count, argc Count, cwd String, flags Count, env Count, envInherit Count) returns Count
-	reapDetached()
 	var refused = 0 as Count
 	if (flags and (spawnFlagDetach or spawnFlagTraced)) != 0 'unserved'
 		refused = refusedFailure(codeNotSupported)

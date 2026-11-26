@@ -5581,8 +5581,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   discarded, inherited or files (a piped one is refused), and answers its process id, -1 for a spawn that failed and -2 where the
   job this program runs in does not allow the breakaway (`SubprocessError.detachRefused`, with Win32's 5 recorded): on Windows
   the child is created with `DETACHED_PROCESS` and `CREATE_BREAKAWAY_FROM_JOB` and no job watches it, on Linux it calls `setsid`
-  and on macOS the spawn has `POSIX_SPAWN_SETSID`, and a POSIX child that has ended is waited for by a later spawn (no green
-  thread waits on it, which would keep the program from ending while it runs). A deadline ends the child and the tree it started and keeps the
+  and on macOS the spawn has `POSIX_SPAWN_SETSID`, and a POSIX child that has ended is waited for by the event queue as it takes the child's exit (the
+  child's pidfd on Linux, its `EVFILT_PROC` on macOS), where no green thread waits on it, which would keep the program from ending while it runs. A deadline ends the child and the tree it started and keeps the
   output it had written (the result's kind is `timedOut`, or `treeNotEnded` when part of the tree still ran five seconds after the
   kill), and `subprocessEndTree` does the same for a child that is not waited for (0, -3 for a tree still running after the bound, -1
   for a word that names no child that no wait has taken, so after a wait it is -1). The tree is a Windows job object that holds the
@@ -5650,9 +5650,6 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `subprocessPushStdin` gives how many bytes are not written yet after giving that thread a turn, and `subprocessAwaitStdinWritable`
   sleeps (0, 1, 3, 7, 15 and at most 16 ms for the passes, the steps of maxon's pump) for it; the same on every system. A write
   while a payload is queued answers 2, as in maxon.
-- **A detached POSIX child is waited for by a later spawn.** Each spawn waits, without blocking, for the detached children of the
-  program that have ended (a list in the handle table), where no green thread waits on one, which would keep a program from
-  ending while its child runs.
 
 ## Changing the language
 

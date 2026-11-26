@@ -103,15 +103,37 @@
 		return 0
 	end 'reap'
 
-	// detachedEnded is whether a detached child has ended, which it waits for if so: without waiting for one that has not, and a pid
-	// that is not a child of this process, one that something else waited for, is gone.
-	function detachedEnded(pid Count) returns bool
+	// orphanEnded is whether a child that nothing waits for has ended, which it waits for if so: without waiting for one that has
+	// not, and a pid that is not a child of this process, one that something else waited for, is gone.
+	function orphanEnded(pid Count) returns bool
 		let result = waitChild(pid, status: 0, options: waitNoHang)
 		if failed(result) 'refused'
 			return not interrupted(result)
 		end 'refused'
 		return result == pid
-	end 'detachedEnded'
+	end 'orphanEnded'
+
+	// orphanReap waits for a child that nothing waits for, whose exit the kqueue reported or which has started to exit, and ends
+	// with it: the kqueue reports NOTE_EXIT before waitpid can take the child, so the one wait here blocks for the moment the exit
+	// takes, as the reap of a child that a wait found exiting does.
+	function orphanReap(pid Count)
+		while true 'wait'
+			let result = waitChild(pid, status: 0, options: noWaitOptions)
+			if not interrupted(result) 'done'
+				return
+			end 'done'
+		end 'wait'
+	end 'orphanReap'
+
+	// orphanArmed is whether the kqueue watches the process of an orphan's entry, and not that it has started to exit.
+	function orphanArmed(entry Count) returns bool
+		return processArm(entry)
+	end 'orphanArmed'
+
+	// orphanClose takes the exit filter of an orphan's entry off the kqueue, where the exit has not removed it.
+	function orphanClose(scheduler Count, entry Count)
+		entryUnregister(scheduler, entry: entry)
+	end 'orphanClose'
 
 	// childExited is whether the child has exited, which it waits for if so, its wait status kept in the wait. A wake of the
 	// exit's entry proves nothing either way: the entry may hold an event of its last owner, and the kqueue reports NOTE_EXIT as
