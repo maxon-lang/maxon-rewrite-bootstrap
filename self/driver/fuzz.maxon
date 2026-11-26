@@ -536,7 +536,9 @@ end 'fail'
 function fixedProgram(source String, libraries FixLibraries, only table.Option with String) returns String
 	var files = project.SourceFiles.create(0)
 	files.push(project.SourceFile.make(generatedPath.clone(), text: source.clone()))
-	let prog = FixProgram.make(generatedPath.clone(), name: generatedPath.clone(), single: true, files: files, candidates: ast.knownTargets())
+	var prog = FixProgram.make(generatedPath.clone(), name: generatedPath.clone(), single: true, files: files, candidates: ast.knownTargets())
+	// A generated program is checked in the library tier (runGenerated), so its fixes are made there too.
+	prog.inLibrary = true
 	let outcome = fixProgram(prog, libraries: libraries, expected: table.Option.none, watches: ast.StringList.create(0), only: only)
 	return outcome.files[0].text.clone()
 end 'fixedProgram'
