@@ -143,7 +143,7 @@ programs as an artifact. The workflow reads the repository and writes nothing to
 | `minimaxon fmt [--check] <path>...` | put the `.maxon` files and the Maxon code blocks of the `.md` files under the paths in the one layout; `--check` changes nothing and exits 1 listing the files that are not in it (see "Layout" and "Changing the language") |
 | `minimaxon interp <file\|dir> [--seed=N] [--frees]` | development only: run under the tracking interpreter, which runs a frozen value, a cown and a behaviour, and reports a violation of the memory model; `--frees` lists the values freed, in order |
 | `minimaxon fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]` | development only: write random programs, check them and run them under the interpreter (`self/fuzz`); `--native` also runs the executable of each that compiles and compares it with the interpreter (see "Tests") |
-| `go run ./cmd/convert [--specs] [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules); `--specs` converts maxon's spec files, which is how `specs/` is made. A source file's top-level declaration of a name that minimaxon has built in (`internal/builtingen`'s table, which writes `cmd/convert/builtins_gen.go`) is left out, with the comment above it, since the built-in is the declaration every other module uses; a spec test's program keeps one, as a program may declare such a name. A source file's declaration of a record type that minimaxon builds in and that has members the built-in lacks (`Clock`, `Directory`) is kept as an extension of the built-in, with the members the built-in declares and the fields left out, and maxon's `WaitDeadlineMs` is written `Count` unless the file declares it (the library's Subprocess does, for its own `MxWaitDeadline`). The types of maxon's Subprocess that the compiler builds in too are declared by the library under the prefix `Mx` (`MxSubprocess`), and a spec test that runs a child through `Subprocess` names them so (see "Where it differs from Maxon"). A method or a top-level function that calls a raw function the table lacks is left out, and so is what only it reached, a method that calls one left out included. A capability word before a type argument (`Array with immutable Key`) is left out (see "Where it differs from Maxon"). A block that is the first operand inside brackets (`let n = (try f() otherwise 'e' ... end 'e') as T`, `xs.push(match x 'm' ... end 'm')`) is bound on lines of its own before the line, since minimaxon reads no line break inside brackets. It lays out what it converts with the compiler's `fmt`: the gate's, `bin\minimaxon.exe` in the repository, or the compiler the environment variable `MINIMAXON` names |
+| `go run ./cmd/convert [--specs] [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules); `--specs` converts maxon's spec files, which is how `specs/` is made. A source file's top-level declaration of a name that minimaxon has built in (`internal/builtingen`'s table, which writes `cmd/convert/builtins_gen.go`) is left out, with the comment above it, since the built-in is the declaration every other module uses; a spec test's program keeps one, as a program may declare such a name. A source file's declaration of a record type that minimaxon builds in and that has members the built-in lacks (`Clock`, `Directory`) is kept as an extension of the built-in, with the members the built-in declares and the fields left out, and maxon's `WaitDeadlineMs` is written `Count` unless the file declares it (the library's Subprocess does, for its own `MxWaitDeadline`). The types of maxon's Subprocess that the compiler builds in too are declared by the library under the prefix `Mx` (`MxSubprocess`), and a spec test that runs a child through `Subprocess` names them so (see "Where it differs from Maxon"). A method or a top-level function that calls a raw function the table lacks is left out, and so is what only it reached, a method that calls one left out included. A capability word before a type argument (`Array with immutable Key`) is left out (see "Where it differs from Maxon"). A block that is the first operand inside brackets (`let n = (try f() otherwise 'e' ... end 'e') as T`, `xs.push(match x 'm' ... end 'm')`) is bound on lines of its own before the line, since minimaxon reads no line break inside brackets. It lays out what it converts with the compiler's `fmt`: the gate's, `bin\minimaxon.exe` in the repository, or the compiler the environment variable `MINIMAXON` names A library file's cast of a raw buffer to the bare `__ManagedMemory` (maxon's `as isolated __ManagedMemory`) is left out, since the row's buffer is one already, and a field, parameter or local that it names `stream` is written `which`, so that the library's `stream` module can qualify what it declares. |
 | `go run ./cmd/sample [-interval D] [-threads] [-top N] [-callers N] [-focus TEXT,...] [-o FILE] <exe> [arg...]` | profile an executable that `build --emit-map` made: runs it, samples its main thread's instruction pointer and its `rbp` frames (1 ms by default), and prints the functions by self and by total samples, with the callers of the top ones and of those whose symbol contains a `-focus` text, and the wall time; code outside the image (a Windows DLL) is charged to the function that called it, found by scanning the stack, and exits with the program's code |
 | `go run ./cmd/selfab [--base=REV] [--base-compiler=EXE] [--runs=N] [--note=TEXT]` | compare the self-build of two versions of the compiler: A (`--base`, a git revision, `HEAD` by default, checked out in a temporary worktree; or `--base-compiler`, a C1 made of its sources) and B (the working tree). Each is built as C1 by its own seed, then `<C1> build self --no-cache` is timed N times (11 by default) on both, interleaved with the order alternating after one run of each that is not counted, and the tool prints the medians, their ratio and the range of the ratio over the pairs of runs. It also prints the share of a build that `--timings` gives the `bodies` and `verify` stages (the check of function bodies), and the count in the IR that `--emit-ir` writes (after the optimizer) of the `bounds` operations and of the calls of `rt.panicEmptySlot` (counted for both versions by the working tree's `ircount`), the run-time tests that a compiler made by each version still holds; the failures that a `try xs.get(i)` takes to its handler are not among them. `--note` also prints a row for `docs/self-compile-times.md`. It takes the machine-wide lock and works on Windows, Linux and macOS |
 
@@ -5570,13 +5570,19 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   node is O(n) and the link O(1). `get`, `first` and `last` lend the element (a copy is `.clone()`) where maxon's copy it
   out; `clear()` and `insert` need elements that can be dropped, and `dropEmpty()` ends an empty list of values with
   destructors.
-- **The subprocess rows are the attached run of maxon's.** The rows
+- **The subprocess rows are maxon's `__Builtins.subprocess*`.** The rows
   (`runtime/spawn.maxon`, "Primitives": `__Builtins`) serve a spawn whose environment is this process's or a block of
   `NAME=VALUE` entries (`envInherit` 0, all of the child's environment, a block that is not one refused as Win32's 87), whose standard
   input is none (the null device), inherited, bytes or a file, whose output and error are discarded, inherited, collected (a limit
   caps what is kept, never what is read) or a file (made or emptied), and whose flags are the hidden window (Windows only) and the new
-  process group. They refuse, as a spawn that fails with Win32's 50 (not supported), the flags detach and traced and an input that is
-  held open; `subprocessDetach` and the streaming rows are not there. A deadline ends the child and the tree it started and keeps the
+  process group. They refuse, as a spawn that fails with Win32's 50 (not supported), the flag traced. An input that is held open (kind 4)
+  is a pipe that the run keeps open and never writes, and closes once the child has exited. A spawn with the flag detach
+  (`subprocessDetach` is the same entry, as it is in maxon's lowering) starts a child that nothing waits for, its streams none,
+  discarded, inherited or files (a piped one is refused), and answers its process id, -1 for a spawn that failed and -2 where the
+  job this program runs in does not allow the breakaway (`SubprocessError.detachRefused`, with Win32's 5 recorded): on Windows
+  the child is created with `DETACHED_PROCESS` and `CREATE_BREAKAWAY_FROM_JOB` and no job watches it, on Linux it calls `setsid`
+  and on macOS the spawn has `POSIX_SPAWN_SETSID`, and a POSIX child that has ended is waited for by a later spawn (no green
+  thread waits on it, which would keep the program from ending while it runs). A deadline ends the child and the tree it started and keeps the
   output it had written (the result's kind is `timedOut`, or `treeNotEnded` when part of the tree still ran five seconds after the
   kill), and `subprocessEndTree` does the same for a child that is not waited for (0, -3 for a tree still running after the bound, -1
   for a word that names no child that no wait has taken, so after a wait it is -1). The tree is a Windows job object that holds the
@@ -5591,8 +5597,18 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   returned. `subprocessResolveOnPath` on Windows looks where `CreateProcessW` looks, as maxon's does (the directory of the
   program, the working directory unless `NoDefaultCurrentDirectoryInExePath` is set, the system directory, `System` of the Windows
   directory, the Windows directory, `PATH`, each name with the extensions of `PATHEXT` unless its last component has one), and on
-  Linux and macOS walks `PATH` as `execvp` does. The interpreter halts at each row (`// native-only`). maxon's `Subprocess.maxon`
-  is converted over them (`stdlib/subprocess`, next bullet), as far as the rows go.
+  Linux and macOS walks `PATH` as `execvp` does. `subprocessSpawnStreaming` starts a child whose input is a pipe that
+  `subprocessWriteStdinAll` and `subprocessWriteStdinBytes` write (parking while it is full: 0, 1 for an input that is closed or a
+  child that no longer reads it, 2 while a payload is queued) and whose output and error are pipes that `subprocessReadAvailable`
+  reads when the caller chooses: at most the count asked of what was read and not given yet, parking only while there is none,
+  empty at the end of the stream, for a count of 0 or less and for a handle that names nothing, which `subprocessStdoutState`
+  and `subprocessStderrState` tell apart (`__SubprocessStreamState`: `open`, `atEof` and `readFailed` as the reads latched them,
+  `noSuchChild`). `subprocessWaitExit` parks until the child has exited (-2 or -3 for a deadline that ended the tree, as the
+  collect's), `subprocessPollExit` and `subprocessExitSignal` ask without waiting, `subprocessCloseStdin` closes the input, and
+  `subprocessQueueStdin`, `subprocessPushStdin` and `subprocessAwaitStdinWritable` hand a copy of a payload to a green thread of
+  the runtime that writes it as the child reads and then closes the input. A child is the same record for both spawns, so
+  `subprocessEndTree`, `subprocessGetPid` and `subprocessReleaseHandle` serve either. The interpreter halts at each row
+  (`// native-only`). maxon's `Subprocess.maxon` is converted over them (`stdlib/subprocess`, next bullet).
 - **A Windows argument is quoted as maxon's runtime decides it, but its backslashes are written as the C runtime reads them back.**
   An argument is in quotes when it is empty or has a space, a tab or a quote (it was in quotes for a space or a tab alone, a bare
   quote written as `\"`), and a quote is written `\"`; the backslashes before a quote and before the closing quote are doubled,
@@ -5611,13 +5627,32 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   throw an enum. A spec test whose program runs a child (it names `Subprocess`, `Configuration` or another type only the library
   has) names the library's types (`MxSubprocess`, `MxExecutable`, and so on), unless it calls a built-in that takes the built-in
   `Executable` (`Debuggee`, `runWithInput`) or `WaitDeadline` (`Directory.removeTree` and `removeContents`, waiting), and then it
-  keeps the built-ins. Left out, since the rows are not there
-  (`cmd/convert` leaves out a member that calls a raw function the table lacks, and what only such members reach):
-  `runDetached`, the detached spawn (`SubprocessError.detachRefused` is a case nothing raises), the streaming child
-  (`StreamingSubprocess` and its readers, `pollExit`, `pollTermination`, `endTree` and `TreeEnd`, so that the end of a tree is
-  reached only by a run's deadline, which ends the child and its tree and gives `timeout` or `treeNotEnded`), and the holding of a
-  standard input (`InputSource.hold` fails the spawn, as the rows refuse it, and so does the flag `traced`). `Process.currentEnvironmentEntries`
-  and its helpers (`stdlib/process`) build the environment block of `inheritUpdating`.
+  keeps the built-ins. It also gives `runDetached` (`SubprocessError.detachRefused` when the job refuses the breakaway),
+  `InputSource.hold`, and the streaming child: `StreamingSubprocess` (`spawn`, `spawnWithCwd`, `spawnWithEnvironment`,
+  `writeStdin`, `writeStdinLine`, `takeStdout` and `takeStderr` as a `ChildOutputReader`, `closeStdin`, `wait`, `endTree`,
+  `processId`, `pollExit`, `pollTermination`, `streamHasEnded`, `outputHasEnded`, `release`), `ChildOutput`, `TreeEnd`, `ExitPoll`,
+  `TerminationPoll` and `StdioStream`, over the rows and the hand-written `stream` module (`stdlib/subprocess/childOutputReader.maxon`
+  declares `ChildOutputReader` here, since maxon's Stream.maxon declares it over `ChildOutput` and the stream module is below
+  this one). `Process.currentEnvironmentEntries` and its helpers (`stdlib/process`) build the environment block of `inheritUpdating`.
+  Not yet: a traced child (`StreamingSubprocess.spawnTraceable` with `traced` set, whose spawn fails as the rows refuse the flag:
+  the debugger's launch is the built-in `Debuggee`); a status that went to another process (`statusLost`, `reapedElsewhere`: no
+  row answers them, since only this program waits for its children); maxon's pumps over a streaming child
+  (`helpers/stream/childPump.maxon`, `stdinFeed.maxon`), which are not in `stdlib/files.txt`; and maxon's own `subprocessKill` and
+  `subprocessSendSignal`, which its library does not call either.
+- **A released streaming child that still runs is ended with its tree.** maxon's release gives back the handles a child owns;
+  here `subprocessReleaseHandle` of a streaming child takes it out of the table, wakes every call parked on it (a read answers
+  empty, a wait -1, the writer of a queued payload ends), waits for those calls to return and ends the child and the tree it
+  started where they still run, as an attached run's release of a child that no wait took does, so that no child is left
+  running or a zombie behind a program that forgot to wait.
+- **A payload queued for a streaming child's input is written by a green thread of the runtime.** maxon's pump pushes what the
+  pipe takes itself (`subprocessPushStdin`) and waits for the pipe to take more (`subprocessAwaitStdinWritable`); here
+  `subprocessQueueStdin` starts a green thread that writes the copy of the payload as the child reads it and then closes the input,
+  `subprocessPushStdin` gives how many bytes are not written yet after giving that thread a turn, and `subprocessAwaitStdinWritable`
+  sleeps (0, 1, 3, 7, 15 and at most 16 ms for the passes, the steps of maxon's pump) for it; the same on every system. A write
+  while a payload is queued answers 2, as in maxon.
+- **A detached POSIX child is waited for by a later spawn.** Each spawn waits, without blocking, for the detached children of the
+  program that have ended (a list in the handle table), where no green thread waits on one, which would keep a program from
+  ending while its child runs.
 
 ## Changing the language
 
