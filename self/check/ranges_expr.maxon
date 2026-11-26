@@ -858,6 +858,25 @@ function uncheckedFix(p ast.Project, ms ast.ModuleState, t ast.Tree, why Uncheck
 	end 'why'
 end 'uncheckedFix'
 
+// coveringFix is the change for an operation that fails with err where no try covers it: a try that passes the failure to the
+// caller where the function throws err itself, as the program would write, and else the try that panics (uncheckedFix). A
+// conversion that a return makes is covered as uncheckedFix covers it.
+function coveringFix(r Ranges, p ast.Project, ms ast.ModuleState, why Unchecked, site ast.NodeID, err ast.TypeID) returns diag.Fix
+	let passes = match why 'why'
+		returned(_, _) gives false
+		thrown gives false
+		call(_) gives true
+		index(_, _) gives true
+		operation(_, _, _, _) gives true
+		cast(_) gives true
+		recovered(_, _) gives true
+	end 'why'
+	if passes and fnErrorType(r, p: p, ms: ms) == err 'passed'
+		return passingTryFix(ms.tree(), e: site)
+	end 'passed'
+	return uncheckedFix(p, ms: ms, t: ms.tree(), why: why, site: site)
+end 'coveringFix'
+
 // ownTryFix is the change for an operation that fails where the try around it passes the failure to a caller, or to a
 // handler, that takes another error: a try of its own that panics, as one that no try covers gets. Only a failure of the
 // operation's range is such a fault of the program, as maxon's check of a value at a parameter or a cast panics; a
@@ -913,7 +932,7 @@ end 'setFails'
 function rangeFallible(mutates r Ranges, p ast.Project, ms ast.ModuleState, site ast.NodeID, err ast.TypeID, why Unchecked)
 	if r.handlers.count() == 0 'uncovered'
 		if not r.probing 'report'
-			rangeReportFixed(r, p: p, ms: ms, node: uncheckedNode(why, site: site), code: diag.errUncheckedFailure, msg: uncheckedText(r, p: p, ms: ms, why: why), fix: uncheckedFix(p, ms: ms, t: ms.tree(), why: why, site: site))
+			rangeReportFixed(r, p: p, ms: ms, node: uncheckedNode(why, site: site), code: diag.errUncheckedFailure, msg: uncheckedText(r, p: p, ms: ms, why: why), fix: coveringFix(r, p: p, ms: ms, why: why, site: site, err: err))
 		end 'report'
 		return
 	end 'uncovered'

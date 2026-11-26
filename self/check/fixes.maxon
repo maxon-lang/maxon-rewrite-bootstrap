@@ -97,6 +97,12 @@ export function tryFix(t ast.Tree, e ast.NodeID) returns diag.Fix
 	return wrapFix(t, kind: fixKindTry, e: ast.outermostArithmetic(t, e: e), before: "try ", after: panicClause())
 end 'tryFix'
 
+// passingTryFix covers the failure of e with a try that passes it to the caller, around the whole arithmetic expression it is
+// part of, where the function throws the failure's error itself.
+export function passingTryFix(t ast.Tree, e ast.NodeID) returns diag.Fix
+	return wrapFix(t, kind: fixKindTry, e: ast.outermostArithmetic(t, e: e), before: "try ", after: "")
+end 'passingTryFix'
+
 // returnFix writes the conversion that a return makes to the integer type named target as a cast that a try covers.
 export function returnFix(t ast.Tree, e ast.NodeID, target String) returns diag.Fix
 	if isCompound(t, e: e) 'operator'

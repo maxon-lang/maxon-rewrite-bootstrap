@@ -3226,6 +3226,9 @@ end 'sums'
   operations names the `ArithmeticError`. `main` cannot throw, and neither can a function with a `sets` parameter, which
   a failure would leave set or not (`E3924`); a method throws exactly when the interface's signature does (`E3016`).
 - A `try` that covers nothing that can fail is allowed, so a sharper analysis never breaks a program.
+- `minimaxon fix` covers an operation that can fail where no `try` covers it with a `try` that passes the failure to the
+  caller where the function throws that failure's error itself, as the program would write, and otherwise with one that
+  panics (`otherwise panic("out of range")`), a failure the program did not expect.
 - A failure leaves what it interrupts, as a jump out of it would: the temporaries of the statement and the locals of
   the blocks it leaves are dropped, and so are the values computed for a call, a record or a union that never runs
   (`ir.Lowerer.pending`). The ownership pass follows each failure to its handler, so a value moved before a failure may
