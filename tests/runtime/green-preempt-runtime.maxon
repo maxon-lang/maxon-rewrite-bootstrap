@@ -12,6 +12,7 @@
 // left a due timer behind a slice end would; and otherwise when the monitor asked more than testAsksPerTick times a
 // processor for each wake, which a monitor that asks once a slice and does not ask again or take the processor does for a
 // spinner that takes one ask in tens or thousands.
+// runs: alone
 //> the ticker ran while every processor spun in the clock and in allocations
 
 let testTicks = 20 as Count

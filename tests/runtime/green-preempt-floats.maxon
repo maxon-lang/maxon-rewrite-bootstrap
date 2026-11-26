@@ -3,6 +3,7 @@
 // many times in the middle of its loop, with its values in registers, and runs another with other values there. Each
 // checks at the end that its values are the multiples of its steps that its count says, which holds only if every stop
 // gave every register, xmm0 to xmm15 whole among them, back as it was.
+// runs: alone
 //> every worker's floats and integers survived its preemptions
 
 // testRunNanos is how long the workers run: many slices each.

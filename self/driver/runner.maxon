@@ -167,6 +167,15 @@ union PendingRun
 			spec(value) gives value.index
 		end 'pending'
 	end 'index'
+
+	// runsAlone is whether the executable runs with no other running. A spec test that says it runs alone is skipped before it
+	// is compiled, so every spec test that runs shares the machine.
+	function runsAlone() returns bool
+		return match self 'pending'
+			corpus(value) gives value.expect.runsAlone
+			spec(_) gives false
+		end 'pending'
+	end 'runsAlone'
 end 'PendingRun'
 
 typealias PendingRuns = Array with PendingRun
@@ -265,13 +274,14 @@ typealias ResultSlot = table.Option with TestResult
 typealias ResultSlots = Array with ResultSlot
 
 // Board is what the cown of a run of tests holds: the slot of each test's result, the next test to start, how many are under
-// way and how many of their executables run, the compiled tests that wait for their run, how many results were taken in, the
-// tally, and the executables that could not be deleted.
+// way and how many of their executables run and whether the one that runs runs alone, the compiled tests that wait for their run,
+// how many results were taken in, the tally, and the executables that could not be deleted.
 type Board
 	var results as ResultSlots
 	var next as Count
 	var underWay as Count
 	var running as Count
+	var alone as bool
 	var waiting as PendingRuns
 	var taken as Count
 	var ended as bool
@@ -283,7 +293,7 @@ type Board
 		for _ in 0 upto tests 'slots'
 			results.push(table.Option.none)
 		end 'slots'
-		return Board{results: results, next: 0, underWay: 0, running: 0, waiting: PendingRuns.create(0), taken: 0, ended: false, tally: tally, scratch: scratch}
+		return Board{results: results, next: 0, underWay: 0, running: 0, alone: false, waiting: PendingRuns.create(0), taken: 0, ended: false, tally: tally, scratch: scratch}
 	end 'make'
 
 	// fill starts the tests after the last one started while fewer than the window are under way. A test that the run leaves
@@ -319,9 +329,16 @@ type Board
 	end 'queueRun'
 
 	// startRuns starts the runs of the compiled tests that wait, the earliest first, while fewer executables than the cap run.
+	// An executable that runs alone starts once every other has ended, and none starts while it runs.
 	function startRuns(mutates self, bench frozen with Bench)
-		while running < bench.width.executables and waiting.count() > 0 'start'
+		while running < bench.width.executables and waiting.count() > 0 and not alone 'start'
 			let at = earliestWaiting(waiting)
+			if waiting[at].runsAlone() 'alone'
+				if running > 0 'drain'
+					return
+				end 'drain'
+				alone = true
+			end 'alone'
 			running = offsetBy(running, by: 1)
 			let last = try waiting.pop() otherwise panic("test: no test waits for its run")
 			if at < waiting.count() 'inside'
@@ -335,6 +352,7 @@ type Board
 	// released counts the end of an executable's run, which lets another start.
 	function released(mutates self, bench frozen with Bench)
 		running = try running - 1 otherwise panic("test: an executable ends that never started")
+		alone = false
 		startRuns(bench)
 	end 'released'
 

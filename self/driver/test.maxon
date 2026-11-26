@@ -37,6 +37,11 @@ let expectMemoryPrefix = "// memory-limit:"
 
 let nativeOnlyDirective = "// native-only"
 
+// A program that holds every processor while it runs, as a test of preemption does, runs with no other test's executable
+// running, as a spec test of maxon's that says `runs: alone` does: beside it, a program whose run is a chain of short waits on
+// the system, such as one that starts a hundred children one after another, waits a slice for each and outlives its deadline.
+let runsAloneDirective = "// runs: alone"
+
 // Each line of this directive is a line of the program's standard input, as maxon's spec tests feed one; a program without one
 // reads the end of its input at once.
 let stdinPrefix = "// stdin:"
@@ -114,6 +119,8 @@ type Expectation
 	var stdin as String
 	var memoryLimitMB as Count
 	var nativeOnly as bool
+	// runsAlone is whether the program's executable runs with no other test's running (runsAloneDirective).
+	var runsAlone as bool
 	// frees is the order in which the interpreter must free the values of the program, when the program says it.
 	var frees as ast.StringList
 	var checkOnly as bool
@@ -135,7 +142,7 @@ type Expectation
 	var scheduled as bool
 
 	static function new() returns Expectation
-		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", stdin: "", memoryLimitMB: 0, nativeOnly: false, frees: ast.StringList.create(0), checkOnly: false, runtimeTier: false, libraryTier: false, irClaims: ast.StringList.create(0), irTier: false, schedules: scheduleSeeds, mentionsConcurrency: false, unsupportedTargets: "", saysScheduler: false, scheduled: false}
+		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", stdin: "", memoryLimitMB: 0, nativeOnly: false, runsAlone: false, frees: ast.StringList.create(0), checkOnly: false, runtimeTier: false, libraryTier: false, irClaims: ast.StringList.create(0), irTier: false, schedules: scheduleSeeds, mentionsConcurrency: false, unsupportedTargets: "", saysScheduler: false, scheduled: false}
 	end 'new'
 end 'Expectation'
 
@@ -345,7 +352,9 @@ function applyDirective(mutates expect Expectation, mutates stdout ByteArray, mu
 		expect.schedules = n
 	end 'schedules' else if line == nativeOnlyDirective 'native'
 		expect.nativeOnly = true
-	end 'native' else if hasPrefix(line, prefix: unsupportedTargetsPrefix) 'targets'
+	end 'native' else if line == runsAloneDirective 'alone'
+		expect.runsAlone = true
+	end 'alone' else if hasPrefix(line, prefix: unsupportedTargetsPrefix) 'targets'
 		expect.unsupportedTargets = trimSpace(afterPrefix(line, prefix: unsupportedTargetsPrefix)).clone()
 	end 'targets' else if hasPrefix(line, prefix: expectSchedulerPrefix) 'scheduler'
 		let answer = trimSpace(afterPrefix(line, prefix: expectSchedulerPrefix))
