@@ -152,15 +152,24 @@ func reachedOnlyByDropped(lines []sourceLine, i int, named map[string]bool) (fir
 const rawPrefix = "__"
 
 // callsUnprovidedBuiltin reports whether the lines call a static of a raw type (__Builtins, __ManagedDirectory) that the
-// built-in table does not declare.
+// built-in table does not declare, or name a raw type that it does not declare (__ManagedFileError).
 func callsUnprovidedBuiltin(lines []sourceLine) bool {
 	for _, l := range lines {
 		if l.removed {
 			continue
 		}
-		for k := 0; k+2 < len(l.code); k++ {
+		for k := 0; k < len(l.code); k++ {
 			name := l.code[k].text
-			if l.code[k].kind == tokIdent && strings.HasPrefix(name, rawPrefix) && l.code[k+1].text == "." && l.code[k+2].kind == tokIdent && !provides(rawMembers(name), l.code[k+2].text) {
+			if l.code[k].kind != tokIdent || !strings.HasPrefix(name, rawPrefix) {
+				continue
+			}
+			if k+2 < len(l.code) && l.code[k+1].text == "." && l.code[k+2].kind == tokIdent {
+				if !provides(rawMembers(name), l.code[k+2].text) {
+					return true
+				}
+			} else if !builtinNames[name] {
+				// A raw type that the table lacks, written as a type (maxon's __ManagedFileError, which File.maxon's failure
+				// mappers take).
 				return true
 			}
 		}

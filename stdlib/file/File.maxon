@@ -1,0 +1,81 @@
+/// File reading, writing, and manipulation operations.
+/// @category System
+/// Error for file read operations
+extension FileReadError
+	public function failure() returns FileFailure
+		return match self 'cause'
+			notFound gives FileFailure.notFound
+			accessDenied gives FileFailure.accessDenied
+			busy gives FileFailure.busy
+			failed gives FileFailure.failed
+		end 'cause'
+	end 'failure'
+end 'FileReadError'
+
+/// Error for file write operations
+extension FileWriteError
+	public function failure() returns FileFailure
+		return match self 'cause'
+			failed gives FileFailure.failed
+			notFound gives FileFailure.notFound
+			accessDenied gives FileFailure.accessDenied
+			alreadyExists gives FileFailure.alreadyExists
+			busy gives FileFailure.busy
+			partialFileLeft gives FileFailure.failed
+		end 'cause'
+	end 'failure'
+end 'FileWriteError'
+
+/// Error for file delete operations
+extension FileDeleteError
+	public function failure() returns FileFailure
+		return match self 'cause'
+			notFound gives FileFailure.notFound
+			accessDenied gives FileFailure.accessDenied
+			busy gives FileFailure.busy
+			failed gives FileFailure.failed
+		end 'cause'
+	end 'failure'
+end 'FileDeleteError'
+
+/// Error for file rename operations
+extension FileRenameError
+	public function failure() returns FileFailure
+		return match self 'cause'
+			failed gives FileFailure.failed
+			notFound gives FileFailure.notFound
+			accessDenied gives FileFailure.accessDenied
+			busy gives FileFailure.busy
+			alreadyExists gives FileFailure.alreadyExists
+		end 'cause'
+	end 'failure'
+end 'FileRenameError'
+
+/// A size in bytes, and a moment in whole Unix seconds. Both come out of `__ManagedFile.statField`,
+/// which answers an i64 on every platform: a size is `off_t`/`GetFileSizeEx` and a timestamp has
+/// already been converted from FILETIME's 100 ns ticks to seconds since 1970 by the runtime.
+public typealias FileSize = int(0 to u64.max)
+
+public typealias Timestamp = int(0 to u64.max)
+
+/// Error for file info operations
+extension FileInfoError
+	public function failure() returns FileFailure
+		return match self 'cause'
+			notFound gives FileFailure.notFound
+			accessDenied gives FileFailure.accessDenied
+			busy gives FileFailure.busy
+			failed gives FileFailure.failed
+		end 'cause'
+	end 'failure'
+end 'FileInfoError'
+
+/// Why a file operation failed, whichever operation it was: every `File` error answers it through
+/// `failure()`, so a caller can judge them all in one place.
+public enum FileFailure
+	notFound
+	accessDenied
+	alreadyExists
+	busy
+	failed
+end 'FileFailure'

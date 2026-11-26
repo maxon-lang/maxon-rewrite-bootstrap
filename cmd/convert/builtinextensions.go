@@ -86,10 +86,23 @@ var extendedBuiltinRecords = []string{"Clock", "Directory", "FilePath", "Process
 
 // builtinRecordConformances are the interfaces of a declaration of extendedBuiltinRecords that its extension leaves out:
 // FilePath is a literal's type and has its toString as a built-in until the seed that compiles its library type.
-var builtinRecordConformances = map[string][]string{"FilePath": {"InitableFromStringLiteral", "Stringable"}}
+var builtinRecordConformances = map[string][]string{
+	"FilePath":        {"InitableFromStringLiteral", "Stringable"},
+	"FileReadError":   {"Error"},
+	"FileWriteError":  {"Error"},
+	"FileDeleteError": {"Error"},
+	"FileRenameError": {"Error"},
+	"FileInfoError":   {"Error"},
+}
 
-// rewriteBuiltinRecords writes the declaration of each of extendedBuiltinRecords as an extension of the built-in type, with
-// the members that the built-in declares left out, and the fields, which the built-in's own storage replaces.
+// extendedBuiltinEnums are the enums minimaxon builds in whose library declaration has members that the built-in lacks (the
+// `failure()` that maxon's File.maxon gives each error of File): the declaration is kept as an extension of the built-in, with
+// the cases, which the built-in declares, left out.
+var extendedBuiltinEnums = []string{"FileReadError", "FileWriteError", "FileDeleteError", "FileRenameError", "FileInfoError"}
+
+// rewriteBuiltinRecords writes the declaration of each of extendedBuiltinRecords and extendedBuiltinEnums as an extension of the
+// built-in type, with the members that the built-in declares left out, and the fields or the cases, which the built-in's own
+// declaration replaces.
 func rewriteBuiltinRecords(lines []sourceLine) {
 	for i := 0; i < len(lines); i++ {
 		l := &lines[i]
@@ -97,7 +110,12 @@ func rewriteBuiltinRecords(lines []sourceLine) {
 			continue
 		}
 		declIdx := skipModifiers(l.code)
-		if declIdx+1 >= len(l.code) || l.code[declIdx].text != "type" || !slices.Contains(extendedBuiltinRecords, l.code[declIdx+1].text) {
+		if declIdx+1 >= len(l.code) {
+			continue
+		}
+		isRecord := l.code[declIdx].text == "type" && slices.Contains(extendedBuiltinRecords, l.code[declIdx+1].text)
+		isEnum := l.code[declIdx].text == "enum" && slices.Contains(extendedBuiltinEnums, l.code[declIdx+1].text)
+		if !isRecord && !isEnum {
 			continue
 		}
 		last := topLevelEnd(lines, i)
@@ -107,7 +125,11 @@ func rewriteBuiltinRecords(lines []sourceLine) {
 			dropConformance(l, iface)
 		}
 		dropEmptyImplements(l)
-		dropFields(lines, i, last)
+		if isEnum {
+			dropCases(lines, i, last)
+		} else {
+			dropFields(lines, i, last)
+		}
 		dropNativeMembers(lines, i, last, target)
 		i = last
 	}
@@ -121,6 +143,20 @@ func dropFields(lines []sourceLine, header, last int) {
 			continue
 		}
 		if word := l.code[skipModifiers(l.code)].text; word == "var" || word == "let" {
+			l.removed = true
+		}
+	}
+}
+
+// dropCases leaves out the cases of the enum from header to last, each a line of its own that holds a name and nothing else
+// (its comment goes with it).
+func dropCases(lines []sourceLine, header, last int) {
+	for k := header + 1; k < last; k++ {
+		l := &lines[k]
+		if l.removed || len(l.code) == 0 || l.indent != "\t" {
+			continue
+		}
+		if len(l.code) == 1 && l.code[0].kind == tokIdent {
 			l.removed = true
 		}
 	}

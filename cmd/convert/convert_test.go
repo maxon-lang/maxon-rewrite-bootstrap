@@ -648,6 +648,12 @@ func TestConvertLibraryRules(t *testing.T) {
 			in:   "public let Limit = 65536\n\npublic let Kept = 1\n\npublic type Process\n\tpublic static function dropped() returns Count\n\t\treturn Limit + helper(__Builtins.notProvided())\n\tend 'dropped'\n\n\tstatic function helper(n Count) returns Count\n\t\treturn n\n\tend 'helper'\n\n\tpublic static function keeps() returns Count\n\t\treturn Kept\n\tend 'keeps'\nend 'Process'\n",
 			want: "public let Kept = 1\n\nextension Process\n\tpublic static function keeps() returns Count\n\t\treturn Kept\n\tend 'keeps'\nend 'Process'\n",
 		},
+		{
+			name: "an enum that minimaxon builds in is kept as an extension with its cases and conformance left out, and a function over a raw type the table lacks goes",
+			file: "File.maxon",
+			in:   "public enum FileReadError implements Error\n\tnotFound\n\tfailed  // the rest\n\n\tpublic function failure() returns FileFailure\n\t\treturn match self 'cause'\n\t\t\tnotFound gives FileFailure.notFound\n\t\t\tfailed gives FileFailure.failed\n\t\tend 'cause'\n\tend 'failure'\nend 'FileReadError'\n\npublic enum FileFailure\n\tnotFound\n\tfailed\nend 'FileFailure'\n\nfunction readFailureOf(cause __ManagedFileError) returns FileReadError\n\treturn FileReadError.failed\nend 'readFailureOf'\n",
+			want: "extension FileReadError\n\tpublic function failure() returns FileFailure\n\t\treturn match self 'cause'\n\t\t\tnotFound gives FileFailure.notFound\n\t\t\tfailed gives FileFailure.failed\n\t\tend 'cause'\n\tend 'failure'\nend 'FileReadError'\n\npublic enum FileFailure\n\tnotFound\n\tfailed\nend 'FileFailure'\n",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
