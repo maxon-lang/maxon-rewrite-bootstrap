@@ -2,13 +2,17 @@
 // unsupported-targets: x64-windows
 // MAXON_PREEMPT=off has the monitor take no processor from the thread holding it, as maxon's runtime reads it, and any
 // value but off, on and empty is maxon's runtime abort 116. The program runs itself as a child at one processor under each
-// switch, through sh, which sets the variables: main spins for spinMs, reading the clock, while a behaviour it scheduled
-// first waits to run. With preemption the monitor stops main after its slice and the behaviour runs during the spin; with
-// it off the behaviour runs only once main parks.
+// switch, through sh, which sets the variables: main spins, reading the clock, while a behaviour it scheduled first waits
+// to run. With preemption the monitor stops main after its slice and the behaviour runs during the spin; with it off the
+// behaviour runs only once main parks. The spin with preemption on is long, since a loaded machine may run the monitor
+// late; the spin with it off need only pass the slice.
 typealias Arguments = Array with String
 
-// spinMs is how long the child's main holds its processor, well past the monitor's 10 ms slice.
-let spinMs = 200 as Count
+// offSpinMs is how long the child's main holds its processor with preemption off, well past the monitor's 10 ms slice.
+let offSpinMs = 200 as Count
+
+// onSpinMs is how long it spins with preemption on, long enough that a monitor a loaded machine runs late still stops it.
+let onSpinMs = 2000 as Count
 
 let nanosPerMilli = 1000000 as Count
 
@@ -21,7 +25,7 @@ type Times
 	end 'make'
 end 'Times'
 
-function child() returns ExitCode
+function child(spinMs Count) returns ExitCode
 	let times = cown(Times.make())
 	let first = share(times)
 	when first as t 'ran'
@@ -45,7 +49,8 @@ function runChild(switch String)
 	let me = try Process.executablePath() otherwise panic("no executable path")
 	var script = Arguments.create(0)
 	script.push("-c")
-	script.push("MAXON_MAX_PROCS=1 MAXON_PREEMPT={switch} exec '{me.toString()}' child")
+	let kind = "child-on" if switch == "on" else "child"
+	script.push("MAXON_MAX_PROCS=1 MAXON_PREEMPT={switch} exec '{me.toString()}' {kind}")
 	let out = try Subprocess.run(Executable.name("sh"), arguments: script) otherwise panic("cannot run sh")
 	print("{switch}: {out.stdout.trim()}{out.stderr.trim()}, exit {out.exitCode()}\n")
 end 'runChild'
@@ -55,8 +60,10 @@ end 'runChild'
 //> bogus: fatal error: runtime abort 116 (schedulerPreemptSwitchUnreadable), exit 116
 
 function main() returns ExitCode
-	if CommandLine.args().count() > 1 'child'
-		return child()
+	let args = CommandLine.args()
+	if args.count() > 1 'child'
+		let kind = try args.get(1) otherwise ""
+		return child(onSpinMs if kind == "child-on" else offSpinMs)
 	end 'child'
 	runChild("off")
 	runChild("on")
