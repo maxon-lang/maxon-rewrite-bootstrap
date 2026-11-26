@@ -135,8 +135,9 @@ function refuseHashSeed(pin String)
 end 'refuseHashSeed'
 
 #if os(Windows)
-	// drawEntropy is 8 bytes of the system's entropy, from ProcessPrng, which is found by name.
-	function drawEntropy() returns Count
+	// fillEntropy overwrites count bytes at an address with the system's entropy, from ProcessPrng, which is found by name and
+	// asked once for all of them.
+	function fillEntropy(at Count, count Count)
 		let library = cStringOf(entropyLibrary)
 		let module = __Raw.callImport1("LoadLibraryA", arg1: library)
 		free(library)
@@ -149,22 +150,19 @@ end 'refuseHashSeed'
 		if prng == 0 'noFunction'
 			panic("the operating system refused to supply the entropy for a hash seed")
 		end 'noFunction'
-		var word = 0 as Count
-		if dword(__Raw.callHost2(prng, arg1: __Raw.addressOf(word), arg2: hashSecretBytes)) == 0 'refused'
+		if dword(__Raw.callHost2(prng, arg1: at, arg2: count)) == 0 'refused'
 			panic("the operating system refused to supply the entropy for a hash seed")
 		end 'refused'
-		return word
-	end 'drawEntropy'
+	end 'fillEntropy'
 #endif
 
 #if os(Linux)
-	// drawEntropy is 8 bytes of the system's entropy, from getrandom, made again when a signal breaks it off.
-	function drawEntropy() returns Count
-		var word = 0 as Count
-		let at = __Raw.addressOf(word)
+	// fillEntropy overwrites count bytes at an address with the system's entropy, from getrandom, made again when a signal
+	// breaks it off or it gives fewer than were asked for.
+	function fillEntropy(at Count, count Count)
 		var filled = 0 as Count
-		while filled < hashSecretBytes 'fill'
-			let got = __Raw.syscall3(linuxSysGetrandom, arg1: __Raw.wrappingAdd(at, right: filled), arg2: __Raw.wrappingSub(hashSecretBytes, right: filled), arg3: 0)
+		while filled < count 'fill'
+			let got = __Raw.syscall3(linuxSysGetrandom, arg1: __Raw.wrappingAdd(at, right: filled), arg2: __Raw.wrappingSub(count, right: filled), arg3: 0)
 			if failed(got) 'failed'
 				if errnoOf(got) != linuxEintr 'refused'
 					panic("the operating system refused to supply the entropy for a hash seed")
@@ -173,24 +171,23 @@ end 'refuseHashSeed'
 				filled = __Raw.wrappingAdd(filled, right: got)
 			end 'got'
 		end 'fill'
-		return word
-	end 'drawEntropy'
+	end 'fillEntropy'
 #endif
 
-// randomFill is __Builtins.fillRandom: it overwrites every byte of a byte array with the system's entropy, a word at a time,
-// and gives 0.
+// drawEntropy is 8 bytes of the system's entropy.
+function drawEntropy() returns Count
+	var word = 0 as Count
+	fillEntropy(__Raw.addressOf(word), count: hashSecretBytes)
+	return word
+end 'drawEntropy'
+
+// randomFill is __Builtins.fillRandom: it overwrites every byte of a byte array with the system's entropy, in one request
+// of the system's, and gives 0.
 function randomFill(array Count) returns Count
 	let length = collectionLength(array)
-	var at = 0 as Count
-	while at < length 'words'
-		let word = drawEntropy()
-		var i = 0 as Count
-		while i < hashSecretBytes and at < length 'bytes'
-			bytesSet(array, index: at, value: orderedWordByte(word as HashWord, index: i, width: hashSecretBytes, bigEndian: false))
-			at = __Raw.wrappingAdd(at, right: 1)
-			i = __Raw.wrappingAdd(i, right: 1)
-		end 'bytes'
-	end 'words'
+	if length != 0 'bytes'
+		fillEntropy(collectionPlace(array, index: 0, elementBytes: byteBytes), count: length)
+	end 'bytes'
 	return 0
 end 'randomFill'
 

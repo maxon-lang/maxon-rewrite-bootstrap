@@ -833,14 +833,24 @@
 		return count
 	end 'onlineProcessors'
 
-	// drawEntropy is 8 bytes of the system's entropy, from getentropy.
-	function drawEntropy() returns Count
-		var word = 0 as Count
-		if intResult(__Raw.callImport2("getentropy", arg1: __Raw.addressOf(word), arg2: hashSecretBytes)) != 0 'refused'
-			panic("the operating system refused to supply the entropy for a hash seed")
-		end 'refused'
-		return word
-	end 'drawEntropy'
+	// entropyRequestBytes is the most that getentropy gives in one call.
+	let entropyRequestBytes = 256 as Count
+
+	// fillEntropy overwrites count bytes at an address with the system's entropy, from getentropy, in requests of at most
+	// entropyRequestBytes.
+	function fillEntropy(at Count, count Count)
+		var filled = 0 as Count
+		while filled < count 'fill'
+			var request = __Raw.wrappingSub(count, right: filled)
+			if request > entropyRequestBytes 'capped'
+				request = entropyRequestBytes
+			end 'capped'
+			if intResult(__Raw.callImport2("getentropy", arg1: __Raw.wrappingAdd(at, right: filled), arg2: request)) != 0 'refused'
+				panic("the operating system refused to supply the entropy for a hash seed")
+			end 'refused'
+			filled = __Raw.wrappingAdd(filled, right: request)
+		end 'fill'
+	end 'fillEntropy'
 
 	// readStandardInput reads up to count bytes of standard input to room and gives how many it read: 0 at the end of the
 	// stream, which a failure is as well.
