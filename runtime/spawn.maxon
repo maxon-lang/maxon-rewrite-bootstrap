@@ -225,7 +225,7 @@ let requestBytes = 184 as Count
 // A child: the record that a handle names. It holds whether a wait has taken it, the run that the child's system record is (its
 // pipes, its exit and its wait), and the copy of the input that the child reads, which the run's input stream points into. A
 // streaming child's holds also how many calls use it (the users, which a release waits to be none), whether a wait for its exit is
-// parked, the green thread that writes the payload queued for its input and the copy of that payload.
+// parked and the copy of the payload queued for its input.
 let childKind = 1 as Count
 
 let childKindOffset = 0 as Count
@@ -242,11 +242,9 @@ let childUsersOffset = 40 as Count
 
 let childWaitingOffset = 48 as Count
 
-let childWriterOffset = 56 as Count
+let childQueueOffset = 56 as Count
 
-let childQueueOffset = 64 as Count
-
-let childBytes = 72 as Count
+let childBytes = 64 as Count
 
 // A child's mode: whether its output is collected by a wait (the attached run's), or read on demand while the child goes on and its
 // input written by calls (the streaming child's).
@@ -698,11 +696,9 @@ function spawnAnswer(request Count, held Count, mode Count) returns Count
 	__Raw.storeWord(child, offset: childRunOffset, value: run)
 	__Raw.storeWord(child, offset: childInputOffset, value: held)
 	__Raw.storeWord(child, offset: childModeOffset, value: mode)
-	__Raw.storeWord(child, offset: childWriterOffset, value: noGreen)
 	if mode == childStreaming 'streaming'
 		startStream(fieldAt(wait, offset: waitOutputOffset), wait: wait)
 		startStream(fieldAt(wait, offset: waitErrorOffset), wait: wait)
-		__Raw.storeWord(fieldAt(wait, offset: waitInputOffset), offset: inputWaitOffset, value: wait)
 	end 'streaming'
 	return handleInsert(child)
 end 'spawnAnswer'

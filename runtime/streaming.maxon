@@ -41,12 +41,6 @@ let streamErrorWord = 1 as Count
 // signed.
 let readMostLimit = 0x8000000000000000 as Count
 
-// How long a wait for the input to take more sleeps, by how many times in a row it has: 0, 1, 3, 7, 15 milliseconds and at most
-// stdinBackoffMaxMs, the steps that maxon's pump counts.
-let stdinBackoffSteps = 5 as Count
-
-let stdinBackoffMaxMs = 16 as Count
-
 // streamingHold is the record of the streaming child that a word names, with one more user of it, which the caller gives back
 // (childDrop), or 0 for a word that names none.
 function streamingHold(handle Count) returns Count
@@ -242,10 +236,132 @@ function pendingOf(input Count) returns Count
 	return __Raw.wrappingSub(wordAt(input, offset: inputLengthOffset), right: wordAt(input, offset: inputDoneOffset))
 end 'pendingOf'
 
-// subprocessQueueStdin queues a copy of the length bytes of the data for the child's input, which a green thread of the runtime
-// writes as the child takes them and then closes the input, so that the caller goes on while the child reads (and while it writes
-// what a caller that wrote it itself could not read); it answers 0, 2 while a payload is queued already, and -1 for an input that
-// is closed, a length past the data's and a word that names no live streaming child.
+// The outcome of a turn of a queued payload's write: some bytes were written or none could be (the pipe takes no more, or a write is
+// in flight), or the child no longer reads.
+let stepMoved = 0 as Count
+
+let stepBlocked = 1 as Count
+
+let stepFailed = 2 as Count
+
+#if os(Windows)
+	// overlappedPending is STATUS_PENDING, the status that an OVERLAPPED holds until its operation has completed.
+	let overlappedPending = 0x103 as Count
+
+	// writeStep is the one write that a turn of a queued payload makes, which never waits: a write that completes at once counts its
+	// bytes, and one that is pending is kept in flight in the entry's OVERLAPPED of a write, the next turn finding it completed or
+	// still pending. A pipe takes up to its buffer at once, and what is pending completes as the child reads.
+	function writeStep(input Count, entry Count) returns Count
+		let overlapped = __Raw.wrappingAdd(entry, right: entryWriteOverlappedOffset)
+		if wordAt(input, offset: inputInflightOffset) != 0 'inFlight'
+			let status = dword(__Raw.loadWord(overlapped, offset: 0))
+			if status == overlappedPending 'pending'
+				__Raw.storeWord(input, offset: inputBlockedOffset, value: set)
+				return stepBlocked
+			end 'pending'
+			// The completion that was posted is this turn's to take: a wait for the input would otherwise find it kept.
+			_ = __Raw.compareExchange(entry, offset: eventWrite, expected: eventQueued, desired: eventNobody)
+			__Raw.storeWord(input, offset: inputInflightOffset, value: 0)
+			if status != statusSuccess 'failed'
+				return stepFailed
+			end 'failed'
+			__Raw.storeWord(input, offset: inputDoneOffset, value: __Raw.wrappingAdd(wordAt(input, offset: inputDoneOffset), right: __Raw.loadWord(overlapped, offset: wordBytes)))
+			return stepMoved
+		end 'inFlight'
+		let done = wordAt(input, offset: inputDoneOffset)
+		let left = __Raw.wrappingSub(wordAt(input, offset: inputLengthOffset), right: done)
+		let asked = left if left < inputChunkBytes else inputChunkBytes
+		let started = __Raw.callImport5("WriteFile", arg1: __Raw.loadWord(entry, offset: entryHandleOffset), arg2: __Raw.wrappingAdd(wordAt(input, offset: inputTextOffset), right: done), arg3: dword(asked), arg4: 0, arg5: eventOverlapped(entry, mode: eventWrite))
+		if dword(started) == 0 'notDone'
+			if dword(win32Error()) != errorIoPending 'refused'
+				return stepFailed
+			end 'refused'
+			__Raw.storeWord(input, offset: inputInflightOffset, value: asked)
+			__Raw.storeWord(input, offset: inputBlockedOffset, value: set)
+			return stepBlocked
+		end 'notDone'
+		__Raw.storeWord(input, offset: inputDoneOffset, value: __Raw.wrappingAdd(done, right: __Raw.loadWord(overlapped, offset: wordBytes)))
+		return stepMoved
+	end 'writeStep'
+
+	// drainInFlight ends a write of a queued payload that is in flight, which the payload's copy and the entry's OVERLAPPED stay
+	// valid for until it has: it is cancelled, and its completion waited for, by a wait on the entry that is evicted.
+	function drainInFlight(input Count)
+		let entry = wordAt(input, offset: endEntryOffset)
+		if wordAt(input, offset: inputInflightOffset) != 0 and entry != noEntry 'inFlight'
+			if dword(__Raw.loadWord(__Raw.wrappingAdd(entry, right: entryWriteOverlappedOffset), offset: 0)) == overlappedPending 'pending'
+				eventEvict(entry)
+				_ = eventWait(entry, mode: eventWrite, deadline: eventNoDeadline)
+			end 'pending'
+		end 'inFlight'
+		__Raw.storeWord(input, offset: inputInflightOffset, value: 0)
+	end 'drainInFlight'
+#endif
+
+#if os(Linux) or os(macOS)
+	// writeStep is the one write that a turn of a queued payload makes, which never waits: the bytes the pipe takes now are counted,
+	// and a pipe that takes none (EAGAIN) is blocked until the event queue reports it writable.
+	function writeStep(input Count, entry Count) returns Count
+		let done = wordAt(input, offset: inputDoneOffset)
+		let left = __Raw.wrappingSub(wordAt(input, offset: inputLengthOffset), right: done)
+		let asked = left if left < inputChunkBytes else inputChunkBytes
+		let result = transferCall(__Raw.loadWord(entry, offset: entryHandleOffset), mode: eventWrite, buffer: __Raw.wrappingAdd(wordAt(input, offset: inputTextOffset), right: done), length: asked)
+		if not failed(result) 'moved'
+			__Raw.storeWord(input, offset: inputDoneOffset, value: __Raw.wrappingAdd(done, right: result))
+			return stepMoved
+		end 'moved'
+		if errnoOf(result) == eintr 'interrupted'
+			return stepMoved
+		end 'interrupted'
+		if errnoOf(result) != eagain 'refused'
+			return stepFailed
+		end 'refused'
+		__Raw.storeWord(input, offset: inputBlockedOffset, value: set)
+		return stepBlocked
+	end 'writeStep'
+
+	// drainInFlight has nothing in flight: a write of the pipe's takes its bytes or none.
+	function drainInFlight(input Count)
+	end 'drainInFlight'
+#endif
+
+// closeInput closes the caller's end of a child's input, which ends the payload queued for it, with a write in flight ended first.
+function closeInput(input Count)
+	drainInFlight(input)
+	releaseOurEnd(input)
+	__Raw.storeRelease(input, offset: inputQueuedOffset, value: unset)
+	__Raw.storeWord(input, offset: inputBlockedOffset, value: 0)
+end 'closeInput'
+
+// pushInput is a turn of the payload queued for an input: the one write that the pipe takes now, and no wait. A payload that is
+// written out ends the turn by closing the input, which the child sees as the end of what it reads; one whose child no longer
+// reads, or whose input was closed, is dropped.
+function pushInput(input Count) returns Count
+	if wordAt(input, offset: inputQueuedOffset) == 0 'none'
+		return 0
+	end 'none'
+	let entry = wordAt(input, offset: endEntryOffset)
+	if entry == noEntry 'closed'
+		__Raw.storeRelease(input, offset: inputQueuedOffset, value: unset)
+		return 0
+	end 'closed'
+	let length = wordAt(input, offset: inputLengthOffset)
+	if wordAt(input, offset: inputDoneOffset) < length 'unwritten'
+		if writeStep(input, entry: entry) == stepFailed 'failed'
+			closeInput(input)
+			return 0
+		end 'failed'
+	end 'unwritten'
+	if wordAt(input, offset: inputDoneOffset) >= length and wordAt(input, offset: inputInflightOffset) == 0 'writtenOut'
+		closeInput(input)
+	end 'writtenOut'
+	return pendingOf(input)
+end 'pushInput'
+
+// subprocessQueueStdin queues a copy of the length bytes of the data for the child's input, one payload at a time, which
+// subprocessPushStdin writes as the pipe takes it and closes the input after, so that the caller goes on while the child reads (and
+// while it writes what a caller that wrote it itself could not read); nothing is written until a push. It answers 0, 2 while a payload
+// is queued already, and -1 for an input that is closed, a length past the data's and a word that names no live streaming child.
 function subprocessQueueStdin(handle Count, data String, length Count) returns Count
 	let child = streamingHold(handle)
 	if child == 0 'none'
@@ -264,58 +380,44 @@ function subprocessQueueStdin(handle Count, data String, length Count) returns C
 		__Raw.storeWord(input, offset: inputTextOffset, value: payload)
 		__Raw.storeWord(input, offset: inputLengthOffset, value: length)
 		__Raw.storeWord(input, offset: inputDoneOffset, value: 0)
+		__Raw.storeWord(input, offset: inputInflightOffset, value: 0)
+		__Raw.storeWord(input, offset: inputBlockedOffset, value: 0)
 		__Raw.storeRelease(input, offset: inputQueuedOffset, value: set)
 		__Raw.storeWord(child, offset: childQueueOffset, value: payload)
-		__Raw.storeWord(child, offset: childWriterOffset, value: startHelper(__Raw.codeAddress("inputWriterMain"), argument: input))
 		answer = stdinAccepted
 	end 'open'
 	childDrop(child)
 	return answer
 end 'subprocessQueueStdin'
 
-// subprocessPushStdin gives how many bytes of the queued payload are not written yet, 0 where none is queued, after the writer has
-// had a turn if some are not, and -1 for a word that names no live streaming child. It never waits for the child to take them.
+// subprocessPushStdin makes one turn of the queued payload (pushInput) and gives how many bytes of it are not written yet, 0 where
+// none is queued or it is written out, and -1 for a word that names no live streaming child. It never waits for the child to take
+// them.
 function subprocessPushStdin(handle Count) returns Count
 	let child = streamingHold(handle)
 	if child == 0 'none'
 		return noHandle
 	end 'none'
-	let input = inputOf(child)
-	if pendingOf(input) != 0 'pending'
-		greenYield()
-	end 'pending'
-	let remaining = pendingOf(input)
+	let remaining = pushInput(inputOf(child))
 	childDrop(child)
 	return remaining
 end 'subprocessPushStdin'
 
-// stdinBackoffOf is how long a wait for the input sleeps after a number of waits in a row.
-function stdinBackoffOf(passes Count) returns Count
-	var milliseconds = 0 as Count
-	var step = 0 as Count
-	while step < passes and step < stdinBackoffSteps 'grow'
-		milliseconds = __Raw.wrappingAdd(__Raw.wrappingAdd(milliseconds, right: milliseconds), right: 1)
-		step = __Raw.wrappingAdd(step, right: 1)
-	end 'grow'
-	return milliseconds if milliseconds < stdinBackoffMaxMs else stdinBackoffMaxMs
-end 'stdinBackoffOf'
-
-// subprocessAwaitStdinWritable gives the green thread that writes a queued payload its turn, by a sleep that grows with the number
-// of waits in a row (passes), while a payload is queued, and answers 0, or -1 for a word that names no live streaming child.
+// subprocessAwaitStdinWritable parks the calling green thread, where a turn of the queued payload met a pipe that takes no more,
+// until the event queue reports it writable (or the write that was in flight completed, or the input is closed), and answers 0, or
+// -1 for a word that names no live streaming child. With nothing blocked it answers at once. The passes are the pump's count of
+// waits in a row, which no wait here needs.
 function subprocessAwaitStdinWritable(handle Count, passes Count) returns Count
 	let child = streamingHold(handle)
 	if child == 0 'none'
 		return noHandle
 	end 'none'
 	let input = inputOf(child)
-	if pendingOf(input) != 0 and wordAt(input, offset: endEntryOffset) != noEntry 'pending'
-		let milliseconds = stdinBackoffOf(passes)
-		if milliseconds == 0 'now'
-			greenYield()
-		end 'now' else 'later'
-			sleepMs(milliseconds)
-		end 'later'
-	end 'pending'
+	let entry = wordAt(input, offset: endEntryOffset)
+	if pendingOf(input) != 0 and entry != noEntry and wordAt(input, offset: inputBlockedOffset) != 0 'blocked'
+		_ = eventWait(entry, mode: eventWrite, deadline: eventNoDeadline)
+		__Raw.storeWord(input, offset: inputBlockedOffset, value: 0)
+	end 'blocked'
 	childDrop(child)
 	return stdinAccepted
 end 'subprocessAwaitStdinWritable'
@@ -327,7 +429,7 @@ function subprocessCloseStdin(handle Count)
 	if child == 0 'none'
 		return
 	end 'none'
-	releaseOurEnd(inputOf(child))
+	closeInput(inputOf(child))
 	childDrop(child)
 end 'subprocessCloseStdin'
 
@@ -417,8 +519,8 @@ function evictEntryOf(record Count)
 end 'evictEntryOf'
 
 // releaseStreaming gives back a streaming child that a word named: it takes the child out of the table, so that no call finds it,
-// evicts what a call may be parked on (a read, a write, the writer of a queued payload, a wait for the exit), waits for the calls
-// that use the child to have returned and for the writer to have ended, closes its pipes and leaves the child where it still runs, as
+// evicts what a call may be parked on (a read, a write, a wait for the input or for the exit), waits for the calls that use the
+// child to have returned, ends a write of a queued payload that is in flight, closes its pipes and leaves the child where it still runs, as
 // maxon's release does, for the event queue to wait for once it ends (renounceRun), and frees what it held.
 function releaseStreaming(handle Count, child Count)
 	if handleFind(handle, kind: childKind, remove: true) == 0 'gone'
@@ -433,10 +535,7 @@ function releaseStreaming(handle Count, child Count)
 	while __Raw.atomicAdd(child, offset: childUsersOffset, value: 0) != 0 'users'
 		greenYield()
 	end 'users'
-	let writer = wordAt(child, offset: childWriterOffset)
-	if writer != noGreen 'written'
-		_ = greenAwait(writer)
-	end 'written'
+	drainInFlight(fieldAt(wait, offset: waitInputOffset))
 	renounceRun(run)
 	freeStream(fieldAt(wait, offset: waitOutputOffset))
 	freeStream(fieldAt(wait, offset: waitErrorOffset))

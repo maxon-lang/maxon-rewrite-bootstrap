@@ -5605,8 +5605,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   and `subprocessStderrState` tell apart (`__SubprocessStreamState`: `open`, `atEof` and `readFailed` as the reads latched them,
   `noSuchChild`). `subprocessWaitExit` parks until the child has exited (-2 or -3 for a deadline that ended the tree, as the
   collect's), `subprocessPollExit` and `subprocessExitSignal` ask without waiting, `subprocessCloseStdin` closes the input, and
-  `subprocessQueueStdin`, `subprocessPushStdin` and `subprocessAwaitStdinWritable` hand a copy of a payload to a green thread of
-  the runtime that writes it as the child reads and then closes the input. A child is the same record for both spawns, so
+  `subprocessQueueStdin` copies one payload (a second answers 2), `subprocessPushStdin` writes what the pipe takes in one write that
+  never waits (EAGAIN is blocked on Linux and macOS; Windows keeps one overlapped write in flight) and gives how many bytes are not
+  written, closing the input once all are, and `subprocessAwaitStdinWritable` waits for the input entry's write readiness where a
+  push was blocked; nothing is written before a push, and no green thread holds the payload. A child is the same record for both spawns, so
   `subprocessEndTree`, `subprocessGetPid` and `subprocessReleaseHandle` serve either. The interpreter halts at each row
   (`// native-only`). maxon's `Subprocess.maxon` is converted over them (`stdlib/subprocess`, next bullet).
 - **A Windows argument is quoted as maxon's runtime decides it, but its backslashes are written as the C runtime reads them back.**
@@ -5639,12 +5641,6 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   row answers them, since only this program waits for its children); maxon's pumps over a streaming child
   (`helpers/stream/childPump.maxon`, `stdinFeed.maxon`), which are not in `stdlib/files.txt`; and maxon's own `subprocessKill` and
   `subprocessSendSignal`, which its library does not call either.
-- **A payload queued for a streaming child's input is written by a green thread of the runtime.** maxon's pump pushes what the
-  pipe takes itself (`subprocessPushStdin`) and waits for the pipe to take more (`subprocessAwaitStdinWritable`); here
-  `subprocessQueueStdin` starts a green thread that writes the copy of the payload as the child reads it and then closes the input,
-  `subprocessPushStdin` gives how many bytes are not written yet after giving that thread a turn, and `subprocessAwaitStdinWritable`
-  sleeps (0, 1, 3, 7, 15 and at most 16 ms for the passes, the steps of maxon's pump) for it; the same on every system. A write
-  while a payload is queued answers 2, as in maxon.
 
 ## Changing the language
 

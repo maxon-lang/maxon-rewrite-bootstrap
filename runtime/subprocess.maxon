@@ -226,13 +226,18 @@ let inputWaitOffset = 24
 // inputHoldOffset says whether the input is held open and never written (InputSource.hold).
 let inputHoldOffset = 32
 
-// The input of a streaming child holds also how many of the bytes of the payload queued for it are written, and whether a payload is
-// queued and not written out.
+// The input of a streaming child holds also how many of the bytes of the payload queued for it are written, whether a payload is
+// queued and not written out, how many bytes of a write that is in flight on Windows are not counted yet, and whether the last turn
+// of the payload met a pipe that takes no more, which a wait for the input waits to change.
 let inputDoneOffset = 40
 
 let inputQueuedOffset = 48
 
-let inputRecordBytes = 56
+let inputInflightOffset = 56
+
+let inputBlockedOffset = 64
+
+let inputRecordBytes = 72
 
 // readChunkBytes is the least room a stream's text has past its length before a read, and readMostBytes the most one read asks
 // for, which the system's counts of 32 bits hold.
@@ -531,10 +536,8 @@ function inputWriterMain(g Count) returns Count
 			break 'write'
 		end 'stopped'
 		done = __Raw.wrappingAdd(done, right: wrote)
-		__Raw.storeRelease(input, offset: inputDoneOffset, value: done)
 	end 'write'
 	releaseOurEnd(input)
-	__Raw.storeRelease(input, offset: inputQueuedOffset, value: unset)
 	return 0
 end 'inputWriterMain'
 

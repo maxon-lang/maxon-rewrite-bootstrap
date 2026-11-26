@@ -1,0 +1,71 @@
+// A payload queued for the input of a streaming child is held by no green thread of the runtime: it is written by the caller's pushes
+// alone, so queueing one for a child that reads nothing and pushing it once leaves the number of live green threads as it was, where
+// a thread that waited for the pipe would be one more, and would keep a program from ending until the child did. The child is a
+// program of the system that waits and reads nothing, which the release leaves running (it ends by itself).
+//> a payload of four megabytes was queued for a child that reads nothing: queued 0, a push left some of it unwritten: true
+//> no green thread was made for the payload: true
+
+let queuedMegabytes = 4 as Count
+
+let megabyte = 1048576 as Count
+
+function queueWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'queueWrite'
+
+// queueAppend adds a text and its NUL to a blob of tokens.
+function queueAppend(blob Count, text String)
+	appendBytesOf(blob, address: __Raw.stringBytes(text), length: __Raw.stringLength(text))
+	let at = collectionExtend(blob, count: 1, elementBytes: byteBytes)
+	__Raw.storeByte(at, offset: 0, value: 0)
+end 'queueAppend'
+
+// queueSpawn starts a program of the system that waits for twenty seconds and reads nothing, as a streaming child, and gives its handle.
+function queueSpawn() returns Count
+	let blob = bytesNew()
+	#if os(Windows)
+		queueAppend(blob, text: "ping")
+		queueAppend(blob, text: "-n")
+		queueAppend(blob, text: "20")
+		queueAppend(blob, text: "127.0.0.1")
+		let tokens = 4 as Count
+	#else
+		queueAppend(blob, text: "sleep")
+		queueAppend(blob, text: "20")
+		let tokens = 2 as Count
+	#endif
+	let handle = subprocessSpawnStreaming(blob, argc: tokens, cwd: "", flags: 0, env: 0, envInherit: spawnEnvironmentParent)
+	free(collectionData(blob))
+	free(blob)
+	return handle
+end 'queueSpawn'
+
+// queueLiveThreads is how many behaviours and green threads are live, the sum of what each processor holds, which is exact while
+// the one green thread that runs, this one, is the only one that changes it.
+function queueLiveThreads() returns Count
+	let scheduler = schedulerOf(__Raw.threadContext())
+	var live = 0 as Count
+	for i in 0 upto madeProcs(scheduler) 'procs'
+		live = __Raw.wrappingAdd(live, right: __Raw.loadWord(procAt(scheduler, index: i), offset: procLiveOffset))
+	end 'procs'
+	return live
+end 'queueLiveThreads'
+
+function main() returns ExitCode
+	let child = queueSpawn()
+	if child == noHandle 'unstarted'
+		panic("the child did not start")
+	end 'unstarted'
+	let size = queuedMegabytes * megabyte
+	let room = __Raw.stringRoom(size)
+	zeroRange(room, from: 0, to: size)
+	let text = stringOfRoom(room, length: size)
+	let before = queueLiveThreads()
+	let queued = subprocessQueueStdin(child, data: text, length: size)
+	let remaining = subprocessPushStdin(child)
+	let after = queueLiveThreads()
+	queueWrite("a payload of four megabytes was queued for a child that reads nothing: queued {itoa(queued, unsigned: true)}, a push left some of it unwritten: {remaining > 0 and remaining <= size}\n")
+	queueWrite("no green thread was made for the payload: {after == before}\n")
+	subprocessReleaseHandle(child)
+	return 0
+end 'main'

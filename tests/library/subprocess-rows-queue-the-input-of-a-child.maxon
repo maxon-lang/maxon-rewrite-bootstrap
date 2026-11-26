@@ -1,14 +1,17 @@
-// A payload that is queued for a streaming child's input (subprocessQueueStdin) is written to it by a green thread of the runtime as the
-// child takes it, and the input is closed after it, so the caller goes on: a child that writes a megabyte before it reads anything
-// would block a caller that wrote its input itself, which only its own read of the output could free. The caller pushes
-// (subprocessPushStdin, which says how many bytes are not written yet), waits for the input to take more (subprocessAwaitStdinWritable)
-// and reads. A second payload is refused while one is queued, and a write of the input is too. The child is this program run again.
+// A payload that is queued for a streaming child's input (subprocessQueueStdin) is written to it by the caller's pushes
+// (subprocessPushStdin, one write of what the pipe takes, which says how many bytes are not written yet) and nothing else: none is
+// written before a push, and the input is closed once the payload is out. The caller waits for the input to take more
+// (subprocessAwaitStdinWritable) where a push met a pipe that took no more, so that a child that writes a megabyte before it reads
+// anything, which would block a caller that wrote its input itself, goes on while a coroutine reads its output. A second payload is
+// refused while one is queued, and a write of the input is too. The child is this program run again.
 // native-only
 //> queued: 0, a second queue: 2, a write: 2
 //> the payload was written out and the input closed: true
 //> the child that only reads counted: [count:2097152]
 //> a queue and a write after the input was closed answer -1 and 1: -1 1
-//> the child that writes first, read by the caller as it writes: 1048576 bytes, and then counted: [done:2097152]
+//> the child that writes first, read by a coroutine as the caller pushes: 1048576 bytes, pushed to the end: true, and then counted: [done:2097152]
+//> a queued payload that nothing pushed reached the child: false
+//> after the push the child read it and wrote its file: true
 
 typealias Blob = Array with Byte
 
@@ -21,6 +24,10 @@ let streamOutput = 0 as FullRangeInt
 let streamError = 1 as FullRangeInt
 
 let megabyte = 1048576
+
+let waitMs = 700
+
+let waitLimitMs = 30000
 
 // readAllInput counts the bytes of the input of this program up to its end.
 function readAllInput() returns Count
@@ -40,6 +47,9 @@ end 'readAllInput'
 // child counts its input and says so on its output; as the filler it writes a megabyte of output first, which nothing reads until
 // its parent chooses, and says what it counted on its error.
 function child(mode String) returns ExitCode
+	if mode == "touch" 'touch'
+		return touchFile()
+	end 'touch'
 	if mode == "fill" 'fill'
 		let line = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 		var written = 0 as Count
@@ -53,6 +63,23 @@ function child(mode String) returns ExitCode
 	print("count:{readAllInput()}")
 	return 0
 end 'child'
+
+// touchFile reads one byte of the input and then writes the file that its second argument names.
+function touchFile() returns ExitCode
+	let args = CommandLine.args()
+	let file = try args.get(2) otherwise return 2
+	let got = __Builtins.readStdin(1)
+	if got.length() == 0 'nothing'
+		return 3
+	end 'nothing'
+	try File.writeText(pathOf("{file}.partial"), content: "read") otherwise return 4
+	try File.rename(pathOf("{file}.partial"), to: pathOf(file)) otherwise return 5
+	return 0
+end 'touchFile'
+
+function pathOf(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("not a path")
+end 'pathOf'
 
 function appendToken(mutates out Blob, token String)
 	for b in token.bytes() 'each'
@@ -71,6 +98,19 @@ function spawnSelf(mode String) returns FullRangeInt
 	let empty = ""
 	return __Builtins.subprocessSpawnStreaming(argv.managed, 2, empty.cstr(), 0, env.managed, parentEnvironment)
 end 'spawnSelf'
+
+// spawnWith starts this program as a streaming child of a mode and a file argument and gives its handle, or -1.
+function spawnWith(mode String, file String) returns FullRangeInt
+	var argv = Blob.create(0)
+	let executable = try Process.executablePath() otherwise return -1
+	appendToken(argv, token: executable.path)
+	appendToken(argv, token: mode)
+	appendToken(argv, token: file)
+	var env = Blob.create(1)
+	env.push(terminator)
+	let empty = ""
+	return __Builtins.subprocessSpawnStreaming(argv.managed, 3, empty.cstr(), 0, env.managed, parentEnvironment)
+end 'spawnWith'
 
 function readOf(handle FullRangeInt, stream FullRangeInt, most FullRangeInt) returns String
 	return String.init(__Builtins.subprocessReadAvailable(handle, stream, most))
@@ -136,9 +176,29 @@ function main() returns ExitCode
 	__Builtins.subprocessReleaseHandle(counter)
 	let filler = spawnSelf("fill")
 	_ = __Builtins.subprocessQueueStdin(filler, text.cstr(), text.byteLength())
-	let out = readToEnd(filler, stream: streamOutput)
-	print("the child that writes first, read by the caller as it writes: {out.byteLength()} bytes, and then counted: [{readToEnd(filler, stream: streamError)}]\n")
+	let draining = async readToEnd(filler, stream: streamOutput)
+	let pushedFiller = pushToEnd(filler)
+	let out = await draining
+	print("the child that writes first, read by a coroutine as the caller pushes: {out.byteLength()} bytes, pushed to the end: {pushedFiller}, and then counted: [{readToEnd(filler, stream: streamError)}]\n")
 	_ = __Builtins.subprocessWaitExit(filler, 0)
 	__Builtins.subprocessReleaseHandle(filler)
+	let marker = "rows-queue-{Process.id()}.tmp"
+	let toucher = spawnWith("touch", file: marker)
+	_ = __Builtins.subprocessQueueStdin(toucher, "x".cstr(), 1)
+	sleep(waitMs)
+	let early = File.exists(pathOf(marker))
+	print("a queued payload that nothing pushed reached the child: {early}\n")
+	_ = pushToEnd(toucher)
+	var waited = 0 as Count
+	while waited < waitLimitMs and not File.exists(pathOf(marker)) 'poll'
+		sleep(50)
+		waited = try waited + 50 otherwise waitLimitMs
+	end 'poll'
+	print("after the push the child read it and wrote its file: {File.exists(pathOf(marker))}\n")
+	_ = __Builtins.subprocessWaitExit(toucher, 0)
+	__Builtins.subprocessReleaseHandle(toucher)
+	if File.exists(pathOf(marker)) 'present'
+		try File.delete(pathOf(marker)) otherwise return 6
+	end 'present'
 	return 0
 end 'main'
