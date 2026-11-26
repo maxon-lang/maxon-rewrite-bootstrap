@@ -3,45 +3,65 @@
 // MAXON_PREEMPT=off has the monitor take no processor from the thread holding it, as maxon's runtime reads it, and any
 // value but off, on and empty is maxon's runtime abort 116. The program runs itself as a child at one processor under each
 // switch, through sh, which sets the variables: main spins, reading the clock, while a behaviour it scheduled first waits
-// to run. With preemption the monitor stops main after its slice and the behaviour runs during the spin; with it off the
-// behaviour runs only once main parks. The spin with preemption on is long, since a loaded machine may run the monitor
-// late; the spin with it off need only pass the slice.
+// to run. With preemption the monitor takes main's processor after its slice and the behaviour runs during the spin; with
+// it off the behaviour runs only once main parks. Main sees the behaviour run without parking or yielding: the behaviour
+// allocates markBoxes boxes and keeps them, and main reads the process's count of live boxes (HeapStats.allocationsLive,
+// plain loads of each thread's counters) until it has grown by that many, far more than the few boxes the runtime's own
+// threads hold meanwhile; a box that a reading of the clock allocates and frees (Linux's timespec) does not stay. With preemption on, main spins until it sees that, so the spin ends in milliseconds on an idle machine and
+// lasts as long as a loaded one runs the monitor late, up to a limit that only a failure reaches; with it off, main spins a
+// fixed time past the slice, since what it shows is that the behaviour did not run. What main saw is the verdict.
 typealias Arguments = Array with String
+
+typealias Marks = Array with Count
+
+typealias MarkSets = Array with Marks
+
+// markBoxes is how many boxes the behaviour allocates, which main waits to see in the count.
+let markBoxes = 1000 as Count
 
 // offSpinMs is how long the child's main holds its processor with preemption off, well past the monitor's 10 ms slice.
 let offSpinMs = 200 as Count
 
-// onSpinMs is how long it spins with preemption on, long enough that a monitor a loaded machine runs late still stops it.
-let onSpinMs = 2000 as Count
+// onLimitMs is the longest main spins with preemption on, waiting to see the behaviour run: a run reaches it only when the
+// monitor never stopped main.
+let onLimitMs = 10000 as Count
 
 let nanosPerMilli = 1000000 as Count
 
-type Times
-	export var ranAt as InstantNanos
-	export var spinEnd as InstantNanos
+type Boxes
+	export var marks as MarkSets
 
-	static function make() returns Times
-		return Times{ranAt: 0, spinEnd: 0}
+	static function make() returns Boxes
+		return Boxes{marks: MarkSets.create(0)}
 	end 'make'
-end 'Times'
+end 'Boxes'
 
-function child(spinMs Count) returns ExitCode
-	let times = cown(Times.make())
-	let first = share(times)
-	when first as t 'ran'
-		t.ranAt = Clock.nowNanos()
+// child spins for spinMs, or with untilRan until it sees that the behaviour ran, spinMs being then the limit, and says whether
+// it saw the behaviour run during the spin.
+function child(spinMs Count, untilRan bool) returns ExitCode
+	let boxes = cown(Boxes.make())
+	when boxes as b 'ran'
+		var marks = MarkSets.create(0)
+		for i in 0 upto markBoxes 'boxes'
+			var one = Marks.create(0)
+			one.push(i)
+			marks.push(one)
+		end 'boxes'
+		b.marks = marks
 	end 'ran'
 	let start = Clock.nowNanos()
-	var now = start
+	let seen = try HeapStats.allocationsLive() as Count + markBoxes otherwise panic("the count is past its end")
 	let until = try start + spinMs * nanosPerMilli otherwise panic("the clock is past its end")
-	while now < until 'spin'
-		now = Clock.nowNanos()
+	var ran = false
+	while Clock.nowNanos() < until 'spin'
+		if HeapStats.allocationsLive() as Count >= seen 'seen'
+			ran = true
+			if untilRan 'done'
+				break 'spin'
+			end 'done'
+		end 'seen'
 	end 'spin'
-	let spinEnd = now
-	when times as t 'report'
-		t.spinEnd = spinEnd
-		print("ran during the spin {t.ranAt < t.spinEnd}\n")
-	end 'report'
+	print("ran during the spin {ran}\n")
 	return 0
 end 'child'
 
@@ -63,7 +83,10 @@ function main() returns ExitCode
 	let args = CommandLine.args()
 	if args.count() > 1 'child'
 		let kind = try args.get(1) otherwise ""
-		return child(onSpinMs if kind == "child-on" else offSpinMs)
+		if kind == "child-on" 'on'
+			return child(onLimitMs, untilRan: true)
+		end 'on'
+		return child(offSpinMs, untilRan: false)
 	end 'child'
 	runChild("off")
 	runChild("on")
