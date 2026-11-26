@@ -899,9 +899,6 @@ var tableFunctions = []function{
 	{Owner: "Scheduler", Name: "currentMachine", Static: true, Result: "Count", Intrinsic: "SchedulerCurrentMachine"},
 	// machineCpuCount is maxon's: the machine's logical processors, at least 1, whatever MAXON_MAX_PROCS asks.
 	{Owner: "Scheduler", Name: "machineCpuCount", Static: true, Result: "Count", Intrinsic: "SchedulerMachineCpuCount"},
-	// parallelBoundary is maxon's marker with no effect at run time: a function that calls it may be started with async
-	// (E3073) though it only computes.
-	{Owner: "Scheduler", Name: "parallelBoundary", Static: true, Intrinsic: "SchedulerParallelBoundary"},
 	// shutdown is maxon's: the service's mailbox closes, so every later send fails with serviceStopped, and the messages
 	// queued already run. It always succeeds.
 	{Owner: "Service", Name: "shutdown", Intrinsic: "ServiceShutdown"},
@@ -971,7 +968,6 @@ var tableFunctions = []function{
 	// parks for at least the milliseconds, and its strand's other coroutines run meanwhile; the library's sleep calls it.
 	{Owner: "Builtins", Name: "sleep", Static: true, Params: []string{"_ Natural"}, Intrinsic: "Sleep", Instead: "sleep(milliseconds)"},
 	{Owner: "Builtins", Name: "cpuCount", Static: true, Result: "Count", Intrinsic: "SchedulerMachineCpuCount", Instead: "Scheduler.machineCpuCount()"},
-	{Owner: "Builtins", Name: "parallelBoundary", Static: true, Intrinsic: "SchedulerParallelBoundary", Instead: "Scheduler.parallelBoundary()"},
 	{Owner: "Builtins", Name: "currentProcessId", Static: true, Result: "Count", Intrinsic: "ProcessId", Instead: "Process.id()"},
 	{Owner: "Builtins", Name: "currentTimeNanos", Static: true, Result: "Count", Intrinsic: "ClockNowNanos", Instead: "Clock.nowNanos()"},
 	// The other readings of the clocks maxon's Clock and WallClock are written on. A wall-clock reading is signed: it is

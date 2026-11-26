@@ -1279,6 +1279,7 @@ depth=2000000
 ```
 
 <!-- test: async-stack-growth.a-stack-grown-by-deep-recursion-shrinks-once-idle -->
+<!-- skip: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes) -->
 <!-- procs: 1 -->
 **A STACK THAT GREW FOR ONE DEEP CALL IS GIVEN BACK ONCE THE THREAD HAS BEEN IDLE.** Go halves a goroutine's
 stack when less than a quarter of it is in use (`vendor/go/src/runtime/stack.go`, `shrinkstack`). A coroutine
@@ -1298,9 +1299,11 @@ end 'down'
 
 function deepThenIdle() returns Integer
 	let depth = down(20000)
+	// TODO: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes)
 	let grown = Scheduler.currentStackBytes()
 	sleep(1100)
 	sleep(1)
+	// TODO: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes)
 	let after = Scheduler.currentStackBytes()
 	let again = down(20000)
 	print("depth={depth} shrunk={after < grown} again={again}\n")
@@ -1321,6 +1324,7 @@ depth=20000 shrunk=true again=20000
 ```
 
 <!-- test: async-stack-growth.a-stack-grown-in-the-current-window-is-not-shrunk -->
+<!-- skip: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes) -->
 <!-- procs: 1 -->
 **A STACK THAT GREW A MOMENT AGO IS KEPT.** The same recursion, then a park straight away: a thread that
 just needed the stack is likely to need it again, so a shrink waits for the window to pass rather than copying
@@ -1337,8 +1341,10 @@ end 'down'
 
 function deepThenPark() returns Integer
 	let depth = down(20000)
+	// TODO: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes)
 	let grown = Scheduler.currentStackBytes()
 	sleep(1)
+	// TODO: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes)
 	let after = Scheduler.currentStackBytes()
 	print("depth={depth} shrunk={after < grown}\n")
 	return 0
@@ -1358,6 +1364,7 @@ depth=20000 shrunk=false
 ```
 
 <!-- test: async-stack-growth.the-starting-stack-follows-the-stacks-threads-needed -->
+<!-- skip: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes) -->
 <!-- procs: 1 -->
 **A NEW GREEN THREAD STARTS WITH THE STACK ITS PREDECESSORS NEEDED.** Go sizes a new goroutine's first stack
 from the average of the stacks it has seen (`stack.go`, `startingStackSize`), so a program whose threads all
@@ -1380,6 +1387,7 @@ end 'down'
 
 function seedBytes() returns Integer
 	Scheduler.yield()
+	// TODO: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes)
 	return Scheduler.currentStackBytes() as Integer
 end 'seedBytes'
 
@@ -1418,6 +1426,7 @@ total=256000 larger=true
 ```
 
 <!-- test: async-stack-growth.a-panic-after-a-shrink-prints-the-whole-backtrace -->
+<!-- skip: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes) -->
 <!-- procs: 1 -->
 **A SHRUNK STACK STILL READS AS ONE CHAIN OF FRAMES.** Moving a stack to a smaller one rewrites every saved frame
 pointer that pointed into the old one; the panic backtrace is what reads that chain. A coroutine recurses deep,
@@ -1450,9 +1459,11 @@ end 'first'
 
 function deepThenIdle() returns Integer
 	let depth = down(20000)
+	// TODO: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes)
 	let grown = Scheduler.currentStackBytes()
 	sleep(1100)
 	sleep(1)
+	// TODO: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes)
 	let after = Scheduler.currentStackBytes()
 	print("depth={depth} shrunk={after < grown}\n")
 	return first(depth)
@@ -1618,6 +1629,7 @@ Stack trace:
 ```
 
 <!-- test: async-stack-growth.the-starting-stack-comes-back-down-when-threads-need-less -->
+<!-- skip: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes) -->
 <!-- procs: 1 -->
 **THE STARTING STACK FALLS AGAIN WHEN THE THREADS STOP NEEDING IT.** The average is of what each finished thread
 that parked or grew NEEDED — its final size if it had to grow, else the deepest park it was seen at — not of the stack it was handed, so a
@@ -1640,6 +1652,7 @@ end 'down'
 
 function seedBytes() returns Integer
 	Scheduler.yield()
+	// TODO: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes)
 	return Scheduler.currentStackBytes() as Integer
 end 'seedBytes'
 
@@ -1698,6 +1711,7 @@ deep=256000 shallow=128 raised=true restored=true
 ```
 
 <!-- test: async-stack-growth.the-starting-stack-ignores-threads-that-neither-parked-nor-grew -->
+<!-- skip: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes) -->
 <!-- procs: 1 -->
 **A THREAD THAT NEITHER PARKED NOR GREW TEACHES THE STARTING STACK NOTHING.** Go recomputes `startingStackSize`
 only at a collection, from the stacks that collection scanned, so a goroutine born and finished between two
@@ -1721,6 +1735,7 @@ end 'down'
 
 function seedBytes() returns Integer
 	Scheduler.yield()
+	// TODO: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes)
 	return Scheduler.currentStackBytes() as Integer
 end 'seedBytes'
 
@@ -1781,6 +1796,7 @@ deep=256000 quick=128 raised=true kept=true
 ```
 
 <!-- test: async-stack-growth.the-starting-stack-follows-the-live-threads-when-the-finishers-teach-nothing -->
+<!-- skip: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes) -->
 <!-- procs: 1 -->
 **A RUN OF THREADS THAT NEVER PARK STILL LETS THE STARTING STACK FALL, BECAUSE THE THREADS THAT ARE ALIVE ARE SCANNED.**
 Go recomputes `startingStackSize` at each collection from every goroutine that collection scanned, parked or
@@ -1805,6 +1821,7 @@ end 'down'
 
 function seedBytes() returns Integer
 	Scheduler.yield()
+	// TODO: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes)
 	return Scheduler.currentStackBytes() as Integer
 end 'seedBytes'
 
@@ -1859,6 +1876,7 @@ deep=256000 quick=2000 raised=true restored=true
 ```
 
 <!-- test: async-stack-growth.a-preemption-request-never-grows-a-stack-that-fits -->
+<!-- skip: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes) -->
 **A STACK GROWS ONLY WHEN THE FRAME THAT ASKED DOES NOT FIT.** The monitor poisons the guard word of a thread that
 has held its processor too long, and a guard that fails on the poison reaches the grower with a frame that
 fits. The loop calls nothing of the program's own, so it passes only the guards of the runtime bodies that
@@ -1892,8 +1910,10 @@ end 'spin'
 
 function spinAllocating() returns Integer
 	let warmed = spin(warmupRounds)
+	// TODO: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes)
 	let before = Scheduler.currentStackBytes()
 	let total = spin(spinRounds)
+	// TODO: language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes)
 	let after = Scheduler.currentStackBytes()
 	print("total={total} grew={after > before} warmed={warmed == warmupRounds * 2}\n")
 	return 0

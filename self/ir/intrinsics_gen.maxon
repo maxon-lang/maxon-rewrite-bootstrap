@@ -437,9 +437,6 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrSchedulerMachineCpuCount 'intrSchedulerMachineCpuCount'
 		return lowerSchedulerMachineCpuCount(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSchedulerMachineCpuCount'
-	if op == ast.Intrinsic.intrSchedulerParallelBoundary 'intrSchedulerParallelBoundary'
-		return lowerSchedulerParallelBoundary(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrSchedulerParallelBoundary'
 	if op == ast.Intrinsic.intrServiceShutdown 'intrServiceShutdown'
 		return lowerServiceShutdown(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrServiceShutdown'
@@ -1330,9 +1327,6 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrSchedulerMachineCpuCount 'intrSchedulerMachineCpuCount'
 		return false
 	end 'intrSchedulerMachineCpuCount'
-	if op == ast.Intrinsic.intrSchedulerParallelBoundary 'intrSchedulerParallelBoundary'
-		return false
-	end 'intrSchedulerParallelBoundary'
 	if op == ast.Intrinsic.intrServiceShutdown 'intrServiceShutdown'
 		return false
 	end 'intrServiceShutdown'

@@ -1191,7 +1191,7 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.a-default-spawn-reaches-a-shadowed-library-type-by-its-qualified-name -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 A program that declares its own `TextLogHandler` makes the library's `TextLogHandler` the default
 `LogHandler` by writing `stdlib.TextLogHandler`, and the record sent to it is written.
 ```maxon
@@ -1199,7 +1199,7 @@ type TextLogHandler
 	export var y as Count
 end 'TextLogHandler'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default LogHandler = spawn stdlib.TextLogHandler.create(LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false))
 
 function main() returns ExitCode

@@ -5015,6 +5015,20 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - `Process.setExitCode(code)` sets the code the process ends with when `main` has returned and no behaviour is left,
   in place of `main`'s; the last code set wins. Maxon has none: its programs wait for their services with `await`, and a
   behaviour, which nothing awaits, needs this to report the program's result.
+- **There is no `acquire`.** maxon's `acquire a, b 'm' ... end 'm'` takes the states of several services on the caller at
+  once and runs a block over them. minimaxon does not have it, and will not: states that share an invariant are one
+  service, whose message changes them together (a `Bank` that owns its accounts, with `transfer` a message), and an answer
+  comes back as a message or a `Reply`. The spec tests of an `acquire` block are skipped with that reason.
+- **There is no program-wide registry (`default`).** maxon's top-level `default Key = <expression>`, with `Key.current()`
+  and `Key.register(x)`, declares a global service or value that any thread looks up. minimaxon has no globals of that kind:
+  a program creates its services and passes their handles, explicitly, to whatever needs them. The spec tests that declare
+  a default are skipped with that reason.
+- **There is no `parallelBoundary` and no `currentStackBytes`.** maxon's `Scheduler.parallelBoundary()`
+  (`__Builtins.parallelBoundary` in the library) marks a function that only computes as one that `async` may start, and
+  `Scheduler.currentStackBytes()` (`__Builtins.gtStackBytes`) reads the size of a green thread's growing stack. minimaxon
+  has neither: `async` starts only a function that may wait (`E3073`), and CPU work is spread over the processors by a
+  parallel loop or a service; and a green thread's stack is fixed and never moves, so it has no size to read. The spec
+  tests that call either are skipped with that reason.
 - **An async call lends its coroutine what it passes, instead of sharing it** (see "Coroutines: async and await"): a place
   at a `let` parameter is the coroutine's to read until the promise is awaited, so the caller may read it but not change
   it, move it or pass it `mutates` meanwhile (`E3943`, minimaxon's), where maxon lets the caller write a `var` its
@@ -5036,10 +5050,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   performance counter (`QueryPerformanceCounter`) in nanoseconds; the interpreter's clock moves by 1000 ns at each reading, so a run is deterministic.
 
 - `Scheduler` has `processorCount()` and `machineCpuCount()`, which maxon's give as `SchedulerProcessorCount`, here a `Count`,
-  `yield()`, `parallelBoundary()` (a marker that emits nothing and counts as a wait for `E3073`), the pins `pinToMachine()`,
-  `unpinFromMachine()` and `pinDepth()`, and `currentMachine()`, the thread running the green thread numbered from 1 in the
-  order the threads started; the library tiers have maxon's floors `__Builtins.sleep`, `cpuCount` and `parallelBoundary`.
-  Not yet: maxon's `quiesce`, `counters`, `currentStackBytes` and `MachinePin`.
+  `yield()`, the pins `pinToMachine()`, `unpinFromMachine()` and `pinDepth()`, and `currentMachine()`, the thread running
+  the green thread numbered from 1 in the order the threads started; the library tiers have maxon's floors
+  `__Builtins.sleep` and `cpuCount`. maxon's `parallelBoundary` and `currentStackBytes` are dropped (above). Not yet:
+  maxon's `quiesce`, `counters` and `MachinePin`.
 
 - Conditional compilation, tests and `@heap` (see "Conditional compilation, tests and annotations"): a branch of `#if` is indented a tab deeper than its
   directives and each branch holds whole declarations, members or statements (Maxon lets the layout be what it likes and a branch
@@ -5312,9 +5326,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   A send's error is the built-in `SendError` (`mailboxFull`, `serviceStopped`) and gives the arguments no way back,
   where maxon's `<Service>.<message>.sendError` carries them (the spec tests whose handler binds them are skipped with
   that reason). Not yet: `sendTimeout:`, interface handles (`I.handle`),
-  `T.request`, `acquire` (maxon's one block of that name, which takes the states of several services at once; a spec
-  test of it that expects one of maxon's region codes is skipped as a region test, since the rule it pins does not exist
-  here, and the others as the block not yet built), `reply.later()`, `SharedValue`, `default`, a generic service, a message with type parameters,
+  `T.request`, `reply.later()`, `SharedValue`, a generic service, a message with type parameters,
   one `try await h.m()` over a message that throws, and services in the interpreter.
 - `stdlib/stream/Stream.maxon` and `stdlib/console/Console.maxon` (`Console.stdin()`, a `StreamReader` over a `StdinSource`) are minimaxon's own,
   written from maxon's (with `helpers/stream/streamBytes.maxon`) until they convert: maxon's name the network's, TLS's, files'

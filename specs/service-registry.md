@@ -192,7 +192,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-service-default-is-started-before-main-and-looked-up -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 ```maxon
 interface Greeter
 	function greet(mutates self) returns Integer
@@ -211,7 +211,7 @@ type Polite implements Greeter
 	end 'greet'
 end 'Polite'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Greeter = spawn Polite.create()
 
 function main() returns ExitCode
@@ -226,7 +226,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-value-default-is-built-before-main-and-looked-up -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 ```maxon
 type Config
 	export let n as Integer
@@ -236,7 +236,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(7)
 
 function main() returns ExitCode
@@ -250,7 +250,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-handler-reaches-the-registered-service-without-a-handle -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 Each worker's handler sends to the registered `Ledger` before it replies, so the `total` `main` sends after
 both replies is queued behind both adds.
 ```maxon
@@ -275,7 +275,7 @@ type Tally implements Ledger
 	end 'total'
 end 'Tally'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Ledger = spawn Tally.create()
 
 type Worker
@@ -310,7 +310,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-handler-may-register -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 ```maxon
 interface Greeter
 	function greet(mutates self) returns Integer
@@ -342,7 +342,7 @@ type Rude implements Greeter
 	end 'greet'
 end 'Rude'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Greeter = spawn Polite.create()
 
 type Installer
@@ -373,7 +373,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: register-replaces-the-service-for-later-lookups -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 ```maxon
 interface Greeter
 	function greet(mutates self) returns Integer
@@ -405,7 +405,7 @@ type Rude implements Greeter
 	end 'greet'
 end 'Rude'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Greeter = spawn Polite.create()
 
 function main() returns ExitCode
@@ -422,7 +422,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-lookup-taken-before-register-keeps-the-old-service -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 A lookup is a snapshot: the handle taken before the register still reaches the old service, which keeps
 running until its last holder drops it.
 ```maxon
@@ -456,7 +456,7 @@ type Rude implements Greeter
 	end 'greet'
 end 'Rude'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Greeter = spawn Polite.create()
 
 function main() returns ExitCode
@@ -474,7 +474,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-registered-handle-is-a-box-only-the-registry-owns -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 The registry slot holds a handle box of its own, with its own share of the mailbox, so the registering
@@ -511,7 +511,7 @@ type Rude implements Greeter
 	end 'greet'
 end 'Rude'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Greeter = spawn Polite.create()
 
 function main() returns ExitCode
@@ -560,7 +560,7 @@ mm_free Rude #9
 ```
 
 <!-- test: a-conditional-register-fails-when-the-value-moved -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 `register(new, replacing: old)` publishes only while `old` is still current: after `a` was replaced by the
 value 3 it answers `false` and 3 stays; replacing the current value answers `true`.
 ```maxon
@@ -572,7 +572,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(1)
 
 function main() returns ExitCode
@@ -595,7 +595,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-registered-value-is-seen-live-by-every-thread -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 ```maxon
 type Config
 	export let n as Integer
@@ -605,7 +605,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(1)
 
 type Reader
@@ -636,7 +636,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: an-unreached-default-is-never-started -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 Nothing reaches `Greeter` or `Config`, so neither factory runs: no service is spawned and nothing prints.
 ```maxon
 interface Greeter
@@ -666,10 +666,10 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Greeter = spawn Loud.create()
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(1)
 
 function main() returns ExitCode
@@ -685,7 +685,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-program-default-wins-over-a-stdlib-default -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 ```maxon
 // --- stdlib-overlay: Builtins.maxon
 public typealias TonePitch = int(i64.min to i64.max)
@@ -707,7 +707,7 @@ public type Soft implements Tone
 	end 'pitch'
 end 'Soft'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Tone = spawn Soft.create()
 // --- file: main.maxon
 type Loud implements Tone
@@ -723,7 +723,7 @@ type Loud implements Tone
 	end 'pitch'
 end 'Loud'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Tone = spawn Loud.create()
 
 function main() returns ExitCode
@@ -736,7 +736,7 @@ end 'main'
 ```
 
 <!-- test: the-registered-service-drains-at-exit -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 `main` sends and returns at once; the exit drain runs the registered service's queue out, in FIFO order.
 ```maxon
 interface Journal
@@ -756,7 +756,7 @@ type Console implements Journal
 	end 'write'
 end 'Console'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Journal = spawn Console.create()
 
 function main() returns ExitCode
@@ -778,7 +778,7 @@ line 3 (3)
 ```
 
 <!-- test: a-value-default-may-hold-a-spawned-handle -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 ```maxon
 interface Greeter
 	function greet(mutates self) returns Integer
@@ -805,7 +805,7 @@ type Route
 	end 'create'
 end 'Route'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Route = Route.create(spawn Polite.create())
 
 function main() returns ExitCode
@@ -820,7 +820,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-value-default-of-a-record-with-a-narrow-int-field -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 A field of a narrow integer alias is a scalar like any other: the share walk that marks the value before it
 is published has nothing to follow there.
 ```maxon
@@ -834,7 +834,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(3)
 
 function main() returns ExitCode
@@ -846,7 +846,7 @@ end 'main'
 ```
 
 <!-- test: a-value-default-of-a-record-with-a-narrow-int-field-in-a-nested-record -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 The same narrow field one record down: the walk descends into `inner` and finds only a scalar there.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -867,7 +867,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(4)
 
 function main() returns ExitCode
@@ -1029,7 +1029,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-handler-looks-up-the-registry-during-the-exit-drain -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 `main` returns with three messages still queued; the exit drain runs them, and each handler reads the value
 key, which must still be live then.
 ```maxon
@@ -1041,7 +1041,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(5)
 
 type Printer
@@ -1077,7 +1077,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-handler-sends-through-the-registry-during-the-exit-drain -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 The service-key sibling: during the exit drain the worker's handler looks up `Sink` and sends to it, so the
 registered service must still be reachable and must drain too. One worker sends into one collector, so the
 lines keep their order.
@@ -1099,7 +1099,7 @@ type Collector implements Sink
 	end 'put'
 end 'Collector'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Sink = spawn Collector.create()
 
 type Worker
@@ -1329,7 +1329,7 @@ abc x7
 ```
 
 <!-- test: error.current-reached-through-a-function-from-a-global-initializer -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 A global initializer that calls anything is refused (E3220), including a call that reaches `Config.current()`: `limit`'s
 initializer calls `Limits.read`, which reads the registry.
@@ -1342,7 +1342,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(7)
 
 type Limits
@@ -1366,7 +1366,7 @@ error E3220: <fragment>:20:13: the initializer of 'limit' calls 'Limits.read': a
 ```
 
 <!-- test: error.a-key-type-declaring-its-own-current -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 A `default` key's `current` and `register` belong to the registry, so the key type may not declare its own
 static `current`.
@@ -1383,7 +1383,7 @@ type Config
 	end 'current'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(7)
 
 function main() returns ExitCode
@@ -2059,7 +2059,7 @@ end 'main'
 error E3136: <fragment>:35:22: `interface Pinger` requires `ping`, and `type A` implements it, but not as an `export` instance method — so it is not a message of `A`, and `Pinger.handle` cannot send it to every service behind it. Declare `ping` on `A` as an `export` instance method
 ```
 <!-- test: error.a-withheld-message-behind-a-default-is-refused-in-either-order -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 A service reached only through a `default` still withholds a private requirement from the interface handle.
 ```maxon
@@ -2101,7 +2101,7 @@ function main() returns ExitCode
 	return pitch
 end 'main'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Tone = spawn Soft.create()
 ```
 ```maxoncstderr
@@ -2109,7 +2109,7 @@ error E3136: <fragment>:36:26: `interface Tone` requires `pitch`, and `type Soft
 ```
 
 <!-- test: error.a-withheld-message-behind-a-default-declared-first-is-refused -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 The same program with the `default` declared before `main`.
 ```maxon
@@ -2145,7 +2145,7 @@ type Soft implements Tone
 	end 'pitch'
 end 'Soft'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Tone = spawn Soft.create()
 
 function main() returns ExitCode
@@ -2216,7 +2216,7 @@ end 'main'
 ```
 
 <!-- test: error.two-defaults-for-one-key -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 ```maxon
 // --- file: a.maxon
@@ -2230,10 +2230,10 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(1)
 // --- file: b.maxon
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(2)
 
 function main() returns ExitCode
@@ -2246,7 +2246,7 @@ note: <fragment>:13:9: the other `default` for `Config`
 ```
 
 <!-- test: error.two-defaults-for-one-key-are-blamed-in-path-order -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 The blamed `default` is the one in the file whose path sorts later byte for byte, not the one declared later.
 ```maxon
@@ -2261,10 +2261,10 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(1)
 // --- file: a.maxon
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(2)
 
 function main() returns ExitCode
@@ -2277,7 +2277,7 @@ note: <fragment>:15:9: the other `default` for `Config`
 ```
 
 <!-- test: error.a-default-whose-service-does-not-implement-its-key -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 `Stranger` has a `greet` of the right shape, but it does not declare `implements Greeter`.
 ```maxon
@@ -2298,7 +2298,7 @@ type Stranger
 	end 'greet'
 end 'Stranger'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Greeter = spawn Stranger.create()
 
 function main() returns ExitCode
@@ -2313,7 +2313,7 @@ error E3170: <fragment>:19:9: the `default` for `Greeter` spawns `Stranger`, whi
 ```
 
 <!-- test: a-value-default-of-a-writable-type-is-read-by-a-service -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 A `var` field does not keep a type out of the registry: every reader gets a read-only view of the value.
 ```maxon
 type Config
@@ -2324,7 +2324,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(3)
 
 type Reader
@@ -2357,7 +2357,7 @@ service=3 main=3
 ```
 
 <!-- test: error.defaults-that-reach-each-other -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 ```maxon
 type Left
@@ -2376,10 +2376,10 @@ type Right
 	end 'create'
 end 'Right'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Left = Left.create(Right.current().n + 1)
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Right = Right.create(Left.current().n + 1)
 
 function main() returns ExitCode
@@ -2393,7 +2393,7 @@ error E3172: <fragment>:18:9: the `default`s for `Left` and `Right` reach each o
 ```
 
 <!-- test: error.current-from-a-global-initializer -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 ```maxon
 type Config
@@ -2404,7 +2404,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(7)
 
 let limit = Config.current().n
@@ -2420,7 +2420,7 @@ error E3173: <fragment>:12:13: `Config.current()` is reached from the initialize
 ```
 
 <!-- test: error.register-from-a-global-initializer -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 ```maxon
 type Config
@@ -2431,7 +2431,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(7)
 
 let first = Config.create(1)
@@ -2450,7 +2450,7 @@ error E3173: <fragment>:13:15: `Config.register()` is reached from the initializ
 ```
 
 <!-- test: error.a-registered-value-that-is-not-solely-owned -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 `alias` still names the record, so publishing it would hand every thread a value this one can still reach.
 ```maxon
@@ -2462,7 +2462,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(1)
 
 function main() returns ExitCode
@@ -2525,7 +2525,7 @@ before=2 after=7
 ```
 
 <!-- test: a-value-default-whose-let-field-holds-a-writable-type-is-read-by-a-service -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 `tally` holds a `Tally` whose `count` is a `var`; a service reads through the whole path.
 ```maxon
 type Tally
@@ -2544,7 +2544,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(3)
 
 type Reader
@@ -2678,7 +2678,7 @@ before=1 after=6
 ```
 
 <!-- test: error.a-value-default-whose-graph-reaches-a-function-value -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 A function value is a closure record that owns what it captures, and no share walk can mark it.
 ```maxon
@@ -2692,7 +2692,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create()
 
 function main() returns ExitCode
@@ -2810,7 +2810,7 @@ note: <fragment>:54:9: `Stepper` is converted to `Shape` here
 ```
 
 <!-- test: error.a-value-default-holding-an-interface-whose-conformer-holds-a-function-value -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -2867,7 +2867,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(Plain.create())
 
 function stepped() returns Shape
@@ -2931,7 +2931,7 @@ error E3197: <fragment>:31:2: cannot write 'x' through 'w.inner', which is immut
 ```
 
 <!-- test: error.a-field-store-through-a-value-default-read -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 ```maxon
 type Inner
@@ -2950,7 +2950,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(1)
 
 type Wrap
@@ -3005,7 +3005,7 @@ error E3207: <fragment>:18:23: 'push' needs a writable receiver; 'items' is immu
 ```
 
 <!-- test: error.a-mutating-method-through-a-value-default-read -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 ```maxon
 typealias Items = Array with Integer
@@ -3020,7 +3020,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create()
 
 function main() returns ExitCode
@@ -3074,7 +3074,7 @@ error E3207: <fragment>:26:7: 'bump' writes 'i' (line 21: `i.x = 9`); 'cell' is 
 ```
 
 <!-- test: error.a-value-default-read-passed-to-a-writing-parameter -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 ```maxon
 type Inner
@@ -3093,7 +3093,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(1)
 
 function bump(i Inner)
@@ -3147,7 +3147,7 @@ error E3197: <fragment>:23:2: cannot write 'x' through 'w.inner', which is immut
 ```
 
 <!-- test: error.a-var-bound-to-a-value-default-read -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 ```maxon
 type Inner
@@ -3166,7 +3166,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(1)
 
 function main() returns ExitCode
@@ -3217,7 +3217,7 @@ error E3197: <fragment>:23:2: cannot write 'x' through 'm', which is immutable
 ```
 
 <!-- test: error.a-var-bound-to-a-field-of-a-value-default-read -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 ```maxon
 type Inner
@@ -3236,7 +3236,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(1)
 
 function main() returns ExitCode
@@ -3290,7 +3290,7 @@ copy=9 shared=1
 ```
 
 <!-- test: a-var-bound-to-a-clone-of-a-value-default-read-may-be-written -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 ```maxon
 type Inner
 	export var x as Integer
@@ -3308,7 +3308,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(1)
 
 function main() returns ExitCode
@@ -3367,7 +3367,7 @@ error E3197: <fragment>:27:2: cannot write 'x' through 'w.inner', which is immut
 ```
 
 <!-- test: error.a-write-through-a-value-default-read-a-function-returned -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 ```maxon
 type Inner
@@ -3386,7 +3386,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(1)
 
 function read() returns frozen with Config
@@ -3406,7 +3406,7 @@ error E3197: <fragment>:26:2: cannot write 'x' through 'w.inner', which is immut
 ```
 
 <!-- test: error.a-write-through-a-value-default-read-a-function-passed-on -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 What the function returned is still the view, and so is anything handed on from it.
 ```maxon
@@ -3426,7 +3426,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(1)
 
 function read() returns frozen with Config
@@ -3505,7 +3505,7 @@ error E3196: <fragment>:29:12: cannot store an immutable 'Inner' into 'inner', w
 ```
 
 <!-- test: error.a-value-default-read-stored-into-a-var-field-is-refused-at-the-store -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 ```maxon
 type Inner
@@ -3524,7 +3524,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(1)
 
 type Holder
@@ -3633,7 +3633,7 @@ error E3171: <fragment>:10:24: `Config` cannot be a registry value or a `SharedV
 ```
 
 <!-- test: error.a-value-default-holding-a-promise-is-refused -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 A promise owns a green thread that exactly one owner may reclaim, so it cannot be read by every thread.
 ```maxon
@@ -3652,7 +3652,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create()
 
 function main() returns ExitCode
@@ -3740,7 +3740,7 @@ note: <fragment>:53:9: `Port` is converted to `Shape` here
 ```
 
 <!-- test: error.register-of-an-interface-whose-converted-conformer-holds-a-promise -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn`, the `async` spawn that makes the promise and `Scheduler.yield` before the registration is judged.
@@ -3802,7 +3802,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(Plain.create())
 
 function later() returns Shape
@@ -3825,7 +3825,7 @@ note: <fragment>:59:9: `Pending` is converted to `Shape` here
 ```
 
 <!-- test: a-registered-immutable-value-that-has-been-viewed-is-shared -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 `Config` has only `let` fields, so nothing can write the record `w` has viewed: publishing `fresh` shares it with every thread, and `w` stays valid.
 ```maxon
 type Config
@@ -3836,7 +3836,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(1)
 
 function main() returns ExitCode
@@ -3854,7 +3854,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-registered-writable-value-that-has-been-viewed -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 `Config` has a `var` field, so its record may be written, and `let w = fresh` moves `fresh` into `w`: publishing `fresh` afterwards would hand every thread a record `w` still reaches, so the publish is refused as a use of a moved value.
 ```maxon
@@ -3866,7 +3866,7 @@ type Config
 	end 'create'
 end 'Config'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(1)
 
 function main() returns ExitCode

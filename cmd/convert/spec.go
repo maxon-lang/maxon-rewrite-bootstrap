@@ -48,11 +48,11 @@ const (
 var specSectionMarkers = []string{specFileMarker, specOverlayMarker, specRuntimeMarker}
 
 // maxon's one `acquire` block takes the states of several services at once (its reference, "Atomic Updates"), which
-// minimaxon has not built yet (README, "Services": "Not yet: ... `acquire`"). A test of one that expects a code of maxon's
-// region rules on the states the block holds pins a rule that minimaxon's owned values, borrows and frozen values
-// replace, so it is skipped for that, a permanent difference, and not for the block that is still to come.
+// minimaxon drops (README, Where it differs from Maxon: "There is no `acquire`"). A test of one that expects a code of
+// maxon's region rules on the states the block holds pins a rule that minimaxon's owned values, borrows and frozen values
+// replace, so it is skipped for that; both are permanent differences.
 const (
-	serviceAcquireWarning = "a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)"
+	serviceAcquireWarning = "language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)"
 	regionAcquireWarning  = "language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised)"
 )
 

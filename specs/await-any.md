@@ -867,6 +867,7 @@ error E3005: <fragment>:8:25: '__Builtins.awaitAny' requires a promise array —
 ```
 
 <!-- test: await-any.error.rejected-on-wasm -->
+<!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 A WASI component has no addressable call stack for a context switch to move, so it has no green-thread
@@ -888,6 +889,7 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseArray = Array with IntPromise
 
 function value(v Integer) returns Integer
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	Scheduler.parallelBoundary()
 	return v
 end 'value'

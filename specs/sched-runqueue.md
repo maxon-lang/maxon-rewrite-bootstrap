@@ -150,6 +150,7 @@ section is the one statement of that gate.
 ## Tests
 
 <!-- test: sched-runqueue.a-coroutine-spawned-by-a-coroutine-joins-its-owners-queue -->
+<!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 **THE TRANSITIVITY THE WHOLE PIN RESTS ON.** A coroutine's owner is its SPAWNER'S owner, not its spawner
 — so `inner`, spawned by the coroutine `outer`, belongs to the same green thread `main` does, and lands
 in the SAME queue as `sibling`, which `main` spawned. It is the case that states the transitivity
@@ -179,18 +180,21 @@ function tick(order Cell) returns Integer
 end 'tick'
 
 function inner(order Cell, posC Cell) returns Integer
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	Scheduler.parallelBoundary()
 	posC.publish(tick(order))
 	return 1
 end 'inner'
 
 function sibling(order Cell, posB Cell) returns Integer
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	Scheduler.parallelBoundary()
 	posB.publish(tick(order))
 	return 1
 end 'sibling'
 
 function outer(order Cell, posA Cell, posC Cell) returns Integer
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	Scheduler.parallelBoundary()
 	posA.publish(tick(order))
 	let c = async inner(order.clone(), posC: posC.clone())
@@ -220,6 +224,7 @@ ra=1 rb=1 posA=1 posB=2 posC=3
 ```
 
 <!-- test: sched-runqueue.spawn-order-is-fifo-within-one-green-thread -->
+<!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 **FIFO WITHIN ONE GREEN THREAD.** A strand queue is a queue and not a stack: three coroutines spawned
 in order run in that order, whatever order their promises are awaited in. The awaits here run BACKWARDS
 on purpose — `p3` first — so a queue that handed back the newest entry would be visible as `a3=1`.
@@ -233,18 +238,21 @@ function tick(order Cell) returns Integer
 end 'tick'
 
 function first(order Cell, a1 Cell) returns Integer
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	Scheduler.parallelBoundary()
 	a1.publish(tick(order))
 	return 1
 end 'first'
 
 function second(order Cell, a2 Cell) returns Integer
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	Scheduler.parallelBoundary()
 	a2.publish(tick(order))
 	return 1
 end 'second'
 
 function third(order Cell, a3 Cell) returns Integer
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	Scheduler.parallelBoundary()
 	a3.publish(tick(order))
 	return 1
@@ -422,6 +430,7 @@ pingpong-done
 ```
 
 <!-- test: sched-runqueue.a-yield-hands-the-processor-to-a-never-run-sibling -->
+<!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 **THE TAIL, AND THE ARM THAT DOES NOT DECIDE IT.** A yield parks the yielder and the strand runner places
 it: behind whatever its strand already has runnable, or — with nothing else runnable — at the back of its
 strand queue with the strand's token on the GLOBAL queue (`a-yield-goes-behind-the-global-queue`).
@@ -448,6 +457,7 @@ function yielder(siblingRan Cell) returns Integer
 end 'yielder'
 
 function sibling(siblingRan Cell) returns Integer
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	Scheduler.parallelBoundary()
 	siblingRan.publish(1 as Integer)
 	return 1
@@ -473,6 +483,7 @@ seen=1 done=1
 ```
 
 <!-- test: sched-runqueue.a-dropped-coroutine-in-the-queue-is-skipped-not-run -->
+<!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 **THE POPPER'S HALF OF THE DROPPED-THREAD PROTOCOL.** `marker`'s promise is dropped while two live
 coroutines sit around it in the queue — one ahead of it, one behind — so the drop's own front-of-queue
 sweep cannot reach it and `__gt_strand_next` is what has to refuse it. While `main` is parked on its
@@ -483,6 +494,7 @@ a thread nobody awaits, which is the green-thread live-count abort (75) rather t
 typealias Cell = SharedValue with Integer
 
 function marker(ran Cell) returns Integer
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	Scheduler.parallelBoundary()
 	let next = ran.current() + 1
 	ran.publish(next)
@@ -490,6 +502,7 @@ function marker(ran Cell) returns Integer
 end 'marker'
 
 function ok(v Integer) returns Integer
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	Scheduler.parallelBoundary()
 	return v
 end 'ok'
@@ -516,6 +529,7 @@ ran=0
 ```
 
 <!-- test: sched-runqueue.a-spawn-drop-loop-stays-bounded -->
+<!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 <!-- procs: 1 -->
 **THE SWEEP'S HALF.** Five thousand coroutines are spawned and dropped while `main` never parks, so the
 strand runner never reaches them, nothing would pop them and the mark alone would leave five thousand
@@ -530,6 +544,7 @@ while the other two drop cases below stay GREEN, so the count is this case's roa
 typealias Cell = SharedValue with Integer
 
 function neverRuns(ran Cell) returns Integer
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	Scheduler.parallelBoundary()
 	let next = ran.current() + 1
 	ran.publish(next)
@@ -764,6 +779,7 @@ total=1000 stillParked=1000 bounded=true
 ```
 
 <!-- test: sched-runqueue.no-coroutine-is-ever-stolen -->
+<!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 **THE STEAL COUNTER, AND WHAT IT READS BY CONSTRUCTION.** `Scheduler.counters().steals` walks
 `__sched_procs` and sums every processor's steal counter, so it is the only way a Maxon program can
 observe that work stealing happened at all. A coroutine is never a token on a run queue — it waits on its
@@ -778,6 +794,7 @@ counter it reads are all emitted and all answer. `multicore-stress/pin-matrix.sh
 `MAXON_MAX_PROCS`, is where the zero becomes a measurement of the pin.
 ```maxon
 function work(v Integer) returns Integer
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	Scheduler.parallelBoundary()
 	return v
 end 'work'

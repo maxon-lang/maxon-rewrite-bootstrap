@@ -2345,7 +2345,7 @@ error E3223: <fragment>:25:2: this drops 'cell', a linear value that was never c
 ```
 
 <!-- test: a-linear-value-live-across-an-acquire-is-refused -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 
@@ -2381,7 +2381,7 @@ type Ledger
 end 'Ledger'
 
 function work(s Ledger.handle, r Resp) returns Code
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'held'
 		print("inside\n")
 	end 'held' otherwise 'stopped'

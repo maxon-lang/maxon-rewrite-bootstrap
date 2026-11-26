@@ -353,7 +353,7 @@ end 'main'
 ```
 
 <!-- test: a-default-spawn-of-a-directory-type-by-its-qualified-name -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 The `default` for `Greeter` spawns `Polite`, declared in `sub/`, by its qualified name `sub.Polite`, and
 the registry hands `main` that service.
 ```maxon
@@ -375,7 +375,7 @@ export interface Greeter
 	function greet(mutates self) returns Integer
 end 'Greeter'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Greeter = spawn sub.Polite.create()
 
 function main() returns ExitCode
@@ -502,7 +502,7 @@ error E3134: <fragment>:3:10: `spawn foo.bar.baz(…)` does not start a service:
 ```
 
 <!-- test: error.a-default-spawn-of-a-chain-naming-nothing-is-refused -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 A `default`'s spawn is read by the same resolver as any other: nothing declares `foo`, so the chain names
 no type, and the refusal is the spawn's own.
@@ -511,7 +511,7 @@ interface Greeter
 	function greet() returns Integer
 end 'Greeter'
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Greeter = spawn foo.bar.baz()
 
 function main() returns ExitCode
@@ -526,7 +526,7 @@ error E3134: <fragment>:6:19: `spawn foo.bar.baz(…)` does not start a service:
 ```
 
 <!-- test: error.a-default-spawn-whose-head-is-a-top-level-binding-is-refused-as-a-value -->
-<!-- skip: top-level default declarations are not supported in minimaxon -->
+<!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
 <!-- positions: moved -->
 A top-level `let sub` is in scope at the file's `default`, so `spawn sub.Calc.create()` there is a value
 expression and names no type, though the directory `sub` declares a `Calc` that conforms to `Greeter`.
@@ -551,7 +551,7 @@ end 'Greeter'
 
 let sub = "a value"
 
-// TODO: top-level default declarations are not supported in minimaxon
+// TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Greeter = spawn sub.Calc.create()
 
 function main() returns ExitCode

@@ -126,6 +126,7 @@ log_phase_end compile unit=7
 ```
 
 <!-- test: debugstream-log-events.a-green-thread-program-logs-before-its-scheduler-exists -->
+<!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 ⛔⛔ **THE CASE THAT CATCHES A PRE-INITIALIZED SCHEDULER READ, WHICH IS A SEGFAULT.** Every log
 entry stamps the green thread that authored it, which is `M->currentGt` (`sched-processor.md`) —
@@ -144,6 +145,7 @@ the process dying while writing the entry. A run that survives to emit all three
 its `async` is the whole property.
 ```maxon
 function work(n Integer) returns Integer
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	Scheduler.parallelBoundary()
 	return n * 2
 end 'work'

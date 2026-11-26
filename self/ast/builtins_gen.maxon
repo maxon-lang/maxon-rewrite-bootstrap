@@ -355,7 +355,6 @@ export enum Intrinsic
 	intrSchedulerPinDepth
 	intrSchedulerCurrentMachine
 	intrSchedulerMachineCpuCount
-	intrSchedulerParallelBoundary
 	intrServiceShutdown
 	intrPromiseCancel
 	intrArrayAwaitAny
@@ -726,9 +725,6 @@ export function rawCallInstead(b Builtins, owner TypeID, name String) returns ta
 		if name == "cpuCount" 'cpuCount'
 			return table.Option.some("Scheduler.machineCpuCount()")
 		end 'cpuCount'
-		if name == "parallelBoundary" 'parallelBoundary'
-			return table.Option.some("Scheduler.parallelBoundary()")
-		end 'parallelBoundary'
 		if name == "currentProcessId" 'currentProcessId'
 			return table.Option.some("Process.id()")
 		end 'currentProcessId'
@@ -2077,7 +2073,6 @@ function declareSchedulerMethods(mutates tt TypeSlot, reads TypeTable, mutates f
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.schedulerTy, op: Intrinsic.intrSchedulerPinDepth, name: "pinDepth", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.schedulerTy, op: Intrinsic.intrSchedulerCurrentMachine, name: "currentMachine", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.schedulerTy, op: Intrinsic.intrSchedulerMachineCpuCount, name: "machineCpuCount", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.schedulerTy, op: Intrinsic.intrSchedulerParallelBoundary, name: "parallelBoundary", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 end 'declareSchedulerMethods'
 
 function declareServiceMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -2262,7 +2257,6 @@ function declareBuiltinsMethods(mutates tt TypeSlot, reads TypeTable, mutates ft
 	ps1.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSleep, name: "sleep", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps1, listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSchedulerMachineCpuCount, name: "cpuCount", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSchedulerParallelBoundary, name: "parallelBoundary", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrProcessId, name: "currentProcessId", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrClockNowNanos, name: "currentTimeNanos", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrClockNowMillis, name: "currentTimeMs", isStatic: true, selfConv: Convention.convLet, ret: b.instantMsTy, params: ParamSpecList.create(0), listed: true)

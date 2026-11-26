@@ -13,7 +13,7 @@ A call that opens an isolated value or an acquired state and answers mutable dat
 ## Tests
 
 <!-- test: a-value-read-from-an-opening-calls-result-outlives-its-statement -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 `t.peekR()` opens `t` and answers its own record, and `.b` reads a number out of it: the statement hands back a value, so it may be kept.
 
 ```maxon
@@ -54,7 +54,7 @@ function bump(writer Cell, by Tally)
 end 'bump'
 
 function work(t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire t 'held'
 		let n = t.peekR().b
 		bump(Cell.create(0), by: n)
@@ -78,7 +78,7 @@ end 'main'
 ```
 
 <!-- test: a-writer-takes-the-view-a-call-opens-an-isolated-field-for -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 `t.i.me()` opens the isolated field and answers a view of it; the writer takes the view inside the statement and nothing keeps it.
 
 ```maxon
@@ -119,7 +119,7 @@ function bump(writer Cell, by Tally)
 end 'bump'
 
 function work(t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire t 'held'
 		bump(t.i.me(), by: 2)
 		let n = t.i.b
@@ -185,7 +185,7 @@ function bump(writer Cell, by Tally)
 end 'bump'
 
 function work(t Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire t 'held'
 		let held = t.peekR()
 		return held.b
@@ -247,7 +247,7 @@ function bump(writer Cell, by Tally)
 end 'bump'
 
 function work(t Ledger.handle) returns Cell
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire t 'held'
 		return t.peekR()
 	end 'held' otherwise 'stopped'
@@ -458,7 +458,7 @@ function main() returns ExitCode
 end 'main'
 
 function work(s Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'held'
 		let again = s
 		return 1
@@ -543,7 +543,7 @@ function pass(consumes l Ledger) returns Ledger
 end 'pass'
 
 function work(s Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'held'
 		let again = pass(s)
 		return again.total
@@ -624,7 +624,7 @@ function main() returns ExitCode
 end 'main'
 
 function work(s Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'held'
 		let p = async touch(s)
 		return await p
@@ -705,7 +705,7 @@ function main() returns ExitCode
 end 'main'
 
 function work(s Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'held'
 		let k = spawn Keeper.create(s)
 		return 1
@@ -786,7 +786,7 @@ function main() returns ExitCode
 end 'main'
 
 function pick(s Ledger.handle) returns Ledger
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'held'
 		return s
 	end 'held' otherwise 'stopped'
@@ -873,7 +873,7 @@ typealias LedgerArray = Array with Ledger
 
 function work(s Ledger.handle) returns Tally
 	let all = LedgerArray.create(0)
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'held'
 		all.push(s)
 	end 'held' otherwise 'stopped'
@@ -954,7 +954,7 @@ function main() returns ExitCode
 end 'main'
 
 function work(s Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'held'
 		let pair = (s, 1)
 		return 1
@@ -968,7 +968,7 @@ error E3202: <fragment>:64:15: 's' is the state of an acquired service and canno
 ```
 
 <!-- test: error.a-state-written-into-a-record-field-outside-the-block-is-refused -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 <!-- positions: moved -->
 The record outside the block is read-only while the block is open, so the store is refused before the state is judged.
 
@@ -1036,7 +1036,7 @@ end 'main'
 
 function work(s Ledger.handle) returns Tally
 	let kept = Box.create()
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'held'
 		kept.held = s
 	end 'held' otherwise 'stopped'
@@ -1050,7 +1050,7 @@ error E3197: <fragment>:66:3: cannot write 'held' through 'kept', which is read-
 ```
 
 <!-- test: acquire-of-one-service-twice-is-one-acquire -->
-<!-- skip: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire) -->
+<!-- skip: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire) -->
 `acquire s, s` names one service twice; the two names are one state, so it is as accepted as `acquire s`.
 
 ```maxon
@@ -1075,7 +1075,7 @@ function main() returns ExitCode
 end 'main'
 
 function work(s Ledger.handle) returns Tally
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s, s 'held'
 		return s.total
 	end 'held' otherwise 'stopped'

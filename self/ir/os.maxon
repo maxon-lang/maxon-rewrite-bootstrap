@@ -575,11 +575,6 @@ function lowerSchedulerMachineCpuCount(mutates l Lowerer, p ast.Project, ms ast.
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsMachineCpuCount, kind: IrKind.kindScalar, args: RegList.create(0))
 end 'lowerSchedulerMachineCpuCount'
 
-// lowerSchedulerParallelBoundary emits nothing: the marker's whole effect is on the check (E3073).
-function lowerSchedulerParallelBoundary(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return konst(l, value: 0 as Word)
-end 'lowerSchedulerParallelBoundary'
-
 // The debug port's functions call their entries with their words, byte arrays and the executable's text as they are.
 function lowerDebuggeeLaunch(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let exe = executableText(l, p: p, ms: ms, exe: args[0])

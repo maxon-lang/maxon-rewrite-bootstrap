@@ -256,6 +256,7 @@ streamingWithEnvironment: answered=true took=true gaveBack=true
 ```
 
 <!-- test: runtime-scratch-reclaim.spawn-await-loop-is-bounded -->
+<!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 <!-- procs: 1 -->
 **THE GT RECORD ITSELF, AND IT IS RECYCLED RATHER THAN RETURNED.** `__gt_reclaim` puts a finished
 thread's record on its processor's free list (Go's `gfput`), and `__gt_spawn` takes the next one from
@@ -278,6 +279,7 @@ stack from `osAllocPages`, and the raw columns count neither), and nothing is le
 while every reclaim and spawn share one processor's list, and a preempted `main` can resume on another.
 ```maxon
 function work(n Integer) returns Integer
+	// TODO: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)
 	Scheduler.parallelBoundary()
 	return n + 1
 end 'work'

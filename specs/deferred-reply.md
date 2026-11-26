@@ -1034,7 +1034,7 @@ end 'Gate'
 function main() returns ExitCode
 	let gate = spawn Gate.create()
 	let sink = TallyReplyArray.create(0)
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire gate 'held'
 		let moved = try gate.waiting.pop() otherwise return 1
 		sink.push(moved)

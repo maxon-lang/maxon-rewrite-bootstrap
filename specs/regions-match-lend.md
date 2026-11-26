@@ -4092,7 +4092,7 @@ end 'Keeper'
 
 function main() returns ExitCode
 	let s = spawn Vault.create(Slot.held(Token.create(2)))
-	// TODO: a service's acquire block, which takes the states of several services at once, is not supported in minimaxon yet (README, Where it differs from Maxon: Services ... Not yet: acquire)
+	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'a1'
 		match try s.a.get(0) otherwise panic("one") 'm'
 			empty then break

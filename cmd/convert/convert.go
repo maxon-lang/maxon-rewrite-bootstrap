@@ -1002,7 +1002,7 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 			}
 		case "default":
 			if line.indent == "" && len(line.code) >= 3 && line.code[2].text == "=" {
-				warn(line, "top-level default declarations are not supported in minimaxon")
+				warn(line, registryWarning)
 				continue
 			}
 		case "let", "var":
@@ -2187,8 +2187,35 @@ func checkUnionCase(line *sourceLine, warn func(*sourceLine, string)) {
 	}
 }
 
+// registryWarning is maxon's program-wide registry, a top-level `default Key = ...`, which minimaxon drops.
+const registryWarning = "language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)"
+
+// droppedSchedulerMembers are maxon's members of Scheduler and __Builtins that minimaxon drops, with the reason a test that
+// calls one is skipped for (README, Where it differs from Maxon: "There is no `parallelBoundary` and no
+// `currentStackBytes`").
+var droppedSchedulerMembers = map[string]string{
+	"parallelBoundary":  "language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary)",
+	"currentStackBytes": stackBytesWarning,
+	"gtStackBytes":      stackBytesWarning,
+}
+
+const stackBytesWarning = "language difference: maxon's currentStackBytes is dropped: a green thread's stack is fixed and never moves, so it has no size to read (README, Where it differs from Maxon: there is no currentStackBytes)"
+
+// warnDroppedSchedulerMembers warns for a call of a member of Scheduler or __Builtins that minimaxon drops.
+func warnDroppedSchedulerMembers(toks []token, line *sourceLine, warn func(*sourceLine, string)) {
+	for i := 2; i < len(toks); i++ {
+		if toks[i-1].text != "." || (toks[i-2].text != "Scheduler" && toks[i-2].text != "__Builtins") {
+			continue
+		}
+		if reason, ok := droppedSchedulerMembers[toks[i].text]; ok {
+			warn(line, reason)
+		}
+	}
+}
+
 func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 	toks := line.code
+	warnDroppedSchedulerMembers(toks, line, warn)
 
 	// Rewrite `freeze <unary_expr>` -> `freeze(<unary_expr>)` and `swap <target> with <expr>` -> `exchange(<target>, value: <expr>)`.
 	toks = rewriteRegionExprs(toks, line, warn)
