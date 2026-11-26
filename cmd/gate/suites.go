@@ -325,15 +325,18 @@ func eachTarget(f func(t string) error) error {
 
 // passToWsl names a variable in WSLENV, so that the Linux programs WSL starts get it.
 func passToWsl(name string) {
-	have := os.Getenv("WSLENV")
+	os.Setenv("WSLENV", wslVariables(os.Getenv("WSLENV"), name))
+}
+
+// wslVariables is the value of WSLENV that names the variables of have and name.
+func wslVariables(have, name string) string {
 	if slices.Contains(strings.Split(have, ":"), name) {
-		return
+		return have
 	}
 	if have == "" {
-		os.Setenv("WSLENV", name)
-		return
+		return name
 	}
-	os.Setenv("WSLENV", have+":"+name)
+	return have + ":" + name
 }
 
 // runsTarget is why the host cannot run the executables of a target, or "" when it can: Windows runs Linux's under WSL,
@@ -521,7 +524,7 @@ func selfCompilesForArm64(compiler string) error {
 	}
 	defer os.RemoveAll(dir)
 	for _, t := range []string{"arm64-linux", "arm64-macos"} {
-		if err := quiet(nil, compiler, "build", "self", "--target="+t, "--verify-ir", "--no-cache", "-o", filepath.Join(dir, "minimaxon")); err != nil {
+		if err := quiet(cacheOffEnvironment(), compiler, "build", "self", "--target="+t, "--verify-ir", "-o", filepath.Join(dir, "minimaxon")); err != nil {
 			return err
 		}
 	}
@@ -601,7 +604,7 @@ var (
 const replayRefusedCode = 3
 
 // specStampEnvironment is the environment that a test inherits and a result can follow.
-var specStampEnvironment = []string{"MAXON_MAX_PROCS", "MAXON_HASH_SEED", "MINIMAXON_CACHE"}
+var specStampEnvironment = []string{"MAXON_MAX_PROCS", "MAXON_HASH_SEED", cacheVariable}
 
 // specStampOf is the text a spec run's results are kept under, equal texts being equal inputs: the compiler, which holds the
 // runner and finds the runtime and the library beside itself, the spec files (the conversion's skips are lines of them),

@@ -34,7 +34,9 @@ jobs:
       # The compiler the gate built (bin/minimaxon) builds itself for arm64 Linux; the arm64 job runs it, and finds runtime/
       # and stdlib/ in its own checkout, as the compiler finds them by walking up from its executable.
       - name: Cross-build the compiler for arm64 Linux
-        run: ./bin/minimaxon build self --target=arm64-linux --no-cache -o bin/minimaxon-arm64-linux
+        env:
+          MINIMAXON_CACHE: "off"
+        run: ./bin/minimaxon build self --target=arm64-linux -o bin/minimaxon-arm64-linux
       - uses: actions/upload-artifact@v4
         with:
           name: minimaxon-arm64-linux

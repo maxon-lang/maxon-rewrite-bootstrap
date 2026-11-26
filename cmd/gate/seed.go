@@ -55,7 +55,7 @@ func renewSeeds(h host, staged bool) error {
 		return err
 	}
 	linuxSeed := filepath.Join("bin", "seed-x64-linux")
-	if err := stage("the Linux compiler", abs(c2), "build", "self", "--target=x64-linux", "-o", linuxSeed); err != nil {
+	if err := stage("the Linux compiler", nil, abs(c2), "build", "self", "--target=x64-linux", "-o", linuxSeed); err != nil {
 		return err
 	}
 	l1, l2, l3 := filepath.Join("bin", "c1-x64-linux"), filepath.Join("bin", "c2-x64-linux"), filepath.Join("bin", "c3-x64-linux")
@@ -70,7 +70,7 @@ func renewSeeds(h host, staged bool) error {
 	if err := os.MkdirAll(filepath.Dir(macSeed), 0o755); err != nil {
 		return err
 	}
-	if err := stage("the macOS compiler", abs(c2), "build", "self", "--target=arm64-macos", "--no-cache", "-o", macSeed); err != nil {
+	if err := stage("the macOS compiler", cacheOffEnvironment(), abs(c2), "build", "self", "--target=arm64-macos", "-o", macSeed); err != nil {
 		return err
 	}
 	if err := proveMacSeed(macSeed); err != nil {
@@ -119,7 +119,7 @@ func stageSeed(h host, c0 string) error {
 	if err := copyFile(h.seed, seed); err != nil {
 		return err
 	}
-	if err := stage(filepath.Base(c0)+", the new self/ against the runtime of "+stagedRuntimeRevision, abs(seed), "build", abs(filepath.Join(dir, "self")), "--no-cache", "-o", c0); err != nil {
+	if err := stage(filepath.Base(c0)+", the new self/ against the runtime of "+stagedRuntimeRevision, cacheOffEnvironment(), abs(seed), "build", abs(filepath.Join(dir, "self")), "-o", c0); err != nil {
 		return fmt.Errorf("%w\na staged renewal is run before the change of the layout is committed, so that the seed compiles the runtime of %s", err, stagedRuntimeRevision)
 	}
 	return nil
@@ -171,14 +171,14 @@ func extractTree(revision, path, dir string) error {
 // not nil, and refuses unless c2 and c3 are the same bytes.
 func chain(seed, c1, c2, c3 string, wrap func(compiler string, args ...string) (string, []string)) error {
 	for _, s := range [][2]string{{seed, c1}, {c1, c2}, {c2, c3}} {
-		name, args := s[0], []string{"build", "self", "--no-cache", "-o", s[1]}
+		name, args := s[0], []string{"build", "self", "-o", s[1]}
 		if s[1] == c3 {
 			args = append(args, "--verify-ir")
 		}
 		if wrap != nil {
 			name, args = wrap(s[0], args...)
 		}
-		if err := stage(filepath.Base(s[1]), name, args...); err != nil {
+		if err := stage(filepath.Base(s[1]), cacheOffEnvironment(), name, args...); err != nil {
 			return err
 		}
 	}
@@ -192,8 +192,8 @@ func chain(seed, c1, c2, c3 string, wrap func(compiler string, args ...string) (
 	return nil
 }
 
-func stage(name, compiler string, args ...string) error {
-	if out, err := output(nil, "", compiler, args...); err != nil {
+func stage(name string, env []string, compiler string, args ...string) error {
+	if out, err := output(env, "", compiler, args...); err != nil {
 		return fmt.Errorf("%s\nseed not renewed: %s failed: %w", out, name, err)
 	}
 	return nil

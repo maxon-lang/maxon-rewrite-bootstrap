@@ -52,7 +52,7 @@ type report struct {
 // operations the counter, a compiler that has the ircount command (the working tree's), counts: one way of counting for both
 // sides, the one the corpus's IR expectations use.
 func (s side) inspect(counter string) (report, error) {
-	timings, err := capture(s.tree, s.compiler, "build", "self", "--no-cache", "--timings", "-o", s.output())
+	timings, err := capture(s.tree, cacheOffEnvironment, s.compiler, "build", "self", "--timings", "-o", s.output())
 	if err != nil {
 		return report{}, err
 	}
@@ -60,7 +60,7 @@ func (s side) inspect(counter string) (report, error) {
 	if err != nil {
 		return report{}, err
 	}
-	if err := execute(s.tree, nil, s.compiler, "build", "self", "--no-cache", "--emit-ir", "-o", s.output()); err != nil {
+	if err := execute(s.tree, cacheOffEnvironment, s.compiler, "build", "self", "--emit-ir", "-o", s.output()); err != nil {
 		return report{}, err
 	}
 	bounds, emptySlots, err := countChecks(counter, s.output()+irSuffix)
@@ -103,7 +103,7 @@ func checkShare(timings string) (float64, error) {
 // countChecks counts the lines of an IR file that are a bounds test or the failure of an empty slot, as the counter's ircount
 // command does.
 func countChecks(counter, path string) (bounds, emptySlots int, err error) {
-	out, err := capture(".", counter, "ircount", path, boundsArgument, emptySlotArgument)
+	out, err := capture(".", nil, counter, "ircount", path, boundsArgument, emptySlotArgument)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -159,21 +159,30 @@ func milliseconds(d time.Duration) float64 {
 	return float64(d) / float64(time.Millisecond)
 }
 
-func printReport(a, b side, timesA, timesB []time.Duration, reportA, reportB report) {
+// printTimes says what each side's runs took, in milliseconds, and how the medians compare.
+func printTimes(title string, a, b side, timesA, timesB []time.Duration) {
 	medianA, medianB := median(timesA), median(timesB)
 	low, high := ratioRange(timesA, timesB)
-	fmt.Printf("self-build, %d runs each, interleaved, no cache\n", len(timesA))
+	fmt.Printf("%s, %d runs each, interleaved\n", title, len(timesA))
 	for _, row := range []struct {
-		s      side
-		times  []time.Duration
-		median time.Duration
-		r      report
-	}{{a, timesA, medianA, reportA}, {b, timesB, medianB, reportB}} {
-		fastest, slowest := slices.Min(row.times), slices.Max(row.times)
-		fmt.Printf("  %-28s median %7.1f ms  range %7.1f-%7.1f ms  check %5.1f%%  bounds %d  empty-slot %d\n",
-			row.s.name, milliseconds(row.median), milliseconds(fastest), milliseconds(slowest), row.r.checkShare, row.r.bounds, row.r.emptySlots)
+		s     side
+		times []time.Duration
+	}{{a, timesA}, {b, timesB}} {
+		fmt.Printf("  %-28s median %7.1f ms  range %7.1f-%7.1f ms\n",
+			row.s.name, milliseconds(median(row.times)), milliseconds(slices.Min(row.times)), milliseconds(slices.Max(row.times)))
 	}
 	fmt.Printf("  B/A of the medians %.4f; B/A by pair of runs %.4f-%.4f\n", float64(medianB)/float64(medianA), low, high)
+}
+
+// printChecks says how much of a build of each side the check of bodies is and how many run-time checks its compiler holds.
+func printChecks(a, b side, reportA, reportB report) {
+	fmt.Println("the compiler that each makes of self/")
+	for _, row := range []struct {
+		s side
+		r report
+	}{{a, reportA}, {b, reportB}} {
+		fmt.Printf("  %-28s check %5.1f%%  bounds %d  empty-slot %d\n", row.s.name, row.r.checkShare, row.r.bounds, row.r.emptySlots)
+	}
 }
 
 // execute runs a command in dir with its output on the tool's standard error.
@@ -191,10 +200,11 @@ func execute(dir string, env []string, name string, args ...string) error {
 
 // capture runs a command in dir and gives what it wrote to its standard output and its standard error, which is where the
 // compiler writes --timings.
-func capture(dir string, name string, args ...string) (string, error) {
+func capture(dir string, env []string, name string, args ...string) (string, error) {
 	var out bytes.Buffer
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), env...)
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 	if err := cmd.Run(); err != nil {

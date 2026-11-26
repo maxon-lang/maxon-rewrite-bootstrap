@@ -609,11 +609,11 @@ function namedSettled(c Compile, p ast.Project, m Count, settled Placed, plans A
 	return true
 end 'namedSettled'
 
-// withCache is options with the build cache that the environment names, unless the command line turned it off or the compile
+// withCache is options with the build cache that the environment names (cacheVariable, off for none), unless the compile
 // writes or verifies the IR, which needs every module's, or writes debug info, whose lines a cached unit does not keep.
 function withCache(options Options) returns Options
 	var cached = options.clone()
-	if not options.usesCache or options.emitIr or options.verifyIr or options.debugInfo 'off'
+	if options.emitIr or options.verifyIr or options.debugInfo 'off'
 		return cached
 	end 'off'
 	cached.cacheDir = cacheDirectory()

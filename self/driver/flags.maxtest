@@ -1,0 +1,50 @@
+test 'an argument that starts with a dash and is no flag of the command is named'
+	var args = CommandNames.create(0)
+	args.push("test")
+	args.push("--help")
+	match consumes firstUnknownFlag(args) 'help'
+		some(arg) then requireNamed(arg, want: "--help")
+		none then panic("flags: --help is read as an argument of test")
+	end 'help'
+	var removed = CommandNames.create(0)
+	removed.push("build")
+	removed.push("x.maxon")
+	removed.push("--no-cache")
+	if not firstUnknownFlag(removed).isSome() 'removedAccepted'
+		panic("flags: --no-cache is a flag of build")
+	end 'removedAccepted'
+end 'an argument that starts with a dash and is no flag of the command is named'
+
+test 'the flags of a command, a lone dash and the program arguments are no unknown flag'
+	var build = CommandNames.create(0)
+	build.push("build")
+	build.push("self")
+	build.push("-o")
+	build.push("out.exe")
+	build.push("-")
+	if firstUnknownFlag(build).isSome() 'buildRefused'
+		panic("flags: build refuses -o or a lone dash")
+	end 'buildRefused'
+	var tests = CommandNames.create(0)
+	tests.push("test")
+	tests.push("--repeat=3")
+	tests.push("--compile-only")
+	tests.push("tests")
+	if firstUnknownFlag(tests).isSome() 'testRefused'
+		panic("flags: test refuses its own flags")
+	end 'testRefused'
+	var debug = CommandNames.create(0)
+	debug.push("debug")
+	debug.push("--batch")
+	debug.push("--")
+	debug.push("--anything")
+	if firstUnknownFlag(debug).isSome() 'programRefused'
+		panic("flags: debug refuses the program's arguments after --")
+	end 'programRefused'
+end 'the flags of a command, a lone dash and the program arguments are no unknown flag'
+
+function requireNamed(arg String, want String)
+	if arg != want 'differs'
+		panic("flags: the unknown flag is {arg}, not {want}")
+	end 'differs'
+end 'requireNamed'

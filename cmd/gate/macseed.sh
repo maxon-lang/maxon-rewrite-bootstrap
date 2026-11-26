@@ -17,6 +17,7 @@ chmod +x "$name"
 rm -rf c1 c2 c3
 mkdir -p c1 c2 c3 tmp
 export TMPDIR="$(pwd)/tmp"
+export MINIMAXON_CACHE=off
 digest=$(shasum -a 256 "$name" | cut -d' ' -f1)
 fail() {
   echo "not proven: $1" >> "$log"
@@ -24,10 +25,10 @@ fail() {
   exit 1
 }
 { echo "== macOS compiler $digest"; sw_vers 2>/dev/null; uname -a; } > "$log" 2>&1
-./"$name" build self --no-cache -o "c1/$name" >> "$log" 2>&1 || fail "the compiler cannot build C1"
+./"$name" build self -o "c1/$name" >> "$log" 2>&1 || fail "the compiler cannot build C1"
 cmp -s "$name" "c1/$name" || fail "C1 differs from the compiler that built it, so a compile depends on its host"
-"c1/$name" build self --no-cache -o "c2/$name" >> "$log" 2>&1 || fail "C1 cannot build C2"
-"c2/$name" build self --no-cache --verify-ir -o "c3/$name" >> "$log" 2>&1 || fail "C2 cannot build C3"
+"c1/$name" build self -o "c2/$name" >> "$log" 2>&1 || fail "C1 cannot build C2"
+"c2/$name" build self --verify-ir -o "c3/$name" >> "$log" 2>&1 || fail "C2 cannot build C3"
 cmp -s "c2/$name" "c3/$name" || fail "C2 and C3 differ, so the compiler does not reproduce itself"
 echo "proven" >> "$log"
 echo "$digest" > "$out/seed/proven.txt"

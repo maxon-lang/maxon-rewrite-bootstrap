@@ -260,6 +260,15 @@ func quiet(env []string, name string, args ...string) error {
 	return nil
 }
 
+// cacheVariable names the environment variable that turns the compiler's build cache off, or names its directory.
+const cacheVariable = "MINIMAXON_CACHE"
+
+// cacheOffEnvironment is the environment of a compile that neither reads nor writes the build cache. It also names the variable
+// in WSLENV, since a compiler that wsl.exe starts gets only the variables that WSLENV names.
+func cacheOffEnvironment() []string {
+	return []string{cacheVariable + "=off", "WSLENV=" + wslVariables(os.Getenv("WSLENV"), cacheVariable)}
+}
+
 // skip says that a step does not run on this host and why.
 func skip(step, why string) {
 	fmt.Printf("%s: skipped on this host, %s\n", step, why)
