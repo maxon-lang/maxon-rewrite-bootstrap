@@ -351,7 +351,7 @@ let schedFreeStackCountOffset = 264 as Count
 // schedPinnedOffset is where the scheduler's record holds how many green threads are pinned to their threads, stepped atomically, so a scheduler with none never reads a green thread's pin.
 let schedPinnedOffset = 272 as Count
 
-// schedPreemptAsksOffset is where the scheduler's record holds how many times the monitor has asked a green thread to stop (preemptOne), once for each slice it held a processor on one schedtick and not again for an ask it repeats, which only the monitor writes and the tests of its pace read.
+// schedPreemptAsksOffset is where the scheduler's record holds how many times the monitor has asked a green thread to stop (preemptOne), once for each green thread it asks on one schedtick and not again for an ask it repeats to it, which only the monitor writes and the tests of its pace read.
 let schedPreemptAsksOffset = 280 as Count
 
 // schedForkLockOffset is where the scheduler's record holds the fork lock on Linux (Go's syscall.ForkLock): how many writes of a file hold it shared, with forkHeldBit set while a clone holds it or waits to; a futex word.
@@ -399,7 +399,7 @@ let procThreadOffset = 16 as Count
 // procLinkOffset is where a processor holds the next idle processor, under the scheduler's lock.
 let procLinkOffset = 24 as Count
 
-// procSchedTickOffset is where a processor holds how many green threads it has started running (Go's schedtick).
+// procSchedTickOffset is where a processor holds how many slices it has started (Go's schedtick): one for each green thread it starts that does not inherit the slice.
 let procSchedTickOffset = 32 as Count
 
 // procSyscallTickOffset is where a processor holds how many blocking calls its threads have entered (Go's syscalltick).
@@ -450,8 +450,17 @@ let procRunqSlots = 256 as Count
 // procAskGapOffset is where a processor holds how long the monitor waits before it asks again the green thread it asked to stop on the schedtick it saw last, 0 while it has not asked on that tick, which only the monitor reads and writes.
 let procAskGapOffset = 2192 as Count
 
+// procAskedGreenOffset is where a processor holds the green thread the monitor last asked to stop on the schedtick it saw last, so that an ask on that tick is an ask again only to that green thread and is counted for one that inherited the slice, which only the monitor reads and writes.
+let procAskedGreenOffset = 2200 as Count
+
+// procSliceAskedOffset is where a processor holds 1 while the monitor's ask to stop the slice it runs is not answered: left by the green thread that switched back with it, for the next green thread that inherits the slice to take as its own ask.
+let procSliceAskedOffset = 2208 as Count
+
+// procInheritOffset is where a processor holds 1 while the entry its thread's search for work took last came from its runnext, which then runs on the slice of the green thread that readied it (Go's inheritTime).
+let procInheritOffset = 2216 as Count
+
 // procBytes is the size of a processor.
-let procBytes = 2200 as Count
+let procBytes = 2224 as Count
 
 // greenStatusOffset is where a green thread holds its status (greenIdle, greenRunnable, ...), changed with compare-exchanges where a reader of another thread may race.
 let greenStatusOffset = 0 as Count
@@ -743,6 +752,12 @@ let stackReserveBytes = 268435456 as Count
 
 // byteBytes is the size of an element of a byte array.
 let byteBytes = 1 as Count
+
+// linuxSysGetpriority is getpriority(which, who): 20 minus the nice value, as the kernel answers it.
+let linuxSysGetpriority = 140 as Count
+
+// linuxSysSetpriority is setpriority(which, who, nice): the nice value of the calling thread, and of the threads and processes it starts.
+let linuxSysSetpriority = 141 as Count
 
 // linuxSysPidfdOpen is pidfd_open(pid, flags): an fd that the event queue sees readable once the process has ended, which the kernel has from 5.3, under the same number on every architecture.
 let linuxSysPidfdOpen = 434 as Count
@@ -1261,12 +1276,6 @@ let macosSpawnSetSid = 1024 as Count
 	// linuxSysGetpid is getpid().
 	let linuxSysGetpid = 172 as Count
 
-	// linuxSysGetpriority is getpriority(which, who): 20 minus the nice value, as the kernel answers it.
-	let linuxSysGetpriority = 141 as Count
-
-	// linuxSysSetpriority is setpriority(which, who, nice): the nice value of the calling thread, and of the threads and processes it starts.
-	let linuxSysSetpriority = 140 as Count
-
 	// linuxSysClone is clone(flags, stack, parent tid, child tid, tls), x86-64's order of the last two.
 	let linuxSysClone = 220 as Count
 
@@ -1419,12 +1428,6 @@ let macosSpawnSetSid = 1024 as Count
 
 	// linuxSysGetpid is getpid().
 	let linuxSysGetpid = 39 as Count
-
-	// linuxSysGetpriority is getpriority(which, who): 20 minus the nice value, as the kernel answers it.
-	let linuxSysGetpriority = 140 as Count
-
-	// linuxSysSetpriority is setpriority(which, who, nice): the nice value of the calling thread, and of the threads and processes it starts.
-	let linuxSysSetpriority = 141 as Count
 
 	// linuxSysClone is clone(flags, stack, parent tid, child tid, tls), x86-64's order of the last two.
 	let linuxSysClone = 56 as Count

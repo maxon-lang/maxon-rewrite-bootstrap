@@ -452,22 +452,34 @@ function switchStacks(context Count, from Count, onto Count)
 end 'switchStacks'
 
 // execute is Go's execute: the thread runs a run queue's entry, a green thread or a behaviour that starts on one, on its
-// stack, giving it one when it first runs, until it switches back, then does what it asked.
-function execute(context Count, entry Count)
+// stack, giving it one when it first runs, until it switches back, then does what it asked. One that inherits the slice
+// (runqGet) starts no schedtick of its own, and takes the monitor's ask of the slice that the green thread before it
+// switched back with unanswered, so a chain of green threads that each live shorter than an ask still honours it.
+function execute(context Count, entry Count, inherit bool)
 	let g = greenOf(context, entry: entry)
 	let proc = __Raw.loadWord(context, offset: contextProcOffset)
-	__Raw.storeWord(proc, offset: procSchedTickOffset, value: __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procSchedTickOffset), right: 1))
+	var asked = unset
+	if inherit 'inherit'
+		asked = __Raw.loadWord(proc, offset: procSliceAskedOffset)
+	end 'inherit' else 'own'
+		__Raw.storeWord(proc, offset: procSchedTickOffset, value: __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procSchedTickOffset), right: 1))
+	end 'own'
+	__Raw.storeWord(proc, offset: procSliceAskedOffset, value: unset)
 	if __Raw.atomicExchange(g, offset: greenStatusOffset, value: greenRunning) == greenNotified 'permit'
 		// A ready that came while the green thread ran or waited on a queue is still its permit (markReady, requeue).
 		_ = __Raw.compareExchange(g, offset: greenStatusOffset, expected: greenRunning, desired: greenNotified)
 	end 'permit'
-	__Raw.storeWord(g, offset: greenPreemptOffset, value: unset)
+	__Raw.storeWord(g, offset: greenPreemptOffset, value: asked)
 	if __Raw.loadWord(g, offset: greenStackOffset) == noStack 'first'
 		giveStack(context, g: g)
 	end 'first'
 	__Raw.storeWord(context, offset: contextGreenOffset, value: g)
 	switchStacks(context, from: threadBlockSwitch(context), onto: __Raw.wrappingAdd(g, right: greenSwitchOffset))
 	__Raw.storeWord(context, offset: contextGreenOffset, value: noGreen)
+	let held = __Raw.loadWord(context, offset: contextProcOffset)
+	if held != noProc 'held'
+		__Raw.storeWord(held, offset: procSliceAskedOffset, value: __Raw.loadAcquire(g, offset: greenPreemptOffset))
+	end 'held'
 	let intent = __Raw.loadWord(context, offset: contextIntentOffset)
 	if intent == intentPark 'park'
 		parked(context, g: g)
@@ -856,9 +868,23 @@ end 'exitBlocking'
 function asyncPreempted(context Count)
 	let g = __Raw.loadWord(context, offset: contextGreenOffset)
 	__Raw.storeWord(__Raw.loadWord(g, offset: greenResumeSlotOffset), offset: 0, value: __Raw.loadWord(g, offset: greenResumeOffset))
+	stopAsked(context, g: g)
+end 'asyncPreempted'
+
+// stopAsked is Go's gopreempt_m: the running green thread g, which the monitor asked to stop, goes to the global run queue.
+function stopAsked(context Count, g Count)
 	__Raw.storeWord(g, offset: greenPreemptOffset, value: unset)
 	switchToScheduler(context, intent: intentPreempted)
-end 'asyncPreempted'
+end 'stopAsked'
+
+// honourAsk is the check of a message's start (serviceStart), as Go's function prologue checks g.preempt: a green thread
+// the monitor asked to stop stops there. Messages that ready one another run almost wholly in the runtime's code, where no
+// asynchronous stop lands, and each on a green thread of its own, so without the check their slice would never end.
+function honourAsk(context Count, g Count)
+	if __Raw.loadAcquire(g, offset: greenPreemptOffset) == set 'asked'
+		stopAsked(context, g: g)
+	end 'asked'
+end 'honourAsk'
 
 // stoppable is whether a thread the monitor has stopped (suspended on Windows, in the preemption signal's handler on
 // Linux), at an instruction and a stack pointer, may be made to return into rt.asyncPreempt: it runs a green thread that

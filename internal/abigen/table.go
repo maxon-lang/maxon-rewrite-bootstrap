@@ -372,7 +372,7 @@ var layouts = []layoutConst{
 	{"schedPinnedOffset", 34, false, toRuntime,
 		"where the scheduler's record holds how many green threads are pinned to their threads, stepped atomically, so a scheduler with none never reads a green thread's pin."},
 	{"schedPreemptAsksOffset", 35, false, toRuntime,
-		"where the scheduler's record holds how many times the monitor has asked a green thread to stop (preemptOne), once for each slice it held a processor on one schedtick and not again for an ask it repeats, which only the monitor writes and the tests of its pace read."},
+		"where the scheduler's record holds how many times the monitor has asked a green thread to stop (preemptOne), once for each green thread it asks on one schedtick and not again for an ask it repeats to it, which only the monitor writes and the tests of its pace read."},
 	{"schedForkLockOffset", 36, false, toRuntime,
 		"where the scheduler's record holds the fork lock on Linux (Go's syscall.ForkLock): how many writes of a file hold it shared, with forkHeldBit set while a clone holds it or waits to; a futex word."},
 	{"schedPreemptStopsOffset", 37, false, toRuntime,
@@ -408,7 +408,7 @@ var layouts = []layoutConst{
 	{"procLinkOffset", 3, false, toRuntime,
 		"where a processor holds the next idle processor, under the scheduler's lock."},
 	{"procSchedTickOffset", 4, false, toRuntime,
-		"where a processor holds how many green threads it has started running (Go's schedtick)."},
+		"where a processor holds how many slices it has started (Go's schedtick): one for each green thread it starts that does not inherit the slice."},
 	{"procSyscallTickOffset", 5, false, toRuntime,
 		"where a processor holds how many blocking calls its threads have entered (Go's syscalltick)."},
 	{"procSeenTickOffset", 6, false, toRuntime,
@@ -444,7 +444,25 @@ var layouts = []layoutConst{
 	// The monitor's word past the run queue, which it writes only while a green thread holds the processor past its slice.
 	{"procAskGapOffset", 274, false, toRuntime,
 		"where a processor holds how long the monitor waits before it asks again the green thread it asked to stop on the schedtick it saw last, 0 while it has not asked on that tick, which only the monitor reads and writes."},
-	{"procBytes", 275, false, toRuntime,
+	{"procAskedGreenOffset", 275, false, toRuntime,
+		"where a processor holds the green thread the monitor last asked to stop on the schedtick it saw last, so that an ask on that tick is an ask again only to that green thread and is counted for one that inherited the slice, which only the monitor reads and writes."},
+	// The owner's words of the inherited slice (Go's inheritTime), which only the thread holding the processor reads and
+	// writes. procInheritOffset lives from the search for work to the start of what it found: findRunnable clears it each
+	// time round, on the processor it holds then, runqGet sets it only when it takes runnext, and scheduleLoop reads it right
+	// after findRunnable, before anything can hand the processor on; a pinned green thread started for its thread never
+	// inherits. procSliceAskedOffset is the ask of the slice the processor runs and no other: execute takes it when it starts
+	// an entry that inherits (into the green thread's ask) and clears it when it starts one that does not, and when the green
+	// thread switches back writes there the ask it left unanswered: none after a preemption, which answers it; the one it had
+	// after a finish, a park, a yield, which an inherited successor then takes. A green thread that loses its processor in a
+	// blocking call writes nothing. As in Go, acquiring a processor starts no slice: a processor goes idle only with
+	// runnext empty, so what a thread runs first on one it took from the idle list starts a slice of its own, and one handed
+	// on from a blocking call with runnext set runs it on the slice of the green thread that readied it, which the monitor
+	// asks to stop once that slice is over.
+	{"procSliceAskedOffset", 276, false, toRuntime,
+		"where a processor holds 1 while the monitor's ask to stop the slice it runs is not answered: left by the green thread that switched back with it, for the next green thread that inherits the slice to take as its own ask."},
+	{"procInheritOffset", 277, false, toRuntime,
+		"where a processor holds 1 while the entry its thread's search for work took last came from its runnext, which then runs on the slice of the green thread that readied it (Go's inheritTime)."},
+	{"procBytes", 278, false, toRuntime,
 		"the size of a processor."},
 
 	// A green thread (Go's g): its state, the code it runs and the word it runs it with, the arguments the code reads, the

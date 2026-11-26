@@ -226,7 +226,8 @@ end 'askAgain'
 // preemptOne is Go's preemptone: the green thread of the thread that holds the processor is asked to stop, and the thread
 // is stopped where it may be. A thread in a blocking call holds no processor's thread word, so it is never asked: retake
 // takes its processor instead. It says whether there was one to ask, and counts in the scheduler's record each ask that is
-// not an ask again.
+// not an ask again: again on the tick, to the green thread asked before on it. A tick that green threads inherit from one
+// another (runqGet) holds more than one, and each is asked once before it is asked again.
 function preemptOne(scheduler Count, proc Count, again bool) returns bool
 	let thread = __Raw.loadAcquire(proc, offset: procThreadOffset)
 	if thread == noThread 'none'
@@ -238,9 +239,10 @@ function preemptOne(scheduler Count, proc Count, again bool) returns bool
 	end 'scheduler'
 	__Raw.storeRelease(g, offset: greenPreemptOffset, value: set)
 	preemptThread(scheduler, context: thread, g: g)
-	if not again 'first'
+	if not again or __Raw.loadWord(proc, offset: procAskedGreenOffset) != g 'first'
 		countMonitorWord(scheduler, offset: schedPreemptAsksOffset)
 	end 'first'
+	__Raw.storeWord(proc, offset: procAskedGreenOffset, value: g)
 	return true
 end 'preemptOne'
 

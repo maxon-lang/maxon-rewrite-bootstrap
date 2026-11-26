@@ -197,8 +197,6 @@ var linuxArm64 = []archValue{
 	{"linuxSysKill", 129},
 	{"linuxSysSetpgid", 154},
 	{"linuxSysSetsid", 157},
-	{"linuxSysSetpriority", 140},
-	{"linuxSysGetpriority", 141},
 	{"linuxSysGetcwd", 17},
 	{"linuxSysChdir", 49},
 	{"linuxSysSigaltstack", 132},
