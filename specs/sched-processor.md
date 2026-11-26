@@ -145,12 +145,12 @@ before the arguments are filled presents.
 ```maxon
 function widest(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer) returns Integer
 	Scheduler.parallelBoundary()
-	return a + b * 2 + c * 4 + d * 8 + e * 16 + f * 32
+	return try a + b * 2 + c * 4 + d * 8 + e * 16 + f * 32 otherwise panic("out of range")
 end 'widest'
 
 function main() returns ExitCode
 	let p = async widest(1, b: 1, c: 1, d: 1, e: 1, f: 1)
-	return await p as ExitCode
+	return try await p as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -167,7 +167,7 @@ for another. The sum is index-derived, so any mis-pairing lands on a different n
 ```maxon
 function step(n Counted) returns Counted
 	Scheduler.parallelBoundary()
-	return n * 3
+	return try n * 3 otherwise panic("out of range")
 end 'step'
 
 typealias Counted = int(i64.min to i64.max)
@@ -177,13 +177,13 @@ typealias CountedPromise = Promise with Counted
 typealias CountedPromiseArray = Array with CountedPromise
 
 function main() returns ExitCode
-	let promises = CountedPromiseArray.create(0)
+	var promises = CountedPromiseArray.create(0)
 	for i in 0 upto 32 'spawn'
 		promises.push(async step(i))
 	end 'spawn'
 	var total = 0 as Counted
 	for p in promises 'await'
-		total = total + await p
+		total = try total + await p otherwise panic("out of range")
 	end 'await'
 	if total == 1488 'expected'
 		return 7

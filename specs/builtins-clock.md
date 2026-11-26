@@ -495,9 +495,9 @@ function main() returns ExitCode
 	__Builtins.sleep(200)
 	let sleepCpuAfter = __Builtins.threadCpuTicks()
 	let sleepWallAfter = __Builtins.currentTimeNanos()
-	let busyCpu = busyCpuAfter - busyCpuBefore
-	let sleepCpu = sleepCpuAfter - sleepCpuBefore
-	let sleepWall = sleepWallAfter - sleepWallBefore
+	let busyCpu = try busyCpuAfter - busyCpuBefore otherwise panic("out of range")
+	let sleepCpu = try sleepCpuAfter - sleepCpuBefore otherwise panic("out of range")
+	let sleepWall = try sleepWallAfter - sleepWallBefore otherwise panic("out of range")
 	var score = 0 as Count
 	if worked > 0 'workReallyRan'
 		score = score + 1
@@ -505,7 +505,7 @@ function main() returns ExitCode
 	if sleepWall >= 200000000 'sleptTheWholeTime'
 		score = score + 2
 	end 'sleptTheWholeTime'
-	if busyCpu > sleepCpu * 4 'cpuFollowsTheThreadNotTheClock'
+	if busyCpu > (try sleepCpu * 4 otherwise panic("out of range")) 'cpuFollowsTheThreadNotTheClock'
 		score = score + 4
 	end 'cpuFollowsTheThreadNotTheClock'
 	return score as ExitCode

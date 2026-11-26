@@ -1,4 +1,3 @@
-// native-only
 // A mailbox holds at most its capacity of messages that the service has not started, so a send to a full one fails with
 // mailboxFull and drops what it would have moved in. A factory that throws makes the spawn throw. A reply can be dropped on
 // purpose, a handler's error comes back through the reply, and one service sends to another through a handle it was given.

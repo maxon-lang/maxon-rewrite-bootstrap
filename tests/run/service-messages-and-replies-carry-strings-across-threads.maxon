@@ -1,4 +1,3 @@
-// native-only
 // A message and its reply carry a String as its two words, across threads: coroutines that may run on any processor send
 // services owned Strings they built, literals and empty Strings, which the services keep, drop and send back, and the
 // services reply with owned Strings they built, literals and empty Strings. Most owned Strings are freed on another

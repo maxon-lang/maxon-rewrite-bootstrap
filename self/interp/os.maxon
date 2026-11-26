@@ -549,17 +549,30 @@ function entryOsStdoutWantsColor(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	giveFlag(vm, x: x, b: false)
 end 'entryOsStdoutWantsColor'
 
-// entrySchedPin pins nothing: the interpreter runs one thread, which every green thread is on.
+// entrySchedPin counts a pin of the thread that runs: the interpreter runs one machine, which every thread is on, so a pin
+// holds nothing else, and its depth is what the program reads.
 function entrySchedPin(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	vm.threads[vm.cur].pins = try vm.threads[vm.cur].pins + 1 otherwise panic("interp: more pins than a word")
 	giveNum(vm, x: x, n: 1)
 end 'entrySchedPin'
 
-function entrySchedUnpin(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+// pinNotHeldMessage is the runtime's fatal error of an unpin by a thread that holds no pin (runtime/green.maxon).
+let pinNotHeldMessage = "fatal error: a machine pin was released by a green thread that holds none"
+
+// fatalExitCode is what the runtime's fatal errors exit with.
+let fatalExitCode = 70 as ir.Word
+
+function entrySchedUnpin(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let pins = vm.threads[vm.cur].pins
+	if pins == 0 'unheld'
+		vm.stderr.append("{pinNotHeldMessage}\n".toByteArray())
+		throw exitWith(vm, code: fatalExitCode)
+	end 'unheld'
+	vm.threads[vm.cur].pins = try pins - 1 otherwise panic("interp: a pin below none")
 end 'entrySchedUnpin'
 
-// entrySchedPinDepth is 0, since the interpreter's pins pin nothing (entrySchedPin).
 function entrySchedPinDepth(mutates vm Vm, f ir.IrFunction, x ir.Instr)
-	giveNum(vm, x: x, n: 0)
+	giveNum(vm, x: x, n: try vm.threads[vm.cur].pins as ir.Word otherwise panic("interp: more pins than a word"))
 end 'entrySchedPinDepth'
 
 // interpretedMachine is the number of the one thread the interpreter runs every green thread on.

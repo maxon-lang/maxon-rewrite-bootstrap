@@ -1,4 +1,3 @@
-// native-only
 // A green thread pinned to its machine (Go's LockOSThread) parks, yields and sleeps while behaviours run on the other
 // threads, and its thread runs no other green thread meanwhile: every wait hands the processor on and has the green thread
 // handed back to its own thread. Pins nest, the last unpin frees it, and a coroutine that finishes pinned frees its

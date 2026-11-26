@@ -1,4 +1,3 @@
-// native-only
 // A message may call a function of another module whose check published that it never waits on another party.
 type Doubler
 	var n as lib.Amount

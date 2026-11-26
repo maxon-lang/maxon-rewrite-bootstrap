@@ -478,7 +478,7 @@ Directives in comments say what the program must do:
 | `// expect-error: E3102` | compiling must fail with this code; `E3102 at 7:5` also pins the line and column. A program may have several, and each must be reported |
 | `// expect-free: label` | the interpreter must free the program's values in the order of these lines, one value each, as `minimaxon interp --frees` prints them (`string "a1"`, `array`, `record`, `slot map`) |
 | `// memory-limit: N` | the native run may use at most N megabytes; the runner does not enforce it yet |
-| `// native-only` | do not run the program under the interpreter; for a program whose point is what the executable does with memory, which the interpreter runs far too slowly |
+| `// native-only` | do not run the program under the interpreter; for a program whose point is what the executable does with memory, which the interpreter runs far too slowly, one that does I/O the interpreter does not model (files, the environment, children, a debuggee), and one that checks a run-time abort of the executable that the interpreter reports as a violation (a second take of an emptied promise slot) |
 | `// stdin: <text>` | a line of the program's standard input, which ends after the last: each directive is one more line, its text after the one space as `//>`'s is. A program without one reads the end of its input at once. The runner gives each executable its input through `__Builtins.runWithInput`, and the interpreter reads the same text |
 | `// schedules: N` | run the program under N schedules of the interpreter (seeds 0 to N - 1) instead of 20; for a program of thousands of behaviours |
 | `// expect-scheduler: used` or `none` | the link must give the program the scheduler, or must not (see "Main with or without the scheduler"); what a program does cannot show it |
@@ -2233,7 +2233,7 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   (a slot that was moved out of or never assigned, read again), a value with two owners or one that is freed or returned while
   another owner holds it, a stale borrow (an element's address used after its structure changed), exclusivity (two arguments
   that reach one place where one of them can be changed, or a change to a place that a borrow a call is still waiting to use
-  reaches), and three that only threads can break (below). A violation in a program the checker accepted is a hole in the
+  reaches), three that only threads can break (below), and a deadlock. A violation in a program the checker accepted is a hole in the
   checker or in lowering. It stops the run; a leak is found at the end.
 - **Threads.** `main` is the first thread; a `when` makes a behaviour that is queued on each cown it names, in the order
   behaviours were scheduled, and that becomes a thread once it is first in all of those queues. A thread is a stack of frames
@@ -2242,7 +2242,22 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   behaviour that can start, and a thread keeps the turn for a random number of instructions (up to 2, 8 or 64, chosen at random
   each time), so the schedules include interleavings at instruction granularity and long runs of one thread. What is simulated is
   the interleaving, which is where a data race would show. The seed draws from a PCG generator (`words.maxon`). The program ends
-  when `main` has returned and no behaviour is left, with `main`'s exit code; a trap in any thread ends it at once.
+  when `main` has returned and no behaviour, coroutine or message is left, with `main`'s exit code; a trap in any thread ends
+  it at once. `minimaxon interp --seed=N` runs the schedule of seed N, the test runner seeds 0 up to 20 (`// schedules:`).
+- **Strands, timers and services** (`strands.maxon`), as the runtime runs them. An async call makes a coroutine, a thread of
+  the caller's strand (the first makes the caller the strand's root): a strand's members run one at a time, only the one
+  that holds it takes turns, and it gives the strand to the member that waited first only where it waits, yields or
+  finishes, never where its burst ends, so async code is never interleaved with itself while separate strands (main, each
+  behaviour) are. A wait (an await, `awaitAny`, a sleep, the wait of a drop that cancelled a promise) parks the thread at its
+  instruction, which runs again once the thread is readied and holds its strand. A promise is an object whose contents are
+  a row of the Vm: what the coroutine's function or the message's handler gave, which the await takes, and its cancel,
+  which keeps a coroutine that has not started from calling its function and ends the sleep it is in. A service is a cown
+  with the runtime's gate (capacity, the messages sent and not started, closed), and its messages are behaviours. Time is a
+  **simulated clock**: a sleep sets a timer on it, and when no thread can run the scheduler moves the clock to the earliest
+  timer, so a run of sleeps takes no time and wakes threads in the order of their deadlines (those due at once in the order
+  they slept). Members of one strand reach each other's data, and a coroutine reaches the cowns its root's behaviour holds.
+  When no thread can run and no timer is set while a thread waits or a behaviour is queued, the run is a **deadlock**, reported
+  as a violation that names each waiting thread and where it waits. The tests are in `strands.maxtest`.
 - **Who owns what.** A value belongs to the thread whose frame holds it, to the cown whose value it is part of, or to a frozen
   value, found by following owners up to a slot, the value of a cown or the contents of a frozen value; a value that nothing
   owns yet belongs to whoever holds it. Touching a value that belongs to another thread, or to a cown while the thread has no
@@ -4457,7 +4472,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `Subprocess.run(executable, arguments: args)` | `CollectedOutput`: `exitCode()`, `succeeded()`, `stdout`, `stderr` | `SubprocessError` |
 | `Subprocess.runWithDeadline(executable, arguments: args, deadline: d)` | as `run`; a child still running when `d` (maxon's `WaitDeadline`: `WaitDeadline.none` or `WaitDeadline.within(ms)`) passes is terminated | `SubprocessError`, `timeout` for the deadline |
 | `Subprocess.runInDirectory(executable, arguments: args, directory: p, deadline: d)` | as `runWithDeadline`, the child starting in the directory `p`, relative to the caller's working directory: maxon's `run` with `workingDirectory: WorkingDirectory.at(p)` | `SubprocessError`, `spawnFailed` for a directory the child cannot start in |
-| `Scheduler.pinToMachine()`, `Scheduler.unpinFromMachine()` | `Bool`, and —: maxon's, Go's `LockOSThread` and `UnlockOSThread`. The calling green thread runs only on the thread running it now, and that thread runs no other green thread, until as many unpins as pins; a green thread that finishes pinned frees its thread, and an unpin with no pin is maxon's fatal error (`fatal error: a machine pin was released by a green thread that holds none`, exit code 70, `runtimeFatal`). A pin answers whether there is a machine to pin to, which in a program without the scheduler is its one thread, whose pins the link's single-thread forms count (see "Main with or without the scheduler"); the interpreter runs one thread, so a pin there holds trivially | — |
+| `Scheduler.pinToMachine()`, `Scheduler.unpinFromMachine()` | `Bool`, and —: maxon's, Go's `LockOSThread` and `UnlockOSThread`. The calling green thread runs only on the thread running it now, and that thread runs no other green thread, until as many unpins as pins; a green thread that finishes pinned frees its thread, and an unpin with no pin is maxon's fatal error (`fatal error: a machine pin was released by a green thread that holds none`, exit code 70, `runtimeFatal`). A pin answers whether there is a machine to pin to, which in a program without the scheduler is its one thread, whose pins the link's single-thread forms count (see "Main with or without the scheduler"); the interpreter runs one machine, so a pin there holds trivially, and it counts each thread's pins for the depth and the fatal error | — |
 | `Debuggee.launch(executable, arguments: args, outputToError: b)` | `Count`, the process id of the program started as the caller's debuggee (`DEBUG_ONLY_THIS_PROCESS`), its standard input the caller's and its output the caller's own or, with `b`, the caller's error, as its error is | `SubprocessError` |
 | `Debuggee.waitEvent(budgetMs)` | `Array with Byte`: the `DEBUG_EVENT` that came within the milliseconds as the system wrote it, or none | — |
 | `Debuggee.continueEvent(processId, thread: id, disposition: d)` | `Bool`; `d` is maxon's `DebugDisposition`, `handled` or `unhandled` (an exception handed on to the program) | — |
@@ -4649,10 +4664,9 @@ maxon's surface, on the green threads of the runtime (see "Green threads"):
   `rt.async.take` with the failure branch of a call for one that throws. A promise's drop routine cancels it as
   `p.cancel()` does; it meets the empty place an await leaves, and a promise that a coroutine cancelled before it started
   was given to own.
-- **The interpreter** runs no coroutine: an async call ends an interpreted run with `async calls are not supported by the
-  interpreter`, so a test that starts one is `// native-only`. Running them needs a strand of its threads (the
-  scheduler already keeps each thread's frames apart, so a coroutine is a thread that runs only while it holds its
-  strand) and a clock that sleeps advance; `sleep` and `Scheduler.yield()` change nothing there.
+- **The interpreter** runs coroutines, sleeps and yields as the runtime does ("The interpreter", `self/interp/strands.maxon`):
+  a coroutine is a thread that runs only while it holds its strand, and a sleep parks its thread on a timer of the
+  interpreter's clock.
 - **Promises in containers and fields.** A promise held by an array, a record, a tuple or a union's payload is dropped
   with its holder, which cancels it (`partLacks`: a promise part is `Droppable`, a promise of its own in a local is
   must-use); a store into a promise field drops what the field held. A read of a promise out of storage that is consumed
@@ -4726,8 +4740,8 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   the place back (`rt.service.taken`), calls the handler with the state and the arguments, drops what a `let` parameter
   only borrowed, and gives the cell what the handler returned and threw (`rt.reply.give`), or drops it. The cell is a
   green thread's record that never runs, so `rt.async.await` awaits it as a coroutine.
-- The interpreter runs no service: a spawn or a send ends an interpreted run with `services are not supported by the
-  interpreter`, so a test that starts one is `// native-only`.
+- The interpreter runs services as the runtime does: a service is a cown with its gate, each message a behaviour on it
+  whose thread may sleep or await while it holds the cown, and a reply a promise that the message's behaviour finishes.
 - Not yet: see "Where it differs from Maxon".
 
 ### Source text

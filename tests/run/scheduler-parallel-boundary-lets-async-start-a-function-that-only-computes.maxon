@@ -1,4 +1,3 @@
-// native-only
 // Scheduler.parallelBoundary() marks a function that only computes as one async may start (E3073 refuses a function
 // that never waits); it does nothing at run time, so the coroutine computes what a call would. The interpreter runs no
 // coroutine.

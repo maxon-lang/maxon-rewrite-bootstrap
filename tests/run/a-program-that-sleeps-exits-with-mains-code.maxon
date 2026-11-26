@@ -1,4 +1,3 @@
-// native-only
 // main returns its exit code as a green thread, after the scheduler has run everything else, as it does on the main thread
 // alone in a program without the scheduler (exit-code.maxon). The interpreter runs no sleep.
 // expect-scheduler: used

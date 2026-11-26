@@ -41,6 +41,9 @@ let immutability = 8 as Count
 // count is a frozen value or a cown whose count of owners is wrong: freed while a place still holds it, or lowered past 0.
 let countWrong = 9 as Count
 
+// deadlock is a run in which no thread can run and no timer is set, while a thread waits or a behaviour is queued.
+let deadlock = 10 as Count
+
 function violationName(kind Count) returns String
 	return match kind 'k'
 		0 gives "use after free"
@@ -53,6 +56,7 @@ function violationName(kind Count) returns String
 		7 gives "data race"
 		8 gives "change to a frozen value"
 		9 gives "reference count"
+		10 gives "deadlock"
 		default gives panic("interp: {kind} is no kind of violation")
 	end 'k'
 end 'violationName'

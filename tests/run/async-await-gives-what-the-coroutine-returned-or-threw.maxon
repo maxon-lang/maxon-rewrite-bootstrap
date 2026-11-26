@@ -1,4 +1,3 @@
-// native-only
 // An await gives what the coroutine's function returned, and a try around the await catches what it threw. A coroutine
 // may start coroutines of its own, in the same strand, and an untied promise may be returned to be awaited by the caller.
 // The interpreter runs no coroutine.

@@ -351,6 +351,7 @@ error E2015: <fragment>:2:10: Unsupported: a function with 66 argument slots —
 ```
 
 <!-- test: stack-arguments.error.a-method-defaulting-its-sixty-fifth-parameter-is-refused -->
+<!-- positions: moved -->
 <!-- process: own -->
 A method with 66 parameters, the last two defaulted, is past the argument slots a call can carry, so the declaration is refused.
 ```maxon
@@ -358,7 +359,7 @@ type Holder
 	var seed as Count
 
 	function wide(p0 Count, p1 Count, p2 Count, p3 Count, p4 Count, p5 Count, p6 Count, p7 Count, p8 Count, p9 Count, p10 Count, p11 Count, p12 Count, p13 Count, p14 Count, p15 Count, p16 Count, p17 Count, p18 Count, p19 Count, p20 Count, p21 Count, p22 Count, p23 Count, p24 Count, p25 Count, p26 Count, p27 Count, p28 Count, p29 Count, p30 Count, p31 Count, p32 Count, p33 Count, p34 Count, p35 Count, p36 Count, p37 Count, p38 Count, p39 Count, p40 Count, p41 Count, p42 Count, p43 Count, p44 Count, p45 Count, p46 Count, p47 Count, p48 Count, p49 Count, p50 Count, p51 Count, p52 Count, p53 Count, p54 Count, p55 Count, p56 Count, p57 Count, p58 Count, p59 Count, p60 Count, p61 Count, p62 Count, p63 Count, p64 Count = 0, p65 Count = 0) returns Count
-		return self.seed + p0
+		return try self.seed + p0 otherwise panic("out of range")
 	end 'wide'
 end 'Holder'
 

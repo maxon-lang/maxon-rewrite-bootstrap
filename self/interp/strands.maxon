@@ -1,0 +1,579 @@
+// Strands, coroutines, timers and services, as the runtime runs them (runtime/strand.maxon, green.maxon, timers.maxon,
+// service.maxon). A coroutine is a thread of its own that runs only while it holds its strand: a strand is the thread that
+// made a first coroutine (its root) and the coroutines it and they make, and only its holder runs. A member gives the
+// strand up where it waits (it parks), where it yields and where it finishes, to the member that waited first, never
+// where its burst ends, so two members never interleave. A thread that waits is parked: the entry that waited leaves the
+// thread at its instruction, which runs again once the thread is readied and holds its strand. Time is the interpreter's
+// clock, which a sleep's timer is set on and which the scheduler moves to the earliest timer when no thread can run, so a
+// run of sleeps takes no time and orders its timers as their deadlines do.
+
+// longestSleepNanos is the most a sleep waits, as the runtime's: about 146 years, so a deadline stays inside a word.
+let longestSleepNanos = 4611686018427387904 as Count
+
+// serviceClosed is what a shutdown adds to a service's gate, above every count of messages a capacity allows.
+let serviceClosed = 4611686018427387904 as Count
+
+// strandOf is the strand of a thread, which it becomes the root and holder of when it has none yet.
+function strandOf(mutates vm Vm, t Count) returns Count
+	if vm.threads[t].strand == 0 'first'
+		let s = vm.strands.root.count()
+		vm.strands.root.push(t)
+		vm.strands.holder.push(t)
+		vm.strands.queue.push(CountList.create(0))
+		vm.threads[t].strand = s
+	end 'first'
+	return vm.threads[t].strand
+end 'strandOf'
+
+// holdsTurn is whether a thread may run as far as its strand goes: it is no member of one, or it holds its strand.
+function holdsTurn(vm Vm, t Count) returns bool
+	let s = vm.threads[t].strand
+	return s == 0 or vm.strands.holder[s] == t
+end 'holdsTurn'
+
+// sameStrand is whether two threads reach the same data without a race: they are one thread, or members of one strand,
+// which never run at once.
+function sameStrand(vm Vm, a Count, b Count) returns bool
+	return a == b or (vm.threads[a].strand != 0 and vm.threads[a].strand == vm.threads[b].strand)
+end 'sameStrand'
+
+// behaviourOf is the behaviour whose cowns a thread may touch: its own, or its strand's root's for a coroutine.
+function behaviourOf(vm Vm, t Count) returns Count
+	let s = vm.threads[t].strand
+	if s == 0 'alone'
+		return vm.threads[t].behaviour
+	end 'alone'
+	return vm.threads[vm.strands.root[s]].behaviour
+end 'behaviourOf'
+
+// releaseStrand is a thread giving up the strand it holds, to the member that waited first, or to none.
+function releaseStrand(mutates vm Vm, t Count)
+	let s = vm.threads[t].strand
+	if s == 0 or vm.strands.holder[s] != t 'notHeld'
+		return
+	end 'notHeld'
+	var next = 0 as Count
+	if vm.strands.queue[s].count() > 0 'waiting'
+		next = vm.strands.queue[s][0]
+		try vm.strands.queue[s].remove(0) otherwise ignore
+	end 'waiting'
+	vm.strands.holder[s] = next
+end 'releaseStrand'
+
+// readyThread ends the wait of a parked thread: it takes its strand when no member holds it, and else waits behind the
+// members queued already.
+function readyThread(mutates vm Vm, t Count)
+	if not vm.threads[t].parked 'running'
+		return
+	end 'running'
+	vm.threads[t].parked = false
+	let s = vm.threads[t].strand
+	if s == 0 'alone'
+		return
+	end 'alone'
+	if vm.strands.holder[s] == 0 'free'
+		vm.strands.holder[s] = t
+		return
+	end 'free'
+	vm.strands.queue[s].push(t)
+end 'readyThread'
+
+// parkThread parks the thread that runs, which gives up its strand and its turn.
+function parkThread(mutates vm Vm)
+	let t = vm.cur
+	vm.threads[t].parked = true
+	releaseStrand(vm, t: t)
+	vm.yielded = true
+	vm.switched = true
+end 'parkThread'
+
+// waitHere parks the thread at the instruction that runs, which runs again, uncounted, once the thread goes on.
+function waitHere(mutates vm Vm)
+	parkThread(vm)
+	vm.ticked = true
+end 'waitHere'
+
+// yieldStrand gives the strand of the thread that runs to the member that waited first, which the thread waits behind,
+// and gives true; with no member waiting it gives its turn back to the scheduler and gives false, the yield done.
+function yieldStrand(mutates vm Vm) returns bool
+	let t = vm.cur
+	let s = vm.threads[t].strand
+	vm.yielded = true
+	if s == 0 or vm.strands.queue[s].count() == 0 'alone'
+		return false
+	end 'alone'
+	let next = vm.strands.queue[s][0]
+	try vm.strands.queue[s].remove(0) otherwise ignore
+	vm.strands.queue[s].push(t)
+	vm.strands.holder[s] = next
+	vm.threads[t].yielding = true
+	vm.switched = true
+	vm.ticked = true
+	return true
+end 'yieldStrand'
+
+// wakeDue readies every sleeper whose timer is due, in the order they went to sleep.
+function wakeDue(mutates vm Vm)
+	var i = 0 as Count
+	while i < vm.sleepers.count() 'sleepers'
+		let t = vm.sleepers[i]
+		if vm.threads[t].wakeAt <= vm.clockNanos 'due'
+			try vm.sleepers.remove(i) otherwise ignore
+			vm.threads[t].wakeAt = noTimer
+			vm.threads[t].woke = true
+			readyThread(vm, t: t)
+		end 'due' else 'later'
+			i = try i + 1 otherwise panic("interp: more sleepers than memory")
+		end 'later'
+	end 'sleepers'
+end 'wakeDue'
+
+// advanceClock moves the clock to the earliest timer, which is what time does when nothing can run.
+function advanceClock(mutates vm Vm)
+	var earliest = vm.threads[vm.sleepers[0]].wakeAt
+	for i in 1 upto vm.sleepers.count() 'sleepers'
+		let at = vm.threads[vm.sleepers[i]].wakeAt
+		if at < earliest 'earlier'
+			earliest = at
+		end 'earlier'
+	end 'sleepers'
+	if earliest > vm.clockNanos 'later'
+		vm.clockNanos = earliest
+	end 'later'
+end 'advanceClock'
+
+// execAsync starts a call as a coroutine of the strand of the thread that runs: its arguments are taken as the call's
+// would be, and it waits in the strand's queue until the members before it wait.
+function execAsync(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let callee = functionOf(vm, id: ir.asyncCallee(f, x: x))
+	let start = ir.asyncArgsStart(x)
+	let count = ir.asyncArgsCount(x)
+	clearArguments(vm)
+	for i in 0 upto count 'args'
+		let r = f.args[try start + i otherwise panic("interp: an argument past the pool")]
+		let at = vm.regAt(r)
+		vm.argN.push(vm.regN[at])
+		vm.argR.push(vm.regR[at])
+		try checkArgument(vm, f: f, callee: callee, i: i, r: r)
+	end 'args'
+	try requireDisjoint(vm, callee: callee, count: count)
+	let caller = vm.cur
+	let s = strandOf(vm, t: caller)
+	let t = vm.threads.count()
+	let row = vm.promises.add(t)
+	var thread = Thread.new(callee, behaviour: 0)
+	thread.promise = row
+	thread.strand = s
+	thread.startN = vm.argN.clone()
+	thread.startR = vm.argR.clone()
+	vm.threads.push(thread)
+	vm.strands.queue[s].push(t)
+	let site = vm.site()
+	let o = vm.h.newObject(kindPromise, site: site)
+	vm.h.oData[o] = row
+	vm.setRef(x.dst, o: o)
+end 'execAsync'
+
+// beginCoroutine makes the first frame of a coroutine, with the arguments its async call gave; one whose promise was
+// cancelled before it started never calls its function, and drops what the function was given to own.
+function beginCoroutine(mutates vm Vm, t Count, row Count) throws Halt
+	let callee = vm.threads[t].name
+	if vm.promises.cancelled[row] 'cancelled'
+		for i in 0 upto vm.threads[t].startR.count() 'owned'
+			let r = vm.threads[t].startR[i]
+			if r > 0 and ownsArgument(argumentConv(vm, callee: callee, i: i)) 'drop'
+				try drop(vm, o: r as Count)
+			end 'drop'
+		end 'owned'
+		return
+	end 'cancelled'
+	vm.promises.started[row] = true
+	clearArguments(vm)
+	for i in 0 upto vm.threads[t].startN.count() 'args'
+		vm.argN.push(vm.threads[t].startN[i])
+		vm.argR.push(vm.threads[t].startR[i])
+	end 'args'
+	try enterFrame(vm, fn: callee, dst: -1, err: -1)
+end 'beginCoroutine'
+
+// keepOutcome puts what a coroutine's function gave in its promise, for the await.
+function keepOutcome(mutates vm Vm, t Count, row Count)
+	vm.promises.valueN[row] = vm.threads[t].retN
+	vm.promises.valueR[row] = vm.threads[t].retR
+	vm.promises.errN[row] = vm.threads[t].errN
+	vm.promises.errR[row] = vm.threads[t].errR
+end 'keepOutcome'
+
+// finishPromise marks a promise finished and readies the thread that waits for it.
+function finishPromise(mutates vm Vm, row Count)
+	vm.promises.finished[row] = true
+	let w = vm.promises.waiter[row]
+	vm.promises.waiter[row] = 0
+	if w != 0 'waited'
+		readyThread(vm, t: w)
+	end 'waited'
+end 'finishPromise'
+
+// finishThread ends a thread whose last frame has returned and whose drops are done: a coroutine finishes its promise,
+// and a member gives up its strand.
+function finishThread(mutates vm Vm, t Count)
+	vm.threads[t].done = true
+	let row = vm.threads[t].promise
+	if row != 0 'coroutine'
+		finishPromise(vm, row: row)
+	end 'coroutine'
+	releaseStrand(vm, t: t)
+end 'finishThread'
+
+// waitFor parks the thread that runs until a promise finishes. Only its owner waits for a promise, so one that another
+// thread waits for already is a broken invariant.
+function waitFor(mutates vm Vm, row Count)
+	let w = vm.promises.waiter[row]
+	if w != 0 and w != vm.cur 'other'
+		panic("interp: a promise that {describeThread(vm, t: w)} waits for is waited for by {describeThread(vm, t: vm.cur)}")
+	end 'other'
+	vm.promises.waiter[row] = vm.cur
+	parkThread(vm)
+end 'waitFor'
+
+// cancelPromise marks a promise cancelled: its coroutine does not start a function that has not started, and the sleep it is
+// in ends now. A reply is marked too, and its message runs on.
+function cancelPromise(mutates vm Vm, row Count)
+	vm.promises.cancelled[row] = true
+	let t = vm.promises.thread[row]
+	if t != 0 and vm.threads[t].wakeAt > vm.clockNanos 'sleeping'
+		vm.threads[t].wakeAt = vm.clockNanos
+	end 'sleeping'
+end 'cancelPromise'
+
+// dropOutcome drops what a finished promise's function or message gave that no await took: its value and its error.
+function dropOutcome(mutates vm Vm, row Count) throws Halt
+	let value = vm.promises.valueR[row]
+	vm.promises.valueR[row] = 0
+	if value > 0 'value'
+		try drop(vm, o: value as Count)
+	end 'value'
+	let err = vm.promises.errR[row]
+	vm.promises.errR[row] = 0
+	if err > 0 'error'
+		try drop(vm, o: err as Count)
+	end 'error'
+end 'dropOutcome'
+
+// dropPromise is the drop of a promise that nothing awaited, as its drop routine cancels it, waits for it and drops what it
+// gave: the cancel is at once, so a drop of many cancels each before it waits for any, and the wait follows the
+// instruction that dropped (settleDrops).
+function dropPromise(mutates vm Vm, row Count) throws Halt
+	cancelPromise(vm, row: row)
+	if vm.promises.finished[row] 'finished'
+		try dropOutcome(vm, row: row)
+		return
+	end 'finished'
+	vm.dropWaits.push(row)
+end 'dropPromise'
+
+// settleDrops waits for each promise a drop of the thread that runs cancelled, in the order they were dropped, and drops what
+// each gave; it gives false while the thread waits for one.
+function settleDrops(mutates vm Vm) returns bool throws Halt
+	while vm.dropWaits.count() > 0 'waits'
+		let row = vm.dropWaits[0]
+		if not vm.promises.finished[row] 'running'
+			waitFor(vm, row: row)
+			return false
+		end 'running'
+		try vm.dropWaits.remove(0) otherwise ignore
+		try dropOutcome(vm, row: row)
+	end 'waits'
+	return true
+end 'settleDrops'
+
+// freePromise frees the record of a promise that an await has taken what it gave from.
+function freePromise(mutates vm Vm, o Count)
+	vm.h.oFreed[o] = true
+	vm.h.oFreedAt[o] = vm.site()
+	vm.h.oOwner[o] = 0
+	vm.frees.push(o)
+end 'freePromise'
+
+// promiseArg is the promise an entry is given, which must be live and the thread's to use.
+function promiseArg(mutates vm Vm, f ir.IrFunction, x ir.Instr, what String) returns Count throws Halt
+	let o = try live(vm, o: argRef(vm, f: f, x: x, i: 0), what: what)
+	if vm.h.oKind[o] != kindPromise 'notPromise'
+		panic("interp: {what} of {objectText(vm, o: o)}, which is no promise")
+	end 'notPromise'
+	return o
+end 'promiseArg'
+
+// requireFinished is the invariant of the entries that read a promise after rt.async.wait waited for it.
+function requireFinished(vm Vm, row Count, what String)
+	if not vm.promises.finished[row] 'running'
+		panic("interp: {what} of a promise that has not finished")
+	end 'running'
+end 'requireFinished'
+
+// giveValue gives the value of a finished promise to the entry's register, which then holds it. A coroutine that a cancel
+// kept from starting gave none, which a managed register holds as the empty object, as native code holds it as 0.
+function giveValue(mutates vm Vm, f ir.IrFunction, x ir.Instr, row Count)
+	if x.dst == ir.noReg 'unreceived'
+		return
+	end 'unreceived'
+	if not vm.promises.started[row] and isManaged(f, r: x.dst) 'none'
+		let none = noneObject(vm)
+		vm.setRef(x.dst, o: none)
+		return
+	end 'none'
+	let at = vm.regAt(x.dst)
+	vm.regN[at] = vm.promises.valueN[row]
+	vm.regR[at] = vm.promises.valueR[row]
+	vm.promises.valueR[row] = 0
+end 'giveValue'
+
+function entryAsyncAwait(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let o = try promiseArg(vm, f: f, x: x, what: "an await")
+	let row = vm.h.oData[o]
+	if not vm.promises.finished[row] 'running'
+		waitFor(vm, row: row)
+		vm.ticked = true
+		return
+	end 'running'
+	giveValue(vm, f: f, x: x, row: row)
+	freePromise(vm, o: o)
+end 'entryAsyncAwait'
+
+function entryAsyncWait(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let o = try promiseArg(vm, f: f, x: x, what: "an await")
+	let row = vm.h.oData[o]
+	if not vm.promises.finished[row] 'running'
+		waitFor(vm, row: row)
+		vm.ticked = true
+	end 'running'
+end 'entryAsyncWait'
+
+function entryAsyncError(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let o = try promiseArg(vm, f: f, x: x, what: "the error of an await")
+	let row = vm.h.oData[o]
+	requireFinished(vm, row: row, what: "the error")
+	let at = vm.regAt(result(x))
+	vm.regN[at] = vm.promises.errN[row]
+	vm.regR[at] = vm.promises.errR[row]
+	vm.promises.errR[row] = 0
+end 'entryAsyncError'
+
+function entryAsyncTake(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let o = try promiseArg(vm, f: f, x: x, what: "an await")
+	let row = vm.h.oData[o]
+	requireFinished(vm, row: row, what: "the take")
+	giveValue(vm, f: f, x: x, row: row)
+	freePromise(vm, o: o)
+end 'entryAsyncTake'
+
+function entryAsyncCancel(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let o = try promiseArg(vm, f: f, x: x, what: "a cancel")
+	let row = vm.h.oData[o]
+	cancelPromise(vm, row: row)
+end 'entryAsyncCancel'
+
+function entryAsyncComplete(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let o = try promiseArg(vm, f: f, x: x, what: "isComplete")
+	let finished = vm.promises.finished[vm.h.oData[o]]
+	giveFlag(vm, x: x, b: finished)
+end 'entryAsyncComplete'
+
+// elementPromise is the promise an element of an array of them holds, or 0 where a take left the element empty.
+function elementPromise(vm Vm, data Count, i Count) returns Count
+	let p = vm.h.refOf(vm.h.elements[data][i])
+	if p != 0 and vm.h.oKind[p] != kindPromise 'notPromise'
+		panic("interp: awaitAny of an array that holds {objectText(vm, o: p)}, which is no promise")
+	end 'notPromise'
+	return p
+end 'elementPromise'
+
+// entryAsyncAwaitAny gives the index of the first promise of an array that has finished, and else waits as the waiter of
+// each, as the runtime's select does; once readied it takes itself off every promise before it looks again.
+function entryAsyncAwaitAny(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let arr = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "awaitAny")
+	let data = vm.h.oData[arr]
+	let n = vm.h.elements[data].count()
+	for i in 0 upto n 'deregister'
+		let p = elementPromise(vm, data: data, i: i)
+		if p != 0 and vm.promises.waiter[vm.h.oData[p]] == vm.cur 'mine'
+			vm.promises.waiter[vm.h.oData[p]] = 0
+		end 'mine'
+	end 'deregister'
+	for i in 0 upto n 'scan'
+		let p = elementPromise(vm, data: data, i: i)
+		if p != 0 and vm.promises.finished[vm.h.oData[p]] 'finished'
+			giveNum(vm, x: x, n: try i as ir.Word otherwise panic("interp: an index past a word"))
+			return
+		end 'finished'
+	end 'scan'
+	for i in 0 upto n 'register'
+		let p = elementPromise(vm, data: data, i: i)
+		if p != 0 'held'
+			let row = vm.h.oData[p]
+			if vm.promises.waiter[row] != 0 'waited'
+				panic("interp: a promise that awaitAny waits on has another waiter")
+			end 'waited'
+			vm.promises.waiter[row] = vm.cur
+		end 'held'
+	end 'register'
+	waitHere(vm)
+end 'entryAsyncAwaitAny'
+
+// entrySleep parks the thread that runs on a timer of the clock; a cancelled coroutine's sleep ends at once, after a
+// yield that lets its strand's other members run.
+function entrySleep(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let t = vm.cur
+	if vm.threads[t].woke or vm.threads[t].yielding 'ended'
+		vm.threads[t].woke = false
+		vm.threads[t].yielding = false
+		return
+	end 'ended'
+	let row = vm.threads[t].promise
+	if row != 0 and vm.promises.cancelled[row] 'cancelled'
+		_ = yieldStrand(vm)
+		return
+	end 'cancelled'
+	let ms = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 0))
+	var nanos = try ms * (nanosPerMillisecond as Count) otherwise longestSleepNanos
+	if nanos > longestSleepNanos 'long'
+		nanos = longestSleepNanos
+	end 'long'
+	vm.threads[t].wakeAt = try vm.clockNanos + (nanos as ir.Word) otherwise panic("interp: a sleep past the end of the clock")
+	vm.sleepers.push(t)
+	waitHere(vm)
+end 'entrySleep'
+
+// entryYield lets the members of the strand that wait run first, else the other threads.
+function entryYield(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let t = vm.cur
+	if vm.threads[t].yielding 'ended'
+		vm.threads[t].yielding = false
+		return
+	end 'ended'
+	_ = yieldStrand(vm)
+end 'entryYield'
+
+// entryServiceNew makes a service: a cown that holds its state, or nothing until its factory's behaviour stores it, with an
+// empty mailbox of a capacity.
+function entryServiceNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	vm.tracking = true
+	let service = try newShared(vm, f: f, kind: kindCown, src: argAt(f, x: x, i: 0), what: "the new service")
+	vm.h.shareds[vm.h.oData[service]].capacity = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	giveRef(vm, x: x, o: service)
+end 'entryServiceNew'
+
+// entryServiceReserve takes a place in a service's mailbox for a message, unless the service is shut down or the mailbox
+// holds its capacity, which it gives as the case of SendError plus 1.
+function entryServiceReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
+	let at = vm.h.oData[service]
+	let gate = vm.h.shareds[at].gate
+	if gate >= serviceClosed 'closed'
+		giveNum(vm, x: x, n: caseWord(ast.sendServiceStopped))
+		return
+	end 'closed'
+	if gate >= vm.h.shareds[at].capacity 'full'
+		giveNum(vm, x: x, n: caseWord(ast.sendMailboxFull))
+		return
+	end 'full'
+	vm.h.shareds[at].gate = try gate + 1 otherwise panic("interp: a gate past a word")
+	giveNum(vm, x: x, n: 0)
+end 'entryServiceReserve'
+
+// entryServiceTaken gives a message's place in the mailbox back as its behaviour starts, given the address of the state.
+function entryServiceTaken(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let c = vm.address(argAt(f, x: x, i: 0))
+	let service = vm.h.cellHolder[c]
+	if c == 0 or vm.h.oKind[service] != kindCown 'notState'
+		panic("interp: rt.service.taken is given no service's state")
+	end 'notState'
+	let at = vm.h.oData[service]
+	vm.h.shareds[at].gate = try vm.h.shareds[at].gate - 1 otherwise panic("interp: a message taken that no send reserved")
+end 'entryServiceTaken'
+
+function entryServiceShutdown(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a shutdown")
+	let at = vm.h.oData[service]
+	if vm.h.shareds[at].gate < serviceClosed 'open'
+		vm.h.shareds[at].gate = try vm.h.shareds[at].gate + serviceClosed otherwise panic("interp: a gate past a word")
+	end 'open'
+end 'entryServiceShutdown'
+
+// entryReplyNew makes the cell a message's reply comes back in, a promise that no coroutine finishes.
+function entryReplyNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let row = vm.promises.add(0)
+	vm.promises.started[row] = true
+	let site = vm.site()
+	let o = vm.h.newObject(kindPromise, site: site)
+	vm.h.oData[o] = row
+	giveRef(vm, x: x, o: o)
+end 'entryReplyNew'
+
+// entryReplyGive finishes a reply with what the handler returned and failed with, each handed on to the reply. The sender
+// owns the cell, which the message reaches as the runtime's message reaches its green thread's record.
+function entryReplyGive(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let o = argRef(vm, f: f, x: x, i: 0)
+	try requireLive(vm, o: o, what: "a reply")
+	if vm.h.oKind[o] != kindPromise 'notPromise'
+		panic("interp: a reply into {objectText(vm, o: o)}, which is no promise")
+	end 'notPromise'
+	let row = vm.h.oData[o]
+	if vm.promises.finished[row] 'twice'
+		panic("interp: a reply given twice")
+	end 'twice'
+	let value = argAt(f, x: x, i: 1)
+	let err = argAt(f, x: x, i: 2)
+	if isManaged(f, r: value) 'value'
+		try requireHandedOn(vm, src: value, verb: "replies with")
+	end 'value'
+	if isManaged(f, r: err) 'error'
+		try requireHandedOn(vm, src: err, verb: "replies with")
+	end 'error'
+	let v = vm.regAt(value)
+	let e = vm.regAt(err)
+	vm.promises.valueN[row] = vm.regN[v]
+	vm.promises.valueR[row] = vm.regR[v]
+	vm.promises.errN[row] = vm.regN[e]
+	vm.promises.errR[row] = vm.regR[e]
+	finishPromise(vm, row: row)
+end 'entryReplyGive'
+
+// waitingText says what a thread that cannot go on waits for, and where, for a report of a deadlock.
+function waitingText(vm Vm, t Count) returns String
+	var place = "before its first frame"
+	let frames = vm.threads[t].frames.count()
+	if frames > 0 'framed'
+		let top = vm.threads[t].frames[try frames - 1 otherwise panic("interp: no frames")]
+		place = "at {siteText(vm, site: packSite(vm.fr.fn[top], block: vm.fr.block[top], pc: vm.fr.pc[top]))}"
+	end 'framed'
+	return "{describeThread(vm, t: t)} waits {place}"
+end 'waitingText'
+
+// reportDeadlock is a run in which nothing can go on: no thread can run and no timer is set, while threads wait or
+// behaviours are queued. It is placed where the first thread that waits is.
+function reportDeadlock(mutates vm Vm)
+	var text = "no thread can run and no timer is set"
+	var v = Violation.make(deadlock, fn: 0, block: 0, instr: 0, message: "")
+	var placed = false
+	for t in 1 upto vm.threads.count() 'threads'
+		if vm.threads[t].done 'done'
+			continue 'threads'
+		end 'done'
+		text = "{text}; {waitingText(vm, t: t)}"
+		let frames = vm.threads[t].frames.count()
+		if not placed and frames > 0 'place'
+			let top = vm.threads[t].frames[try frames - 1 otherwise panic("interp: no frames")]
+			v.fn = vm.fr.fn[top]
+			v.block = vm.fr.block[top]
+			v.instr = vm.fr.pc[top]
+			placed = true
+		end 'place'
+	end 'threads'
+	if vm.pending.count() > 0 'queued'
+		text = "{text}; {vm.pending.count()} behaviour(s) wait for cowns that never come free"
+	end 'queued'
+	v.message = text
+	vm.violations.push(v)
+	vm.fatal = fatalViolation
+end 'reportDeadlock'

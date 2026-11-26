@@ -1,4 +1,3 @@
-// native-only
 // A service is a type started with spawn: its factory runs as its first message, each call through the handle is a
 // message it handles one at a time in the order they were sent, and a message whose handler returns replies with a
 // promise. A message moves its arguments in. Shutting the service down fails every later send with serviceStopped.

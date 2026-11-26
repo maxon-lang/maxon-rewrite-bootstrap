@@ -1,4 +1,3 @@
-// native-only
 // An unpin by a green thread that holds no pin is maxon's fatal error, which exits with 70: here main runs as a green
 // thread, since it sleeps. The interpreter's pins pin nothing.
 // expect-scheduler: used

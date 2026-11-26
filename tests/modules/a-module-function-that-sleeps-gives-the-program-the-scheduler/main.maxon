@@ -1,4 +1,3 @@
-// native-only
 // main calls a function of its own that calls another module's, which sleeps: the link follows the calls into the module
 // and gives the program the scheduler. The interpreter runs no sleep.
 // expect-scheduler: used

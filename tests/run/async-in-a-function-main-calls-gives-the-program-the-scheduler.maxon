@@ -1,4 +1,3 @@
-// native-only
 // main starts no coroutine itself: a function it calls does and awaits it, which is enough for the link to give the program
 // the scheduler, so main runs as a green thread that can wait. Process.setExitCode then keeps its code in the scheduler's
 // record. The interpreter runs no coroutine.

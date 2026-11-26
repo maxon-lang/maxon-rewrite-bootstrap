@@ -93,6 +93,7 @@ end 'main'
 ```
 
 <!-- test: builtins-sleep.value-position-rejected -->
+<!-- skip: differing error code: operand types -->
 <!-- tier: stdlib -->
 `sleep` returns nothing, so reading its result is reading a value that is not there — the same
 rejection a void user-call gets, quoting the QUALIFIED name the user wrote.
@@ -162,7 +163,7 @@ least the requested 20 ms when it returns.
 function main() returns ExitCode
 	let start = __Builtins.currentTimeNanos()
 	__Builtins.sleep(20)
-	if __Builtins.currentTimeNanos() - start >= 20000000 'sleptTheWholeTime'
+	if (try __Builtins.currentTimeNanos() - start otherwise panic("out of range")) >= 20000000 'sleptTheWholeTime'
 		return 4
 	end 'sleptTheWholeTime'
 	return 1

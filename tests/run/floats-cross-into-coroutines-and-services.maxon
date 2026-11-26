@@ -1,4 +1,3 @@
-// native-only
 // A float crosses into a coroutine and into a service as its bits, a word, and reaches the function in an xmm register:
 // an async call passes floats mixed with words, a coroutine of a generic function instantiated with a float gives one
 // back through its promise, and a message takes floats and replies with one.

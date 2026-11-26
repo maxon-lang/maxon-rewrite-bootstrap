@@ -213,7 +213,7 @@ function main() returns ExitCode
 	let r = await q
 	let done = 1 if s.isComplete() else 0
 	s.cancel()
-	return (r + done) as ExitCode
+	return try (r + done) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -248,7 +248,7 @@ function main() returns ExitCode
 	p.cancel()
 	p = async fast()
 	let s = await p
-	return (r + s - 42) as ExitCode
+	return try (r + s - 42) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)

@@ -1,4 +1,3 @@
-// native-only
 // An async call lends its coroutine what it passes to a let parameter, to be read, and a local variable it passes to a
 // mutates parameter, to be changed: the caller may read the first while the coroutine has it, and uses either freely
 // once the promise is awaited. Two coroutines may read one place at once. The interpreter runs no coroutine.

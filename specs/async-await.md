@@ -3172,12 +3172,12 @@ function main() returns ExitCode
 	var plain = 0 as Integer
 	for _ in 0 upto 6 'plainRound'
 		let p = async timedPlain()
-		plain = plain + (await p)
+		plain = try plain + (await p) otherwise panic("out of range")
 	end 'plainRound'
 	var thrown = 0 as Integer
 	for _ in 0 upto 6 'tryRound'
 		let p = async timedThrowing()
-		thrown = thrown + (try await p otherwise 0)
+		thrown = try thrown + (try await p otherwise 0) otherwise panic("out of range")
 	end 'tryRound'
 	print("plain={plain} thrown={thrown} held={not holder.isComplete()}\n")
 	holder.cancel()

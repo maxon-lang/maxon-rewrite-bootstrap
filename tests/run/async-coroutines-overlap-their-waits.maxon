@@ -1,4 +1,3 @@
-// native-only
 // Two coroutines started before either is awaited sleep at once, so the shorter sleep ends first, and the caller of a
 // coroutine runs on until it waits: the coroutine runs only then, on the caller's strand. The interpreter runs no
 // coroutine.
