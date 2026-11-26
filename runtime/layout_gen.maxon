@@ -924,6 +924,18 @@ let linuxStatModifiedOffset = 88 as Count
 // linuxStatChangedOffset is where a struct stat holds st_ctim, the last status change, whose first word is its seconds: what maxon's File.info gives as createdTime on Linux, where a struct stat has no birth time.
 let linuxStatChangedOffset = 104 as Count
 
+// linuxStatxBytes is the size of a struct statx.
+let linuxStatxBytes = 256 as Count
+
+// linuxStatxMaskOffset is where a struct statx holds stx_mask, 32 bits: the fields the kernel filled.
+let linuxStatxMaskOffset = 0 as Count
+
+// linuxStatxCreatedOffset is where a struct statx holds stx_btime, whose first word is its seconds.
+let linuxStatxCreatedOffset = 80 as Count
+
+// linuxStatxBirthTime is STATX_BTIME: asked for in the mask of a statx, and set in stx_mask when the file system records when a file was made.
+let linuxStatxBirthTime = 2048 as Count
+
 // linuxModeTypeMask is S_IFMT: the bits of st_mode that say what a file is.
 let linuxModeTypeMask = 61440 as Count
 
@@ -1333,6 +1345,9 @@ let macosSpawnSetSid = 1024 as Count
 	// linuxSysNewfstatat is newfstatat(directory fd, path, stat, flags).
 	let linuxSysNewfstatat = 79 as Count
 
+	// linuxSysStatx is statx(directory fd, path, flags, mask, statx): the time a file was made, which a struct stat has no field for.
+	let linuxSysStatx = 291 as Count
+
 	// linuxSysReadlinkat is readlinkat(directory fd, path, buffer, size).
 	let linuxSysReadlinkat = 78 as Count
 
@@ -1503,6 +1518,9 @@ let macosSpawnSetSid = 1024 as Count
 
 	// linuxSysNewfstatat is newfstatat(directory fd, path, stat, flags).
 	let linuxSysNewfstatat = 262 as Count
+
+	// linuxSysStatx is statx(directory fd, path, flags, mask, statx): the time a file was made, which a struct stat has no field for.
+	let linuxSysStatx = 332 as Count
 
 	// linuxSysReadlinkat is readlinkat(directory fd, path, buffer, size).
 	let linuxSysReadlinkat = 267 as Count
