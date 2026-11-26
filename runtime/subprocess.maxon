@@ -507,16 +507,20 @@ end 'keptOf'
 
 // inputWriterMain writes the input of a run to its pipe, in the input record that is its green thread's argument, until the
 // run's deadline, and closes the end, which ends the child's input. A write that fails is a child that stopped reading, which
-// is no failure of the run.
+// is no failure of the run, and an end that a caller closed is the end of what is written.
 function inputWriterMain(g Count) returns Count
 	let input = greenArgument(g, index: 0)
 	let wait = wordAt(input, offset: inputWaitOffset)
-	let entry = wordAt(input, offset: endEntryOffset)
 	let deadline = wordAt(wait, offset: waitDeadlineOffset)
 	let bytes = wordAt(input, offset: inputTextOffset)
 	let length = wordAt(input, offset: inputLengthOffset)
 	var done = 0 as Count
 	while done < length 'write'
+		// An input that a caller closed meanwhile has no entry: the end of what is written.
+		let entry = wordAt(input, offset: endEntryOffset)
+		if entry == noEntry 'closed'
+			break 'write'
+		end 'closed'
 		let left = __Raw.wrappingSub(length, right: done)
 		let asked = left if left < inputChunkBytes else inputChunkBytes
 		let wrote = eventTransfer(entry, mode: eventWrite, buffer: __Raw.wrappingAdd(bytes, right: done), length: asked, deadline: deadline)
