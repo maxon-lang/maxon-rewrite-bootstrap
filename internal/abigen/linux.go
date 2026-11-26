@@ -152,6 +152,7 @@ var linuxABI = []layoutConst{
 	{"linuxEnoent", 2, true, toRuntime, "ENOENT."},
 	{"linuxEsrch", 3, true, toRuntime, "ESRCH: a signal to a process or a group that has no member left."},
 	{"linuxEintr", 4, true, toRuntime, "EINTR: a call that a signal broke off, which is made again."},
+	{"linuxEnxio", 6, true, toRuntime, "ENXIO: an open for writing with O_NONBLOCK of a FIFO that no reader has open."},
 	{"linuxEagain", 11, true, toRuntime, "EAGAIN."},
 	{"linuxEnosys", 38, true, toRuntime, "ENOSYS: a system call the kernel does not have."},
 	{"linuxEacces", 13, true, toRuntime, "EACCES."},

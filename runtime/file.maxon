@@ -4,8 +4,8 @@
 // closes the system's handle and frees the box, once, since the one owner of the record gives it up to the call, and sets the
 // error word with writeFailed when the system's close reports an error, the handle closed all the same, as Go's Close does. A
 // close is one call into the kernel in the blocking bracket (closeFileHandle), never made again after a signal, and never parks
-// the green thread or yields; on Linux the close of a file open for writing then waits there for the end of a clone in flight,
-// whose child may hold a copy of its fd (waitCloneEnd), at most that one clone.
+// the green thread or yields; on Linux a file open for writing is on the fork lock's writers' list from its open to its close,
+// whose fds the child of a clone closes before its execve, and its close waits for a clone in flight (closeFileHandle).
 //
 // Whether a read or a write waits on the event queue is decided once, at the open, as Go's os.File decides it: a FIFO, a
 // socket or a character device on Linux and macOS (fileEntryOf, by fstat), and a named pipe on Windows, which only its path
@@ -18,7 +18,7 @@ let fileHandleOffset = 0 as Count
 
 let fileEntryOffset = 8 as Count
 
-// fileWritesOffset is where the box holds 1 for a file open for writing, whose close on Linux waits for a clone in flight.
+// fileWritesOffset is where the box holds 1 for a file open for writing, which its close on Linux takes off the writers' list.
 let fileWritesOffset = 16 as Count
 
 let fileBoxBytes = 24 as Count

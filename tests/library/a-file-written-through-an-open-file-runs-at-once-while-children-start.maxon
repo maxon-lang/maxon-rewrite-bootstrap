@@ -1,16 +1,14 @@
 // A file written through an open file runs as soon as its close has returned, however the writes and the starts of children
 // interleave: an open file holds no fork lock between its calls, so a child that another service starts may be made while
-// the file is open for writing and get a copy of its fd, which it holds until its own execve; the close of a file open for
-// writing waits for the end of a clone in flight, whose child may hold a copy, so that the run of the file does not fail busy
-// (ETXTBSY). Each service writes and runs its own files one after another in one message, and the services'
-// messages run at once, so that with more than one worker the writes of some overlap the starts of others; the close's wait is
-// what the many rounds test. It is not run on Linux: the close waits for the clone, and a clone as vfork makes one ends once
-// the child's execve has replaced its memory, before the execve lets go of the child's copy of the fd, so with more than one
-// worker a close that comes in that gap returns while the child still holds the file, and a run of it fails busy, which is
-// not covered (runtime/README.md, linux.maxon); the arm64-linux lane runs under qemu-user besides, whose fork lets the child
-// outlive the clone call. On macOS, which runs a file open for writing, it checks that the writes, the closes and the runs
-// interleave.
-// unsupported-targets: x64-windows, x64-linux, arm64-linux
+// the file is open for writing and get a copy of its fd, which it would hold until its own execve. On Linux the file is on
+// the writers' list from its open to its close, whose fds the child closes before its execve, and its close waits for a clone
+// in flight, so that the run of the file does not fail busy (ETXTBSY) (runtime/README.md, linux.maxon). It is not run on
+// arm64-linux, whose lane on an x64 host runs under qemu-user, whose fork lets the child close its copies after the clone has
+// returned, which is not covered: there a run failed busy under the corpus's load. Each service writes and runs its own files
+// one after another in one message, and the services' messages run at once, so that with more than one worker the writes of
+// some overlap the starts of others; the many rounds test that interleaving. On macOS, which runs a file open for writing, it
+// checks that the writes, the closes and the runs interleave.
+// unsupported-targets: x64-windows, arm64-linux
 // native-only
 //> every run ran
 typealias Arguments = Array with String

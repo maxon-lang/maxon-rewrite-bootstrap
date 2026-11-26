@@ -4,7 +4,9 @@
 // while the run's thread waits in the clone until the child has executed the program or exited (CLONE_VM | CLONE_VFORK, as
 // glibc's posix_spawn and Go's forkExec make a child), so a start copies no page tables and costs the same however large
 // the run's process is; what the child may do in that time is execChild's. The clone holds the fork lock (linux.maxon), so that
-// the child never gets a copy of a file that a write has open and makes the run of that file fail as busy. A third pipe, closed on exec, tells the run whether
+// the child never gets a copy of a file that a write has open, and the child first closes its copy of each file open for
+// writing through an open file (the writers' list), so that it never holds one that a run of that file then fails on as busy.
+// A third pipe, closed on exec, tells the run whether
 // the execve failed and with what errno: a child that executed the program closes it unwritten. The run reads both
 // output pipes as the child goes on, through the event queue, so that a child that fills one cannot block waiting for the run to
 // read the other, and watches for the child's exit through the pidfd of the child (eventProcessNew), which epoll reports
@@ -165,14 +167,16 @@
 		return true
 	end 'openPipes'
 
-	// execChild is the child of a run: it leads a process group of its own (a session of its own for a detached child), puts the fds that the run names (an end of a pipe, a
+	// execChild is the child of a run: it closes its copy of each fd of the writers' list, which the fork lock that the run
+	// holds alone keeps as it is, before any step that may fail and end it (closeWriters, linux.maxon); it leads a process group
+	// of its own (a session of its own for a detached child), puts the fds that the run names (an end of a pipe, a
 	// file or the null device) in place of its standard input, output and error, which dup3 leaves open on exec, moves to the
 	// zero-terminated directory unless that is noDirectory, and executes the program with the environment that the vector of its
 	// entries is. When a step fails it writes the errno down the status pipe and exits.
 	//
 	// The child shares the run's memory and runs on the run's stack below the frame of runChild, while the run's thread
 	// waits in the clone, as Go's forkAndExecInChild1 does. So it makes only raw system calls and reads what the run made
-	// for it before the clone: it allocates nothing, takes no lock, touches no state of the scheduler, and returns from
+	// for it before the clone and the writers' list: it allocates nothing, takes no lock, changes no state of the scheduler, and returns from
 	// nothing (execve or exit_group ends it), so no frame of the run's is used again. The words it writes to the run's frame
 	// past the clone are the ones the run writes itself when it resumes (the compiler takes the call of execChild for one
 	// that returns, so a value the run holds across the clone keeps its place on the child's path too), and its own frames are
@@ -181,7 +185,8 @@
 	// actions, which clone without CLONE_SIGHAND copies, and gives itself the run's mask back just before the execve, which
 	// keeps the mask, as a forked child had it. qemu-user, which runs arm64-linux under WSL, makes such a clone a fork, in
 	// which the same steps are as safe as they were.
-	function execChild(run Count, path Count, vector Count, directory Count, envp Count)
+	function execChild(run Count, path Count, vector Count, directory Count, envp Count, writers Count)
+		closeWriters(writers)
 		failChildUnless(run, result: __Raw.syscall4(linuxSysRtSigaction, arg1: linuxSigurg, arg2: fieldAt(run, offset: runDefaultActionOffset), arg3: 0, arg4: linuxSignalMaskBytes))
 		if wordAt(run, offset: runSessionOffset) != 0 'session'
 			failChildUnless(run, result: __Raw.syscall0(linuxSysSetsid))
@@ -462,7 +467,7 @@
 		_ = __Raw.syscall4(linuxSysRtSigprocmask, arg1: linuxSigSetMask, arg2: fieldAt(run, offset: runAllSignalsOffset), arg3: fieldAt(run, offset: runCloneMaskOffset), arg4: linuxSignalMaskBytes)
 		let pid = __Raw.syscall5(linuxSysClone, arg1: linuxCloneChildFlags, arg2: 0, arg3: 0, arg4: 0, arg5: 0)
 		if pid == 0 'child'
-			execChild(run, path: program, vector: vector, directory: start, envp: envp)
+			execChild(run, path: program, vector: vector, directory: start, envp: envp, writers: lock)
 		end 'child'
 		_ = __Raw.syscall4(linuxSysRtSigprocmask, arg1: linuxSigSetMask, arg2: fieldAt(run, offset: runCloneMaskOffset), arg3: 0, arg4: linuxSignalMaskBytes)
 		releaseForkAlone(lock)
