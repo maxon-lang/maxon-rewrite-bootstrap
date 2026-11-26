@@ -69,6 +69,19 @@ func emitConvert(t table) string {
 		}
 		sb.WriteString("},\n")
 	}
+	sb.WriteString("}\n\n")
+	sb.WriteString("// libraryRawMembers are the functions of each type of maxon's raw surface that minimaxon's library declares, by the type's\n// name.\n")
+	sb.WriteString("var libraryRawMembers = map[string][]string{\n")
+	for _, r := range rawLibraryTypes {
+		fmt.Fprintf(&sb, "\t%q: {", r.Name)
+		for i, m := range r.Members {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			fmt.Fprintf(&sb, "%q", m)
+		}
+		sb.WriteString("},\n")
+	}
 	sb.WriteString("}\n")
 	return sb.String()
 }

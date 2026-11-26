@@ -4,6 +4,11 @@
 // runs that the program does not write. close throws what the system's close reports, as Go's Close does, and the handle is
 // closed all the same. The type is the library tiers' (E3185), as maxon's is.
 
+/// A buffer of bytes, which the rows of an open file read into and write from. A converted file of maxon's library calls a static
+/// of maxon's bare buffer, `__ManagedMemory.create(n, 1)`, through it (cmd/convert, rewriteFileBuffers), since a static is called
+/// through a typealias of an instance.
+export typealias ByteMemory = __ManagedMemory with Byte
+
 /// An open file's handle, which exactly one owner closes.
 public type __ManagedFile
 	let word as Count

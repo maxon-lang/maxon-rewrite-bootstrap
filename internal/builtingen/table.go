@@ -63,13 +63,17 @@ var rawPrimTypes = []struct {
 }
 
 // rawLibraryTypes are the types of maxon's raw surface that the library declares, where maxon's compiler does: a type of the
-// name that a module of the library declares is named only in the library tiers (E3185), as a type of the table is.
+// name that a module of the library declares is named only in the library tiers (E3185), as a type of the table is. File is
+// the library's file that declares it, whose functions are its Members, which builtingen holds to the file; cmd/convert keeps
+// a declaration of maxon's library over the type where it calls only those.
 var rawLibraryTypes = []struct {
-	Name  string
-	Named rawSurface
+	Name    string
+	File    string
+	Members []string
+	Named   rawSurface
 }{
-	// __ManagedFile is maxon's owned handle of an open file (stdlib/file/managedFile.maxon), which FileSource and FileWriter hold.
-	{"__ManagedFile", rawSurface{What: "the raw OS file handle type is nameable", Instead: "use 'File'"}},
+	// __ManagedFile is maxon's owned handle of an open file, which FileSource and FileWriter hold.
+	{"__ManagedFile", "stdlib/file/managedFile.maxon", []string{"openRead", "openWrite", "openWriteExecutable", "openCreateNew", "readAppending", "write", "close"}, rawSurface{What: "the raw OS file handle type is nameable", Instead: "use 'File'"}},
 }
 
 // stdAlias is a built-in ranged alias of maxon's stdlib (`Count`, `ExitCode`...), which the rows of the table name and

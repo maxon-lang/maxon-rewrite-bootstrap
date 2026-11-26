@@ -644,7 +644,9 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   the call, a typealias of the instance or where the result goes, where maxon's buffer has none and is laid out by
   `elementSize`; an `elementSize` other than the bytes an element takes in the buffer (1 for a byte, a word for a word, a
   String's two words) fails `__ManagedMemoryError.invalidAllocation`, and it may be given by its place, as maxon's library
-  writes `create(most, 1)`.
+  writes `create(most, 1)`. A static is called through a typealias of an instance, so `cmd/convert` writes maxon's bare
+  buffer in a file over `__ManagedFile`, whose rows read and write bytes, as `__ManagedMemory with Byte`, and its create of
+  the element size 1 through `ByteMemory`, the alias the library declares beside `__ManagedFile`.
 - **Visibility has three levels**, for a declaration, a field or a method:
   - no modifier: the declaring module only;
   - `export`: the tree rooted at the declaring module's parent, as Go's `internal/`. An `export` in `app/net/http` is
@@ -4502,6 +4504,8 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `File.readBinary(path)` | `Array with Byte`, the whole content of the file, read as `readText` reads it (the same system calls; the bytes are copied from the read buffer to the array) | `FileReadError` |
 | `File.writeText(path, content: s)`, `File.writeBinary(path, content: bytes)`, each with an optional `mode: FilePermission` | — (a file that is there is replaced, and keeps its mode) | `FileWriteError` |
 | `File.createText(path, content: s)` | — (makes a file that must not be there, in one step: `CreateFileW` with `CREATE_NEW`, `open` with `O_CREAT \| O_EXCL`; one that is there fails `alreadyExists` and is left as it was; a write that fails after the file was made deletes it, and the error is the write's, or `partialFileLeft` when that delete fails too and not as `notFound`) | `FileWriteError` |
+| `File.openRead(path)` | `FileStreamReader`, maxon's `stream.StreamReader with FileSource` (`stdlib/file`): lines, exact counts of bytes and the rest of the file, read as the file's reads are (see "An open file", below); it is ended with `reader.source.close()` | `FileReadError` |
+| `FileWriter.open(path)`, with an optional `mode: FilePermission`, and `FileWriter.openNew(path)` (a file that must not be there, `alreadyExists`) | `FileWriter`, maxon's (`stdlib/file/fileWriter.maxon`): `write(bytes)` writes all of them; `close()` ends it; `writeAll(bytes)` and `writeAllText(s)` write and then close, and end it too | `FileWriteError` |
 | `File.rename(from, to: dest)` | — (what is at `dest` is replaced) | `FileRenameError` |
 | `File.delete(path)` | — (a directory is refused, `accessDenied`) | `FileDeleteError` |
 | `Directory.delete(path)` | — (removes an empty directory: one that still holds an entry is refused, `notEmpty`, a file or a link there is `deleteFailed`, and a path through a file `notFound`; `RemoveDirectoryW`, `rmdir`, and `unlinkat` with `AT_REMOVEDIR` on arm64 Linux, which has no `rmdir`; the interpreter runs no `Directory.delete`, so a program that calls it is `// native-only`) | `DirectoryDeleteError` |
@@ -4521,6 +4525,28 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `Debuggee.readContext(thread)`, `Debuggee.writeContext(thread, context: bytes)` | `Array with Byte`, the thread's `CONTEXT` (control, integer and floating-point registers), and — (`outOfBounds` for bytes of another size) | `DebuggeeError` |
 | `Debuggee.suspend(thread)`, `resume(thread)`, `breakIn(process)`, `detach(processId)`, `terminate(process, exitCode: c)`, `closeHandle(handle)` | `Bool` (whether the system did it), and — for `closeHandle` | — |
 
+- **An open file is a linear value.** A `FileWriter`, a `FileSource` and a reader over one hold the library's
+  `__ManagedFile`, which has no copy and no drop, so neither has any (see "Capabilities and destructors"): every path that
+  opens one ends it with one of its destructors, a close or one of the writes that close, or moves it on, and leaving it
+  open is `E3919`. Nothing closes a file that the program does not close. A close throws what the system's close reports
+  (`FileWriteError.failed`, `FileReadError.failed`), and the file is closed whether or not it throws. A failure after the
+  open must end the file before it goes on, so two writes and a close are written:
+
+  ```
+  var writer = try FileWriter.open(path)
+  try writer.write(first) otherwise (e) 'first'
+  	try writer.close() otherwise ignore
+  	throw e
+  end 'first'
+  try writer.write(second) otherwise (e) 'second'
+  	try writer.close() otherwise ignore
+  	throw e
+  end 'second'
+  try writer.close()
+  ```
+
+  where a handler's close drops its own error so that the write's is the one thrown, and the last close's error is the
+  caller's. One write and a close is `writeAll`, or `writeAllText`, which end the writer either way.
 - **`FilePath`** is a record holding the path's `String` (`path`), which every `File` and `Directory` function takes. It
   is made with `FilePath.from`, or from a string literal with `FilePath from "text"`, which panics where `from` would throw.
   The rest of maxon's `FilePath` (`join`, `parent`, `filename`, `fileExtension`, `stem`, `normalize`, `resolve`,

@@ -122,6 +122,8 @@ func convertProgram(file, src string, kind inputKind, names programNames) Result
 	rewriteWithIterator(lines, addWarn)
 	dropMailboxCapacity(lines, addWarn)
 	transformLines(lines, addWarn)
+	lines = rewriteFileEndings(lines)
+	rewriteFileBuffers(lines)
 	warnIdentityOperators(lines, addWarn)
 
 	candidate := renderFallbackLayout(lines)
@@ -1257,15 +1259,22 @@ func isLibraryHelper(file string) bool {
 
 // publicHelperNames are the names that a helper's file declares and that a program calls, as `Array.swap(i, j: j)`, or that a
 // public member of the library's root names in its signature (`Array.sortBy(cmp)`'s `SortComparator`): they stay public, where a
-// helper's other names become export, since a public function may not name a less visible type (E3167).
-var publicHelperNames = []string{"SortComparator", "swap"}
+// helper's other names become export, since a public function may not name a less visible type (E3167). A type of them keeps
+// its public members too: a program writes to a file through maxon's FileWriter (`FileWriter.open(path)`).
+var publicHelperNames = []string{"SortComparator", "swap", "FileWriter"}
 
-// exportPublicModifiers makes each public of a helper export, but for the names of publicHelperNames: a helper module is a
-// direct child of the library's root, so export reaches the whole library and no program.
+// exportPublicModifiers makes each public of a helper export, but for the names of publicHelperNames and the members of a type
+// of them: a helper module is a direct child of the library's root, so export reaches the whole library and no program.
 func exportPublicModifiers(lines []sourceLine) {
+	inPublicType := false
 	for i := range lines {
 		l := &lines[i]
-		if declIdx := skipModifiers(l.code); declIdx+1 < len(l.code) && (l.code[declIdx].text == "typealias" || l.code[declIdx].text == "function") && slices.Contains(publicHelperNames, l.code[declIdx+1].text) {
+		declIdx := skipModifiers(l.code)
+		named := declIdx+1 < len(l.code) && slices.Contains(publicHelperNames, l.code[declIdx+1].text)
+		if l.indent == "" && len(l.code) > 0 {
+			inPublicType = named && l.code[declIdx].text == "type"
+		}
+		if named && (l.code[declIdx].text == "typealias" || l.code[declIdx].text == "function" || l.code[declIdx].text == "type") || inPublicType && l.indent != "" {
 			continue
 		}
 		makeExport(l)
@@ -2384,12 +2393,13 @@ func rewriteDiscards(toks []token) []token {
 	return toks
 }
 
-// dropRawBufferCasts leaves out the cast of a call's result to the bare `__ManagedMemory`, with its capability word or without it:
+// dropRawBufferCasts leaves out the cast of a call's result, or of a local that holds one, to the bare `__ManagedMemory`, with its
+// capability word or without it:
 // maxon's `as isolated __ManagedMemory` says the buffer that a row gave is a fresh one a caller owns, which the built-in table's
 // rows (`ManagedMemory with Byte`) give already, and minimaxon's buffer has an element type that a bare name does not write.
 func dropRawBufferCasts(toks []token) []token {
 	for i := 0; i+1 < len(toks); i++ {
-		if toks[i].kind != tokIdent || toks[i].text != "as" || i == 0 || toks[i-1].text != ")" {
+		if toks[i].kind != tokIdent || toks[i].text != "as" || i == 0 || toks[i-1].text != ")" && toks[i-1].kind != tokIdent {
 			continue
 		}
 		at := i + 1

@@ -151,8 +151,8 @@ func reachedOnlyByDropped(lines []sourceLine, i int, named map[string]bool) (fir
 // rawPrefix starts the name of a type of maxon's raw surface, which the built-in table declares without it.
 const rawPrefix = "__"
 
-// callsUnprovidedBuiltin reports whether the lines call a static of a raw type (__Builtins, __ManagedDirectory) that the
-// built-in table does not declare, or name a raw type that it does not declare (__ManagedFileError).
+// callsUnprovidedBuiltin reports whether the lines call a static of a raw type (__Builtins, __ManagedDirectory) that neither
+// the built-in table nor the library declares, or name a raw type that neither declares.
 func callsUnprovidedBuiltin(lines []sourceLine) bool {
 	for _, l := range lines {
 		if l.removed {
@@ -167,7 +167,7 @@ func callsUnprovidedBuiltin(lines []sourceLine) bool {
 				if !provides(rawMembers(name), l.code[k+2].text) {
 					return true
 				}
-			} else if !builtinNames[name] {
+			} else if _, declared := libraryRawMembers[name]; !builtinNames[name] && !declared {
 				// A raw type that the table lacks, written as a type (maxon's __ManagedFileError, which File.maxon's failure
 				// mappers take).
 				return true
@@ -178,8 +178,11 @@ func callsUnprovidedBuiltin(lines []sourceLine) bool {
 }
 
 // rawMembers are the members the built-in table declares on a raw type, which it names with its prefix (__ManagedMemory)
-// or, for __Builtins, without.
+// or, for __Builtins, without, or that minimaxon's library declares on one of its raw types (__ManagedFile).
 func rawMembers(name string) []string {
+	if members, ok := libraryRawMembers[name]; ok {
+		return members
+	}
 	if members, ok := builtinMethods[name]; ok {
 		return members
 	}

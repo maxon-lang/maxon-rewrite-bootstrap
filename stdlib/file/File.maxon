@@ -70,6 +70,51 @@ extension FileInfo
 	end 'create'
 end 'FileInfo'
 
+let FileReadFailedReason = "reading the file failed"
+
+public type FileSource implements stream.ByteSource
+	export var file as __ManagedFile
+
+	export static function open(path String) returns FileSource throws FileReadError
+		let result = try __ManagedFile.openRead(path.addressableBytes()) otherwise (e) 'openFailed'
+			throw readFailureOf(e)
+		end 'openFailed'
+		return FileSource{file: result}
+	end 'open'
+
+	public function readSome(mutates self, most stream.ReadCapacity) returns ByteArray throws stream.StreamError
+		let managedBlock = try ByteMemory.create(most as ElementIndex, 1) otherwise 'createErr'
+			panic("FileSource.readSome: create — most >= 1 guaranteed")
+		end 'createErr'
+		var managed = managedBlock
+		_ = try file.readAppending(managed, most: most as Count) otherwise 'readFailed'
+			throw stream.StreamError.failed(FileReadFailedReason)
+		end 'readFailed'
+		return ByteArray.init(managed)
+	end 'readSome'
+
+	public function close(destructs self) throws FileReadError
+		try file.close() otherwise (e) 'unclosed'
+			throw readFailureOf(e)
+		end 'unclosed'
+	end 'close'
+end 'FileSource'
+
+function openForWriting(path __ManagedMemory with Byte, mode FilePermission) returns __ManagedFile throws __ManagedFileError
+	return match mode 'perm'
+		executable gives try __ManagedFile.openWriteExecutable(path)
+		normal gives try __ManagedFile.openWrite(path)
+	end 'perm'
+end 'openForWriting'
+
+/// Static file operations.
+extension File
+	/// Open a file for reading as a `FileStreamReader`: lines, exact byte counts and the rest of the file.
+	public static function openRead(path FilePath) returns FileStreamReader throws FileReadError
+		return stream.StreamReader.over(try FileSource.open(path.path))
+	end 'openRead'
+end 'File'
+
 /// Why a file operation failed, whichever operation it was: every `File` error answers it through
 /// `failure()`, so a caller can judge them all in one place.
 public enum FileFailure
@@ -98,7 +143,17 @@ function fileFailureOf(cause __ManagedFileError) returns FileFailure
 	end 'cause'
 end 'fileFailureOf'
 
-export function writeFailureOf(cause __ManagedFileError) returns FileWriteError
+function readFailureOf(cause __ManagedFileError) returns FileReadError
+	return match fileFailureOf(cause) 'failure'
+		notFound gives FileReadError.notFound
+		accessDenied gives FileReadError.accessDenied
+		busy gives FileReadError.busy
+		alreadyExists or
+		failed gives FileReadError.failed
+	end 'failure'
+end 'readFailureOf'
+
+function writeFailureOf(cause __ManagedFileError) returns FileWriteError
 	return match fileFailureOf(cause) 'failure'
 		notFound gives FileWriteError.notFound
 		accessDenied gives FileWriteError.accessDenied
@@ -117,16 +172,6 @@ function deleteFailureOf(cause __ManagedFileError) returns FileDeleteError
 		failed gives FileDeleteError.failed
 	end 'failure'
 end 'deleteFailureOf'
-
-function renameFailureOf(cause __ManagedFileError) returns FileRenameError
-	return match fileFailureOf(cause) 'failure'
-		notFound gives FileRenameError.notFound
-		accessDenied gives FileRenameError.accessDenied
-		busy gives FileRenameError.busy
-		alreadyExists gives FileRenameError.alreadyExists
-		failed gives FileRenameError.failed
-	end 'failure'
-end 'renameFailureOf'
 
 function infoFailureOf(cause __ManagedFileError) returns FileInfoError
 	return match fileFailureOf(cause) 'failure'

@@ -38,4 +38,5 @@ helpers/string/utf16.maxon json
 Json.maxon json
 helpers/file/osErrorCodes.maxon subprocess
 Subprocess.maxon subprocess
+helpers/file/fileWriter.maxon file
 File.maxon file

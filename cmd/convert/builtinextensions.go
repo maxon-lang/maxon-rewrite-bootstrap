@@ -82,7 +82,7 @@ func renameInLine(l *sourceLine, param string) {
 // extendedBuiltinRecords are the record types minimaxon builds in whose library declaration has members that the built-in
 // lacks (Clock's `nowMs`, Directory's `removeTree`, Process's `currentEnvironmentEntries`): the declaration is kept as an
 // extension of the built-in, which a program reaches as it reaches the type.
-var extendedBuiltinRecords = []string{"Clock", "Directory", "FileInfo", "FilePath", "Process"}
+var extendedBuiltinRecords = []string{"Clock", "Directory", "File", "FileInfo", "FilePath", "Process"}
 
 // builtinRecordConformances are the interfaces of a declaration of extendedBuiltinRecords that its extension leaves out:
 // FilePath is a literal's type and has its toString as a built-in until the seed that compiles its library type.
@@ -131,7 +131,35 @@ func rewriteBuiltinRecords(lines []sourceLine) {
 			dropFields(lines, i, last)
 		}
 		dropNativeMembers(lines, i, last, target)
+		if isRecord {
+			dropOrphanedMembers(lines, i, last)
+		}
 		i = last
+	}
+}
+
+// dropOrphanedMembers leaves out each member of the extension from header to last that only its own file may call and that
+// nothing left in it names: a helper of members that the built-in declares, which dropNativeMembers left out (File.maxon's
+// readWhole, of readText and readBinary).
+func dropOrphanedMembers(lines []sourceLine, header, last int) {
+	for k := header + 1; k < last; k++ {
+		l := &lines[k]
+		if l.removed || len(l.code) == 0 || l.indent != "	" {
+			continue
+		}
+		declIdx := skipModifiers(l.code)
+		if declIdx+1 >= len(l.code) || l.code[declIdx].text != "function" || hasModifier(l.code[:declIdx], "public") || hasModifier(l.code[:declIdx], "export") {
+			continue
+		}
+		end := memberEnd(lines, k)
+		if namedOutside(lines, l.code[declIdx+1].text, k, end) {
+			k = end
+			continue
+		}
+		for j := commentsAbove(lines, k); j <= end; j++ {
+			lines[j].removed = true
+		}
+		k = end
 	}
 }
 

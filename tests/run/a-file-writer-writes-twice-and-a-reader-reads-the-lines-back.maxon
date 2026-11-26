@@ -1,0 +1,56 @@
+// maxon's FileWriter and File.openRead, converted into the library over its __ManagedFile: a program writes a file in two writes
+// and closes it, each failure closing the writer before it goes on, as README ("An open file is a linear value") writes it;
+// writes another with writeAllText, which closes it; and reads the first back a line at a time through the reader that
+// File.openRead gives, which it ends with the close of its source.
+// native-only
+//> wrote two lines
+//> read: first line|second line|end
+//> written whole: whole
+function writeTwo(path FilePath) throws FileWriteError
+	var writer = try FileWriter.open(path)
+	try writer.write("first line\n".toByteArray()) otherwise (e) 'first'
+		try writer.close() otherwise ignore
+		throw e
+	end 'first'
+	try writer.write("second line\n".toByteArray()) otherwise (e) 'second'
+		try writer.close() otherwise ignore
+		throw e
+	end 'second'
+	try writer.close()
+end 'writeTwo'
+
+function shown(read LineOrEnd) returns String
+	return match read 'read'
+		line(text) gives text.clone()
+		ended gives "end"
+	end 'read'
+end 'shown'
+
+function readBack(path FilePath) returns String throws FileReadError
+	var reader = try File.openRead(path)
+	var lines = ""
+	for i in 0 upto 3 'lines'
+		let read = try reader.readLine() otherwise 'unread'
+			try reader.source.close() otherwise ignore
+			throw FileReadError.failed
+		end 'unread'
+		lines = "{lines}{"|" if i > 0 else ""}{shown(read)}"
+	end 'lines'
+	try reader.source.close()
+	return lines
+end 'readBack'
+
+function main() returns ExitCode
+	let path = try FilePath.from("minimaxon_file_writer_{Process.id()}.txt") otherwise return 1
+	try writeTwo(path) otherwise return 2
+	print("wrote two lines\n")
+	let lines = try readBack(path) otherwise return 3
+	print("read: {lines}\n")
+	let whole = try FilePath.from("minimaxon_file_writer_whole_{Process.id()}.txt") otherwise return 4
+	let writer = try FileWriter.openNew(whole) otherwise return 5
+	try writer.writeAllText("whole") otherwise return 6
+	print("written whole: {try File.readText(whole) otherwise "unread"}\n")
+	try File.delete(path) otherwise return 7
+	try File.delete(whole) otherwise return 8
+	return 0
+end 'main'

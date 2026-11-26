@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"go/format"
 	"os"
+	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -260,6 +262,7 @@ func load() table {
 		}
 	}
 	t.rtFuncs = loadRuntimeFunctions()
+	checkRawLibraryTypes()
 	return t
 }
 
@@ -566,4 +569,27 @@ func (t table) symbolOf(e entry) string {
 		}
 	}
 	return e.Symbol
+}
+
+// libraryFunction is the name of a function that a line of a library file declares.
+var libraryFunction = regexp.MustCompile(`^\s+(?:public\s+|export\s+)?(?:static\s+)?function\s+(\w+)\(`)
+
+// checkRawLibraryTypes holds the Members of each of rawLibraryTypes to the functions that its library file declares, so that what
+// cmd/convert takes the type to have is what the library has.
+func checkRawLibraryTypes() {
+	for _, r := range rawLibraryTypes {
+		data, err := os.ReadFile(filepath.Join("..", "..", filepath.FromSlash(r.File)))
+		if err != nil {
+			fail("the library file %s of %s: %v", r.File, r.Name, err)
+		}
+		var declared []string
+		for line := range strings.SplitSeq(string(data), "\n") {
+			if m := libraryFunction.FindStringSubmatch(line); m != nil {
+				declared = append(declared, m[1])
+			}
+		}
+		if !slices.Equal(declared, r.Members) {
+			fail("%s declares the functions %v, where the table names %v", r.File, declared, r.Members)
+		}
+	}
 }
