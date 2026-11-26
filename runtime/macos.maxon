@@ -440,6 +440,33 @@
 		return openPath(path, flags: macosOpenCreateNew if exclusive else macosOpenReplace, mode: macosExecutableFileMode if executable else macosFileMode)
 	end 'openReplacing'
 
+	// openFileBytes is the fd of an owned file handle (file.maxon), the file that the bytes of a path name opened in a way, close
+	// on exec as every open of the runtime is; or it stores the errno at osErrorAddress and gives 0.
+	function openFileBytes(path Count, length Count, how Count, osErrorAddress Count) returns Count
+		var flags = macosOpenReplace
+		if how == openToRead 'read'
+			flags = macosOpenReadOnly
+		end 'read' else if how == openToCreate 'create'
+			flags = macosOpenCreateNew
+		end 'create'
+		let fd = openPathBytes(path, length: length, flags: flags, mode: macosExecutableFileMode if how == openToWriteExecutable else macosFileMode)
+		if failed(fd) 'refused'
+			__Raw.storeWord(osErrorAddress, offset: 0, value: errnoOf(fd))
+			return 0
+		end 'refused'
+		return fd
+	end 'openFileBytes'
+
+	// closeFileHandle closes the fd of an owned file handle in the blocking bracket, since a close may wait on its file system (a
+	// flush to NFS or SMB, a macFUSE daemon's), and gives its errno, read before exitBlocking, or 0. A close that a signal breaks
+	// off has still freed the fd, so it is not made again.
+	function closeFileHandle(fd Count) returns Count
+		enterBlocking()
+		let result = checkedInt(__Raw.callImport1("close", arg1: fd))
+		exitBlocking()
+		return osErrorOf(result)
+	end 'closeFileHandle'
+
 	// statPath fills a struct stat of the file a path names and gives 0, or gives -errno, as statCString does for a
 	// zero-terminated path.
 	function statPath(path String, stat Count) returns Count

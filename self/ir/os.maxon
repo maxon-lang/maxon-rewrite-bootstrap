@@ -342,6 +342,39 @@ function lowerFileCreateText(mutates l Lowerer, p ast.Project, ms ast.ModuleStat
 	return konst(l, value: 0 as Word)
 end 'lowerFileCreateText'
 
+function lowerManagedFileOpenRead(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return openHandle(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtFileOpenRead)
+end 'lowerManagedFileOpenRead'
+
+function lowerManagedFileOpenWrite(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return openHandle(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtFileOpenWrite)
+end 'lowerManagedFileOpenWrite'
+
+function lowerManagedFileOpenWriteExecutable(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return openHandle(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtFileOpenWriteExecutable)
+end 'lowerManagedFileOpenWriteExecutable'
+
+function lowerManagedFileOpenCreateNew(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return openHandle(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtFileOpenCreateNew)
+end 'lowerManagedFileOpenCreateNew'
+
+// openHandle is an open of the file whose path is the bytes of the call's one argument, by the runtime's entry, which gives the
+// handle's word, which the library's __ManagedFile holds until its close, and whose error word is a __ManagedFileError's.
+function openHandle(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, args RegList, symbol Rt) returns Reg
+	let dst = newReg(l, kind: IrKind.kindScalar)
+	let path = try args.get(0) otherwise panic("an open of a file takes a path, which the checker has seen")
+	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: symbol, args: argsOf1(path))
+end 'openHandle'
+
+// lowerManagedFileClose ends the handle whose word is the call's one argument, which the library's __ManagedFile.close gives up:
+// the runtime's close, which closes it whether or not it fails and sets the error word with writeFailed when the system's
+// close reports an error, as Go's Close does.
+function lowerManagedFileClose(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let handle = try args.get(0) otherwise panic("a close of a file takes its handle's word, which the checker has seen")
+	_ = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtFileClose, args: argsOf1(handle))
+	return konst(l, value: 0 as Word)
+end 'lowerManagedFileClose'
+
 function lowerFileWriteBinary(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let path = pathText(l, path: args[0])
 	let executable = isExecutable(l, mode: args[2])

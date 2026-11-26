@@ -21,6 +21,7 @@ the root README's section "The runtime". `minimaxon check runtime` checks it, an
 | `text.maxon` | — | UTF-8 and UTF-16 conversion, over addresses and lengths, for the `W` calls |
 | `commandline.maxon` | — | the C runtime's command-line splitter and the quoting that is its inverse, an argument quoted when it is empty or has a space, a tab or a quote, as maxon's runtime decides it |
 | `os.maxon` | `osArgs`, `osEnvironmentVariable`, `osPathFrom`, `osReadText`, `osReadBinary`, `osWriteTextMode`, `osWriteBinaryMode`, `osCreateText`, `osRename`, `osDelete`, `osDeleteDirectory`, `osIsDirectory`, `osCreateDirectory`, `osList` | files, directories, paths and the environment, over the `W` Win32 calls; `osWriteText` and `osWriteBinary` stay only because the seed's table still names them (E3004 when it builds C1), and go with the next seed |
+| `file.maxon` | `fileOpenRead`, `fileOpenWrite`, `fileOpenWriteExecutable`, `fileOpenCreateNew`, `fileClose` | an open file, under the library's `__ManagedFile`: a box of the system's fd or `HANDLE`, whose address is the handle's word; each system's `openFileBytes` opens it and `closeFileHandle` closes it, in `linux.maxon`, `macos.maxon` and `os.maxon`. `fileClose` is the entry that `__ManagedFile.close`, the one way a handle ends, calls |
 | `environment.maxon` | `osEnvironmentEntry` | the process's environment an entry at a time, as maxon's runtime answers `__Builtins.osEnvironmentEntry`: a fresh byte array of the `NAME=VALUE` entry at an index, empty past the last entry and one NUL byte where the system has no environment; each system's `appendEnvironmentEntry` walks its own structure: Windows' block of UTF-16 from `GetEnvironmentStringsW` (a copy, released on every way out, with only the entry asked for narrowed), and on Linux and macOS the vector of entries the process started with |
 | `subprocess.maxon` | `osRun`, `osRunIn`, `osRunInput` | `CreateProcessW` of a child created suspended (`startChild`), its output and error read through pipes, discarded to the null device or the caller's own, and its standard input a pipe written as the child takes it, the null device or the caller's, and a job object that holds it and the tree it starts (`endTree`), all through the event queue; the lookup of a program as `CreateProcessW` does it (`resolveProgram`); and what the three systems' runs share: the run's wait (the pipes' ends and the child's exit as event entries, a green thread to read each pipe, capped where the stream has a limit, one to write the input and one to wait for the exit, all until the run's deadline, which ends the child and its tree), `awaitChild`, which parks the run's green thread until they have finished, and `runChild`, which osRun and its kin start and wait with in one call over a request |
 | `spawn.maxon` | `subprocessSpawn`, `subprocessSpawnStreaming`, `subprocessGetPid`, `subprocessWaitCollect`, `subprocessResultStatusKind`, `subprocessResultStatusCode`, `subprocessResultStdout`, `subprocessResultStderr`, `subprocessResultDurationMs`, `subprocessResultRelease`, `subprocessReleaseHandle`, `subprocessEndTree`, `subprocessLastErrorCode`, `subprocessLastErrorMessage`, `subprocessResolveOnPath` | maxon's `__Builtins.subprocess*` as far as the attached run goes: the request that a spawn and `runChild` both make for each system's `startChild`, the failure word that a start answers (the code, the step and what the code is), the handle table (one per process, hung on the scheduler's record and kept for good, a slot and its generation as a `SlotKey` has them, a word that names nothing live answered as a failure), the child's and the result's records, and the rows over them; a spawn that is not served (a traced child) is refused before anything is allocated, and a detached one (the flag detach, which `subprocessDetach` is the same entry for) answers its process id, a Windows child that leaves every job (-2 where the job forbids it), a POSIX child that leads a session of its own and is waited for by the event queue (`eventProcessOrphan`) when it takes the child's exit; `subprocessEndTree` and the end of a tree at a deadline are each system's `endTree` and `treeEnded` |
@@ -79,7 +80,8 @@ the root README's section "The runtime". `minimaxon check runtime` checks it, an
   thread (its context, its heap's record, its errno or last error, read inside the bracket) across it, and allocates nothing
   inside it. A panic writes with `writeHandle`, which brackets nothing, since it may come from code that holds the scheduler's
   lock; `close` and a child's calls between fork and exec are not bracketed either, the one on paths that run inside another
-  bracket or in the event queue, the other in a child that shares the parent's memory. A thread in an unbracketed call holds its
+  bracket or in the event queue, the other in a child that shares the parent's memory, except the close of an open file
+  (`closeFileHandle`), which is a call of its own that a file system may hold (below). A thread in an unbracketed call holds its
   processor and is asked to stop once a slice, which the call does not take, and asked again with a growing gap up to
   1 ms. The clocks a program reads (`osClockNanos`, `osTickMillis`, `osThreadCpuTicks`, `osUnixNanos`) are bracketed
   too, though they never block: a signal that comes during a system call is handled as the call returns, in the runtime's
@@ -89,6 +91,29 @@ the root README's section "The runtime". `minimaxon check runtime` checks it, an
 - **Runtime code is never stopped by the monitor** (the link's table of preemptible code leaves it out), so an allocation,
   a queue operation or a lock's hold always ends on the thread it began on. The monitor allocates nothing and holds no
   processor.
+
+## The close of an open file
+
+An open file (the library's `__ManagedFile`) has no drop: it is ended by its `close()`, its one destructor, which calls
+`fileClose` (`rt.file.close`); that closes the system's handle and frees the box, and sets the error word with `writeFailed`
+when the system's close reports an error, the handle closed all the same, as Go's `Close` does. **A close makes one bracketed
+kernel call, never parks the strand and never yields.** It need not wait for anything: the handle has one owner, and a read
+or a write takes it `mutates`, so no call is on it when it is closed. The close is the system's close in the blocking
+bracket, never made again after a signal broke it off (the fd is freed all the same; Linux's `EINTR` is reported, as Go
+reports it):
+
+- **Linux**: `close(fd)`. On a local disk it returns at once. On NFS it writes the file's dirty pages and waits for the server,
+  which on a hard mount has no bound but the server's; on FUSE it waits for the daemon's answer to its flush; a serial terminal's waits for its output to drain, 30 s at
+  most by default (`closing_wait`). A writer's close takes no fork lock.
+- **macOS**: libSystem's `close(fd)`, with the same waits on NFS, SMB and a macFUSE file system.
+- **Windows**: `CloseHandle`. On a local disk it returns at once; on an SMB share it waits for the server's answer, within the
+  redirector's timeouts. It does not wait for a read of the handle, since no thread is in one.
+
+The bracket is what keeps such a wait from holding a processor: the monitor hands the processor to another thread meanwhile,
+and its exit may move the green thread to another thread or queue it for a processor, but runs no other coroutine of its
+strand. A close on a file system that waits is the same wait as a read or a write of that file, which Go, Rust's `OwnedFd`
+and C make in the call too: the runtime does not hand it to another thread, which would end the guarantee that the file is
+closed when the call returns (and that, on Windows, it opens again at once, since a writer shares nothing).
 
 ## The scheduler and Go's
 

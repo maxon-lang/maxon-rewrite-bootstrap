@@ -1,0 +1,16 @@
+// A return that leaves a file open drops it, which a __ManagedFile refuses.
+// expect-error: E3919
+typealias Bytes = __ManagedMemory with Byte
+
+function early(path Bytes, stop bool) returns Count throws __ManagedFileError
+	let file = try __ManagedFile.openRead(path)
+	if stop 'stop'
+		return 1
+	end 'stop'
+	try file.close()
+	return 2
+end 'early'
+
+function main() returns ExitCode
+	return 0
+end 'main'

@@ -1,0 +1,83 @@
+// An open file, maxon's __ManagedFile: a box of the runtime's that holds the system's handle (an fd, or a HANDLE on Windows),
+// whose address is the handle's word, which the library's __ManagedFile record holds (stdlib/file/managedFile.maxon). An open
+// makes it; fileClose ends it, which that record's close, its one destructor, calls: it closes the system's handle and frees the
+// box, once, since the one owner of the record gives it up to the call, and sets the error word with writeFailed when the
+// system's close reports an error, the handle closed all the same, as Go's Close does. A close is one call into the kernel in
+// the blocking bracket (closeFileHandle), never made again after a signal, and never parks the green thread or yields.
+
+let fileHandleOffset = 0 as Count
+
+let fileBoxBytes = 8 as Count
+
+// The ways an open opens a file, which each system's openFileBytes maps to its own flags: to read; to write, made where it is
+// not there and emptied where it is; the same, a file it makes getting the executable mode where the system has modes; and to
+// write a file that must not be there, made in the same step.
+let openToRead = 0 as Count
+
+let openToWrite = 1 as Count
+
+let openToWriteExecutable = 2 as Count
+
+let openToCreate = 3 as Count
+
+// The cases of __ManagedFileError that an open fails with, by their position in the enum.
+let managedFileNotFound = 0
+
+let managedFileAccessDenied = 1
+
+let managedFileOpenFailed = 2
+
+let managedFileWriteFailed = 4
+
+let managedFileAlreadyExists = 11
+
+let managedFileBusy = 12
+
+function openFailures() returns Count
+	return failureCases(managedFileNotFound, accessDenied: managedFileAccessDenied, busy: managedFileBusy, alreadyExists: managedFileAlreadyExists, other: managedFileOpenFailed)
+end 'openFailures'
+
+function fileOpenRead(path Count, errorAddress Count) returns Count
+	return fileOpen(path, how: openToRead, errorAddress: errorAddress)
+end 'fileOpenRead'
+
+function fileOpenWrite(path Count, errorAddress Count) returns Count
+	return fileOpen(path, how: openToWrite, errorAddress: errorAddress)
+end 'fileOpenWrite'
+
+function fileOpenWriteExecutable(path Count, errorAddress Count) returns Count
+	return fileOpen(path, how: openToWriteExecutable, errorAddress: errorAddress)
+end 'fileOpenWriteExecutable'
+
+function fileOpenCreateNew(path Count, errorAddress Count) returns Count
+	return fileOpen(path, how: openToCreate, errorAddress: errorAddress)
+end 'fileOpenCreateNew'
+
+// fileOpen opens the file that the bytes of a byte array name in a way, and gives the box of its handle, or sets the error word
+// and gives 0. Every handle it opens is one a child does not inherit: close on exec on Linux and macOS, not inheritable on
+// Windows.
+function fileOpen(path Count, how Count, errorAddress Count) returns Count
+	var osError = 0 as Count
+	let handle = openFileBytes(__Raw.loadWord(path, offset: osBytesDataOffset), length: __Raw.loadWord(path, offset: osBytesLengthOffset), how: how, osErrorAddress: __Raw.addressOf(osError))
+	if osError != 0 'refused'
+		endWithError(errorAddress, osError: osError, table: openFailures())
+		return 0
+	end 'refused'
+	let box = alloc(fileBoxBytes)
+	__Raw.storeWord(box, offset: fileHandleOffset, value: handle)
+	succeed(errorAddress)
+	return box
+end 'fileOpen'
+
+// closeFailures is the table of a close: whatever the system's close reports, the bytes written may not be in the file.
+function closeFailures() returns Count
+	return failureCases(managedFileWriteFailed, accessDenied: managedFileWriteFailed, busy: managedFileWriteFailed, alreadyExists: managedFileWriteFailed, other: managedFileWriteFailed)
+end 'closeFailures'
+
+// fileClose closes the handle whose box is the handle's word and frees the box, and sets the error word with what the system's
+// close reports.
+function fileClose(handle Count, errorAddress Count)
+	let osError = closeFileHandle(__Raw.loadWord(handle, offset: fileHandleOffset))
+	free(handle)
+	endWithError(errorAddress, osError: osError, table: closeFailures())
+end 'fileClose'

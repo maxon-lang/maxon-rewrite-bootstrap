@@ -79,3 +79,61 @@ public enum FileFailure
 	busy
 	failed
 end 'FileFailure'
+
+function fileFailureOf(cause __ManagedFileError) returns FileFailure
+	return match cause 'cause'
+		notFound gives FileFailure.notFound
+		accessDenied gives FileFailure.accessDenied
+		alreadyExists gives FileFailure.alreadyExists
+		busy gives FileFailure.busy
+		openFailed or
+		readFailed or
+		writeFailed or
+		sizeFailed or
+		deleteFailed or
+		statFailed or
+		invalidStatBuffer or
+		invalidStatIndex or
+		closed gives FileFailure.failed
+	end 'cause'
+end 'fileFailureOf'
+
+export function writeFailureOf(cause __ManagedFileError) returns FileWriteError
+	return match fileFailureOf(cause) 'failure'
+		notFound gives FileWriteError.notFound
+		accessDenied gives FileWriteError.accessDenied
+		alreadyExists gives FileWriteError.alreadyExists
+		busy gives FileWriteError.busy
+		failed gives FileWriteError.failed
+	end 'failure'
+end 'writeFailureOf'
+
+function deleteFailureOf(cause __ManagedFileError) returns FileDeleteError
+	return match fileFailureOf(cause) 'failure'
+		notFound gives FileDeleteError.notFound
+		accessDenied gives FileDeleteError.accessDenied
+		busy gives FileDeleteError.busy
+		alreadyExists or
+		failed gives FileDeleteError.failed
+	end 'failure'
+end 'deleteFailureOf'
+
+function renameFailureOf(cause __ManagedFileError) returns FileRenameError
+	return match fileFailureOf(cause) 'failure'
+		notFound gives FileRenameError.notFound
+		accessDenied gives FileRenameError.accessDenied
+		busy gives FileRenameError.busy
+		alreadyExists gives FileRenameError.alreadyExists
+		failed gives FileRenameError.failed
+	end 'failure'
+end 'renameFailureOf'
+
+function infoFailureOf(cause __ManagedFileError) returns FileInfoError
+	return match fileFailureOf(cause) 'failure'
+		notFound gives FileInfoError.notFound
+		accessDenied gives FileInfoError.accessDenied
+		busy gives FileInfoError.busy
+		alreadyExists or
+		failed gives FileInfoError.failed
+	end 'failure'
+end 'infoFailureOf'

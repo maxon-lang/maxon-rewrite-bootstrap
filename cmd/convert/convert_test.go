@@ -651,7 +651,7 @@ func TestConvertLibraryRules(t *testing.T) {
 		{
 			name: "an enum that minimaxon builds in is kept as an extension with its cases and conformance left out, and a function over a raw type the table lacks goes",
 			file: "File.maxon",
-			in:   "public enum FileReadError implements Error\n\tnotFound\n\tfailed  // the rest\n\n\tpublic function failure() returns FileFailure\n\t\treturn match self 'cause'\n\t\t\tnotFound gives FileFailure.notFound\n\t\t\tfailed gives FileFailure.failed\n\t\tend 'cause'\n\tend 'failure'\nend 'FileReadError'\n\npublic enum FileFailure\n\tnotFound\n\tfailed\nend 'FileFailure'\n\nfunction readFailureOf(cause __ManagedFileError) returns FileReadError\n\treturn FileReadError.failed\nend 'readFailureOf'\n",
+			in:   "public enum FileReadError implements Error\n\tnotFound\n\tfailed  // the rest\n\n\tpublic function failure() returns FileFailure\n\t\treturn match self 'cause'\n\t\t\tnotFound gives FileFailure.notFound\n\t\t\tfailed gives FileFailure.failed\n\t\tend 'cause'\n\tend 'failure'\nend 'FileReadError'\n\npublic enum FileFailure\n\tnotFound\n\tfailed\nend 'FileFailure'\n\nfunction readFailureOf(cause __ManagedListenerError) returns FileReadError\n\treturn FileReadError.failed\nend 'readFailureOf'\n",
 			want: "extension FileReadError\n\tpublic function failure() returns FileFailure\n\t\treturn match self 'cause'\n\t\t\tnotFound gives FileFailure.notFound\n\t\t\tfailed gives FileFailure.failed\n\t\tend 'cause'\n\tend 'failure'\nend 'FileReadError'\n\npublic enum FileFailure\n\tnotFound\n\tfailed\nend 'FileFailure'\n",
 		},
 	}

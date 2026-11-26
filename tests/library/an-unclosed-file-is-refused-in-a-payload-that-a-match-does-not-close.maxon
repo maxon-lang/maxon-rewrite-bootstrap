@@ -1,0 +1,19 @@
+// A union that holds an open file has no drop: match consumes binds the payload, and an arm that leaves it open drops it.
+// expect-error: E3919
+typealias Bytes = __ManagedMemory with Byte
+
+union Held
+	file(handle __ManagedFile)
+	nothing
+end 'Held'
+
+function held(path Bytes) returns Count throws __ManagedFileError
+	match consumes Held.file(try __ManagedFile.openRead(path)) 'payload'
+		file(handle) then return 1
+		nothing then return 0
+	end 'payload'
+end 'held'
+
+function main() returns ExitCode
+	return 0
+end 'main'

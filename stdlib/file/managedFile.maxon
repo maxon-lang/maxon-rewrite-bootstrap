@@ -1,0 +1,36 @@
+// maxon's __ManagedFile, the owned handle of an open file that its library's FileSource and FileWriter hold, which maxon's
+// compiler declares and minimaxon's library does, over the file rows of __Builtins (runtime/file.maxon). Its one destructor is
+// close: a value of it has no copy and no drop, so every path that opens one closes it or moves it on (E3919), and no close
+// runs that the program does not write. close throws what the system's close reports, as Go's Close does, and the handle is
+// closed all the same. The type is the library tiers' (E3185), as maxon's is.
+
+/// An open file's handle, which exactly one owner closes.
+public type __ManagedFile
+	let word as Count
+
+	/// Open the file whose path is the bytes of `path` to read.
+	public static function openRead(path __ManagedMemory with Byte) returns __ManagedFile throws __ManagedFileError
+		return __ManagedFile{word: try __Builtins.fileOpenRead(path)}
+	end 'openRead'
+
+	/// Open the file to write: made where it is not there, emptied where it is.
+	public static function openWrite(path __ManagedMemory with Byte) returns __ManagedFile throws __ManagedFileError
+		return __ManagedFile{word: try __Builtins.fileOpenWrite(path)}
+	end 'openWrite'
+
+	/// openWrite, a file it makes getting the executable mode where the system has modes.
+	public static function openWriteExecutable(path __ManagedMemory with Byte) returns __ManagedFile throws __ManagedFileError
+		return __ManagedFile{word: try __Builtins.fileOpenWriteExecutable(path)}
+	end 'openWriteExecutable'
+
+	/// Make a file that must not be there (`alreadyExists`) and open it to write, in one step.
+	public static function openCreateNew(path __ManagedMemory with Byte) returns __ManagedFile throws __ManagedFileError
+		return __ManagedFile{word: try __Builtins.fileOpenCreateNew(path)}
+	end 'openCreateNew'
+
+	/// Close the file. It is closed whether or not this throws; `writeFailed` says the system's close reported an error, so
+	/// what was written may not all be in the file.
+	public function close(destructs self) throws __ManagedFileError
+		try __Builtins.fileClose(word)
+	end 'close'
+end '__ManagedFile'

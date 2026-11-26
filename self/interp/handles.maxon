@@ -1,0 +1,29 @@
+// The rows of an open file, run on a descriptor or a HANDLE of the system's, which the interpreter's file layer has none of (it
+// reads and writes whole files): it stops at each with the operation's name, never giving a result, and a program that opens a
+// file through the library's __ManagedFile says `// native-only`. The interpreter stops at the operation and not before the
+// program runs, since a module is lowered whole and a program that never opens a file may hold code that does.
+
+// haltHandleRow stops the interpreter at a row of an open file.
+function haltHandleRow(row String)
+	panic("interp: {row} is not run by the interpreter, which has no file streams: mark the program native-only")
+end 'haltHandleRow'
+
+function entryFileOpenRead(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltHandleRow("__Builtins.fileOpenRead")
+end 'entryFileOpenRead'
+
+function entryFileOpenWrite(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltHandleRow("__Builtins.fileOpenWrite")
+end 'entryFileOpenWrite'
+
+function entryFileOpenWriteExecutable(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltHandleRow("__Builtins.fileOpenWriteExecutable")
+end 'entryFileOpenWriteExecutable'
+
+function entryFileOpenCreateNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltHandleRow("__Builtins.fileOpenCreateNew")
+end 'entryFileOpenCreateNew'
+
+function entryFileClose(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltHandleRow("__Builtins.fileClose")
+end 'entryFileClose'

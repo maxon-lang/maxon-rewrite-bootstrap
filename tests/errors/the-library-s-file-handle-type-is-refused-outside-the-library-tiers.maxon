@@ -1,0 +1,10 @@
+// __ManagedFile is declared by the library, where maxon's compiler declares it, and is named only in the library tiers, as
+// maxon's: a program reads and writes files through File.
+// expect-error: E3185
+type Reader
+	let file as __ManagedFile
+end 'Reader'
+
+function main() returns ExitCode
+	return 0
+end 'main'

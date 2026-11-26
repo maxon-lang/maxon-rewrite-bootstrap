@@ -1,0 +1,11 @@
+// A callee that a file is passed to consumes owns it, and ending without closing it drops it.
+// expect-error: E3919
+typealias Bytes = __ManagedMemory with Byte
+
+function take(consumes file __ManagedFile) returns Count
+	return 1
+end 'take'
+
+function main() returns ExitCode
+	return 0
+end 'main'

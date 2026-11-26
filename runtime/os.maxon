@@ -578,7 +578,44 @@ let nanosPerFileTimeStep = 100 as Count
 	// The error is read before anything else runs, since another call would replace it, and before exitBlocking, which may
 	// move the green thread to another thread, whose last error is its own; every call that may block reads it so.
 	function openFile(path String, access Count, share Count, disposition Count, win32Address Count) returns Count
-		let widePath = wideOf(path)
+		return openWide(wideOf(path), access: access, share: share, disposition: disposition, win32Address: win32Address)
+	end 'openFile'
+
+	// openFileBytes is the HANDLE of an owned file handle (file.maxon), the file that the bytes of a path name opened in a way, which
+	// no child inherits; or it stores the Win32 error at osErrorAddress and gives 0. A file open to read shares reading, and one open
+	// to write shares nothing, as the whole-file reads and writes do.
+	function openFileBytes(path Count, length Count, how Count, osErrorAddress Count) returns Count
+		var access = genericWrite as Count
+		var share = noSharing as Count
+		var disposition = createAlways as Count
+		if how == openToRead 'read'
+			access = genericRead
+			share = fileShareRead
+			disposition = openExisting
+		end 'read' else if how == openToCreate 'create'
+			disposition = createNew
+		end 'create'
+		let file = openWide(wideOfBytes(path, length: length), access: access, share: share, disposition: disposition, win32Address: osErrorAddress)
+		if file == invalidHandle 'refused'
+			return 0
+		end 'refused'
+		return file
+	end 'openFileBytes'
+
+	// closeFileHandle closes the HANDLE of an owned file handle in the blocking bracket, since a close may wait on its file system
+	// (an SMB server's), and gives its Win32 error, read before exitBlocking, or 0.
+	function closeFileHandle(file Count) returns Count
+		var win32 = 0 as Count
+		enterBlocking()
+		if dword(__Raw.callImport1("CloseHandle", arg1: file)) == 0 'failed'
+			win32 = win32Error()
+		end 'failed'
+		exitBlocking()
+		return win32
+	end 'closeFileHandle'
+
+	// openWide is openFile of a zero-terminated UTF-16 path, which it frees.
+	function openWide(widePath Count, access Count, share Count, disposition Count, win32Address Count) returns Count
 		enterBlocking()
 		let file = __Raw.callImport7("CreateFileW", arg1: widePath, arg2: access, arg3: share, arg4: noSecurity, arg5: disposition, arg6: fileAttributeNormal, arg7: noTemplate)
 		if file == invalidHandle 'failed'
@@ -587,7 +624,7 @@ let nanosPerFileTimeStep = 100 as Count
 		exitBlocking()
 		free(widePath)
 		return file
-	end 'openFile'
+	end 'openWide'
 
 	// readStandardInput reads up to count bytes of standard input to room and gives how many it read: 0 at the end of the
 	// stream, which a closed handle, a broken pipe and a failure are as well, as maxon's runtime does not tell them apart.

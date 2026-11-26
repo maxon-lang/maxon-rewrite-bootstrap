@@ -1,0 +1,11 @@
+// A file that its scope ends holding is dropped, and a __ManagedFile has no drop: only its close ends it.
+// expect-error: E3919
+typealias Bytes = __ManagedMemory with Byte
+
+function held(path Bytes) throws __ManagedFileError
+	let file = try __ManagedFile.openRead(path)
+end 'held'
+
+function main() returns ExitCode
+	return 0
+end 'main'

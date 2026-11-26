@@ -62,6 +62,16 @@ var rawPrimTypes = []struct {
 	{"CString", rawSurface{What: "the NUL-terminated pointer type is nameable", Instead: "use 'String'"}},
 }
 
+// rawLibraryTypes are the types of maxon's raw surface that the library declares, where maxon's compiler does: a type of the
+// name that a module of the library declares is named only in the library tiers (E3185), as a type of the table is.
+var rawLibraryTypes = []struct {
+	Name  string
+	Named rawSurface
+}{
+	// __ManagedFile is maxon's owned handle of an open file (stdlib/file/managedFile.maxon), which FileSource and FileWriter hold.
+	{"__ManagedFile", rawSurface{What: "the raw OS file handle type is nameable", Instead: "use 'File'"}},
+}
+
 // stdAlias is a built-in ranged alias of maxon's stdlib (`Count`, `ExitCode`...), which the rows of the table name and
 // so is declared before them: its name, the Builtins field that holds it, and the Maxon expressions of its bounds.
 type stdAlias struct {
@@ -358,6 +368,23 @@ var enumTypes = []enumType{
 		{"alreadyExists", "ErrorWriteAlreadyExists"},
 		{"busy", "ErrorWriteBusy"},
 		{"partialFileLeft", "ErrorWritePartialFileLeft"},
+	}},
+	// ManagedFileError is what maxon's __ManagedFile rows throw, its cases maxon's (stdlib/Builtins.maxon), of which the open of
+	// a file throws notFound, accessDenied, alreadyExists, busy and openFailed, and its close writeFailed.
+	{Key: "ManagedFileError", Name: "__ManagedFileError", Cases: []enumCase{
+		{"notFound", "ErrorFileNotFound"},
+		{"accessDenied", "ErrorFileAccessDenied"},
+		{"openFailed", "ErrorFileOpenFailed"},
+		{"readFailed", "ErrorFileReadFailed"},
+		{"writeFailed", "ErrorFileWriteFailed"},
+		{"sizeFailed", "ErrorFileSizeFailed"},
+		{"deleteFailed", "ErrorFileDeleteFailed"},
+		{"statFailed", "ErrorFileStatFailed"},
+		{"invalidStatBuffer", "ErrorFileInvalidStatBuffer"},
+		{"invalidStatIndex", "ErrorFileInvalidStatIndex"},
+		{"closed", "ErrorFileClosed"},
+		{"alreadyExists", "ErrorFileAlreadyExists"},
+		{"busy", "ErrorFileBusy"},
 	}},
 	// FilePermission is maxon's: the mode of a file that a write creates, 0666 or 0755 on a system that has modes.
 	{Key: "FilePermission", Name: "FilePermission", Cases: []enumCase{
@@ -1086,6 +1113,15 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "readLittleEndian", Static: true, Params: []string{"_ Array with Byte", "_ ElementIndex", "_ Count"}, Result: "OrderedWord", Throws: "ArrayError", Intrinsic: "ReadLittleEndian", Instead: "readOrderedWord", Checked: true},
 	{Owner: "Builtins", Name: "appendBigEndian", Static: true, Params: []string{"mutates _ Array with Byte", "_ OrderedWord", "_ Count"}, Intrinsic: "AppendBigEndian", Instead: "appendOrderedWord", Checked: true},
 	{Owner: "Builtins", Name: "appendLittleEndian", Static: true, Params: []string{"mutates _ Array with Byte", "_ OrderedWord", "_ Count"}, Intrinsic: "AppendLittleEndian", Instead: "appendOrderedWord", Checked: true},
+	// The rows of an open file under the library's __ManagedFile (stdlib/file/managedFile.maxon), whose word they give and take:
+	// the opens of the bytes of a path, to read, to write (made or emptied, with the executable mode for a file it makes, or made
+	// where nothing is), and the close, which ends the handle whether or not it throws and throws writeFailed with what the
+	// system's close reports, as Go's Close does. A handle's word is one that exactly one __ManagedFile holds.
+	{Owner: "Builtins", Name: "fileOpenRead", Static: true, Params: []string{"_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileOpenRead", Instead: "File"},
+	{Owner: "Builtins", Name: "fileOpenWrite", Static: true, Params: []string{"_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileOpenWrite", Instead: "File"},
+	{Owner: "Builtins", Name: "fileOpenWriteExecutable", Static: true, Params: []string{"_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileOpenWriteExecutable", Instead: "File"},
+	{Owner: "Builtins", Name: "fileOpenCreateNew", Static: true, Params: []string{"_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileOpenCreateNew", Instead: "File"},
+	{Owner: "Builtins", Name: "fileClose", Static: true, Params: []string{"_ Count"}, Throws: "ManagedFileError", Intrinsic: "ManagedFileClose", Instead: "File"},
 }
 
 // unit is a code unit of the backend's runtime, or a place an entry lives that has no code of its own.
@@ -1332,6 +1368,13 @@ var entries = []entry{
 	{"OsCreateDirectory", "rt.os.createDirectory", "Os", roleCall, "(path String) -> bool: makes the missing parents too, and is whether the directory is there after it"},
 	{"OsDeleteDirectory", "rt.os.deleteDirectory", "Os", roleCall, "(path String, error): removes an empty directory"},
 	{"OsList", "rt.os.list", "Os", roleCall, "(path String, error) -> Array with String: the path joined to the name of each entry"},
+	// The entries of an owned file handle (runtime/file.maxon): an open gives the handle, a box of the runtime's that is never 0, or
+	// sets the error word with a __ManagedFileError's case; the close is the one call that ends a handle.
+	{"FileOpenRead", "rt.file.openRead", "Os", roleCall, "(path ByteArray, error) -> handle: the file the bytes of the path name, opened to read"},
+	{"FileOpenWrite", "rt.file.openWrite", "Os", roleCall, "(path ByteArray, error) -> handle: the file opened to write, made where it is not there and emptied where it is"},
+	{"FileOpenWriteExecutable", "rt.file.openWriteExecutable", "Os", roleCall, "(path ByteArray, error) -> handle: rt.file.openWrite, a file it makes getting the executable mode where the system has modes"},
+	{"FileOpenCreateNew", "rt.file.openCreateNew", "Os", roleCall, "(path ByteArray, error) -> handle: a file that must not be there (alreadyExists), made and opened to write in one step"},
+	{"FileClose", "rt.file.close", "Os", roleCall, "(handle, error): closes the handle and frees its box, in one bracketed call into the kernel, which never parks the green thread or yields; what the system's close reports sets the error word with writeFailed, the handle closed all the same"},
 	// The debug port's entries, on Windows; a read or a write that fails sets its error word as an OS entry's does.
 	{"DebugLaunch", "rt.debug.launch", "Os", roleCall, "(executable String, arguments Array with String, outputToError, error) -> process id: starts the executable as the calling thread's debuggee"},
 	{"DebugWaitEvent", "rt.debug.waitEvent", "Os", roleCall, "(budgetMs) -> ByteArray: the debug event that came within the milliseconds, empty for none"},
@@ -1561,6 +1604,11 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsCreateDirectory", "osCreateDirectory(path String) Bool"},
 	{"OsDeleteDirectory", "osDeleteDirectory(path String, errorAddress Count)"},
 	{"OsList", "osList(path String, errorAddress Count) Count"},
+	{"FileOpenRead", "fileOpenRead(path Count, errorAddress Count) Count"},
+	{"FileOpenWrite", "fileOpenWrite(path Count, errorAddress Count) Count"},
+	{"FileOpenWriteExecutable", "fileOpenWriteExecutable(path Count, errorAddress Count) Count"},
+	{"FileOpenCreateNew", "fileOpenCreateNew(path Count, errorAddress Count) Count"},
+	{"FileClose", "fileClose(handle Count, errorAddress Count)"},
 	{"OsRun", "osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 	{"OsRunIn", "osRunIn(executable String, arguments Count, directory String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 	{"OsRunInput", "osRunInput(executable String, arguments Count, input String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},

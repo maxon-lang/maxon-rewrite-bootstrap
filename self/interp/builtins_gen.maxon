@@ -623,6 +623,26 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryOsList(vm, f: f, x: x)
 		return
 	end 'rtOsList'
+	if symbol == ir.Rt.rtFileOpenRead 'rtFileOpenRead'
+		try entryFileOpenRead(vm, f: f, x: x)
+		return
+	end 'rtFileOpenRead'
+	if symbol == ir.Rt.rtFileOpenWrite 'rtFileOpenWrite'
+		try entryFileOpenWrite(vm, f: f, x: x)
+		return
+	end 'rtFileOpenWrite'
+	if symbol == ir.Rt.rtFileOpenWriteExecutable 'rtFileOpenWriteExecutable'
+		try entryFileOpenWriteExecutable(vm, f: f, x: x)
+		return
+	end 'rtFileOpenWriteExecutable'
+	if symbol == ir.Rt.rtFileOpenCreateNew 'rtFileOpenCreateNew'
+		try entryFileOpenCreateNew(vm, f: f, x: x)
+		return
+	end 'rtFileOpenCreateNew'
+	if symbol == ir.Rt.rtFileClose 'rtFileClose'
+		try entryFileClose(vm, f: f, x: x)
+		return
+	end 'rtFileClose'
 	if symbol == ir.Rt.rtDebugLaunch 'rtDebugLaunch'
 		try entryDebugLaunch(vm, f: f, x: x)
 		return

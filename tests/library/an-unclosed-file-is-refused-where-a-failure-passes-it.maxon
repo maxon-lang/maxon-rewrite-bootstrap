@@ -1,0 +1,14 @@
+// A failure that a try passes on leaves the scope that holds the open file, which would drop it: the handler must close it.
+// expect-error: E3919
+typealias Bytes = __ManagedMemory with Byte
+
+function twice(path Bytes) throws __ManagedFileError
+	let file = try __ManagedFile.openRead(path)
+	let other = try __ManagedFile.openRead(path)
+	try other.close()
+	try file.close()
+end 'twice'
+
+function main() returns ExitCode
+	return 0
+end 'main'
