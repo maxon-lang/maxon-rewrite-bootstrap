@@ -921,9 +921,6 @@ let linuxStatAccessedOffset = 72 as Count
 // linuxStatModifiedOffset is where a struct stat holds st_mtim, whose first word is its seconds.
 let linuxStatModifiedOffset = 88 as Count
 
-// linuxStatChangedOffset is where a struct stat holds st_ctim, the last status change, whose first word is its seconds: what maxon's File.info gives as createdTime on Linux, where a struct stat has no birth time.
-let linuxStatChangedOffset = 104 as Count
-
 // linuxStatxBytes is the size of a struct statx.
 let linuxStatxBytes = 256 as Count
 

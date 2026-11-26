@@ -84,6 +84,7 @@ size=5
 ```
 
 <!-- test: file-info.timestamps -->
+<!-- skip: language difference: createdTime is a FileCreatedTime, time or notReported, where maxon gives a Timestamp that is st_ctime on Linux, so a comparison of it with a number does not type-check (README, Where it differs from Maxon) -->
 ```maxon
 function main() returns ExitCode
 	let path = FilePath from "test_fi_times.txt"

@@ -961,3 +961,15 @@ func TestConvertWritesNamesThatHideModulesAndDropsRawBufferCasts(t *testing.T) {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
 }
+
+// TestConvertWritesFileInfoCreateWithTheFileCreatedTime: maxon's FileInfo.create takes the time a file was made as a Timestamp,
+// where the built-in's createdTime is a FileCreatedTime, and no other parameter or call changes.
+func TestConvertWritesFileInfoCreateWithTheFileCreatedTime(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "stdlib")
+	in := "public type FileInfo\n\tpublic let size as FileSize\n\tpublic let modifiedTime as Timestamp\n\tpublic let createdTime as Timestamp\n\n" +
+		"\tpublic static function create(size FileSize, modifiedTime Timestamp, createdTime Timestamp) returns FileInfo\n\t\treturn FileInfo{size: size, modifiedTime: modifiedTime, createdTime: createdTime}\n\tend 'create'\nend 'FileInfo'\n"
+	want := "extension FileInfo\n\tpublic static function create(size FileSize, modifiedTime Timestamp, createdTime FileCreatedTime) returns FileInfo\n\t\treturn FileInfo{size: size, modifiedTime: modifiedTime, createdTime: createdTime}\n\tend 'create'\nend 'FileInfo'\n"
+	if got := Convert(filepath.Join(root, "File.maxon"), in, sourceFile).Text; got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}

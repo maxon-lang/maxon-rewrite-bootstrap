@@ -823,5 +823,6 @@ function codeSkipTable() returns CodeSkips
 	skips.push(CodeSkip.naming("stream-reader.md", test: "a-final-line-with-no-newline-is-a-line-and-then-the-stream-has-ended", line: "<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->\n"))
 	skips.push(CodeSkip.naming("stream-reader.md", test: "a-file-is-read-line-by-line-across-chunks", line: "<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->\n"))
 	skips.push(CodeSkip.naming("library-tier-surface.md", test: "the-managed-file-type-compiles-in-the-library-tier", line: "<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->\n"))
+	skips.push(CodeSkip.naming("file-info.md", test: "file-info.timestamps", line: "<!-- skip: language difference: createdTime is a FileCreatedTime, time or notReported, where maxon gives a Timestamp that is st_ctime on Linux, so a comparison of it with a number does not type-check (README, Where it differs from Maxon) -->\n"))
 	return skips
 end 'codeSkipTable'

@@ -266,7 +266,7 @@ var recordTypes = []recordType{
 	{Key: "Utf16Iterator", Name: "UTF16Iterator", Fields: []string{"private let text String", "private var position Count"}},
 	{Key: "CollectedOutput", Name: "CollectedOutput", Fields: []string{"var stdout String", "var stderr String", "private let code ExitCode"}},
 	// FileInfo is maxon's: the size and the times of a file, in Unix seconds on the file system's clock, and its attributes.
-	{Key: "FileInfo", Name: "FileInfo", Fields: []string{"let size FileSize", "let modifiedTime Timestamp", "let createdTime Timestamp", "let accessedTime Timestamp", "let isDirectory Bool", "let isReadOnly Bool"}},
+	{Key: "FileInfo", Name: "FileInfo", Fields: []string{"let size FileSize", "let modifiedTime Timestamp", "let createdTime FileCreatedTime", "let accessedTime Timestamp", "let isDirectory Bool", "let isReadOnly Bool"}},
 	{Key: "Subprocess", Name: "Subprocess"},
 	// Debuggee is the host's debug interface that the compiler's debugger drives a program through from outside it, maxon's
 	// stdlib Debuggee.maxon: its DebugPort's Win32 verbs (maxon's __Builtins.debug* under it) as static functions over
@@ -315,6 +315,12 @@ var unionTypes = []unionType{
 	{Key: "WaitDeadline", Name: "WaitDeadline", Cases: []unionCase{
 		{Name: "none", Const: "WaitDeadlineNone"},
 		{Name: "within", Const: "WaitDeadlineWithin", Payload: []string{"timeoutMs Count"}},
+	}},
+	// FileCreatedTime is when a file was made: the Unix seconds on its file system's clock, or notReported where the system gives no
+	// birth time (a Linux file system that records none, or a kernel without statx). maxon's FileInfo gives a Timestamp there.
+	{Key: "FileCreatedTime", Name: "FileCreatedTime", Cases: []unionCase{
+		{Name: "time", Const: "FileCreatedTimeTime", Payload: []string{"value Timestamp"}},
+		{Name: "notReported", Const: "FileCreatedTimeNotReported"},
 	}},
 }
 
@@ -1368,7 +1374,7 @@ var entries = []entry{
 	{"OsWriteBinaryMode", "rt.os.writeBinaryMode", "Os", roleCall, "(path String, content ByteArray, executable, error): executable is whether a file that the write creates gets the executable mode"},
 	{"OsRename", "rt.os.rename", "Os", roleCall, "(from String, to String, error): replaces what is at to"},
 	{"OsDelete", "rt.os.delete", "Os", roleCall, "(path String, error)"},
-	{"OsFileInfo", "rt.os.fileInfo", "Os", roleCall, "(path String, size, created, accessed, attributes, error) -> modified: the times in Unix seconds, and the attributes as a word whose bit 0 is whether the path is a directory and bit 1 whether it is read-only"},
+	{"OsFileInfo", "rt.os.fileInfo", "Os", roleCall, "(path String, size, created, accessed, attributes, error) -> modified: the times in Unix seconds, and the attributes as a word whose bit 0 is whether the path is a directory, bit 1 whether it is read-only and bit 2 whether the system does not report when the file was made, which leaves `created` 0"},
 	{"OsIsDirectory", "rt.os.isDirectory", "Os", roleCall, "(path String) -> bool"},
 	{"OsExists", "rt.os.exists", "Os", roleCall, "(path String) -> bool: whether a file or a directory is at the path"},
 	{"OsCreateDirectory", "rt.os.createDirectory", "Os", roleCall, "(path String) -> bool: makes the missing parents too, and is whether the directory is there after it"},

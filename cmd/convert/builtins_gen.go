@@ -60,6 +60,7 @@ var builtinNames = map[string]bool{
 	"__Builtins":                true,
 	"Executable":                true,
 	"WaitDeadline":              true,
+	"FileCreatedTime":           true,
 	"ArithmeticError":           true,
 	"ArrayError":                true,
 	"__ManagedMemoryError":      true,

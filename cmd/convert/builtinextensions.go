@@ -138,6 +138,38 @@ func rewriteBuiltinRecords(lines []sourceLine) {
 	}
 }
 
+// builtinParamTypes are the parameters of the members of an extension of a built-in record whose type minimaxon has otherwise
+// than maxon's: the time a file was made is a FileCreatedTime here, where maxon's FileInfo.create takes a Timestamp, which is
+// st_ctime on Linux (README, "Where it differs from Maxon").
+var builtinParamTypes = []struct{ owner, param, maxon, here string }{
+	{"FileInfo", "createdTime", "Timestamp", "FileCreatedTime"},
+}
+
+// rewriteBuiltinParamTypes writes the type of each parameter of builtinParamTypes in the extensions of its owner as minimaxon's.
+func rewriteBuiltinParamTypes(lines []sourceLine) {
+	for i := 0; i < len(lines); i++ {
+		l := &lines[i]
+		if l.removed || len(l.code) < 2 || l.indent != "" || l.code[0].text != "extension" {
+			continue
+		}
+		last := topLevelEnd(lines, i)
+		for _, p := range builtinParamTypes {
+			if l.code[1].text != p.owner {
+				continue
+			}
+			for k := i; k <= last; k++ {
+				code := lines[k].code
+				for t := 0; t+1 < len(code); t++ {
+					if code[t].kind == tokIdent && code[t].text == p.param && code[t+1].kind == tokIdent && code[t+1].text == p.maxon {
+						code[t+1].text = p.here
+					}
+				}
+			}
+		}
+		i = last
+	}
+}
+
 // dropOrphanedMembers leaves out each member of the extension from header to last that only its own file may call and that
 // nothing left in it names: a helper of members that the built-in declares, which dropNativeMembers left out (File.maxon's
 // readWhole, of readText and readBinary).

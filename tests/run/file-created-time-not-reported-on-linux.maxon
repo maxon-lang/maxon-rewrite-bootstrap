@@ -1,0 +1,22 @@
+// A file system that records no birth time gives notReported, with the rest of the FileInfo: procfs, which every Linux has, is
+// one whatever the kernel's version, as a tmpfs is not on a recent one. File.info asks statx for the birth
+// time, whose answer leaves STATX_BTIME out of its mask there.
+// unsupported-targets: x64-windows, arm64-macos
+// native-only
+//> version=notReported false
+//> directory=notReported true
+
+function createdText(info FileInfo) returns String
+	return match info.createdTime 'created'
+		time(seconds) gives "time {seconds}"
+		notReported gives "notReported"
+	end 'created'
+end 'createdText'
+
+function main() returns ExitCode
+	let version = try File.info(try FilePath.from("/proc/version") otherwise panic("not a path")) otherwise panic("cannot read the information")
+	print("version={createdText(version)} {version.isDirectory}\n")
+	let proc = try File.info(try FilePath.from("/proc") otherwise panic("not a path")) otherwise panic("cannot read the information")
+	print("directory={createdText(proc)} {proc.isDirectory}\n")
+	return 0
+end 'main'

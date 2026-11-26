@@ -138,7 +138,6 @@ var linuxABI = []layoutConst{
 	{"linuxStatSizeOffset", 48, true, toRuntime, "where a struct stat holds st_size."},
 	{"linuxStatAccessedOffset", 72, true, toRuntime, "where a struct stat holds st_atim, whose first word is its seconds."},
 	{"linuxStatModifiedOffset", 88, true, toRuntime, "where a struct stat holds st_mtim, whose first word is its seconds."},
-	{"linuxStatChangedOffset", 104, true, toRuntime, "where a struct stat holds st_ctim, the last status change, whose first word is its seconds: what maxon's File.info gives as createdTime on Linux, where a struct stat has no birth time."},
 	{"linuxStatxBytes", 256, true, toRuntime, "the size of a struct statx."},
 	{"linuxStatxMaskOffset", 0, true, toRuntime, "where a struct statx holds stx_mask, 32 bits: the fields the kernel filled."},
 	{"linuxStatxCreatedOffset", 80, true, toRuntime, "where a struct statx holds stx_btime, whose first word is its seconds."},

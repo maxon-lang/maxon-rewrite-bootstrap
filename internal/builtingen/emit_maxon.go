@@ -196,6 +196,11 @@ func emitMaxon(t table) string {
 	for _, r := range recordTypes {
 		types.line("%s = registerRecordType(tt, reads: reads, std: std, typeMap: typeMap, name: %q)", maxonOwner(r.Key), r.Name)
 	}
+	// A record's field may be of a union, so every union is registered before a field is added, and its cases after.
+	for _, u := range unionTypes {
+		names := types.strings(u.Params)
+		types.line("%s = registerUnionType(tt, reads: reads, std: std, typeMap: typeMap, name: %q, paramNames: %s)", maxonOwner(u.Key), u.Name, names)
+	}
 	for _, r := range recordTypes {
 		owner := fn{Owner: r.Key}
 		for _, s := range r.Fields {
@@ -205,8 +210,6 @@ func emitMaxon(t table) string {
 		}
 	}
 	for _, u := range unionTypes {
-		names := types.strings(u.Params)
-		types.line("%s = registerUnionType(tt, reads: reads, std: std, typeMap: typeMap, name: %q, paramNames: %s)", maxonOwner(u.Key), u.Name, names)
 		owner := fn{Owner: u.Key}
 		for _, c := range u.Cases {
 			payload := "CaseFieldList.create(0)"
