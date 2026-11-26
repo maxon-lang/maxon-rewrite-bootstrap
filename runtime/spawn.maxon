@@ -102,7 +102,8 @@ let codeGeneralFailure = 31 as Count
 let codeInvalidHandle = 6 as Count
 
 // The Win32 codes that maxon's runtime says an errno is on a system that has no Win32: a file or a directory that is not there,
-// access that is refused and a table of files that is full.
+// access that is refused, a table of files that is full, and a file that is busy (EBUSY, and ETXTBSY for an executable open for
+// writing), which is Windows's sharing violation, so that a spawn of it throws busy on every system.
 let codeFileNotFound = 2 as Count
 
 let codePathNotFound = 3 as Count
@@ -110,6 +111,8 @@ let codePathNotFound = 3 as Count
 let codeAccessDenied = 5 as Count
 
 let codeTooManyOpenFiles = 4 as Count
+
+let codeSharingViolation = 32 as Count
 
 function failureWord(failureClass Count, step Count, code Count) returns Count
 	return __Raw.wrappingAdd(__Raw.wrappingAdd(try failureClass shl failureClassShift otherwise panic("a failure class past a word"), right: try step shl failureStepShift otherwise panic("a failure step past a word")), right: code)

@@ -67,8 +67,8 @@
 	let nullDevicePath = "/dev/null"
 
 	// The errnos that a failed spawn gives besides those of linux.maxon, which maxon's runtime tells apart in Win32's words: a
-	// file or a directory that is not there, access that is refused and a table of files that is full are the codes of Windows
-	// that say so; any other errno is ERROR_GEN_FAILURE.
+	// file or a directory that is not there, access that is refused, a table of files that is full and a file that is busy are
+	// the codes of Windows that say so; any other errno is ERROR_GEN_FAILURE.
 	let errnoTooManyFiles = 24
 
 	let errnoFileTableOverflow = 23
@@ -542,6 +542,9 @@
 		if errno == errnoTooManyFiles or errno == errnoFileTableOverflow 'full'
 			return codeTooManyOpenFiles
 		end 'full'
+		if errno == linuxEbusy or errno == linuxEtxtbsy 'busy'
+			return codeSharingViolation
+		end 'busy'
 		return codeGeneralFailure
 	end 'win32CodeOf'
 

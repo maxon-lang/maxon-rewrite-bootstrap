@@ -333,8 +333,8 @@
 	end 'finishRun'
 
 	// win32CodeOf is an errno in the words of Win32 that maxon's runtime uses on every system: a file or a directory that is not
-	// there, access that is refused and a table of files that is full are the codes of Windows that say so; any other errno is
-	// ERROR_GEN_FAILURE.
+	// there, access that is refused, a table of files that is full and a file that is busy are the codes of Windows that say so;
+	// any other errno is ERROR_GEN_FAILURE.
 	function win32CodeOf(errno Count) returns Count
 		if errno == macosEnoent 'missing'
 			return codeFileNotFound
@@ -348,6 +348,9 @@
 		if errno == errnoTooManyFiles or errno == errnoFileTableOverflow 'full'
 			return codeTooManyOpenFiles
 		end 'full'
+		if errno == macosEbusy or errno == macosEtxtbsy 'busy'
+			return codeSharingViolation
+		end 'busy'
 		return codeGeneralFailure
 	end 'win32CodeOf'
 
