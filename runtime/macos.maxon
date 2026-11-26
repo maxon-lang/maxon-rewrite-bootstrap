@@ -467,6 +467,57 @@
 		return osErrorOf(result)
 	end 'closeFileHandle'
 
+	// fileEntryOf is the event entry of an open file's fd that waits on the event queue, as Go's os.File decides: a FIFO's, a
+	// socket's or a character device's, which it makes not wait (O_NONBLOCK) and registers. A regular file, a directory and a
+	// block device have none, since a kqueue takes a regular file and says it is always ready, and neither has an fd the kqueue
+	// refuses, whose flags are put back. No fd of macOS must wait there, so the open is never unwaited.
+	function fileEntryOf(fd Count, path Count, length Count, unwaitedAddress Count) returns Count
+		let stat = newStat()
+		enterBlocking()
+		let statted = sysFstat(fd, stat: stat)
+		exitBlocking()
+		let kind = statMode(stat) and macosModeTypeMask
+		free(stat)
+		if failed(statted) or not (kind == macosModeFifo or kind == macosModeSocket or kind == macosModeCharacter) 'plain'
+			return noEntry
+		end 'plain'
+		let flags = intResult(__Raw.callImport3("fcntl", arg1: fd, arg2: macosFcntlGetFlags, arg3: 0))
+		if failed(flags) 'unflagged'
+			return noEntry
+		end 'unflagged'
+		_ = __Raw.callImport3("fcntl", arg1: fd, arg2: macosFcntlSetFlags, arg3: flags or macosOpenNonblock)
+		let entry = eventRegister(fd)
+		if entry == noEntry 'refused'
+			_ = __Raw.callImport3("fcntl", arg1: fd, arg2: macosFcntlSetFlags, arg3: flags)
+		end 'refused'
+		return entry
+	end 'fileEntryOf'
+
+	// readFileHandle is one read of up to length bytes of an open file's fd that does not wait on the event queue, in the
+	// blocking bracket, made again after a signal: its count, 0 at the end of the file, or 0 with the errno at osErrorAddress.
+	function readFileHandle(fd Count, buffer Count, length Count, osErrorAddress Count) returns Count
+		enterBlocking()
+		var result = sysRead(fd, buffer: buffer, length: length)
+		while failed(result) and interrupted(result) 'again'
+			result = sysRead(fd, buffer: buffer, length: length)
+		end 'again'
+		exitBlocking()
+		if failed(result) 'refused'
+			__Raw.storeWord(osErrorAddress, offset: 0, value: errnoOf(result))
+			return 0
+		end 'refused'
+		return result
+	end 'readFileHandle'
+
+	// writeFileHandle writes length bytes to an open file's fd that does not wait on the event queue, all of them, in the
+	// blocking bracket, and gives the errno that stopped it, or 0.
+	function writeFileHandle(fd Count, buffer Count, length Count) returns Count
+		enterBlocking()
+		let errno = writeAll(fd, data: buffer, length: length)
+		exitBlocking()
+		return errno
+	end 'writeFileHandle'
+
 	// statPath fills a struct stat of the file a path names and gives 0, or gives -errno, as statCString does for a
 	// zero-terminated path.
 	function statPath(path String, stat Count) returns Count

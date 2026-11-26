@@ -1121,6 +1121,11 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "fileOpenWrite", Static: true, Params: []string{"_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileOpenWrite", Instead: "File"},
 	{Owner: "Builtins", Name: "fileOpenWriteExecutable", Static: true, Params: []string{"_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileOpenWriteExecutable", Instead: "File"},
 	{Owner: "Builtins", Name: "fileOpenCreateNew", Static: true, Params: []string{"_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileOpenCreateNew", Instead: "File"},
+	// The read appends to the buffer after its length, up to most bytes, within its capacity (readFailed past it), and gives the
+	// count, 0 at the end of the file; the write writes the whole buffer. Either parks the green thread on a handle that waits on
+	// the event queue and is a plain call in the blocking bracket on any other.
+	{Owner: "Builtins", Name: "fileReadAppending", Static: true, Params: []string{"_ Count", "mutates _ ManagedMemory with Byte", "_ Count"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileReadAppending", Instead: "File"},
+	{Owner: "Builtins", Name: "fileWrite", Static: true, Params: []string{"_ Count", "_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileWrite", Instead: "File"},
 	{Owner: "Builtins", Name: "fileClose", Static: true, Params: []string{"_ Count"}, Throws: "ManagedFileError", Intrinsic: "ManagedFileClose", Instead: "File"},
 }
 
@@ -1374,6 +1379,8 @@ var entries = []entry{
 	{"FileOpenWrite", "rt.file.openWrite", "Os", roleCall, "(path ByteArray, error) -> handle: the file opened to write, made where it is not there and emptied where it is"},
 	{"FileOpenWriteExecutable", "rt.file.openWriteExecutable", "Os", roleCall, "(path ByteArray, error) -> handle: rt.file.openWrite, a file it makes getting the executable mode where the system has modes"},
 	{"FileOpenCreateNew", "rt.file.openCreateNew", "Os", roleCall, "(path ByteArray, error) -> handle: a file that must not be there (alreadyExists), made and opened to write in one step"},
+	{"FileReadAppending", "rt.file.readAppending", "Os", roleCall, "(handle, buffer ByteArray, most, error) -> count: reads up to most bytes after the buffer's length, which grows by them, within its capacity; 0 at the end of the file"},
+	{"FileWrite", "rt.file.write", "Os", roleCall, "(handle, buffer ByteArray, error) -> count: writes the whole buffer"},
 	{"FileClose", "rt.file.close", "Os", roleCall, "(handle, error): closes the handle and frees its box, in one bracketed call into the kernel, which never parks the green thread or yields; what the system's close reports sets the error word with writeFailed, the handle closed all the same"},
 	// The debug port's entries, on Windows; a read or a write that fails sets its error word as an OS entry's does.
 	{"DebugLaunch", "rt.debug.launch", "Os", roleCall, "(executable String, arguments Array with String, outputToError, error) -> process id: starts the executable as the calling thread's debuggee"},
@@ -1608,6 +1615,8 @@ var runtimeFunctions = []runtimeFunction{
 	{"FileOpenWrite", "fileOpenWrite(path Count, errorAddress Count) Count"},
 	{"FileOpenWriteExecutable", "fileOpenWriteExecutable(path Count, errorAddress Count) Count"},
 	{"FileOpenCreateNew", "fileOpenCreateNew(path Count, errorAddress Count) Count"},
+	{"FileReadAppending", "fileReadAppending(handle Count, buffer Count, most Count, errorAddress Count) Count"},
+	{"FileWrite", "fileWrite(handle Count, buffer Count, errorAddress Count) Count"},
 	{"FileClose", "fileClose(handle Count, errorAddress Count)"},
 	{"OsRun", "osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 	{"OsRunIn", "osRunIn(executable String, arguments Count, directory String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},

@@ -366,6 +366,24 @@ function openHandle(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c Call
 	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: symbol, args: argsOf1(path))
 end 'openHandle'
 
+// lowerManagedFileReadAppending reads into the buffer that the call's second argument changes, after its length, by the runtime's
+// entry, which grows the length and gives the count.
+function lowerManagedFileReadAppending(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let handle = try args.get(0) otherwise panic("a read of a file takes its handle's word, which the checker has seen")
+	let buffer = try args.get(1) otherwise panic("a read of a file takes a buffer, which the checker has seen")
+	let most = try args.get(2) otherwise panic("a read of a file takes a count, which the checker has seen")
+	let dst = newReg(l, kind: IrKind.kindScalar)
+	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtFileReadAppending, args: argsOf3(handle, b: buffer, c: most))
+end 'lowerManagedFileReadAppending'
+
+// lowerManagedFileWrite writes the whole of the buffer that is the call's second argument by the runtime's entry.
+function lowerManagedFileWrite(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let handle = try args.get(0) otherwise panic("a write of a file takes its handle's word, which the checker has seen")
+	let buffer = try args.get(1) otherwise panic("a write of a file takes a buffer, which the checker has seen")
+	let dst = newReg(l, kind: IrKind.kindScalar)
+	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtFileWrite, args: argsOf2(handle, b: buffer))
+end 'lowerManagedFileWrite'
+
 // lowerManagedFileClose ends the handle whose word is the call's one argument, which the library's __ManagedFile.close gives up:
 // the runtime's close, which closes it whether or not it fails and sets the error word with writeFailed when the system's
 // close reports an error, as Go's Close does.

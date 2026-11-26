@@ -936,6 +936,12 @@ let linuxModeTypeMask = 61440 as Count
 // linuxModeDirectory is S_IFDIR.
 let linuxModeDirectory = 16384 as Count
 
+// linuxModeFifo is S_IFIFO: a FIFO, which an open file waits on through the event queue.
+let linuxModeFifo = 4096 as Count
+
+// linuxModeSocket is S_IFSOCK: a socket, which an open file waits on through the event queue.
+let linuxModeSocket = 49152 as Count
+
 // linuxModeCharacter is S_IFCHR: a character device, a terminal among them.
 let linuxModeCharacter = 8192 as Count
 
@@ -1070,6 +1076,12 @@ let macosModeTypeMask = 61440 as Count
 
 // macosModeDirectory is S_IFDIR.
 let macosModeDirectory = 16384 as Count
+
+// macosModeFifo is S_IFIFO: a FIFO, which an open file waits on through the event queue.
+let macosModeFifo = 4096 as Count
+
+// macosModeSocket is S_IFSOCK: a socket, which an open file waits on through the event queue.
+let macosModeSocket = 49152 as Count
 
 // macosModeCharacter is S_IFCHR: a character device, a terminal among them.
 let macosModeCharacter = 8192 as Count

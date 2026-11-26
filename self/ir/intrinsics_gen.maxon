@@ -752,6 +752,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrManagedFileOpenCreateNew 'intrManagedFileOpenCreateNew'
 		return lowerManagedFileOpenCreateNew(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrManagedFileOpenCreateNew'
+	if op == ast.Intrinsic.intrManagedFileReadAppending 'intrManagedFileReadAppending'
+		return lowerManagedFileReadAppending(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedFileReadAppending'
+	if op == ast.Intrinsic.intrManagedFileWrite 'intrManagedFileWrite'
+		return lowerManagedFileWrite(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedFileWrite'
 	if op == ast.Intrinsic.intrManagedFileClose 'intrManagedFileClose'
 		return lowerManagedFileClose(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrManagedFileClose'
@@ -1666,6 +1672,12 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrManagedFileOpenCreateNew 'intrManagedFileOpenCreateNew'
 		return false
 	end 'intrManagedFileOpenCreateNew'
+	if op == ast.Intrinsic.intrManagedFileReadAppending 'intrManagedFileReadAppending'
+		return false
+	end 'intrManagedFileReadAppending'
+	if op == ast.Intrinsic.intrManagedFileWrite 'intrManagedFileWrite'
+		return false
+	end 'intrManagedFileWrite'
 	if op == ast.Intrinsic.intrManagedFileClose 'intrManagedFileClose'
 		return false
 	end 'intrManagedFileClose'

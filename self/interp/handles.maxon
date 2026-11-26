@@ -24,6 +24,14 @@ function entryFileOpenCreateNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) thro
 	haltHandleRow("__Builtins.fileOpenCreateNew")
 end 'entryFileOpenCreateNew'
 
+function entryFileReadAppending(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltHandleRow("__Builtins.fileReadAppending")
+end 'entryFileReadAppending'
+
+function entryFileWrite(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	haltHandleRow("__Builtins.fileWrite")
+end 'entryFileWrite'
+
 function entryFileClose(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	haltHandleRow("__Builtins.fileClose")
 end 'entryFileClose'

@@ -97,17 +97,27 @@ function eventRegister(handle Count) returns Count
 	return entry
 end 'eventRegister'
 
-// eventForget evicts a handle's entry, waits until no wait on it is in progress, takes the handle off the event queue and
-// gives the entry back. The handle is the caller's to close after.
+// eventForget evicts a handle's entry that other green threads may be waiting on, waits until no wait on it is in progress,
+// and releases it (eventRelease). The handle is the caller's to close after.
 function eventForget(entry Count)
 	eventEvict(entry)
 	while __Raw.atomicAdd(entry, offset: entryWaitingOffset, value: 0) != 0 'waits'
 		greenYield()
 	end 'waits'
+	eventRelease(entry)
+end 'eventForget'
+
+// eventRelease takes a handle's entry off the event queue and gives it back, where no wait on it is in progress: an entry whose
+// one owner releases it, as an open file's close does, has none, so the release never yields. The handle is the caller's to
+// close after.
+function eventRelease(entry Count)
+	if __Raw.atomicAdd(entry, offset: entryWaitingOffset, value: 0) != 0 'waiting'
+		panic("runtime: an event entry is released while a wait on it is in progress")
+	end 'waiting'
 	let scheduler = schedulerOf(__Raw.threadContext())
 	entryUnregister(scheduler, entry: entry)
 	entryGive(scheduler, entry: entry)
-end 'eventForget'
+end 'eventRelease'
 
 // eventEvict ends the waits on an entry with eventClosed, and every wait after it at once (Go's pollUnblock).
 function eventEvict(entry Count)

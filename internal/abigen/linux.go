@@ -147,6 +147,8 @@ var linuxABI = []layoutConst{
 	{"linuxStatxBirthTime", 0x800, true, toRuntime, "STATX_BTIME: set in stx_mask when the file system records when a file was made."},
 	{"linuxModeTypeMask", 0xF000, true, toRuntime, "S_IFMT: the bits of st_mode that say what a file is."},
 	{"linuxModeDirectory", 0x4000, true, toRuntime, "S_IFDIR."},
+	{"linuxModeFifo", 0x1000, true, toRuntime, "S_IFIFO: a FIFO, which an open file waits on through the event queue."},
+	{"linuxModeSocket", 0xC000, true, toRuntime, "S_IFSOCK: a socket, which an open file waits on through the event queue."},
 	{"linuxModeCharacter", 0x2000, true, toRuntime, "S_IFCHR: a character device, a terminal among them."},
 	{"linuxModeOwnerWrite", 0x80, true, toRuntime, "S_IWUSR: a file without it is the read-only one of FileInfo."},
 	{"linuxDirentLengthOffset", 16, true, toRuntime, "where a linux_dirent64 holds the length of its record, 16 bits."},

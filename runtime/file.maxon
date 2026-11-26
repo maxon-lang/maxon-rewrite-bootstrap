@@ -1,13 +1,23 @@
-// An open file, maxon's __ManagedFile: a box of the runtime's that holds the system's handle (an fd, or a HANDLE on Windows),
-// whose address is the handle's word, which the library's __ManagedFile record holds (stdlib/file/managedFile.maxon). An open
-// makes it; fileClose ends it, which that record's close, its one destructor, calls: it closes the system's handle and frees the
-// box, once, since the one owner of the record gives it up to the call, and sets the error word with writeFailed when the
-// system's close reports an error, the handle closed all the same, as Go's Close does. A close is one call into the kernel in
-// the blocking bracket (closeFileHandle), never made again after a signal, and never parks the green thread or yields.
+// An open file, maxon's __ManagedFile: a box of the runtime's that holds the system's handle (an fd, or a HANDLE on Windows)
+// and its event entry, whose address is the handle's word, which the library's __ManagedFile record holds
+// (stdlib/file/managedFile.maxon). An open makes it; fileClose ends it, which that record's close, its one destructor, calls: it
+// closes the system's handle and frees the box, once, since the one owner of the record gives it up to the call, and sets the
+// error word with writeFailed when the system's close reports an error, the handle closed all the same, as Go's Close does. A
+// close is one call into the kernel in the blocking bracket (closeFileHandle), never made again after a signal, and never parks
+// the green thread or yields.
+//
+// Whether a read or a write waits on the event queue is decided once, at the open, as Go's os.File decides it: a FIFO, a
+// socket or a character device on Linux and macOS (fileEntryOf, by fstat), and a named pipe on Windows, which only its path
+// tells before the open, is given an event entry, through which a read or a write parks the green thread that makes it
+// (eventTransfer); anything else, a regular file above all, and a handle the event queue refuses (such as /dev/null on Linux)
+// has none (noEntry), and its reads and writes are plain calls in the blocking bracket. One owner holds the handle and a read or
+// a write takes it mutates, so no two calls are ever on one handle and no wait is in progress when it is closed.
 
 let fileHandleOffset = 0 as Count
 
-let fileBoxBytes = 8 as Count
+let fileEntryOffset = 8 as Count
+
+let fileBoxBytes = 16 as Count
 
 // The ways an open opens a file, which each system's openFileBytes maps to its own flags: to read; to write, made where it is
 // not there and emptied where it is; the same, a file it makes getting the executable mode where the system has modes; and to
@@ -26,6 +36,8 @@ let managedFileNotFound = 0
 let managedFileAccessDenied = 1
 
 let managedFileOpenFailed = 2
+
+let managedFileReadFailed = 3
 
 let managedFileWriteFailed = 4
 
@@ -55,19 +67,100 @@ end 'fileOpenCreateNew'
 
 // fileOpen opens the file that the bytes of a byte array name in a way, and gives the box of its handle, or sets the error word
 // and gives 0. Every handle it opens is one a child does not inherit: close on exec on Linux and macOS, not inheritable on
-// Windows.
+// Windows. A handle that waits on the event queue gets its entry here (fileEntryOf); an open whose handle must wait there and
+// that the event queue refuses fails openFailed, the handle closed.
 function fileOpen(path Count, how Count, errorAddress Count) returns Count
 	var osError = 0 as Count
-	let handle = openFileBytes(__Raw.loadWord(path, offset: osBytesDataOffset), length: __Raw.loadWord(path, offset: osBytesLengthOffset), how: how, osErrorAddress: __Raw.addressOf(osError))
+	let bytes = __Raw.loadWord(path, offset: osBytesDataOffset)
+	let length = __Raw.loadWord(path, offset: osBytesLengthOffset)
+	let handle = openFileBytes(bytes, length: length, how: how, osErrorAddress: __Raw.addressOf(osError))
 	if osError != 0 'refused'
 		endWithError(errorAddress, osError: osError, table: openFailures())
 		return 0
 	end 'refused'
+	var unwaited = 0 as Count
+	let entry = fileEntryOf(handle, path: bytes, length: length, unwaitedAddress: __Raw.addressOf(unwaited))
+	if unwaited != 0 'unwaited'
+		_ = closeFileHandle(handle)
+		failWith(errorAddress, errorCase: managedFileOpenFailed)
+		return 0
+	end 'unwaited'
 	let box = alloc(fileBoxBytes)
 	__Raw.storeWord(box, offset: fileHandleOffset, value: handle)
+	__Raw.storeWord(box, offset: fileEntryOffset, value: entry)
 	succeed(errorAddress)
 	return box
 end 'fileOpen'
+
+// fileReadFailures and fileWriteFailures are the tables of a read and a write: whatever the system reports, the transfer did not
+// happen as it was asked for.
+function fileReadFailures() returns Count
+	return failureCases(managedFileReadFailed, accessDenied: managedFileReadFailed, busy: managedFileReadFailed, alreadyExists: managedFileReadFailed, other: managedFileReadFailed)
+end 'fileReadFailures'
+
+function fileWriteFailures() returns Count
+	return failureCases(managedFileWriteFailed, accessDenied: managedFileWriteFailed, busy: managedFileWriteFailed, alreadyExists: managedFileWriteFailed, other: managedFileWriteFailed)
+end 'fileWriteFailures'
+
+// fileReadAppending reads up to most bytes of the file into a byte array after its length, which grows by what it read, and
+// gives the count, 0 at the end of the file. Bytes that would run past the array's capacity fail readFailed and read nothing,
+// as maxon's readAppending does; so does a read the system refuses.
+function fileReadAppending(handle Count, buffer Count, most Count, errorAddress Count) returns Count
+	let length = collectionLength(buffer)
+	let capacity = __Raw.loadWord(buffer, offset: arrayCapacityOffset)
+	if most > capacity or length > capacity - most 'past'
+		failWith(errorAddress, errorCase: managedFileReadFailed)
+		return 0
+	end 'past'
+	let room = __Raw.wrappingAdd(collectionData(buffer), right: length)
+	let entry = __Raw.loadWord(handle, offset: fileEntryOffset)
+	var got = 0 as Count
+	if entry == noEntry 'plain'
+		var osError = 0 as Count
+		got = readFileHandle(__Raw.loadWord(handle, offset: fileHandleOffset), buffer: room, length: most, osErrorAddress: __Raw.addressOf(osError))
+		if osError != 0 'refused'
+			endWithError(errorAddress, osError: osError, table: fileReadFailures())
+			return 0
+		end 'refused'
+	end 'plain' else 'waits'
+		got = eventTransfer(entry, mode: eventRead, buffer: room, length: most, deadline: eventNoDeadline)
+		if got > most 'refused'
+			failWith(errorAddress, errorCase: managedFileReadFailed)
+			return 0
+		end 'refused'
+	end 'waits'
+	__Raw.storeWord(buffer, offset: arrayLengthOffset, value: __Raw.wrappingAdd(length, right: got))
+	succeed(errorAddress)
+	return got
+end 'fileReadAppending'
+
+// fileWrite writes the whole of a byte array to the file, as many calls as the system takes, and gives its length; a write the
+// system refuses fails writeFailed, what it wrote before that left in the file.
+function fileWrite(handle Count, buffer Count, errorAddress Count) returns Count
+	let length = collectionLength(buffer)
+	let data = collectionData(buffer)
+	let entry = __Raw.loadWord(handle, offset: fileEntryOffset)
+	if entry == noEntry 'plain'
+		let osError = writeFileHandle(__Raw.loadWord(handle, offset: fileHandleOffset), buffer: data, length: length)
+		if osError != 0 'refused'
+			endWithError(errorAddress, osError: osError, table: fileWriteFailures())
+			return 0
+		end 'refused'
+		succeed(errorAddress)
+		return length
+	end 'plain'
+	var done = 0 as Count
+	while done < length 'write'
+		let wrote = eventTransfer(entry, mode: eventWrite, buffer: __Raw.wrappingAdd(data, right: done), length: length - done, deadline: eventNoDeadline)
+		if wrote > length - done 'refused'
+			failWith(errorAddress, errorCase: managedFileWriteFailed)
+			return 0
+		end 'refused'
+		done = __Raw.wrappingAdd(done, right: wrote)
+	end 'write'
+	succeed(errorAddress)
+	return length
+end 'fileWrite'
 
 // closeFailures is the table of a close: whatever the system's close reports, the bytes written may not be in the file.
 function closeFailures() returns Count
@@ -75,8 +168,13 @@ function closeFailures() returns Count
 end 'closeFailures'
 
 // fileClose closes the handle whose box is the handle's word and frees the box, and sets the error word with what the system's
-// close reports.
+// close reports. A handle that waits on the event queue gives its entry back first (eventRelease): no wait is in progress, since
+// its one owner is the caller.
 function fileClose(handle Count, errorAddress Count)
+	let entry = __Raw.loadWord(handle, offset: fileEntryOffset)
+	if entry != noEntry 'waits'
+		eventRelease(entry)
+	end 'waits'
 	let osError = closeFileHandle(__Raw.loadWord(handle, offset: fileHandleOffset))
 	free(handle)
 	endWithError(errorAddress, osError: osError, table: closeFailures())

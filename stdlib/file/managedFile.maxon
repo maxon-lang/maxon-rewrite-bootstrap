@@ -28,6 +28,18 @@ public type __ManagedFile
 		return __ManagedFile{word: try __Builtins.fileOpenCreateNew(path)}
 	end 'openCreateNew'
 
+	/// Read up to `most` bytes of the file into `managed` after its length, which grows by what was read, and give the count, 0
+	/// at the end of the file. Bytes that would run past the buffer's capacity are `readFailed`, and nothing is read. A FIFO, a
+	/// socket, a terminal or a named pipe parks the green thread until there is something to read.
+	public function readAppending(mutates self, mutates managed __ManagedMemory with Byte, most Count) returns Count throws __ManagedFileError
+		return try __Builtins.fileReadAppending(word, managed, most)
+	end 'readAppending'
+
+	/// Write the whole of `managed` to the file and give its length; `writeFailed` when the system refuses it.
+	public function write(mutates self, managed __ManagedMemory with Byte) returns Count throws __ManagedFileError
+		return try __Builtins.fileWrite(word, managed)
+	end 'write'
+
 	/// Close the file. It is closed whether or not this throws; `writeFailed` says the system's close reported an error, so
 	/// what was written may not all be in the file.
 	public function close(destructs self) throws __ManagedFileError
