@@ -726,10 +726,10 @@ let nanosPerFileTimeStep = 100 as Count
 	end 'extendWidePath'
 
 	// widePathOfBytes is a new zero-terminated UTF-16 copy of the length bytes of a path at an address in the form that Win32
-	// takes (above), which the caller frees. A path that Windows cannot resolve goes as it is, for the call that uses it to
-	// report its own error.
+	// takes (above), which the caller frees. A path that holds a NUL is the empty path (`pathExtentOf`). A path that Windows
+	// cannot resolve goes as it is, for the call that uses it to report its own error.
 	function widePathOfBytes(source Count, length Count) returns Count
-		let wide = wideOfBytes(source, length: length)
+		let wide = wideOfBytes(source, length: pathExtentOf(source, length: length))
 		let units = wideLength(wide)
 		let root = widePathRootOf(wide, units: units)
 		if root == widePathDevice or (units < extendedPathThresholdUnits and root != widePathRelative) 'asIs'

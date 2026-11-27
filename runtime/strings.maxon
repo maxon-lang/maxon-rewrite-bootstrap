@@ -459,3 +459,37 @@ function cStringOfBytes(bytes Count, length Count) returns Count
 	end 'some'
 	return copy
 end 'cStringOfBytes'
+
+// bytesHoldNul is whether the length bytes at an address hold a NUL, which ends the text that a system's call reads.
+function bytesHoldNul(bytes Count, length Count) returns bool
+	var i = 0 as Count
+	while i < length 'bytes'
+		if __Raw.loadByte(bytes, offset: i) == 0 'nul'
+			return true
+		end 'nul'
+		i = __Raw.wrappingAdd(i, right: 1)
+	end 'bytes'
+	return false
+end 'bytesHoldNul'
+
+// pathExtentOf is how many of the length bytes of a path at an address name anything: all of them, or none where they hold a NUL.
+// The system reads a path only up to its first NUL, so passing the bytes on would act on the file or directory that their prefix
+// names; a path that holds a NUL is the empty name instead, which names no file or directory, as maxon's runtime reads it. Every
+// system's path goes through this one, `cPathOfBytes` on Linux and macOS and `widePathOfBytes` on Windows.
+function pathExtentOf(bytes Count, length Count) returns Count
+	if bytesHoldNul(bytes, length: length) 'refused'
+		return 0
+	end 'refused'
+	return length
+end 'pathExtentOf'
+
+// cPathOf is cPathOfBytes of a string.
+function cPathOf(path String) returns Count
+	return cPathOfBytes(__Raw.stringBytes(path), length: __Raw.stringLength(path))
+end 'cPathOf'
+
+// cPathOfBytes is a new zero-terminated copy of the length bytes of a path at an address, which the caller frees: the path as the
+// kernel reads it, the empty one where the bytes hold a NUL (`pathExtentOf`).
+function cPathOfBytes(bytes Count, length Count) returns Count
+	return cStringOfBytes(bytes, length: pathExtentOf(bytes, length: length))
+end 'cPathOfBytes'

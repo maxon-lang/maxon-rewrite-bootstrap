@@ -249,7 +249,7 @@
 	end 'secondsAt'
 
 	function osIsDirectory(path String) returns bool
-		let cPath = cStringOf(path)
+		let cPath = cPathOf(path)
 		let directory = directoryAt(cPath)
 		free(cPath)
 		return directory
@@ -276,7 +276,7 @@
 	// and gives whether the directory is there after it. A directory that is there already fails to be made, which is no
 	// matter.
 	function osCreateDirectory(path String) returns bool
-		let cPath = cStringOf(path)
+		let cPath = cPathOf(path)
 		let length = cLength(cPath)
 		for i in 1 upto length 'prefixes'
 			if __Raw.loadByte(cPath, offset: i) == slashByte 'separator'
@@ -464,7 +464,7 @@
 	// mode is passed on the stack. A call that may block reads errno before exitBlocking, which may move the green thread to
 	// another thread, whose errno is its own.
 	function openPathBytes(path Count, length Count, flags Count, mode Count) returns Count
-		let cPath = cStringOfBytes(path, length: length)
+		let cPath = cPathOfBytes(path, length: length)
 		enterBlocking()
 		let fd = checkedInt(__Raw.callImport3("open", arg1: cPath, arg2: flags, arg3: mode))
 		exitBlocking()
@@ -572,7 +572,7 @@
 	// statPath fills a struct stat of the file a path names and gives 0, or gives -errno, as statCString does for a
 	// zero-terminated path.
 	function statPath(path String, stat Count) returns Count
-		let cPath = cStringOf(path)
+		let cPath = cPathOf(path)
 		let result = statCString(cPath, stat: stat)
 		free(cPath)
 		return result
@@ -714,8 +714,8 @@
 
 	// osRename moves a file or a directory, and replaces what is at the destination.
 	function osRename(source String, destination String, errorAddress Count)
-		let oldPath = cStringOf(source)
-		let newPath = cStringOf(destination)
+		let oldPath = cPathOf(source)
+		let newPath = cPathOf(destination)
 		enterBlocking()
 		let result = checkedInt(__Raw.callImport2("rename", arg1: oldPath, arg2: newPath))
 		exitBlocking()
@@ -726,7 +726,7 @@
 
 	// osDelete deletes a file, which a directory is not: unlink refuses it.
 	function osDelete(path String, errorAddress Count)
-		let cPath = cStringOf(path)
+		let cPath = cPathOf(path)
 		enterBlocking()
 		let result = checkedInt(__Raw.callImport1("unlink", arg1: cPath))
 		exitBlocking()
@@ -736,7 +736,7 @@
 
 	// osDeleteDirectory removes an empty directory.
 	function osDeleteDirectory(path String, errorAddress Count)
-		let cPath = cStringOf(path)
+		let cPath = cPathOf(path)
 		enterBlocking()
 		let result = checkedInt(__Raw.callImport1("rmdir", arg1: cPath))
 		exitBlocking()
@@ -776,7 +776,7 @@
 	// osList is the path joined to the name of each entry of a directory, `.` and `..` left out, in the order libSystem
 	// gives. readdir gives no entry at the end and on a failure alike, which errno, cleared before it, tells apart.
 	function osList(path String, errorAddress Count) returns Count
-		let cPath = cStringOf(path)
+		let cPath = cPathOf(path)
 		enterBlocking()
 		let directory = __Raw.callImport1("opendir", arg1: cPath)
 		let openError = errno()

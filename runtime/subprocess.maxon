@@ -628,17 +628,6 @@ function holdsNul(executable String, arguments Count, directory String) returns 
 	return false
 end 'holdsNul'
 
-function bytesHoldNul(bytes Count, length Count) returns bool
-	var i = 0 as Count
-	while i < length 'bytes'
-		if __Raw.loadByte(bytes, offset: i) == 0 'nul'
-			return true
-		end 'nul'
-		i = __Raw.wrappingAdd(i, right: 1)
-	end 'bytes'
-	return false
-end 'bytesHoldNul'
-
 // runChild runs the child of osRun, osRunIn and osRunInput: it makes the request of the executable and its arguments (their blob),
 // the directory unless it is empty and the standard input, which is the caller's own, or in a run with input a pipe that holds the
 // input and then ends, collects the output and the error whole, starts the child (startChild, each system's), waits for it

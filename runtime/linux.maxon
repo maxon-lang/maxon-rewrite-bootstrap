@@ -392,7 +392,7 @@
 
 	// openPathBytes is the fd of the file that the bytes of a path name, opened with flags, or -errno.
 	function openPathBytes(path Count, length Count, flags Count, mode Count) returns Count
-		let cPath = cStringOfBytes(path, length: length)
+		let cPath = cPathOfBytes(path, length: length)
 		enterBlocking()
 		let fd = __Raw.syscall4(linuxSysOpenat, arg1: atCwd(), arg2: cPath, arg3: flags, arg4: mode)
 		exitBlocking()
@@ -436,7 +436,7 @@
 	// system holds (a hung NFS server's, a FUSE daemon's) holds every spawn back as long.
 	function openWriterBytes(path Count, length Count, flags Count, mode Count) returns Count
 		let lock = writersLock()
-		let cPath = cStringOfBytes(path, length: length)
+		let cPath = cPathOfBytes(path, length: length)
 		enterBlocking()
 		holdForkShared(lock)
 		var fd = __Raw.wrappingSub(0, right: errnoTooManyFiles)
@@ -534,7 +534,7 @@
 	// statPath fills a struct stat of the file a path names and gives 0, or gives -errno, as statCString does for a
 	// zero-terminated path.
 	function statPath(path String, stat Count) returns Count
-		let cPath = cStringOf(path)
+		let cPath = cPathOf(path)
 		let result = statCString(cPath, stat: stat)
 		free(cPath)
 		return result
@@ -600,7 +600,7 @@
 	// that it creates; one that is there keeps its own. The file is open for writing only while the write holds the fork lock
 	// shared.
 	function writeFile(path String, data Count, length Count, executable bool) returns Count
-		let cPath = cStringOf(path)
+		let cPath = cPathOf(path)
 		let lock = forkLock()
 		enterBlocking()
 		holdForkShared(lock)
@@ -618,8 +618,8 @@
 
 	// osRename moves a file or a directory, and replaces what is at the destination.
 	function osRename(source String, destination String, errorAddress Count)
-		let oldPath = cStringOf(source)
-		let newPath = cStringOf(destination)
+		let oldPath = cPathOf(source)
+		let newPath = cPathOf(destination)
 		enterBlocking()
 		#if arch(arm64)
 			let result = __Raw.syscall5(linuxSysRenameat2, arg1: atCwd(), arg2: oldPath, arg3: atCwd(), arg4: newPath, arg5: noFlags)
@@ -634,7 +634,7 @@
 
 	// osDelete deletes a file, which a directory is not: unlink refuses it.
 	function osDelete(path String, errorAddress Count)
-		let cPath = cStringOf(path)
+		let cPath = cPathOf(path)
 		enterBlocking()
 		#if arch(arm64)
 			let result = __Raw.syscall3(linuxSysUnlinkat, arg1: atCwd(), arg2: cPath, arg3: noFlags)
@@ -648,7 +648,7 @@
 
 	// osDeleteDirectory removes an empty directory: rmdir, which arm64's kernel has as unlinkat with AT_REMOVEDIR.
 	function osDeleteDirectory(path String, errorAddress Count)
-		let cPath = cStringOf(path)
+		let cPath = cPathOf(path)
 		enterBlocking()
 		#if arch(arm64)
 			let result = __Raw.syscall3(linuxSysUnlinkat, arg1: atCwd(), arg2: cPath, arg3: linuxAtRemoveDirectory)
@@ -695,7 +695,7 @@
 	// osFileInfo is the time a file was last written, in Unix seconds, and stores its size, the time it was made and last
 	// read and a word of its attributes (infoDirectoryFlag, infoReadOnlyFlag, infoNotReportedFlag) at the addresses given.
 	function osFileInfo(path String, size Count, created Count, accessed Count, attributes Count, errorAddress Count) returns Count
-		let cPath = cStringOf(path)
+		let cPath = cPathOf(path)
 		let record = alloc(linuxStatBytes)
 		let osError = osErrorOf(statCString(cPath, stat: record))
 		if osError != 0 'failed'
@@ -743,7 +743,7 @@
 	// and gives whether the directory is there after it. A directory that is there already fails to be made, which is no
 	// matter.
 	function osCreateDirectory(path String) returns bool
-		let cPath = cStringOf(path)
+		let cPath = cPathOf(path)
 		let length = cLength(cPath)
 		enterBlocking()
 		for i in 1 upto length 'prefixes'
