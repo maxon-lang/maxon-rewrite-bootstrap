@@ -117,11 +117,8 @@ type Facility struct {
 	Why string
 }
 
-// Facilities are the parts of the library that some systems lack.
-var Facilities = []Facility{
-	// TCP sockets: the event queue's readiness backend for Windows (AFD poll) is not written yet.
-	{Name: "sockets", Types: []string{"__ManagedSocket", "TcpClient", "TcpListener"}, Missing: []OS{Windows}, Why: "the Windows backend of sockets is not written yet"},
-}
+// Facilities are the parts of the library that some systems lack: none now, since Windows has its sockets (runtime/windows_poll.maxon).
+var Facilities = []Facility{}
 
 // System is what an operating system adds to a processor's table: the convention of its libraries' functions, the one
 // of its system calls where a program calls the kernel itself, and how a thread finds its context.

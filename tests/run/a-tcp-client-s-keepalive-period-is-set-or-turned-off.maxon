@@ -2,7 +2,6 @@
 // connection still carries bytes after each (tests/runtime/a-connected-and-an-accepted-socket-probe-an-idle-peer-as-go-s-do
 // reads the options back).
 // native-only
-// unsupported-targets: x64-windows
 //> the client's period: set
 //> the client's keepalive: off
 //> the accepted one's period: set

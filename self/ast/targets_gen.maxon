@@ -103,24 +103,12 @@ end 'temporaryDefault'
 // missingFacility is why a compile for a system refuses a type of the library that is a facility the system lacks
 // (internal/targetgen/target's Facilities), or empty where the system has it or the type is none of them.
 export function missingFacility(name String, system TargetSystem) returns String
-	if system == TargetSystem.windows and name == "__ManagedSocket" 'ManagedSocketWindows'
-		return "the Windows backend of sockets is not written yet"
-	end 'ManagedSocketWindows'
-	if system == TargetSystem.windows and name == "TcpClient" 'TcpClientWindows'
-		return "the Windows backend of sockets is not written yet"
-	end 'TcpClientWindows'
-	if system == TargetSystem.windows and name == "TcpListener" 'TcpListenerWindows'
-		return "the Windows backend of sockets is not written yet"
-	end 'TcpListenerWindows'
 	return ""
 end 'missingFacility'
 
 // facilityTypes are the library's types that are a facility some system lacks (missingFacility).
 export function facilityTypes() returns StringList
 	var names = StringList.create(0)
-	names.push("__ManagedSocket")
-	names.push("TcpClient")
-	names.push("TcpListener")
 	return names
 end 'facilityTypes'
 

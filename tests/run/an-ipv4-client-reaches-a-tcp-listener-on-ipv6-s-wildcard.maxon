@@ -1,7 +1,6 @@
 // A TcpListener bound to IPv6's wildcard, ::, takes IPv4 connections too, as Go's listen on the wildcard does: a client that
 // connects to 127.0.0.1 reaches it, and the line it sends comes back.
 // native-only
-// unsupported-targets: x64-windows
 //> the listener on :: heard: over IPv4
 //> the IPv4 client heard: over IPv4
 let PieceBytes = 64

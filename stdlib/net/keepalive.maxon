@@ -2,7 +2,8 @@
 // has been idle for 15 s, every 15 s, and ends the connection after 9 probes go unanswered (runtime/socket.maxon,
 // connectedOptions), as Go's Dialer and ListenConfig do by default. `setKeepAlivePeriod` changes the idle time before the first
 // probe, as Go's TCPConn.SetKeepAlivePeriod does, and 0 turns keepalive off, as a negative Dialer.KeepAlive does in Go. The
-// interval and the count stay Go's 15 s and 9. x64-windows has no sockets yet (E3104).
+// interval and the count stay Go's 15 s and 9. On Windows they are TCP_KEEPINTVL and TCP_KEEPCNT, which Windows 10 sets (version
+// 1709, 1703 for the count): a system that refuses them keeps its own interval and count, and the idle time is set all the same.
 
 /// The idle time before a connection's first keepalive probe, in milliseconds, `0` meaning no keepalive. It is rounded up to a
 /// whole second, as Go rounds it; 32767 s is the most Linux takes.

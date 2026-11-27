@@ -1,9 +1,0 @@
-// x64-windows has no sockets yet: a program that names TcpClient, TcpListener or __ManagedSocket in a compile for it is
-// refused at the name (internal/targetgen/target's Facilities), and the other targets compile it.
-// expect-error: E3104
-// unsupported-targets: x64-linux, arm64-linux, arm64-macos
-function main() returns ExitCode
-	var client = try TcpClient.connect("127.0.0.1", port: 1) otherwise return 1
-	try client.close() otherwise return 2
-	return 0
-end 'main'

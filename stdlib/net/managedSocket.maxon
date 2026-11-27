@@ -2,7 +2,7 @@
 // and minimaxon's library does, over the socket rows of __Builtins (runtime/socket.maxon), as __ManagedFile is declared over the
 // file rows. Its one destructor is close: a value of it has no copy and no drop, so every path that opens one closes it or moves
 // it on (E3919), and no close runs that the program does not write. close throws what the system's close reports, and the socket
-// is closed all the same. The type is the library tiers' (E3185), as maxon's is, and x64-windows has no sockets yet (E3104).
+// is closed all the same. The type is the library tiers' (E3185), as maxon's is.
 //
 // A host is an address literal or a name. A literal is read here, IPv4's dotted quad or IPv6's grammar (RFC 4291 2.2, as Go's
 // netip reads it: no zone, no brackets), and never reaches a resolver; a host holding a colon is an IPv6 literal or nothing. A

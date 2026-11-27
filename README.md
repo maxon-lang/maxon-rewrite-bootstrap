@@ -6324,11 +6324,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   parameter that the function closes or moves on is passed `consumes` and one it only accepts, sends or reads on `mutates`
   (and is never closed by it), and an exit between an `async` call lent a socket and its await cancels the promise first, as
   maxon's drop of it does; the compiler's fixes do the rest. A spec test that
-  names a type of a facility its target lacks is skipped there (`unsupported on x64-windows: ...`). x64-windows has no sockets yet: a
-  module outside the library that names `TcpClient`, `TcpListener` or `__ManagedSocket` in a compile for it is refused at the name
-  (`E3104`, maxon's `targetUnsupportedConstruct`), by a row of `internal/targetgen/target`'s `Facilities`.
+  names a type of a facility its target lacks is skipped there (`unsupported on <target>: ...`). A part of the library that a
+  system lacks is a row of `internal/targetgen/target`'s `Facilities`: a module outside the library that names one of its types in a
+  compile for that system is refused at the name (`E3104`, maxon's `targetUnsupportedConstruct`). There is no row now, every system
+  having its sockets (Windows's by AFD poll, `runtime/windows_poll.maxon`).
   A host is an address literal, read by the library (IPv4's dotted quad, IPv6's grammar without zone or brackets), or a name,
-  resolved to an IPv4 address as maxon's are: by `getaddrinfo` on macOS (`__Builtins.socketResolve`), and on Linux, which links
+  resolved to an IPv4 address as maxon's are: by `getaddrinfo` on macOS and Windows (`__Builtins.socketResolve`), and on Linux, which links
   no libc, by the library itself (`stdlib/net/resolver.maxon`): `/etc/hosts`, then a query of type A over TCP to each nameserver
   of `/etc/resolv.conf`. Like maxon's, the Linux resolver is IPv4-only, with no search list and no ndots.
   **A socket's readiness is a message** (`stdlib/net/readiness.maxon`, "Readiness as a message" in `runtime/eventqueue.maxon`,
@@ -6381,6 +6382,15 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   and changing it is a message. A reader that needs it on a hot path keeps its own copy, refreshed by a message (the
   `Latest` overload policy fits). The spec tests that name `SharedValue` are skipped with that reason.
 - **TraceCapture is not brought over from maxon.** The spec tests that name it are skipped with that reason.
+- **On Windows a socket's readiness is a poll of AFD, which Microsoft does not document.** An idle socket must hold no green
+  thread and no request of the runtime's, as it holds none on Linux and macOS, so the event queue polls the socket through
+  `\Device\Afd` (`IOCTL_AFD_POLL` on the runtime's completion port, `runtime/windows_poll.maxon`), the interface under Winsock that
+  libuv, mio and wepoll use, instead of keeping an overlapped read of no bytes on each socket. The interface is stable from Windows
+  Vista on, and an armed idle socket costs about 1.1 KB of nonpaged pool for it, against about 0.5 KB for a zero-byte read
+  (`runtime/README.md`, "The readiness of a socket on Windows"). The runtime loads `ws2_32.dll` at the first socket and finds
+  its functions by name, since a program imports from kernel32 alone. A connected or accepted socket's keepalive (15 s, 15 s,
+  9 probes) is set by `TCP_KEEPIDLE`, `TCP_KEEPINTVL` and `TCP_KEEPCNT`, which Windows 10 version 1709 has (1703 for the count),
+  so on an earlier Windows the keepalive stays as the system has it.
 
 ## Changing the language
 

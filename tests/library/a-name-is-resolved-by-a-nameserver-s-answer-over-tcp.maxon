@@ -3,7 +3,6 @@
 // its length; an answer whose name is a pointer to the question's gives the address, and an answer that says the name does
 // not exist (RCODE 3) fails to resolve.
 // native-only
-// unsupported-targets: x64-windows
 //> example.test -> 10.1.2.3
 //> missing.test -> resolveFailed
 typealias Bytes = __ManagedMemory with Byte

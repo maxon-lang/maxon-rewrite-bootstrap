@@ -4,7 +4,6 @@
 // waits takes the bytes, then finds nothing more; a send that never waits sends what the socket takes. An edge that came before
 // the arm is told at once. No green thread waits on either socket meanwhile: each arm is the socket's entry and a record.
 // native-only
-// unsupported-targets: x64-windows
 //> told: the listener is acceptable
 //> accepted without waiting
 //> told: the connection is readable

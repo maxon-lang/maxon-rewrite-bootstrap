@@ -4,7 +4,7 @@
 // the handler reads, sends or accepts with the calls that never wait (`readAvailable`, `trySend`, `tryAccept`) until one
 // would, and arms the socket again. An edge that came before the arm posts the message at once, and a message may come when
 // there is nothing to take, which the first call answers. A close ends the arm, and its message is never handled; a call that
-// waits, `readSome`, `send` or `accept`, ends the arm of its mode first. x64-windows has no sockets yet (E3104).
+// waits, `readSome`, `send` or `accept`, ends the arm of its mode first.
 
 // wouldBlockWord is what a socket's row that never waits gives where the call would wait (runtime/socket.maxon).
 let wouldBlockWord = 0x4000000000000000 as Count

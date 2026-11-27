@@ -1,7 +1,6 @@
 // An arm of a socket's readiness ends with its close, with the end of the service it would tell, or with a call that waits
 // in its mode: the message is never handled, the service's hold is given back, and the program ends with nothing left armed.
 // native-only
-// unsupported-targets: x64-windows
 //> closed while armed: the watcher was told nothing
 //> stopped while armed: the watcher was told nothing
 //> a read that waits took the arm: more

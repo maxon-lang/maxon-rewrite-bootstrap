@@ -1,6 +1,5 @@
 // A TcpClient holds a __ManagedSocket, which has no drop: only its close, which throws, ends it.
 // expect-error: E3919
-// unsupported-targets: x64-windows
 function held() throws NetworkError
 	let client = try TcpClient.connect("127.0.0.1", port: 1)
 end 'held'
