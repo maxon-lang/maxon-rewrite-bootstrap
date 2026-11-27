@@ -1839,6 +1839,7 @@ directory.md: an-absolute-path-past-the-legacy-windows-limit-names-the-same-entr
 directory.md: current-directory-is-directory
 directory.md: current-directory-not-empty
 directory.md: delete-answers-not-found-for-a-path-through-a-file
+directory.md: delete-refuses-a-differently-cased-spelling-of-an-existing-file
 directory.md: delete-refuses-a-directory-that-is-not-empty
 directory.md: delete-refuses-a-path-that-is-not-there
 directory.md: delete-refuses-an-existing-file-as-failed-and-leaves-it
@@ -1963,6 +1964,7 @@ duplicate-typealias.md: non-exported-same-name-function-alias-over-same-spelled-
 duplicate-typealias.md: non-exported-same-name-function-alias-same-shape
 emitted-symbol-name-collision.md: a-service-program-runs-a-function-named-like-the-other-lanes-fault-handler
 emitted-symbol-name-collision.md: a-service-program-runs-a-function-named-like-the-other-lanes-preempt-handler
+emitted-symbol-name-collision.md: a-service-program-runs-a-function-named-like-windows-fault-thunk
 emitted-symbol-name-collision.md: a-service-program-runs-a-function-named-like-x64-linux-sigreturn
 emitted-symbol-name-collision.md: an-unemitted-lookalike-name-is-legal
 empty-block.md: valid-empty-function
@@ -2286,6 +2288,7 @@ established-guards.md: a-slice-between-two-stores-forces-the-second-to-detach
 established-guards.md: a-store-on-one-path-establishes-nothing-at-the-join
 established-guards.md: an-unknown-call-between-two-stores-clears-the-facts
 exit-code-range.md: both-bounds-are-reachable-values
+exit-code-range.md: both-bounds-are-reachable-values-on-posix
 exit-code-range.md: computed-in-range-return-is-unchanged
 exit-code-range.md: error.literal-argument
 exit-code-range.md: error.literal-past-the-upper-bound
@@ -6172,11 +6175,14 @@ print-large-write.md: stdout-just-over-the-cap
 print-large-write.md: stdout-over-64-kib
 print-large-write.md: stdout-twice-the-cap
 process-background-priority.md: process-background-priority.answers-the-below-normal-class
+process-background-priority.md: process-background-priority.answers-the-posix-nice-value
 process-background-priority.md: process-background-priority.is-stable-across-calls
+process-background-priority.md: process-background-priority.posix-value-is-stable-across-calls
 process-environment-variable.md: process-environment-variable.finds-a-variable-every-host-has
 process-environment-variable.md: process-environment-variable.unset-name-throws
 process-environment-variable.md: process-environment-variable.value-keeps-everything-past-the-first-separator
 process-executable-path.md: process-executable-path.is-absolute
+process-executable-path.md: process-executable-path.is-absolute-posix
 process-executable-path.md: process-executable-path.is-not-empty
 process-executable-path.md: process-executable-path.is-stable-across-calls
 process-executable-path.md: process-executable-path.names-a-file-that-exists
@@ -8163,15 +8169,22 @@ subprocess-builtins.md: subprocess-builtins.handle-guards
 subprocess-builtins.md: subprocess-builtins.result-pointer-guards
 subprocess-builtins.md: subprocess-builtins.streaming-read-after-release-throws
 subprocess-builtins.md: subprocess-builtins.the-stdlib-api-runs-on-windows
+subprocess.md: subprocess-a-child-a-signal-killed-is-signalled
 subprocess.md: subprocess-a-child-that-writes-before-it-reads-gets-its-whole-stdin
+subprocess.md: subprocess-a-child-the-program-starts-keeps-the-default-sigpipe-action
 subprocess.md: subprocess-a-detached-launch-of-a-directory-is-access-denied-not-a-job-refusal
+subprocess.md: subprocess-a-megabyte-fed-to-a-child-that-closes-its-stdin-after-a-pause-ends-in-the-childs-own-exit
 subprocess.md: subprocess-a-megabyte-fed-to-a-child-that-exits-unread-ends-in-the-childs-own-exit
 subprocess.md: subprocess-a-missing-redirect-file-is-spawn-failed
 subprocess.md: subprocess-a-missing-working-directory-is-spawn-failed
 subprocess.md: subprocess-a-path-to-a-missing-file-is-not-found
 subprocess.md: subprocess-a-program-path-holding-a-nul-is-refused-before-the-spawn
+subprocess.md: subprocess-a-program-started-with-its-stdin-closed-reads-and-hands-on-the-null-device
+subprocess.md: subprocess-a-program-whose-stderr-is-a-closed-pipe-still-ends-of-sigpipe
+subprocess.md: subprocess-a-program-whose-stdout-is-a-closed-pipe-still-ends-of-sigpipe
 subprocess.md: subprocess-a-redirect-file-path-holding-a-nul-is-refused-before-the-spawn
 subprocess.md: subprocess-a-redirect-file-path-past-the-legacy-windows-limit-is-opened
+subprocess.md: subprocess-a-run-keeps-the-output-of-a-child-that-exits-without-reading-its-fed-payload
 subprocess.md: subprocess-a-short-payload-fed-to-a-child-that-exits-unread-ends-in-the-childs-own-exit
 subprocess.md: subprocess-a-spawn-of-an-executable-open-for-writing-follows-the-operating-systems-answer
 subprocess.md: subprocess-a-working-directory-holding-a-nul-is-refused-before-the-spawn
@@ -8180,6 +8193,7 @@ subprocess.md: subprocess-an-argument-holding-a-nul-is-refused-before-the-spawn
 subprocess.md: subprocess-an-empty-working-directory-is-spawn-failed-and-names-the-inherit-case
 subprocess.md: subprocess-an-environment-entry-holding-a-nul-is-refused-before-the-spawn
 subprocess.md: subprocess-an-exit-poll-says-whether-the-child-is-known-gone
+subprocess.md: subprocess-bare-name-is-never-found-in-the-working-directory
 subprocess.md: subprocess-collected-output-keeps-an-embedded-nul
 subprocess.md: subprocess-environment-names-fold-case-on-windows
 subprocess.md: subprocess-error-detach-refused-names-its-cause
@@ -8198,6 +8212,7 @@ subprocess.md: subprocess-streaming-a-blank-line-is-not-the-end-of-the-stream
 subprocess.md: subprocess-streaming-a-direct-write-is-refused-while-a-payload-is-queued
 subprocess.md: subprocess-streaming-a-megabyte-written-to-a-child-that-has-exited-is-refused-as-ioFailed
 subprocess.md: subprocess-streaming-a-second-queued-payload-is-refused-while-the-first-is-pending
+subprocess.md: subprocess-streaming-a-write-to-a-child-that-closed-its-stdin-and-went-on-running-is-refused
 subprocess.md: subprocess-streaming-a-write-to-a-child-that-has-exited-is-refused-as-ioFailed
 subprocess.md: subprocess-streaming-an-empty-queued-payload-still-refuses-a-direct-write
 subprocess.md: subprocess-streaming-every-write-to-a-child-that-has-exited-is-refused
