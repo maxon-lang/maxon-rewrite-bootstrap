@@ -153,6 +153,9 @@ type specConverter struct {
 	open     bool
 	markerAt int
 	kinds    []string
+	// warningsAt is how many warnings the file had when the open test began, so a test that is left out takes its own
+	// warnings with it.
+	warningsAt int
 
 	// moved is whether a block of the case is laid out differently from the original, so that a position in the
 	// expectation no longer names the same text; expectsError is whether the case has a compiler-error expectation.
@@ -178,6 +181,7 @@ func (c *specConverter) startTest(marker string) {
 	c.tests = append(c.tests, SpecTest{Name: name})
 	c.open = true
 	c.markerAt = len(c.out)
+	c.warningsAt = len(c.warnings)
 	c.kinds = nil
 	c.rejected = nil
 	c.moved = false
@@ -203,8 +207,14 @@ func (c *specConverter) closeTest() {
 		}
 	}
 	if slices.Contains(c.kinds, traceCaptureWarning) {
-		c.kinds = slices.DeleteFunc(c.kinds, func(kind string) bool { return kind == logWarning || kind == sharedValueWarning })
-	} else if slices.Contains(c.kinds, logWarning) {
+		// A test of TraceCapture's, which is not brought over, is left out of the converted file whole: its marker, its
+		// prose and its blocks.
+		c.out = c.out[:c.markerAt]
+		c.tests = c.tests[:len(c.tests)-1]
+		c.warnings = c.warnings[:c.warningsAt]
+		return
+	}
+	if slices.Contains(c.kinds, logWarning) {
 		c.kinds = slices.DeleteFunc(c.kinds, func(kind string) bool { return kind == sharedValueWarning })
 	}
 	slices.Sort(c.kinds)

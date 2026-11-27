@@ -58,18 +58,23 @@ func TestConvertSpecLogLibraryTakesTheReasonOfSharedValue(t *testing.T) {
 	}
 }
 
-// A test that names a type of TraceCapture's is skipped for that, the permanent reason, alone, though it names the Log library
-// and SharedValue too.
-func TestConvertSpecTraceCaptureTakesTheOtherReasons(t *testing.T) {
+// A test that names a type of TraceCapture's is left out whole, its prose, its blocks and its warnings, though it names the
+// Log library and SharedValue too; the tests around it stay as they were.
+func TestConvertSpecLeavesOutTraceCaptureTests(t *testing.T) {
 	const cell = "typealias Flag = SharedValue with bool\n"
 	const log = "function main() returns ExitCode\n\tLog.info(\"a\")\n\treturn 0\nend 'main'\n"
 	const trace = "function f() returns ExitCode\n\tTraceCapture.startCapture()\n\treturn 0\nend 'f'\n"
-	src := "## Tests\n\n<!-- test: trace -->\n```maxon\n" + trace + "```\n\n<!-- test: all -->\n```maxon\n" + cell + "\n" + log + "\n" + trace + "```\n"
+	const kept = "<!-- test: kept -->\n```maxon\nfunction main() returns ExitCode\n\treturn 0\nend 'main'\n```\n"
+	src := "## Tests\n\n" + kept + "\n<!-- test: trace -->\nIt traces.\n```maxon\n" + trace + "```\n\n<!-- test: all -->\n```maxon\n" + cell + "\n" + log + "\n" + trace + "```\n\n" + kept
 	res := ConvertSpec("demo.md", src)
-	for _, test := range res.Tests {
-		if !slices.Equal(test.Skips, []string{traceCaptureWarning}) {
-			t.Errorf("test %q has skips %q, want %q", test.Name, test.Skips, []string{traceCaptureWarning})
-		}
+	if strings.Contains(res.Text, "TraceCapture") || strings.Contains(res.Text, "It traces.") {
+		t.Errorf("the converted text holds a test of TraceCapture's:\n%s", res.Text)
+	}
+	if want := "## Tests\n\n" + kept + "\n" + kept; res.Text != want {
+		t.Errorf("got:\n%q\nwant:\n%q", res.Text, want)
+	}
+	if len(res.Tests) != 2 || len(res.Warnings) != 0 {
+		t.Errorf("tests = %+v, warnings = %+v", res.Tests, res.Warnings)
 	}
 }
 

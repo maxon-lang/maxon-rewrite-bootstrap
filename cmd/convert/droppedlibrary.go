@@ -13,9 +13,8 @@ const sharedValueWarning = "language difference: maxon's SharedValue, a mutable 
 // has both, since what the test waits for is the library.
 const logWarning = "not yet: Log is not designed yet (README, Services: not yet)"
 
-// maxon's TraceCapture is not brought over (README, Where it differs from Maxon). A spec test whose program names one of its
-// types is skipped with this warning, a permanent one, which takes the place of logWarning and sharedValueWarning on a test
-// that has them too.
+// maxon's TraceCapture is not brought over (README, Where it differs from Maxon). A program that names one of its types is
+// warned with this, and a spec test whose program does is left out of the converted spec file whole, whatever else it names.
 const traceCaptureWarning = "language difference: TraceCapture is not brought over from maxon (README, Where it differs from Maxon)"
 
 // logLibraryTypes are the types that maxon's Log.maxon and LogHandlers.maxon declare for a program to name.

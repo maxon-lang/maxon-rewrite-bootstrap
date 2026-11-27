@@ -2856,39 +2856,6 @@ order: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27
 sent 20 then 20, taken=40
 ```
 
-<!-- test: a-trace-capture-stop-waits-for-room-in-a-full-recorder-mailbox -->
-<!-- skip: language difference: TraceCapture is not brought over from maxon (README, Where it differs from Maxon) -->
-<!-- procs: 1 -->
-<!-- preempt: off -->
-`TraceCapture` records through a service whose mailbox holds 1024 messages, and `stopCapture()` is a barrier
-sent to it. The yield parks the recorder on its empty mailbox first, so `startCapture()`'s reset is handed
-straight to it and the 1024 trace keys that follow fill the mailbox to exactly its capacity, with the recorder
-not yet run. The barrier is then refused as `mailboxFull`; it yields until the recorder has drained and sends
-again, rather than treating the refusal as a stopped recorder. Every key reaches the capture.
-```maxon
-let traces = 1024
-
-function main() returns ExitCode
-	Scheduler.yield()
-	// TODO: language difference: TraceCapture is not brought over from maxon (README, Where it differs from Maxon)
-	TraceCapture.startCapture()
-	for _ in 0 upto traces 'emit'
-		// TODO: language difference: TraceCapture is not brought over from maxon (README, Where it differs from Maxon)
-		TraceCapture.trace("k")
-	end 'emit'
-	// TODO: language difference: TraceCapture is not brought over from maxon (README, Where it differs from Maxon)
-	let keys = TraceCapture.stopCapture()
-	print("keys={keys.count()}\n")
-	return 0
-end 'main'
-```
-```exitcode
-0
-```
-```stdout
-keys=1024
-```
-
 <!-- test: a-send-with-a-timeout-waits-for-room -->
 <!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- procs: 1 -->

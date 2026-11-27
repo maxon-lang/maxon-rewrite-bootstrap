@@ -6386,7 +6386,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   stands in for it: Hylo has no shared mutable cell, and neither has minimaxon. A setting that changes lives in one service,
   and changing it is a message. A reader that needs it on a hot path keeps its own copy, refreshed by a message (the
   `Latest` overload policy fits). The spec tests that name `SharedValue` are skipped with that reason.
-- **TraceCapture is not brought over from maxon.** The spec tests that name it are skipped with that reason.
+- **TraceCapture is not brought over from maxon.** The spec tests that name it are left out of `specs/`.
 - **On Windows a socket's readiness is a poll of AFD, which Microsoft does not document.** An idle socket must hold no green
   thread and no request of the runtime's, as it holds none on Linux and macOS, so the event queue polls the socket through
   `\Device\Afd` (`IOCTL_AFD_POLL` on the runtime's completion port, `runtime/windows_poll.maxon`), the interface under Winsock that

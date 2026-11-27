@@ -328,68 +328,6 @@ typealias NameArray = Array with String
 error E3220: <fragment>:27:11: the initializer of 'box' calls 'Box.start': a module-level or static `let` initializer calls nothing, so write a literal, or build the value where it is used
 ```
 
-<!-- test: a-service-program-may-use-the-stdlibs-trace-capture -->
-<!-- skip: language difference: TraceCapture is not brought over from maxon (README, Where it differs from Maxon) -->
-⭐⭐ **THE LIBRARY CODE A MESSAGE RUNS KEEPS ITS STATE IN A SERVICE AND A `SharedValue`.** `TraceCapture` holds
-its state in a service of its own and a `SharedValue`, and this program — which spawns `Counter` and starts
-and stops a capture from `main` — compiles and runs.
-⭐ **AN INTERFACE IN THE HANDLER'S CONE IS DISPATCHED THROUGH ITS WITNESS.** The handler dispatches `greet`
-through `Greeter`, so the dispatch lands on `Polite.greet`.
-```maxon
-interface Greeter
-	function greet(mutates self) returns String
-end 'Greeter'
-
-type Polite implements Greeter
-	var n as Integer
-
-	static function create() returns Self
-		return Self{n: 0}
-	end 'create'
-
-	function greet() returns String
-		return "hello"
-	end 'greet'
-end 'Polite'
-
-function describe(g Greeter) returns String
-	return g.greet()
-end 'describe'
-
-type Counter
-	var count as Integer
-
-	static function create() returns Self
-		return Self{count: 0}
-	end 'create'
-
-	export function add(by Integer) returns Integer
-		let p = Polite.create()
-		self.count = self.count + by + (describe(p).count() as Integer)
-		return self.count
-	end 'add'
-end 'Counter'
-
-function main() returns ExitCode
-	// TODO: language difference: TraceCapture is not brought over from maxon (README, Where it differs from Maxon)
-	TraceCapture.startCapture()
-	let h = spawn Counter.create()
-	let n = try await h.add(5) otherwise 0
-	// TODO: language difference: TraceCapture is not brought over from maxon (README, Where it differs from Maxon)
-	let keys = TraceCapture.stopCapture()
-	print("n={n} keys={keys.count()}\n")
-	return n as ExitCode
-end 'main'
-
-typealias Integer = int(i64.min to i64.max)
-```
-```stdout
-n=10 keys=0
-```
-```exitcode
-10
-```
-
 <!-- test: a-handler-reads-a-module-let-during-the-exit-drain -->
 **THE EXIT DRAIN RUNS HANDLERS, SO EVERY MODULE `let` A HANDLER READS MUST OUTLIVE IT.** `main` sends three
 messages and returns without awaiting any; the drain that runs them comes after `main`, and each handler reads
