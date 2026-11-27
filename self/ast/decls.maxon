@@ -469,12 +469,14 @@ export type ParsedModule
 	export var nested as NestedAliasList
 	// skimmed is how many bodies of functions the parse skimmed, which it holds empty (syntax.parseModuleFilesSkimming).
 	export var skimmed as Count
+	// sourceDigest is the digest of the module's source (project.sourceDigest) when the parse was asked for it, and none otherwise.
+	export var sourceDigest as table.Digest
 	// nameUses are the names that the module's code writes, its interpolations included, in neither its comments nor the text of
 	// its strings, which the driver reads the module's words of the library from (libindex.maxon) and lets go.
 	export var nameUses as NameUses
 
 	export static function new(id diag.ModuleID, consumes text String, consumes files FileSpanList) returns ParsedModule
-		return ParsedModule{files: files, tree: Tree.new(id, text: text), decls: DeclList.create(0), names: DeclIndex.new(), nested: NestedAliasList.create(0), skimmed: 0, nameUses: NameUses.create(0)}
+		return ParsedModule{files: files, tree: Tree.new(id, text: text), decls: DeclList.create(0), names: DeclIndex.new(), nested: NestedAliasList.create(0), skimmed: 0, sourceDigest: table.Digest.none(), nameUses: NameUses.create(0)}
 	end 'new'
 
 	export function appendRawDecl(mutates self, consumes d Decl)

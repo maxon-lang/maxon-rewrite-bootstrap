@@ -409,9 +409,9 @@ function parseTask(c Compile, mutates work ModuleWork, known Known, inputs ast.I
 	end 'unreached'
 	if ofLibrary and work.texts.count() > 0 'scanned'
 		let read = exchange(work.texts, value: project.SourceFiles.create(0))
-		project.parseModuleSkimming(ms, p: view, memory: read, skims: c.options.skimsBodies, errs: errs)
+		project.parseModuleSkimming(ms, p: view, memory: read, skims: c.options.skimsBodies, digests: c.cache.enabled(), errs: errs)
 	end 'scanned' else 'files'
-		project.parseModuleSkimming(ms, p: view, memory: memory, skims: c.options.skimsBodies, errs: errs)
+		project.parseModuleSkimming(ms, p: view, memory: memory, skims: c.options.skimsBodies, digests: c.cache.enabled(), errs: errs)
 	end 'files'
 	work.skimmed = ms.parsed.skimmed
 	if not ofLibrary and c.hasLibrary() 'program'
@@ -419,7 +419,7 @@ function parseTask(c Compile, mutates work ModuleWork, known Known, inputs ast.I
 	end 'program'
 	ms.parsed.nameUses = ast.NameUses.create(0)
 	if c.cache.enabled() 'digests'
-		work.digests.source = sourceDigest(ms.source.path, text: ms.parsed.tree.text, files: ms.parsed.files)
+		work.digests.source = ms.parsed.sourceDigest.clone()
 		if not view.modules[m].isRuntime 'shown'
 			work.digests.shown = publicDigest(ms.source.path, text: ms.parsed.tree.text, files: ms.parsed.files)
 		end 'shown'

@@ -857,7 +857,7 @@ function lastPathPart(path String) returns String
 	return path.sliceBytes(start, endPos: path.byteLength()).clone()
 end 'lastPathPart'
 
-function parseSingleModule(mutates ms ast.ModuleState, p ast.Project, memory SourceFiles, skims bool, mutates errs diag.ErrorList)
+function parseSingleModule(mutates ms ast.ModuleState, p ast.Project, memory SourceFiles, skims bool, digests bool, mutates errs diag.ErrorList)
 	let mPath = ms.source.path.clone()
 	var fPaths = ast.StringList.create(0)
 	var fTexts = ast.StringList.create(0)
@@ -869,10 +869,14 @@ function parseSingleModule(mutates ms ast.ModuleState, p ast.Project, memory Sou
 	if fTexts.count() != fPaths.count() 'ioFail'
 		return
 	end 'ioFail'
+	var digest = table.Digest.none()
+	if digests 'digest'
+		digest = sourceDigest(mPath, filePaths: fPaths, fileTexts: fTexts)
+	end 'digest'
 	let modID = ms.source.id
 	let res = syntax.parseModuleFilesSkimming(modID, path: mPath, filePaths: fPaths, fileTexts: fTexts, target: p.target, libraryTier: ms.source.inLibraryTier(), skims: skims)
 	match consumes res 'pr'
-		ok(parsedMod) then copyParsedIntoModule(ms, p: p, parsedMod: parsedMod)
+		ok(parsedMod) then copyParsedIntoModule(ms, p: p, parsedMod: parsedMod, digest: digest)
 		err(found) then appendErrors(errs, found: found)
 	end 'pr'
 end 'parseSingleModule'
@@ -902,9 +906,23 @@ function readOneFile(fp String, mutates fTexts ast.StringList, mutates errs diag
 	end 'rf'
 end 'readOneFile'
 
-function copyParsedIntoModule(mutates ms ast.ModuleState, p ast.Project, consumes parsedMod ast.ParsedModule)
+function copyParsedIntoModule(mutates ms ast.ModuleState, p ast.Project, consumes parsedMod ast.ParsedModule, consumes digest table.Digest)
 	ms.parsed = parsedMod
+	ms.parsed.sourceDigest = digest
 end 'copyParsedIntoModule'
+
+// sourceDigest is the digest of a module's source: its path, and each file's name and bytes, in order. The parse makes it of
+// the files it read, and a compile that finds the module's code in the build cache makes it of the files alone, so that the
+// key of the code is the same whether or not the module is parsed.
+export function sourceDigest(path String, filePaths ast.StringList, fileTexts ast.StringList) returns table.Digest
+	var h = table.Hasher.new()
+	h.addText(path)
+	for i in 0 upto fileTexts.count() 'files'
+		h.addText(lastComponent(try filePaths.get(i) otherwise panic("a file of the module's source has no path")))
+		h.addText(fileTexts.get(i))
+	end 'files'
+	return h.digest()
+end 'sourceDigest'
 
 // sourceFiles are the paths of the source files of the project at dir, directory by directory in the order of the walk, as the
 // project loads them.
@@ -1039,13 +1057,13 @@ end 'parseModules'
 // parseModule reads a module's files, from memory when they are held there and from disk otherwise, parses them into the
 // module's tree and declarations, and gives the declarations their names and each type declaration its shell type.
 export function parseModule(mutates ms ast.ModuleState, p ast.Project, memory SourceFiles, mutates errs diag.ErrorList)
-	parseModuleSkimming(ms, p: p, memory: memory, skims: false, errs: errs)
+	parseModuleSkimming(ms, p: p, memory: memory, skims: false, digests: false, errs: errs)
 end 'parseModule'
 
 // parseModuleSkimming is parseModule that skims the bodies of the module's functions when skims is set, which the parsed
-// module then holds empty (ParsedModule.skimmed).
-export function parseModuleSkimming(mutates ms ast.ModuleState, p ast.Project, memory SourceFiles, skims bool, mutates errs diag.ErrorList)
-	parseSingleModule(ms, p: p, memory: memory, skims: skims, errs: errs)
+// module then holds empty (ParsedModule.skimmed), and makes the digest of its source when digests is set.
+export function parseModuleSkimming(mutates ms ast.ModuleState, p ast.Project, memory SourceFiles, skims bool, digests bool, mutates errs diag.ErrorList)
+	parseSingleModule(ms, p: p, memory: memory, skims: skims, digests: digests, errs: errs)
 	let module = ms.module
 	buildModuleTable(ms, p: p, modID: module, errs: errs)
 end 'parseModuleSkimming'

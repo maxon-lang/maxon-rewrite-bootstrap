@@ -173,7 +173,7 @@ function cacheSetupOf(p ast.Project, first Count, options Options) returns Cache
 	h.addText(p.target.archText())
 	h.addBool(options.countAllocations)
 	if first > 0 and p.modules[0].isRuntime 'program'
-		h.addDigest(sourceDigest(p.modules[0].path, text: p.modules[0].tree.text, files: p.modules[0].files))
+		h.addDigest(sourceDigestOfParsed(p.modules[0]))
 	end 'program'
 	return CacheSetup.make(options.cacheDir.clone(), base: h.digest(), verifies: options.verifiesCache, speculates: options.speculates and not options.verifiesCache, now: fileSystemNow(options.cacheDir))
 end 'cacheSetupOf'
@@ -190,16 +190,16 @@ type ModuleDigests
 	end 'none'
 end 'ModuleDigests'
 
-// sourceDigest is the digest of a module's source: its path, and each file's name and bytes, in order.
-function sourceDigest(path String, text String, files ast.FileSpanList) returns table.Digest
-	var h = table.Hasher.new()
-	h.addText(path)
-	for i in 0 upto files.count() 'files'
-		h.addText(project.lastComponent(files[i].path))
-		h.addRange(text, begin: files[i].start as Count, finish: files[i].endOff as Count)
+// sourceDigestOfParsed is the digest of the source of a module that is parsed, from the text and files that its parse made.
+function sourceDigestOfParsed(m ast.Module) returns table.Digest
+	var names = ast.StringList.create(0)
+	var texts = ast.StringList.create(0)
+	for file in m.files 'files'
+		names.push(file.path.clone())
+		texts.push(m.tree.text.sliceBytes(file.start as Count, endPos: file.endOff as Count).clone())
 	end 'files'
-	return h.digest()
-end 'sourceDigest'
+	return project.sourceDigest(m.path, filePaths: names, fileTexts: texts)
+end 'sourceDigestOfParsed'
 
 // publicDigest is the digest of a module's public text: its source without its comment lines and without the body of each
 // function, method or test that another module never copies: one that uses no type parameter and stands in no type that does,
@@ -380,13 +380,21 @@ end 'summaryOf'
 
 // keyOf is the key of module m of p, whose digests are own, from the summaries of the modules it names.
 function keyOf(c Compile, p ast.Project, m Count, own ModuleDigests, summaries Summaries) returns table.Digest
-	var h = table.Hasher.new()
-	h.addDigest(c.cache.base)
-	h.addText(p.modules[m].path)
-	h.addDigest(own.source)
+	var h = unitKeyHasher(c.cache.base, path: p.modules[m].path, source: own.source)
 	addNamedSummaries(h, c: c, p: p, m: m, summaries: summaries)
 	return h.digest()
 end 'keyOf'
+
+// unitKeyHasher is the key of the unit of the module at path, whose source's digest is source, as far as the modules it names
+// do not enter it: a module that names none has this key (the runtime's, which the cache holds before any stage of its
+// compile has run).
+function unitKeyHasher(base table.Digest, path String, source table.Digest) returns table.Hasher
+	var h = table.Hasher.new()
+	h.addDigest(base)
+	h.addText(path)
+	h.addDigest(source)
+	return h
+end 'unitKeyHasher'
 
 function addNamedSummaries(mutates h table.Hasher, c Compile, p ast.Project, m Count, summaries Summaries)
 	for j in 0 upto p.resolutions[m].deps.count() 'deps'
