@@ -1,0 +1,32 @@
+// A parallel for's iterations run at once, so its body may end its own with continue, but not break out of the loop, jump
+// to a loop around it, or return from the function.
+typealias Num = int(i64.min to i64.max)
+
+function main() returns ExitCode
+	for round in 0 upto 2 'rounds'
+		parallel for i in 0 upto 4 'each'
+			if i == 1 'skip'
+				continue 'each'
+			end 'skip'
+			if i == 2 'stop'
+				break 'each'
+			end 'stop'
+			if i == 3 'next'
+				continue 'rounds'
+			end 'next'
+			for j in 0 upto 3 'inner'
+				if j == 1 'innerStop'
+					break 'inner'
+				end 'innerStop'
+			end 'inner'
+			if i == 5 'out'
+				return 1
+			end 'out'
+		end 'each'
+	end 'rounds'
+	return 0
+end 'main'
+
+// expect-error: E3961 at 12:5
+// expect-error: E3961 at 15:5
+// expect-error: E3961 at 23:5

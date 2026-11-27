@@ -634,6 +634,9 @@ function assignTo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, 
 		if name.kind == ast.NameKind.nameLocal 'local'
 			let v = lowerExpr(l, p: p, ms: ms, e: value)
 			let loc = localEntry(p, module: l.fnModule, id: name.local)
+			if assignParallelElement(l, p: p, ms: ms, local: name.local, v: v, loc: loc) 'element'
+				return
+			end 'element'
 			// A var bound to a borrowed result owns nothing: it is given another, which it borrows as its binding did.
 			if loc.isView() 'view'
 				emit(l, i: newStoreSlot(slotOf(loc), src: v, borrow: owning(regKind(l, v: v))))
@@ -856,6 +859,10 @@ function visitForEach(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 		ownLocal(l, p: p, ms: ms, slot: slotOf(sym), t: element)
 	end 'pass'
 	let walksSlots = not drains and ast.isPromiseType(ms.types, reads: p.types, t: element)
+	let walksParallel = ast.forStmtIsParallel(p.modules[l.mi].tree, id: s)
+	if walksParallel 'parallel'
+		l.parallelSlots.push(SlotLoop.make(localOfNode(p, module: l.module, node: s), held: held, index: index, box: box.clone()))
+	end 'parallel'
 	if walksSlots 'slots'
 		l.slotLoops.push(SlotLoop.make(localOfNode(p, module: l.module, node: s), held: held, index: index, box: box.clone()))
 	end 'slots'
@@ -863,6 +870,9 @@ function visitForEach(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	if walksSlots 'slotsEnd'
 		_ = try l.slotLoops.pop() otherwise panic("lower: a for over slots ended that was never begun")
 	end 'slotsEnd'
+	if walksParallel 'parallelEnd'
+		_ = try l.parallelSlots.pop() otherwise panic("lower: a parallel for ended that was never begun")
+	end 'parallelEnd'
 	if drains 'passEnds'
 		popScope(l, p: p, ms: ms)
 	end 'passEnds'
@@ -879,6 +889,29 @@ function visitForEach(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 		popScope(l, p: p, ms: ms)
 	end 'walkEnds'
 end 'visitForEach'
+
+// assignParallelElement lowers an assignment of v to the variable of a parallel for over an array, which is lent its
+// element to change as a whole: v replaces the element, which is dropped, and the variable is lent the new one. It is
+// false for any other variable.
+function assignParallelElement(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, local ast.LocalID, v Reg, loc ast.LocalEntry) returns bool
+	for k in 0 upto l.parallelSlots.count() 'loops'
+		if l.parallelSlots[k].local == local 'loop'
+			let box = l.parallelSlots[k].box.clone()
+			let held = l.parallelSlots[k].held
+			let index = l.parallelSlots[k].index
+			let stored = arrayHeld(l, p: p, ms: ms, v: v, t: loc.ty, holder: box.ty)
+			let arr = load(l, slot: held)
+			let at = load(l, slot: index)
+			arrayStore(l, p: p, ms: ms, box: box, arr: arr, index: at, v: stored)
+			let again = load(l, slot: held)
+			let atAgain = load(l, slot: index)
+			let elem = arrayLoad(l, p: p, ms: ms, box: box, arr: again, index: atAgain)
+			emit(l, i: newStoreSlot(slotOf(loc), src: elem, borrow: owning(regKind(l, v: elem))))
+			return true
+		end 'loop'
+	end 'loops'
+	return false
+end 'assignParallelElement'
 
 // visitForClusters lowers a for over the grapheme clusters of a String to a loop over byte positions. The String is read
 // once, and the ownership pass keeps the body from changing it. Each cluster is lent to the variable as a view of the

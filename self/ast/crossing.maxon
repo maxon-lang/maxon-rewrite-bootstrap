@@ -174,22 +174,30 @@ end 'holdsTypeID'
 // instance of the code that sends it: t mentions none there.
 export function unsendable(mutates tt TypeSlot, reads TypeTable, t TypeID) returns String
 	var visiting = TypeIDList.create(0)
-	return unsendableWithin(tt, reads: reads, t: t, functions: true, visiting: visiting)
+	return unsendableWithin(tt, reads: reads, t: t, functions: true, borrows: false, visiting: visiting)
 end 'unsendable'
+
+// unsharable is why a value of type t cannot be read from several threads at once, as the iterations of a parallel for
+// read what is around it, or "" when it can: what crosses (unsendable), and borrows too, since the loop ends before what
+// they borrow from does.
+export function unsharable(mutates tt TypeSlot, reads TypeTable, t TypeID) returns String
+	var visiting = TypeIDList.create(0)
+	return unsendableWithin(tt, reads: reads, t: t, functions: true, borrows: true, visiting: visiting)
+end 'unsharable'
 
 // unsendableToService is why a value of type t cannot cross into or out of a service, or "" when it can: what crosses
 // (unsendable), but for a function value, which maxon refuses there (E3217), and which a message could not call anyway,
 // since a call whose target the check cannot see may wait on another party (E3221).
 export function unsendableToService(mutates tt TypeSlot, reads TypeTable, t TypeID) returns String
 	var visiting = TypeIDList.create(0)
-	return unsendableWithin(tt, reads: reads, t: t, functions: false, visiting: visiting)
+	return unsendableWithin(tt, reads: reads, t: t, functions: false, borrows: false, visiting: visiting)
 end 'unsendableToService'
 
-function unsendableWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, functions bool, mutates visiting TypeIDList) returns String
+function unsendableWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, functions bool, borrows bool, mutates visiting TypeIDList) returns String
 	if holdsTypeID(visiting, t: t) 'again'
 		return ""
 	end 'again'
-	if holdsBorrow(tt, reads: reads, t: t) 'borrow'
+	if not borrows and holdsBorrow(tt, reads: reads, t: t) 'borrow'
 		return "'{typeName(tt, reads: reads, t: t)}' holds a borrow, which ends before the other thread runs"
 	end 'borrow'
 	let name = typeName(tt, reads: reads, t: t)
@@ -210,28 +218,28 @@ function unsendableWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, functi
 		builtinCown gives ""
 		builtinService gives ""
 		builtinReply gives ""
-		builtinCursor gives "'{name}' borrows the buffer it walks"
+		builtinCursor gives "" if borrows else "'{name}' borrows the buffer it walks"
 		builtinPromise gives "'{name}' is a promise, whose coroutine belongs to the strand that started it"
 		typeParam gives "'{name}' is a type parameter, whose layout the send does not know"
 		interfaceTy gives "'{name}' holds a value of a type the send does not know, which may hold what cannot cross"
 		funcTy gives "" if functions else "'{name}' is a function value, a closure that a message could call only by waiting on what it cannot see"
-		record gives partsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
-		unionTy gives partsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
-		builtinArray gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
-		builtinGroups gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
-		builtinFrozen gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
+		record gives partsUnsendable(tt, reads: reads, t: t, functions: functions, borrows: borrows, visiting: visiting)
+		unionTy gives partsUnsendable(tt, reads: reads, t: t, functions: functions, borrows: borrows, visiting: visiting)
+		builtinArray gives argsUnsendable(tt, reads: reads, t: t, functions: functions, borrows: borrows, visiting: visiting)
+		builtinGroups gives argsUnsendable(tt, reads: reads, t: t, functions: functions, borrows: borrows, visiting: visiting)
+		builtinFrozen gives argsUnsendable(tt, reads: reads, t: t, functions: functions, borrows: borrows, visiting: visiting)
 	end 'k'
 end 'unsendableWithin'
 
 // partsUnsendable is why a record or a union cannot cross: the first of its fields or payloads that cannot.
-function partsUnsendable(mutates tt TypeSlot, reads TypeTable, t TypeID, functions bool, mutates visiting TypeIDList) returns String
+function partsUnsendable(mutates tt TypeSlot, reads TypeTable, t TypeID, functions bool, borrows bool, mutates visiting TypeIDList) returns String
 	visiting.push(t)
 	let orig = originOf(tt, reads: reads, t: t)
 	var why = ""
 	if typeKind(tt, reads: reads, t: t) == TypeKind.record 'record'
 		for i in 0 upto typeEntry(tt, reads: reads, t: orig).fields.count() 'fields'
 			let field = fieldType(tt, reads: reads, owner: t, index: i)
-			why = unsendableWithin(tt, reads: reads, t: field, functions: functions, visiting: visiting)
+			why = unsendableWithin(tt, reads: reads, t: field, functions: functions, borrows: borrows, visiting: visiting)
 			if why != "" 'found'
 				break 'fields'
 			end 'found'
@@ -240,7 +248,7 @@ function partsUnsendable(mutates tt TypeSlot, reads TypeTable, t TypeID, functio
 		for ci in 0 upto typeEntry(tt, reads: reads, t: orig).cases.count() 'cases'
 			for pi in 0 upto typeEntry(tt, reads: reads, t: orig).cases[ci].payload.count() 'payload'
 				let part = payloadType(tt, reads: reads, owner: t, caseIndex: ci, index: pi)
-				why = unsendableWithin(tt, reads: reads, t: part, functions: functions, visiting: visiting)
+				why = unsendableWithin(tt, reads: reads, t: part, functions: functions, borrows: borrows, visiting: visiting)
 				if why != "" 'found'
 					break 'cases'
 				end 'found'
@@ -252,10 +260,10 @@ function partsUnsendable(mutates tt TypeSlot, reads TypeTable, t TypeID, functio
 end 'partsUnsendable'
 
 // argsUnsendable is why a built-in container or a frozen value cannot cross: the first of what it holds that cannot.
-function argsUnsendable(mutates tt TypeSlot, reads TypeTable, t TypeID, functions bool, mutates visiting TypeIDList) returns String
+function argsUnsendable(mutates tt TypeSlot, reads TypeTable, t TypeID, functions bool, borrows bool, mutates visiting TypeIDList) returns String
 	let args = typeEntry(tt, reads: reads, t: t).typeArgs.clone()
 	for i in 0 upto args.count() 'args'
-		let why = unsendableWithin(tt, reads: reads, t: args[i], functions: functions, visiting: visiting)
+		let why = unsendableWithin(tt, reads: reads, t: args[i], functions: functions, borrows: borrows, visiting: visiting)
 		if why != "" 'found'
 			return why
 		end 'found'

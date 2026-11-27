@@ -104,6 +104,10 @@ function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 		return out
 	end 'fresh'
 	let text = pathText(o, p: p, ms: ms, path: path)
+	if not parallelAllows(o, place: path) 'parallel'
+		fail(o, p: p, site: site, code: diag.errParallelWrite, msg: parallelWriteText(text))
+		return out
+	end 'parallel'
 	if path.crossesFrozen() 'frozen'
 		let advice = copyAdvice(o, p: p, ms: ms, t: t, ifCopyable: "use '{text}.clone()'", fallback: "")
 		fail(o, p: p, site: site, code: diag.errMoveOutOfField, msg: "'{text}' is part of a frozen value, which keeps its contents and shares them with its other owners, so it cannot be moved out of it into {dest.text()}; {advice}")
@@ -424,6 +428,10 @@ end 'isComparisonMethod'
 function requireMutable(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, site diag.U32, path AccessPath, call ast.TypeID) returns bool
 	let root = o.c.typing.locals[path.root as Count].clone()
 	let text = pathText(o, p: p, ms: ms, path: path)
+	if not parallelAllows(o, place: path) 'parallel'
+		mutableFail(o, p: p, ms: ms, site: site, call: call, text: text, fix: diag.Fix.none(), code: diag.errParallelWrite, msg: parallelWriteText(text))
+		return false
+	end 'parallel'
 	if path.crossesFrozen() 'frozen'
 		mutableFail(o, p: p, ms: ms, site: site, call: call, text: text, fix: diag.Fix.none(), code: diag.errFrozenChange, msg: "'{text}' is part of a frozen value, whose contents are immutable and shared with its other owners; change a copy instead: 'var c = thaw(...)'")
 		return false
@@ -433,6 +441,12 @@ function requireMutable(mutates o Ownership, p ast.Project, mutates ms ast.Modul
 		mutableFail(o, p: p, ms: ms, site: site, call: call, text: text, fix: fix, code: diag.errAssignToImmutable, msg: "'{root.name}' is bound to a borrowed result and owns nothing, so it changes only by an assignment of another result lent from what it holds; bind it to a copy with '.clone()' to change it in place")
 		return false
 	end 'view'
+	if isForVariable(ms.tree(), l: root) and ast.forStmtIsParallel(ms.tree(), id: root.definedAt) and path.steps.count() == 0 'element'
+		match consumes lenderOf(o, local: path.root) 'lender'
+			some(collection) then return requireMutable(o, p: p, ms: ms, site: site, path: throughElement(collection, path: path), call: call)
+			none then _ = 0
+		end 'lender'
+	end 'element'
 	if (isForVariable(ms.tree(), l: root) or root.projected) and path.steps.count() == 0 'forVariable'
 		mutableFail(o, p: p, ms: ms, site: site, call: call, text: text, fix: diag.Fix.none(), code: diag.errAssignToImmutable, msg: diag.letReassigned(root.name))
 		return false
@@ -498,6 +512,11 @@ function mutableFail(mutates o Ownership, p ast.Project, ms ast.ModuleState, sit
 	end 'var'
 	failFixed(o, p: p, site: site, code: code, msg: "calling '{text}' changes the state its closure holds, since '{nameOfType(p, ms: ms, t: call)}' mutates captures, so it needs a place that may be changed: {msg}{advice}", fix: fix)
 end 'mutableFail'
+
+// parallelWriteText is the refusal of a change or a move of text, a place from around a parallel for, in its body.
+function parallelWriteText(text String) returns String
+	return "the body of a parallel for changes or moves '{text}', which it did not declare, while its other iterations run at once on other processors; an iteration changes only its own element (parallel for x in xs) and what it declares, so write each iteration's result into its element and combine them after the loop"
+end 'parallelWriteText'
 
 // lenderOf is the collection that the variable of an enclosing for borrows its elements from: none for any other local,
 // and for one over a temporary.

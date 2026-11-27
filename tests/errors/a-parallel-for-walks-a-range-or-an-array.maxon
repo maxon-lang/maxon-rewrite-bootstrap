@@ -1,0 +1,23 @@
+// A parallel for splits a range of integers or an Array among the processors: a String's clusters, a range of characters
+// and the moves of drain() are refused.
+typealias Num = int(i64.min to i64.max)
+
+typealias Nums = Array with Num
+
+function main() returns ExitCode
+	parallel for c in "abc" 'clusters'
+		print("{c}")
+	end 'clusters'
+	parallel for c in 'a' to 'c' 'characters'
+		print("{c}")
+	end 'characters'
+	var xs = Nums.filled(2, value: 1)
+	parallel for x in xs.drain() 'drained'
+		print("{x}")
+	end 'drained'
+	return 0
+end 'main'
+
+// expect-error: E3960 at 8:2
+// expect-error: E3960 at 11:2
+// expect-error: E3960 at 15:2

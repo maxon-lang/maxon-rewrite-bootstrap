@@ -1,0 +1,40 @@
+// The iterations of a parallel for read what is around it from several threads at once, so the body reads no promise and
+// no value at an interface type; it reads a borrow, a String and an array freely.
+typealias Num = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Num
+end 'Shape'
+
+type Square implements Shape
+	export var side as Num
+
+	static function create(side Num) returns Self
+		return Self{side: side}
+	end 'create'
+
+	function area() returns Num
+		return try side * side otherwise 0
+	end 'area'
+end 'Square'
+
+function waitNum() returns Num
+	sleep(1)
+	return 2
+end 'waitNum'
+
+function main() returns ExitCode
+	let shape = Square.create(3) as Shape
+	let name = "squares"
+	let p = async waitNum()
+	parallel for i in 0 upto 2 'each'
+		print("{name} {shape.area()}\n")
+		let done = p.isComplete()
+		print("{done}\n")
+	end 'each'
+	print("{await p}\n")
+	return 0
+end 'main'
+
+// expect-error: E3963 at 31:18
+// expect-error: E3963 at 32:14

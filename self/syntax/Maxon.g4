@@ -445,8 +445,10 @@ whileStmt
       'end' end=endLabel?
     ;
 
+// A parallel for runs its body once for each index of a range or each element of an array, on every processor, the
+// body reading what it does not declare and changing only the element it is lent.
 forStmt
-    : 'for' (var=(Name | 'from' | 'to' | '_') | '(' vars+=bindName (',' vars+=bindName)+ ')') 'in' from=expr ((inclusive='to' | 'upto') to=expr)? label=Label
+    : isParallel='parallel'? 'for' (var=(Name | 'from' | 'to' | '_') | '(' vars+=bindName (',' vars+=bindName)+ ')') 'in' from=expr ((inclusive='to' | 'upto') to=expr)? label=Label
       body=block
       'end' end=endLabel?
     ;
@@ -686,7 +688,7 @@ charLit
 // `end` is never read: a reader of the line could not tell it from the end of a block.
 nameExpr
     : name=(Name | 'Self' | 'export' | 'int' | Keyword | ~'true' | ~'false' | ~'self' | ~'panic' | ~'match' | ~'function' | ~'sizeof' | ~'countof'
-      | ~'not' | ~'async' | ~'await' | ~'try' | ~'let' | ~'var' | ~'if' | ~'while' | ~'for' | ~'when' | ~'throw'
+      | ~'not' | ~'async' | ~'await' | ~'try' | ~'let' | ~'var' | ~'if' | ~'while' | ~'for' | ~'parallel' | ~'when' | ~'throw'
       | ~'return' | ~'break' | ~'continue' | ~'_' | ~'end')
     ;
 

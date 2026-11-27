@@ -44,6 +44,7 @@ var reservedWords = map[string]bool{
 	"try":         true,
 	"while":       true,
 	"requires":    true,
+	"parallel":    true,
 	"for":         true,
 	"in":          true,
 	"otherwise":   true,

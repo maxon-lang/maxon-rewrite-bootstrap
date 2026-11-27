@@ -407,6 +407,7 @@ function checkSelfExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: e), code: diag.errUnexpectedToken, msg: diag.selfOutsideInstanceMethod(), errs: errs)
 		return ast.noType
 	end 'outside'
+	requireParallelRead(c, p: p, ms: ms, use: e, local: ast.receiverLocal(p, ms: ms, f: c.fn), errs: errs)
 	return c.owner
 end 'checkSelfExpr'
 

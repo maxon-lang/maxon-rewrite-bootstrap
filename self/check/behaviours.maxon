@@ -9,6 +9,7 @@
 function useLocal(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, use ast.NodeID, name String, mutates errs diag.ErrorList) returns ast.LocalID
 	let own = lookupScopes(c.scopes, name: name)
 	if own != ast.noLocal 'own'
+		requireParallelRead(c, p: p, ms: ms, use: use, local: own, errs: errs)
 		return own
 	end 'own'
 	if not c.inBehaviour and not c.inClosure 'plain'

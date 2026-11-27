@@ -1,0 +1,119 @@
+// A parallel for over a range, over an array whose elements each iteration is lent to change, and over its enumerated()
+// with the index: results land in each iteration's own element, in index order whatever order the iterations ran in;
+// a body that throws makes the loop throw the error of the lowest index that failed; loops nest; and `continue` ends one
+// iteration alone; a body may await a coroutine it starts.
+typealias Num = int(i64.min to i64.max)
+
+typealias Nums = Array with Num
+
+type Cell
+	export var value as Num
+	export var label as String
+
+	static function create(value Num) returns Self
+		return Self{value: value, label: ""}
+	end 'create'
+end 'Cell'
+
+typealias Cells = Array with Cell
+
+typealias Grid = Array with Nums
+
+enum CheckError implements Error
+	tooBig
+	negative
+end 'CheckError'
+
+function checked(n Num) returns Num throws CheckError
+	if n < 0 'negative'
+		throw CheckError.negative
+	end 'negative'
+	if n > 100 'big'
+		throw CheckError.tooBig
+	end 'big'
+	return n * 2
+end 'checked'
+
+// doubleAll writes each input's double into its own element of a fresh array, the loop throwing the lowest index's error.
+function doubleAll(inputs Nums) returns Nums throws CheckError
+	var out = inputs.clone()
+	parallel for slot in out 'each'
+		slot = try checked(slot)
+	end 'each'
+	return out
+end 'doubleAll'
+
+// later sleeps a millisecond and gives n, a function an async call may start.
+function later(n Num) returns Num
+	sleep(1)
+	return n
+end 'later'
+
+function show(xs Nums) returns String
+	var text = ""
+	for x in xs 'each'
+		text = "{text} {x}"
+	end 'each'
+	return text
+end 'show'
+
+function main() returns ExitCode
+	let base = 3 as Num
+	var squares = Nums.filled(6, value: 0)
+	parallel for (i, sq) in squares.enumerated() 'squares'
+		if i == 4 'skip'
+			continue 'squares'
+		end 'skip'
+		sq = try (i as Num) * (i as Num) + base otherwise 0
+	end 'squares'
+	print("squares{show(squares)}\n")
+	var cells = Cells.create(0)
+	for n in 1 to 4 'make'
+		cells.push(Cell.create(n))
+	end 'make'
+	parallel for cell in cells 'cells'
+		cell.value = try cell.value * 10 otherwise 0
+		cell.label = "c{cell.value}"
+	end 'cells'
+	for cell in cells 'print'
+		print("{cell.label};")
+	end 'print'
+	print("\n")
+	var grid = Grid.create(0)
+	for r in 0 upto 3 'rows'
+		grid.push(Nums.filled(4, value: r))
+	end 'rows'
+	parallel for row in grid 'rows'
+		parallel for x in row 'columns'
+			x = try x + base otherwise 0
+		end 'columns'
+	end 'rows'
+	var sum = 0 as Num
+	for row in grid 'sum'
+		for x in row 'add'
+			sum = try sum + x otherwise 0
+		end 'add'
+	end 'sum'
+	print("nested sum {sum}\n")
+	var waited = Nums.filled(3, value: 5)
+	parallel for w in waited 'waits'
+		let q = async later(w)
+		w = try await q + 1 otherwise 0
+	end 'waits'
+	print("waited{show(waited)}\n")
+	let doubled = try doubleAll([1, 2, 3]) otherwise panic("no error was thrown")
+	print("doubled{show(doubled)}\n")
+	let failed = try doubleAll([1, -2, 300, -4, 5]) otherwise (e) 'failed'
+		print("lowest failure: {e == CheckError.negative}\n")
+		return 0
+	end 'failed'
+	print("not failed{show(failed)}\n")
+	return 1
+end 'main'
+
+//> squares 3 4 7 12 0 28
+//> c10;c20;c30;c40;
+//> nested sum 48
+//> waited 6 6 6
+//> doubled 2 4 6
+//> lowest failure: true

@@ -393,6 +393,10 @@ function checkFor(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	if checkedUpper == ast.noType 'badUpper'
 		return
 	end 'badUpper'
+	if ast.forStmtIsCharacterRange(ms.tree(), id: s) and ast.forStmtIsParallel(ms.tree(), id: s) 'parallelCharacters'
+		refuseParallelSource(c, p: p, ms: ms, s: s, what: "counts through characters", errs: errs)
+		return
+	end 'parallelCharacters'
 	if ast.forStmtIsCharacterRange(ms.tree(), id: s) 'characters'
 		// A range of two character literals counts through the scalar values between them, as maxon's does, and gives each
 		// as a Character; a range with one integer bound is of the other's code point.
@@ -442,8 +446,87 @@ end 'checkForBody'
 
 function enterForBody(mutates c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID)
 	pushBlock(c, label: ast.forStmtLabel(ms.tree(), id: s).clone(), isLoop: true, node: s)
+	if ast.forStmtIsParallel(ms.tree(), id: s) 'parallel'
+		let top = try c.blocks.count() - 1 otherwise panic("check: a for's block was not pushed")
+		c.blocks[top].isParallel = true
+		c.blocks[top].firstInner = try c.typing.locals.count() as ast.LocalID otherwise panic("check: more variables than a LocalID counts")
+		c.blocks[top].walked = walkedVariable(c, p: p, ms: ms, s: s)
+	end 'parallel'
 	pushScope(c)
 end 'enterForBody'
+
+// refuseParallelSource is the error of a parallel for over what its iterations cannot be split by: what names it.
+function refuseParallelSource(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, what String, mutates errs diag.ErrorList)
+	failAt(c, p: p, ms: ms, node: s, code: diag.errParallelSource, msg: "a parallel for splits a range of integers or the elements of an Array among the processors, and this one {what}; walk an Array of what it needs, or use a plain 'for'", errs: errs)
+end 'refuseParallelSource'
+
+// walkedVariable is the variable at the root of what a parallel for over an array walks when the function may change it,
+// so that its iterations are each lent an element to change and the body may not name the array, or none.
+function walkedVariable(c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID) returns ast.LocalID
+	if ast.forStmtIsRange(ms.tree(), id: s) 'range'
+		return ast.noLocal
+	end 'range'
+	var e = ast.forStmtFrom(ms.tree(), id: s)
+	while ms.tree().kindOf(e) == ast.NodeKind.memberExpr 'parts'
+		e = ast.memberExprObj(ms.tree(), id: e)
+	end 'parts'
+	var root = ast.noLocal
+	if ms.tree().kindOf(e) == ast.NodeKind.selfExpr 'receiver'
+		root = ast.receiverLocal(p, ms: ms, f: c.fn)
+	end 'receiver' else if ms.tree().kindOf(e) == ast.NodeKind.nameExpr and nameInfoOf(c.typing, node: e).kind == ast.NameKind.nameLocal 'local'
+		root = nameInfoOf(c.typing, node: e).local
+	end 'local'
+	if root == ast.noLocal or not isMutableLocal(c.typing.locals[root as Count]) 'readOnly'
+		return ast.noLocal
+	end 'readOnly'
+	return root
+end 'walkedVariable'
+
+// innermostParallel is the index of the block of the innermost parallel for whose body is being checked, or none.
+function innermostParallel(c Checker) returns table.Option with Count
+	var i = c.blocks.count()
+	while i > 0 'blocks'
+		i = i - 1
+		if c.blocks[i].isParallel 'found'
+			return table.Option.some(i)
+		end 'found'
+	end 'blocks'
+	return table.Option.none
+end 'innermostParallel'
+
+// requireParallelRead refuses a variable from around a parallel for that its body names where the iterations cannot all
+// read it at once: the array whose elements they are lent, and a value that cannot be read from another thread. Each is
+// refused once a loop.
+function requireParallelRead(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, use ast.NodeID, local ast.LocalID, mutates errs diag.ErrorList)
+	var i = c.blocks.count()
+	while i > 0 'blocks'
+		i = i - 1
+		if not c.blocks[i].isParallel or (local as Count) >= (c.blocks[i].firstInner as Count) 'inside'
+			continue 'blocks'
+		end 'inside'
+		for k in 0 upto c.blocks[i].refused.count() 'refused'
+			if c.blocks[i].refused[k] == local 'again'
+				return
+			end 'again'
+		end 'refused'
+		let name = c.typing.locals[local as Count].name.clone()
+		if local == c.blocks[i].walked 'walked'
+			c.blocks[i].refused.push(local)
+			failAt(c, p: p, ms: ms, node: use, code: diag.errParallelWrite, msg: "the parallel for lends each element of '{name}' to its own iteration to change, so its body cannot name '{name}', which another iteration is changing; use the loop's element, and walk '{name}.enumerated()' for its index", errs: errs)
+			return
+		end 'walked'
+		let t = c.typing.locals[local as Count].ty
+		if t == ast.noType or ast.mentionsTypeParam(ms.types, reads: p.types, t: t) 'unknown'
+			continue 'blocks'
+		end 'unknown'
+		let why = ast.unsharable(ms.types, reads: p.types, t: t)
+		if why != "" 'unsharable'
+			c.blocks[i].refused.push(local)
+			failAt(c, p: p, ms: ms, node: use, code: diag.errParallelCapture, msg: "the body of a parallel for reads '{name}' on several threads at once, and {why}; read what it needs into a value that crosses before the loop", errs: errs)
+			return
+		end 'unsharable'
+	end 'blocks'
+end 'requireParallelRead'
 
 function leaveForBody(mutates c Checker)
 	popScope(c)
@@ -470,6 +553,10 @@ function checkForEach(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 		return
 	end 'enumerated'
 	let drained = formReceiver(ms.tree(), source: source, method: drainMethod)
+	if drained != 0 and ast.forStmtIsParallel(ms.tree(), id: s) 'parallelDrain'
+		refuseParallelSource(c, p: p, ms: ms, s: s, what: "moves the elements of an array out", errs: errs)
+		return
+	end 'parallelDrain'
 	if drained != 0 'drain'
 		checkDrain(c, p: p, ms: ms, s: s, receiver: drained, errs: errs)
 		return
@@ -496,6 +583,10 @@ function forElement(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 		return ast.noType
 	end 'cown'
 	let kind = kindOfType(p, ms: ms, t: t)
+	if kind != ast.TypeKind.builtinArray and ast.forStmtIsParallel(ms.tree(), id: s) 'parallel'
+		refuseParallelSource(c, p: p, ms: ms, s: s, what: "walks {describeType(p, ms: ms, t: t)}", errs: errs)
+		return ast.noType
+	end 'parallel'
 	if kind == ast.TypeKind.builtinArray 'inPlace'
 		let elem = typeElemType(p, ms: ms, ownerTy: t)
 		lent = ast.isManagedType(ms.types, reads: p.types, t: elem)
@@ -1072,6 +1163,10 @@ function checkReturn(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	let ret = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.fn).retTy
 	let fnName = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.fn).name.clone()
 	let value = ast.returnStmtValue(ms.tree(), id: s)
+	if innermostParallel(c).isSome() 'parallel'
+		failAt(c, p: p, ms: ms, node: s, code: diag.errParallelJump, msg: "a return in a parallel for's body would leave the function from one iteration while the others run on; write the iteration's result into its element, or throw an error, which the loop throws once it has stopped", errs: errs)
+		return
+	end 'parallel'
 	if value != 0 and defersHere(c, p: p, ms: ms) 'deferred'
 		refuseDeferredReturn(c, p: p, ms: ms, s: s, errs: errs)
 		return
@@ -1153,10 +1248,32 @@ function checkJump(mutates c Checker, p ast.Project, ms ast.ModuleState, s ast.N
 		label = ast.breakStmtLabel(ms.tree(), id: s).clone()
 	end 'break'
 	match consumes resolveJump(c, p: p, ms: ms, s: s, label: label, isBreak: isBreak, errs: errs) 'target'
-		some(node) then c.typing.jumps.insert(s as Count, value: node)
+		some(node) then refuseParallelJump(c, p: p, ms: ms, s: s, target: node, isBreak: isBreak, errs: errs)
 		none then _ = 0
 	end 'target'
 end 'checkJump'
+
+// refuseParallelJump records the target of a break or a continue, or refuses one that would leave a parallel for: a break
+// of it, or a jump to a loop around it. A continue of the parallel for ends its own iteration alone, which is allowed.
+function refuseParallelJump(mutates c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID, target ast.NodeID, isBreak bool, mutates errs diag.ErrorList)
+	var i = c.blocks.count()
+	while i > 0 'blocks'
+		i = i - 1
+		let leaves = c.blocks[i].node == target
+		if c.blocks[i].isParallel and (not leaves or isBreak) 'leaves'
+			var fix = "end its iteration with 'continue'; to stop the loop, throw an error, which stops the chunks after it, or use a plain 'for'"
+			if not leaves 'outer'
+				fix = "a parallel for's iterations cannot leave the loop around it; record what was found in the element and act on it after the loop"
+			end 'outer'
+			failAt(c, p: p, ms: ms, node: s, code: diag.errParallelJump, msg: "this jump leaves a parallel for, whose iterations run at once on several processors; {fix}", errs: errs)
+			return
+		end 'leaves'
+		if leaves 'found'
+			break 'blocks'
+		end 'found'
+	end 'blocks'
+	c.typing.jumps.insert(s as Count, value: target)
+end 'refuseParallelJump'
 
 // resolveJump is the loop or match that a break or a continue leaves or repeats, or none after it reported why there is
 // none.

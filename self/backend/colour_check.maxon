@@ -99,7 +99,7 @@ type ColourCheck
 	function elided(mutates self, fn MirFunction, x MInstr, site String)
 		match x.kind 'kind'
 			copy then self.assignCopy(x, site: site)
-			parallelCopy then self.parallel(fn, x: x, site: site)
+			parallelCopy then self.parallelCopy(fn, x: x, site: site)
 			target or
 			spill or
 			reload or
@@ -114,7 +114,7 @@ type ColourCheck
 		self.assign(x.a, token: token)
 	end 'assignCopy'
 
-	function parallel(mutates self, fn MirFunction, x MInstr, site String)
+	function parallelCopy(mutates self, fn MirFunction, x MInstr, site String)
 		var tokens = CountList.create(0)
 		let start = refIndex(x)
 		for i in 0 upto copyCount(x) 'read'
@@ -123,7 +123,7 @@ type ColourCheck
 		for i in 0 upto copyCount(x) 'write'
 			self.assign(fn.copies[addCounts(start, b: i)].dst, token: tokens[i])
 		end 'write'
-	end 'parallel'
+	end 'parallelCopy'
 
 	// assign gives an operand of the original a token, as the original's definition of it does.
 	function assign(mutates self, r MReg, token Count)

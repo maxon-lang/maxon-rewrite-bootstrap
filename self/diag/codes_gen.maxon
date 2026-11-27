@@ -522,6 +522,18 @@ export let errServiceStateNotEnded = "E3956"
 // A message kind that the handler of a kind the runtime posts sends, by its body or a function it calls, names no overload policy: a source that cannot be slowed feeds it.
 export let errPolicyFedFromOutside = "E3957"
 
+// A parallel for walks what it cannot split among processors: anything but a range of integers, an Array, or an Array's enumerated() (README, "Where it differs from Maxon").
+export let errParallelSource = "E3960"
+
+// A break, continue or return in a parallel for's body leaves the loop or a loop around it, which has no meaning when its iterations run at once on several processors.
+export let errParallelJump = "E3961"
+
+// A parallel for's body changes or moves what it did not declare, or names the array whose elements it lends to its iterations: an iteration writes only its own element and what it declares.
+export let errParallelWrite = "E3962"
+
+// A parallel for's body reads a variable whose value cannot be read from several threads at once: a promise, a value at an interface type, or one that holds either.
+export let errParallelCapture = "E3963"
+
 // A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 export let errInvalidFieldAccess = "E4006"
 

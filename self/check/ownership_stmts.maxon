@@ -75,7 +75,10 @@ function visitStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 	if k == ast.NodeKind.forStmt 'for'
 		let start = expr(o, p: p, ms: ms, e: ast.forStmtFrom(ms.tree(), id: st), s: s)
 		let bound = expr(o, p: p, ms: ms, e: ast.forStmtTo(ms.tree(), id: st), s: start)
-		return loopOwn(o, p: p, ms: ms, target: st, s: bound, body: ast.forStmtBodyRef(ms.tree(), id: st), cond: 0 as ast.NodeID, fresh: ast.noLocal)
+		let entered = enterParallel(o, ms: ms, st: st)
+		let out = loopOwn(o, p: p, ms: ms, target: st, s: bound, body: ast.forStmtBodyRef(ms.tree(), id: st), cond: 0 as ast.NodeID, fresh: ast.noLocal)
+		leaveParallel(o, entered: entered)
+		return out
 	end 'for'
 	if k == ast.NodeKind.whenStmt 'when'
 		return whenStmtOwn(o, p: p, ms: ms, st: st, s: s)
@@ -882,7 +885,9 @@ function forEachOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 			o.projections.push(OwnProjection.make(lent[i].clone(), place: 0 as ast.NodeID, kind: OwnProjectionKind.projectLoop, ty: ownType(o, node: source)))
 		end 'each'
 	end 'hold'
+	let entered = enterParallel(o, ms: ms, st: st)
 	let out = loopOwn(o, p: p, ms: ms, target: st, s: start, body: ast.forStmtBodyRef(ms.tree(), id: st), cond: 0 as ast.NodeID, fresh: fresh)
+	leaveParallel(o, entered: entered)
 	release(o, mark: mark)
 	for _ in 0 upto lent.count() 'unlend'
 		_ = try o.lenders.pop() otherwise panic("ownership: the lender of a loop's variable vanished")
@@ -1156,3 +1161,86 @@ function requireUnnamedCasesDroppable(mutates o Ownership, p ast.Project, mutate
 		end 'payload'
 	end 'cases'
 end 'requireUnnamedCasesDroppable'
+
+// ParallelScope is a parallel for whose body encloses the code being checked: from is its first variable (the index of
+// enumerated() comes first), and own, where it walks a place, the element each iteration is lent, as a path into that
+// place.
+export type ParallelScope
+	export var from as ast.LocalID
+	export var hasOwn as bool
+	export var own as AccessPath
+
+	static function make(from ast.LocalID, hasOwn bool, consumes own AccessPath) returns Self
+		return Self{from: from, hasOwn: hasOwn, own: own}
+	end 'make'
+end 'ParallelScope'
+
+export typealias ParallelScopes = Array with ParallelScope
+
+// enterParallel starts the body of the for st, and says whether it is a parallel for, whose scope it pushes.
+function enterParallel(mutates o Ownership, ms ast.ModuleState, st ast.NodeID) returns bool
+	if not ast.forStmtIsParallel(ms.tree(), id: st) 'plain'
+		return false
+	end 'plain'
+	let element = ownLocalOf(o, node: st)
+	var first = element
+	let index = o.c.typing.indexes.getOr(st as Count, fallback: ast.noLocal)
+	if index != ast.noLocal and (index as Count) < (first as Count) 'index'
+		first = index
+	end 'index'
+	match consumes lenderOf(o, local: element) 'lender'
+		some(collection) then o.parallels.push(ParallelScope.make(first, hasOwn: true, own: lentPlace(o, path: throughElement(collection, path: AccessPath.at(element)))))
+		none then o.parallels.push(ParallelScope.make(first, hasOwn: false, own: AccessPath.at(element)))
+	end 'lender'
+	return true
+end 'enterParallel'
+
+function leaveParallel(mutates o Ownership, entered bool)
+	if entered 'parallel'
+		_ = try o.parallels.pop() otherwise panic("ownership: a parallel for ended that was never begun")
+	end 'parallel'
+end 'leaveParallel'
+
+// parallelAllows is whether the bodies of the parallel fors around the code may change or move the place path: from the
+// innermost out, a place declared in a body is that iteration's own, and so is a part of the element it is lent, which
+// the body around that loop sees as a change of the place the loop walks.
+function parallelAllows(o Ownership, place AccessPath) returns bool
+	let path = lentPlace(o, path: place)
+	var k = o.parallels.count()
+	while k > 0 'scopes'
+		k = k - 1
+		if (path.root as Count) >= (o.parallels[k].from as Count) 'inside'
+			return true
+		end 'inside'
+		if not o.parallels[k].hasOwn or o.parallels[k].own.root != path.root or o.parallels[k].own.steps.count() > path.steps.count() 'notOwn'
+			return false
+		end 'notOwn'
+		for i in 0 upto o.parallels[k].own.steps.count() 'steps'
+			if not sameStep(o.parallels[k].own.steps[i], b: path.steps[i]) 'apart'
+				return false
+			end 'apart'
+		end 'steps'
+	end 'scopes'
+	return true
+end 'parallelAllows'
+
+// lentPlace is the place a path names, with the variable of each for around it that is lent an element replaced by that
+// element of its collection, so that two paths to one place compare equal.
+function lentPlace(o Ownership, path AccessPath) returns AccessPath
+	var out = path.clone()
+	var rounds = o.lenders.count()
+	while rounds > 0 'lenders'
+		rounds = rounds - 1
+		match consumes lenderOf(o, local: out.root) 'lender'
+			some(collection) then out = throughElement(collection, path: out)
+			none then return out
+		end 'lender'
+	end 'lenders'
+	return out
+end 'lentPlace'
+
+// sameStep is whether two steps select the same part: one field, or an element, which for the element a parallel for
+// lends is the iteration's own whatever its index is written as.
+function sameStep(a PathStep, b PathStep) returns bool
+	return a.sameField(b) or (a.isElement() and b.isElement())
+end 'sameStep'

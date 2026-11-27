@@ -3032,7 +3032,7 @@ edit to `runtime/` rebuilds everything.
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
   `_ = call()`, `if`/`else if`/`else`, `if let x = try call()` and `if try call()` with an `else`, `while`, `for i in a to|upto b`, `for x in xs` over an array, a `List`, the grapheme clusters of a `String`, a range value, or any value
   whose type has maxon's iteration protocol (a type of the program, a type parameter through its bounds, an interface
-  value through what its interface requires), `for (i, x) in xs.enumerated()` over any of these with the index of each element, `for (k, v) in m` over the library's `Map`, whose iterator lends each entry, and `for c in E.allCases` (see "Primitives"), `match` as a statement or expression
+  value through what its interface requires), `for (i, x) in xs.enumerated()` over any of these with the index of each element, `for (k, v) in m` over the library's `Map`, whose iterator lends each entry, and `for c in E.allCases` (see "Primitives"), `parallel for` over a range, an `Array` or its `enumerated()` (see "The parallel loop"), `match` as a statement or expression
   (case, literal, range and string patterns, `or` alternatives, `default`, `panic` arms, `default throws E`, and `stmt and fallthrough`), `break`/`continue`
   with labels, `return`, `when` (a behaviour, in the library tiers only, see "Immutable values, cowns and behaviours"), `await p` of a promise of a
   function that returns nothing, and a `try` block with or without a handler (see "Checked arithmetic").
@@ -4939,6 +4939,40 @@ maxon's surface, on the green threads of the runtime (see "Green threads"):
   `Copyable` here (`E3017`), an async call of a built-in such as `File.readText`, the deadlock exit 92,
   and I/O on the event queue.
 
+### The parallel loop
+
+`parallel for` is `for` whose iterations run at once on the processors, one obvious spelling for each need:
+
+- `parallel for i in a upto b` (or `to`) runs the body for each integer of the range;
+- `parallel for x in xs` over an `Array` lends each iteration its own element, `x`, to change: parts of it as a plain
+  `for` lets them change, and, where the function may change `xs` (a `var` or a `mutates` parameter or receiver),
+  the whole element too (`x = f(x)`), which stores into the array;
+- `parallel for (i, x) in xs.enumerated()` adds the index of each element. Results are written into a preallocated
+  array's own elements (`var out = Nums.filled(n, value: 0)` and `parallel for (i, r) in out.enumerated()`), since
+  Maxon has no loop that gives values to collect.
+
+What the body may do is proved by the checker from the borrow rules, with no run-time check:
+
+- It reads what is around it and changes or moves only its own element and what it declares (`E3962`, which says to
+  write each iteration's result into its element): an assignment, a `mutates`, `sets` or `consumes` argument, a
+  `mutates self` call, an await of a promise from around it.
+- It does not name the array whose elements it lends to be changed (`E3962`): another iteration is changing it.
+- What it reads from around it is read from several threads at once, so it is what crosses (`ast.unsharable`: as
+  `ast.unsendable`, borrows allowed, since the loop ends before what they borrow from does): no promise, no value at an
+  interface type (`E3963`).
+- `continue` of the loop ends one iteration; `break` of it, a jump to a loop around it, and `return` are `E3961`,
+  which says to throw an error to stop the loop or to record what was found in the element. A `break` or `continue`
+  of a loop inside the body is a plain one.
+- A body that throws makes the loop throw the error of the lowest index that failed, and no iteration past it starts.
+- It walks a range of integers or an `Array` (`E3960` for a String's clusters, a range of characters, `drain()` and
+  a type with the iteration protocol).
+- It may await, sleep, send to a service and nest another parallel for; a parallel for in a service's handler waits only
+  for its own iterations, and a body that awaits a reply makes the handler `E3221` as any wait in it does.
+
+Not yet: the loop runs its iterations in order on the thread that reaches it, which is one schedule of the iterations the
+rules allow, while its lowering to the runtime's fork-join (`parallelRun`, see "The runtime"), the interpreter's model of
+the iterations as threads under the seeded schedule, and parallel fors in the programs `fuzz` writes are to come; a whole
+element passed to a `mutates` parameter (`E2013`, as in a plain `for`), where an assignment works.
 ### Services
 
 maxon's surface, on cowns, behaviours and green threads (`self/check/services.maxon`, `self/ir/services.maxon`,
@@ -5414,6 +5448,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 
 ### Where it differs from Maxon
 
+- **A parallel loop, `parallel for`, which maxon does not have.** `parallel for i in a upto b`, `parallel for x in xs`
+  and `parallel for (i, x) in xs.enumerated()` over an `Array` run their body once for each index or element with
+  the iterations split among the processors (see "The parallel loop"). It is a statement, not a library function taking
+  a closure, so the body is an ordinary block that may throw; `parallel` is a reserved word, and the conversion warns
+  of a Maxon name `parallel`.
 - **A mailbox has no capacity.** A program writes `spawn T.create()` where maxon writes `spawn(capacity: n) T.create()`,
   sends with no `sendTimeout:`, and matches only `serviceStopped`, the one case of `SendError`, where maxon matches
   `mailboxFull` too: a send never fails or waits for room, and fails only once the service has stopped. The runtime slows

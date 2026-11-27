@@ -52,9 +52,16 @@ export type BlockFrame
 	export var label as String
 	export var isLoop as bool
 	export var node as ast.NodeID
+	// isParallel is whether the block is a parallel for's body, whose own variables are firstInner and those after it; walked
+	// is the variable whose elements it lends to be changed, which the body may not name, or none; refused are the variables
+	// from around it that the body was refused to read, each reported once.
+	export var isParallel as bool
+	export var firstInner as ast.LocalID
+	export var walked as ast.LocalID
+	export var refused as ast.LocalIDList
 
 	export static function make(consumes label String, isLoop bool, node ast.NodeID) returns BlockFrame
-		return BlockFrame{label: label, isLoop: isLoop, node: node}
+		return BlockFrame{label: label, isLoop: isLoop, node: node, isParallel: false, firstInner: ast.noLocal, walked: ast.noLocal, refused: ast.LocalIDList.create(0)}
 	end 'make'
 end 'BlockFrame'
 

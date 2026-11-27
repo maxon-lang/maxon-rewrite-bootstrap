@@ -1,0 +1,29 @@
+// A parallel for's body changes and moves nothing it did not declare: not a variable around it, not a part of one, not
+// one passed to be changed; its own element, its parts and what it declares it changes freely.
+typealias Num = int(i64.min to i64.max)
+
+typealias Nums = Array with Num
+
+function bump(mutates n Num)
+	n = try n + 1 otherwise n
+end 'bump'
+
+function main() returns ExitCode
+	var total = 0 as Num
+	var seen = Nums.create(0)
+	var xs = Nums.filled(4, value: 1)
+	parallel for x in xs 'each'
+		var mine = x
+		bump(mine)
+		x = mine
+		total = try total + x otherwise 0
+		seen.push(x)
+		bump(total)
+	end 'each'
+	print("{total} {seen.count()}\n")
+	return 0
+end 'main'
+
+// expect-error: E3962 at 19:3
+// expect-error: E3962 at 20:3
+// expect-error: E3962 at 21:8

@@ -120,6 +120,7 @@ export function isReserved(word String) returns bool
 		"try" or
 		"while" or
 		"requires" or
+		"parallel" or
 		"for" or
 		"in" or
 		"otherwise" or
@@ -1178,6 +1179,14 @@ export function newForStmt(mutates t Tree, start diag.U32) returns NodeID
 	return id
 end 'newForStmt'
 
+export function forStmtIsParallel(t Tree, id NodeID) returns bool
+	return (t.records[id as Count].flags and (1 as Byte)) != 0
+end 'forStmtIsParallel'
+
+export function setForStmtIsParallel(mutates t Tree, id NodeID)
+	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
+end 'setForStmtIsParallel'
+
 export function forStmtVar(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.records[id as Count].a)
 end 'forStmtVar'
@@ -1207,11 +1216,11 @@ export function setForStmtFrom(mutates t Tree, id NodeID, value NodeID)
 end 'setForStmtFrom'
 
 export function forStmtInclusive(t Tree, id NodeID) returns bool
-	return (t.records[id as Count].flags and (1 as Byte)) != 0
+	return (t.records[id as Count].flags and (2 as Byte)) != 0
 end 'forStmtInclusive'
 
 export function setForStmtInclusive(mutates t Tree, id NodeID)
-	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
+	t.records[id as Count].flags = t.records[id as Count].flags or (2 as Byte)
 end 'setForStmtInclusive'
 
 export function forStmtTo(t Tree, id NodeID) returns NodeID

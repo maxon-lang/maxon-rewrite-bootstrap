@@ -1,0 +1,28 @@
+// A parallel for over an array the function may change lends each element to its own iteration to change, so the body
+// cannot read the array, which other iterations are changing; over an array it only reads, it may.
+typealias Num = int(i64.min to i64.max)
+
+typealias Nums = Array with Num
+
+function sumOf(xs Nums) returns Num
+	var s = 0 as Num
+	for x in xs 'each'
+		s = try s + x otherwise s
+	end 'each'
+	return s
+end 'sumOf'
+
+function main() returns ExitCode
+	let fixed = Nums.filled(3, value: 2)
+	var out = Nums.filled(3, value: 0)
+	parallel for (i, o) in out.enumerated() 'each'
+		o = try sumOf(fixed) + (i as Num) otherwise 0
+	end 'each'
+	parallel for o in out 'again'
+		o = try o + sumOf(out) otherwise 0
+	end 'again'
+	print("{sumOf(out)}\n")
+	return 0
+end 'main'
+
+// expect-error: E3962 at 22:21
