@@ -1077,6 +1077,15 @@ var tableFunctions = []function{
 	// stopped is a promise of no value that the end of the service completes: once its mailbox is closed and its last message
 	// has ended, or once it is freed. The checker gives the call its promise's type, which no row can name.
 	{Owner: "Service", Name: "stopped", Intrinsic: "ServiceStopped"},
+	// post makes a message to post to the service later, `h.post(T.Message.kind(...))`, a value of the service's own message
+	// union whose kind gives no reply: the library's PostedMessage, whose record holds a hold on the service, which every
+	// source of a posted message takes (notifyStopped, a socket's readiness). The checker types its argument and its result,
+	// which no row can name.
+	{Owner: "Service", Name: "post", Intrinsic: "ServicePost"},
+	// notifyStopped tells a service by a message once the service ends: `h.notifyStopped(watcher.post(m))` posts m to the
+	// service it was made for, as the runtime posts a message (README, "Stops"). The checker types its argument, the library's
+	// PostedMessage, which no row can name.
+	{Owner: "Service", Name: "notifyStopped", Intrinsic: "ServiceNotifyStopped"},
 	// mostQueued is the most messages the service has had queued at once, as its slowed sends counted them: exact once that
 	// passed a turn's worth, so a test holds backpressure to its bound without timing it.
 	{Owner: "Service", Name: "mostQueued", Result: "Count", Intrinsic: "ServiceMostQueued", Raw: &rawSurface{What: "a service's queue length is read", Instead: "let the runtime's backpressure bound it"}},
@@ -1300,6 +1309,8 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "socketTimedOut", Static: true, Params: []string{"_ Count"}, Result: "Bool", Intrinsic: "ManagedSocketTimedOut", Instead: "the NetworkError a TcpClient throws"},
 	{Owner: "Builtins", Name: "socketShutdownWrite", Static: true, Params: []string{"_ Count"}, Throws: "ManagedSocketError", Intrinsic: "ManagedSocketShutdownWrite", Instead: "a TcpClient's shutdownWrite()"},
 	{Owner: "Builtins", Name: "socketClose", Static: true, Params: []string{"_ Count"}, Throws: "ManagedSocketError", Intrinsic: "ManagedSocketClose", Instead: "a TcpClient's close()"},
+	// postedCancel queues the record of a posted message that no registration took as cancelled, so it drops what it holds.
+	{Owner: "Builtins", Name: "postedCancel", Static: true, Params: []string{"_ Count"}, Intrinsic: "ServicePostedCancel", Instead: "a PostedMessage's cancel()"},
 	// The resolve of a host's name to an IPv4 address, the system's resolver's on macOS (getaddrinfo, in the blocking bracket, as
 	// Go's darwin resolver asks libSystem); the library resolves names itself on Linux, and has no sockets on Windows yet.
 	{Owner: "Builtins", Name: "socketResolve", Static: true, Params: []string{"_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedSocketError", Intrinsic: "ManagedSocketResolve", Instead: "TcpClient.connect(host, port)"},
@@ -1475,6 +1486,10 @@ var entries = []entry{
 	{"ServiceStopSelf", "rt.service.stopSelf", "Source", roleCall, "(): rt.service.shutdown of the service whose message runs, which self.stop() calls; nothing off a message"},
 	{"ServiceStopNowSelf", "rt.service.stopNowSelf", "Source", roleCall, "(): rt.service.stopNow of the service whose message runs, which self.stopNow() calls; nothing off a message"},
 	{"ServiceSelfHandle", "rt.service.selfHandle", "Source", roleCall, "() -> handle: another owner of the service whose message runs, which self.handle gives; off a message it panics, which the checker refuses (E3953)"},
+	{"ServicePostedCancel", "rt.service.postedCancel", "Source", roleCall, "(record): queues the record of a posted message that no registration took as cancelled, so its thunk drops what it holds"},
+	{"ServiceNotifyStopped", "rt.service.notifyStopped", "Source", roleCall, "(handle, record): registers a posted message's record, which the service's end queues on the service it names, as rt.service.stopped registers a watch"},
+	{"ServicePostedNew", "rt.service.postedNew", "Source", roleCall, "(record) -> record: gives the record of a posted message, which the compiled code made with no acquire, its hold on the service it names"},
+	{"ServicePostedStart", "rt.service.postedStart", "Source", roleCall, "(state address, horizon) -> 0 to run the message, 1 to drop what it holds: what the behaviour of a posted message calls as it starts, in place of rt.service.start, which takes no place in the gate; horizon is the shedding horizon's word plus 1, or 0"},
 	{"ServiceStopped", "rt.service.stopped", "Source", roleCall, "(handle) -> promise: a watch of the service's end, which its close or its last message's release gives once it holds no message, or its free"},
 	{"ServiceFreed", "rt.service.freed", "Source", roleCall, "(handle): what the drop of a service's last handle calls before it frees the service, which gives the service's watches"},
 	{"ServiceStopStart", "rt.service.stopStart", "Source", roleCall, "(state address) -> 0 to run the message, 1 where its service was stopped at once: rt.service.start of a message of a type that implements StopsNow"},
@@ -1770,6 +1785,10 @@ var runtimeFunctions = []runtimeFunction{
 	{"ServiceSelfHandle", "serviceSelfHandle() Count"},
 	{"ServiceStopStart", "serviceStopStart(state Count) Count"},
 	{"ServiceStopped", "serviceStopped(handle Count) Count"},
+	{"ServiceNotifyStopped", "serviceNotifyStopped(handle Count, record Count)"},
+	{"ServicePostedCancel", "servicePostedCancel(record Count)"},
+	{"ServicePostedNew", "servicePostedNew(record Count) Count"},
+	{"ServicePostedStart", "servicePostedStart(state Count, horizon Count) Count"},
 	{"ServiceFreed", "serviceFreed(handle Count)"},
 	{"ServiceMostQueued", "serviceMostQueued(handle Count) Count"},
 	{"ServiceNewPending", "serviceCreatePending(state Count, words Count) Count"},

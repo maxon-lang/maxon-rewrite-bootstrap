@@ -108,6 +108,12 @@ function callSend(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: own).intrinsic == ast.Intrinsic.intrServiceStopped 'watch'
 			return callStopped(c, p: p, ms: ms, call: call, handle: handle, own: own, errs: errs)
 		end 'watch'
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: own).intrinsic == ast.Intrinsic.intrServiceNotifyStopped 'notify'
+			return callNotifyStopped(c, p: p, ms: ms, call: call, handle: handle, own: own, errs: errs)
+		end 'notify'
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: own).intrinsic == ast.Intrinsic.intrServicePost 'post'
+			return callPost(c, p: p, ms: ms, call: call, handle: handle, own: own, errs: errs)
+		end 'post'
 		let typed = callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callMethod, target: own, hasGiven: true, given: ast.typeEntry(ms.types, reads: p.types, t: handle).typeArgs.clone(), errs: errs)
 		let op = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: own).intrinsic
 		if typed != ast.noType and (op == ast.Intrinsic.intrServiceShutdown or op == ast.Intrinsic.intrServiceStopNow) 'stop'
@@ -252,6 +258,172 @@ function callStopped(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	args.push(p.builtins.voidTy)
 	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: call), orig: p.builtins.promiseOrigin, args: args, errs: errs)
 end 'callStopped'
+
+// Posted messages (README, "Stops"; out/dev/step3-readiness-design.md): a message the runtime posts to a service, which no
+// sender awaits, named by a value of the service's message union, `Sup.Message.childStopped(id)`. `h.post(m)` makes it, the
+// library's PostedMessage, which every source of such a message takes: `child.notifyStopped(h.post(m))` posts m to the service
+// of h once the child has ended. The message must be a value of the service's own union (E3954), and the kind it names must
+// give no reply, since nobody awaits it (E3955): a kind written as a case of the union is its case's, and a value of any other
+// form may be any case of it, so every one must be.
+
+// callNotifyStopped types `child.notifyStopped(message)`, whose message is a PostedMessage, which moves in.
+function callNotifyStopped(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, handle ast.TypeID, own ast.FuncID, mutates errs diag.ErrorList) returns ast.TypeID
+	let argsRef = ast.callExprArgsRef(ms.tree(), id: call)
+	if ms.tree().listLen(argsRef) != 1 'arity'
+		failAt(c, p: p, ms: ms, node: call, code: diag.errCallArgCountMismatch, msg: "'notifyStopped' takes the message to post once the service ends, as 'child.notifyStopped(self.handle.post(Sup.Message.childStopped(id)))'", errs: errs)
+		return ast.noType
+	end 'arity'
+	let posted = postedMessageType(p, ms: ms)
+	if posted == ast.noType 'noLibrary'
+		failAt(c, p: p, ms: ms, node: call, code: diag.errPostedMessageOfOtherType, msg: "'notifyStopped' takes the library's PostedMessage, which this project does not have", errs: errs)
+		return ast.noType
+	end 'noLibrary'
+	var specs = ast.ParamSpecList.create(0)
+	specs.push(ast.ParamSpec.make("message", ty: posted, conv: ast.Convention.convConsumes))
+	let callee = funcSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: own)
+	let mark = errs.count()
+	let ordered = bindArgs(c, p: p, ms: ms, call: call, callee: callee, specs: specs, receivers: 1 as Count, argsChecked: false, payload: false, errs: errs)
+	if failedSince(errs, mark: mark) 'badArgs'
+		return ast.noType
+	end 'badArgs'
+	var info = ast.CallInfo.make(ast.CallKind.callMethod, fn: own, receiverTy: handle)
+	info.paramSpecs = specs.clone()
+	info.ordered = ordered
+	info.intrinsic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: own).intrinsic
+	info.typeArgs = ast.typeEntry(ms.types, reads: p.types, t: handle).typeArgs.clone()
+	c.typing.calls.insert(call as Count, value: info)
+	return p.builtins.voidTy
+end 'callNotifyStopped'
+
+// callPost types `h.post(m)`, a message to post to the service of h later, which a source of posted messages takes: the
+// library's PostedMessage. m is a value of the service's own message union, of a kind that gives no reply.
+function callPost(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, handle ast.TypeID, own ast.FuncID, mutates errs diag.ErrorList) returns ast.TypeID
+	let argsRef = ast.callExprArgsRef(ms.tree(), id: call)
+	if ms.tree().listLen(argsRef) != 1 'arity'
+		failAt(c, p: p, ms: ms, node: call, code: diag.errCallArgCountMismatch, msg: "'post' takes the message to post the service, as 'self.handle.post(Sup.Message.childStopped(id))'", errs: errs)
+		return ast.noType
+	end 'arity'
+	let messages = postedUnion(c, p: p, ms: ms, node: call, handle: handle, errs: errs)
+	if messages == ast.noType 'noUnion'
+		return ast.noType
+	end 'noUnion'
+	let messageArg = ast.argValue(ms.tree(), id: ms.tree().listAt(argsRef, index: 0 as Count) as ast.NodeID)
+	if not checkPostedMessage(c, p: p, ms: ms, e: messageArg, handle: handle, messages: messages, errs: errs) 'badMessage'
+		return ast.noType
+	end 'badMessage'
+	let posted = postedMessageType(p, ms: ms)
+	if posted == ast.noType 'noLibrary'
+		failAt(c, p: p, ms: ms, node: call, code: diag.errPostedMessageOfOtherType, msg: "'post' gives the library's PostedMessage, which this project does not have", errs: errs)
+		return ast.noType
+	end 'noLibrary'
+	var specs = ast.ParamSpecList.create(0)
+	specs.push(ast.ParamSpec.make("message", ty: messages, conv: ast.Convention.convConsumes))
+	if recordPosting(c, p: p, ms: ms, call: call, handle: handle, own: own, specs: specs, errs: errs) == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	return posted
+end 'callPost'
+
+// postedMessageType is the library's PostedMessage, which `h.post(m)` gives, or noType where the project has no library.
+function postedMessageType(p ast.Project, ms ast.ModuleState) returns ast.TypeID
+	let found = ast.libraryModuleNamed(p, name: ast.libraryServiceModule)
+	if not found.isSome() 'none'
+		return ast.noType
+	end 'none'
+	let library = found.unwrap()
+	return match consumes p.modules[ast.modIndex(library)].names.get(ast.libraryPostedName) 'name'
+		some(o) gives match consumes ast.declType(p, ms: ms, ref: ast.DeclRef.make(library, ordinal: o)) 'type'
+			some(t) gives t
+			none gives ast.noType
+		end 'type'
+		none gives ast.noType
+	end 'name'
+end 'postedMessageType'
+
+// postedUnion is the message union of the service of a handle, which a message posted to it is a value of: the union its
+// module declares where it names it, `Sup.Message`. A type whose module names none has none (E3954).
+function postedUnion(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID, handle ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let state = ast.serviceState(ms.types, reads: p.types, t: handle)
+	let decl = ast.typeEntry(ms.types, reads: p.types, t: state).effectiveOrigin()
+	let messages = ast.messageUnionOf(p, ms: ms, nt: decl)
+	if messages == ast.noType 'none'
+		let stateName = nameOfType(p, ms: ms, t: state)
+		failAt(c, p: p, ms: ms, node: node, code: diag.errPostedMessageOfOtherType, msg: "a message posted to '{stateName}' is a value of its message union, '{stateName}.Message', which its module names where it makes one: write the message as '{stateName}.Message.kind(...)'", errs: errs)
+	end 'none'
+	return messages
+end 'postedUnion'
+
+// checkPostedMessage types the message a registration posts to the service of a handle: a value of that service's message
+// union (E3954), whose kind gives no reply (E3955). A kind written as a case of the union is that case; any other value may be
+// any case of it.
+function checkPostedMessage(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, handle ast.TypeID, messages ast.TypeID, mutates errs diag.ErrorList) returns bool
+	let t = checkExpr(c, p: p, ms: ms, e: e, errs: errs)
+	if t == ast.noType 'failed'
+		return false
+	end 'failed'
+	let state = ast.serviceState(ms.types, reads: p.types, t: handle)
+	let stateName = nameOfType(p, ms: ms, t: state)
+	if ast.typeEntry(ms.types, reads: p.types, t: t).effectiveOrigin() != ast.typeEntry(ms.types, reads: p.types, t: messages).effectiveOrigin() 'other'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errPostedMessageOfOtherType, msg: "the message posted to '{stateName}' is a '{nameOfType(p, ms: ms, t: t)}', and a service is posted only a value of its own message union, '{stateName}.Message': name a kind of '{stateName}', or post to the service the message is of", errs: errs)
+		return false
+	end 'other'
+	let decl = ast.typeEntry(ms.types, reads: p.types, t: state).effectiveOrigin()
+	let named = writtenCase(c, ms: ms, e: e)
+	let cases = ast.typeEntry(ms.types, reads: p.types, t: messages).cases.count()
+	for i in 0 upto cases 'cases'
+		if named != noWrittenCase and named != i 'otherCase'
+			continue 'cases'
+		end 'otherCase'
+		let kind = ast.typeEntry(ms.types, reads: p.types, t: messages).cases[i].name.clone()
+		let handler = methodNamed(p, ms: ms, t: decl, name: kind)
+		if handler != ast.noFunc and ast.hasReply(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: handler), voidTy: p.builtins.voidTy) 'replies'
+			let which = "'{stateName}.{kind}'" if named != noWrittenCase else "'{stateName}.{kind}', a kind the message may be,"
+			failAt(c, p: p, ms: ms, node: e, code: diag.errPostedKindReplies, msg: "{which} returns or throws, and nobody awaits a message the runtime posts: post a kind whose handler returns nothing and throws nothing, and send its answer on as a message of its own", errs: errs)
+			return false
+		end 'replies'
+	end 'cases'
+	return true
+end 'checkPostedMessage'
+
+let noWrittenCase = 0xFFFFFFFF as Count
+
+// writtenCase is the case of a message union that a value is written as, `Sup.Message.childStopped(id)` or a case with no
+// payload, or noWrittenCase for any other form.
+function writtenCase(c Checker, ms ast.ModuleState, e ast.NodeID) returns Count
+	let k = ms.tree().kindOf(e)
+	if k == ast.NodeKind.callExpr and c.typing.calls.has(e as Count) 'call'
+		let info = c.typing.calls.get(e as Count).unwrap()
+		if info.kind == ast.CallKind.callUnionCtor 'ctor'
+			return info.unionCase
+		end 'ctor'
+	end 'call'
+	if k == ast.NodeKind.memberExpr and c.typing.members.has(e as Count) 'member'
+		let member = c.typing.members.get(e as Count).unwrap()
+		if member.kind == ast.MemberKind.memberUnionCase 'case'
+			return member.enumCase
+		end 'case'
+	end 'member'
+	return noWrittenCase
+end 'writtenCase'
+
+// recordPosting records a call of post, whose message was typed already: it moves in, and the call has the behaviour of the
+// posted message as its body.
+function recordPosting(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, handle ast.TypeID, own ast.FuncID, specs ast.ParamSpecList, mutates errs diag.ErrorList) returns ast.TypeID
+	let callee = funcSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: own)
+	let mark = errs.count()
+	let ordered = bindArgs(c, p: p, ms: ms, call: call, callee: callee, specs: specs, receivers: 1 as Count, argsChecked: true, payload: false, errs: errs)
+	if failedSince(errs, mark: mark) 'badArgs'
+		return ast.noType
+	end 'badArgs'
+	var info = ast.CallInfo.make(ast.CallKind.callMethod, fn: own, receiverTy: handle)
+	info.paramSpecs = specs.clone()
+	info.ordered = ordered
+	info.intrinsic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: own).intrinsic
+	info.typeArgs = ast.typeEntry(ms.types, reads: p.types, t: handle).typeArgs.clone()
+	info.body = serviceBody(c, p: p, ms: ms, node: call)
+	c.typing.calls.insert(call as Count, value: info)
+	return p.builtins.voidTy
+end 'recordPosting'
 
 // requireStopsNow refuses a stopNow() of a service whose type does not implement StopsNow (E3952): the senders of such a type
 // await its replies as if its queued messages always ran, which stopNow() would drop.

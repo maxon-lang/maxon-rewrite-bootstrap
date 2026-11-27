@@ -1,0 +1,18 @@
+/// A message for the runtime to post to a service later, made by `h.post(T.Message.kind(...))` of a value of the service's
+/// message union: a registration takes it, as `child.notifyStopped(message)` does, and the runtime posts it to the service once
+/// what it waits for comes, as a message that no sender awaits. It holds a hold on the service, which lives on while it waits,
+/// and a value of it is ended by a registration or by `cancel()`, never dropped (E3919).
+/// @category Services
+public type PostedMessage
+	let record as Count
+
+	/// Drop the message unposted: it is never handled, and what it holds is dropped on its service.
+	public function cancel(destructs self)
+		__Builtins.postedCancel(record)
+	end 'cancel'
+
+	/// The record of the message, which the library's registrations hand the runtime, and which only they take.
+	public function registered(destructs self) returns Count
+		return record
+	end 'registered'
+end 'PostedMessage'

@@ -162,6 +162,8 @@ type Parser
 	var nameWords as NameWords
 	// nameUses are the names that the code of the source writes, its interpolations' included (addNameUses).
 	var nameUses as ast.NameUses
+	// unionNames are the names the source writes before `.Message`, whose types' message unions it may name (unionNamesOf).
+	var unionNames as ast.StringList
 
 	static function new(consumes src Source, consumes toks Tokens, module diag.ModuleID) returns Parser
 		let text = src.text.clone()
@@ -169,7 +171,7 @@ type Parser
 		if src.files.count() > 0 'first'
 			prevEnd = src.files[0].start as Count
 		end 'first'
-		return Parser{src: src, toks: toks, tree: ast.Tree.new(module, text: text), lists: ListStacks.new(), pos: 0 as Count, fileIndex: 0 as Count, errors: diag.ErrorList.create(0), prevEnd: prevEnd, prevKind: TokenKind.fileEnd, joinNext: false, blanks: BlankRule.firstInFile, format: Formatter.new(), formatting: false, layoutOnly: false, directives: ast.StringList.create(0), directiveNext: 0 as Count, libraryTier: false, initializer: "", nameWords: NameWords.create(0), nameUses: ast.NameUses.create(0)}
+		return Parser{src: src, toks: toks, tree: ast.Tree.new(module, text: text), lists: ListStacks.new(), pos: 0 as Count, fileIndex: 0 as Count, errors: diag.ErrorList.create(0), prevEnd: prevEnd, prevKind: TokenKind.fileEnd, joinNext: false, blanks: BlankRule.firstInFile, format: Formatter.new(), formatting: false, layoutOnly: false, directives: ast.StringList.create(0), directiveNext: 0 as Count, libraryTier: false, initializer: "", nameWords: NameWords.create(0), nameUses: ast.NameUses.create(0), unionNames: ast.StringList.create(0)}
 	end 'new'
 
 	function fileNumber() returns Count
@@ -1127,10 +1129,10 @@ end 'parseInterpolation'
 // pushDecl adds a declaration to a module's list, and after a type, an enum or a union the typealiases and the static lets its
 // body declares, and after an extension the typealiases and the static lets it declares, each named by its owner and its own
 // name: such a member is a declaration of the module like the others, with the type as its scope.
-function pushDecl(mutates decls ast.DeclList, t ast.Tree, consumes d ast.Decl)
+function pushDecl(mutates decls ast.DeclList, t ast.Tree, consumes d ast.Decl, unionNames ast.StringList)
 	var nested = ast.DeclList.create(0)
 	match d 'k'
-		typeDecl(td) then nestedMemberDecls(td, out: nested)
+		typeDecl(td) then nestedMemberDecls(td, out: nested, unionNames: unionNames)
 		extensionDecl(xd) then extensionMemberDecls(xd, owner: ast.extensionOwnerName(t, xd: xd), out: nested)
 		interfaceDecl(ifd) then interfaceMemberDecls(ifd, out: nested)
 		funcDecl(_) then _ = 0
@@ -1145,7 +1147,7 @@ function pushDecl(mutates decls ast.DeclList, t ast.Tree, consumes d ast.Decl)
 	end 'each'
 end 'pushDecl'
 
-function nestedMemberDecls(td ast.TypeDecl, mutates out ast.DeclList)
+function nestedMemberDecls(td ast.TypeDecl, mutates out ast.DeclList, unionNames ast.StringList)
 	for i in 0 upto td.aliases.count() 'each'
 		var a = td.aliases[i].clone()
 		a.visibility = ast.nestedVisibility(td.visibility, member: a.visibility)
@@ -1153,19 +1155,20 @@ function nestedMemberDecls(td ast.TypeDecl, mutates out ast.DeclList)
 		out.push(ast.Decl.aliasDecl(a))
 	end 'each'
 	staticMemberDecls(td.statics, owner: td.name, visibility: td.visibility, out: out)
-	messageUnionDecl(td, out: out)
+	messageUnionDecl(td, out: out, unionNames: unionNames)
 end 'nestedMemberDecls'
 
-// messageUnionDecl files the message union of a type a message of which names a policy (README, "Overload policies"): a case
-// for each export instance method, its message kinds in source order, whose payload is the message's parameters, so that a
-// policy reads a message as one value of a closed set. Its cases are the methods' nodes and their types are the parameters'
-// type references, as written.
-function messageUnionDecl(td ast.TypeDecl, mutates out ast.DeclList)
+// messageUnionDecl files the message union of a type a message of which names a policy (README, "Overload policies"), or
+// whose name the module writes before `.Message` (unionNames), as a posted message names it: a case for each export instance
+// method, its message kinds in source order, whose payload is the message's parameters, so that a policy reads a message as
+// one value of a closed set and the runtime posts one. Its cases are the methods' nodes and their types are the parameters'
+// type references, as written. A type whose module names no union of it has none, so it costs nothing to compile.
+function messageUnionDecl(td ast.TypeDecl, mutates out ast.DeclList, unionNames ast.StringList)
 	var annotated = false
 	for i in 0 upto td.methods.count() 'annotated'
 		annotated = annotated or td.methods[i].isAnnotated
 	end 'annotated'
-	if not annotated 'none'
+	if not annotated and not unionNames.contains(td.name) 'none'
 		return
 	end 'none'
 	var ud = ast.UnionDecl.make(td.id)
@@ -1307,7 +1310,7 @@ function parseProgram(mutates p Parser) returns ast.DeclList
 		try 'decl'
 			p.blanks = blanksBefore(count)
 			let d = parseDeclaration(p)
-			pushDecl(decls, t: p.tree, d: d)
+			pushDecl(decls, t: p.tree, d: d, unionNames: p.unionNames)
 			p.pass(TokenKind.newline, what: "the end of the line")
 		end 'decl' otherwise 'refused'
 			abandoned = true
@@ -1323,6 +1326,28 @@ function parseProgram(mutates p Parser) returns ast.DeclList
 	end 'decls'
 	return decls
 end 'parseProgram'
+
+// unionNamesOf is each name the source writes just before `.Message`, once: the types whose message unions it may name, as
+// `Conn.Message.readable()` does, which are declared for them (messageUnionDecl). A name of another module's type is its
+// own module's to declare, which names it so too or names a policy.
+function unionNamesOf(p Parser) returns ast.StringList
+	var names = ast.StringList.create(0)
+	var twoBack = TokenKind.eof
+	var oneBack = TokenKind.eof
+	var name = ""
+	for t in p.toks 'tokens'
+		if t.kind == TokenKind.name 'name'
+			let text = p.text(t)
+			if oneBack == TokenKind.dot and twoBack == TokenKind.name and text == ast.messageUnionMember and not names.contains(name) 'union'
+				names.push(name.clone())
+			end 'union'
+			name = text
+		end 'name'
+		twoBack = oneBack
+		oneBack = t.kind
+	end 'tokens'
+	return names
+end 'unionNamesOf'
 
 // blanksBefore is the rule for the blank lines before a file's next declaration, after count of them.
 function blanksBefore(count Count) returns BlankRule
@@ -1362,6 +1387,7 @@ function parseSourceInto(module diag.ModuleID, consumes path String, consumes sr
 	let files = src.files.clone()
 	var p = Parser.new(src, toks: exchange(resolved.toks, value: Tokens.create(0)), module: module)
 	p.libraryTier = libraryTier
+	p.unionNames = unionNamesOf(p)
 	let decls = parseProgram(p)
 	addNameUses(p.nameUses, toks: p.toks, keywords: p.nameWords, from: 0)
 	if p.errors.count() > 0 'syntaxErrors'

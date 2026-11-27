@@ -348,8 +348,18 @@ export type Builder
 		for i in 0 upto captures.count() 'each'
 			f.args.push(captures[i])
 		end 'each'
-		return newWhen(behaviour, cownsStart: start, cownsCount: regOf(cowns.count()), capturesCount: indexOf(captures.count()))
+		return newWhen(noReg, body: behaviour, cownsStart: start, cownsCount: regOf(cowns.count()), capturesCount: indexOf(captures.count()))
 	end 'whenInstr'
+
+	// postedWhenInstr makes the record of a posted message's behaviour that body added, which it gives in dst: no acquire
+	// queues it.
+	export function postedWhenInstr(mutates self, dst Reg, behaviour Count, cowns RegList, captures RegList) returns Instr
+		let start = self.arguments(cowns)
+		for i in 0 upto captures.count() 'each'
+			f.args.push(captures[i])
+		end 'each'
+		return newWhen(dst, body: behaviour, cownsStart: start, cownsCount: regOf(cowns.count()), capturesCount: indexOf(captures.count()))
+	end 'postedWhenInstr'
 
 	// table adds the table of an interface value to the function, once however many boxes name it.
 	function table(mutates self, consumes t WitnessTable) returns Index

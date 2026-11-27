@@ -215,18 +215,25 @@ function loadIndexed(c Compile, mutates work ModuleWork, m Count)
 end 'loadIndexed'
 
 // programWords are the words of the library that a module of the program writes, each once, which parsed is the parse of: the
-// names its code writes (ast.ParsedModule.nameUses), and the name of the type that a map literal or a range value makes
-// (addLiteralWords).
+// names its code writes (ast.ParsedModule.nameUses), the name of the type that a map literal or a range value makes
+// (addLiteralWords), and PostedMessage where it writes a call of a handle's post, which gives one.
 function programWords(parsed ast.ParsedModule, library WordSet) returns ast.StringList
 	var words = ast.StringList.create(0)
 	var seen = WordSet.new()
+	var posts = false
 	for named in parsed.nameUses 'names'
 		let word = parsed.tree.text.sliceBytes(named.start as Count, endPos: named.endOffset())
 		if library.has(word) and not seen.has(word) 'new'
 			seen.insert(word.clone(), value: 1)
 			words.push(word.clone())
 		end 'new'
+		if word == ast.postMethodName 'post'
+			posts = true
+		end 'post'
 	end 'names'
+	if posts and library.has(ast.libraryPostedName) and not seen.has(ast.libraryPostedName) 'posted'
+		words.push(ast.libraryPostedName.clone())
+	end 'posted'
 	addLiteralWords(words, tree: parsed.tree)
 	return words
 end 'programWords'

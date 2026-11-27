@@ -1484,9 +1484,11 @@ export function newCallRuntime(dst Reg, symbol Rt, argsStart Reg, argsCount Reg,
 	return r
 end 'newCallRuntime'
 
-// When schedules the behaviour Body on the cowns Cowns, capturing Captures.
-export function newWhen(body Count, cownsStart Reg, cownsCount Reg, capturesCount Index) returns Instr
+// When schedules the behaviour Body on the cowns Cowns, capturing Captures. One that gives a register only makes
+// its record, which it gives, for the runtime to queue later: a message the runtime posts (README, "Stops").
+export function newWhen(dst Reg, body Count, cownsStart Reg, cownsCount Reg, capturesCount Index) returns Instr
 	var r = Instr.make(Opcode.opWhen)
+	r.dst = dst
 	r.imm = try body as Word otherwise panic("ir: when body is out of range")
 	r.a = cownsStart
 	r.b = cownsCount
@@ -3478,7 +3480,10 @@ export function instrDef(x Instr) returns table.Option with Reg
 		return table.Option.some(x.dst)
 	end 'opCallRuntime'
 	if x.op == Opcode.opWhen 'opWhen'
-		return table.Option.none
+		if x.dst == noReg 'none'
+			return table.Option.none
+		end 'none'
+		return table.Option.some(x.dst)
 	end 'opWhen'
 	if x.op == Opcode.opAsync 'opAsync'
 		return table.Option.some(x.dst)
@@ -4401,6 +4406,9 @@ export function instrWrites(x Instr, mutates out RegList)
 		return
 	end 'opCallRuntime'
 	if x.op == Opcode.opWhen 'opWhen'
+		if x.dst != noReg 'value'
+			out.push(x.dst)
+		end 'value'
 		return
 	end 'opWhen'
 	if x.op == Opcode.opAsync 'opAsync'
@@ -5143,6 +5151,9 @@ export function relocateInstr(mutates x Instr, at Relocation)
 		return
 	end 'opCallRuntime'
 	if x.op == Opcode.opWhen 'opWhen'
+		if x.dst != noReg 'value'
+			x.dst = renamedReg(at.names, r: x.dst)
+		end 'value'
 		x.imm = shiftedWord(x.imm, by: at.bodies)
 		x.a = shiftedReg(x.a, by: at.args)
 		return
@@ -5921,7 +5932,7 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 		return text
 	end 'opCallRuntime'
 	if x.op == Opcode.opWhen 'opWhen'
-		return "when {f.bodyName(whenBody(f, x: x))} cowns [{f.regsText(whenCownsStart(x), count: whenCownsCount(x))}] captures [{f.regsText(whenCapturesStart(x), count: whenCapturesCount(x))}]"
+		return "{resultText(x.dst)}when {f.bodyName(whenBody(f, x: x))} cowns [{f.regsText(whenCownsStart(x), count: whenCownsCount(x))}] captures [{f.regsText(whenCapturesStart(x), count: whenCapturesCount(x))}]"
 	end 'opWhen'
 	if x.op == Opcode.opAsync 'opAsync'
 		return "{resultText(x.dst)}async {funcSymbol(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, fid: asyncCallee(f, x: x))}({f.regsText(asyncArgsStart(x), count: asyncArgsCount(x))})"

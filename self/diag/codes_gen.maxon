@@ -507,6 +507,12 @@ export let errStopNowUndeclared = "E3952"
 // 'self.handle', a handler's handle to its own service, is written outside a message of a type: off a message no service runs.
 export let errSelfHandleOffMessage = "E3953"
 
+// The message h.post(m) makes for a service is not a value of that service's own message union, or names a service with none.
+export let errPostedMessageOfOtherType = "E3954"
+
+// The kind of a message the runtime posts returns or throws, and nobody awaits a posted message.
+export let errPostedKindReplies = "E3955"
+
 // A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 export let errInvalidFieldAccess = "E4006"
 

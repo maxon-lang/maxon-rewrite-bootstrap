@@ -4990,7 +4990,8 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   queue bound one message longer for each), and its oracles hold under every schedule; `fuzz --services` sends the walks
   of each graph as a kind of each policy of the menu in turn, and of a policy with state of its own.
 - **The message union** (`messageUnionDecl` in `self/syntax/parser.maxon`, `arrivingMessage` in `self/ir/services.maxon`):
-  a type a message of which names a policy has `T.Message`, a union the parser declares with a case for each of its message
+  a type a message of which names a policy, or whose module writes its name before `.Message` (`Conn.Message.readable()`, as a
+  posted message is named), has `T.Message`, a union the parser declares with a case for each of its message
   kinds, its export instance methods in source order, whose payload is the message's parameters, so `Api.Message` of
   `handle(request Request)` and `data(sample Sample)` is `handle(request Request)` and `data(sample Sample)`. A policy reads
   a message by matching on it (`match message 'm'`, `handle(request) then ... request.client ...`). It is named
@@ -5054,9 +5055,22 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   no message and no handle is (`await done`). A watch of a service that has ended already completes at once, and its cancel or
   drop takes it off without waiting. A message never awaits one (`E3221`), as it never awaits a reply. A watch is an entry of
   the scheduler's list (`schedWatchersOffset`, "Watching a stop" in `runtime/service.maxon`), so a service nobody watches holds
-  nothing for it, and the end of a service reads the list's one word to find nobody watches. Not yet: `notifyStopped`, which
-  tells a watcher that is a service by a message, and needs a message kind as a value, which the event registration of step 3
-  brings.
+  nothing for it, and the end of a service reads the list's one word to find nobody watches.
+  **A posted message** is a message the runtime posts to a service, which no sender awaits: `h.post(m)` makes one, the
+  library's `PostedMessage` (`stdlib/service/Posted.maxon`), of `m`, a value of the service's own message union that may carry
+  a key (`E3954`), of a kind whose handler returns and throws nothing, since nobody awaits it (`E3955`): a value written as a
+  case is that case's, and any other value may be any case, so every one must be. It is linear: a source of posted messages
+  takes it, and its `cancel()` drops it unhandled. It is a behaviour of the service that no send queued (`postedRecord` and
+  `lowerPostedBody` in `self/ir/services.maxon`, "Posted messages" in `runtime/service.maxon`): its record is made with no
+  acquire (a `when` that gives its record) and holds a hold on the service, its body dispatches on the union's case to the
+  case's handler, and its start (`rt.service.postedStart`) takes no place in the gate, so it is never slowed, and drops what
+  it holds where it was cancelled or its service was stopped at once.
+  **A service watches a stop** with `child.notifyStopped(self.handle.post(Sup.Message.childStopped(id)))`: the runtime posts
+  the message to its service once the service of `child` has ended, as it would complete a watch, and at once where it has
+  ended already. The watch is an entry of the scheduler's list whose cell is the record, so it is not live: the watched
+  service keeps the program alive, not the watch; and a watcher that ends first is told nothing, its watch dropped on it. The
+  interpreter does not model posted messages yet: a program that makes one is `// native-only`. A reason argument, H4's, can
+  come later.
   The **error of an await** is the handler's own unless the reply may fail with more: for a message whose policy sheds it
   (`busy`) or of a type that implements StopsNow (`serviceStopped`), the compiler makes an enum, named
   `Worker.work.Error` in messages, of the handler's cases, then `busy`, then `serviceStopped` (one the handler already throws

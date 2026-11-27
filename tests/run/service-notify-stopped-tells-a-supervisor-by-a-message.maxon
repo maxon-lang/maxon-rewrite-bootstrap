@@ -1,0 +1,72 @@
+// h.notifyStopped(watcher.post(m)) posts m, a value of the watcher's message union that carries a key, to the watcher once
+// the service of h has ended: by a shutdown, by stopNow, by the free of its last handle, or before the watch, which is told
+// at once. A watcher that ends first is told nothing: its watch is dropped, and the program ends with nothing left. A posted
+// message that no source takes is cancelled, and never handled.
+// native-only
+//> told of 4 children, their ids summing to 10
+export typealias Amount = int(0 to 1000000)
+
+type Child implements StopsNow
+	var id as Amount
+
+	static function create(id Amount) returns Self
+		return Self{id: id}
+	end 'create'
+
+	export function work(mutates self)
+		self.id = self.id
+	end 'work'
+end 'Child'
+
+type Sup
+	var told as Amount
+	var sum as Amount
+	var expect as Amount
+
+	static function create(expect Amount) returns Self
+		return Self{told: 0, sum: 0, expect: expect}
+	end 'create'
+
+	export function watch(mutates self, child Child.handle, id Amount)
+		child.notifyStopped(self.handle.post(Sup.Message.childStopped(id)))
+	end 'watch'
+
+	export function childStopped(mutates self, id Amount)
+		self.told = try self.told + 1 otherwise 0
+		self.sum = try self.sum + id otherwise 0
+		if self.told == self.expect 'all'
+			print("told of {self.told} children, their ids summing to {self.sum}\n")
+			self.stop()
+		end 'all'
+	end 'childStopped'
+end 'Sup'
+
+function main() returns ExitCode
+	let c1 = spawn Child.create(1)
+	let c2 = spawn Child.create(2)
+	let c3 = spawn Child.create(3)
+	let c4 = spawn Child.create(4)
+	let gone = c4.stopped()
+	try c4.work() otherwise panic("a send to a service that runs")
+	c4.shutdown()
+	await gone
+	let sup = spawn Sup.create(4)
+	let done = sup.stopped()
+	let unposted = sup.post(Sup.Message.childStopped(100))
+	unposted.cancel()
+	try sup.watch(c4.clone(), id: 4) otherwise panic("a send to a service that runs")
+	try sup.watch(c1.clone(), id: 1) otherwise panic("a send to a service that runs")
+	try sup.watch(c2.clone(), id: 2) otherwise panic("a send to a service that runs")
+	try sup.watch(c3, id: 3) otherwise panic("a send to a service that runs")
+	let early = spawn Sup.create(1)
+	let earlyDone = early.stopped()
+	try early.watch(c1.clone(), id: 9) otherwise panic("a send to a service that runs")
+	early.shutdown()
+	await earlyDone
+	try c1.work() otherwise panic("a send to a service that runs")
+	c1.shutdown()
+	try c2.work() otherwise panic("a send to a service that runs")
+	c2.stopNow()
+	await done
+	return 0
+end 'main'

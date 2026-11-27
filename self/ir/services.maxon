@@ -803,7 +803,7 @@ function startStopping(mutates inner Lowerer, mutates l Lowerer, p ast.Project, 
 	inner.cur = run
 end 'startStopping'
 
-// runSheds calls the shed of each shedding policy of the service type decl, in their order, with a view of the messages of
+// runSheds calls the shed of each shedding policy of the service type decl, in their order, with a view of the union of
 // its kinds: on the field that holds it, or on a value of a policy type that holds nothing.
 function runSheds(mutates inner Lowerer, mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, decl ast.TypeID, state Reg, horizon Reg)
 	var number = 1 as Count
@@ -933,3 +933,155 @@ end 'lowerServiceViewMark'
 function lowerServiceViewMarked(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceViewMarked, kind: IrKind.kindScalar, args: argsOf2(args[0], b: args[1]))
 end 'lowerServiceViewMarked'
+
+// Posted messages (runtime/service.maxon, "Posted messages"): a registration's message is a behaviour of the watcher's
+// service that no acquire queues, made where the registration is (postedRecord), whose record the runtime queues later. Its
+// body (lowerPostedBody) starts by rt.service.postedStart, which drops the union it holds where the message is not handled,
+// and else moves the arguments of the union's case out of its box and calls the case's handler with the state, as a
+// message's behaviour calls its handler: the checker refuses a kind with a reply (E3955), so nothing is answered.
+
+// The captures of a posted record, after its cown: its mark, the words a registration links it by, and the union.
+let postedLinkWords = 4 as Count
+
+// postedRecord makes the record of a posted message to the service of the handle watcher, of type watcherTy, carrying the
+// value message of its message union, which moves in: the record takes its own hold on the service.
+function postedRecord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, watcher Reg, watcherTy ast.TypeID, message Reg) returns Reg
+	let site = siteOf(l, p: p, node: c.node)
+	let body = lowerPostedBody(l, p: p, ms: ms, c: c, watcherTy: watcherTy)
+	var captures = RegList.create(0)
+	let zero = konst(l, value: 0 as Word)
+	captures.push(zero)
+	for _ in 0 upto postedLinkWords 'links'
+		captures.push(zero)
+	end 'links'
+	captures.push(message)
+	let made = newReg(l, kind: IrKind.kindScalar)
+	let instr = l.b.postedWhenInstr(made, behaviour: body, cowns: argsOf1(watcher), captures: captures)
+	emit(l, i: instr)
+	return entry(l, p: p, site: site, symbol: Rt.rtServicePostedNew, kind: IrKind.kindScalar, args: argsOf1(made))
+end 'postedRecord'
+
+// lowerPostedBody lowers the behaviour of a posted message to a service of the handle type watcherTy: it is given the address
+// of the state, the mark and the link words, which only the runtime reads, and the box of the union.
+function lowerPostedBody(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, watcherTy ast.TypeID) returns Count
+	let site = siteOf(l, p: p, node: c.node)
+	let state = applyType(l, p: p, ms: ms, t: ast.serviceState(ms.types, reads: p.types, t: watcherTy))
+	let decl = ast.typeEntry(ms.types, reads: p.types, t: state).effectiveOrigin()
+	let messages = ast.messageUnionOf(p, ms: ms, nt: decl)
+	if messages == ast.noType 'noUnion'
+		panic("ir: a posted message to a type with no message union, which the checker refuses")
+	end 'noUnion'
+	let name = behaviourBodyName(irSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: l.b.f), index: l.b.f.bodies.count())
+	var inner = Lowerer.new(exchange(l.instances, value: InstanceSet.new()))
+	begin(inner, p: p, ms: ms, fn: c.info.body, bindParams: ast.cloneTypeArgs(l.bindParams), bindArgs: ast.cloneTypeArgs(l.bindArgs), bindWitnesses: l.bindWitnesses.clone(), name: name)
+	let unionIndex = postedLinkWords + 2
+	inner.b.f.paramCount = unionIndex + 1
+	let stateReg = paramReg(inner, index: 0 as Count, kind: IrKind.kindScalar)
+	let box = paramReg(inner, index: unionIndex, kind: IrKind.kindManaged)
+	var horizon = 0 as Count
+	if ast.sheds(ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, nt: decl) 'sheds'
+		horizon = try ast.pendingWords(ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, nt: decl) + 1 otherwise panic("ir: a horizon past a word")
+	end 'sheds'
+	let horizonWord = konst(inner, value: try horizon as Word otherwise panic("ir: a horizon past a word"))
+	let status = entry(inner, p: p, site: site, symbol: Rt.rtServicePostedStart, kind: IrKind.kindScalar, args: argsOf2(stateReg, b: horizonWord))
+	let dropped = inner.b.newBlock()
+	let run = inner.b.newBlock()
+	let zero = konst(inner, value: 0 as Word)
+	let isDropped = compare(inner, op: CmpOp.cmpNe, a: status, b: zero, unsigned: false)
+	inner.b.terminate(inner.cur, t: newBranch(isDropped, ifTrue: dropped, ifFalse: run))
+	inner.cur = dropped
+	emitDropReg(inner, src: box, ty: dropType(l, p: p, ms: ms, t: messages))
+	inner.b.terminate(inner.cur, t: newRet(zero))
+	inner.cur = run
+	let tag = tagReg(inner, p: p, ms: ms, t: messages, v: box)
+	let cases = ast.typeEntry(ms.types, reads: p.types, t: messages).cases.count()
+	for i in 0 upto cases 'cases'
+		let handles = inner.b.newBlock()
+		let next = inner.b.newBlock()
+		let caseWord = konst(inner, value: try i as Word otherwise panic("ir: a case past a word"))
+		let hit = compare(inner, op: CmpOp.cmpEq, a: tag, b: caseWord, unsigned: false)
+		inner.b.terminate(inner.cur, t: newBranch(hit, ifTrue: handles, ifFalse: next))
+		inner.cur = handles
+		let kind = ast.typeEntry(ms.types, reads: p.types, t: messages).cases[i].name.clone()
+		postedHandler(inner, l: l, p: p, ms: ms, decl: decl, messages: messages, caseIndex: i, kind: kind, state: stateReg, box: box)
+		inner.b.terminate(inner.cur, t: newRet(zero))
+		inner.cur = next
+	end 'cases'
+	// A tag past the cases is no value of the union.
+	emitDropReg(inner, src: box, ty: dropType(l, p: p, ms: ms, t: messages))
+	inner.b.terminate(inner.cur, t: newRet(zero))
+	var made = inner.b.finish()
+	l.instances = exchange(inner.instances, value: InstanceSet.new())
+	var cowns = ast.TypeIDList.create(0)
+	cowns.push(applyType(l, p: p, ms: ms, t: watcherTy))
+	made.cownTypes = cowns
+	l.b.f.usesArrays = l.b.f.usesArrays or made.usesArrays
+	l.b.f.usesBytes = l.b.f.usesBytes or made.usesBytes
+	l.b.f.usesOs = l.b.f.usesOs or made.usesOs
+	return l.b.body(made)
+end 'lowerPostedBody'
+
+// postedHandler calls the handler of the case caseIndex of the union, the kind named so of the type decl, with the arguments
+// the case's box holds, which move out of it before it is dropped, and the state.
+function postedHandler(mutates inner Lowerer, mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, decl ast.TypeID, messages ast.TypeID, caseIndex Count, kind String, state Reg, box Reg)
+	let handler = match ast.typeEntry(ms.types, reads: p.types, t: decl).findMethod(kind) 'method'
+		some(fid) gives fid
+		none panic("ir: the message union of a type has a case of no message")
+	end 'method'
+	let fn = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: handler).clone()
+	var args = RegList.create(0)
+	for j in 0 upto fn.params.count() 'params'
+		let ty = applyType(l, p: p, ms: ms, t: fn.paramTypes[j])
+		let kindOfParam = holderKind(l, p: p, ms: ms, t: ty)
+		let v = newReg(inner, kind: kindOfParam)
+		let offset = payloadOffset(ms.types, reads: p.types, owner: messages, caseIndex: caseIndex, index: j)
+		if owning(kindOfParam) 'moved'
+			let addr = newReg(inner, kind: IrKind.kindScalar)
+			emit(inner, i: newFieldAddr(addr, obj: box, offset: offset))
+			emit(inner, i: newMoveAt(v, addr: addr))
+		end 'moved' else 'word'
+			emit(inner, i: newLoadField(v, obj: box, offset: offset))
+		end 'word'
+		args.push(v)
+	end 'params'
+	emitDropReg(inner, src: box, ty: dropType(l, p: p, ms: ms, t: messages))
+	let recv = newReg(inner, kind: IrKind.kindManaged)
+	emit(inner, i: newLoadAt(recv, addr: state, filled: false))
+	var callArgs = args.clone()
+	callArgs.insert(0, value: recv)
+	emitCall(inner, p: p, ms: ms, dst: noReg, target: handler, args: callArgs)
+	for j in 0 upto fn.params.count() 'borrowed'
+		let ty = applyType(l, p: p, ms: ms, t: fn.paramTypes[j])
+		if fn.params[j].conv == ast.Convention.convLet and holderOwns(l, p: p, ms: ms, t: ty) 'lent'
+			emitDropReg(inner, src: args[j], ty: dropType(l, p: p, ms: ms, t: ty))
+		end 'lent'
+	end 'borrowed'
+end 'postedHandler'
+
+// lowerServicePost makes `h.post(m)`: the record of a posted message to the service of h, carrying m, in the library's
+// PostedMessage, which a source of posted messages takes.
+function lowerServicePost(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let handleTy = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.receiver))
+	let record = postedRecord(l, p: p, ms: ms, c: c, watcher: recv, watcherTy: handleTy, message: args[0])
+	return builtinRecord(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node), values: argsOf1(record))
+end 'lowerServicePost'
+
+// lowerServicePostedCancel is the cancel of a posted message that no source took.
+function lowerServicePostedCancel(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServicePostedCancel, args: args)
+	return konst(l, value: 0 as Word)
+end 'lowerServicePostedCancel'
+
+// lowerServiceNotifyStopped registers the record of the PostedMessage it is given, which moves in, to be queued once the
+// service of the receiver has ended.
+function lowerServiceNotifyStopped(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let postedTy = applyType(l, p: p, ms: ms, t: c.info.paramSpecs[0].ty)
+	let record = newReg(l, kind: IrKind.kindScalar)
+	let offset = recordFieldOffset(ms.types, reads: p.types, owner: postedTy, index: 0 as Count)
+	emit(l, i: newLoadField(record, obj: args[0], offset: offset))
+	let drop = dropType(l, p: p, ms: ms, t: postedTy)
+	emitDropReg(l, src: args[0], ty: drop)
+	let site = siteOf(l, p: p, node: c.node)
+	entryVoid(l, p: p, site: site, symbol: Rt.rtServiceNotifyStopped, args: argsOf2(recv, b: record))
+	return konst(l, value: 0 as Word)
+end 'lowerServiceNotifyStopped'

@@ -2607,6 +2607,12 @@ export let libraryRangeName = "Range"
 
 export let libraryOpenRangeName = "OpenRange"
 
+// libraryPostedName is the type `h.post(m)` gives, the standard library's PostedMessage (its libraryServiceModule), and
+// postMethodName the handle's method that makes it, whose name reaches the module.
+export let libraryPostedName = "PostedMessage"
+
+export let postMethodName = "post"
+
 // rangeTypeName is the library type a range value makes: Range for an inclusive one, OpenRange for a half-open one.
 export function rangeTypeName(inclusive bool) returns String
 	return libraryRangeName if inclusive else libraryOpenRangeName

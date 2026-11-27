@@ -879,6 +879,28 @@ function entryServiceStopNowSelf(mutates vm Vm, f ir.IrFunction, x ir.Instr) thr
 	end 'message'
 end 'entryServiceStopNowSelf'
 
+// Posted messages (runtime/service.maxon, "Posted messages") are not modelled yet: a program that makes one stops, as one that
+// opens a socket does, and says `// native-only`.
+function haltPosted(mutates vm Vm, what String) returns Halt
+	return unmodelled(vm, what: "{what} is not run by the interpreter, which does not model posted messages yet: mark the program native-only")
+end 'haltPosted'
+
+function entryServiceNotifyStopped(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltPosted(vm, what: "notifyStopped")
+end 'entryServiceNotifyStopped'
+
+function entryServicePostedNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltPosted(vm, what: "a posted message")
+end 'entryServicePostedNew'
+
+function entryServicePostedCancel(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltPosted(vm, what: "a posted message")
+end 'entryServicePostedCancel'
+
+function entryServicePostedStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltPosted(vm, what: "a posted message")
+end 'entryServicePostedStart'
+
 // entryServiceSelfHandle is `self.handle`: another owner of the service whose message the thread runs.
 function entryServiceSelfHandle(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	let service = messageOf(vm, t: vm.cur)

@@ -1175,7 +1175,13 @@ function emitWhen(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	for i in 0 upto words 'width'
 		slots = try slots + valueWordsOf(fn, r: fn.args[try first + i otherwise panic("backend: an argument past the pool")]) otherwise panic("backend: a behaviour past memory")
 	end 'width'
-	let record = sel.newTemp()
+	let posted = ins.dst != ir.noReg
+	var record as MReg
+	if posted 'given'
+		record = vregOf(ins.dst)
+	end 'given' else 'temp'
+		record = sel.newTemp()
+	end 'temp'
 	sel.allocInto(record, bytes: try start + slots * wordBytes otherwise panic("backend: a behaviour past memory"))
 	let thunk = sel.address(thunkSymbol(bodySymbol(sel.fnSymbol, index: index)))
 	sel.store(record, disp: imm32Of(behaviourRunOffset), src: thunk)
@@ -1186,6 +1192,10 @@ function emitWhen(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		sel.storeValue(record, disp: imm32Of(at), r: r, f: fn)
 		at = try at + valueWordsOf(fn, r: r) * wordBytes otherwise panic("backend: a behaviour past memory")
 	end 'words'
+	if posted 'posted'
+		// The record of a posted message is the runtime's to queue later.
+		return
+	end 'posted'
 	sel.addArg(record, float: false)
 	sel.callSymbol(ir.rtSymbol(ir.Rt.rtCownAcquire))
 end 'emitWhen'

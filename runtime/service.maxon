@@ -602,6 +602,112 @@ function serviceStopped(handle Count) returns Count
 	return cell
 end 'serviceStopped'
 
+// Posted messages (README, "Stops"; out/dev/step3-readiness-design.md): a behaviour of a service that no send queued and no
+// sender awaits, which the runtime queues once something it waits for comes: a watched service's end (notifyStopped). Its
+// record is a message's, of one cown, made by the compiled code with no acquire (rt.service.postedNew), and holds a hold on its
+// service from then on, so a service that a posted message waits to tell lives on. Its captures are its mark, its links, the
+// place a registration knows it by, and the value of the message union it carries, which its thunk dispatches on. It takes no
+// place in the mailbox's gate: there is at most one for each registration, and whatever queues it is never slowed. Its start
+// (servicePostedStart) says whether it runs or drops what it holds: a message that was cancelled, or whose service was stopped
+// at once, is dropped, its handler not run. The runtime never frees a posted record itself: one that is not handled is
+// queued all the same, and its thunk drops what it holds, which only the compiled code knows the types of.
+let postedCancelled = 1 as Count
+
+let postedRun = 0 as Count
+
+let postedDropped = 1 as Count
+
+// postedTag marks a watch's cell that is a posted record, not a reply's cell: an address is a multiple of a word.
+let postedTag = 1 as Count
+
+function postedMark(record Count) returns Count
+	return __Raw.loadAcquire(record, offset: markOffset())
+end 'postedMark'
+
+// setPostedMark adds a bit to a posted record's mark, beside whoever adds another.
+function setPostedMark(record Count, bit Count)
+	var mark = __Raw.loadAcquire(record, offset: markOffset())
+	while (mark and bit) == 0 'set'
+		let seen = __Raw.compareExchange(record, offset: markOffset(), expected: mark, desired: __Raw.wrappingAdd(mark, right: bit))
+		if seen == mark 'done'
+			return
+		end 'done'
+		mark = seen
+	end 'set'
+end 'setPostedMark'
+
+// servicePostedNew gives a posted record its hold on its service: another owner of the cown, as a handle's copy is.
+function servicePostedNew(record Count) returns Count
+	_ = share(__Raw.loadWord(record, offset: cownOffset(1, index: 0)))
+	return record
+end 'servicePostedNew'
+
+// postedQueue queues a posted record on its service, as acquireOne queues a message, on a thread that holds a processor. Its hold
+// is the one it took when it was made: the cown was idle, so the behaviour runs at once with it; or a behaviour is ahead, whose
+// release takes a hold for this one as it hands the cown on, so this one's is given back first, before the link, while the
+// behaviour ahead still holds one, so the count never reaches 0 here.
+function postedQueue(record Count)
+	let cown = __Raw.loadWord(record, offset: cownOffset(1, index: 0))
+	let slot = requestSlot(record, index: 0)
+	__Raw.storeWord(slot, offset: requestCownOffset, value: cown)
+	__Raw.storeWord(slot, offset: requestOwnerOffset, value: record)
+	__Raw.storeWord(slot, offset: requestNextOffset, value: notQueued)
+	__Raw.storeWord(slot, offset: requestBlockedOffset, value: queued)
+	let prev = __Raw.atomicExchange(cown, offset: cownTailOffset, value: slot)
+	if prev == notQueued 'idle'
+		schedPush(record)
+		return
+	end 'idle'
+	_ = __Raw.atomicAdd(cown, offset: cownCountOffset, value: stepDown)
+	while __Raw.loadAcquire(prev, offset: requestBlockedOffset) == queuing 'wait'
+		__Raw.spinPause()
+	end 'wait'
+	__Raw.storeRelease(prev, offset: requestNextOffset, value: slot)
+end 'postedQueue'
+
+// servicePostedCancel is the drop of a posted message that was never registered: it is queued as cancelled, so its thunk
+// drops what it holds.
+function servicePostedCancel(record Count)
+	setPostedMark(record, bit: postedCancelled)
+	postedQueue(record)
+end 'servicePostedCancel'
+
+// servicePostedStart is what the behaviour of a posted message calls as it starts, in place of serviceStart: it takes no place
+// back, names the service as the one its green thread runs a message of and honours a stop the monitor asked for, clears the
+// shedding horizon where it is this record (horizon is the horizon's word plus 1, or 0 for a type that sheds nothing), and says
+// whether the message runs or is dropped.
+function servicePostedStart(state Count, horizon Count) returns Count
+	let handle = __Raw.wrappingSub(state, right: cownValueOffset)
+	let context = __Raw.threadContext()
+	let g = __Raw.loadWord(context, offset: contextGreenOffset)
+	__Raw.storeWord(g, offset: greenServiceOffset, value: handle)
+	honourAsk(context, g: g)
+	let record = runningRecord()
+	if horizon != 0 and __Raw.loadWord(handle, offset: pendingOffset(__Raw.wrappingSub(horizon, right: 1))) == record 'horizon'
+		__Raw.storeWord(handle, offset: pendingOffset(__Raw.wrappingSub(horizon, right: 1)), value: noHorizon)
+	end 'horizon'
+	if (postedMark(record) and postedCancelled) != 0 or stoppedNow(handle) 'dropped'
+		return postedDropped
+	end 'dropped'
+	return postedRun
+end 'servicePostedStart'
+
+// serviceNotifyStopped registers a posted record to be queued once a service has ended, as serviceStopped registers a watch's
+// cell: the entry's cell is the record tagged. A watch is not live: the watched service keeps the program alive, not the watch.
+function serviceNotifyStopped(handle Count, record Count)
+	let scheduler = schedulerOf(__Raw.threadContext())
+	let watch = alloc(watchBytes)
+	__Raw.storeWord(watch, offset: watchServiceOffset, value: handle)
+	__Raw.storeWord(watch, offset: watchCellOffset, value: __Raw.wrappingAdd(record, right: postedTag))
+	lockScheduler(scheduler)
+	__Raw.storeWord(watch, offset: watchNextOffset, value: __Raw.loadWord(scheduler, offset: schedWatchersOffset))
+	_ = __Raw.atomicExchange(scheduler, offset: schedWatchersOffset, value: watch)
+	unlockScheduler(scheduler)
+	if hasEnded(handle) 'ended'
+		serviceEnded(handle)
+	end 'ended'
+end 'serviceNotifyStopped'
+
 // hasEnded is whether a service is closed and holds no message: none queued or being queued, and none that runs.
 function hasEnded(handle Count) returns bool
 	let gate = __Raw.loadAcquire(handle, offset: serviceGateOffset)
@@ -639,7 +745,12 @@ function takeWatches(scheduler Count, service Count, cell Count) returns Count
 	var watch = __Raw.loadWord(scheduler, offset: schedWatchersOffset)
 	while watch != noWatch 'list'
 		let next = __Raw.loadWord(watch, offset: watchNextOffset)
-		let mine = __Raw.loadWord(watch, offset: watchCellOffset) == cell if cell != noWatch else __Raw.loadWord(watch, offset: watchServiceOffset) == service
+		var mine = __Raw.loadWord(watch, offset: watchCellOffset) == cell if cell != noWatch else __Raw.loadWord(watch, offset: watchServiceOffset) == service
+		if not mine and cell == noWatch and watchedBy(watch, service: service) 'watcher'
+			// The service that a posted watch tells has ended: it is told nothing, and the watch's message is dropped.
+			setPostedMark(__Raw.wrappingSub(__Raw.loadWord(watch, offset: watchCellOffset), right: postedTag), bit: postedCancelled)
+			mine = true
+		end 'watcher'
 		if mine 'take'
 			__Raw.storeWord(watch, offset: watchNextOffset, value: taken)
 			taken = watch
@@ -658,11 +769,22 @@ function giveWatches(first Count)
 	var watch = first
 	while watch != noWatch 'given'
 		let next = __Raw.loadWord(watch, offset: watchNextOffset)
-		replyGive(__Raw.loadWord(watch, offset: watchCellOffset), value: 0, error: 0)
+		let cell = __Raw.loadWord(watch, offset: watchCellOffset)
+		if (cell and postedTag) != 0 'posted'
+			postedQueue(__Raw.wrappingSub(cell, right: postedTag))
+		end 'posted' else 'cell'
+			replyGive(cell, value: 0, error: 0)
+		end 'cell'
 		free(watch)
 		watch = next
 	end 'given'
 end 'giveWatches'
+
+// watchedBy is whether a watch is a posted one that tells the service: a record whose cown it is.
+function watchedBy(watch Count, service Count) returns bool
+	let cell = __Raw.loadWord(watch, offset: watchCellOffset)
+	return (cell and postedTag) != 0 and __Raw.loadWord(__Raw.wrappingSub(cell, right: postedTag), offset: cownOffset(1, index: 0)) == service
+end 'watchedBy'
 
 // unwatch is the cancel of a watch's promise: its entry, if no end took it yet, is taken off and its cell given.
 function unwatch(cell Count)

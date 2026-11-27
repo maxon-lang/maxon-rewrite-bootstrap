@@ -1,0 +1,34 @@
+export typealias Amount = int(0 to 1000000)
+
+type Child
+	var id as Amount
+
+	static function create(id Amount) returns Self
+		return Self{id: id}
+	end 'create'
+end 'Child'
+
+type Sup
+	var told as Amount
+
+	static function create() returns Self
+		return Self{told: 0}
+	end 'create'
+
+	export function watch(mutates self, child Child.handle)
+		child.notifyStopped(self.handle.post(Sup.Message.childStopped(1)))
+	end 'watch'
+
+	export function childStopped(mutates self, id Amount) returns Amount
+		self.told = id
+		return id
+	end 'childStopped'
+end 'Sup'
+
+function main() returns ExitCode
+	let sup = spawn Sup.create()
+	try sup.watch(spawn Child.create(1)) otherwise ignore
+	return 0
+end 'main'
+
+// expect-error: E3955 at 19:52

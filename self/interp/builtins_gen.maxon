@@ -363,6 +363,22 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		entryServiceSelfHandle(vm, f: f, x: x)
 		return
 	end 'rtServiceSelfHandle'
+	if symbol == ir.Rt.rtServicePostedCancel 'rtServicePostedCancel'
+		try entryServicePostedCancel(vm, f: f, x: x)
+		return
+	end 'rtServicePostedCancel'
+	if symbol == ir.Rt.rtServiceNotifyStopped 'rtServiceNotifyStopped'
+		try entryServiceNotifyStopped(vm, f: f, x: x)
+		return
+	end 'rtServiceNotifyStopped'
+	if symbol == ir.Rt.rtServicePostedNew 'rtServicePostedNew'
+		try entryServicePostedNew(vm, f: f, x: x)
+		return
+	end 'rtServicePostedNew'
+	if symbol == ir.Rt.rtServicePostedStart 'rtServicePostedStart'
+		try entryServicePostedStart(vm, f: f, x: x)
+		return
+	end 'rtServicePostedStart'
 	if symbol == ir.Rt.rtServiceStopped 'rtServiceStopped'
 		try entryServiceStopped(vm, f: f, x: x)
 		return

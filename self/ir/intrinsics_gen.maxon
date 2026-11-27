@@ -470,6 +470,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrServiceStopped 'intrServiceStopped'
 		return lowerServiceStopped(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrServiceStopped'
+	if op == ast.Intrinsic.intrServicePost 'intrServicePost'
+		return lowerServicePost(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrServicePost'
+	if op == ast.Intrinsic.intrServiceNotifyStopped 'intrServiceNotifyStopped'
+		return lowerServiceNotifyStopped(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrServiceNotifyStopped'
 	if op == ast.Intrinsic.intrServiceMostQueued 'intrServiceMostQueued'
 		return lowerServiceMostQueued(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrServiceMostQueued'
@@ -842,6 +848,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrManagedSocketClose 'intrManagedSocketClose'
 		return lowerManagedSocketClose(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrManagedSocketClose'
+	if op == ast.Intrinsic.intrServicePostedCancel 'intrServicePostedCancel'
+		return lowerServicePostedCancel(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrServicePostedCancel'
 	if op == ast.Intrinsic.intrManagedSocketResolve 'intrManagedSocketResolve'
 		return lowerManagedSocketResolve(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrManagedSocketResolve'
@@ -1474,6 +1483,12 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrServiceStopped 'intrServiceStopped'
 		return false
 	end 'intrServiceStopped'
+	if op == ast.Intrinsic.intrServicePost 'intrServicePost'
+		return false
+	end 'intrServicePost'
+	if op == ast.Intrinsic.intrServiceNotifyStopped 'intrServiceNotifyStopped'
+		return false
+	end 'intrServiceNotifyStopped'
 	if op == ast.Intrinsic.intrServiceMostQueued 'intrServiceMostQueued'
 		return false
 	end 'intrServiceMostQueued'
@@ -1846,6 +1861,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrManagedSocketClose 'intrManagedSocketClose'
 		return false
 	end 'intrManagedSocketClose'
+	if op == ast.Intrinsic.intrServicePostedCancel 'intrServicePostedCancel'
+		return false
+	end 'intrServicePostedCancel'
 	if op == ast.Intrinsic.intrManagedSocketResolve 'intrManagedSocketResolve'
 		return false
 	end 'intrManagedSocketResolve'

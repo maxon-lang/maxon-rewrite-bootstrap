@@ -426,6 +426,8 @@ export enum Intrinsic
 	intrServiceShutdown
 	intrServiceStopNow
 	intrServiceStopped
+	intrServicePost
+	intrServiceNotifyStopped
 	intrServiceMostQueued
 	intrPromiseCancel
 	intrReplyAnswer
@@ -550,6 +552,7 @@ export enum Intrinsic
 	intrManagedSocketTimedOut
 	intrManagedSocketShutdownWrite
 	intrManagedSocketClose
+	intrServicePostedCancel
 	intrManagedSocketResolve
 	intrRawLoad8
 	intrRawLoad16
@@ -917,6 +920,8 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrServiceShutdown or
 		intrServiceStopNow or
 		intrServiceStopped or
+		intrServicePost or
+		intrServiceNotifyStopped or
 		intrServiceMostQueued or
 		intrPromiseCancel or
 		intrReplyAnswer or
@@ -1041,6 +1046,7 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrManagedSocketTimedOut or
 		intrManagedSocketShutdownWrite or
 		intrManagedSocketClose or
+		intrServicePostedCancel or
 		intrManagedSocketResolve or
 		intrRawLoad8 or
 		intrRawLoad16 or
@@ -1248,6 +1254,8 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrServiceShutdown or
 		intrServiceStopNow or
 		intrServiceStopped or
+		intrServicePost or
+		intrServiceNotifyStopped or
 		intrServiceMostQueued or
 		intrReplyLater or
 		intrArrayAwaitAny or
@@ -1370,6 +1378,7 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrManagedSocketTimedOut or
 		intrManagedSocketShutdownWrite or
 		intrManagedSocketClose or
+		intrServicePostedCancel or
 		intrManagedSocketResolve or
 		intrRawLoad8 or
 		intrRawLoad16 or
@@ -1623,6 +1632,8 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrServiceShutdown or
 		intrServiceStopNow or
 		intrServiceStopped or
+		intrServicePost or
+		intrServiceNotifyStopped or
 		intrServiceMostQueued or
 		intrPromiseCancel or
 		intrReplyAnswer or
@@ -1747,6 +1758,7 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrManagedSocketTimedOut or
 		intrManagedSocketShutdownWrite or
 		intrManagedSocketClose or
+		intrServicePostedCancel or
 		intrManagedSocketResolve or
 		intrRawLoad8 or
 		intrRawLoad16 or
@@ -2191,6 +2203,9 @@ export function rawCallInstead(b Builtins, owner TypeID, name String) returns ta
 		if name == "socketClose" 'socketClose'
 			return table.Option.some("a TcpClient's close()")
 		end 'socketClose'
+		if name == "postedCancel" 'postedCancel'
+			return table.Option.some("a PostedMessage's cancel()")
+		end 'postedCancel'
 		if name == "socketResolve" 'socketResolve'
 			return table.Option.some("TcpClient.connect(host, port)")
 		end 'socketResolve'
@@ -3508,6 +3523,8 @@ function declareServiceMethods(mutates tt TypeSlot, reads TypeTable, mutates ft 
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.serviceOrigin, op: Intrinsic.intrServiceShutdown, name: "shutdown", isStatic: false, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.serviceOrigin, op: Intrinsic.intrServiceStopNow, name: "stopNow", isStatic: false, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.serviceOrigin, op: Intrinsic.intrServiceStopped, name: "stopped", isStatic: false, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.serviceOrigin, op: Intrinsic.intrServicePost, name: "post", isStatic: false, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.serviceOrigin, op: Intrinsic.intrServiceNotifyStopped, name: "notifyStopped", isStatic: false, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.serviceOrigin, op: Intrinsic.intrServiceMostQueued, name: "mostQueued", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 end 'declareServiceMethods'
 
@@ -4041,11 +4058,14 @@ function declareBuiltinsMethods(mutates tt TypeSlot, reads TypeTable, mutates ft
 	ps114.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
 	let f115 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketClose, name: "socketClose", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps114, listed: true)
 	ft.lists[funcList(ft, f: f115)][funcIndex(ft, f: f115)].errTy = b.managedSocketErrorTy
-	let ty116 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
-	var ps117 = ParamSpecList.create(0)
-	ps117.push(ParamSpec.make("_", ty: ty116, conv: Convention.convLet))
-	let f118 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketResolve, name: "socketResolve", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps117, listed: true)
-	ft.lists[funcList(ft, f: f118)][funcIndex(ft, f: f118)].errTy = b.managedSocketErrorTy
+	var ps116 = ParamSpecList.create(0)
+	ps116.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrServicePostedCancel, name: "postedCancel", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps116, listed: true)
+	let ty117 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps118 = ParamSpecList.create(0)
+	ps118.push(ParamSpec.make("_", ty: ty117, conv: Convention.convLet))
+	let f119 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketResolve, name: "socketResolve", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps118, listed: true)
+	ft.lists[funcList(ft, f: f119)][funcIndex(ft, f: f119)].errTy = b.managedSocketErrorTy
 end 'declareBuiltinsMethods'
 
 function declareRawMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
