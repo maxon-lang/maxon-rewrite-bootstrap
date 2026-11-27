@@ -25,6 +25,10 @@
 
 	let tcpKeepCount = macosTcpKeepcnt
 
+	let ipprotoIpv6 = macosIpprotoIpv6
+
+	let ipv6V6only = macosIpv6V6only
+
 	let sockaddrIn4Bytes = macosSockaddrIn4Bytes
 
 	let sockaddrIn6Bytes = macosSockaddrIn6Bytes

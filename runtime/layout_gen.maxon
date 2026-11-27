@@ -837,6 +837,12 @@ let linuxTcpKeepintvl = 5 as Count
 // linuxTcpKeepcnt is TCP_KEEPCNT: how many probes go unanswered before the connection is ended.
 let linuxTcpKeepcnt = 6 as Count
 
+// linuxIpprotoIpv6 is IPPROTO_IPV6: the level of IPv6's options.
+let linuxIpprotoIpv6 = 41 as Count
+
+// linuxIpv6V6only is IPV6_V6ONLY: an IPv6 socket takes IPv6 alone, not IPv4 too as mapped addresses; Go clears it on a listener of the wildcard address, so that :: is both families' wildcard.
+let linuxIpv6V6only = 26 as Count
+
 // linuxMsgNosignal is MSG_NOSIGNAL: a send to a peer that has gone fails with EPIPE and raises no SIGPIPE.
 let linuxMsgNosignal = 16384 as Count
 
@@ -1319,6 +1325,12 @@ let macosTcpKeepintvl = 257 as Count
 
 // macosTcpKeepcnt is TCP_KEEPCNT: how many probes go unanswered before the connection is ended.
 let macosTcpKeepcnt = 258 as Count
+
+// macosIpprotoIpv6 is IPPROTO_IPV6: the level of IPv6's options.
+let macosIpprotoIpv6 = 41 as Count
+
+// macosIpv6V6only is IPV6_V6ONLY: an IPv6 socket takes IPv6 alone, not IPv4 too as mapped addresses; Go clears it on a listener of the wildcard address, so that :: is both families' wildcard.
+let macosIpv6V6only = 27 as Count
 
 // macosShutWrite is SHUT_WR: shutdown ends the sending half, which the peer reads as the end.
 let macosShutWrite = 1 as Count

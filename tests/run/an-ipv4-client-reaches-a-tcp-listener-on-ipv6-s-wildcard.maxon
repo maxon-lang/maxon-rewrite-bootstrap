@@ -1,0 +1,23 @@
+// A TcpListener bound to IPv6's wildcard, ::, takes IPv4 connections too, as Go's listen on the wildcard does: a client that
+// connects to 127.0.0.1 reaches it, and the line it sends comes back.
+// native-only
+// unsupported-targets: x64-windows
+//> the listener on :: heard: over IPv4
+//> the IPv4 client heard: over IPv4
+let PieceBytes = 64
+
+function main() returns ExitCode
+	var listener = try TcpListener.bind("::", port: 0) otherwise panic("the bind to :: failed")
+	var client = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise panic("the IPv4 connect failed")
+	var accepted = try listener.accept() otherwise panic("the accept failed")
+	_ = try client.send("over IPv4") otherwise panic("the send failed")
+	let heard = String.from(try accepted.readSome(PieceBytes) otherwise panic("the read failed"))
+	print("the listener on :: heard: {heard}\n")
+	_ = try accepted.send(heard) otherwise panic("the echo failed")
+	let echo = String.from(try client.readSome(PieceBytes) otherwise panic("the client's read failed"))
+	print("the IPv4 client heard: {echo}\n")
+	try accepted.close() otherwise panic("a close failed")
+	try client.close() otherwise panic("a close failed")
+	try listener.close() otherwise panic("a close failed")
+	return 0
+end 'main'

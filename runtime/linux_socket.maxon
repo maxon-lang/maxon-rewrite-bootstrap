@@ -23,6 +23,10 @@
 
 	let tcpKeepCount = linuxTcpKeepcnt
 
+	let ipprotoIpv6 = linuxIpprotoIpv6
+
+	let ipv6V6only = linuxIpv6V6only
+
 	let sockaddrIn4Bytes = linuxSockaddrIn4Bytes
 
 	let sockaddrIn6Bytes = linuxSockaddrIn6Bytes

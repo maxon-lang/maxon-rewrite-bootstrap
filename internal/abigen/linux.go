@@ -100,6 +100,8 @@ var linuxABI = []layoutConst{
 	{"linuxTcpKeepidle", 4, true, toRuntime, "TCP_KEEPIDLE: how many seconds a connection stays idle before its first probe."},
 	{"linuxTcpKeepintvl", 5, true, toRuntime, "TCP_KEEPINTVL: how many seconds between the probes that go unanswered."},
 	{"linuxTcpKeepcnt", 6, true, toRuntime, "TCP_KEEPCNT: how many probes go unanswered before the connection is ended."},
+	{"linuxIpprotoIpv6", 41, true, toRuntime, "IPPROTO_IPV6: the level of IPv6's options."},
+	{"linuxIpv6V6only", 0x1a, true, toRuntime, "IPV6_V6ONLY: an IPv6 socket takes IPv6 alone, not IPv4 too as mapped addresses; Go clears it on a listener of the wildcard address, so that :: is both families' wildcard."},
 	{"linuxMsgNosignal", 0x4000, true, toRuntime, "MSG_NOSIGNAL: a send to a peer that has gone fails with EPIPE and raises no SIGPIPE."},
 	{"linuxShutWrite", 1, true, toRuntime, "SHUT_WR: shutdown ends the sending half, which the peer reads as the end."},
 	{"linuxSockaddrIn4Bytes", 16, true, toRuntime, "a struct sockaddr_in: the family (16 bits), the port (16 bits, big-endian), the address (4 bytes), 8 bytes of zeros."},

@@ -13,12 +13,14 @@
 // event queue may come before the connect has ended. The socket is registered after its connect is started, and a listener
 // after its listen, as Go's are.
 //
-// A listener has a backlog of 128 and no SO_REUSEADDR, as maxon's has; a connected or accepted socket sends at once (TCP_NODELAY,
+// A listener has a backlog of 128 and no SO_REUSEADDR, as maxon's has, and one of IPv6's wildcard, ::, takes IPv4 too (IPV6_V6ONLY
+// cleared before the bind), as Go's dual-stack wildcard listen does; a connected or accepted socket sends at once (TCP_NODELAY,
 // as Go sets it), probes a peer that has been idle as Go's does (keepalive: after 15 s, every 15 s, ended after 9 unanswered;
 // socketSetKeepAlive changes the first, or turns it off) and raises no SIGPIPE when its peer has gone (MSG_NOSIGNAL on Linux,
 // SO_NOSIGPIPE on macOS). An accept passes over a connection that ended before it was taken (ECONNABORTED), as Go's does, fails
 // for good where the listener cannot accept (ENOTSOCK, EBADF, EINVAL, EFAULT: acceptFailed) and otherwise refuses the one
-// connection (acceptRetriable), after which the listener takes the next, as maxon's does. A read or a send moves at most socketMostBytes in one call, as Go's does.
+// connection (acceptRetriable), after which the listener takes the next, as maxon's does. A read or a send moves at most
+// socketMostBytes in one call, as Go's does.
 //
 // One owner holds a socket (the library's __ManagedSocket is linear), and each operation takes it mutates, so no two calls are
 // ever on one socket in one mode and no wait is in progress when it is closed: socketClose gives the entry back (eventRelease)
@@ -153,6 +155,9 @@ end 'addressFamilyBytes'
 			failWith(errorAddress, errorCase: listenerBindFailed)
 			return 0
 		end 'unopened'
+		if isIpv6Wildcard(address) 'dualStack'
+			_ = intOption(fd, level: ipprotoIpv6, option: ipv6V6only, value: 0)
+		end 'dualStack'
 		let name = sockaddrOf(address, length: length, port: port)
 		let bound = socketBind(fd, name: name, length: sockaddrBytes(length))
 		free(name)
@@ -460,6 +465,15 @@ end 'addressFamilyBytes'
 		end 'bytes'
 		return name
 	end 'sockaddrOf'
+
+	// isIpv6Wildcard is whether an address is IPv6's wildcard, ::, all 16 bytes 0.
+	function isIpv6Wildcard(address Count) returns bool
+		if collectionLength(address) != ipv6AddressBytes 'four'
+			return false
+		end 'four'
+		let data = collectionData(address)
+		return __Raw.loadWord(data, offset: 0) == 0 and __Raw.loadWord(data, offset: wordBytes) == 0
+	end 'isIpv6Wildcard'
 
 	// portOf is the port of a sockaddr of either family, its high byte first.
 	function portOf(name Count) returns Count

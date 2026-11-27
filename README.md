@@ -6188,8 +6188,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   socket has keepalive on, its first probe after 15 s idle, then every 15 s, the connection ended after 9 unanswered (Go's
   defaultTCPKeepAlive* of net/dial.go). `client.setKeepAlivePeriod(milliseconds)` (`stdlib/net/keepalive.maxon`, a
   `KeepAlivePeriodMs` of 0 to 32767000) sets the idle time, rounded up to a second, as Go's `TCPConn.SetKeepAlivePeriod` does, and
-  0 turns keepalive off, as a negative `Dialer.KeepAlive` does in Go.
-  Not yet: a service whose state holds a socket (who closes it when the service ends is undecided), dual-stack `::`, and the 1M-connection benchmark.
+  0 turns keepalive off, as a negative `Dialer.KeepAlive` does in Go. **A listener on `::` is dual-stack, as Go's wildcard
+  listen is**: it clears IPV6_V6ONLY before the bind, so it takes IPv4 connections too, whatever the system's default; a
+  listener of any other IPv6 address keeps the system's.
+  Not yet: a service whose state holds a socket (who closes it when the service ends is undecided), and the 1M-connection benchmark.
 - **There is no TEST-NET-1 short-circuit.** minimaxon has no TEST-NET-1 short-circuit; a connect dials as Go's does and the OS's timeout applies, where maxon's runtime refuses `192.0.2.0/24` without dialling (its two spec tests that connect there with no deadline are skipped with this reason).
 - **A file's close throws.** maxon's `close()` throws nothing and its drop discards what the system's close reports. Here,
   as Go's `Close` does, `close()` throws it, `__ManagedFileError.writeFailed`, which `FileWriter.close` throws as

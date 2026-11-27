@@ -89,6 +89,8 @@ var macosABI = []layoutConst{
 	{"macosTcpKeepalive", 0x10, true, toRuntime, "TCP_KEEPALIVE: how many seconds a connection stays idle before its first probe, Linux's TCP_KEEPIDLE."},
 	{"macosTcpKeepintvl", 0x101, true, toRuntime, "TCP_KEEPINTVL: how many seconds between the probes that go unanswered."},
 	{"macosTcpKeepcnt", 0x102, true, toRuntime, "TCP_KEEPCNT: how many probes go unanswered before the connection is ended."},
+	{"macosIpprotoIpv6", 41, true, toRuntime, "IPPROTO_IPV6: the level of IPv6's options."},
+	{"macosIpv6V6only", 0x1b, true, toRuntime, "IPV6_V6ONLY: an IPv6 socket takes IPv6 alone, not IPv4 too as mapped addresses; Go clears it on a listener of the wildcard address, so that :: is both families' wildcard."},
 	{"macosShutWrite", 1, true, toRuntime, "SHUT_WR: shutdown ends the sending half, which the peer reads as the end."},
 	{"macosSockaddrIn4Bytes", 16, true, toRuntime, "a struct sockaddr_in: its length (a byte), the family (a byte), the port (16 bits, big-endian), the address (4 bytes), 8 bytes of zeros."},
 	{"macosSockaddrIn6Bytes", 28, true, toRuntime, "a struct sockaddr_in6: its length, the family, the port, the flow information (32 bits), the address (16 bytes), the scope (32 bits)."},

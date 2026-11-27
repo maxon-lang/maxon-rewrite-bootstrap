@@ -1,0 +1,72 @@
+// A listener on IPv6's wildcard, ::, is dual-stack, as Go's wildcard listen is: IPV6_V6ONLY is 0, which getsockopt reads back,
+// whatever the system's default (Linux's net.ipv6.bindv6only, macOS's net.inet6.ip6.v6only), and a client that connects over
+// IPv4's loopback reaches it, its bytes read by the connection the listener accepts.
+// unsupported-targets: x64-windows
+//> IPV6_V6ONLY on the listener of ::: 0
+//> the IPv4 client's bytes: v4
+
+function main() returns ExitCode
+	greenReady(greenSpawn(__Raw.codeAddress("testDualStack")))
+	return 0
+end 'main'
+
+function testDualStack(g Count) returns Count
+	let wildcard = bytesNew()
+	for i in 0 upto 16 'zeros'
+		bytesInsert(wildcard, index: i, value: 0 as Byte)
+	end 'zeros'
+	let loopback = bytesNew()
+	bytesInsert(loopback, index: 0, value: 127 as Byte)
+	bytesInsert(loopback, index: 1, value: 0 as Byte)
+	bytesInsert(loopback, index: 2, value: 0 as Byte)
+	bytesInsert(loopback, index: 3, value: 1 as Byte)
+	var error = 0 as Count
+	let listener = socketListen(wildcard, port: 0, errorAddress: __Raw.addressOf(error))
+	testCheck(error, what: "the listen on ::")
+	let fd = __Raw.loadWord(listener, offset: socketFdOffset)
+	var value = 0 as Count
+	var length = intBytes
+	if failed(socketOptionRead(fd, level: ipprotoIpv6, option: ipv6V6only, value: __Raw.addressOf(value), lengthAddress: __Raw.addressOf(length))) 'refused'
+		panic("getsockopt refused IPV6_V6ONLY")
+	end 'refused'
+	testWrite("IPV6_V6ONLY on the listener of ::: {value and lowHalfMask}\n")
+	let port = socketBoundPort(listener, errorAddress: __Raw.addressOf(error))
+	testCheck(error, what: "the bound port")
+	let client = socketConnect(loopback, port: port, ms: 0, errorAddress: __Raw.addressOf(error))
+	testCheck(error, what: "the IPv4 connect")
+	let accepted = socketAccept(listener, errorAddress: __Raw.addressOf(error))
+	testCheck(error, what: "the accept")
+	let sent = bytesNew()
+	bytesAppendStr(sent, text: "v4")
+	_ = socketSendFrom(client, buffer: sent, at: 0, count: 2, errorAddress: __Raw.addressOf(error))
+	testCheck(error, what: "the send")
+	let received = bytesNew()
+	bytesReserve(received, count: 16)
+	_ = socketReadAppending(accepted, buffer: received, most: 16, errorAddress: __Raw.addressOf(error))
+	testCheck(error, what: "the read")
+	let text = bytesToString(received)
+	testWrite("the IPv4 client's bytes: {text}\n")
+	socketClose(accepted, errorAddress: __Raw.addressOf(error))
+	socketClose(client, errorAddress: __Raw.addressOf(error))
+	socketClose(listener, errorAddress: __Raw.addressOf(error))
+	testFreeBytes(wildcard)
+	testFreeBytes(loopback)
+	testFreeBytes(sent)
+	testFreeBytes(received)
+	return 0
+end 'testDualStack'
+
+function testFreeBytes(bytes Count)
+	free(collectionData(bytes))
+	free(bytes)
+end 'testFreeBytes'
+
+function testCheck(error Count, what String)
+	if error != 0 'failed'
+		panic("{what} failed")
+	end 'failed'
+end 'testCheck'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'
