@@ -23,6 +23,7 @@ var macosABI = []layoutConst{
 
 	// Files.
 	{"macosOpenReadOnly", 0x1000000, true, toRuntime, "O_RDONLY | O_CLOEXEC."},
+	{"macosOpenReadWrite", 2, true, toRuntime, "O_RDWR, without O_CLOEXEC: an fd that an exec keeps, as a standard stream is."},
 	{"macosOpenReplace", 0x1000601, true, toRuntime, "O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC."},
 	{"macosOpenCreateNew", 0x1000A01, true, toRuntime, "O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC: a file that must not be there, made and opened in one step."},
 	{"macosFileMode", 0x1B6, true, toRuntime, "0666, which the umask narrows: the mode of a file the runtime makes."},
@@ -43,6 +44,7 @@ var macosABI = []layoutConst{
 	{"macosEpipe", 32, true, toRuntime, "EPIPE: a write to a pipe whose reader has closed it."},
 	{"macosFcntlGetFlags", 3, true, toRuntime, "F_GETFL."},
 	{"macosFcntlSetFlags", 4, true, toRuntime, "F_SETFL."},
+	{"macosFcntlGetFd", 1, true, toRuntime, "F_GETFD: fails with EBADF for an fd that is not open."},
 	{"macosFcntlSetFd", 2, true, toRuntime, "F_SETFD."},
 	{"macosFdCloexec", 1, true, toRuntime, "FD_CLOEXEC: an fd that an exec closes."},
 	{"macosOpenNonblock", 4, true, toRuntime, "O_NONBLOCK: a write that would wait writes what fits, or fails with EAGAIN."},
@@ -54,6 +56,7 @@ var macosABI = []layoutConst{
 	{"macosEnoent", 2, true, toRuntime, "ENOENT."},
 	{"macosEsrch", 3, true, toRuntime, "ESRCH: a kevent of EVFILT_PROC for a process that has ended or is ending, which the filter cannot watch, and a signal to a process or a group that has no member left."},
 	{"macosEintr", 4, true, toRuntime, "EINTR: a call that a signal broke off, which is made again."},
+	{"macosEbadf", 9, true, toRuntime, "EBADF: an fd that is not open."},
 	{"macosEacces", 13, true, toRuntime, "EACCES."},
 	{"macosEbusy", 16, true, toRuntime, "EBUSY."},
 	{"macosEexist", 17, true, toRuntime, "EEXIST."},

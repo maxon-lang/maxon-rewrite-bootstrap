@@ -1,0 +1,48 @@
+// A program started with its standard input closed has the null device there, which it reads the end of file of through
+// /dev/stdin, and a child that inherits the stream reads the end of file at once. Unless the runtime opens the null device at
+// the closed fd at start-up, the event queue, the first fd it opens, takes the number: /dev/stdin is then the event queue,
+// which neither system opens as a file, and on macOS the spawn of a child that inherits it is refused with EBADF.
+// unsupported-targets: x64-windows
+// native-only
+//> own: 0 bytes
+//> reader: 0 bytes
+//> child exit 0
+function main() returns ExitCode
+	let me = try Process.executablePath() otherwise return 2
+	let args = CommandLine.args()
+	if args.count() > 1 and args.get(1) == "reader" 'reader'
+		var stdin = Console.stdin()
+		let received = try stdin.readToEnd() otherwise (e) 'unread'
+			print("read threw {e.name}\n")
+			return 1
+		end 'unread'
+		print("{received.count()} bytes\n")
+		return 0
+	end 'reader'
+	if args.count() > 1 'child'
+		let own = try File.readText(try FilePath.from("/dev/stdin") otherwise panic("/dev/stdin is a valid path")) otherwise (e) 'unopened'
+			print("own: unread {e.name}\n")
+			return 1
+		end 'unopened'
+		print("own: {own.byteLength()} bytes\n")
+		var readerArgv = StringArray.create(0)
+		readerArgv.push("reader")
+		var reader = Configuration.create(MxExecutable.path(me))
+		reader.arguments = readerArgv
+		reader.standardInput = InputSource.inherit
+		if let result = try reader.run() 'ran'
+			print("reader: {result.stdout}")
+		end 'ran' else (e) 'refused'
+			print("reader: refused {e.displayReason()}\n")
+		end 'refused'
+		return 0
+	end 'child'
+	var argv = StringArray.create(0)
+	argv.push("-c")
+	argv.push("exec \"$0\" child <&-")
+	argv.push(me.path)
+	let result = try MxSubprocess.run(MxExecutable.path(try FilePath.from("/bin/sh") otherwise return 3), arguments: argv) otherwise return 4
+	print(result.stdout)
+	print("child exit {result.exitCode()}\n")
+	return 0
+end 'main'

@@ -354,6 +354,28 @@
 		return checked(intResult(result))
 	end 'checkedInt'
 
+	// reopenStandardFds opens the null device at each of the standard fds that the process started with closed, as Go's runtime
+	// does at start-up (checkfds): the first fd a process opens takes the lowest number free, so otherwise the event queue, or
+	// the first pipe of a spawn, would be its standard input, output or error, read and written as one, and a child that
+	// inherits the stream would get that fd, or none, in place of it. The null device is opened without O_CLOEXEC, as a standard
+	// stream is, so a child inherits it.
+	function reopenStandardFds()
+		let path = cStringOf("/dev/null")
+		for fd in 0 upto 3 'fds'
+			let flags = checkedInt(__Raw.callImport3("fcntl", arg1: fd, arg2: macosFcntlGetFd, arg3: 0))
+			if not failed(flags) 'open'
+				continue 'fds'
+			end 'open'
+			if errnoOf(flags) != macosEbadf 'unchecked'
+				panic("cannot check a standard fd")
+			end 'unchecked'
+			if checkedInt(__Raw.callImport3("open", arg1: path, arg2: macosOpenReadWrite, arg3: 0)) != fd 'unopened'
+				panic("cannot open the null device at a standard fd that is closed")
+			end 'unopened'
+		end 'fds'
+		free(path)
+	end 'reopenStandardFds'
+
 	// The halves of a word, and the sign of its lower half.
 	let lowHalf = 0xFFFFFFFF as Count
 

@@ -1132,7 +1132,9 @@ function wakeThread(context Count)
 end 'wakeThread'
 
 // makeScheduler makes the scheduler's record and the processors, the event queue, and the main thread's part as thread 0 with
-// processor 0.
+// processor 0. On Linux and macOS it opens the null device at each standard fd that the process started with closed
+// (reopenStandardFds) before the event queue, or anything else, takes the number: every fd the runtime opens, a spawn's pipes
+// among them, comes after the scheduler.
 function makeScheduler(mainContext Count) returns Count
 	let procs = workerCount()
 	let scheduler = keep(try schedProcessorsOffset + procs * wordBytes otherwise panic("too many processors for memory"))
@@ -1144,6 +1146,12 @@ function makeScheduler(mainContext Count) returns Count
 	let main = makeProc(scheduler)
 	initThread(scheduler, context: mainContext)
 	setThreadIdentity(mainContext)
+	#if os(Linux)
+		reopenStandardFds()
+	#endif
+	#if os(macOS)
+		reopenStandardFds()
+	#endif
 	initEventQueue(scheduler)
 	initPreemption()
 	acquireProc(mainContext, proc: main)

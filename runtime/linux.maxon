@@ -155,6 +155,28 @@
 		return __Raw.wrappingSub(0, right: linuxAtCwdNegated)
 	end 'atCwd'
 
+	// reopenStandardFds opens the null device at each of the standard fds that the process started with closed, as Go's runtime
+	// does at start-up (checkfds): the first fd a process opens takes the lowest number free, so otherwise the event queue, or
+	// the first pipe of a spawn, would be its standard input, output or error, read and written as one, and a child that
+	// inherits the stream would get that fd, or none, in place of it. The null device is opened without O_CLOEXEC, as a standard
+	// stream is, so a child inherits it.
+	function reopenStandardFds()
+		let path = cStringOf("/dev/null")
+		for fd in 0 upto 3 'fds'
+			let flags = __Raw.syscall2(linuxSysFcntl, arg1: fd, arg2: linuxFcntlGetDescriptorFlags)
+			if not failed(flags) 'open'
+				continue 'fds'
+			end 'open'
+			if errnoOf(flags) != linuxEbadf 'unchecked'
+				panic("cannot check a standard fd")
+			end 'unchecked'
+			if __Raw.syscall4(linuxSysOpenat, arg1: atCwd(), arg2: path, arg3: linuxOpenReadWrite, arg4: 0) != fd 'unopened'
+				panic("cannot open the null device at a standard fd that is closed")
+			end 'unopened'
+		end 'fds'
+		free(path)
+	end 'reopenStandardFds'
+
 	// osArgs is the program's arguments, the program's own name first, as the kernel gives them.
 	function osArgs() returns Count
 		let count = startWord(0)

@@ -888,11 +888,17 @@ let linuxOpenReplace = 524865 as Count
 // linuxOpenCreateNew is O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC: a file that must not be there, made and opened in one step.
 let linuxOpenCreateNew = 524481 as Count
 
+// linuxOpenReadWrite is O_RDWR, without O_CLOEXEC: an fd that an execve keeps, as a standard stream is.
+let linuxOpenReadWrite = 2 as Count
+
 // linuxOpenCloseOnExec is O_CLOEXEC: an fd that an execve closes, as pipe2 takes it.
 let linuxOpenCloseOnExec = 524288 as Count
 
 // linuxOpenNonblock is O_NONBLOCK: a write that would wait writes what fits, or fails with EAGAIN.
 let linuxOpenNonblock = 2048 as Count
+
+// linuxFcntlGetDescriptorFlags is F_GETFD: fails with EBADF for an fd that is not open.
+let linuxFcntlGetDescriptorFlags = 1 as Count
 
 // linuxFcntlSetDescriptorFlags is F_SETFD: with 0, an fd that an execve keeps.
 let linuxFcntlSetDescriptorFlags = 2 as Count
@@ -965,6 +971,9 @@ let linuxEnoent = 2 as Count
 
 // linuxEsrch is ESRCH: a signal to a process or a group that has no member left.
 let linuxEsrch = 3 as Count
+
+// linuxEbadf is EBADF: an fd that is not open.
+let linuxEbadf = 9 as Count
 
 // linuxEintr is EINTR: a call that a signal broke off, which is made again.
 let linuxEintr = 4 as Count
@@ -1041,6 +1050,9 @@ let macosMapFixed = 16 as Count
 // macosOpenReadOnly is O_RDONLY | O_CLOEXEC.
 let macosOpenReadOnly = 16777216 as Count
 
+// macosOpenReadWrite is O_RDWR, without O_CLOEXEC: an fd that an exec keeps, as a standard stream is.
+let macosOpenReadWrite = 2 as Count
+
 // macosOpenReplace is O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC.
 let macosOpenReplace = 16778753 as Count
 
@@ -1101,6 +1113,9 @@ let macosFcntlGetFlags = 3 as Count
 // macosFcntlSetFlags is F_SETFL.
 let macosFcntlSetFlags = 4 as Count
 
+// macosFcntlGetFd is F_GETFD: fails with EBADF for an fd that is not open.
+let macosFcntlGetFd = 1 as Count
+
 // macosFcntlSetFd is F_SETFD.
 let macosFcntlSetFd = 2 as Count
 
@@ -1127,6 +1142,9 @@ let macosEsrch = 3 as Count
 
 // macosEintr is EINTR: a call that a signal broke off, which is made again.
 let macosEintr = 4 as Count
+
+// macosEbadf is EBADF: an fd that is not open.
+let macosEbadf = 9 as Count
 
 // macosEacces is EACCES.
 let macosEacces = 13 as Count
