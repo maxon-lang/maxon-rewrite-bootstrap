@@ -419,7 +419,7 @@ end 'addressFamilyBytes'
 		socketDisarm(socket, mode: eventRead, closing: true)
 		socketDisarm(socket, mode: eventWrite, closing: true)
 		eventRelease(__Raw.loadWord(socket, offset: socketEntryOffset))
-		let osError = closeFileHandle(__Raw.loadWord(socket, offset: socketFdOffset), writes: false)
+		let osError = closeSocketHandle(__Raw.loadWord(socket, offset: socketFdOffset))
 		if __Raw.atomicAdd(socket, offset: socketPendingOffset, value: stepDown) == 1 'last'
 			free(socket)
 		end 'last'
@@ -430,10 +430,21 @@ end 'addressFamilyBytes'
 		succeed(errorAddress)
 	end 'socketClose'
 
+	// eventRegisterSocket registers a socket's fd with the event queue as any handle's is, edge-triggered for both modes, and
+	// gives its entry, or noEntry where the event queue refuses it.
+	function eventRegisterSocket(fd Count) returns Count
+		return eventRegister(fd)
+	end 'eventRegisterSocket'
+
+	// closeSocketHandle closes a socket's fd and gives the error the system reported, or 0.
+	function closeSocketHandle(fd Count) returns Count
+		return closeFileHandle(fd, writes: false)
+	end 'closeSocketHandle'
+
 	// socketOf is the record of a socket's fd, registered with the event queue for both modes, no deadline set; or 0, the fd
 	// closed, when the event queue refuses it.
 	function socketOf(fd Count) returns Count
-		let entry = eventRegister(fd)
+		let entry = eventRegisterSocket(fd)
 		if entry == noEntry 'refused'
 			closeFd(fd)
 			return 0
