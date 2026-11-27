@@ -1830,6 +1830,7 @@ directory-scope.md: every-unmarked-declaration-kind-is-visible-to-another-file-o
 directory-scope.md: module-is-an-ordinary-identifier
 directory-scope.md: unmarked-functions-call-each-other-across-three-files-of-a-directory
 directory.md: a-drive-relative-and-a-rooted-path-name-the-same-entry-at-both-lengths
+directory.md: a-path-holding-a-nul-names-no-directory-not-its-prefix
 directory.md: a-path-of-each-length-around-the-extension-threshold-is-created-found-and-read-both-ways
 directory.md: a-path-spelled-with-slashes-repeated-separators-and-a-trailing-separator-names-the-same-entry-at-both-lengths
 directory.md: a-relative-path-past-the-legacy-windows-limit-names-the-same-entries-as-a-short-one
@@ -2450,6 +2451,7 @@ file-info.md: file-info.directory
 file-info.md: file-info.empty-file
 file-info.md: file-info.not-found
 file-info.md: file-info.read-only
+file-io.md: a-path-holding-a-nul-names-no-file-not-its-prefix
 file-io.md: bytes-written-before-close-are-the-files-content-after
 file-io.md: create-text-of-an-existing-file-throws-already-exists
 file-io.md: create-text-refuses-an-existing-file
@@ -9273,6 +9275,7 @@ wide-spill-frames.md: a-walking-frame-on-a-green-threads-stack
 wide-spill-frames.md: spill-slot-past-the-scaled-imm12
 wide-spill-frames.md: the-smallest-frame-that-walks-the-guard-pages
 wide-spill-frames.md: wide-incoming-argument-past-the-scaled-imm12
+windows-wide-text.md: a-path-holding-a-nul-names-no-file
 with-iterator.md: withIterator.a-loop-that-breaks-before-awaiting-drops-every-promise-once
 with-iterator.md: withIterator.a-promise-array-it-never-awaits-is-dropped-once
 with-iterator.md: withIterator.awaits-every-promise-of-an-array
