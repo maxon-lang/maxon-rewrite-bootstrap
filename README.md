@@ -5037,12 +5037,12 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   until the receiver's queue empties, not until it falls under 64, so it is slowed at most once per turn's worth it
   hands on; a service that catches up unmutes its senders in order, 64 at a time; and a service that is muted lets
   its own senders go, which is what keeps any cycle of muted services from closing. The queue is bounded in messages
-  whatever the speeds: 64, or the tasks parked on the receiver when its queue empties if they are more (a slowed task
-  parks with its place counted and its message not yet queued), plus what each sender sends in the stretch that follows,
-  one message for a task and the handler that was slowed (and, if it drains on, what it holds) for a service, and a round
-  more for each if the receiver is muted in the stretch: main and a slow consumer, 65; N tasks and a slow consumer,
-  max(64, N) + N; main, a relay and the consumer, 66 at the relay
-  and 132 at the consumer. A service is listed on one receiver at a time, so a second receiver that is behind gets its next
+  whatever the speeds where one task sends: 64 plus what each sender sends in a stretch where the receiver holds 64 or
+  more, one message for the task and the handler that was slowed (and, if it drains on, what it holds) for a service, and
+  a round more for each if the receiver is muted in the stretch: main and a slow consumer, 65; main, a relay and the
+  consumer, 66 at the relay and 132 at the consumer. Several tasks sending to one service are not bounded by that
+  argument, since a slowed task parks with its place counted and its message not yet queued: 200 coroutines sending to
+  one slow service held 393 at four processors on Windows and 542 at four on x64 Linux. A service is listed on one receiver at a time, so a second receiver that is behind gets its next
   handler after each unmute by the first. `h.mostQueued()`, in the library tier, is the most messages a slowed send to
   the service found queued, exact once past 64, which tests hold the bound to. The interpreter models the same rules, with
   a turn of 1 to 4 messages drawn from the seed, and its deadlock report names each service muted with nothing left to
@@ -5050,10 +5050,8 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   succeeded is handled exactly once; each sender's messages to a service (a service's from all its handlers, a task's) are
   handled in the order sent; a run never stops with backpressure alone holding it, every waiting thread a task parked at a
   send, with services muted or tasks so parked (progress); and the most a service held stays within the bound above for
-  the shapes it is stated for: a service that sends to none and only tasks send to (the parts of a parallel loop among them), the larger of the turn
-  and its tasks, plus one per task, since a slowed task parks with its place counted and the queue can empty with every
-  task's place held; a relay of
-  one task to one service, the turn and 2; that relay's lone consumer, two turns and 4. An oracle that fails is an internal
+  the shapes it is stated for: a service that sends to none and that one task alone sends to, the turn and 1 (several
+  tasks, such as the parts of a parallel loop, are checked for no bound); a relay of one task to one service, the turn and 2; that relay's lone consumer, two turns and 4. An oracle that fails is an internal
   error that names it, the seed of the schedule and the standard input, never a report of the program. `fuzz --services`
   runs the brute force of them (see "Tests").
 - **Overload policies** (`stdlib/service/Overload.maxon`, `self/check/policies.maxon`, `lowerPolicySend` in

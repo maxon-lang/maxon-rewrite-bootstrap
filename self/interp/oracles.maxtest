@@ -97,18 +97,17 @@ test 'the queue bound follows the shape of the senders'
 	_ = d.pairOf(taskSender(1), to: 7)
 	_ = d.pairOf(serviceSender(7), to: 8)
 	_ = d.pairOf(taskSender(2), to: 9)
-	_ = d.pairOf(taskSender(1), to: 9)
 	let relay = queueBound(d, service: 7, turn: turn)
 	let consumer = queueBound(d, service: 8, turn: turn)
 	let leaf = queueBound(d, service: 9, turn: turn)
-	if not relay.isSome() or relay.unwrap() != turn + 2 or not consumer.isSome() or consumer.unwrap() != 2 * turn + 4 or not leaf.isSome() or leaf.unwrap() != turn + 2 'wrong'
-		panic("the bounds of a relay, its consumer and a leaf of two tasks are wrong")
+	if not relay.isSome() or relay.unwrap() != turn + 2 or not consumer.isSome() or consumer.unwrap() != 2 * turn + 4 or not leaf.isSome() or leaf.unwrap() != turn + 1 'wrong'
+		panic("the bounds of a relay, its consumer and a leaf of one task are wrong")
 	end 'wrong'
-	// Past a turn's worth of tasks, each can hold a place parked as the leaf's queue empties.
-	let short = queueBound(d, service: 9, turn: 1)
-	if not short.isSome() or short.unwrap() != 4 'parked'
-		panic("the bound of a leaf of two tasks with a turn of 1 is not 4")
-	end 'parked'
+	// Several tasks, as the parts of a parallel loop, have no bound the header proves.
+	_ = d.pairOf(taskSender(1), to: 9)
+	if queueBound(d, service: 9, turn: turn).isSome() 'tasks'
+		panic("a leaf of two tasks has a bound")
+	end 'tasks'
 	_ = d.pairOf(taskSender(2), to: 8)
 	if queueBound(d, service: 8, turn: turn).isSome() 'stated'
 		panic("a consumer that a task sends to beside the relay has a bound")

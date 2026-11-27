@@ -35,16 +35,16 @@
 // The bound, in messages, is of the places a service's gate counts. A service catches up, letting its senders go, only
 // when its queue empties, and its length makes it behind, so it drains on and is muted (the progress argument) only then
 // too. A slowed task parks inside its send with its place counted and its message not yet queued, so when the queue
-// empties the count may still hold one place for each task parked on the service, and every send of the stretch that
-// follows is slowed while the count is turnBehaviours or more. So the count passes the larger of turnBehaviours and the
-// tasks parked at its start only by the slowed sends of the stretch, until the queue next empties. A task makes one
-// slowed send in a stretch, the one it parks with, and one more each time a mute lets it go; a service never holds a
-// place unqueued, and adds the messages of its handlers from its first slowed send to its mute, which is that one
-// handler or, if it drains on, that one and those it holds, whose own senders are slowed in turn, and one handler more
-// each time such a mute lets it go. So tasks and a slow consumer they alone send to: max(turnBehaviours, tasks) + tasks,
-// turnBehaviours + 1 for main alone; main, a relay and the consumer: turnBehaviours + 2 at the relay, whose one task
-// holds no more places parked than a turn, and 2 * turnBehaviours + 4 at the consumer, whose only sender is a service; a
-// chain adds a stage's bound at each stage. A service is listed on one receiver at a time, so a second receiver that is behind
+// empties the count may still hold the place of a task parked on the service. One task alone holds at most that one,
+// which a turn covers: let go, it queues its message and sends unslowed until the count is turnBehaviours, and its next
+// send is slowed and parks it, so it adds its parked message, and one more each time a mute lets it go. A service never
+// holds a place unqueued, and adds the messages of its handlers from its first slowed send to its mute, which is that
+// one handler or, if it drains on, that one and those it holds, whose own senders are slowed in turn, and one handler
+// more each time such a mute lets it go. So main and a slow consumer: turnBehaviours + 1; main, a relay and the
+// consumer: turnBehaviours + 2 at the relay and 2 * turnBehaviours + 4 at the consumer, whose only sender is a service;
+// a chain adds a stage's bound at each stage. Several tasks sending to one service are not bounded by this argument:
+// their parked places and what each adds when let go have not been bounded, and 200 coroutines sending to one slow
+// service held 393 natively at four processors on Windows and 542 at four on x64 Linux, past twice their number. A service is listed on one receiver at a time, so a second receiver that is behind
 // gets that service's next handler after each unmute by the first, and its bound counts on how often the first catches
 // up. A cycle whose handlers send more than they take grows, which no bound in messages could stop without stopping the
 // program. A kind of a coalescing policy adds one message to each bound, its pending word's, which its sends queue without

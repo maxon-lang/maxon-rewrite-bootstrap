@@ -1,6 +1,6 @@
 // The parts of a parallel for are tasks that send to one service many times each, slowed whenever it is behind: every
-// message is handled, and the service's queue stays within the bound its tasks allow, which the interpreter's oracle checks
-// under each schedule (seeds 4, 12, 16, 20, 24, 25 and 36 park more tasks than a turn as the queue empties).
+// message is handled under each schedule, the seeds 4, 12, 16, 20, 24, 25 and 36 among them, which park more tasks than a
+// turn as the queue empties.
 // schedules: 40
 //> total 5050
 typealias Num = int(0 to 1000000)
