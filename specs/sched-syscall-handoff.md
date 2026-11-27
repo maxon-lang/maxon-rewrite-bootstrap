@@ -729,6 +729,7 @@ done exited=true
 ```
 
 <!-- test: a-handed-off-processor-leaves-the-wake-gate-working -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 2 -->
 <!-- stdin: after "S: sentinel ran" -->
 ⭐⭐ **A HANDOFF STARTS ITS MACHINE WITHOUT A SPINNING CREDIT, BECAUSE IT RESERVED NONE — Go's
@@ -764,6 +765,7 @@ end 'textOf'
 
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias FlagCell = SharedValue with bool
 
 type Reader
@@ -925,6 +927,7 @@ done sibling=1 read=5
 ```
 
 <!-- test: a-busy-processor-serves-a-machine-regaining-one -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: reader is in the kernel" -->
 `reader` blocks in a `stdin` read, the monitor takes its processor, and the read returns while `main` holds the one
@@ -935,6 +938,7 @@ scheduler hands the processor to the waiting machine on its own, at a schedule; 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias StageCell = SharedValue with Integer
 
 let reading = 1 as Integer

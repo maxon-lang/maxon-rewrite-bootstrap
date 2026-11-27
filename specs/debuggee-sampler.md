@@ -1346,9 +1346,12 @@ error E3171: <fragment>:2:9: `DebugPort` cannot be a registry value or a `Shared
 ```
 
 <!-- test: error.a-process-trace-cannot-be-shared-between-threads -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
+<!-- positions: moved -->
 A `ProcessTrace` is refused as a `SharedValue` payload for the same reason.
 
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias SharedTrace = SharedValue with ProcessTrace
 
 function main() returns ExitCode

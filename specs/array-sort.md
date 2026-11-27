@@ -1159,6 +1159,7 @@ sorted
 ```
 
 <!-- test: driftsort-compare-count-grows-as-n-log-n -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 The stable sort does `O(n log n)` comparisons. 65,536 pseudo-random keys are sorted through a comparator
 that counts its calls, and the count must stay within 32 per element — twice `log2(65536)`. A merge
 policy that folds every new run into the run beside it, or a node power that reads as zero, costs
@@ -1168,6 +1169,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias CallCell = SharedValue with Integer
 
 function counted(x Integer, y Integer, tally CallCell) returns Ordering
@@ -1213,6 +1215,7 @@ sorted within n log n
 ```
 
 <!-- test: driftsort-survives-a-quicksort-adversary -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -1258,8 +1261,10 @@ type Numbering
 	end 'create'
 end 'Numbering'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ValueCell = SharedValue with Numbering
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias TraceCell = SharedValue with Trace
 
 function valueOf(values ValueCell, item Integer) returns Integer

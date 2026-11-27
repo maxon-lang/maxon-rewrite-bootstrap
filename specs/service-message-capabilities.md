@@ -580,11 +580,13 @@ error E2010: <fragment>:16:30: Expected 'a type' but got 'isolated'
 ```
 
 <!-- test: values-and-handles-need-no-word -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 Numbers, `bool`, `String`, `Character`, an enum, a service handle and a `SharedValue` cell cross on parameter, reply and factory with no capability word.
 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Counter = SharedValue with Integer
 
 enum Mode

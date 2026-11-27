@@ -302,6 +302,7 @@ end 'main'
 ```
 
 <!-- test: a-frozen-interface-holder-is-read-by-coroutines-without-a-service -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 4 -->
 <!-- process: own -->
 A frozen `Holder` and one held by a `SharedValue` each hold a `Labeled` whose conformer has a `String` and an array field, and an `async` coroutine reads each a thousand times, yielding between reads. Nothing is spawned, so no value reaches another strand: the coroutines run on the spawner's, and the program counts its shared reads plainly. That is a fact about the whole program, so the case runs as a program of its own: batched beside a case that spawns, it would no longer be one that spawns nothing.
@@ -343,6 +344,7 @@ type Holder
 	end 'show'
 end 'Holder'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias HolderCell = SharedValue with Holder
 
 function readFrozen(frozen frozen with Holder) returns Tally
@@ -700,6 +702,7 @@ note: <fragment>:36:10: `Gen with Step` is converted to `Sink` here
 ```
 
 <!-- test: a-closure-conformer-is-frozen-and-published-without-a-service -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- process: own -->
 `Closure` holds a function value and stands at `Stepper`, and a `Holder` of one is frozen and another published to a `SharedValue`. The program spawns no service, so nothing it shares reaches another thread: both doors accept the value, and it runs. That is a fact about the whole program, so the case runs as a program of its own: batched beside a case that spawns, it would be refused as the next case is.
 
@@ -737,6 +740,7 @@ type Holder
 	end 'run'
 end 'Holder'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias HolderCell = SharedValue with Holder
 
 function main() returns ExitCode
@@ -755,6 +759,7 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-conformer-is-refused-once-a-service-is-spawned -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -795,6 +800,7 @@ type Holder
 	end 'run'
 end 'Holder'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias HolderCell = SharedValue with Holder
 
 type Idle

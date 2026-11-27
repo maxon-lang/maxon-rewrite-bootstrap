@@ -656,6 +656,7 @@ fatal error: a machine pin was released by a green thread that holds none
 ```
 
 <!-- test: builtins-cpu-parallel.a-pinned-service-outlives-main-and-resumes-on-its-machine -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 A service pins itself to the machine that runs it and parks on timers until `main` publishes a release. That
 machine is the main one, so it waits for its pinned thread while another machine runs `main` to its end, and the
@@ -666,6 +667,7 @@ last line after `main`'s, so no timer is compared to how long `main` takes to ge
 ```maxon
 typealias Count = int(0 to 1000)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ReleaseCell = SharedValue with bool
 
 let releasePollMs = 1

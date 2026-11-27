@@ -253,6 +253,7 @@ end 'main'
 ```
 
 <!-- test: a-published-large-fixed-array-is-copied-before-it-is-written -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 A fixed array published through a `SharedValue` is frozen at 400 bytes and at 40000: a reader that wants to write
 copies it first, and the published one keeps its elements.
 ```maxon
@@ -270,6 +271,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
 function check(count ElementIndex) returns ExitCode
@@ -1183,6 +1185,7 @@ end 'main'
 ```
 
 <!-- test: a-published-co-allocated-array-is-copied-before-it-is-written -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 A value published through a `SharedValue` is frozen: a reader that wants to write copies it first, and the copy of
 a co-allocated array owns a buffer of its own while the published one keeps its elements.
 ```maxon
@@ -1200,6 +1203,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
 function main() returns ExitCode

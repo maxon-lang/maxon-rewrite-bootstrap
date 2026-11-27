@@ -214,6 +214,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: spawn-read-line.posix-a-parked-line-read-yields-to-a-sleeper -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- unsupported-targets: x64-windows -->
 <!-- procs: 1 -->
 ⭐ **THE READ YIELDS ON THIS LANE TOO.** A slow child, which writes its line only once the sleeper has created a
@@ -283,6 +284,7 @@ end 'main'
 
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias OrderCell = SharedValue with Integer
 ```
 ```exitcode

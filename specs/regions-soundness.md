@@ -761,9 +761,11 @@ end 'main'
 ```
 
 <!-- test: an-async-over-a-shared-value-clone-is-not-tied -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 A `SharedValue` is a handle every thread reads without a lock, so the coroutine holds no mutable data of the caller and its promise may be stored.
 
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Flag = SharedValue with bool
 
 typealias FlagPromise = Promise with bool

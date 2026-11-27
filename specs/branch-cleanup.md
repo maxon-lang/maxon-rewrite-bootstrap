@@ -62,10 +62,12 @@ fall-through and which is the branch.
 ## Tests
 
 <!-- test: an-inverted-signed-branch-keeps-its-arms -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 Every signed integer predicate, each written so that ONE arm is correct and the other returns
 its own exit code. The operands come from a shared cell the constant folder cannot see through, so
 each comparison survives to the backend as a real compare-and-branch pair.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias SeedCell = SharedValue with FullRangeInt
 
 function main() returns ExitCode
@@ -112,6 +114,7 @@ end 'main'
 ```
 
 <!-- test: an-inverted-float-branch-still-refuses-a-nan -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 ⭐ **THE HAZARD.** All six IEEE predicates against a NaN, each with an explicit else arm — so
 whichever arm the layout makes the fall-through, the NaN's destination is pinned. A complement
 taken from the source predicate rather than from the flags (`mi` → `ge` on AArch64, or a
@@ -131,6 +134,7 @@ type Magnitude
 	end 'create'
 end 'Magnitude'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias MagnitudeCell = SharedValue with Magnitude
 
 function main() returns ExitCode
@@ -220,11 +224,13 @@ end 'main'
 ```
 
 <!-- test: an-inverted-zero-test-keeps-its-sense -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 A branch on a materialized boolean, which AArch64 selects as a register zero-test (`cbz` /
 `cbnz`) carrying no flags at all. Its complement is the other spelling of the same test, so a
 cleanup that reached for a condition-code table here would find nothing to invert; one that
 swapped the targets without swapping the spelling inverts the program.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias SeedCell = SharedValue with FullRangeInt
 
 function main() returns ExitCode
@@ -249,12 +255,14 @@ end 'main'
 ```
 
 <!-- test: threading-does-not-drop-an-edge-copy -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 A value that arrives at a join with a different definition on each arm, inside a loop — so the
 join's incoming edges are critical and SSA destruction splits them. Each split block holds this
 edge's parallel copies and must therefore NOT be threaded away; a cleanup that bypassed a split
 block because it "looks like" a forwarding jump drops the copy and the loop accumulates whatever
 the register happened to hold. The four iterations contribute 1, 10, 1, 10.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias SeedCell = SharedValue with Count
 
 function main() returns ExitCode
@@ -280,6 +288,7 @@ end 'main'
 ```
 
 <!-- test: a-threaded-jump-table-arm-still-reaches-its-block -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 Two shapes at once. `classify` returns from BOTH arms, so its continuation block is unreachable
 and carries no terminator op — the block the elimination walk must drop without disturbing the
 neighbour a live block physically falls into. `pick` lowers to a multiway jump table whose arms
@@ -288,6 +297,7 @@ branches, and an entry re-pointed at the wrong survivor returns another arm's nu
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias SeedCell = SharedValue with Val
 
 function classify(n Val) returns Val

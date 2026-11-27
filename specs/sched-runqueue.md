@@ -150,6 +150,7 @@ section is the one statement of that gate.
 ## Tests
 
 <!-- test: sched-runqueue.a-coroutine-spawned-by-a-coroutine-joins-its-owners-queue -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 **THE TRANSITIVITY THE WHOLE PIN RESTS ON.** A coroutine's owner is its SPAWNER'S owner, not its spawner
 — so `inner`, spawned by the coroutine `outer`, belongs to the same green thread `main` does, and lands
@@ -171,6 +172,7 @@ a wrong answer. Removing the stamp altogether is the coarser sabotage and does n
 green-thread program takes an access violation (exit `0xC0000005`).
 A zero here is not a benign default and a plausible-looking non-zero is not enough either.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Cell = SharedValue with Integer
 
 function tick(order Cell) returns Integer
@@ -224,11 +226,13 @@ ra=1 rb=1 posA=1 posB=2 posC=3
 ```
 
 <!-- test: sched-runqueue.spawn-order-is-fifo-within-one-green-thread -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 **FIFO WITHIN ONE GREEN THREAD.** A strand queue is a queue and not a stack: three coroutines spawned
 in order run in that order, whatever order their promises are awaited in. The awaits here run BACKWARDS
 on purpose — `p3` first — so a queue that handed back the newest entry would be visible as `a3=1`.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Cell = SharedValue with Integer
 
 function tick(order Cell) returns Integer
@@ -430,6 +434,7 @@ pingpong-done
 ```
 
 <!-- test: sched-runqueue.a-yield-hands-the-processor-to-a-never-run-sibling -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 **THE TAIL, AND THE ARM THAT DOES NOT DECIDE IT.** A yield parks the yielder and the strand runner places
 it: behind whatever its strand already has runnable, or — with nothing else runnable — at the back of its
@@ -445,6 +450,7 @@ decides whether `sibling` ever gets a turn:
 
 It reads the sibling's flag as its own result, so the assertion is what the YIELDER saw.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Cell = SharedValue with Integer
 
 function yielder(siblingRan Cell) returns Integer
@@ -483,6 +489,7 @@ seen=1 done=1
 ```
 
 <!-- test: sched-runqueue.a-dropped-coroutine-in-the-queue-is-skipped-not-run -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 **THE POPPER'S HALF OF THE DROPPED-THREAD PROTOCOL.** `marker`'s promise is dropped while two live
 coroutines sit around it in the queue — one ahead of it, one behind — so the drop's own front-of-queue
@@ -491,6 +498,7 @@ awaits the strand runner reaches `marker`, and it must reclaim that coroutine in
 `ran` stays 0 and the two live results still arrive. A scheduler that ran it would both set `ran` and leave
 a thread nobody awaits, which is the green-thread live-count abort (75) rather than 7.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Cell = SharedValue with Integer
 
 function marker(ran Cell) returns Integer
@@ -529,6 +537,7 @@ ran=0
 ```
 
 <!-- test: sched-runqueue.a-spawn-drop-loop-stays-bounded -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- skip: language difference: maxon's parallelBoundary marker is dropped: async starts only a function that may wait, and CPU work goes to a parallel loop or a service (README, Where it differs from Maxon: there is no parallelBoundary) -->
 <!-- procs: 1 -->
 **THE SWEEP'S HALF.** Five thousand coroutines are spawned and dropped while `main` never parks, so the
@@ -541,6 +550,7 @@ before it, which `Scheduler.counters().recycledThreads` counts.
 ✅ **THIS CASE OWNS THE FRONT SWEEP.** With the drop's front sweep removed, this case reads `recycled=0`
 while the other two drop cases below stay GREEN, so the count is this case's road and nobody else's.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Cell = SharedValue with Integer
 
 function neverRuns(ran Cell) returns Integer

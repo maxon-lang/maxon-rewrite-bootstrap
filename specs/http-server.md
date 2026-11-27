@@ -2397,6 +2397,7 @@ a request beside a silent client: 200 [answered]
 ```
 
 <!-- test: http-server.a-handler-that-computes-does-not-delay-another-connection -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 4 -->
 `serve` gives each accepted connection a green thread of its own, so a handler that computes for a long stretch without
 waiting holds only its own connection. The `/spin` handler tells a `Gate` service it has begun and then loops, reading a
@@ -2407,6 +2408,7 @@ server that served connections one at a time could not give it, and would never 
 ```maxon
 typealias Turns = int(0 to u64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ReleaseCell = SharedValue with bool
 
 let GatePollMs = 2

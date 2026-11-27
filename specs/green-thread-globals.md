@@ -329,6 +329,7 @@ error E3220: <fragment>:27:11: the initializer of 'box' calls 'Box.start': a mod
 ```
 
 <!-- test: a-service-program-may-use-the-stdlibs-trace-capture -->
+<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
 ⭐⭐ **THE LIBRARY CODE A MESSAGE RUNS KEEPS ITS STATE IN A SERVICE AND A `SharedValue`.** `TraceCapture` holds
 its state in a service of its own and a `SharedValue`, and this program — which spawns `Counter` and starts
 and stops a capture from `main` — compiles and runs.
@@ -346,7 +347,7 @@ type Polite implements Greeter
 		return Self{n: 0}
 	end 'create'
 
-	function greet(mutates self) returns String
+	function greet() returns String
 		return "hello"
 	end 'greet'
 end 'Polite'
@@ -370,9 +371,11 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
+	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 	TraceCapture.startCapture()
 	let h = spawn Counter.create()
 	let n = try await h.add(5) otherwise 0
+	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 	let keys = TraceCapture.stopCapture()
 	print("n={n} keys={keys.count()}\n")
 	return n as ExitCode

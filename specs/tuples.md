@@ -5492,11 +5492,12 @@ error E3226: <fragment>:20:22: Cannot cast element 0 of a tuple from 'WideBoxHan
 ```
 
 <!-- test: error.a-tuple-cast-refuses-to-freeze-a-shared-value-element -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias FlagCell = SharedValue with Wide
 
 typealias Plain = (FlagCell, Wide)

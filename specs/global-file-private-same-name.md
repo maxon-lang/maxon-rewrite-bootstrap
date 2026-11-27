@@ -27,6 +27,7 @@ one slot and silently return a wrong number.
 ## Tests
 
 <!-- test: file-private-same-name-in-two-directories-through-a-generic-instance -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 Two files in two DIRECTORIES each declare an unmarked `limit`, `tag` and `calls` (a `SharedValue` cell). A generic type
 declared in `a.maxon` has a method that reads them, and `app/main.maxon` instantiates it and calls that method
 from beside its own three declarations of the same names. The method reads `a.maxon`'s declarations
@@ -42,6 +43,7 @@ let tag = b"AAA"
 
 let calls = CallCell.create(1 as Count)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 export typealias CallCell = SharedValue with Count
 
 export type Box uses T

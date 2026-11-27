@@ -1213,6 +1213,7 @@ kind=2 code=3 memberEnded=true
 ```
 
 <!-- test: subprocess-builtins.a-release-under-a-parked-collect-is-a-named-stop -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -1251,6 +1252,7 @@ let collectDeadlineMs = 10000
 
 let holdStdin = 4
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ParkMark = SharedValue with SchedulerEventCount
 
 function parkedInCollect(parkedFrom ParkMark) returns bool
@@ -1314,6 +1316,7 @@ fatal error: runtime abort 117 (subpCollectSlotReleased)
 ```
 
 <!-- test: subprocess-builtins.a-second-collect-on-a-held-slot-is-a-named-stop -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -1342,6 +1345,7 @@ let collectDeadlineMs = 10000
 
 let holdStdin = 4
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ParkMark = SharedValue with SchedulerEventCount
 
 function parkedInCollect(parkedFrom ParkMark) returns bool

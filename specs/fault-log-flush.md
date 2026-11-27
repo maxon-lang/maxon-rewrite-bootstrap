@@ -26,6 +26,7 @@ there. A fault raised after the stack has grown dispatches within it and is the 
 ## Tests
 
 <!-- test: an-error-logged-before-a-stack-overflow-is-written -->
+<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -39,7 +40,9 @@ function descend(depth Depth) returns Depth
 end 'descend'
 
 function main() returns ExitCode
+	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(LogHandlerOptions.create(LogStream.standardError, addTime: false, addSource: false)), levels: LogLevelVar.create(LogLevels.minimum(LogLevel.info))))
+	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 	Log.error("boom")
 	let reached = descend(0)
 	print("{reached}\n")
@@ -157,6 +160,7 @@ Stack trace:
 ```
 
 <!-- test: an-error-logged-before-an-access-violation-is-written -->
+<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
 <!-- tier: stdlib -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -177,7 +181,9 @@ function descend(depth Integer) returns Integer
 end 'descend'
 
 function main() returns ExitCode
+	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(LogHandlerOptions.create(LogStream.standardError, addTime: false, addSource: false)), levels: LogLevelVar.create(LogLevels.minimum(LogLevel.info))))
+	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 	Log.error("boom")
 	if descend(1000) != 1000 'grownWrongly'
 		return 2

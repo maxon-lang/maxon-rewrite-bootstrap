@@ -2076,18 +2076,22 @@ end 'main'
 ```
 
 <!-- test: a-constant-record-of-let-values-is-stored-in-a-plain-field -->
+<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
 `LogLevel.info` is a constant of an all-`let` record, so a plain field holds it and nothing is pinned.
 
 ```maxon
 type Holder
+	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 	export var level as LogLevel
 
+	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 	static function create(level LogLevel) returns Holder
 		return Self{level: level}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
+	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 	let holder = Holder.create(LogLevel.info)
 	print("{holder.level.rank}\n")
 	return 0
@@ -2476,6 +2480,7 @@ end 'main'
 ```
 
 <!-- test: a-constant-name-handed-through-a-plain-parameter-into-a-map-is-not-copied -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 `record` takes its name and identity as plain parameters and files them under a `Map` key and an `immutable` value.
 Every caller passes constants, so the parameters are read-only, and the key and the value are the image records
 themselves: the map is cloned into a shared cell, whose freeze finds no record with an owner outside it.
@@ -2515,6 +2520,7 @@ type Box
 	end 'create'
 end 'Box'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias BoxCell = SharedValue with Box
 
 function main() returns ExitCode

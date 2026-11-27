@@ -2489,6 +2489,7 @@ error E2013: <fragment>:23:28: cannot pass 'start' to a function that writes arg
 ### A captured Promise
 
 <!-- test: closure-capture.a-captured-promise-moves-into-the-closure -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 A capture moves the promise into the closure, so the green thread stays alive for as long as the closure does
 and runs at the next yield, after the frame that spawned it has ended. `main`'s two yields let `setFlag` run
 to completion on the strand, so the closure's `isComplete()` read answers through a promise that is still
@@ -2500,6 +2501,7 @@ typealias IntPromise = Promise with Integer
 
 typealias Thunk = function() returns Integer
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias FlagCell = SharedValue with Integer
 
 function setFlag(flag FlagCell) returns Integer

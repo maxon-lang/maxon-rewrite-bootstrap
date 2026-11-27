@@ -37,6 +37,7 @@ about preemption has changed.
 ## Tests
 
 <!-- test: sched-preempt.a-cpu-bound-service-yields-to-a-bystander -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 **A SERVICE THAT NEVER WAITS DOES NOT HOLD THE ONLY PROCESSOR FOR EVER.** Every iteration of the spinner passes a
 function prologue, so a preemption request reaches it within one sysmon period. The spinner stops only when
@@ -45,6 +46,7 @@ spinner's run and no wall-clock budget the host's own load can exhaust decides i
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ReleaseCell = SharedValue with bool
 
 // Recursive, so it is never inlined and every iteration passes a function prologue.
@@ -108,6 +110,7 @@ ping=1 spun=true preempted=true
 ```
 
 <!-- test: sched-preempt.preemption-inside-deep-recursion-is-sound -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 **A PREEMPTION CAN LAND ANYWHERE IN A 20,000-FRAME RECURSION**, including at a prologue whose stack must also
 grow. Every pass recomputes a value that flows through every frame and compares it with the first pass, so
@@ -118,6 +121,7 @@ the clock, so a busy host does not quietly buy the corruption check fewer of the
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ReleaseCell = SharedValue with bool
 
 let churnRounds = 3000
@@ -183,6 +187,7 @@ ping=1 wrong=0
 ```
 
 <!-- test: sched-preempt.as-many-spinners-as-processors-cannot-starve-another -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 4 -->
 **EVERY PROCESSOR BUSY WITH A SPINNER, AND `main` AND ONE MORE SERVICE STILL GET A TURN.** No processor is ever
 idle, so only a preemption hands one over. Every spinner stops only when `main` publishes the release, which it
@@ -197,6 +202,7 @@ typealias ReplyPromise = Promise with Integer
 
 typealias ReplyPromiseArray = Array with ReplyPromise
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ReleaseCell = SharedValue with bool
 
 // Recursive, so it is never inlined and every iteration passes a function prologue.
@@ -278,6 +284,7 @@ spinners=true ping=1
 ```
 
 <!-- test: sched-preempt.a-preempted-coroutine-resumes-before-its-strand-does-anything-else -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 **A PREEMPTION TAKES THE PROCESSOR, NEVER THE TURN.** A coroutine gives up its green thread only where it
 waits (`async` is a coroutine, not a thread), so its owner and its siblings may observe what it wrote only
@@ -312,8 +319,10 @@ let spinFloorMs = 150
 
 let deadlinesDueMs = 35
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias PhaseCell = SharedValue with Integer
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias HonouredCell = SharedValue with bool
 
 // Recursive, so it is never inlined and every iteration passes a function prologue.
@@ -471,6 +480,7 @@ wrong=0 preempted=true
 ```
 
 <!-- test: sched-preempt.a-call-free-loop-is-preempted-anyway -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 **A LOOP THAT CALLS NOTHING STILL GIVES UP ITS PROCESSOR.** A request written into the stack guard is read
 only by a function that reserves a frame, so this spinner never reads one; the thread has to be stopped where
@@ -482,6 +492,7 @@ no frame a stack guard is read in, so it is no prologue a request could be taken
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ReleaseCell = SharedValue with bool
 
 let chunkSteps = 1000000
@@ -543,6 +554,7 @@ ping=1 spun=true preempted=true
 ```
 
 <!-- test: sched-preempt.every-processor-in-a-call-free-loop-still-yields -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 4 -->
 **ONE CALL-FREE SPINNER PER PROCESSOR, AND A FIFTH SERVICE STILL GETS A TURN.** No processor is ever idle and
 no spinner ever reaches a prologue, so only stopping a thread where it runs hands one over. Every spinner stops
@@ -558,6 +570,7 @@ typealias ReplyPromise = Promise with Integer
 
 typealias ReplyPromiseArray = Array with ReplyPromise
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ReleaseCell = SharedValue with bool
 
 let chunkSteps = 1000000

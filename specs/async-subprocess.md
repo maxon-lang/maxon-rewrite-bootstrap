@@ -293,6 +293,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-subprocess.posix-children-exiting-in-reverse-order-each-resume-with-their-own-status -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 ⭐ **THREE CHILDREN WHOSE EXITS ARRIVE IN THE OPPOSITE ORDER FROM THEIR SPAWNS.** The first child outlives the
@@ -346,6 +347,7 @@ end 'main'
 
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias OrderCell = SharedValue with Integer
 ```
 ```exitcode
@@ -401,6 +403,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-subprocess.interleave-with-sleep -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 A slow child and a short (50 ms) sleeper run concurrently. The child exits only once the sleeper has created a
@@ -458,6 +461,7 @@ end 'main'
 
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias OrderCell = SharedValue with Integer
 ```
 ```exitcode
@@ -465,6 +469,7 @@ typealias OrderCell = SharedValue with Integer
 ```
 
 <!-- test: async-subprocess.posix-interleave-with-sleep -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 ⭐ **THE CASE THAT PROVES THE PROCESS WAIT YIELDS ON THIS LANE.** A slow child and a short 50 ms sleeper run
@@ -528,6 +533,7 @@ end 'main'
 
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias OrderCell = SharedValue with Integer
 ```
 ```exitcode
@@ -819,6 +825,7 @@ end 'main'
 ```
 
 <!-- test: async-subprocess.sixty-five-concurrent-children-all-complete -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 ⭐ **SIXTY-FIVE CHILDREN PARKED AT ONCE, AND NOTHING IS FULL.** How many children a program may wait on
@@ -991,6 +998,7 @@ end 'main'
 
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias DoneCell = SharedValue with Integer
 ```
 ```exitcode
@@ -998,6 +1006,7 @@ typealias DoneCell = SharedValue with Integer
 ```
 
 <!-- test: async-subprocess.posix-sixty-five-concurrent-children-all-complete -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 `sixty-five-concurrent-children-all-complete`'s subject on the POSIX lanes: sixty-five children parked
@@ -1160,6 +1169,7 @@ end 'main'
 
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias DoneCell = SharedValue with Integer
 ```
 ```exitcode

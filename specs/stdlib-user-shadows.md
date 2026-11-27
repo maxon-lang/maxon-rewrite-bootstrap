@@ -1192,6 +1192,7 @@ end 'main'
 
 <!-- test: stdlib-user-shadows.a-default-spawn-reaches-a-shadowed-library-type-by-its-qualified-name -->
 <!-- skip: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry) -->
+<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
 A program that declares its own `TextLogHandler` makes the library's `TextLogHandler` the default
 `LogHandler` by writing `stdlib.TextLogHandler`, and the record sent to it is written.
 ```maxon
@@ -1199,11 +1200,14 @@ type TextLogHandler
 	export var y as Count
 end 'TextLogHandler'
 
+// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 // TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default LogHandler = spawn stdlib.TextLogHandler.create(LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false))
 
 function main() returns ExitCode
+	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 	let record = freeze(LogRecord.create(0, level: LogLevel.info.clone(), message: "up", attrs: LogFieldArray.create(0), file: "main.maxon", line: 1))
+	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 	let written = try await LogHandler.current().handle(record) otherwise false
 	return 0 if written else 1
 end 'main'

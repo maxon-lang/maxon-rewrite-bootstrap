@@ -181,6 +181,7 @@ end 'main'
 ```
 
 <!-- test: eq-nan-else-edge-phi -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 ⭐ **THE HAZARD ITSELF.** `nan == nan` is FALSE, and it is decided by the `jp` in the FIRST
 block — the edge a one-block lowering leaves unrewired. `r`'s incoming `7` must arrive on it;
 when it does not, the value that arrives is whatever the register happens to hold.
@@ -204,6 +205,7 @@ type Magnitude
 	end 'create'
 end 'Magnitude'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias MagnitudeCell = SharedValue with Magnitude
 
 function main() returns ExitCode
@@ -222,6 +224,7 @@ end 'main'
 ```
 
 <!-- test: ne-nan-then-edge-phi -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 The mirror: `nan != nan` is TRUE, IEEE's one predicate that is true on unordered, and here
 the `jp` takes the THEN edge. So this is the same first-block jump as `eq-nan-else-edge-phi`
 carrying a phi to the OTHER successor — a lowering that routed only the second block's jump
@@ -235,6 +238,7 @@ type Magnitude
 	end 'create'
 end 'Magnitude'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias MagnitudeCell = SharedValue with Magnitude
 
 function main() returns ExitCode
@@ -253,6 +257,7 @@ end 'main'
 ```
 
 <!-- test: lt-nan-is-false -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 `nan < x` must be FALSE. This is the case the operand swap buys: a `jb` lowering reads CF,
 which `ucomisd` SETS on unordered, so it would take the then-branch and return 1. Only an
 `above`-family jump on swapped operands returns 7.
@@ -265,6 +270,7 @@ type Magnitude
 	end 'create'
 end 'Magnitude'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias MagnitudeCell = SharedValue with Magnitude
 
 function main() returns ExitCode
@@ -284,6 +290,7 @@ end 'main'
 ```
 
 <!-- test: le-nan-is-false -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 `nan <= x` must be FALSE, for the same reason with ZF also set.
 ```maxon
 type Magnitude
@@ -294,6 +301,7 @@ type Magnitude
 	end 'create'
 end 'Magnitude'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias MagnitudeCell = SharedValue with Magnitude
 
 function main() returns ExitCode
@@ -313,6 +321,7 @@ end 'main'
 ```
 
 <!-- test: gt-nan-is-false -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 `nan > x` must be FALSE — the case that needs NO parity test, because `ja` requires CF=0 and
 unordered sets CF. It is here to pin that the lowering does NOT grow a `jp` it does not
 need: if this ever starts emitting one, the `above` family's whole reason for existing has
@@ -326,6 +335,7 @@ type Magnitude
 	end 'create'
 end 'Magnitude'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias MagnitudeCell = SharedValue with Magnitude
 
 function main() returns ExitCode
@@ -345,6 +355,7 @@ end 'main'
 ```
 
 <!-- test: float-cmp-materialized -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 A float compare whose result is a VALUE rather than a branch condition — it is stored into a
 `var` the merge reads, so it cannot be fused into a `jcc` and must materialize through
 `setcc`. The unordered case has to survive that path too: `nan == nan` materializes FALSE
@@ -359,6 +370,7 @@ type Magnitude
 	end 'create'
 end 'Magnitude'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias MagnitudeCell = SharedValue with Magnitude
 
 function main() returns ExitCode

@@ -1255,6 +1255,7 @@ error E3212: <fragment>:32:8: the promise of this `async` call is tied to the mu
 ```
 
 <!-- test: an-async-over-a-shared-value-clone-is-untied -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 A `SharedValue` is the designed way to hand a coroutine a cell both sides read, so a second holder passed to `async` does not tie the promise and the promise may be stored.
 
 ```maxon
@@ -1264,6 +1265,7 @@ typealias TallyPromise = Promise with Tally
 
 typealias TallyPromises = Array with TallyPromise
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Cell = SharedValue with Tally
 
 typealias Cells = Array with Cell

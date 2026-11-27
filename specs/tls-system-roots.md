@@ -14,6 +14,7 @@ A client that trusts the system roots reads them from the operating system the f
 ## Tests
 
 <!-- test: tls-system-roots.the-system-roots-are-read-once-for-every-connection -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- tier: stdlib/helpers/tls -->
 Two connections made with default options, which trust the system roots, read the roots from the operating system once between them: the second connection verifies against the roots the first one loaded. The case settles the program-wide roots from a source that answers the case's root and counts its reads.
 ```maxon
@@ -94,6 +95,7 @@ let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502
 
 typealias ReadCount = int(0 to 1000000)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ReadCountCell = SharedValue with ReadCount
 
 type CountingTrust implements TrustSource
@@ -166,6 +168,7 @@ reads: 1
 
 
 <!-- test: tls-system-roots.connections-that-start-together-each-settle-the-system-roots-without-waiting -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- tier: stdlib/helpers/tls -->
 Four connections that start together settle the system roots at once, while the roots source is still answering its first read. None waits for another: each reads the source itself, one result is kept, and all four settle. A later connection verifies against the kept roots without reading the source again.
 ```maxon
@@ -246,6 +249,7 @@ let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502
 
 typealias ReadCount = int(0 to 1000000)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ReadCountCell = SharedValue with ReadCount
 
 type SlowTrust implements TrustSource
@@ -323,6 +327,7 @@ reads kept: true
 ```
 
 <!-- test: tls-system-roots.a-failed-read-of-the-system-roots-is-kept -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- tier: stdlib/helpers/tls -->
 A roots source that cannot be read fails the connection that asked with `trustStoreUnavailable`, and the failure is kept: the next connection fails the same way without the source being read again.
 ```maxon
@@ -392,6 +397,7 @@ let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502
 
 typealias ReadCount = int(0 to 1000000)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ReadCountCell = SharedValue with ReadCount
 
 type MissingTrust implements TrustSource

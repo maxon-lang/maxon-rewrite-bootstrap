@@ -127,10 +127,12 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-promise-drop.never-ran-drop-not-run -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 Pins the divergence from a fire-and-forget-run model: a dropped thread's body NEVER RUNS. `incFlag` would set
 the global to 1 if it ran, but `p` is never awaited and `main` never parks or yields, so its strand never
 reaches `incFlag` and the global stays 0. The drop cancels the never-run thread; it does not run it.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias FlagCell = SharedValue with Integer
 
 function incFlag(flag FlagCell) returns Integer

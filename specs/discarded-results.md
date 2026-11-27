@@ -1252,7 +1252,7 @@ error E3064: specs/discarded-results/error.try-otherwise-panic-underscore-discar
 ```
 
 <!-- test: error.pure-map-lookup-discarded-while-another-key-type-has-an-effectful-hash -->
-<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 A pure lookup in a `Map` is judged by the key type it is instantiated with. Another `Map` in the same
 program keyed by a type whose `hash` has an effect must not make this one look impure.
@@ -1263,6 +1263,7 @@ typealias Count = int(0 to 1000)
 
 typealias Widths = Map with (String, Count)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias HashCalls = SharedValue with Integer
 
 type Loud implements Hashable, Equatable
@@ -3674,6 +3675,7 @@ end 'main'
 ```
 
 <!-- test: a-function-whose-record-drops-a-promise-it-made-keeps-its-result-droppable -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 Dropping a record that holds a promise cancels the green thread, which is more than bookkeeping: the worker below never
 runs, so the flag stays 0.
 ```maxon
@@ -3681,6 +3683,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntPromise = Promise with Integer
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias FlagCell = SharedValue with Integer
 
 type Holder
@@ -3715,6 +3718,7 @@ end 'main'
 ```
 
 <!-- test: a-function-whose-array-drops-a-promise-it-made-keeps-its-result-droppable -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 An array a function fills with a promise it made drops that promise, and the thread with it, when the function ends.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3723,6 +3727,7 @@ typealias IntPromise = Promise with Integer
 
 typealias PromiseArray = Array with IntPromise
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias FlagCell = SharedValue with Integer
 
 function worker(flag FlagCell) returns Integer

@@ -479,6 +479,7 @@ timedOut
 ```
 
 <!-- test: netpoll-socket.drop-a-parked-reader -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 **A PROMISE DROPPED WHILE ITS COROUTINE IS PARKED IN `readSome` DOES NOT HANG THE EXIT.** `main` spawns a reader
 that connects and then reads from a peer that never writes, waits until that reader is observably parked on
@@ -537,6 +538,7 @@ separates a promise dropped off the POLLER from one dropped at a plain I/O yield
 runs, never opens a socket, `parkedFrom` stays `0` for ever, and the drop takes the never-ran arm. The peek pins that the reader really was still parked when it was dropped — a completed thread
 reads `1`.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ParkMark = SharedValue with SchedulerEventCount
 
 function parkedInRecv(parkedFrom ParkMark) returns bool
@@ -575,6 +577,7 @@ dropped=true
 ```
 
 <!-- test: netpoll-socket.a-renounced-reader-does-not-start-a-read-nothing-can-end -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 **A RENOUNCED COROUTINE MAY NOT OPEN A READ NOTHING CAN END.** The drop is one-shot: it reaches the thread in
 whatever state it is in and is then spent. A coroutine dropped while it is on a TIMER — a `sleep`, or the I/O
@@ -602,6 +605,7 @@ read, and it has to wait for the count to move to do it.
 ```maxon
 typealias Dialled = int(0 to 1)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias DialledFlag = SharedValue with Dialled
 
 function stall(listener TcpListener, dialled DialledFlag) returns ExitCode throws NetworkError
@@ -668,6 +672,7 @@ error E3102: <fragment>:12:2: use of moved value 'client': it is lent to the cor
 ```
 
 <!-- test: netpoll-socket.a-cancelled-reader-leaves-its-descriptor-clean-for-the-next-socket -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 <!-- unsupported-targets: x64-windows -->
 **A SOCKET WHOSE PARKED READER WAS CANCELLED IS CLOSED WITH NOTHING STILL WAITING ON IT, SO THE NEXT SOCKET ON
@@ -712,6 +717,7 @@ typealias ReadOutcome = int(0 to 3)
 
 typealias Answered = int(0 to 1)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ParkMark = SharedValue with SchedulerEventCount
 
 function parkedAt(from ParkMark) returns bool
@@ -941,6 +947,7 @@ echoed=true served=1
 ```
 
 <!-- test: netpoll-socket.a-parked-accept-is-on-the-poller -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 **THE PARKS ARE COUNTED ON THE ACCEPTING SIDE TOO.** A listener that answers is not yet a listener that PARKS:
 an `accept` spun on in a loop, or one left inside a blocking kernel call while sysmon rescues the machine,
@@ -956,6 +963,7 @@ bound, so an accept that held its machine is a TIMEOUT and no sleep has to outla
 ```maxon
 typealias Served = int(0 to 1)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ParkMark = SharedValue with SchedulerEventCount
 
 function parkedInAccept(parkedFrom ParkMark) returns bool
@@ -1066,6 +1074,7 @@ earlier=true later=true served=2
 ```
 
 <!-- test: netpoll-socket.drop-a-parked-accept -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 **AN ACCEPT IS DROPPED FROM THE POLLER THE SAME WAY A READ IS.** A listener registers on the poller for
 readability just as a socket does, so a coroutine suspended in `accept` is reachable by exactly the machinery
@@ -1088,6 +1097,7 @@ to outlast the host.
 ```maxon
 let cleanExit = 42
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ParkMark = SharedValue with SchedulerEventCount
 
 function parkedInAccept(parkedFrom ParkMark) returns bool
@@ -1163,6 +1173,7 @@ error E3102: <fragment>:12:2: use of moved value 'listener': it is lent to the c
 ```
 
 <!-- test: netpoll-socket.a-renounced-acceptor-does-not-start-an-accept-nothing-can-end -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 **AN ACCEPT A RENOUNCED COROUTINE OPENS IS THE SAME UNENDABLE WAIT A READ IS.** A listener registers on the
 poller for readability exactly as a socket does, so a coroutine renounced on a timer and left free to carry on
@@ -1183,6 +1194,7 @@ typealias Sleeping = int(0 to 1)
 
 let cleanExit = 42
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias SleepingFlag = SharedValue with Sleeping
 
 function stall(mutates listener TcpListener, sleeping SleepingFlag) returns ExitCode throws NetworkError

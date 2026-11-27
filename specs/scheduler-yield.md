@@ -79,6 +79,7 @@ serves the lanes that have a green-thread substrate and is refused with **E3104*
 ## Tests
 
 <!-- test: scheduler-yield.sibling-runs -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 The discriminating case: a yield really does hand the processor to a SIBLING that would not otherwise run
 first. `spinner` is created FIRST, so it is the member of `main`'s strand that runs first once `main` parks on
 its await; it yields a thousand times and then reports whether `setter` ever ran. `setter` sets the flag as its
@@ -96,6 +97,7 @@ states above.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias FlagCell = SharedValue with Integer
 
 function setter(flag FlagCell) returns Integer
@@ -150,6 +152,7 @@ end 'main'
 ```
 
 <!-- test: scheduler-yield.spin-wait-from-main -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 **A spin-wait on the MAIN thread makes progress.** `main` is a green thread like any other, so a yield taken
 there puts it behind its strand's runnable members exactly as a yield from a coroutine does, and `worker`
 gets its turn. This is the case that makes `while not ready { Scheduler.yield() }` usable
@@ -158,6 +161,7 @@ spin, `7` means a thousand yields went by without it running once.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ProgressCell = SharedValue with Integer
 
 function worker(progressed ProgressCell) returns Integer
@@ -246,6 +250,7 @@ end 'main'
 ```
 
 <!-- test: scheduler-yield.spin-wait-hands-its-processor-to-a-machine-regaining-one -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: reader is in the kernel" -->
 **A SPIN-WAIT THAT YIELDS GIVES ITS PROCESSOR TO A MACHINE WAITING TO REGAIN ONE.** At one processor `reader`
@@ -262,6 +267,7 @@ published `answered`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias StageCell = SharedValue with Integer
 
 let reading = 1 as Integer
@@ -315,6 +321,7 @@ answered 5
 ```
 
 <!-- test: scheduler-yield.spin-wait-with-a-sibling-hands-its-processor-over -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: reader is in the kernel" -->
 The previous case with a sibling in the spinner's strand: `main` and the coroutine it starts both spin on
@@ -324,6 +331,7 @@ the same, and `reader` answers.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias StageCell = SharedValue with Integer
 
 let reading = 1 as Integer
@@ -386,6 +394,7 @@ answered 5 seen 2
 ```
 
 <!-- test: scheduler-yield.a-preempted-spin-hands-its-processor-to-a-machine-regaining-one -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: reader is in the kernel" -->
 The same shape with no yield in the wait at all: `main` busy-waits on the cell, and the monitor's preemption is what
@@ -393,6 +402,7 @@ takes its processor, so it is a preemption that has to hand the processor to the
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias StageCell = SharedValue with Integer
 
 let reading = 1 as Integer

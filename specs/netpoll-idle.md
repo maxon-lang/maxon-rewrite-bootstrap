@@ -113,6 +113,7 @@ napped parked=true
 ```
 
 <!-- test: netpoll-idle.a-break-reaches-the-poller-while-a-former-poller-runs -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 2 -->
 **A BREAK ENDS THE POLLER'S WAIT WHILE ANOTHER MACHINE THAT ONCE POLLED IS BUSY.** `main`'s machine waits in the
 poller first, then stays busy while a service's 50 ms sleep breaks the other machine's wait on a deadline that
@@ -126,6 +127,7 @@ without end cannot be ended, and a service's state may not hold a promise. `main
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias NapCell = SharedValue with bool
 
 function forever() returns Integer

@@ -4048,10 +4048,12 @@ end 'main'
 ```
 
 <!-- test: a-sendable-bound-accepts-a-shared-value-handle -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 A `SharedValue` handle is read by every thread at once by design, so it is sendable as it stands.
 
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Label = SharedValue with String
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
@@ -4079,6 +4081,7 @@ hello
 ```
 
 <!-- test: a-sendable-bound-accepts-a-shared-value-handle-written-directly -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 `SharedValue with String` written as the argument, with no alias, is a `SharedValue` handle as `Label` is.
 
@@ -4092,8 +4095,10 @@ type Pool uses T where T implements sendable
 	end 'create'
 end 'Pool'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias LabelPool = Pool with SharedValue with String
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Label = SharedValue with String
 
 function main() returns ExitCode
@@ -5223,6 +5228,7 @@ true
 ```
 
 <!-- test: an-isolated-bound-accepts-a-shared-value-handle-written-directly -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 A `SharedValue` handle is on the list both bounds read, so an `isolated` bound takes `SharedValue with String`.
 
@@ -5236,8 +5242,10 @@ type Cell uses T where T implements isolated
 	end 'create'
 end 'Cell'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias LabelCell = Cell with SharedValue with String
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Label = SharedValue with String
 
 function main() returns ExitCode

@@ -213,6 +213,7 @@ v=1
 ```
 
 <!-- test: sched-park.main-wakes-on-time-behind-a-long-coroutine-await -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 **`main`'s TEN-MILLISECOND SLEEP ENDS WHILE ITS OWN COROUTINE IS STILL AWAITING A REPLY** that only `main`
 can end. The service polls a flag `main` publishes after its sleep, so a wake that waited for the coroutine would
@@ -221,6 +222,7 @@ slow host cannot turn the order into a race. Nothing the service waits on lies u
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ReleaseCell = SharedValue with bool
 
 type Slow
@@ -362,6 +364,7 @@ end 'main'
 ```
 
 <!-- test: sched-park.a-timer-lap-that-hands-the-processor-to-a-pinned-thread-wakes-a-machine-for-the-rest -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 2 -->
 <!-- preempt: off -->
 **A LAP THAT FIRES TWO TIMERS AND HANDS ITS PROCESSOR TO A PINNED THREAD STILL PAYS THE WAKE THE SECOND TIMER OWES.**
@@ -386,6 +389,7 @@ timer can fire the two timers one lap apart, and a round spoiled that way passes
 runtime that pays the wake and on one that does not. Each round is on fresh services, the case holds only when every
 round's signaller ran, and the rounds end at the first one that did not.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias HandOffFlag = SharedValue with bool
 
 typealias HandOffTurns = int(0 to u64.max)

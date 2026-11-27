@@ -113,6 +113,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-sleep.interleave -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 Two async threads sleep for different durations; the shorter-sleep one resumes and observes FIRST. Each
 records its completion order into a global (`order = order * 10 + tag`), so `21` proves the fast thread
 (tag 2) completed before the slow thread (tag 1) — deadline order, not spawn order.
@@ -149,6 +150,7 @@ end 'main'
 
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias OrderCell = SharedValue with Integer
 ```
 ```exitcode
@@ -156,6 +158,7 @@ typealias OrderCell = SharedValue with Integer
 ```
 
 <!-- test: async-sleep.coalesced-pass-fires-in-deadline-order -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 **FOUR DEADLINES DUE IN ONE PASS, ARMED IN EXACTLY THE WRONG ORDER.** The four sleepers are spawned
 longest-first, so their arming order (400, 300, 200, 100) is the reverse of their deadline order, and a
@@ -177,6 +180,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Millis = int(0 to u64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias OrderCell = SharedValue with Integer
 
 function sleeper(ms Millis, tag Integer, order OrderCell) returns Integer

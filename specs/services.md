@@ -2857,6 +2857,7 @@ sent 20 then 20, taken=40
 ```
 
 <!-- test: a-trace-capture-stop-waits-for-room-in-a-full-recorder-mailbox -->
+<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 `TraceCapture` records through a service whose mailbox holds 1024 messages, and `stopCapture()` is a barrier
@@ -2869,10 +2870,13 @@ let traces = 1024
 
 function main() returns ExitCode
 	Scheduler.yield()
+	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 	TraceCapture.startCapture()
 	for _ in 0 upto traces 'emit'
+		// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 		TraceCapture.trace("k")
 	end 'emit'
+	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 	let keys = TraceCapture.stopCapture()
 	print("keys={keys.count()}\n")
 	return 0
@@ -3287,6 +3291,7 @@ n=2
 ```
 
 <!-- test: a-send-whose-timeout-expires-fails-mailbox-full -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A send whose timeout expires before room appears fails `mailboxFull` and hands its `String` back. The yield
@@ -3296,6 +3301,7 @@ with `Clock` from below only: at least the timeout. That the handler cannot have
 and not a drain ended it, with no bound on how long the timer takes to fire. `main` releases the handler after the
 refusal, and both queued messages run at the exit drain.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ReleaseCell = SharedValue with bool
 
 let timeoutMs = 20
@@ -3356,6 +3362,7 @@ kept s0
 ```
 
 <!-- test: shutdown-wakes-a-sender-waiting-for-room -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 `shutdown()` wakes a send waiting for room, and the send fails `serviceStopped` with its `String`. The waiting
@@ -3366,6 +3373,7 @@ take `hold` and wait, and lets `Closer` park on its empty mailbox. `s0` then fil
 shutdown can have ended the wait, however slow the host is. `s0` still runs after the shutdown, once `hold`
 returns.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ReleaseCell = SharedValue with bool
 
 let longTimeoutMs = 60000
@@ -3436,6 +3444,7 @@ kept s0
 ```
 
 <!-- test: a-coroutine-dropped-while-waiting-for-room-gives-up-its-send -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A coroutine parked on a full mailbox's sender queue has its promise dropped. The drop takes it off the queue and
@@ -3446,6 +3455,7 @@ and `main` prints before the coroutine runs again. `hold` returns only once `mai
 does after the coroutine has published that it gave up, so the room the coroutine would have been woken by cannot
 appear first, however slow the host is.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ReleaseCell = SharedValue with bool
 
 let longTimeoutMs = 60000
@@ -3519,6 +3529,7 @@ kept s0
 ```
 
 <!-- test: a-renounced-coroutine-does-not-wait-for-room -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A coroutine whose promise was dropped while it slept may not begin a wait on a far end, and a send given
@@ -3528,6 +3539,7 @@ delivered. `hold` returns only once `main` publishes the release, after the coro
 failed. A coroutine that waited instead would never publish, and `main` would wait for ever and the runner report
 the case TIMED OUT: no release could wake it by taking `s0`, however slow the host is.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ReleaseCell = SharedValue with bool
 
 let longTimeoutMs = 60000
@@ -3694,6 +3706,7 @@ sent s1
 ```
 
 <!-- test: an-indefinite-send-waits-past-a-sleeping-handler-and-delivers -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A send whose `sendTimeout:` is so large that its deadline cannot be represented arms no timer, so nothing but a
@@ -3706,6 +3719,7 @@ the host is. The service then takes `s0`, moves `s1` into the freed slot and rea
 representable as a signed count of milliseconds and too large to turn into a deadline, so the saturation is the
 clock-reading road's rather than the sign test's.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ReleaseCell = SharedValue with bool
 
 let indefiniteTimeoutMs = i64.max
@@ -4238,10 +4252,12 @@ n=2
 ```
 
 <!-- test: a-handle-of-a-service-the-program-never-spawns-is-cloned -->
+<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
 <!-- process: own -->
 A handle type names a service whether or not the program spawns it. A program that spawns nothing holds no handle,
 so a `.clone()` it writes runs on none, and the program still compiles and runs.
 ```maxon
+// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 typealias TextHandles = Array with TextLogHandler.handle
 
 function main() returns ExitCode
@@ -4262,10 +4278,12 @@ end 'main'
 ```
 
 <!-- test: an-array-of-handles-of-a-service-the-program-never-spawns-is-cloned -->
+<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
 <!-- process: own -->
 Cloning an array of handles clones each handle. In a program that spawns nothing the array is empty and the clone
 is too.
 ```maxon
+// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 typealias TextHandles = Array with TextLogHandler.handle
 
 function main() returns ExitCode
@@ -4283,12 +4301,14 @@ end 'main'
 ```
 
 <!-- test: a-union-that-can-carry-a-handle-is-cloned-in-a-program-that-spawns-nothing -->
+<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
 <!-- process: own -->
 A union with a case that carries a handle has values that carry none. An array of them is cloned element by
 element in a program that spawns nothing.
 ```maxon
 union MaybeLog
 	nothing
+	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 	some(log TextLogHandler.handle)
 end 'MaybeLog'
 
@@ -4310,9 +4330,11 @@ end 'main'
 ```
 
 <!-- test: an-array-of-arrays-of-handles-is-cloned-in-a-program-that-spawns-nothing -->
+<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
 <!-- process: own -->
 An array of handle arrays holds empty arrays in a program that spawns nothing, and cloning it clones each.
 ```maxon
+// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 typealias TextHandles = Array with TextLogHandler.handle
 
 typealias HandleRows = Array with TextHandles
@@ -4333,13 +4355,16 @@ end 'main'
 ```
 
 <!-- test: an-array-of-structs-holding-a-handle-is-cloned-in-a-program-that-spawns-nothing -->
+<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
 <!-- process: own -->
 A struct with a handle field has no value in a program that spawns nothing, so an array of them is empty and so is
 its clone.
 ```maxon
 type LogHolder
+	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 	var log as TextLogHandler.handle
 
+	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 	static function holding(log TextLogHandler.handle) returns Self
 		return Self{log: log}
 	end 'holding'
@@ -4362,9 +4387,11 @@ end 'main'
 ```
 
 <!-- test: a-handle-of-a-service-the-program-never-spawns-is-shut-down -->
+<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
 <!-- process: own -->
 `shutdown` is written against the handle type, so a program that spawns nothing may write it; it runs on no handle.
 ```maxon
+// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 typealias TextHandles = Array with TextLogHandler.handle
 
 function main() returns ExitCode
@@ -4384,10 +4411,12 @@ end 'main'
 ```
 
 <!-- test: an-interface-handle-is-cloned-in-a-program-that-spawns-nothing -->
+<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
 <!-- process: own -->
 An interface handle type names whichever service implements the interface, whether or not the program spawns one. A
 program that spawns nothing holds no such handle, so a `.clone()` it writes runs on none.
 ```maxon
+// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 typealias LogHandlers = Array with LogHandler.handle
 
 function main() returns ExitCode
@@ -4408,10 +4437,12 @@ end 'main'
 ```
 
 <!-- test: an-array-of-interface-handles-is-cloned-in-a-program-that-spawns-nothing -->
+<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
 <!-- process: own -->
 Cloning an array of interface handles clones each handle. In a program that spawns nothing the array is empty and the
 clone is too.
 ```maxon
+// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 typealias LogHandlers = Array with LogHandler.handle
 
 function main() returns ExitCode
@@ -4429,10 +4460,12 @@ end 'main'
 ```
 
 <!-- test: an-interface-handle-is-shut-down-in-a-program-that-spawns-nothing -->
+<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
 <!-- process: own -->
 `shutdown` is written against an interface handle type as against a service's own, so a program that spawns
 nothing may write it; it runs on no handle.
 ```maxon
+// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 typealias LogHandlers = Array with LogHandler.handle
 
 function main() returns ExitCode
@@ -4452,14 +4485,17 @@ end 'main'
 ```
 
 <!-- test: error.a-handle-clone-and-shutdown-are-rejected-on-wasm -->
+<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 A `.clone()` or `.shutdown()` written on a service handle, or on an interface handle, lowers to an entry of the
 green-thread substrate, so on a target with none each call is refused with `E3104` at its own span. A clone that
 only an array's clone reaches is not refused.
 ```maxon
+// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 typealias TextHandles = Array with TextLogHandler.handle
 
+// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
 typealias LogHandlers = Array with LogHandler.handle
 
 function main() returns ExitCode
@@ -5440,6 +5476,7 @@ error E3197: <fragment>:18:3: cannot write 'n' through 'p', which is immutable
 ```
 
 <!-- test: a-shared-value-read-is-shared-with-the-service -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 A value `SharedValue.current()` answers is read-only for the whole program and owned by the cell, so a message may carry
 it directly: the graph is shared, every count in it steps atomically, and the handler only reads it.
 ```maxon
@@ -5475,6 +5512,7 @@ end 'main'
 
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 ```
 ```exitcode
@@ -5485,6 +5523,7 @@ typealias ConfigCell = SharedValue with Config
 ```
 
 <!-- test: error.a-shared-value-read-the-handler-writes-may-not-be-sent -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 The handler writes its parameter, so the record the cell hands every reader would be written by the service while the
 cell's other readers see it.
@@ -5520,6 +5559,7 @@ end 'main'
 
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 ```
 ```maxoncstderr
@@ -12791,6 +12831,7 @@ fatal error: promise dropped by a machine that does not hold its strand
 ```
 
 <!-- test: a-cown-yields-its-processor-after-a-batch -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 ⭐⭐ **A SERVICE TAKES AT MOST 64 MESSAGES PER TURN AND THEN LETS EVERY OTHER RUNNABLE SERVICE RUN.** At one processor with
@@ -12803,6 +12844,7 @@ first batch.
 ```maxon
 typealias Count = int(0 to u64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias CountCell = SharedValue with Count
 
 let backlog = 5000
@@ -12982,6 +13024,7 @@ error E3216: <fragment>:31:10: `Svc.slot` is a `Holder` that can hold a Promise,
 ```
 
 <!-- test: main-is-never-run-on-top-of-a-coroutine-awaiting-a-service -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- procs: 1 -->
 ⛔⛔ **NOTHING RUNS ON TOP OF A PARKED GREEN THREAD, SO `main` MAY WAKE WHILE ITS OWN COROUTINES ARE WAITING ON A
 SERVICE THAT IS ITSELF WAITING.** Two coroutines of `main` each await `Slow.get`, which parks them both.
@@ -12995,6 +13038,7 @@ stands on: such a runtime exits **92** (`schedulerDeadlock`) on one processor. H
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias FlagCell = SharedValue with bool
 
 let pollMs = 1

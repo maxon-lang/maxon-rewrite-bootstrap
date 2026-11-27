@@ -879,6 +879,7 @@ end 'main'
 ```
 
 <!-- test: a-shared-value-is-read-and-published-across-threads -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 ```maxon
 type Config
 	export let n as Integer
@@ -888,6 +889,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
 type Reader
@@ -918,6 +920,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-shared-value-read-across-a-publish-stays-valid -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 A value read before two publishes stays readable, and the replaced values are freed by the time the leak
 gate reads its counters (a leak would exit 101).
 ```maxon
@@ -930,6 +933,7 @@ type Snapshot
 	end 'create'
 end 'Snapshot'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias SnapshotCell = SharedValue with Snapshot
 
 function main() returns ExitCode
@@ -954,6 +958,7 @@ the first snapshot, long enough to be a heap string
 ```
 
 <!-- test: a-replaced-value-is-freed-while-the-cell-lives -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 A cell published a thousand times holds the live allocations of its current value and a bounded few
 more: a replaced value is freed once no reader can still be between loading it and retaining it, not kept
 until the cell ends.
@@ -967,6 +972,7 @@ type Snapshot
 	end 'create'
 end 'Snapshot'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias SnapshotCell = SharedValue with Snapshot
 
 let publishes = 1000
@@ -997,6 +1003,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-conditional-publish-fails-when-the-value-moved -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 ```maxon
 type Config
 	export let n as Integer
@@ -1006,6 +1013,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
 function main() returns ExitCode
@@ -1306,9 +1314,11 @@ error E3221: <fragment>:39:18: the message 'back' may wait (it awaits a reply fr
 ```
 
 <!-- test: a-shared-value-of-a-string -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 A `String` is immutable, so it can be a `SharedValue`'s value: a literal at creation, an interpolated string
 at publish.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Label = SharedValue with String
 
 function main() returns ExitCode
@@ -2479,6 +2489,7 @@ error E3174: <fragment>:15:18: the value published to `Config` is not solely own
 ```
 
 <!-- test: a-shared-value-of-a-writable-type-is-read-across-threads -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 `next` is written while `main` still owns it, then published; the spawned reader sees each published value.
 ```maxon
 type Config
@@ -2489,6 +2500,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
 type Reader
@@ -2577,6 +2589,7 @@ service=3 main=3
 ```
 
 <!-- test: a-shared-value-of-a-type-holding-an-array-is-read-across-threads -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 An `Array` field is published like any other; the spawned reader walks it with a `for`.
 ```maxon
 typealias Scores = Array with Integer
@@ -2592,6 +2605,7 @@ type Board
 	end 'create'
 end 'Board'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias BoardCell = SharedValue with Board
 
 type Summer
@@ -2630,6 +2644,7 @@ before=3 after=12 count=2
 ```
 
 <!-- test: a-shared-value-of-a-type-holding-a-map-is-read-across-threads -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 The same for a `Map`: the spawned reader looks a key up in the published value.
 ```maxon
 typealias Ranks = Map with (String, Integer)
@@ -2644,6 +2659,7 @@ type Ladder
 	end 'create'
 end 'Ladder'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias LadderCell = SharedValue with Ladder
 
 type Lookup
@@ -2706,6 +2722,7 @@ error E3171: <fragment>:12:9: `Config` cannot be a registry value or a `SharedVa
 ```
 
 <!-- test: error.a-shared-value-whose-graph-reaches-a-function-value -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 ```maxon
 typealias Step = function(Integer) returns Integer
@@ -2718,6 +2735,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
 function main() returns ExitCode
@@ -2731,6 +2749,7 @@ error E3171: <fragment>:12:24: `Config` cannot be a registry value or a `SharedV
 ```
 
 <!-- test: error.publish-of-an-interface-whose-converted-conformer-holds-a-function-value -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -2787,6 +2806,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Cell = SharedValue with Config
 
 function stepped() returns Shape
@@ -2887,6 +2907,7 @@ note: <fragment>:54:9: `Stepper` is converted to `Shape` here
 ```
 
 <!-- test: error.a-field-store-through-a-shared-value-read -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 **A READ IS A READ-ONLY VIEW.** `around` builds a record of its own around the `Inner` the shared value
 holds, so the field store through `w.inner` would change the value under every other reader; the field is declared `immutable` because the read is.
@@ -2907,6 +2928,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
 type Wrap
@@ -2974,7 +2996,7 @@ error E3197: <fragment>:30:2: cannot write 'x' through 'w.inner', which is immut
 ```
 
 <!-- test: error.a-mutating-method-through-a-shared-value-read -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 A method that writes its receiver is a write too, on anything reached through the read.
 ```maxon
@@ -2990,6 +3012,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
 function main() returns ExitCode
@@ -3035,7 +3058,7 @@ error E3207: <fragment>:17:25: 'push' needs a writable receiver; 'items' is immu
 ```
 
 <!-- test: error.a-shared-value-read-passed-to-a-writing-parameter -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 `bump` writes its parameter, so handing it a record reached through the read is refused at the call.
 ```maxon
@@ -3055,6 +3078,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
 function bump(i Inner)
@@ -3112,6 +3136,7 @@ error E3207: <fragment>:25:7: 'bump' writes 'i' (line 21: `i.x = 9`); 'Config' i
 ```
 
 <!-- test: error.a-var-bound-to-a-shared-value-read -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 The read is immutable data, so binding it to a `var` does not make it writable: the write through the `var` is refused.
 ```maxon
@@ -3131,6 +3156,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
 function main() returns ExitCode
@@ -3182,6 +3208,7 @@ error E3197: <fragment>:22:2: cannot write 'x' through 'w.inner', which is immut
 ```
 
 <!-- test: error.a-var-bound-to-a-field-of-a-shared-value-read -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 A field reached through the read is the shared value's own storage too.
 ```maxon
@@ -3201,6 +3228,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
 function main() returns ExitCode
@@ -3252,6 +3280,7 @@ error E3197: <fragment>:22:2: cannot write 'x' through 'm', which is immutable
 ```
 
 <!-- test: a-var-bound-to-a-clone-of-a-shared-value-read-may-be-written -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 **THE CONTROL.** A `.clone()` of the read is a value of its own; writing it leaves the published value as it was.
 ```maxon
 type Inner
@@ -3270,6 +3299,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
 function main() returns ExitCode
@@ -3328,6 +3358,7 @@ copy=9 registry=1
 ```
 
 <!-- test: error.a-write-through-a-shared-value-read-a-function-returned -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 The view rides the value through a function that returns it.
 ```maxon
@@ -3347,6 +3378,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
 function read(cell ConfigCell) returns frozen with Config
@@ -3449,7 +3481,7 @@ error E3207: <fragment>:29:7: 'bump' writes 'i' (line 25: `i.x = 9`); 'read' is 
 ```
 
 <!-- test: error.a-shared-value-read-stored-into-a-var-field-is-refused-at-the-store -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 A `var` field may be written by any function the record reaches, and the function that writes it cannot
 see where the field's value came from. So storing a record reached through a read into a `var` field is
@@ -3472,6 +3504,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
 type Holder
@@ -3557,6 +3590,7 @@ error E3196: <fragment>:29:12: cannot store an immutable 'Inner' into 'inner', w
 ```
 
 <!-- test: a-clone-of-a-shared-value-read-stored-into-a-var-field-may-be-written -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 The same store of a clone: `poke` writes the copy, and the published value keeps its `x`.
 ```maxon
 type Inner
@@ -3575,6 +3609,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
 type Holder
@@ -3612,6 +3647,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-shared-value-holding-an-os-handle-is-refused -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 An OS handle is closed by its one owner, and a share walk cannot mark it for every thread at once.
 ```maxon
@@ -3623,6 +3659,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
 function main() returns ExitCode
@@ -3667,6 +3704,7 @@ error E3171: <fragment>:17:9: `Config` cannot be a registry value or a `SharedVa
 ```
 
 <!-- test: error.create-of-an-interface-whose-converted-conformer-holds-an-os-handle -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` and `TcpListener.bind` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -3721,6 +3759,7 @@ type Config
 	end 'create'
 end 'Config'
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Cell = SharedValue with Config
 
 function open(mutates listener TcpListener) returns Shape
@@ -3887,9 +3926,11 @@ error E3102: <fragment>:16:18: use of moved value 'fresh': its ownership moved t
 ```
 
 <!-- test: a-shared-value-alias-declared-in-a-generic-type-over-a-concrete-element -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 A `SharedValue` alias a generic type's body declares is judged by its own element, here a scalar.
 ```maxon
 type Maker uses T
+	// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 	typealias TallyCell = SharedValue with Tally
 	export var item as T
 
@@ -3921,11 +3962,13 @@ typealias Tally = int(0 to u64.max)
 ```
 
 <!-- test: error.a-shared-value-over-an-unbounded-type-parameter -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 A `SharedValue` whose element is a type parameter of the enclosing type is judged against that parameter's
 bound, at the alias: no share walk can be chosen for a `T` nothing bounds.
 ```maxon
 type Maker uses T
+	// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 	typealias TCell = SharedValue with T
 	export var item as T
 
@@ -3949,12 +3992,14 @@ error E3171: <fragment>:3:20: `T` cannot be a registry value or a `SharedValue`:
 ```
 
 <!-- test: error.a-shared-value-over-a-sendable-type-parameter-is-not-built -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 With the bound the alias is still refused: a `SharedValue` is built over a concrete type only.
 ```maxon
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Maker uses T where T implements sendable
+	// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 	typealias TCell = SharedValue with T
 	export var item as T
 
@@ -3978,12 +4023,14 @@ error E3171: <fragment>:3:20: `T` cannot be a registry value or a `SharedValue`:
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-bounded-isolated -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 An `isolated` bound is not the `sendable` one.
 ```maxon
 // TODO: region bound 'isolated' in where clause is not supported in minimaxon
 type Maker uses T where T implements isolated
+	// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 	typealias TCell = SharedValue with T
 	export var item as T
 
@@ -4007,6 +4054,7 @@ error E3171: <fragment>:3:20: `T` cannot be a registry value or a `SharedValue`:
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-is-refused-though-a-method-above-it-builds-one -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 The alias is judged where it is declared, whatever the body wrote above it.
 ```maxon
@@ -4021,6 +4069,7 @@ type Maker uses T
 		let cell = TCell.create(self.item)
 		return cell.current()
 	end 'through'
+	// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 	typealias TCell = SharedValue with T
 end 'Maker'
 
@@ -4039,10 +4088,12 @@ error E3171: <fragment>:15:20: `T` cannot be a registry value or a `SharedValue`
 ```
 
 <!-- test: error.a-shared-value-over-an-interfaces-type-parameter -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 An interface's type parameter takes no `sendable` bound, so the alias is written over a concrete type.
 ```maxon
 interface Holder uses Element
+	// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 	typealias Cell = SharedValue with Element
 	function only() returns Element
 end 'Holder'
@@ -4056,12 +4107,15 @@ error E3171: <fragment>:3:19: `Element` cannot be a registry value or a `SharedV
 ```
 
 <!-- test: error.a-shared-value-over-an-interfaces-type-parameter-in-its-extension -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
+<!-- positions: moved -->
 ```maxon
 interface Holder uses Element
 	function only() returns Element
 end 'Holder'
 
 extension Holder
+	// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 	typealias Cell = SharedValue with Element
 end 'Holder'
 
@@ -4074,6 +4128,7 @@ error E3171: <fragment>:7:19: `Element` cannot be a registry value or a `SharedV
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-whose-instantiation-is-unwalkable -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 The alias is refused where it is declared, before any instantiation is looked at.
 ```maxon
@@ -4118,6 +4173,7 @@ type Holder
 end 'Holder'
 
 type Maker uses T
+	// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 	typealias TCell = SharedValue with T
 
 	static function cell(x T) returns Tally
@@ -4141,6 +4197,7 @@ error E3171: <fragment>:32:20: `T` cannot be a registry value or a `SharedValue`
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-is-refused-though-an-extension-above-it-builds-one -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 A use the compiler reads before the declaration builds nothing: the alias's own refusal is the one report.
 ```maxon
@@ -4152,6 +4209,7 @@ extension Maker
 end 'Maker'
 
 type Maker uses T
+	// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 	typealias TCell = SharedValue with T
 	export var item as T
 
@@ -4175,6 +4233,7 @@ error E3171: <fragment>:11:20: `T` cannot be a registry value or a `SharedValue`
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-in-an-extension-of-its-type -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 An extension of a generic type declares the alias over that type's parameter, and the bound is the type's.
 ```maxon
@@ -4187,6 +4246,7 @@ type Bag uses T
 end 'Bag'
 
 extension Bag
+	// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 	typealias TCell = SharedValue with T
 end 'Bag'
 
@@ -4205,10 +4265,12 @@ error E3171: <fragment>:11:20: `T` cannot be a registry value or a `SharedValue`
 ```
 
 <!-- test: error.a-shared-value-over-a-container-instance -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Cells = SharedValue with Array with Integer
 
 function main() returns ExitCode
@@ -4220,12 +4282,14 @@ error E3171: <fragment>:3:19: `Array with int` cannot be a registry value or a `
 ```
 
 <!-- test: error.a-shared-value-over-a-container-instance-declared-in-a-generic-type -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 The same element is judged the same way where a generic type's body declares the alias.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Maker uses T
+	// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 	typealias Cells = SharedValue with Array with Integer
 	export var item as T
 
@@ -4247,6 +4311,7 @@ error E3171: <fragment>:5:20: `Array with int` cannot be a registry value or a `
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-is-refused-though-a-parameter-above-it-is-published-to -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 A value typed by the alias builds nothing either, whichever member is asked of it.
 ```maxon
@@ -4260,6 +4325,7 @@ type Maker uses T
 	function put(c TCell)
 		c.publish(self.item)
 	end 'put'
+	// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 	typealias TCell = SharedValue with T
 end 'Maker'
 
@@ -4278,6 +4344,7 @@ error E3171: <fragment>:13:20: `T` cannot be a registry value or a `SharedValue`
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-is-refused-though-a-parameter-above-it-is-read -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 ```maxon
 type Maker uses T
@@ -4290,6 +4357,7 @@ type Maker uses T
 	function take(c TCell) returns T
 		return c.current()
 	end 'take'
+	// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 	typealias TCell = SharedValue with T
 end 'Maker'
 
@@ -4308,10 +4376,12 @@ error E3171: <fragment>:13:20: `T` cannot be a registry value or a `SharedValue`
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-nested-in-another-alias -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 The element is judged wherever an alias writes the `SharedValue`, here as another alias's argument.
 ```maxon
 type Maker uses T
+	// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 	typealias Cells = Array with SharedValue with T
 	export var item as T
 
@@ -4335,6 +4405,7 @@ error E3171: <fragment>:3:31: `T` cannot be a registry value or a `SharedValue`:
 ```
 
 <!-- test: a-shared-value-alias-in-an-interface-extension-over-another-alias-of-it -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 An interface extension's `SharedValue` alias over a concrete element, named through a sibling alias, is
 built on each conformer.
 ```maxon
@@ -4346,6 +4417,7 @@ end 'Tagged'
 
 export extension Tagged
 	typealias Small = int(0 to 9)
+	// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 	typealias SmallCell = SharedValue with Small
 
 	function cellTag() returns Small
@@ -4380,11 +4452,13 @@ end 'main'
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-is-refused-though-another-file-uses-its-values -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 Another file's use of the alias waits on the declaring file's refusal and reports nothing of its own.
 ```maxon
 // --- file: maker.maxon
 type Maker uses T
+	// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 	typealias TCell = SharedValue with T
 	export var item as T
 

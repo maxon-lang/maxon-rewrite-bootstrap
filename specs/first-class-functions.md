@@ -1126,12 +1126,14 @@ end 'main'
 ```
 
 <!-- test: first-class-function.void-value-called-as-statement -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 A VOID function value is called at STATEMENT position, for its effect, with no result to bind — the
 call the statement position exists for, and the shape a table of void callbacks is driven by. The
 statement-position call path sends a function-typed local's name to the same indirect-call lowering the
 expression position uses; treated as a direct callee it would be E3004 ("call to undefined function"). The side effect (two increments of a shared cell
 passed to the callback) proves the call actually RAN, not merely that it compiled — a no-op would return 0.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Cell = SharedValue with FullRangeInt
 
 function bump(sideEffect Cell)
@@ -1196,12 +1198,14 @@ the postfix expression and applies the trailing `(args)` through the SAME indire
 `(` becomes a call statement — a bare field read (`h.op`) is not a statement and stays an error.
 
 <!-- test: first-class-function.field-void-called-as-statement -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 A VOID function-typed FIELD called at STATEMENT position, for its effect — the shape a table of
 callbacks or compiler passes keyed by a struct field is driven by, each entry a function value called for
 effect. The statement dispatcher parses `h.op` as a field load and applies the trailing call through the
 indirect-call lowering. The side effect (two
 increments of a shared cell passed to the callback) proves the call RAN — a no-op would return 0.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Cell = SharedValue with FullRangeInt
 
 typealias Task = function(Cell)
@@ -1264,10 +1268,12 @@ end 'main'
 ```
 
 <!-- test: first-class-function.field-two-fields-called-as-statements -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 A struct with TWO function-typed fields, each called at statement position. Each call must dispatch through
 its OWN field — `p.first` runs `bumpA` (+10) and `p.second` runs `bumpB` (+4) — so the total is 14 only when
 the two field loads are not confused.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Cell = SharedValue with FullRangeInt
 
 typealias Task = function(Cell)
@@ -1305,10 +1311,12 @@ end 'main'
 ```
 
 <!-- test: first-class-function.field-nested-void-called-as-statement -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 The receiver of a field call may itself be reached through a field CHAIN. `o.inner.op()` resolves the chain
 to the function-typed field and applies the trailing call for effect — the statement-position twin of the
 value-position `o.inner.op(21)`. The side effect (two increments) proves it ran.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Cell = SharedValue with FullRangeInt
 
 typealias Task = function(Cell)
@@ -1347,11 +1355,13 @@ end 'main'
 ```
 
 <!-- test: first-class-function.call-result-called-as-statement -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 A call whose RESULT is a function value is itself called at statement position, for its effect. `pickBump()`
 yields the `bump` function and the trailing `()` calls it — the statement-position twin of the value-position
 `pick()(21)`, and the chaining `parsePostfix` already does in expression position. The side effect (two
 increments) proves both hops ran.
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Cell = SharedValue with FullRangeInt
 
 typealias Task = function(Cell)
@@ -3090,7 +3100,10 @@ error E2073: <fragment>:9:14: 'lib' is a directory and has no member 'nope'
 ```
 
 <!-- test: error.a-shared-value-alias-static-it-lacks-is-refused-as-a-value -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
+<!-- positions: moved -->
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Flag = SharedValue with bool
 
 function main() returns ExitCode
@@ -3103,7 +3116,10 @@ error E2073: <fragment>:5:15: type 'Flag' has no static member named 'nope'
 ```
 
 <!-- test: error.a-shared-value-alias-static-it-lacks-is-refused-as-a-call -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
+<!-- positions: moved -->
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Flag = SharedValue with bool
 
 function main() returns ExitCode
@@ -3116,7 +3132,10 @@ error E2073: <fragment>:5:15: type 'Flag' has no static member named 'nope'
 ```
 
 <!-- test: error.a-shared-value-alias-static-it-lacks-is-refused-as-a-store -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
+<!-- positions: moved -->
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Flag = SharedValue with bool
 
 function main() returns ExitCode
@@ -3129,7 +3148,10 @@ error E2073: <fragment>:5:7: type 'Flag' has no static member named 'nope'
 ```
 
 <!-- test: error.a-shared-value-alias-static-is-not-a-function-value -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
+<!-- positions: moved -->
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Flag = SharedValue with bool
 
 function main() returns ExitCode
@@ -3142,7 +3164,10 @@ error E2078: <fragment>:5:15: 'Flag.create' is a method, and a method is not a f
 ```
 
 <!-- test: error.a-shared-value-alias-instance-method-is-not-a-function-value -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
+<!-- positions: moved -->
 ```maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias Flag = SharedValue with bool
 
 function main() returns ExitCode
@@ -3155,8 +3180,11 @@ error E2078: <fragment>:5:15: 'Flag.current' is an instance method, and a method
 ```
 
 <!-- test: error.a-directory-qualified-shared-value-alias-static-it-lacks-is-refused -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
+<!-- positions: moved -->
 ```maxon
 // --- file: lib/flag.maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 export typealias Flag = SharedValue with bool
 
 // --- file: main.maxon
@@ -3221,8 +3249,11 @@ end 'main'
 ```
 
 <!-- test: error.a-directory-qualified-shared-value-alias-static-it-lacks-is-refused-as-a-call -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
+<!-- positions: moved -->
 ```maxon
 // --- file: lib/flag.maxon
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 export typealias Flag = SharedValue with bool
 
 // --- file: main.maxon
@@ -4126,10 +4157,12 @@ error E3116: <fragment>:22:11: 'T.create' is a `static` requirement, and a `stat
 
 
 <!-- test: error.a-type-parameter-outranks-a-shared-value-alias-of-its-name -->
+<!-- skip: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue) -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
+// TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias T = SharedValue with bool
 
 interface Maker
