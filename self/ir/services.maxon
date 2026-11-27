@@ -1088,13 +1088,18 @@ function lowerPostedBody(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	let tag = tagReg(inner, p: p, ms: ms, t: messages, v: box)
 	let cases = ast.typeEntry(ms.types, reads: p.types, t: messages).cases.count()
 	for i in 0 upto cases 'cases'
+		let kind = ast.typeEntry(ms.types, reads: p.types, t: messages).cases[i].name.clone()
+		// Only a kind that gives no reply can be posted (E3955): a replying kind's handler takes the cell of a reply no post
+		// has, so it is never dispatched to, and its tag, which no post makes, falls to the drop past the cases.
+		if not postedKind(p, ms: ms, decl: decl, kind: kind) 'replies'
+			continue 'cases'
+		end 'replies'
 		let handles = inner.b.newBlock()
 		let next = inner.b.newBlock()
 		let caseWord = konst(inner, value: try i as Word otherwise panic("ir: a case past a word"))
 		let hit = compare(inner, op: CmpOp.cmpEq, a: tag, b: caseWord, unsigned: false)
 		inner.b.terminate(inner.cur, t: newBranch(hit, ifTrue: handles, ifFalse: next))
 		inner.cur = handles
-		let kind = ast.typeEntry(ms.types, reads: p.types, t: messages).cases[i].name.clone()
 		postedHandler(inner, l: l, p: p, ms: ms, decl: decl, messages: messages, caseIndex: i, kind: kind, state: stateReg, box: box)
 		inner.b.terminate(inner.cur, t: newRet(zero))
 		inner.cur = next
@@ -1112,6 +1117,15 @@ function lowerPostedBody(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	l.b.f.usesOs = l.b.f.usesOs or made.usesOs
 	return l.b.body(made)
 end 'lowerPostedBody'
+
+// postedKind is whether the kind named so of a service's type decl is one a post can name: its handler returns nothing and
+// throws nothing, as the checker holds a post to (E3955).
+function postedKind(p ast.Project, ms ast.ModuleState, decl ast.TypeID, kind String) returns bool
+	return match ast.typeEntry(ms.types, reads: p.types, t: decl).findMethod(kind) 'method'
+		some(fid) gives not ast.hasReply(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid), voidTy: p.builtins.voidTy)
+		none gives false
+	end 'method'
+end 'postedKind'
 
 // postedHandler calls the handler of the case caseIndex of the union, the kind named so of the type decl, with the arguments
 // the case's box holds, which move out of it before it is dropped, and the state.

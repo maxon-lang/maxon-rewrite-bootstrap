@@ -1,0 +1,54 @@
+// A service whose message union has a kind that defers its reply (reply.later()) and a kind that gives none is posted the
+// one that gives none: the posted message's dispatch reaches only the kinds a post can name (E3955), so it never calls the
+// replying kind's handler, which takes the cell of a reply that no post has. The posted handler runs, and the deferred reply
+// is answered as ever.
+// native-only
+//> told: the child stopped
+//> the deferred reply: answered
+export typealias Amount = int(0 to 1000000)
+
+export typealias Waiting = Array with Reply with String
+
+type Parker
+	var waiting as Waiting
+
+	static function create() returns Self
+		return Self{waiting: Waiting.create(0)}
+	end 'create'
+
+	export function park(mutates self) returns String throws ReplyStopped
+		let pending = reply.later()
+		self.waiting.push(pending)
+		return
+	end 'park'
+
+	export function told(mutates self, what String)
+		print("told: {what}\n")
+		while self.waiting.count() > 0 'each'
+			let pending = self.waiting.pop()
+			pending.answer("answered")
+		end 'each'
+	end 'told'
+end 'Parker'
+
+type Child
+	var id as Amount
+
+	static function create() returns Self
+		return Self{id: 0}
+	end 'create'
+end 'Child'
+
+function main() returns ExitCode
+	let parker = spawn Parker.create()
+	let parked = try parker.park() otherwise panic("a running service takes the send")
+	let child = spawn Child.create()
+	let childDone = child.stopped()
+	child.notifyStopped(parker.post(Parker.Message.told("the child stopped")))
+	child.shutdown()
+	await childDone
+	let answer = try await parked otherwise "stopped"
+	print("the deferred reply: {answer}\n")
+	parker.shutdown()
+	return 0
+end 'main'
