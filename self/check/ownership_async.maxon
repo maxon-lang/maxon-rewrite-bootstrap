@@ -5,7 +5,8 @@
 // - a scalar is copied, and a value passed to a consumes parameter moves in;
 // - a place passed to a let parameter is lent to be read: until the await the caller may read it but not change it,
 //   move it or pass it mutates;
-// - a local variable passed to a mutates parameter is lent to be changed: until the await the caller may not use it;
+// - a local variable or a mutates parameter passed to a mutates parameter is lent to be changed: until the await the
+//   caller may not use it;
 // - a temporary at a let parameter is refused, since the statement would drop it while the coroutine reads it.
 //
 // A promise whose call lent anything is tied to what it borrows: it is bound by the declaration of a local, which ends
@@ -182,8 +183,10 @@ function hasInterpolation(tree ast.Tree, e ast.NodeID) returns bool
 	return false
 end 'hasInterpolation'
 
-// lendToChange lends a local variable passed to a mutates parameter, or a field of one, to be changed: maxon lends only a
-// local, since only a local's frame is known to outlive the await.
+// lendToChange lends a local variable passed to a mutates parameter, or a field of one, to be changed, and so a mutates
+// parameter, which is the function's to change until it returns, as maxon lends a parameter's cell: the promise is tied,
+// so it is awaited before the function returns, and the coroutine has the place only while the function's caller has
+// lent it to the function. Nothing else is lent: an element, a frozen value, a capture or a field of self.
 function lendToChange(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, arg ast.NodeID, site diag.U32, consumes s OwnState) returns OwnState
 	let path = pathOf(o, p: p, ms: ms, e: arg)
 	if not path.isPlace() 'fresh'
@@ -191,7 +194,8 @@ function lendToChange(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 	end 'fresh'
 	let root = o.c.typing.locals[path.root as Count].clone()
 	let argSite = offsetOfOwn(o, p: p, ms: ms, node: arg)
-	if root.isParam or root.isCapture or root.isSelf or root.projected or not root.isVar or path.crossesElement() or path.crossesFrozen() 'notLocal'
+	let changes = root.conv == ast.Convention.convMutates if root.isParam else root.isVar
+	if not changes or root.isCapture or root.isSelf or root.projected or path.crossesElement() or path.crossesFrozen() 'notLocal'
 		fail(o, p: p, site: argSite, code: diag.errUnsupportedFeature, msg: diag.asyncLocalByReference(root.name))
 		return s
 	end 'notLocal'

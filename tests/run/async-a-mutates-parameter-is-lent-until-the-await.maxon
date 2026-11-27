@@ -1,0 +1,68 @@
+// An async call lends its coroutine a mutates parameter, or a field of one, to be changed, as it lends a local variable:
+// the function's caller lent it the place until it returns, and the promise, tied to the frame, is awaited before then.
+// A coroutine lends it on to another the same way. The interpreter runs no coroutine.
+//> bumped 2 2
+//> passed on 4 4
+//> left 6 6 right 1
+typealias Tally = int(0 to 1000000)
+
+type Row
+	export var n as Tally
+
+	static function create(n Tally) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Row'
+
+type Pair
+	export var left as Row
+	export var right as Row
+
+	static function create(left Tally, right Tally) returns Self
+		return Self{left: Row.create(left), right: Row.create(right)}
+	end 'create'
+end 'Pair'
+
+function bump(mutates row Row) returns Tally
+	sleep(1)
+	row.n = try row.n + 1 otherwise 0
+	return row.n
+end 'bump'
+
+function lend(mutates row Row) returns Tally
+	let later = async bump(row)
+	let n = await later
+	print("bumped {n} {row.n}\n")
+	return n
+end 'lend'
+
+function twice(mutates row Row) returns Tally
+	sleep(1)
+	let first = async bump(row)
+	_ = await first
+	let second = async bump(row)
+	return await second
+end 'twice'
+
+function passOn(mutates row Row) returns Tally
+	let later = async twice(row)
+	let n = await later
+	print("passed on {n} {row.n}\n")
+	return n
+end 'passOn'
+
+function lendField(mutates pair Pair) returns Tally
+	let later = async bump(pair.left)
+	let n = await later
+	print("left {n} {pair.left.n} right {pair.right.n}\n")
+	return n
+end 'lendField'
+
+function main() returns ExitCode
+	var row = Row.create(1)
+	_ = lend(row)
+	_ = passOn(row)
+	var pair = Pair.create(5, right: 1)
+	_ = lendField(pair)
+	return 0
+end 'main'

@@ -4870,9 +4870,11 @@ maxon's surface, on the green threads of the runtime (see "Green threads"):
   - a place passed to a `let` parameter is lent to be read until the promise is awaited: the caller may read it, but
     changing it, moving it or passing it `mutates` is `E3943`; a temporary there is `E2015` (the statement would drop it),
     a string literal aside;
-  - a local `var`, or a field of one, passed to a `mutates` parameter is lent to be changed until the await: any use is
-    `E3102`, maxon's message; anything else by reference is `E2015`, and a function value that lives on and borrows
-    what is lent is `E3186`;
+  - a local `var` or a `mutates` parameter, or a field of one, passed to a `mutates` parameter is lent to be changed
+    until the await: any use is `E3102`, maxon's message. A parameter is lent as maxon lends a parameter's cell: its
+    promise is tied, so it is awaited before the function returns, while the function's caller still lends it the
+    place. Anything else by reference (an element, a field of `self`, a capture) is `E2015`, and a function value that
+    lives on and borrows what is lent is `E3186`;
   - a promise is taken only by a `consumes` parameter (`E3141` at a `let` one).
 - **A promise in a local is linear.** It is never copied, and never dropped there: on every path out of its scope it is awaited, cancelled,
   returned or passed to a `consumes` parameter, else `E3213`. Awaiting or cancelling it again is `E3142`, and awaiting

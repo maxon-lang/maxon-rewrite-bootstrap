@@ -1,0 +1,33 @@
+typealias Tally = int(0 to 1000000)
+
+typealias TallyPromise = Promise with Tally
+
+type Row
+	export var n as Tally
+
+	static function create(n Tally) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Row'
+
+function bump(mutates row Row) returns Tally
+	sleep(1)
+	row.n = try row.n + 1 otherwise 0
+	return row.n
+end 'bump'
+
+typealias TallyPromises = Array with TallyPromise
+
+function park(mutates row Row, mutates parked TallyPromises)
+	let p = async bump(row)
+	parked.push(p)
+end 'park'
+
+function main() returns ExitCode
+	var row = Row.create(1)
+	var parked = TallyPromises.create(0)
+	park(row, parked: parked)
+	return 0
+end 'main'
+
+// expect-error: E3212 at 23:14

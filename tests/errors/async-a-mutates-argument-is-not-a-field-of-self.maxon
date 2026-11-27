@@ -1,0 +1,38 @@
+typealias Tally = int(0 to 1000000)
+
+typealias TallyPromise = Promise with Tally
+
+type Row
+	export var n as Tally
+
+	static function create(n Tally) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Row'
+
+function bump(mutates row Row) returns Tally
+	sleep(1)
+	row.n = try row.n + 1 otherwise 0
+	return row.n
+end 'bump'
+
+type Holder
+	export var row as Row
+
+	static function create() returns Self
+		return Self{row: Row.create(1)}
+	end 'create'
+
+	function lendRow(mutates self) returns Tally
+		let p = async bump(row)
+		return await p
+	end 'lendRow'
+end 'Holder'
+
+function main() returns ExitCode
+	var holder = Holder.create()
+	_ = holder.lendRow()
+	return 0
+end 'main'
+
+// expect-error: E2015 at 27:22
