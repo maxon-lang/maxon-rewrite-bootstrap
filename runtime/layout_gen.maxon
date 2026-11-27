@@ -825,6 +825,18 @@ let linuxIpprotoTcp = 6 as Count
 // linuxTcpNodelay is TCP_NODELAY: a send goes out at once, not held back to join the next (Nagle's algorithm off), as Go sets it.
 let linuxTcpNodelay = 1 as Count
 
+// linuxSoKeepalive is SO_KEEPALIVE: a connection that stays idle is probed, and ended when its peer stops answering, as Go sets it.
+let linuxSoKeepalive = 9 as Count
+
+// linuxTcpKeepidle is TCP_KEEPIDLE: how many seconds a connection stays idle before its first probe.
+let linuxTcpKeepidle = 4 as Count
+
+// linuxTcpKeepintvl is TCP_KEEPINTVL: how many seconds between the probes that go unanswered.
+let linuxTcpKeepintvl = 5 as Count
+
+// linuxTcpKeepcnt is TCP_KEEPCNT: how many probes go unanswered before the connection is ended.
+let linuxTcpKeepcnt = 6 as Count
+
 // linuxMsgNosignal is MSG_NOSIGNAL: a send to a peer that has gone fails with EPIPE and raises no SIGPIPE.
 let linuxMsgNosignal = 16384 as Count
 
@@ -1295,6 +1307,18 @@ let macosIpprotoTcp = 6 as Count
 
 // macosTcpNodelay is TCP_NODELAY: a send goes out at once, not held back to join the next (Nagle's algorithm off), as Go sets it.
 let macosTcpNodelay = 1 as Count
+
+// macosSoKeepalive is SO_KEEPALIVE: a connection that stays idle is probed, and ended when its peer stops answering, as Go sets it.
+let macosSoKeepalive = 8 as Count
+
+// macosTcpKeepalive is TCP_KEEPALIVE: how many seconds a connection stays idle before its first probe, Linux's TCP_KEEPIDLE.
+let macosTcpKeepalive = 16 as Count
+
+// macosTcpKeepintvl is TCP_KEEPINTVL: how many seconds between the probes that go unanswered.
+let macosTcpKeepintvl = 257 as Count
+
+// macosTcpKeepcnt is TCP_KEEPCNT: how many probes go unanswered before the connection is ended.
+let macosTcpKeepcnt = 258 as Count
 
 // macosShutWrite is SHUT_WR: shutdown ends the sending half, which the peer reads as the end.
 let macosShutWrite = 1 as Count

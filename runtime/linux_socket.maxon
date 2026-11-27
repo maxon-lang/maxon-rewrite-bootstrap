@@ -15,6 +15,14 @@
 
 	let tcpNodelay = linuxTcpNodelay
 
+	let soKeepalive = linuxSoKeepalive
+
+	let tcpKeepIdle = linuxTcpKeepidle
+
+	let tcpKeepInterval = linuxTcpKeepintvl
+
+	let tcpKeepCount = linuxTcpKeepcnt
+
 	let sockaddrIn4Bytes = linuxSockaddrIn4Bytes
 
 	let sockaddrIn6Bytes = linuxSockaddrIn6Bytes

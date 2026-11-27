@@ -70,3 +70,7 @@ end 'entrySocketTrySend'
 function entrySocketTryAccept(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	throw haltSocketRow(vm, row: "__Builtins.socketTryAccept")
 end 'entrySocketTryAccept'
+
+function entrySocketSetKeepAlive(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSocketRow(vm, row: "__Builtins.socketSetKeepAlive")
+end 'entrySocketSetKeepAlive'

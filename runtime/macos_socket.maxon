@@ -17,6 +17,14 @@
 
 	let tcpNodelay = macosTcpNodelay
 
+	let soKeepalive = macosSoKeepalive
+
+	let tcpKeepIdle = macosTcpKeepalive
+
+	let tcpKeepInterval = macosTcpKeepintvl
+
+	let tcpKeepCount = macosTcpKeepcnt
+
 	let sockaddrIn4Bytes = macosSockaddrIn4Bytes
 
 	let sockaddrIn6Bytes = macosSockaddrIn6Bytes

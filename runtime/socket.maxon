@@ -14,10 +14,11 @@
 // after its listen, as Go's are.
 //
 // A listener has a backlog of 128 and no SO_REUSEADDR, as maxon's has; a connected or accepted socket sends at once (TCP_NODELAY,
-// as Go sets it) and raises no SIGPIPE when its peer has gone (MSG_NOSIGNAL on Linux, SO_NOSIGPIPE on macOS). An accept passes
-// over a connection that ended before it was taken (ECONNABORTED), as Go's does, fails for good where the listener cannot
-// accept (ENOTSOCK, EBADF, EINVAL, EFAULT: acceptFailed) and otherwise refuses the one connection (acceptRetriable), after which
-// the listener takes the next, as maxon's does. A read or a send moves at most socketMostBytes in one call, as Go's does.
+// as Go sets it), probes a peer that has been idle as Go's does (keepalive: after 15 s, every 15 s, ended after 9 unanswered;
+// socketSetKeepAlive changes the first, or turns it off) and raises no SIGPIPE when its peer has gone (MSG_NOSIGNAL on Linux,
+// SO_NOSIGPIPE on macOS). An accept passes over a connection that ended before it was taken (ECONNABORTED), as Go's does, fails
+// for good where the listener cannot accept (ENOTSOCK, EBADF, EINVAL, EFAULT: acceptFailed) and otherwise refuses the one
+// connection (acceptRetriable), after which the listener takes the next, as maxon's does. A read or a send moves at most socketMostBytes in one call, as Go's does.
 //
 // One owner holds a socket (the library's __ManagedSocket is linear), and each operation takes it mutates, so no two calls are
 // ever on one socket in one mode and no wait is in progress when it is closed: socketClose gives the entry back (eventRelease)
@@ -74,6 +75,16 @@ let sockaddrRoomBytes = 28 as Count
 let intBytes = 4 as Count
 
 let portHighShift = 8 as Count
+
+// The keepalive of a connected or accepted socket, Go's: the seconds it stays idle before the first probe, the seconds between
+// the probes and how many go unanswered before the connection is ended (net/dial.go, defaultTCPKeepAlive*).
+let keepAliveIdleSeconds = 15 as Count
+
+let keepAliveIntervalSeconds = 15 as Count
+
+let keepAliveProbes = 9 as Count
+
+let millisPerSecond = 1000 as Count
 
 // The cases of __ManagedSocketError and __ManagedListenerError that the rows fail with, by their position in the enum.
 let socketBufferOutOfBounds = 0 as Count
@@ -194,7 +205,7 @@ end 'addressFamilyBytes'
 					failWith(errorAddress, errorCase: listenerAcceptRetriable)
 					return 0
 				end 'unregistered'
-				noDelay(accepted)
+				connectedOptions(accepted)
 				succeed(errorAddress)
 				return connection
 			end 'taken'
@@ -270,7 +281,7 @@ end 'addressFamilyBytes'
 				return 0
 			end 'ended'
 		end 'wait'
-		noDelay(fd)
+		connectedOptions(fd)
 		succeed(errorAddress)
 		return socket
 	end 'socketConnect'
@@ -487,11 +498,47 @@ end 'addressFamilyBytes'
 		return not failed(result)
 	end 'connectedToPeer'
 
-	// noDelay has a connected socket send at once (TCP_NODELAY), as Go's TCPConn does; a refusal leaves it as it was.
-	function noDelay(fd Count)
-		var one = 1 as Count
-		_ = socketOptionWrite(fd, level: ipprotoTcp, option: tcpNodelay, value: __Raw.addressOf(one), length: intBytes)
-	end 'noDelay'
+	// connectedOptions has a connected or accepted socket send at once (TCP_NODELAY) and probe its peer once the connection has
+	// been idle for 15 s, every 15 s, ending it after 9 probes go unanswered (SO_KEEPALIVE, TCP_KEEPIDLE, which macOS calls
+	// TCP_KEEPALIVE, TCP_KEEPINTVL and TCP_KEEPCNT), as Go's newTCPConn sets a dialed or an accepted TCPConn; a refusal leaves an
+	// option as it was.
+	function connectedOptions(fd Count)
+		_ = intOption(fd, level: ipprotoTcp, option: tcpNodelay, value: 1)
+		_ = intOption(fd, level: ipprotoTcp, option: tcpKeepInterval, value: keepAliveIntervalSeconds)
+		_ = intOption(fd, level: ipprotoTcp, option: tcpKeepCount, value: keepAliveProbes)
+		_ = keepAliveAfter(fd, seconds: keepAliveIdleSeconds)
+	end 'connectedOptions'
+
+	// intOption sets an option of a socket that is an int, and gives 0 or -errno.
+	function intOption(fd Count, level Count, option Count, value Count) returns Count
+		var word = value
+		return socketOptionWrite(fd, level: level, option: option, value: __Raw.addressOf(word), length: intBytes)
+	end 'intOption'
+
+	// keepAliveAfter has a socket probe its peer once it has been idle for a number of seconds, or never for 0, and gives 0 or
+	// -errno: the interval and the count of the probes stay as they were.
+	function keepAliveAfter(fd Count, seconds Count) returns Count
+		if seconds == 0 'off'
+			return intOption(fd, level: solSocket, option: soKeepalive, value: 0)
+		end 'off'
+		let idle = intOption(fd, level: ipprotoTcp, option: tcpKeepIdle, value: seconds)
+		if failed(idle) 'refused'
+			return idle
+		end 'refused'
+		return intOption(fd, level: solSocket, option: soKeepalive, value: 1)
+	end 'keepAliveAfter'
+
+	// socketSetKeepAlive has a connected socket probe its peer once it has been idle for ms milliseconds, rounded up to a whole
+	// second, as Go's TCPConn.SetKeepAlivePeriod rounds, or never for 0; the error word is set to sendFailed where the system
+	// refuses it.
+	function socketSetKeepAlive(socket Count, ms Count, errorAddress Count)
+		let seconds = __Raw.wrappingAdd(ms, right: millisPerSecond - 1) / millisPerSecond
+		if failed(keepAliveAfter(__Raw.loadWord(socket, offset: socketFdOffset), seconds: seconds)) 'refused'
+			failWith(errorAddress, errorCase: socketSendFailed)
+			return
+		end 'refused'
+		succeed(errorAddress)
+	end 'socketSetKeepAlive'
 
 	// Readiness (eventqueue.maxon, "Readiness as a message"): a socket holds the record armed in each of its modes, or 0, so
 	// that whoever ends the arm finds it, and while it is closed with a record of its still queued, the record and the bit
@@ -630,7 +677,7 @@ end 'addressFamilyBytes'
 					failWith(errorAddress, errorCase: listenerAcceptRetriable)
 					return 0
 				end 'unregistered'
-				noDelay(accepted)
+				connectedOptions(accepted)
 				succeed(errorAddress)
 				return connection
 			end 'taken'
@@ -728,6 +775,10 @@ end 'addressFamilyBytes'
 	function socketClose(socket Count, errorAddress Count)
 		panic("sockets are not written for x64-windows yet (concurrency plan step 2, Windows half)")
 	end 'socketClose'
+
+	function socketSetKeepAlive(socket Count, ms Count, errorAddress Count)
+		panic("sockets are not written for x64-windows yet (concurrency plan step 2, Windows half)")
+	end 'socketSetKeepAlive'
 
 	// The readiness of a socket (eventqueue.maxon, "Readiness as a message") comes with Windows's sockets: no record is ever
 	// armed on one, so a posted record's start finds no socket, and the end of a service none to give back.

@@ -839,6 +839,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrManagedSocketSetWriteDeadline 'intrManagedSocketSetWriteDeadline'
 		return lowerManagedSocketSetWriteDeadline(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrManagedSocketSetWriteDeadline'
+	if op == ast.Intrinsic.intrManagedSocketSetKeepAlive 'intrManagedSocketSetKeepAlive'
+		return lowerManagedSocketSetKeepAlive(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketSetKeepAlive'
 	if op == ast.Intrinsic.intrManagedSocketTimedOut 'intrManagedSocketTimedOut'
 		return lowerManagedSocketTimedOut(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrManagedSocketTimedOut'
@@ -1864,6 +1867,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrManagedSocketSetWriteDeadline 'intrManagedSocketSetWriteDeadline'
 		return false
 	end 'intrManagedSocketSetWriteDeadline'
+	if op == ast.Intrinsic.intrManagedSocketSetKeepAlive 'intrManagedSocketSetKeepAlive'
+		return false
+	end 'intrManagedSocketSetKeepAlive'
 	if op == ast.Intrinsic.intrManagedSocketTimedOut 'intrManagedSocketTimedOut'
 		return false
 	end 'intrManagedSocketTimedOut'

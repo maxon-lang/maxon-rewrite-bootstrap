@@ -1306,6 +1306,9 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "socketSendFrom", Static: true, Params: []string{"_ Count", "_ ManagedMemory with Byte", "_ Count", "_ Count"}, Result: "Count", Throws: "ManagedSocketError", Intrinsic: "ManagedSocketSendFrom", Instead: "a TcpClient's send(data)"},
 	{Owner: "Builtins", Name: "socketSetReadDeadline", Static: true, Params: []string{"_ Count", "_ Count"}, Intrinsic: "ManagedSocketSetReadDeadline", Instead: "a TcpClient's setReadDeadline(milliseconds)"},
 	{Owner: "Builtins", Name: "socketSetWriteDeadline", Static: true, Params: []string{"_ Count", "_ Count"}, Intrinsic: "ManagedSocketSetWriteDeadline", Instead: "a TcpClient's setWriteDeadline(milliseconds)"},
+	// socketSetKeepAlive sets the idle time before a connected socket's first keepalive probe, in milliseconds rounded up to a
+	// second, or turns keepalive off for 0 (stdlib/net/keepalive.maxon).
+	{Owner: "Builtins", Name: "socketSetKeepAlive", Static: true, Params: []string{"_ Count", "_ Count"}, Throws: "ManagedSocketError", Intrinsic: "ManagedSocketSetKeepAlive", Instead: "a TcpClient's setKeepAlivePeriod(milliseconds)"},
 	{Owner: "Builtins", Name: "socketTimedOut", Static: true, Params: []string{"_ Count"}, Result: "Bool", Intrinsic: "ManagedSocketTimedOut", Instead: "the NetworkError a TcpClient throws"},
 	{Owner: "Builtins", Name: "socketShutdownWrite", Static: true, Params: []string{"_ Count"}, Throws: "ManagedSocketError", Intrinsic: "ManagedSocketShutdownWrite", Instead: "a TcpClient's shutdownWrite()"},
 	{Owner: "Builtins", Name: "socketClose", Static: true, Params: []string{"_ Count"}, Throws: "ManagedSocketError", Intrinsic: "ManagedSocketClose", Instead: "a TcpClient's close()"},
@@ -1623,6 +1626,7 @@ var entries = []entry{
 	{"SocketSendFrom", "rt.socket.sendFrom", "Os", roleCall, "(socket, buffer ByteArray, at, count, error) -> count: sends up to count bytes of the buffer from the index, which must lie in its length (bufferOutOfBounds), in one call that may take fewer, parking only while the socket takes none, until the write deadline (timedOut); sendFailed for a send the system refused, a peer that has gone among them, which raises no signal"},
 	{"SocketSetReadDeadline", "rt.socket.setReadDeadline", "Os", roleCall, "(socket, ms): the deadline of the socket's reads and accepts, ms milliseconds from now, or none for 0"},
 	{"SocketSetWriteDeadline", "rt.socket.setWriteDeadline", "Os", roleCall, "(socket, ms): the deadline of the socket's sends, ms milliseconds from now, or none for 0"},
+	{"SocketSetKeepAlive", "rt.socket.setKeepAlive", "Os", roleCall, "(socket, ms, error): the socket probes its peer once it has been idle for ms milliseconds, rounded up to a second, or never for 0; sendFailed when the system refuses it"},
 	{"SocketTimedOut", "rt.socket.timedOut", "Os", roleCall, "(socket) -> bool: whether the socket's last read, send or accept was ended by its deadline"},
 	{"SocketShutdownWrite", "rt.socket.shutdownWrite", "Os", roleCall, "(socket, error): ends the socket's sending, which the peer reads as the end, while it can still read; sendFailed when the system refuses it"},
 	{"SocketClose", "rt.socket.close", "Os", roleCall, "(socket, error): takes the socket off the event queue, closes it and frees its record, in one bracketed call into the kernel; what the system's close reports sets the error word with sendFailed, the socket closed all the same"},
@@ -1912,6 +1916,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"SocketSendFrom", "socketSendFrom(socket Count, buffer Count, at Count, count Count, errorAddress Count) Count"},
 	{"SocketSetReadDeadline", "socketSetReadDeadline(socket Count, ms Count)"},
 	{"SocketSetWriteDeadline", "socketSetWriteDeadline(socket Count, ms Count)"},
+	{"SocketSetKeepAlive", "socketSetKeepAlive(socket Count, ms Count, errorAddress Count)"},
 	{"SocketTimedOut", "socketTimedOut(socket Count) Bool"},
 	{"SocketShutdownWrite", "socketShutdownWrite(socket Count, errorAddress Count)"},
 	{"SocketClose", "socketClose(socket Count, errorAddress Count)"},

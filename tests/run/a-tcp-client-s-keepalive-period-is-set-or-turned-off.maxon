@@ -1,0 +1,29 @@
+// A TcpClient's keepalive period is set, or turned off with 0, on a connected client and on the one a listener accepts, and the
+// connection still carries bytes after each (tests/runtime/a-connected-and-an-accepted-socket-probe-an-idle-peer-as-go-s-do
+// reads the options back).
+// native-only
+// unsupported-targets: x64-windows
+//> the client's period: set
+//> the client's keepalive: off
+//> the accepted one's period: set
+//> the accepted one heard: ping
+let PieceBytes = 64
+
+function main() returns ExitCode
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise panic("the bind failed")
+	var client = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise panic("the connect failed")
+	var accepted = try listener.accept() otherwise panic("the accept failed")
+	try client.setKeepAlivePeriod(30000) otherwise panic("a period of 30 s failed")
+	print("the client's period: set\n")
+	try client.setKeepAlivePeriod(0) otherwise panic("a period of 0 failed")
+	print("the client's keepalive: off\n")
+	try accepted.setKeepAlivePeriod(1500) otherwise panic("a period of 1.5 s failed")
+	print("the accepted one's period: set\n")
+	_ = try client.send("ping") otherwise panic("the send failed")
+	let heard = String.from(try accepted.readSome(PieceBytes) otherwise panic("the read failed"))
+	print("the accepted one heard: {heard}\n")
+	try accepted.close() otherwise panic("a close failed")
+	try client.close() otherwise panic("a close failed")
+	try listener.close() otherwise panic("a close failed")
+	return 0
+end 'main'

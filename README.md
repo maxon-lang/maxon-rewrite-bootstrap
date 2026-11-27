@@ -6184,7 +6184,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   as it starts, the socket kept until then), the end of a service takes back each arm of its armed list
   (`serviceArmedOffset`, one word a service), and a call that waits in an armed mode, `readSome`, `send` or `accept`, takes
   the arm back first (decision 5). A posted message takes no place in the gate (decision 6). The interpreter has no sockets.
-  Not yet: a service whose state holds a socket (who closes it when the service ends is undecided), keepalive and dual-stack `::`, and the 1M-connection benchmark.
+  **A connection probes an idle peer, as Go's does** (`runtime/socket.maxon`, connectedOptions): a connected or an accepted
+  socket has keepalive on, its first probe after 15 s idle, then every 15 s, the connection ended after 9 unanswered (Go's
+  defaultTCPKeepAlive* of net/dial.go). `client.setKeepAlivePeriod(milliseconds)` (`stdlib/net/keepalive.maxon`, a
+  `KeepAlivePeriodMs` of 0 to 32767000) sets the idle time, rounded up to a second, as Go's `TCPConn.SetKeepAlivePeriod` does, and
+  0 turns keepalive off, as a negative `Dialer.KeepAlive` does in Go.
+  Not yet: a service whose state holds a socket (who closes it when the service ends is undecided), dual-stack `::`, and the 1M-connection benchmark.
 - **There is no TEST-NET-1 short-circuit.** minimaxon has no TEST-NET-1 short-circuit; a connect dials as Go's does and the OS's timeout applies, where maxon's runtime refuses `192.0.2.0/24` without dialling (its two spec tests that connect there with no deadline are skipped with this reason).
 - **A file's close throws.** maxon's `close()` throws nothing and its drop discards what the system's close reports. Here,
   as Go's `Close` does, `close()` throws it, `__ManagedFileError.writeFailed`, which `FileWriter.close` throws as

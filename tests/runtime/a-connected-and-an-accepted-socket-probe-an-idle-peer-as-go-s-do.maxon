@@ -1,0 +1,81 @@
+// A connected socket and an accepted one probe a peer that has been idle as Go's do: keepalive is on, after 15 s idle, every
+// 15 s, 9 probes, which getsockopt reads back (SO_KEEPALIVE, TCP_KEEPIDLE or macOS's TCP_KEEPALIVE, TCP_KEEPINTVL, TCP_KEEPCNT).
+// socketSetKeepAlive, the row of TcpClient.setKeepAlivePeriod, changes the idle time, rounded up to a whole second, and leaves
+// the interval and the count; 0 turns keepalive off, and a period after that turns it on again.
+// unsupported-targets: x64-windows
+//> connected: keepalive on, idle 15, interval 15, probes 9
+//> accepted: keepalive on, idle 15, interval 15, probes 9
+//> after 30001 ms: keepalive on, idle 31, interval 15, probes 9
+//> after 0: keepalive off
+//> after 2000 ms: keepalive on, idle 2, interval 15, probes 9
+
+function main() returns ExitCode
+	greenReady(greenSpawn(__Raw.codeAddress("testKeepAlive")))
+	return 0
+end 'main'
+
+function testKeepAlive(g Count) returns Count
+	let address = bytesNew()
+	bytesInsert(address, index: 0, value: 127 as Byte)
+	bytesInsert(address, index: 1, value: 0 as Byte)
+	bytesInsert(address, index: 2, value: 0 as Byte)
+	bytesInsert(address, index: 3, value: 1 as Byte)
+	var error = 0 as Count
+	let listener = socketListen(address, port: 0, errorAddress: __Raw.addressOf(error))
+	testCheck(error, what: "the listen")
+	let port = socketBoundPort(listener, errorAddress: __Raw.addressOf(error))
+	testCheck(error, what: "the bound port")
+	let connected = socketConnect(address, port: port, ms: 0, errorAddress: __Raw.addressOf(error))
+	testCheck(error, what: "the connect")
+	let accepted = socketAccept(listener, errorAddress: __Raw.addressOf(error))
+	testCheck(error, what: "the accept")
+	testWrite("connected: {testKeepAliveOf(connected)}\n")
+	testWrite("accepted: {testKeepAliveOf(accepted)}\n")
+	socketSetKeepAlive(connected, ms: 30001, errorAddress: __Raw.addressOf(error))
+	testCheck(error, what: "a period of 30001 ms")
+	testWrite("after 30001 ms: {testKeepAliveOf(connected)}\n")
+	socketSetKeepAlive(connected, ms: 0, errorAddress: __Raw.addressOf(error))
+	testCheck(error, what: "a period of 0")
+	testWrite("after 0: {testKeepAliveOf(connected)}\n")
+	socketSetKeepAlive(connected, ms: 2000, errorAddress: __Raw.addressOf(error))
+	testCheck(error, what: "a period of 2000 ms")
+	testWrite("after 2000 ms: {testKeepAliveOf(connected)}\n")
+	socketClose(accepted, errorAddress: __Raw.addressOf(error))
+	socketClose(connected, errorAddress: __Raw.addressOf(error))
+	socketClose(listener, errorAddress: __Raw.addressOf(error))
+	free(collectionData(address))
+	free(address)
+	return 0
+end 'testKeepAlive'
+
+// testKeepAliveOf is what getsockopt reads of a socket's keepalive: off, or on with its idle time, its interval and its count.
+function testKeepAliveOf(socket Count) returns String
+	let fd = __Raw.loadWord(socket, offset: socketFdOffset)
+	if testOption(fd, level: solSocket, option: soKeepalive) == 0 'off'
+		return "keepalive off"
+	end 'off'
+	let idle = testOption(fd, level: ipprotoTcp, option: tcpKeepIdle)
+	let interval = testOption(fd, level: ipprotoTcp, option: tcpKeepInterval)
+	let probes = testOption(fd, level: ipprotoTcp, option: tcpKeepCount)
+	return "keepalive on, idle {idle}, interval {interval}, probes {probes}"
+end 'testKeepAliveOf'
+
+// testOption is an option of a socket that is an int, as getsockopt reads it: macOS gives a flag of SOL_SOCKET as its bit.
+function testOption(fd Count, level Count, option Count) returns Count
+	var value = 0 as Count
+	var length = intBytes
+	if failed(socketOptionRead(fd, level: level, option: option, value: __Raw.addressOf(value), lengthAddress: __Raw.addressOf(length))) 'refused'
+		panic("getsockopt refused an option")
+	end 'refused'
+	return value and lowHalfMask
+end 'testOption'
+
+function testCheck(error Count, what String)
+	if error != 0 'failed'
+		panic("{what} failed")
+	end 'failed'
+end 'testCheck'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'
