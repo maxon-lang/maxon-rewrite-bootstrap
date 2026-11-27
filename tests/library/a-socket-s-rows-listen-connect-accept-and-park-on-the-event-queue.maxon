@@ -1,0 +1,193 @@
+// The socket rows under the library's __ManagedSocket (runtime/socket.maxon), called as the library calls them: a listener on
+// the loopback's port 0 takes a port of the system's, a coroutine connects to it and the listener accepts the connection. The
+// server's read comes before the client has written, which sleeps first, so it parks the green thread on the event queue
+// until the bytes come; the echo goes back the other way. A read whose deadline of 50 ms passes on a silent peer throws timedOut
+// and timedOut says so, and the socket reads again once the deadline is cleared, parking until the peer writes. The client's
+// shutdown of its sending is the server's read of 0, every socket is closed, and a connect to a port whose listener has closed
+// throws connectFailed. The same over IPv6's loopback, ::1, without a coroutine: the connect ends before the accept.
+// native-only
+// unsupported-targets: x64-windows
+//> listened on a port of the system's
+//> accepted a connection
+//> the server read hello
+//> the server read 0 after the client's shutdown
+//> the client read the echo hello
+//> a read past its deadline: timedOut, timed out: true
+//> the socket read again: more
+//> a connect to a closed port: connectFailed
+//> over ::1: six
+typealias Bytes = __ManagedMemory with Byte
+
+let pieceBytes = 64 as Count
+
+function loopback() returns ByteArray
+	var address = ByteArray.create(0)
+	address.push(127)
+	address.push(0)
+	address.push(0)
+	address.push(1)
+	return address
+end 'loopback'
+
+function loopback6() returns ByteArray
+	var address = ByteArray.create(0)
+	for _ in 0 upto 15 'zeros'
+		address.push(0)
+	end 'zeros'
+	address.push(1)
+	return address
+end 'loopback6'
+
+function socketFailure(e __ManagedSocketError) returns String
+	return match e 'kind'
+		bufferOutOfBounds gives "bufferOutOfBounds"
+		resolveFailed gives "resolveFailed"
+		connectFailed gives "connectFailed"
+		sendFailed gives "sendFailed"
+		recvFailed gives "recvFailed"
+		connectionClosed gives "connectionClosed"
+		closed gives "closed"
+		timedOut gives "timedOut"
+	end 'kind'
+end 'socketFailure'
+
+function listenerFailure(e __ManagedListenerError) returns String
+	return match e 'kind'
+		resolveFailed gives "resolveFailed"
+		bindFailed gives "bindFailed"
+		acceptFailed gives "acceptFailed"
+		addressFailed gives "addressFailed"
+		closed gives "closed"
+		acceptRetriable gives "acceptRetriable"
+	end 'kind'
+end 'listenerFailure'
+
+// sendAll sends the bytes of a text, as many sends as the socket takes.
+function sendAll(socket Count, text String) returns String
+	let bytes = text.toByteArray()
+	var done = 0 as Count
+	while done < bytes.count() 'rest'
+		let sent = try __Builtins.socketSendFrom(socket, bytes.managed, done, bytes.count() - done) otherwise (e) 'unsent'
+			return "a send failed: {socketFailure(e)}"
+		end 'unsent'
+		done = try done + sent otherwise bytes.count()
+	end 'rest'
+	return ""
+end 'sendAll'
+
+// readText reads what one read of a socket gives, as text, or the failure's name.
+function readText(socket Count) returns String
+	var buffer = try Bytes.create(pieceBytes, elementSize: 1) otherwise return "no buffer"
+	_ = try __Builtins.socketReadAppending(socket, buffer, pieceBytes) otherwise (e) 'unread'
+		return socketFailure(e)
+	end 'unread'
+	return String.from(ByteArray.init(buffer))
+end 'readText'
+
+// client connects to the port, waits before it writes so that the server's read parks, reads the echo, reads past a deadline
+// and then again, and ends its sending.
+function client(port NetworkPort) returns String
+	let socket = try __Builtins.socketConnect(loopback().managed, port, 5000) otherwise (e) 'unconnected'
+		return "the connect failed: {socketFailure(e)}"
+	end 'unconnected'
+	sleep(100)
+	var report = sendAll(socket, text: "hello")
+	if report.isEmpty() 'sent'
+		report = "the client read the echo {readText(socket)}\n"
+		__Builtins.socketSetReadDeadline(socket, 50)
+		let late = readText(socket)
+		report = "{report}a read past its deadline: {late}, timed out: {__Builtins.socketTimedOut(socket)}\n"
+		__Builtins.socketSetReadDeadline(socket, 0)
+		report = "{report}the socket read again: {readText(socket)}\n"
+		try __Builtins.socketShutdownWrite(socket) otherwise (e) 'unshut'
+			report = "{report}the shutdown failed: {socketFailure(e)}\n"
+		end 'unshut'
+	end 'sent'
+	try __Builtins.socketClose(socket) otherwise (e) 'unclosed'
+		report = "{report}the close failed: {socketFailure(e)}\n"
+	end 'unclosed'
+	return report
+end 'client'
+
+// serve accepts one connection, echoes what it reads first, writes once more after the client's deadline has passed, and reads
+// the end.
+function serve(listener Count) returns ExitCode
+	let connection = try __Builtins.socketAccept(listener) otherwise (e) 'unaccepted'
+		print("the accept failed: {listenerFailure(e)}\n")
+		return 3
+	end 'unaccepted'
+	print("accepted a connection\n")
+	let first = readText(connection)
+	print("the server read {first}\n")
+	let echoed = sendAll(connection, text: first)
+	if not echoed.isEmpty() 'unechoed'
+		print("{echoed}\n")
+	end 'unechoed'
+	sleep(300)
+	let more = sendAll(connection, text: "more")
+	if not more.isEmpty() 'unsent'
+		print("{more}\n")
+	end 'unsent'
+	var buffer = try Bytes.create(pieceBytes, elementSize: 1) otherwise return 4
+	let last = try __Builtins.socketReadAppending(connection, buffer, pieceBytes) otherwise (e) 'unread'
+		print("the last read failed: {socketFailure(e)}\n")
+		return 5
+	end 'unread'
+	print("the server read {last} after the client's shutdown\n")
+	try __Builtins.socketClose(connection) otherwise (e) 'unclosed'
+		print("the close failed: {socketFailure(e)}\n")
+		return 6
+	end 'unclosed'
+	return 0
+end 'serve'
+
+function main() returns ExitCode
+	let listener = try __Builtins.socketListen(loopback().managed, 0) otherwise (e) 'unbound'
+		print("the listen failed: {listenerFailure(e)}\n")
+		return 1
+	end 'unbound'
+	let port = try __Builtins.socketBoundPort(listener) otherwise (e) 'unported'
+		print("the port is unknown: {listenerFailure(e)}\n")
+		return 2
+	end 'unported'
+	if port != 0 'ported'
+		print("listened on a port of the system's\n")
+	end 'ported'
+	let talk = async client(port)
+	let served = serve(listener)
+	print(await talk)
+	try __Builtins.socketClose(listener) otherwise return 7
+	if served != 0 'unserved'
+		return served
+	end 'unserved'
+	let closed = try __Builtins.socketListen(loopback().managed, 0) otherwise return 8
+	let closedPort = try __Builtins.socketBoundPort(closed) otherwise return 9
+	try __Builtins.socketClose(closed) otherwise return 10
+	let refused = try __Builtins.socketConnect(loopback().managed, closedPort, 5000) otherwise (e) 'refused'
+		print("a connect to a closed port: {socketFailure(e)}\n")
+		return six()
+	end 'refused'
+	try __Builtins.socketClose(refused) otherwise return 11
+	print("a connect to a closed port connected\n")
+	return 12
+end 'main'
+
+// six sends a word over a connection on IPv6's loopback.
+function six() returns ExitCode
+	let listener = try __Builtins.socketListen(loopback6().managed, 0) otherwise (e) 'unbound'
+		print("the listen on ::1 failed: {listenerFailure(e)}\n")
+		return 13
+	end 'unbound'
+	let port = try __Builtins.socketBoundPort(listener) otherwise return 14
+	let socket = try __Builtins.socketConnect(loopback6().managed, port, 5000) otherwise (e) 'unconnected'
+		print("the connect to ::1 failed: {socketFailure(e)}\n")
+		return 15
+	end 'unconnected'
+	let connection = try __Builtins.socketAccept(listener) otherwise return 16
+	let unsent = sendAll(socket, text: "six")
+	print("over ::1: {readText(connection)}{unsent}\n")
+	try __Builtins.socketClose(connection) otherwise return 17
+	try __Builtins.socketClose(socket) otherwise return 18
+	try __Builtins.socketClose(listener) otherwise return 19
+	return 0
+end 'six'

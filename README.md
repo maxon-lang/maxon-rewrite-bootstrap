@@ -2335,7 +2335,8 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   streams**, the rows of an open file that the library's `__ManagedFile` is written over (`__Builtins.fileOpenRead` and the
   other opens, `fileReadAppending`, `fileWrite`, `fileSync`, `fileClose`, `self/interp/handles.maxon`), and so the library's `FileWriter`,
   `File.openRead` and `File.createText`, which are written over them, since its file layer reads and writes whole files and holds no
-  descriptor. It stops at the operation and not before the run, since a module is lowered whole and a program that never opens
+  descriptor; and **sockets**, the rows of a TCP socket that the library's `__ManagedSocket` is to be written over
+  (`__Builtins.socketListen`, `socketConnect`, `socketAccept` and the rest, `self/interp/socket.maxon`). It stops at the operation and not before the run, since a module is lowered whole and a program that never opens
   a file may hold code that does.
   `fuzz` generates none of these: its programs are drawn from `self/fuzz/library.txt`, which names none.
 - **How the tests use it.** `minimaxon test` runs every program under it, under 20 schedules when the program schedules

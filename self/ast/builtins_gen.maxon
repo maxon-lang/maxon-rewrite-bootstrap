@@ -134,6 +134,34 @@ export let errorFileAlreadyExists = 11 as Count
 
 export let errorFileBusy = 12 as Count
 
+export let errorSocketBufferOutOfBounds = 0 as Count
+
+export let errorSocketResolveFailed = 1 as Count
+
+export let errorSocketConnectFailed = 2 as Count
+
+export let errorSocketSendFailed = 3 as Count
+
+export let errorSocketRecvFailed = 4 as Count
+
+export let errorSocketConnectionClosed = 5 as Count
+
+export let errorSocketClosed = 6 as Count
+
+export let errorSocketTimedOut = 7 as Count
+
+export let errorListenerResolveFailed = 0 as Count
+
+export let errorListenerBindFailed = 1 as Count
+
+export let errorListenerAcceptFailed = 2 as Count
+
+export let errorListenerAddressFailed = 3 as Count
+
+export let errorListenerClosed = 4 as Count
+
+export let errorListenerAcceptRetriable = 5 as Count
+
 export let filePermissionNormal = 0 as Count
 
 export let filePermissionExecutable = 1 as Count
@@ -509,6 +537,17 @@ export enum Intrinsic
 	intrManagedFileWrite
 	intrManagedFileSync
 	intrManagedFileClose
+	intrManagedSocketListen
+	intrManagedSocketBoundPort
+	intrManagedSocketAccept
+	intrManagedSocketConnect
+	intrManagedSocketReadAppending
+	intrManagedSocketSendFrom
+	intrManagedSocketSetReadDeadline
+	intrManagedSocketSetWriteDeadline
+	intrManagedSocketTimedOut
+	intrManagedSocketShutdownWrite
+	intrManagedSocketClose
 	intrRawLoad8
 	intrRawLoad16
 	intrRawLoad32
@@ -986,6 +1025,17 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrManagedFileWrite or
 		intrManagedFileSync or
 		intrManagedFileClose or
+		intrManagedSocketListen or
+		intrManagedSocketBoundPort or
+		intrManagedSocketAccept or
+		intrManagedSocketConnect or
+		intrManagedSocketReadAppending or
+		intrManagedSocketSendFrom or
+		intrManagedSocketSetReadDeadline or
+		intrManagedSocketSetWriteDeadline or
+		intrManagedSocketTimedOut or
+		intrManagedSocketShutdownWrite or
+		intrManagedSocketClose or
 		intrRawLoad8 or
 		intrRawLoad16 or
 		intrRawLoad32 or
@@ -1302,6 +1352,17 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrManagedFileWrite or
 		intrManagedFileSync or
 		intrManagedFileClose or
+		intrManagedSocketListen or
+		intrManagedSocketBoundPort or
+		intrManagedSocketAccept or
+		intrManagedSocketConnect or
+		intrManagedSocketReadAppending or
+		intrManagedSocketSendFrom or
+		intrManagedSocketSetReadDeadline or
+		intrManagedSocketSetWriteDeadline or
+		intrManagedSocketTimedOut or
+		intrManagedSocketShutdownWrite or
+		intrManagedSocketClose or
 		intrRawLoad8 or
 		intrRawLoad16 or
 		intrRawLoad32 or
@@ -1664,6 +1725,17 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrManagedFileWrite or
 		intrManagedFileSync or
 		intrManagedFileClose or
+		intrManagedSocketListen or
+		intrManagedSocketBoundPort or
+		intrManagedSocketAccept or
+		intrManagedSocketConnect or
+		intrManagedSocketReadAppending or
+		intrManagedSocketSendFrom or
+		intrManagedSocketSetReadDeadline or
+		intrManagedSocketSetWriteDeadline or
+		intrManagedSocketTimedOut or
+		intrManagedSocketShutdownWrite or
+		intrManagedSocketClose or
 		intrRawLoad8 or
 		intrRawLoad16 or
 		intrRawLoad32 or
@@ -2071,6 +2143,39 @@ export function rawCallInstead(b Builtins, owner TypeID, name String) returns ta
 		if name == "fileClose" 'fileClose'
 			return table.Option.some("File")
 		end 'fileClose'
+		if name == "socketListen" 'socketListen'
+			return table.Option.some("TcpListener.bind(host, port)")
+		end 'socketListen'
+		if name == "socketBoundPort" 'socketBoundPort'
+			return table.Option.some("a TcpListener's port()")
+		end 'socketBoundPort'
+		if name == "socketAccept" 'socketAccept'
+			return table.Option.some("a TcpListener's accept()")
+		end 'socketAccept'
+		if name == "socketConnect" 'socketConnect'
+			return table.Option.some("TcpClient.connect(host, port)")
+		end 'socketConnect'
+		if name == "socketReadAppending" 'socketReadAppending'
+			return table.Option.some("a TcpClient's readSome(most)")
+		end 'socketReadAppending'
+		if name == "socketSendFrom" 'socketSendFrom'
+			return table.Option.some("a TcpClient's send(data)")
+		end 'socketSendFrom'
+		if name == "socketSetReadDeadline" 'socketSetReadDeadline'
+			return table.Option.some("a TcpClient's setReadDeadline(milliseconds)")
+		end 'socketSetReadDeadline'
+		if name == "socketSetWriteDeadline" 'socketSetWriteDeadline'
+			return table.Option.some("a TcpClient's setWriteDeadline(milliseconds)")
+		end 'socketSetWriteDeadline'
+		if name == "socketTimedOut" 'socketTimedOut'
+			return table.Option.some("the NetworkError a TcpClient throws")
+		end 'socketTimedOut'
+		if name == "socketShutdownWrite" 'socketShutdownWrite'
+			return table.Option.some("a TcpClient's shutdownWrite()")
+		end 'socketShutdownWrite'
+		if name == "socketClose" 'socketClose'
+			return table.Option.some("a TcpClient's close()")
+		end 'socketClose'
 		panic("'{name}' is no static function of __Builtins")
 	end 'rawBuiltins'
 	return table.Option.none
@@ -2343,110 +2448,128 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std P
 	names23.push("busy")
 	b.managedFileErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__ManagedFileError", cases: names23)
 	var names24 = StringList.create(0)
-	names24.push("normal")
-	names24.push("executable")
-	b.filePermissionTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FilePermission", cases: names24)
+	names24.push("bufferOutOfBounds")
+	names24.push("resolveFailed")
+	names24.push("connectFailed")
+	names24.push("sendFailed")
+	names24.push("recvFailed")
+	names24.push("connectionClosed")
+	names24.push("closed")
+	names24.push("timedOut")
+	b.managedSocketErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__ManagedSocketError", cases: names24)
 	var names25 = StringList.create(0)
-	names25.push("serviceStopped")
-	b.sendErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SendError", cases: names25)
+	names25.push("resolveFailed")
+	names25.push("bindFailed")
+	names25.push("acceptFailed")
+	names25.push("addressFailed")
+	names25.push("closed")
+	names25.push("acceptRetriable")
+	b.managedListenerErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__ManagedListenerError", cases: names25)
 	var names26 = StringList.create(0)
-	names26.push("serviceStopped")
-	names26.push("busy")
-	b.sendBusyErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SendBusyError", cases: names26)
+	names26.push("normal")
+	names26.push("executable")
+	b.filePermissionTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FilePermission", cases: names26)
 	var names27 = StringList.create(0)
-	names27.push("notFound")
-	names27.push("accessDenied")
-	names27.push("busy")
-	names27.push("failed")
-	b.fileDeleteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileDeleteError", cases: names27)
+	names27.push("serviceStopped")
+	b.sendErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SendError", cases: names27)
 	var names28 = StringList.create(0)
-	names28.push("failed")
-	names28.push("notFound")
-	names28.push("accessDenied")
+	names28.push("serviceStopped")
 	names28.push("busy")
-	names28.push("alreadyExists")
-	b.fileRenameErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileRenameError", cases: names28)
+	b.sendBusyErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SendBusyError", cases: names28)
 	var names29 = StringList.create(0)
 	names29.push("notFound")
 	names29.push("accessDenied")
 	names29.push("busy")
 	names29.push("failed")
-	b.fileInfoErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileInfoError", cases: names29)
+	b.fileDeleteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileDeleteError", cases: names29)
 	var names30 = StringList.create(0)
+	names30.push("failed")
 	names30.push("notFound")
 	names30.push("accessDenied")
-	names30.push("listFailed")
-	b.directoryListErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryListError", cases: names30)
+	names30.push("busy")
+	names30.push("alreadyExists")
+	b.fileRenameErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileRenameError", cases: names30)
 	var names31 = StringList.create(0)
 	names31.push("notFound")
-	names31.push("notEmpty")
-	names31.push("deleteFailed")
-	b.directoryDeleteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryDeleteError", cases: names31)
+	names31.push("accessDenied")
+	names31.push("busy")
+	names31.push("failed")
+	b.fileInfoErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileInfoError", cases: names31)
 	var names32 = StringList.create(0)
-	names32.push("pathUnavailable")
-	names32.push("variableUnset")
-	names32.push("environmentUnreadable")
-	b.processIntrospectionErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "ProcessIntrospectionError", cases: names32)
+	names32.push("notFound")
+	names32.push("accessDenied")
+	names32.push("listFailed")
+	b.directoryListErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryListError", cases: names32)
 	var names33 = StringList.create(0)
-	names33.push("executableNotFound")
-	names33.push("spawnFailed")
-	names33.push("busy")
-	names33.push("ioFailed")
-	names33.push("timeout")
-	names33.push("treeNotEnded")
-	names33.push("detachRefused")
-	names33.push("inputTooLarge")
-	names33.push("statusLost")
-	b.subprocessErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SubprocessError", cases: names33)
+	names33.push("notFound")
+	names33.push("notEmpty")
+	names33.push("deleteFailed")
+	b.directoryDeleteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryDeleteError", cases: names33)
 	var names34 = StringList.create(0)
-	names34.push("open")
-	names34.push("atEof")
-	names34.push("readFailed")
-	names34.push("noSuchChild")
-	b.subprocessStreamStateTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__SubprocessStreamState", cases: names34)
+	names34.push("pathUnavailable")
+	names34.push("variableUnset")
+	names34.push("environmentUnreadable")
+	b.processIntrospectionErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "ProcessIntrospectionError", cases: names34)
 	var names35 = StringList.create(0)
-	names35.push("unreadable")
-	names35.push("unwritable")
-	names35.push("outOfBounds")
-	b.debuggeeErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebuggeeError", cases: names35)
+	names35.push("executableNotFound")
+	names35.push("spawnFailed")
+	names35.push("busy")
+	names35.push("ioFailed")
+	names35.push("timeout")
+	names35.push("treeNotEnded")
+	names35.push("detachRefused")
+	names35.push("inputTooLarge")
+	names35.push("statusLost")
+	b.subprocessErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SubprocessError", cases: names35)
 	var names36 = StringList.create(0)
-	names36.push("handled")
-	names36.push("unhandled")
-	b.debugDispositionTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebugDisposition", cases: names36)
+	names36.push("open")
+	names36.push("atEof")
+	names36.push("readFailed")
+	names36.push("noSuchChild")
+	b.subprocessStreamStateTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__SubprocessStreamState", cases: names36)
 	var names37 = StringList.create(0)
-	names37.push("notAscii")
-	b.characterErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CharacterError", cases: names37)
+	names37.push("unreadable")
+	names37.push("unwritable")
+	names37.push("outOfBounds")
+	b.debuggeeErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebuggeeError", cases: names37)
 	var names38 = StringList.create(0)
-	names38.push("notFound")
-	names38.push("invalidIndex")
-	b.stringErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "StringError", cases: names38)
+	names38.push("handled")
+	names38.push("unhandled")
+	b.debugDispositionTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebugDisposition", cases: names38)
 	var names39 = StringList.create(0)
-	names39.push("exhausted")
-	names39.push("atStart")
-	b.iterationErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "IterationError", cases: names39)
+	names39.push("notAscii")
+	b.characterErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CharacterError", cases: names39)
 	var names40 = StringList.create(0)
-	names40.push("otherType")
-	b.castErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CastError", cases: names40)
+	names40.push("notFound")
+	names40.push("invalidIndex")
+	b.stringErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "StringError", cases: names40)
 	var names41 = StringList.create(0)
-	names41.push("noSuchRawValue")
-	names41.push("noSuchCaseName")
-	b.enumLookupErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__EnumLookupError", cases: names41)
+	names41.push("exhausted")
+	names41.push("atStart")
+	b.iterationErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "IterationError", cases: names41)
+	var names42 = StringList.create(0)
+	names42.push("otherType")
+	b.castErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CastError", cases: names42)
+	var names43 = StringList.create(0)
+	names43.push("noSuchRawValue")
+	names43.push("noSuchCaseName")
+	b.enumLookupErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__EnumLookupError", cases: names43)
 	b.copyableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Copyable")
 	b.droppableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Droppable")
 	b.errorTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Error")
 	b.initableFromStringLiteralTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "InitableFromStringLiteral")
 	tt.lists[typeList(tt, t: b.filePathTy)][typeIndex(tt, t: b.filePathTy)].conforms.push(b.initableFromStringLiteralTy)
-	let ty42 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty42)
-	let ty43 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	let ty44 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(ty43))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArrays", ty: ty44)
-	let ty45 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty45)
-	let ty46 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty46)
-	let ty47 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty47)
+	let ty44 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty44)
+	let ty45 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	let ty46 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(ty45))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArrays", ty: ty46)
+	let ty47 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty47)
+	let ty48 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty48)
+	let ty49 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty49)
 end 'declareBuiltinTypes'
 
 function declareArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -3829,6 +3952,61 @@ function declareBuiltinsMethods(mutates tt TypeSlot, reads TypeTable, mutates ft
 	ps91.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
 	let f92 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedFileClose, name: "fileClose", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps91, listed: true)
 	ft.lists[funcList(ft, f: f92)][funcIndex(ft, f: f92)].errTy = b.managedFileErrorTy
+	let ty93 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps94 = ParamSpecList.create(0)
+	ps94.push(ParamSpec.make("_", ty: ty93, conv: Convention.convLet))
+	ps94.push(ParamSpec.make("_", ty: b.networkPortTy, conv: Convention.convLet))
+	let f95 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketListen, name: "socketListen", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps94, listed: true)
+	ft.lists[funcList(ft, f: f95)][funcIndex(ft, f: f95)].errTy = b.managedListenerErrorTy
+	var ps96 = ParamSpecList.create(0)
+	ps96.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f97 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketBoundPort, name: "socketBoundPort", isStatic: true, selfConv: Convention.convLet, ret: b.networkPortTy, params: ps96, listed: true)
+	ft.lists[funcList(ft, f: f97)][funcIndex(ft, f: f97)].errTy = b.managedListenerErrorTy
+	var ps98 = ParamSpecList.create(0)
+	ps98.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f99 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketAccept, name: "socketAccept", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps98, listed: true)
+	ft.lists[funcList(ft, f: f99)][funcIndex(ft, f: f99)].errTy = b.managedListenerErrorTy
+	let ty100 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps101 = ParamSpecList.create(0)
+	ps101.push(ParamSpec.make("_", ty: ty100, conv: Convention.convLet))
+	ps101.push(ParamSpec.make("_", ty: b.networkPortTy, conv: Convention.convLet))
+	ps101.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f102 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketConnect, name: "socketConnect", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps101, listed: true)
+	ft.lists[funcList(ft, f: f102)][funcIndex(ft, f: f102)].errTy = b.managedSocketErrorTy
+	let ty103 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps104 = ParamSpecList.create(0)
+	ps104.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps104.push(ParamSpec.make("_", ty: ty103, conv: Convention.convMutates))
+	ps104.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f105 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketReadAppending, name: "socketReadAppending", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps104, listed: true)
+	ft.lists[funcList(ft, f: f105)][funcIndex(ft, f: f105)].errTy = b.managedSocketErrorTy
+	let ty106 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps107 = ParamSpecList.create(0)
+	ps107.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps107.push(ParamSpec.make("_", ty: ty106, conv: Convention.convLet))
+	ps107.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps107.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f108 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketSendFrom, name: "socketSendFrom", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps107, listed: true)
+	ft.lists[funcList(ft, f: f108)][funcIndex(ft, f: f108)].errTy = b.managedSocketErrorTy
+	var ps109 = ParamSpecList.create(0)
+	ps109.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps109.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketSetReadDeadline, name: "socketSetReadDeadline", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps109, listed: true)
+	var ps110 = ParamSpecList.create(0)
+	ps110.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps110.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketSetWriteDeadline, name: "socketSetWriteDeadline", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps110, listed: true)
+	var ps111 = ParamSpecList.create(0)
+	ps111.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketTimedOut, name: "socketTimedOut", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps111, listed: true)
+	var ps112 = ParamSpecList.create(0)
+	ps112.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f113 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketShutdownWrite, name: "socketShutdownWrite", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps112, listed: true)
+	ft.lists[funcList(ft, f: f113)][funcIndex(ft, f: f113)].errTy = b.managedSocketErrorTy
+	var ps114 = ParamSpecList.create(0)
+	ps114.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f115 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketClose, name: "socketClose", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps114, listed: true)
+	ft.lists[funcList(ft, f: f115)][funcIndex(ft, f: f115)].errTy = b.managedSocketErrorTy
 end 'declareBuiltinsMethods'
 
 function declareRawMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

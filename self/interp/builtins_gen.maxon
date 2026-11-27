@@ -747,6 +747,50 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryFileClose(vm, f: f, x: x)
 		return
 	end 'rtFileClose'
+	if symbol == ir.Rt.rtSocketListen 'rtSocketListen'
+		try entrySocketListen(vm, f: f, x: x)
+		return
+	end 'rtSocketListen'
+	if symbol == ir.Rt.rtSocketBoundPort 'rtSocketBoundPort'
+		try entrySocketBoundPort(vm, f: f, x: x)
+		return
+	end 'rtSocketBoundPort'
+	if symbol == ir.Rt.rtSocketAccept 'rtSocketAccept'
+		try entrySocketAccept(vm, f: f, x: x)
+		return
+	end 'rtSocketAccept'
+	if symbol == ir.Rt.rtSocketConnect 'rtSocketConnect'
+		try entrySocketConnect(vm, f: f, x: x)
+		return
+	end 'rtSocketConnect'
+	if symbol == ir.Rt.rtSocketReadAppending 'rtSocketReadAppending'
+		try entrySocketReadAppending(vm, f: f, x: x)
+		return
+	end 'rtSocketReadAppending'
+	if symbol == ir.Rt.rtSocketSendFrom 'rtSocketSendFrom'
+		try entrySocketSendFrom(vm, f: f, x: x)
+		return
+	end 'rtSocketSendFrom'
+	if symbol == ir.Rt.rtSocketSetReadDeadline 'rtSocketSetReadDeadline'
+		try entrySocketSetReadDeadline(vm, f: f, x: x)
+		return
+	end 'rtSocketSetReadDeadline'
+	if symbol == ir.Rt.rtSocketSetWriteDeadline 'rtSocketSetWriteDeadline'
+		try entrySocketSetWriteDeadline(vm, f: f, x: x)
+		return
+	end 'rtSocketSetWriteDeadline'
+	if symbol == ir.Rt.rtSocketTimedOut 'rtSocketTimedOut'
+		try entrySocketTimedOut(vm, f: f, x: x)
+		return
+	end 'rtSocketTimedOut'
+	if symbol == ir.Rt.rtSocketShutdownWrite 'rtSocketShutdownWrite'
+		try entrySocketShutdownWrite(vm, f: f, x: x)
+		return
+	end 'rtSocketShutdownWrite'
+	if symbol == ir.Rt.rtSocketClose 'rtSocketClose'
+		try entrySocketClose(vm, f: f, x: x)
+		return
+	end 'rtSocketClose'
 	if symbol == ir.Rt.rtDebugLaunch 'rtDebugLaunch'
 		try entryDebugLaunch(vm, f: f, x: x)
 		return

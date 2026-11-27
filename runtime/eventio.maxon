@@ -157,8 +157,8 @@ let pipeEndBytes = 16 as Count
 		end 'refused'
 		let reader = pair and lowHalfMask
 		let writer = pair shr 32
-		pipeEndFlags(reader)
-		pipeEndFlags(writer)
+		nonblockingCloseOnExec(reader)
+		nonblockingCloseOnExec(writer)
 		_ = __Raw.callImport3("fcntl", arg1: writer, arg2: macosFcntlSetNoSigpipe, arg3: 1)
 		__Raw.storeWord(ends, offset: 0, value: reader)
 		__Raw.storeWord(ends, offset: wordBytes, value: writer)
@@ -177,10 +177,10 @@ let pipeEndBytes = 16 as Count
 		let reader = pair and lowHalfMask
 		let writer = pair shr 32
 		if childWrites 'output'
-			pipeEndFlags(reader)
+			nonblockingCloseOnExec(reader)
 			_ = __Raw.callImport3("fcntl", arg1: writer, arg2: macosFcntlSetFd, arg3: macosFdCloexec)
 		end 'output' else 'input'
-			pipeEndFlags(writer)
+			nonblockingCloseOnExec(writer)
 			_ = __Raw.callImport3("fcntl", arg1: writer, arg2: macosFcntlSetNoSigpipe, arg3: 1)
 			_ = __Raw.callImport3("fcntl", arg1: reader, arg2: macosFcntlSetFd, arg3: macosFdCloexec)
 		end 'input'
@@ -189,12 +189,12 @@ let pipeEndBytes = 16 as Count
 		return true
 	end 'eventChildPipe'
 
-	// pipeEndFlags makes an end of a pipe one that does not wait and that an exec closes.
-	function pipeEndFlags(fd Count)
+	// nonblockingCloseOnExec makes an fd, an end of a pipe or a socket, one that does not wait and that an exec closes.
+	function nonblockingCloseOnExec(fd Count)
 		let flags = intResult(__Raw.callImport3("fcntl", arg1: fd, arg2: macosFcntlGetFlags, arg3: 0))
 		_ = __Raw.callImport3("fcntl", arg1: fd, arg2: macosFcntlSetFlags, arg3: flags or macosOpenNonblock)
 		_ = __Raw.callImport3("fcntl", arg1: fd, arg2: macosFcntlSetFd, arg3: macosFdCloexec)
-	end 'pipeEndFlags'
+	end 'nonblockingCloseOnExec'
 #endif
 
 #if os(Windows)

@@ -1,0 +1,117 @@
+// The calls of a socket on macOS (socket.maxon), libSystem's, each giving what it returned or -errno, the errno read at once:
+// macOS's socket and accept take no flags, so a socket or an accepted one is made not to wait, to close in a child that execs
+// and to raise no SIGPIPE (SO_NOSIGPIPE) after it is made, as Go's sysSocket and accept do on darwin; a child that posix_spawn
+// starts gets only the fds its file actions name (POSIX_SPAWN_CLOEXEC_DEFAULT), so no child gets one in between. A read and a
+// send of a socket are read and write.
+
+#if os(macOS)
+	let afInet = macosAfInet
+
+	let afInet6 = macosAfInet6
+
+	let solSocket = macosSolSocket
+
+	let soError = macosSoError
+
+	let ipprotoTcp = macosIpprotoTcp
+
+	let tcpNodelay = macosTcpNodelay
+
+	let sockaddrIn4Bytes = macosSockaddrIn4Bytes
+
+	let sockaddrIn6Bytes = macosSockaddrIn6Bytes
+
+	let sockaddrPortOffset = macosSockaddrPortOffset
+
+	let sockaddrIn4AddressOffset = macosSockaddrIn4AddressOffset
+
+	let sockaddrIn6AddressOffset = macosSockaddrIn6AddressOffset
+
+	let einprogress = macosEinprogress
+
+	let ealready = macosEalready
+
+	let eisconn = macosEisconn
+
+	let econnaborted = macosEconnaborted
+
+	let enotsock = macosEnotsock
+
+	let ebadf = macosEbadf
+
+	let einval = macosEinval
+
+	let efault = macosEfault
+
+	let noPeer = 0 as Count
+
+	// socketOpen opens a TCP socket of the family of an address of a length, and gives its fd or -errno.
+	function socketOpen(length Count) returns Count
+		let fd = checkedInt(__Raw.callImport3("socket", arg1: systemFamily(length), arg2: macosSockStream, arg3: 0))
+		if not failed(fd) 'opened'
+			socketFlags(fd)
+		end 'opened'
+		return fd
+	end 'socketOpen'
+
+	// socketFlags makes a socket's fd one that does not wait, that an exec closes and whose writes raise no SIGPIPE.
+	function socketFlags(fd Count)
+		nonblockingCloseOnExec(fd)
+		var one = 1 as Count
+		_ = __Raw.callImport5("setsockopt", arg1: fd, arg2: macosSolSocket, arg3: macosSoNosigpipe, arg4: __Raw.addressOf(one), arg5: intBytes)
+	end 'socketFlags'
+
+	function socketBind(fd Count, name Count, length Count) returns Count
+		return checkedInt(__Raw.callImport3("bind", arg1: fd, arg2: name, arg3: length))
+	end 'socketBind'
+
+	function socketListenCall(fd Count, backlog Count) returns Count
+		return checkedInt(__Raw.callImport2("listen", arg1: fd, arg2: backlog))
+	end 'socketListenCall'
+
+	function socketName(fd Count, name Count, lengthAddress Count) returns Count
+		return checkedInt(__Raw.callImport3("getsockname", arg1: fd, arg2: name, arg3: lengthAddress))
+	end 'socketName'
+
+	function peerName(fd Count, name Count, lengthAddress Count) returns Count
+		return checkedInt(__Raw.callImport3("getpeername", arg1: fd, arg2: name, arg3: lengthAddress))
+	end 'peerName'
+
+	function acceptCall(fd Count) returns Count
+		let accepted = checkedInt(__Raw.callImport3("accept", arg1: fd, arg2: noPeer, arg3: noPeer))
+		if not failed(accepted) 'taken'
+			socketFlags(accepted)
+		end 'taken'
+		return accepted
+	end 'acceptCall'
+
+	function connectCall(fd Count, name Count, length Count) returns Count
+		return checkedInt(__Raw.callImport3("connect", arg1: fd, arg2: name, arg3: length))
+	end 'connectCall'
+
+	function socketOptionRead(fd Count, level Count, option Count, value Count, lengthAddress Count) returns Count
+		return checkedInt(__Raw.callImport5("getsockopt", arg1: fd, arg2: level, arg3: option, arg4: value, arg5: lengthAddress))
+	end 'socketOptionRead'
+
+	function socketOptionWrite(fd Count, level Count, option Count, value Count, length Count) returns Count
+		return checkedInt(__Raw.callImport5("setsockopt", arg1: fd, arg2: level, arg3: option, arg4: value, arg5: length))
+	end 'socketOptionWrite'
+
+	function shutdownWriteCall(fd Count) returns Count
+		return checkedInt(__Raw.callImport2("shutdown", arg1: fd, arg2: macosShutWrite))
+	end 'shutdownWriteCall'
+
+	// socketCall is one read or write of a connected socket, its count or -errno; a write raises no SIGPIPE (SO_NOSIGPIPE).
+	function socketCall(fd Count, mode Count, buffer Count, length Count) returns Count
+		if mode == eventWrite 'send'
+			return sysWrite(fd, data: buffer, length: length)
+		end 'send'
+		return sysRead(fd, buffer: buffer, length: length)
+	end 'socketCall'
+
+	// sockaddrFamily writes the length of the sockaddr of an address of a length and its family, a byte each.
+	function sockaddrFamily(name Count, length Count)
+		__Raw.storeByte(name, offset: 0, value: (sockaddrBytes(length) and byteMask) as Byte)
+		__Raw.storeByte(name, offset: macosSockaddrFamilyOffset, value: (systemFamily(length) and byteMask) as Byte)
+	end 'sockaddrFamily'
+#endif

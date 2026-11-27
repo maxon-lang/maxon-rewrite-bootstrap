@@ -803,6 +803,39 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrManagedFileClose 'intrManagedFileClose'
 		return lowerManagedFileClose(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrManagedFileClose'
+	if op == ast.Intrinsic.intrManagedSocketListen 'intrManagedSocketListen'
+		return lowerManagedSocketListen(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketListen'
+	if op == ast.Intrinsic.intrManagedSocketBoundPort 'intrManagedSocketBoundPort'
+		return lowerManagedSocketBoundPort(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketBoundPort'
+	if op == ast.Intrinsic.intrManagedSocketAccept 'intrManagedSocketAccept'
+		return lowerManagedSocketAccept(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketAccept'
+	if op == ast.Intrinsic.intrManagedSocketConnect 'intrManagedSocketConnect'
+		return lowerManagedSocketConnect(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketConnect'
+	if op == ast.Intrinsic.intrManagedSocketReadAppending 'intrManagedSocketReadAppending'
+		return lowerManagedSocketReadAppending(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketReadAppending'
+	if op == ast.Intrinsic.intrManagedSocketSendFrom 'intrManagedSocketSendFrom'
+		return lowerManagedSocketSendFrom(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketSendFrom'
+	if op == ast.Intrinsic.intrManagedSocketSetReadDeadline 'intrManagedSocketSetReadDeadline'
+		return lowerManagedSocketSetReadDeadline(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketSetReadDeadline'
+	if op == ast.Intrinsic.intrManagedSocketSetWriteDeadline 'intrManagedSocketSetWriteDeadline'
+		return lowerManagedSocketSetWriteDeadline(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketSetWriteDeadline'
+	if op == ast.Intrinsic.intrManagedSocketTimedOut 'intrManagedSocketTimedOut'
+		return lowerManagedSocketTimedOut(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketTimedOut'
+	if op == ast.Intrinsic.intrManagedSocketShutdownWrite 'intrManagedSocketShutdownWrite'
+		return lowerManagedSocketShutdownWrite(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketShutdownWrite'
+	if op == ast.Intrinsic.intrManagedSocketClose 'intrManagedSocketClose'
+		return lowerManagedSocketClose(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketClose'
 	if op == ast.Intrinsic.intrRawLoad8 'intrRawLoad8'
 		return lowerRawLoad8(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawLoad8'
@@ -1765,6 +1798,39 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrManagedFileClose 'intrManagedFileClose'
 		return false
 	end 'intrManagedFileClose'
+	if op == ast.Intrinsic.intrManagedSocketListen 'intrManagedSocketListen'
+		return false
+	end 'intrManagedSocketListen'
+	if op == ast.Intrinsic.intrManagedSocketBoundPort 'intrManagedSocketBoundPort'
+		return false
+	end 'intrManagedSocketBoundPort'
+	if op == ast.Intrinsic.intrManagedSocketAccept 'intrManagedSocketAccept'
+		return false
+	end 'intrManagedSocketAccept'
+	if op == ast.Intrinsic.intrManagedSocketConnect 'intrManagedSocketConnect'
+		return false
+	end 'intrManagedSocketConnect'
+	if op == ast.Intrinsic.intrManagedSocketReadAppending 'intrManagedSocketReadAppending'
+		return false
+	end 'intrManagedSocketReadAppending'
+	if op == ast.Intrinsic.intrManagedSocketSendFrom 'intrManagedSocketSendFrom'
+		return false
+	end 'intrManagedSocketSendFrom'
+	if op == ast.Intrinsic.intrManagedSocketSetReadDeadline 'intrManagedSocketSetReadDeadline'
+		return false
+	end 'intrManagedSocketSetReadDeadline'
+	if op == ast.Intrinsic.intrManagedSocketSetWriteDeadline 'intrManagedSocketSetWriteDeadline'
+		return false
+	end 'intrManagedSocketSetWriteDeadline'
+	if op == ast.Intrinsic.intrManagedSocketTimedOut 'intrManagedSocketTimedOut'
+		return false
+	end 'intrManagedSocketTimedOut'
+	if op == ast.Intrinsic.intrManagedSocketShutdownWrite 'intrManagedSocketShutdownWrite'
+		return false
+	end 'intrManagedSocketShutdownWrite'
+	if op == ast.Intrinsic.intrManagedSocketClose 'intrManagedSocketClose'
+		return false
+	end 'intrManagedSocketClose'
 	if op == ast.Intrinsic.intrRawLoad8 'intrRawLoad8'
 		return false
 	end 'intrRawLoad8'

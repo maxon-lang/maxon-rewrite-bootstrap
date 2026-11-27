@@ -1,0 +1,105 @@
+// The system calls of a socket on Linux (socket.maxon), each giving what the kernel returned, a count or -errno: a socket or an
+// accepted one is made not to wait and to close in a child that execs in the same call (SOCK_NONBLOCK | SOCK_CLOEXEC, accept4),
+// as Go's sysSocket and accept do, and a send raises no SIGPIPE (MSG_NOSIGNAL).
+
+#if os(Linux)
+	let afInet = linuxAfInet
+
+	let afInet6 = linuxAfInet6
+
+	let solSocket = linuxSolSocket
+
+	let soError = linuxSoError
+
+	let ipprotoTcp = linuxIpprotoTcp
+
+	let tcpNodelay = linuxTcpNodelay
+
+	let sockaddrIn4Bytes = linuxSockaddrIn4Bytes
+
+	let sockaddrIn6Bytes = linuxSockaddrIn6Bytes
+
+	let sockaddrPortOffset = linuxSockaddrPortOffset
+
+	let sockaddrIn4AddressOffset = linuxSockaddrIn4AddressOffset
+
+	let sockaddrIn6AddressOffset = linuxSockaddrIn6AddressOffset
+
+	let einprogress = linuxEinprogress
+
+	let ealready = linuxEalready
+
+	let eisconn = linuxEisconn
+
+	let econnaborted = linuxEconnaborted
+
+	let enotsock = linuxEnotsock
+
+	let ebadf = linuxEbadf
+
+	let einval = linuxEinval
+
+	let efault = linuxEfault
+
+	// socketFlags are the flags of every socket the runtime opens or accepts: it does not wait, and an exec closes it.
+	let socketFlags = linuxSockNonblock or linuxSockCloexec
+
+	// noPeer is the address a call of a connected socket names for its peer, or for the peer it gives: none.
+	let noPeer = 0 as Count
+
+	let noSocketFlags = 0 as Count
+
+	// socketOpen opens a TCP socket of the family of an address of a length, and gives its fd or -errno.
+	function socketOpen(length Count) returns Count
+		return __Raw.syscall3(linuxSysSocket, arg1: systemFamily(length), arg2: linuxSockStream or socketFlags, arg3: 0)
+	end 'socketOpen'
+
+	function socketBind(fd Count, name Count, length Count) returns Count
+		return __Raw.syscall3(linuxSysBind, arg1: fd, arg2: name, arg3: length)
+	end 'socketBind'
+
+	function socketListenCall(fd Count, backlog Count) returns Count
+		return __Raw.syscall2(linuxSysListen, arg1: fd, arg2: backlog)
+	end 'socketListenCall'
+
+	function socketName(fd Count, name Count, lengthAddress Count) returns Count
+		return __Raw.syscall3(linuxSysGetsockname, arg1: fd, arg2: name, arg3: lengthAddress)
+	end 'socketName'
+
+	function peerName(fd Count, name Count, lengthAddress Count) returns Count
+		return __Raw.syscall3(linuxSysGetpeername, arg1: fd, arg2: name, arg3: lengthAddress)
+	end 'peerName'
+
+	function acceptCall(fd Count) returns Count
+		return __Raw.syscall4(linuxSysAccept4, arg1: fd, arg2: noPeer, arg3: noPeer, arg4: socketFlags)
+	end 'acceptCall'
+
+	function connectCall(fd Count, name Count, length Count) returns Count
+		return __Raw.syscall3(linuxSysConnect, arg1: fd, arg2: name, arg3: length)
+	end 'connectCall'
+
+	function socketOptionRead(fd Count, level Count, option Count, value Count, lengthAddress Count) returns Count
+		return __Raw.syscall5(linuxSysGetsockopt, arg1: fd, arg2: level, arg3: option, arg4: value, arg5: lengthAddress)
+	end 'socketOptionRead'
+
+	function socketOptionWrite(fd Count, level Count, option Count, value Count, length Count) returns Count
+		return __Raw.syscall5(linuxSysSetsockopt, arg1: fd, arg2: level, arg3: option, arg4: value, arg5: length)
+	end 'socketOptionWrite'
+
+	function shutdownWriteCall(fd Count) returns Count
+		return __Raw.syscall2(linuxSysShutdown, arg1: fd, arg2: linuxShutWrite)
+	end 'shutdownWriteCall'
+
+	// socketCall is one read (recvfrom) or send (sendto, which raises no SIGPIPE) of a connected socket, its count or -errno.
+	function socketCall(fd Count, mode Count, buffer Count, length Count) returns Count
+		if mode == eventWrite 'send'
+			return __Raw.syscall6(linuxSysSendto, arg1: fd, arg2: buffer, arg3: length, arg4: linuxMsgNosignal, arg5: noPeer, arg6: 0)
+		end 'send'
+		return __Raw.syscall6(linuxSysRecvfrom, arg1: fd, arg2: buffer, arg3: length, arg4: noSocketFlags, arg5: noPeer, arg6: noPeer)
+	end 'socketCall'
+
+	// sockaddrFamily writes the family of an address of a length into a sockaddr, 16 bits at its start.
+	function sockaddrFamily(name Count, length Count)
+		__Raw.storeWord16(name, offset: 0, value: systemFamily(length))
+	end 'sockaddrFamily'
+#endif

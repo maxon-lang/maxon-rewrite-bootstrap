@@ -410,6 +410,29 @@ var enumTypes = []enumType{
 		{"alreadyExists", "ErrorFileAlreadyExists"},
 		{"busy", "ErrorFileBusy"},
 	}},
+	// ManagedSocketError and ManagedListenerError are what maxon's __ManagedSocket rows throw, their cases maxon's
+	// (stdlib/Builtins.maxon): the rows of a connection throw the first, of which a connect throws connectFailed and timedOut, a
+	// read recvFailed, timedOut and bufferOutOfBounds, a send sendFailed, timedOut and bufferOutOfBounds, a shutdown and the close
+	// sendFailed; the rows of a listener throw the second, of which a listen throws bindFailed, the port addressFailed and an
+	// accept acceptFailed and acceptRetriable.
+	{Key: "ManagedSocketError", Name: "__ManagedSocketError", Cases: []enumCase{
+		{"bufferOutOfBounds", "ErrorSocketBufferOutOfBounds"},
+		{"resolveFailed", "ErrorSocketResolveFailed"},
+		{"connectFailed", "ErrorSocketConnectFailed"},
+		{"sendFailed", "ErrorSocketSendFailed"},
+		{"recvFailed", "ErrorSocketRecvFailed"},
+		{"connectionClosed", "ErrorSocketConnectionClosed"},
+		{"closed", "ErrorSocketClosed"},
+		{"timedOut", "ErrorSocketTimedOut"},
+	}},
+	{Key: "ManagedListenerError", Name: "__ManagedListenerError", Cases: []enumCase{
+		{"resolveFailed", "ErrorListenerResolveFailed"},
+		{"bindFailed", "ErrorListenerBindFailed"},
+		{"acceptFailed", "ErrorListenerAcceptFailed"},
+		{"addressFailed", "ErrorListenerAddressFailed"},
+		{"closed", "ErrorListenerClosed"},
+		{"acceptRetriable", "ErrorListenerAcceptRetriable"},
+	}},
 	// FilePermission is maxon's: the mode of a file that a write creates, 0666 or 0755 on a system that has modes.
 	{Key: "FilePermission", Name: "FilePermission", Cases: []enumCase{
 		{"normal", "FilePermissionNormal"},
@@ -1246,6 +1269,26 @@ var tableFunctions = []function{
 	// handle stays open whether or not it throws.
 	{Owner: "Builtins", Name: "fileSync", Static: true, Params: []string{"_ Count"}, Throws: "ManagedFileError", Intrinsic: "ManagedFileSync", Instead: "File"},
 	{Owner: "Builtins", Name: "fileClose", Static: true, Params: []string{"_ Count"}, Throws: "ManagedFileError", Intrinsic: "ManagedFileClose", Instead: "File"},
+	// The rows of a TCP socket under the library's __ManagedSocket, whose word they give and take (runtime/socket.maxon): a socket
+	// of the runtime's, an fd that does not wait, registered with the event queue for good, whose calls are made first and park
+	// the green thread only while they would wait (EAGAIN), as Go's internal/poll does. An address is the 4 bytes of an IPv4
+	// one or the 16 of an IPv6 one, most significant first, and a port 0 to 65535 (0 for one the system picks, of a listen). A
+	// deadline is milliseconds from the call that sets it, 0 for none; a call that its deadline ends throws timedOut, or an
+	// accept acceptFailed, and timedOut says so after it, as maxon's does. A read appends to the buffer after its length, up
+	// to most bytes, within its capacity, and gives the count, 0 once the peer has ended its sending; a send sends up to count
+	// bytes of the buffer from an index, once, and gives what the system took. The close ends the socket whether or not it
+	// throws. A socket's word is one that exactly one __ManagedSocket holds.
+	{Owner: "Builtins", Name: "socketListen", Static: true, Params: []string{"_ ManagedMemory with Byte", "_ NetworkPort"}, Result: "Count", Throws: "ManagedListenerError", Intrinsic: "ManagedSocketListen", Instead: "TcpListener.bind(host, port)"},
+	{Owner: "Builtins", Name: "socketBoundPort", Static: true, Params: []string{"_ Count"}, Result: "NetworkPort", Throws: "ManagedListenerError", Intrinsic: "ManagedSocketBoundPort", Instead: "a TcpListener's port()"},
+	{Owner: "Builtins", Name: "socketAccept", Static: true, Params: []string{"_ Count"}, Result: "Count", Throws: "ManagedListenerError", Intrinsic: "ManagedSocketAccept", Instead: "a TcpListener's accept()"},
+	{Owner: "Builtins", Name: "socketConnect", Static: true, Params: []string{"_ ManagedMemory with Byte", "_ NetworkPort", "_ Count"}, Result: "Count", Throws: "ManagedSocketError", Intrinsic: "ManagedSocketConnect", Instead: "TcpClient.connect(host, port)"},
+	{Owner: "Builtins", Name: "socketReadAppending", Static: true, Params: []string{"_ Count", "mutates _ ManagedMemory with Byte", "_ Count"}, Result: "Count", Throws: "ManagedSocketError", Intrinsic: "ManagedSocketReadAppending", Instead: "a TcpClient's readSome(most)"},
+	{Owner: "Builtins", Name: "socketSendFrom", Static: true, Params: []string{"_ Count", "_ ManagedMemory with Byte", "_ Count", "_ Count"}, Result: "Count", Throws: "ManagedSocketError", Intrinsic: "ManagedSocketSendFrom", Instead: "a TcpClient's send(data)"},
+	{Owner: "Builtins", Name: "socketSetReadDeadline", Static: true, Params: []string{"_ Count", "_ Count"}, Intrinsic: "ManagedSocketSetReadDeadline", Instead: "a TcpClient's setReadDeadline(milliseconds)"},
+	{Owner: "Builtins", Name: "socketSetWriteDeadline", Static: true, Params: []string{"_ Count", "_ Count"}, Intrinsic: "ManagedSocketSetWriteDeadline", Instead: "a TcpClient's setWriteDeadline(milliseconds)"},
+	{Owner: "Builtins", Name: "socketTimedOut", Static: true, Params: []string{"_ Count"}, Result: "Bool", Intrinsic: "ManagedSocketTimedOut", Instead: "the NetworkError a TcpClient throws"},
+	{Owner: "Builtins", Name: "socketShutdownWrite", Static: true, Params: []string{"_ Count"}, Throws: "ManagedSocketError", Intrinsic: "ManagedSocketShutdownWrite", Instead: "a TcpClient's shutdownWrite()"},
+	{Owner: "Builtins", Name: "socketClose", Static: true, Params: []string{"_ Count"}, Throws: "ManagedSocketError", Intrinsic: "ManagedSocketClose", Instead: "a TcpClient's close()"},
 }
 
 // unit is a code unit of the backend's runtime, or a place an entry lives that has no code of its own.
@@ -1525,6 +1568,19 @@ var entries = []entry{
 	{"FileWrite", "rt.file.write", "Os", roleCall, "(handle, buffer ByteArray, error) -> count: writes the whole buffer"},
 	{"FileSync", "rt.file.sync", "Os", roleCall, "(handle, error): forces the handle's data to its device in one bracketed call into the kernel, as Go's File.Sync does (macOS F_FULLFSYNC, fsync where the file system has none; Linux fsync; Windows FlushFileBuffers); what the system reports sets the error word with writeFailed, the handle open all the same"},
 	{"FileClose", "rt.file.close", "Os", roleCall, "(handle, error): closes the handle and frees its box, in one bracketed call into the kernel, which never parks the green thread or yields; what the system's close reports sets the error word with writeFailed, the handle closed all the same"},
+	// The socket's entries (runtime/socket.maxon); one that fails sets the error word with a __ManagedSocketError's case, or a
+	// __ManagedListenerError's of a listener's entry.
+	{"SocketListen", "rt.socket.listen", "Os", roleCall, "(address ByteArray, port, error) -> socket: a TCP socket of the address's family (4 bytes IPv4, 16 IPv6) bound to the address and the port (0 for one the system picks) and listening, a backlog of 128 and no SO_REUSEADDR, as maxon's; bindFailed when the system refuses the socket, the bind or the listen"},
+	{"SocketBoundPort", "rt.socket.boundPort", "Os", roleCall, "(socket, error) -> the port the socket is bound to; addressFailed when the system cannot say"},
+	{"SocketAccept", "rt.socket.accept", "Os", roleCall, "(socket, error) -> socket: the next connection to the listening socket, parking while there is none, until the socket's read deadline (acceptFailed, timedOut set); a connection that ended before it was taken is passed over, acceptFailed when the listener cannot accept (ENOTSOCK, EBADF, EINVAL, EFAULT) and acceptRetriable for any other refusal, after which it can take the next"},
+	{"SocketConnect", "rt.socket.connect", "Os", roleCall, "(address ByteArray, port, ms, error) -> socket: a TCP socket connected to the address and the port, parking while the connection is made, until ms milliseconds (0 for none) have passed (timedOut); connectFailed for a refusal or any other failure"},
+	{"SocketReadAppending", "rt.socket.readAppending", "Os", roleCall, "(socket, buffer ByteArray, most, error) -> count: reads up to most bytes after the buffer's length, which grows by them, within its capacity (bufferOutOfBounds past it), 0 once the peer has ended its sending, parking only while none have come, until the read deadline (timedOut); recvFailed for a read the system refused"},
+	{"SocketSendFrom", "rt.socket.sendFrom", "Os", roleCall, "(socket, buffer ByteArray, at, count, error) -> count: sends up to count bytes of the buffer from the index, which must lie in its length (bufferOutOfBounds), in one call that may take fewer, parking only while the socket takes none, until the write deadline (timedOut); sendFailed for a send the system refused, a peer that has gone among them, which raises no signal"},
+	{"SocketSetReadDeadline", "rt.socket.setReadDeadline", "Os", roleCall, "(socket, ms): the deadline of the socket's reads and accepts, ms milliseconds from now, or none for 0"},
+	{"SocketSetWriteDeadline", "rt.socket.setWriteDeadline", "Os", roleCall, "(socket, ms): the deadline of the socket's sends, ms milliseconds from now, or none for 0"},
+	{"SocketTimedOut", "rt.socket.timedOut", "Os", roleCall, "(socket) -> bool: whether the socket's last read, send or accept was ended by its deadline"},
+	{"SocketShutdownWrite", "rt.socket.shutdownWrite", "Os", roleCall, "(socket, error): ends the socket's sending, which the peer reads as the end, while it can still read; sendFailed when the system refuses it"},
+	{"SocketClose", "rt.socket.close", "Os", roleCall, "(socket, error): takes the socket off the event queue, closes it and frees its record, in one bracketed call into the kernel; what the system's close reports sets the error word with sendFailed, the socket closed all the same"},
 	// The debug port's entries, on Windows; a read or a write that fails sets its error word as an OS entry's does.
 	{"DebugLaunch", "rt.debug.launch", "Os", roleCall, "(executable String, arguments Array with String, outputToError, error) -> process id: starts the executable as the calling thread's debuggee"},
 	{"DebugWaitEvent", "rt.debug.waitEvent", "Os", roleCall, "(budgetMs) -> ByteArray: the debug event that came within the milliseconds, empty for none"},
@@ -1785,6 +1841,17 @@ var runtimeFunctions = []runtimeFunction{
 	{"FileWrite", "fileWrite(handle Count, buffer Count, errorAddress Count) Count"},
 	{"FileSync", "fileSync(handle Count, errorAddress Count)"},
 	{"FileClose", "fileClose(handle Count, errorAddress Count)"},
+	{"SocketListen", "socketListen(address Count, port Count, errorAddress Count) Count"},
+	{"SocketBoundPort", "socketBoundPort(socket Count, errorAddress Count) Count"},
+	{"SocketAccept", "socketAccept(socket Count, errorAddress Count) Count"},
+	{"SocketConnect", "socketConnect(address Count, port Count, ms Count, errorAddress Count) Count"},
+	{"SocketReadAppending", "socketReadAppending(socket Count, buffer Count, most Count, errorAddress Count) Count"},
+	{"SocketSendFrom", "socketSendFrom(socket Count, buffer Count, at Count, count Count, errorAddress Count) Count"},
+	{"SocketSetReadDeadline", "socketSetReadDeadline(socket Count, ms Count)"},
+	{"SocketSetWriteDeadline", "socketSetWriteDeadline(socket Count, ms Count)"},
+	{"SocketTimedOut", "socketTimedOut(socket Count) Bool"},
+	{"SocketShutdownWrite", "socketShutdownWrite(socket Count, errorAddress Count)"},
+	{"SocketClose", "socketClose(socket Count, errorAddress Count)"},
 	{"OsRun", "osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 	{"OsRunIn", "osRunIn(executable String, arguments Count, directory String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 	{"OsRunInput", "osRunInput(executable String, arguments Count, input String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},

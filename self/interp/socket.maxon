@@ -1,0 +1,52 @@
+// The rows of a TCP socket, run on a socket of the system's, which the interpreter has none of: it stops at each with the
+// operation's name, never giving a result, and a program that opens a socket says `// native-only`, as one that opens a file
+// does (handles.maxon).
+
+// haltSocketRow is the halt of the interpreter at a row of a socket.
+function haltSocketRow(mutates vm Vm, row String) returns Halt
+	return unmodelled(vm, what: "{row} is not run by the interpreter, which has no sockets: mark the program native-only")
+end 'haltSocketRow'
+
+function entrySocketListen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSocketRow(vm, row: "__Builtins.socketListen")
+end 'entrySocketListen'
+
+function entrySocketBoundPort(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSocketRow(vm, row: "__Builtins.socketBoundPort")
+end 'entrySocketBoundPort'
+
+function entrySocketAccept(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSocketRow(vm, row: "__Builtins.socketAccept")
+end 'entrySocketAccept'
+
+function entrySocketConnect(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSocketRow(vm, row: "__Builtins.socketConnect")
+end 'entrySocketConnect'
+
+function entrySocketReadAppending(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSocketRow(vm, row: "__Builtins.socketReadAppending")
+end 'entrySocketReadAppending'
+
+function entrySocketSendFrom(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSocketRow(vm, row: "__Builtins.socketSendFrom")
+end 'entrySocketSendFrom'
+
+function entrySocketSetReadDeadline(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSocketRow(vm, row: "__Builtins.socketSetReadDeadline")
+end 'entrySocketSetReadDeadline'
+
+function entrySocketSetWriteDeadline(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSocketRow(vm, row: "__Builtins.socketSetWriteDeadline")
+end 'entrySocketSetWriteDeadline'
+
+function entrySocketTimedOut(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSocketRow(vm, row: "__Builtins.socketTimedOut")
+end 'entrySocketTimedOut'
+
+function entrySocketShutdownWrite(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSocketRow(vm, row: "__Builtins.socketShutdownWrite")
+end 'entrySocketShutdownWrite'
+
+function entrySocketClose(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSocketRow(vm, row: "__Builtins.socketClose")
+end 'entrySocketClose'

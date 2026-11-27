@@ -1,0 +1,505 @@
+// TCP sockets over the event queue (eventqueue.maxon), the floor of the library's __ManagedSocket, which its TcpClient and
+// TcpListener hold (`__Builtins.socket*`): Go's internal/poll over its netpoll, with maxon's names and failures. A socket is a box
+// of the runtime's whose address is the socket's word: its fd, which does not wait (O_NONBLOCK) and which an exec closes, the
+// event entry it is registered with for good (both modes, edge-triggered), the deadlines of its reads (accepts among them) and of
+// its sends, and whether its last read, send or accept was ended by its deadline (maxon's timedOut()). Nothing else holds it: no
+// green thread is tied to a socket, and an idle one is its box and its entry (concurrency plan E5).
+//
+// Every operation makes its call first and waits on the entry only while the call would wait (EAGAIN), then makes it again,
+// as Go's FD.Read and FD.Accept do; a call that a signal broke off (EINTR) is made again at once. So bytes the kernel holds are
+// given even past a deadline that has passed, and a wait's end says only that the socket may be ready. A connect that has not
+// ended at once (EINPROGRESS) waits for the socket to be writable, then reads the pending error (SO_ERROR) and, where there is
+// none, asks for the peer (getpeername) before it says the socket is connected, as Go's netFD.connect does: a wake of the
+// event queue may come before the connect has ended. The socket is registered after its connect is started, and a listener
+// after its listen, as Go's are.
+//
+// A listener has a backlog of 128 and no SO_REUSEADDR, as maxon's has; a connected or accepted socket sends at once (TCP_NODELAY,
+// as Go sets it) and raises no SIGPIPE when its peer has gone (MSG_NOSIGNAL on Linux, SO_NOSIGPIPE on macOS). An accept passes
+// over a connection that ended before it was taken (ECONNABORTED), as Go's does, fails for good where the listener cannot
+// accept (ENOTSOCK, EBADF, EINVAL, EFAULT: acceptFailed) and otherwise refuses the one connection (acceptRetriable), after which
+// the listener takes the next, as maxon's does. A read or a send moves at most socketMostBytes in one call, as Go's does.
+//
+// One owner holds a socket (the library's __ManagedSocket is linear), and each operation takes it mutates, so no two calls are
+// ever on one socket in one mode and no wait is in progress when it is closed: socketClose gives the entry back (eventRelease)
+// before it closes the fd, so a reused fd never meets a registration of the socket before it. The close is the one call that
+// ends a socket, and throws what the system's close reports, the socket closed all the same.
+//
+// x64-windows has no sockets yet (the concurrency plan's step 2, Windows half: readiness through AFD poll): its rows stop the
+// program, and the library refuses TcpClient and TcpListener there at compile time, so no program reaches them.
+
+let socketFdOffset = 0 as Count
+
+let socketEntryOffset = 8 as Count
+
+let socketReadDeadlineOffset = 16 as Count
+
+let socketWriteDeadlineOffset = 24 as Count
+
+// socketTimedOutOffset is where a socket holds set when its last read, send or accept was ended by its deadline.
+let socketTimedOutOffset = 32 as Count
+
+let socketBytes = 40 as Count
+
+// The bytes of an IPv4 address and of an IPv6 one, which say an address's family.
+let ipv4AddressBytes = 4 as Count
+
+let ipv6AddressBytes = 16 as Count
+
+// listenBacklog is maxon's ListenBacklog: the connections the system queues for a listener before an accept takes them.
+let listenBacklog = 128 as Count
+
+// socketMostBytes is the most a read or a send moves in one call, Go's maxRW: some systems refuse a larger one.
+let socketMostBytes = 1073741824 as Count
+
+let highestPort = 65535 as Count
+
+// sockaddrRoomBytes is room for the sockaddr of either family, and intBytes the length of an option that is an int.
+let sockaddrRoomBytes = 28 as Count
+
+let intBytes = 4 as Count
+
+let portHighShift = 8 as Count
+
+// The cases of __ManagedSocketError and __ManagedListenerError that the rows fail with, by their position in the enum.
+let socketBufferOutOfBounds = 0 as Count
+
+let socketConnectFailed = 2 as Count
+
+let socketSendFailed = 3 as Count
+
+let socketRecvFailed = 4 as Count
+
+let socketTimedOutCase = 7 as Count
+
+let listenerBindFailed = 1 as Count
+
+let listenerAcceptFailed = 2 as Count
+
+let listenerAddressFailed = 3 as Count
+
+let listenerAcceptRetriable = 5 as Count
+
+// socketSetReadDeadline sets the deadline of a socket's reads and accepts ms milliseconds from now, or clears it for 0.
+function socketSetReadDeadline(socket Count, ms Count)
+	__Raw.storeWord(socket, offset: socketReadDeadlineOffset, value: deadlineAfter(ms))
+end 'socketSetReadDeadline'
+
+// socketSetWriteDeadline sets the deadline of a socket's sends ms milliseconds from now, or clears it for 0.
+function socketSetWriteDeadline(socket Count, ms Count)
+	__Raw.storeWord(socket, offset: socketWriteDeadlineOffset, value: deadlineAfter(ms))
+end 'socketSetWriteDeadline'
+
+// socketTimedOut is whether a socket's last read, send or accept was ended by its deadline.
+function socketTimedOut(socket Count) returns bool
+	return __Raw.loadWord(socket, offset: socketTimedOutOffset) == set
+end 'socketTimedOut'
+
+// deadlineAfter is the deadline of a wait ms milliseconds from now, or eventNoDeadline for 0.
+function deadlineAfter(ms Count) returns Count
+	if ms == 0 'none'
+		return eventNoDeadline
+	end 'none'
+	return eventDeadline(try ms * nanosPerMilli otherwise panic("a socket's deadline is past the end of the clock"))
+end 'deadlineAfter'
+
+// addressFamilyBytes is the length of the address that a byte array holds, which must be an IPv4 or an IPv6 one.
+function addressFamilyBytes(address Count) returns Count
+	let length = collectionLength(address)
+	if length != ipv4AddressBytes and length != ipv6AddressBytes 'malformed'
+		panic("a socket's address is neither the 4 bytes of an IPv4 one nor the 16 of an IPv6 one")
+	end 'malformed'
+	return length
+end 'addressFamilyBytes'
+
+#if os(Linux) or os(macOS)
+	// socketListen is a socket bound to an address and a port and listening, registered with the event queue, or 0 with the
+	// error word set to bindFailed, the fd closed.
+	function socketListen(address Count, port Count, errorAddress Count) returns Count
+		let length = addressFamilyBytes(address)
+		if port > highestPort 'port'
+			failWith(errorAddress, errorCase: listenerBindFailed)
+			return 0
+		end 'port'
+		let fd = socketOpen(length)
+		if failed(fd) 'unopened'
+			failWith(errorAddress, errorCase: listenerBindFailed)
+			return 0
+		end 'unopened'
+		let name = sockaddrOf(address, length: length, port: port)
+		let bound = socketBind(fd, name: name, length: sockaddrBytes(length))
+		free(name)
+		if failed(bound) 'unbound'
+			closeFd(fd)
+			failWith(errorAddress, errorCase: listenerBindFailed)
+			return 0
+		end 'unbound'
+		if failed(socketListenCall(fd, backlog: listenBacklog)) 'unlistened'
+			closeFd(fd)
+			failWith(errorAddress, errorCase: listenerBindFailed)
+			return 0
+		end 'unlistened'
+		let socket = socketOf(fd)
+		if socket == 0 'unregistered'
+			failWith(errorAddress, errorCase: listenerBindFailed)
+			return 0
+		end 'unregistered'
+		succeed(errorAddress)
+		return socket
+	end 'socketListen'
+
+	// socketBoundPort is the port a socket is bound to, or 0 with the error word set to addressFailed.
+	function socketBoundPort(socket Count, errorAddress Count) returns Count
+		let name = alloc(sockaddrRoomBytes)
+		zeroRange(name, from: 0, to: sockaddrRoomBytes)
+		var length = sockaddrRoomBytes
+		let result = socketName(__Raw.loadWord(socket, offset: socketFdOffset), name: name, lengthAddress: __Raw.addressOf(length))
+		let port = portOf(name)
+		free(name)
+		if failed(result) 'refused'
+			failWith(errorAddress, errorCase: listenerAddressFailed)
+			return 0
+		end 'refused'
+		succeed(errorAddress)
+		return port
+	end 'socketBoundPort'
+
+	// socketAccept is the next connection to a listening socket, registered with the event queue, parking while there is none,
+	// until the socket's read deadline; or 0 with the error word set.
+	function socketAccept(socket Count, errorAddress Count) returns Count
+		__Raw.storeWord(socket, offset: socketTimedOutOffset, value: unset)
+		let fd = __Raw.loadWord(socket, offset: socketFdOffset)
+		let entry = __Raw.loadWord(socket, offset: socketEntryOffset)
+		while true 'attempt'
+			let accepted = acceptCall(fd)
+			if not failed(accepted) 'taken'
+				let connection = socketOf(accepted)
+				if connection == 0 'unregistered'
+					failWith(errorAddress, errorCase: listenerAcceptRetriable)
+					return 0
+				end 'unregistered'
+				noDelay(accepted)
+				succeed(errorAddress)
+				return connection
+			end 'taken'
+			let errno = errnoOf(accepted)
+			if errno == eintr or errno == econnaborted 'again'
+				continue 'attempt'
+			end 'again'
+			if errno == eagain 'unready'
+				let status = eventWait(entry, mode: eventRead, deadline: __Raw.loadWord(socket, offset: socketReadDeadlineOffset))
+				if status == eventReady 'ready'
+					continue 'attempt'
+				end 'ready'
+				if status == eventExpired 'expired'
+					__Raw.storeWord(socket, offset: socketTimedOutOffset, value: set)
+				end 'expired'
+				failWith(errorAddress, errorCase: listenerAcceptFailed)
+				return 0
+			end 'unready'
+			if errno == enotsock or errno == ebadf or errno == einval or errno == efault 'fatal'
+				failWith(errorAddress, errorCase: listenerAcceptFailed)
+				return 0
+			end 'fatal'
+			failWith(errorAddress, errorCase: listenerAcceptRetriable)
+			return 0
+		end 'attempt'
+		failWith(errorAddress, errorCase: listenerAcceptFailed)
+		return 0
+	end 'socketAccept'
+
+	// socketConnect is a socket connected to an address and a port, registered with the event queue, parking while the
+	// connection is made until ms milliseconds (0 for none) have passed; or 0 with the error word set to timedOut or
+	// connectFailed, the fd closed.
+	function socketConnect(address Count, port Count, ms Count, errorAddress Count) returns Count
+		let length = addressFamilyBytes(address)
+		if port > highestPort 'port'
+			failWith(errorAddress, errorCase: socketConnectFailed)
+			return 0
+		end 'port'
+		let deadline = deadlineAfter(ms)
+		let fd = socketOpen(length)
+		if failed(fd) 'unopened'
+			failWith(errorAddress, errorCase: socketConnectFailed)
+			return 0
+		end 'unopened'
+		let name = sockaddrOf(address, length: length, port: port)
+		let started = connectCall(fd, name: name, length: sockaddrBytes(length))
+		free(name)
+		var pending = false
+		if failed(started) 'unconnected'
+			let errno = errnoOf(started)
+			if errno == einprogress or errno == ealready or errno == eintr 'inProgress'
+				pending = true
+			end 'inProgress' else 'refused'
+				if errno != eisconn 'failedConnect'
+					closeFd(fd)
+					failWith(errorAddress, errorCase: socketConnectFailed)
+					return 0
+				end 'failedConnect'
+			end 'refused'
+		end 'unconnected'
+		let socket = socketOf(fd)
+		if socket == 0 'unregistered'
+			failWith(errorAddress, errorCase: socketConnectFailed)
+			return 0
+		end 'unregistered'
+		if pending 'wait'
+			let failure = connectEnded(socket, deadline: deadline)
+			if failure != 0 'ended'
+				var unclosed = 0 as Count
+				socketClose(socket, errorAddress: __Raw.addressOf(unclosed))
+				failWith(errorAddress, errorCase: __Raw.wrappingSub(failure, right: 1))
+				return 0
+			end 'ended'
+		end 'wait'
+		noDelay(fd)
+		succeed(errorAddress)
+		return socket
+	end 'socketConnect'
+
+	// connectEnded waits for the connect of a socket that is in progress to end, until a deadline, and gives 0 once it is
+	// connected, or 1 plus the case it failed with: Go's netFD.connect after its first call.
+	function connectEnded(socket Count, deadline Count) returns Count
+		let fd = __Raw.loadWord(socket, offset: socketFdOffset)
+		let entry = __Raw.loadWord(socket, offset: socketEntryOffset)
+		while true 'wait'
+			let status = eventWait(entry, mode: eventWrite, deadline: deadline)
+			if status == eventExpired 'expired'
+				return __Raw.wrappingAdd(socketTimedOutCase, right: 1)
+			end 'expired'
+			if status != eventReady 'ended'
+				return __Raw.wrappingAdd(socketConnectFailed, right: 1)
+			end 'ended'
+			let pending = pendingError(fd)
+			if pending == eisconn 'connected'
+				return 0
+			end 'connected'
+			if pending == 0 'none'
+				// The event queue may wake the wait before the connect has ended: only a peer says it has.
+				if connectedToPeer(fd) 'peer'
+					return 0
+				end 'peer'
+				continue 'wait'
+			end 'none'
+			if pending != einprogress and pending != ealready and pending != eintr 'refused'
+				return __Raw.wrappingAdd(socketConnectFailed, right: 1)
+			end 'refused'
+		end 'wait'
+		return __Raw.wrappingAdd(socketConnectFailed, right: 1)
+	end 'connectEnded'
+
+	// socketReadAppending reads up to most bytes of a socket into a byte array after its length, which grows by what it read,
+	// and gives the count, 0 once the peer has ended its sending, parking only while nothing has come, until the socket's read
+	// deadline. Bytes that would run past the array's capacity fail bufferOutOfBounds and read nothing.
+	function socketReadAppending(socket Count, buffer Count, most Count, errorAddress Count) returns Count
+		__Raw.storeWord(socket, offset: socketTimedOutOffset, value: unset)
+		let length = collectionLength(buffer)
+		let capacity = __Raw.loadWord(buffer, offset: arrayCapacityOffset)
+		if most > capacity or length > capacity - most 'past'
+			failWith(errorAddress, errorCase: socketBufferOutOfBounds)
+			return 0
+		end 'past'
+		if most == 0 'nothing'
+			succeed(errorAddress)
+			return 0
+		end 'nothing'
+		let room = __Raw.wrappingAdd(collectionData(buffer), right: length)
+		let got = socketTransfer(socket, mode: eventRead, buffer: room, length: most, deadlineOffset: socketReadDeadlineOffset)
+		if got > most 'refused'
+			failWith(errorAddress, errorCase: socketTimedOutCase if got == transferExpired else socketRecvFailed)
+			return 0
+		end 'refused'
+		__Raw.storeWord(buffer, offset: arrayLengthOffset, value: __Raw.wrappingAdd(length, right: got))
+		succeed(errorAddress)
+		return got
+	end 'socketReadAppending'
+
+	// socketSendFrom sends up to count bytes of a byte array from an index, which lie in its length, and gives the count the
+	// system took, which may be fewer, parking only while it takes none, until the socket's write deadline; the caller sends the
+	// rest. Bytes past the array's length fail bufferOutOfBounds and send nothing.
+	function socketSendFrom(socket Count, buffer Count, at Count, count Count, errorAddress Count) returns Count
+		__Raw.storeWord(socket, offset: socketTimedOutOffset, value: unset)
+		let length = collectionLength(buffer)
+		if at > length or count > length - at 'past'
+			failWith(errorAddress, errorCase: socketBufferOutOfBounds)
+			return 0
+		end 'past'
+		if count == 0 'nothing'
+			succeed(errorAddress)
+			return 0
+		end 'nothing'
+		let from = __Raw.wrappingAdd(collectionData(buffer), right: at)
+		let sent = socketTransfer(socket, mode: eventWrite, buffer: from, length: count, deadlineOffset: socketWriteDeadlineOffset)
+		if sent > count 'refused'
+			failWith(errorAddress, errorCase: socketTimedOutCase if sent == transferExpired else socketSendFailed)
+			return 0
+		end 'refused'
+		succeed(errorAddress)
+		return sent
+	end 'socketSendFrom'
+
+	// socketTransfer is one read or send of a socket's, made again while the call would wait once the entry says the socket may
+	// be ready, until the deadline the socket holds at an offset: a count, or a transfer's failure (eventio.maxon). A deadline
+	// that ends it sets the socket's timedOut.
+	function socketTransfer(socket Count, mode Count, buffer Count, length Count, deadlineOffset Count) returns Count
+		let fd = __Raw.loadWord(socket, offset: socketFdOffset)
+		let entry = __Raw.loadWord(socket, offset: socketEntryOffset)
+		let asked = length if length < socketMostBytes else socketMostBytes
+		while true 'attempt'
+			let result = socketCall(fd, mode: mode, buffer: buffer, length: asked)
+			if not failed(result) 'moved'
+				return result
+			end 'moved'
+			let errno = errnoOf(result)
+			if errno == eintr 'interrupted'
+				continue 'attempt'
+			end 'interrupted'
+			if errno != eagain 'refused'
+				return transferFailed
+			end 'refused'
+			let status = eventWait(entry, mode: mode, deadline: __Raw.loadWord(socket, offset: deadlineOffset))
+			if status != eventReady 'ended'
+				if status == eventExpired 'expired'
+					__Raw.storeWord(socket, offset: socketTimedOutOffset, value: set)
+				end 'expired'
+				return transferOf(status)
+			end 'ended'
+		end 'attempt'
+		return transferFailed
+	end 'socketTransfer'
+
+	// socketShutdownWrite ends a socket's sending, which its peer reads as the end, and sets the error word to sendFailed when
+	// the system refuses it.
+	function socketShutdownWrite(socket Count, errorAddress Count)
+		if failed(shutdownWriteCall(__Raw.loadWord(socket, offset: socketFdOffset))) 'refused'
+			failWith(errorAddress, errorCase: socketSendFailed)
+			return
+		end 'refused'
+		succeed(errorAddress)
+	end 'socketShutdownWrite'
+
+	// socketClose gives a socket's entry back, closes its fd and frees its record, and sets the error word to sendFailed when the
+	// system's close reports an error, the socket closed all the same. No wait on it is in progress: its one owner is the caller.
+	function socketClose(socket Count, errorAddress Count)
+		eventRelease(__Raw.loadWord(socket, offset: socketEntryOffset))
+		let osError = closeFileHandle(__Raw.loadWord(socket, offset: socketFdOffset), writes: false)
+		free(socket)
+		if osError != 0 'refused'
+			failWith(errorAddress, errorCase: socketSendFailed)
+			return
+		end 'refused'
+		succeed(errorAddress)
+	end 'socketClose'
+
+	// socketOf is the record of a socket's fd, registered with the event queue for both modes, no deadline set; or 0, the fd
+	// closed, when the event queue refuses it.
+	function socketOf(fd Count) returns Count
+		let entry = eventRegister(fd)
+		if entry == noEntry 'refused'
+			closeFd(fd)
+			return 0
+		end 'refused'
+		let socket = alloc(socketBytes)
+		__Raw.storeWord(socket, offset: socketFdOffset, value: fd)
+		__Raw.storeWord(socket, offset: socketEntryOffset, value: entry)
+		__Raw.storeWord(socket, offset: socketReadDeadlineOffset, value: eventNoDeadline)
+		__Raw.storeWord(socket, offset: socketWriteDeadlineOffset, value: eventNoDeadline)
+		__Raw.storeWord(socket, offset: socketTimedOutOffset, value: unset)
+		return socket
+	end 'socketOf'
+
+	// sockaddrOf is a new sockaddr of an address of a length, the bytes of a byte array, and a port.
+	function sockaddrOf(address Count, length Count, port Count) returns Count
+		let bytes = sockaddrBytes(length)
+		let name = alloc(bytes)
+		zeroRange(name, from: 0, to: bytes)
+		sockaddrFamily(name, length: length)
+		__Raw.storeByte(name, offset: sockaddrPortOffset, value: ((port shr portHighShift) and byteMask) as Byte)
+		__Raw.storeByte(name, offset: __Raw.wrappingAdd(sockaddrPortOffset, right: 1), value: (port and byteMask) as Byte)
+		let first = sockaddrIn4AddressOffset if length == ipv4AddressBytes else sockaddrIn6AddressOffset
+		let data = collectionData(address)
+		for i in 0 upto length 'bytes'
+			__Raw.storeByte(name, offset: __Raw.wrappingAdd(first, right: i), value: __Raw.loadByte(data, offset: i))
+		end 'bytes'
+		return name
+	end 'sockaddrOf'
+
+	// portOf is the port of a sockaddr of either family, its high byte first.
+	function portOf(name Count) returns Count
+		let high = __Raw.loadByte(name, offset: sockaddrPortOffset) as Count
+		let low = __Raw.loadByte(name, offset: __Raw.wrappingAdd(sockaddrPortOffset, right: 1)) as Count
+		return (high shl portHighShift) or low
+	end 'portOf'
+
+	// sockaddrBytes is the length of the sockaddr of an address of a length.
+	function sockaddrBytes(length Count) returns Count
+		return sockaddrIn4Bytes if length == ipv4AddressBytes else sockaddrIn6Bytes
+	end 'sockaddrBytes'
+
+	// systemFamily is the system's number of the family of an address of a length.
+	function systemFamily(length Count) returns Count
+		return afInet if length == ipv4AddressBytes else afInet6
+	end 'systemFamily'
+
+	// pendingError is the error a socket has pending, which reading clears, or the errno of the read where it failed.
+	function pendingError(fd Count) returns Count
+		var value = 0 as Count
+		var length = intBytes
+		let result = socketOptionRead(fd, level: solSocket, option: soError, value: __Raw.addressOf(value), lengthAddress: __Raw.addressOf(length))
+		if failed(result) 'refused'
+			return errnoOf(result)
+		end 'refused'
+		return value and lowHalfMask
+	end 'pendingError'
+
+	// connectedToPeer is whether a socket has a peer, which a connect that has ended gives it.
+	function connectedToPeer(fd Count) returns bool
+		let name = alloc(sockaddrRoomBytes)
+		var length = sockaddrRoomBytes
+		let result = peerName(fd, name: name, lengthAddress: __Raw.addressOf(length))
+		free(name)
+		return not failed(result)
+	end 'connectedToPeer'
+
+	// noDelay has a connected socket send at once (TCP_NODELAY), as Go's TCPConn does; a refusal leaves it as it was.
+	function noDelay(fd Count)
+		var one = 1 as Count
+		_ = socketOptionWrite(fd, level: ipprotoTcp, option: tcpNodelay, value: __Raw.addressOf(one), length: intBytes)
+	end 'noDelay'
+#endif
+
+#if os(Windows)
+	// Windows's sockets (readiness through AFD poll on the completion port) are the plan's next part; until then each row stops
+	// the program, and the library refuses its socket types for x64-windows at compile time.
+	function socketListen(address Count, port Count, errorAddress Count) returns Count
+		panic("sockets are not written for x64-windows yet (concurrency plan step 2, Windows half)")
+	end 'socketListen'
+
+	function socketBoundPort(socket Count, errorAddress Count) returns Count
+		panic("sockets are not written for x64-windows yet (concurrency plan step 2, Windows half)")
+	end 'socketBoundPort'
+
+	function socketAccept(socket Count, errorAddress Count) returns Count
+		panic("sockets are not written for x64-windows yet (concurrency plan step 2, Windows half)")
+	end 'socketAccept'
+
+	function socketConnect(address Count, port Count, ms Count, errorAddress Count) returns Count
+		panic("sockets are not written for x64-windows yet (concurrency plan step 2, Windows half)")
+	end 'socketConnect'
+
+	function socketReadAppending(socket Count, buffer Count, most Count, errorAddress Count) returns Count
+		panic("sockets are not written for x64-windows yet (concurrency plan step 2, Windows half)")
+	end 'socketReadAppending'
+
+	function socketSendFrom(socket Count, buffer Count, at Count, count Count, errorAddress Count) returns Count
+		panic("sockets are not written for x64-windows yet (concurrency plan step 2, Windows half)")
+	end 'socketSendFrom'
+
+	function socketShutdownWrite(socket Count, errorAddress Count)
+		panic("sockets are not written for x64-windows yet (concurrency plan step 2, Windows half)")
+	end 'socketShutdownWrite'
+
+	function socketClose(socket Count, errorAddress Count)
+		panic("sockets are not written for x64-windows yet (concurrency plan step 2, Windows half)")
+	end 'socketClose'
+#endif

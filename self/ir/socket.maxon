@@ -1,0 +1,61 @@
+// The rows of a TCP socket under the library's __ManagedSocket (runtime/socket.maxon), each a call of the runtime's entry with the
+// call's arguments as they are: a row that throws passes the error word last and fails with the case it holds, as an open file's
+// rows do (os.maxon, failing).
+
+// socketFailing is a call of a socket's entry that throws, giving a word.
+function socketFailing(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, args RegList, symbol Rt) returns Reg
+	let dst = newReg(l, kind: IrKind.kindScalar)
+	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: symbol, args: args)
+end 'socketFailing'
+
+// socketFailingVoid is a call of a socket's entry that throws, giving nothing.
+function socketFailingVoid(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, args RegList, symbol Rt) returns Reg
+	_ = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: symbol, args: args)
+	return konst(l, value: 0 as Word)
+end 'socketFailingVoid'
+
+function lowerManagedSocketListen(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return socketFailing(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtSocketListen)
+end 'lowerManagedSocketListen'
+
+function lowerManagedSocketBoundPort(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return socketFailing(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtSocketBoundPort)
+end 'lowerManagedSocketBoundPort'
+
+function lowerManagedSocketAccept(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return socketFailing(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtSocketAccept)
+end 'lowerManagedSocketAccept'
+
+function lowerManagedSocketConnect(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return socketFailing(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtSocketConnect)
+end 'lowerManagedSocketConnect'
+
+function lowerManagedSocketReadAppending(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return socketFailing(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtSocketReadAppending)
+end 'lowerManagedSocketReadAppending'
+
+function lowerManagedSocketSendFrom(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return socketFailing(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtSocketSendFrom)
+end 'lowerManagedSocketSendFrom'
+
+function lowerManagedSocketSetReadDeadline(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSocketSetReadDeadline, args: args)
+	return konst(l, value: 0 as Word)
+end 'lowerManagedSocketSetReadDeadline'
+
+function lowerManagedSocketSetWriteDeadline(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSocketSetWriteDeadline, args: args)
+	return konst(l, value: 0 as Word)
+end 'lowerManagedSocketSetWriteDeadline'
+
+function lowerManagedSocketTimedOut(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSocketTimedOut, kind: IrKind.kindScalar, args: args)
+end 'lowerManagedSocketTimedOut'
+
+function lowerManagedSocketShutdownWrite(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return socketFailingVoid(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtSocketShutdownWrite)
+end 'lowerManagedSocketShutdownWrite'
+
+function lowerManagedSocketClose(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return socketFailingVoid(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtSocketClose)
+end 'lowerManagedSocketClose'
