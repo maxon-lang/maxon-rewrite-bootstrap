@@ -847,6 +847,7 @@ function scalarTag(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns Stri
 		builtinCursor gives ""
 		builtinGroups gives ""
 		builtinPromise gives ""
+		builtinReply gives ""
 		builtinService gives ""
 		typeParam gives ""
 		interfaceTy gives ""
@@ -1071,6 +1072,10 @@ function checkReturn(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	let ret = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.fn).retTy
 	let fnName = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.fn).name.clone()
 	let value = ast.returnStmtValue(ms.tree(), id: s)
+	if value != 0 and defersHere(c, p: p, ms: ms) 'deferred'
+		refuseDeferredReturn(c, p: p, ms: ms, s: s, errs: errs)
+		return
+	end 'deferred'
 	if ret == p.builtins.voidTy 'void'
 		if value != 0 and c.inClosure 'closure'
 			let given = checkExpr(c, p: p, ms: ms, e: value, errs: errs)
@@ -1089,6 +1094,10 @@ function checkReturn(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		return
 	end 'void'
 	if value == 0 'missing'
+		if deferralRefused(errs) 'deferral'
+			// A `reply.later()` the message was refused, which a bare return goes with.
+			return
+		end 'deferral'
 		failAt(c, p: p, ms: ms, node: s, code: diag.errMissingReturn, msg: diag.returnWithoutValue(fnName), errs: errs)
 		return
 	end 'missing'
@@ -1122,6 +1131,10 @@ end 'checkReturn'
 
 // checkThrow types a throw, which fails with a case of an error enum or a value of an error union.
 function checkThrow(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
+	if c.tries.count() == 0 and defersHere(c, p: p, ms: ms) 'deferred'
+		refuseDeferredThrow(c, p: p, ms: ms, node: s, errs: errs)
+		return
+	end 'deferred'
 	let value = ast.throwStmtValue(ms.tree(), id: s)
 	let e = checkExpr(c, p: p, ms: ms, e: value, errs: errs)
 	if e == ast.noType 'badValue'

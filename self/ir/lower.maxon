@@ -11,6 +11,10 @@ export function begin(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	if l.resultWords > 0 'inPlace'
 		paramCount = succ(paramCount)
 	end 'inPlace'
+	if ast.defers(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn)) 'deferring'
+		// The cell of the message's reply, which `reply.later()` takes (lowerReplyLater).
+		paramCount = succ(paramCount)
+	end 'deferring'
 	l.b.keepsSpans = p.keepsSpans
 	l.b.start(fn, name: name, paramCount: paramCount)
 	l.b.f.lendsResult = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).result == ast.ResultConv.resultBorrowed and not ast.lendsByAddress(p, typing: p.typings[l.mi], module: l.module, ft: ms.funcs, funcReads: p.funcs, f: fn)

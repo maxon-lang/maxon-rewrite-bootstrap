@@ -378,6 +378,9 @@ export let errModuleLetCallsFunction = "E3220"
 // A message or a factory may wait on another party while it holds its service.
 export let errHolderMayWait = "E3221"
 
+// `reply.later()` is written where a message cannot defer its reply, a deferring message returns a value, throws or is called directly, or a Reply would leave the service code that holds it: through a function's result, an async call, a closure or an interface value.
+export let errReplyDeferralRefused = "E3222"
+
 // 'main' declares parameters.
 export let errEntryTakesParameters = "E3225"
 

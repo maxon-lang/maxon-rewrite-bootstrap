@@ -1,0 +1,62 @@
+// A message that defers its reply with reply.later() parks its Reply in the service's state, and a later message answers it.
+// A sender that dropped the reply leaves a Reply that holds no cell, whose answer drops the value. A Reply still held when
+// its service stops, at once or by self.stop() once the queued messages have run, is dropped with the state, which fails
+// its sender's await with serviceStopped, so every reply a sender keeps is answered once.
+// schedules: 6
+//> five six stopped closed
+export typealias Waiting = Array with Reply with String
+
+type Parker implements StopsNow
+	var waiting as Waiting
+
+	static function create() returns Self
+		return Self{waiting: Waiting.create(0)}
+	end 'create'
+
+	export function park(mutates self) returns String throws ReplyStopped
+		let pending = reply.later()
+		self.waiting.push(pending)
+		return
+	end 'park'
+
+	export function answerAll(mutates self, consumes text String)
+		while self.waiting.count() > 0 'each'
+			let pending = self.waiting.pop()
+			pending.answer(text.clone())
+		end 'each'
+	end 'answerAll'
+
+	export function close(mutates self)
+		self.stop()
+	end 'close'
+end 'Parker'
+
+function main() returns ExitCode
+	let parker = spawn Parker.create()
+	let first = try parker.park() otherwise panic("a running service takes the send")
+	try parker.answerAll("five") otherwise panic("a running service takes the send")
+	let second = try parker.park() otherwise panic("a running service takes the send")
+	_ = try parker.park() otherwise panic("a running service takes the send")
+	try parker.answerAll("six") otherwise panic("a running service takes the send")
+	let third = try parker.park() otherwise panic("a running service takes the send")
+	let five = try await first otherwise panic("the reply was answered")
+	let six = try await second otherwise panic("the reply was answered")
+	parker.stopNow()
+	var stopped = "answered"
+	try await third otherwise (e) 'failed'
+		match e 'why'
+			serviceStopped then stopped = "stopped"
+		end 'why'
+	end 'failed'
+	let closer = spawn Parker.create()
+	let fourth = try closer.park() otherwise panic("a running service takes the send")
+	try closer.close() otherwise panic("a running service takes the send")
+	var closed = "answered"
+	try await fourth otherwise (e) 'ended'
+		match e 'why'
+			serviceStopped then closed = "closed"
+		end 'why'
+	end 'ended'
+	print("{five} {six} {stopped} {closed}\n")
+	return 0
+end 'main'

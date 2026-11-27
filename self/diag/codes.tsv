@@ -132,6 +132,7 @@ ErrNotSendable	E3217	semanticMessageNeedsACapability	A message, a reply or a fac
 ErrUnsignedNegation	E3218	semanticUnsignedNegation	An unsigned value is negated.
 ErrModuleLetCallsFunction	E3220	semanticModuleLetCallsAFunction	The initializer of a constant calls a function.
 ErrHolderMayWait	E3221	semanticHolderMayWait	A message or a factory may wait on another party while it holds its service.
+ErrReplyDeferralRefused	E3222	semanticReplyDeferralRefused	`reply.later()` is written where a message cannot defer its reply, a deferring message returns a value, throws or is called directly, or a Reply would leave the service code that holds it: through a function's result, an async call, a closure or an interface value.
 ErrEntryTakesParameters	E3225	entryFunctionTakesParameters	'main' declares parameters.
 ErrMoveOutOfBorrow	E3900	-	A borrowed value is moved somewhere that would own it.
 ErrMoveOutOfField	E3901	-	A part of a value is moved out of a value that stays in use.

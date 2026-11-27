@@ -58,6 +58,9 @@ function requireStartable(mutates c Checker, p ast.Project, mutates ms ast.Modul
 		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: diag.asyncFloatResult(name), errs: errs)
 		return false
 	end 'float'
+	if not requireAsyncTakesNoReply(c, p: p, ms: ms, node: e, target: info.fn, errs: errs) 'reply'
+		return false
+	end 'reply'
 	for i in 0 upto info.paramSpecs.count() 'owned'
 		let conv = info.paramSpecs[i].conv
 		let promise = ast.isPromiseType(ms.types, reads: p.types, t: info.paramSpecs[i].ty)
@@ -103,7 +106,9 @@ function checkAwait(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 		return ast.noType
 	end 'failed'
 	if not ast.isPromiseType(ms.types, reads: p.types, t: t) 'notPromise'
-		failAt(c, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: diag.awaitNeedsPromise(nameOfType(p, ms: ms, t: t)), errs: errs)
+		// maxon's library declares Reply, and its message names an instance of a generic type by its kind.
+		let got = "genericInstance" if ast.isReplyType(ms.types, reads: p.types, t: t) else nameOfType(p, ms: ms, t: t)
+		failAt(c, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: diag.awaitNeedsPromise(got), errs: errs)
 		return ast.noType
 	end 'notPromise'
 	c.waitNow = true

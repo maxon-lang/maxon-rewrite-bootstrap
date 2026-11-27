@@ -126,6 +126,9 @@ export enum LackReason
 	lackInterface
 	// lackPromise is a promise, which owns a coroutine that one owner awaits: it is neither copied nor dropped.
 	lackPromise
+	// lackReply is a deferred reply, which one service answers once: it is dropped, which fails its sender's await, but never
+	// copied.
+	lackReply
 end 'LackReason'
 
 export type LackStep
@@ -474,6 +477,16 @@ export union Mismatch
 		end 'm'
 	end 'conformWords'
 
+	// wideningWords is what the place does with a value that is widened to the interface type iface, in the function fn.
+	export function wideningWords(iface String, fn String) returns String
+		return match self 'm'
+			expectedGot gives "Cannot use a value as the interface type '{iface}'"
+			argument(label) gives "Cannot pass a value as {label}, which is declared at the interface type '{iface}'"
+			assignment(place, bare) gives "Cannot store a value into the {memberPlace(place, bare: bare)}, which is declared at the interface type '{iface}'"
+			returned gives "Cannot return a value from '{fn}' as the interface type '{iface}'"
+		end 'm'
+	end 'wideningWords'
+
 	// opaqueWords is the refusal of a value of a type parameter where a concrete type is needed.
 	export function opaqueWords(expected String) returns String
 		return match self 'm'
@@ -505,6 +518,24 @@ export union Mismatch
 	end 'shapeWords'
 end 'Mismatch'
 
+// fieldPrefix and ownerInfix are the words of the place of a field, "field 'name' of 'Type'", whose bare place is "field 'name'".
+let fieldPrefix = "field '"
+
+let ownerInfix = " of '"
+
+// memberPlace is a field's place written as maxon's messages about a Reply write it, "field 'Type.name'", and any other place
+// as it is.
+function memberPlace(place String, bare String) returns String
+	let lead = fieldPrefix.byteLength()
+	let at = try bare.byteLength() + ownerInfix.byteLength() otherwise panic("check: a place past memory")
+	if bare.byteLength() <= lead or place.byteLength() <= at or place.sliceBytes(0, endPos: lead) != fieldPrefix or place.sliceBytes(bare.byteLength(), endPos: at) != ownerInfix 'other'
+		return place.clone()
+	end 'other'
+	let name = bare.sliceBytes(lead, endPos: try bare.byteLength() - 1 otherwise panic("check: a field's place shorter than its prefix"))
+	let owner = place.sliceBytes(at, endPos: try place.byteLength() - 1 otherwise panic("check: a field's place shorter than its owner"))
+	return "{fieldPrefix}{owner}.{name}'"
+end 'memberPlace'
+
 // frozenFix converts between a value and a frozen value of its type, which a type of its own tells apart: a value given up to
 // freeze where the frozen value is wanted, and an owned copy of the contents (thaw) where the value is, when it can be
 // copied. Nothing for other types.
@@ -525,11 +556,17 @@ export function coerce(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	if src == ast.noType or target == ast.noType 'okErr'
 		return true
 	end 'okErr'
+	let sk = ast.typeKind(ms.types, reads: p.types, t: src)
+	let dk = ast.typeKind(ms.types, reads: p.types, t: target)
+	if dk == ast.TypeKind.interfaceTy and sk != ast.TypeKind.interfaceTy and ast.holdsReply(ms.types, reads: p.types, t: src) 'reply'
+		let fnName = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.fn).name.clone() if c.fn != ast.noFunc else ""
+		let iface = nameOfType(p, ms: ms, t: target)
+		checkFail(c.modID, off: at, code: diag.errReplyDeferralRefused, msg: replyWideningText(wrong.wideningWords(iface, fn: fnName), iface: iface), errs: errs)
+		return false
+	end 'reply'
 	if assignable(p, ms: ms, src: src, dst: target) 'ok'
 		return true
 	end 'ok'
-	let sk = ast.typeKind(ms.types, reads: p.types, t: src)
-	let dk = ast.typeKind(ms.types, reads: p.types, t: target)
 	if sk == ast.TypeKind.enumTy and dk == ast.TypeKind.intRange 'rawCase'
 		let raw = rawCaseConstant(c, p: p, ms: ms, e: node)
 		if raw != ast.noType 'written'
@@ -839,6 +876,7 @@ export function typeIsNominal(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID
 		builtinCursor gives true
 		builtinGroups gives true
 		builtinPromise gives true
+		builtinReply gives true
 		builtinService gives true
 		invalid gives false
 		primBool gives false
@@ -919,6 +957,12 @@ export function lacksCap(mutates c Checker, p ast.Project, mutates ms ast.Module
 	if k == ast.TypeKind.builtinPromise 'promise'
 		return LackInfo.fail(LackStep.root(t, reason: LackReason.lackPromise))
 	end 'promise'
+	if k == ast.TypeKind.builtinReply 'reply'
+		if wantCopy 'copied'
+			return LackInfo.fail(LackStep.root(t, reason: LackReason.lackReply))
+		end 'copied'
+		return LackInfo.ok()
+	end 'reply'
 	if k == ast.TypeKind.interfaceTy 'interface'
 		if wantCopy and not ast.reachesInterface(ms.types, reads: p.types, have: t, want: p.builtins.copyableTy) 'notCopyable'
 			return LackInfo.fail(LackStep.root(t, reason: LackReason.lackInterface))
@@ -1033,7 +1077,9 @@ export function lackWhyText(tt ast.TypeSlot, reads ast.TypeTable, info LackInfo,
 			buf.append("a '{oName}' value holds a value of any type that implements '{oName}', which need not be Copyable".toByteArray())
 		end 'interface' else if r == LackReason.lackPromise 'promise'
 			buf.append("'{oName}' owns a coroutine, which exactly one owner awaits".toByteArray())
-		end 'promise' else 'unb'
+		end 'promise' else if r == LackReason.lackReply 'reply'
+			buf.append("'{oName}' is a reply that one service answers once".toByteArray())
+		end 'reply' else 'unb'
 			buf.append("the type parameter '{oName}' is not known to be {capName}".toByteArray())
 		end 'unb'
 	end 'each'
@@ -1062,6 +1108,9 @@ export function lackFixText(tt ast.TypeSlot, reads ast.TypeTable, info LackInfo,
 	if r == LackReason.lackPromise 'promise'
 		return "'await' the promise, and copy or drop a value that holds its result"
 	end 'promise'
+	if r == LackReason.lackReply 'reply'
+		return "answer the reply once, where it is held, with 'answer(value)'"
+	end 'reply'
 	return ""
 end 'lackFixText'
 

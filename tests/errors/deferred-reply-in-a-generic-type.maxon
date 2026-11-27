@@ -1,0 +1,15 @@
+// A Reply is typed by its message's reply type, which the body of a generic type does not fix.
+type Box uses T
+	var held as T
+
+	export function ask() returns Count throws ReplyStopped
+		let pending = reply.later()
+		return
+	end 'ask'
+end 'Box'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3222 at 6:23

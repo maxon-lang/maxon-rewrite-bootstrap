@@ -155,8 +155,17 @@ function addFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].result = result
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].params = specs
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].paramTypes = types
-	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].retTy = ret
-	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].errTy = err
+	if defersReply(c, p: p, ms: ms, f: f, nt: nt, ret: ret) 'deferred'
+		// Its senders await what the header declares; the function itself answers through its Reply.
+		ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].deferredTy = ret
+		ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].deferredErrTy = err
+		ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].retTy = p.builtins.voidTy
+		ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].errTy = ast.noType
+	end 'deferred' else 'plain'
+		ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].retTy = ret
+		ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].errTy = err
+	end 'plain'
+	requireResultHoldsNoReply(c, p: p, ms: ms, f: f, nt: nt, ret: ret, errs: errs)
 	if f.isAnnotated 'policy'
 		placePolicy(c, p: p, ms: ms, f: f, fid: fid, nt: nt, errs: errs)
 	end 'policy'
@@ -501,13 +510,14 @@ function declareAwaitError(mutates c Checker, p ast.Project, mutates ms ast.Modu
 	let f = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).clone()
 	let serviceName = ast.typeName(ms.types, reads: p.types, t: nt)
 	var e = ast.TypeEntry.make(ast.TypeKind.enumTy, name: "{serviceName}.{f.name}.Error")
-	if f.errTy != ast.noType 'throws'
-		if ast.typeKind(ms.types, reads: p.types, t: f.errTy) != ast.TypeKind.enumTy 'union'
+	let thrown = ast.replyErrorOf(f)
+	if thrown != ast.noType 'throws'
+		if ast.typeKind(ms.types, reads: p.types, t: thrown) != ast.TypeKind.enumTy 'union'
 			let why = "its policy sheds it" if busy else "'{serviceName}' implements StopsNow"
 			checkFail(c.modID, off: ms.tree().startOf(f.nodeID), code: diag.errUnsupportedFeature, msg: "the reply of '{f.name}' may fail at its sender's await with more than it throws, since {why}, and the error of such an await adds those cases to an enum only yet: throw an enum", errs: errs)
 			return
 		end 'union'
-		let own = ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: f.errTy)).cases.clone()
+		let own = ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: thrown)).cases.clone()
 		for i in 0 upto own.count() 'cases'
 			e.cases.push(ast.CaseInfo.make(own[i].name.clone(), payload: ast.CaseFieldList.create(0), hasRaw: false, rawValue: ast.I128.zero()))
 		end 'cases'

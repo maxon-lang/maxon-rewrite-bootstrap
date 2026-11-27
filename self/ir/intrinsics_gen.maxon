@@ -476,6 +476,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrPromiseCancel 'intrPromiseCancel'
 		return lowerPromiseCancel(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrPromiseCancel'
+	if op == ast.Intrinsic.intrReplyAnswer 'intrReplyAnswer'
+		return lowerReplyAnswer(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrReplyAnswer'
+	if op == ast.Intrinsic.intrReplyLater 'intrReplyLater'
+		return lowerReplyLater(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrReplyLater'
 	if op == ast.Intrinsic.intrArrayAwaitAny 'intrArrayAwaitAny'
 		return lowerArrayAwaitAny(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayAwaitAny'
@@ -1474,6 +1480,12 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrPromiseCancel 'intrPromiseCancel'
 		return false
 	end 'intrPromiseCancel'
+	if op == ast.Intrinsic.intrReplyAnswer 'intrReplyAnswer'
+		return false
+	end 'intrReplyAnswer'
+	if op == ast.Intrinsic.intrReplyLater 'intrReplyLater'
+		return false
+	end 'intrReplyLater'
 	if op == ast.Intrinsic.intrArrayAwaitAny 'intrArrayAwaitAny'
 		return false
 	end 'intrArrayAwaitAny'

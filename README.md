@@ -5061,6 +5061,33 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   every reply a sender keeps to one answer; `fuzz --services` stops a service by its shutdown or at once from its own
   message, with replies of a kept and of a shed kind pending. Not yet: naming the error of such an await in a type, so a
   program keeps an array of such replies only as `[first]` and `push` infer it.
+- **Deferred replies** (`self/check/replies.maxon`, `lowerReplyLater` and `lowerReplyAnswer` in `self/ir/services.maxon`,
+  "Deferred reply" in `runtime/service.maxon`, `stdlib/service/Reply.maxon`), maxon's (`specs/deferred-reply.md`): written as
+  the whole initializer of a first-level `let` of a message's body, `let pending = reply.later()` takes the message's reply as a
+  `Reply with T`, `T` its reply type, which the message parks in its state, a container or a message argument to another
+  service, and which some message answers later with `pending.answer(value)`, which consumes it and never waits: a handler that
+  needs another service's answer hands it its Reply rather than awaiting (`E3221`). A message that defers declares
+  `throws ReplyStopped`, the library's enum, and throws nothing itself; its `return` carries no value. A Reply is never copied
+  and is moved like any owned value, so it is answered at most once (`E3102`); its drop unanswered, alone or with what holds it,
+  fails its sender's await with `ReplyStopped.serviceStopped`, so every reply a sender keeps is answered once. The deferral is
+  read from the declaration (`ast.defers`): the function's header reply and error are what its senders await, in any module,
+  while the function itself returns nothing, throws nothing and takes the cell of its reply after its parameters, which its
+  behaviour gives it (0 where the sender dropped the reply) instead of answering the cell itself; a send of a message that does
+  not defer, and its await, compile as they did. A Reply is that cell, one word, with no box: a parked Reply is a word of the
+  state, never a green thread or a timer, its answer is `rt.reply.answer` (where `rt.reply.held` says a sender waits, and the
+  value is dropped otherwise), and its drop routine calls `rt.reply.drop` (`rt.reply.dropString` for a String, whose await
+  takes its words out of a box). A stop of a service whose state can hold a Reply, `shutdown()`, `stopNow()` or a message's
+  `self.stop()` or `self.stopNow()`, queues a behaviour on its cown after the queued messages that drops the state, so the
+  Replies it holds fail their awaits then, as maxon's do when the service finishes, and not only once its last handle goes.
+  `E3222` refuses, in maxon's words: `reply.later()` in a closure, inside a block, other than as a whole `let` initializer,
+  twice, in a message with no reply or with an interface value as its reply, in a generic type, without `throws ReplyStopped`,
+  or in what is no message; a deferring message's `return` with a value, its `throw` or propagating `try`, and a call of it
+  other than a send; and every way a Reply would leave the service code that holds it: a function whose result can hold one (a
+  factory of a service's state aside), an async call of a function that takes one, a closure that captures one, and a value
+  that holds one widened to an interface type. `await` of a Reply is `E3005`. The interpreter models a Reply as an object of
+  the promise row it answers, whose free fails it, and its oracles hold every reply to one answer; `fuzz --services` parks
+  replies of a deferring kind and answers some, so the stops of its graphs drop the others. Not yet: refusing a deferring
+  message of a type that no module spawns, which maxon reports.
 - A handler that returns or throws **replies**: the send gives `Promise with R` (or `Promise with (R, E)`), which the
   sender awaits as an async call's promise (`try await h.total() otherwise 0`, or `let p = try h.total()` and `await p`);
   `_ = try h.total() ...` drops the reply on the service, and a reply sent as a statement is `E3190`. A reply's promise is
@@ -5721,8 +5748,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   factory that throws runs on the spawner's green thread, where maxon's runs on the service's while the spawner waits.
   A send's error is the built-in `SendError` (`serviceStopped`) and gives the arguments no way back,
   where maxon's `<Service>.<message>.sendError` carries them (the spec tests whose handler binds them are skipped with
-  that reason). Not yet: interface handles (`I.handle`),
-  `T.request`, `reply.later()`, `SharedValue`, a generic service, a message with type parameters,
+  that reason). A `Reply with T` is built in, the cell its sender awaits, where maxon's library declares a record that holds
+  it, and the state of a service whose state can hold a Reply is dropped once a stop's queued messages have run, where any
+  other's is dropped with its last handle (see "Deferred replies"). Not yet: interface handles (`I.handle`),
+  `T.request`, `SharedValue`, a generic service, a message with type parameters,
   one `try await h.m()` over a message that throws, and services in the interpreter.
 - `stdlib/stream/Stream.maxon` and `stdlib/console/Console.maxon` (`Console.stdin()`, a `StreamReader` over a `StdinSource`) are minimaxon's own,
   written from maxon's (with `helpers/stream/streamBytes.maxon`) until they convert: maxon's name the network's, TLS's, files'

@@ -1,0 +1,23 @@
+// A Reply carries one word, the cell its sender awaits, so a message whose reply is an interface value cannot defer it.
+interface Shape
+	function area() returns Count
+end 'Shape'
+
+type Gate
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function ask() returns Shape throws ReplyStopped
+		let pending = reply.later()
+		return
+	end 'ask'
+end 'Gate'
+
+function main() returns ExitCode
+	let gate = spawn Gate.create()
+	return 0
+end 'main'
+
+// expect-error: E3222 at 12:23
+// expect-error: E3140 at 18:13

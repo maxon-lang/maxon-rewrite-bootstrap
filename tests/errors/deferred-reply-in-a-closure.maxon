@@ -1,0 +1,18 @@
+// reply.later() is a statement of a message's own body: a closure in the message has no reply of its own to take.
+type Gate
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function ask() returns Count throws ReplyStopped
+		let take = function() gives reply.later()
+		return
+	end 'ask'
+end 'Gate'
+
+function main() returns ExitCode
+	let gate = spawn Gate.create()
+	return 0
+end 'main'
+
+// expect-error: E3222 at 8:37

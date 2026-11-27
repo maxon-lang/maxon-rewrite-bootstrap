@@ -454,6 +454,10 @@ function free(mutates vm Vm, o Count) throws Halt
 		try dropPromise(vm, row: data)
 		return
 	end 'promise'
+	if kind == kindReply 'reply'
+		dropDeferredReply(vm, row: data)
+		return
+	end 'reply'
 	panic("interp: unknown object kind {kind}")
 end 'free'
 

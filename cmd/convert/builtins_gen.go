@@ -39,6 +39,7 @@ var builtinNames = map[string]bool{
 	"frozen":                    true,
 	"cown":                      true,
 	"Promise":                   true,
+	"Reply":                     true,
 	"__ServiceHandle":           true,
 	"CommandLine":               true,
 	"Process":                   true,
@@ -111,6 +112,7 @@ var builtinNames = map[string]bool{
 	"min":                       true,
 	"max":                       true,
 	"exchange":                  true,
+	"replyLater":                true,
 }
 
 // builtinMethods are the methods minimaxon declares on each type it builds in, by the type's name, in the table's order.
@@ -139,6 +141,7 @@ var builtinMethods = map[string][]string{
 	"Scheduler":             {"processorCount", "yield", "pinToMachine", "unpinFromMachine", "pinDepth", "currentMachine", "machineCpuCount"},
 	"__ServiceHandle":       {"shutdown", "stopNow", "stopped", "mostQueued"},
 	"Promise":               {"cancel", "isComplete"},
+	"Reply":                 {"answer"},
 	"FilePath":              {"from", "init", "toString"},
 	"File":                  {"readText", "readBinary", "writeText", "writeBinary", "rename", "delete", "exists", "info"},
 	"Directory":             {"isDirectory", "exists", "create", "currentPath", "delete", "list"},

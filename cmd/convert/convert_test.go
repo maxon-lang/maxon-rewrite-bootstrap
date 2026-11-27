@@ -735,11 +735,6 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			wantTodo: "'end' is a keyword in minimaxon",
 		},
 		{
-			name:     "reply.later",
-			in:       "function f()\n\treply.later()\nend 'f'\n",
-			wantTodo: "reply.later() is not supported",
-		},
-		{
 			name:     "withIterator's iterator used for more than its index",
 			in:       "function f(xs Row)\n\tfor (iter, x) in xs.withIterator() 'each'\n\t\tprint(\"{iter.current()}\")\n\tend 'each'\nend 'f'\n",
 			wantTodo: "a use of withIterator()'s iterator other than its index()",

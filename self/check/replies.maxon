@@ -1,0 +1,197 @@
+// Deferred replies, maxon's (README, "Deferred replies"): `let pending = reply.later()`, a statement of a message's own body,
+// takes the message's reply out of the behaviour that runs it as a `Reply with R`, R the reply type its header declares, which
+// some service answers later with `answer(value)`. A message that defers is known from its declaration, so that its senders,
+// in any module, read it with the message: its header's reply and `throws ReplyStopped` are what they await, and the function
+// itself returns nothing and throws nothing, and takes its reply's cell after its parameters. A Reply never leaves the service
+// code that holds it (E3222): no function returns a type that can hold one, no coroutine takes one, no closure captures one,
+// and no interface value carries one, since each carries it to code that may wait.
+
+let replyLaterBase = "reply"
+
+let replyLaterMember = "later"
+
+let replyStoppedName = "ReplyStopped"
+
+let leavesHoldingCode = "a Reply never leaves the service code that holds it"
+
+// isReplyLaterShape is whether the call is `reply.later()`: the member `later` of the bare name `reply`, with no arguments.
+export function isReplyLaterShape(tree ast.Tree, call ast.NodeID) returns bool
+	if tree.kindOf(call) != ast.NodeKind.callExpr 'notCall'
+		return false
+	end 'notCall'
+	let callee = ast.callExprCallee(tree, id: call)
+	if tree.kindOf(callee) != ast.NodeKind.memberExpr or ast.memberExprName(tree, id: callee) != replyLaterMember 'notLater'
+		return false
+	end 'notLater'
+	let obj = ast.memberExprObj(tree, id: callee)
+	return tree.kindOf(obj) == ast.NodeKind.nameExpr and ast.nameExprName(tree, id: obj) == replyLaterBase and tree.listLen(ast.callExprArgsRef(tree, id: call)) == 0
+end 'isReplyLaterShape'
+
+// isReplyLater is whether the call is `reply.later()` where no local named reply stands for the name.
+function isReplyLater(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID) returns bool
+	return isReplyLaterShape(ms.tree(), call: call) and lookupLocal(c, name: replyLaterBase) == ast.noLocal
+end 'isReplyLater'
+
+// replyLaterLet is the index among the statements of the body of the first-level `let` whose whole initializer is
+// `reply.later()`, the first of them, or none.
+function replyLaterLet(tree ast.Tree, body diag.U32) returns table.Option with Count
+	for i in 0 upto tree.listLen(body) 'statements'
+		let s = tree.listAt(body, index: i) as ast.NodeID
+		if tree.kindOf(s) == ast.NodeKind.letStmt and isReplyLaterShape(tree, call: ast.letStmtInit(tree, id: s)) 'deferring'
+			return table.Option.some(i)
+		end 'deferring'
+	end 'statements'
+	return table.Option.none
+end 'replyLaterLet'
+
+// defersReply is whether the function f, declared in the type nt with the reply type ret, defers its reply: a method of a type
+// that is not generic, whose header returns a value that is no interface value, and a first-level `let` of whose body is
+// `reply.later()`. A parameter named reply would be what the name stands for.
+function defersReply(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncDecl, nt ast.TypeID, ret ast.TypeID) returns bool
+	if nt == ast.noType or f.isStatic or ret == p.builtins.voidTy or ast.typeKind(ms.types, reads: p.types, t: ret) == ast.TypeKind.interfaceTy 'cannot'
+		return false
+	end 'cannot'
+	if ast.typeKind(ms.types, reads: p.types, t: nt) != ast.TypeKind.record or ast.typeEntry(ms.types, reads: p.types, t: nt).typeParams.count() > 0 'generic'
+		return false
+	end 'generic'
+	for i in 0 upto f.params.count() 'params'
+		if f.params[i].name == replyLaterBase 'named'
+			return false
+		end 'named'
+	end 'params'
+	return replyLaterLet(ms.tree(), body: f.body).isSome()
+end 'defersReply'
+
+// requireResultHoldsNoReply refuses a function whose result, a message's reply among them, can hold a Reply. A static function
+// of the type nt that returns the type is the factory of a service's state, which the service holds, and is not walked.
+function requireResultHoldsNoReply(c Checker, p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, nt ast.TypeID, ret ast.TypeID, mutates errs diag.ErrorList)
+	if f.isStatic and nt != ast.noType and ret != ast.noType and ast.typeEntry(ms.types, reads: p.types, t: ret).effectiveOrigin() == ast.typeEntry(ms.types, reads: p.types, t: nt).effectiveOrigin() 'factory'
+		return
+	end 'factory'
+	if not ast.holdsReply(ms.types, reads: p.types, t: ret) 'none'
+		return
+	end 'none'
+	checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: f.id), code: diag.errReplyDeferralRefused, msg: "'{f.name}' returns a type that can hold a Reply: {leavesHoldingCode}, so no function returns one (a message's reply, a promise's payload and a helper's result all carry it to code that may wait). Keep it in state, a container or a message argument, and answer it where it is held", errs: errs)
+end 'requireResultHoldsNoReply'
+
+// callReplyLater types `reply.later()`: the reply of the message whose body it is a first-level `let` of, as a `Reply with R`,
+// a call of the built-in floor at the message's reply type.
+function callReplyLater(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if c.inClosure or c.inBehaviour or c.rootFn == ast.noFunc 'notBody'
+		return refuseReplyLater(c, p: p, ms: ms, call: call, why: "`reply.later()` is written in the body of a message, not in a closure or a default value", errs: errs)
+	end 'notBody'
+	let f = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.rootFn).clone()
+	if c.blocks.count() > 0 'nested'
+		return refuseReplyLater(c, p: p, ms: ms, call: call, why: "`reply.later()` is a statement of the message's own body, not of an `if`, a loop, a `match`, a `try` or any other block inside it", errs: errs)
+	end 'nested'
+	var own = false
+	var earlier = false
+	var seen = false
+	for i in 0 upto ms.tree().listLen(f.bodyRef) 'statements'
+		let s = ms.tree().listAt(f.bodyRef, index: i) as ast.NodeID
+		if ms.tree().kindOf(s) == ast.NodeKind.letStmt and isReplyLaterShape(ms.tree(), call: ast.letStmtInit(ms.tree(), id: s)) 'deferring'
+			if ast.letStmtInit(ms.tree(), id: s) == call 'this'
+				own = true
+				earlier = seen
+				break 'statements'
+			end 'this'
+			seen = true
+		end 'deferring'
+	end 'statements'
+	if not own 'notLet'
+		return refuseReplyLater(c, p: p, ms: ms, call: call, why: "`reply.later()` is the whole initializer of a `let`: `let pending = reply.later()`", errs: errs)
+	end 'notLet'
+	if earlier 'twice'
+		return refuseReplyLater(c, p: p, ms: ms, call: call, why: "a message defers its reply once: the second `reply.later()` has no reply left to take", errs: errs)
+	end 'twice'
+	if not ast.defers(f) 'notDeferring'
+		return refuseReplyLater(c, p: p, ms: ms, call: call, why: whyNoDeferral(c, p: p, ms: ms, f: f), errs: errs)
+	end 'notDeferring'
+	if f.deferredErrTy == ast.noType or not ast.isLibraryServiceType(p, tt: ms.types, reads: p.types, t: f.deferredErrTy, name: replyStoppedName) 'noStoppedClause'
+		return refuseReplyLater(c, p: p, ms: ms, call: call, why: "a message that defers its reply declares `throws ReplyStopped`: the caller's `await` receives it when the Reply is dropped unanswered", errs: errs)
+	end 'noStoppedClause'
+	if ast.visibilityOf(f.visibility) == ast.Visibility.unexported 'notMessage'
+		return refuseReplyLater(c, p: p, ms: ms, call: call, why: "`reply.later()` appears in '{f.name}', which is not a message of a service: only an `export` or `public` method of a type a `spawn` starts can defer its reply", errs: errs)
+	end 'notMessage'
+	var given = ast.TypeIDList.create(0)
+	given.push(f.deferredTy)
+	return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callStatic, target: p.builtins.replyLaterFunc, hasGiven: true, given: given, errs: errs)
+end 'callReplyLater'
+
+// whyNoDeferral is why a function whose body is shaped to defer its reply does not, which defersReply decided at its
+// declaration.
+function whyNoDeferral(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncEntry) returns String
+	if f.ownerTy == ast.noType or f.isStatic 'notMethod'
+		return "`reply.later()` appears in '{f.name}', which is not a message of a service: only an `export` or `public` method of a type a `spawn` starts can defer its reply"
+	end 'notMethod'
+	if f.retTy == p.builtins.voidTy 'noReply'
+		return "a message with no `returns` clause has no reply to defer: give it one, or send the answer another way"
+	end 'noReply'
+	if ast.typeKind(ms.types, reads: p.types, t: f.retTy) == ast.TypeKind.interfaceTy 'interface'
+		return "a message that returns an interface value cannot defer its reply: a Reply carries one machine word"
+	end 'interface'
+	return "`reply.later()` is not written in a generic service: a Reply is typed by the message's reply type, which a generic body does not fix"
+end 'whyNoDeferral'
+
+// deferralRefused is whether a `reply.later()` was refused, which leaves its message's bare return without the deferral it
+// goes with.
+function deferralRefused(errs diag.ErrorList) returns bool
+	for i in 0 upto errs.count() 'errors'
+		if errs[i].code == diag.errReplyDeferralRefused 'refused'
+			return true
+		end 'refused'
+	end 'errors'
+	return false
+end 'deferralRefused'
+
+function refuseReplyLater(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, consumes why String, mutates errs diag.ErrorList) returns ast.TypeID
+	failAt(c, p: p, ms: ms, node: call, code: diag.errReplyDeferralRefused, msg: why, errs: errs)
+	return ast.noType
+end 'refuseReplyLater'
+
+// defersHere is whether the function whose body is checked defers its reply, which then returns no value and throws nothing.
+function defersHere(c Checker, p ast.Project, ms ast.ModuleState) returns bool
+	return c.rootFn != ast.noFunc and not c.inClosure and not c.inBehaviour and ast.defers(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.rootFn))
+end 'defersHere'
+
+// refuseDeferredReturn refuses a `return` with a value in a message that defers its reply.
+function refuseDeferredReturn(c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
+	failAt(c, p: p, ms: ms, node: s, code: diag.errReplyDeferralRefused, msg: "after `reply.later()` the message answers through its Reply, so `return` carries no value: pass the value to `<reply>.answer(value)`", errs: errs)
+end 'refuseDeferredReturn'
+
+// refuseDeferredThrow refuses a `throw`, or a `try` that passes a failure on, in a message that defers its reply.
+function refuseDeferredThrow(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID, mutates errs diag.ErrorList)
+	let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.rootFn).name.clone()
+	failAt(c, p: p, ms: ms, node: node, code: diag.errReplyDeferralRefused, msg: "the message '{name}' defers its reply and so throws nothing itself: its one error is `ReplyStopped`, which the caller's `await` receives when the Reply is dropped unanswered. Remove the `throw` or the propagating `try`", errs: errs)
+end 'refuseDeferredThrow'
+
+// refuseDirectDeferrer refuses a call of a message that defers its reply other than a send: only the behaviour of a send has
+// the reply's cell to give it.
+function refuseDirectDeferrer(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, target ast.FuncID, mutates errs diag.ErrorList)
+	let f = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).clone()
+	let owner = ast.typeName(ms.types, reads: p.types, t: ast.typeEntry(ms.types, reads: p.types, t: f.ownerTy).effectiveOrigin())
+	failAt(c, p: p, ms: ms, node: call, code: diag.errReplyDeferralRefused, msg: "'{owner}.{f.name}' defers its reply, so it cannot be called directly: only a send through the service's handle runs it", errs: errs)
+end 'refuseDirectDeferrer'
+
+// requireAsyncTakesNoReply refuses an async call of a function that takes a parameter that can hold a Reply.
+function requireAsyncTakesNoReply(c Checker, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID, target ast.FuncID, mutates errs diag.ErrorList) returns bool
+	let f = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).clone()
+	for i in 0 upto f.paramTypes.count() 'params'
+		if ast.holdsReply(ms.types, reads: p.types, t: f.paramTypes[i]) 'holds'
+			failAt(c, p: p, ms: ms, node: node, code: diag.errReplyDeferralRefused, msg: "`async {f.name}(…)` takes a parameter that can hold a Reply: {leavesHoldingCode}, and a coroutine is not holding code — a coroutine awaiting a Reply while its starter awaits the coroutine would wait on each other for ever", errs: errs)
+			return false
+		end 'holds'
+	end 'params'
+	return true
+end 'requireAsyncTakesNoReply'
+
+// refuseReplyCapture refuses a closure that captures a value that can hold a Reply.
+function refuseReplyCapture(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID, name String, mutates errs diag.ErrorList)
+	failAt(c, p: p, ms: ms, node: node, code: diag.errReplyDeferralRefused, msg: "this closure captures '{name}', which can hold a Reply: a closure travels to whatever code receives it, and {leavesHoldingCode}. Answer the Reply in the message that holds it, or pass what the answer needs as a message argument", errs: errs)
+end 'refuseReplyCapture'
+
+// replyWideningText is why a value of a type that can hold a Reply does not stand at the interface type named so, after what
+// the program does with it.
+function replyWideningText(what String, iface String) returns String
+	return "{what}: a value that can hold a Reply cannot stand at an interface type: {leavesHoldingCode}, and an interface value carries its conformer to whatever code receives it. Keep the Reply-holding type concrete, or answer the Reply before the value is widened to '{iface}'"
+end 'replyWideningText'

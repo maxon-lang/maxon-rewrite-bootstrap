@@ -220,6 +220,10 @@ var builtinTypes = []builtinType{
 	// Promise is maxon's: what an async call gives, the coroutine it started, which an await consumes. `Promise with T` is of
 	// a function that throws nothing, and `Promise with (T, E)` of one that throws E, whose E is then void.
 	{Key: "Promise", Name: "Promise", Params: []string{"T", "E"}, Managed: true},
+	// Reply is maxon's: the reply of a message that `reply.later()` deferred, which some service answers later with
+	// `answer(value)`. It is the cell its sender awaits, or none where the sender dropped the reply; it is never copied, and
+	// its drop, unanswered, fails the sender's await with ReplyStopped.serviceStopped.
+	{Key: "Reply", Name: "Reply", Params: []string{"T"}, Managed: true},
 	// Service is the handle of a service of the type T, which a program writes `T.handle`: a counted reference to the
 	// service's cown, whose value is the service's state.
 	{Key: "Service", Name: "__ServiceHandle", Params: []string{"T"}, Managed: true, Shared: true, Raw: &rawType{
@@ -1079,6 +1083,11 @@ var tableFunctions = []function{
 	// cancel is maxon's: it consumes the promise; a coroutine that has not started never runs, and one that has runs on with
 	// each sleep it is in or makes ending at once, and the cancel waits for it to finish and drops what it gave.
 	{Owner: "Promise", Name: "cancel", Self: "consumes", Intrinsic: "PromiseCancel"},
+	// answer is maxon's: it consumes the Reply and completes its sender's await with the value, which never waits.
+	{Owner: "Reply", Name: "answer", Self: "consumes", Params: []string{"consumes value T"}, Intrinsic: "ReplyAnswer"},
+	// replyLater is what `reply.later()` in a message calls, at the message's reply type: the message's own reply, taken
+	// out of the behaviour that runs it, as a Reply.
+	{Name: "replyLater", Generic: "T", Result: "Reply with T", Intrinsic: "ReplyLater", Field: "ReplyLater"},
 	// awaitAny is maxon's: it waits until a promise of an array of them has finished and gives the index of the first that has,
 	// consuming none; a slot a take left empty is skipped.
 	{Owner: "Array", Name: "awaitAny", Result: "ElementIndex", Intrinsic: "ArrayAwaitAny", Checked: true},
@@ -1489,6 +1498,13 @@ var entries = []entry{
 	{"ServiceViewMarked", "rt.service.viewMarked", "Source", roleCall, "(view, index) -> bool: whether a message of a view is marked shed"},
 	{"ReplyNew", "rt.reply.new", "Source", roleCall, "() -> promise: the cell a message's reply comes back in, which an await of a promise waits for as it waits for a coroutine"},
 	{"ReplyGive", "rt.reply.give", "Source", roleCall, "(promise, value, error): what the behaviour of a message calls with what its handler returned and failed with, which readies the green thread that awaits the reply"},
+	{"ServiceStateHeld", "rt.service.stateHeld", "Source", roleCall, "(state address) -> bool: whether a service still holds its state, which the behaviour a stop queues drops where it can hold a Reply"},
+	{"ServiceCurrent", "rt.service.current", "Source", roleCall, "() -> handle: the service whose message runs, on which its stop queues the behaviour that drops its state"},
+	{"ReplyDefer", "rt.reply.defer", "Source", roleCall, "(promise) -> reply: the Reply of a message whose handler deferred its reply, of its cell, or 0 where the sender dropped the reply"},
+	{"ReplyHeld", "rt.reply.held", "Source", roleCall, "(reply) -> bool: whether a Reply holds the cell of a reply its sender awaits, which it does unless the sender dropped the reply"},
+	{"ReplyAnswer", "rt.reply.answer", "Source", roleCall, "(reply, value): gives a deferred reply that a sender awaits its value, which readies the green thread that awaits it"},
+	{"ReplyDrop", "rt.reply.drop", "Source", roleCall, "(reply): the drop of a deferred reply that no answer took, which fails its sender's await with ReplyStopped.serviceStopped"},
+	{"ReplyDropString", "rt.reply.dropString", "Source", roleCall, "(reply): rt.reply.drop of a Reply with String, whose failed value is a box of the empty String, which the await of a String takes its words out of as it does a value's"},
 
 	{"ArrayNew", "rt.array.new", "Arrays", roleCall, "() -> Array"},
 	{"ArrayLen", "rt.array.len", "Arrays", roleCall, "(array) -> count"},
@@ -1774,6 +1790,13 @@ var runtimeFunctions = []runtimeFunction{
 	{"ServiceViewMarked", "serviceViewMarked(view Count, index Count) Bool"},
 	{"ReplyNew", "replyNew() Count"},
 	{"ReplyGive", "replyGive(promise Count, value Count, error Count)"},
+	{"ServiceStateHeld", "serviceStateHeld(state Count) Bool"},
+	{"ServiceCurrent", "serviceCurrent() Count"},
+	{"ReplyDefer", "replyDefer(promise Count) Count"},
+	{"ReplyHeld", "replyHeld(reply Count) Bool"},
+	{"ReplyAnswer", "replyAnswer(reply Count, value Count)"},
+	{"ReplyDrop", "replyDrop(reply Count)"},
+	{"ReplyDropString", "replyDropString(reply Count)"},
 	{"FrozenFreeze", "frozenFreeze(value Count) Count"},
 	{"FrozenGet", "frozenGet(frozen Count) Count"},
 	{"Share", "share(box Count) Count"},

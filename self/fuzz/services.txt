@@ -7,9 +7,13 @@
 // for Keep, Refuse, DropNewest, Latest, DropOldest, a policy with state of the program's own, which a field holds, the
 // library's PerClientFair keyed by the service a walk is at, and a policy of the program's own that reads the walk's hops. main starts a walk of the graph at service 0 a few times, and a service that is
 // handed a walk with hops left passes it on along each of its edges, so a cycle carries a walk round until its hops are spent.
-// After each start main asks a service for a reply of each of two kinds, one that is kept and one that DropOldest sheds, and it
-// awaits them all at the end: each is answered once, with a value, busy or serviceStopped.
+// After each start main asks a service for a reply of each of three kinds, one that is kept, one that DropOldest sheds, and one
+// that the service defers with reply.later() and parks in its state, which a settle answers; at the end it settles every
+// service and awaits them all: each is answered once, with a value, busy or serviceStopped, a deferred one parked in a service
+// that stopped by the drop of its state.
 export typealias Amount = int(0 to 1000000)
+
+typealias Parked = Array with Reply with Amount
 
 let nodes = 4 as Amount
 
@@ -88,6 +92,8 @@ function hopsOf(message Node.Message) returns Amount
 		count gives 0
 		tally gives 0
 		halt gives 0
+		park gives 0
+		settle gives 0
 	end 'm'
 end 'hopsOf'
 
@@ -105,6 +111,8 @@ function serviceOf(message Node.Message) returns Count
 		count gives 0
 		tally gives 0
 		halt gives 0
+		park gives 0
+		settle gives 0
 	end 'm'
 end 'serviceOf'
 
@@ -112,9 +120,10 @@ type Node implements StopsNow
 	var handled as Amount
 	var sampler as EveryOther
 	var fair as PerClientFair with Node.Message
+	var parked as Parked
 
 	static function create() returns Self
-		return Self{handled: 0, sampler: EveryOther.create(), fair: PerClientFair.create(serviceOf)}
+		return Self{handled: 0, sampler: EveryOther.create(), fair: PerClientFair.create(serviceOf), parked: Parked.create(0)}
 	end 'create'
 
 	export function walk(mutates self, left Amount, at Amount, edges ByteArray, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
@@ -160,6 +169,19 @@ type Node implements StopsNow
 	export function halt()
 		self.stopNow()
 	end 'halt'
+
+	export function park(mutates self) returns Amount throws ReplyStopped
+		let pending = reply.later()
+		self.parked.push(pending)
+		return
+	end 'park'
+
+	export function settle(mutates self)
+		while self.parked.count() > 0 'each'
+			let pending = self.parked.pop()
+			pending.answer(self.handled)
+		end 'each'
+	end 'settle'
 
 	function pass(mutates self, left Amount, at Amount, edges ByteArray, policy Amount, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
 		self.handled = try self.handled + 1 otherwise 0
@@ -212,6 +234,7 @@ function main() returns ExitCode
 	let n3 = spawn Node.create()
 	var counts = [try n0.count() otherwise return 4]
 	var tallies = [try n0.tally() otherwise return 4]
+	var parks = [try n0.park() otherwise return 4]
 	for i in 0 upto starts 'starts'
 		send(n0.clone(), policy: policy, left: hops, at: 0, edges: edges.clone(), n0: n0, n1: n1, n2: n2, n3: n3)
 		if i == 0 and stop > nodes 'stopNow'
@@ -224,12 +247,23 @@ function main() returns ExitCode
 		counts.push(c)
 		let t = try asked.tally() otherwise continue 'starts'
 		tallies.push(t)
+		let d = try asked.park() otherwise continue 'starts'
+		parks.push(d)
+		if i mod 2 == 0 'settled'
+			try asked.settle() otherwise ignore
+		end 'settled'
 	end 'starts'
+	for i in 0 upto nodes 'settle'
+		try pick(i, n0: n0, n1: n1, n2: n2, n3: n3).settle() otherwise ignore
+	end 'settle'
 	for p in counts 'counts'
 		_ = try await p otherwise continue 'counts'
 	end 'counts'
 	for p in tallies 'tallies'
 		_ = try await p otherwise continue 'tallies'
 	end 'tallies'
+	for p in parks 'parks'
+		_ = try await p otherwise continue 'parks'
+	end 'parks'
 	return 0
 end 'main'

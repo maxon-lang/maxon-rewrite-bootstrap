@@ -16,6 +16,10 @@ function convsOf(p ast.Project, decl ast.FuncID) returns CountList
 	for _ in 0 upto ir.resultAreas(ast.TypeSlot.none(), reads: p.types, b: p.builtins, f: ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: decl)) 'area'
 		convs.push(ast.Convention.convLet.ordinal)
 	end 'area'
+	if ast.defers(ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: decl)) 'deferring'
+		// The cell of the message's reply, which `reply.later()` takes.
+		convs.push(ast.Convention.convLet.ordinal)
+	end 'deferring'
 	return convs
 end 'convsOf'
 

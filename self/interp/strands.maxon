@@ -935,6 +935,110 @@ function entryReplyGive(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	finishPromise(vm, row: row)
 end 'entryReplyGive'
 
+// entryServiceStateHeld is whether a service still holds its state, given the address of the state: the cown's place.
+function entryServiceStateHeld(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let c = vm.address(argAt(f, x: x, i: 0))
+	if c == 0 or vm.h.oKind[vm.h.cellHolder[c]] != kindCown 'notState'
+		panic("interp: rt.service.stateHeld is given no service's state")
+	end 'notState'
+	giveFlag(vm, x: x, b: vm.h.refOf(c) != 0)
+end 'entryServiceStateHeld'
+
+// entryServiceCurrent is the service whose message the thread runs.
+function entryServiceCurrent(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let service = messageOf(vm, t: vm.cur)
+	if service == 0 'off'
+		panic("interp: rt.service.current off a message")
+	end 'off'
+	giveRef(vm, x: x, o: service)
+end 'entryServiceCurrent'
+
+// replyStoppedError is the error word a deferred reply dropped unanswered fails its sender's await with: the case
+// ReplyStopped.serviceStopped, the first of the library's enum, plus 1, which is its word in every error of such an await.
+let replyStoppedError = 1 as ir.Word
+
+// entryReplyDefer makes the Reply of a message whose handler deferred its reply, of the cell its sender awaits: an object of
+// its own, which the handler owns, of the cell's promise row, or of none where the sender dropped the reply, which native code
+// holds as 0.
+function entryReplyDefer(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let cell = argRef(vm, f: f, x: x, i: 0)
+	var row = 0 as Count
+	if cell != 0 'kept'
+		try requireLive(vm, o: cell, what: "a reply")
+		if vm.h.oKind[cell] != kindPromise 'notPromise'
+			panic("interp: a reply deferred from {objectText(vm, o: cell)}, which is no promise")
+		end 'notPromise'
+		row = vm.h.oData[cell]
+	end 'kept'
+	let o = vm.h.newObject(kindReply, site: vm.site())
+	vm.h.oData[o] = row
+	giveRef(vm, x: x, o: o)
+end 'entryReplyDefer'
+
+// entryReplyHeld is whether a Reply holds the cell of a reply its sender awaits, a promise row.
+function entryReplyHeld(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let o = argRef(vm, f: f, x: x, i: 0)
+	try requireLive(vm, o: o, what: "a deferred reply")
+	if vm.h.oKind[o] != kindReply 'notReply'
+		panic("interp: rt.reply.held of {objectText(vm, o: o)}, which is no deferred reply")
+	end 'notReply'
+	giveFlag(vm, x: x, b: vm.h.oData[o] != 0)
+end 'entryReplyHeld'
+
+// entryReplyAnswer finishes a deferred reply with the value its answer gives, which is handed on to the reply, and frees the
+// Reply, which the answer consumes.
+function entryReplyAnswer(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let reply = argAt(f, x: x, i: 0)
+	try requireHandedOn(vm, src: reply, verb: "answers")
+	let o = vm.ref(reply)
+	if vm.h.oKind[o] != kindReply 'notReply'
+		panic("interp: an answer of {objectText(vm, o: o)}, which is no deferred reply")
+	end 'notReply'
+	let row = vm.h.oData[o]
+	if row == 0 'dropped'
+		panic("interp: an answer of a deferred reply whose sender dropped it, which rt.reply.held tells the compiled code")
+	end 'dropped'
+	let value = argAt(f, x: x, i: 1)
+	if isManaged(f, r: value) 'value'
+		try requireHandedOn(vm, src: value, verb: "answers with")
+	end 'value'
+	if vm.promises.finished[row] 'twice'
+		oracleFails(vm, oracle: oracleOnce, found: "a deferred reply (promise row {row}) was answered after it was answered or failed")
+	end 'twice' else 'first'
+		let v = vm.regAt(value)
+		vm.promises.valueN[row] = vm.regN[v]
+		vm.promises.valueR[row] = vm.regR[v]
+		vm.promises.errN[row] = 0
+		vm.promises.errR[row] = 0
+		finishPromise(vm, row: row)
+	end 'first'
+	try drop(vm, o: o)
+end 'entryReplyAnswer'
+
+// entryReplyDrop is a native drop routine's call of the runtime, which the interpreter's free of a Reply does.
+function entryReplyDrop(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	panic("interp: rt.reply.drop is called by a drop routine, which the interpreter's free of a deferred reply stands for")
+end 'entryReplyDrop'
+
+// entryReplyDropString is a native drop routine's call of the runtime, which the interpreter's free of a deferred reply
+// stands for.
+function entryReplyDropString(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	panic("interp: rt.reply.dropString is called by a drop routine, which the interpreter's free of a deferred reply stands for")
+end 'entryReplyDropString'
+
+// dropDeferredReply is the free of a Reply: one that no answer finished fails its sender's await with
+// ReplyStopped.serviceStopped.
+function dropDeferredReply(mutates vm Vm, row Count)
+	if row == 0 or vm.promises.finished[row] 'answered'
+		return
+	end 'answered'
+	vm.promises.valueN[row] = 0
+	vm.promises.valueR[row] = 0
+	vm.promises.errN[row] = replyStoppedError
+	vm.promises.errR[row] = 0
+	finishPromise(vm, row: row)
+end 'dropDeferredReply'
+
 // waitingText says what a thread that cannot go on waits for, and where, for a report of a deadlock.
 function waitingText(vm Vm, t Count) returns String
 	var place = "before its first frame"

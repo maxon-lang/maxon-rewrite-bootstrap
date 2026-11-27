@@ -153,10 +153,34 @@ export function serviceWords(tt TypeSlot, reads TypeTable, ft FuncSlot, funcRead
 	return words
 end 'serviceWords'
 
-// hasReply is whether a message of the function gives its sender a reply: it returns a value or throws.
+// hasReply is whether a message of the function gives its sender a reply: it returns a value or throws, or defers its reply.
 export function hasReply(f FuncEntry, voidTy TypeID) returns bool
-	return (f.retTy != voidTy and f.retTy != noType) or f.errTy != noType
+	let reply = replyTypeOf(f)
+	return (reply != voidTy and reply != noType) or replyErrorOf(f) != noType
 end 'hasReply'
+
+// defers is whether the message f defers its reply with `reply.later()`.
+export function defers(f FuncEntry) returns bool
+	return f.deferredTy != noType
+end 'defers'
+
+// replyTypeOf is the type of the reply a send of the message f gives its sender: what its header returns, which a message that
+// defers answers through its Reply.
+export function replyTypeOf(f FuncEntry) returns TypeID
+	if defers(f) 'deferred'
+		return f.deferredTy
+	end 'deferred'
+	return f.retTy
+end 'replyTypeOf'
+
+// replyErrorOf is the error the handler of the message f gives its reply: what its header throws, which for a message that
+// defers is ReplyStopped, the failure of a Reply dropped unanswered.
+export function replyErrorOf(f FuncEntry) returns TypeID
+	if defers(f) 'deferred'
+		return f.deferredErrTy
+	end 'deferred'
+	return f.errTy
+end 'replyErrorOf'
 
 // hasMessageCase is whether the message union u has a case for the message kind named so.
 export function hasMessageCase(tt TypeSlot, reads TypeTable, u TypeID, kind String) returns bool
@@ -199,7 +223,7 @@ export function awaitErrorOf(f FuncEntry) returns TypeID
 	if f.awaitErrTy != noType 'made'
 		return f.awaitErrTy
 	end 'made'
-	return f.errTy
+	return replyErrorOf(f)
 end 'awaitErrorOf'
 
 // awaitFailureCase is the case of the error of the await of the message f's reply named so, which the compiler's error holds.

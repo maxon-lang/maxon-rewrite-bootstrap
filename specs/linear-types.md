@@ -2162,7 +2162,6 @@ error E3102: <fragment>:28:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: a-reply-handed-to-a-function-that-answers-it-is-moved-not-lent -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 
 ```maxon
@@ -2186,7 +2185,7 @@ end 'Resp'
 
 typealias CodeReply = Reply with Code
 
-function ansNow(waiting CodeReply)
+function ansNow(consumes waiting CodeReply)
 	waiting.answer(3)
 end 'ansNow'
 
@@ -2198,7 +2197,6 @@ type Dr
 	end 'create'
 
 	export function ask() returns Code throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		ansNow(pending)
 		pending.answer(4)

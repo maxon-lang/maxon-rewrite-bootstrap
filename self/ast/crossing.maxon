@@ -28,6 +28,7 @@ function holdsBorrowWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, mutat
 		builtinCown gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
 		builtinSlotKey gives false
 		builtinPromise gives false
+		builtinReply gives false
 		builtinService gives false
 		invalid gives false
 		primBool gives false
@@ -83,6 +84,78 @@ function nominalHoldsBorrow(mutates tt TypeSlot, reads TypeTable, t TypeID, muta
 	return false
 end 'nominalHoldsBorrow'
 
+// holdsReply is whether a value of the type t is or holds a Reply, the deferred reply of a message: a record with a field of
+// such a type, a union with such a payload, a tuple, a collection, a frozen value or a promise of such elements. A handle and a
+// cown hold another service's state, which is that service's, and a type parameter holds one only at an instance.
+export function holdsReply(mutates tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	var visiting = TypeIDList.create(0)
+	return holdsReplyWithin(tt, reads: reads, t: t, visiting: visiting)
+end 'holdsReply'
+
+function holdsReplyWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, mutates visiting TypeIDList) returns bool
+	if t == noType or holdsTypeID(visiting, t: t) 'none'
+		return false
+	end 'none'
+	visiting.push(t)
+	return match typeKind(tt, reads: reads, t: t) 'k'
+		builtinReply gives true
+		record gives partsHoldReply(tt, reads: reads, t: t, visiting: visiting)
+		unionTy gives partsHoldReply(tt, reads: reads, t: t, visiting: visiting)
+		builtinArray gives argsHoldReply(tt, reads: reads, t: t, visiting: visiting)
+		builtinGroups gives argsHoldReply(tt, reads: reads, t: t, visiting: visiting)
+		builtinFrozen gives argsHoldReply(tt, reads: reads, t: t, visiting: visiting)
+		builtinPromise gives argsHoldReply(tt, reads: reads, t: t, visiting: visiting)
+		builtinCown gives false
+		builtinService gives false
+		builtinCursor gives false
+		builtinSlotKey gives false
+		typeParam gives false
+		invalid gives false
+		primBool gives false
+		primString gives false
+		primCharacter gives false
+		primCString gives false
+		primVoid gives false
+		primNever gives false
+		intRange gives false
+		constInt gives false
+		floatRange gives false
+		constFloat gives false
+		enumTy gives false
+		interfaceTy gives false
+		funcTy gives false
+	end 'k'
+end 'holdsReplyWithin'
+
+function argsHoldReply(mutates tt TypeSlot, reads TypeTable, t TypeID, mutates visiting TypeIDList) returns bool
+	let args = typeArgsOf(tt, reads: reads, t: t)
+	for i in 0 upto args.count() 'each'
+		if holdsReplyWithin(tt, reads: reads, t: args[i], visiting: visiting) 'holds'
+			return true
+		end 'holds'
+	end 'each'
+	return false
+end 'argsHoldReply'
+
+function partsHoldReply(mutates tt TypeSlot, reads TypeTable, t TypeID, mutates visiting TypeIDList) returns bool
+	let orig = originOf(tt, reads: reads, t: t)
+	for fi in 0 upto typeEntry(tt, reads: reads, t: orig).fields.count() 'fields'
+		let field = fieldType(tt, reads: reads, owner: t, index: fi)
+		if holdsReplyWithin(tt, reads: reads, t: field, visiting: visiting) 'field'
+			return true
+		end 'field'
+	end 'fields'
+	for ci in 0 upto typeEntry(tt, reads: reads, t: orig).cases.count() 'cases'
+		for pi in 0 upto typeEntry(tt, reads: reads, t: orig).cases[ci].payload.count() 'payload'
+			let payload = payloadType(tt, reads: reads, owner: t, caseIndex: ci, index: pi)
+			if holdsReplyWithin(tt, reads: reads, t: payload, visiting: visiting) 'held'
+				return true
+			end 'held'
+		end 'payload'
+	end 'cases'
+	return false
+end 'partsHoldReply'
+
 function holdsTypeID(ts TypeIDList, t TypeID) returns bool
 	for i in 0 upto ts.count() 'each'
 		if ts[i] == t 'hit'
@@ -136,6 +209,7 @@ function unsendableWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, functi
 		builtinSlotKey gives ""
 		builtinCown gives ""
 		builtinService gives ""
+		builtinReply gives ""
 		builtinCursor gives "'{name}' borrows the buffer it walks"
 		builtinPromise gives "'{name}' is a promise, whose coroutine belongs to the strand that started it"
 		typeParam gives "'{name}' is a type parameter, whose layout the send does not know"

@@ -1056,6 +1056,7 @@ export function typeLinkNameIn(p Project, tt TypeSlot, reads TypeTable, t TypeID
 		builtinCursor gives nominalLinkName(p, tt: tt, reads: reads, t: t)
 		builtinGroups gives nominalLinkName(p, tt: tt, reads: reads, t: t)
 		builtinPromise gives nominalLinkName(p, tt: tt, reads: reads, t: t)
+		builtinReply gives nominalLinkName(p, tt: tt, reads: reads, t: t)
 		builtinService gives nominalLinkName(p, tt: tt, reads: reads, t: t)
 		funcTy gives funcTypeLinkName(p, tt: tt, reads: reads, t: t)
 	end 'k'

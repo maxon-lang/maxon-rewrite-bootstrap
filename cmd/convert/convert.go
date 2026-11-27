@@ -2301,10 +2301,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 				if label := handlerLabelIndex(toks, i); toks[0].text != "end" && label >= 0 && label != len(toks)-1 {
 					warn(line, "a block handler ('otherwise (e) 'label'') inside brackets is not supported in minimaxon; bind the value on a line of its own")
 				}
-			case "reply":
-				if i+3 < len(toks) && toks[i+1].text == "." && toks[i+2].text == "later" && toks[i+3].text == "(" {
-					warn(line, "reply.later() is not supported in minimaxon")
-				}
 			case "min":
 				if i+1 < len(toks) && (toks[i+1].text == "to" || toks[i+1].text == "upto") && (i == 0 || toks[i-1].text != ".") {
 					warn(line, "open-ended 'min to/upto' match range patterns are not supported in minimaxon")

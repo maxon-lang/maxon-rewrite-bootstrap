@@ -89,6 +89,7 @@ function isConstantResult(p ast.Project, ms ast.ModuleState, t ast.TypeID) retur
 		builtinCursor gives false
 		builtinGroups gives false
 		builtinPromise gives false
+		builtinReply gives false
 		builtinService gives false
 		typeParam gives false
 		interfaceTy gives false
@@ -114,6 +115,9 @@ function typeCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		end 'bare'
 		return callNamed(c, p: p, ms: ms, call: call, callee: callee, errs: errs)
 	end 'named'
+	if k == ast.NodeKind.memberExpr and isReplyLater(c, p: p, ms: ms, call: call) 'replyLater'
+		return callReplyLater(c, p: p, ms: ms, call: call, errs: errs)
+	end 'replyLater'
 	if k == ast.NodeKind.memberExpr and not namesFunctionField(c, p: p, ms: ms, callee: callee) 'member'
 		return callMember(c, p: p, ms: ms, call: call, callee: callee, errs: errs)
 	end 'member'
@@ -834,6 +838,10 @@ function callFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	if not requireVisible(c, p: p, ms: ms, node: call, target: target, errs: errs) 'hidden'
 		return ast.noType
 	end 'hidden'
+	if kind != ast.CallKind.callSend and ast.defers(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target)) 'deferring'
+		refuseDirectDeferrer(c, p: p, ms: ms, call: call, target: target, errs: errs)
+		return ast.noType
+	end 'deferring'
 	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).generics.count() > 0 'generic'
 		return callGeneric(c, p: p, ms: ms, call: call, kind: kind, target: target, hasGiven: hasGiven, given: given, errs: errs)
 	end 'generic'

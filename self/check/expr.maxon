@@ -1096,6 +1096,7 @@ function castTargetIsRefused(p ast.Project, ms ast.ModuleState, target ast.TypeI
 		builtinCursor gives false
 		builtinGroups gives false
 		builtinPromise gives false
+		builtinReply gives false
 		builtinService gives false
 		typeParam gives false
 		interfaceTy gives false
@@ -1127,6 +1128,7 @@ function castKindWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns S
 		builtinCursor gives name
 		builtinGroups gives name
 		builtinPromise gives name
+		builtinReply gives name
 		builtinService gives name
 		typeParam gives name
 		interfaceTy gives name
@@ -1159,6 +1161,7 @@ function castTargetWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns
 		builtinCursor gives nameOfType(p, ms: ms, t: t)
 		builtinGroups gives nameOfType(p, ms: ms, t: t)
 		builtinPromise gives nameOfType(p, ms: ms, t: t)
+		builtinReply gives nameOfType(p, ms: ms, t: t)
 		builtinService gives nameOfType(p, ms: ms, t: t)
 		typeParam gives nameOfType(p, ms: ms, t: t)
 		interfaceTy gives nameOfType(p, ms: ms, t: t)
@@ -1195,6 +1198,10 @@ function checkTry(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	let guarded = ast.tryExprE(ms.tree(), id: e)
 	let propagates = ast.propagates(ms.tree(), e: e)
 	let alone = c.statement == e
+	if propagates and c.tries.count() == 0 and defersHere(c, p: p, ms: ms) 'deferred'
+		refuseDeferredThrow(c, p: p, ms: ms, node: e, errs: errs)
+		return ast.noType
+	end 'deferred'
 	var errors = ast.TypeIDList.create(0)
 	if not propagates 'catching'
 		beginCatching(c)

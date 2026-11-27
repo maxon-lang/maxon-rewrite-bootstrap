@@ -962,13 +962,15 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		sel.storeSecondWord(fn, value: value, holder: ins.dst, offset: frozenValueOffset)
 		return
 	end 'freeze'
-	if symbol == ir.Rt.rtReplyGive and isStringReg(fn, r: fn.args[nextCount(start)]) 'boxReply'
+	if (symbol == ir.Rt.rtReplyGive or symbol == ir.Rt.rtReplyAnswer) and isStringReg(fn, r: fn.args[nextCount(start)]) 'boxReply'
 		let box = sel.newTemp()
 		sel.allocInto(box, bytes: stringValueBytes)
 		sel.storeString(box, disp: imm32Of(stringBytesOffset), r: fn.args[nextCount(start)])
 		sel.addArg(argAt(fn, start: start, index: 0), float: false)
 		sel.addArg(box, float: false)
-		sel.addValue(fn.args[try start + 2 otherwise panic("backend: an argument past the pool")], float: false)
+		if symbol == ir.Rt.rtReplyGive 'error'
+			sel.addValue(fn.args[try start + 2 otherwise panic("backend: an argument past the pool")], float: false)
+		end 'error'
 		sel.callSymbol(ir.rtSymbol(symbol))
 		return
 	end 'boxReply'

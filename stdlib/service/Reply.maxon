@@ -1,0 +1,8 @@
+/// The error of the await of a message that defers its reply with `reply.later()`: its `Reply` was dropped unanswered,
+/// with the service state, the container or the message argument that held it, so no answer will come. A deferring message
+/// declares `throws ReplyStopped`, its one error. `serviceStopped` is its first case, the word the runtime fails such an
+/// await with.
+/// @category Services
+public enum ReplyStopped implements Error
+	serviceStopped
+end 'ReplyStopped'

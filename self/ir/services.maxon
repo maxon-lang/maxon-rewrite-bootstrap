@@ -435,6 +435,16 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	if resultTy != p.builtins.voidTy 'value'
 		dst = newReg(inner, kind: kindOf(l, p: p, ms: ms, t: resultTy))
 	end 'value'
+	let deferred = not factory and ast.defers(fn)
+	if deferred 'deferred'
+		// A handler that defers its reply takes its cell, or 0 where the sender dropped the reply, and answers through the Reply
+		// it makes of it, whose drop fails the await, so the behaviour gives the cell nothing.
+		if cell 'kept'
+			args.push(paramReg(inner, index: cellIndex, kind: IrKind.kindScalar))
+		end 'kept' else 'dropped'
+			args.push(konst(inner, value: 0 as Word))
+		end 'dropped'
+	end 'deferred'
 	var err = noReg
 	if fn.errTy != ast.noType 'throws'
 		var errKind = IrKind.kindScalar
@@ -456,7 +466,7 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	if factory 'store'
 		let held = boxed(inner, p: p, ms: ms, v: dst, t: resultTy)
 		emit(inner, i: newStoreAt(state, src: held))
-	end 'store' else if cell 'reply'
+	end 'store' else if cell and not deferred 'reply'
 		let cellReg = paramReg(inner, index: cellIndex, kind: IrKind.kindScalar)
 		let value = boxed(inner, p: p, ms: ms, v: dst, t: resultTy) if dst != noReg else konst(inner, value: 0 as Word)
 		let error = err if err != noReg else konst(inner, value: 0 as Word)
@@ -527,29 +537,128 @@ export function dropOutcome(mutates l Lowerer, dst Reg, valueDrop ast.TypeID, er
 	l.cur = join
 end 'dropOutcome'
 
-function lowerServiceShutdown(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+// lowerReplyLater is `reply.later()`, a first-level `let` of the body of a message that defers its reply: the Reply of the
+// cell the behaviour gave the handler after its parameters (lowerServiceBody).
+function lowerReplyLater(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let last = pred(l.b.f.paramCount)
+	let cell = paramReg(l, index: last, kind: IrKind.kindScalar)
+	let site = siteOf(l, p: p, node: c.node)
+	return entry(l, p: p, site: site, symbol: Rt.rtReplyDefer, kind: IrKind.kindManaged, args: argsOf1(cell))
+end 'lowerReplyLater'
+
+// lowerReplyAnswer is `pending.answer(value)`: the value goes to the sender's await as a handler's reply does, held as a
+// holder keeps it, and is dropped where the sender dropped the reply. The answer consumes the Reply.
+function lowerReplyAnswer(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let site = siteOf(l, p: p, node: c.node)
+	let t = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.receiver))
+	let valueTy = ast.typeArgsOf(ms.types, reads: p.types, t: t)[0]
+	let held = entry(l, p: p, site: site, symbol: Rt.rtReplyHeld, kind: IrKind.kindScalar, args: argsOf1(recv))
+	let answered = l.b.newBlock()
+	let unanswered = l.b.newBlock()
+	let done = l.b.newBlock()
+	l.b.terminate(l.cur, t: newBranch(held, ifTrue: answered, ifFalse: unanswered))
+	l.cur = answered
+	let value = boxed(l, p: p, ms: ms, v: args[0], t: valueTy)
+	entryVoid(l, p: p, site: site, symbol: Rt.rtReplyAnswer, args: argsOf2(recv, b: value))
+	l.b.terminate(l.cur, t: newJump(done))
+	l.cur = unanswered
+	if holderOwns(l, p: p, ms: ms, t: valueTy) 'owned'
+		let drop = dropType(l, p: p, ms: ms, t: valueTy)
+		emitDropReg(l, src: args[0], ty: drop)
+	end 'owned'
+	// The Reply holds no cell, so its drop does nothing but end it.
+	let replyDrop = dropType(l, p: p, ms: ms, t: t)
+	emitDropReg(l, src: recv, ty: replyDrop)
+	l.b.terminate(l.cur, t: newJump(done))
+	l.cur = done
+	return konst(l, value: 0 as Word)
+end 'lowerReplyAnswer'
+
+function lowerServiceShutdown(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceShutdown, args: argsOf1(recv))
+	endStateOf(l, p: p, ms: ms, c: c, handle: recv)
 	return konst(l, value: 0 as Word)
 end 'lowerServiceShutdown'
 
-function lowerServiceStopNow(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+function lowerServiceStopNow(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceStopNow, args: argsOf1(recv))
+	endStateOf(l, p: p, ms: ms, c: c, handle: recv)
 	return konst(l, value: 0 as Word)
 end 'lowerServiceStopNow'
+
+// endStateOf queues, after a stop of a service whose state can hold a Reply (check.noteStateEnd), the behaviour that drops
+// its state once the messages queued before it have run: a behaviour on the service's cown, which runs after them and holds
+// the service alone, so no message reads the state after it. One that finds the state gone, which an earlier stop's
+// behaviour dropped, does nothing, and the drop of the service's last handle then finds it gone too.
+function endStateOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, handle Reg)
+	if c.info.body == ast.noFunc 'plain'
+		return
+	end 'plain'
+	let handleTy = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.receiver))
+	endState(l, p: p, ms: ms, c: c, handle: handle, handleTy: handleTy)
+end 'endStateOf'
+
+function endState(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, handle Reg, handleTy ast.TypeID)
+	let site = siteOf(l, p: p, node: c.node)
+	let stateTy = ast.serviceState(ms.types, reads: p.types, t: handleTy)
+	let name = behaviourBodyName(irSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: l.b.f), index: l.b.f.bodies.count())
+	var inner = Lowerer.new(exchange(l.instances, value: InstanceSet.new()))
+	begin(inner, p: p, ms: ms, fn: c.info.body, bindParams: ast.cloneTypeArgs(l.bindParams), bindArgs: ast.cloneTypeArgs(l.bindArgs), bindWitnesses: l.bindWitnesses.clone(), name: name)
+	inner.b.f.paramCount = 1
+	let state = paramReg(inner, index: 0 as Count, kind: IrKind.kindScalar)
+	let held = entry(inner, p: p, site: site, symbol: Rt.rtServiceStateHeld, kind: IrKind.kindScalar, args: argsOf1(state))
+	let taken = inner.b.newBlock()
+	let done = inner.b.newBlock()
+	inner.b.terminate(inner.cur, t: newBranch(held, ifTrue: taken, ifFalse: done))
+	inner.cur = taken
+	let value = newReg(inner, kind: IrKind.kindManaged)
+	emit(inner, i: newMoveAt(value, addr: state))
+	let empty = konst(inner, value: 0 as Word)
+	emit(inner, i: newStoreAt(state, src: empty))
+	let drop = dropType(l, p: p, ms: ms, t: stateTy)
+	emitDropReg(inner, src: value, ty: drop)
+	inner.b.terminate(inner.cur, t: newJump(done))
+	inner.cur = done
+	let zero = konst(inner, value: 0 as Word)
+	inner.b.terminate(inner.cur, t: newRet(zero))
+	var body = inner.b.finish()
+	l.instances = exchange(inner.instances, value: InstanceSet.new())
+	var cowns = ast.TypeIDList.create(0)
+	cowns.push(handleTy)
+	body.cownTypes = cowns
+	l.b.f.usesArrays = l.b.f.usesArrays or body.usesArrays
+	l.b.f.usesBytes = l.b.f.usesBytes or body.usesBytes
+	l.b.f.usesOs = l.b.f.usesOs or body.usesOs
+	let index = l.b.body(body)
+	emitWhen(l, behaviour: index, cowns: argsOf1(handle), captures: RegList.create(0))
+end 'endState'
 
 function lowerServiceStopped(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceStopped, kind: IrKind.kindManaged, args: argsOf1(recv))
 end 'lowerServiceStopped'
 
-function lowerServiceStopSelf(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+function lowerServiceStopSelf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceStopSelf, args: RegList.create(0))
+	endOwnState(l, p: p, ms: ms, c: c)
 	return konst(l, value: 0 as Word)
 end 'lowerServiceStopSelf'
 
-function lowerServiceStopNowSelf(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+function lowerServiceStopNowSelf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceStopNowSelf, args: RegList.create(0))
+	endOwnState(l, p: p, ms: ms, c: c)
 	return konst(l, value: 0 as Word)
 end 'lowerServiceStopNowSelf'
+
+// endOwnState is endStateOf for a message's stop of its own service, whose handle type the check gave (receiverTy).
+function endOwnState(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite)
+	if c.info.body == ast.noFunc 'plain'
+		return
+	end 'plain'
+	let site = siteOf(l, p: p, node: c.node)
+	let handle = entry(l, p: p, site: site, symbol: Rt.rtServiceCurrent, kind: IrKind.kindScalar, args: RegList.create(0))
+	let handleTy = applyType(l, p: p, ms: ms, t: c.info.receiverTy)
+	endState(l, p: p, ms: ms, c: c, handle: handle, handleTy: handleTy)
+end 'endOwnState'
 
 function lowerServiceUnderLoad(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceUnderLoad, kind: IrKind.kindScalar, args: RegList.create(0))
@@ -808,7 +917,10 @@ function dropUnhandled(mutates inner Lowerer, mutates l Lowerer, p ast.Project, 
 		let f = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: handler).clone()
 		let failed = konst(inner, value: try (ast.awaitFailureCase(ms.types, reads: p.types, f: f, name: failure) + 1) as Word otherwise panic("ir: an error case past a word"))
 		let cellReg = paramReg(inner, index: unhandled.cellIndex, kind: IrKind.kindScalar)
-		entryVoid(inner, p: p, site: site, symbol: Rt.rtReplyGive, args: argsOf3(cellReg, b: zero, c: failed))
+		// The await of a String takes its words out of the box its value is, also where the reply failed: the empty String's.
+		let reply = applyType(l, p: p, ms: ms, t: ast.replyTypeOf(f))
+		let value = strReg(inner, value: "") if kindOf(l, p: p, ms: ms, t: reply) == IrKind.kindString else zero
+		entryVoid(inner, p: p, site: site, symbol: Rt.rtReplyGive, args: argsOf3(cellReg, b: value, c: failed))
 	end 'reply'
 	inner.b.terminate(inner.cur, t: newRet(zero))
 end 'dropUnhandled'

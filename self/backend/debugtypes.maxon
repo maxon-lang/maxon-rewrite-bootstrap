@@ -183,6 +183,7 @@ type DebugTypes
 			builtinCursor or
 			builtinGroups or
 			builtinPromise or
+			builtinReply or
 			builtinService or
 			typeParam or
 			interfaceTy then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindManagedRecord, size: wordSize, align: wordSize, flag: 0)

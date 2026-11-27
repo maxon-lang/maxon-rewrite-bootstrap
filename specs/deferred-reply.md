@@ -34,7 +34,6 @@ held by its cown and is not walked — the way the service handle cycle check do
 ## Tests
 
 <!-- test: a-reply-answered-later-from-a-continuation -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 `ask` parks its `Reply` in the service's state and returns; `settle` is the continuation, and answers it with what the
 deposits made. `main` awaits the stored reply, so its `await` completes only when `settle` runs.
 ```maxon
@@ -52,18 +51,17 @@ type Ledger
 		return Self{total: 0, waiting: TallyReplyArray.create(0)}
 	end 'create'
 
-	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
+	export function ask(mutates self) returns Tally throws ReplyStopped
 		let pending = reply.later()
 		self.waiting.push(pending)
 		return
 	end 'ask'
 
-	export function deposit(amount Tally)
-		self.total = self.total + amount
+	export function deposit(mutates self, amount Tally)
+		self.total = try self.total + amount otherwise panic("out of range")
 	end 'deposit'
 
-	export function settle()
+	export function settle(mutates self)
 		let pending = try self.waiting.pop() otherwise return
 		pending.answer(self.total)
 	end 'settle'
@@ -85,7 +83,6 @@ end 'main'
 ```
 
 <!-- test: a-reply-answered-by-another-service -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 `Desk.ask` hands its `Reply` to `Clerk.look` in a message of its own, and `Clerk` answers it from there. Neither message
 waits: `Desk` returns as soon as it has sent, and the answer reaches `main` from the `Clerk`.
 ```maxon
@@ -100,9 +97,9 @@ type Clerk
 		return Self{served: 0}
 	end 'create'
 
-	export function look(waiting TallyReply)
-		self.served = self.served + 1
-		waiting.answer(self.served * 21)
+	export function look(mutates self, consumes waiting TallyReply)
+		self.served = try self.served + 1 otherwise panic("out of range")
+		waiting.answer(try self.served * 21 otherwise panic("out of range"))
 	end 'look'
 end 'Clerk'
 
@@ -110,11 +107,10 @@ type Desk
 	let clerk as Clerk.handle
 
 	static function create(clerk Clerk.handle) returns Self
-		return Self{clerk: clerk}
+		return Self{clerk: clerk.clone()}
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		try self.clerk.look(pending) otherwise ignore
 		return
@@ -134,7 +130,6 @@ end 'main'
 ```
 
 <!-- test: a-reply-parameter-answered-on-each-branch-is-answered-once -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 `Clerk.look` receives the `Reply` as a parameter and answers it in one arm of an `if` or in the other, so each path answers it once.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -146,7 +141,7 @@ type Clerk
 		return Self{}
 	end 'create'
 
-	export function look(waiting TallyReply, large bool)
+	export function look(consumes waiting TallyReply, large bool)
 		if large 'big'
 			waiting.answer(100)
 		end 'big' else 'small'
@@ -159,11 +154,10 @@ type Desk
 	let clerk as Clerk.handle
 
 	static function create(clerk Clerk.handle) returns Self
-		return Self{clerk: clerk}
+		return Self{clerk: clerk.clone()}
 	end 'create'
 
 	export function ask(large bool) returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		try self.clerk.look(pending, large: large) otherwise ignore
 		return
@@ -184,7 +178,6 @@ end 'main'
 ```
 
 <!-- test: a-reply-parameter-answered-in-a-loop-that-returns-is-answered-once -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 The loop answers the `Reply` parameter and returns in the same arm, so no path reaches an answer after one was made; the answer after the loop is reached only when the loop ran out.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -196,7 +189,7 @@ type Clerk
 		return Self{}
 	end 'create'
 
-	export function look(waiting TallyReply, limit Tally)
+	export function look(consumes waiting TallyReply, limit Tally)
 		for step in 0 upto limit 'each'
 			if step == 3 'hit'
 				waiting.answer(step)
@@ -211,11 +204,10 @@ type Desk
 	let clerk as Clerk.handle
 
 	static function create(clerk Clerk.handle) returns Self
-		return Self{clerk: clerk}
+		return Self{clerk: clerk.clone()}
 	end 'create'
 
 	export function ask(limit Tally) returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		try self.clerk.look(pending, limit: limit) otherwise ignore
 		return
@@ -248,7 +240,7 @@ type Sink
 		return Self{}
 	end 'create'
 
-	export function take(parked TallyReply, laps Tally)
+	export function take(consumes parked TallyReply, laps Tally)
 		for lap in 0 upto laps 'each'
 			parked.answer(lap)
 		end 'each'
@@ -265,7 +257,6 @@ error E3102: <fragment>:12:21: use of moved value 'parked': it was moved in an e
 ```
 
 <!-- test: a-reply-dropped-with-its-holder-fails-the-await-with-service-stopped -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 `Parker` keeps its `Reply` in its state and `main` shuts the service down without anything answering it. The service's
 state is dropped when it finishes, the `Reply` inside it is dropped unanswered, and the caller's `await` receives
 `ReplyStopped.serviceStopped`.
@@ -283,8 +274,7 @@ type Parker
 		return Self{waiting: TallyReplyArray.create(0)}
 	end 'create'
 
-	export function park() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
+	export function park(mutates self) returns Tally throws ReplyStopped
 		let pending = reply.later()
 		self.waiting.push(pending)
 		return
@@ -308,7 +298,6 @@ end 'main'
 ```
 
 <!-- test: a-reply-dropped-at-the-end-of-its-own-message-fails-the-await -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 `ask(wake)` answers at once when told to and otherwise lets the `Reply` go out of scope with the message. The first
 `await` yields the answer and the second the stop.
 ```maxon
@@ -320,7 +309,6 @@ type Waker
 	end 'create'
 
 	export function ask(wake bool) returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		if wake 'answerNow'
 			pending.answer(7)
@@ -336,7 +324,7 @@ function main() returns ExitCode
 	let seven = try await answered otherwise panic("the first message answered itself")
 	try await dropped otherwise (e) 'stopped'
 		match e 'why'
-			serviceStopped then return (seven + 1) as ExitCode
+			serviceStopped then return try (seven + 1) as ExitCode otherwise panic("out of range")
 		end 'why'
 	end 'stopped'
 	return 0
@@ -347,8 +335,6 @@ end 'main'
 ```
 
 <!-- test: a-reply-answered-twice-is-refused -->
-<!-- skip: reply.later() is not supported in minimaxon -->
-<!-- positions: moved -->
 `answer` consumes the `Reply`, so the second call reads a moved value.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -359,7 +345,6 @@ type Twice
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		pending.answer(1)
 		pending.answer(2)
@@ -389,7 +374,7 @@ type Sink
 		return Self{}
 	end 'create'
 
-	export function take(parked TallyReply)
+	export function take(consumes parked TallyReply)
 		parked.answer(1)
 		parked.answer(2)
 	end 'take'
@@ -405,7 +390,6 @@ error E3102: <fragment>:12:3: use of moved value 'parked': its ownership moved t
 ```
 
 <!-- test: error.a-reply-function-parameter-answered-twice-is-refused -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A `Reply` a helper function receives is answered at most once there too.
 ```maxon
@@ -413,7 +397,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyReply = Reply with Tally
 
-function answerTwice(waiting TallyReply)
+function answerTwice(consumes waiting TallyReply)
 	waiting.answer(1)
 	waiting.answer(2)
 end 'answerTwice'
@@ -424,7 +408,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		answerTwice(pending)
 		return
@@ -441,7 +424,6 @@ error E3102: <fragment>:7:2: use of moved value 'waiting': its ownership moved t
 ```
 
 <!-- test: error.a-reply-parameter-answered-then-passed-on-is-refused -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A function that answers its `Reply` parameter has no `Reply` left to hand to another function.
 ```maxon
@@ -449,11 +431,11 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyReply = Reply with Tally
 
-function answerNow(waiting TallyReply)
+function answerNow(consumes waiting TallyReply)
 	waiting.answer(3)
 end 'answerNow'
 
-function relay(waiting TallyReply)
+function relay(consumes waiting TallyReply)
 	waiting.answer(1)
 	answerNow(waiting)
 end 'relay'
@@ -464,7 +446,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		relay(pending)
 		return
@@ -481,7 +462,6 @@ error E3102: <fragment>:11:12: use of moved value 'waiting': its ownership moved
 ```
 
 <!-- test: error.a-union-parameter-holding-a-reply-matched-twice-is-refused -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A union parameter that carries a `Reply` is consumed by the `match` that answers its payload, so a second `match` reads a moved value.
 ```maxon
@@ -494,8 +474,8 @@ union Slot
 	empty
 end 'Slot'
 
-function drain(slot Slot)
-	match slot 'first'
+function drain(consumes slot Slot)
+	match consumes slot 'first'
 		held(q) then q.answer(1)
 		empty then print("empty\n")
 	end 'first'
@@ -511,7 +491,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		drain(Slot.held(pending))
 		return
@@ -555,7 +534,6 @@ error E3005: <fragment>:11:11: 'await' requires a promise value from 'async', go
 ```
 
 <!-- test: error.reply-later-inside-a-block-is-refused -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 `reply.later()` is a statement of the message's own body: inside an `if` it would defer on some paths and not others.
 ```maxon
@@ -574,7 +552,6 @@ type Gate
 
 	export function ask(now bool) returns Tally throws ReplyStopped
 		if now 'sometimes'
-			// TODO: reply.later() is not supported in minimaxon
 			let pending = reply.later()
 			self.waiting.push(pending)
 		end 'sometimes'
@@ -592,7 +569,6 @@ error E3222: <fragment>:15:18: `reply.later()` is a statement of the message's o
 ```
 
 <!-- test: error.reply-later-needs-the-stopped-clause -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A `Reply` dropped unanswered fails the caller's `await` with `ReplyStopped`, so the message declares it.
 ```maxon
@@ -610,7 +586,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		self.waiting.push(pending)
 		return
@@ -627,7 +602,6 @@ error E3222: <fragment>:14:17: a message that defers its reply declares `throws 
 ```
 
 <!-- test: error.a-deferring-message-returns-no-value -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 After `reply.later()` the answer travels through the `Reply`, so `return` carries nothing.
 ```maxon
@@ -645,7 +619,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		self.waiting.push(pending)
 		return 5
@@ -662,7 +635,6 @@ error E3222: <fragment>:16:3: after `reply.later()` the message answers through 
 ```
 
 <!-- test: error.a-message-with-no-reply-cannot-defer -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A message that returns nothing has no reply to take.
 ```maxon
@@ -680,7 +652,6 @@ type Gate
 	end 'create'
 
 	export function ask() throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		self.waiting.push(pending)
 	end 'ask'
@@ -696,8 +667,6 @@ error E3222: <fragment>:14:17: a message with no `returns` clause has no reply t
 ```
 
 <!-- test: error.reply-later-outside-a-service-message-is-refused -->
-<!-- skip: reply.later() is not supported in minimaxon -->
-<!-- positions: moved -->
 `Plain` is never spawned, so its method is no message and has no reply to take.
 ```maxon
 type Plain
@@ -706,7 +675,6 @@ type Plain
 	end 'create'
 
 	export function ask() returns Count throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		pending.answer(1)
 		return
@@ -723,7 +691,6 @@ error E3222: <fragment>:7:18: `reply.later()` appears in 'ask', which is not a m
 ```
 
 <!-- test: error.reply-later-is-the-whole-initializer-of-a-let -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 The `Reply` has to be bound, so it is plain which name owes the answer.
 ```maxon
@@ -741,7 +708,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		self.waiting.push(reply.later())
 		return
 	end 'ask'
@@ -757,7 +723,6 @@ error E3222: <fragment>:14:21: `reply.later()` is the whole initializer of a `le
 ```
 
 <!-- test: error.a-message-defers-its-reply-once -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 The first `reply.later()` takes the message's reply, so a second has nothing left to take.
 ```maxon
@@ -775,9 +740,7 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let first = reply.later()
-		// TODO: reply.later() is not supported in minimaxon
 		let second = reply.later()
 		self.waiting.push(first)
 		self.waiting.push(second)
@@ -795,7 +758,6 @@ error E3222: <fragment>:15:16: a message defers its reply once: the second `repl
 ```
 
 <!-- test: error.a-deferring-message-throws-nothing-itself -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A throw would complete the reply the `Reply` already owns, so a deferring message throws nothing: its one error is
 `ReplyStopped`, delivered when the `Reply` is dropped.
@@ -814,7 +776,6 @@ type Gate
 	end 'create'
 
 	export function ask(refuse bool) returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		self.waiting.push(pending)
 		if refuse 'now'
@@ -834,7 +795,6 @@ error E3222: <fragment>:13:18: the message 'ask' defers its reply and so throws 
 ```
 
 <!-- test: error.a-message-cannot-reply-with-a-reply -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A `Reply` never leaves the service code that holds it. A message's reply is awaited by code that may wait, and a
 caller that awaited a coroutine before answering the `Reply` it was handed would wait on its own answer.
@@ -853,7 +813,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		self.waiting.push(pending)
 		return
@@ -874,7 +833,6 @@ error E3222: <fragment>:19:18: 'hand' returns a type that can hold a Reply: a Re
 ```
 
 <!-- test: error.a-message-cannot-reply-with-a-generic-over-a-reply -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 The walk substitutes a generic's type arguments, so `Box with TallyReply` holds a `Reply` exactly as its argument does.
 ```maxon
@@ -902,7 +860,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		self.waiting.push(pending)
 		return
@@ -923,7 +880,6 @@ error E3222: <fragment>:29:18: 'hand' returns a type that can hold a Reply: a Re
 ```
 
 <!-- test: error.a-helper-cannot-return-a-reply -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 No function returns a type that can hold a `Reply`, a helper called from a message body included.
 ```maxon
@@ -941,7 +897,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		self.waiting.push(pending)
 		return
@@ -966,7 +921,6 @@ error E3222: <fragment>:24:10: 'unpark' returns a type that can hold a Reply: a 
 ```
 
 <!-- test: error.a-reply-cannot-be-handed-to-a-coroutine -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A coroutine is not holding code, so it takes no parameter that can hold a `Reply`.
 ```maxon
@@ -980,7 +934,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		let helper = async answerLater(pending)
 		helper.cancel()
@@ -1005,7 +958,6 @@ error E3222: <fragment>:12:22: `async answerLater(…)` takes a parameter that c
 
 <!-- test: error.a-reply-cannot-leave-an-acquire-block -->
 <!-- skip: language difference: the test pins a rule of maxon's regions on the states an acquire block holds, and the regions are replaced by owned values, borrows and frozen values, so the rule does not exist (README, Where it differs from Maxon: maxon's codes for the rules of its regions are not raised) -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A `Reply` taken out of an acquired state is mutable data the statement that opens the state hands back, which the window rule
 (E3202) already refuses to let outlive the statement; the shape stays refused for a `Reply`.
@@ -1024,7 +976,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		self.waiting.push(pending)
 		return
@@ -1049,7 +1000,6 @@ error E3202: <fragment>:25:15: 'try gate.waiting.pop() otherwise return 1' is mu
 ```
 
 <!-- test: error.a-deferring-message-cannot-be-called-directly -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A direct call has no reply cell to take, so only a send through the handle runs a deferring message.
 ```maxon
@@ -1067,7 +1017,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		self.waiting.push(pending)
 		return
@@ -1088,7 +1037,6 @@ error E3222: <fragment>:20:12: 'Gate.ask' defers its reply, so it cannot be call
 ```
 
 <!-- test: error.a-closure-cannot-capture-a-reply -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A closure travels to whatever code receives it, so it never captures a value that can hold a `Reply`.
 ```maxon
@@ -1102,7 +1050,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		let hold = function() gives peek(pending)
 		hold()
@@ -1125,7 +1072,6 @@ error E3222: <fragment>:12:14: this closure captures 'pending', which can hold a
 ```
 
 <!-- test: error.a-reply-holder-cannot-be-passed-as-an-interface-value -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 An interface value carries its conformer to whatever code receives it, so a value that can hold a `Reply` is not widened to an interface type.
 ```maxon
@@ -1156,7 +1102,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		_ = keep(Slot.waiting(pending))
 		return
@@ -1173,7 +1118,6 @@ error E3222: <fragment>:29:7: Cannot pass a value as 'sink', which is declared a
 ```
 
 <!-- test: error.a-reply-holder-cannot-be-returned-as-an-interface-value -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 The same holds at a `return` into an interface-typed result.
 ```maxon
@@ -1204,7 +1148,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		let sink = wrap(pending)
 		_ = sink.weight()
@@ -1222,7 +1165,6 @@ error E3222: <fragment>:19:2: Cannot return a value from 'wrap' as the interface
 ```
 
 <!-- test: error.a-reply-holder-cannot-be-stored-in-an-interface-field -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 The same holds at a store into an interface-typed field.
 ```maxon
@@ -1257,7 +1199,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		let shelf = Shelf.create(pending)
 		_ = shelf.sink.weight()
@@ -1275,7 +1216,6 @@ error E3222: <fragment>:22:10: Cannot store a value into the field 'Shelf.sink',
 ```
 
 <!-- test: error.a-reply-given-to-a-function-that-answers-it-is-moved -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A function that answers a `Reply` consumes it, so the caller that handed it over has no `Reply` left to answer.
 ```maxon
@@ -1283,7 +1223,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyReply = Reply with Tally
 
-function answerNow(waiting TallyReply)
+function answerNow(consumes waiting TallyReply)
 	waiting.answer(3)
 end 'answerNow'
 
@@ -1293,7 +1233,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		answerNow(pending)
 		pending.answer(4)
@@ -1318,7 +1257,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyReply = Reply with Tally
 
-function answerNow(waiting TallyReply)
+function answerNow(consumes waiting TallyReply)
 	waiting.answer(3)
 end 'answerNow'
 
@@ -1327,7 +1266,7 @@ type Sink
 		return Self{}
 	end 'create'
 
-	export function take(parked TallyReply)
+	export function take(consumes parked TallyReply)
 		answerNow(parked)
 		parked.answer(4)
 	end 'take'
@@ -1343,7 +1282,6 @@ error E3102: <fragment>:16:3: use of moved value 'parked': its ownership moved t
 ```
 
 <!-- test: error.a-reply-given-to-a-function-that-parks-it-is-moved -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A function that keeps the `Reply` in a container owns it too, so the caller cannot answer it afterwards.
 ```maxon
@@ -1353,7 +1291,7 @@ typealias TallyReply = Reply with Tally
 
 typealias TallyReplyArray = Array with TallyReply
 
-function parkIn(waiting TallyReply, shelf TallyReplyArray)
+function parkIn(consumes waiting TallyReply, mutates shelf TallyReplyArray)
 	shelf.push(waiting)
 end 'parkIn'
 
@@ -1364,8 +1302,7 @@ type Gate
 		return Self{shelf: TallyReplyArray.create(0)}
 	end 'create'
 
-	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
+	export function ask(mutates self) returns Tally throws ReplyStopped
 		let pending = reply.later()
 		parkIn(pending, shelf: self.shelf)
 		pending.answer(4)
@@ -1383,7 +1320,6 @@ error E3102: <fragment>:20:3: use of moved value 'pending': its ownership moved 
 ```
 
 <!-- test: error.a-reply-given-to-a-function-in-a-loop-is-moved-in-an-earlier-lap -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A loop that hands the same `Reply` to an answering function again on its next lap reads a moved value.
 ```maxon
@@ -1391,7 +1327,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyReply = Reply with Tally
 
-function answerNow(waiting TallyReply)
+function answerNow(consumes waiting TallyReply)
 	waiting.answer(3)
 end 'answerNow'
 
@@ -1401,7 +1337,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		for _ in 0 upto 2 'laps'
 			answerNow(pending)
@@ -1420,7 +1355,6 @@ error E3102: <fragment>:18:14: use of moved value 'pending': it was moved in an 
 ```
 
 <!-- test: error.a-reply-given-to-a-function-on-one-branch-is-moved-after-the-branch -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A `Reply` handed over on one branch is moved once the branches join, so answering it afterwards is refused.
 ```maxon
@@ -1428,7 +1362,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyReply = Reply with Tally
 
-function answerNow(waiting TallyReply)
+function answerNow(consumes waiting TallyReply)
 	waiting.answer(3)
 end 'answerNow'
 
@@ -1438,7 +1372,6 @@ type Gate
 	end 'create'
 
 	export function ask(flag bool) returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		if flag 'maybe'
 			answerNow(pending)
@@ -1458,7 +1391,7 @@ error E3102: <fragment>:21:3: use of moved value 'pending': its ownership moved 
 ```
 
 <!-- test: error.a-reply-cannot-be-bound-as-isolated -->
-<!-- skip: reply.later() is not supported in minimaxon -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `Reply` is unique and stays in the code that holds it, so it is never an `isolated` value a function could borrow.
 ```maxon
@@ -1476,7 +1409,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		let held = pending as TallyReply
 		answerNow(held)
@@ -1494,7 +1426,6 @@ error E3200: <fragment>:16:14: 'pending as isolated TallyReply' is not isolated:
 ```
 
 <!-- test: error.a-reply-sent-to-a-service-is-moved-whether-or-not-the-send-lands -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 A send takes the `Reply` with it even when the send is refused, so the sender cannot answer it afterwards.
 ```maxon
@@ -1507,7 +1438,7 @@ type Sink
 		return Self{}
 	end 'create'
 
-	export function take(parked TallyReply)
+	export function take(consumes parked TallyReply)
 		parked.answer(1)
 	end 'take'
 end 'Sink'
@@ -1516,11 +1447,10 @@ type Gate
 	let sink as Sink.handle
 
 	static function create(sink Sink.handle) returns Self
-		return Self{sink: sink}
+		return Self{sink: sink.clone()}
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		try self.sink.take(pending) otherwise ignore
 		pending.answer(4)
@@ -1539,7 +1469,6 @@ error E3102: <fragment>:25:3: use of moved value 'pending': its ownership moved 
 ```
 
 <!-- test: error.a-reply-answered-in-a-branch-and-after-it-is-refused-without-the-word-reply -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 No declaration in the program names `Reply`, yet `reply.later()` makes a unique value, so the answer on the branch that ran moves it and the answer after the branch reads a moved value.
 ```maxon
@@ -1551,7 +1480,6 @@ type Twice
 	end 'create'
 
 	export function ask(flag bool) returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		if flag 'early'
 			pending.answer(1)
@@ -1571,8 +1499,6 @@ error E3102: <fragment>:16:3: use of moved value 'pending': its ownership moved 
 ```
 
 <!-- test: error.a-reply-bound-to-a-second-name-is-refused-without-the-word-reply -->
-<!-- skip: reply.later() is not supported in minimaxon -->
-<!-- positions: moved -->
 `let other = pending` moves the unique `Reply`, so answering `pending` afterwards reads a moved value although no declaration in the program names `Reply`.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1583,7 +1509,6 @@ type Twice
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		let other = pending
 		pending.answer(1)
@@ -1603,7 +1528,6 @@ error E3102: <fragment>:12:3: use of moved value 'pending': its ownership moved 
 
 <!-- test: error.an-outer-union-holding-a-reply-matched-in-a-modify-block-cannot-store-the-reply-into-the-open-region -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: reply.later() is not supported in minimaxon -->
 <!-- positions: moved -->
 `pe` is declared outside `modify bx`, so the `Reply` its `match` binds is read-only there, and building `Pe.waiting(q)` into the open `Hold` would store it.
 ```maxon
@@ -1632,7 +1556,6 @@ type Gate
 	end 'create'
 
 	export function ask() returns Tally throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		let pe = Pe.waiting(pending)
 		let bx = Hold.create() as Hold

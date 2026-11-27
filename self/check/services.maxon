@@ -108,7 +108,12 @@ function callSend(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: own).intrinsic == ast.Intrinsic.intrServiceStopped 'watch'
 			return callStopped(c, p: p, ms: ms, call: call, handle: handle, own: own, errs: errs)
 		end 'watch'
-		return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callMethod, target: own, hasGiven: true, given: ast.typeEntry(ms.types, reads: p.types, t: handle).typeArgs.clone(), errs: errs)
+		let typed = callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callMethod, target: own, hasGiven: true, given: ast.typeEntry(ms.types, reads: p.types, t: handle).typeArgs.clone(), errs: errs)
+		let op = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: own).intrinsic
+		if typed != ast.noType and (op == ast.Intrinsic.intrServiceShutdown or op == ast.Intrinsic.intrServiceStopNow) 'stop'
+			noteStateEnd(c, p: p, ms: ms, call: call, state: ast.serviceState(ms.types, reads: p.types, t: handle))
+		end 'stop'
+		return typed
 	end 'handleMethod'
 	let state = ast.serviceState(ms.types, reads: p.types, t: handle)
 	let method = methodOf(c, p: p, ms: ms, t: state, name: name, node: call, errs: errs)
@@ -133,8 +138,13 @@ function callSend(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	movesEveryArgument(info)
 	info.receiverTy = handle
 	info.body = serviceBody(c, p: p, ms: ms, node: call)
-	let thrown = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).errTy
-	let replies = result != p.builtins.voidTy or thrown != ast.noType
+	// A message that defers its reply answers what its header declares through its Reply.
+	var reply = result
+	if ast.defers(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method)) 'deferred'
+		reply = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).deferredTy
+	end 'deferred'
+	let thrown = ast.replyErrorOf(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method))
+	let replies = reply != p.builtins.voidTy or thrown != ast.noType
 	info.replyKept = replies and c.discardedSend != call
 	let kept = info.replyKept
 	c.typing.calls.insert(call as Count, value: info)
@@ -147,7 +157,7 @@ function callSend(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	end 'noReply'
 	c.partyWaitNow = true
 	var args = ast.TypeIDList.create(0)
-	args.push(result)
+	args.push(reply)
 	let awaited = ast.awaitErrorOf(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method))
 	args.push(awaited if awaited != ast.noType else p.builtins.voidTy)
 	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: call), orig: p.builtins.promiseOrigin, args: args, errs: errs)
@@ -190,8 +200,35 @@ function callSelfStop(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	if floor == ast.noFunc 'missing'
 		panic("check: the built-ins have no floor of {name}")
 	end 'missing'
-	return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callStatic, target: floor, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
+	let typed = callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callStatic, target: floor, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
+	if typed != ast.noType and ast.holdsReply(ms.types, reads: p.types, t: content) 'stop'
+		noteStateEnd(c, p: p, ms: ms, call: call, state: content)
+		// The behaviour is queued on the service whose message stops it, a handle of the type.
+		let handle = serviceHandleType(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: call), state: content, errs: errs)
+		var info = match consumes c.typing.calls.get(call as Count) 'info'
+			some(i) gives i
+			none panic("check: a stop was typed without a record of what it calls")
+		end 'info'
+		info.receiverTy = handle
+		c.typing.calls.insert(call as Count, value: info)
+	end 'stop'
+	return typed
 end 'callSelfStop'
+
+// noteStateEnd gives a stop of a service whose state can hold a Reply the behaviour that drops the state once the queued
+// messages have run (ir.endState): the Replies it holds fail their senders' awaits then, as maxon's do when the service
+// finishes, rather than when its last handle goes.
+function noteStateEnd(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, state ast.TypeID)
+	if not ast.holdsReply(ms.types, reads: p.types, t: state) 'none'
+		return
+	end 'none'
+	var info = match consumes c.typing.calls.get(call as Count) 'info'
+		some(i) gives i
+		none panic("check: a stop was typed without a record of what it calls")
+	end 'info'
+	info.body = serviceBody(c, p: p, ms: ms, node: call)
+	c.typing.calls.insert(call as Count, value: info)
+end 'noteStateEnd'
 
 // writesSelfStop is whether a call of a raw floor is `self.stop()` or `self.stopNow()`, which callSelfStop made a call of its
 // floor: the program writes the stop, never the floor.
@@ -296,7 +333,7 @@ function requireMessage(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 		failAt(c, p: p, ms: ms, node: e, code: diag.errNotSendable, msg: "{what} takes its receiver as {selfConv.keyword()}, and a message is given the service's state, which it may read or change but never take: declare it 'mutates self', or leave the receiver as it is", errs: errs)
 	end 'consumesSelf'
 	requireCrossingParams(c, p: p, ms: ms, e: e, what: what, fn: method, errs: errs)
-	let reply = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).retTy
+	let reply = ast.replyTypeOf(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method))
 	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).result != ast.ResultConv.resultOwned 'borrowed'
 		failAt(c, p: p, ms: ms, node: e, code: diag.errReplyNotCarriable, msg: "{what} returns a borrowed place, and a reply moves out of the service to the sender: return a value", errs: errs)
 		return
@@ -305,7 +342,7 @@ function requireMessage(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	if replyWhy != "" 'reply'
 		failAt(c, p: p, ms: ms, node: e, code: diag.errReplyNotCarriable, msg: "{what} replies with a '{nameOfType(p, ms: ms, t: reply)}', which cannot cross back to the sender: {replyWhy}; reply with the value it is derived from", errs: errs)
 	end 'reply'
-	let thrown = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).errTy
+	let thrown = ast.replyErrorOf(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method))
 	if thrown != ast.noType 'throws'
 		let thrownWhy = unsendable(p, ms: ms, t: thrown)
 		if thrownWhy != "" 'error'

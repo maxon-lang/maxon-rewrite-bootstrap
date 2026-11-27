@@ -45,6 +45,7 @@ export enum TypeKind
 	builtinCursor
 	builtinGroups
 	builtinPromise
+	builtinReply
 	builtinService
 	typeParam
 	interfaceTy
@@ -59,6 +60,7 @@ export enum TypeKind
 			builtinCursor gives true
 			builtinGroups gives true
 			builtinPromise gives true
+			builtinReply gives true
 			builtinService gives true
 			invalid gives false
 			primBool gives false
@@ -483,6 +485,12 @@ export type FuncEntry
 	// the compiler made for the await (README, "Stops"): the handler's cases, then busy where its policy sheds, then
 	// serviceStopped where its type implements StopsNow. It is noType where the await fails with errTy alone.
 	export var awaitErrTy as TypeID
+	// deferredTy is, for a message that defers its reply with `reply.later()` (README, "Deferred replies"), the reply type its
+	// header declares, and deferredErrTy the error it declares, ReplyStopped: its senders await those, while the function
+	// itself returns nothing and throws nothing, and takes the cell of its reply after its parameters. deferredTy is noType
+	// for every other function.
+	export var deferredTy as TypeID
+	export var deferredErrTy as TypeID
 	export var genericOrigin as FuncID
 	export var typeArgs as TypeIDList
 	// witnesses are, on an instance, the conformances it was given for the bounds of its type parameters.
@@ -499,7 +507,7 @@ export type FuncEntry
 	export var conditionalBounds as Count
 
 	export static function make(consumes name String, consumes visibility String, module diag.ModuleID, nodeID NodeID) returns FuncEntry
-		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), retTy: noType, result: ResultConv.resultOwned, lendsPlace: false, errTy: noType, policy: noType, pendingSlot: noPendingSlot, policyField: noPolicyField, shedPolicy: noShedPolicy, awaitErrTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false, extendedIface: noType, conditionalBounds: 0 as Count}
+		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), retTy: noType, result: ResultConv.resultOwned, lendsPlace: false, errTy: noType, policy: noType, pendingSlot: noPendingSlot, policyField: noPolicyField, shedPolicy: noShedPolicy, awaitErrTy: noType, deferredTy: noType, deferredErrTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false, extendedIface: noType, conditionalBounds: 0 as Count}
 	end 'make'
 end 'FuncEntry'
 
@@ -1618,6 +1626,7 @@ export function byteSize(tt TypeSlot, reads TypeTable, t TypeID) returns Count
 		builtinCursor gives sizeofWord
 		builtinGroups gives sizeofWord
 		builtinPromise gives sizeofWord
+		builtinReply gives sizeofWord
 		builtinService gives sizeofWord
 		funcTy gives sizeofWord
 	end 'k'
@@ -2068,6 +2077,7 @@ export function isManagedType(tt TypeSlot, reads TypeTable, t TypeID) returns bo
 		builtinCursor gives true
 		builtinGroups gives true
 		builtinPromise gives true
+		builtinReply gives true
 		builtinService gives true
 		typeParam gives true
 		funcTy gives true
@@ -2741,6 +2751,11 @@ export function lendsByAddress(p Project, typing Typing, module diag.ModuleID, f
 	// A built-in's module is none (below 0), and its table says what it lends (lendsPlace above).
 	return home >= 0 and modIndex(home) < p.typings.count() and p.typings[modIndex(home)].lendsPlace.has(node as Count)
 end 'lendsByAddress'
+
+// isReplyType is whether a type is a `Reply with T`: the reply of a message that `reply.later()` deferred.
+export function isReplyType(tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	return t != noType and typeKind(tt, reads: reads, t: t) == TypeKind.builtinReply
+end 'isReplyType'
 
 // isPromiseType is whether a type is a `Promise with ...`: what an async call gives, which an await consumes.
 export function isPromiseType(tt TypeSlot, reads TypeTable, t TypeID) returns bool

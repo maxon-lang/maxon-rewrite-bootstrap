@@ -39,6 +39,10 @@ function captureFrom(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	if not c.bFrames[behaviour].isClosure and not requireCapturable(c, p: p, ms: ms, use: use, outer: outer, errs: errs) 'refused'
 		return ast.noLocal
 	end 'refused'
+	if c.bFrames[behaviour].isClosure and ast.holdsReply(ms.types, reads: p.types, t: c.typing.locals[outer as Count].ty) 'reply'
+		refuseReplyCapture(c, p: p, ms: ms, node: use, name: name, errs: errs)
+		return ast.noLocal
+	end 'reply'
 	let ref = ms.tree().captureRef(use, depth: level)
 	c.typing.names.insert(ref as Count, value: ast.NameInfo.localName(outer))
 	return captureLocal(c, p: p, ms: ms, behaviour: behaviour, outer: outer, ref: ref, use: use)

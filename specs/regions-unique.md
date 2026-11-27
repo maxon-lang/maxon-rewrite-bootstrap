@@ -1782,8 +1782,6 @@ error E3102: <fragment>:19:10: use of moved value 'first': its ownership moved t
 ```
 
 <!-- test: a-let-rebind-of-a-reply-moves-it -->
-<!-- skip: reply.later() is not supported in minimaxon -->
-<!-- positions: moved -->
 A `Reply` is unique, so `let moved = pending` moves it out of `pending` and the later `pending.answer(4)` is a use of a moved value.
 ```maxon
 typealias Number = int(0 to 999)
@@ -1796,7 +1794,6 @@ type Desk
 	end 'create'
 
 	export function ask() returns Number throws ReplyStopped
-		// TODO: reply.later() is not supported in minimaxon
 		let pending = reply.later()
 		let moved = pending
 		moved.answer(3)

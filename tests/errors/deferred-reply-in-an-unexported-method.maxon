@@ -1,0 +1,18 @@
+// Only a message, an export or public instance method, has a reply that a send gives it to defer.
+type Gate
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function ask() returns Count throws ReplyStopped
+		let pending = reply.later()
+		return
+	end 'ask'
+end 'Gate'
+
+function main() returns ExitCode
+	let gate = spawn Gate.create()
+	return 0
+end 'main'
+
+// expect-error: E3222 at 8:23

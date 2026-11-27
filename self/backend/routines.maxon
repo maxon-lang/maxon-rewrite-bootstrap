@@ -381,6 +381,10 @@ function emitDrop(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates m
 		dropPromise(u, a: a, p: p, ms: ms, ty: ty)
 		return
 	end 'promise'
+	if kind == ast.TypeKind.builtinReply 'reply'
+		dropDeferredReply(u, a: a, p: p, ms: ms, ty: ty)
+		return
+	end 'reply'
 	panic("routines: no drop routine for {ast.typeName(ms.types, reads: p.types, t: ty)}, which the driver should have refused")
 end 'emitDrop'
 
@@ -486,6 +490,20 @@ function dropPromise(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutate
 	u.asm.bind(done)
 	routineEpilogue(u, a: a)
 end 'dropPromise'
+
+// dropDeferredReply is the drop of a Reply that no answer consumed, which fails its sender's await with
+// ReplyStopped.serviceStopped (rt.reply.drop, rt.reply.dropString for a String, whose await takes its words out of a box); one
+// whose sender dropped the reply holds no cell, and nothing is done.
+function dropDeferredReply(mutates u CodeUnit, a ast.TargetArch, p ast.Project, ms ast.ModuleState, ty ast.TypeID)
+	let done = u.asm.newLabel()
+	routinePrologue(u, a: a, locals: 0)
+	returnIfEmpty(u, a: a, done: done)
+	let value = ast.typeArgsOf(ms.types, reads: p.types, t: ty)[0]
+	let entry = ir.Rt.rtReplyDropString if ast.typeKind(ms.types, reads: p.types, t: value) == ast.TypeKind.primString else ir.Rt.rtReplyDrop
+	callRuntimeWithWork(u, a: a, entry: entry)
+	u.asm.bind(done)
+	routineEpilogue(u, a: a)
+end 'dropDeferredReply'
 
 // nullPayload is the type of the payload of the union ty held in the null form, which the value is.
 function nullPayload(mutates ms ast.ModuleState, p ast.Project, ty ast.TypeID) returns ast.TypeID

@@ -36,6 +36,10 @@ let kindClosure = 9 as Count
 // promises (oData), which the coroutine or the message fills and an await reads.
 let kindPromise = 10 as Count
 
+// kindReply is a deferred reply, a Reply, which has no words: its contents are the row of the promise its sender awaits
+// (oData), which its answer finishes, and its free finishes with ReplyStopped.serviceStopped where no answer did.
+let kindReply = 11 as Count
+
 // closureFnWord is the word of a closure that holds the function it calls.
 let closureFnWord = 1 as Count
 
@@ -60,6 +64,7 @@ function kindName(kind Count) returns String
 		8 gives "byte array"
 		9 gives "function value"
 		10 gives "promise"
+		11 gives "deferred reply"
 		default gives panic("interp: {kind} is no object kind")
 	end 'k'
 end 'kindName'

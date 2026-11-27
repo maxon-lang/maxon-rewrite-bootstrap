@@ -530,6 +530,17 @@ function runningService() returns Count
 	return messageOf(g)
 end 'runningService'
 
+// serviceStateHeld is whether a service still holds its state, which the behaviour that a stop of a service whose state can
+// hold a Reply queues drops, once: one that finds it dropped already does nothing.
+function serviceStateHeld(state Count) returns bool
+	return __Raw.loadWord(state, offset: 0) != 0
+end 'serviceStateHeld'
+
+// serviceCurrent is the service whose message runs, on which its stop queues the behaviour that drops its state.
+function serviceCurrent() returns Count
+	return runningService()
+end 'serviceCurrent'
+
 function serviceStopSelf()
 	let service = runningService()
 	if service != noService 'message'
@@ -985,3 +996,45 @@ function replyGive(promise Count, value Count, error Count)
 	__Raw.storeWord(promise, offset: greenErrorOffset, value: error)
 	wakeWaiter(__Raw.threadContext(), waiter: __Raw.atomicExchange(promise, offset: greenWaiterOffset, value: greenFinished))
 end 'replyGive'
+
+// A deferred reply, a Reply, is the cell of the reply its sender awaits, which `reply.later()` takes out of the behaviour of
+// the message, or 0 where the sender dropped the reply: no allocation, and a Reply waiting in a service's state is a word of
+// that state, never a green thread or a timer. Its answer gives the cell its value, and its drop, unanswered, fails the
+// sender's await with replyStoppedError.
+
+// replyStoppedError is the error word of ReplyStopped.serviceStopped, the first case of the library's enum, plus 1, which is
+// its word in every error of the await of a deferring message's reply.
+let replyStoppedError = 1 as Count
+
+// replyDefer is the Reply of a message whose handler deferred its reply: its cell.
+function replyDefer(promise Count) returns Count
+	return promise
+end 'replyDefer'
+
+// replyHeld is whether a Reply holds the cell of a reply its sender awaits: the compiled code drops the value of the answer of
+// one whose sender dropped the reply.
+function replyHeld(reply Count) returns bool
+	return reply != 0
+end 'replyHeld'
+
+// replyAnswer gives the reply a sender awaits the value of a Reply's answer.
+function replyAnswer(reply Count, value Count)
+	replyGive(reply, value: value, error: 0)
+end 'replyAnswer'
+
+// replyDrop is the drop of a Reply that no answer consumed: its sender's await fails with ReplyStopped.serviceStopped.
+function replyDrop(reply Count)
+	replyGive(reply, value: 0, error: replyStoppedError)
+end 'replyDrop'
+
+// stringBoxBytes are the bytes of the box a String crosses to the awaiter of a reply in, its two words.
+let stringBoxBytes = 16 as Count
+
+// replyDropString is replyDrop of a Reply whose value is a String: the await of a String takes the words out of the box its
+// value is, also where the reply failed, so the failure gives a box of the empty String, whose words are 0.
+function replyDropString(reply Count)
+	let box = alloc(stringBoxBytes)
+	__Raw.storeWord(box, offset: 0, value: 0)
+	__Raw.storeWord(box, offset: 8, value: 0)
+	replyGive(reply, value: box, error: replyStoppedError)
+end 'replyDropString'
