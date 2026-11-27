@@ -323,12 +323,9 @@ type Lexer
 	var indent as Count
 	var tokens as Tokens
 	var errors as diag.ErrorList
-	// skims is whether the lexer skims the bodies of functions (skimBody), and skimmed how many it skimmed, adding to it.
-	var skims as bool
-	var skimmed as Count
 
 	static function make(file Count, pos Count, limit Count, inline bool, lenient bool) returns Lexer
-		return Lexer{file: file, pos: pos, limit: limit, inline: inline, lenient: lenient, begin: pos, depth: 0 as Count, indent: 0 as Count, tokens: Tokens.create(0), errors: diag.ErrorList.create(0), skims: false, skimmed: 0}
+		return Lexer{file: file, pos: pos, limit: limit, inline: inline, lenient: lenient, begin: pos, depth: 0 as Count, indent: 0 as Count, tokens: Tokens.create(0), errors: diag.ErrorList.create(0)}
 	end 'make'
 
 	// fail records the error at the offset, which is what the lexer then throws.
@@ -357,11 +354,7 @@ type Lexer
 		while pos < limit 'lines'
 			try self.lineStart(src)
 			if pos < limit 'code'
-				let first = tokens.count()
 				try self.lexLine(src)
-				if skims 'skim'
-					self.skimBody(src, first: first)
-				end 'skim'
 			end 'code'
 		end 'lines'
 		let stop = limit
@@ -371,69 +364,6 @@ type Lexer
 		end 'dedents'
 		try self.emit(src, kind: TokenKind.fileEnd, start: stop, stop: stop)
 	end 'lexFile'
-
-	// skimBody skims the body of the function whose header is the line just lexed, from the token first on, when it is one: a
-	// body is the lines after the header that are blank or indented deeper than it, closed by the line at its indentation that
-	// starts `end 'name'`, the header's name. The lexer then goes on from that line, as though the body held no line, so the
-	// parser makes the function with an empty body. A header that is no whole line (an open bracket at its end), or lines
-	// that are not such a body, are lexed as they are. The body is any span closed by its labelled end, so the same holds for
-	// whatever declaration closes a body that way.
-	function skimBody(mutates self, src Source, first Count)
-		if depth != 0 'open'
-			return
-		end 'open'
-		var at = first
-		let n = tokens.count()
-		if at < n and (tokens[at].kind == TokenKind.kw_export or tokens[at].kind == TokenKind.kw_public) 'visibility'
-			at = after(at)
-		end 'visibility'
-		if at < n and tokens[at].kind == TokenKind.kw_static 'static'
-			at = after(at)
-		end 'static'
-		if at >= n or tokens[at].kind != TokenKind.kw_function 'notFunction'
-			return
-		end 'notFunction'
-		let nameAt = after(at)
-		if nameAt >= n 'noName'
-			return
-		end 'noName'
-		let nameStart = tokens[nameAt].start as Count
-		let name = src.text.sliceBytes(nameStart, endPos: tokens[nameAt].endOffset())
-		var line = pos
-		while line < limit 'lines'
-			var tabs = 0 as Count
-			var c = line
-			while c < limit and src.text.byteAt(c) == byteTab 'tabs'
-				c = after(c)
-				tabs = after(tabs)
-			end 'tabs'
-			if c >= limit 'unended'
-				return
-			end 'unended'
-			if src.text.byteAt(c) == byteNewline 'blank'
-				line = after(c)
-				continue 'lines'
-			end 'blank'
-			if tabs > indent 'inside'
-				line = after(self.lineEnd(src, from: c))
-				continue 'lines'
-			end 'inside'
-			if tabs == indent and closesBody(src.text, at: c, name: name) 'closed'
-				pos = line
-				skimmed = after(skimmed)
-			end 'closed'
-			return
-		end 'lines'
-	end 'skimBody'
-
-	// lineEnd is the offset of the newline that ends the line that holds from.
-	function lineEnd(src Source, from Count) returns Count
-		var i = from
-		while i < limit and src.text.byteAt(i) != byteNewline 'bytes'
-			i = after(i)
-		end 'bytes'
-		return i
-	end 'lineEnd'
 
 	function emit(mutates self, src Source, kind TokenKind, start Count, stop Count) throws SyntaxError
 		let length = try stop - start otherwise panic("a token ends before it starts")
@@ -782,30 +712,7 @@ end 'scanByteString'
 // indented one tab more than the code line before it starts with an indent, and one indented less starts with a dedent
 // for each tab. Each file ends with a fileEnd and the module with an eof.
 export function lexSource(src Source, mutates errs diag.ErrorList, lenient bool) returns Tokens throws SyntaxError
-	var skimmed = 0 as Count
-	return try lexSkimming(src, errs: errs, lenient: lenient, skims: false, skimmed: skimmed)
-end 'lexSource'
-
-// closesBody is whether the line at text's offset at starts `end 'name'`.
-function closesBody(text String, at Count, name String) returns bool
-	let word = "end '"
-	let width = word.byteLength()
-	let n = text.byteLength()
-	let quote = try at + width + name.byteLength() otherwise return false
-	if quote >= n 'short'
-		return false
-	end 'short'
-	if text.sliceBytes(at, endPos: try at + width otherwise return false) != word 'notEnd'
-		return false
-	end 'notEnd'
-	return text.sliceBytes(try at + width otherwise return false, endPos: quote) == name and text.byteAt(quote) == byteApostrophe
-end 'closesBody'
-
-// lexSkimming is lexSource that skims the bodies of functions when skims is set (Lexer.skimBody), and sets skimmed to how
-// many it skimmed, adding to it.
-export function lexSkimming(src Source, mutates errs diag.ErrorList, lenient bool, skims bool, mutates skimmed Count) returns Tokens throws SyntaxError
 	var lx = Lexer.make(0 as Count, pos: 0 as Count, limit: 0 as Count, inline: false, lenient: lenient)
-	lx.skims = skims
 	var failed = false
 	try 'files'
 		for i in 0 upto src.files.count() 'each'
@@ -815,9 +722,8 @@ export function lexSkimming(src Source, mutates errs diag.ErrorList, lenient boo
 	end 'files' otherwise 'refused'
 		failed = true
 	end 'refused'
-	skimmed = lx.skimmed
 	return try lexed(lx, failed: failed, errs: errs)
-end 'lexSkimming'
+end 'lexSource'
 
 // lexInterpolation lexes the expression of an interpolation from begin to until in the file of the index: part of one
 // line, with no layout of its own.

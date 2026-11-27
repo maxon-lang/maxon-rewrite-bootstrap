@@ -857,7 +857,7 @@ function lastPathPart(path String) returns String
 	return path.sliceBytes(start, endPos: path.byteLength()).clone()
 end 'lastPathPart'
 
-function parseSingleModule(mutates ms ast.ModuleState, p ast.Project, memory SourceFiles, skims bool, digests bool, mutates errs diag.ErrorList)
+function parseSingleModule(mutates ms ast.ModuleState, p ast.Project, memory SourceFiles, digests bool, mutates errs diag.ErrorList)
 	let mPath = ms.source.path.clone()
 	var fPaths = ast.StringList.create(0)
 	var fTexts = ast.StringList.create(0)
@@ -874,7 +874,7 @@ function parseSingleModule(mutates ms ast.ModuleState, p ast.Project, memory Sou
 		digest = sourceDigest(mPath, filePaths: fPaths, fileTexts: fTexts)
 	end 'digest'
 	let modID = ms.source.id
-	let res = syntax.parseModuleFilesSkimming(modID, path: mPath, filePaths: fPaths, fileTexts: fTexts, target: p.target, libraryTier: ms.source.inLibraryTier(), skims: skims)
+	let res = syntax.parseModuleFiles(modID, path: mPath, filePaths: fPaths, fileTexts: fTexts, target: p.target, libraryTier: ms.source.inLibraryTier())
 	match consumes res 'pr'
 		ok(parsedMod) then copyParsedIntoModule(ms, p: p, parsedMod: parsedMod, digest: digest)
 		err(found) then appendErrors(errs, found: found)
@@ -1062,24 +1062,19 @@ export function parseModules(mutates p ast.Project, first Count, memory SourceFi
 	for i in first upto p.modules.count() 'each'
 		let module = p.modules[i].id
 		var ms = ast.lendModule(p, module: module, lent: ast.Lent.source, phase: ast.Phase.parse, inputs: ast.Inputs.new())
-		parseModule(ms, p: p, memory: memory, errs: errs)
+		parseModule(ms, p: p, memory: memory, digests: false, errs: errs)
 		ast.giveBack(p, ms: ms)
 	end 'each'
 end 'parseModules'
 
 // parseModule reads a module's files, from memory when they are held there and from disk otherwise, parses them into the
-// module's tree and declarations, and gives the declarations their names and each type declaration its shell type.
-export function parseModule(mutates ms ast.ModuleState, p ast.Project, memory SourceFiles, mutates errs diag.ErrorList)
-	parseModuleSkimming(ms, p: p, memory: memory, skims: false, digests: false, errs: errs)
-end 'parseModule'
-
-// parseModuleSkimming is parseModule that skims the bodies of the module's functions when skims is set, which the parsed
-// module then holds empty (ParsedModule.skimmed), and makes the digest of its source when digests is set.
-export function parseModuleSkimming(mutates ms ast.ModuleState, p ast.Project, memory SourceFiles, skims bool, digests bool, mutates errs diag.ErrorList)
-	parseSingleModule(ms, p: p, memory: memory, skims: skims, digests: digests, errs: errs)
+// module's tree and declarations, and gives the declarations their names and each type declaration its shell type. It makes the
+// digest of the module's source when digests is set.
+export function parseModule(mutates ms ast.ModuleState, p ast.Project, memory SourceFiles, digests bool, mutates errs diag.ErrorList)
+	parseSingleModule(ms, p: p, memory: memory, digests: digests, errs: errs)
 	let module = ms.module
 	buildModuleTable(ms, p: p, modID: module, errs: errs)
-end 'parseModuleSkimming'
+end 'parseModule'
 
 // addRuntime loads the runtime's source as a module of p, so that it is checked, lowered and linked with the programs
 // compiled after it.

@@ -193,35 +193,3 @@ test 'positions and diag'
 	table.assertEqStr(errs[0].file, expected: "a.maxon", label: "sort0")
 	table.assertEqStr(errs[1].file, expected: "b.maxon", label: "sort1")
 end 'positions and diag'
-
-// skimmedCount is how many bodies a skimming parse of text skims, and how many declarations it makes, which must be the ones
-// a full parse makes.
-function skimmedCount(text String, decls Count) returns Count
-	var paths = ast.StringList.create(0)
-	paths.push("s.maxon")
-	var texts = ast.StringList.create(0)
-	texts.push(text.clone())
-	let pr = parseModuleFilesSkimming(0 as diag.ModuleID, path: "s", filePaths: paths, fileTexts: texts, target: ast.Target.windowsX64(), libraryTier: false, skims: true)
-	var m as ast.ParsedModule
-	match consumes pr 'r'
-		ok(modVal) then m = modVal
-		err(e) then panic("unexpected skimming parse error: {e[0].format()}")
-	end 'r'
-	if m.decls.count() != decls 'decls'
-		panic("a skimming parse made {m.decls.count()} declarations, not {decls}")
-	end 'decls'
-	return m.skimmed
-end 'skimmedCount'
-
-test 'a skimming parse skims each body closed by its labelled end'
-	// Two functions, one with a nested block, and a method of a type: three bodies.
-	let three = "let k = 1\n\nfunction one() returns Count\n\tif k > 0 'pos'\n\t\treturn 1\n\tend 'pos'\n\treturn 0\nend 'one'\n\ntype T\n\tvar x as Count\n\tfunction get() returns Count\n\t\treturn x\n\tend 'get'\nend 'T'\n\nexport function two()\nend 'two'\n"
-	if skimmedCount(three, decls: 4) != 3 'three'
-		panic("expected three skimmed bodies")
-	end 'three'
-	// An interface's requirement has no body: the end that a later function of its name closes is not its body's.
-	let requirement = "interface I\n\tfunction size() returns Count\nend 'I'\n\nfunction size() returns Count\n\treturn 0\nend 'size'\n"
-	if skimmedCount(requirement, decls: 2) != 1 'requirement'
-		panic("expected only the function's body skimmed")
-	end 'requirement'
-end 'a skimming parse skims each body closed by its labelled end'

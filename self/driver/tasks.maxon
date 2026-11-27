@@ -113,12 +113,10 @@ type ModuleWork
 	var words as ast.StringList
 	// texts are the files of a library module that its scan read, which its parse reads in place of reading them again.
 	var texts as project.SourceFiles
-	// skimmed is how many bodies of functions the module's parse skimmed (Options.skimsBodies).
-	var skimmed as Count
 
 	static function make(consumes home ast.ModuleHome) returns ModuleWork
 		let module = home.module
-		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), unit: backend.CodeUnit.new(), reach: Reach.whole, digests: ModuleDigests.none(), key: table.Digest.none(), found: FoundEntry.none, speculated: false, mispredicted: false, checkedState: ByteArray.create(0), checkedKey: table.Digest.none(), checkedFound: FoundChecked.none, restored: Restored.none(), named: project.CountList.create(0), namesRead: false, words: ast.StringList.create(0), texts: project.SourceFiles.create(0), skimmed: 0}
+		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), unit: backend.CodeUnit.new(), reach: Reach.whole, digests: ModuleDigests.none(), key: table.Digest.none(), found: FoundEntry.none, speculated: false, mispredicted: false, checkedState: ByteArray.create(0), checkedKey: table.Digest.none(), checkedFound: FoundChecked.none, restored: Restored.none(), named: project.CountList.create(0), namesRead: false, words: ast.StringList.create(0), texts: project.SourceFiles.create(0)}
 	end 'make'
 
 	// startCheck starts the module's check as the order decided it (start).
@@ -409,11 +407,10 @@ function parseTask(c Compile, mutates work ModuleWork, known Known, inputs ast.I
 	end 'unreached'
 	if ofLibrary and work.texts.count() > 0 'scanned'
 		let read = exchange(work.texts, value: project.SourceFiles.create(0))
-		project.parseModuleSkimming(ms, p: view, memory: read, skims: c.options.skimsBodies, digests: c.cache.enabled(), errs: errs)
+		project.parseModule(ms, p: view, memory: read, digests: c.cache.enabled(), errs: errs)
 	end 'scanned' else 'files'
-		project.parseModuleSkimming(ms, p: view, memory: memory, skims: c.options.skimsBodies, digests: c.cache.enabled(), errs: errs)
+		project.parseModule(ms, p: view, memory: memory, digests: c.cache.enabled(), errs: errs)
 	end 'files'
-	work.skimmed = ms.parsed.skimmed
 	if not ofLibrary and c.hasLibrary() 'program'
 		work.words = programWords(ms.parsed, library: libraryWords(c, known: known))
 	end 'program'
@@ -426,19 +423,6 @@ function parseTask(c Compile, mutates work ModuleWork, known Known, inputs ast.I
 	end 'digests'
 	return giveTask(work, ms: ms, stage: Stage.parse)
 end 'parseTask'
-
-// checkBodies types the module's bodies, unless its parse skimmed some (Options.skimsBodies), which a compile that needs them
-// cannot use: it then fails, so that its caller compiles again without skimming (prepareRuntime).
-function checkBodies(mutates work ModuleWork, view ast.Project, mutates errs diag.ErrorList)
-	if work.skimmed > 0 'skimmed'
-		diag.pushLocatedError(errs, code: skimmedBodyNeeded, message: "the compile needs bodies that its parse skimmed", file: "", line: 1 as Count, col: 1 as Count)
-		return
-	end 'skimmed'
-	check.moduleBodies(work.checkState, p: view, errs: errs)
-end 'checkBodies'
-
-// skimmedBodyNeeded is the code of the error of a compile that needs a body its parse skimmed, which no compile reports.
-let skimmedBodyNeeded = "E9998"
 
 // scanTask scans a module of the library: the words that reach it and the library modules its source may name, read from the
 // text of its files, or taken from the library's names index where the cache held one. It parses nothing and lends nothing of
@@ -706,7 +690,7 @@ function checkTask(c Compile, mutates work ModuleWork, stage Stage, known Known,
 		entry then panic("driver: entry is a stage of the project")
 		constantOrder then check.moduleConstantOrder(work.checkState, p: view, errs: errs)
 		constants then check.moduleConstants(work.checkState, p: view, errs: errs)
-		bodies then checkBodies(work, view: view, errs: errs)
+		bodies then check.moduleBodies(work.checkState, p: view, errs: errs)
 		verify then check.moduleVerify(work.checkState, p: view, clock: timing.ranges, errs: errs)
 		endCheck then panic("driver: endCheck is a stage of the project")
 		lower then panic("driver: the lower is no stage of the check")

@@ -296,12 +296,10 @@ function runtimeOptionsOf(options Options) returns Options
 	runtimeOptions.target = options.target.clone()
 	runtimeOptions.countAllocations = options.countAllocations
 	runtimeOptions.debugInfo = options.debugInfo
-	runtimeOptions.skimsBodies = options.skimsBodies
 	return runtimeOptions
 end 'runtimeOptionsOf'
 
-// runtimeUnits is prepareRuntime's compile of the runtime, which discoverRuntime put in p from the module at first on, from its
-// parse, its bodies skimmed where options say so.
+// runtimeUnits is prepareRuntime's compile of the runtime, which discoverRuntime put in p as the module at first, from its parse.
 function runtimeUnits(mutates p ast.Project, first Count, options Options, mutates errs diag.ErrorList) returns backend.UnitList
 	var run = runStages(p, from: Stage.parse, memory: project.SourceFiles.create(0), first: first, goal: Goal.units, makesProgram: false, output: "", options: runtimeOptionsOf(options), ready: noReadyUnits(), errs: errs)
 	if errs.count() > 0 'failed'
