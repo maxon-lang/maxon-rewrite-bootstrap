@@ -105,6 +105,9 @@ var macosImports = []libSystemFunction{
 	{name: "shutdown"},
 	{name: "getaddrinfo"},
 	{name: "freeaddrinfo"},
+	{name: "getrlimit"},
+	{name: "setrlimit"},
+	{name: "sysctlbyname"},
 }
 
 // importsMaxon is self/backend/imports_gen.maxon: the library a PE imports from, and the libSystem functions a macOS

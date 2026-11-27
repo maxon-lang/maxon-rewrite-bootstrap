@@ -83,6 +83,9 @@ export function macosImports() returns NameList
 	names.push("shutdown")
 	names.push("getaddrinfo")
 	names.push("freeaddrinfo")
+	names.push("getrlimit")
+	names.push("setrlimit")
+	names.push("sysctlbyname")
 	return names
 end 'macosImports'
 
