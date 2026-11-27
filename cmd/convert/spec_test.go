@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -40,6 +41,20 @@ func TestConvertSpecConvertsEachTestsBlockAndMarksTheOnesThatWarned(t *testing.T
 	}
 	if len(res.Warnings) != 1 || res.Warnings[0].Line != 30 {
 		t.Fatalf("warnings = %+v", res.Warnings)
+	}
+}
+
+// A test that names SharedValue and a type of the Log library is skipped for the library, the temporary reason, alone.
+func TestConvertSpecLogLibraryTakesTheReasonOfSharedValue(t *testing.T) {
+	const cell = "typealias Flag = SharedValue with bool\n"
+	const log = "function main() returns ExitCode\n\tLog.info(\"a\")\n\treturn 0\nend 'main'\n"
+	src := "## Tests\n\n<!-- test: cell -->\n```maxon\n" + cell + "```\n\n<!-- test: both -->\n```maxon\n" + cell + "\n" + log + "```\n"
+	res := ConvertSpec("demo.md", src)
+	want := map[string][]string{"cell": {sharedValueWarning}, "both": {logWarning}}
+	for _, test := range res.Tests {
+		if !slices.Equal(test.Skips, want[test.Name]) {
+			t.Errorf("test %q has skips %q, want %q", test.Name, test.Skips, want[test.Name])
+		}
 	}
 }
 

@@ -298,6 +298,8 @@ var buildsLibraryError = regexp.MustCompile(`(^|[^A-Za-z0-9_.])SubprocessError[.
 type programNames struct {
 	// own are the types of libraryTypeNamesHere and libraryBesideBuiltins that the program declares itself, which it keeps.
 	own []string
+	// ownLog are the types of logLibraryTypes that the program declares itself, which it keeps.
+	ownLog []string
 	// usesLibrarySubprocess is whether the program runs a child through Subprocess and so names the library's types.
 	usesLibrarySubprocess bool
 	// expectsError is whether the program is a spec test's that expects a compile error.
@@ -318,6 +320,7 @@ func programNamesOf(src string) programNames {
 			names.own = append(names.own, name)
 		}
 	}
+	names.ownLog = ownLogTypes(lines)
 	words := wordsOf(src)
 	names.usesLibrarySubprocess = (slices.ContainsFunc(libraryOnlySubprocessTypes, func(word string) bool { return words[word] && !declaresType(lines, word) }) || buildsLibraryError.MatchString(src) && !declaresType(lines, "SubprocessError")) &&
 		!slices.ContainsFunc(builtinsOfTheBuiltInTypes, func(word string) bool { return words[word] }) &&

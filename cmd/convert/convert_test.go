@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -571,6 +572,37 @@ func TestConvertDropsMailboxCapacity(t *testing.T) {
 	other := Convert("test.maxon", "function full(e SendError) returns bool\n\treturn e == SendError.mailboxFull\nend 'full'\n", specProgram)
 	if len(other.Warnings) != 1 || other.Warnings[0].Message != mailboxWarning {
 		t.Fatalf("warnings %v", other.Warnings)
+	}
+}
+
+// TestConvertWarnsOfSharedValueAndTheLogLibrary covers the types minimaxon lacks: a program that names SharedValue gets the
+// permanent warning, one that names a type of the Log library gets the temporary one, and a program that declares a type of
+// that name itself, or reaches one as a member, keeps its own.
+func TestConvertWarnsOfSharedValueAndTheLogLibrary(t *testing.T) {
+	cases := []struct {
+		name, in string
+		want     []string
+	}{
+		{"a cell", "typealias Flag = SharedValue with bool\n", []string{sharedValueWarning}},
+		{"a log call", "function main() returns ExitCode\n\tLog.info(\"a\")\n\treturn 0\nend 'main'\n", []string{logWarning}},
+		{"a trace capture", "function main() returns ExitCode\n\tTraceCapture.startCapture()\n\treturn 0\nend 'main'\n", []string{logWarning}},
+		{"its own type", "type Log\n\tvar n as Count\nend 'Log'\n\nfunction main() returns ExitCode\n\tlet l = Log{n: 1}\n\treturn l.n\nend 'main'\n", nil},
+		{"a member", "function main() returns ExitCode\n\treturn Shape.Log\nend 'main'\n", nil},
+		{"the math function", "function main() returns ExitCode\n\tlet x = Math.log(1.0)\n\treturn 0\nend 'main'\n", nil},
+	}
+	for _, tc := range cases {
+		res := convertProgram("test.maxon", tc.in, specProgram, programNamesOf(tc.in))
+		var got []string
+		for _, w := range res.Warnings {
+			got = append(got, w.Message)
+		}
+		if !slices.Equal(got, tc.want) {
+			t.Errorf("%s: warnings %q, want %q", tc.name, got, tc.want)
+		}
+	}
+	res := Convert("test.maxon", "typealias Flag = SharedValue with bool\n", sourceFile)
+	if len(res.Warnings) != 0 {
+		t.Errorf("a library file: warnings %v", res.Warnings)
 	}
 }
 

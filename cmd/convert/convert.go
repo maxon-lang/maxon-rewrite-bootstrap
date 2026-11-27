@@ -124,6 +124,9 @@ func convertProgram(file, src string, kind inputKind, names programNames) Result
 	lines = rewriteFilledPrefix(lines)
 	rewriteWithIterator(lines, addWarn)
 	dropMailboxCapacity(lines, addWarn)
+	if kind == specProgram {
+		warnDroppedLibrary(lines, names.ownLog, addWarn)
+	}
 	transformLines(lines, addWarn)
 	lines = rewriteFileEndings(lines)
 	if kind == sourceFile {
