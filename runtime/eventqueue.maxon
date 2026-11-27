@@ -398,34 +398,6 @@ function eventDisarm(entry Count, mode Count, record Count) returns bool
 	return true
 end 'eventDisarm'
 
-// armedDelivered is what an event does to the record armed in its mode, on the thread that took it, which may hold no
-// processor: the record is queued on its service. The cown was idle: the record joins the take's list as a run queue's entry,
-// its hold and its count among the live ones the arm's. A behaviour was ahead: the record is linked behind it, whose release
-// takes a hold for it, so the arm's is given back first, and its mark says that the arm's count is the one too many, which its
-// start gives back on the processor that runs it (servicePostedStart).
-function armedDelivered(record Count, list Count) returns Count
-	_ = __Raw.atomicAdd(schedulerOf(__Raw.threadContext()), offset: schedEventWaitersOffset, value: stepDown)
-	let cown = __Raw.loadWord(record, offset: cownOffset(1, index: 0))
-	let slot = requestSlot(record, index: 0)
-	__Raw.storeWord(slot, offset: requestCownOffset, value: cown)
-	__Raw.storeWord(slot, offset: requestOwnerOffset, value: record)
-	__Raw.storeWord(slot, offset: requestNextOffset, value: notQueued)
-	__Raw.storeWord(slot, offset: requestBlockedOffset, value: queued)
-	let prev = __Raw.atomicExchange(cown, offset: cownTailOffset, value: slot)
-	if prev == notQueued 'idle'
-		let entry = behaviourEntry(record)
-		setEntryLink(entry, next: list)
-		return entry
-	end 'idle'
-	setPostedMark(record, bit: postedExcessLive)
-	_ = __Raw.atomicAdd(cown, offset: cownCountOffset, value: stepDown)
-	while __Raw.loadAcquire(prev, offset: requestBlockedOffset) == queuing 'wait'
-		__Raw.spinPause()
-	end 'wait'
-	__Raw.storeRelease(prev, offset: requestNextOffset, value: slot)
-	return list
-end 'armedDelivered'
-
 // freeListOf is the offset in the scheduler's record of the free list that an entry of a kind is taken from and given back to: a
 // process's entries have a list of their own, since a notification that the system keeps for one of them may arrive after the
 // entry is free, and it would be taken for an event of another kind of entry if one of those were made of it.

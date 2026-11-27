@@ -835,6 +835,37 @@ function clearPostedMark(record Count, bit Count)
 	end 'clear'
 end 'clearPostedMark'
 
+// armedDelivered is what an event does to the record armed in its mode, on the thread that took it, which may hold no
+// processor: the record is queued on its service. The cown was idle: the record joins the take's list as a run queue's entry,
+// its hold and its count among the live ones the arm's. A behaviour was ahead: the record is linked behind it, whose release
+// takes a hold for it, so the arm's is given back first, and its mark says that the arm's count is the one too many, which its
+// start gives back on the processor that runs it (servicePostedStart). It lies here, by the posted records' other code, and
+// not in eventqueue.maxon by its caller (eventQueuedInto), which keeps the hot code of the runtime that the link places between
+// them, the heap's and the scheduler's, on the 128-byte boundaries it had: moved 448 bytes, it made a build of self/ 1-2% slower
+// on an Apple M3, with the same instructions run.
+function armedDelivered(record Count, list Count) returns Count
+	_ = __Raw.atomicAdd(schedulerOf(__Raw.threadContext()), offset: schedEventWaitersOffset, value: stepDown)
+	let cown = __Raw.loadWord(record, offset: cownOffset(1, index: 0))
+	let slot = requestSlot(record, index: 0)
+	__Raw.storeWord(slot, offset: requestCownOffset, value: cown)
+	__Raw.storeWord(slot, offset: requestOwnerOffset, value: record)
+	__Raw.storeWord(slot, offset: requestNextOffset, value: notQueued)
+	__Raw.storeWord(slot, offset: requestBlockedOffset, value: queued)
+	let prev = __Raw.atomicExchange(cown, offset: cownTailOffset, value: slot)
+	if prev == notQueued 'idle'
+		let entry = behaviourEntry(record)
+		setEntryLink(entry, next: list)
+		return entry
+	end 'idle'
+	setPostedMark(record, bit: postedExcessLive)
+	_ = __Raw.atomicAdd(cown, offset: cownCountOffset, value: stepDown)
+	while __Raw.loadAcquire(prev, offset: requestBlockedOffset) == queuing 'wait'
+		__Raw.spinPause()
+	end 'wait'
+	__Raw.storeRelease(prev, offset: requestNextOffset, value: slot)
+	return list
+end 'armedDelivered'
+
 // hasEnded is whether a service is closed and holds no message: none queued or being queued, and none that runs.
 function hasEnded(handle Count) returns bool
 	let gate = __Raw.loadAcquire(handle, offset: serviceGateOffset)
