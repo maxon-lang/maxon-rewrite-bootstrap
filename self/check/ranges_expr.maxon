@@ -46,7 +46,7 @@ function rangeNarrow(mutates r Ranges, p ast.Project, ms ast.ModuleState, mutate
 	if k == ast.NodeKind.callExpr 'call'
 		match consumes rangeMeasuredPlace(r, p: p, ms: ms, e: c, measure: ast.MeasureKind.measureIsEmpty) 'emptiness'
 			some(count) then rangeNarrowCount(r, p: p, ms: ms, st: st, from: from, count: count, op: emptyComparison(truth), since: since)
-			none then _ = 0
+			none then break
 		end 'emptiness'
 		return
 	end 'call'
@@ -117,7 +117,7 @@ end 'Offset'
 function rangeOffsetOf(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns table.Option with Offset
 	match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
 		some(place) then return table.Option.some(Offset.make(place, node: e, by: ast.I128.zero(), exact: true))
-		none then _ = 0
+		none then break
 	end 'place'
 	if ms.tree().kindOf(e) != ast.NodeKind.binaryExpr or not r.typing.arith.has(e as Count) 'other'
 		return table.Option.none
@@ -131,7 +131,7 @@ function rangeOffsetOf(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID
 	let right = ast.binaryExprR(ms.tree(), id: e)
 	match consumes rangeConstantOf(r, p: p, ms: ms, e: right) 'right'
 		some(c) then return offsetBy(rangePlaceOf(r, p: p, ms: ms, e: l), node: l, by: c.neg() if op == "-" else c, exact: exact)
-		none then _ = 0
+		none then break
 	end 'right'
 	if op == "-" 'difference'
 		return table.Option.none
@@ -176,7 +176,7 @@ end 'rangeConstantOf'
 function rangeCompare(mutates r Ranges, p ast.Project, ms ast.ModuleState, mutates st Count, from Count, x ast.NodeID, op String, y ast.NodeID, since Count)
 	match consumes rangeOffsetOf(r, p: p, ms: ms, e: x) 'x'
 		some(ox) then rangeCompareAt(r, p: p, ms: ms, st: st, from: from, ox: ox, op: op, y: y, since: since)
-		none then _ = 0
+		none then break
 	end 'x'
 end 'rangeCompare'
 
@@ -187,13 +187,13 @@ function rangeCompareAt(mutates r Ranges, p ast.Project, ms ast.ModuleState, mut
 	let oy = rangeOffsetOf(r, p: p, ms: ms, e: y)
 	match oy 'y'
 		some(o) then rangeRelateUnchanged(r, st: st, from: from, x: ox, op: op, y: o, since: since)
-		none then _ = 0
+		none then break
 	end 'y'
 	let cur = rangeSpanAt(r, p: p, ms: ms, s: st, place: ox.at, t: typeOf(r, e: ox.node))
 	let other = rangeSidePeek(r, p: p, ms: ms, s: st, e: y, side: oy, since: since)
 	match consumes comparedSpan(cur, op: op, other: other, dx: ox.by, exact: ox.exact) 'narrowed'
 		some(next) then rangeRefineAt(r, st: st, from: from, place: ox.at, cur: cur, next: next)
-		none then _ = 0
+		none then break
 	end 'narrowed'
 end 'rangeCompareAt'
 
@@ -255,7 +255,7 @@ function rangeRelateUnchanged(mutates r Ranges, mutates st Count, from Count, x 
 	end 'unknown'
 	match consumes comparedGap(op, dx: x.by, dy: y.by, exact: x.exact and y.exact) 'gap'
 		some(gap) then rangeRelateBy(r, st: st, from: from, x: x.at, y: y.at, gap: gap)
-		none then _ = 0
+		none then break
 	end 'gap'
 end 'rangeRelateUnchanged'
 
@@ -275,7 +275,7 @@ function rangePeek(r Ranges, p ast.Project, ms ast.ModuleState, s Count, e ast.N
 	end 'literal'
 	match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
 		some(place) then return rangeSpanAt(r, p: p, ms: ms, s: s, place: place, t: t)
-		none then _ = 0
+		none then break
 	end 'place'
 	if ms.tree().kindOf(e) == ast.NodeKind.nameExpr 'name'
 		let name = nameInfoOf(r.typing, node: e)
@@ -411,7 +411,7 @@ end 'rangeEval'
 function rangeClosure(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID)
 	match consumes r.typing.closures.get(e as Count) 'closure'
 		some(info) then rangeClosureOf(r, p: p, ms: ms, info: info)
-		none then _ = 0
+		none then break
 	end 'closure'
 end 'rangeClosure'
 
@@ -470,7 +470,7 @@ function rangeNameExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e as
 	if ast.isIntType(ms.types, reads: p.types, t: t) 'int'
 		match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
 			some(place) then return rangeSpanAt(r, p: p, ms: ms, s: r.st, place: place, t: t)
-			none then _ = 0
+			none then break
 		end 'place'
 	end 'int'
 	let name = nameInfoOf(r.typing, node: e)
@@ -489,7 +489,7 @@ function rangeMemberExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e 
 	if ast.isIntType(ms.types, reads: p.types, t: t) 'int'
 		match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
 			some(place) then return rangeSpanAt(r, p: p, ms: ms, s: r.st, place: place, t: t)
-			none then _ = 0
+			none then break
 		end 'place'
 	end 'int'
 	return rangeTyped(r, p: p, ms: ms, e: e)
@@ -714,7 +714,7 @@ function rangeProves(r Ranges, p ast.Project, ms ast.ModuleState, at ast.NodeID,
 	var least = count.lo.sub(value.hi)
 	match consumes rangePlaceOf(r, p: p, ms: ms, e: receiver) 'collection'
 		some(q) then least = rangeCountAbove(r, p: p, ms: ms, count: placeCount(q), stated: count, index: value, at: at, since: since)
-		none then _ = 0
+		none then break
 	end 'collection'
 	return provesPrecondition(requirement, least: least, lowest: value.lo)
 end 'rangeProves'
@@ -776,7 +776,7 @@ function rangeReceiverChanged(mutates r Ranges, p ast.Project, ms ast.ModuleStat
 	end 'unknown'
 	match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
 		some(place) then rangeAffect(r, place: place, effect: effect)
-		none then _ = 0
+		none then break
 	end 'place'
 end 'rangeReceiverChanged'
 
@@ -784,7 +784,7 @@ end 'rangeReceiverChanged'
 function rangeChangedAt(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID)
 	match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
 		some(place) then rangeChanged(r, p: p, ms: ms, place: place, t: typeOf(r, e: e))
-		none then _ = 0
+		none then break
 	end 'place'
 end 'rangeChangedAt'
 
@@ -984,7 +984,7 @@ function rangeOperate(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast
 	end 'wrapping'
 	match bound 'bound'
 		some(b) then exact = withinBound(exact, bound: b)
-		none then _ = 0
+		none then break
 	end 'bound'
 	if op == "-" and not isDead(r, s: r.st) and not ast.isWordPattern(ms.types, reads: p.types, t: arithOf(r, e: e).operand) 'difference'
 		exact.lo = rangeDifferenceLow(r, p: p, ms: ms, e: e, low: exact.lo)

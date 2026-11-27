@@ -73,11 +73,11 @@ function refusesRawCall(c Checker, p ast.Project, ms ast.ModuleState, call ast.N
 	let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).name.clone()
 	match consumes ast.rawCallInstead(p.builtins, owner: origin, name: name) 'call'
 		some(instead) then return refuseRawCall(c, p: p, ms: ms, call: call, ownerName: ast.typeEntry(ms.types, reads: p.types, t: origin).name.clone(), name: name, instead: instead, errs: errs)
-		none then _ = 0
+		none then break
 	end 'call'
 	match consumes ast.rawMemberSurface(p.builtins, owner: origin, name: name.clone()) 'member'
 		some(door) then return refuseRawMember(c, p: p, ms: ms, call: call, name: name, door: door, errs: errs)
-		none then _ = 0
+		none then break
 	end 'member'
 	if not ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).hasReceiver 'static'
 		return false

@@ -2,6 +2,7 @@
 
 function main() returns ExitCode
 	let b = ByteArray.create(0)
-	_ = b[0]
+	let first = b[0]
+	print("{first}\n")
 	return 0
 end 'main'

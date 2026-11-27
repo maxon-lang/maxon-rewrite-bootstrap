@@ -87,7 +87,7 @@ end 'makeDirectories'
 function compilerIdentity() returns table.Digest
 	match builtId() 'stamped'
 		some(id) then return id.clone()
-		none then _ = 0
+		none then break
 	end 'stamped'
 	let exe = try Process.executablePath() otherwise panic("driver: the compiler's own path is unavailable")
 	let bytes = try File.readText(exe) otherwise panic("driver: the compiler cannot read its own executable")
@@ -548,7 +548,7 @@ function planModules(c Compile, p ast.Project, order check.ModuleOrder, known Kn
 			end 'hit' else if c.cache.speculates 'speculate'
 				match readSpeculation(c.cache, key: speculationKey(c, p: p, m: m, own: known[slot].digests, summaries: summaries)) 'last'
 					some(summary) then speculate(plans[slot], summaries: summaries, slot: slot, summary: summary)
-					none then _ = 0
+					none then break
 				end 'last'
 			end 'speculate'
 		end 'named'

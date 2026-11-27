@@ -30,7 +30,7 @@ end 'rangeLoopTop'
 function rangeLoopOf(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID) returns Count
 	match consumes r.scans.find(s) 'found'
 		some(loop) then return loop
-		none then _ = 0
+		none then break
 	end 'found'
 	var scans = exchange(r.scans, value: LoopScans.new())
 	let loop = effectsOfLoop(r, p: p, ms: ms, s: s, scans: scans)
@@ -85,7 +85,7 @@ function effectsOfStmt(r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID
 		throwStmt then effectsOfExpr(r, p: p, ms: ms, e: ast.throwStmtValue(ms.tree(), id: s), scans: scans)
 		returnStmt then effectsOfOptional(r, p: p, ms: ms, e: ast.returnStmtValue(ms.tree(), id: s), scans: scans)
 		breakStmt or
-		continueStmt then _ = 0
+		continueStmt then break
 		matchStmt then effectsOfMatch(r, p: p, ms: ms, core: ast.matchStmtMatch(ms.tree(), id: s), scans: scans)
 		whenStmt then scans.opaque()
 		none or
@@ -242,7 +242,7 @@ function effectsOfExpr(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID
 		charLit or
 		nameExpr or
 		selfExpr or
-		typeQueryExpr then _ = 0
+		typeQueryExpr then break
 		strLit then effectsOfStr(r, p: p, ms: ms, e: e, scans: scans)
 		tupleExpr or
 		structLitExpr then effectsOfStruct(r, p: p, ms: ms, e: e, scans: scans)
@@ -306,7 +306,7 @@ end 'effectsOfExpr'
 function effectsAt(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, effect ast.CountEffect, mutates scans LoopScans)
 	match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
 		some(place) then scans.change(place, effect: effect)
-		none then _ = 0
+		none then break
 	end 'place'
 end 'effectsAt'
 
@@ -480,7 +480,7 @@ function rangeSideOf(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, 
 	end 'notInt'
 	match consumes rangeConstantOf(r, p: p, ms: ms, e: e) 'constant'
 		some(c) then return table.Option.some(CompareSide.constant(c))
-		none then _ = 0
+		none then break
 	end 'constant'
 	match consumes rangeOffsetOf(r, p: p, ms: ms, e: e) 'offset'
 		some(o) then return rangeOffsetSide(r, p: p, ms: ms, o: o, s: s)

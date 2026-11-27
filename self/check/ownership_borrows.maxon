@@ -311,17 +311,17 @@ function requireBorrowsStay(mutates o Ownership, p ast.Project, mutates ms ast.M
 		destClosure then failTakenOver(o, p: p, site: site, dest: dest)
 		destBehaviour then failTakenOver(o, p: p, site: site, dest: dest)
 		destMatch then fail(o, p: p, site: site, code: diag.errBorrowEscapes, msg: "this value holds a borrow, which 'match consumes' would give to the bindings of its arms; match on it without 'consumes'")
-		destVariable then _ = 0
-		destField then _ = 0
-		destElement then _ = 0
-		destParameter then _ = 0
-		destResult then _ = 0
-		destLiteral then _ = 0
-		destDestructor then _ = 0
-		destBinding then _ = 0
-		destCast then _ = 0
-		destBranch then _ = 0
-		destAwait then _ = 0
+		destVariable then break
+		destField then break
+		destElement then break
+		destParameter then break
+		destResult then break
+		destLiteral then break
+		destDestructor then break
+		destBinding then break
+		destCast then break
+		destBranch then break
+		destAwait then break
 	end 'kind'
 end 'requireBorrowsStay'
 

@@ -9,7 +9,7 @@ function checkStructLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	end 'selfType' else 'named'
 		match consumes ast.nodeDecl(p, ms: ms, node: e as Count) 'bound'
 			some(ref) then target = declaredTypeOrNone(p, ms: ms, ref: ref)
-			none then _ = 0
+			none then break
 		end 'bound'
 	end 'named'
 	if typeHasKind(p, ms: ms, t: target, kind: ast.TypeKind.builtinArray) 'array'
@@ -228,7 +228,7 @@ function checkMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		let mark = errs.count()
 		match consumes extensionStaticOf(c, p: p, ms: ms, nt: primitive, member: ast.memberExprName(ms.tree(), id: e), e: e, errs: errs) 'static'
 			some(ref) then return readTypeStatic(c, p: p, ms: ms, e: e, obj: obj, nt: primitive, ref: ref, errs: errs)
-			none then _ = 0
+			none then break
 		end 'static'
 		if failedSince(errs, mark: mark) 'ambiguous'
 			return ast.noType
@@ -252,12 +252,12 @@ function checkMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	if ms.tree().kindOf(obj) == ast.NodeKind.nameExpr 'headIsSized'
 		match consumes ast.sizedLimitValue(ast.nameExprName(ms.tree(), id: obj), member: ast.memberExprName(ms.tree(), id: e)) 'limit'
 			some(v) then return checkLimitMember(c, p: p, ms: ms, e: e, value: v)
-			none then _ = 0
+			none then break
 		end 'limit'
 	end 'headIsSized'
 	match consumes payloadCaseNamed(c, p: p, ms: ms, obj: obj) 'payloadCase'
 		some(read) then return checkCaseRead(c, p: p, ms: ms, e: e, read: read, errs: errs)
-		none then _ = 0
+		none then break
 	end 'payloadCase'
 	let typed = checkExpr(c, p: p, ms: ms, e: obj, errs: errs)
 	if typed == ast.noType 'badObj'
@@ -304,11 +304,11 @@ function checkTypeMember(mutates c Checker, p ast.Project, mutates ms ast.Module
 	if not isCase 'notCase'
 		match consumes bodyStaticOf(p, ms: ms, nt: named, member: member) 'body'
 			some(ref) then return readTypeStatic(c, p: p, ms: ms, e: e, obj: obj, nt: named, ref: ref, errs: errs)
-			none then _ = 0
+			none then break
 		end 'body'
 		match consumes extensionStaticOf(c, p: p, ms: ms, nt: named, member: member, e: e, errs: errs) 'static'
 			some(ref) then return readTypeStatic(c, p: p, ms: ms, e: e, obj: obj, nt: named, ref: ref, errs: errs)
-			none then _ = 0
+			none then break
 		end 'static'
 		if failedSince(errs, mark: mark) 'ambiguousStatic'
 			return ast.noType
@@ -352,7 +352,7 @@ function extensionStaticOf(mutates c Checker, p ast.Project, ms ast.ModuleState,
 	match consumes ast.extensionStatic(p, ms: ms, from: c.modID, owner: key.unwrap(), name: member) 'lookup'
 		found(ref) then return table.Option.some(ref)
 		ambiguous(first, second) then failAmbiguousStatic(c, p: p, ms: ms, e: e, nt: nt, member: member, first: first, second: second, errs: errs)
-		absent then _ = 0
+		absent then break
 	end 'lookup'
 	return table.Option.none
 end 'extensionStaticOf'
@@ -550,14 +550,14 @@ function checkValueMember(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	end 'selfHandle'
 	match consumes ast.builtinView(p.builtins, owner: ast.originOf(ms.types, reads: p.types, t: content), name: member) 'view'
 		some(view) then return checkViewMember(c, p: p, ms: ms, e: e, t: content, member: member, view: view, errs: errs)
-		none then _ = 0
+		none then break
 	end 'view'
 	if rawValuesUntyped(p, ms: ms, t: t) and member != "name" and member != "ordinal" 'untyped'
 		return failRawUntyped(c, p: p, ms: ms, e: e, t: t, errs: errs)
 	end 'untyped'
 	match consumes rawBackingField(p, ms: ms, t: t, member: member) 'backing'
 		some(index) then return checkRawFieldMember(c, p: p, ms: ms, e: e, t: t, index: index, errs: errs)
-		none then _ = 0
+		none then break
 	end 'backing'
 	let k = kindOfType(p, ms: ms, t: t)
 	if (k == ast.TypeKind.enumTy and (member == "name" or member == "ordinal" or member == "rawValue")) or (k == ast.TypeKind.unionTy and (member == "name" or member == "ordinal" or member == "rawValue")) 'builtinMember'
@@ -666,7 +666,7 @@ end 'rawValueType'
 function fieldIndexNamed(p ast.Project, ms ast.ModuleState, rt ast.TypeID, name String) returns Count
 	match ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: rt)).findField(name) 'field'
 		some(i) then return i
-		none then _ = 0
+		none then break
 	end 'field'
 	panic("'{ast.typeEntry(ms.types, reads: p.types, t: rt).name}' has no field '{name}'")
 end 'fieldIndexNamed'

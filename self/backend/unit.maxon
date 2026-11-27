@@ -322,7 +322,7 @@ export type DataSection
 	export function wordOffset(mutates self, bits Count) returns Count
 		match words.get(bits) 'known'
 			some(at) then return at
-			none then _ = 0
+			none then break
 		end 'known'
 		let at = self.startPiece(true)
 		for _ in 0 upto wordBytes 'room'
@@ -343,7 +343,7 @@ export type DataSection
 	export function textOffset(mutates self, text String) returns Count
 		match literals.get(text) 'known'
 			some(at) then return at
-			none then _ = 0
+			none then break
 		end 'known'
 		let at = self.startPiece(true)
 		bytes.append(text.toByteArray())
@@ -359,7 +359,7 @@ export type DataSection
 	export function inlineOffset(mutates self, text String, first Count, second Count) returns Count
 		match inlines.get(text) 'known'
 			some(at) then return at
-			none then _ = 0
+			none then break
 		end 'known'
 		let at = self.startPiece(true)
 		var word = first
@@ -381,7 +381,7 @@ export type DataSection
 	export function countedTextOffset(mutates self, text String) returns Count
 		match strings.get(text) 'known'
 			some(at) then return at
-			none then _ = 0
+			none then break
 		end 'known'
 		let at = self.startPiece(true)
 		var length = text.byteLength()

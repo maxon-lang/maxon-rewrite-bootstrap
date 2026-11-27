@@ -34,7 +34,6 @@ code	E3063	a bare name that two directories of the program declare, where no dec
 code	E3095	a bare-name call or read that more than one visible declaration of the program matches
 code	E3064	the result of a pure function that is discarded
 code	E3065	the result of an impure function that is discarded without an explicit discard
-code	E3067	a self-assignment, or a discard of something that is no call
 code	E3077	a var that is never reassigned
 code	E3081	a match arm that binds payload values and never reads them
 code	E3092	an export declaration that nothing outside its directory uses
@@ -76,7 +75,8 @@ skip	E2042	ErrExpectedToken	differing error code: syntax error
 skip	E2043	ErrMismatchedEndLabel	differing error code: syntax error
 skip	E3085	ErrErrorTypeMismatch	language difference: a try block's handler names one error, not the combined error of several
 expect	ErrModuleLetCallsFunction	language difference: a constant may call a literal factory, and E3220 names what it may call
-expect	E2027,E2048,E3010,E3012,E3062,E3064,E3065,E3067,E3077,E3081,E3087,E3092,E3097,E3219	language difference: style and lint rules are not checked, since the generated code does not depend on them
+expect	E2027,E2048,E3010,E3012,E3062,E3064,E3065,E3077,E3081,E3087,E3092,E3097,E3219	language difference: style and lint rules are not checked, since the generated code does not depend on them
+expect	ErrDiscardOfExistingValue	language difference: E3067 refuses only a discard here, of any value that no call, send, await or panic made, a bare name too, where maxon's also refuses a self-assignment and admits a bare name, a let _ and a value it constructs (README, Where it differs from Maxon: A discard takes a value something made)
 expect	E3063,E3095	language difference: another module's names are always qualified by its path, so a bare name never finds two
 expect	E3055,E3083	language difference: a try that covers nothing that can fail is E3944 whatever it covers (a call that does not throw, a try block, an operation or an access the range analysis proves), where maxon names two of those with E3055 and E3083
 expect	E3168	language difference: a throws that nothing can make fail is allowed, so a sharper analysis never breaks a program

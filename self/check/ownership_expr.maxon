@@ -375,7 +375,7 @@ function refusesGuardedWrite(mutates o Ownership, p ast.Project, ms ast.ModuleSt
 		end 'comparison'
 		match consumes required 'required'
 			some(requirement) then fail(o, p: p, site: site, code: diag.errCapabilityConversion, msg: diag.requirementWritesReceiver(method, requirement: requirement))
-			none then _ = 0
+			none then break
 		end 'required'
 		return true
 	end 'receiver'
@@ -384,7 +384,7 @@ function refusesGuardedWrite(mutates o Ownership, p ast.Project, ms ast.ModuleSt
 	end 'comparison'
 	match consumes required 'required'
 		some(requirement) then fail(o, p: p, site: site, code: diag.errCapabilityConversion, msg: diag.requirementWritesParameter(method, param: root.name, requirement: requirement))
-		none then _ = 0
+		none then break
 	end 'required'
 	return true
 end 'refusesGuardedWrite'
@@ -444,7 +444,7 @@ function requireMutable(mutates o Ownership, p ast.Project, mutates ms ast.Modul
 	if isForVariable(ms.tree(), l: root) and ast.forStmtIsParallel(ms.tree(), id: root.definedAt) and path.steps.count() == 0 'element'
 		match consumes lenderOf(o, local: path.root) 'lender'
 			some(collection) then return requireMutable(o, p: p, ms: ms, site: site, path: throughElement(collection, path: path), call: call)
-			none then _ = 0
+			none then break
 		end 'lender'
 	end 'element'
 	if (isForVariable(ms.tree(), l: root) or root.projected) and path.steps.count() == 0 'forVariable'
@@ -454,7 +454,7 @@ function requireMutable(mutates o Ownership, p ast.Project, mutates ms ast.Modul
 	if root.projected and path.steps.count() > 0 'part'
 		match consumes lenderOf(o, local: path.root) 'lender'
 			some(collection) then return requireMutable(o, p: p, ms: ms, site: site, path: throughElement(collection, path: path), call: call)
-			none then _ = 0
+			none then break
 		end 'lender'
 	end 'part'
 	if root.projected 'projected'

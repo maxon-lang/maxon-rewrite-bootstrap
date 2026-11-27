@@ -74,7 +74,7 @@ function rangeBind(mutates r Ranges, p ast.Project, ms ast.ModuleState, local Co
 	var b = bound.clone()
 	match consumes rangeBoundOf(r, local: local) 'outer'
 		some(outer) then b = tighterBound(b, outer: outer)
-		none then _ = 0
+		none then break
 	end 'outer'
 	let t = typeSpan(ms.types, reads: p.types, t: r.typing.locals[localAt(r, slot: local) as Count].ty)
 	if b.lo.lt(t.lo) and b.hi.gt(t.hi) 'noMore'
@@ -270,7 +270,7 @@ function scanStmt(r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, mut
 	if k == ast.NodeKind.assignStmt 'assign'
 		match consumes rangeAccumulation(r, p: p, ms: ms, s: s) 'accumulation'
 			some(a) then noteCandidate(r, local: a.place.root, found: found)
-			none then _ = 0
+			none then break
 		end 'accumulation'
 		return
 	end 'assign'

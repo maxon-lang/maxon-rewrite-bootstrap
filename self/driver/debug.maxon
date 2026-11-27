@@ -390,7 +390,7 @@ function symbolized(reader mxdbg.MxdbgReader, offset Count) returns String
 	var line = "<no line>"
 	match reader.rowAt(f, offset: offset) 'row'
 		some(r) then line = reader.place(reader.lineFile(r), line: reader.lineLine(r), column: reader.lineColumn(r))
-		none then _ = 0
+		none then break
 	end 'row'
 	var out = ByteArray.create(0)
 	out.append("{hexOffset(offset)}  {line}  (in {reader.funcName(f)})\n".toByteArray())

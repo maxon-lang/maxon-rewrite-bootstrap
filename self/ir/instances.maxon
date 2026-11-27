@@ -87,21 +87,21 @@ function witnessFor(p ast.Project, mutates ms ast.ModuleState, module diag.Modul
 	let origin = ast.typeEntry(ms.types, reads: p.types, t: recv).effectiveOrigin()
 	match consumes ast.typeEntry(ms.types, reads: p.types, t: origin).findMethod(name) 'found'
 		some(method) then return ownWitness(p, ms: ms, module: module, site: site, method: method, recv: recv, conformance: conformance, errs: errs)
-		none then _ = 0
+		none then break
 	end 'found'
 	// A built-in method of String meets a requirement as it is: a call through the bound lowers it in place
 	// (lowerBuiltinWitness).
 	if recv == p.builtins.stringTy or recv == p.builtins.characterTy 'primitive'
 		match ast.primitiveMethod(p.builtins, t: recv, name: name) 'builtin'
 			some(fid) then return table.Option.some(fid)
-			none then _ = 0
+			none then break
 		end 'builtin'
 	end 'primitive'
 	let key = ast.extensionKey(p, ms: ms, t: recv)
 	if key.isSome() 'extensions'
 		match consumes ast.extensionMethod(p, ms: ms, from: conformance, owner: key.unwrap(), name: name) 'ofType'
 			found(fid) then return instantiateMethod(p, ms: ms, module: module, site: site, method: fid, recv: recv, errs: errs)
-			absent then _ = 0
+			absent then break
 			ambiguous(_, _) then panic("the conformance of {ast.typeName(ms.types, reads: p.types, t: recv)} in {ast.describeModule(p, modID: conformance)} has two methods '{name}'")
 		end 'ofType'
 	end 'extensions'
@@ -254,7 +254,7 @@ function visitUses(p ast.Project, mutates ms ast.ModuleState, module diag.Module
 	var recorded = ast.NodeIDList.create(0)
 	match consumes p.typings[ast.modIndex(module)].funcUses.get(node as Count) 'recorded'
 		some(list) then recorded = list
-		none then _ = 0
+		none then break
 	end 'recorded'
 	return visitSites(p, ms: ms, module: module, recorded: recorded, bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: bindWitnesses, found: found, errs: errs)
 end 'visitUses'

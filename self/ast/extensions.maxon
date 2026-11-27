@@ -673,8 +673,8 @@ function conditionsMet(p Project, mutates ms ModuleState, from diag.ModuleID, co
 		let want = substituteType(ms.types, reads: p.types, t: condition.ifaceTy, params: params, args: args)
 		match consumes conformanceSource(p, ms: ms, from: from, t: arg, iface: want) 'source'
 			absent then return false
-			found(_) then _ = 0
-			ambiguous(_, _) then _ = 0
+			found(_) then break
+			ambiguous(_, _) then break
 		end 'source'
 	end 'each'
 	return true

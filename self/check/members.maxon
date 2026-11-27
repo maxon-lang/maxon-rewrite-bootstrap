@@ -245,13 +245,13 @@ function declareParentsOf(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	let ref = ast.DeclRef.make(c.modID, ordinal: try ord as ast.DeclOrdinal otherwise panic("too many declarations"))
 	match p.modules[c.modIdx].decls[ord].clone() 'k'
 		interfaceDecl(ifd) then declareParentsOfInterface(c, p: p, ms: ms, ifd: ifd, tid: declTypeOf(p, ms: ms, ref: ref), state: state, errs: errs)
-		funcDecl(_) then _ = 0
-		typeDecl(_) then _ = 0
-		enumDecl(_) then _ = 0
-		unionDecl(_) then _ = 0
-		constDecl(_) then _ = 0
-		aliasDecl(_) then _ = 0
-		extensionDecl(_) then _ = 0
+		funcDecl(_) then break
+		typeDecl(_) then break
+		enumDecl(_) then break
+		unionDecl(_) then break
+		constDecl(_) then break
+		aliasDecl(_) then break
+		extensionDecl(_) then break
 	end 'k'
 	state[ord] = parentsDeclared
 end 'declareParentsOf'

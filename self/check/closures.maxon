@@ -167,7 +167,7 @@ function checkClosure(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	var info = ast.ClosureInfo.make(made, ty: t, captures: ast.CaptureList.create(0))
 	match consumes c.typing.closures.get(e as Count) 'captured'
 		some(found) then info.captures = found.captures
-		none then _ = 0
+		none then break
 	end 'captured'
 	c.typing.closures.insert(e as Count, value: info)
 	return t

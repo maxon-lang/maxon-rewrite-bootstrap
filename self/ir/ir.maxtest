@@ -23,7 +23,7 @@ function irLocal(mutates p ast.Project, fn ast.FuncID, name String, ty ast.TypeI
 	var ids = ast.LocalIDList.create(0)
 	match consumes typing.funcLocals.get(node as Count) 'known'
 		some(list) then ids = list
-		none then _ = 0
+		none then break
 	end 'known'
 	ids.push(id)
 	typing.funcLocals.insert(node as Count, value: ids)

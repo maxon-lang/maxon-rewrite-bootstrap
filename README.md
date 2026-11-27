@@ -3086,7 +3086,7 @@ edit to `runtime/` rebuilds everything.
 - `extension` blocks (see "Extensions"): methods, static functions, static lets and conformances added to a type, an enum, a
   union, `Array`, `Map`, `String`, `bool`, `int`, `float` or a built-in record from outside its body.
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
-  `_ = call()`, `if`/`else if`/`else`, `if let x = try call()` and `if try call()` with an `else`, `while`, `for i in a to|upto b`, `for x in xs` over an array, a `List`, the grapheme clusters of a `String`, a range value, or any value
+  `_ = call()` (a discard of a value that already exists is `E3067`), `if`/`else if`/`else`, `if let x = try call()` and `if try call()` with an `else`, `while`, `for i in a to|upto b`, `for x in xs` over an array, a `List`, the grapheme clusters of a `String`, a range value, or any value
   whose type has maxon's iteration protocol (a type of the program, a type parameter through its bounds, an interface
   value through what its interface requires), `for (i, x) in xs.enumerated()` over any of these with the index of each element, `for (k, v) in m` over the library's `Map`, whose iterator lends each entry, and `for c in E.allCases` (see "Primitives"), `parallel for` over a range, an `Array` or its `enumerated()` (see "The parallel loop"), `match` as a statement or expression
   (case, literal, range and string patterns, `or` alternatives, `default`, `panic` arms, `default throws E`, and `stmt and fallthrough`), `break`/`continue`
@@ -4130,7 +4130,7 @@ can say where it comes from and how to get it back. Every copy decision goes thr
   of a scope that still holds an owned local, a `consumes` parameter, a `consumes self` or a payload bound by `match
   consumes` (also through a `return`, `break` or `continue` that leaves it, reported at that statement; at the
   declaration for the end of a block); a `consumes _` parameter; an assignment over a variable, field or element that
-  holds a value; a discard `_ = e`; a temporary that nothing takes (a result passed to a `let` parameter, read through
+  holds a value; a discard `_ = e` of a value it makes (a discard of a place drops nothing, and is `E3067`); a temporary that nothing takes (a result passed to a `let` parameter, read through
   as in `make().id`, or left by an expression statement); and a payload that an arm of `match consumes` does not name.
   The ownership pass keeps a stack of the owned locals in scope whose type lacks `Droppable`; a fact about one means it
   holds nothing, so it is checked at the end of its scope and removed there. Where two paths meet, such a local must hold
@@ -5549,6 +5549,24 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   await fails with `busy` so. maxon's `shutdown()` is kept, and `self.stop()` in a message is the same stop of its own service;
   a task awaits a service's end with `h.stopped()`, which maxon has no form for either (see "Stops"). maxon's spec tests name
   none of them.
+- **A discard takes a value something made.** `_ = e` is maxon's `E3067` when nothing in `e` does anything: no call, send,
+  await, async call, spawn or panic, outside the body of a closure, which making the closure does not run. So `_ = x`,
+  `_ = p.x`, `_ = xs[i]`, `_ = 7`, `_ = Color.red`, `_ = x + 1`, `_ = (x)`, `_ = x as T`, `_ = try x as T otherwise 0`,
+  `_ = "{x}"`, `_ = Self{x: 1}`, `_ = Opt.some(x)` (a case of a union is made, not called), a `match` or an `if`
+  expression whose branches call nothing, and `_ = function() gives f()` are refused, whatever the type, copyable or not;
+  `_ = f()`, `_ = p.moved().x`, `_ = try f() otherwise 0`, `_ = try x as T otherwise panic("...")`, `_ = await p`,
+  `_ = try h.send(m) otherwise ...`, `_ = Opt.some(f())` and `_ = x.clone()` are not. A discard of a value that exists does
+  nothing, and for an owned value it misleads: it reads as a drop, but a discard of a place drops nothing, so `_ = c` of a
+  service's handle keeps the service until the handle's scope ends. maxon admits a bare binding name, `_ = p`, so that
+  its unused-name rule (`E3012`) can be satisfied; minimaxon refuses it too, since it does not check `E3012`. maxon also
+  decides by the operations the statement emits rather than by what the checker resolved, and words the error
+  "expected a function call"; this message names the ways to end a value: pass it to a function that consumes it, let
+  its scope end, close a linear one, and for a plain one delete the line, which `fix` does (an arm's `then _ = 0`
+  becomes `then break`, which leaves the `match`, maxon's spelling for an arm that does nothing). `cmd/convert` drops
+  maxon's `_ = name` and `let _ = value` of a value that exists (names, dots, literals and casts), and an arm's becomes
+  `then break`; where a test's expected error is at the line the discard becomes `let ignored1 = value`, which reads the
+  value as maxon's does, and so does a `let _ = value` that is the one statement of its block, where a bare `_ = name`
+  skips the test with that reason.
 - **Two overlapping conditional conformances are refused.** maxon accepts two conditional conformances of one type to one
   interface whose conditions overlap when only one of them declares the member; here the second is `E3941`, as a second
   unconditional one is, since which one holds would otherwise depend on which declares what (see "Extensions").
@@ -6114,7 +6132,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   declaration of the library may name `Count` or `ByteArray` (E3167 holds only for a type less visible than public).
 - It checks only the rules that the generated code depends on. The style rules are left out: an unused
   name (`E3012`) or typealias (`E3062`), a `var` that is never reassigned (`E3077`), a label naming the innermost block (`E2048`),
-  an unneeded cast (`E3010`, so a cast to the type a value has is accepted), self-assignment or `_ =` on a non-call (`E3067`), a one-value range pattern
+  an unneeded cast (`E3010`, so a cast to the type a value has is accepted), self-assignment (`E3067`, whose other half, a discard of a value that already exists, is checked, see "A discard takes a value something made"), a one-value range pattern
   (`E2027`), all bindings discarded (`E3081`), and the lint rules (`E3064`, `E3065`, `E3087`, `E3092`, `E3097`, `E3219`).
 - A diagnostic with a maxon code has maxon's code and position, except where the language differs; its text is
   minimaxon's own, and the spec runner compares a diagnostic by its code, line and column alone. The text keeps

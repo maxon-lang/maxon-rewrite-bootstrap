@@ -4,9 +4,7 @@ type Both implements CoalescingPolicy with Sink.Message, SheddingPolicy with Sin
 	static function admit(arrival Arrival, message Sink.Message) returns Admission
 		return Admission.replacePending
 	end 'admit'
-
 	function shed(mutates self, pending PendingView with Sink.Message)
-		_ = pending.count
 	end 'shed'
 end 'Both'
 
@@ -26,4 +24,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3951 at 20:10
+// expect-error: E3951 at 18:10

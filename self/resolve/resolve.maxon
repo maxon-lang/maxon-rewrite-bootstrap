@@ -339,7 +339,7 @@ function qualifiedLookup(mutates r Resolver, p ast.Project, head String, headOff
 	end 'modGet'
 	match optOrd 'found'
 		some(ord) then return finishQualified(r, p: p, ref: ast.DeclRef.make(curMod, ordinal: ord), off: offs[i], used: try i + 1 otherwise 0 as Count, errs: errs)
-		none then _ = 0
+		none then break
 	end 'found'
 	if applied 'base'
 		// The base of a 'with' that names no type is one that is not generic, as maxon words it.
@@ -516,7 +516,7 @@ function resolveTypeRef(mutates r Resolver, p ast.Project, tr ast.NodeID, mutate
 	end 'failed'
 	match consumes qualifiedDeclRef(p, module: r.modID, head: firstQual, rest: path) 'hit'
 		some(decl) then checkAndBindTypeDecl(r, p: p, tr: tr, decl: decl, used: used, pathLen: path.count(), qualRef: qualRef, tName: tName, off: off, errs: errs)
-		none then _ = 0
+		none then break
 	end 'hit'
 end 'resolveTypeRef'
 
@@ -539,7 +539,7 @@ function resolveUnqualDeclType(mutates r Resolver, p ast.Project, tr ast.NodeID,
 	let lr = bareLookupAt(r, p: p, name: tName, off: off)
 	match consumes takeLookup(r, p: p, lr: lr, off: off, errs: errs) 'hit'
 		some(ref) then checkTypeKindAndBind(r, p: p, tr: tr, ref: ref, tName: tName, off: off, errs: errs)
-		none then _ = 0
+		none then break
 	end 'hit'
 end 'resolveUnqualDeclType'
 
@@ -766,9 +766,8 @@ function resolveStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState, id a
 		if rv != 0 'rv'
 			resolveExpr(r, p: p, ms: ms, id: rv, errs: errs)
 		end 'rv'
-	end 'sRet' else if k == ast.NodeKind.breakStmt or k == ast.NodeKind.continueStmt 'sBrk'
-		_ = 0
-	end 'sBrk' else 'unk'
+	end 'sRet' else if not (k == ast.NodeKind.breakStmt or k == ast.NodeKind.continueStmt) 'unk'
+		// A break and a continue name nothing.
 		panic("resolveStmt: unexpected node kind")
 	end 'unk'
 end 'resolveStmt'
@@ -938,7 +937,7 @@ function resolveNameExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutat
 		let lr = bareLookupAt(r, p: p, name: n, off: off)
 		match consumes takeLookup(r, p: p, lr: lr, off: off, errs: errs) 'hit'
 			some(ref) then r.res.bindDecl(id, d: ref)
-			none then _ = 0
+			none then break
 		end 'hit'
 	end 'free' else if r.whenDepth > 0 'cap'
 		r.tree.appendCaptureRefs(id, depth: r.whenDepth)
@@ -1011,7 +1010,7 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState
 			var rewritten = false
 			match consumes staticConstRef(p, ref: bare.decl, member: segs[0].name) 'static'
 				some(target) then rewritten = rewriteStatic(r, targetNode: segs[0].node, headNode: cur, target: target)
-				none then _ = 0
+				none then break
 			end 'static'
 			if rewritten 'done'
 				noteDependency(r, ref: bare.decl, off: r.tree.startOf(cur))
@@ -1023,7 +1022,7 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState
 			let headOff = r.tree.startOf(cur)
 			match consumes takeLookup(r, p: p, lr: bare, off: headOff, errs: errs) 'tk'
 				some(ref) then r.res.bindDecl(cur, d: ref)
-				none then _ = 0
+				none then break
 			end 'tk'
 			return
 		end 'keepBare'
@@ -1045,7 +1044,7 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState
 	end 'fail'
 	match consumes qualifiedDeclRef(p, module: r.modID, head: headName, rest: names) 'hit'
 		some(target) then rewriteMemberToName(r, targetNode: segs[used - 1].node, headNode: cur, targetDecl: target)
-		none then _ = 0
+		none then break
 	end 'hit'
 end 'resolveMemberExpr'
 
@@ -1230,7 +1229,7 @@ function resolveCallExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, 
 	if r.tree.kindOf(callee) == ast.NodeKind.nameExpr 'nm'
 		match r.res.decls.get(callee as Count) 'd'
 			some(ref) then constructsCown = (ref.module == diag.stdlibID and ast.declName(p, ref: ref) == "cown")
-			none then _ = 0
+			none then break
 		end 'd'
 	end 'nm'
 	let argsRef = ast.callExprArgsRef(r.tree, id: id)
@@ -1251,7 +1250,7 @@ function resolveStructLitExpr(mutates r Resolver, p ast.Project, ms ast.ModuleSt
 		let lr = bareLookupAt(r, p: p, name: tName, off: off)
 		match consumes takeLookup(r, p: p, lr: lr, off: off, errs: errs) 'hit'
 			some(ref) then r.res.bindDecl(id, d: ref)
-			none then _ = 0
+			none then break
 		end 'hit'
 	end 'named'
 	let fieldsRef = ast.structLitExprFieldsRef(r.tree, id: id)
@@ -1326,7 +1325,7 @@ function requireExposable(mutates r Resolver, p ast.Project, s Surface, position
 	end 'elems'
 	match r.res.decls.get(tr as Count) 'bound'
 		some(ref) then reportIfHiddenUnlessExpanded(r, p: p, s: s, position: position, ref: ref, errs: errs)
-		none then _ = 0
+		none then break
 	end 'bound'
 	let argsRef = ast.typeRefTypeArgsRef(r.tree, id: tr)
 	for i in 0 upto r.tree.listLen(argsRef) 'args'
@@ -1690,13 +1689,13 @@ function extensionFieldNames(p ast.Project, ref ast.DeclRef) returns BoolStrMap
 	var names = BoolStrMap.new()
 	match ast.moduleDecl(p, ref: ref) 'k'
 		typeDecl(td) then names = declaredFieldNames(td)
-		unionDecl(_) then _ = 0
-		enumDecl(_) then _ = 0
-		interfaceDecl(_) then _ = 0
-		aliasDecl(_) then _ = 0
-		funcDecl(_) then _ = 0
-		constDecl(_) then _ = 0
-		extensionDecl(_) then _ = 0
+		unionDecl(_) then break
+		enumDecl(_) then break
+		interfaceDecl(_) then break
+		aliasDecl(_) then break
+		funcDecl(_) then break
+		constDecl(_) then break
+		extensionDecl(_) then break
 	end 'k'
 	return names
 end 'extensionFieldNames'
@@ -1721,7 +1720,7 @@ function resolveExtensionDecl(mutates r Resolver, p ast.Project, ms ast.ModuleSt
 	var fieldNames = BoolStrMap.new()
 	match consumes extendedDecl(r, xd: xd) 'extended'
 		some(ref) then fieldNames = enterExtendedMembers(r, p: p, xd: xd, ref: ref)
-		none then _ = 0
+		none then break
 	end 'extended'
 	enterExtensionAliases(r, p: p, xd: xd)
 	enterExtensionStatics(r, p: p, xd: xd)
@@ -1753,7 +1752,7 @@ end 'resolveExtensionDecl'
 function enterExtensionAliases(mutates r Resolver, p ast.Project, xd ast.ExtensionDecl)
 	match consumes extendedDecl(r, xd: xd) 'extended'
 		some(ref) then ast.nestedMembers(p, declaring: ref.module, owner: ast.declName(p, ref: ref), from: r.modID, out: r.members)
-		none then _ = 0
+		none then break
 	end 'extended'
 	ast.nestedMembers(p, declaring: r.modID, owner: ast.extensionOwnerName(r.tree, xd: xd), from: r.modID, out: r.members)
 end 'enterExtensionAliases'
@@ -1763,7 +1762,7 @@ end 'enterExtensionAliases'
 function enterExtensionStatics(mutates r Resolver, p ast.Project, xd ast.ExtensionDecl)
 	match consumes extendedDecl(r, xd: xd) 'extended'
 		some(ref) then enterBodyStatics(r, p: p, ref: ref)
-		none then _ = 0
+		none then break
 	end 'extended'
 	let owner = ast.extensionOwnerName(r.tree, xd: xd)
 	for i in 0 upto xd.statics.count() 'own'
@@ -1866,7 +1865,7 @@ function refuseLibraryCollisions(mutates r Resolver, p ast.Project, mutates errs
 			end 'program'
 			match p.modules[m].names.get(name) 'declared'
 				some(ord) then refuseCollision(r, p: p, ref: ref, other: ast.DeclRef.make(p.modules[m].id, ordinal: ord), errs: errs)
-				none then _ = 0
+				none then break
 			end 'declared'
 		end 'earlier'
 	end 'decls'
@@ -1926,7 +1925,7 @@ function libraryMembersOf(p ast.Project) returns LibraryMemberMap
 				var modules = ModuleIndexes.create(0)
 				match consumes members.remove(names[j]) 'seen'
 					some(earlier) then modules = earlier
-					none then _ = 0
+					none then break
 				end 'seen'
 				if not modules.contains(m) 'new'
 					modules.push(m)

@@ -64,7 +64,7 @@ export type MxdbgWriter
 		end 'empty'
 		match interned.get(text) 'held'
 			some(name) then return name
-			none then _ = 0
+			none then break
 		end 'held'
 		let name = mxdbgWord(nameOffs.count())
 		nameOffs.push(mxdbgWord(stringPool.count()))

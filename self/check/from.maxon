@@ -161,7 +161,7 @@ function checkFromArrayLiteral(mutates c Checker, p ast.Project, mutates ms ast.
 		let element = ast.typeArgAt(ms.types, reads: p.types, t: ast.nodeType(c.typing, node: value), index: 0)
 		match consumes indexOfType(generics, t: ast.typeArgAt(ms.types, reads: p.types, t: declared, index: 0)) 'elementParam'
 			some(i) then args[i] = element
-			none then _ = 0
+			none then break
 		end 'elementParam'
 		let mark = errs.count()
 		args = inferRest(c, p: p, ms: ms, node: e, callee: "{name}.{initName}", params: generics, args: args, result: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: init).retTy, code: diag.errCannotInfer, errs: errs)

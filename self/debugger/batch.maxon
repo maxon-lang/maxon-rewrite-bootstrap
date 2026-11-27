@@ -77,7 +77,7 @@ function driveBatch(consumes host WindowsHost, consumes reader mxdbg.MxdbgReader
 		for k in 0 upto replies.count() 'replies'
 			match consumes eventLine(replies[k].clone()) 'line'
 				some(text) then print("{text}\n")
-				none then _ = 0
+				none then break
 			end 'line'
 		end 'replies'
 	end 'commands'

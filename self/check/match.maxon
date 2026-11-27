@@ -302,7 +302,10 @@ function checkArm(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 			checkFail(c.modID, off: ms.tree().labelStart(ast.handlerBlockLabelRef(ms.tree(), id: handler)), code: diag.errMatchBlockStatement, msg: diag.matchOtherwiseBlockForm(), errs: errs)
 			return
 		end 'otherwiseBlock'
+		let outerArm = c.armAction
+		c.armAction = action
 		checkStmt(c, p: p, ms: ms, s: action, errs: errs)
+		c.armAction = outerArm
 		return
 	end 'then'
 	if form == ast.ArmKind.armGives 'gives'
@@ -462,7 +465,7 @@ function checkCasePattern(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	end 'unknown'
 	match consumes found 'index'
 		some(i) then caseIdx = i
-		none then _ = 0
+		none then break
 	end 'index'
 	var locals = ast.LocalIDList.create(0)
 	if ast.patternHasBindings(ms.tree(), id: pattern) 'binds'

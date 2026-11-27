@@ -178,7 +178,7 @@ export function lendHome(mutates home ModuleHome, reads Project, lent Lent, phas
 	beginFuncSegment(ms.funcs, segment: phase.ordinal)
 	match lent 'lent'
 		none then return ms
-		tables then _ = 0
+		tables then break
 		tree then lendTree(ms, home: home, phase: phase)
 		resolution then lendTree(ms, home: home, phase: phase)
 		source then ms.source = exchange(home.record, value: Module.new(module, path: "", text: "", files: FileSpanList.create(0)))

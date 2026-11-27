@@ -145,7 +145,7 @@ end 'exitsProcess'
 function failUnreachable(mutates c Checker, tree ast.Tree, body diag.U32, index Count, mutates errs diag.ErrorList)
 	match consumes keywordTerminator(tree, s: tree.listAt(body, index: index) as ast.NodeID) 'terminator'
 		some(word) then failAfter(c, tree: tree, next: tree.listAt(body, index: try index + 1 otherwise panic("a statement follows the last of a block")) as ast.NodeID, word: word, errs: errs)
-		none then _ = 0
+		none then break
 	end 'terminator'
 end 'failUnreachable'
 
@@ -169,10 +169,39 @@ function checkStmts(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 			failUnreachable(c, tree: ms.tree(), body: body, index: i, errs: errs)
 		end 'followed'
 		c.dead = outer or i >= live
+		c.soleStatement = count == 1 and body != c.functionBody
 		checkStmt(c, p: p, ms: ms, s: ms.tree().listAt(body, index: i) as ast.NodeID, errs: errs)
 	end 'each'
 	c.dead = outer
 end 'checkStmts'
+
+// checkDiscard types a discard '_ = e', whose value must be made by doing something: a call, a send, an await, an async
+// call, a spawn or a panic in it, outside the body of a closure. A value that already exists, a name, a field, an element,
+// a literal or a value made of them by operators, casts, constructions and branches, is E3067: the discard does nothing,
+// and ends no owned value, which lives on until its scope ends.
+function checkDiscard(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
+	let inArm = c.armAction == s
+	let sole = c.soleStatement
+	let value = ast.discardStmtValue(ms.tree(), id: s)
+	let outer = c.discardedSend
+	c.discardedSend = discardedCall(ms.tree(), value: value)
+	let mark = errs.count()
+	let acts = c.acts
+	let t = checkExpr(c, p: p, ms: ms, e: value, errs: errs)
+	c.discardedSend = outer
+	if c.acts != acts or t == ast.noType or failedSince(errs, mark: mark) 'acted'
+		return
+	end 'acted'
+	var fix = diag.Fix.none()
+	if not lacksCap(c, p: p, ms: ms, wantCopy: true, t: t).missing 'plain'
+		fix = discardFix(ms.tree(), s: s, inArm: inArm, sole: sole)
+	end 'plain'
+	checkFailFixed(c.modID, off: offsetOf(c, p: p, ms: ms, node: s), code: diag.errDiscardOfExistingValue, msg: discardText(), fix: fix, errs: errs)
+end 'checkDiscard'
+
+function discardText() returns String
+	return "'_ =' of a value that already exists does nothing: it neither uses the value nor ends it, and an owned value lives on until its scope ends. Delete the line for a plain value; to end an owned one, pass it to a function that consumes it, close it if it is linear, or let its scope end"
+end 'discardText'
 
 function checkStmt(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
 	let k = ms.tree().kindOf(s)
@@ -197,10 +226,7 @@ function checkStmt(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 		return
 	end 'expr'
 	if k == ast.NodeKind.discardStmt 'discard'
-		let outer = c.discardedSend
-		c.discardedSend = discardedCall(ms.tree(), value: ast.discardStmtValue(ms.tree(), id: s))
-		_ = checkExpr(c, p: p, ms: ms, e: ast.discardStmtValue(ms.tree(), id: s), errs: errs)
-		c.discardedSend = outer
+		checkDiscard(c, p: p, ms: ms, s: s, errs: errs)
 		return
 	end 'discard'
 	if k == ast.NodeKind.ifStmt 'if'
@@ -1249,7 +1275,7 @@ function checkJump(mutates c Checker, p ast.Project, ms ast.ModuleState, s ast.N
 	end 'break'
 	match consumes resolveJump(c, p: p, ms: ms, s: s, label: label, isBreak: isBreak, errs: errs) 'target'
 		some(node) then refuseParallelJump(c, p: p, ms: ms, s: s, target: node, isBreak: isBreak, errs: errs)
-		none then _ = 0
+		none then break
 	end 'target'
 end 'checkJump'
 

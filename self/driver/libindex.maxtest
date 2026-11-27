@@ -11,13 +11,13 @@ function parsedWords(module ast.Module) returns ast.StringList
 	for decl in module.decls 'decls'
 		match decl 'd'
 			extensionDecl(xd) then addForeignMembers(words, module: module, extension: xd)
-			funcDecl(_) then _ = 0
-			constDecl(_) then _ = 0
-			typeDecl(_) then _ = 0
-			enumDecl(_) then _ = 0
-			unionDecl(_) then _ = 0
-			aliasDecl(_) then _ = 0
-			interfaceDecl(_) then _ = 0
+			funcDecl(_) then break
+			constDecl(_) then break
+			typeDecl(_) then break
+			enumDecl(_) then break
+			unionDecl(_) then break
+			aliasDecl(_) then break
+			interfaceDecl(_) then break
 		end 'd'
 	end 'decls'
 	return words

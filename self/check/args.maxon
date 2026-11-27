@@ -116,7 +116,7 @@ function orderArgs(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID
 			end 'unknown'
 			match consumes found 'slotOf'
 				some(j) then slot = j
-				none then _ = 0
+				none then break
 			end 'slotOf'
 			if ordered[slot] != 0 'duplicate'
 				failAt(c, p: p, ms: ms, node: arg, code: diag.errCallDuplicateArg, msg: diag.argDuplicate(label, callee: callee), errs: errs)
@@ -279,7 +279,7 @@ function unifyType(p ast.Project, ms ast.ModuleState, param ast.TypeID, arg ast.
 	if kind == ast.TypeKind.typeParam 'parameter'
 		match consumes indexOfType(params, t: param) 'index'
 			some(i) then fixArg(p, ms: ms, arg: arg, index: i, args: args)
-			none then _ = 0
+			none then break
 		end 'index'
 		return
 	end 'parameter'

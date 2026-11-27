@@ -62,7 +62,7 @@ function constRefs(p ast.Project, ms ast.ModuleState, tree ast.Tree, res ast.Res
 	if k == ast.NodeKind.nameExpr 'name'
 		match consumes res.decls.get(e as Count) 'bound'
 			some(ref) then pushIfConstant(p, ms: ms, ref: ref, out: out)
-			none then _ = 0
+			none then break
 		end 'bound'
 		return
 	end 'name'
@@ -102,7 +102,7 @@ function staticReadBy(p ast.Project, ms ast.ModuleState, tree ast.Tree, res ast.
 	let member = ast.memberExprName(tree, id: e)
 	match consumes bodyStaticOf(p, ms: ms, nt: nt, member: member) 'body'
 		some(ref) then return table.Option.some(ref)
-		none then _ = 0
+		none then break
 	end 'body'
 	let key = ast.extensionKey(p, ms: ms, t: nt)
 	if not key.isSome() 'unextended'
@@ -168,12 +168,9 @@ function constRefsOfOperands(p ast.Project, ms ast.ModuleState, tree ast.Tree, r
 	end 'member' else if k == ast.NodeKind.panicExpr 'panic'
 		out.runs = true
 		constRefs(p, ms: ms, tree: tree, res: res, e: ast.panicExprMessage(tree, id: e), out: out)
-	end 'panic' else if k == ast.NodeKind.intLit or k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.byteStrLit or k == ast.NodeKind.charLit or k == ast.NodeKind.typeQueryExpr 'leaf'
-		_ = 0
-	end 'leaf' else if k == ast.NodeKind.closureExpr 'closure'
-		// A closure's body runs when it is called, so the constants it names are not part of the value.
-		_ = 0
-	end 'closure' else 'unknown'
+	end 'panic' else if not (k == ast.NodeKind.intLit or k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.byteStrLit or k == ast.NodeKind.charLit or k == ast.NodeKind.typeQueryExpr or k == ast.NodeKind.closureExpr) 'unknown'
+		// A leaf names no constant, nor does a closure: its body runs when it is called, so the constants it names are not
+		// part of the value.
 		panic("the node {e} of kind {k.name} is no expression")
 	end 'unknown'
 end 'constRefsOfOperands'
@@ -482,7 +479,7 @@ function refuseHiddenConstantType(mutates c Checker, p ast.Project, ms ast.Modul
 	end 'unexported'
 	match hiddenDeclIn(p, ms: ms, t: t, tier: tier) 'hidden'
 		some(ref) then checkFail(c.modID, off: ms.tree().reportStartOf(cd.id), code: diag.errExposesHiddenType, msg: diag.exposesLessVisibleType(ast.visibilityWord(tier), noun: "constant", name: ast.inModule(p, modID: c.modID, name: cd.name), typeTier: ast.visibilityWord(ast.declLevel(p, ref: ref)), typeNoun: declNoun(p, ref: ref), typeName: ast.declName(p, ref: ref), position: "in its type"), errs: errs)
-		none then _ = 0
+		none then break
 	end 'hidden'
 end 'refuseHiddenConstantType'
 

@@ -361,7 +361,7 @@ function conformanceTo(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, 
 		let named = ast.substituteType(ms.types, reads: p.types, t: conforms[i], params: params, args: args)
 		match consumes ast.ancestorBindings(ms.types, reads: p.types, have: named, want: iface) 'ancestor'
 			some(bindings) then return ast.instantiateType(ms.types, reads: p.types, origin: iface, args: bindings)
-			none then _ = 0
+			none then break
 		end 'ancestor'
 	end 'inherited'
 	return ast.noType
@@ -517,7 +517,7 @@ function requireDeclared(c Checker, p ast.Project, mutates ms ast.ModuleState, o
 	match consumes ast.conformanceSource(p, ms: ms, from: c.modID, t: arg, iface: iface) 'source'
 		found(_) then return
 		ambiguous(first, second) then failAmbiguousConformance(c, p: p, off: off, typeName: nameOfType(p, ms: ms, t: arg), ifaceName: spelled(c, p: p, ms: ms, iface: iface), first: first, second: second, errs: errs)
-		absent then _ = 0
+		absent then break
 	end 'source'
 	if failedSince(errs, mark: mark) 'ambiguous'
 		return

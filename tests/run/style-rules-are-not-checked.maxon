@@ -10,7 +10,6 @@ function main() returns ExitCode
 	var same = 3 as Score
 	same = same
 	let cast = neverReassigned as Score
-	_ = 4
 	while true 'loop'
 		break 'loop'
 	end 'loop'

@@ -108,12 +108,15 @@ function visitExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 		return checkUnary(c, p: p, ms: ms, e: e, errs: errs)
 	end 'unaryExpr'
 	if k == ast.NodeKind.asyncExpr 'asyncExpr'
+		noteAct(c)
 		return checkAsync(c, p: p, ms: ms, e: e, errs: errs)
 	end 'asyncExpr'
 	if k == ast.NodeKind.awaitExpr 'awaitExpr'
+		noteAct(c)
 		return checkAwait(c, p: p, ms: ms, e: e, errs: errs)
 	end 'awaitExpr'
 	if k == ast.NodeKind.spawnExpr 'spawnExpr'
+		noteAct(c)
 		return checkSpawn(c, p: p, ms: ms, e: e, errs: errs)
 	end 'spawnExpr'
 	if k == ast.NodeKind.condExpr 'condExpr'
@@ -135,10 +138,13 @@ function visitExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 		return checkTry(c, p: p, ms: ms, e: e, errs: errs)
 	end 'tryExpr'
 	if k == ast.NodeKind.panicExpr 'panicExpr'
+		noteAct(c)
 		return checkPanic(c, p: p, ms: ms, e: e, errs: errs)
 	end 'panicExpr'
 	if k == ast.NodeKind.callExpr 'callExpr'
-		return checkCall(c, p: p, ms: ms, e: e, errs: errs)
+		let called = checkCall(c, p: p, ms: ms, e: e, errs: errs)
+		noteCallActs(c, call: e)
+		return called
 	end 'callExpr'
 	if k == ast.NodeKind.structLitExpr 'structLitExpr'
 		return checkStructLit(c, p: p, ms: ms, e: e, errs: errs)
@@ -157,13 +163,33 @@ function visitExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 		return checkMatch(c, p: p, ms: ms, core: core, isExpr: true, errs: errs)
 	end 'matchExpr'
 	if k == ast.NodeKind.closureExpr 'closureExpr'
-		return checkClosure(c, p: p, ms: ms, e: e, errs: errs)
+		// A closure's body runs when it is called: making the closure does nothing it does.
+		let outerActs = c.acts
+		let closure = checkClosure(c, p: p, ms: ms, e: e, errs: errs)
+		c.acts = outerActs
+		return closure
 	end 'closureExpr'
 	if k == ast.NodeKind.typeQueryExpr 'typeQueryExpr'
 		return checkTypeQuery(c, p: p, ms: ms, e: e, errs: errs)
 	end 'typeQueryExpr'
 	panic("the node {e} of kind {k.name} is no expression")
 end 'visitExpr'
+
+// noteCallActs counts a call among the acts, unless it constructs a case of a union, which makes a value and does nothing.
+function noteCallActs(mutates c Checker, call ast.NodeID)
+	var slot as Count
+	if c.typing.calls.find(call as Count, slot: slot) 'recorded'
+		if c.typing.calls.valueAt(slot).kind == ast.CallKind.callUnionCtor 'constructs'
+			return
+		end 'constructs'
+	end 'recorded'
+	noteAct(c)
+end 'noteCallActs'
+
+// noteAct counts one call, send, await, async call, spawn or panic among the acts of the code being checked.
+function noteAct(mutates c Checker)
+	c.acts = try c.acts + 1 otherwise panic("check: too many calls")
+end 'noteAct'
 
 // checkStrLit types a string, whose interpolated values must be of a type that has a text.
 function checkStrLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
@@ -303,18 +329,18 @@ function checkNameExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	if rt != ast.noType 'inMethod'
 		match consumes ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: rt)).findField(name) 'field'
 			some(index) then return selfFieldType(c, p: p, ms: ms, e: e, rt: rt, name: name, index: index)
-			none then _ = 0
+			none then break
 		end 'field'
 	end 'inMethod'
 	if c.inBehaviour 'behaviour'
 		match consumes selfFieldInBehaviour(c, p: p, ms: ms, name: name) 'selfField'
 			some(fieldTy) then return refuseBehaviourSelf(c, p: p, ms: ms, off: off, what: "the field '{name}'", t: fieldTy, errs: errs)
-			none then _ = 0
+			none then break
 		end 'selfField'
 	end 'behaviour'
 	match consumes ast.nodeDecl(p, ms: ms, node: e as Count) 'bound'
 		some(ref) then return checkDeclaredName(c, p: p, ms: ms, e: e, ref: ref, name: name, errs: errs)
-		none then _ = 0
+		none then break
 	end 'bound'
 	if name == "Self" 'selfName'
 		checkFail(c.modID, off: off, code: diag.errExpressionError, msg: "'Self' is a type, not a value", errs: errs)
@@ -338,7 +364,7 @@ function checkDeclaredName(mutates c Checker, p ast.Project, mutates ms ast.Modu
 	end 'type'
 	match consumes constantOf(p, ms: ms, ref: ref) 'const'
 		some(value) then return typeOfConstant(c, p: p, ms: ms, e: e, ref: ref, value: value, errs: errs)
-		none then _ = 0
+		none then break
 	end 'const'
 	if ast.declIsConst(p, ref: ref) 'unvalued'
 		checkFail(c.modID, off: off, code: diag.errExpressionError, msg: "constant '{name}' has no value", errs: errs)
@@ -355,7 +381,7 @@ function typeOfConstant(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	if value.instanceOf != ast.noType 'perInstance'
 		match consumes c.typing.staticInstances.get(e as Count) 'instance'
 			some(instance) then return typeOfInstanceConstant(c, p: p, ms: ms, e: e, ref: ref, value: value, instance: instance)
-			none then _ = 0
+			none then break
 		end 'instance'
 		if ast.originOf(ms.types, reads: p.types, t: c.owner) != value.instanceOf 'bare'
 			failBareInstanceStatic(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), qualified: ast.declName(p, ref: ref), origin: value.instanceOf, errs: errs)
@@ -370,7 +396,7 @@ function typeOfConstant(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 		if ref.module == c.modID 'here'
 			match consumes c.typing.fieldUses.get(ast.constValueNode(p, ref: ref) as Count) 'uses'
 				some(calls) then recordAll(c, calls: calls)
-				none then _ = 0
+				none then break
 			end 'uses'
 		end 'here' else if ref.module != diag.stdlibID 'elsewhere'
 			recordUse(c, call: e)

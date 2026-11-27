@@ -560,7 +560,7 @@ function endsFix(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s
 		end 'droppable'
 		match consumes endingOf(c, p: p, ms: ms, t: fTy, depth: 1) 'ending'
 			some(ending) then calls.push(endingCall("self.{f.name}", ending: ending))
-			none then _ = 0
+			none then break
 		end 'ending'
 	end 'fields'
 	return endsDeclFix(ms.tree(), td: td, calls: calls)

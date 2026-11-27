@@ -187,7 +187,7 @@ function adoptOwned(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 		heldAddress(_) then return indexOf(adoptPlaced(l, p: p, ms: ms, index: index, t: t))
 		heldWord or
 		heldString or
-		heldBox then _ = 0
+		heldBox then break
 		heldInline(_) panic("ir: a variable that holds words of its own or a byte of a buffer")
 		heldPacked panic("ir: a variable that holds words of its own or a byte of a buffer")
 	end 'holding'

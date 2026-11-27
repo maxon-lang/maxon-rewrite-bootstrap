@@ -222,6 +222,9 @@ export let errDuplicateTypeAlias = "E3061"
 // A union is compared with '==' or '!='.
 export let errEnumNotComparable = "E3066"
 
+// A discard '_ = e' whose value already exists, a name, a field, an element or a value made of them, with no call, send, await or panic in it: it does nothing, and it ends no owned value, which lives on until its scope ends. maxon's self-assignment half of the code is not checked.
+export let errDiscardOfExistingValue = "E3067"
+
 // A statement follows a 'return', 'throw', 'break', 'continue' or 'panic' in its block, so it never runs.
 export let errUnreachableCode = "E3071"
 

@@ -494,7 +494,7 @@ type TablesPart
 	function localsFor(mutates self, f FuncID) returns Count
 		match localsAt.get(f as Count) 'at'
 			some(at) then return at
-			none then _ = 0
+			none then break
 		end 'at'
 		let at = funcLocals.count()
 		localsAt.insert(f as Count, value: at)
@@ -738,11 +738,11 @@ export type Project
 			let name = p.stdlib.decls[i].name()
 			match p.builtins.stdlibTypeMap.get(name) 'tm'
 				some(tid) then p.stdlib.tables.setDeclType(ord, t: tid)
-				none then _ = 0
+				none then break
 			end 'tm'
 			match p.builtins.stdlibFuncMap.get(name) 'fm'
 				some(fid) then p.stdlib.tables.setDeclFunc(ord, f: fid)
-				none then _ = 0
+				none then break
 			end 'fm'
 		end 'stdReg'
 		return p

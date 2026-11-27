@@ -536,12 +536,12 @@ function guardSide(mutates st RangeState, x Place, dx ast.I128, op String, y tab
 	end 'dead'
 	match y 'y'
 		some(py) then relateShifted(st, x: x, dx: dx, op: op, y: py, dy: dy, exact: exact)
-		none then _ = 0
+		none then break
 	end 'y'
 	let cur = spanOf(st, p: x)
 	match consumes comparedSpan(cur, op: op, other: other, dx: dx, exact: exact) 'narrowed'
 		some(next) then refineGuarded(st, x: x, cur: cur, next: next)
-		none then _ = 0
+		none then break
 	end 'narrowed'
 end 'guardSide'
 
@@ -560,7 +560,7 @@ end 'refineGuarded'
 function relateShifted(mutates st RangeState, x Place, dx ast.I128, op String, y Place, dy ast.I128, exact bool)
 	match consumes comparedGap(op, dx: dx, dy: dy, exact: exact) 'gap'
 		some(gap) then st.relate(x, lo: y, gap: gap)
-		none then _ = 0
+		none then break
 	end 'gap'
 end 'relateShifted'
 
@@ -1493,7 +1493,7 @@ end 'comparesSigned'
 function checkGap(op String, x FullRangeInt, y FullRangeInt)
 	match consumes relationGap(op) 'gap'
 		some(gap) then requireGap(op, x: x, y: y, gap: gap)
-		none then _ = 0
+		none then break
 	end 'gap'
 end 'checkGap'
 

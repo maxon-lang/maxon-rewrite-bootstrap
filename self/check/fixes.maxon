@@ -28,6 +28,8 @@ export let fixKindMatchConsumes = "match consumes"
 
 export let fixKindUntry = "no try"
 
+let fixKindDiscard = "no discard"
+
 let fixKindEnds = "ends"
 
 let fixKindUnrequire = "no requires"
@@ -563,6 +565,28 @@ end 'endingFix'
 function nextOf(at Count) returns Count
 	return try at + 1 otherwise panic("fixes: an offset past a module")
 end 'nextOf'
+
+// discardFix removes the discard s of a value that already exists, which does nothing: the line it stands alone on or, as the
+// action of a match arm, the statement, which becomes the 'break' that leaves the match. A discard that is the one
+// statement of its block, which may not be empty, or that shares its line otherwise, has none.
+function discardFix(t ast.Tree, s ast.NodeID, inArm bool, sole bool) returns diag.Fix
+	let found = ast.exprExtent(t, e: ast.discardStmtValue(t, id: s))
+	if not found.isSome() 'unknown'
+		return diag.Fix.none()
+	end 'unknown'
+	let begin = t.startOf(s) as Count
+	let until = found.unwrap().until as Count
+	var edits = diag.FixEdits.create(0)
+	if inArm 'arm'
+		edits.push(diag.FixEdit.make(t.module, begin: at32(begin), until: at32(until), text: "break"))
+		return fixOf(fixKindDiscard, edits: edits)
+	end 'arm'
+	if sole or not aloneOnItsLine(t, begin: begin, until: until) 'kept'
+		return diag.Fix.none()
+	end 'kept'
+	edits.push(diag.FixEdit.make(t.module, begin: at32(ast.lineBegin(t.text, at: begin)), until: at32(ast.lineAfter(t.text, at: until)), text: ""))
+	return fixOf(fixKindDiscard, edits: edits)
+end 'discardFix'
 
 // aloneOnItsLine is whether only blanks stand on the line of the text from begin until until, before and after it.
 function aloneOnItsLine(t ast.Tree, begin Count, until Count) returns bool

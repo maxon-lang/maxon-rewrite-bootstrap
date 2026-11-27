@@ -551,7 +551,7 @@ function scanDirectory(mutates nodes DiscDirList, consumes dir String, consumes 
 		let childDir = joinPath(dir, name: subName)
 		match scanDirectory(nodes, dir: childDir.clone(), modPath: childModPath, isRoot: false, memory: memory, errs: errs) 'res'
 			some(childIdx) then checkChildQualifier(isRoot, subName: subName, childDir: childDir, childIdx: childIdx, childNames: childNames, childIdxs: childIdxs, errs: errs)
-			none then _ = 0
+			none then break
 		end 'res'
 	end 'eachSub'
 	let emptyMod = (not isRoot) and nodes[myIdx].filePaths.count() == 0 and childIdxs.count() == 0
@@ -615,7 +615,7 @@ function nearestProjectFile(dir String) returns table.Option with String
 	while true 'up'
 		match consumes projectFileIn(at) 'here'
 			some(file) then return table.Option.some(file)
-			none then _ = 0
+			none then break
 		end 'here'
 		match consumes enclosingDirectory(at) 'above'
 			some(parent) then at = parent.clone()
@@ -701,10 +701,10 @@ function createShellType(mutates ms ast.ModuleState, p ast.Project, modID diag.M
 		enumDecl(ed) then allocEnumShell(ms, p: p, ref: ref, ed: ed)
 		unionDecl(ud) then allocUnionShell(ms, p: p, ref: ref, ud: ud, errs: errs)
 		interfaceDecl(ifd) then allocIfaceShell(ms, p: p, ref: ref, ifd: ifd, errs: errs)
-		extensionDecl(_) then _ = 0
+		extensionDecl(_) then break
 		aliasDecl(ad) then ast.declareRangeAlias(ms, p: p, ref: ref, ad: ad, errs: errs)
-		funcDecl(_) then _ = 0
-		constDecl(_) then _ = 0
+		funcDecl(_) then break
+		constDecl(_) then break
 	end 'k'
 end 'createShellType'
 
@@ -766,7 +766,7 @@ function noteNestedAlias(mutates m ast.ParsedModule, dName String, ord ast.DeclO
 	end 'other'
 	match consumes ast.nestedAliasOwner(dName) 'owner'
 		some(owner) then m.nested.push(ast.NestedAlias.make(owner, member: ast.nestedAliasMember(dName).clone(), ordinal: ord))
-		none then _ = 0
+		none then break
 	end 'owner'
 end 'noteNestedAlias'
 
@@ -1009,7 +1009,7 @@ function discoverDirectory(mutates p ast.Project, rootPath String, memory Source
 	if isLibraryDirectory(rootPath) 'library'
 		match addLibraryAt(p, dir: rootPath, memory: memory, errs: errs) 'root'
 			some(root) then p.rootModule = root
-			none then _ = 0
+			none then break
 		end 'root'
 		return
 	end 'library'

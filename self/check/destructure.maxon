@@ -176,7 +176,7 @@ function bindElement(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	if source.lends and not isVar 'lent'
 		match c.typing.nodeLocals.get(bound as Count) 'local'
 			some(local) then c.typing.locals[local as Count].projected = ast.isManagedType(ms.types, reads: p.types, t: t)
-			none then _ = 0
+			none then break
 		end 'local'
 	end 'lent'
 	syn.push(bound)
@@ -188,7 +188,7 @@ function checkDestruct(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	var syn = ast.NodeIDList.create(0)
 	match consumes tupleSource(c, p: p, ms: ms, s: s, value: ast.destructStmtInit(ms.tree(), id: s), names: count, assignment: false, syn: syn, errs: errs) 'source'
 		some(source) then bindElements(c, p: p, ms: ms, s: s, source: source, namesRef: namesRef, syn: syn, errs: errs)
-		none then _ = 0
+		none then break
 	end 'source'
 end 'checkDestruct'
 
@@ -212,7 +212,7 @@ function checkTupleAssign(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	var syn = ast.NodeIDList.create(0)
 	match consumes tupleSource(c, p: p, ms: ms, s: s, value: ast.tupleAssignStmtValue(ms.tree(), id: s), names: count, assignment: true, syn: syn, errs: errs) 'source'
 		some(source) then assignElements(c, p: p, ms: ms, s: s, source: source, targetsRef: targetsRef, syn: syn, errs: errs)
-		none then _ = 0
+		none then break
 	end 'source'
 end 'checkTupleAssign'
 

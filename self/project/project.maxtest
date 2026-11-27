@@ -18,7 +18,7 @@ test 'project'
 	let g = newGraph(p)
 	match checkAcyclic(g, p: p) 'cyc'
 		some(ce) then panic("unexpected cycle: {ce.format()}")
-		none then _ = 0
+		none then break
 	end 'cyc'
 end 'project'
 

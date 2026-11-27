@@ -155,7 +155,7 @@ end 'newSharedBox'
 function literal(mutates vm Vm, text String) returns Count
 	match vm.h.literals.get(text) 'known'
 		some(o) then return o
-		none then _ = 0
+		none then break
 	end 'known'
 	let o = newString(vm, text: text.clone())
 	vm.h.oImmortal[o] = true
@@ -168,7 +168,7 @@ end 'literal'
 function constantObject(mutates vm Vm, d ir.Datum) returns Count
 	match vm.h.constants.get(d.symbol) 'known'
 		some(o) then return o
-		none then _ = 0
+		none then break
 	end 'known'
 	var objects = CountList.create(0)
 	for i in 0 upto d.boxes.count() 'make'
@@ -272,17 +272,18 @@ function adopt(mutates vm Vm, c Count, o Count, what String) throws Halt
 		throw violation(vm, kind: movedUse, message: "{what} stores a value that was moved out or never assigned")
 	end 'moved'
 	try requireLive(vm, o: o, what: "stored")
-	if vm.h.oImmortal[o] 'immortal'
-		_ = 0
-	end 'immortal' else if vm.h.isShared(o) 'shared'
-		vm.h.addHolder(o, c: c)
-	end 'shared' else 'owned'
-		if vm.h.oOwner[o] != 0 'twice'
-			let message = "{what} stores {objectText(vm, o: o)} into {cellText(vm, c: c)}, but {cellText(vm, c: vm.h.oOwner[o])} still owns it: a value has one owner, so it must be moved first"
-			throw violation(vm, kind: ownership, message: message)
-		end 'twice'
-		vm.h.oOwner[o] = c
-	end 'owned'
+	// Storing an immortal value records nothing.
+	if not vm.h.oImmortal[o] 'mortal'
+		if vm.h.isShared(o) 'shared'
+			vm.h.addHolder(o, c: c)
+		end 'shared' else 'owned'
+			if vm.h.oOwner[o] != 0 'twice'
+				let message = "{what} stores {objectText(vm, o: o)} into {cellText(vm, c: c)}, but {cellText(vm, c: vm.h.oOwner[o])} still owns it: a value has one owner, so it must be moved first"
+				throw violation(vm, kind: ownership, message: message)
+			end 'twice'
+			vm.h.oOwner[o] = c
+		end 'owned'
+	end 'mortal'
 	vm.h.cellN[c] = 0
 	vm.h.cellR[c] = try o as ir.Word otherwise panic("interp: a handle past a word")
 end 'adopt'

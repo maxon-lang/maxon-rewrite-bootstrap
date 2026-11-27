@@ -15,7 +15,7 @@ test 'resolve'
 	let g = project.newGraph(p)
 	match project.checkAcyclic(g, p: p) 'cyc'
 		some(ce) then panic("unexpected module cycle: {ce.format()}")
-		none then _ = 0
+		none then break
 	end 'cyc'
 	let order = project.topoOrder(g)
 	if order.count() != p.modules.count() 'ord'

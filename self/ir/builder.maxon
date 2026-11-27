@@ -43,17 +43,11 @@ export type SuccessorVisitor implements TermVisitor
 		end 'each'
 		self.edge(switchFallback(t), start: switchFallbackArgsStart(t), count: switchFallbackArgsCount(t))
 	end 'visitSwitch'
-
 	export function visitRet(mutates self, f IrFunction, t Term)
-		_ = 0
 	end 'visitRet'
-
 	export function visitTrap(mutates self, f IrFunction, t Term)
-		_ = 0
 	end 'visitTrap'
-
 	export function visitThrow(mutates self, f IrFunction, t Term)
-		_ = 0
 	end 'visitThrow'
 end 'SuccessorVisitor'
 
@@ -78,17 +72,11 @@ export type RenumberVisitor implements TermVisitor
 	export function visitSwitch(mutates self, f IrFunction, t Term)
 		out.target = newID[blockIndex(t.target)]
 	end 'visitSwitch'
-
 	export function visitRet(mutates self, f IrFunction, t Term)
-		_ = 0
 	end 'visitRet'
-
 	export function visitTrap(mutates self, f IrFunction, t Term)
-		_ = 0
 	end 'visitTrap'
-
 	export function visitThrow(mutates self, f IrFunction, t Term)
-		_ = 0
 	end 'visitThrow'
 end 'RenumberVisitor'
 

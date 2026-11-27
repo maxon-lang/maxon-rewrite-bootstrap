@@ -94,7 +94,7 @@ export type LibraryScan
 		var scan = LibraryScan{names: ast.StringList.create(0), extensionMembers: ast.StringList.create(0), owners: ast.StringList.create(0), owner: "", named: named, readable: true, texts: SourceFiles.create(0)}
 		match heads.core.clone() 'core'
 			some(k) then scan.markNamed(k)
-			none then _ = 0
+			none then break
 		end 'core'
 		return scan
 	end 'of'

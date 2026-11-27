@@ -285,7 +285,7 @@ end 'entryCownNew'
 function giveEnding(mutates vm Vm, f ir.IrFunction, x ir.Instr, cown Count)
 	match consumes ir.callRuntimeRoutine(f, x: x) 'routine'
 		some(routine) then vm.h.shareds[vm.h.oData[cown]].ending = functionOf(vm, id: routine)
-		none then _ = 0
+		none then break
 	end 'routine'
 end 'giveEnding'
 

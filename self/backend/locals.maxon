@@ -84,7 +84,7 @@ function namedValues(sel Selector, f ir.IrFunction) returns MNamedList
 	var named = MNamedList.create(0)
 	for i in 0 upto f.debug.count() 'entries'
 		match f.debug[i].kind 'kind'
-			debugSite then _ = 0
+			debugSite then break
 			debugLocal then nameParam(named, sel: sel, f: f, binding: i, place: f.debug[i].param)
 			debugValue then nameRegister(named, sel: sel, f: f, binding: f.debug[i].binding, r: f.debug[i].reg)
 			debugFramed then nameSlot(named, sel: sel, f: f, binding: f.debug[i].binding, slot: f.debug[i].slot)

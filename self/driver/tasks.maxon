@@ -477,7 +477,7 @@ function reachedLibrary(c Compile, known Known, written WordSet) returns Placed
 	end 'none'
 	match c.heads.coreModule() 'core'
 		some(core) then try reached.set(c.slotOf(core), value: true) otherwise panic("driver: the core is no module of the compile")
-		none then _ = 0
+		none then break
 	end 'core'
 	var slot = 0 as Count
 	for product in known 'written'

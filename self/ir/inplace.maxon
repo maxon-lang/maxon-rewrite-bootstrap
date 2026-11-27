@@ -89,7 +89,7 @@ function pushResultArea(mutates l Lowerer, p ast.Project, ms ast.ModuleState, mu
 		heldAddress(words) then args.push(newArea(l, words: words))
 		heldWord or
 		heldString or
-		heldBox then _ = 0
+		heldBox then break
 		heldInline(_) panic("ir: a variable that holds words of its own or a byte of a buffer")
 		heldPacked panic("ir: a variable that holds words of its own or a byte of a buffer")
 	end 'holding'

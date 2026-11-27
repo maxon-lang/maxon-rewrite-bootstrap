@@ -71,8 +71,8 @@ export type DebugEngine
 				loader(t, address) then return self.parkAt(t)
 				exited(code) then return self.endWith(code)
 				timedOut then return false
-				breakpoint(t, address) then _ = 0
-				singleStep(t, address) then _ = 0
+				breakpoint(t, address) then break
+				singleStep(t, address) then break
 				fault(t, code, address) then host.handOn()
 			end 'event'
 		end 'events'

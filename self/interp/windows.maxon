@@ -28,7 +28,7 @@ function buildInfo(mutates vm Vm, f ir.IrFunction, fi Count)
 	for k in 0 upto f.instrs.count() 'defs'
 		match consumes ir.instrDef(f.instrs[k]) 'def'
 			some(dst) then defOf[try dst as Count otherwise panic("interp: a register that does not exist")] = k + 1
-			none then _ = 0
+			none then break
 		end 'def'
 	end 'defs'
 	for bi in 0 upto f.blocks.count() 'blocks'
@@ -143,7 +143,7 @@ function pathEnters(f ir.IrFunction, start Count, goal Count, avoid Count) retur
 		for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
 			match consumes ir.instrFail(f.instrs[k]) 'fail'
 				some(target) then next.push(try target as Count otherwise panic("interp: a failure block that does not exist"))
-				none then _ = 0
+				none then break
 			end 'fail'
 		end 'instrs'
 		var successors = ir.SuccessorVisitor.new()

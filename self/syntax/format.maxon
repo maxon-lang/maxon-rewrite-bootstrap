@@ -118,7 +118,7 @@ type Formatter
 		var interpolations = Spans.create(0)
 		for i in 0 upto parts.count() 'each'
 			match parts[i] 'part'
-				text(run, begin, raw) then _ = 0
+				text(run, begin, raw) then break
 				expr(begin, until, _, _) then interpolations.push(Span.make(begin, until: until))
 			end 'part'
 		end 'each'

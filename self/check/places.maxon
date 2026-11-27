@@ -307,7 +307,7 @@ type RangeState
 		end 'local'
 		match consumes self.at(p) 'known'
 			some(s) then return table.Option.some(s)
-			none then _ = 0
+			none then break
 		end 'known'
 		if p.counted 'count'
 			return table.Option.some(Span.make(ast.I128.zero(), hi: ast.I128.fromCount(maxElementCount)))
@@ -324,13 +324,13 @@ type RangeState
 			if relations[i].lo.same(p) 'below'
 				match consumes self.knownSpan(relations[i].hi) 'hi'
 					some(s) then hi = ast.minI128(hi, b: s.hi.sub(relations[i].gap))
-					none then _ = 0
+					none then break
 				end 'hi'
 			end 'below'
 			if relations[i].hi.same(p) 'above'
 				match consumes self.knownSpan(relations[i].lo) 'lo'
 					some(s) then lo = ast.maxI128(lo, b: s.lo.add(relations[i].gap))
-					none then _ = 0
+					none then break
 				end 'lo'
 			end 'above'
 		end 'each'
@@ -367,7 +367,7 @@ type RangeState
 		var least = self.sideSpan(hi).lo.sub(self.sideSpan(lo).hi)
 		match consumes self.sidesGap(hi, lo: lo) 'chain'
 			some(g) then least = ast.maxI128(least, b: g)
-			none then _ = 0
+			none then break
 		end 'chain'
 		return least.add(hi.by).sub(lo.by).ge(gap)
 	end 'provesAbove'
@@ -929,13 +929,13 @@ type States
 		for i in 0 upto list[a].fields.count() 'fields'
 			match consumes list[b].at(list[a].fields[i].at) 'other'
 				some(other) then joinField(list, out: out, a: a, i: i, other: other)
-				none then _ = 0
+				none then break
 			end 'other'
 		end 'fields'
 		for i in 0 upto list[a].relations.count() 'relations'
 			match consumes list[b].gap(list[a].relations[i].hi, lo: list[a].relations[i].lo) 'other'
 				some(gap) then joinRelation(list, out: out, a: a, i: i, other: gap)
-				none then _ = 0
+				none then break
 			end 'other'
 		end 'relations'
 		return out

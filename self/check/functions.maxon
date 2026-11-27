@@ -355,7 +355,7 @@ end 'reportNoEntry'
 function mainFuncOf(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncDecl) returns ast.FuncID
 	match ast.nodeFunc(p, ms: ms, module: c.modID, node: f.id) 'fn'
 		some(fid) then return fid
-		none then _ = 0
+		none then break
 	end 'fn'
 	panic("the entry function of module {c.modID} was not declared")
 end 'mainFuncOf'

@@ -27,7 +27,7 @@ end 'I128Pair'
 function sizedLimit(modID diag.ModuleID, off diag.U32, b Bound, mutates errs diag.ErrorList) returns table.Option with I128
 	match consumes sizedBounds(b.sized) 'range'
 		some(r) then return sizedLimitOf(modID, off: off, b: b, r: r, errs: errs)
-		none then _ = 0
+		none then break
 	end 'range'
 	diag.pushSiteError(errs, code: diag.errUnknownType, message: "'{b.sized}' is not a sized integer; a bound names one of u8, u16, u32, u64, i8, i16, i32 or i64", module: modID, offset: off)
 	return table.Option.none
@@ -36,7 +36,7 @@ end 'sizedLimit'
 function sizedLimitOf(modID diag.ModuleID, off diag.U32, b Bound, r I128Pair, mutates errs diag.ErrorList) returns table.Option with I128
 	match consumes limitOf(r, member: b.limit) 'limit'
 		some(v) then return table.Option.some(v)
-		none then _ = 0
+		none then break
 	end 'limit'
 	diag.pushSiteError(errs, code: diag.errUnknownField, message: "'{b.sized}.{b.limit}' is not a bound; write '{b.sized}.min' or '{b.sized}.max'", module: modID, offset: off)
 	return table.Option.none

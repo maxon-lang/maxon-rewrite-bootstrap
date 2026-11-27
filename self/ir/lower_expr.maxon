@@ -488,11 +488,11 @@ function visitNameExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	if name.kind == ast.NameKind.nameConst 'const'
 		match consumes p.typings[l.mi].staticInstances.get(e as Count) 'instance'
 			some(instance) then return lowerInstanceConstant(l, p: p, ms: ms, name: name, instance: instance)
-			none then _ = 0
+			none then break
 		end 'instance'
 		match consumes constantDatum(p, ms: ms, name: name) 'datum'
 			some(d) then return datumReg(l, d: d)
-			none then _ = 0
+			none then break
 		end 'datum'
 		return exprIn(l, p: p, ms: ms, e: constantExpr(p, name: name))
 	end 'const'
@@ -1171,7 +1171,7 @@ function copyValue(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 		heldAddress(words) then return placedCopy(l, words: words, v: v)
 		heldWord or
 		heldString or
-		heldBox then _ = 0
+		heldBox then break
 		heldInline(_) panic("ir: a variable that holds words of its own or a byte of a buffer")
 		heldPacked panic("ir: a variable that holds words of its own or a byte of a buffer")
 	end 'holding'
@@ -1414,7 +1414,7 @@ function rawValueOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 	if kind == ast.RawKind.value 'value'
 		match consumes rawDatums(p, ms: ms, origin: origin) 'data'
 			some(ds) then return datumSelect(l, index: index, ds: ds)
-			none then _ = 0
+			none then break
 		end 'data'
 		return builtRawValue(l, p: p, ms: ms, origin: origin, index: index)
 	end 'value'

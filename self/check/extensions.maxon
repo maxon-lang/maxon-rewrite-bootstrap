@@ -27,7 +27,7 @@ function extendedType(mutates c Checker, p ast.Project, ms ast.ModuleState, xd a
 	let off = offsetOf(c, p: p, ms: ms, node: xd.target)
 	match consumes ast.nodeDecl(p, ms: ms, node: xd.target as Count) 'bound'
 		some(ref) then return declaredExtendedType(c, p: p, ms: ms, ref: ref, name: name, off: off, errs: errs)
-		none then _ = 0
+		none then break
 	end 'bound'
 	let unqualified = ms.tree().listLen(ast.typeRefQualifierRef(ms.tree(), id: xd.target)) == 0
 	if unqualified and name == "bool" 'boolean'
@@ -50,7 +50,7 @@ end 'extendedType'
 function bindExtensionParams(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, xd ast.ExtensionDecl, nt ast.TypeID)
 	match ast.resolutionOf(p, ms: ms).extParams.get(xd.id as Count) 'first'
 		some(first) then bindParamsFrom(c, p: p, ms: ms, first: first, nt: nt)
-		none then _ = 0
+		none then break
 	end 'first'
 end 'bindExtensionParams'
 
@@ -205,7 +205,7 @@ export function checkExtensionConformances(mutates c Checker, p ast.Project, mut
 		let mark = errs.count()
 		match consumes ast.conformanceSource(p, ms: ms, from: c.modID, t: entry.owner, iface: entry.iface) 'source'
 			ambiguous(first, second) then failAmbiguousConformance(c, p: p, off: offsetOf(c, p: p, ms: ms, node: entry.site), typeName: ast.typeName(ms.types, reads: p.types, t: entry.owner), ifaceName: spelled(c, p: p, ms: ms, iface: entry.iface), first: first, second: second, errs: errs)
-			found(_) then _ = 0
+			found(_) then break
 			absent then panic("the conformance of an extension of {ast.typeName(ms.types, reads: p.types, t: entry.owner)} is not seen from its own module")
 		end 'source'
 		if failedSince(errs, mark: mark) 'ambiguous'

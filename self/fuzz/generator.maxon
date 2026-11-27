@@ -406,14 +406,14 @@ type Generator
 	end 'say'
 
 	// voiced is a statement as the program writes it here: in a quiet program, one that prints anywhere but in main's own
-	// statements only evaluates the string it would print.
+	// statements only evaluates the string it would print, and discards its length: a discard takes a value made by a call.
 	function voiced(statement String) returns String
 		let n = statement.byteLength()
 		if not quiet or (inMain and behaviours == 0) or not hasPrefix(statement, prefix: printCall) 'spoken'
 			return statement.clone()
 		end 'spoken'
 		let inner = statement.sliceBytes(printCall.byteLength(), endPos: try n - printClose.byteLength() otherwise panic("fuzz: a print shorter than its call"))
-		return "_ = {inner}"
+		return "_ = {inner}.byteLength()"
 	end 'voiced'
 
 	function blank(mutates self)
@@ -2287,13 +2287,15 @@ type Generator
 		return true
 	end 'actPrint'
 
+	// actDiscard binds an owned value to a name that nothing reads, so it is dropped where its scope ends.
 	function actDiscard(mutates self, depth Depth) returns bool
 		let t = self.anyType()
 		if tys[t].kind == Kind.kSlotKey or self.scalar(t) 'unusable'
 			return false
 		end 'unusable'
 		let value = self.owned(t, depth: 2)
-		self.line("_ = {value}")
+		let name = self.fresh("d")
+		self.line("let {name} = {value}")
 		return true
 	end 'actDiscard'
 
@@ -4269,7 +4271,8 @@ type Generator
 		if tys[inner].kind == Kind.kArray 'array'
 			self.say(printed("{name}.count()"))
 		end 'array' else if hasField 'field'
-			self.line("_ = {name}.{firstField}")
+			let read = self.fresh("r")
+			self.line("let {read} = {name}.{firstField}")
 		end 'field' else 'other'
 			self.line("_ = {name}.clone()")
 			self.line("_ = {name}.count()")

@@ -302,7 +302,7 @@ function callNamed(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	let name = ast.nameExprName(ms.tree(), id: callee).clone()
 	match consumes ast.nodeDecl(p, ms: ms, node: callee as Count) 'bound'
 		some(ref) then return callDeclared(c, p: p, ms: ms, call: call, ref: ref, name: name, errs: errs)
-		none then _ = 0
+		none then break
 	end 'bound'
 	if name == "print" or name == "printError" 'print'
 		return callPrint(c, p: p, ms: ms, call: call, name: name, errs: errs)
@@ -883,7 +883,7 @@ function typeArgumentsOfOtherModule(mutates c Checker, p ast.Project, mutates ms
 		var want = ast.noType
 		match consumes argSlot(i, label: ast.argLabel(ms.tree(), id: arg), specs: specs) 'slot'
 			some(slot) then want = expectedFor(specs, slot: slot, given: count)
-			none then _ = 0
+			none then break
 		end 'slot'
 		if checkExpecting(c, p: p, ms: ms, e: ast.argValue(ms.tree(), id: arg), want: want, errs: errs) == ast.noType 'failed'
 			return false
@@ -1047,7 +1047,7 @@ end 'unionConstructor'
 function caseIndexNamed(p ast.Project, ms ast.ModuleState, orig ast.TypeID, name String) returns Count
 	match ast.typeEntry(ms.types, reads: p.types, t: orig).findCase(name) 'case'
 		some(i) then return i
-		none then _ = 0
+		none then break
 	end 'case'
 	panic("'{ast.typeEntry(ms.types, reads: p.types, t: orig).name}' has no case '{name}'")
 end 'caseIndexNamed'

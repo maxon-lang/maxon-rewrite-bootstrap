@@ -1,0 +1,53 @@
+// A discard of a value that already exists does nothing, whatever the value: a name, a field, an element, a number, an
+// enum case, a value made of them by an operator, or the handle of a service, which the discard does not end.
+typealias Counts = Array with Count
+
+type Point
+	var x as Count
+
+	static function at(x Count) returns Self
+		return Self{x: x}
+	end 'at'
+end 'Point'
+
+type Calc
+	var n as Count
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function total() returns Count
+		return self.n
+	end 'total'
+end 'Calc'
+
+enum Level
+	low
+	high
+end 'Level'
+
+function main() returns ExitCode
+	let n = 4 as Count
+	let p = Point.at(1)
+	var xs = Counts.create(0)
+	xs.push(5)
+	let h = spawn Calc.create()
+	_ = n
+	_ = p.x
+	_ = xs[0]
+	_ = 7
+	_ = Level.low
+	_ = n + 1
+	_ = h
+	h.shutdown()
+	return 0
+end 'main'
+
+// expect-error: E3067 at 36:2
+// expect-error: E3067 at 37:2
+// expect-error: E3067 at 38:2
+// expect-error: E3067 at 39:2
+// expect-error: E3067 at 40:2
+// expect-error: E3067 at 41:2
+// expect-error: E3067 at 42:2

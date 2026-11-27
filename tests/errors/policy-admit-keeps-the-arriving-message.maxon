@@ -17,7 +17,6 @@ type Fair implements SheddingPolicy with Api.Message
 end 'Fair'
 
 function keep(consumes message Api.Message)
-	_ = message
 end 'keep'
 
 type Request

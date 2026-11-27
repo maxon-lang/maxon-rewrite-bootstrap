@@ -125,7 +125,7 @@ type SharedLibrary
 		var errs = diag.ErrorList.create(0)
 		match consumes project.libraryDirectory() 'found'
 			some(dir) then _ = compileLibrary(p, dir: dir, options: options, errs: errs)
-			none then _ = 0
+			none then break
 		end 'found'
 		if errs.count() > 0 'broken'
 			return table.Option.none
@@ -254,7 +254,7 @@ function prepareRuntime(mutates p ast.Project, options Options, mutates errs dia
 	if options.cacheDir != "" and not options.emitIr and not options.verifyIr and not options.debugInfo and not options.verifiesCache 'probe'
 		match consumes loadedRuntime(p, options: options) 'cached'
 			some(units) then return units
-			none then _ = 0
+			none then break
 		end 'cached'
 	end 'probe'
 	return runtimeUnits(p, first: first, options: options, errs: errs)

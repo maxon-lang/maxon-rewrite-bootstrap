@@ -1538,7 +1538,7 @@ function selectOrRefuse(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 	match source.found 'found'
 		compiled then written = refusals.clone()
 		lowered(form) then written = selectBodyAt(sel, p: p, ms: ms, f: form, path: path, depth: 0, symbol: symbol, instance: instance, closure: closure)
-		straight then _ = 0
+		straight then break
 	end 'found'
 	if written.count() > 0 'refused'
 		reportRefusals(p, ms: ms, f: f, refusals: written, errs: errs)

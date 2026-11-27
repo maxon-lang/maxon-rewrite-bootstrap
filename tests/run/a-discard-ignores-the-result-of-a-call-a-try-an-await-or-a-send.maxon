@@ -1,0 +1,43 @@
+// A discard ignores the value of something done: a call, a try of a call, an await, or a send, whose reply it drops.
+//> 3
+//> 1
+//> 2
+type Calc
+	var n as Count
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function bump(mutates self) returns Count
+		self.n = try self.n + 1 otherwise 0
+		print("{self.n}\n")
+		return self.n
+	end 'bump'
+end 'Calc'
+
+enum Failure implements Error
+	odd
+end 'Failure'
+
+function half(n Count) returns Count throws Failure
+	if n mod 2 == 1 'odd'
+		throw Failure.odd
+	end 'odd'
+	return n / 2
+end 'half'
+
+function three() returns Count
+	print("3\n")
+	return 3
+end 'three'
+
+function main() returns ExitCode
+	_ = three()
+	_ = try half(3) otherwise 0
+	let h = spawn Calc.create()
+	_ = try h.bump() otherwise return 1
+	_ = await try h.bump() otherwise panic("the mailbox has room")
+	h.shutdown()
+	return 0
+end 'main'

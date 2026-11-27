@@ -13,7 +13,7 @@ end 'Holder'
 function keep(consumes value T) uses T where T implements Droppable
 	let c = cown(value)
 	when c as v 'touch'
-		_ = 0
+		print("touched\n")
 	end 'touch'
 end 'keep'
 

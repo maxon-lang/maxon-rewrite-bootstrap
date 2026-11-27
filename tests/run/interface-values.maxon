@@ -50,9 +50,7 @@ enum Dot implements Shape
 	function area() returns Integer
 		return 1 if self == Dot.small else 2
 	end 'area'
-
 	function grow(mutates self, by Integer)
-		_ = by
 	end 'grow'
 end 'Dot'
 

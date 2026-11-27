@@ -115,7 +115,7 @@ export type RoutineSet
 	export function symbol(mutates self, p ast.Project, mutates ms ast.ModuleState, kind RoutineKind, ty ast.TypeID) returns String
 		match self.known(kind, ty: ty) 'hit'
 			some(name) then return name.clone()
-			none then _ = 0
+			none then break
 		end 'hit'
 		if kind == RoutineKind.dropRoutine and onlyFrees(p, ms: ms, ty: ty) 'frees'
 			let free = ir.rtSymbol(ir.Rt.rtFree)

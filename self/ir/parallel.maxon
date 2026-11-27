@@ -197,7 +197,7 @@ function lowerIterations(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	lowerBlock(l, p: p, ms: ms, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
 	popJumps(l)
 	match walk 'walkEnds'
-		range(_) then _ = 0
+		range(_) then break
 		array(_, _) then _ = try l.parallelSlots.pop() otherwise panic("lower: a parallel for ended that was never begun")
 	end 'walkEnds'
 	goTo(l, target: cont)

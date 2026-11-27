@@ -385,7 +385,7 @@ function checkFixingFor(prog FixProgram, libraries FixLibraries, target ast.Targ
 	if libraries.count() > 0 and project.getsLibrary(prog.root) 'shared'
 		match libraries[knownTargetIndex(target)] 'library'
 			some(library) then p = library.projectForProgram()
-			none then _ = 0
+			none then break
 		end 'library'
 	end 'shared'
 	let first = p.modules.count()

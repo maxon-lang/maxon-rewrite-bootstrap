@@ -262,13 +262,10 @@ function withoutCarriageReturns(text String, loneToo bool) returns String
 		let c = text.byteAt(i)
 		if c != carriageReturnByte 'plain'
 			out.push(c)
-		end 'plain' else if i + 1 < n and text.byteAt(i + 1) == newlineByte 'crlf'
-			_ = 0
-		end 'crlf' else if loneToo 'lone'
-			out.push(newlineByte)
-		end 'lone' else 'kept'
-			out.push(c)
-		end 'kept'
+		end 'plain' else if not (i + 1 < n and text.byteAt(i + 1) == newlineByte) 'lone'
+			// The CR of a CRLF goes; a lone one is an LF where loneToo is set.
+			out.push(newlineByte if loneToo else c)
+		end 'lone'
 	end 'bytes'
 	return String.from(out)
 end 'withoutCarriageReturns'

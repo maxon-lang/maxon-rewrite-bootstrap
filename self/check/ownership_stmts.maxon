@@ -317,7 +317,7 @@ function assignToOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSt
 			requireUnlent(o, p: p, ms: ms, root: path.root, site: site, s: out)
 			match consumes assignPart(o, p: p, ms: ms, st: st, target: target, path: path, s: out) 'part'
 				some(next) then return next
-				none then _ = 0
+				none then break
 			end 'part'
 			requireOverwriteDroppable(o, p: p, ms: ms, st: st, target: target, s: out)
 			return readRoot(o, p: p, ms: ms, l: selfLocalOf(o, p: p, ms: ms), site: offsetOfOwn(o, p: p, ms: ms, node: target), s: out)
@@ -344,7 +344,7 @@ function assignToOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSt
 		requireUnlent(o, p: p, ms: ms, root: path.root, site: site, s: out)
 		match consumes assignPart(o, p: p, ms: ms, st: st, target: target, path: path, s: out) 'part'
 			some(next) then return next
-			none then _ = 0
+			none then break
 		end 'part'
 		requireOverwriteDroppable(o, p: p, ms: ms, st: st, target: target, s: out)
 		return eval(o, p: p, ms: ms, e: ast.memberExprObj(ms.tree(), id: target), s: out)

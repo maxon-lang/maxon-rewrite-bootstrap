@@ -645,7 +645,7 @@ function rangeAssignComputed(mutates r Ranges, p ast.Project, ms ast.ModuleState
 	end 'dead'
 	match consumes midpoint 'midpoint'
 		some(m) then rangeRelateMidpoint(r, place: place, m: m)
-		none then _ = 0
+		none then break
 	end 'midpoint'
 end 'rangeAssignComputed'
 
@@ -869,11 +869,11 @@ function rangeLoopBody(mutates r Ranges, p ast.Project, ms ast.ModuleState, s as
 		r.states.list[body].refine(counter, v: v)
 		match consumes rangeOffsetOf(r, p: p, ms: ms, e: ast.forStmtTo(ms.tree(), id: s)) 'bound'
 			some(bound) then rangeRelateBound(r, p: p, ms: ms, s: s, body: body, bound: bound, counter: counter)
-			none then _ = 0
+			none then break
 		end 'bound'
 		match consumes rangeOffsetOf(r, p: p, ms: ms, e: ast.forStmtFrom(ms.tree(), id: s)) 'start'
 			some(start) then rangeRelateStart(r, p: p, ms: ms, s: s, body: body, start: start, counter: counter)
-			none then _ = 0
+			none then break
 		end 'start'
 	end 'runs'
 	return body
@@ -888,7 +888,7 @@ function rangeRelateBound(mutates r Ranges, p ast.Project, ms ast.ModuleState, s
 	end 'falls'
 	match consumes boundGap(bound.by, exact: bound.exact, inclusive: ast.forStmtInclusive(ms.tree(), id: s)) 'gap'
 		some(gap) then r.states.list[body].relate(bound.at, lo: counter, gap: gap)
-		none then _ = 0
+		none then break
 	end 'gap'
 end 'rangeRelateBound'
 
@@ -900,7 +900,7 @@ function rangeRelateStart(mutates r Ranges, p ast.Project, ms ast.ModuleState, s
 	end 'rises'
 	match consumes startGap(start.by, exact: start.exact) 'gap'
 		some(gap) then r.states.list[body].relate(counter, lo: start.at, gap: gap)
-		none then _ = 0
+		none then break
 	end 'gap'
 end 'rangeRelateStart'
 
@@ -913,7 +913,7 @@ function rangeWhenStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s as
 	end 'probed'
 	match consumes r.typing.whens.get(s as Count) 'when'
 		some(info) then rangeFunction(r, p: p, ms: ms, fid: info.fn, behaviour: true)
-		none then _ = 0
+		none then break
 	end 'when'
 end 'rangeWhenStmt'
 
@@ -1024,15 +1024,15 @@ function rangeThrowStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s a
 	let e = typeOf(r, e: value)
 	if r.handlers.count() == 0 'toCaller'
 		let thrown = fnErrorType(r, p: p, ms: ms)
-		if r.probing 'probed'
-			_ = 0
-		end 'probed' else if r.behaviour 'behaviour'
-			rangeRaise(r, p: p, ms: ms, node: s, code: diag.errErrorTypeMismatch, msg: "a throw passes its error to the caller, and nothing waits for a behaviour: handle the failure in the behaviour")
-		end 'behaviour' else if thrown == ast.noType 'noThrows'
-			rangeRaise(r, p: p, ms: ms, node: s, code: diag.errErrorTypeMismatch, msg: diag.throwNoThrows(nameOfType(p, ms: ms, t: e)))
-		end 'noThrows' else if thrown != e 'other'
-			rangeRaise(r, p: p, ms: ms, node: s, code: diag.errErrorTypeMismatch, msg: diag.throwMismatch(nameOfType(p, ms: ms, t: e), enclosing: nameOfType(p, ms: ms, t: thrown)))
-		end 'other'
+		if not r.probing 'reported'
+			if r.behaviour 'behaviour'
+				rangeRaise(r, p: p, ms: ms, node: s, code: diag.errErrorTypeMismatch, msg: "a throw passes its error to the caller, and nothing waits for a behaviour: handle the failure in the behaviour")
+			end 'behaviour' else if thrown == ast.noType 'noThrows'
+				rangeRaise(r, p: p, ms: ms, node: s, code: diag.errErrorTypeMismatch, msg: diag.throwNoThrows(nameOfType(p, ms: ms, t: e)))
+			end 'noThrows' else if thrown != e 'other'
+				rangeRaise(r, p: p, ms: ms, node: s, code: diag.errErrorTypeMismatch, msg: diag.throwMismatch(nameOfType(p, ms: ms, t: e), enclosing: nameOfType(p, ms: ms, t: thrown)))
+			end 'other'
+		end 'reported'
 		r.st = deadState
 		return
 	end 'toCaller'
@@ -1110,7 +1110,7 @@ function rangeMatch(mutates r Ranges, p ast.Project, ms ast.ModuleState, core as
 		if not ast.matchArmIsDefault(ms.tree(), id: arm) 'patterns'
 			match subjectPlace 'place'
 				some(place) then from = rangeArmState(r, p: p, ms: ms, start: start, subject: place, t: subjectTy, arm: arm)
-				none then _ = 0
+				none then break
 			end 'place'
 		end 'patterns'
 		from = r.states.joined(from, b: fell)

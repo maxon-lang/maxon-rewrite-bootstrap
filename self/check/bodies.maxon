@@ -25,11 +25,11 @@ function checkDeclBody(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		typeDecl(td) then checkRecordBody(c, p: p, ms: ms, td: td, tid: declTypeOf(p, ms: ms, ref: ref), errs: errs)
 		unionDecl(ud) then checkNominalBody(c, p: p, ms: ms, id: ud.id, tid: declTypeOf(p, ms: ms, ref: ref), errs: errs)
 		enumDecl(ed) then checkConformance(c, p: p, ms: ms, site: ed.id, nt: declTypeOf(p, ms: ms, ref: ref), errs: errs)
-		funcDecl(_) then _ = 0
-		constDecl(_) then _ = 0
-		aliasDecl(_) then _ = 0
-		interfaceDecl(_) then _ = 0
-		extensionDecl(_) then _ = 0
+		funcDecl(_) then break
+		constDecl(_) then break
+		aliasDecl(_) then break
+		interfaceDecl(_) then break
+		extensionDecl(_) then break
 	end 'k'
 end 'checkDeclBody'
 
@@ -53,9 +53,9 @@ function checkFunctionsOf(mutates c Checker, p ast.Project, mutates ms ast.Modul
 		typeDecl(td) then checkMethodBodies(c, p: p, ms: ms, methods: td.methods, isDeclared: isDeclared, errs: errs)
 		unionDecl(ud) then checkMethodBodies(c, p: p, ms: ms, methods: ud.methods, isDeclared: isDeclared, errs: errs)
 		enumDecl(ed) then checkMethodBodies(c, p: p, ms: ms, methods: ed.methods, isDeclared: isDeclared, errs: errs)
-		constDecl(_) then _ = 0
-		aliasDecl(_) then _ = 0
-		interfaceDecl(_) then _ = 0
+		constDecl(_) then break
+		aliasDecl(_) then break
+		interfaceDecl(_) then break
 		extensionDecl(xd) then checkMethodBodies(c, p: p, ms: ms, methods: xd.methods, isDeclared: isDeclared, errs: errs)
 	end 'k'
 end 'checkFunctionsOf'
@@ -166,7 +166,7 @@ function recordFieldUses(mutates c Checker, defaultExpr ast.NodeID)
 	end 'dead'
 	match consumes c.typing.fieldUses.get(defaultExpr as Count) 'defaultUses'
 		some(calls) then recordAll(c, calls: calls)
-		none then _ = 0
+		none then break
 	end 'defaultUses'
 end 'recordFieldUses'
 
@@ -195,6 +195,7 @@ function checkFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		finishFunction(c, node: f.id)
 		return
 	end 'badParams'
+	c.functionBody = f.body
 	checkBlock(c, p: p, ms: ms, body: f.body, errs: errs)
 	if not failedSince(errs, mark: mark) and lendsInSelf(c, p: p, ms: ms, f: f, fid: fid) 'lendsPlace'
 		c.typing.lendsPlace.insert(f.id as Count, value: true)

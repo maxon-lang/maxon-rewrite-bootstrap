@@ -42,9 +42,7 @@ type Txn implements Shape
 	function area() returns Integer
 		return id
 	end 'area'
-
 	function commit(destructs self)
-		_ = 0
 	end 'commit'
 end 'Txn'
 
@@ -53,4 +51,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3919 at 52:17
+// expect-error: E3919 at 50:17

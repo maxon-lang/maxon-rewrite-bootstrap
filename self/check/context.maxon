@@ -265,17 +265,26 @@ export type Checker
 	// partyWaitNow is whether the function being checked waits on another party: a reply it keeps, or the start of a service
 	// whose factory throws; spawned are the types the module spawns services of, each once, whose messages E3221 asks it of
 	// (services.maxon), at the first spawn of each (spawnSites), servicesChecked the types whose service rules were checked,
-	// and discardedSend the send that the discard being checked drops the reply of.
+	// and discardedSend the send that the discard being checked drops the reply of. acts counts the calls (a union case's
+	// construction is none), sends, awaits, async calls, spawns and panics checked, outside a closure's body, by which a
+	// discard tells a value made by doing something from one that already exists (E3067).
 	export var partyWaitNow as bool
 	export var spawned as ast.TypeIDList
 	export var spawnSites as ast.NodeIDList
 	export var servicesChecked as ast.TypeIDList
 	export var discardedSend as ast.NodeID
+	export var acts as Count
+	// functionBody is the body of the function being checked, soleStatement whether the statement being checked is the one
+	// statement of a block other than it, which may not be empty, and armAction the statement that is the action of the match
+	// arm being checked: what the fix of a discard needs to know of where it stands.
+	export var functionBody as diag.U32
+	export var soleStatement as bool
+	export var armAction as ast.NodeID
 
 	export static function make(modID diag.ModuleID, consumes typing ast.Typing) returns Checker
 		let mIdx = ast.modIndex(modID)
 		let csMap = BoolIntMap.new()
-		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBorrowFree: PendingBorrowFreeList.create(0), pendingBoxes: PendingBoxList.create(0), pendingHandles: PendingHandleList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", constNamesParams: false, deferredNames: ast.NodeIDList.create(0), deferredHeads: ast.NodeIDList.create(0), inRawValue: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0), waitNow: false, waitCalls: ast.FuncIDList.create(0), waits: WaitFacts.new(), waitSends: UnpolicedSends.create(0), sendsUnpoliced: false, posted: PostedKindList.create(0), pendingAsyncs: PendingAsyncList.create(0), pendingPolicies: PendingPolicyList.create(0), partyWaitNow: false, spawned: ast.TypeIDList.create(0), spawnSites: ast.NodeIDList.create(0), servicesChecked: ast.TypeIDList.create(0), discardedSend: 0 as ast.NodeID}
+		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBorrowFree: PendingBorrowFreeList.create(0), pendingBoxes: PendingBoxList.create(0), pendingHandles: PendingHandleList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", constNamesParams: false, deferredNames: ast.NodeIDList.create(0), deferredHeads: ast.NodeIDList.create(0), inRawValue: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0), waitNow: false, waitCalls: ast.FuncIDList.create(0), waits: WaitFacts.new(), waitSends: UnpolicedSends.create(0), sendsUnpoliced: false, posted: PostedKindList.create(0), pendingAsyncs: PendingAsyncList.create(0), pendingPolicies: PendingPolicyList.create(0), partyWaitNow: false, spawned: ast.TypeIDList.create(0), spawnSites: ast.NodeIDList.create(0), servicesChecked: ast.TypeIDList.create(0), discardedSend: 0 as ast.NodeID, acts: 0 as Count, functionBody: 0 as diag.U32, soleStatement: false, armAction: 0 as ast.NodeID}
 	end 'make'
 end 'Checker'
 
@@ -993,7 +1002,7 @@ export function lacksCap(mutates c Checker, p ast.Project, mutates ms ast.Module
 	let key = "{capTag}|{t}|{c.boundedFn}"
 	match consumes c.capKnown.get(key) 'hit'
 		some(l) then return l
-		none then _ = 0
+		none then break
 	end 'hit'
 	if c.capVisiting.has(key) 'cyc'
 		return LackInfo.ok()
@@ -1260,7 +1269,7 @@ export function resolveBoundTypeRef(mutates c Checker, p ast.Project, mutates ms
 	let tName = ast.typeRefName(ms.tree(), id: tr).clone()
 	match ast.nodeDecl(p, ms: ms, node: tr as Count) 'hit'
 		some(ref) then return checkInterfaceRef(c, p: p, ms: ms, tr: tr, off: off, tName: tName, ref: ref, isBound: isBound, selfTy: selfTy, errs: errs)
-		none then _ = 0
+		none then break
 	end 'hit'
 	if ast.resolutionOf(p, ms: ms).typeParamSlots.has(tr as Count) 'typeParameter'
 		checkFail(c.modID, off: off, code: diag.errGenericDeclaration, msg: "'{tName}' is not an interface, and only an interface can be a bound or be implemented", errs: errs)
@@ -1295,7 +1304,7 @@ end 'failNotGeneric'
 function checkInterfaceRef(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, off diag.U32, tName String, ref ast.DeclRef, isBound bool, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	match ast.declType(p, ms: ms, ref: ref) 'dt'
 		some(tid) then return verifyInterfaceTarget(c, p: p, ms: ms, tr: tr, off: off, tName: tName, tid: tid, isBound: isBound, selfTy: selfTy, errs: errs)
-		none then _ = 0
+		none then break
 	end 'dt'
 	checkFail(c.modID, off: off, code: diag.errGenericDeclaration, msg: "'{tName}' is not an interface, and only an interface can be a bound or be implemented", errs: errs)
 	return ast.noType
@@ -1408,7 +1417,7 @@ function resolveNamedTypeRef(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	let hasArgs = ms.tree().listLen(argsRef) > 0
 	match ast.resolutionOf(p, ms: ms).typeParamSlots.get(tr as Count) 'tpSlot'
 		some(slot) then return resolveBoundTP(c, p: p, ms: ms, off: off, name: tName, slot: slot, hasArgs: hasArgs, errs: errs)
-		none then _ = 0
+		none then break
 	end 'tpSlot'
 	let qualCount = ms.tree().listLen(ast.typeRefQualifierRef(ms.tree(), id: tr))
 	if qualCount == 0 'unqual'
@@ -1467,12 +1476,12 @@ function resolveNamedTypeRef(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	if qualCount > 0 and tName == ast.serviceHandleMember 'handle'
 		match consumes handleTypeOf(c, p: p, ms: ms, tr: tr, errs: errs) 'service'
 			some(t) then return t
-			none then _ = 0
+			none then break
 		end 'service'
 	end 'handle'
 	match ast.nodeDecl(p, ms: ms, node: tr as Count) 'declHit'
 		some(ref) then return applyTypeArgs(c, p: p, ms: ms, tr: tr, off: off, tName: tName, ref: ref, selfTy: selfTy, errs: errs)
-		none then _ = 0
+		none then break
 	end 'declHit'
 	failUnknownType(c, p: p, ms: ms, tr: tr, errs: errs)
 	return ast.noType
@@ -1485,7 +1494,7 @@ function resolveBoundTP(c Checker, p ast.Project, ms ast.ModuleState, off diag.U
 	let tpNode = ast.resolutionOf(p, ms: ms).typeParams[slot].id
 	match ast.paramType(p, ms: ms, module: c.modID, node: tpNode) 'tid'
 		some(id) then return id
-		none then _ = 0
+		none then break
 	end 'tid'
 	checkFail(c.modID, off: off, code: diag.errUnknownType, msg: diag.unknownType(name), errs: errs)
 	return ast.noType

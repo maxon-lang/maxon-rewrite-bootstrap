@@ -88,7 +88,7 @@ type Station
 	function receive(mutates self, ctx frozen with Context, task Count, consumes arrival Arrival) returns bool
 		var held = arrival
 		match consumes exchange(held.payload, value: Payload.none) 'payload'
-			none then _ = 0
+			none then break
 			start(value) then work.startCheck(value)
 			home(value) then work.home = value
 			emitted(_) then panic("driver: a module is sent its unit")
@@ -130,7 +130,7 @@ type ProjectStation
 	function receive(mutates self, ctx frozen with Context, task Count, consumes arrival Arrival) returns bool
 		var held = arrival
 		match consumes exchange(held.payload, value: Payload.none) 'payload'
-			none then _ = 0
+			none then break
 			start(_) then panic("driver: the project is sent the start of a module's check")
 			home(value) then takeIn(value)
 			emitted(value) then takeEmitted(ctx, emitted: value)

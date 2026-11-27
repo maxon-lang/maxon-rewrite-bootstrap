@@ -22,7 +22,7 @@ function borrowsOf(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID)
 	if k == ast.NodeKind.closureExpr 'closure'
 		match consumes o.c.typing.closures.get(e as Count) 'info'
 			some(info) then closureBorrows(o, info: info, out: out)
-			none then _ = 0
+			none then break
 		end 'info'
 		return out
 	end 'closure'
@@ -45,7 +45,7 @@ function closureBorrows(o Ownership, info ast.ClosureInfo, mutates out OwnBorrow
 		if conv == ast.Convention.convConsumes 'moved'
 			match consumes heldBy(o, local: info.captures[i].outerLocal) 'holder'
 				some(held) then out.addAll(held)
-				none then _ = 0
+				none then break
 			end 'holder'
 		end 'moved' else 'borrowed'
 			out.add(info.captures[i].name, root: info.captures[i].outerLocal, changes: conv == ast.Convention.convMutates)

@@ -77,7 +77,7 @@ end 'pushIfInstanceAlias'
 function namedAliases(p ast.Project, ms ast.ModuleState, tr ast.NodeID, mutates out DeclRefList)
 	match consumes ast.nodeDecl(p, ms: ms, node: tr as Count) 'bound'
 		some(ref) then pushIfInstanceAlias(p, ref: ref, out: out)
-		none then _ = 0
+		none then break
 	end 'bound'
 	let argsRef = ast.typeRefTypeArgsRef(ms.tree(), id: tr)
 	for i in 0 upto ms.tree().listLen(argsRef) 'args'
@@ -258,13 +258,13 @@ export function declareAliases(mutates c Checker, p ast.Project, mutates ms ast.
 	for i in 0 upto p.modules[c.modIdx].decls.count() 'supertypes'
 		match p.modules[c.modIdx].decls[i].clone() 'k'
 			aliasDecl(ad) then declareSupertype(c, p: p, ms: ms, a: ad, ref: ast.DeclRef.make(c.modID, ordinal: try i as ast.DeclOrdinal otherwise panic("too many declarations")), errs: errs)
-			funcDecl(_) then _ = 0
-			constDecl(_) then _ = 0
-			typeDecl(_) then _ = 0
-			enumDecl(_) then _ = 0
-			unionDecl(_) then _ = 0
-			interfaceDecl(_) then _ = 0
-			extensionDecl(_) then _ = 0
+			funcDecl(_) then break
+			constDecl(_) then break
+			typeDecl(_) then break
+			enumDecl(_) then break
+			unionDecl(_) then break
+			interfaceDecl(_) then break
+			extensionDecl(_) then break
 		end 'k'
 	end 'supertypes'
 end 'declareAliases'

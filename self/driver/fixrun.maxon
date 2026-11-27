@@ -108,12 +108,12 @@ type FixBoard
 			taken = offsetBy(taken, by: 1)
 			match consumes exchange(result.left, value: LeftExecutable.none) 'left'
 				some(path) then scratch.left.push(path)
-				none then _ = 0
+				none then break
 			end 'left'
 			takeFixResult(tally, result: result)
 			match bench.jobs[index] 'job'
 				spec(value) then takeSpecEdits(bench, job: value, result: result)
-				program(_) then _ = 0
+				program(_) then break
 			end 'job'
 		end 'ready'
 		if taken == results.count() and not ended 'last'

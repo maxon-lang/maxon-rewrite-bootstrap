@@ -49,7 +49,7 @@ end 'placeOffset'
 function declTypeOf(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) returns ast.TypeID
 	match ast.declType(p, ms: ms, ref: ref) 'dt'
 		some(tid) then return tid
-		none then _ = 0
+		none then break
 	end 'dt'
 	panic("the declaration at ordinal {ref.ordinal} of module {ref.module} has no type")
 end 'declTypeOf'
@@ -58,7 +58,7 @@ end 'declTypeOf'
 function typeParamOfNode(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID) returns ast.TypeID
 	match ast.paramType(p, ms: ms, module: c.modID, node: node) 'tp'
 		some(tid) then return tid
-		none then _ = 0
+		none then break
 	end 'tp'
 	panic("the type parameter at node {node} of module {c.modID} is not declared")
 end 'typeParamOfNode'
@@ -67,7 +67,7 @@ end 'typeParamOfNode'
 function boundedParamOf(c Checker, p ast.Project, ms ast.ModuleState, cs ast.Constraint) returns ast.TypeID
 	match ast.resolutionOf(p, ms: ms).typeParamSlots.get(cs.id as Count) 'slot'
 		some(slot) then return typeParamOfNode(c, p: p, ms: ms, node: ast.resolutionOf(p, ms: ms).typeParams[slot].id)
-		none then _ = 0
+		none then break
 	end 'slot'
 	panic("the constraint at node {cs.id} of module {c.modID} names no type parameter")
 end 'boundedParamOf'
@@ -525,12 +525,12 @@ function declareDeclTypeParams(mutates c Checker, p ast.Project, mutates ms ast.
 	match p.modules[c.modIdx].decls[ord as Count].clone() 'k'
 		typeDecl(td) then declareNominalTypeParams(c, p: p, ms: ms, owner: declTypeOf(p, ms: ms, ref: ref), params: td.typeParams, constraints: td.whereList, errs: errs)
 		unionDecl(ud) then declareNominalTypeParams(c, p: p, ms: ms, owner: declTypeOf(p, ms: ms, ref: ref), params: ud.typeParams, constraints: ud.whereList, errs: errs)
-		funcDecl(_) then _ = 0
-		constDecl(_) then _ = 0
-		enumDecl(_) then _ = 0
-		aliasDecl(_) then _ = 0
+		funcDecl(_) then break
+		constDecl(_) then break
+		enumDecl(_) then break
+		aliasDecl(_) then break
 		interfaceDecl(ifd) then declareInterfaceTypeParams(c, p: p, ms: ms, owner: declTypeOf(p, ms: ms, ref: ref), ifd: ifd, errs: errs)
-		extensionDecl(_) then _ = 0
+		extensionDecl(_) then break
 	end 'k'
 	return not failedSince(errs, mark: mark)
 end 'declareDeclTypeParams'
@@ -546,8 +546,8 @@ function declareDecl(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		unionDecl(ud) then declareUnionDecl(c, p: p, ms: ms, ud: ud, tid: declTypeOf(p, ms: ms, ref: ref), paramsOk: paramsOk, declared: declared, errs: errs)
 		interfaceDecl(ifd) then declareInterfaceMembers(c, p: p, ms: ms, ifd: ifd, tid: declTypeOf(p, ms: ms, ref: ref), errs: errs)
 		extensionDecl(xd) then declareExtension(c, p: p, ms: ms, xd: xd, declared: declared, errs: errs)
-		constDecl(_) then _ = 0
-		aliasDecl(_) then _ = 0
+		constDecl(_) then break
+		aliasDecl(_) then break
 	end 'k'
 end 'declareDecl'
 

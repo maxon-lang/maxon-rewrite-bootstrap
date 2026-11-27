@@ -179,7 +179,7 @@ function without(consumes s OwnState, l ast.LocalID) returns OwnState
 	end 'dead'
 	match out.find(l) 'hit'
 		some(i) then _ = try out.facts.remove(i) otherwise panic("ownership: a fact vanished")
-		none then _ = 0
+		none then break
 	end 'hit'
 	return out
 end 'without'
@@ -565,9 +565,9 @@ function checkOwnership(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 			typeDecl(td) then checkMethodsOwn(o, p: p, ms: ms, methods: td.methods, isDeclared: isDeclared)
 			unionDecl(ud) then checkMethodsOwn(o, p: p, ms: ms, methods: ud.methods, isDeclared: isDeclared)
 			enumDecl(ed) then checkMethodsOwn(o, p: p, ms: ms, methods: ed.methods, isDeclared: isDeclared)
-			constDecl(_) then _ = 0
-			aliasDecl(_) then _ = 0
-			interfaceDecl(_) then _ = 0
+			constDecl(_) then break
+			aliasDecl(_) then break
+			interfaceDecl(_) then break
 			extensionDecl(xd) then checkMethodsOwn(o, p: p, ms: ms, methods: xd.methods, isDeclared: isDeclared)
 		end 'k'
 	end 'functions'
@@ -1063,12 +1063,12 @@ function checkValues(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSt
 	match p.modules[o.c.modIdx].decls[ord as Count].clone() 'k'
 		constDecl(cd) then checkValue(o, p: p, ms: ms, e: cd.value, name: cd.name)
 		typeDecl(_) then checkFieldValues(o, p: p, ms: ms, tid: declTypeOf(p, ms: ms, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
-		funcDecl(_) then _ = 0
+		funcDecl(_) then break
 		enumDecl(_) then checkRawValueExprs(o, p: p, ms: ms, tid: declTypeOf(p, ms: ms, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
 		unionDecl(_) then checkRawValueExprs(o, p: p, ms: ms, tid: declTypeOf(p, ms: ms, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
-		aliasDecl(_) then _ = 0
-		interfaceDecl(_) then _ = 0
-		extensionDecl(_) then _ = 0
+		aliasDecl(_) then break
+		interfaceDecl(_) then break
+		extensionDecl(_) then break
 	end 'k'
 end 'checkValues'
 
