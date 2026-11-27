@@ -200,9 +200,14 @@ let longestSleepNanos = 0x4000000000000000 as Count
 // sleepMs is maxon's sleep(milliseconds): the running green thread parks for at least that long, and its strand's other
 // members run meanwhile.
 function sleepMs(milliseconds Count)
-	let asked = try milliseconds * nanosPerMilli otherwise longestSleepNanos
-	greenSleep(asked if asked < longestSleepNanos else longestSleepNanos)
+	greenSleep(sleepNanos(milliseconds))
 end 'sleepMs'
+
+// sleepNanos is a wait of a number of milliseconds in nanoseconds, at most longestSleepNanos, as a sleep and a timer wait.
+function sleepNanos(milliseconds Count) returns Count
+	let asked = try milliseconds * nanosPerMilli otherwise longestSleepNanos
+	return asked if asked < longestSleepNanos else longestSleepNanos
+end 'sleepNanos'
 
 // schedYield is maxon's Scheduler.yield(): the members of the strand that wait to run, else the green threads that are
 // runnable, run before the caller goes on.

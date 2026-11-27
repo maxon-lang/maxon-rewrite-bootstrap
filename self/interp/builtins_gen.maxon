@@ -371,6 +371,22 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryServicePostedCancel(vm, f: f, x: x)
 		return
 	end 'rtServicePostedCancel'
+	if symbol == ir.Rt.rtTimerNew 'rtTimerNew'
+		try entryTimerNew(vm, f: f, x: x)
+		return
+	end 'rtTimerNew'
+	if symbol == ir.Rt.rtTimerRearm 'rtTimerRearm'
+		try entryTimerRearm(vm, f: f, x: x)
+		return
+	end 'rtTimerRearm'
+	if symbol == ir.Rt.rtTimerReset 'rtTimerReset'
+		try entryTimerReset(vm, f: f, x: x)
+		return
+	end 'rtTimerReset'
+	if symbol == ir.Rt.rtTimerCancel 'rtTimerCancel'
+		try entryTimerCancel(vm, f: f, x: x)
+		return
+	end 'rtTimerCancel'
 	if symbol == ir.Rt.rtServiceNotifyStopped 'rtServiceNotifyStopped'
 		try entryServiceNotifyStopped(vm, f: f, x: x)
 		return

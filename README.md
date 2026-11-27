@@ -5224,6 +5224,15 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   message posted to a service that has ended, by an arm or a watch made after its end, is dropped too, never handled, so
   nothing runs on an ended service's state, which may be gone. The interpreter does not model posted messages yet: a program that makes one is `// native-only`. A reason argument, H4's, can
   come later.
+  **A timer posts a message** (`stdlib/service/Timer.maxon`, "Timers that post a message" in `runtime/timers.maxon`):
+  `let t = Timer.notifyAfter(5000, message: self.handle.post(Conn.Message.idleTimeout()))` posts the message once, at least
+  that many milliseconds (`clock.DurationMs`, at most about 146 years, as a sleep) later, with no green thread waiting for it:
+  the timer is a 56-byte record on the timers' heap that holds the posted record. `t.reset(ms)` moves a fire still pending and
+  says whether it did (`false` once the timer is spent); `t.rearm(ms, message: m)` arms it anew with another message in any
+  state; `t.cancel()` ends it. A cancel, a reset or a rearm drops a fire that is queued and has not started, as Go 1.23's Stop
+  and Reset do, so a handler never sees a fire older than the last reset. A `Timer` is linear, as a `PostedMessage` is
+  (`E3919`), so a state that holds one implements `Ends` and its `finish` cancels it; an armed timer is live and keeps its
+  service and the program alive, and the end of the service takes the arm back, its message never handled.
   The **error of an await** is the handler's own unless the reply may fail with more: for a message whose policy sheds it
   (`busy`) or of a type that implements StopsNow (`serviceStopped`), the compiler makes an enum, named
   `Worker.work.Error` in messages, of the handler's cases, then `busy`, then `serviceStopped` (one the handler already throws

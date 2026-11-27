@@ -1,0 +1,56 @@
+// 100k armed timers that post to one service hold no green thread: each costs four heap boxes, the timer's record, the posted
+// record, its union's box and the handle's, with their headers, beside its 16-byte slot of the timers' heap (counted with the
+// heap's doubling slack, at most half again), at most 256 bytes in all. The frames of main hold the timers and cancel each as
+// the chain returns, so the program ends with nothing left.
+// native-only
+//> 100000 idle timers: 4 boxes each, at most 256 bytes each with a heap slot
+export typealias Amount = int(0 to 1000000)
+
+// slotBytes is a timer's slot of the timers' heap with its doubling slack.
+let slotBytes = 24 as Count
+
+let headerBytes = 8 as Count
+
+let mostBytes = 256 as Count
+
+let timers = 100000 as Amount
+
+type Idle
+	var fires as Amount
+
+	static function create() returns Self
+		return Self{fires: 0}
+	end 'create'
+
+	export function fired(mutates self, at Amount)
+		self.fires = try self.fires + 1 otherwise 0
+	end 'fired'
+end 'Idle'
+
+function hold(w Idle.handle, left Amount, before HeapActivity)
+	if left == 0 'all'
+		let after = HeapStats.process()
+		let boxes = try (after.allocations - after.frees) - (before.allocations - before.frees) otherwise 0
+		let asked = try after.bytes - before.bytes otherwise 0
+		let each = try (asked + boxes * headerBytes) / timers + slotBytes otherwise 0
+		let boxesEach = boxes / timers
+		if each <= mostBytes 'small'
+			print("{timers} idle timers: {boxesEach} boxes each, at most {mostBytes} bytes each with a heap slot\n")
+		end 'small' else 'large'
+			print("{timers} idle timers: {each} bytes each\n")
+		end 'large'
+		return
+	end 'all'
+	let t = Timer.notifyAfter(3600000, message: w.post(Idle.Message.fired(left)))
+	hold(w, left: left - 1, before: before)
+	t.cancel()
+end 'hold'
+
+function main() returns ExitCode
+	let w = spawn Idle.create()
+	let done = w.stopped()
+	hold(w, left: timers, before: HeapStats.process())
+	w.shutdown()
+	await done
+	return 0
+end 'main'

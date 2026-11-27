@@ -652,11 +652,14 @@ let postedCancelled = 1 as Count
 
 // postedExcessLive: the arm's count among the live ones is one too many, its event having queued it behind a behaviour whose
 // release makes it runnable and counts it then. postedListed: it is on its service's armed list; postedArmedOnce: it was.
+// postedOnTimer: a timer was armed with it, which its postedTimerOffset names (timers.maxon, "Timers that post a message").
 let postedExcessLive = 2 as Count
 
 let postedListed = 4 as Count
 
 let postedArmedOnce = 8 as Count
+
+let postedOnTimer = 16 as Count
 
 let postedRun = 0 as Count
 
@@ -687,11 +690,18 @@ function servicePostedNew(record Count) returns Count
 	return record
 end 'servicePostedNew'
 
-// postedQueue queues a posted record on its service, as acquireOne queues a message, on a thread that holds a processor. Its hold
-// is the one it took when it was made: the cown was idle, so the behaviour runs at once with it; or a behaviour is ahead, whose
-// release takes a hold for this one as it hands the cown on, so this one's is given back first, before the link, while the
-// behaviour ahead still holds one, so the count never reaches 0 here.
+// postedQueue queues a posted record on its service, as acquireOne queues a message, on a thread that holds a processor.
 function postedQueue(record Count)
+	if postedEnqueue(record) 'idle'
+		schedPush(record)
+	end 'idle'
+end 'postedQueue'
+
+// postedEnqueue links a posted record on its service, and says whether the cown was idle, so that the caller makes it runnable.
+// Its hold is the one it took when it was made: the cown was idle, so the behaviour runs at once with it; or a behaviour is
+// ahead, whose release takes a hold for this one as it hands the cown on, so this one's is given back first, before the link,
+// while the behaviour ahead still holds one, so the count never reaches 0 here.
+function postedEnqueue(record Count) returns bool
 	let cown = __Raw.loadWord(record, offset: cownOffset(1, index: 0))
 	let slot = requestSlot(record, index: 0)
 	__Raw.storeWord(slot, offset: requestCownOffset, value: cown)
@@ -700,15 +710,15 @@ function postedQueue(record Count)
 	__Raw.storeWord(slot, offset: requestBlockedOffset, value: queued)
 	let prev = __Raw.atomicExchange(cown, offset: cownTailOffset, value: slot)
 	if prev == notQueued 'idle'
-		schedPush(record)
-		return
+		return true
 	end 'idle'
 	_ = __Raw.atomicAdd(cown, offset: cownCountOffset, value: stepDown)
 	while __Raw.loadAcquire(prev, offset: requestBlockedOffset) == queuing 'wait'
 		__Raw.spinPause()
 	end 'wait'
 	__Raw.storeRelease(prev, offset: requestNextOffset, value: slot)
-end 'postedQueue'
+	return false
+end 'postedEnqueue'
 
 // servicePostedCancel is the drop of a posted message that was never registered: it is queued as cancelled, so its thunk
 // drops what it holds.
@@ -733,8 +743,15 @@ function servicePostedStart(state Count, horizon Count) returns Count
 	__Raw.storeWord(g, offset: greenServiceOffset, value: handle)
 	honourAsk(context, g: g)
 	let record = runningRecord()
-	let closed = postedSocketStarts(record)
-	armedListRemove(handle, record: record)
+	var closed = false
+	if (postedMark(record) and postedOnTimer) != 0 'timer'
+		// Off the list first: the end of the service reads the timer through a record only while it is listed.
+		armedListRemove(handle, record: record)
+		timerRecordStarts(record)
+	end 'timer' else 'other'
+		closed = postedSocketStarts(record)
+		armedListRemove(handle, record: record)
+	end 'other'
 	if (postedMark(record) and postedExcessLive) != 0 'excess'
 		stepLive(context, change: stepDown)
 	end 'excess'
@@ -787,10 +804,15 @@ function postedNextOffset() returns Count
 end 'postedNextOffset'
 
 // postedSocketOffset is where a posted record armed on a socket holds the socket, and postedSlotOffset the state word it is
-// armed in, the entry's address plus its mode's offset.
+// armed in, the entry's address plus its mode's offset. A record a timer was armed with holds the timer in the socket's word
+// (postedTimerOffset), and postedOnTimer in its mark says which.
 function postedSocketOffset() returns Count
 	return cownOffset(1, index: 4)
 end 'postedSocketOffset'
+
+function postedTimerOffset() returns Count
+	return cownOffset(1, index: 4)
+end 'postedTimerOffset'
 
 function postedSlotOffset() returns Count
 	return cownOffset(1, index: 5)
@@ -854,11 +876,11 @@ function armedListRemove(service Count, record Count)
 	unlockArmed(service, head: head)
 end 'armedListRemove'
 
-// disarmArmed takes back each arm of a service that has ended: a record still armed is queued cancelled, so its thunk drops
-// what it holds and gives the service's hold back; one its event queued already runs, as a message queued before a shutdown
-// does. Each record is taken off under the lock, which its start takes too, and armedEnded is left in the word, so no arm is
-// listed after. An end that comes again (a posted record queued on the ended service ends it once more as it goes) finds
-// none.
+// disarmArmed takes back each arm of a service that has ended: a record still armed, on an event entry or on a timer
+// (timerDisarm), is queued cancelled, so its thunk drops what it holds and gives the service's hold back; one its event or its
+// timer queued already runs, as a message queued before a shutdown does. Each record is taken off under the lock, which its
+// start takes too, and armedEnded is left in the word, so no arm is listed after. An end that comes again (a posted record
+// queued on the ended service ends it once more as it goes) finds none.
 function disarmArmed(service Count)
 	if __Raw.loadAcquire(service, offset: serviceArmedOffset) == armedEnded 'again'
 		return
@@ -869,7 +891,9 @@ function disarmArmed(service Count)
 		let next = __Raw.loadWord(record, offset: postedNextOffset())
 		clearPostedMark(record, bit: postedListed)
 		let slot = __Raw.loadWord(record, offset: postedSlotOffset())
-		if slot != 0 and __Raw.compareExchange(slot, offset: 0, expected: __Raw.wrappingAdd(record, right: postedEntryTag), desired: eventNobody) == __Raw.wrappingAdd(record, right: postedEntryTag) 'disarmed'
+		if (postedMark(record) and postedOnTimer) != 0 'timer'
+			timerDisarm(record)
+		end 'timer' else if slot != 0 and __Raw.compareExchange(slot, offset: 0, expected: __Raw.wrappingAdd(record, right: postedEntryTag), desired: eventNobody) == __Raw.wrappingAdd(record, right: postedEntryTag) 'disarmed'
 			let context = __Raw.threadContext()
 			stepLive(context, change: stepDown)
 			_ = __Raw.atomicAdd(__Raw.loadWord(context, offset: contextSchedulerOffset), offset: schedEventWaitersOffset, value: stepDown)

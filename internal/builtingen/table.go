@@ -1323,6 +1323,13 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "socketClose", Static: true, Params: []string{"_ Count"}, Throws: "ManagedSocketError", Intrinsic: "ManagedSocketClose", Instead: "a TcpClient's close()"},
 	// postedCancel queues the record of a posted message that no registration took as cancelled, so it drops what it holds.
 	{Owner: "Builtins", Name: "postedCancel", Static: true, Params: []string{"_ Count"}, Intrinsic: "ServicePostedCancel", Instead: "a PostedMessage's cancel()"},
+	// The rows of a timer that posts a message (stdlib/service/Timer.maxon): timerNew is a timer armed to post a message's record
+	// in a number of milliseconds, with a period, 0 for one fire; timerRearm arms it anew with another record, dropping the
+	// message it held; timerReset moves the fire of an armed timer and says whether it did; timerCancel ends and frees it.
+	{Owner: "Builtins", Name: "timerNew", Static: true, Params: []string{"_ Count", "_ Count", "_ Count"}, Result: "Count", Intrinsic: "ServiceTimerNew", Instead: "service.Timer.notifyAfter(ms, message: m)"},
+	{Owner: "Builtins", Name: "timerRearm", Static: true, Params: []string{"_ Count", "_ Count", "_ Count", "_ Count"}, Intrinsic: "ServiceTimerRearm", Instead: "a Timer's rearm(ms, message: m)"},
+	{Owner: "Builtins", Name: "timerReset", Static: true, Params: []string{"_ Count", "_ Count"}, Result: "Bool", Intrinsic: "ServiceTimerReset", Instead: "a Timer's reset(ms)"},
+	{Owner: "Builtins", Name: "timerCancel", Static: true, Params: []string{"_ Count"}, Intrinsic: "ServiceTimerCancel", Instead: "a Timer's cancel()"},
 	// The rows of a socket's readiness (stdlib/net/readiness.maxon): socketNotify arms a mode, 0 reading or accepting and 1
 	// sending, with the record of a posted message; the try rows make their call once and never wait, giving 2^62 for a read
 	// that would wait, 0 for a send that would and 0 for an accept that would.
@@ -1507,6 +1514,10 @@ var entries = []entry{
 	{"ServiceStopNowSelf", "rt.service.stopNowSelf", "Source", roleCall, "(): rt.service.stopNow of the service whose message runs, which self.stopNow() calls; nothing off a message"},
 	{"ServiceSelfHandle", "rt.service.selfHandle", "Source", roleCall, "() -> handle: another owner of the service whose message runs, which self.handle gives; off a message it panics, which the checker refuses (E3953)"},
 	{"ServicePostedCancel", "rt.service.postedCancel", "Source", roleCall, "(record): queues the record of a posted message that no registration took as cancelled, so its thunk drops what it holds"},
+	{"TimerNew", "rt.timer.new", "Source", roleCall, "(ms, period, record) -> timer: a timer armed to queue a posted message's record on its service in ms milliseconds, at most about 146 years; period is 0, one fire"},
+	{"TimerRearm", "rt.timer.rearm", "Source", roleCall, "(timer, ms, period, record): arms the timer anew with a posted message's record, in any state; the record it was armed with, and one whose fire is queued and has not started, are dropped"},
+	{"TimerReset", "rt.timer.reset", "Source", roleCall, "(timer, ms) -> whether the armed timer's fire moved to ms milliseconds from now: false where it is spent, and a fire queued and not started is then dropped"},
+	{"TimerCancel", "rt.timer.cancel", "Source", roleCall, "(timer): the end of the timer's handle: its armed record and a fire queued and not started are dropped, and the timer is freed once no record names it"},
 	{"ServiceNotifyStopped", "rt.service.notifyStopped", "Source", roleCall, "(handle, record): registers a posted message's record, which the service's end queues on the service it names, as rt.service.stopped registers a watch"},
 	{"ServicePostedNew", "rt.service.postedNew", "Source", roleCall, "(record) -> record: gives the record of a posted message, which the compiled code made with no acquire, its hold on the service it names"},
 	{"ServicePostedStart", "rt.service.postedStart", "Source", roleCall, "(state address, horizon) -> 0 to run the message, 1 to drop what it holds: what the behaviour of a posted message calls as it starts, in place of rt.service.start, which takes no place in the gate; horizon is the shedding horizon's word plus 1, or 0"},
@@ -1816,6 +1827,10 @@ var runtimeFunctions = []runtimeFunction{
 	{"ServiceStopped", "serviceStopped(handle Count) Count"},
 	{"ServiceNotifyStopped", "serviceNotifyStopped(handle Count, record Count)"},
 	{"ServicePostedCancel", "servicePostedCancel(record Count)"},
+	{"TimerNew", "timerNew(ms Count, period Count, record Count) Count"},
+	{"TimerRearm", "timerRearm(timer Count, ms Count, period Count, record Count)"},
+	{"TimerReset", "timerReset(timer Count, ms Count) Bool"},
+	{"TimerCancel", "timerCancel(timer Count)"},
 	{"ServicePostedNew", "servicePostedNew(record Count) Count"},
 	{"ServicePostedStart", "servicePostedStart(state Count, horizon Count) Count"},
 	{"ServiceFreed", "serviceFreed(handle Count)"},

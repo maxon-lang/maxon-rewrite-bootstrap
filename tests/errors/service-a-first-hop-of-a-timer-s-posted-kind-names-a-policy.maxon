@@ -1,0 +1,35 @@
+// A kind a timer posts is fed by a source that cannot be slowed, so a kind its handler sends must name a policy.
+export typealias Amount = int(0 to 1000000)
+
+type Log
+	var last as Amount
+
+	static function create() returns Self
+		return Self{last: 0}
+	end 'create'
+
+	export function record(mutates self, id Amount)
+		self.last = id
+	end 'record'
+end 'Log'
+
+type Conn
+	var log as Log.handle
+
+	static function create(consumes log Log.handle) returns Self
+		return Self{log: log}
+	end 'create'
+
+	export function idleTimeout(mutates self, id Amount)
+		try self.log.record(id) otherwise ignore
+	end 'idleTimeout'
+end 'Conn'
+
+function main() returns ExitCode
+	let c = spawn Conn.create(spawn Log.create())
+	let t = Timer.notifyAfter(10, message: c.post(Conn.Message.idleTimeout(1)))
+	t.cancel()
+	return 0
+end 'main'
+
+// expect-error: E3957 at 24:16

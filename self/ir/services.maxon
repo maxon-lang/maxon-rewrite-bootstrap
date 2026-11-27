@@ -1178,6 +1178,25 @@ function lowerServicePostedCancel(mutates l Lowerer, p ast.Project, ms ast.Modul
 	return konst(l, value: 0 as Word)
 end 'lowerServicePostedCancel'
 
+// The rows of a timer that posts a message, each a call of the runtime's entry with the call's arguments as they are.
+function lowerServiceTimerNew(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtTimerNew, kind: IrKind.kindScalar, args: args)
+end 'lowerServiceTimerNew'
+
+function lowerServiceTimerRearm(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtTimerRearm, args: args)
+	return konst(l, value: 0 as Word)
+end 'lowerServiceTimerRearm'
+
+function lowerServiceTimerReset(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtTimerReset, kind: IrKind.kindScalar, args: args)
+end 'lowerServiceTimerReset'
+
+function lowerServiceTimerCancel(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtTimerCancel, args: args)
+	return konst(l, value: 0 as Word)
+end 'lowerServiceTimerCancel'
+
 // lowerServiceNotifyStopped registers the record of the PostedMessage it is given, which moves in, to be queued once the
 // service of the receiver has ended.
 function lowerServiceNotifyStopped(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg

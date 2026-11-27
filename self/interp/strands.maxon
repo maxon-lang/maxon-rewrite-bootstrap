@@ -915,6 +915,22 @@ function entryServicePostedCancel(mutates vm Vm, f ir.IrFunction, x ir.Instr) th
 	throw haltPosted(vm, what: "a posted message")
 end 'entryServicePostedCancel'
 
+function entryTimerNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltPosted(vm, what: "a timer")
+end 'entryTimerNew'
+
+function entryTimerRearm(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltPosted(vm, what: "a timer")
+end 'entryTimerRearm'
+
+function entryTimerReset(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltPosted(vm, what: "a timer")
+end 'entryTimerReset'
+
+function entryTimerCancel(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltPosted(vm, what: "a timer")
+end 'entryTimerCancel'
+
 function entryServicePostedStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	throw haltPosted(vm, what: "a posted message")
 end 'entryServicePostedStart'

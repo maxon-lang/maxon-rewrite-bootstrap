@@ -1,0 +1,77 @@
+// The end of a service takes back the arm of each timer that would post to it, by a shutdown or by stopNow: its message is
+// never handled, and the timer's handle, kept in another service's state, finds it spent and is cancelled by that state's
+// finish. A finish that cancels an armed timer drops its message too. The program ends with no timer armed and nothing left.
+// native-only
+//> shut down while armed: never told
+//> stopped at once while armed: never told
+//> cancelled by a finish while armed: never told
+//> a timer whose service ended is spent: its reset says false
+export typealias Amount = int(0 to 1000000)
+
+type Ticker implements StopsNow
+	var ticks as Amount
+
+	static function create() returns Self
+		return Self{ticks: 0}
+	end 'create'
+
+	export function tick(mutates self, what String)
+		print("{what}: told\n")
+		self.ticks = try self.ticks + 1 otherwise 0
+	end 'tick'
+
+	export function ticks() returns Amount
+		return self.ticks
+	end 'ticks'
+end 'Ticker'
+
+// A Holder keeps a timer in its state, which its finish cancels.
+type Holder implements Ends
+	var timer as Timer
+
+	static function create(consumes timer Timer) returns Self
+		return Self{timer: timer}
+	end 'create'
+
+	function finish(consumes self)
+		let t = self.timer
+		t.cancel()
+	end 'finish'
+end 'Holder'
+
+function main() returns ExitCode
+	let first = spawn Ticker.create()
+	let firstDone = first.stopped()
+	let firstHolder = spawn Holder.create(Timer.notifyAfter(30, message: first.post(Ticker.Message.tick("shut down while armed"))))
+	let firstHolderDone = firstHolder.stopped()
+	first.shutdown()
+	await firstDone
+	sleep(60)
+	print("shut down while armed: never told\n")
+	firstHolder.shutdown()
+	await firstHolderDone
+	let second = spawn Ticker.create()
+	let secondDone = second.stopped()
+	var mine = Timer.notifyAfter(30, message: second.post(Ticker.Message.tick("stopped at once while armed")))
+	second.stopNow()
+	await secondDone
+	sleep(60)
+	print("stopped at once while armed: never told\n")
+	let third = spawn Ticker.create()
+	let thirdDone = third.stopped()
+	let thirdHolder = spawn Holder.create(Timer.notifyAfter(30, message: third.post(Ticker.Message.tick("cancelled by a finish while armed"))))
+	let thirdHolderDone = thirdHolder.stopped()
+	thirdHolder.shutdown()
+	await thirdHolderDone
+	sleep(60)
+	let counted = try third.ticks() otherwise panic("a send to a service that runs")
+	if (try await counted otherwise 1) == 0 'never'
+		print("cancelled by a finish while armed: never told\n")
+	end 'never'
+	let moved = mine.reset(10)
+	print("a timer whose service ended is spent: its reset says {moved}\n")
+	mine.cancel()
+	third.shutdown()
+	await thirdDone
+	return 0
+end 'main'

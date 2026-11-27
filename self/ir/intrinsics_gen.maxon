@@ -854,6 +854,18 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrServicePostedCancel 'intrServicePostedCancel'
 		return lowerServicePostedCancel(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrServicePostedCancel'
+	if op == ast.Intrinsic.intrServiceTimerNew 'intrServiceTimerNew'
+		return lowerServiceTimerNew(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrServiceTimerNew'
+	if op == ast.Intrinsic.intrServiceTimerRearm 'intrServiceTimerRearm'
+		return lowerServiceTimerRearm(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrServiceTimerRearm'
+	if op == ast.Intrinsic.intrServiceTimerReset 'intrServiceTimerReset'
+		return lowerServiceTimerReset(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrServiceTimerReset'
+	if op == ast.Intrinsic.intrServiceTimerCancel 'intrServiceTimerCancel'
+		return lowerServiceTimerCancel(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrServiceTimerCancel'
 	if op == ast.Intrinsic.intrManagedSocketNotify 'intrManagedSocketNotify'
 		return lowerManagedSocketNotify(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrManagedSocketNotify'
@@ -1882,6 +1894,18 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrServicePostedCancel 'intrServicePostedCancel'
 		return false
 	end 'intrServicePostedCancel'
+	if op == ast.Intrinsic.intrServiceTimerNew 'intrServiceTimerNew'
+		return false
+	end 'intrServiceTimerNew'
+	if op == ast.Intrinsic.intrServiceTimerRearm 'intrServiceTimerRearm'
+		return false
+	end 'intrServiceTimerRearm'
+	if op == ast.Intrinsic.intrServiceTimerReset 'intrServiceTimerReset'
+		return false
+	end 'intrServiceTimerReset'
+	if op == ast.Intrinsic.intrServiceTimerCancel 'intrServiceTimerCancel'
+		return false
+	end 'intrServiceTimerCancel'
 	if op == ast.Intrinsic.intrManagedSocketNotify 'intrManagedSocketNotify'
 		return false
 	end 'intrManagedSocketNotify'

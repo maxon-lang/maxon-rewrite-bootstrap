@@ -1,0 +1,222 @@
+// Timers of 0 and 1 ms are cancelled, reset to later, reset to now or armed anew while their fires race them, by a service
+// whose timers post to another service, and by one whose timers post to itself, where a fire that is queued behind the turn
+// that cancels or resets its timer must be dropped (Go 1.23's Stop and Reset). A fire is handled at most once, never after
+// its timer's cancel or a reset that said the timer was spent, never before the deadline of a reset to later that said it
+// moved the fire (the lazy reset that a fire must not slip past), and the message of an arm that rearm replaced is never
+// handled after the rearm. Every timer is cancelled in the end, and nothing is left: no timer, record or message.
+// native-only
+//> 10000 timers raced toward another service: no fire after a cancel or a spent reset, none early, none replaced, none twice
+//> 10000 timers raced toward their own service: no fire after a cancel or a spent reset, none early, none replaced, none twice
+export typealias Amount = int(0 to 1000000)
+
+export typealias Amounts = Array with Amount
+
+export typealias Instants = Array with InstantMs
+
+// replacedKind is the timers that rearm arms anew, whose first message is the replaced one.
+let replacedKind = 3 as Amount
+
+function zeros(n Amount) returns Amounts
+	var xs = Amounts.create(0)
+	for i in 0 upto n 'fill'
+		xs.push(0)
+	end 'fill'
+	return xs
+end 'zeros'
+
+function instants(n Amount) returns Instants
+	var xs = Instants.create(0)
+	for i in 0 upto n 'fill'
+		xs.push(0)
+	end 'fill'
+	return xs
+end 'instants'
+
+function bump(mutates xs Amounts, at Amount) returns Amount
+	var now = try xs.get(at as ElementIndex) otherwise 0
+	now = try now + 1 otherwise now
+	try xs.set(at as ElementIndex, value: now) otherwise ignore
+	return now
+end 'bump'
+
+function isSet(xs Amounts, at Amount) returns bool
+	return (try xs.get(at as ElementIndex) otherwise 0) != 0
+end 'isSet'
+
+// A Racer arms timers whose fires it or a peer handles, and holds what the handler checks each fire against: what the
+// arming side did to the timer before the fire was handled.
+type Racer
+	var handled as Amounts
+	var replacedHandled as Amounts
+	var cancelled as Amounts
+	var spent as Amounts
+	var rearmed as Amounts
+	var firedAt as Instants
+	var movedUntil as Instants
+	var violations as Amount
+
+	static function create(n Amount) returns Self
+		return Self{handled: zeros(n), replacedHandled: zeros(n), cancelled: zeros(n), spent: zeros(n), rearmed: zeros(n), firedAt: instants(n), movedUntil: instants(n), violations: 0}
+	end 'create'
+
+	function violated(mutates self, what String, at Amount)
+		if self.violations < 5 'say'
+			print("timer {at}: {what}\n")
+		end 'say'
+		self.violations = try self.violations + 1 otherwise self.violations
+	end 'violated'
+
+	export function fired(mutates self, at Amount, replaced bool)
+		let now = Clock.nowMs()
+		if replaced 'replaced'
+			if bump(self.replacedHandled, at: at) > 1 'twice'
+				self.violated("an arm's fire was handled twice", at: at)
+			end 'twice'
+			if isSet(self.rearmed, at: at) 'afterRearm'
+				self.violated("the fire of a replaced arm was handled after the rearm", at: at)
+			end 'afterRearm'
+		end 'replaced' else 'final'
+			if bump(self.handled, at: at) > 1 'twice'
+				self.violated("a fire was handled twice", at: at)
+			end 'twice'
+			try self.firedAt.set(at as ElementIndex, value: now) otherwise ignore
+			let until = try self.movedUntil.get(at as ElementIndex) otherwise 0
+			if until != 0 and now < until 'early'
+				self.violated("a fire came before the deadline its reset moved it to", at: at)
+			end 'early'
+		end 'final'
+		if isSet(self.cancelled, at: at) 'afterCancel'
+			self.violated("a fire was handled after its timer's cancel", at: at)
+		end 'afterCancel'
+		if isSet(self.spent, at: at) 'afterSpent'
+			self.violated("a fire was handled after a reset said the timer was spent", at: at)
+		end 'afterSpent'
+	end 'fired'
+
+	export function wasCancelled(mutates self, at Amount)
+		_ = bump(self.cancelled, at: at)
+	end 'wasCancelled'
+
+	export function wasSpent(mutates self, at Amount)
+		_ = bump(self.spent, at: at)
+	end 'wasSpent'
+
+	export function wasRearmed(mutates self, at Amount)
+		_ = bump(self.rearmed, at: at)
+	end 'wasRearmed'
+
+	export function wasMoved(mutates self, at Amount, until InstantMs)
+		self.moved(at, until: until)
+	end 'wasMoved'
+
+	function moved(mutates self, at Amount, until InstantMs)
+		try self.movedUntil.set(at as ElementIndex, value: until) otherwise ignore
+		if isSet(self.handled, at: at) 'handled'
+			let handledAt = try self.firedAt.get(at as ElementIndex) otherwise 0
+			if handledAt < until 'early'
+				self.violated("a fire came before the deadline its reset moved it to", at: at)
+			end 'early'
+		end 'handled'
+	end 'moved'
+
+	export function report() returns Amount
+		return self.violations
+	end 'report'
+
+	// run makes the timers one after another, each held by a frame of its own: a timer is armed, the turn yields now and then
+	// so that the fires that are due are queued, it is cancelled, reset or armed anew while its fire races it, and the next is
+	// made; once every one is made, the fires of the resets come due, and each frame cancels its timer as the chain returns.
+	// Toward its own service, what was done is noted in the state at once, ahead of any fire queued behind the turn.
+	export function run(mutates self, n Amount, peer Racer.handle, toSelf bool) returns Amount
+		if toSelf 'own'
+			self.chain(0, n: n, to: self.handle, toSelf: true)
+		end 'own' else 'peer'
+			self.chain(0, n: n, to: peer, toSelf: false)
+		end 'peer'
+		return n
+	end 'run'
+
+	function chain(mutates self, at Amount, n Amount, to Racer.handle, toSelf bool)
+		if at == n 'made'
+			sleep(60)
+			return
+		end 'made'
+		var t = Timer.notifyAfter(at mod 2, message: to.post(Racer.Message.fired(at, replaced: at mod 4 == replacedKind)))
+		if at mod 3 == 0 'yield'
+			Scheduler.yield()
+		end 'yield'
+		let kind = at mod 4
+		var next = at
+		next = try next + 1 otherwise n
+		if kind == 0 'cancel'
+			t.cancel()
+			if toSelf 'local'
+				_ = bump(self.cancelled, at: at)
+			end 'local' else 'peer'
+				try to.wasCancelled(at) otherwise ignore
+			end 'peer'
+			self.chain(next, n: n, to: to, toSelf: toSelf)
+			return
+		end 'cancel'
+		if kind == replacedKind 'rearm'
+			t.rearm(1, message: to.post(Racer.Message.fired(at, replaced: false)))
+			if toSelf 'local'
+				_ = bump(self.rearmed, at: at)
+			end 'local' else 'peer'
+				try to.wasRearmed(at) otherwise ignore
+			end 'peer'
+		end 'rearm' else 'reset'
+			let wait = 20 if kind == 1 else 0
+			let before = Clock.nowMs()
+			if t.reset(wait) 'moved'
+				let until = try before + wait otherwise before
+				if toSelf 'local'
+					self.moved(at, until: until)
+				end 'local' else 'peer'
+					try to.wasMoved(at, until: until) otherwise ignore
+				end 'peer'
+			end 'moved' else 'spent'
+				if toSelf 'local'
+					_ = bump(self.spent, at: at)
+				end 'local' else 'peer'
+					try to.wasSpent(at) otherwise ignore
+				end 'peer'
+			end 'spent'
+		end 'reset'
+		self.chain(next, n: n, to: to, toSelf: toSelf)
+		t.cancel()
+	end 'chain'
+end 'Racer'
+
+function say(violations Amount, n Amount, toward String)
+	if violations == 0 'clean'
+		print("{n} timers raced toward {toward}: no fire after a cancel or a spent reset, none early, none replaced, none twice\n")
+	end 'clean' else 'violated'
+		print("{violations} violations among {n} timers raced toward {toward}\n")
+	end 'violated'
+end 'say'
+
+function main() returns ExitCode
+	let n = 10000 as Amount
+	let target = spawn Racer.create(n)
+	let targetDone = target.stopped()
+	let arms = spawn Racer.create(n)
+	let armsDone = arms.stopped()
+	let own = spawn Racer.create(n)
+	let ownDone = own.stopped()
+	let across = try arms.run(n, peer: target.clone(), toSelf: false) otherwise panic("a send to a service that runs")
+	let itself = try own.run(n, peer: target.clone(), toSelf: true) otherwise panic("a send to a service that runs")
+	_ = await across
+	_ = await itself
+	let fromTarget = try target.report() otherwise panic("a send to a service that runs")
+	say(await fromTarget, n: n, toward: "another service")
+	let fromOwn = try own.report() otherwise panic("a send to a service that runs")
+	say(await fromOwn, n: n, toward: "their own service")
+	arms.shutdown()
+	own.shutdown()
+	target.shutdown()
+	await armsDone
+	await ownDone
+	await targetDone
+	return 0
+end 'main'

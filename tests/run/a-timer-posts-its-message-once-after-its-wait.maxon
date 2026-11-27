@@ -1,0 +1,86 @@
+// Timer.notifyAfter(ms, message: h.post(m)) posts m to the service once, at least ms milliseconds later. A reset to
+// later moves a pending fire and says so, as does one to earlier; once the timer is spent its reset says false. rearm arms a
+// spent timer again with a new message, and a cancel before the fire drops the message, never handled.
+// native-only
+//> one-shot: fired after at least 20 ms
+//> a reset to later moved the fire past 80 ms
+//> a spent timer's reset says false
+//> rearmed: fired again after at least 10 ms
+//> a reset to earlier fired after at least 10 ms
+//> a cancelled timer never fired: 4 fires in all
+export typealias Amount = int(0 to 1000000)
+
+type Watcher
+	var fires as Amount
+
+	static function create() returns Self
+		return Self{fires: 0}
+	end 'create'
+
+	export function fired(mutates self, start InstantMs, least Amount, what String)
+		let waited = try Clock.nowMs() - start otherwise 0
+		if waited >= least 'late'
+			print("{what} after at least {least} ms\n")
+		end 'late' else 'early'
+			print("{what} early: {waited} ms of {least}\n")
+		end 'early'
+		self.fires = try self.fires + 1 otherwise 0
+	end 'fired'
+
+	export function moved(mutates self, start InstantMs, least Amount)
+		let waited = try Clock.nowMs() - start otherwise 0
+		if waited >= least 'late'
+			print("a reset to later moved the fire past {least} ms\n")
+		end 'late' else 'early'
+			print("a reset to later fired early: {waited} ms of {least}\n")
+		end 'early'
+		self.fires = try self.fires + 1 otherwise 0
+	end 'moved'
+
+	export function count() returns Amount
+		return self.fires
+	end 'count'
+end 'Watcher'
+
+function firesOf(w Watcher.handle) returns Amount
+	let pending = try w.count() otherwise panic("a send to a service that runs")
+	return await pending
+end 'firesOf'
+
+function awaitFires(w Watcher.handle, n Amount)
+	while firesOf(w) < n 'wait'
+		sleep(2)
+	end 'wait'
+end 'awaitFires'
+
+function main() returns ExitCode
+	let w = spawn Watcher.create()
+	let done = w.stopped()
+	let once = Timer.notifyAfter(20, message: w.post(Watcher.Message.fired(Clock.nowMs(), least: 20, what: "one-shot: fired")))
+	awaitFires(w, n: 1)
+	once.cancel()
+	var t = Timer.notifyAfter(30, message: w.post(Watcher.Message.moved(Clock.nowMs(), least: 80)))
+	if not t.reset(80) 'notMoved'
+		print("the reset of an armed timer did not move it\n")
+	end 'notMoved'
+	awaitFires(w, n: 2)
+	if not t.reset(10) 'spent'
+		print("a spent timer's reset says false\n")
+	end 'spent'
+	t.rearm(10, message: w.post(Watcher.Message.fired(Clock.nowMs(), least: 10, what: "rearmed: fired again")))
+	awaitFires(w, n: 3)
+	var early = Timer.notifyAfter(100000000, message: w.post(Watcher.Message.fired(Clock.nowMs(), least: 10, what: "a reset to earlier fired")))
+	if not early.reset(10) 'notMoved'
+		print("the reset of an armed timer to earlier did not move it\n")
+	end 'notMoved'
+	awaitFires(w, n: 4)
+	let dropped = Timer.notifyAfter(10, message: w.post(Watcher.Message.fired(Clock.nowMs(), least: 10, what: "a cancelled timer fired")))
+	dropped.cancel()
+	sleep(60)
+	print("a cancelled timer never fired: {firesOf(w)} fires in all\n")
+	t.cancel()
+	early.cancel()
+	w.shutdown()
+	await done
+	return 0
+end 'main'

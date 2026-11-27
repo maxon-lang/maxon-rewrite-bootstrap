@@ -293,7 +293,7 @@ function eventWaitOnce(scheduler Count, g Count, entry Count, mode Count, deadli
 	if deadline != eventNoDeadline 'untimer'
 		lockTimers(scheduler)
 		if __Raw.loadWord(g, offset: greenWhenOffset) != noTimer 'onHeap'
-			timerRemove(scheduler, g: g)
+			timerRemove(scheduler, entry: g)
 			__Raw.storeWord(g, offset: greenWhenOffset, value: noTimer)
 		end 'onHeap'
 		__Raw.storeWord(g, offset: greenEventOffset, value: 0)

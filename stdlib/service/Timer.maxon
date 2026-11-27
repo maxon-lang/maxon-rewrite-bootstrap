@@ -1,0 +1,33 @@
+/// A timer that posts a message to a service: `Timer.notifyAfter(5000, message: self.handle.post(Conn.Message.idleTimeout()))`
+/// posts the message once, at least `ms` milliseconds later, with no green thread waiting for it, as a socket's readiness
+/// posts one. A deadline pushed back is `reset(ms)`, which moves only a fire still pending; `rearm(ms, message: m)` arms the
+/// timer again with a new message, whatever it holds. A cancel, a reset or an arm anew drops a message whose fire is queued
+/// and not yet handled, so a handler never sees a fire older than the last reset. An armed timer keeps its service and the
+/// program alive, and the end of the service takes the arm back. A value of it is ended by `cancel()`, never dropped (E3919):
+/// a service's state that holds one implements `Ends`, and its `finish` cancels it.
+/// @category Services
+public type Timer
+	let record as Count
+
+	/// A timer that posts `message` to its service once, `ms` milliseconds from now, or about 146 years for more.
+	public static function notifyAfter(ms clock.DurationMs, consumes message PostedMessage) returns Timer
+		return Timer{record: __Builtins.timerNew(ms as Count, 0, message.registered())}
+	end 'notifyAfter'
+
+	/// Arm the timer again, to post `message` `ms` milliseconds from now, in whatever state it is: a message it was armed with
+	/// and one whose fire is queued are dropped, never handled.
+	public function rearm(mutates self, ms clock.DurationMs, consumes message PostedMessage)
+		__Builtins.timerRearm(record, ms as Count, 0, message.registered())
+	end 'rearm'
+
+	/// Move the pending fire to `ms` milliseconds from now: true where the timer was armed and is moved, false where it is
+	/// spent, its message handled or queued, which is then dropped.
+	public function reset(mutates self, ms clock.DurationMs) returns bool
+		return __Builtins.timerReset(record, ms as Count)
+	end 'reset'
+
+	/// Stop the timer and free it: a message it was armed with and one whose fire is queued are dropped, never handled.
+	public function cancel(destructs self)
+		__Builtins.timerCancel(record)
+	end 'cancel'
+end 'Timer'

@@ -380,7 +380,7 @@ var layouts = []layoutConst{
 	{"schedFreeStacksOffset", 15, false, toRuntime,
 		"where the scheduler's record holds the stacks that are free beyond what the processors keep, linked through pooledStackNextOffset, under the lock."},
 	{"schedTimersOffset", 16, false, toRuntime,
-		"where the scheduler's record holds the address of the timers' heap, a 4-ary min-heap of 16-byte slots {when, entry} (Go's timerWhen) by when each is due, whose entries are the sleeping green threads, under the timers' lock (schedTimersLockOffset)."},
+		"where the scheduler's record holds the address of the timers' heap, a 4-ary min-heap of 16-byte slots {when, entry} (Go's timerWhen) by when each is due, whose entries are the sleeping green threads and the timers that post a message, under the timers' lock (schedTimersLockOffset)."},
 	{"schedTimerCountOffset", 17, false, toRuntime,
 		"where the scheduler's record holds how many timers the heap holds, under the timers' lock."},
 	{"schedTimerCapacityOffset", 18, false, toRuntime,
@@ -452,7 +452,7 @@ var layouts = []layoutConst{
 	{"schedWinsockOffset", 306, false, toRuntime,
 		"where the scheduler's record holds the address of the table of the sockets of Windows (windows_socket.maxon): the functions of ws2_32 and ntdll that its sockets call, found by name, and the groups of AFD handles that poll them, 0 until the first socket."},
 	{"schedTimersLockOffset", 307, false, toRuntime,
-		"where the scheduler's record holds the timers' lock (Go's timers.mu): 1 while a thread holds it. It guards the timers' heap, the wake and heap index of each green thread on it, and the clear of an event waiter's state word's address after its deadline's timer is taken off. It is a leaf but for the page heap's lock, which a growth of the heap takes under it: no thread takes the scheduler's lock while it holds it, or it while it holds the scheduler's."},
+		"where the scheduler's record holds the timers' lock (Go's timers.mu): 1 while a thread holds it. It guards the timers' heap, the wake and heap index of each green thread on it, and the clear of an event waiter's state word's address after its deadline's timer is taken off. It comes after a service's armedLock and before a timer's own lock (Go's timers < timer), which runTimers takes under it to fire a timer as one step against a reset to later, and the page heap's lock, which a growth of the heap takes under it: no thread takes the scheduler's lock while it holds it, or it while it holds the scheduler's, and none takes an armedLock while it holds it."},
 	{"schedProcessorsOffset", 312, false, toRuntime,
 		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made: on a cache line past the timers' lock, which the readers of a processor's address do not share."},
 
