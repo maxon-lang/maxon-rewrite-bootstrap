@@ -23,6 +23,8 @@ let fuzzProofsFlag = "--proofs"
 
 let fuzzWorkerFlag = "--worker"
 
+let fuzzServicesFlag = "--services"
+
 // programsPerWorker is how many seeds one worker process runs: what an internal compiler error costs is the other programs of its
 // chunk, run again.
 let programsPerWorker = 100 as Count
@@ -68,6 +70,9 @@ let libraryFileName = "library.txt"
 
 // proofsLibraryFileName is the library of the proof generator's programs.
 let proofsLibraryFileName = "proofs.txt"
+
+// servicesProgramFileName is the program of the services lane (services.maxon).
+let servicesProgramFileName = "services.txt"
 
 // proofsKeepDirName is where --proofs keeps the programs that fail when --keep names no directory, under the system's temporary
 // directory.
@@ -119,6 +124,9 @@ function libraryFileOf(options FuzzOptions) returns String
 	if options.proofs 'proofs'
 		return proofsLibraryFileName.clone()
 	end 'proofs'
+	if options.services 'services'
+		return servicesProgramFileName.clone()
+	end 'services'
 	return libraryFileName.clone()
 end 'libraryFileOf'
 
@@ -143,15 +151,20 @@ type FuzzOptions
 	// worker says that this process is one that a run of the command started for some of its seeds, so that an internal compiler error
 	// on one program ends only that process.
 	var worker as bool
+	// services says that the run is the services lane (services.maxon), whose count is of send graphs, every one unless
+	// --count says fewer, and whose schedules are per graph.
+	var services as bool
 
 	static function new() returns FuzzOptions
-		return FuzzOptions{first: 1, count: defaultGeneratedPrograms, schedules: defaultScheduleSeeds, keep: "", dump: false, native: false, proofs: false, worker: false}
+		return FuzzOptions{first: 1, count: defaultGeneratedPrograms, schedules: defaultScheduleSeeds, keep: "", dump: false, native: false, proofs: false, worker: false, services: false}
 	end 'new'
 end 'FuzzOptions'
 
 // readFuzzOptions reads the flags after the command, or says why it cannot.
 function readFuzzOptions(args CommandNames) returns table.Option with FuzzOptions
 	var options = FuzzOptions.new()
+	var counted = false
+	var scheduled = false
 	for i in 1 upto args.count() 'args'
 		let seed = fuzzFlagValue(args[i], prefix: fuzzSeedFlag)
 		let count = fuzzFlagValue(args[i], prefix: fuzzCountFlag)
@@ -169,12 +182,14 @@ function readFuzzOptions(args CommandNames) returns table.Option with FuzzOption
 				return table.Option.none
 			end 'invalid'
 			options.count = number.unwrap()
+			counted = true
 		end 'count' else if schedules.isSome() 'schedules'
 			let number = fuzzNumber(schedules.unwrap(), flag: "--schedules")
 			if not number.isSome() 'invalid'
 				return table.Option.none
 			end 'invalid'
 			options.schedules = number.unwrap()
+			scheduled = true
 		end 'schedules' else if keep.isSome() 'keep'
 			options.keep = keep.unwrap()
 		end 'keep' else if args[i] == fuzzDumpFlag 'dump'
@@ -185,19 +200,28 @@ function readFuzzOptions(args CommandNames) returns table.Option with FuzzOption
 			options.proofs = true
 		end 'proofs' else if args[i] == fuzzWorkerFlag 'worker'
 			options.worker = true
-		end 'worker' else 'unknown'
+		end 'worker' else if args[i] == fuzzServicesFlag 'services'
+			options.services = true
+		end 'services' else 'unknown'
 			printError("fuzz: unknown argument {args[i]}\n")
 			return table.Option.none
 		end 'unknown'
 	end 'args'
+	if options.services and not counted 'everyGraph'
+		options.count = everyGraph
+	end 'everyGraph'
+	if options.services and not scheduled 'eachTurn'
+		options.schedules = laneScheduleSeeds
+	end 'eachTurn'
 	if options.proofs and options.keep == "" 'kept'
 		options.keep = ast.temporaryPath(proofsKeepDirName)
 	end 'kept'
 	return table.Option.some(options)
 end 'readFuzzOptions'
 
-// fuzzCommand is `fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--proofs] [--dump]`: it runs the programs
-// of the seeds from --seed up, --count of them, and with --dump only prints the program of --seed.
+// fuzzCommand is `fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--proofs] [--services] [--dump]`: it runs
+// the programs of the seeds from --seed up, --count of them, and with --dump only prints the program of --seed; with --services
+// it runs the services lane instead.
 function fuzzCommand(args CommandNames) returns ExitCode
 	let read = readFuzzOptions(args)
 	if not read.isSome() 'invalid'
@@ -215,6 +239,9 @@ function fuzzCommand(args CommandNames) returns ExitCode
 		print(generatedProgram(options, seed: options.first, library: library).source)
 		return 0
 	end 'dump'
+	if options.services 'services'
+		return servicesLane(options, program: library)
+	end 'services'
 	if options.worker 'worker'
 		return fuzzWorker(options, library: library)
 	end 'worker'

@@ -1,0 +1,204 @@
+// The services lane of fuzz (`fuzz --services`): the brute force of backpressure. It enumerates every send graph of one to
+// four services that service 0 reaches, cycles and a service's edge to itself included, one of each class that renaming the
+// services other than service 0 gives, and runs self/fuzz/services.txt under the interpreter on each, whose oracles of
+// backpressure (self/interp/oracles.maxon) check every schedule. Each graph runs under a schedule of each turn limit, and once
+// more with main stopping one of its services after its first start, so some sends fail "stopped". An oracle that fails is an
+// internal error that names the seed and the graph, the program's standard input; a run that breaks a rule or does not end
+// with 0 is a failure of the lane. --count runs that many graphs, spread evenly over them, as the gate does.
+
+// laneServices is how many services a send graph has at most, which the program's standard input lays out.
+let laneServices = 4 as Count
+
+// laneScheduleSeeds is how many schedules each graph runs under, the seeds from 0: one for each turn limit the interpreter
+// draws (interp.turnLimitOf).
+let laneScheduleSeeds = 4 as Count
+
+let laneStepLimit = 20000000 as Count
+
+let laneProgramPath = "services.maxon"
+
+// everyGraph is the count of a lane that runs every graph.
+let everyGraph = 1000000 as Count
+
+// edgeBit is the bit of the edge from service a to service b in a graph's mask, laid out as the program reads its input.
+function edgeBit(a Count, b Count) returns Count
+	return bitAt(try a * laneServices + b otherwise panic("fuzz: an edge past a word"))
+end 'edgeBit'
+
+function bitAt(i Count) returns Count
+	var bit = 1 as Count
+	for k in 0 upto i 'shift'
+		bit = try bit * 2 otherwise panic("fuzz: a bit past a word")
+	end 'shift'
+	return bit
+end 'bitAt'
+
+function hasBit(mask Count, bit Count) returns bool
+	return (try mask / bit otherwise panic("fuzz: no bit")) mod 2 == 1
+end 'hasBit'
+
+function hasEdge(mask Count, a Count, b Count) returns bool
+	return hasBit(mask, bit: edgeBit(a, b: b))
+end 'hasEdge'
+
+// reachesAll is whether every service of n is reached from service 0 along the edges of mask.
+function reachesAll(mask Count, n Count) returns bool
+	var reached = CountList.create(0)
+	reached.push(0)
+	var next = 0 as Count
+	while next < reached.count() 'walk'
+		let from = reached[next]
+		for to in 0 upto n 'edges'
+			if hasEdge(mask, a: from, b: to) and not reached.contains(to) 'new'
+				reached.push(to)
+			end 'new'
+		end 'edges'
+		next = next + 1
+	end 'walk'
+	return reached.count() == n
+end 'reachesAll'
+
+// renamings are the orders of the services of n that keep service 0 first.
+function renamings(n Count) returns Orders
+	var out = Orders.create(0)
+	var first = CountList.create(0)
+	first.push(0)
+	out.push(first)
+	for s in 1 upto n 'services'
+		var grown = Orders.create(0)
+		for i in 0 upto out.count() 'orders'
+			for at in 1 to out[i].count() 'places'
+				var order = out[i].clone()
+				order.insert(at, value: s)
+				grown.push(order)
+			end 'places'
+		end 'orders'
+		out = grown
+	end 'services'
+	return out
+end 'renamings'
+
+function renamed(mask Count, order CountList) returns Count
+	var out = 0 as Count
+	for a in 0 upto order.count() 'from'
+		for b in 0 upto order.count() 'to'
+			if hasEdge(mask, a: a, b: b) 'edge'
+				out = try out + edgeBit(order[a], b: order[b]) otherwise panic("fuzz: a mask past a word")
+			end 'edge'
+		end 'to'
+	end 'from'
+	return out
+end 'renamed'
+
+// SendGraph is a graph of the lane: how many services it has, and its edges as a mask.
+type SendGraph
+	var services as Count
+	var mask as Count
+
+	static function make(services Count, mask Count) returns SendGraph
+		return SendGraph{services: services, mask: mask}
+	end 'make'
+
+	// input is the program's standard input for the graph, with main stopping service stop - 1 after its first start, or
+	// none for 0.
+	function input(stop Count) returns String
+		var text = ""
+		for a in 0 upto laneServices 'from'
+			for b in 0 upto laneServices 'to'
+				text = "{text}{1 if hasEdge(mask, a: a, b: b) else 0}"
+			end 'to'
+		end 'from'
+		return "{text}{stop}"
+	end 'input'
+end 'SendGraph'
+
+typealias SendGraphs = Array with SendGraph
+
+typealias Orders = Array with CountList
+
+// sendGraphs are the graphs of the lane, by number of services and then by mask: each graph on which service 0 reaches every
+// service, if no renaming of the others gives a smaller mask.
+function sendGraphs() returns SendGraphs
+	var out = SendGraphs.create(0)
+	for n in 1 to laneServices 'sizes'
+		let orders = renamings(n)
+		var edges = CountList.create(0)
+		for a in 0 upto n 'from'
+			for b in 0 upto n 'to'
+				edges.push(edgeBit(a, b: b))
+			end 'to'
+		end 'from'
+		var subsets = 1 as Count
+		for i in 0 upto edges.count() 'subsets'
+			subsets = try subsets * 2 otherwise panic("fuzz: more graphs than a word")
+		end 'subsets'
+		for subset in 0 upto subsets 'graphs'
+			var mask = 0 as Count
+			for i in 0 upto edges.count() 'edges'
+				if hasBit(subset, bit: bitAt(i)) 'in'
+					mask = try mask + edges[i] otherwise panic("fuzz: a mask past a word")
+				end 'in'
+			end 'edges'
+			if reachesAll(mask, n: n) and isLeast(mask, orders: orders) 'kept'
+				out.push(SendGraph.make(n, mask: mask))
+			end 'kept'
+		end 'graphs'
+	end 'sizes'
+	return out
+end 'sendGraphs'
+
+function isLeast(mask Count, orders Orders) returns bool
+	for i in 0 upto orders.count() 'orders'
+		if renamed(mask, order: orders[i]) < mask 'smaller'
+			return false
+		end 'smaller'
+	end 'orders'
+	return true
+end 'isLeast'
+
+// servicesLane runs the lane's program on every graph, or on --count of them spread evenly, and fails at the first run that breaks a rule or does not end with 0.
+function servicesLane(options FuzzOptions, program String) returns ExitCode
+	var errs = diag.ErrorList.create(0)
+	var p = ast.Project.new("")
+	project.loadSourceInto(p, path: laneProgramPath, text: program, errs: errs)
+	let generated = lowerForInterpreter(p, errs: errs)
+	if errs.count() > 0 'refused'
+		diag.sortErrors(errs)
+		printError("fuzz --services: the checker refuses the lane's program: {joinErrors(errs)}\n")
+		return diagnosticsExitCode
+	end 'refused'
+	let graphs = sendGraphs()
+	let last = graphs.count() if options.count > graphs.count() else options.count
+	var runs = 0 as Count
+	var behaviours = 0 as Count
+	for k in 0 upto last 'graphs'
+		// A count below every graph takes them evenly across the sizes, so a sample has graphs of four services too.
+		let g = try k * graphs.count() / last otherwise panic("fuzz: more graphs than a word")
+		let graph = graphs[g].clone()
+		for schedule in 0 to options.schedules 'schedules'
+			var stop = 0 as Count
+			var seed = schedule
+			if schedule == options.schedules 'stopping'
+				stop = (try g mod graph.services otherwise panic("fuzz: a graph of no services")) + 1
+				seed = try g mod options.schedules otherwise 0
+			end 'stopping'
+			let input = graph.input(stop)
+			let out = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: laneStepLimit, seed: interp.seedOf(seed), wantFrees: false, stdin: input)
+			if out.violations.count() > 0 or out.timedOut or out.exitCode != 0 'failed'
+				var report = "exit {out.exitCode}"
+				if out.timedOut 'timedOut'
+					report = "a timeout"
+				end 'timedOut'
+				for i in 0 upto out.violations.count() 'each'
+					report = "{report}\n{out.violations[i]}"
+				end 'each'
+				printError("fuzz --services: the graph {input} under the schedule of seed {seed} ends with {report}\n")
+				return diagnosticsExitCode
+			end 'failed'
+			runs = try runs + 1 otherwise panic("fuzz: more runs than a word")
+			behaviours = try behaviours + out.behaviours otherwise panic("fuzz: more behaviours than a word")
+		end 'schedules'
+	end 'graphs'
+	print("the services lane ran {last} send graphs of up to {laneServices} services, {runs} runs and {behaviours} behaviours, and the oracles of backpressure held\n")
+	return 0
+end 'servicesLane'

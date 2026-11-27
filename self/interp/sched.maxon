@@ -215,6 +215,10 @@ function schedule(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	vm.behaviours.started.push(false)
 	vm.behaviours.mute.push(muteNone)
 	vm.behaviours.mutedOn.push(0)
+	vm.behaviours.pair.push(0)
+	vm.behaviours.pairSeq.push(0)
+	vm.behaviours.handled.push(0)
+	noteMessage(vm, b: b, cowns: cowns)
 	vm.scheduled = try vm.scheduled + 1 otherwise panic("interp: more behaviours than memory")
 	for i in 0 upto cowns.count() 'queues'
 		let at = vm.h.oData[cowns[i]]
@@ -470,6 +474,7 @@ function runScheduler(mutates job Interp, p ast.Project, modules ModuleFunctions
 				continue 'turns'
 			end 'sleeping'
 			if waitsOn(job.m.vm) 'stuck'
+				checkStalled(job.m.vm)
 				reportDeadlock(job.m.vm)
 			end 'stuck'
 			break 'turns'

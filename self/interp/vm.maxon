@@ -256,6 +256,8 @@ type Thread
 	var pins as Count
 	// service is the service whose message the thread runs, which the message's start names, or 0.
 	var service as Count
+	// sendTo is the service a send of the thread took a place in, until the thread schedules its message, or 0.
+	var sendTo as Count
 	// wakeAt is when the thread's sleep ends on the interpreter's clock, or noTimer.
 	var wakeAt as ir.Word
 	var stackTop as Count
@@ -275,7 +277,7 @@ type Thread
 	var dropWaits as CountList
 
 	static function new(name Count, behaviour Count) returns Thread
-		return Thread{name: name, behaviour: behaviour, promise: 0, strand: 0, done: false, begun: false, finished: false, ticked: false, parked: false, woke: false, yielding: false, pins: 0, service: 0, wakeAt: noTimer, stackTop: 0, retN: 0, retR: 0, errN: 0, errR: 0, startN: ir.WordList.create(0), startR: ir.WordList.create(0), regN: ir.WordList.create(0), regR: ir.WordList.create(0), frames: CountList.create(0), windows: Windows.create(0), dropWaits: CountList.create(0)}
+		return Thread{name: name, behaviour: behaviour, promise: 0, strand: 0, done: false, begun: false, finished: false, ticked: false, parked: false, woke: false, yielding: false, pins: 0, service: 0, sendTo: 0, wakeAt: noTimer, stackTop: 0, retN: 0, retR: 0, errN: 0, errR: 0, startN: ir.WordList.create(0), startR: ir.WordList.create(0), regN: ir.WordList.create(0), regR: ir.WordList.create(0), frames: CountList.create(0), windows: Windows.create(0), dropWaits: CountList.create(0)}
 	end 'new'
 end 'Thread'
 
@@ -342,9 +344,14 @@ type Behaviours
 	var started as BoolList
 	var mute as CountList
 	var mutedOn as CountList
+	// pair and pairSeq are the sender and receiver a message is of and its place among their messages, 0 for a behaviour
+	// that is no message, and handled how many times its handler started (oracles.maxon).
+	var pair as CountList
+	var pairSeq as CountList
+	var handled as CountList
 
 	static function new() returns Behaviours
-		var b = Behaviours{body: CountList.create(0), capturesN: WordLists.create(0), capturesR: WordLists.create(0), cowns: CountLists.create(0), seq: CountList.create(0), started: BoolList.create(0), mute: CountList.create(0), mutedOn: CountList.create(0)}
+		var b = Behaviours{body: CountList.create(0), capturesN: WordLists.create(0), capturesR: WordLists.create(0), cowns: CountLists.create(0), seq: CountList.create(0), started: BoolList.create(0), mute: CountList.create(0), mutedOn: CountList.create(0), pair: CountList.create(0), pairSeq: CountList.create(0), handled: CountList.create(0)}
 		b.body.push(0)
 		b.capturesN.push(ir.WordList.create(0))
 		b.capturesR.push(ir.WordList.create(0))
@@ -353,6 +360,9 @@ type Behaviours
 		b.started.push(false)
 		b.mute.push(0)
 		b.mutedOn.push(0)
+		b.pair.push(0)
+		b.pairSeq.push(0)
+		b.handled.push(0)
 		return b
 	end 'new'
 end 'Behaviours'
@@ -448,9 +458,14 @@ type Vm
 	var turnLimit as Count
 	// hash is the run's hash state, which its first hash that needs the seed makes.
 	var hash as HashState
+	// seed is the seed of the run's schedule, deliveries the messages it sent, and oracleFailures what the oracles of
+	// backpressure found (oracles.maxon).
+	var seed as ir.Word
+	var deliveries as Deliveries
+	var oracleFailures as ast.StringList
 
 	static function new(consumes prog Program, limit Count, seed ir.Word, consumes stdin ByteArray) returns Vm
-		var vm = Vm{h: Heap.new(), prog: prog, fr: Frames.new(), calls: 0, slotBlocks: CountLists.create(0), regN: ir.WordList.create(0), regR: ir.WordList.create(0), frames: CountList.create(0), windows: Windows.create(0), top: 0, curFn: 0, curBlock: 0, curPc: 0, curIdx: 0, paramBase: 0, regBase: 0, slotBase: 0, stackTop: 0, post: false, failTo: noFailure, switched: false, yielded: false, ticked: false, argN: ir.WordList.create(0), argR: ir.WordList.create(0), stdout: ByteArray.create(0), stderr: ByteArray.create(0), stdin: stdin, stdinRead: 0, violations: Violations.create(0), exitCode: 0, fatal: fatalNone, steps: 0, limit: limit, frees: CountList.create(0), endingFn: CountList.create(0), endingN: ir.WordList.create(0), endingR: ir.WordList.create(0), rng: Rng.new(seed), cur: 0, threads: Threads.create(0), behaviours: Behaviours.new(), pending: CountList.create(0), scheduled: 0, concurrent: false, tracking: false, mainExit: 0, setExit: false, setExitValue: 0, clockNanos: 0, strands: Strands.new(), promises: Promises.new(), sleepers: CountList.create(0), dropWaits: CountList.create(0), burst: 0, turnLimit: turnLimitOf(seed), hash: HashState.new(seed)}
+		var vm = Vm{h: Heap.new(), prog: prog, fr: Frames.new(), calls: 0, slotBlocks: CountLists.create(0), regN: ir.WordList.create(0), regR: ir.WordList.create(0), frames: CountList.create(0), windows: Windows.create(0), top: 0, curFn: 0, curBlock: 0, curPc: 0, curIdx: 0, paramBase: 0, regBase: 0, slotBase: 0, stackTop: 0, post: false, failTo: noFailure, switched: false, yielded: false, ticked: false, argN: ir.WordList.create(0), argR: ir.WordList.create(0), stdout: ByteArray.create(0), stderr: ByteArray.create(0), stdin: stdin, stdinRead: 0, violations: Violations.create(0), exitCode: 0, fatal: fatalNone, steps: 0, limit: limit, frees: CountList.create(0), endingFn: CountList.create(0), endingN: ir.WordList.create(0), endingR: ir.WordList.create(0), rng: Rng.new(seed), cur: 0, threads: Threads.create(0), behaviours: Behaviours.new(), pending: CountList.create(0), scheduled: 0, concurrent: false, tracking: false, mainExit: 0, setExit: false, setExitValue: 0, clockNanos: 0, strands: Strands.new(), promises: Promises.new(), sleepers: CountList.create(0), dropWaits: CountList.create(0), burst: 0, turnLimit: turnLimitOf(seed), hash: HashState.new(seed), seed: seed, deliveries: Deliveries.new(), oracleFailures: ast.StringList.create(0)}
 		// Thread 0 is no thread.
 		vm.threads.push(Thread.new(0, behaviour: 0))
 		return vm

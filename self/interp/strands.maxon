@@ -475,6 +475,7 @@ function entryServiceReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws 
 	let queued = gate + 1
 	vm.h.shareds[at].gate = queued
 	giveNum(vm, x: x, n: 0)
+	noteReserved(vm, receiver: service)
 	if slowsSenders(vm, at: at, queued: gate) 'slowing'
 		if queued > vm.h.shareds[at].most 'most'
 			vm.h.shareds[at].most = queued
@@ -505,6 +506,8 @@ function entryServiceStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Ha
 	let at = vm.h.oData[service]
 	vm.h.shareds[at].gate = try vm.h.shareds[at].gate - 1 otherwise panic("interp: a message taken that no send reserved")
 	vm.threads[vm.cur].service = service
+	let b = vm.threads[vm.cur].behaviour
+	noteHandled(vm, b: b)
 end 'entryServiceStart'
 
 // Backpressure, as the runtime's (runtime/service.maxon), with vm.turnLimit for its turn: a service is behind when a send

@@ -1,0 +1,244 @@
+// The oracles of backpressure, checked on every run that sends messages: what the rules of runtime/service.maxon promise, which
+// the interpreter's model of them must keep under every schedule. A failure is the model's or the runtime's design's, never
+// the program's, so the run that finds one ends in an internal error naming the oracle and the seed of its schedule.
+//
+// - exactly once: every message whose send succeeded is handled once; a send that fails, fails only "stopped";
+// - sender order: the messages of one sender to one service are handled in the order they were sent;
+// - progress: the run never stops with only backpressure holding it, every live service muted and every task parked at a send;
+// - queue bound: a service's queue stays within the bound the header of runtime/service.maxon states for the shape of its
+//   senders and receivers, where it states one.
+//
+// A sender is a service, for the messages of all its handlers, or a thread that runs no message (a task), as senderTag
+// encodes them.
+let oracleOnce = "exactly once"
+
+let oracleOrder = "sender order"
+
+let oracleProgress = "progress"
+
+let oracleBound = "queue bound"
+
+// Deliveries are the messages sent, by pair of sender and receiver, from 1, 0 being no pair: how many were sent and how many
+// of them have been handled, in order.
+type Deliveries
+	var sender as CountList
+	var receiver as CountList
+	var sent as CountList
+	var handled as CountList
+
+	static function new() returns Deliveries
+		var d = Deliveries{sender: CountList.create(0), receiver: CountList.create(0), sent: CountList.create(0), handled: CountList.create(0)}
+		d.sender.push(0)
+		d.receiver.push(0)
+		d.sent.push(0)
+		d.handled.push(0)
+		return d
+	end 'new'
+
+	// pairOf is the pair of a sender and a receiver, made at its first message.
+	function pairOf(mutates self, from Count, to Count) returns Count
+		for i in 1 upto sender.count() 'pairs'
+			if sender[i] == from and receiver[i] == to 'found'
+				return i
+			end 'found'
+		end 'pairs'
+		sender.push(from)
+		receiver.push(to)
+		sent.push(0)
+		handled.push(0)
+		return try sender.count() - 1 otherwise panic("interp: a pair that was not made")
+	end 'pairOf'
+
+	// send counts a message of a pair, and gives its place among the pair's messages, from 1.
+	function send(mutates self, pair Count) returns Count
+		sent[pair] = try sent[pair] + 1 otherwise panic("interp: more messages than a word")
+		return sent[pair]
+	end 'send'
+
+	// handle counts the message of a pair at place seq as it is handled, and gives whether it came in its turn: the one after
+	// the last the pair had handled.
+	function handle(mutates self, pair Count, seq Count) returns bool
+		let inTurn = seq == (try handled[pair] + 1 otherwise panic("interp: more messages than a word"))
+		handled[pair] = seq
+		return inTurn
+	end 'handle'
+
+	// sendersOf are the senders that sent to a receiver, in the order they first did.
+	function sendersOf(to Count) returns CountList
+		var out = CountList.create(0)
+		for i in 1 upto receiver.count() 'pairs'
+			if receiver[i] == to 'found'
+				out.push(sender[i])
+			end 'found'
+		end 'pairs'
+		return out
+	end 'sendersOf'
+
+	// receiversOf are the receivers a sender sent to, in the order it first did.
+	function receiversOf(from Count) returns CountList
+		var out = CountList.create(0)
+		for i in 1 upto sender.count() 'pairs'
+			if sender[i] == from 'found'
+				out.push(receiver[i])
+			end 'found'
+		end 'pairs'
+		return out
+	end 'receiversOf'
+end 'Deliveries'
+
+function isTaskSender(key Count) returns bool
+	return key mod senderTag == 1
+end 'isTaskSender'
+
+function serviceSender(service Count) returns Count
+	return try service * senderTag otherwise panic("interp: an object past a word")
+end 'serviceSender'
+
+function taskSender(t Count) returns Count
+	return try t * senderTag + 1 otherwise panic("interp: a thread past a word")
+end 'taskSender'
+
+// queueBound is the bound in messages that runtime/service.maxon states for the queue of a service, for the senders and
+// receivers it had, with turn for its turnBehaviours, where it states one: a service that sends to none and that only tasks
+// send to holds at most a turn and a message of each task; a relay that one task sends to and that sends to one other
+// service, a turn and 2; and the consumer that only such a relay sends to, two turns and 4.
+function queueBound(d Deliveries, service Count, turn Count) returns table.Option with Count
+	let senders = d.sendersOf(service)
+	let receivers = d.receiversOf(serviceSender(service))
+	if receivers.count() == 0 and onlyTasks(senders) 'leaf'
+		return table.Option.some(try turn + senders.count() otherwise panic("interp: a bound past a word"))
+	end 'leaf'
+	if isRelay(d, service: service) 'relay'
+		return table.Option.some(try turn + 2 otherwise panic("interp: a bound past a word"))
+	end 'relay'
+	if receivers.count() == 0 and senders.count() == 1 and not isTaskSender(senders[0]) and isRelay(d, service: senders[0] / senderTag) 'consumer'
+		return table.Option.some(try 2 * turn + 4 otherwise panic("interp: a bound past a word"))
+	end 'consumer'
+	return table.Option.none
+end 'queueBound'
+
+// isRelay is whether one task alone sends to a service, which sends to one other service alone.
+function isRelay(d Deliveries, service Count) returns bool
+	let senders = d.sendersOf(service)
+	let receivers = d.receiversOf(serviceSender(service))
+	return senders.count() == 1 and isTaskSender(senders[0]) and receivers.count() == 1 and receivers[0] != service
+end 'isRelay'
+
+function onlyTasks(senders CountList) returns bool
+	for i in 0 upto senders.count() 'senders'
+		if not isTaskSender(senders[i]) 'service'
+			return false
+		end 'service'
+	end 'senders'
+	return true
+end 'onlyTasks'
+
+// oracleFails records that an oracle failed, with what it found.
+function oracleFails(mutates vm Vm, oracle String, found String)
+	vm.oracleFailures.push("the {oracle} oracle failed: {found}")
+end 'oracleFails'
+
+// senderText names a sender for a report.
+function senderText(vm Vm, key Count) returns String
+	if isTaskSender(key) 'task'
+		return "the task {describeThread(vm, t: key / senderTag)}"
+	end 'task'
+	return objectText(vm, o: key / senderTag)
+end 'senderText'
+
+// noteReserved remembers the service a send of the thread that runs took a place in, whose message the thread's next
+// behaviour is.
+function noteReserved(mutates vm Vm, receiver Count)
+	vm.threads[vm.cur].sendTo = receiver
+end 'noteReserved'
+
+// noteMessage tags behaviour b, which the thread that runs schedules, as the message of the send it took a place for, if b is
+// that service's.
+function noteMessage(mutates vm Vm, b Count, cowns CountList)
+	let to = exchange(vm.threads[vm.cur].sendTo, value: 0)
+	if to == 0 or cowns.count() != 1 or cowns[0] != to 'other'
+		return
+	end 'other'
+	var from = taskSender(vm.cur)
+	let service = messageOf(vm, t: vm.cur)
+	if service != 0 'service'
+		from = serviceSender(service)
+	end 'service'
+	let pair = vm.deliveries.pairOf(from, to: to)
+	vm.behaviours.pair[b] = pair
+	vm.behaviours.pairSeq[b] = vm.deliveries.send(pair)
+end 'noteMessage'
+
+// noteHandled counts the message that behaviour b is as its handler starts: handled once, and in its sender's order.
+function noteHandled(mutates vm Vm, b Count)
+	let pair = vm.behaviours.pair[b]
+	if pair == 0 'untagged'
+		return
+	end 'untagged'
+	vm.behaviours.handled[b] = try vm.behaviours.handled[b] + 1 otherwise panic("interp: a count past a word")
+	let what = "message {vm.behaviours.pairSeq[b]} of {senderText(vm, key: vm.deliveries.sender[pair])} to {objectText(vm, o: vm.deliveries.receiver[pair])} (behaviour #{vm.behaviours.seq[b]})"
+	if vm.behaviours.handled[b] > 1 'again'
+		oracleFails(vm, oracle: oracleOnce, found: "{what} is handled again")
+		return
+	end 'again'
+	let last = vm.deliveries.handled[pair]
+	if not vm.deliveries.handle(pair, seq: vm.behaviours.pairSeq[b]) 'order'
+		oracleFails(vm, oracle: oracleOrder, found: "{what} is handled after message {last} of that sender")
+	end 'order'
+end 'noteHandled'
+
+// checkEnded checks a run that has ended with nothing left to run: every message is handled, and every queue stayed within
+// its bound.
+function checkEnded(mutates vm Vm)
+	for b in 1 upto vm.behaviours.pair.count() 'behaviours'
+		let pair = vm.behaviours.pair[b]
+		if pair != 0 and vm.behaviours.handled[b] == 0 'lost'
+			oracleFails(vm, oracle: oracleOnce, found: "message {vm.behaviours.pairSeq[b]} of {senderText(vm, key: vm.deliveries.sender[pair])} to {objectText(vm, o: vm.deliveries.receiver[pair])} (behaviour #{vm.behaviours.seq[b]}) was never handled")
+		end 'lost'
+	end 'behaviours'
+	var seen = CountList.create(0)
+	for i in 1 upto vm.deliveries.receiver.count() 'pairs'
+		let service = vm.deliveries.receiver[i]
+		if seen.contains(service) 'again'
+			continue 'pairs'
+		end 'again'
+		seen.push(service)
+		let bound = queueBound(vm.deliveries, service: service, turn: vm.turnLimit)
+		if bound.isSome() 'stated'
+			let most = vm.h.shareds[vm.h.oData[service]].most
+			let limit = bound.unwrap()
+			if most > limit 'over'
+				oracleFails(vm, oracle: oracleBound, found: "{objectText(vm, o: service)} held {most} messages, past the {limit} its senders and receivers allow with a turn of {vm.turnLimit}")
+			end 'over'
+		end 'stated'
+	end 'pairs'
+end 'checkEnded'
+
+// checkStalled checks a run in which nothing can go on: what holds it may not be backpressure alone, every thread that waits
+// being a task parked at a send, with behaviours muted or tasks so parked.
+function checkStalled(mutates vm Vm)
+	var held = mutedBehaviours(vm).count() > 0
+	for t in 1 upto vm.threads.count() 'threads'
+		if vm.threads[t].done or not vm.threads[t].parked 'free'
+			continue 'threads'
+		end 'free'
+		if not parkedAtSend(vm, t: t) 'waits'
+			return
+		end 'waits'
+		held = true
+	end 'threads'
+	if held 'stuck'
+		oracleFails(vm, oracle: oracleProgress, found: "the run stops with every service that has messages muted and every task parked at a send")
+	end 'stuck'
+end 'checkStalled'
+
+// parkedAtSend is whether thread t is a task that a send parked, listed on its receiver.
+function parkedAtSend(vm Vm, t Count) returns bool
+	let key = taskSender(t)
+	for at in 0 upto vm.h.shareds.count() 'shareds'
+		if vm.h.shareds[at].senders.contains(key) 'listed'
+			return true
+		end 'listed'
+	end 'shareds'
+	return false
+end 'parkedAtSend'

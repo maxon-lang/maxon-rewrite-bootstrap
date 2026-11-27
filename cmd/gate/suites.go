@@ -28,6 +28,10 @@ const hashSeedPin = "1111111111111111"
 // than the few that find a hole in a proof the generator is aimed at (the closure that changes an index, a count effect).
 const proofSeeds = "180"
 
+// serviceGraphs is how many of the services lane's 6,898 send graphs the gate runs, spread evenly over them, which takes
+// seconds where every one takes four minutes (`fuzz --services` alone).
+const serviceGraphs = "200"
+
 // pinHashSeed sets the hash seed of the programs the gate starts, for the suites and for the regeneration of the specs alike:
 // the spec results are kept under a stamp that holds the seed, so a run under another one is not the run that the gate
 // replays.
@@ -149,6 +153,8 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 		// The proof generator's programs aim at the range analysis's proofs of access and arithmetic: an access the analysis proved
 		// that lies outside its array is a violation under the interpreter, and the executable must print what the interpreter does.
 		{step{"fuzz proofs", func() error { return mm("fuzz", "--proofs", "--native", "--count="+proofSeeds) }}, "checks"},
+		// Every run of the services lane's send graphs must keep the interpreter's oracles of backpressure.
+		{step{"fuzz services", func() error { return mm("fuzz", "--services", "--count="+serviceGraphs) }}, "checks"},
 		{step{"benchmarks compile", func() error { return benchmarksCompile(r.compiler, r.testArgs) }}, "builds"},
 		{step{"self compiles for arm64", func() error { return selfCompilesForArm64(r.compiler) }}, "builds"},
 		{step{"cache", func() error { return cacheTest(r.h, r.compiler) }}, "builds"},
