@@ -1,0 +1,73 @@
+/// What becomes of the work of a message kind when its service is behind: the policy its type names with
+/// `@policy(T)` before the message's `export function`. The runtime asks a policy only while the service is
+/// behind, so a send to a service that keeps up costs what it does without one.
+/// @category Services
+public interface OverloadPolicy
+	static function admit(arrival Arrival) returns Admission
+end 'OverloadPolicy'
+
+/// A policy that may answer `replacePending`: its message kind has a word of the service's own, which holds the one
+/// message of the kind that was sent while the service was behind and has not run.
+public interface CoalescingPolicy extends OverloadPolicy
+end 'CoalescingPolicy'
+
+/// What a policy's `admit` decides for a message sent while its service is behind.
+public enum Admission
+	// queue keeps it: it is handled later, and its sender is slowed as every sender of a service that is behind is.
+	queue
+	// refuse does not handle it: a message with a reply fails its send with `busy`, any other is dropped.
+	refuse
+	// discard does not handle it, as refuse does: for a message whose sender expects nothing back.
+	discard
+	// replacePending puts it in its kind's word, in place of the message of the kind that waits there, which is dropped;
+	// only a CoalescingPolicy's kind has the word, and for any other kind it is queue.
+	replacePending
+end 'Admission'
+
+/// What `admit` sees of a message sent while its service is behind: how many messages the service holds, and the
+/// runtime's turn, so a policy can say "more than a turn" without a number of its own.
+public type Arrival
+	public let count as Count
+	public let turnSize as Count
+
+	public static function make(count Count, turnSize Count) returns Self
+		return Self{count: count, turnSize: turnSize}
+	end 'make'
+end 'Arrival'
+
+/// Keep handles every message: the senders of a service that is behind are slowed until it catches up. It is what a
+/// message kind with no policy does, and naming it says so on purpose.
+public type Keep implements OverloadPolicy
+	public static function admit(arrival Arrival) returns Admission
+		return Admission.queue
+	end 'admit'
+end 'Keep'
+
+/// Refuse handles no message sent while the service is behind: a message with a reply fails its send with `busy` at once,
+/// so its sender can answer "try later", and the sender is not slowed.
+public type Refuse implements OverloadPolicy
+	public static function admit(arrival Arrival) returns Admission
+		return Admission.refuse
+	end 'admit'
+end 'Refuse'
+
+/// DropNewest throws away a message sent while the service is behind: for telemetry, whose sender expects nothing back.
+public type DropNewest implements OverloadPolicy
+	public static function admit(arrival Arrival) returns Admission
+		return Admission.discard
+	end 'admit'
+end 'DropNewest'
+
+/// Latest keeps only the newest message of its kind that has not run: one sent while the service is behind waits in the
+/// kind's pending word, and the next of the kind replaces it there and drops it, so its sender is never slowed.
+public type Latest implements CoalescingPolicy
+	public static function admit(arrival Arrival) returns Admission
+		return Admission.replacePending
+	end 'admit'
+end 'Latest'
+
+/// underLoad is whether the service whose message runs is behind: a handler may do cheaper work while it is. Off a
+/// message, it is false.
+public function underLoad() returns bool
+	return __Builtins.serviceUnderLoad()
+end 'underLoad'

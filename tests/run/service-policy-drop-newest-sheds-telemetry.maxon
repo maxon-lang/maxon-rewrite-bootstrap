@@ -1,0 +1,33 @@
+// A message kind whose policy is DropNewest throws away a message sent while its service is behind, with what it holds,
+// and its sender is not slowed; a message of another kind is still handled. Its send fails only once the service stops.
+// schedules: 6
+//> counted some: true, at most sent: true, reported: done
+export typealias Amount = int(0 to 1000000)
+
+type Metrics
+	var counted as Amount
+	var last as String
+
+	static function create() returns Self
+		return Self{counted: 0, last: ""}
+	end 'create'
+
+	@policy(DropNewest) export function count(mutates self, consumes name String)
+		self.counted = try self.counted + 1 otherwise 0
+		self.last = name
+	end 'count'
+
+	export function report() returns Amount
+		return self.counted
+	end 'report'
+end 'Metrics'
+
+function main() returns ExitCode
+	let m = spawn Metrics.create()
+	for i in 1 to 1000 'send'
+		try m.count("event {i}") otherwise ignore
+	end 'send'
+	let counted = try await m.report() otherwise 0
+	print("counted some: {counted > 0}, at most sent: {counted <= 1000}, reported: done\n")
+	return 0
+end 'main'

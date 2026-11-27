@@ -157,6 +157,9 @@ function addFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].paramTypes = types
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].retTy = ret
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].errTy = err
+	if f.isAnnotated 'policy'
+		declarePolicy(c, p: p, ms: ms, f: f, fid: fid, nt: nt, errs: errs)
+	end 'policy'
 	declared.push(fid)
 end 'addFunction'
 
@@ -345,3 +348,45 @@ function mainFuncOf(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncDecl
 	end 'fn'
 	panic("the entry function of module {c.modID} was not declared")
 end 'mainFuncOf'
+
+// policyAnnotationWord is the one word an annotation before a function may be (README, "Overload policies").
+let policyAnnotationWord = "policy"
+
+// declarePolicy records the policy of the message fid of the type nt, or refuses it.
+function declarePolicy(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, fid ast.FuncID, nt ast.TypeID, mutates errs diag.ErrorList)
+	let off = offsetOf(c, p: p, ms: ms, node: f.id)
+	if f.annotation != policyAnnotationWord 'word'
+		checkFail(c.modID, off: off, code: diag.errUnexpectedToken, msg: "Unknown annotation '@{f.annotation}' (expected '@policy')", errs: errs)
+		return
+	end 'word'
+	let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).name.clone()
+	if nt == ast.noType or ast.typeKind(ms.types, reads: p.types, t: nt) != ast.TypeKind.record or f.isStatic or f.visibility != "export" 'misplaced'
+		checkFail(c.modID, off: off, code: diag.errPolicyMisplaced, msg: "'@policy' says what becomes of a message's work while its service is behind, and '{name}' is no message: put it before an 'export function' of a type that is spawned, which a send runs", errs: errs)
+		return
+	end 'misplaced'
+	let policy = resolveTypeRef(c, p: p, ms: ms, tr: f.policy, selfTy: ast.noType, errs: errs)
+	if policy == ast.noType 'unresolved'
+		return
+	end 'unresolved'
+	let policyName = ast.typeName(ms.types, reads: p.types, t: policy)
+	if not ast.reachesLibraryInterface(p, tt: ms.types, reads: p.types, have: policy, name: ast.overloadPolicyName) 'notPolicy'
+		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: f.policy), code: diag.errPolicyNotAPolicy, msg: "'{policyName}' is no overload policy: name one of Keep, Refuse, DropNewest and Latest, or a type that implements 'OverloadPolicy'", errs: errs)
+		return
+	end 'notPolicy'
+	if ast.isLibraryServiceType(p, tt: ms.types, reads: p.types, t: policy, name: ast.keepPolicyName) 'keep'
+		return
+	end 'keep'
+	let coalescing = ast.reachesLibraryInterface(p, tt: ms.types, reads: p.types, have: policy, name: ast.coalescingPolicyName)
+	if ast.hasReply(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid), voidTy: p.builtins.voidTy) 'reply'
+		if coalescing or ast.isLibraryServiceType(p, tt: ms.types, reads: p.types, t: policy, name: ast.dropNewestPolicyName) 'unanswered'
+			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: f.policy), code: diag.errPolicyWithReply, msg: "'{name}' has a reply, which its sender waits for, and '{policyName}' would throw the message away or replace it unanswered: name 'Refuse', whose sender is answered 'busy' at once, or 'Keep', or remove the reply", errs: errs)
+			return
+		end 'unanswered'
+	end 'reply'
+	var slot = ast.noPendingSlot
+	if coalescing 'pending'
+		slot = try ast.pendingWords(ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, nt: nt) + 1 otherwise panic("check: more pending words than a word")
+	end 'pending'
+	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].policy = policy
+	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].pendingSlot = slot
+end 'declarePolicy'

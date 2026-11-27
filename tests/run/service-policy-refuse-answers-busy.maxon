@@ -1,0 +1,40 @@
+// A message kind whose policy is Refuse is not handled when it is sent while its service is behind: its send fails with
+// busy at once, which only such a kind's sender has to handle, and the sender is not slowed. Every message is handled or
+// refused, never both. A kind that names Keep compiles as one that names no policy.
+// schedules: 6
+//> handled and refused: 1000
+export typealias Amount = int(0 to 1000000)
+
+type Sink
+	var seen as Amount
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	@policy(Refuse) export function take(mutates self, n Amount) returns Amount
+		self.seen = try self.seen + 1 otherwise 0
+		return n
+	end 'take'
+
+	@policy(Keep) export function count() returns Amount
+		return self.seen
+	end 'count'
+end 'Sink'
+
+function main() returns ExitCode
+	let s = spawn Sink.create()
+	var refused = 0 as Amount
+	for i in 1 to 1000 'send'
+		_ = try s.take(i) otherwise (e) 'no'
+			match e 'why'
+				busy then refused = try refused + 1 otherwise 0
+				serviceStopped then print("stopped\n")
+			end 'why'
+			continue 'send'
+		end 'no'
+	end 'send'
+	let n = try await s.count() otherwise 0
+	print("handled and refused: {n + refused}\n")
+	return 0
+end 'main'

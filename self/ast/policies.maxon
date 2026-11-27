@@ -1,0 +1,56 @@
+// Overload policies (README, "Overload policies"): the declarations of the library's service module that the checker and
+// the lowering of a send name, found by their module and name as a map literal's Map is.
+export let overloadPolicyName = "OverloadPolicy"
+
+export let coalescingPolicyName = "CoalescingPolicy"
+
+export let keepPolicyName = "Keep"
+
+export let dropNewestPolicyName = "DropNewest"
+
+export let admitName = "admit"
+
+// isLibraryServiceType is whether t is the declaration of the library's service module of the name.
+export function isLibraryServiceType(p Project, tt TypeSlot, reads TypeTable, t TypeID, name String) returns bool
+	let origin = typeEntry(tt, reads: reads, t: t).effectiveOrigin()
+	return match consumes libraryModuleNamed(p, name: libraryServiceModule) 'library'
+		some(holder) gives typeEntry(tt, reads: reads, t: origin).decl.module == holder and typeEntry(tt, reads: reads, t: origin).name == name
+		none gives false
+	end 'library'
+end 'isLibraryServiceType'
+
+// reachesLibraryInterface is whether the type have implements the interface of the library's service module of the name,
+// directly or through the interfaces it extends.
+export function reachesLibraryInterface(p Project, tt TypeSlot, reads TypeTable, have TypeID, name String) returns bool
+	if isLibraryServiceType(p, tt: tt, reads: reads, t: have, name: name) 'same'
+		return true
+	end 'same'
+	let orig = typeEntry(tt, reads: reads, t: have).effectiveOrigin()
+	for i in 0 upto typeEntry(tt, reads: reads, t: orig).conforms.count() 'parents'
+		if reachesLibraryInterface(p, tt: tt, reads: reads, have: typeEntry(tt, reads: reads, t: orig).conforms[i], name: name) 'hit'
+			return true
+		end 'hit'
+	end 'parents'
+	return false
+end 'reachesLibraryInterface'
+
+// answersBusy is whether a send of the message f may fail with busy: it has a reply and a policy other than Keep.
+export function answersBusy(f FuncEntry, voidTy TypeID) returns bool
+	return f.policy != noType and hasReply(f, voidTy: voidTy)
+end 'answersBusy'
+
+// pendingWords is how many pending words the messages of the type nt take, of those declared so far.
+export function pendingWords(tt TypeSlot, reads TypeTable, ft FuncSlot, funcReads FuncTable, nt TypeID) returns Count
+	var words = 0 as Count
+	for m in typeEntry(tt, reads: reads, t: nt).methods 'methods'
+		if funcEntry(ft, funcReads: funcReads, f: m.func).pendingSlot != noPendingSlot 'pending'
+			words = try words + 1 otherwise panic("ast: more pending words than a word")
+		end 'pending'
+	end 'methods'
+	return words
+end 'pendingWords'
+
+// hasReply is whether a message of the function gives its sender a reply: it returns a value or throws.
+export function hasReply(f FuncEntry, voidTy TypeID) returns bool
+	return (f.retTy != voidTy and f.retTy != noType) or f.errTy != noType
+end 'hasReply'

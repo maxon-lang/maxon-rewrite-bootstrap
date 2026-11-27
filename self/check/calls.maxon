@@ -30,7 +30,7 @@ function callErrorType(p ast.Project, ms ast.ModuleState, info ast.CallInfo) ret
 		return ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.method).errTy
 	end 'bound'
 	if info.kind == ast.CallKind.callSend 'send'
-		return p.builtins.sendErrorTy
+		return sendErrorOf(p, ms: ms, handler: info.fn)
 	end 'send'
 	return ast.noType
 end 'callErrorType'

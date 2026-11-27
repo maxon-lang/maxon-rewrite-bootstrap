@@ -140,6 +140,10 @@ export let filePermissionExecutable = 1 as Count
 
 export let sendServiceStopped = 0 as Count
 
+export let sendBusyStopped = 0 as Count
+
+export let sendBusy = 1 as Count
+
 export let errorDeleteNotFound = 0 as Count
 
 export let errorDeleteAccessDenied = 1 as Count
@@ -431,6 +435,7 @@ export enum Intrinsic
 	intrDebuggeeTerminate
 	intrCollectedOutputSucceeded
 	intrSleep
+	intrServiceUnderLoad
 	intrClockNowMillis
 	intrClockTickMillis
 	intrClockThreadCpuTicks
@@ -900,6 +905,7 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrDebuggeeTerminate or
 		intrCollectedOutputSucceeded or
 		intrSleep or
+		intrServiceUnderLoad or
 		intrClockNowMillis or
 		intrClockTickMillis or
 		intrClockThreadCpuTicks or
@@ -1208,6 +1214,7 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrDebuggeeTerminate or
 		intrCollectedOutputSucceeded or
 		intrSleep or
+		intrServiceUnderLoad or
 		intrClockNowMillis or
 		intrClockTickMillis or
 		intrClockThreadCpuTicks or
@@ -1562,6 +1569,7 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrDebuggeeTerminate or
 		intrCollectedOutputSucceeded or
 		intrSleep or
+		intrServiceUnderLoad or
 		intrClockNowMillis or
 		intrClockTickMillis or
 		intrClockThreadCpuTicks or
@@ -1798,6 +1806,9 @@ export function rawCallInstead(b Builtins, owner TypeID, name String) returns ta
 		if name == "sleep" 'sleep'
 			return table.Option.some("sleep(milliseconds)")
 		end 'sleep'
+		if name == "serviceUnderLoad" 'serviceUnderLoad'
+			return table.Option.some("underLoad()")
+		end 'serviceUnderLoad'
 		if name == "cpuCount" 'cpuCount'
 			return table.Option.some("Scheduler.machineCpuCount()")
 		end 'cpuCount'
@@ -2296,99 +2307,103 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std P
 	names25.push("serviceStopped")
 	b.sendErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SendError", cases: names25)
 	var names26 = StringList.create(0)
-	names26.push("notFound")
-	names26.push("accessDenied")
+	names26.push("serviceStopped")
 	names26.push("busy")
-	names26.push("failed")
-	b.fileDeleteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileDeleteError", cases: names26)
+	b.sendBusyErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SendBusyError", cases: names26)
 	var names27 = StringList.create(0)
-	names27.push("failed")
 	names27.push("notFound")
 	names27.push("accessDenied")
 	names27.push("busy")
-	names27.push("alreadyExists")
-	b.fileRenameErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileRenameError", cases: names27)
+	names27.push("failed")
+	b.fileDeleteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileDeleteError", cases: names27)
 	var names28 = StringList.create(0)
+	names28.push("failed")
 	names28.push("notFound")
 	names28.push("accessDenied")
 	names28.push("busy")
-	names28.push("failed")
-	b.fileInfoErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileInfoError", cases: names28)
+	names28.push("alreadyExists")
+	b.fileRenameErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileRenameError", cases: names28)
 	var names29 = StringList.create(0)
 	names29.push("notFound")
 	names29.push("accessDenied")
-	names29.push("listFailed")
-	b.directoryListErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryListError", cases: names29)
+	names29.push("busy")
+	names29.push("failed")
+	b.fileInfoErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileInfoError", cases: names29)
 	var names30 = StringList.create(0)
 	names30.push("notFound")
-	names30.push("notEmpty")
-	names30.push("deleteFailed")
-	b.directoryDeleteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryDeleteError", cases: names30)
+	names30.push("accessDenied")
+	names30.push("listFailed")
+	b.directoryListErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryListError", cases: names30)
 	var names31 = StringList.create(0)
-	names31.push("pathUnavailable")
-	names31.push("variableUnset")
-	names31.push("environmentUnreadable")
-	b.processIntrospectionErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "ProcessIntrospectionError", cases: names31)
+	names31.push("notFound")
+	names31.push("notEmpty")
+	names31.push("deleteFailed")
+	b.directoryDeleteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryDeleteError", cases: names31)
 	var names32 = StringList.create(0)
-	names32.push("executableNotFound")
-	names32.push("spawnFailed")
-	names32.push("busy")
-	names32.push("ioFailed")
-	names32.push("timeout")
-	names32.push("treeNotEnded")
-	names32.push("detachRefused")
-	names32.push("inputTooLarge")
-	names32.push("statusLost")
-	b.subprocessErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SubprocessError", cases: names32)
+	names32.push("pathUnavailable")
+	names32.push("variableUnset")
+	names32.push("environmentUnreadable")
+	b.processIntrospectionErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "ProcessIntrospectionError", cases: names32)
 	var names33 = StringList.create(0)
-	names33.push("open")
-	names33.push("atEof")
-	names33.push("readFailed")
-	names33.push("noSuchChild")
-	b.subprocessStreamStateTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__SubprocessStreamState", cases: names33)
+	names33.push("executableNotFound")
+	names33.push("spawnFailed")
+	names33.push("busy")
+	names33.push("ioFailed")
+	names33.push("timeout")
+	names33.push("treeNotEnded")
+	names33.push("detachRefused")
+	names33.push("inputTooLarge")
+	names33.push("statusLost")
+	b.subprocessErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SubprocessError", cases: names33)
 	var names34 = StringList.create(0)
-	names34.push("unreadable")
-	names34.push("unwritable")
-	names34.push("outOfBounds")
-	b.debuggeeErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebuggeeError", cases: names34)
+	names34.push("open")
+	names34.push("atEof")
+	names34.push("readFailed")
+	names34.push("noSuchChild")
+	b.subprocessStreamStateTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__SubprocessStreamState", cases: names34)
 	var names35 = StringList.create(0)
-	names35.push("handled")
-	names35.push("unhandled")
-	b.debugDispositionTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebugDisposition", cases: names35)
+	names35.push("unreadable")
+	names35.push("unwritable")
+	names35.push("outOfBounds")
+	b.debuggeeErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebuggeeError", cases: names35)
 	var names36 = StringList.create(0)
-	names36.push("notAscii")
-	b.characterErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CharacterError", cases: names36)
+	names36.push("handled")
+	names36.push("unhandled")
+	b.debugDispositionTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebugDisposition", cases: names36)
 	var names37 = StringList.create(0)
-	names37.push("notFound")
-	names37.push("invalidIndex")
-	b.stringErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "StringError", cases: names37)
+	names37.push("notAscii")
+	b.characterErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CharacterError", cases: names37)
 	var names38 = StringList.create(0)
-	names38.push("exhausted")
-	names38.push("atStart")
-	b.iterationErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "IterationError", cases: names38)
+	names38.push("notFound")
+	names38.push("invalidIndex")
+	b.stringErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "StringError", cases: names38)
 	var names39 = StringList.create(0)
-	names39.push("otherType")
-	b.castErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CastError", cases: names39)
+	names39.push("exhausted")
+	names39.push("atStart")
+	b.iterationErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "IterationError", cases: names39)
 	var names40 = StringList.create(0)
-	names40.push("noSuchRawValue")
-	names40.push("noSuchCaseName")
-	b.enumLookupErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__EnumLookupError", cases: names40)
+	names40.push("otherType")
+	b.castErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CastError", cases: names40)
+	var names41 = StringList.create(0)
+	names41.push("noSuchRawValue")
+	names41.push("noSuchCaseName")
+	b.enumLookupErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__EnumLookupError", cases: names41)
 	b.copyableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Copyable")
 	b.droppableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Droppable")
 	b.errorTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Error")
 	b.initableFromStringLiteralTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "InitableFromStringLiteral")
 	tt.lists[typeList(tt, t: b.filePathTy)][typeIndex(tt, t: b.filePathTy)].conforms.push(b.initableFromStringLiteralTy)
-	let ty41 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty41)
 	let ty42 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	let ty43 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(ty42))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArrays", ty: ty43)
-	let ty44 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty44)
-	let ty45 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty45)
-	let ty46 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty46)
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty42)
+	let ty43 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	let ty44 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(ty43))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArrays", ty: ty44)
+	let ty45 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty45)
+	let ty46 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty46)
+	let ty47 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty47)
 end 'declareBuiltinTypes'
 
 function declareArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -3478,6 +3493,7 @@ function declareBuiltinsMethods(mutates tt TypeSlot, reads TypeTable, mutates ft
 	var ps1 = ParamSpecList.create(0)
 	ps1.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSleep, name: "sleep", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps1, listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrServiceUnderLoad, name: "serviceUnderLoad", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSchedulerMachineCpuCount, name: "cpuCount", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrProcessId, name: "currentProcessId", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrClockNowNanos, name: "currentTimeNanos", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)

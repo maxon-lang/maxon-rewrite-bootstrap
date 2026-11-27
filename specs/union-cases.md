@@ -494,7 +494,7 @@ end 'main'
 ```
 
 <!-- test: multi-line-payload-declaration-of-a-keyword-named-case -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'export', 'function', 'public', 'static' or a name but got 'while' -->
+<!-- skip: minimaxon does not parse the converted source: Expected '@', 'export', 'function', 'public', 'static' or a name but got 'while' -->
 A keyword-named case's payload list spans lines like any other.
 ```maxon
 typealias Integer = int(i64.min to i64.max)

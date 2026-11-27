@@ -1,0 +1,13 @@
+type Sink
+	var seen as Count
+
+	@policy(Refuse) static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+end 'Sink'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3946 at 4:2

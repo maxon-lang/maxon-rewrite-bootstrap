@@ -18,7 +18,7 @@ function visitSpawnExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	if c.info.body == ast.noFunc 'here'
 		let made = lowerExpr(l, p: p, ms: ms, e: call)
 		let state = boxed(l, p: p, ms: ms, v: made, t: exprType(p, module: l.module, node: call))
-		let handle = entry(l, p: p, site: site, symbol: Rt.rtServiceNew, kind: IrKind.kindManaged, args: argsOf1(state))
+		let handle = newService(l, p: p, ms: ms, site: site, state: state, stateTy: exprType(p, module: l.module, node: call))
 		popPending(l, n: mark)
 		return handle
 	end 'here'
@@ -27,12 +27,25 @@ function visitSpawnExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	let captures = messageArgs(l, p: p, ms: ms, c: c, base: base)
 	popArgs(l, n: base)
 	let empty = konst(l, value: 0 as Word)
-	let handle = entry(l, p: p, site: site, symbol: Rt.rtServiceNew, kind: IrKind.kindManaged, args: argsOf1(empty))
-	let body = lowerServiceBody(l, p: p, ms: ms, c: c, handleTy: handleTy, factory: true, cell: false)
+	let handle = newService(l, p: p, ms: ms, site: site, state: empty, stateTy: exprType(p, module: l.module, node: call))
+	let body = lowerServiceBody(l, p: p, ms: ms, c: c, handleTy: handleTy, factory: true, cell: false, pendingSlot: ast.noPendingSlot)
 	emitWhen(l, behaviour: body, cowns: argsOf1(handle), captures: captures)
 	popPending(l, n: mark)
 	return handle
 end 'visitSpawnExpr'
+
+// newService is a new service of the state, with a pending word for each message kind of its type whose policy is a
+// CoalescingPolicy, and none for a type that has no such kind.
+function newService(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, state Reg, stateTy ast.TypeID) returns Reg
+	let applied = applyType(l, p: p, ms: ms, t: stateTy)
+	let decl = ast.typeEntry(ms.types, reads: p.types, t: applied).effectiveOrigin()
+	let words = ast.pendingWords(ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, nt: decl)
+	if words == 0 'none'
+		return entry(l, p: p, site: site, symbol: Rt.rtServiceNew, kind: IrKind.kindManaged, args: argsOf1(state))
+	end 'none'
+	let count = konst(l, value: try words as Word otherwise panic("ir: more pending words than a word"))
+	return entry(l, p: p, site: site, symbol: Rt.rtServiceNewPending, kind: IrKind.kindManaged, args: argsOf2(state, b: count))
+end 'newService'
 
 // lowerSend sends a message: the handle is read, the arguments move into the behaviour, and the send fails, dropping them,
 // when the service is shut down. It gives the reply's promise where the sender keeps it.
@@ -45,6 +58,9 @@ function lowerSend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	pushOrderedArgs(l, p: p, ms: ms, c: c)
 	var captures = messageArgs(l, p: p, ms: ms, c: c, base: base)
 	popArgs(l, n: base)
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.fn).policy != ast.noType 'policy'
+		return lowerPolicySend(l, p: p, ms: ms, c: c, handle: handle, handleTy: handleTy, captures: captures, mark: mark)
+	end 'policy'
 	let status = entry(l, p: p, site: site, symbol: Rt.rtServiceReserve, kind: IrKind.kindScalar, args: argsOf1(handle))
 	let ok = l.b.newBlock()
 	let zero = konst(l, value: 0 as Word)
@@ -58,7 +74,7 @@ function lowerSend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 		reply = entry(l, p: p, site: site, symbol: Rt.rtReplyNew, kind: IrKind.kindManaged, args: RegList.create(0))
 		captures.push(reply)
 	end 'kept'
-	let body = lowerServiceBody(l, p: p, ms: ms, c: c, handleTy: handleTy, factory: false, cell: c.info.replyKept)
+	let body = lowerServiceBody(l, p: p, ms: ms, c: c, handleTy: handleTy, factory: false, cell: c.info.replyKept, pendingSlot: ast.noPendingSlot)
 	emitWhen(l, behaviour: body, cowns: argsOf1(handle), captures: captures)
 	popPending(l, n: mark)
 	if reply == noReg 'none'
@@ -66,6 +82,200 @@ function lowerSend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	end 'none'
 	return reply
 end 'lowerSend'
+
+// The words rt.service.tryReserve gives besides a SendError's (runtime/service.maxon): the service is behind, so the policy
+// is asked; and the cases of the library's Admission that the send tells apart.
+let sendBehind = 3 as Word
+
+let admitQueue = 0 as Word
+
+let admitReplacePending = 3 as Word
+
+// sendBusyWord is the word of SendBusyError.busy, its case plus 1, that a refused send of a message with a reply fails with.
+let sendBusyWord = 2 as Word
+
+// lowerPolicySend sends a message of a kind with a policy (README, "Overload policies"): while the service is not behind,
+// rt.service.tryReserve takes the place as any send's does; while it is, the policy's admit is called with what it may see,
+// and its answer decides. A refused message with a reply fails with busy, one without is dropped; a message of a coalescing
+// kind replaces the one of its kind that waits in its pending word, or queues a behaviour for the word when it was empty.
+function lowerPolicySend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, handle Reg, handleTy ast.TypeID, captures RegList, mark Count) returns Reg
+	let site = siteOf(l, p: p, node: c.node)
+	let handler = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.fn).clone()
+	let slot = handler.pendingSlot
+	let busy = ast.answersBusy(handler, voidTy: p.builtins.voidTy)
+	var pending = noBlock
+	if slot != ast.noPendingSlot 'coalescing'
+		// A message of the kind waits in the word: this one replaces it, behind or not, so that it is never handled before it.
+		pending = l.b.newBlock()
+		let open = l.b.newBlock()
+		let word = konst(l, value: try (slot - 1) as Word otherwise panic("ir: a pending word past a word"))
+		let held = entry(l, p: p, site: site, symbol: Rt.rtServicePendingHeld, kind: IrKind.kindScalar, args: argsOf2(handle, b: word))
+		l.b.terminate(l.cur, t: newBranch(held, ifTrue: pending, ifFalse: open))
+		l.cur = open
+	end 'coalescing'
+	let status = entry(l, p: p, site: site, symbol: Rt.rtServiceTryReserve, kind: IrKind.kindScalar, args: argsOf1(handle))
+	let queued = l.b.newBlock()
+	let notTaken = l.b.newBlock()
+	let behind = l.b.newBlock()
+	let queue = l.b.newBlock()
+	let refused = l.b.newBlock()
+	let done = l.b.newBlock()
+	let zero = konst(l, value: 0 as Word)
+	let taken = compare(l, op: CmpOp.cmpEq, a: status, b: zero, unsigned: false)
+	l.b.terminate(l.cur, t: newBranch(taken, ifTrue: queued, ifFalse: notTaken))
+	l.cur = notTaken
+	let stopped = failure(l, p: p, ms: ms, errorCase: 0 as Count, err: status, errDrop: ast.noType)
+	let behindWord = konst(l, value: sendBehind)
+	let isBehind = compare(l, op: CmpOp.cmpEq, a: status, b: behindWord, unsigned: false)
+	l.b.terminate(l.cur, t: newBranch(isBehind, ifTrue: behind, ifFalse: stopped))
+	l.cur = behind
+	let answer = admitted(l, p: p, ms: ms, site: site, handle: handle, policy: handler.policy)
+	let notQueue = l.b.newBlock()
+	let queueWord = konst(l, value: admitQueue)
+	let queues = compare(l, op: CmpOp.cmpEq, a: answer, b: queueWord, unsigned: false)
+	l.b.terminate(l.cur, t: newBranch(queues, ifTrue: queue, ifFalse: notQueue))
+	l.cur = notQueue
+	let replaceWord = konst(l, value: admitReplacePending)
+	let replaces = compare(l, op: CmpOp.cmpEq, a: answer, b: replaceWord, unsigned: false)
+	if pending != noBlock 'coalescing'
+		l.b.terminate(l.cur, t: newBranch(replaces, ifTrue: pending, ifFalse: refused))
+	end 'coalescing' else 'other'
+		l.b.terminate(l.cur, t: newBranch(replaces, ifTrue: queue, ifFalse: refused))
+	end 'other'
+	l.cur = queue
+	let again = entry(l, p: p, site: site, symbol: Rt.rtServiceReserve, kind: IrKind.kindScalar, args: argsOf1(handle))
+	let stoppedAgain = failure(l, p: p, ms: ms, errorCase: 0 as Count, err: again, errDrop: ast.noType)
+	let failedAgain = compare(l, op: CmpOp.cmpNe, a: again, b: zero, unsigned: false)
+	l.b.terminate(l.cur, t: newBranch(failedAgain, ifTrue: stoppedAgain, ifFalse: queued))
+	l.cur = refused
+	if busy 'busy'
+		let busyWord = konst(l, value: sendBusyWord)
+		let refusal = failure(l, p: p, ms: ms, errorCase: 0 as Count, err: busyWord, errDrop: ast.noType)
+		l.b.terminate(l.cur, t: newJump(refusal))
+	end 'busy' else 'dropped'
+		let past = l.pending.count()
+		dropPending(l, first: mark, past: past)
+		l.b.terminate(l.cur, t: newJump(done))
+	end 'dropped'
+	l.cur = queued
+	var reply = noReg
+	var behaviourCaptures = captures.clone()
+	if c.info.replyKept 'kept'
+		reply = entry(l, p: p, site: site, symbol: Rt.rtReplyNew, kind: IrKind.kindManaged, args: RegList.create(0))
+		behaviourCaptures.push(reply)
+	end 'kept'
+	let body = lowerServiceBody(l, p: p, ms: ms, c: c, handleTy: handleTy, factory: false, cell: c.info.replyKept, pendingSlot: ast.noPendingSlot)
+	emitWhen(l, behaviour: body, cowns: argsOf1(handle), captures: behaviourCaptures)
+	l.b.terminate(l.cur, t: newJump(done))
+	if pending != noBlock 'replace'
+		l.cur = pending
+		replacePending(l, p: p, ms: ms, c: c, handle: handle, handleTy: handleTy, captures: captures, mark: mark, done: done)
+	end 'replace'
+	popPending(l, n: mark)
+	l.cur = done
+	if reply == noReg 'none'
+		return konst(l, value: 0 as Word)
+	end 'none'
+	return reply
+end 'lowerPolicySend'
+
+// admitted is the answer of the policy's admit to a message sent while its service is behind, a case of Admission: the
+// policy is a type of the service's, so the call is direct. What admit sees is held in place or boxed as its type is.
+function admitted(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, handle Reg, policy ast.TypeID) returns Reg
+	let admit = match ast.typeEntry(ms.types, reads: p.types, t: policy).findMethod(ast.admitName) 'admit'
+		some(f) gives f
+		none gives panic("ir: an overload policy without admit")
+	end 'admit'
+	let arrivalTy = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: admit).paramTypes[0]
+	var fields = RegList.create(0)
+	fields.push(entry(l, p: p, site: site, symbol: Rt.rtServiceQueued, kind: IrKind.kindScalar, args: argsOf1(handle)))
+	fields.push(entry(l, p: p, site: site, symbol: Rt.rtServiceTurn, kind: IrKind.kindScalar, args: RegList.create(0)))
+	let answer = newReg(l, kind: IrKind.kindScalar)
+	match heldAs(p, ms: ms, t: arrivalTy) 'holding'
+		heldAddress(words) then placedCall(l, p: p, ms: ms, admit: admit, arrivalTy: arrivalTy, words: words, fields: fields, answer: answer)
+		heldWord or
+		heldString or
+		heldBox then arrivalCall(l, p: p, ms: ms, admit: admit, arrivalTy: arrivalTy, fields: fields, answer: answer)
+		heldInline(_) panic("ir: a variable that holds words of its own or a byte of a buffer")
+		heldPacked panic("ir: a variable that holds words of its own or a byte of a buffer")
+	end 'holding'
+	return answer
+end 'admitted'
+
+// arrivalCall calls admit with a box of the fields of what it sees, which it only borrows.
+function arrivalCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, admit ast.FuncID, arrivalTy ast.TypeID, fields RegList, answer Reg)
+	let arrival = builtinRecord(l, p: p, ms: ms, t: arrivalTy, values: fields)
+	emitCall(l, p: p, ms: ms, dst: answer, target: admit, args: argsOf1(arrival))
+	let drop = dropType(l, p: p, ms: ms, t: arrivalTy)
+	emitDropReg(l, src: arrival, ty: drop)
+end 'arrivalCall'
+
+// placedCall calls admit with what it sees held in place, in a frame area, which nothing drops.
+function placedCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, admit ast.FuncID, arrivalTy ast.TypeID, words Count, fields RegList, answer Reg)
+	let arrival = placedFields(l, p: p, ms: ms, t: arrivalTy, words: words, values: fields)
+	emitCall(l, p: p, ms: ms, dst: answer, target: admit, args: argsOf1(arrival))
+end 'placedCall'
+
+// placedFields is a value of the record t held in place in words words of a frame area of its own, whose fields are the
+// words of values.
+function placedFields(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, words Count, values RegList) returns Reg
+	let area = newArea(l, words: words)
+	for i in 0 upto values.count() 'each'
+		let offset = recordFieldOffset(ms.types, reads: p.types, owner: t, index: i)
+		emit(l, i: newStoreField(area, offset: offset, src: values[i], borrow: false))
+	end 'each'
+	return area
+end 'placedFields'
+
+// pendingType is the box a message of a coalescing kind waits in, in its kind's pending word: a tuple of a word and its
+// arguments, as the behaviour's captures hold them, so that one drop routine drops what a replaced message held.
+function pendingType(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, handler ast.FuncID) returns ast.TypeID
+	var elems = ast.TypeIDList.create(0)
+	elems.push(p.builtins.countTy)
+	let fn = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: handler).clone()
+	for i in 0 upto fn.paramTypes.count() 'params'
+		elems.push(applyType(l, p: p, ms: ms, t: fn.paramTypes[i]))
+	end 'params'
+	return ast.tupleType(ms.types, reads: p.types, elems: elems)
+end 'pendingType'
+
+// replacePending puts the message in its kind's pending word, with a place in the mailbox that never slows its sender: a
+// message that waited there is dropped and its place given back, and an empty word gets a behaviour that takes what the
+// word holds when it runs.
+function replacePending(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, handle Reg, handleTy ast.TypeID, captures RegList, mark Count, done BlockID)
+	let site = siteOf(l, p: p, node: c.node)
+	let slot = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.fn).pendingSlot
+	let placed = entry(l, p: p, site: site, symbol: Rt.rtServicePlace, kind: IrKind.kindScalar, args: argsOf1(handle))
+	let put = l.b.newBlock()
+	let zero = konst(l, value: 0 as Word)
+	let stopped = failure(l, p: p, ms: ms, errorCase: 0 as Count, err: placed, errDrop: ast.noType)
+	let refusedPlace = compare(l, op: CmpOp.cmpNe, a: placed, b: zero, unsigned: false)
+	l.b.terminate(l.cur, t: newBranch(refusedPlace, ifTrue: stopped, ifFalse: put))
+	l.cur = put
+	let boxTy = pendingType(l, p: p, ms: ms, handler: c.info.fn)
+	var values = RegList.create(0)
+	values.push(zero)
+	for i in 0 upto captures.count() 'args'
+		values.push(captures[i])
+	end 'args'
+	let box = builtinRecord(l, p: p, ms: ms, t: boxTy, values: values)
+	popPending(l, n: mark)
+	let word = konst(l, value: try (slot - 1) as Word otherwise panic("ir: a pending word past a word"))
+	let old = entry(l, p: p, site: site, symbol: Rt.rtServicePutPending, kind: IrKind.kindManaged, args: argsOf3(handle, b: word, c: box))
+	let replaced = l.b.newBlock()
+	let first = l.b.newBlock()
+	let empty = compare(l, op: CmpOp.cmpEq, a: old, b: zero, unsigned: false)
+	l.b.terminate(l.cur, t: newBranch(empty, ifTrue: first, ifFalse: replaced))
+	l.cur = replaced
+	let drop = dropType(l, p: p, ms: ms, t: boxTy)
+	emitDropReg(l, src: old, ty: drop)
+	entryVoid(l, p: p, site: site, symbol: Rt.rtServiceUnplace, args: argsOf1(handle))
+	l.b.terminate(l.cur, t: newJump(done))
+	l.cur = first
+	let body = lowerServiceBody(l, p: p, ms: ms, c: c, handleTy: handleTy, factory: false, cell: false, pendingSlot: slot)
+	emitWhen(l, behaviour: body, cowns: argsOf1(handle), captures: RegList.create(0))
+	l.b.terminate(l.cur, t: newJump(done))
+end 'replacePending'
 
 // messageArgs are the arguments of a message pushed since base, each of which the message owns: a value held in place that a
 // let parameter borrows goes in a box of its own as a consumed one does (argValue), since the body runs past this frame.
@@ -83,13 +293,20 @@ end 'messageArgs'
 // lowerServiceBody lowers the behaviour that runs a factory or a handler on the service, as a body of the function around
 // it: it is given the address of the state, then each argument, which it owns, then the reply's cell where the sender keeps
 // one. It calls the function with the arguments, by value, and drops each that a let parameter only borrowed. A factory's
-// value becomes the state; a handler's goes into the cell, or is dropped with what it failed with.
-function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, handleTy ast.TypeID, factory bool, cell bool) returns Count
+// value becomes the state; a handler's goes into the cell, or is dropped with what it failed with. The behaviour of a
+// pending word (pendingSlot) is given the state alone, and moves the arguments out of the box it takes from the word, which
+// it drops once the handler has run.
+function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, handleTy ast.TypeID, factory bool, cell bool, pendingSlot Count) returns Count
 	let target = callee(l, p: p, ms: ms, node: c.node, info: c.info, receiver: c.receiver)
 	let name = behaviourBodyName(irSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: l.b.f), index: l.b.f.bodies.count())
 	let fn = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).clone()
 	let params = fn.params.count()
-	let cellIndex = params + 1
+	let pending = pendingSlot != ast.noPendingSlot
+	var boxTy = ast.noType
+	if pending 'boxed'
+		boxTy = pendingType(l, p: p, ms: ms, handler: target)
+	end 'boxed'
+	let cellIndex = 1 if pending else params + 1
 	var inner = Lowerer.new(exchange(l.instances, value: InstanceSet.new()))
 	begin(inner, p: p, ms: ms, fn: c.info.body, bindParams: ast.cloneTypeArgs(l.bindParams), bindArgs: ast.cloneTypeArgs(l.bindArgs), bindWitnesses: l.bindWitnesses.clone(), name: name)
 	inner.b.f.paramCount = cellIndex + (1 if cell else 0)
@@ -97,22 +314,43 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	var args = RegList.create(0)
 	if not factory 'message'
 		entryVoid(inner, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceStart, args: argsOf1(state))
-		let recv = newReg(inner, kind: IrKind.kindManaged)
-		emit(inner, i: newLoadAt(recv, addr: state, filled: false))
-		args.push(recv)
 	end 'message'
+	var box = noReg
+	if pending 'take'
+		let word = konst(inner, value: try (pendingSlot - 1) as Word otherwise panic("ir: a pending word past a word"))
+		box = entry(inner, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceTakePending, kind: IrKind.kindManaged, args: argsOf2(state, b: word))
+	end 'take'
 	var owned = RegList.create(0)
 	var strings = 0 as FloatMask
 	for i in 0 upto params 'params'
 		let ty = applyType(l, p: p, ms: ms, t: fn.paramTypes[i])
 		let kind = holderKind(l, p: p, ms: ms, t: ty)
-		if kind == IrKind.kindString 'string'
-			strings = strings or floatBit(i + 1)
-		end 'string'
-		let v = paramReg(inner, index: i + 1, kind: kind)
+		var v = noReg
+		if pending 'field'
+			v = newReg(inner, kind: kind)
+			let offset = recordFieldOffset(ms.types, reads: p.types, owner: boxTy, index: i + 1)
+			if owning(kind) 'moved'
+				let addr = newReg(inner, kind: IrKind.kindScalar)
+				emit(inner, i: newFieldAddr(addr, obj: box, offset: offset))
+				emit(inner, i: newMoveAt(v, addr: addr))
+			end 'moved' else 'word'
+				emit(inner, i: newLoadField(v, obj: box, offset: offset))
+			end 'word'
+		end 'field' else 'param'
+			if kind == IrKind.kindString 'string'
+				strings = strings or floatBit(i + 1)
+			end 'string'
+			v = paramReg(inner, index: i + 1, kind: kind)
+		end 'param'
 		args.push(v)
 		owned.push(v)
 	end 'params'
+	if not factory 'receiver'
+		// The state is lent once the arguments are out of a pending box: one may be a handle to this service, which holds it.
+		let recv = newReg(inner, kind: IrKind.kindManaged)
+		emit(inner, i: newLoadAt(recv, addr: state, filled: false))
+		args.insert(0, value: recv)
+	end 'receiver'
 	let resultTy = applyType(l, p: p, ms: ms, t: fn.retTy)
 	var dst = noReg
 	if resultTy != p.builtins.voidTy 'value'
@@ -147,6 +385,9 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	end 'reply' else 'dropped'
 		dropReply(inner, p: p, ms: ms, l: l, dst: dst, resultTy: resultTy, err: err, errTy: fn.errTy)
 	end 'dropped'
+	if pending 'emptied'
+		emitDropReg(inner, src: box, ty: dropType(l, p: p, ms: ms, t: boxTy))
+	end 'emptied'
 	let zero = konst(inner, value: 0 as Word)
 	inner.b.terminate(inner.cur, t: newRet(zero))
 	var body = inner.b.finish()
@@ -211,6 +452,10 @@ function lowerServiceShutdown(mutates l Lowerer, p ast.Project, ms ast.ModuleSta
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceShutdown, args: argsOf1(recv))
 	return konst(l, value: 0 as Word)
 end 'lowerServiceShutdown'
+
+function lowerServiceUnderLoad(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceUnderLoad, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerServiceUnderLoad'
 
 function lowerServiceMostQueued(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceMostQueued, kind: IrKind.kindScalar, args: argsOf1(recv))

@@ -420,6 +420,12 @@ var enumTypes = []enumType{
 	{Key: "SendError", Name: "SendError", Cases: []enumCase{
 		{"serviceStopped", "SendServiceStopped"},
 	}},
+	// SendBusyError is what a send of a message with a reply fails with where its kind names a policy other than Keep: the
+	// policy may refuse it while the service is behind, with busy, whose index plus 1 is the word the send fails with.
+	{Key: "SendBusyError", Name: "SendBusyError", Cases: []enumCase{
+		{"serviceStopped", "SendBusyStopped"},
+		{"busy", "SendBusy"},
+	}},
 	{Key: "FileDeleteError", Name: "FileDeleteError", Cases: []enumCase{
 		{"notFound", "ErrorDeleteNotFound"},
 		{"accessDenied", "ErrorDeleteAccessDenied"},
@@ -1104,6 +1110,8 @@ var tableFunctions = []function{
 	// The floors of maxon's Sleep and Scheduler, which the library tiers call. sleep is maxon's: the running green thread
 	// parks for at least the milliseconds, and its strand's other coroutines run meanwhile; the library's sleep calls it.
 	{Owner: "Builtins", Name: "sleep", Static: true, Params: []string{"_ Natural"}, Intrinsic: "Sleep", Instead: "sleep(milliseconds)"},
+	// serviceUnderLoad is the floor of the library's underLoad(): whether the service whose message runs is behind.
+	{Owner: "Builtins", Name: "serviceUnderLoad", Static: true, Result: "Bool", Intrinsic: "ServiceUnderLoad", Instead: "underLoad()"},
 	{Owner: "Builtins", Name: "cpuCount", Static: true, Result: "Count", Intrinsic: "SchedulerMachineCpuCount", Instead: "Scheduler.machineCpuCount()"},
 	{Owner: "Builtins", Name: "currentProcessId", Static: true, Result: "Count", Intrinsic: "ProcessId", Instead: "Process.id()"},
 	{Owner: "Builtins", Name: "currentTimeNanos", Static: true, Result: "Count", Intrinsic: "ClockNowNanos", Instead: "Clock.nowNanos()"},
@@ -1390,6 +1398,16 @@ var entries = []entry{
 	{"ServiceStart", "rt.service.start", "Source", roleCall, "(state address): what the behaviour of a message calls as it starts, which gives its place in the mailbox back and makes the service the one its green thread runs a message of"},
 	{"ServiceShutdown", "rt.service.shutdown", "Source", roleCall, "(handle): closes the service's mailbox, so every later send fails with serviceStopped; the messages queued still run"},
 	{"ServiceMostQueued", "rt.service.mostQueued", "Source", roleCall, "(handle) -> count: the most messages a slowed send to the service found queued with its own"},
+	{"ServiceNewPending", "rt.service.newPending", "Source", roleCall, "(state, words) -> handle: rt.service.new of a service whose type has message kinds of a CoalescingPolicy, with a pending word for each after the service's own"},
+	{"ServiceTryReserve", "rt.service.tryReserve", "Source", roleCall, "(handle) -> 0, the SendError case plus 1, or 3 for behind: the send of a kind with a policy, which takes a place as rt.service.reserve does only while the service is not behind, and else takes none, so the policy is asked"},
+	{"ServiceQueued", "rt.service.queued", "Source", roleCall, "(handle) -> count: the messages the service holds, which a policy's Arrival is given"},
+	{"ServiceTurn", "rt.service.turn", "Source", roleCall, "() -> count: the runtime's turn, a policy's turnSize"},
+	{"ServicePlace", "rt.service.place", "Source", roleCall, "(handle) -> 0, or the SendError case plus 1: takes a place for the message of a pending word, which never slows the sender"},
+	{"ServiceUnplace", "rt.service.unplace", "Source", roleCall, "(handle): gives back a place that a message which replaced a pending one took"},
+	{"ServicePutPending", "rt.service.putPending", "Source", roleCall, "(handle, slot, box) -> the box the pending word of the slot held, or 0: one atomic exchange"},
+	{"ServicePendingHeld", "rt.service.pendingHeld", "Source", roleCall, "(handle, slot) -> bool: whether the pending word of the slot holds a message, which a message of its kind then replaces, behind or not"},
+	{"ServiceTakePending", "rt.service.takePending", "Source", roleCall, "(state address, slot) -> the box the pending word of the slot held, leaving 0: what the behaviour of a pending message runs"},
+	{"ServiceUnderLoad", "rt.service.underLoad", "Source", roleCall, "() -> bool: whether the service whose message runs is behind; false off a message"},
 	{"ReplyNew", "rt.reply.new", "Source", roleCall, "() -> promise: the cell a message's reply comes back in, which an await of a promise waits for as it waits for a coroutine"},
 	{"ReplyGive", "rt.reply.give", "Source", roleCall, "(promise, value, error): what the behaviour of a message calls with what its handler returned and failed with, which readies the green thread that awaits the reply"},
 
@@ -1636,6 +1654,16 @@ var runtimeFunctions = []runtimeFunction{
 	{"ServiceStart", "serviceStart(state Count)"},
 	{"ServiceShutdown", "serviceShutdown(handle Count)"},
 	{"ServiceMostQueued", "serviceMostQueued(handle Count) Count"},
+	{"ServiceNewPending", "serviceCreatePending(state Count, words Count) Count"},
+	{"ServiceTryReserve", "serviceTryReserve(handle Count) Count"},
+	{"ServiceQueued", "serviceQueuedCount(handle Count) Count"},
+	{"ServiceTurn", "serviceTurn() Count"},
+	{"ServicePlace", "servicePlace(handle Count) Count"},
+	{"ServiceUnplace", "serviceUnplace(handle Count)"},
+	{"ServicePutPending", "servicePutPending(handle Count, slot Count, box Count) Count"},
+	{"ServicePendingHeld", "servicePendingHeld(handle Count, slot Count) Bool"},
+	{"ServiceTakePending", "serviceTakePending(state Count, slot Count) Count"},
+	{"ServiceUnderLoad", "serviceUnderLoad() Bool"},
 	{"ReplyNew", "replyNew() Count"},
 	{"ReplyGive", "replyGive(promise Count, value Count, error Count)"},
 	{"FrozenFreeze", "frozenFreeze(value Count) Count"},

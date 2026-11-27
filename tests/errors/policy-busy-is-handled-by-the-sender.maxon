@@ -1,0 +1,25 @@
+type Sink
+	var seen as Count
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	@policy(Refuse) export function take(mutates self, n Count) returns Count
+		self.seen = n
+		return n
+	end 'take'
+end 'Sink'
+
+function main() returns ExitCode
+	let s = spawn Sink.create()
+	_ = try s.take(1) otherwise (e) 'no'
+		match e 'why'
+			serviceStopped then return 1
+		end 'why'
+		return 1
+	end 'no'
+	return 0
+end 'main'
+
+// expect-error: E2026 at 19:3

@@ -540,7 +540,7 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   `stdlib/` is not, and its root holds no file (a `.maxon` file there is `E3928`, which names the module to move it to), so
   `stdlib/` lists only modules: `array` (the methods of `Array` and its sorts), `string`, `character`, `characterset`, `map`,
   `set`, `list`, `range`, `parsable`, `json`, `url`, `filepath`, `stream`, `console`, `math`, `random`, `base64`, `pem`, `clock`,
-  `directory`, `process`, `subprocess`, `cell`, `slotmap`, `unicode`, `ascii`, `sha2`, `heap`, the `core` and `_helpers`. The `core` holds the
+  `directory`, `process`, `subprocess`, `cell`, `slotmap`, `unicode`, `ascii`, `sha2`, `heap`, `service` (the overload policies, minimaxon's own), the `core` and `_helpers`. The `core` holds the
   interfaces, the conformances that the built-in types need to meet them and the hashing: a module sees an `extension
   <built-in> implements I` only when the module that writes it declares `I` (see "Extensions"), so each conformance of
   `Array`, `String`, `Character`, `FilePath`, the integers and the floats is written in the module that declares the
@@ -555,7 +555,7 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   The library is converted from maxon's `stdlib/` by `cmd/convert` but for the files that are minimaxon's own (`Map.maxon`,
   `Set.maxon`, `Stream.maxon`, `Console.maxon`, `Character.maxon`, `StringSplit.maxon`, `StringTrim.maxon`, `Parsable.maxon`,
   `IntText.maxon`, `FloatText.maxon`, `BoolText.maxon`, `CharacterText.maxon`, `StringIterator.maxon`,
-  `InitableFromArrayLiteral.maxon` and the generated `unicodeCategory_gen.maxon`; see "Where it differs from Maxon"), which no
+  `InitableFromArrayLiteral.maxon`, `Overload.maxon` and the generated `unicodeCategory_gen.maxon`; see "Where it differs from Maxon"), which no
   conversion touches; maxon's `StringBuilder.maxon` is left out, since an interpolation builds a String here.
   `stdlib/files.txt` lists the files converted so far, each with the library module it goes to (its directory under
   `stdlib/`) and, where two files of one module would share a name, the name it takes (`StringHash.maxon`); `stdlib/split.txt`
@@ -4955,6 +4955,31 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   one task to one service, the turn and 2; that relay's lone consumer, two turns and 4. An oracle that fails is an internal
   error that names it, the seed of the schedule and the standard input, never a report of the program. `fuzz --services`
   runs the brute force of them (see "Tests").
+- **Overload policies** (`stdlib/service/Overload.maxon`, `self/check/policies.maxon`, `lowerPolicySend` in
+  `self/ir/services.maxon`): a message kind says what becomes of its work while its service is behind by naming a policy
+  before its `export function`, `@policy(Refuse) export function handle(request Request) returns Response`; a kind that
+  names none, or `Keep`, compiles as it did, and its senders are slowed. A policy is a type that implements the library's
+  `OverloadPolicy`, whose `static function admit(arrival Arrival) returns Admission` runs at the send, only while the
+  service is behind, sees `arrival.count` (the messages the service holds) and `arrival.turnSize` (the runtime's turn),
+  and keeps no state, so a program writes its own and tests it as a plain function. Its answer is `queue` (the message
+  is queued and its sender slowed), `refuse` or `discard` (it is not handled and its sender is not slowed: a message with
+  a reply fails its send with `busy`, any other is dropped with what it holds), or `replacePending`. The library's menu
+  is `Keep`, `Refuse`, `DropNewest` and `Latest`. `Latest` implements `CoalescingPolicy`, whose kind has a pending word
+  in its service, after the service's own words, which only such a type reserves (`rt.service.newPending`): a message of
+  the kind sent while its service is behind waits there in a box of its arguments, with a place in the mailbox that
+  never slows its sender, and a later message of the kind, behind or not, replaces it and drops it (one atomic exchange),
+  so only the newest that has not run is handled, at the place in the queue of the first it replaced. The send of a kind
+  with a policy takes its place by `rt.service.tryReserve`, which is `rt.service.reserve` while the service is not
+  behind, so it costs what any send does then: a plain send's IR is unchanged. `@policy` on a function that is no export
+  instance method is `E3946`, a type that implements no `OverloadPolicy` `E3947`, and `Latest`, `DropNewest` or another
+  coalescing policy on a kind with a reply `E3948`, since the reply would never come. A send of a kind with a reply and a
+  policy other than `Keep` fails with `SendBusyError`, `serviceStopped` or `busy`, which its sender handles; every other
+  send's error is `SendError`. `underLoad()`, the library's, is whether the service whose message runs is behind, for a
+  handler that does cheaper work then, and false off a message. The interpreter models the same (its pending words, a
+  queue bound one message longer for each), and its oracles hold under every schedule; `fuzz --services` sends the walks
+  of each graph as a kind of each policy of the menu in turn. Not yet: `shed` at a turn's start with `PendingView` and
+  `DropOldest`, a stateful policy named by a field, and the requirement of a policy for a kind fed from a source that
+  cannot be slowed (which needs the event registration of step 3).
 - A handler that returns or throws **replies**: the send gives `Promise with R` (or `Promise with (R, E)`), which the
   sender awaits as an async call's promise (`try await h.total() otherwise 0`, or `let p = try h.total()` and `await p`);
   `_ = try h.total() ...` drops the reply on the service, and a reply sent as a statement is `E3190`. A reply's promise is
@@ -5186,6 +5211,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `E3192` (a message parameter named `sendTimeout`) do not exist; `cmd/convert` drops a spawn's capacity, a send's
   `sendTimeout:` and a `mailboxFull` arm, and a spec test that is about a full mailbox or a timed send is skipped with
   that reason.
+- **A message kind may name an overload policy**, `@policy(T)` before its `export function`, which maxon has no form
+  for: what becomes of its work while the service is behind (see "Overload policies"). A send of a kind with a reply and
+  a policy other than `Keep` fails with `SendBusyError` (`serviceStopped`, `busy`), where maxon's send of any kind fails
+  with the message's `sendError`; every other send fails with `SendError` as before. The policies are the library's
+  (`stdlib/service`), and maxon's spec tests name none.
 - **Two overlapping conditional conformances are refused.** maxon accepts two conditional conformances of one type to one
   interface whose conditions overlap when only one of them declares the member; here the second is `E3941`, as a second
   unconditional one is, since which one holds would otherwise depend on which declares what (see "Extensions").

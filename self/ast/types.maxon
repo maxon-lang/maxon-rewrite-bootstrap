@@ -431,6 +431,9 @@ export typealias TypeEntryList = Array with TypeEntry
 
 export typealias TypeEntryLists = Array with TypeEntryList
 
+// noPendingSlot is the pendingSlot of a function that is no message of a CoalescingPolicy.
+export let noPendingSlot = 0 as Count
+
 export type FuncEntry
 	export var id as FuncID
 	export var name as String
@@ -460,6 +463,11 @@ export type FuncEntry
 	// records it in its module's typing (Typing.lendsPlace).
 	export var lendsPlace as bool
 	export var errTy as TypeID
+	// policy is, for a message of a service, the overload policy its kind names (`@policy(T)`), or noType for none and for
+	// Keep, which compile alike; pendingSlot is, where the policy is a CoalescingPolicy, the kind's pending word among its
+	// type's, plus 1, and noPendingSlot otherwise.
+	export var policy as TypeID
+	export var pendingSlot as Count
 	export var genericOrigin as FuncID
 	export var typeArgs as TypeIDList
 	// witnesses are, on an instance, the conformances it was given for the bounds of its type parameters.
@@ -476,7 +484,7 @@ export type FuncEntry
 	export var conditionalBounds as Count
 
 	export static function make(consumes name String, consumes visibility String, module diag.ModuleID, nodeID NodeID) returns FuncEntry
-		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), retTy: noType, result: ResultConv.resultOwned, lendsPlace: false, errTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false, extendedIface: noType, conditionalBounds: 0 as Count}
+		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), retTy: noType, result: ResultConv.resultOwned, lendsPlace: false, errTy: noType, policy: noType, pendingSlot: noPendingSlot, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false, extendedIface: noType, conditionalBounds: 0 as Count}
 	end 'make'
 end 'FuncEntry'
 

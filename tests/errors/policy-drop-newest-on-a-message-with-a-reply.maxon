@@ -1,0 +1,21 @@
+export enum Rejected implements Error
+	invalid
+end 'Rejected'
+
+type Store
+	var last as Count
+
+	static function create() returns Self
+		return Self{last: 0}
+	end 'create'
+
+	@policy(DropNewest) export function put(mutates self, value Count) throws Rejected
+		self.last = value
+	end 'put'
+end 'Store'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3948 at 12:10

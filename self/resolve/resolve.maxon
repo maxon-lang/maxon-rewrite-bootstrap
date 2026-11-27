@@ -1425,6 +1425,9 @@ function resolveFuncDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, 
 	checkEnd(r, label: ast.sourceName(f), endNode: f.endRef, errs: errs)
 	openLabel(r, p: p, name: ast.sourceName(f), at: r.tree.declNameStart(f.id), errs: errs)
 	signature(r, p: p, s: s, params: f.params, returnsRef: f.returnsRef, throwsRef: f.throwsRef, errs: errs)
+	// The policy is read where a send is lowered, in whatever module, and calls nothing the sender writes, so its type may be
+	// less visible than the message.
+	resolveResultType(r, p: p, tr: f.policy, errs: errs)
 	resolveParamDefaults(r, p: p, ms: ms, params: f.params, errs: errs)
 	r.scopes = ScopeStack.create(0)
 	pushScope(r)

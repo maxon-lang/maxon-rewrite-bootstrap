@@ -477,6 +477,15 @@ export let errNeedlessTry = "E3944"
 // A while loop's invariant, after 'requires', is not a conjunction of comparisons of integer places, counts and constants, or the range analysis cannot prove it where the loop is entered, at the end of its body or at a 'continue' (README, "Where it differs from Maxon").
 export let errLoopInvariant = "E3945"
 
+// An '@policy' annotation stands before a function that is no export instance method of a type, the only function a send runs.
+export let errPolicyMisplaced = "E3946"
+
+// The type an '@policy' annotation names does not implement OverloadPolicy.
+export let errPolicyNotAPolicy = "E3947"
+
+// A message that has a reply names a policy that throws messages away unanswered or replaces them: Latest, DropNewest, or another CoalescingPolicy.
+export let errPolicyWithReply = "E3948"
+
 // A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 export let errInvalidFieldAccess = "E4006"
 

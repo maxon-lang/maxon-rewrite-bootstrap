@@ -490,6 +490,117 @@ function entryServiceMostQueued(mutates vm Vm, f ir.IrFunction, x ir.Instr) thro
 	giveNum(vm, x: x, n: ir.wordOfBits(vm.h.shareds[vm.h.oData[service]].most))
 end 'entryServiceMostQueued'
 
+// The words of a send of a kind with a policy (rt.service.tryReserve): a place taken, and the service behind, so that the
+// policy is asked and no place is taken.
+let sendBehind = 3 as ir.Word
+
+// entryServiceNewPending makes a service whose type has kinds of a coalescing policy, each with its pending word, empty.
+function entryServiceNewPending(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	vm.tracking = true
+	let service = try newShared(vm, f: f, kind: kindCown, src: argAt(f, x: x, i: 0), what: "the new service")
+	let words = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let at = vm.h.oData[service]
+	for i in 0 upto words 'words'
+		vm.h.shareds[at].pending.push(0)
+	end 'words'
+	giveRef(vm, x: x, o: service)
+end 'entryServiceNewPending'
+
+// entryServiceTryReserve is the send of a kind with a policy: a place is taken as entryServiceReserve takes it while the
+// service is not behind, and while it is, none is, and the send asks the policy (sendBehind).
+function entryServiceTryReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
+	let at = vm.h.oData[service]
+	let gate = vm.h.shareds[at].gate
+	if gate >= serviceClosed 'closed'
+		giveNum(vm, x: x, n: caseWord(ast.sendServiceStopped))
+		return
+	end 'closed'
+	if slowsSenders(vm, at: at, queued: gate) 'behind'
+		giveNum(vm, x: x, n: sendBehind)
+		return
+	end 'behind'
+	vm.h.shareds[at].gate = gate + 1
+	giveNum(vm, x: x, n: 0)
+	noteReserved(vm, receiver: service)
+end 'entryServiceTryReserve'
+
+// entryServiceQueued gives the messages a service holds, shut down or not.
+function entryServiceQueued(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a service's queue")
+	giveNum(vm, x: x, n: ir.wordOfBits(vm.h.shareds[vm.h.oData[service]].gate mod serviceClosed))
+end 'entryServiceQueued'
+
+function entryServiceTurn(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: ir.wordOfBits(vm.turnLimit))
+end 'entryServiceTurn'
+
+// entryServicePlace takes a place for the message of a pending word, which never slows its sender.
+function entryServicePlace(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
+	let at = vm.h.oData[service]
+	let gate = vm.h.shareds[at].gate
+	if gate >= serviceClosed 'closed'
+		giveNum(vm, x: x, n: caseWord(ast.sendServiceStopped))
+		return
+	end 'closed'
+	vm.h.shareds[at].gate = gate + 1
+	giveNum(vm, x: x, n: 0)
+	noteReserved(vm, receiver: service)
+end 'entryServicePlace'
+
+// entryServiceUnplace gives back the place of a message that replaced a pending one, which no behaviour is scheduled for.
+function entryServiceUnplace(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
+	let at = vm.h.oData[service]
+	vm.h.shareds[at].gate = try vm.h.shareds[at].gate - 1 otherwise panic("interp: a place given back that no send took")
+	vm.threads[vm.cur].sendTo = 0
+end 'entryServiceUnplace'
+
+// entryServicePutPending puts a message's box in a pending word and gives the box it held, or 0.
+function entryServicePutPending(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
+	let slot = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let at = vm.h.oData[service]
+	let old = vm.h.shareds[at].pending[slot]
+	vm.h.shareds[at].pending[slot] = argRef(vm, f: f, x: x, i: 2)
+	giveRef(vm, x: x, o: old)
+end 'entryServicePutPending'
+
+// entryServiceTakePending gives the box of a pending word, given the address of the service's state, and leaves it empty.
+function entryServiceTakePending(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let c = vm.address(argAt(f, x: x, i: 0))
+	let service = vm.h.cellHolder[c]
+	if c == 0 or vm.h.oKind[service] != kindCown 'notState'
+		panic("interp: rt.service.takePending is given no service's state")
+	end 'notState'
+	let slot = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let at = vm.h.oData[service]
+	let box = exchange(vm.h.shareds[at].pending[slot], value: 0)
+	if box == 0 'empty'
+		panic("interp: a pending message's behaviour found its word empty")
+	end 'empty'
+	giveRef(vm, x: x, o: box)
+end 'entryServiceTakePending'
+
+// entryServicePendingHeld gives whether a pending word holds a message.
+function entryServicePendingHeld(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
+	let slot = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	giveFlag(vm, x: x, b: vm.h.shareds[vm.h.oData[service]].pending[slot] != 0)
+end 'entryServicePendingHeld'
+
+// entryServiceUnderLoad gives whether the service whose message the thread runs is behind, and false off a message.
+function entryServiceUnderLoad(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let service = messageOf(vm, t: vm.cur)
+	if service == 0 'task'
+		giveFlag(vm, x: x, b: false)
+		return
+	end 'task'
+	let at = vm.h.oData[service]
+	giveFlag(vm, x: x, b: slowsSenders(vm, at: at, queued: vm.h.shareds[at].gate mod serviceClosed))
+end 'entryServiceUnderLoad'
+
 // slowsSenders is whether a service whose mailbox holds queued messages, before a send's, is behind or muted.
 function slowsSenders(vm Vm, at Count, queued Count) returns bool
 	return vm.h.shareds[at].behind or vm.h.shareds[at].muted or queued >= vm.turnLimit

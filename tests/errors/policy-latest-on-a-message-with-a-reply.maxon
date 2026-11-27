@@ -1,0 +1,18 @@
+type Gauge
+	var last as Count
+
+	static function create() returns Self
+		return Self{last: 0}
+	end 'create'
+
+	@policy(Latest) export function set(mutates self, value Count) returns Count
+		self.last = value
+		return value
+	end 'set'
+end 'Gauge'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3948 at 8:10

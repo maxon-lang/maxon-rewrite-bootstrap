@@ -42,7 +42,8 @@
 // adds a stage's bound at each stage. A service is listed on one receiver at a time, so a second receiver that is behind
 // gets that service's next handler after each unmute by the first, and its bound counts on how often the first catches
 // up. A cycle whose handlers send more than they take grows, which no bound in messages could stop without stopping the
-// program.
+// program. A kind of a coalescing policy adds one message to each bound, its pending word's, which its sends queue without
+// being slowed; a kind whose policy refuses or discards adds none.
 //
 // Why muting never stops the program, with no service, task or behaviour that can run (the progress argument): a sender
 // is listed on a receiver under the receiver's lock while the receiver slows senders, and the receiver's catching up
@@ -133,6 +134,122 @@ function serviceReserve(handle Count) returns Count
 	end 'gate'
 	return sendAccepted
 end 'serviceReserve'
+
+// Overload policies (README, "Overload policies"). A send of a kind whose type names a policy other than Keep takes its
+// place by serviceTryReserve, which is serviceReserve while the service is not behind, so such a send costs what any other
+// does then. While it is behind, the send takes no place and asks the policy's admit, which the compiler calls directly,
+// and does what it answers: queue (serviceReserve, which slows the sender), refuse or discard (nothing is taken), or, for a
+// kind of a CoalescingPolicy, replace the pending one (servicePlace, servicePutPending). A service whose type has such kinds
+// holds a pending word for each after its own words (serviceCreatePending): the box of the arguments of the one message of
+// the kind sent while it was behind that has not run, or 0. Each word that goes from 0 to a box has one behaviour queued for
+// it, which takes the box (serviceTakePending), so a send that finds a box there replaces it and gives its place back. A
+// send of the kind that finds a box there replaces it whether the service is behind or not (servicePendingHeld), since the
+// box was sent before it and its behaviour is queued ahead: a sender's messages of the kind run in the order it sent them.
+let sendBehind = 3 as Count
+
+function servicePendingHeld(handle Count, slot Count) returns bool
+	return __Raw.loadAcquire(handle, offset: pendingOffset(slot)) != 0
+end 'servicePendingHeld'
+
+function serviceCreatePending(state Count, words Count) returns Count
+	let service = alloc(pendingOffset(words))
+	__Raw.storeWord(service, offset: cownCountOffset, value: firstOwner)
+	__Raw.storeWord(service, offset: cownTailOffset, value: notQueued)
+	__Raw.storeWord(service, offset: cownEndingOffset, value: 0)
+	__Raw.storeWord(service, offset: cownValueOffset, value: state)
+	__Raw.storeWord(service, offset: serviceGateOffset, value: 0)
+	__Raw.storeWord(service, offset: serviceMutedOffset, value: noSender)
+	__Raw.storeWord(service, offset: serviceMostOffset, value: 0)
+	__Raw.storeWord(service, offset: serviceLinkOffset, value: noSender)
+	__Raw.storeWord(service, offset: serviceWaitOffset, value: waitNone)
+	var i = 0 as Count
+	while i < words 'words'
+		__Raw.storeWord(service, offset: pendingOffset(i), value: 0)
+		i = __Raw.wrappingAdd(i, right: 1)
+	end 'words'
+	return service
+end 'serviceCreatePending'
+
+function pendingOffset(slot Count) returns Count
+	return try serviceBytes + slot * wordBytes otherwise panic("a pending word past memory")
+end 'pendingOffset'
+
+// serviceTryReserve is serviceReserve while the service is not behind; while it is, it takes no place and gives sendBehind.
+function serviceTryReserve(handle Count) returns Count
+	var gate = __Raw.loadAcquire(handle, offset: serviceGateOffset)
+	while true 'gate'
+		if gate >= serviceClosed 'closed'
+			return sendStopped
+		end 'closed'
+		if gate >= turnBehaviours 'behind'
+			return sendBehind
+		end 'behind'
+		let seen = __Raw.compareExchange(handle, offset: serviceGateOffset, expected: gate, desired: __Raw.wrappingAdd(gate, right: 1))
+		if seen == gate 'taken'
+			return sendAccepted
+		end 'taken'
+		gate = seen
+	end 'gate'
+	return sendAccepted
+end 'serviceTryReserve'
+
+function serviceQueuedCount(handle Count) returns Count
+	return __Raw.loadAcquire(handle, offset: serviceGateOffset) and serviceQueued
+end 'serviceQueuedCount'
+
+function serviceTurn() returns Count
+	return turnBehaviours
+end 'serviceTurn'
+
+// servicePlace takes a place for the message of a pending word, unless the service is shut down, and never slows the
+// sender: the message replaces any other of its kind that waits.
+function servicePlace(handle Count) returns Count
+	var gate = __Raw.loadAcquire(handle, offset: serviceGateOffset)
+	while true 'gate'
+		if gate >= serviceClosed 'closed'
+			return sendStopped
+		end 'closed'
+		let seen = __Raw.compareExchange(handle, offset: serviceGateOffset, expected: gate, desired: __Raw.wrappingAdd(gate, right: 1))
+		if seen == gate 'taken'
+			return sendAccepted
+		end 'taken'
+		gate = seen
+	end 'gate'
+	return sendAccepted
+end 'servicePlace'
+
+function serviceUnplace(handle Count)
+	_ = __Raw.atomicAdd(handle, offset: serviceGateOffset, value: stepDown)
+end 'serviceUnplace'
+
+function servicePutPending(handle Count, slot Count, box Count) returns Count
+	return __Raw.atomicExchange(handle, offset: pendingOffset(slot), value: box)
+end 'servicePutPending'
+
+function serviceTakePending(state Count, slot Count) returns Count
+	let handle = __Raw.wrappingSub(state, right: cownValueOffset)
+	let box = __Raw.atomicExchange(handle, offset: pendingOffset(slot), value: 0)
+	if box == 0 'empty'
+		panic("a pending message's behaviour found its word empty")
+	end 'empty'
+	return box
+end 'serviceTakePending'
+
+// serviceUnderLoad is whether the service whose message the green thread runs slows its senders, as a send to it would
+// find; off a message it is false.
+function serviceUnderLoad() returns bool
+	let context = __Raw.threadContext()
+	let g = __Raw.loadWord(context, offset: contextGreenOffset)
+	if g == noGreen 'off'
+		return false
+	end 'off'
+	let service = messageOf(g)
+	if service == noService 'task'
+		return false
+	end 'task'
+	let gate = __Raw.loadAcquire(service, offset: serviceGateOffset)
+	return gate < serviceClosed and gate >= turnBehaviours
+end 'serviceUnderLoad'
 
 // noteQueued keeps the most messages a slowed send found queued with its own. Every count past turnBehaviours is reached
 // by a slowed send, so the most is exact once it passes a turn's worth, and a send that is not slowed writes nothing.

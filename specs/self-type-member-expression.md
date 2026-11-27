@@ -1009,7 +1009,7 @@ error E2010: <fragment>:8:14: Expected '{' but got 'newline'
 ```
 
 <!-- test: enum-case-named-Self-through-Self -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'export', 'function', 'public', 'static' or a name but got 'Self' -->
+<!-- skip: minimaxon does not parse the converted source: Expected '@', 'export', 'function', 'public', 'static' or a name but got 'Self' -->
 ### An enum case NAMED `Self`, referenced through `Self`
 Where keyword-named declarations and `Self.` cross at their sharpest: `Self.Self` reads the BASE as the
 enclosing type and the MEMBER as a case whose own name is the same keyword. Two different rules about one

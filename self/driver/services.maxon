@@ -2,7 +2,8 @@
 // four services that service 0 reaches, cycles and a service's edge to itself included, one of each class that renaming the
 // services other than service 0 gives, and runs self/fuzz/services.txt under the interpreter on each, whose oracles of
 // backpressure (self/interp/oracles.maxon) check every schedule. Each graph runs under a schedule of each turn limit, and once
-// more with main stopping one of its services after its first start, so some sends fail "stopped". An oracle that fails is an
+// more with main stopping one of its services after its first start, so some sends fail "stopped"; the runs of a graph send its
+// walks as kinds of each overload policy of the library's menu in turn. An oracle that fails is an
 // internal error that names the seed and the graph, the program's standard input; a run that breaks a rule or does not end
 // with 0 is a failure of the lane. --count runs that many graphs, spread evenly over them, as the gate does.
 
@@ -14,6 +15,10 @@ let laneServices = 4 as Count
 let laneScheduleSeeds = 4 as Count
 
 let laneStepLimit = 20000000 as Count
+
+// lanePolicies is how many overload policies the program's walks may be sent as: Keep, Refuse, DropNewest and Latest, one
+// for each run of a graph in turn.
+let lanePolicies = 4 as Count
 
 let laneProgramPath = "services.maxon"
 
@@ -100,15 +105,15 @@ type SendGraph
 	end 'make'
 
 	// input is the program's standard input for the graph, with main stopping service stop - 1 after its first start, or
-	// none for 0.
-	function input(stop Count) returns String
+	// none for 0, and every walk sent as the kind of the policy numbered policy (the program's keeps to latest).
+	function input(stop Count, policy Count) returns String
 		var text = ""
 		for a in 0 upto laneServices 'from'
 			for b in 0 upto laneServices 'to'
 				text = "{text}{1 if hasEdge(mask, a: a, b: b) else 0}"
 			end 'to'
 		end 'from'
-		return "{text}{stop}"
+		return "{text}{stop}{policy}"
 	end 'input'
 end 'SendGraph'
 
@@ -182,7 +187,8 @@ function servicesLane(options FuzzOptions, program String) returns ExitCode
 				stop = (try g mod graph.services otherwise panic("fuzz: a graph of no services")) + 1
 				seed = try g mod options.schedules otherwise 0
 			end 'stopping'
-			let input = graph.input(stop)
+			let policy = try (g + schedule) mod lanePolicies otherwise panic("fuzz: a policy past a word")
+			let input = graph.input(stop, policy: policy)
 			let out = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: laneStepLimit, seed: interp.seedOf(seed), wantFrees: false, stdin: input)
 			if out.violations.count() > 0 or out.timedOut or out.exitCode != 0 'failed'
 				var report = "exit {out.exitCode}"

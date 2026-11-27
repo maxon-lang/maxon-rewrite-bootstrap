@@ -1,0 +1,38 @@
+// A message kind whose policy is Latest keeps only the newest of its messages that has not run: one sent while its service
+// is behind waits in the kind's pending word, and the next replaces it there and drops what it held, behind or not. So the
+// handler never sees a value older than one it saw, and the last value sent is always handled.
+// schedules: 6
+//> last=1000 label=v1000 some=true
+export typealias Amount = int(0 to 1000000)
+
+type Gauge
+	var last as Amount
+	var label as String
+	var handled as Amount
+
+	static function create() returns Self
+		return Self{last: 0, label: "", handled: 0}
+	end 'create'
+
+	@policy(Latest) export function set(mutates self, value Amount, consumes name String)
+		if value < self.last 'order'
+			print("older value {value} after {self.last}\n")
+		end 'order'
+		self.last = value
+		self.label = name
+		self.handled = try self.handled + 1 otherwise 0
+	end 'set'
+
+	export function report() returns String
+		return "last={self.last} label={self.label} some={self.handled > 0}"
+	end 'report'
+end 'Gauge'
+
+function main() returns ExitCode
+	let g = spawn Gauge.create()
+	for i in 1 to 1000 'send'
+		try g.set(i, name: "v{i}") otherwise ignore
+	end 'send'
+	print("{try await g.report() otherwise "stopped"}\n")
+	return 0
+end 'main'

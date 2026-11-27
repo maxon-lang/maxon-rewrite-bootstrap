@@ -351,6 +351,46 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryServiceMostQueued(vm, f: f, x: x)
 		return
 	end 'rtServiceMostQueued'
+	if symbol == ir.Rt.rtServiceNewPending 'rtServiceNewPending'
+		try entryServiceNewPending(vm, f: f, x: x)
+		return
+	end 'rtServiceNewPending'
+	if symbol == ir.Rt.rtServiceTryReserve 'rtServiceTryReserve'
+		try entryServiceTryReserve(vm, f: f, x: x)
+		return
+	end 'rtServiceTryReserve'
+	if symbol == ir.Rt.rtServiceQueued 'rtServiceQueued'
+		try entryServiceQueued(vm, f: f, x: x)
+		return
+	end 'rtServiceQueued'
+	if symbol == ir.Rt.rtServiceTurn 'rtServiceTurn'
+		entryServiceTurn(vm, f: f, x: x)
+		return
+	end 'rtServiceTurn'
+	if symbol == ir.Rt.rtServicePlace 'rtServicePlace'
+		try entryServicePlace(vm, f: f, x: x)
+		return
+	end 'rtServicePlace'
+	if symbol == ir.Rt.rtServiceUnplace 'rtServiceUnplace'
+		try entryServiceUnplace(vm, f: f, x: x)
+		return
+	end 'rtServiceUnplace'
+	if symbol == ir.Rt.rtServicePutPending 'rtServicePutPending'
+		try entryServicePutPending(vm, f: f, x: x)
+		return
+	end 'rtServicePutPending'
+	if symbol == ir.Rt.rtServicePendingHeld 'rtServicePendingHeld'
+		try entryServicePendingHeld(vm, f: f, x: x)
+		return
+	end 'rtServicePendingHeld'
+	if symbol == ir.Rt.rtServiceTakePending 'rtServiceTakePending'
+		try entryServiceTakePending(vm, f: f, x: x)
+		return
+	end 'rtServiceTakePending'
+	if symbol == ir.Rt.rtServiceUnderLoad 'rtServiceUnderLoad'
+		entryServiceUnderLoad(vm, f: f, x: x)
+		return
+	end 'rtServiceUnderLoad'
 	if symbol == ir.Rt.rtReplyNew 'rtReplyNew'
 		try entryReplyNew(vm, f: f, x: x)
 		return

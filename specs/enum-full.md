@@ -1085,7 +1085,7 @@ error E3081: specs/enum-full/error.match-discarded-bindings.maxon:14:3: use 'val
 ```
 
 <!-- test: implicit-string-backed -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'export', 'function', 'public', 'static' or a name but got '"..."' -->
+<!-- skip: minimaxon does not parse the converted source: Expected '@', 'export', 'function', 'public', 'static' or a name but got '"..."' -->
 ```maxon
 enum StringBacked
 	"North"
@@ -1108,7 +1108,7 @@ end 'main'
 ```
 
 <!-- test: implicit-char-backed -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'export', 'function', 'public', 'static' or a name but got 'N' -->
+<!-- skip: minimaxon does not parse the converted source: Expected '@', 'export', 'function', 'public', 'static' or a name but got 'N' -->
 ```maxon
 enum CharBacked
 	'N'

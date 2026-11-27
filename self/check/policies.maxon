@@ -1,0 +1,12 @@
+// Overload policies (README, "Overload policies"): `@policy(T)` before a message names what becomes of the work of its kind
+// while its service is behind. T implements the library's OverloadPolicy; Keep is what a kind with no policy does, so it is
+// recorded as none and compiles as one. A kind whose policy is a CoalescingPolicy gets a pending word of its type's.
+
+// sendErrorOf is what a send of the message handler fails with: SendBusyError where it has a reply and a policy other than
+// Keep, which may refuse it with busy, and SendError, only "stopped", otherwise.
+function sendErrorOf(p ast.Project, ms ast.ModuleState, handler ast.FuncID) returns ast.TypeID
+	if ast.answersBusy(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: handler), voidTy: p.builtins.voidTy) 'busy'
+		return p.builtins.sendBusyErrorTy
+	end 'busy'
+	return p.builtins.sendErrorTy
+end 'sendErrorOf'

@@ -203,10 +203,12 @@ function checkEnded(mutates vm Vm)
 			continue 'pairs'
 		end 'again'
 		seen.push(service)
+		// A pending word holds one message at most, whose behaviour its sends queue without being slowed.
+		let words = vm.h.shareds[vm.h.oData[service]].pending.count()
 		let bound = queueBound(vm.deliveries, service: service, turn: vm.turnLimit)
 		if bound.isSome() 'stated'
 			let most = vm.h.shareds[vm.h.oData[service]].most
-			let limit = bound.unwrap()
+			let limit = try bound.unwrap() + words otherwise panic("interp: a bound past a word")
 			if most > limit 'over'
 				oracleFails(vm, oracle: oracleBound, found: "{objectText(vm, o: service)} held {most} messages, past the {limit} its senders and receivers allow with a turn of {vm.turnLimit}")
 			end 'over'

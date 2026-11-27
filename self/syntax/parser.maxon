@@ -750,6 +750,11 @@ type Parser
 	// them.
 	function startsFunction() returns bool
 		let k = toks[pos].kind
+		if k == TokenKind.at 'annotated'
+			// A message's '@policy(T)' takes parentheses, which a binding's '@heap' does not.
+			let third = try pos + 2 otherwise panic("the tokens are too many")
+			return self.peekTok().kind == TokenKind.name and third < toks.count() and toks[third].kind == TokenKind.lParen and self.lineOpensBody()
+		end 'annotated'
 		if k == TokenKind.kw_export or k == TokenKind.kw_public 'visibility'
 			let following = self.peekTok().kind
 			if following != TokenKind.kw_function and following != TokenKind.kw_static 'notFunction'

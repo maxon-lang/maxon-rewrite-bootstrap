@@ -165,6 +165,9 @@ ErrAmbiguousExtension	E3942	-	A call names a method, or a type names a typealias
 ErrLentToCoroutine	E3943	-	A place that an async call lent its coroutine to read is changed or moved before the promise is awaited (README, "Where it differs from Maxon").
 ErrNeedlessTry	E3944	-	A 'try', a 'try' block or an 'if try' covers nothing that can fail: an operation the range analysis proves cannot, an access it proves inside its collection, or a call of a function that does not throw (README, "Where it differs from Maxon").
 ErrLoopInvariant	E3945	-	A while loop's invariant, after 'requires', is not a conjunction of comparisons of integer places, counts and constants, or the range analysis cannot prove it where the loop is entered, at the end of its body or at a 'continue' (README, "Where it differs from Maxon").
+ErrPolicyMisplaced	E3946	-	An '@policy' annotation stands before a function that is no export instance method of a type, the only function a send runs.
+ErrPolicyNotAPolicy	E3947	-	The type an '@policy' annotation names does not implement OverloadPolicy.
+ErrPolicyWithReply	E3948	-	A message that has a reply names a policy that throws messages away unanswered or replaces them: Latest, DropNewest, or another CoalescingPolicy.
 ErrInvalidFieldAccess	E4006	invalidFieldAccess	A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 ErrTypeCycle	E4014	irTypeCycle	A type contains itself.
 ErrRegisterPressure	E5001	registerPressure	A loop holds more values at once than the target has registers of their class, so a load or store would land in the loop.

@@ -126,9 +126,11 @@ type SharedData
 	// listedOn is the service this one is listed on, 0 for none, and kept the behaviour of its message kept while it is muted.
 	var listedOn as Count
 	var kept as Count
+	// pending is, for a service whose type has kinds of a coalescing policy, the box in each kind's pending word, or 0.
+	var pending as CountList
 
 	static function new() returns SharedData
-		return SharedData{count: 1, holders: CountList.create(0), queue: CountList.create(0), running: 0, ending: 0, cell: 0, owned: BoolList.create(0), gate: 0, behind: false, muted: false, turn: 0, senders: CountList.create(0), most: 0, listedOn: 0, kept: 0}
+		return SharedData{count: 1, holders: CountList.create(0), queue: CountList.create(0), running: 0, ending: 0, cell: 0, owned: BoolList.create(0), gate: 0, behind: false, muted: false, turn: 0, senders: CountList.create(0), most: 0, listedOn: 0, kept: 0, pending: CountList.create(0)}
 	end 'new'
 end 'SharedData'
 

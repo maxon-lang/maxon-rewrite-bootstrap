@@ -335,7 +335,7 @@ end 'main'
 ```
 
 <!-- test: handler-case-member-spelling-a-labelled-otherwise-in-a-header -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'export', 'function', 'public', 'static' or a name but got 'otherwise' -->
+<!-- skip: minimaxon does not parse the converted source: Expected '@', 'export', 'function', 'public', 'static' or a name but got 'otherwise' -->
 ⚠⚠ **THE THIRD SHAPE** — the exact twin of the `end 'm'` case above, for the OTHER keyword that has a
 labelled block form. A member read `Kw.otherwise` at the end of a block header puts `otherwise`
 immediately before the construct's own block label, which is `otherwiseOpensBlockIn`'s `otherwise 'label'`
@@ -976,7 +976,7 @@ end 'main'
 ```
 
 <!-- test: a-case-named-enum-sharing-a-line-with-the-next-case -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'export', 'function', 'public', 'static' or a name but got 'enum' -->
+<!-- skip: minimaxon does not parse the converted source: Expected '@', 'export', 'function', 'public', 'static' or a name but got 'enum' -->
 Two cases may share a line, so a case named `enum` (or `union`) followed by the next case spells a
 DECLARATION's lookaround — the keyword, then an identifier — and only the case-list context says it is a
 name. Read as a declaration it leaks an opener past the enum's `end`; the rest of the file then reads as a
