@@ -15,9 +15,15 @@ function caseWord(errorCase Count) returns ir.Word
 	return try (errorCase + 1) as ir.Word otherwise panic("interp: an error case past a word")
 end 'caseWord'
 
-// pathOf is the path that a string names: the paths the program gives are the ones FilePath.from made already.
+// pathOf is the path that a string names: the paths the program gives are the ones FilePath.from made already. One that holds a
+// NUL (a joined path may, where `from` refuses it on Windows) names no file or directory, so it is the empty name, as the runtime
+// reads it, and never the one that its bytes before the NUL name.
 function pathOf(text String) returns FilePath
-	return try FilePath.from(text) otherwise panic("interp: the program gave an OS entry a path that is no path")
+	var name = text.clone()
+	if text.contains("\0") 'nul'
+		name = ""
+	end 'nul'
+	return try FilePath.from(name) otherwise panic("interp: the program gave an OS entry a path that is no path")
 end 'pathOf'
 
 // stringArray is a new array of the strings.
