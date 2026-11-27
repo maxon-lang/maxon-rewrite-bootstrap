@@ -117,6 +117,66 @@ let requestOwnerOffset = 24 as Count
 // requestSlotBytes is the size of a request slot.
 let requestSlotBytes = 32 as Count
 
+// partLinkOffset is where a part of a parallel loop links to the next entry of the global run queue while it is queued, as behaviourLinkOffset.
+let partLinkOffset = 0 as Count
+
+// partRunOffset is where a part of a parallel loop holds the code that runs it, parallelHelper, as behaviourRunOffset.
+let partRunOffset = 8 as Count
+
+// partJobOffset is where a part of a parallel loop holds the address of its job.
+let partJobOffset = 16 as Count
+
+// partEnvOffset is where a part of a parallel loop holds the word that the chunk code is given with each chunk: the closure of the loop's body.
+let partEnvOffset = 24 as Count
+
+// partLowOffset is where a part of a parallel loop holds the first index of the chunk it runs, counted from 0.
+let partLowOffset = 32 as Count
+
+// partHighOffset is where a part of a parallel loop holds the index past the last of the chunk it runs.
+let partHighOffset = 40 as Count
+
+// partFailIndexOffset is where the chunk code stores the index whose body failed, when it gives back an error's word.
+let partFailIndexOffset = 48 as Count
+
+// partBytes is the size of a part of a parallel loop: sharingBytes, so the parts that different cores write are on lines of their own.
+let partBytes = 128 as Count
+
+// jobChunkCodeOffset is where a parallel loop's job holds the address of the code that runs one chunk with a part, giving 0 or an error's word.
+let jobChunkCodeOffset = 0 as Count
+
+// jobDropOffset is where a parallel loop's job holds the address of the code that drops an error's word that is not the lowest index's, or 0 when an error owns nothing.
+let jobDropOffset = 8 as Count
+
+// jobCountOffset is where a parallel loop's job holds how many indices it has.
+let jobCountOffset = 16 as Count
+
+// jobChunkSizeOffset is where a parallel loop's job holds how many indices a chunk has, the last fewer.
+let jobChunkSizeOffset = 24 as Count
+
+// jobChunksOffset is where a parallel loop's job holds how many chunks it has.
+let jobChunksOffset = 32 as Count
+
+// jobWaiterOffset is where a parallel loop's job holds the green thread of its caller, which the last helper to finish readies.
+let jobWaiterOffset = 40 as Count
+
+// jobLockOffset is where a parallel loop's job holds the lock of its failure, taken only by a chunk that failed.
+let jobLockOffset = 48 as Count
+
+// jobFailIndexOffset is where a parallel loop's job holds the lowest index whose body failed, all ones while none has.
+let jobFailIndexOffset = 56 as Count
+
+// jobFailWordOffset is where a parallel loop's job holds the error's word of the lowest index that failed, 0 while none has.
+let jobFailWordOffset = 64 as Count
+
+// jobNextOffset is where a parallel loop's job holds the next chunk to take, stepped atomically by every part, on a line of its own.
+let jobNextOffset = 128 as Count
+
+// jobPendingOffset is where a parallel loop's job holds how many of its parts have not finished taking chunks, stepped atomically.
+let jobPendingOffset = 136 as Count
+
+// jobHeaderBytes is the size of a parallel loop's job before its parts.
+let jobHeaderBytes = 256 as Count
+
 // contextSchedulerOffset is where a thread's context holds the address of the scheduler's record, 0 on the main thread until the first behaviour or green thread is made.
 let contextSchedulerOffset = 0 as Count
 

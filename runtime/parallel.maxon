@@ -1,0 +1,157 @@
+// The parallel loop, a fork-join over a counted range: parallelRun runs a body for each index below a count, in chunks of
+// consecutive indices, and returns once every chunk has run. The caller makes one job, with a part for itself and one for
+// each other processor that may help (a helper), and queues the helpers' parts on its own processor's run queue as
+// behaviours, which idle processors steal as Go's do (stealWork); then it takes chunks itself, on its own stack, as every
+// helper does, each taking the next by one atomic add. So a body that never parks is a call, no chunk is a record of its
+// own, and an iteration allocates nothing: the job is the loop's one allocation, and a helper holds a green thread from
+// the pool only while it runs. The caller parks only once no chunk is left to take, until the last helper readies it, so
+// its processor runs other work meanwhile, the helpers that were not stolen among them, which find nothing left.
+//
+// A chunk is run by the chunk code the compiler makes for the loop's body (callCode1 with the part): it runs the indices
+// [partLowOffset, partHighOffset) in order, and gives 0, or the word of the error of the first index that failed, which
+// it stores in partFailIndexOffset, and runs no index after it. The error of the lowest index that failed is the loop's:
+// a lower one replaces it, and any other is dropped by the job's drop code. A chunk whose first index is past the lowest
+// that failed is not run, so a failure abandons the chunks after it at a chunk boundary.
+//
+// Off a green thread, and with one processor, the caller runs the loop as one chunk.
+
+// chunksPerProc is how many chunks a loop has for each processor at most, so a processor that finishes its share early
+// takes chunks of a slower one's, as rayon's adaptive splitting and OpenMP's dynamic schedule have it.
+let chunksPerProc = 8 as Count
+
+// noFailure is a job's lowest failed index while no body has failed: past every index.
+let noFailure = 0xFFFFFFFFFFFFFFFF as Count
+
+// noError is a chunk's word when every index of it succeeded.
+let noError = 0 as Count
+
+// noDrop is a job's drop code when an error owns nothing.
+let noDrop = 0 as Count
+
+// parallelRun runs chunk code for the indices below count, with env given to it in every part (partEnvOffset), and gives
+// 0 when every index succeeded, else the error's word of the lowest index that failed. drop is the code that drops an
+// error's word that is not the loop's, or noDrop.
+function parallelRun(chunk Count, env Count, count Count, drop Count) returns Count
+	if count == 0 'empty'
+		return noError
+	end 'empty'
+	let context = __Raw.threadContext()
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	let waiter = __Raw.loadWord(context, offset: contextGreenOffset)
+	var procs = 1 as Count
+	if scheduler != noScheduler and waiter != noGreen 'scheduled'
+		procs = procCount(scheduler)
+	end 'scheduled'
+	var chunks = 1 as Count
+	if procs > 1 'split'
+		chunks = try procs * chunksPerProc otherwise count
+		if chunks > count 'few'
+			chunks = count
+		end 'few'
+	end 'split'
+	let size = try (count + (chunks - 1)) / chunks otherwise count
+	chunks = try (count + (size - 1)) / size otherwise 1
+	var helpers = __Raw.wrappingSub(procs, right: 1)
+	if helpers >= chunks 'fewChunks'
+		helpers = __Raw.wrappingSub(chunks, right: 1)
+	end 'fewChunks'
+	let parts = __Raw.wrappingAdd(helpers, right: 1)
+	let job = alloc(try jobHeaderBytes + parts * partBytes otherwise panic("a parallel loop's job is too large"))
+	__Raw.storeWord(job, offset: jobChunkCodeOffset, value: chunk)
+	__Raw.storeWord(job, offset: jobDropOffset, value: drop)
+	__Raw.storeWord(job, offset: jobCountOffset, value: count)
+	__Raw.storeWord(job, offset: jobChunkSizeOffset, value: size)
+	__Raw.storeWord(job, offset: jobChunksOffset, value: chunks)
+	__Raw.storeWord(job, offset: jobWaiterOffset, value: waiter)
+	__Raw.storeWord(job, offset: jobLockOffset, value: unset)
+	__Raw.storeWord(job, offset: jobFailIndexOffset, value: noFailure)
+	__Raw.storeWord(job, offset: jobFailWordOffset, value: noError)
+	__Raw.storeWord(job, offset: jobNextOffset, value: 0)
+	__Raw.storeWord(job, offset: jobPendingOffset, value: parts)
+	for h in 0 upto parts 'parts'
+		let part = partOf(job, index: h)
+		__Raw.storeWord(part, offset: partLinkOffset, value: 0)
+		__Raw.storeWord(part, offset: partRunOffset, value: __Raw.codeAddress("parallelHelper"))
+		__Raw.storeWord(part, offset: partJobOffset, value: job)
+		__Raw.storeWord(part, offset: partEnvOffset, value: env)
+		if h > 0 'helper'
+			behaviourQueued(context, record: part, next: false)
+		end 'helper'
+	end 'parts'
+	if helpers > 0 'wake'
+		wakeProc(scheduler)
+	end 'wake'
+	takeChunks(job, part: partOf(job, index: 0))
+	if helpers > 0 and __Raw.atomicAdd(job, offset: jobPendingOffset, value: stepDown) != 1 'join'
+		while __Raw.loadAcquire(job, offset: jobPendingOffset) != 0 'wait'
+			greenPark()
+		end 'wait'
+	end 'join'
+	let failed = __Raw.loadWord(job, offset: jobFailWordOffset)
+	free(job)
+	return failed
+end 'parallelRun'
+
+// partOf is the part of a job of an index, the caller's 0.
+function partOf(job Count, index Count) returns Count
+	return __Raw.wrappingAdd(job, right: __Raw.wrappingAdd(jobHeaderBytes, right: try index * partBytes otherwise panic("a part past its job")))
+end 'partOf'
+
+// parallelHelper is the run of a helper's part, which a processor gives a green thread when it takes the part from a run
+// queue: it takes chunks until none is left, and the last part to finish readies the caller. The job may be freed once
+// the count is stepped, so nothing of it is read after.
+function parallelHelper(part Count) returns Count
+	let job = __Raw.loadWord(part, offset: partJobOffset)
+	takeChunks(job, part: part)
+	let waiter = __Raw.loadWord(job, offset: jobWaiterOffset)
+	if __Raw.atomicAdd(job, offset: jobPendingOffset, value: stepDown) == 1 'last'
+		greenReady(waiter)
+	end 'last'
+	return 0
+end 'parallelHelper'
+
+// takeChunks runs the chunks a part takes, one at a time, until none is left; a chunk past the lowest index that failed
+// is taken and not run.
+function takeChunks(job Count, part Count)
+	let chunks = __Raw.loadWord(job, offset: jobChunksOffset)
+	let size = __Raw.loadWord(job, offset: jobChunkSizeOffset)
+	let count = __Raw.loadWord(job, offset: jobCountOffset)
+	let code = __Raw.loadWord(job, offset: jobChunkCodeOffset)
+	while true 'take'
+		let c = __Raw.atomicAdd(job, offset: jobNextOffset, value: 1)
+		if c >= chunks 'done'
+			return
+		end 'done'
+		let low = try c * size otherwise panic("a chunk past its loop")
+		if low > __Raw.loadWord(job, offset: jobFailIndexOffset) 'abandoned'
+			continue 'take'
+		end 'abandoned'
+		var high = __Raw.wrappingAdd(low, right: size)
+		if high > count 'last'
+			high = count
+		end 'last'
+		__Raw.storeWord(part, offset: partLowOffset, value: low)
+		__Raw.storeWord(part, offset: partHighOffset, value: high)
+		let word = __Raw.callCode1(code, arg1: part)
+		if word != noError 'failed'
+			chunkFailed(job, index: __Raw.loadWord(part, offset: partFailIndexOffset), word: word)
+		end 'failed'
+	end 'take'
+end 'takeChunks'
+
+// chunkFailed keeps the error of an index that failed when it is the lowest so far, and drops the one it replaces or
+// itself otherwise, outside the lock, since a drop is the program's code.
+function chunkFailed(job Count, index Count, word Count)
+	var dropped = word
+	spinLock(job, offset: jobLockOffset)
+	if index < __Raw.loadWord(job, offset: jobFailIndexOffset) 'lowest'
+		dropped = __Raw.loadWord(job, offset: jobFailWordOffset)
+		__Raw.storeWord(job, offset: jobFailIndexOffset, value: index)
+		__Raw.storeWord(job, offset: jobFailWordOffset, value: word)
+	end 'lowest'
+	spinUnlock(job, offset: jobLockOffset)
+	let drop = __Raw.loadWord(job, offset: jobDropOffset)
+	if dropped != noError and drop != noDrop 'drop'
+		_ = __Raw.callCode1(drop, arg1: dropped)
+	end 'drop'
+end 'chunkFailed'

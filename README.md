@@ -2952,6 +2952,23 @@ with `green-` hold the scheduler to many green threads ping-ponging, a busy loop
 about once a slice, the float state
 across a preemption, a blocking call handed off, timers and a completion of the event queue.
 
+- **The parallel loop's fork-join** (`runtime/parallel.maxon`, `parallelRun`, which the language's parallel loop is to
+  lower to; not yet reached from programs). A loop of `count` indices is cut into chunks of consecutive indices, at most
+  8 for each processor, and one job holds a part for the caller and one for each other processor that may help, the
+  job being the loop's one allocation. The helpers' parts are queued on the caller's processor as behaviours are, so
+  an idle processor steals them as Go's steal, and a helper holds a pooled green thread and stack only while it runs;
+  every part takes the next chunk by an atomic add and runs it by the chunk code the compiler makes for the body (the
+  indices of the part, `partLowOffset` to `partHighOffset`), the caller on its own stack, so a body that never parks is a
+  call and an iteration allocates nothing. The caller parks only once no chunk is left to take, so its processor runs
+  other work meanwhile (the helpers not stolen among them), until the last helper readies it. A chunk gives 0 or the
+  word of the error of its first index that failed; the lowest index's error is the loop's, every other is dropped by
+  the job's drop code, and a chunk whose first index is past it is not run. Off a green thread, and with one processor,
+  the loop is one chunk. `tests/runtime/parallel-run.maxon` holds it to results, the lowest index's error, nesting and
+  bodies that park. Measured on a 16-thread x64 machine (Windows): a join of 8 to 512 empty indices takes 1.4 to 2.1 µs
+  across the processors and 25 ns with one, where Go's equivalent (a goroutine per helper claiming the same chunks by an
+  atomic add, a `WaitGroup` as the join) takes 2.5 to 4.3 µs and 50 to 80 ns; ten million squares written to an array
+  take 3.2 ms against Go's 3.1 ms, both bound by memory.
+
 **Faults and the stack.** The executable's main thread has a 256 MB stack reserve (`peStackReserve` in
 `self/backend/pe.maxon`): the compiler's passes recurse once per level of nesting of an expression, except down a chain of
 operators, which each pass walks with a loop (`ast.leftChain`), so a sum of 200,000 terms needs no deep stack. A reserve is address space, committed a page at a time as the stack grows:

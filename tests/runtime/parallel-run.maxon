@@ -1,0 +1,232 @@
+// The parallel loop's fork-join (parallel.maxon) with chunk code written by hand: loops that square their indices into
+// a buffer, many times over, so the join loses no chunk; one whose bodies fail at several indices, which gives the lowest
+// one's error and drops every other that ran; loops nested in a body; bodies that yield and sleep, so a helper parks; and
+// the empty loop and the loop of one index.
+//> squares: 40 loops of 100000, sum 333328333350000
+//> failures: lowest 1234, drops balanced
+//> nested: 64 by 1000, sum 63936000
+//> parking: 64 bodies, 16 slept
+//> empty: 0, one: 1
+
+let testCount = 100000 as Count
+
+let testLoops = 40 as Count
+
+// An environment of the test's chunk code: the buffer of a word for each index, the failing indices (a buffer and its
+// count), how many failures ran and how many errors were dropped.
+let envOutOffset = 0 as Count
+
+let envFailsOffset = 8 as Count
+
+let envFailCountOffset = 16 as Count
+
+let envRanFailsOffset = 24 as Count
+
+let envSleptOffset = 32 as Count
+
+let envDropsOffset = 40 as Count
+
+let envBytes = 48 as Count
+
+// An error's word is a box of the index it failed at and the environment, which its drop frees and counts.
+let errorIndexOffset = 0 as Count
+
+let errorEnvOffset = 8 as Count
+
+let errorBytes = 16 as Count
+
+let nestedOuter = 64 as Count
+
+let nestedInner = 1000 as Count
+
+function main() returns ExitCode
+	if partEnvOffset != 24 or partLowOffset != 32 or partHighOffset != 40 or partFailIndexOffset != 48 'layout'
+		panic("the test reads a part's words where the layout does not have them")
+	end 'layout'
+	_ = greenCurrent()
+	testSquares()
+	testFailures()
+	testNested()
+	testParking()
+	testEdges()
+	return 0
+end 'main'
+
+function testEnv(count Count) returns Count
+	let env = alloc(envBytes)
+	__Raw.storeWord(env, offset: envOutOffset, value: alloc(testAt(count)))
+	__Raw.storeWord(env, offset: envFailsOffset, value: 0)
+	__Raw.storeWord(env, offset: envFailCountOffset, value: 0)
+	__Raw.storeWord(env, offset: envRanFailsOffset, value: 0)
+	__Raw.storeWord(env, offset: envSleptOffset, value: 0)
+	__Raw.storeWord(env, offset: envDropsOffset, value: 0)
+	return env
+end 'testEnv'
+
+function testFreeEnv(env Count)
+	free(__Raw.loadWord(env, offset: envOutOffset))
+	let fails = __Raw.loadWord(env, offset: envFailsOffset)
+	if fails != 0 'fails'
+		free(fails)
+	end 'fails'
+	free(env)
+end 'testFreeEnv'
+
+function testSum(env Count, count Count) returns Count
+	let out = __Raw.loadWord(env, offset: envOutOffset)
+	var sum = 0 as Count
+	for i in 0 upto count 'sum'
+		sum = __Raw.wrappingAdd(sum, right: __Raw.loadWord(out, offset: testAt(i)))
+	end 'sum'
+	return sum
+end 'testSum'
+
+function testSquares()
+	let env = testEnv(testCount)
+	for loop in 0 upto testLoops 'loops'
+		let out = __Raw.loadWord(env, offset: envOutOffset)
+		for i in 0 upto testCount 'clear'
+			__Raw.storeWord(out, offset: testAt(i), value: 0)
+		end 'clear'
+		if parallelRun(__Raw.codeAddress("squareChunk"), env: env, count: testCount, drop: noDrop) != noError 'failed'
+			panic("a loop of squares failed")
+		end 'failed'
+		if testSum(env, count: testCount) != 333328333350000 'sum'
+			panic("a loop of squares lost a chunk")
+		end 'sum'
+	end 'loops'
+	testWrite("squares: {testLoops} loops of {testCount}, sum {testSum(env, count: testCount)}\n")
+	testFreeEnv(env)
+end 'testSquares'
+
+// squareChunk stores each index's square, and fails at the indices of the environment's failing list.
+function squareChunk(part Count) returns Count
+	let env = __Raw.loadWord(part, offset: partEnvOffset)
+	let out = __Raw.loadWord(env, offset: envOutOffset)
+	let fails = __Raw.loadWord(env, offset: envFailsOffset)
+	let failCount = __Raw.loadWord(env, offset: envFailCountOffset)
+	for i in __Raw.loadWord(part, offset: partLowOffset) upto __Raw.loadWord(part, offset: partHighOffset) 'indices'
+		for f in 0 upto failCount 'fails'
+			if __Raw.loadWord(fails, offset: testAt(f)) == i 'fail'
+				_ = __Raw.atomicAdd(env, offset: envRanFailsOffset, value: 1)
+				__Raw.storeWord(part, offset: partFailIndexOffset, value: i)
+				let error = alloc(errorBytes)
+				__Raw.storeWord(error, offset: errorIndexOffset, value: i)
+				__Raw.storeWord(error, offset: errorEnvOffset, value: env)
+				return error
+			end 'fail'
+		end 'fails'
+		__Raw.storeWord(out, offset: testAt(i), value: try i * i otherwise panic("a square past a word"))
+	end 'indices'
+	return noError
+end 'squareChunk'
+
+function testDropError(word Count) returns Count
+	_ = __Raw.atomicAdd(__Raw.loadWord(word, offset: errorEnvOffset), offset: envDropsOffset, value: 1)
+	free(word)
+	return 0
+end 'testDropError'
+
+function testFailures()
+	let env = testEnv(testCount)
+	let fails = alloc(4 * wordBytes)
+	__Raw.storeWord(fails, offset: 0, value: 70000)
+	__Raw.storeWord(fails, offset: 8, value: 1234)
+	__Raw.storeWord(fails, offset: 16, value: 99999)
+	__Raw.storeWord(fails, offset: 24, value: 5000)
+	__Raw.storeWord(env, offset: envFailsOffset, value: fails)
+	__Raw.storeWord(env, offset: envFailCountOffset, value: 4)
+	for loop in 0 upto testLoops 'loops'
+		__Raw.storeWord(env, offset: envRanFailsOffset, value: 0)
+		__Raw.storeWord(env, offset: envDropsOffset, value: 0)
+		let word = parallelRun(__Raw.codeAddress("squareChunk"), env: env, count: testCount, drop: __Raw.codeAddress("testDropError"))
+		if word == noError or __Raw.loadWord(word, offset: errorIndexOffset) != 1234 'lowest'
+			panic("a loop gave another error than its lowest index's")
+		end 'lowest'
+		if __Raw.wrappingAdd(__Raw.loadWord(env, offset: envDropsOffset), right: 1) != __Raw.loadWord(env, offset: envRanFailsOffset) 'drops'
+			panic("a loop dropped another number of errors than ran and lost")
+		end 'drops'
+		free(word)
+	end 'loops'
+	testWrite("failures: lowest 1234, drops balanced\n")
+	testFreeEnv(env)
+end 'testFailures'
+
+// outerChunk runs, for each of its indices, an inner loop of squares into a buffer of its own, and stores its sum.
+function outerChunk(part Count) returns Count
+	let env = __Raw.loadWord(part, offset: partEnvOffset)
+	let out = __Raw.loadWord(env, offset: envOutOffset)
+	for i in __Raw.loadWord(part, offset: partLowOffset) upto __Raw.loadWord(part, offset: partHighOffset) 'indices'
+		let inner = testEnv(nestedInner)
+		if parallelRun(__Raw.codeAddress("indexChunk"), env: inner, count: nestedInner, drop: noDrop) != noError 'failed'
+			panic("an inner loop failed")
+		end 'failed'
+		__Raw.storeWord(out, offset: testAt(i), value: testSum(inner, count: nestedInner))
+		testFreeEnv(inner)
+	end 'indices'
+	return noError
+end 'outerChunk'
+
+// indexChunk stores twice each index.
+function indexChunk(part Count) returns Count
+	let env = __Raw.loadWord(part, offset: partEnvOffset)
+	let out = __Raw.loadWord(env, offset: envOutOffset)
+	for i in __Raw.loadWord(part, offset: partLowOffset) upto __Raw.loadWord(part, offset: partHighOffset) 'indices'
+		__Raw.storeWord(out, offset: testAt(i), value: try i * 2 otherwise panic("a double past a word"))
+	end 'indices'
+	return noError
+end 'indexChunk'
+
+function testNested()
+	let env = testEnv(nestedOuter)
+	if parallelRun(__Raw.codeAddress("outerChunk"), env: env, count: nestedOuter, drop: noDrop) != noError 'failed'
+		panic("the outer loop failed")
+	end 'failed'
+	testWrite("nested: {nestedOuter} by {nestedInner}, sum {testSum(env, count: nestedOuter)}\n")
+	testFreeEnv(env)
+end 'testNested'
+
+// parkChunk yields at every index and sleeps a millisecond at every fourth, so the green thread running it parks.
+function parkChunk(part Count) returns Count
+	let env = __Raw.loadWord(part, offset: partEnvOffset)
+	let out = __Raw.loadWord(env, offset: envOutOffset)
+	for i in __Raw.loadWord(part, offset: partLowOffset) upto __Raw.loadWord(part, offset: partHighOffset) 'indices'
+		greenYield()
+		if i mod 4 == 0 'sleep'
+			sleepMs(1)
+			_ = __Raw.atomicAdd(env, offset: envSleptOffset, value: 1)
+		end 'sleep'
+		__Raw.storeWord(out, offset: testAt(i), value: 1)
+	end 'indices'
+	return noError
+end 'parkChunk'
+
+function testParking()
+	let env = testEnv(64)
+	if parallelRun(__Raw.codeAddress("parkChunk"), env: env, count: 64, drop: noDrop) != noError 'failed'
+		panic("the parking loop failed")
+	end 'failed'
+	testWrite("parking: {testSum(env, count: 64)} bodies, {__Raw.loadWord(env, offset: envSleptOffset)} slept\n")
+	testFreeEnv(env)
+end 'testParking'
+
+function testEdges()
+	let env = testEnv(1)
+	__Raw.storeWord(__Raw.loadWord(env, offset: envOutOffset), offset: 0, value: 0)
+	let none = parallelRun(__Raw.codeAddress("indexChunk"), env: env, count: 0, drop: noDrop)
+	if parallelRun(__Raw.codeAddress("squareChunk"), env: env, count: 1, drop: noDrop) != noError 'failed'
+		panic("the loop of one index failed")
+	end 'failed'
+	__Raw.storeWord(__Raw.loadWord(env, offset: envOutOffset), offset: 0, value: 1)
+	testWrite("empty: {none}, one: {testSum(env, count: 1)}\n")
+	testFreeEnv(env)
+end 'testEdges'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'
+
+// testAt is the offset of a word of an index in a buffer.
+function testAt(index Count) returns Count
+	return try index * wordBytes otherwise panic("an index past a buffer")
+end 'testAt'
