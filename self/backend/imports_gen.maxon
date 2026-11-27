@@ -71,6 +71,18 @@ export function macosImports() returns NameList
 	names.push("posix_spawnattr_setflags")
 	names.push("posix_spawnattr_setpgroup")
 	names.push("posix_spawnattr_destroy")
+	names.push("socket")
+	names.push("bind")
+	names.push("listen")
+	names.push("accept")
+	names.push("connect")
+	names.push("getsockname")
+	names.push("getpeername")
+	names.push("getsockopt")
+	names.push("setsockopt")
+	names.push("shutdown")
+	names.push("getaddrinfo")
+	names.push("freeaddrinfo")
 	return names
 end 'macosImports'
 

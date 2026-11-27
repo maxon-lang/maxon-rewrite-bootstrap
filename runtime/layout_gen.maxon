@@ -792,6 +792,54 @@ let linuxEpollRdhup = 8192 as Count
 // linuxEpollEt is EPOLLET: an event reported once as the fd becomes ready, not while it stays so.
 let linuxEpollEt = 2147483648 as Count
 
+// linuxAfInet is AF_INET, the family of a struct sockaddr_in, 16 bits at its start.
+let linuxAfInet = 2 as Count
+
+// linuxAfInet6 is AF_INET6, the family of a struct sockaddr_in6.
+let linuxAfInet6 = 10 as Count
+
+// linuxSockStream is SOCK_STREAM: a TCP socket of the family.
+let linuxSockStream = 1 as Count
+
+// linuxSockNonblock is SOCK_NONBLOCK: a socket, or an accepted one, whose calls that would wait fail with EAGAIN.
+let linuxSockNonblock = 2048 as Count
+
+// linuxSockCloexec is SOCK_CLOEXEC: a socket, or an accepted one, that an execve closes.
+let linuxSockCloexec = 524288 as Count
+
+// linuxSolSocket is SOL_SOCKET: the level of a socket's own options.
+let linuxSolSocket = 1 as Count
+
+// linuxSoError is SO_ERROR: the error a socket has pending, which reading clears: a non-blocking connect's outcome.
+let linuxSoError = 4 as Count
+
+// linuxIpprotoTcp is IPPROTO_TCP: the level of TCP's options.
+let linuxIpprotoTcp = 6 as Count
+
+// linuxTcpNodelay is TCP_NODELAY: a send goes out at once, not held back to join the next (Nagle's algorithm off), as Go sets it.
+let linuxTcpNodelay = 1 as Count
+
+// linuxMsgNosignal is MSG_NOSIGNAL: a send to a peer that has gone fails with EPIPE and raises no SIGPIPE.
+let linuxMsgNosignal = 16384 as Count
+
+// linuxShutWrite is SHUT_WR: shutdown ends the sending half, which the peer reads as the end.
+let linuxShutWrite = 1 as Count
+
+// linuxSockaddrIn4Bytes is a struct sockaddr_in: the family (16 bits), the port (16 bits, big-endian), the address (4 bytes), 8 bytes of zeros.
+let linuxSockaddrIn4Bytes = 16 as Count
+
+// linuxSockaddrIn6Bytes is a struct sockaddr_in6: the family, the port, the flow information (32 bits), the address (16 bytes), the scope (32 bits).
+let linuxSockaddrIn6Bytes = 28 as Count
+
+// linuxSockaddrPortOffset is where a struct sockaddr_in or sockaddr_in6 holds its port, its high byte first.
+let linuxSockaddrPortOffset = 2 as Count
+
+// linuxSockaddrIn4AddressOffset is where a struct sockaddr_in holds its address.
+let linuxSockaddrIn4AddressOffset = 4 as Count
+
+// linuxSockaddrIn6AddressOffset is where a struct sockaddr_in6 holds its address.
+let linuxSockaddrIn6AddressOffset = 8 as Count
+
 // linuxSigactionHandlerOffset is where a struct sigaction holds the handler.
 let linuxSigactionHandlerOffset = 0 as Count
 
@@ -1011,6 +1059,27 @@ let linuxEnotempty = 39 as Count
 // linuxEpipe is EPIPE: a write to a pipe whose reader has closed it.
 let linuxEpipe = 32 as Count
 
+// linuxEfault is EFAULT: an address the kernel cannot reach, which accept refuses for good.
+let linuxEfault = 14 as Count
+
+// linuxEinval is EINVAL: an accept of a socket that is not listening, refused for good.
+let linuxEinval = 22 as Count
+
+// linuxEnotsock is ENOTSOCK: an accept of an fd that is not a socket, refused for good.
+let linuxEnotsock = 88 as Count
+
+// linuxEconnaborted is ECONNABORTED: a connection that ended before accept took it, which accept passes over.
+let linuxEconnaborted = 103 as Count
+
+// linuxEisconn is EISCONN: a connect of a socket that is connected.
+let linuxEisconn = 106 as Count
+
+// linuxEalready is EALREADY: a connect while one is in progress.
+let linuxEalready = 114 as Count
+
+// linuxEinprogress is EINPROGRESS: a non-blocking connect that has started and not ended.
+let linuxEinprogress = 115 as Count
+
 // linuxSigkill is SIGKILL.
 let linuxSigkill = 9 as Count
 
@@ -1169,6 +1238,72 @@ let macosEagain = 35 as Count
 
 // macosEnotempty is ENOTEMPTY.
 let macosEnotempty = 66 as Count
+
+// macosEfault is EFAULT: an address the kernel cannot reach, which accept refuses for good.
+let macosEfault = 14 as Count
+
+// macosEinval is EINVAL: an accept of a socket that is not listening, refused for good.
+let macosEinval = 22 as Count
+
+// macosEinprogress is EINPROGRESS: a non-blocking connect that has started and not ended.
+let macosEinprogress = 36 as Count
+
+// macosEalready is EALREADY: a connect while one is in progress.
+let macosEalready = 37 as Count
+
+// macosEnotsock is ENOTSOCK: an accept of an fd that is not a socket, refused for good.
+let macosEnotsock = 38 as Count
+
+// macosEconnaborted is ECONNABORTED: a connection that ended before accept took it, which accept passes over.
+let macosEconnaborted = 53 as Count
+
+// macosEisconn is EISCONN: a connect of a socket that is connected.
+let macosEisconn = 56 as Count
+
+// macosAfInet is AF_INET, the family of a struct sockaddr_in, the byte after its length.
+let macosAfInet = 2 as Count
+
+// macosAfInet6 is AF_INET6, the family of a struct sockaddr_in6.
+let macosAfInet6 = 30 as Count
+
+// macosSockStream is SOCK_STREAM: a TCP socket of the family.
+let macosSockStream = 1 as Count
+
+// macosSolSocket is SOL_SOCKET: the level of a socket's own options.
+let macosSolSocket = 65535 as Count
+
+// macosSoError is SO_ERROR: the error a socket has pending, which reading clears: a non-blocking connect's outcome.
+let macosSoError = 4103 as Count
+
+// macosSoNosigpipe is SO_NOSIGPIPE: a write to a socket whose peer has gone fails with EPIPE and sends no SIGPIPE.
+let macosSoNosigpipe = 4130 as Count
+
+// macosIpprotoTcp is IPPROTO_TCP: the level of TCP's options.
+let macosIpprotoTcp = 6 as Count
+
+// macosTcpNodelay is TCP_NODELAY: a send goes out at once, not held back to join the next (Nagle's algorithm off), as Go sets it.
+let macosTcpNodelay = 1 as Count
+
+// macosShutWrite is SHUT_WR: shutdown ends the sending half, which the peer reads as the end.
+let macosShutWrite = 1 as Count
+
+// macosSockaddrIn4Bytes is a struct sockaddr_in: its length (a byte), the family (a byte), the port (16 bits, big-endian), the address (4 bytes), 8 bytes of zeros.
+let macosSockaddrIn4Bytes = 16 as Count
+
+// macosSockaddrIn6Bytes is a struct sockaddr_in6: its length, the family, the port, the flow information (32 bits), the address (16 bytes), the scope (32 bits).
+let macosSockaddrIn6Bytes = 28 as Count
+
+// macosSockaddrFamilyOffset is where a struct sockaddr_in or sockaddr_in6 holds its family, the byte after the byte of its length.
+let macosSockaddrFamilyOffset = 1 as Count
+
+// macosSockaddrPortOffset is where a struct sockaddr_in or sockaddr_in6 holds its port, its high byte first.
+let macosSockaddrPortOffset = 2 as Count
+
+// macosSockaddrIn4AddressOffset is where a struct sockaddr_in holds its address.
+let macosSockaddrIn4AddressOffset = 4 as Count
+
+// macosSockaddrIn6AddressOffset is where a struct sockaddr_in6 holds its address.
+let macosSockaddrIn6AddressOffset = 8 as Count
 
 // macosSigkill is SIGKILL.
 let macosSigkill = 9 as Count
@@ -1396,6 +1531,42 @@ let macosSpawnSetSid = 1024 as Count
 	// linuxSysEventfd2 is eventfd2(initial count, flags): a counter that the event queue sees readable while it is above 0.
 	let linuxSysEventfd2 = 19 as Count
 
+	// linuxSysSocket is socket(domain, type, protocol).
+	let linuxSysSocket = 198 as Count
+
+	// linuxSysConnect is connect(fd, address, address length).
+	let linuxSysConnect = 203 as Count
+
+	// linuxSysAccept4 is accept4(fd, address, address length, flags).
+	let linuxSysAccept4 = 242 as Count
+
+	// linuxSysSendto is sendto(fd, buffer, count, flags, address, address length).
+	let linuxSysSendto = 206 as Count
+
+	// linuxSysRecvfrom is recvfrom(fd, buffer, count, flags, address, address length).
+	let linuxSysRecvfrom = 207 as Count
+
+	// linuxSysShutdown is shutdown(fd, how).
+	let linuxSysShutdown = 210 as Count
+
+	// linuxSysBind is bind(fd, address, address length).
+	let linuxSysBind = 200 as Count
+
+	// linuxSysListen is listen(fd, backlog).
+	let linuxSysListen = 201 as Count
+
+	// linuxSysGetsockname is getsockname(fd, address, address length).
+	let linuxSysGetsockname = 204 as Count
+
+	// linuxSysGetpeername is getpeername(fd, address, address length): a socket's peer, which a connect that has ended has.
+	let linuxSysGetpeername = 205 as Count
+
+	// linuxSysSetsockopt is setsockopt(fd, level, option, value, value length).
+	let linuxSysSetsockopt = 208 as Count
+
+	// linuxSysGetsockopt is getsockopt(fd, level, option, value, value length).
+	let linuxSysGetsockopt = 209 as Count
+
 	// linuxEpollEventDataOffset is where a struct epoll_event, which x86-64 packs, holds its 64-bit data word, after the 32-bit events.
 	let linuxEpollEventDataOffset = 8 as Count
 
@@ -1572,6 +1743,42 @@ let macosSpawnSetSid = 1024 as Count
 
 	// linuxSysEventfd2 is eventfd2(initial count, flags): a counter that the event queue sees readable while it is above 0.
 	let linuxSysEventfd2 = 290 as Count
+
+	// linuxSysSocket is socket(domain, type, protocol).
+	let linuxSysSocket = 41 as Count
+
+	// linuxSysConnect is connect(fd, address, address length).
+	let linuxSysConnect = 42 as Count
+
+	// linuxSysAccept4 is accept4(fd, address, address length, flags).
+	let linuxSysAccept4 = 288 as Count
+
+	// linuxSysSendto is sendto(fd, buffer, count, flags, address, address length).
+	let linuxSysSendto = 44 as Count
+
+	// linuxSysRecvfrom is recvfrom(fd, buffer, count, flags, address, address length).
+	let linuxSysRecvfrom = 45 as Count
+
+	// linuxSysShutdown is shutdown(fd, how).
+	let linuxSysShutdown = 48 as Count
+
+	// linuxSysBind is bind(fd, address, address length).
+	let linuxSysBind = 49 as Count
+
+	// linuxSysListen is listen(fd, backlog).
+	let linuxSysListen = 50 as Count
+
+	// linuxSysGetsockname is getsockname(fd, address, address length).
+	let linuxSysGetsockname = 51 as Count
+
+	// linuxSysGetpeername is getpeername(fd, address, address length): a socket's peer, which a connect that has ended has.
+	let linuxSysGetpeername = 52 as Count
+
+	// linuxSysSetsockopt is setsockopt(fd, level, option, value, value length).
+	let linuxSysSetsockopt = 54 as Count
+
+	// linuxSysGetsockopt is getsockopt(fd, level, option, value, value length).
+	let linuxSysGetsockopt = 55 as Count
 
 	// linuxEpollEventDataOffset is where a struct epoll_event, which x86-64 packs, holds its 64-bit data word, after the 32-bit events.
 	let linuxEpollEventDataOffset = 4 as Count

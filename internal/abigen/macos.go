@@ -66,6 +66,31 @@ var macosABI = []layoutConst{
 	{"macosEagain", 35, true, toRuntime, "EAGAIN."},
 	{"macosEnotempty", 66, true, toRuntime, "ENOTEMPTY."},
 
+	{"macosEfault", 14, true, toRuntime, "EFAULT: an address the kernel cannot reach, which accept refuses for good."},
+	{"macosEinval", 22, true, toRuntime, "EINVAL: an accept of a socket that is not listening, refused for good."},
+	{"macosEinprogress", 36, true, toRuntime, "EINPROGRESS: a non-blocking connect that has started and not ended."},
+	{"macosEalready", 37, true, toRuntime, "EALREADY: a connect while one is in progress."},
+	{"macosEnotsock", 38, true, toRuntime, "ENOTSOCK: an accept of an fd that is not a socket, refused for good."},
+	{"macosEconnaborted", 53, true, toRuntime, "ECONNABORTED: a connection that ended before accept took it, which accept passes over."},
+	{"macosEisconn", 56, true, toRuntime, "EISCONN: a connect of a socket that is connected."},
+
+	// Sockets (<sys/socket.h>, <netinet/in.h>, <netinet/tcp.h>).
+	{"macosAfInet", 2, true, toRuntime, "AF_INET, the family of a struct sockaddr_in, the byte after its length."},
+	{"macosAfInet6", 30, true, toRuntime, "AF_INET6, the family of a struct sockaddr_in6."},
+	{"macosSockStream", 1, true, toRuntime, "SOCK_STREAM: a TCP socket of the family."},
+	{"macosSolSocket", 0xFFFF, true, toRuntime, "SOL_SOCKET: the level of a socket's own options."},
+	{"macosSoError", 0x1007, true, toRuntime, "SO_ERROR: the error a socket has pending, which reading clears: a non-blocking connect's outcome."},
+	{"macosSoNosigpipe", 0x1022, true, toRuntime, "SO_NOSIGPIPE: a write to a socket whose peer has gone fails with EPIPE and sends no SIGPIPE."},
+	{"macosIpprotoTcp", 6, true, toRuntime, "IPPROTO_TCP: the level of TCP's options."},
+	{"macosTcpNodelay", 1, true, toRuntime, "TCP_NODELAY: a send goes out at once, not held back to join the next (Nagle's algorithm off), as Go sets it."},
+	{"macosShutWrite", 1, true, toRuntime, "SHUT_WR: shutdown ends the sending half, which the peer reads as the end."},
+	{"macosSockaddrIn4Bytes", 16, true, toRuntime, "a struct sockaddr_in: its length (a byte), the family (a byte), the port (16 bits, big-endian), the address (4 bytes), 8 bytes of zeros."},
+	{"macosSockaddrIn6Bytes", 28, true, toRuntime, "a struct sockaddr_in6: its length, the family, the port, the flow information (32 bits), the address (16 bytes), the scope (32 bits)."},
+	{"macosSockaddrFamilyOffset", 1, true, toRuntime, "where a struct sockaddr_in or sockaddr_in6 holds its family, the byte after the byte of its length."},
+	{"macosSockaddrPortOffset", 2, true, toRuntime, "where a struct sockaddr_in or sockaddr_in6 holds its port, its high byte first."},
+	{"macosSockaddrIn4AddressOffset", 4, true, toRuntime, "where a struct sockaddr_in holds its address."},
+	{"macosSockaddrIn6AddressOffset", 8, true, toRuntime, "where a struct sockaddr_in6 holds its address."},
+
 	// The signals, and the struct sigaction of libSystem's sigaction, which supplies the trampoline a handler returns
 	// through itself: the handler, the mask and the flags, 16 bytes.
 	{"macosSigfpe", 8, true, toSelfBack, "SIGFPE."},

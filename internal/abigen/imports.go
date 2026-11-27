@@ -93,6 +93,18 @@ var macosImports = []libSystemFunction{
 	{name: "posix_spawnattr_setflags"},
 	{name: "posix_spawnattr_setpgroup"},
 	{name: "posix_spawnattr_destroy"},
+	{name: "socket"},
+	{name: "bind"},
+	{name: "listen"},
+	{name: "accept"},
+	{name: "connect"},
+	{name: "getsockname"},
+	{name: "getpeername"},
+	{name: "getsockopt"},
+	{name: "setsockopt"},
+	{name: "shutdown"},
+	{name: "getaddrinfo"},
+	{name: "freeaddrinfo"},
 }
 
 // importsMaxon is self/backend/imports_gen.maxon: the library a PE imports from, and the libSystem functions a macOS
