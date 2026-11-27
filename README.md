@@ -5754,8 +5754,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   that reason). A `Reply with T` is built in, the cell its sender awaits, where maxon's library declares a record that holds
   it, and the state of a service whose state can hold a Reply is dropped once a stop's queued messages have run, where any
   other's is dropped with its last handle (see "Deferred replies"). Not yet: interface handles (`I.handle`),
-  `T.request`, `SharedValue`, a generic service, a message with type parameters,
-  one `try await h.m()` over a message that throws, and services in the interpreter.
+  `T.request`, a generic service, a message with type parameters,
+  one `try await h.m()` over a message that throws, and services in the interpreter. Not yet either, until the design of
+  logging is decided: maxon's `Log` and `TraceCapture`, which sit on `SharedValue` there (see "Where it differs from
+  Maxon": there is no `SharedValue`); the spec tests that name one are skipped with that reason.
 - `stdlib/stream/Stream.maxon` and `stdlib/console/Console.maxon` (`Console.stdin()`, a `StreamReader` over a `StdinSource`) are minimaxon's own,
   written from maxon's (with `helpers/stream/streamBytes.maxon`) until they convert: maxon's name the network's, TLS's, files'
   and child processes' sources, which this library has not got, and spell a constant (`64 * 1024 * 1024 as LineCap`),
@@ -6137,6 +6139,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   system's error (`EINVAL` on Linux), and on Windows a handle that was not opened to write, or a console, gives Windows' own.
   A program that must know its bytes are on the device asks for it, as it asks for the bytes to reach the file by its close. The
   interpreter stops at the sync as at every row of an open file but those of a file that a program makes and writes ("The interpreter").
+- **There is no `SharedValue`.** maxon's `SharedValue with T` is a cell that every thread reads and writes, and no atomic
+  stands in for it: Hylo has no shared mutable cell, and neither has minimaxon. A setting that changes lives in one service,
+  and changing it is a message. A reader that needs it on a hot path keeps its own copy, refreshed by a message (the
+  `Latest` overload policy fits). The spec tests that name `SharedValue` are skipped with that reason.
 
 ## Changing the language
 
