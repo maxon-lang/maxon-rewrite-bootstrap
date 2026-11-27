@@ -1,0 +1,19 @@
+type Job
+	var runs as Count
+
+	static function create() returns Self
+		return Self{runs: 0}
+	end 'create'
+
+	export function quit()
+		self.stopNow()
+	end 'quit'
+end 'Job'
+
+function main() returns ExitCode
+	let j = spawn Job.create()
+	try j.quit() otherwise ignore
+	return 0
+end 'main'
+
+// expect-error: E3952 at 9:8

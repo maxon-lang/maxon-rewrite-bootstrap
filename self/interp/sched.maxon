@@ -273,6 +273,7 @@ function releaseBehaviour(mutates vm Vm, b Count, service Count) throws Halt
 		vm.h.shareds[at].running = 0
 		if c == service 'message'
 			try countTurn(vm, service: c)
+			endedIfClosed(vm, service: c)
 		end 'message'
 		try unref(vm, o: c)
 	end 'cowns'

@@ -397,8 +397,8 @@ function declarePolicy(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	let coalescing = ast.reachesLibraryInterface(p, tt: ms.types, reads: p.types, have: policy, name: ast.coalescingPolicyName)
 	let shedding = ast.reachesLibraryInterface(p, tt: ms.types, reads: p.types, have: policy, name: ast.sheddingPolicyName)
 	if ast.hasReply(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid), voidTy: p.builtins.voidTy) 'reply'
-		if coalescing or shedding or ast.isLibraryServiceType(p, tt: ms.types, reads: p.types, t: policy, name: ast.dropNewestPolicyName) 'unanswered'
-			checkFail(c.modID, off: at, code: diag.errPolicyWithReply, msg: "'{name}' has a reply, which its sender waits for, and '{policyName}' would throw the message away, shed it or replace it unanswered: name 'Refuse', whose sender is answered 'busy' at once, or 'Keep', or remove the reply", errs: errs)
+		if coalescing or ast.isLibraryServiceType(p, tt: ms.types, reads: p.types, t: policy, name: ast.dropNewestPolicyName) 'unanswered'
+			checkFail(c.modID, off: at, code: diag.errPolicyWithReply, msg: "'{name}' has a reply, which its sender waits for, and '{policyName}' would throw the message away or replace it unanswered: name 'Refuse', whose sender is answered 'busy' at once, a shedding policy such as 'DropOldest', whose sender's await is answered 'busy', or 'Keep', or remove the reply", errs: errs)
 			return
 		end 'unanswered'
 	end 'reply'
@@ -468,3 +468,60 @@ function numberShedPolicy(p ast.Project, mutates ms ast.ModuleState, fid ast.Fun
 	end 'first'
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].shedPolicy = number
 end 'numberShedPolicy'
+
+// declareAwaitErrors makes, once the module's policies are declared, the error of the await of the reply of each message of
+// its types that may fail with more than its handler throws (README, "Stops"): the handler's cases, then busy where the
+// message's policy sheds it, then serviceStopped where its type implements StopsNow, so the cases a sender matched before keep
+// their words. A case of the handler's of either name is the one the stop or the shed gives. A sender in another module reads
+// it with the message, and a message with no such failure keeps the handler's error.
+function declareAwaitErrors(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, mutates errs diag.ErrorList)
+	for i in 0 upto p.modules[c.modIdx].decls.count() 'decls'
+		let ref = ast.DeclRef.make(c.modID, ordinal: try i as ast.DeclOrdinal otherwise panic("too many declarations"))
+		let nt = match consumes ast.declType(p, ms: ms, ref: ref) 'declared'
+			some(t) gives t
+			none gives ast.noType
+		end 'declared'
+		if nt == ast.noType or ast.typeKind(ms.types, reads: p.types, t: nt) != ast.TypeKind.record or ast.typeEntry(ms.types, reads: p.types, t: nt).typeParams.count() > 0 'notService'
+			continue 'decls'
+		end 'notService'
+		let stops = ast.stopsNow(p, tt: ms.types, reads: p.types, nt: nt)
+		for m in ast.typeEntry(ms.types, reads: p.types, t: nt).methods.clone() 'methods'
+			let f = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m.func).clone()
+			let busy = f.shedPolicy != ast.noShedPolicy
+			if f.isStatic or ast.visibilityOf(f.visibility) == ast.Visibility.unexported or not ast.hasReply(f, voidTy: p.builtins.voidTy) or not (busy or stops) 'plain'
+				continue 'methods'
+			end 'plain'
+			declareAwaitError(c, p: p, ms: ms, nt: nt, fid: m.func, busy: busy, stops: stops, errs: errs)
+		end 'methods'
+	end 'decls'
+end 'declareAwaitErrors'
+
+// declareAwaitError makes the error of the await of the message fid's reply, which its handler's error, an enum, begins.
+function declareAwaitError(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, nt ast.TypeID, fid ast.FuncID, busy bool, stops bool, mutates errs diag.ErrorList)
+	let f = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).clone()
+	let serviceName = ast.typeName(ms.types, reads: p.types, t: nt)
+	var e = ast.TypeEntry.make(ast.TypeKind.enumTy, name: "{serviceName}.{f.name}.Error")
+	if f.errTy != ast.noType 'throws'
+		if ast.typeKind(ms.types, reads: p.types, t: f.errTy) != ast.TypeKind.enumTy 'union'
+			let why = "its policy sheds it" if busy else "'{serviceName}' implements StopsNow"
+			checkFail(c.modID, off: ms.tree().startOf(f.nodeID), code: diag.errUnsupportedFeature, msg: "the reply of '{f.name}' may fail at its sender's await with more than it throws, since {why}, and the error of such an await adds those cases to an enum only yet: throw an enum", errs: errs)
+			return
+		end 'union'
+		let own = ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: f.errTy)).cases.clone()
+		for i in 0 upto own.count() 'cases'
+			e.cases.push(ast.CaseInfo.make(own[i].name.clone(), payload: ast.CaseFieldList.create(0), hasRaw: false, rawValue: ast.I128.zero()))
+		end 'cases'
+	end 'throws'
+	if busy and not e.findCase(ast.busyCaseName).isSome() 'busy'
+		e.cases.push(ast.CaseInfo.make(ast.busyCaseName.clone(), payload: ast.CaseFieldList.create(0), hasRaw: false, rawValue: ast.I128.zero()))
+	end 'busy'
+	if stops and not e.findCase(ast.serviceStoppedCaseName).isSome() 'stopped'
+		e.cases.push(ast.CaseInfo.make(ast.serviceStoppedCaseName.clone(), payload: ast.CaseFieldList.create(0), hasRaw: false, rawValue: ast.I128.zero()))
+	end 'stopped'
+	e.conforms.push(p.builtins.errorTy)
+	// Its code is named in the module of its service, as the error of the message the service declares.
+	e.hasDecl = true
+	e.decl = ast.typeEntry(ms.types, reads: p.types, t: nt).decl.clone()
+	let made = ast.allocType(ms.types, module: c.modID, e: e)
+	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].awaitErrTy = made
+end 'declareAwaitError'

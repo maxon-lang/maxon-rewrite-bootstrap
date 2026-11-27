@@ -464,6 +464,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrServiceShutdown 'intrServiceShutdown'
 		return lowerServiceShutdown(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrServiceShutdown'
+	if op == ast.Intrinsic.intrServiceStopNow 'intrServiceStopNow'
+		return lowerServiceStopNow(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrServiceStopNow'
+	if op == ast.Intrinsic.intrServiceStopped 'intrServiceStopped'
+		return lowerServiceStopped(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrServiceStopped'
 	if op == ast.Intrinsic.intrServiceMostQueued 'intrServiceMostQueued'
 		return lowerServiceMostQueued(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrServiceMostQueued'
@@ -584,6 +590,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrServiceUnderLoad 'intrServiceUnderLoad'
 		return lowerServiceUnderLoad(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrServiceUnderLoad'
+	if op == ast.Intrinsic.intrServiceStopSelf 'intrServiceStopSelf'
+		return lowerServiceStopSelf(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrServiceStopSelf'
+	if op == ast.Intrinsic.intrServiceStopNowSelf 'intrServiceStopNowSelf'
+		return lowerServiceStopNowSelf(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrServiceStopNowSelf'
 	if op == ast.Intrinsic.intrServiceViewMark 'intrServiceViewMark'
 		return lowerServiceViewMark(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrServiceViewMark'
@@ -1411,6 +1423,12 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrServiceShutdown 'intrServiceShutdown'
 		return false
 	end 'intrServiceShutdown'
+	if op == ast.Intrinsic.intrServiceStopNow 'intrServiceStopNow'
+		return false
+	end 'intrServiceStopNow'
+	if op == ast.Intrinsic.intrServiceStopped 'intrServiceStopped'
+		return false
+	end 'intrServiceStopped'
 	if op == ast.Intrinsic.intrServiceMostQueued 'intrServiceMostQueued'
 		return false
 	end 'intrServiceMostQueued'
@@ -1531,6 +1549,12 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrServiceUnderLoad 'intrServiceUnderLoad'
 		return false
 	end 'intrServiceUnderLoad'
+	if op == ast.Intrinsic.intrServiceStopSelf 'intrServiceStopSelf'
+		return false
+	end 'intrServiceStopSelf'
+	if op == ast.Intrinsic.intrServiceStopNowSelf 'intrServiceStopNowSelf'
+		return false
+	end 'intrServiceStopNowSelf'
 	if op == ast.Intrinsic.intrServiceViewMark 'intrServiceViewMark'
 		return false
 	end 'intrServiceViewMark'

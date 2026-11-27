@@ -40,7 +40,7 @@ end 'refusesRawLibraryType'
 // type that is not raw (a door such as `SlotKey.fromWord`), or of a method of a type of the raw surface. Any other static
 // function of such a type is called on its name, which refusesRawType refused already.
 function refusesRawCall(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, target ast.FuncID, mutates errs diag.ErrorList) returns bool
-	if p.modules[c.modIdx].inLibraryTier() 'tier'
+	if p.modules[c.modIdx].inLibraryTier() or writesSelfStop(ms, call: call, target: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).intrinsic) 'tier'
 		return false
 	end 'tier'
 	let owner = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).ownerTy

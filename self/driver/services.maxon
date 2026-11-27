@@ -2,7 +2,8 @@
 // four services that service 0 reaches, cycles and a service's edge to itself included, one of each class that renaming the
 // services other than service 0 gives, and runs self/fuzz/services.txt under the interpreter on each, whose oracles of
 // backpressure (self/interp/oracles.maxon) check every schedule. Each graph runs under a schedule of each turn limit, and once
-// more with main stopping one of its services after its first start, so some sends fail "stopped"; the runs of a graph send its
+// more with main stopping one of its services after its first start, by its shutdown or at once by a message of it, so some
+// sends and some awaits of replies fail "stopped"; the runs of a graph send its
 // walks as kinds of each overload policy of the library's menu in turn. An oracle that fails is an
 // internal error that names the seed and the graph, the program's standard input; a run that breaks a rule or does not end
 // with 0 is a failure of the lane. --count runs that many graphs, spread evenly over them, as the gate does.
@@ -186,6 +187,10 @@ function servicesLane(options FuzzOptions, program String) returns ExitCode
 			var seed = schedule
 			if schedule == options.schedules 'stopping'
 				stop = (try g mod graph.services otherwise panic("fuzz: a graph of no services")) + 1
+				if (try g / graph.services otherwise panic("fuzz: a graph of no services")) mod 2 == 1 'atOnce'
+					// The other half of the graphs stop the service at once, from one of its messages.
+					stop = try stop + laneServices otherwise panic("fuzz: a stop past a word")
+				end 'atOnce'
 				seed = try g mod options.schedules otherwise 0
 			end 'stopping'
 			let policy = try (g + schedule) mod lanePolicies otherwise panic("fuzz: a policy past a word")

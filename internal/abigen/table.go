@@ -397,7 +397,9 @@ var layouts = []layoutConst{
 		"where the scheduler's record holds the writers' list on Linux, schedWriterSlots fds of a word each, of which the first schedWriterCountOffset's count are listed."},
 	{"schedWriterSlots", 256, true, toRuntime,
 		"how many fds the writers' list holds at most: an open for writing past them fails as the kernel's EMFILE does, before the file is opened."},
-	{"schedProcessorsOffset", 302, false, toRuntime,
+	{"schedWatchersOffset", 302, false, toRuntime,
+		"where the scheduler's record holds the newest of the watches of services' stops (service.maxon, \"Watching a stop\"), linked from each to the one before, written under the lock and read without it, 0 for none."},
+	{"schedProcessorsOffset", 303, false, toRuntime,
 		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made."},
 
 	// A processor (Go's P): what a thread must hold to run green threads, its local run queue (a ring that its owner puts

@@ -1,0 +1,50 @@
+// A message with a reply whose policy sheds it, DropOldest here, is queued, and while its service is behind its policy may
+// shed it: it is not handled, and the await of its reply fails with busy, a case the compiler adds to the error of that await
+// after the handler's own, which keep their numbers. Every reply is answered once: with the value, the handler's error or
+// busy.
+// schedules: 6
+//> answered: 13, each once: true
+export typealias Amount = int(0 to 1000000)
+
+enum StoreError implements Error
+	zero
+end 'StoreError'
+
+type Store
+	var last as Amount
+
+	static function create() returns Self
+		return Self{last: 0}
+	end 'create'
+
+	@policy(DropOldest) export function put(mutates self, value Amount) returns Amount throws StoreError
+		if value == 0 'zero'
+			throw StoreError.zero
+		end 'zero'
+		self.last = value
+		return value
+	end 'put'
+end 'Store'
+
+function main() returns ExitCode
+	let s = spawn Store.create()
+	var replies = [try s.put(0) otherwise return 1]
+	for i in 1 to 12 'send'
+		replies.push(try s.put(i) otherwise return 1)
+	end 'send'
+	var values = 0 as Amount
+	var zeros = 0 as Amount
+	var busy = 0 as Amount
+	for p in replies 'await'
+		_ = try await p otherwise (e) 'failed'
+			match e 'why'
+				zero then zeros = try zeros + 1 otherwise 0
+				busy then busy = try busy + 1 otherwise 0
+			end 'why'
+			continue 'await'
+		end 'failed'
+		values = try values + 1 otherwise 0
+	end 'await'
+	print("answered: {values + zeros + busy}, each once: {zeros <= 1}\n")
+	return 0
+end 'main'

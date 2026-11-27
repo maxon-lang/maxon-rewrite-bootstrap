@@ -801,6 +801,7 @@ function storeFuncEntry(mutates w table.CacheWriter, v FuncEntry)
 	w.word64(v.pendingSlot as table.Word64)
 	w.word64(v.policyField as table.Word64)
 	w.word64(v.shedPolicy as table.Word64)
+	w.word64(v.awaitErrTy as table.Word64)
 	w.word64(v.genericOrigin as table.Word64)
 	storeArrayOfTypeID(w, v: v.typeArgs)
 	storeArrayOfWitness(w, v: v.witnesses)
@@ -839,6 +840,7 @@ extension FuncEntry
 		let thePendingSlot = r.word64() as Count
 		let thePolicyField = r.word64() as Count
 		let theShedPolicy = r.word64() as Count
+		let theAwaitErrTy = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
 		let theGenericOrigin = try (r.word64() as FuncID) otherwise panic("cache: a stored FuncID is out of its range")
 		let theTypeArgs = loadArrayOfTypeID(r)
 		let theWitnesses = loadArrayOfWitness(r)
@@ -848,7 +850,7 @@ extension FuncEntry
 		let theIsTest = r.flag()
 		let theExtendedIface = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
 		let theConditionalBounds = r.word64() as Count
-		return FuncEntry{id: theId, name: theName, visibility: theVisibility, hasDecl: theHasDecl, decl: theDecl, module: theModule, nodeID: theNodeID, isStatic: theIsStatic, isDestructor: theIsDestructor, hasReceiver: theHasReceiver, isClosure: theIsClosure, ownerTy: theOwnerTy, selfConv: theSelfConv, generics: theGenerics, bounds: theBounds, params: theParams, paramTypes: theParamTypes, retTy: theRetTy, result: theResult, lendsPlace: theLendsPlace, errTy: theErrTy, policy: thePolicy, pendingSlot: thePendingSlot, policyField: thePolicyField, shedPolicy: theShedPolicy, genericOrigin: theGenericOrigin, typeArgs: theTypeArgs, witnesses: theWitnesses, intrinsic: theIntrinsic, linkName: theLinkName, bodyRef: theBodyRef, isTest: theIsTest, extendedIface: theExtendedIface, conditionalBounds: theConditionalBounds}
+		return FuncEntry{id: theId, name: theName, visibility: theVisibility, hasDecl: theHasDecl, decl: theDecl, module: theModule, nodeID: theNodeID, isStatic: theIsStatic, isDestructor: theIsDestructor, hasReceiver: theHasReceiver, isClosure: theIsClosure, ownerTy: theOwnerTy, selfConv: theSelfConv, generics: theGenerics, bounds: theBounds, params: theParams, paramTypes: theParamTypes, retTy: theRetTy, result: theResult, lendsPlace: theLendsPlace, errTy: theErrTy, policy: thePolicy, pendingSlot: thePendingSlot, policyField: thePolicyField, shedPolicy: theShedPolicy, awaitErrTy: theAwaitErrTy, genericOrigin: theGenericOrigin, typeArgs: theTypeArgs, witnesses: theWitnesses, intrinsic: theIntrinsic, linkName: theLinkName, bodyRef: theBodyRef, isTest: theIsTest, extendedIface: theExtendedIface, conditionalBounds: theConditionalBounds}
 	end 'cacheLoad'
 end 'FuncEntry'
 

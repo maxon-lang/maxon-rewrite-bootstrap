@@ -1,0 +1,23 @@
+export union JobError implements Error
+	failed(code Count)
+	lost
+end 'JobError'
+
+export type Job implements StopsNow
+	var runs as Count
+
+	static function create() returns Self
+		return Self{runs: 0}
+	end 'create'
+
+	export function run(mutates self) returns Count throws JobError
+		self.runs = try self.runs + 1 otherwise throw JobError.lost
+		return self.runs
+	end 'run'
+end 'Job'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2015 at 13:2

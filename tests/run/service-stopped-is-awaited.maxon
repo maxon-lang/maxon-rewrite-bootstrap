@@ -1,0 +1,41 @@
+// A task awaits h.stopped(), a promise of no value that the end of the service completes: once its mailbox is closed and its
+// last message has ended, whichever stop closed it. A watch of a service that has ended already is completed at once, and a
+// cancel of a watch that its service never completes does not wait for it.
+// schedules: 6
+//> stopped after 3; watched again; the other's watch cancelled
+export typealias Amount = int(0 to 1000000)
+
+type Counter
+	var n as Amount
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function bump(mutates self) returns Amount
+		self.n = try self.n + 1 otherwise 0
+		return self.n
+	end 'bump'
+
+	export function finish()
+		self.stop()
+	end 'finish'
+end 'Counter'
+
+function main() returns ExitCode
+	let c = spawn Counter.create()
+	_ = try c.bump() otherwise return 1
+	_ = try c.bump() otherwise return 1
+	let third = try c.bump() otherwise panic("a send to a service that runs")
+	let done = c.stopped()
+	try c.finish() otherwise ignore
+	await done
+	let n = await third
+	let again = c.stopped()
+	await again
+	let other = spawn Counter.create()
+	let watch = other.stopped()
+	watch.cancel()
+	print("stopped after {n}; watched again; the other's watch cancelled\n")
+	return 0
+end 'main'

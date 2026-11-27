@@ -1,0 +1,42 @@
+// A message that calls self.stop() closes its service's mailbox as a shutdown does: the messages queued before the stop still
+// run, so every reply sent before it comes, and each send after it fails with serviceStopped. A type that stops so declares
+// nothing, and its awaits fail with what its handlers throw alone.
+// schedules: 6
+//> replies: 1 2, stopped after: 2, later send: refused
+export typealias Amount = int(0 to 1000000)
+
+type Counter
+	var n as Amount
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function bump(mutates self) returns Amount
+		self.n = try self.n + 1 otherwise 0
+		return self.n
+	end 'bump'
+
+	export function finish() returns Amount
+		self.stop()
+		return self.n
+	end 'finish'
+end 'Counter'
+
+function main() returns ExitCode
+	let c = spawn Counter.create()
+	let a = try c.bump() otherwise return 1
+	let b = try c.bump() otherwise panic("a send to a service that runs")
+	let f = try c.finish() otherwise panic("a send to a service that runs")
+	let x = await a
+	let y = await b
+	let at = await f
+	_ = try c.bump() otherwise (e) 'refused'
+		match e 'why'
+			serviceStopped then print("replies: {x} {y}, stopped after: {at}, later send: refused\n")
+		end 'why'
+		return 0
+	end 'refused'
+	print("replies: {x} {y}, stopped after: {at}, later send: handled\n")
+	return 0
+end 'main'

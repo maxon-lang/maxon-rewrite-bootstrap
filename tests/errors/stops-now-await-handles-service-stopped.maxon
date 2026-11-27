@@ -1,0 +1,30 @@
+enum JobError implements Error
+	failed
+end 'JobError'
+
+type Job implements StopsNow
+	var runs as Count
+
+	static function create() returns Self
+		return Self{runs: 0}
+	end 'create'
+
+	export function run(mutates self) returns Count throws JobError
+		self.runs = try self.runs + 1 otherwise throw JobError.failed
+		return self.runs
+	end 'run'
+end 'Job'
+
+function main() returns ExitCode
+	let j = spawn Job.create()
+	let p = try j.run() otherwise return 1
+	_ = try await p otherwise (e) 'no'
+		match e 'why'
+			failed then return 1
+		end 'why'
+		return 1
+	end 'no'
+	return 0
+end 'main'
+
+// expect-error: E2026 at 24:3

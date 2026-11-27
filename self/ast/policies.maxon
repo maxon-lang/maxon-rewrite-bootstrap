@@ -179,3 +179,36 @@ export function hasGenericPolicy(tt TypeSlot, reads TypeTable, ft FuncSlot, func
 	end 'methods'
 	return false
 end 'hasGenericPolicy'
+
+// Stops (README, "Stops"): a service type that implements the library's StopsNow may be stopped at once, which fails the
+// awaits of its queued messages' replies with serviceStopped, and a message whose policy sheds it fails its await with busy.
+export let stopsNowName = "StopsNow"
+
+export let busyCaseName = "busy"
+
+export let serviceStoppedCaseName = "serviceStopped"
+
+// stopsNow is whether the service type nt implements StopsNow, so stopNow() may end it with messages queued.
+export function stopsNow(p Project, tt TypeSlot, reads TypeTable, nt TypeID) returns bool
+	return reachesLibraryInterface(p, tt: tt, reads: reads, have: nt, name: stopsNowName)
+end 'stopsNow'
+
+// awaitErrorOf is the error an await of the reply of the message f fails with: the one the compiler made where the reply may
+// fail with more than the handler throws, and else the handler's own, or noType.
+export function awaitErrorOf(f FuncEntry) returns TypeID
+	if f.awaitErrTy != noType 'made'
+		return f.awaitErrTy
+	end 'made'
+	return f.errTy
+end 'awaitErrorOf'
+
+// awaitFailureCase is the case of the error of the await of the message f's reply named so, which the compiler's error holds.
+export function awaitFailureCase(tt TypeSlot, reads TypeTable, f FuncEntry, name String) returns Count
+	let cases = typeEntry(tt, reads: reads, t: f.awaitErrTy).cases.count()
+	for i in 0 upto cases 'cases'
+		if typeEntry(tt, reads: reads, t: f.awaitErrTy).cases[i].name == name 'hit'
+			return i
+		end 'hit'
+	end 'cases'
+	panic("ast: the error of the await of '{f.name}' has no case '{name}'")
+end 'awaitFailureCase'

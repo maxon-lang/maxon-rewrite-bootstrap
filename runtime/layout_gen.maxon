@@ -390,8 +390,11 @@ let schedWritersOffset = 368 as Count
 // schedWriterSlots is how many fds the writers' list holds at most: an open for writing past them fails as the kernel's EMFILE does, before the file is opened.
 let schedWriterSlots = 256 as Count
 
+// schedWatchersOffset is where the scheduler's record holds the newest of the watches of services' stops (service.maxon, "Watching a stop"), linked from each to the one before, written under the lock and read without it, 0 for none.
+let schedWatchersOffset = 2416 as Count
+
 // schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made.
-let schedProcessorsOffset = 2416 as Count
+let schedProcessorsOffset = 2424 as Count
 
 // procIdOffset is where a processor holds its index among the processors.
 let procIdOffset = 0 as Count

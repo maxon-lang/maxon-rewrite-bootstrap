@@ -164,7 +164,7 @@ function releaseCowns(record Count, service Count)
 			let cown = __Raw.loadWord(slot, offset: requestCownOffset)
 			if __Raw.compareExchange(cown, offset: cownTailOffset, expected: slot, desired: notQueued) == slot 'idle'
 				if cown == service 'caughtUp'
-					caughtUpIfSlowing(service)
+					releasedIdle(service)
 				end 'caughtUp'
 				continue 'slots'
 			end 'idle'

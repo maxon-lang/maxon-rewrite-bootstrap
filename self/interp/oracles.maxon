@@ -2,8 +2,9 @@
 // the interpreter's model of them must keep under every schedule. A failure is the model's or the runtime's design's, never
 // the program's, so the run that finds one ends in an internal error naming the oracle and the seed of its schedule.
 //
-// - exactly once: every message whose send succeeded is handled once, or dropped once by a shedding policy's mark; a send that
-//   fails, fails only "stopped", or "busy" where its policy refuses it;
+// - exactly once: every message whose send succeeded is handled once, or dropped once by a shedding policy's mark or by the
+//   stop at once of its service; a send that fails, fails only "stopped", or "busy" where its policy refuses it; and every
+//   reply a sender keeps is answered once, with what its handler gave, or busy, or serviceStopped;
 // - sender order: the messages of one sender to one service are handled in the order they were sent;
 // - progress: the run never stops with only backpressure holding it, every live service muted and every task parked at a send;
 // - queue bound: a service's queue stays within the bound the header of runtime/service.maxon states for the shape of its
@@ -181,6 +182,12 @@ function noteShed(mutates vm Vm, b Count)
 	noteDelivered(vm, b: b, verb: "dropped")
 end 'noteShed'
 
+// noteStopped counts the message that behaviour b is as it starts on a service that was stopped at once, which drops it: its
+// one delivery, failed "stopped".
+function noteStopped(mutates vm Vm, b Count)
+	noteDelivered(vm, b: b, verb: "dropped at a stop")
+end 'noteStopped'
+
 function noteDelivered(mutates vm Vm, b Count, verb String)
 	let pair = vm.behaviours.pair[b]
 	if pair == 0 'untagged'
@@ -201,6 +208,11 @@ end 'noteDelivered'
 // checkEnded checks a run that has ended with nothing left to run: every message is handled, and every queue stayed within
 // its bound.
 function checkEnded(mutates vm Vm)
+	for row in 1 upto vm.promises.thread.count() 'replies'
+		if vm.promises.thread[row] == 0 and vm.promises.watches[row] == 0 and not vm.promises.finished[row] 'unanswered'
+			oracleFails(vm, oracle: oracleOnce, found: "a reply (promise row {row}) was never answered")
+		end 'unanswered'
+	end 'replies'
 	for b in 1 upto vm.behaviours.pair.count() 'behaviours'
 		let pair = vm.behaviours.pair[b]
 		if pair != 0 and vm.behaviours.handled[b] == 0 'lost'

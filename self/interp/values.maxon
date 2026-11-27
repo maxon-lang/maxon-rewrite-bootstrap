@@ -131,9 +131,13 @@ type SharedData
 	// sheds is whether a message of the service has started as one of a type with shedding kinds, whose last pending word is
 	// the horizon of its views (strands.maxon), the behaviour that ends them, or 0.
 	var sheds as bool
+	// stoppedNow is whether the service was stopped at once (strands.maxon, "Stops"): its messages queued are not handled.
+	var stoppedNow as bool
+	// watchers are the promises of the watches of its stop that its end has not finished (strands.maxon, "Watching a stop").
+	var watchers as CountList
 
 	static function new() returns SharedData
-		return SharedData{count: 1, holders: CountList.create(0), queue: CountList.create(0), running: 0, ending: 0, cell: 0, owned: BoolList.create(0), gate: 0, behind: false, muted: false, turn: 0, senders: CountList.create(0), most: 0, listedOn: 0, kept: 0, pending: CountList.create(0), sheds: false}
+		return SharedData{count: 1, holders: CountList.create(0), queue: CountList.create(0), running: 0, ending: 0, cell: 0, owned: BoolList.create(0), gate: 0, behind: false, muted: false, turn: 0, senders: CountList.create(0), most: 0, listedOn: 0, kept: 0, pending: CountList.create(0), sheds: false, stoppedNow: false, watchers: CountList.create(0)}
 	end 'new'
 end 'SharedData'
 

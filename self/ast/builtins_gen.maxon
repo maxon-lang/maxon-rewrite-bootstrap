@@ -396,6 +396,8 @@ export enum Intrinsic
 	intrSchedulerCurrentMachine
 	intrSchedulerMachineCpuCount
 	intrServiceShutdown
+	intrServiceStopNow
+	intrServiceStopped
 	intrServiceMostQueued
 	intrPromiseCancel
 	intrArrayAwaitAny
@@ -436,6 +438,8 @@ export enum Intrinsic
 	intrCollectedOutputSucceeded
 	intrSleep
 	intrServiceUnderLoad
+	intrServiceStopSelf
+	intrServiceStopNowSelf
 	intrServiceViewMark
 	intrServiceViewMarked
 	intrClockNowMillis
@@ -868,6 +872,8 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrSchedulerCurrentMachine or
 		intrSchedulerMachineCpuCount or
 		intrServiceShutdown or
+		intrServiceStopNow or
+		intrServiceStopped or
 		intrServiceMostQueued or
 		intrPromiseCancel or
 		intrArrayAwaitAny or
@@ -908,6 +914,8 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrCollectedOutputSucceeded or
 		intrSleep or
 		intrServiceUnderLoad or
+		intrServiceStopSelf or
+		intrServiceStopNowSelf or
 		intrServiceViewMark or
 		intrServiceViewMarked or
 		intrClockNowMillis or
@@ -1180,6 +1188,8 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrSchedulerCurrentMachine or
 		intrSchedulerMachineCpuCount or
 		intrServiceShutdown or
+		intrServiceStopNow or
+		intrServiceStopped or
 		intrServiceMostQueued or
 		intrArrayAwaitAny or
 		intrPromiseIsComplete or
@@ -1219,6 +1229,8 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrCollectedOutputSucceeded or
 		intrSleep or
 		intrServiceUnderLoad or
+		intrServiceStopSelf or
+		intrServiceStopNowSelf or
 		intrServiceViewMark or
 		intrServiceViewMarked or
 		intrClockNowMillis or
@@ -1536,6 +1548,8 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrSchedulerCurrentMachine or
 		intrSchedulerMachineCpuCount or
 		intrServiceShutdown or
+		intrServiceStopNow or
+		intrServiceStopped or
 		intrServiceMostQueued or
 		intrPromiseCancel or
 		intrArrayAwaitAny or
@@ -1576,6 +1590,8 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrCollectedOutputSucceeded or
 		intrSleep or
 		intrServiceUnderLoad or
+		intrServiceStopSelf or
+		intrServiceStopNowSelf or
 		intrServiceViewMark or
 		intrServiceViewMarked or
 		intrClockNowMillis or
@@ -1817,6 +1833,12 @@ export function rawCallInstead(b Builtins, owner TypeID, name String) returns ta
 		if name == "serviceUnderLoad" 'serviceUnderLoad'
 			return table.Option.some("underLoad()")
 		end 'serviceUnderLoad'
+		if name == "serviceStop" 'serviceStop'
+			return table.Option.some("self.stop()")
+		end 'serviceStop'
+		if name == "serviceStopNow" 'serviceStopNow'
+			return table.Option.some("self.stopNow()")
+		end 'serviceStopNow'
 		if name == "serviceViewMark" 'serviceViewMark'
 			return table.Option.some("pending.shed(i) or pending.keep(i)")
 		end 'serviceViewMark'
@@ -3327,6 +3349,8 @@ end 'declareSchedulerMethods'
 
 function declareServiceMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.serviceOrigin, op: Intrinsic.intrServiceShutdown, name: "shutdown", isStatic: false, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.serviceOrigin, op: Intrinsic.intrServiceStopNow, name: "stopNow", isStatic: false, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.serviceOrigin, op: Intrinsic.intrServiceStopped, name: "stopped", isStatic: false, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.serviceOrigin, op: Intrinsic.intrServiceMostQueued, name: "mostQueued", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 end 'declareServiceMethods'
 
@@ -3508,6 +3532,8 @@ function declareBuiltinsMethods(mutates tt TypeSlot, reads TypeTable, mutates ft
 	ps1.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrSleep, name: "sleep", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps1, listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrServiceUnderLoad, name: "serviceUnderLoad", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrServiceStopSelf, name: "serviceStop", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrServiceStopNowSelf, name: "serviceStopNow", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 	var ps2 = ParamSpecList.create(0)
 	ps2.push(ParamSpec.make("view", ty: b.countTy, conv: Convention.convLet))
 	ps2.push(ParamSpec.make("index", ty: b.countTy, conv: Convention.convLet))

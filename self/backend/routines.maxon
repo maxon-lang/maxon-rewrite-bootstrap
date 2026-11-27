@@ -890,6 +890,11 @@ function dropCown(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates m
 	keepHeld(u, a: a, offset: cownValueOffset)
 	rLoad(u, a: a, dst: rWork, base: rSecond, disp: imm32Of(cownEndingOffset))
 	rStore(u, a: a, base: rFrame, disp: routineLocal2, src: rWork)
+	if ast.typeKind(ms.types, reads: p.types, t: ty) == ast.TypeKind.builtinService 'service'
+		// A service that is freed has ended: the watches of its stop are given before its address can be taken again.
+		rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineArg)
+		callRuntimeWithWork(u, a: a, entry: ir.Rt.rtServiceFreed)
+	end 'service'
 	freeArgument(u, a: a)
 	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal2)
 	rTest(u, a: a, left: rWork, right: rWork)

@@ -102,6 +102,12 @@ function callSend(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		return ast.noType
 	end 'ambiguous'
 	if own != ast.noFunc 'handleMethod'
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: own).intrinsic == ast.Intrinsic.intrServiceStopNow and not requireStopsNow(c, p: p, ms: ms, node: call, state: ast.serviceState(ms.types, reads: p.types, t: handle), errs: errs) 'undeclared'
+			return ast.noType
+		end 'undeclared'
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: own).intrinsic == ast.Intrinsic.intrServiceStopped 'watch'
+			return callStopped(c, p: p, ms: ms, call: call, handle: handle, own: own, errs: errs)
+		end 'watch'
 		return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callMethod, target: own, hasGiven: true, given: ast.typeEntry(ms.types, reads: p.types, t: handle).typeArgs.clone(), errs: errs)
 	end 'handleMethod'
 	let state = ast.serviceState(ms.types, reads: p.types, t: handle)
@@ -142,9 +148,84 @@ function callSend(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	c.partyWaitNow = true
 	var args = ast.TypeIDList.create(0)
 	args.push(result)
-	args.push(thrown if thrown != ast.noType else p.builtins.voidTy)
+	let awaited = ast.awaitErrorOf(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method))
+	args.push(awaited if awaited != ast.noType else p.builtins.voidTy)
 	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: call), orig: p.builtins.promiseOrigin, args: args, errs: errs)
 end 'callSend'
+
+// The stops a message asks of its own service (README, "Stops"): `self.stop()` closes its mailbox as a shutdown does, and
+// `self.stopNow()`, for a type that implements StopsNow, ends it at once. A type that declares a method of either name keeps
+// the name for its own. Each is a call of the built-in floor of its name, which stops the service whose message runs.
+let stopMethod = "stop"
+
+let stopNowMethod = "stopNow"
+
+let stopFloor = "serviceStop"
+
+let stopNowFloor = "serviceStopNow"
+
+// isSelfStop is whether a call that names no method of its receiver's type, content, is `self.stop()` or `self.stopNow()` in
+// a message of that type.
+function isSelfStop(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, content ast.TypeID, name String) returns bool
+	if name != stopMethod and name != stopNowMethod 'other'
+		return false
+	end 'other'
+	let callee = ast.callExprCallee(ms.tree(), id: call)
+	if ms.tree().kindOf(callee) != ast.NodeKind.memberExpr or ms.tree().kindOf(ast.memberExprObj(ms.tree(), id: callee)) != ast.NodeKind.selfExpr 'notSelf'
+		return false
+	end 'notSelf'
+	if c.fn == ast.noFunc or not isMessage(p, ms: ms, method: c.fn) 'notMessage'
+		return false
+	end 'notMessage'
+	let owner = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.fn).ownerTy
+	return owner != ast.noType and ast.typeEntry(ms.types, reads: p.types, t: owner).effectiveOrigin() == ast.typeEntry(ms.types, reads: p.types, t: content).effectiveOrigin()
+end 'isSelfStop'
+
+// callSelfStop types `self.stop()` or `self.stopNow()` in a message of the type content.
+function callSelfStop(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, content ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
+	if name == stopNowMethod and not requireStopsNow(c, p: p, ms: ms, node: call, state: content, errs: errs) 'undeclared'
+		return ast.noType
+	end 'undeclared'
+	let floor = methodNamed(p, ms: ms, t: p.builtins.builtinsTy, name: stopFloor if name == stopMethod else stopNowFloor)
+	if floor == ast.noFunc 'missing'
+		panic("check: the built-ins have no floor of {name}")
+	end 'missing'
+	return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callStatic, target: floor, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
+end 'callSelfStop'
+
+// writesSelfStop is whether a call of a raw floor is `self.stop()` or `self.stopNow()`, which callSelfStop made a call of its
+// floor: the program writes the stop, never the floor.
+function writesSelfStop(ms ast.ModuleState, call ast.NodeID, target ast.Intrinsic) returns bool
+	if target != ast.Intrinsic.intrServiceStopSelf and target != ast.Intrinsic.intrServiceStopNowSelf 'other'
+		return false
+	end 'other'
+	let callee = ast.callExprCallee(ms.tree(), id: call)
+	return ms.tree().kindOf(callee) == ast.NodeKind.memberExpr and ms.tree().kindOf(ast.memberExprObj(ms.tree(), id: callee)) == ast.NodeKind.selfExpr
+end 'writesSelfStop'
+
+// callStopped types `h.stopped()`, a promise of no value that the service's end completes, which a task awaits and a message
+// never does, since it waits on another party.
+function callStopped(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, handle ast.TypeID, own ast.FuncID, mutates errs diag.ErrorList) returns ast.TypeID
+	if callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callMethod, target: own, hasGiven: true, given: ast.typeEntry(ms.types, reads: p.types, t: handle).typeArgs.clone(), errs: errs) == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	c.partyWaitNow = true
+	var args = ast.TypeIDList.create(0)
+	args.push(p.builtins.voidTy)
+	args.push(p.builtins.voidTy)
+	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: call), orig: p.builtins.promiseOrigin, args: args, errs: errs)
+end 'callStopped'
+
+// requireStopsNow refuses a stopNow() of a service whose type does not implement StopsNow (E3952): the senders of such a type
+// await its replies as if its queued messages always ran, which stopNow() would drop.
+function requireStopsNow(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID, state ast.TypeID, mutates errs diag.ErrorList) returns bool
+	if ast.stopsNow(p, tt: ms.types, reads: p.types, nt: state) 'declared'
+		return true
+	end 'declared'
+	let stateName = nameOfType(p, ms: ms, t: state)
+	failAt(c, p: p, ms: ms, node: node, code: diag.errStopNowUndeclared, msg: "stopNow() would drop the messages queued on '{stateName}', whose senders await their replies as if they always ran, since '{stateName}' does not implement StopsNow: declare 'type {stateName} implements StopsNow', which tells each await of its replies that it may fail with serviceStopped, or stop it with shutdown() (self.stop() in a message), which runs the queued messages first", errs: errs)
+	return false
+end 'requireStopsNow'
 
 // isMessage is whether a method is a message: an export or public instance method.
 function isMessage(p ast.Project, ms ast.ModuleState, method ast.FuncID) returns bool

@@ -167,10 +167,11 @@ ErrNeedlessTry	E3944	-	A 'try', a 'try' block or an 'if try' covers nothing that
 ErrLoopInvariant	E3945	-	A while loop's invariant, after 'requires', is not a conjunction of comparisons of integer places, counts and constants, or the range analysis cannot prove it where the loop is entered, at the end of its body or at a 'continue' (README, "Where it differs from Maxon").
 ErrPolicyMisplaced	E3946	-	An '@policy' annotation stands before a function that is no export instance method of a type, the only function a send runs.
 ErrPolicyNotAPolicy	E3947	-	The type an '@policy' annotation names does not implement OverloadPolicy.
-ErrPolicyWithReply	E3948	-	A message that has a reply names a policy that throws messages away unanswered or replaces them: Latest, DropNewest, another CoalescingPolicy, or a SheddingPolicy such as DropOldest.
+ErrPolicyWithReply	E3948	-	A message that has a reply names a policy that throws messages away unanswered or replaces them: Latest, DropNewest or another CoalescingPolicy.
 ErrPolicyStateNotHeld	E3949	-	An '@policy' annotation names a SheddingPolicy type that has fields: the state its shed changes is a field of the service, named by '@policy(self.field)'.
 ErrPolicyReadsOtherMessages	E3950	-	The policy an '@policy' annotation names reads the message union of another type than the one whose message it names: a policy is lent the messages of its own service.
 ErrPolicyCoalescesAndSheds	E3951	-	The policy an '@policy' annotation names is both a CoalescingPolicy and a SheddingPolicy: a message of a coalescing kind waits in its kind's pending word, which a later send replaces, so a view cannot lend it to shed.
+ErrStopNowUndeclared	E3952	-	A stopNow() stops a service whose type does not implement StopsNow, whose senders' awaits are not told they may fail with serviceStopped.
 ErrInvalidFieldAccess	E4006	invalidFieldAccess	A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 ErrTypeCycle	E4014	irTypeCycle	A type contains itself.
 ErrRegisterPressure	E5001	registerPressure	A loop holds more values at once than the target has registers of their class, so a load or store would land in the loop.

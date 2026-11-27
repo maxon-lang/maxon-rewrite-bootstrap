@@ -1,10 +1,14 @@
 // The program of the services lane of fuzz (self/driver/services.maxon), which runs it under the interpreter, whose oracles
 // of backpressure check every schedule. Its standard input is a send graph of up to four services: a byte '0' or '1' for each
 // edge, from service 0's to service 3 to service 3's to itself, then which service main stops after its first start, '0' for
-// none and '1' to '4' for the first to the fourth, then the overload policy of the kind every walk is sent as, '0' to '7'
+// none, '1' to '4' for the first to the fourth by its shutdown, whose queued messages still run, and '5' to '8' for them by a
+// message whose handler stops its service at once, so its queued messages are not handled and the awaits of their replies fail
+// with serviceStopped, then the overload policy of the kind every walk is sent as, '0' to '7'
 // for Keep, Refuse, DropNewest, Latest, DropOldest, a policy with state of the program's own, which a field holds, the
 // library's PerClientFair keyed by the service a walk is at, and a policy of the program's own that reads the walk's hops. main starts a walk of the graph at service 0 a few times, and a service that is
 // handed a walk with hops left passes it on along each of its edges, so a cycle carries a walk round until its hops are spent.
+// After each start main asks a service for a reply of each of two kinds, one that is kept and one that DropOldest sheds, and it
+// awaits them all at the end: each is answered once, with a value, busy or serviceStopped.
 export typealias Amount = int(0 to 1000000)
 
 let nodes = 4 as Amount
@@ -81,6 +85,9 @@ function hopsOf(message Node.Message) returns Amount
 		walkSampled(left, _, _, _, _, _, _) gives left
 		walkFair(left, _, _, _, _, _, _) gives left
 		walkSpent(left, _, _, _, _, _, _) gives left
+		count gives 0
+		tally gives 0
+		halt gives 0
 	end 'm'
 end 'hopsOf'
 
@@ -95,10 +102,13 @@ function serviceOf(message Node.Message) returns Count
 		walkSampled(_, at, _, _, _, _, _) gives at as Count
 		walkFair(_, at, _, _, _, _, _) gives at as Count
 		walkSpent(_, at, _, _, _, _, _) gives at as Count
+		count gives 0
+		tally gives 0
+		halt gives 0
 	end 'm'
 end 'serviceOf'
 
-type Node
+type Node implements StopsNow
 	var handled as Amount
 	var sampler as EveryOther
 	var fair as PerClientFair with Node.Message
@@ -138,6 +148,18 @@ type Node
 	@policy(SpentFirst) export function walkSpent(mutates self, left Amount, at Amount, edges ByteArray, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
 		self.pass(left, at: at, edges: edges, policy: byHops, n0: n0, n1: n1, n2: n2, n3: n3)
 	end 'walkSpent'
+
+	export function count() returns Amount
+		return self.handled
+	end 'count'
+
+	@policy(DropOldest) export function tally() returns Amount
+		return self.handled
+	end 'tally'
+
+	export function halt()
+		self.stopNow()
+	end 'halt'
 
 	function pass(mutates self, left Amount, at Amount, edges ByteArray, policy Amount, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
 		self.handled = try self.handled + 1 otherwise 0
@@ -188,11 +210,26 @@ function main() returns ExitCode
 	let n1 = spawn Node.create()
 	let n2 = spawn Node.create()
 	let n3 = spawn Node.create()
+	var counts = [try n0.count() otherwise return 4]
+	var tallies = [try n0.tally() otherwise return 4]
 	for i in 0 upto starts 'starts'
 		send(n0.clone(), policy: policy, left: hops, at: 0, edges: edges.clone(), n0: n0, n1: n1, n2: n2, n3: n3)
-		if i == 0 and stop > 0 'stop'
+		if i == 0 and stop > nodes 'stopNow'
+			try pick(stop - nodes - 1, n0: n0, n1: n1, n2: n2, n3: n3).halt() otherwise ignore
+		end 'stopNow' else if i == 0 and stop > 0 'stop'
 			pick(stop - 1, n0: n0, n1: n1, n2: n2, n3: n3).shutdown()
 		end 'stop'
+		let asked = pick(i mod nodes, n0: n0, n1: n1, n2: n2, n3: n3)
+		let c = try asked.count() otherwise continue 'starts'
+		counts.push(c)
+		let t = try asked.tally() otherwise continue 'starts'
+		tallies.push(t)
 	end 'starts'
+	for p in counts 'counts'
+		_ = try await p otherwise continue 'counts'
+	end 'counts'
+	for p in tallies 'tallies'
+		_ = try await p otherwise continue 'tallies'
+	end 'tallies'
 	return 0
 end 'main'

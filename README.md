@@ -4926,7 +4926,7 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
 - A call through the handle of an export instance method of `T` is a **message** (`E3136` for any other method): the
   service runs it on its own green thread, one at a time, in the order the sends were made, so a handler that sleeps or
   is preempted still holds the service. A send fails, with `SendError`, only as `serviceStopped`, after `h.shutdown()`,
-  which closes the mailbox and lets the queued messages run. A send without `try` where nothing catches is `E3057`.
+  which closes the mailbox and lets the queued messages run, or another stop (see "Stops"). A send without `try` where nothing catches is `E3057`.
 - **Backpressure** is the runtime's, Pony's (`runtime/service.maxon`), and no program chooses a number. A service is
   behind while a send finds a turn's worth (64, the runtime's turn) of its messages queued, counting its own; once a turn
   of its messages ends at 64 with more queued, until a turn empties its queue; and while it is muted. The count and the
@@ -4974,7 +4974,8 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   behind, so it costs what any send does then: a plain send's IR is unchanged. `@policy` on a function that is no export
   instance method of the type's body is `E3946`, a type that implements no `OverloadPolicy` `E3947`, one that reads another
   type's message union `E3950`, and `Latest`, `DropNewest` or another
-  coalescing policy on a kind with a reply `E3948`, since the reply would never come. A send of a kind with a reply and a
+  coalescing policy on a kind with a reply `E3948`, since the reply would never come; a shedding policy on such a kind is
+  answered `busy` at the sender's await (see "Stops"). A send of a kind with a reply and a
   policy other than `Keep` fails with `SendBusyError`, `serviceStopped` or `busy`, which its sender handles; every other
   send's error is `SendError`. `underLoad()`, the library's, is whether the service whose message runs is behind, for a
   handler that does cheaper work then, and false off a message. The interpreter models the same (its pending words, a
@@ -5013,8 +5014,7 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   the type lacks, `E3947` for one whose type is no policy); its `shed` changes that field and no other, and a shedding
   type with fields named as a type is `E3949`. A policy that is both a CoalescingPolicy and a SheddingPolicy is `E3951`: a
   message of a coalescing kind waits in its kind's pending word, which the next send replaces, so no view could lend it. A
-  shedding policy on a kind with a reply is `E3948`, since a shed message
-  could not answer `busy` at its sender's await, whose error is the handler's. A message's policy is declared once every
+  shed message with a reply answers `busy` at its sender's await (see "Stops"). A message's policy is declared once every
   type of its module is, so a policy may be declared after its service. Every behaviour of a type with shedding kinds holds
   a mark word as its first capture (its kind's policy, and whether it is shed) and its case of the message union as its
   second, the service a horizon word after its pending words, and its messages start by `rt.service.shedStart`: a load of
@@ -5025,8 +5025,37 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   by a coin of its own stream, one in four, so every `admit` and `shed` runs in ordinary programs; a view's messages are
   boxes whose cells hold the behaviour's arguments until it is closed; its oracles count a shed message as delivered once, in
   its sender's order. `fuzz --services` sends walks as kinds of the library's `PerClientFair` and of a program's policy that
-  reads their hops in admit and shed. Not yet: `age(i)`, a shed message with a reply answered `busy`, and the requirement of
+  reads their hops in admit and shed. Not yet: `age(i)`, and the requirement of
   a policy for a kind fed from a source that cannot be slowed (which needs the event registration of step 3).
+- **Stops** (`stdlib/service/Stop.maxon`, `declareAwaitErrors` in `self/check/policies.maxon`, `startStopping` and
+  `dropUnhandled` in `self/ir/services.maxon`, "Stops" in `runtime/service.maxon`): a service stops in one of two ways, chosen
+  at the stop. `h.shutdown()` by the owner of its handle, or `self.stop()` in one of its messages, closes its mailbox and lets
+  the queued messages run, as maxon's shutdown does, so a reply always comes. `self.stopNow()`, or `h.stopNow()`, ends it at
+  once, only for a type that declares it may be, `type Worker implements StopsNow` (the library's marker interface; `E3952`
+  for any other type): the message that runs as it stops ends as it would, and every message queued is not handled, but drops
+  what it holds, the box of a pending word among it, and fails the await of its reply with `serviceStopped`. Its slowed senders
+  are let go at once and it slows none again, and its shedding horizon is never read again. A type that declares a method
+  named `stop` or `stopNow` keeps the name, and `self.stop()` off a message stops nothing.
+  **A task watches a stop** with `let done = h.stopped()`, a promise of no value that the service's end completes: once its
+  mailbox is closed and its last message has ended, whichever stop closed it, or once the service is freed, which only one with
+  no message and no handle is (`await done`). A watch of a service that has ended already completes at once, and its cancel or
+  drop takes it off without waiting. A message never awaits one (`E3221`), as it never awaits a reply. A watch is an entry of
+  the scheduler's list (`schedWatchersOffset`, "Watching a stop" in `runtime/service.maxon`), so a service nobody watches holds
+  nothing for it, and the end of a service reads the list's one word to find nobody watches. Not yet: `notifyStopped`, which
+  tells a watcher that is a service by a message, and needs a handler's handle to its own service and a message kind as a value,
+  which the event registration of step 3 brings.
+  The **error of an await** is the handler's own unless the reply may fail with more: for a message whose policy sheds it
+  (`busy`) or of a type that implements StopsNow (`serviceStopped`), the compiler makes an enum, named
+  `Worker.work.Error` in messages, of the handler's cases, then `busy`, then `serviceStopped` (one the handler already throws
+  is the one given), so the words of the handler's cases, and the happy path, are what they were. It is made where the type
+  is declared, so a sender in another module reads it with the message, never with a handler's body; a handler that throws a
+  union on such a kind is not supported yet (`E2015`). A send to a type that declares nothing, and its await, compile as they
+  did, and its messages start by `rt.service.start`; a message of a StopsNow type starts by `rt.service.stopStart` (or
+  `rt.service.shedStart`, which answers the stop too), a load of the gate, whose stopped-at-once flag beside `serviceClosed`
+  it reads. The interpreter models both stops, and its oracles count a message dropped at a stop as delivered once and hold
+  every reply a sender keeps to one answer; `fuzz --services` stops a service by its shutdown or at once from its own
+  message, with replies of a kept and of a shed kind pending. Not yet: naming the error of such an await in a type, so a
+  program keeps an array of such replies only as `[first]` and `push` infer it.
 - A handler that returns or throws **replies**: the send gives `Promise with R` (or `Promise with (R, E)`), which the
   sender awaits as an async call's promise (`try await h.total() otherwise 0`, or `let p = try h.total()` and `await p`);
   `_ = try h.total() ...` drops the reply on the service, and a reply sent as a statement is `E3190`. A reply's promise is
@@ -5265,6 +5294,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   the service, `@policy(self.field)`. A type a message of which names a policy has a message union, `Api.Message`, that the
   compiler declares, which a policy reads its messages as (see "The message union"). The policies are the library's
   (`stdlib/service`), and maxon's spec tests name none.
+- **A service may be stopped at once**, which maxon has no form for: `self.stopNow()` or `h.stopNow()` ends a service whose
+  type implements the library's `StopsNow`, and its queued messages are not handled, so the awaits of their replies fail
+  with `serviceStopped`, a case the compiler adds to the error of every await of such a type's replies; a shed message's
+  await fails with `busy` so. maxon's `shutdown()` is kept, and `self.stop()` in a message is the same stop of its own service;
+  a task awaits a service's end with `h.stopped()`, which maxon has no form for either (see "Stops"). maxon's spec tests name
+  none of them.
 - **Two overlapping conditional conformances are refused.** maxon accepts two conditional conformances of one type to one
   interface whose conditions overlap when only one of them declares the member; here the second is `E3941`, as a second
   unconditional one is, since which one holds would otherwise depend on which declares what (see "Extensions").

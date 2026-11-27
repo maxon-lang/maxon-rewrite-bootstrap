@@ -767,6 +767,9 @@ function callOnValue(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	if method != ast.noFunc and not ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).isStatic 'instance'
 		return callMethod(c, p: p, ms: ms, call: call, receiver: receiver, content: content, method: method, name: name, errs: errs)
 	end 'instance'
+	if method == ast.noFunc and isSelfStop(c, p: p, ms: ms, call: call, content: content, name: name) 'selfStop'
+		return callSelfStop(c, p: p, ms: ms, call: call, content: content, name: name, errs: errs)
+	end 'selfStop'
 	var fix = diag.Fix.none()
 	if name == "append" and content == p.builtins.stringTy 'stringAppend'
 		fix = stringAppendFix(ms.tree(), call: call)

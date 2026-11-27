@@ -376,6 +376,7 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 		boxTy = pendingType(l, p: p, ms: ms, handler: target)
 	end 'boxed'
 	let sheds = not factory and handlerSheds(p, ms: ms, handler: c.info.fn)
+	let stops = not factory and handlerStops(p, ms: ms, handler: c.info.fn)
 	// A message of a type with shedding kinds is given its mark word and its case before its arguments.
 	let first = 3 if sheds else 1
 	let cellIndex = first if pending else params + first
@@ -384,9 +385,12 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	inner.b.f.paramCount = cellIndex + (1 if cell else 0)
 	let state = paramReg(inner, index: 0 as Count, kind: IrKind.kindScalar)
 	var args = RegList.create(0)
+	let unhandled = Unhandled.make(first, pendingSlot: pendingSlot, cellIndex: cellIndex, cell: cell)
 	if sheds 'shedding'
-		startShedding(inner, l: l, p: p, ms: ms, c: c, state: state, first: first, pendingSlot: pendingSlot)
-	end 'shedding' else if not factory 'message'
+		startShedding(inner, l: l, p: p, ms: ms, c: c, state: state, unhandled: unhandled, stops: stops)
+	end 'shedding' else if stops 'stopping'
+		startStopping(inner, l: l, p: p, ms: ms, c: c, state: state, unhandled: unhandled)
+	end 'stopping' else if not factory 'message'
 		entryVoid(inner, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceStart, args: argsOf1(state))
 	end 'message'
 	var box = noReg
@@ -528,6 +532,25 @@ function lowerServiceShutdown(mutates l Lowerer, p ast.Project, ms ast.ModuleSta
 	return konst(l, value: 0 as Word)
 end 'lowerServiceShutdown'
 
+function lowerServiceStopNow(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceStopNow, args: argsOf1(recv))
+	return konst(l, value: 0 as Word)
+end 'lowerServiceStopNow'
+
+function lowerServiceStopped(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceStopped, kind: IrKind.kindManaged, args: argsOf1(recv))
+end 'lowerServiceStopped'
+
+function lowerServiceStopSelf(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceStopSelf, args: RegList.create(0))
+	return konst(l, value: 0 as Word)
+end 'lowerServiceStopSelf'
+
+function lowerServiceStopNowSelf(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceStopNowSelf, args: RegList.create(0))
+	return konst(l, value: 0 as Word)
+end 'lowerServiceStopNowSelf'
+
 function lowerServiceUnderLoad(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceUnderLoad, kind: IrKind.kindScalar, args: RegList.create(0))
 end 'lowerServiceUnderLoad'
@@ -578,10 +601,25 @@ function addMark(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, h
 	captures.insert(0, value: konst(l, value: mark))
 end 'addMark'
 
+// Unhandled is where a behaviour's body finds what a message that is not handled drops and answers: its arguments from the
+// parameter first, or the box of its pending word where pendingSlot names one, and the cell of its reply at the parameter
+// cellIndex where cell says its sender keeps one.
+type Unhandled
+	var first as Count
+	var pendingSlot as Count
+	var cellIndex as Count
+	var cell as bool
+
+	static function make(first Count, pendingSlot Count, cellIndex Count, cell bool) returns Self
+		return Self{first: first, pendingSlot: pendingSlot, cellIndex: cellIndex, cell: cell}
+	end 'make'
+end 'Unhandled'
+
 // startShedding starts a message of a type with shedding kinds in its behaviour's body: the policies' shed runs where it is
-// due, and a message of a kind of a shedding policy that is marked drops its arguments, which start at the parameter first,
-// or its pending box, and ends the body. The body goes on in the block that runs the handler.
-function startShedding(mutates inner Lowerer, mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, state Reg, first Count, pendingSlot Count)
+// due, a message of a kind of a shedding policy that is marked is not handled and answers busy, and one whose service was
+// stopped at once, where its type implements StopsNow, is not handled and answers serviceStopped. The body goes on in the
+// block that runs the handler.
+function startShedding(mutates inner Lowerer, mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, state Reg, unhandled Unhandled, stops bool)
 	let site = siteOf(l, p: p, node: c.node)
 	let handler = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.fn).clone()
 	let decl = serviceDecl(p, ms: ms, handler: c.info.fn)
@@ -596,6 +634,16 @@ function startShedding(mutates inner Lowerer, mutates l Lowerer, p ast.Project, 
 	if mayShed 'drops'
 		dropped = inner.b.newBlock()
 	end 'drops'
+	if stops 'stops'
+		let stopped = inner.b.newBlock()
+		let open = inner.b.newBlock()
+		let stoppedWord = konst(inner, value: shedStoppedWord)
+		let isStopped = compare(inner, op: CmpOp.cmpEq, a: status, b: stoppedWord, unsigned: false)
+		inner.b.terminate(inner.cur, t: newBranch(isStopped, ifTrue: stopped, ifFalse: open))
+		inner.cur = stopped
+		dropUnhandled(inner, l: l, p: p, ms: ms, site: site, handler: c.info.fn, state: state, unhandled: unhandled, failure: ast.serviceStoppedCaseName)
+		inner.cur = open
+	end 'stops'
 	let dueWord = konst(inner, value: shedDueWord)
 	let isDue = compare(inner, op: CmpOp.cmpEq, a: status, b: dueWord, unsigned: false)
 	inner.b.terminate(inner.cur, t: newBranch(isDue, ifTrue: due, ifFalse: notDue))
@@ -613,12 +661,38 @@ function startShedding(mutates inner Lowerer, mutates l Lowerer, p ast.Project, 
 		let marked = entry(inner, p: p, site: site, symbol: Rt.rtServiceShedMarked, kind: IrKind.kindScalar, args: argsOf1(state))
 		inner.b.terminate(inner.cur, t: newBranch(marked, ifTrue: dropped, ifFalse: run))
 		inner.cur = dropped
-		dropShed(inner, l: l, p: p, ms: ms, site: site, handler: c.info.fn, state: state, first: first, pendingSlot: pendingSlot)
+		dropUnhandled(inner, l: l, p: p, ms: ms, site: site, handler: c.info.fn, state: state, unhandled: unhandled, failure: ast.busyCaseName)
 	end 'shedNow' else 'noShed'
 		inner.b.terminate(inner.cur, t: newJump(run))
 	end 'noShed'
 	inner.cur = run
 end 'startShedding'
+
+// The answers of rt.service.stopStart and rt.service.shedStart where the service was stopped at once.
+let stopStoppedWord = 1 as Word
+
+let shedStoppedWord = 3 as Word
+
+// handlerStops is whether the type of the message handler implements StopsNow, so its messages start by asking whether it
+// was stopped at once.
+function handlerStops(p ast.Project, ms ast.ModuleState, handler ast.FuncID) returns bool
+	return ast.stopsNow(p, tt: ms.types, reads: p.types, nt: serviceDecl(p, ms: ms, handler: handler))
+end 'handlerStops'
+
+// startStopping starts a message of a type that implements StopsNow and has no shedding kinds: one whose service was stopped at
+// once before it started is not handled and answers serviceStopped. The body goes on in the block that runs the handler.
+function startStopping(mutates inner Lowerer, mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, state Reg, unhandled Unhandled)
+	let site = siteOf(l, p: p, node: c.node)
+	let status = entry(inner, p: p, site: site, symbol: Rt.rtServiceStopStart, kind: IrKind.kindScalar, args: argsOf1(state))
+	let stopped = inner.b.newBlock()
+	let run = inner.b.newBlock()
+	let stoppedWord = konst(inner, value: stopStoppedWord)
+	let isStopped = compare(inner, op: CmpOp.cmpEq, a: status, b: stoppedWord, unsigned: false)
+	inner.b.terminate(inner.cur, t: newBranch(isStopped, ifTrue: stopped, ifFalse: run))
+	inner.cur = stopped
+	dropUnhandled(inner, l: l, p: p, ms: ms, site: site, handler: c.info.fn, state: state, unhandled: unhandled, failure: ast.serviceStoppedCaseName)
+	inner.cur = run
+end 'startStopping'
 
 // runSheds calls the shed of each shedding policy of the service type decl, in their order, with a view of the messages of
 // its kinds: on the field that holds it, or on a value of a policy type that holds nothing.
@@ -706,9 +780,12 @@ function lentWordAt(mutates l Lowerer, addr Reg, kind IrKind) returns Reg
 	return d
 end 'lentWordAt'
 
-// dropShed ends the body of a message that a view marked: it drops the arguments, from the parameter first, or the box its
-// pending word holds, as a message that is not handled is dropped.
-function dropShed(mutates inner Lowerer, mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, handler ast.FuncID, state Reg, first Count, pendingSlot Count)
+// dropUnhandled ends the body of a message that is not handled, which a view marked or whose service was stopped at once: it
+// drops the arguments or the box its pending word holds, and gives the cell of its reply, where its sender keeps one, the case
+// of the await's error named failure.
+function dropUnhandled(mutates inner Lowerer, mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, handler ast.FuncID, state Reg, unhandled Unhandled, failure String)
+	let first = unhandled.first
+	let pendingSlot = unhandled.pendingSlot
 	if pendingSlot != ast.noPendingSlot 'pending'
 		let word = konst(inner, value: try (pendingSlot - 1) as Word otherwise panic("ir: a pending word past a word"))
 		let box = entry(inner, p: p, site: site, symbol: Rt.rtServiceTakePending, kind: IrKind.kindManaged, args: argsOf2(state, b: word))
@@ -727,8 +804,14 @@ function dropShed(mutates inner Lowerer, mutates l Lowerer, p ast.Project, mutat
 		end 'params'
 	end 'args'
 	let zero = konst(inner, value: 0 as Word)
+	if unhandled.cell 'reply'
+		let f = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: handler).clone()
+		let failed = konst(inner, value: try (ast.awaitFailureCase(ms.types, reads: p.types, f: f, name: failure) + 1) as Word otherwise panic("ir: an error case past a word"))
+		let cellReg = paramReg(inner, index: unhandled.cellIndex, kind: IrKind.kindScalar)
+		entryVoid(inner, p: p, site: site, symbol: Rt.rtReplyGive, args: argsOf3(cellReg, b: zero, c: failed))
+	end 'reply'
 	inner.b.terminate(inner.cur, t: newRet(zero))
-end 'dropShed'
+end 'dropUnhandled'
 
 function lowerServiceViewMark(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceViewMark, args: argsOf3(args[0], b: args[1], c: args[2]))

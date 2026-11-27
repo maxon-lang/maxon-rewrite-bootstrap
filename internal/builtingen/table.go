@@ -1042,6 +1042,12 @@ var tableFunctions = []function{
 	// shutdown is maxon's: the service's mailbox closes, so every later send fails with serviceStopped, and the messages
 	// queued already run. It always succeeds.
 	{Owner: "Service", Name: "shutdown", Intrinsic: "ServiceShutdown"},
+	// stopNow ends a service whose type implements StopsNow at once: its mailbox closes as at shutdown, and the messages
+	// queued are not handled: each drops what it holds, and the await of its reply fails with serviceStopped.
+	{Owner: "Service", Name: "stopNow", Intrinsic: "ServiceStopNow"},
+	// stopped is a promise of no value that the end of the service completes: once its mailbox is closed and its last message
+	// has ended, or once it is freed. The checker gives the call its promise's type, which no row can name.
+	{Owner: "Service", Name: "stopped", Intrinsic: "ServiceStopped"},
 	// mostQueued is the most messages the service has had queued at once, as its slowed sends counted them: exact once that
 	// passed a turn's worth, so a test holds backpressure to its bound without timing it.
 	{Owner: "Service", Name: "mostQueued", Result: "Count", Intrinsic: "ServiceMostQueued", Raw: &rawSurface{What: "a service's queue length is read", Instead: "let the runtime's backpressure bound it"}},
@@ -1112,6 +1118,10 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "sleep", Static: true, Params: []string{"_ Natural"}, Intrinsic: "Sleep", Instead: "sleep(milliseconds)"},
 	// serviceUnderLoad is the floor of the library's underLoad(): whether the service whose message runs is behind.
 	{Owner: "Builtins", Name: "serviceUnderLoad", Static: true, Result: "Bool", Intrinsic: "ServiceUnderLoad", Instead: "underLoad()"},
+	// serviceStop and serviceStopNow are what `self.stop()` and `self.stopNow()` in a message call: the stops of the service
+	// whose message runs, shutdown's and stopNow's.
+	{Owner: "Builtins", Name: "serviceStop", Static: true, Intrinsic: "ServiceStopSelf", Instead: "self.stop()"},
+	{Owner: "Builtins", Name: "serviceStopNow", Static: true, Intrinsic: "ServiceStopNowSelf", Instead: "self.stopNow()"},
 	// The floors of the library's PendingView, the view a shedding policy's shed is given of the messages of its kinds that
 	// are queued: the kind of one, and its mark, which sheds it or keeps it.
 	{Owner: "Builtins", Name: "serviceViewMark", Static: true, Params: []string{"view Count", "index Count", "shed Bool"}, Intrinsic: "ServiceViewMark", Instead: "pending.shed(i) or pending.keep(i)"},
@@ -1401,6 +1411,12 @@ var entries = []entry{
 	{"ServiceReserve", "rt.service.reserve", "Source", roleCall, "(handle) -> 0, or the SendError case plus 1: takes a place in the service's mailbox for a message, unless the service is shut down, and slows the sender when the service is behind"},
 	{"ServiceStart", "rt.service.start", "Source", roleCall, "(state address): what the behaviour of a message calls as it starts, which gives its place in the mailbox back and makes the service the one its green thread runs a message of"},
 	{"ServiceShutdown", "rt.service.shutdown", "Source", roleCall, "(handle): closes the service's mailbox, so every later send fails with serviceStopped; the messages queued still run"},
+	{"ServiceStopNow", "rt.service.stopNow", "Source", roleCall, "(handle): closes the service's mailbox and ends it at once: the messages queued are not handled, the awaits of their replies fail with serviceStopped, and the senders it slows are let go"},
+	{"ServiceStopSelf", "rt.service.stopSelf", "Source", roleCall, "(): rt.service.shutdown of the service whose message runs, which self.stop() calls; nothing off a message"},
+	{"ServiceStopNowSelf", "rt.service.stopNowSelf", "Source", roleCall, "(): rt.service.stopNow of the service whose message runs, which self.stopNow() calls; nothing off a message"},
+	{"ServiceStopped", "rt.service.stopped", "Source", roleCall, "(handle) -> promise: a watch of the service's end, which its close or its last message's release gives once it holds no message, or its free"},
+	{"ServiceFreed", "rt.service.freed", "Source", roleCall, "(handle): what the drop of a service's last handle calls before it frees the service, which gives the service's watches"},
+	{"ServiceStopStart", "rt.service.stopStart", "Source", roleCall, "(state address) -> 0 to run the message, 1 where its service was stopped at once: rt.service.start of a message of a type that implements StopsNow"},
 	{"ServiceMostQueued", "rt.service.mostQueued", "Source", roleCall, "(handle) -> count: the most messages a slowed send to the service found queued with its own"},
 	{"ServiceNewPending", "rt.service.newPending", "Source", roleCall, "(state, words) -> handle: rt.service.new of a service whose type has message kinds of a CoalescingPolicy, with a pending word for each after the service's own"},
 	{"ServiceTryReserve", "rt.service.tryReserve", "Source", roleCall, "(handle) -> 0, the SendError case plus 1, or 3 for behind: the send of a kind with a policy, which takes a place as rt.service.reserve does only while the service is not behind, and else takes none, so the policy is asked"},
@@ -1412,7 +1428,7 @@ var entries = []entry{
 	{"ServicePendingHeld", "rt.service.pendingHeld", "Source", roleCall, "(handle, slot) -> bool: whether the pending word of the slot holds a message, which a message of its kind then replaces, behind or not"},
 	{"ServiceTakePending", "rt.service.takePending", "Source", roleCall, "(state address, slot) -> the box the pending word of the slot held, leaving 0: what the behaviour of a pending message runs"},
 	{"ServiceUnderLoad", "rt.service.underLoad", "Source", roleCall, "() -> bool: whether the service whose message runs is behind; false off a message"},
-	{"ServiceShedStart", "rt.service.shedStart", "Source", roleCall, "(state address, horizon slot) -> 0 to run the message, 1 where it is shed, 2 where the policies' shed is due first: rt.service.start of a message of a type with shedding kinds"},
+	{"ServiceShedStart", "rt.service.shedStart", "Source", roleCall, "(state address, horizon slot) -> 0 to run the message, 1 where it is shed, 2 where the policies' shed is due first, 3 where its service was stopped at once: rt.service.start of a message of a type with shedding kinds"},
 	{"ServiceShedMarked", "rt.service.shedMarked", "Source", roleCall, "(state address) -> bool: whether the message that starts is shed, once the policies' shed has run"},
 	{"ServiceViewOpen", "rt.service.viewOpen", "Source", roleCall, "(state address, horizon slot, policy) -> view: the queued messages of the kinds of a shedding policy, from the one that starts up to the newest its first view saw"},
 	{"ServiceViewCount", "rt.service.viewCount", "Source", roleCall, "(view) -> count: the messages of a view"},
@@ -1665,6 +1681,12 @@ var runtimeFunctions = []runtimeFunction{
 	{"ServiceReserve", "serviceReserve(handle Count) Count"},
 	{"ServiceStart", "serviceStart(state Count)"},
 	{"ServiceShutdown", "serviceShutdown(handle Count)"},
+	{"ServiceStopNow", "serviceStopNow(handle Count)"},
+	{"ServiceStopSelf", "serviceStopSelf()"},
+	{"ServiceStopNowSelf", "serviceStopNowSelf()"},
+	{"ServiceStopStart", "serviceStopStart(state Count) Count"},
+	{"ServiceStopped", "serviceStopped(handle Count) Count"},
+	{"ServiceFreed", "serviceFreed(handle Count)"},
 	{"ServiceMostQueued", "serviceMostQueued(handle Count) Count"},
 	{"ServiceNewPending", "serviceCreatePending(state Count, words Count) Count"},
 	{"ServiceTryReserve", "serviceTryReserve(handle Count) Count"},

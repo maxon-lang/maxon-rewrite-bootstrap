@@ -1,0 +1,83 @@
+// A service whose type implements StopsNow may be ended at once by stopNow(), from one of its messages or by the owner of its
+// handle: the message that runs as it stops ends as it would, and the messages queued are not handled, so they drop what they
+// hold and the await of each of their replies fails with serviceStopped, which the compiler adds to the error of that await
+// after the handler's own cases. A send after the stop fails with serviceStopped. Every reply is answered once.
+// schedules: 6
+//> before the stop: zero refused, 3 handled, halted after 3; after it: 4 stopped; the owner's stop: 5 answered
+export typealias Amount = int(0 to 1000000)
+
+enum WorkError implements Error
+	zero
+end 'WorkError'
+
+type Worker implements StopsNow
+	var done as Amount
+
+	static function create() returns Self
+		return Self{done: 0}
+	end 'create'
+
+	export function work(mutates self, n Amount, consumes note String) returns Amount throws WorkError
+		if n == 0 'zero'
+			throw WorkError.zero
+		end 'zero'
+		self.done = try self.done + 1 otherwise 0
+		return n
+	end 'work'
+
+	export function halt() returns Amount
+		self.stopNow()
+		return self.done
+	end 'halt'
+end 'Worker'
+
+function main() returns ExitCode
+	let w = spawn Worker.create()
+	var replies = [try w.work(0, note: "zero") otherwise return 1]
+	for i in 1 to 3 'before'
+		replies.push(try w.work(i, note: "before {i}") otherwise return 1)
+	end 'before'
+	let h = try w.halt() otherwise return 1
+	var stopped = 0 as Amount
+	for i in 4 to 7 'after'
+		let p = try w.work(i, note: "after {i}") otherwise (e) 'refused'
+			match e 'why'
+				serviceStopped then stopped = try stopped + 1 otherwise 0
+			end 'why'
+			continue 'after'
+		end 'refused'
+		replies.push(p)
+	end 'after'
+	var zero = "no"
+	var handled = 0 as Amount
+	for p in replies 'await'
+		_ = try await p otherwise (e) 'failed'
+			match e 'why'
+				zero then zero = "zero"
+				serviceStopped then stopped = try stopped + 1 otherwise 0
+			end 'why'
+			continue 'await'
+		end 'failed'
+		handled = try handled + 1 otherwise 0
+	end 'await'
+	let halted = try await h otherwise 0
+	let o = spawn Worker.create()
+	var queued = [try o.work(1, note: "first") otherwise return 1]
+	for i in 2 to 5 'queue'
+		queued.push(try o.work(i, note: "queued {i}") otherwise return 1)
+	end 'queue'
+	o.stopNow()
+	var answered = 0 as Amount
+	for p in queued 'owner'
+		_ = try await p otherwise (e) 'failed'
+			match e 'why'
+				zero then return 1
+				serviceStopped then answered = try answered + 1 otherwise 0
+			end 'why'
+			continue 'owner'
+		end 'failed'
+		answered = try answered + 1 otherwise 0
+	end 'owner'
+	print("before the stop: {zero} refused, {handled} handled, halted after {halted}; after it: {stopped} stopped; the owner's stop: {answered} answered\n")
+	return 0
+end 'main'

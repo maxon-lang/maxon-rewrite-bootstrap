@@ -298,7 +298,8 @@ type Strands
 end 'Strands'
 
 // Promises, by their row from 1: the coroutine that finishes one (0 for a reply, which a message's behaviour gives),
-// whether it has finished, was cancelled, and its function started, what it gave, and the thread that waits for it.
+// whether it has finished, was cancelled, and its function started, what it gave, and the thread that waits for it; watches is,
+// for a watch of a service's stop, which no message gives, that service, and 0 for any other.
 type Promises
 	var thread as CountList
 	var finished as BoolList
@@ -309,9 +310,10 @@ type Promises
 	var errN as ir.WordList
 	var errR as ir.WordList
 	var waiter as CountList
+	var watches as CountList
 
 	static function new() returns Promises
-		var p = Promises{thread: CountList.create(0), finished: BoolList.create(0), cancelled: BoolList.create(0), started: BoolList.create(0), valueN: ir.WordList.create(0), valueR: ir.WordList.create(0), errN: ir.WordList.create(0), errR: ir.WordList.create(0), waiter: CountList.create(0)}
+		var p = Promises{thread: CountList.create(0), finished: BoolList.create(0), cancelled: BoolList.create(0), started: BoolList.create(0), valueN: ir.WordList.create(0), valueR: ir.WordList.create(0), errN: ir.WordList.create(0), errR: ir.WordList.create(0), waiter: CountList.create(0), watches: CountList.create(0)}
 		p.add(0)
 		return p
 	end 'new'
@@ -327,6 +329,7 @@ type Promises
 		errN.push(0)
 		errR.push(0)
 		waiter.push(0)
+		watches.push(0)
 		return row
 	end 'add'
 end 'Promises'

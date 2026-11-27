@@ -1,0 +1,8 @@
+/// A service type that may be stopped at once: `stopNow()`, as `self.stopNow()` in one of its messages or `h.stopNow()`
+/// by the owner of its handle, closes its mailbox and ends it without running the messages queued, which drop what they
+/// hold, and the await of each of their replies fails with `serviceStopped`. So the error of every await of a reply of such a
+/// type has `serviceStopped` after the cases its handler throws, which its senders handle; a type that does not implement
+/// it is stopped only by `shutdown()` or `self.stop()`, which run the queued messages first, so its replies always come.
+/// @category Services
+public interface StopsNow
+end 'StopsNow'
