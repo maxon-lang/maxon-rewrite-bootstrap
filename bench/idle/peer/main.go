@@ -110,6 +110,8 @@ type sample struct {
 	rssKB, footprintKB int64
 	userSec, sysSec    float64
 	threads            int
+	// nonpagedKB is the system's nonpaged pool, which the kernel's requests for a connection's readiness are charged to: Windows only.
+	nonpagedKB int64
 }
 
 func run(args []string) {
@@ -177,7 +179,8 @@ func run(args []string) {
 		for int64(len(conns))-acked.Load()*ackEvery >= maxUnaccepted {
 			runtime.Gosched()
 		}
-		c, err := net.DialTimeout("tcp4", fmt.Sprintf("127.0.0.1:%d", listenPort), 5*time.Second)
+		dialer := net.Dialer{Timeout: 5 * time.Second, LocalAddr: sourceOf(len(conns))}
+		c, err := dialer.Dial("tcp4", fmt.Sprintf("127.0.0.1:%d", listenPort))
 		if err != nil {
 			retries++
 			if retries > 1000 {
@@ -203,14 +206,14 @@ func run(args []string) {
 	for _, i := range order[:k] {
 		c := conns[i]
 		c.SetDeadline(time.Now().Add(5 * time.Second))
-		t := time.Now()
+		t := stamp()
 		if _, err := c.Write(one); err != nil {
 			fail("a wake write on connection %d: %v", i, err)
 		}
 		if _, err := io.ReadFull(c, back); err != nil {
 			fail("a wake read on connection %d: %v", i, err)
 		}
-		rtts = append(rtts, time.Since(t))
+		rtts = append(rtts, elapsed(t))
 	}
 	time.Sleep(time.Second)
 	woken := measure(pid)
@@ -240,75 +243,14 @@ func run(args []string) {
 	if before.footprintKB > 0 {
 		fmt.Printf("  footprint KB: before %d, after accepts %d, after wakes %d; bytes/conn %.0f after accepts, %.0f after wakes\n", before.footprintKB, after.footprintKB, woken.footprintKB, perConn(before.footprintKB, after.footprintKB), perConn(before.footprintKB, woken.footprintKB))
 	}
+	if before.nonpagedKB > 0 {
+		fmt.Printf("  system nonpaged pool KB: before %d, after accepts %d, after wakes %d; bytes/conn %.0f after accepts, %.0f after wakes\n", before.nonpagedKB, after.nonpagedKB, woken.nonpagedKB, perConn(before.nonpagedKB, after.nonpagedKB), perConn(before.nonpagedKB, woken.nonpagedKB))
+	}
 	fmt.Printf("  heap: %.2f boxes live/conn, %.0f bytes/conn (minimaxon: bytes asked by the accepts; Go: heap live + stacks)\n", float64(report[1])/float64(*n), float64(report[2])/float64(*n))
 	fmt.Printf("  OS threads: before %d, after accepts %d, after wakes %d\n", before.threads, after.threads, woken.threads)
 	fmt.Printf("  setup: %.0f conn/s accepted (server, %.3f s), %.0f conn/s end to end (peer, %.3f s)\n", float64(*n)/(float64(serverNs)/1e9), float64(serverNs)/1e9, float64(*n)/setupWall.Seconds(), setupWall.Seconds())
 	fmt.Printf("  idle %v CPU: user %.2f s, sys %.2f s\n", *idle, idled.userSec-after.userSec, idled.sysSec-after.sysSec)
 	fmt.Printf("  wake sample %d of %d: p50 %v, p99 %v, max %v\n", k, *n, q(0.50), q(0.99), rtts[len(rtts)-1])
-}
-
-// measure reads the server's resident memory, CPU and threads: RssAnon and /proc's ticks on Linux, ps and footprint on macOS.
-func measure(pid int) sample {
-	var s sample
-	if runtime.GOOS == "linux" {
-		status, err := os.ReadFile(fmt.Sprintf("/proc/%d/status", pid))
-		check(err)
-		for line := range strings.SplitSeq(string(status), "\n") {
-			f := strings.Fields(line)
-			if len(f) >= 2 && f[0] == "RssAnon:" {
-				s.rssKB, _ = strconv.ParseInt(f[1], 10, 64)
-			}
-			if len(f) >= 2 && f[0] == "Threads:" {
-				s.threads, _ = strconv.Atoi(f[1])
-			}
-		}
-		stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
-		check(err)
-		f := strings.Fields(string(stat[strings.LastIndexByte(string(stat), ')')+2:]))
-		const ticks = 100 // USER_HZ
-		u, _ := strconv.ParseFloat(f[11], 64)
-		k, _ := strconv.ParseFloat(f[12], 64)
-		s.userSec, s.sysSec = u/ticks, k/ticks
-		return s
-	}
-	p := strconv.Itoa(pid)
-	out, err := exec.Command("ps", "-o", "rss=,utime=,stime=", "-p", p).Output()
-	check(err)
-	f := strings.Fields(string(out))
-	if len(f) != 3 {
-		fail("ps: %q", out)
-	}
-	s.rssKB, _ = strconv.ParseInt(f[0], 10, 64)
-	s.userSec, s.sysSec = cpuTime(f[1]), cpuTime(f[2])
-	threads, err := exec.Command("ps", "-M", "-p", p).Output()
-	check(err)
-	s.threads = strings.Count(string(threads), "\n") - 1
-	if fp, err := exec.Command("footprint", p).Output(); err == nil {
-		text := string(fp)
-		if _, after, ok := strings.Cut(text, "Footprint: "); ok {
-			var v float64
-			var unit string
-			fmt.Sscanf(after, "%f %s", &v, &unit)
-			switch unit {
-			case "MB":
-				v *= 1024
-			case "GB":
-				v *= 1024 * 1024
-			}
-			s.footprintKB = int64(v)
-		}
-	}
-	return s
-}
-
-// cpuTime reads ps's [[hh:]mm:]ss.cc.
-func cpuTime(t string) float64 {
-	var total float64
-	for part := range strings.SplitSeq(t, ":") {
-		v, _ := strconv.ParseFloat(part, 64)
-		total = total*60 + v
-	}
-	return total
 }
 
 func check(err error) {

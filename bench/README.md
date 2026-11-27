@@ -36,3 +36,31 @@ settle on different vCPUs measures p50 about 25 µs, and one where they share a 
 to different CPUs, minimaxon 25.3-25.9 µs and Go 28.4-30 µs; pinned to one, minimaxon 6.7-7.0 µs and Go 8.2-11 µs. The
 server's own path from the epoll return to its send is 1.0-1.6 µs. Unpinned, Go's pair has always settled on one vCPU and
 minimaxon's in about a third of the runs, so for a comparison pin the whole run: `taskset -c 2 bench/idle/run.sh`.
+
+### On Windows
+
+`run.sh` needs a shell (Git Bash has one), and its binaries need `.exe`, so the lane is run by hand:
+
+```
+bin/minimaxon build bench/idle/server.maxon -o bin/idle-server.exe
+go build -o bin/idle-peer.exe ./bench/idle/peer
+bin/idle-peer.exe run -n 16000 -port 47001 -wake 10000 -idle 30s -label minimaxon -- bin/idle-server.exe
+bin/idle-peer.exe run -n 16000 -port 47002 -wake 10000 -idle 30s -label go -- bin/idle-peer.exe goserver
+```
+
+The peer measures the server by its working set (`rss`) and its private bytes (`footprint`), its user and kernel CPU, its threads,
+and the system's nonpaged pool (the kernel's memory for each connection's sockets and for the requests of its readiness, which
+both ends of every connection charge, so it is the same order for either server). It times a wake by the performance counter,
+since Go's monotonic clock on Windows ticks with the system's timer, and opens each connection from a port below the dynamic
+range (20000 and up) of one of 127.0.0.2 and 127.0.0.3: a bind of port 0 takes one of the dynamic range's 16384 ports whatever
+the address, less those the system holds, which fails a run of 16000 connections.
+
+What an idle connection costs (16000 connections, Windows 11 on x64, 12 logical processors): the server's private bytes grow by
+1.1 KB a connection (1.0 KB of working set), 7 heap boxes with 461 B asked, against Go's 10.8 KB (10.7 KB of working set); the
+system's nonpaged pool grows by 7.5 KB a connection for either server, 7.6 KB for Go's, each connection being two sockets, and
+by 9.9 and 9.3 KB once 10000 of them have each carried a byte. The server holds 3 to 6 threads, Go's 14; each end of an idle
+connection costs the system about the same for either (the poll of AFD that arms a minimaxon connection holds about 1.1 KB of
+nonpaged pool that the process is charged for, `runtime/README.md`, "The readiness of a socket on Windows", where Go's overlapped
+read of no bytes holds about 0.5 KB, but the system's pool as a whole grows by less for the poll, 0.8 KB against 1.3 KB when each is measured
+alone). Over 30 idle seconds with keepalive on (a probe after 15 s) the server uses 0.03 s of kernel time and none of user time,
+Go's none, and a wake's round trip is p50 67 µs, p99 101 µs for minimaxon and p50 66 µs, p99 96 µs for Go.
