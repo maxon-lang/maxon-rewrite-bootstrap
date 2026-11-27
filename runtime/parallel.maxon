@@ -13,7 +13,8 @@
 // a lower one replaces it, and any other is dropped by the job's drop code. A chunk whose first index is past the lowest
 // that failed is not run, so a failure abandons the chunks after it at a chunk boundary.
 //
-// Off a green thread, and with one processor, the caller runs the loop as one chunk.
+// Off a green thread, with one processor and with one index, the caller runs the loop as one chunk, in the part area of its
+// own frame that the compiler gives it: no job is made, so such a loop allocates nothing and is one call of the chunk code.
 
 // chunksPerProc is how many chunks a loop has for each processor at most, so a processor that finishes its share early
 // takes chunks of a slower one's, as rayon's adaptive splitting and OpenMP's dynamic schedule have it.
@@ -30,8 +31,8 @@ let noDrop = 0 as Count
 
 // parallelRun runs chunk code for the indices below count, with env given to it in every part (partEnvOffset), and gives
 // 0 when every index succeeded, else the error's word of the lowest index that failed. drop is the code that drops an
-// error's word that is not the loop's, or noDrop.
-function parallelRun(chunk Count, env Count, count Count, drop Count) returns Count
+// error's word that is not the loop's, or noDrop. part is the caller's area of partBytes, which a loop of one chunk runs in.
+function parallelRun(chunk Count, env Count, count Count, drop Count, part Count) returns Count
 	if count == 0 'empty'
 		return noError
 	end 'empty'
@@ -51,6 +52,12 @@ function parallelRun(chunk Count, env Count, count Count, drop Count) returns Co
 	end 'split'
 	let size = try (count + (chunks - 1)) / chunks otherwise count
 	chunks = try (count + (size - 1)) / size otherwise 1
+	if chunks == 1 'alone'
+		__Raw.storeWord(part, offset: partEnvOffset, value: env)
+		__Raw.storeWord(part, offset: partLowOffset, value: 0)
+		__Raw.storeWord(part, offset: partHighOffset, value: count)
+		return __Raw.callCode1(chunk, arg1: part)
+	end 'alone'
 	var helpers = __Raw.wrappingSub(procs, right: 1)
 	if helpers >= chunks 'fewChunks'
 		helpers = __Raw.wrappingSub(chunks, right: 1)

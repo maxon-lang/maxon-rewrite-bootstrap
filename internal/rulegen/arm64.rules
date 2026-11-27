@@ -252,6 +252,7 @@ r:(bin.mul.unsigned.checked x y [f]) => (MulRegReg r x y) (UmulhRegReg h x y) (C
 (async) => (emitAsync)
 (closure) => (emitClosure)
 (funcValue) => (emitFuncValue)
+(bodyAddress) => (emitBodyAddress)
 (box) => (emitBox)
 (frameBox) => (emitArm64FrameBox)
 (frameArea) => (emitArm64FrameArea)

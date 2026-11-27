@@ -1,0 +1,50 @@
+// The iterations of a parallel for send to a service through the handle they read, each its own message, which the
+// service takes in whatever order they come; and a message's handler runs a parallel for of its own whose body reads the
+// service's state and writes only its own element.
+//> total 10
+//> scaled 0 3 12 27 48
+typealias Num = int(0 to 1000000)
+
+typealias Nums = Array with Num
+
+type Tally
+	var sum as Num
+	var scale as Num
+
+	static function create(scale Num) returns Self
+		return Self{sum: 0, scale: scale}
+	end 'create'
+
+	export function add(mutates self, value Num)
+		self.sum = try self.sum + value otherwise 0
+	end 'add'
+
+	export function total() returns Num
+		return self.sum
+	end 'total'
+
+	// scaled gives the squares below count, each times the scale, computed at once.
+	export function scaled(count Count) returns Nums
+		var out = Nums.filled(count, value: 0)
+		parallel for (i, o) in out.enumerated() 'each'
+			o = try (i as Num) * (i as Num) * self.scale otherwise 0
+		end 'each'
+		return out
+	end 'scaled'
+end 'Tally'
+
+function main() returns ExitCode
+	let tally = spawn Tally.create(3)
+	parallel for i in 1 to 4 'sends'
+		try tally.add(i as Num) otherwise panic("a running service takes the send")
+	end 'sends'
+	let total = try await tally.total() otherwise 0
+	print("total {total}\n")
+	let scaled = try await tally.scaled(5) otherwise Nums.create(0)
+	var text = "scaled"
+	for s in scaled 'show'
+		text = "{text} {s}"
+	end 'show'
+	print("{text}\n")
+	return 0
+end 'main'

@@ -45,7 +45,13 @@ export function failureBiased(mutates l Lowerer, p ast.Project, ms ast.ModuleSta
 		if error == noReg 'literal'
 			error = konst(l, value: try (succ(errorCase)) as Word otherwise panic("ir: an error case is out of range"))
 		end 'literal'
-		l.b.terminate(l.cur, t: newThrow(error))
+		if h.target != noBlock 'chunk'
+			// The chunk of a parallel loop gives its error's word back to the runtime, which throws the lowest index's.
+			keepChunkError(l, error: error, errDrop: errDrop, bias: bias)
+			l.b.terminate(l.cur, t: newJump(h.target))
+		end 'chunk' else 'caller'
+			l.b.terminate(l.cur, t: newThrow(error))
+		end 'caller'
 	end 'propagates' else 'handled'
 		dropPending(l, first: h.pending, past: l.pending.count())
 		unwindTo(l, p: p, ms: ms, depth: h.depth, mark: h.mark)

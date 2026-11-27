@@ -1,0 +1,65 @@
+// A parallel for over many indices fills each element of its array, which the sum checks. One whose body fails at a low
+// index and at every index of its second half throws the low index's error, and stops there: its chunk runs none of its
+// indices after the failure and no chunk taken after it runs, so the iterations that ran, each of which marks its own
+// element, are fewer than the loop's, and those before the failure all ran.
+//> sum of squares 333328333350000
+//> early: true, the first three ran: true, fewer ran: true
+typealias Num = int(0 to 1000000000000000)
+
+typealias Nums = Array with Num
+
+let loopCount = 100000 as Count
+
+let failsAt = 2 as Count
+
+enum Stop implements Error
+	early
+	late
+end 'Stop'
+
+// squares gives the sum of the squares below count, each computed by its own iteration into its own element.
+function squares(count Count) returns Num
+	var out = Nums.filled(count, value: 0)
+	parallel for (i, sq) in out.enumerated() 'each'
+		sq = try (i as Num) * (i as Num) otherwise 0
+	end 'each'
+	var sum = 0 as Num
+	for sq in out 'sum'
+		sum = try sum + sq otherwise 0
+	end 'sum'
+	return sum
+end 'squares'
+
+// mark marks each element whose iteration ran, and fails early at one low index and late at every index of the second half.
+function mark(mutates marks Nums) throws Stop
+	parallel for (i, m) in marks.enumerated() 'marks'
+		m = 1
+		if i == failsAt 'early'
+			throw Stop.early
+		end 'early'
+		if i >= loopCount / 2 'late'
+			throw Stop.late
+		end 'late'
+	end 'marks'
+end 'mark'
+
+function main() returns ExitCode
+	print("sum of squares {squares(loopCount)}\n")
+	var marks = Nums.filled(loopCount, value: 0)
+	var early = false
+	try mark(marks) otherwise (e) 'failed'
+		match e 'which'
+			early then early = true
+			late then early = false
+		end 'which'
+	end 'failed'
+	var ran = 0 as Count
+	for m in marks 'count'
+		if m == 1 'ran'
+			ran = try ran + 1 otherwise 0
+		end 'ran'
+	end 'count'
+	let firstThree = marks[0] == 1 and marks[1] == 1 and marks[2] == 1
+	print("early: {early}, the first three ran: {firstThree}, fewer ran: {ran < loopCount}\n")
+	return 0
+end 'main'

@@ -179,6 +179,7 @@ export type ClassChoice
 			opCallCode or
 			opCallHost or
 			opCodeAddress or
+			opBodyAddress or
 			opBin or
 			opCmp or
 			opNeg or

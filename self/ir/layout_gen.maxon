@@ -62,3 +62,18 @@ export let ifaceValueOffset = 8 as Count
 
 // ifaceBoxBytes is the size of the box of an interface value: the table's address and the widest value, a String's two words.
 export let ifaceBoxBytes = 24 as Count
+
+// partEnvOffset is where a part of a parallel loop holds the word that the chunk code is given with each chunk: the address of the environment of the loop's body.
+export let partEnvOffset = 24 as Count
+
+// partLowOffset is where a part of a parallel loop holds the first index of the chunk it runs, counted from 0.
+export let partLowOffset = 32 as Count
+
+// partHighOffset is where a part of a parallel loop holds the index past the last of the chunk it runs.
+export let partHighOffset = 40 as Count
+
+// partFailIndexOffset is where the chunk code stores the index whose body failed, when it gives back an error's word.
+export let partFailIndexOffset = 48 as Count
+
+// partBytes is the size of a part of a parallel loop: sharingBytes, so the parts that different cores write are on lines of their own.
+export let partBytes = 128 as Count

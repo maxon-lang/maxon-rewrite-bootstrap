@@ -1,0 +1,227 @@
+// The parallel loop (runtime/parallel.maxon) under the seeded schedule. rt.parallelRun splits the loop's indices into chunks
+// and makes workers, how many of each the run's random numbers choose, each a thread with a part of its own; a worker takes
+// the next chunk in index order, runs the chunk code over it, and takes the next until none is left, as the runtime's parts
+// do, and the scheduler interleaves the workers as it does any other threads, so the iterations of different chunks run in
+// an order the seed decides. The caller waits until every worker has finished. A worker belongs to the caller (forkRoot), so
+// it reads what the caller's iterations may read, and touches a cown only as the caller's behaviour could. A chunk that
+// fails keeps its error when its index is the lowest that has failed, which drops the error it replaces, and a chunk taken
+// past that index is not run: so a body that the checker should have refused shows another result under some seed, and the
+// lowest index's error and the chunks it abandons are the runtime's.
+
+// mostChunks is the most chunks a loop is split into, and mostWorkers the most workers that take them.
+let mostChunks = 8 as Count
+
+let mostWorkers = 4 as Count
+
+// noFailedIndex is a job's lowest failed index while no chunk has failed.
+let noFailedIndex = 0xFFFFFFFFFFFFFFFF as Count
+
+// ParallelJobs are the parallel loops that run, by their row from 1: the thread that waits for one, the promise row and the
+// part of each worker, the chunk code, the count of indices, the size and the number of the chunks and the next to take,
+// and the lowest index that failed with its error's word, a number and the box of an error union.
+type ParallelJobs
+	var caller as CountList
+	var rows as CountLists
+	var parts as CountLists
+	var code as CountList
+	var count as CountList
+	var size as CountList
+	var chunks as CountList
+	var next as CountList
+	var failIndex as CountList
+	var failN as ir.WordList
+	var failR as ir.WordList
+
+	static function new() returns ParallelJobs
+		var j = ParallelJobs{caller: CountList.create(0), rows: CountLists.create(0), parts: CountLists.create(0), code: CountList.create(0), count: CountList.create(0), size: CountList.create(0), chunks: CountList.create(0), next: CountList.create(0), failIndex: CountList.create(0), failN: ir.WordList.create(0), failR: ir.WordList.create(0)}
+		_ = j.add(0, chunkCode: 0, indices: 0, chunkSize: 0, chunkCount: 0)
+		return j
+	end 'new'
+
+	function add(mutates self, t Count, chunkCode Count, indices Count, chunkSize Count, chunkCount Count) returns Count
+		let row = caller.count()
+		caller.push(t)
+		rows.push(CountList.create(0))
+		parts.push(CountList.create(0))
+		code.push(chunkCode)
+		count.push(indices)
+		size.push(chunkSize)
+		chunks.push(chunkCount)
+		next.push(0)
+		failIndex.push(noFailedIndex)
+		failN.push(0)
+		failR.push(0)
+		return row
+	end 'add'
+end 'ParallelJobs'
+
+// forkRoot is the thread whose data a thread reaches as its own: the caller of the parallel loop it is a worker of, through
+// every loop it is nested in, or the thread itself.
+function forkRoot(vm Vm, t Count) returns Count
+	var at = t
+	while vm.threads[at].job != 0 'up'
+		at = vm.parallels.caller[vm.threads[at].job]
+	end 'up'
+	return at
+end 'forkRoot'
+
+// entryParallelRun runs a parallel loop: its first run makes the job and its workers, and the thread waits at the
+// instruction until every worker has finished, then gives 0 or the lowest failed index's error.
+function entryParallelRun(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let t = vm.cur
+	var job = vm.threads[t].joining
+	if job == 0 'start'
+		let count = try argNum(vm, f: f, x: x, i: 2) as Count otherwise panic("interp: a parallel loop of a negative count")
+		if count == 0 'empty'
+			giveNum(vm, x: x, n: 0)
+			return
+		end 'empty'
+		job = startJob(vm, f: f, x: x, count: count)
+		vm.threads[t].joining = job
+	end 'start'
+	let rows = vm.parallels.rows[job].clone()
+	for k in 0 upto rows.count() 'workers'
+		if not vm.promises.finished[rows[k]] 'running'
+			waitFor(vm, row: rows[k])
+			vm.ticked = true
+			return
+		end 'running'
+	end 'workers'
+	let parts = vm.parallels.parts[job].clone()
+	for k in 0 upto parts.count() 'parts'
+		vm.h.oFreed[parts[k]] = true
+		vm.h.oFreedAt[parts[k]] = vm.site()
+	end 'parts'
+	vm.threads[t].joining = 0
+	let at = vm.regAt(result(x))
+	vm.regN[at] = vm.parallels.failN[job]
+	vm.regR[at] = vm.parallels.failR[job]
+end 'entryParallelRun'
+
+// startJob makes the job of a loop of count indices and its workers.
+function startJob(mutates vm Vm, f ir.IrFunction, x ir.Instr, count Count) returns Count
+	vm.concurrent = true
+	vm.tracking = true
+	let code = try argNum(vm, f: f, x: x, i: 0) as Count otherwise panic("interp: a parallel loop's chunk code is no function")
+	let envAt = vm.regAt(argAt(f, x: x, i: 1))
+	let envN = vm.regN[envAt]
+	let envR = vm.regR[envAt]
+	let wanted = try 1 + vm.rng.intN(fewer(count, b: mostChunks)) otherwise panic("interp: chunks past memory")
+	let size = try (count + (wanted - 1)) / wanted otherwise panic("interp: a chunk past memory")
+	let chunks = try (count + (size - 1)) / size otherwise panic("interp: a chunk past memory")
+	let workers = try 1 + vm.rng.intN(fewer(chunks, b: mostWorkers)) otherwise panic("interp: workers past memory")
+	let job = vm.parallels.add(vm.cur, chunkCode: code, indices: count, chunkSize: size, chunkCount: chunks)
+	for k in 0 upto workers 'workers'
+		let part = newBox(vm, words: (ir.partBytes / wordBytes) as Count)
+		vm.h.oFrameArea[part] = true
+		setPartWord(vm, part: part, offset: ir.partEnvOffset, n: envN, r: envR)
+		let t = vm.threads.count()
+		let row = vm.promises.add(t)
+		var thread = Thread.new(code, behaviour: 0)
+		thread.promise = row
+		thread.job = job
+		thread.startN.push(0)
+		thread.startR.push(try part as ir.Word otherwise panic("interp: a handle past a word"))
+		vm.threads.push(thread)
+		vm.parallels.rows[job].push(row)
+		vm.parallels.parts[job].push(part)
+	end 'workers'
+	return job
+end 'startJob'
+
+function fewer(a Count, b Count) returns Count
+	if a < b 'a'
+		return a
+	end 'a'
+	return b
+end 'fewer'
+
+function setPartWord(mutates vm Vm, part Count, offset Count, n ir.Word, r ir.Word)
+	let c = vm.h.field(part, i: offset / wordBytes)
+	vm.h.cellN[c] = n
+	vm.h.cellR[c] = r
+end 'setPartWord'
+
+// takeChunk gives a worker the next chunk of its loop in its part, passing over each that starts past the lowest index
+// that has failed, as the runtime's takeChunks does, and says whether one was left.
+function takeChunk(mutates vm Vm, t Count) returns bool
+	let job = vm.threads[t].job
+	while vm.parallels.next[job] < vm.parallels.chunks[job] 'take'
+		let c = vm.parallels.next[job]
+		vm.parallels.next[job] = try c + 1 otherwise panic("interp: a chunk past memory")
+		let low = try c * vm.parallels.size[job] otherwise panic("interp: a chunk past memory")
+		if low > vm.parallels.failIndex[job] 'abandoned'
+			continue 'take'
+		end 'abandoned'
+		var high = (try low + vm.parallels.size[job] otherwise panic("interp: a chunk past memory")) as Count
+		if high > vm.parallels.count[job] 'last'
+			high = vm.parallels.count[job]
+		end 'last'
+		let part = partOf(vm, t: t)
+		setPartWord(vm, part: part, offset: ir.partLowOffset, n: try low as ir.Word otherwise panic("interp: an index past a word"), r: 0)
+		setPartWord(vm, part: part, offset: ir.partHighOffset, n: try high as ir.Word otherwise panic("interp: an index past a word"), r: 0)
+		return true
+	end 'take'
+	return false
+end 'takeChunk'
+
+function partOf(vm Vm, t Count) returns Count
+	return try vm.threads[t].startR[0] as Count otherwise panic("interp: a worker without its part")
+end 'partOf'
+
+// enterChunk calls the chunk code of a worker's loop with its part.
+function enterChunk(mutates vm Vm, t Count) throws Halt
+	clearArguments(vm)
+	vm.argN.push(0)
+	vm.argR.push(try partOf(vm, t: t) as ir.Word otherwise panic("interp: a handle past a word"))
+	vm.threads[t].retN = 0
+	vm.threads[t].retR = 0
+	let code = vm.parallels.code[vm.threads[t].job]
+	try enterFrame(vm, fn: code, dst: -1, err: -1)
+end 'enterChunk'
+
+// beginWorker starts a worker on its first chunk, or finishes it at once where none is left.
+function beginWorker(mutates vm Vm, t Count) throws Halt
+	vm.promises.started[vm.threads[t].promise] = true
+	if takeChunk(vm, t: t) 'taken'
+		try enterChunk(vm, t: t)
+	end 'taken'
+end 'beginWorker'
+
+// workerGoesOn keeps what a worker's chunk gave and starts it on the next chunk, and says whether it took one.
+function workerGoesOn(mutates vm Vm, t Count) returns bool throws Halt
+	try chunkFinished(vm, t: t)
+	if not takeChunk(vm, t: t) 'done'
+		return false
+	end 'done'
+	try enterChunk(vm, t: t)
+	return true
+end 'workerGoesOn'
+
+// chunkFinished keeps what a chunk gave, which is 0 or its error's word: the error of the lowest index that failed is the
+// loop's, and the one it replaces, or itself, is dropped.
+function chunkFinished(mutates vm Vm, t Count) throws Halt
+	let job = vm.threads[t].job
+	let n = vm.threads[t].retN
+	let r = vm.threads[t].retR
+	vm.threads[t].retN = 0
+	vm.threads[t].retR = 0
+	if n == 0 and r <= 0 'succeeded'
+		return
+	end 'succeeded'
+	let index = try vm.h.cellN[vm.h.field(partOf(vm, t: t), i: ir.partFailIndexOffset / wordBytes)] as Count otherwise panic("interp: a failed index past a count")
+	var word = n
+	if r > 0 'union'
+		word = managedErrorMark
+	end 'union'
+	var dropped = r
+	if index < vm.parallels.failIndex[job] 'lowest'
+		dropped = vm.parallels.failR[job]
+		vm.parallels.failIndex[job] = index
+		vm.parallels.failN[job] = word
+		vm.parallels.failR[job] = r
+	end 'lowest'
+	if dropped > 0 'drop'
+		try drop(vm, o: dropped as Count)
+	end 'drop'
+end 'chunkFinished'

@@ -1,0 +1,365 @@
+// The parallel loop (README, "Parallel loops"). Its body becomes a chunk: a body of the function, which rt.parallelRun calls
+// with a part that names the chunk's indices, [low, high), and the loop's environment, and which runs those iterations in
+// order. The chunk has the slots of the function as they are at the loop, so the body is lowered as it would be in place:
+// what it reads of the function's slots and parameters is copied into the environment, a frame area of the caller, and from
+// there into the chunk's own slots as it starts, each a borrow, since the checker holds the body to reading them. The array
+// a loop walks is such a slot, and each element is lent to its iteration from it. A failure in the body ends the chunk with
+// its error's word and stores its index in the part; the runtime keeps the lowest index's error, which the loop then fails
+// with where it stands. A loop that cannot fail is a call and nothing more.
+
+// visitParallelFor lowers a parallel for over an integer range or the elements of an array.
+function visitParallelFor(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
+	let count = l.b.f.newSlot(IrKind.kindScalar)
+	var walk as ParallelWalk
+	if ast.forStmtIsRange(p.modules[l.mi].tree, id: s) 'range'
+		walk = ParallelWalk.range(rangeStart(l, p: p, ms: ms, s: s, count: count))
+	end 'range' else 'array'
+		let source = ast.forStmtFrom(p.modules[l.mi].tree, id: s)
+		let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: s), t: exprType(p, module: l.module, node: source))
+		let held = l.b.f.newSlot(IrKind.kindManaged)
+		let coll = lowerRead(l, p: p, ms: ms, e: source)
+		emit(l, i: newStoreSlot(held, src: coll, borrow: true))
+		let whole = load(l, slot: held)
+		let n = arrayLength(l, p: p, ms: ms, box: box, arr: whole)
+		emit(l, i: newStoreSlot(count, src: n, borrow: false))
+		walk = ParallelWalk.array(held, box: box)
+	end 'array'
+	let outerSlots = l.b.f.slots.count()
+	var chunk = chunkLowerer(l, p: p, ms: ms, outerSlots: outerSlots)
+	let entry = chunk.cur
+	let part = newReg(chunk, kind: IrKind.kindScalar)
+	emit(chunk, i: newLoadParam(part, param: 0))
+	let env = newReg(chunk, kind: IrKind.kindScalar)
+	emit(chunk, i: newLoadField(env, obj: part, offset: partEnvOffset))
+	let partSlot = chunk.b.f.newSlot(IrKind.kindScalar)
+	emit(chunk, i: newStoreSlot(partSlot, src: part, borrow: false))
+	let index = chunk.b.f.newSlot(IrKind.kindScalar)
+	let low = newReg(chunk, kind: IrKind.kindScalar)
+	emit(chunk, i: newLoadField(low, obj: part, offset: partLowOffset))
+	emit(chunk, i: newStoreSlot(index, src: low, borrow: false))
+	let high = chunk.b.f.newSlot(IrKind.kindScalar)
+	let past = newReg(chunk, kind: IrKind.kindScalar)
+	emit(chunk, i: newLoadField(past, obj: part, offset: partHighOffset))
+	emit(chunk, i: newStoreSlot(high, src: past, borrow: false))
+	let failed = chunk.b.newBlock()
+	chunk.handlers.push(TryHandler.make(true, target: failed, depth: 0 as Count, mark: 0 as Count, pending: 0 as Count, binding: noSlot))
+	let top = chunk.b.newBlock()
+	chunk.cur = top
+	let exit = lowerIterations(chunk, p: p, ms: ms, s: s, walk: walk, index: index, high: high)
+	chunk.cur = failed
+	if chunk.chunk.errorSlot != noSlot 'fails'
+		let at = load(chunk, slot: index)
+		let partAgain = load(chunk, slot: partSlot)
+		emit(chunk, i: newStoreField(partAgain, offset: partFailIndexOffset, src: at, borrow: false))
+		let errorSlot = slotIndex(chunk.chunk.errorSlot)
+		var word = load(chunk, slot: errorSlot)
+		if owning(slotKind(chunk, slot: errorSlot)) 'owned'
+			word = newReg(chunk, kind: slotKind(chunk, slot: errorSlot))
+			emit(chunk, i: newMoveSlot(word, slot: errorSlot))
+		end 'owned'
+		chunk.b.terminate(chunk.cur, t: newRet(word))
+	end 'fails' else 'never'
+		chunk.b.terminate(chunk.cur, t: newTrap())
+	end 'never'
+	chunk.cur = exit
+	let none = konst(chunk, value: 0 as Word)
+	chunk.b.terminate(chunk.cur, t: newRet(none))
+	let captures = capturedSlots(chunk.b.instrs, outerSlots: outerSlots)
+	let params = chunk.chunk.paramSlots.clone()
+	var paramKinds = IrKindList.create(0)
+	for k in 0 upto params.count() 'kinds'
+		var kind = IrKind.kindScalar
+		if params[k] != noSlot 'read'
+			kind = slotKind(chunk, slot: slotIndex(params[k]))
+		end 'read'
+		paramKinds.push(kind)
+	end 'kinds'
+	chunk.cur = entry
+	var at = 0 as Count
+	for k in 0 upto captures.count() 'slots'
+		copyIn(chunk, env: env, at: at, slot: captures[k])
+		at = nextCapture(at)
+	end 'slots'
+	for k in 0 upto params.count() 'params'
+		if params[k] != noSlot 'read'
+			copyIn(chunk, env: env, at: at, slot: slotIndex(params[k]))
+			at = nextCapture(at)
+		end 'read'
+	end 'params'
+	chunk.b.terminate(chunk.cur, t: newJump(top))
+	let errorDrop = chunk.chunk.errorDrop
+	let errorBias = chunk.chunk.errorBias
+	let fails = chunk.chunk.errorSlot != noSlot
+	let body = finishChunk(l, chunk: chunk)
+	let bodyIndex = l.b.body(body)
+	var envReg = konst(l, value: 0 as Word)
+	if at > 0 'environment'
+		envReg = newArea(l, words: at / wordBytes)
+	end 'environment'
+	at = 0
+	for k in 0 upto captures.count() 'store'
+		let v = load(l, slot: captures[k])
+		emit(l, i: newStoreField(envReg, offset: at, src: v, borrow: owning(regKind(l, v: v))))
+		at = nextCapture(at)
+	end 'store'
+	for k in 0 upto params.count() 'storeParams'
+		if params[k] != noSlot 'read'
+			let v = paramReg(l, index: k, kind: paramKinds[k])
+			emit(l, i: newStoreField(envReg, offset: at, src: v, borrow: owning(regKind(l, v: v))))
+			at = nextCapture(at)
+		end 'read'
+	end 'storeParams'
+	let code = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBodyAddress(code, body: bodyIndex))
+	var drop = konst(l, value: 0 as Word)
+	if errorDrop != ast.noType 'drops'
+		let dropBody = errorDropBody(l, p: p, ms: ms, t: errorDrop)
+		let dropIndex = l.b.body(dropBody)
+		drop = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newBodyAddress(drop, body: dropIndex))
+	end 'drops'
+	let partArea = newArea(l, words: partBytes / wordBytes)
+	let n = load(l, slot: count)
+	var args = argsOf4(code, b: envReg, c: n, d: drop)
+	args.push(partArea)
+	let word = runtime(l, symbol: Rt.rtParallelRun, kind: IrKind.kindScalar, args: args)
+	if fails 'rethrow'
+		let zero = konst(l, value: 0 as Word)
+		let failedLoop = compare(l, op: CmpOp.cmpNe, a: word, b: zero, unsigned: true)
+		let added = enterPropagating(l)
+		let stub = failureBiased(l, p: p, ms: ms, errorCase: 0 as Count, err: word, errDrop: errorDrop, bias: errorBias)
+		if added 'leave'
+			leaveTry(l)
+		end 'leave'
+		let after = l.b.newBlock()
+		l.b.terminate(l.cur, t: newBranch(failedLoop, ifTrue: stub, ifFalse: after))
+		l.cur = after
+	end 'rethrow'
+end 'visitParallelFor'
+
+// ParallelWalk is what a parallel loop walks: a range, whose first value a slot holds, or the elements of an array that a
+// slot holds.
+union ParallelWalk
+	range(first Count)
+	array(held Count, box ArrayBox)
+end 'ParallelWalk'
+
+// rangeStart stores the count of a range's values in the slot count and gives the slot of its first value.
+function rangeStart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, count Count) returns Count
+	let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
+	let unsigned = ast.isUnsignedInt(ms.types, reads: p.types, t: sym.ty)
+	let inclusive = ast.forStmtInclusive(p.modules[l.mi].tree, id: s)
+	let first = l.b.f.newSlot(IrKind.kindScalar)
+	let from = lowerExpr(l, p: p, ms: ms, e: ast.forStmtFrom(p.modules[l.mi].tree, id: s))
+	emit(l, i: newStoreSlot(first, src: from, borrow: false))
+	let to = lowerExpr(l, p: p, ms: ms, e: ast.forStmtTo(p.modules[l.mi].tree, id: s))
+	let zero = konst(l, value: 0 as Word)
+	emit(l, i: newStoreSlot(count, src: zero, borrow: false))
+	var pastOp = CmpOp.cmpGe
+	if inclusive 'inclusive'
+		pastOp = CmpOp.cmpGt
+	end 'inclusive'
+	let empty = compare(l, op: pastOp, a: from, b: to, unsigned: unsigned)
+	let some = l.b.newBlock()
+	let join = l.b.newBlock()
+	l.b.terminate(l.cur, t: newBranch(empty, ifTrue: join, ifFalse: some))
+	l.cur = some
+	var n = wrappingBin(l, op: BinOp.binSub, a: to, b: from, kind: IrKind.kindScalar)
+	if inclusive 'last'
+		let one = konst(l, value: 1 as Word)
+		n = wrappingBin(l, op: BinOp.binAdd, a: n, b: one, kind: IrKind.kindScalar)
+	end 'last'
+	emit(l, i: newStoreSlot(count, src: n, borrow: false))
+	goTo(l, target: join)
+	return first
+end 'rangeStart'
+
+// lowerIterations lowers, from the block being lowered, the iterations of a chunk from the index its slot holds up to the
+// one the slot high holds, and gives the block it ends in.
+function lowerIterations(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, walk ParallelWalk, index Count, high Count) returns BlockID
+	let body = l.b.newBlock()
+	let cont = l.b.newBlock()
+	let exit = l.b.newBlock()
+	let top = l.cur
+	let at = load(l, slot: index)
+	let past = load(l, slot: high)
+	let below = compare(l, op: CmpOp.cmpLt, a: at, b: past, unsigned: true)
+	l.b.terminate(l.cur, t: newBranch(below, ifTrue: body, ifFalse: exit))
+	l.cur = body
+	let local = localOfNode(p, module: l.module, node: s)
+	let sym = localEntry(p, module: l.fnModule, id: local)
+	pushScope(l, block: true)
+	match walk 'walk'
+		range(first) then startValue(l, first: first, index: index, slot: slotOf(sym))
+		array(held, box) then startElement(l, p: p, ms: ms, s: s, held: held, box: box, index: index)
+	end 'walk'
+	pushJumps(l, node: s, brk: exit, cont: cont)
+	lowerBlock(l, p: p, ms: ms, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
+	popJumps(l)
+	match walk 'walkEnds'
+		range(_) then _ = 0
+		array(_, _) then _ = try l.parallelSlots.pop() otherwise panic("lower: a parallel for ended that was never begun")
+	end 'walkEnds'
+	goTo(l, target: cont)
+	popScope(l, p: p, ms: ms)
+	let next = newReg(l, kind: IrKind.kindScalar)
+	let cur = load(l, slot: index)
+	let one = konst(l, value: 1 as Word)
+	emit(l, i: newBin(next, op: BinOp.binAdd, left: cur, right: one, unsigned: true, fail: noBlock))
+	emit(l, i: newStoreSlot(index, src: next, borrow: false))
+	l.b.terminate(l.cur, t: newJump(top))
+	return exit
+end 'lowerIterations'
+
+// startValue gives the variable of an iteration of a range its value: the first plus the index.
+function startValue(mutates l Lowerer, first Count, index Count, slot Count)
+	let start = load(l, slot: first)
+	let i = load(l, slot: index)
+	let v = wrappingBin(l, op: BinOp.binAdd, a: start, b: i, kind: IrKind.kindScalar)
+	emit(l, i: newStoreSlot(slot, src: v, borrow: false))
+end 'startValue'
+
+// startElement lends the variable of an iteration of an array its element, gives the index to the variable of a walk of
+// enumerated(), and makes an assignment to the variable store into the element (assignParallelElement).
+function startElement(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, held Count, box ArrayBox, index Count)
+	let local = localOfNode(p, module: l.module, node: s)
+	let sym = localEntry(p, module: l.fnModule, id: local)
+	let arr = load(l, slot: held)
+	let i = load(l, slot: index)
+	let elem = arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: i)
+	emit(l, i: newStoreSlot(slotOf(sym), src: elem, borrow: owning(regKind(l, v: elem))))
+	let indexLocal = indexLocalOf(p, module: l.module, node: s)
+	if indexLocal != ast.noLocal 'enumerated'
+		let position = load(l, slot: index)
+		emit(l, i: newStoreSlot(slotOf(localEntry(p, module: l.fnModule, id: indexLocal)), src: position, borrow: false))
+	end 'enumerated'
+	l.parallelSlots.push(SlotLoop.make(local, held: held, index: index, box: box.clone()))
+end 'startElement'
+
+// chunkLowerer is the lowerer of a chunk of the loop at the code being lowered: of the same function and instance, with the
+// function's outerSlots slots so far, those held in place included, and its owners of consumes parameters.
+function chunkLowerer(mutates l Lowerer, p ast.Project, ms ast.ModuleState, outerSlots Count) returns Lowerer
+	var c = Lowerer.new(exchange(l.instances, value: InstanceSet.new()))
+	c.module = l.module
+	c.mi = l.mi
+	c.fnModule = l.fnModule
+	c.fn = l.fn
+	c.origin = l.origin
+	c.bindParams = ast.cloneTypeArgs(l.bindParams)
+	c.bindArgs = ast.cloneTypeArgs(l.bindArgs)
+	c.bindWitnesses = l.bindWitnesses.clone()
+	c.b.keepsSpans = l.b.keepsSpans
+	c.b.start(l.fn, name: closureBodyName(irSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: l.b.f), index: l.b.f.bodies.count()), paramCount: 1)
+	for k in 0 upto outerSlots 'slots'
+		_ = c.b.f.newSlot(l.b.f.slots[k])
+	end 'slots'
+	for k in 0 upto l.slotWords.count() 'placed'
+		if l.slotWords[k] > 0 'inPlace'
+			placeLocal(c, slot: k, words: l.slotWords[k])
+		end 'inPlace'
+	end 'placed'
+	c.ownerSlots = l.ownerSlots.clone()
+	c.selfOwner = l.selfOwner
+	c.chunk.active = true
+	pushScope(c, block: true)
+	c.cur = c.b.newBlock()
+	return c
+end 'chunkLowerer'
+
+// finishChunk ends the lowering of a chunk and gives its body, handing back the instances its code asked for.
+function finishChunk(mutates l Lowerer, mutates chunk Lowerer) returns IrFunction
+	let body = chunk.b.finish()
+	l.instances = exchange(chunk.instances, value: InstanceSet.new())
+	l.b.f.usesArrays = l.b.f.usesArrays or body.usesArrays
+	l.b.f.usesBytes = l.b.f.usesBytes or body.usesBytes
+	l.b.f.usesOs = l.b.f.usesOs or body.usesOs
+	for i in 0 upto body.refusals.count() 'refusals'
+		l.b.f.refusals.push(body.refusals[i].clone())
+	end 'refusals'
+	return body
+end 'finishChunk'
+
+// chunkParam is a parameter of the function around a parallel loop as its chunk reads it: from the slot that the chunk's
+// start copies it into from the environment.
+function chunkParam(mutates l Lowerer, index Count, kind IrKind) returns Reg
+	while l.chunk.paramSlots.count() <= index 'grow'
+		l.chunk.paramSlots.push(noSlot)
+	end 'grow'
+	if l.chunk.paramSlots[index] == noSlot 'first'
+		l.chunk.paramSlots[index] = indexOf(l.b.f.newSlot(kind))
+	end 'first'
+	let d = newReg(l, kind: kind)
+	emit(l, i: newLoadSlot(d, slot: slotIndex(l.chunk.paramSlots[index])))
+	return d
+end 'chunkParam'
+
+// keepChunkError stores the error of a failure in a chunk's body in the slot the chunk gives back, made at the first.
+function keepChunkError(mutates l Lowerer, error Reg, errDrop ast.TypeID, bias Word)
+	if l.chunk.errorSlot == noSlot 'first'
+		l.chunk.errorSlot = indexOf(l.b.f.newSlot(regKind(l, v: error)))
+		l.chunk.errorDrop = errDrop
+		l.chunk.errorBias = bias
+	end 'first'
+	emit(l, i: newStoreSlot(slotIndex(l.chunk.errorSlot), src: error, borrow: false))
+end 'keepChunkError'
+
+// capturedSlots are the slots of the function around a loop, those below outerSlots, that its chunk reads and never stores:
+// what the body reads of the function. A slot of the body's own variables is stored before it is read.
+function capturedSlots(instrs InstrList, outerSlots Count) returns Array with Count
+	var read as Array with bool
+	read = Array.create(outerSlots)
+	var stored as Array with bool
+	stored = Array.create(outerSlots)
+	for k in 0 upto instrs.count() 'instrs'
+		let op = instrs[k].op
+		var slot = outerSlots
+		if op == Opcode.opLoadSlot 'load'
+			slot = loadSlotSlot(instrs[k])
+		end 'load' else if op == Opcode.opMoveSlot 'move'
+			slot = moveSlotSlot(instrs[k])
+		end 'move' else if op == Opcode.opDropSlot 'drop'
+			slot = dropSlotSlot(instrs[k])
+		end 'drop' else if op == Opcode.opSlotAddr 'address'
+			slot = slotAddrSlot(instrs[k])
+		end 'address' else if op == Opcode.opStoreSlot 'store'
+			let target = storeSlotSlot(instrs[k])
+			if target < outerSlots 'outer'
+				stored[target] = true
+			end 'outer'
+		end 'store'
+		if slot < outerSlots 'outer'
+			read[slot] = true
+		end 'outer'
+	end 'instrs'
+	var captured = Array.create(0) as Array with Count
+	for k in 0 upto outerSlots 'slots'
+		if read[k] and not stored[k] 'captured'
+			captured.push(k)
+		end 'captured'
+	end 'slots'
+	return captured
+end 'capturedSlots'
+
+// copyIn gives the chunk's slot the word of the environment at the offset at, a borrow of what the caller holds there.
+function copyIn(mutates l Lowerer, env Reg, at Count, slot Count)
+	let v = newReg(l, kind: slotKind(l, slot: slot))
+	emit(l, i: newLoadField(v, obj: env, offset: at))
+	emit(l, i: newStoreSlot(slot, src: v, borrow: owning(regKind(l, v: v))))
+end 'copyIn'
+
+// nextCapture is the offset in an environment after the capture at the offset at, which has room for a String's two words.
+function nextCapture(at Count) returns Count
+	return try at + closureCaptureBytes otherwise panic("lower: an environment past memory")
+end 'nextCapture'
+
+// errorDropBody is the body that drops an error of the union t, which the runtime calls on the error of each index that
+// failed but the loop's.
+function errorDropBody(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns IrFunction
+	var d = chunkLowerer(l, p: p, ms: ms, outerSlots: 0)
+	let error = newReg(d, kind: IrKind.kindManaged)
+	emit(d, i: newLoadParam(error, param: 0))
+	emitDrop(d, d: PendingDrop.ofReg(error, ty: t))
+	let none = konst(d, value: 0 as Word)
+	d.b.terminate(d.cur, t: newRet(none))
+	return finishChunk(l, chunk: d)
+end 'errorDropBody'

@@ -2959,8 +2959,8 @@ with `green-` hold the scheduler to many green threads ping-ponging, a busy loop
 about once a slice, the float state
 across a preemption, a blocking call handed off, timers and a completion of the event queue.
 
-- **The parallel loop's fork-join** (`runtime/parallel.maxon`, `parallelRun`, which the language's parallel loop is to
-  lower to; not yet reached from programs). A loop of `count` indices is cut into chunks of consecutive indices, at most
+- **The parallel loop's fork-join** (`runtime/parallel.maxon`, `parallelRun`, which the language's parallel loop lowers to,
+  see "The parallel loop"). A loop of `count` indices is cut into chunks of consecutive indices, at most
   8 for each processor, and one job holds a part for the caller and one for each other processor that may help, the
   job being the loop's one allocation. The helpers' parts are queued on the caller's processor as behaviours are, so
   an idle processor steals them as Go's steal, and a helper holds a pooled green thread and stack only while it runs;
@@ -2969,8 +2969,9 @@ across a preemption, a blocking call handed off, timers and a completion of the 
   call and an iteration allocates nothing. The caller parks only once no chunk is left to take, so its processor runs
   other work meanwhile (the helpers not stolen among them), until the last helper readies it. A chunk gives 0 or the
   word of the error of its first index that failed; the lowest index's error is the loop's, every other is dropped by
-  the job's drop code, and a chunk whose first index is past it is not run. Off a green thread, and with one processor,
-  the loop is one chunk. `tests/runtime/parallel-run.maxon` holds it to results, the lowest index's error, nesting and
+  the job's drop code, and a chunk whose first index is past it is not run. Off a green thread, with one processor and
+  with one index, the loop is one chunk, run in the part area the caller's frame gives it: no job is made, so such a loop
+  allocates nothing and is one call of the chunk code. `tests/runtime/parallel-run.maxon` holds it to results, the lowest index's error, nesting and
   bodies that park. Measured on a 16-thread x64 machine (Windows): a join of 8 to 512 empty indices takes 1.4 to 2.1 µs
   across the processors and 25 ns with one, where Go's equivalent (a goroutine per helper claiming the same chunks by an
   atomic add, a `WaitGroup` as the join) takes 2.5 to 4.3 µs and 50 to 80 ns; ten million squares written to an array
@@ -4976,10 +4977,26 @@ What the body may do is proved by the checker from the borrow rules, with no run
 - It may await, sleep, send to a service and nest another parallel for; a parallel for in a service's handler waits only
   for its own iterations, and a body that awaits a reply makes the handler `E3221` as any wait in it does.
 
-Not yet: the loop runs its iterations in order on the thread that reaches it, which is one schedule of the iterations the
-rules allow, while its lowering to the runtime's fork-join (`parallelRun`, see "The runtime"), the interpreter's model of
-the iterations as threads under the seeded schedule, and parallel fors in the programs `fuzz` writes are to come; a whole
-element passed to a `mutates` parameter (`E2013`, as in a plain `for`), where an assignment works.
+**Lowering** (`self/ir/parallel.maxon`). The body becomes a chunk, a body of the function that the runtime's fork-join
+(`rt.parallelRun`, see "The runtime") calls with a part naming its indices, `[low, high)`, and runs those iterations in
+order. The chunk has the function's slots as they are at the loop, so the body is lowered as it would be in place; the
+slots and parameters it reads and never stores are copied into an environment, a frame area of the caller, and from
+there into the chunk's slots as it starts, each a borrow, since the checker holds the body to reading them. The walked
+array is such a slot, from which each element is lent to its iteration. A failure in the body ends the chunk with its
+error's word and stores its index in the part; the runtime keeps the lowest index's error, which the loop then fails
+with where it stands, and drops the others by a second body of the function. A loop of 0 or 1 indices, one run off a
+green thread or with one processor (`MAXON_MAX_PROCS=1`) makes no job and allocates nothing: it is one call of the
+chunk, in a part area of the caller's frame. A function with no parallel loop is lowered as before, to the same IR.
+
+Under the interpreter the loop is a seeded model of the runtime's: `rt.parallelRun` cuts the indices into 1 to 8 chunks
+and makes 1 to 4 workers, each a thread that takes the next chunk in index order and runs it, which the scheduler
+interleaves as any threads, so iterations of different chunks run in an order the seed decides and a body whose result
+depended on the order would print another result under some seed. A worker belongs to the caller for the race rule
+and for the cowns its behaviour holds. The lowest index's error wins and a chunk taken past it is not run, as natively.
+
+Not yet: parallel fors in the programs `fuzz` writes; a whole element passed to a `mutates` parameter (`E2013`, as in a
+plain `for`), where an assignment works.
+
 ### Services
 
 maxon's surface, on cowns, behaviours and green threads (`self/check/services.maxon`, `self/ir/services.maxon`,

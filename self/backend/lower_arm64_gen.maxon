@@ -124,6 +124,10 @@ export function arm64SelectInstr(mutates sel Selector, fn ir.IrFunction, ins ir.
 		arm64SelectCodeAddress(sel, fn: fn, ins: ins)
 		return
 	end 'opcodeCodeAddress'
+	if op == ir.Opcode.opBodyAddress 'opcodeBodyAddress'
+		arm64SelectBodyAddress(sel, fn: fn, ins: ins)
+		return
+	end 'opcodeBodyAddress'
 	if op == ir.Opcode.opBin 'opcodeBin'
 		arm64SelectBin(sel, fn: fn, ins: ins)
 		return
@@ -756,6 +760,14 @@ function arm64SelectCodeAddress(mutates sel Selector, fn ir.IrFunction, ins ir.I
 	panic("backend: no rule of arm64.rules selects this codeAddress")
 end 'arm64SelectCodeAddress'
 
+// arm64SelectBodyAddress writes the machine instructions of bodyAddress by the first of its rules that matches.
+function arm64SelectBodyAddress(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if arm64Rule255(sel, fn: fn, ins: ins) 'arm64Rule255'
+		return
+	end 'arm64Rule255'
+	panic("backend: no rule of arm64.rules selects this bodyAddress")
+end 'arm64SelectBodyAddress'
+
 // arm64SelectBin writes the machine instructions of bin by the first of its rules that matches.
 function arm64SelectBin(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	if arm64Rule149(sel, fn: fn, ins: ins) 'arm64Rule149'
@@ -1248,25 +1260,25 @@ end 'arm64SelectCallValue'
 
 // arm64SelectBox writes the machine instructions of box by the first of its rules that matches.
 function arm64SelectBox(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if arm64Rule255(sel, fn: fn, ins: ins) 'arm64Rule255'
+	if arm64Rule256(sel, fn: fn, ins: ins) 'arm64Rule256'
 		return
-	end 'arm64Rule255'
+	end 'arm64Rule256'
 	panic("backend: no rule of arm64.rules selects this box")
 end 'arm64SelectBox'
 
 // arm64SelectFrameBox writes the machine instructions of frameBox by the first of its rules that matches.
 function arm64SelectFrameBox(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if arm64Rule256(sel, fn: fn, ins: ins) 'arm64Rule256'
+	if arm64Rule257(sel, fn: fn, ins: ins) 'arm64Rule257'
 		return
-	end 'arm64Rule256'
+	end 'arm64Rule257'
 	panic("backend: no rule of arm64.rules selects this frameBox")
 end 'arm64SelectFrameBox'
 
 // arm64SelectFrameArea writes the machine instructions of frameArea by the first of its rules that matches.
 function arm64SelectFrameArea(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if arm64Rule257(sel, fn: fn, ins: ins) 'arm64Rule257'
+	if arm64Rule258(sel, fn: fn, ins: ins) 'arm64Rule258'
 		return
-	end 'arm64Rule257'
+	end 'arm64Rule258'
 	panic("backend: no rule of arm64.rules selects this frameArea")
 end 'arm64SelectFrameArea'
 
@@ -1288,25 +1300,25 @@ end 'arm64SelectIsType'
 
 // arm64SelectDrop writes the machine instructions of drop by the first of its rules that matches.
 function arm64SelectDrop(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if arm64Rule258(sel, fn: fn, ins: ins) 'arm64Rule258'
+	if arm64Rule259(sel, fn: fn, ins: ins) 'arm64Rule259'
 		return
-	end 'arm64Rule258'
+	end 'arm64Rule259'
 	panic("backend: no rule of arm64.rules selects this drop")
 end 'arm64SelectDrop'
 
 // arm64SelectDropSlot writes the machine instructions of dropSlot by the first of its rules that matches.
 function arm64SelectDropSlot(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if arm64Rule259(sel, fn: fn, ins: ins) 'arm64Rule259'
+	if arm64Rule260(sel, fn: fn, ins: ins) 'arm64Rule260'
 		return
-	end 'arm64Rule259'
+	end 'arm64Rule260'
 	panic("backend: no rule of arm64.rules selects this dropSlot")
 end 'arm64SelectDropSlot'
 
 // arm64SelectDropAt writes the machine instructions of dropAt by the first of its rules that matches.
 function arm64SelectDropAt(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if arm64Rule260(sel, fn: fn, ins: ins) 'arm64Rule260'
+	if arm64Rule261(sel, fn: fn, ins: ins) 'arm64Rule261'
 		return
-	end 'arm64Rule260'
+	end 'arm64Rule261'
 	panic("backend: no rule of arm64.rules selects this dropAt")
 end 'arm64SelectDropAt'
 
@@ -1337,25 +1349,22 @@ end 'arm64SelectMoveAt'
 
 // arm64SelectCopy writes the machine instructions of copy by the first of its rules that matches.
 function arm64SelectCopy(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if arm64Rule261(sel, fn: fn, ins: ins) 'arm64Rule261'
+	if arm64Rule262(sel, fn: fn, ins: ins) 'arm64Rule262'
 		return
-	end 'arm64Rule261'
+	end 'arm64Rule262'
 	panic("backend: no rule of arm64.rules selects this copy")
 end 'arm64SelectCopy'
 
 // arm64SelectJump writes the machine instructions of jump by the first of its rules that matches.
 function arm64SelectJump(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if arm64Rule267(sel, fn: fn, ins: ins) 'arm64Rule267'
+	if arm64Rule268(sel, fn: fn, ins: ins) 'arm64Rule268'
 		return
-	end 'arm64Rule267'
+	end 'arm64Rule268'
 	panic("backend: no rule of arm64.rules selects this jump")
 end 'arm64SelectJump'
 
 // arm64SelectBranch writes the machine instructions of branch by the first of its rules that matches.
 function arm64SelectBranch(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if arm64Rule268(sel, fn: fn, ins: ins) 'arm64Rule268'
-		return
-	end 'arm64Rule268'
 	if arm64Rule269(sel, fn: fn, ins: ins) 'arm64Rule269'
 		return
 	end 'arm64Rule269'
@@ -1368,21 +1377,21 @@ function arm64SelectBranch(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
 	if arm64Rule272(sel, fn: fn, ins: ins) 'arm64Rule272'
 		return
 	end 'arm64Rule272'
-	if arm64Rule274(sel, fn: fn, ins: ins) 'arm64Rule274'
+	if arm64Rule273(sel, fn: fn, ins: ins) 'arm64Rule273'
 		return
-	end 'arm64Rule274'
-	if arm64Rule276(sel, fn: fn, ins: ins) 'arm64Rule276'
+	end 'arm64Rule273'
+	if arm64Rule275(sel, fn: fn, ins: ins) 'arm64Rule275'
 		return
-	end 'arm64Rule276'
-	if arm64Rule278(sel, fn: fn, ins: ins) 'arm64Rule278'
+	end 'arm64Rule275'
+	if arm64Rule277(sel, fn: fn, ins: ins) 'arm64Rule277'
 		return
-	end 'arm64Rule278'
-	if arm64Rule280(sel, fn: fn, ins: ins) 'arm64Rule280'
+	end 'arm64Rule277'
+	if arm64Rule279(sel, fn: fn, ins: ins) 'arm64Rule279'
 		return
-	end 'arm64Rule280'
-	if arm64Rule283(sel, fn: fn, ins: ins) 'arm64Rule283'
+	end 'arm64Rule279'
+	if arm64Rule281(sel, fn: fn, ins: ins) 'arm64Rule281'
 		return
-	end 'arm64Rule283'
+	end 'arm64Rule281'
 	if arm64Rule284(sel, fn: fn, ins: ins) 'arm64Rule284'
 		return
 	end 'arm64Rule284'
@@ -1401,38 +1410,41 @@ function arm64SelectBranch(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
 	if arm64Rule289(sel, fn: fn, ins: ins) 'arm64Rule289'
 		return
 	end 'arm64Rule289'
+	if arm64Rule290(sel, fn: fn, ins: ins) 'arm64Rule290'
+		return
+	end 'arm64Rule290'
 	panic("backend: no rule of arm64.rules selects this branch")
 end 'arm64SelectBranch'
 
 // arm64SelectSwitch writes the machine instructions of switch by the first of its rules that matches.
 function arm64SelectSwitch(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if arm64Rule290(sel, fn: fn, ins: ins) 'arm64Rule290'
+	if arm64Rule291(sel, fn: fn, ins: ins) 'arm64Rule291'
 		return
-	end 'arm64Rule290'
+	end 'arm64Rule291'
 	panic("backend: no rule of arm64.rules selects this switch")
 end 'arm64SelectSwitch'
 
 // arm64SelectRet writes the machine instructions of ret by the first of its rules that matches.
 function arm64SelectRet(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if arm64Rule291(sel, fn: fn, ins: ins) 'arm64Rule291'
+	if arm64Rule292(sel, fn: fn, ins: ins) 'arm64Rule292'
 		return
-	end 'arm64Rule291'
+	end 'arm64Rule292'
 	panic("backend: no rule of arm64.rules selects this ret")
 end 'arm64SelectRet'
 
 // arm64SelectTrap writes the machine instructions of trap by the first of its rules that matches.
 function arm64SelectTrap(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if arm64Rule293(sel, fn: fn, ins: ins) 'arm64Rule293'
+	if arm64Rule294(sel, fn: fn, ins: ins) 'arm64Rule294'
 		return
-	end 'arm64Rule293'
+	end 'arm64Rule294'
 	panic("backend: no rule of arm64.rules selects this trap")
 end 'arm64SelectTrap'
 
 // arm64SelectThrow writes the machine instructions of throw by the first of its rules that matches.
 function arm64SelectThrow(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if arm64Rule292(sel, fn: fn, ins: ins) 'arm64Rule292'
+	if arm64Rule293(sel, fn: fn, ins: ins) 'arm64Rule293'
 		return
-	end 'arm64Rule292'
+	end 'arm64Rule293'
 	panic("backend: no rule of arm64.rules selects this throw")
 end 'arm64SelectThrow'
 
@@ -4999,50 +5011,56 @@ function arm64Rule254(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) retu
 	return true
 end 'arm64Rule254'
 
-// arm64.rules:255: (box) => (emitBox)
+// arm64.rules:255: (bodyAddress) => (emitBodyAddress)
 function arm64Rule255(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitBox(sel, fn: fn, ins: ins)
+	emitBodyAddress(sel, fn: fn, ins: ins)
 	return true
 end 'arm64Rule255'
 
-// arm64.rules:256: (frameBox) => (emitArm64FrameBox)
+// arm64.rules:256: (box) => (emitBox)
 function arm64Rule256(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitArm64FrameBox(sel, fn: fn, ins: ins)
+	emitBox(sel, fn: fn, ins: ins)
 	return true
 end 'arm64Rule256'
 
-// arm64.rules:257: (frameArea) => (emitArm64FrameArea)
+// arm64.rules:257: (frameBox) => (emitArm64FrameBox)
 function arm64Rule257(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitArm64FrameArea(sel, fn: fn, ins: ins)
+	emitArm64FrameBox(sel, fn: fn, ins: ins)
 	return true
 end 'arm64Rule257'
 
-// arm64.rules:258: (drop) => (emitDropValue)
+// arm64.rules:258: (frameArea) => (emitArm64FrameArea)
 function arm64Rule258(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitDropValue(sel, fn: fn, ins: ins)
+	emitArm64FrameArea(sel, fn: fn, ins: ins)
 	return true
 end 'arm64Rule258'
 
-// arm64.rules:259: (dropSlot) => (emitArm64DropSlot)
+// arm64.rules:259: (drop) => (emitDropValue)
 function arm64Rule259(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitArm64DropSlot(sel, fn: fn, ins: ins)
+	emitDropValue(sel, fn: fn, ins: ins)
 	return true
 end 'arm64Rule259'
 
-// arm64.rules:260: (dropAt) => (emitDropAt)
+// arm64.rules:260: (dropSlot) => (emitArm64DropSlot)
 function arm64Rule260(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitDropAt(sel, fn: fn, ins: ins)
+	emitArm64DropSlot(sel, fn: fn, ins: ins)
 	return true
 end 'arm64Rule260'
 
-// arm64.rules:261: (copy) => (emitCopyValue)
+// arm64.rules:261: (dropAt) => (emitDropAt)
 function arm64Rule261(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitCopyValue(sel, fn: fn, ins: ins)
+	emitDropAt(sel, fn: fn, ins: ins)
 	return true
 end 'arm64Rule261'
 
-// arm64.rules:267: (jump [b]) => (B [b])
-function arm64Rule267(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// arm64.rules:262: (copy) => (emitCopyValue)
+function arm64Rule262(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitCopyValue(sel, fn: fn, ins: ins)
+	return true
+end 'arm64Rule262'
+
+// arm64.rules:268: (jump [b]) => (B [b])
+function arm64Rule268(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let vB = ir.jumpTarget(ins)
 	let r1 = sel.edgeTo(fn, target: vB, start: ir.jumpArgsStart(ins), count: ir.jumpArgsCount(ins))
 	var mi2 = newArm64Target(Arm64Form.b, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
@@ -5050,10 +5068,10 @@ function arm64Rule267(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	mi2.aux = r1.aux
 	sel.emit(mi2)
 	return true
-end 'arm64Rule267'
+end 'arm64Rule268'
 
-// arm64.rules:268: (branch c:(cmp x (const [0])) [yes] [no]) && sel.fuses(fn, r: c) and arm64HoldsAtZero(condOf(sel, fn: fn, r: c)) => (Cbnz x [no]) (B [yes])
-function arm64Rule268(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// arm64.rules:269: (branch c:(cmp x (const [0])) [yes] [no]) && sel.fuses(fn, r: c) and arm64HoldsAtZero(condOf(sel, fn: fn, r: c)) => (Cbnz x [no]) (B [yes])
+function arm64Rule269(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -5085,10 +5103,10 @@ function arm64Rule268(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	mi8.aux = r7.aux
 	sel.emit(mi8)
 	return true
-end 'arm64Rule268'
+end 'arm64Rule269'
 
-// arm64.rules:269: (branch c:(cmp x (const [0])) [yes] [no]) && sel.fuses(fn, r: c) and arm64HoldsOffZero(condOf(sel, fn: fn, r: c)) => (Cbz x [no]) (B [yes])
-function arm64Rule269(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// arm64.rules:270: (branch c:(cmp x (const [0])) [yes] [no]) && sel.fuses(fn, r: c) and arm64HoldsOffZero(condOf(sel, fn: fn, r: c)) => (Cbz x [no]) (B [yes])
+function arm64Rule270(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -5120,10 +5138,10 @@ function arm64Rule269(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	mi8.aux = r7.aux
 	sel.emit(mi8)
 	return true
-end 'arm64Rule269'
+end 'arm64Rule270'
 
-// arm64.rules:270: (branch c:(cmp (const [0]) x) [yes] [no]) && sel.fuses(fn, r: c) and arm64HoldsAtZero(swapped(condOf(sel, fn: fn, r: c))) => (Cbnz x [no]) (B [yes])
-function arm64Rule270(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// arm64.rules:271: (branch c:(cmp (const [0]) x) [yes] [no]) && sel.fuses(fn, r: c) and arm64HoldsAtZero(swapped(condOf(sel, fn: fn, r: c))) => (Cbnz x [no]) (B [yes])
+function arm64Rule271(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -5155,10 +5173,10 @@ function arm64Rule270(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	mi8.aux = r7.aux
 	sel.emit(mi8)
 	return true
-end 'arm64Rule270'
+end 'arm64Rule271'
 
-// arm64.rules:271: (branch c:(cmp (const [0]) x) [yes] [no]) && sel.fuses(fn, r: c) and arm64HoldsOffZero(swapped(condOf(sel, fn: fn, r: c))) => (Cbz x [no]) (B [yes])
-function arm64Rule271(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// arm64.rules:272: (branch c:(cmp (const [0]) x) [yes] [no]) && sel.fuses(fn, r: c) and arm64HoldsOffZero(swapped(condOf(sel, fn: fn, r: c))) => (Cbz x [no]) (B [yes])
+function arm64Rule272(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -5190,47 +5208,47 @@ function arm64Rule271(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	mi8.aux = r7.aux
 	sel.emit(mi8)
 	return true
-end 'arm64Rule271'
-
-// arm64.rules:272: (branch c:(cmp x (const [k])) [yes] [no]) && arm64HoldsImm12(k as FullRangeInt) and sel.fuses(fn, r: c) => (CmpRegImm x [k]) (BCond [negated(condOf(sel, fn: fn, r: c))] [no]) (B [yes])
-function arm64Rule272(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
-	let reg1 = ir.branchCond(ins)
-	let vC = reg1
-	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
-		return false
-	end 'm1'
-	let def2 = sel.defOf(reg1)
-	let vX = ir.cmpLeft(fn.instrs[def2])
-	let reg3 = ir.cmpRight(fn.instrs[def2])
-	if not sel.definedBy(fn, r: reg3, op: ir.Opcode.opConst) 'm2'
-		return false
-	end 'm2'
-	let def4 = sel.defOf(reg3)
-	let vK = ir.constValue(fn.instrs[def4])
-	let vYes = ir.branchIfTrue(ins)
-	let vNo = ir.branchIfFalse(ins)
-	if not (arm64HoldsImm12(vK as FullRangeInt) and sel.fuses(fn, r: vC)) 'm3'
-		return false
-	end 'm3'
-	let i5 = try (vK) as Arm64Imm12 otherwise panic("backend: a value of arm64.rules:272 does not fit Arm64Imm12")
-	var mi6 = newArm64Target(Arm64Form.cmpRegImm, a: vregOf(vX), b: noMReg, c: noMReg, aux: 0, imm: i5 as FullRangeInt)
-	sel.emit(mi6)
-	let r7 = sel.edgeTo(fn, target: vNo, start: ir.branchFalseArgsStart(ins), count: ir.branchFalseArgsCount(ins))
-	var mi8 = newArm64Target(Arm64Form.bCond, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
-	mi8.cond = negated(condOf(sel, fn: fn, r: vC))
-	mi8.ref = r7.ref
-	mi8.aux = r7.aux
-	sel.emit(mi8)
-	let r9 = sel.edgeTo(fn, target: vYes, start: ir.branchTrueArgsStart(ins), count: ir.branchTrueArgsCount(ins))
-	var mi10 = newArm64Target(Arm64Form.b, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
-	mi10.ref = r9.ref
-	mi10.aux = r9.aux
-	sel.emit(mi10)
-	return true
 end 'arm64Rule272'
 
-// arm64.rules:274: (branch c:(cmp (const [k]) x) [yes] [no]) && arm64HoldsImm12(k as FullRangeInt) and sel.fuses(fn, r: c) => (CmpRegImm x [k]) (BCond [negated(swapped(condOf(sel, fn: fn, r: c)))] [no]) (B [yes])
-function arm64Rule274(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// arm64.rules:273: (branch c:(cmp x (const [k])) [yes] [no]) && arm64HoldsImm12(k as FullRangeInt) and sel.fuses(fn, r: c) => (CmpRegImm x [k]) (BCond [negated(condOf(sel, fn: fn, r: c))] [no]) (B [yes])
+function arm64Rule273(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+	let reg1 = ir.branchCond(ins)
+	let vC = reg1
+	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
+		return false
+	end 'm1'
+	let def2 = sel.defOf(reg1)
+	let vX = ir.cmpLeft(fn.instrs[def2])
+	let reg3 = ir.cmpRight(fn.instrs[def2])
+	if not sel.definedBy(fn, r: reg3, op: ir.Opcode.opConst) 'm2'
+		return false
+	end 'm2'
+	let def4 = sel.defOf(reg3)
+	let vK = ir.constValue(fn.instrs[def4])
+	let vYes = ir.branchIfTrue(ins)
+	let vNo = ir.branchIfFalse(ins)
+	if not (arm64HoldsImm12(vK as FullRangeInt) and sel.fuses(fn, r: vC)) 'm3'
+		return false
+	end 'm3'
+	let i5 = try (vK) as Arm64Imm12 otherwise panic("backend: a value of arm64.rules:273 does not fit Arm64Imm12")
+	var mi6 = newArm64Target(Arm64Form.cmpRegImm, a: vregOf(vX), b: noMReg, c: noMReg, aux: 0, imm: i5 as FullRangeInt)
+	sel.emit(mi6)
+	let r7 = sel.edgeTo(fn, target: vNo, start: ir.branchFalseArgsStart(ins), count: ir.branchFalseArgsCount(ins))
+	var mi8 = newArm64Target(Arm64Form.bCond, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
+	mi8.cond = negated(condOf(sel, fn: fn, r: vC))
+	mi8.ref = r7.ref
+	mi8.aux = r7.aux
+	sel.emit(mi8)
+	let r9 = sel.edgeTo(fn, target: vYes, start: ir.branchTrueArgsStart(ins), count: ir.branchTrueArgsCount(ins))
+	var mi10 = newArm64Target(Arm64Form.b, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
+	mi10.ref = r9.ref
+	mi10.aux = r9.aux
+	sel.emit(mi10)
+	return true
+end 'arm64Rule273'
+
+// arm64.rules:275: (branch c:(cmp (const [k]) x) [yes] [no]) && arm64HoldsImm12(k as FullRangeInt) and sel.fuses(fn, r: c) => (CmpRegImm x [k]) (BCond [negated(swapped(condOf(sel, fn: fn, r: c)))] [no]) (B [yes])
+function arm64Rule275(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -5249,7 +5267,7 @@ function arm64Rule274(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	if not (arm64HoldsImm12(vK as FullRangeInt) and sel.fuses(fn, r: vC)) 'm3'
 		return false
 	end 'm3'
-	let i5 = try (vK) as Arm64Imm12 otherwise panic("backend: a value of arm64.rules:274 does not fit Arm64Imm12")
+	let i5 = try (vK) as Arm64Imm12 otherwise panic("backend: a value of arm64.rules:275 does not fit Arm64Imm12")
 	var mi6 = newArm64Target(Arm64Form.cmpRegImm, a: vregOf(vX), b: noMReg, c: noMReg, aux: 0, imm: i5 as FullRangeInt)
 	sel.emit(mi6)
 	let r7 = sel.edgeTo(fn, target: vNo, start: ir.branchFalseArgsStart(ins), count: ir.branchFalseArgsCount(ins))
@@ -5264,10 +5282,10 @@ function arm64Rule274(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	mi10.aux = r9.aux
 	sel.emit(mi10)
 	return true
-end 'arm64Rule274'
+end 'arm64Rule275'
 
-// arm64.rules:276: (branch c:(cmp x (const [k])) [yes] [no]) && arm64HoldsNegatedImm12(k as FullRangeInt) and sel.fuses(fn, r: c) => (CmnRegImm x [-k]) (BCond [negated(condOf(sel, fn: fn, r: c))] [no]) (B [yes])
-function arm64Rule276(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// arm64.rules:277: (branch c:(cmp x (const [k])) [yes] [no]) && arm64HoldsNegatedImm12(k as FullRangeInt) and sel.fuses(fn, r: c) => (CmnRegImm x [-k]) (BCond [negated(condOf(sel, fn: fn, r: c))] [no]) (B [yes])
+function arm64Rule277(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -5286,7 +5304,7 @@ function arm64Rule276(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	if not (arm64HoldsNegatedImm12(vK as FullRangeInt) and sel.fuses(fn, r: vC)) 'm3'
 		return false
 	end 'm3'
-	let i5 = try (-vK) as Arm64Imm12 otherwise panic("backend: a value of arm64.rules:276 does not fit Arm64Imm12")
+	let i5 = try (-vK) as Arm64Imm12 otherwise panic("backend: a value of arm64.rules:277 does not fit Arm64Imm12")
 	var mi6 = newArm64Target(Arm64Form.cmnRegImm, a: vregOf(vX), b: noMReg, c: noMReg, aux: 0, imm: i5 as FullRangeInt)
 	sel.emit(mi6)
 	let r7 = sel.edgeTo(fn, target: vNo, start: ir.branchFalseArgsStart(ins), count: ir.branchFalseArgsCount(ins))
@@ -5301,10 +5319,10 @@ function arm64Rule276(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	mi10.aux = r9.aux
 	sel.emit(mi10)
 	return true
-end 'arm64Rule276'
+end 'arm64Rule277'
 
-// arm64.rules:278: (branch c:(cmp (const [k]) x) [yes] [no]) && arm64HoldsNegatedImm12(k as FullRangeInt) and sel.fuses(fn, r: c) => (CmnRegImm x [-k]) (BCond [negated(swapped(condOf(sel, fn: fn, r: c)))] [no]) (B [yes])
-function arm64Rule278(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// arm64.rules:279: (branch c:(cmp (const [k]) x) [yes] [no]) && arm64HoldsNegatedImm12(k as FullRangeInt) and sel.fuses(fn, r: c) => (CmnRegImm x [-k]) (BCond [negated(swapped(condOf(sel, fn: fn, r: c)))] [no]) (B [yes])
+function arm64Rule279(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -5323,7 +5341,7 @@ function arm64Rule278(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	if not (arm64HoldsNegatedImm12(vK as FullRangeInt) and sel.fuses(fn, r: vC)) 'm3'
 		return false
 	end 'm3'
-	let i5 = try (-vK) as Arm64Imm12 otherwise panic("backend: a value of arm64.rules:278 does not fit Arm64Imm12")
+	let i5 = try (-vK) as Arm64Imm12 otherwise panic("backend: a value of arm64.rules:279 does not fit Arm64Imm12")
 	var mi6 = newArm64Target(Arm64Form.cmnRegImm, a: vregOf(vX), b: noMReg, c: noMReg, aux: 0, imm: i5 as FullRangeInt)
 	sel.emit(mi6)
 	let r7 = sel.edgeTo(fn, target: vNo, start: ir.branchFalseArgsStart(ins), count: ir.branchFalseArgsCount(ins))
@@ -5338,10 +5356,10 @@ function arm64Rule278(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	mi10.aux = r9.aux
 	sel.emit(mi10)
 	return true
-end 'arm64Rule278'
+end 'arm64Rule279'
 
-// arm64.rules:280: (branch c:(cmp x y) [yes] [no]) && sel.fuses(fn, r: c) => (CmpRegReg x y) (BCond [negated(condOf(sel, fn: fn, r: c))] [no]) (B [yes])
-function arm64Rule280(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// arm64.rules:281: (branch c:(cmp x y) [yes] [no]) && sel.fuses(fn, r: c) => (CmpRegReg x y) (BCond [negated(condOf(sel, fn: fn, r: c))] [no]) (B [yes])
+function arm64Rule281(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -5369,10 +5387,10 @@ function arm64Rule280(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	mi7.aux = r6.aux
 	sel.emit(mi7)
 	return true
-end 'arm64Rule280'
+end 'arm64Rule281'
 
-// arm64.rules:283: (branch c:(fCmp.eq x y) [yes] [no]) && sel.fuses(fn, r: c) => (Fcmp x y) (BCond [MCond.notEqual] [no]) (B [yes])
-function arm64Rule283(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// arm64.rules:284: (branch c:(fCmp.eq x y) [yes] [no]) && sel.fuses(fn, r: c) => (Fcmp x y) (BCond [MCond.notEqual] [no]) (B [yes])
+function arm64Rule284(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opFCmp) 'm1'
@@ -5403,10 +5421,10 @@ function arm64Rule283(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	mi7.aux = r6.aux
 	sel.emit(mi7)
 	return true
-end 'arm64Rule283'
+end 'arm64Rule284'
 
-// arm64.rules:284: (branch c:(fCmp.ne x y) [yes] [no]) && sel.fuses(fn, r: c) => (Fcmp x y) (BCond [MCond.equal] [no]) (B [yes])
-function arm64Rule284(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// arm64.rules:285: (branch c:(fCmp.ne x y) [yes] [no]) && sel.fuses(fn, r: c) => (Fcmp x y) (BCond [MCond.equal] [no]) (B [yes])
+function arm64Rule285(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opFCmp) 'm1'
@@ -5437,10 +5455,10 @@ function arm64Rule284(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	mi7.aux = r6.aux
 	sel.emit(mi7)
 	return true
-end 'arm64Rule284'
+end 'arm64Rule285'
 
-// arm64.rules:285: (branch c:(fCmp.lt x y) [yes] [no]) && sel.fuses(fn, r: c) => (Fcmp x y) (BCond [MCond.aboveEqual] [no]) (B [yes])
-function arm64Rule285(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// arm64.rules:286: (branch c:(fCmp.lt x y) [yes] [no]) && sel.fuses(fn, r: c) => (Fcmp x y) (BCond [MCond.aboveEqual] [no]) (B [yes])
+function arm64Rule286(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opFCmp) 'm1'
@@ -5471,10 +5489,10 @@ function arm64Rule285(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	mi7.aux = r6.aux
 	sel.emit(mi7)
 	return true
-end 'arm64Rule285'
+end 'arm64Rule286'
 
-// arm64.rules:286: (branch c:(fCmp.le x y) [yes] [no]) && sel.fuses(fn, r: c) => (Fcmp x y) (BCond [MCond.above] [no]) (B [yes])
-function arm64Rule286(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// arm64.rules:287: (branch c:(fCmp.le x y) [yes] [no]) && sel.fuses(fn, r: c) => (Fcmp x y) (BCond [MCond.above] [no]) (B [yes])
+function arm64Rule287(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opFCmp) 'm1'
@@ -5505,10 +5523,10 @@ function arm64Rule286(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	mi7.aux = r6.aux
 	sel.emit(mi7)
 	return true
-end 'arm64Rule286'
+end 'arm64Rule287'
 
-// arm64.rules:287: (branch c:(fCmp.gt x y) [yes] [no]) && sel.fuses(fn, r: c) => (Fcmp x y) (BCond [MCond.lessEqual] [no]) (B [yes])
-function arm64Rule287(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// arm64.rules:288: (branch c:(fCmp.gt x y) [yes] [no]) && sel.fuses(fn, r: c) => (Fcmp x y) (BCond [MCond.lessEqual] [no]) (B [yes])
+function arm64Rule288(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opFCmp) 'm1'
@@ -5539,10 +5557,10 @@ function arm64Rule287(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	mi7.aux = r6.aux
 	sel.emit(mi7)
 	return true
-end 'arm64Rule287'
+end 'arm64Rule288'
 
-// arm64.rules:288: (branch c:(fCmp.ge x y) [yes] [no]) && sel.fuses(fn, r: c) => (Fcmp x y) (BCond [MCond.less] [no]) (B [yes])
-function arm64Rule288(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// arm64.rules:289: (branch c:(fCmp.ge x y) [yes] [no]) && sel.fuses(fn, r: c) => (Fcmp x y) (BCond [MCond.less] [no]) (B [yes])
+function arm64Rule289(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opFCmp) 'm1'
@@ -5573,10 +5591,10 @@ function arm64Rule288(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	mi7.aux = r6.aux
 	sel.emit(mi7)
 	return true
-end 'arm64Rule288'
+end 'arm64Rule289'
 
-// arm64.rules:289: (branch c [yes] [no]) => (Cbz c [no]) (B [yes])
-function arm64Rule289(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// arm64.rules:290: (branch c [yes] [no]) => (Cbz c [no]) (B [yes])
+function arm64Rule290(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let vC = ir.branchCond(ins)
 	let vYes = ir.branchIfTrue(ins)
 	let vNo = ir.branchIfFalse(ins)
@@ -5591,30 +5609,30 @@ function arm64Rule289(mutates sel Selector, fn ir.IrFunction, ins ir.Term) retur
 	mi4.aux = r3.aux
 	sel.emit(mi4)
 	return true
-end 'arm64Rule289'
-
-// arm64.rules:290: (switch) => (emitSwitch)
-function arm64Rule290(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
-	emitSwitch(sel, fn: fn, ins: ins)
-	return true
 end 'arm64Rule290'
 
-// arm64.rules:291: (ret) => (emitRet)
+// arm64.rules:291: (switch) => (emitSwitch)
 function arm64Rule291(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
-	emitRet(sel, fn: fn, ins: ins)
+	emitSwitch(sel, fn: fn, ins: ins)
 	return true
 end 'arm64Rule291'
 
-// arm64.rules:292: (throw) => (emitThrow)
+// arm64.rules:292: (ret) => (emitRet)
 function arm64Rule292(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
-	emitThrow(sel, fn: fn, ins: ins)
+	emitRet(sel, fn: fn, ins: ins)
 	return true
 end 'arm64Rule292'
 
-// arm64.rules:293: (trap) => (Brk [0])
+// arm64.rules:293: (throw) => (emitThrow)
 function arm64Rule293(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+	emitThrow(sel, fn: fn, ins: ins)
+	return true
+end 'arm64Rule293'
+
+// arm64.rules:294: (trap) => (Brk [0])
+function arm64Rule294(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let i1 = 0
 	var mi2 = newArm64Target(Arm64Form.brk, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: i1 as FullRangeInt)
 	sel.emit(mi2)
 	return true
-end 'arm64Rule293'
+end 'arm64Rule294'

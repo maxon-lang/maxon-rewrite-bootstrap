@@ -302,6 +302,8 @@ var ops = []op{
 		Text: "callhost({Args})"},
 	{Name: "CodeAddress", Eval: noEval, Doc: "CodeAddress gives the address of the code of the function Callee, which a CallCode calls: the run of a\n// behaviour's record that a test of the runtime builds by hand.",
 		Result: valueResult, Operands: []operand{{Name: "Callee", Kind: kCallee, Field: fC}}, Text: "codeaddr {Callee}"},
+	{Name: "BodyAddress", Eval: noEval, Doc: "BodyAddress gives the address of the code of the body Body, which the runtime calls: the chunk of a parallel\n// loop and the drop of its errors.",
+		Result: valueResult, Operands: []operand{{Name: "Body", Kind: kBody, Field: fImm}}, Text: "bodyaddr {Body}"},
 	{Name: "Bin", Eval: byCase("Op", overWords), Doc: "Bin is Left Op Right; when Checked, it goes to Fail when the result does not fit, which for a\n// signed '/' is i64.min / -1. MulHi is the high word of the 128-bit product, which a division by a constant is\n// made of, and always fits.",
 		Result:   valueResult,
 		Operands: []operand{{Name: "Op", Kind: kEnum, Field: fSub, Enum: "BinOp"}, reg("Left", fA), reg("Right", fB), unsignOp, checkedOp},

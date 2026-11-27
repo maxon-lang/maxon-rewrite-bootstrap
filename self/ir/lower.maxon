@@ -706,6 +706,10 @@ function storeAtPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 end 'storeAtPlace'
 
 function visitForStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
+	if ast.forStmtIsParallel(p.modules[l.mi].tree, id: s) 'parallel'
+		visitParallelFor(l, p: p, ms: ms, s: s)
+		return
+	end 'parallel'
 	if not ast.forStmtIsRange(p.modules[l.mi].tree, id: s) and p.typings[l.mi].iterations.has(s as Count) 'cursor'
 		visitForCursor(l, p: p, ms: ms, s: s)
 		return
@@ -859,10 +863,6 @@ function visitForEach(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 		ownLocal(l, p: p, ms: ms, slot: slotOf(sym), t: element)
 	end 'pass'
 	let walksSlots = not drains and ast.isPromiseType(ms.types, reads: p.types, t: element)
-	let walksParallel = ast.forStmtIsParallel(p.modules[l.mi].tree, id: s)
-	if walksParallel 'parallel'
-		l.parallelSlots.push(SlotLoop.make(localOfNode(p, module: l.module, node: s), held: held, index: index, box: box.clone()))
-	end 'parallel'
 	if walksSlots 'slots'
 		l.slotLoops.push(SlotLoop.make(localOfNode(p, module: l.module, node: s), held: held, index: index, box: box.clone()))
 	end 'slots'
@@ -870,9 +870,6 @@ function visitForEach(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	if walksSlots 'slotsEnd'
 		_ = try l.slotLoops.pop() otherwise panic("lower: a for over slots ended that was never begun")
 	end 'slotsEnd'
-	if walksParallel 'parallelEnd'
-		_ = try l.parallelSlots.pop() otherwise panic("lower: a parallel for ended that was never begun")
-	end 'parallelEnd'
 	if drains 'passEnds'
 		popScope(l, p: p, ms: ms)
 	end 'passEnds'

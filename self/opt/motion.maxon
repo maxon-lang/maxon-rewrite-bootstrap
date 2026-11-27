@@ -67,6 +67,7 @@ export function motionOf(x ir.Instr) returns Motion
 		opSlotAddr or
 		opGlobalAddr or
 		opCodeAddress gives Motion.constant
+		opBodyAddress gives Motion.constant
 		opLoadParam or
 		opFieldAddr or
 		opCmp or

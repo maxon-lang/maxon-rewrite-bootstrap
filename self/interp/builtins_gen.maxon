@@ -251,6 +251,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		entryYield(vm, f: f, x: x)
 		return
 	end 'rtYield'
+	if symbol == ir.Rt.rtParallelRun 'rtParallelRun'
+		try entryParallelRun(vm, f: f, x: x)
+		return
+	end 'rtParallelRun'
 	if symbol == ir.Rt.rtSchedPin 'rtSchedPin'
 		entrySchedPin(vm, f: f, x: x)
 		return

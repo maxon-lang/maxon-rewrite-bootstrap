@@ -236,6 +236,7 @@
 (async) => (emitAsync)
 (closure) => (emitClosure)
 (funcValue) => (emitFuncValue)
+(bodyAddress) => (emitBodyAddress)
 (box) => (emitBox)
 (frameBox) => (emitFrameBox)
 (frameArea) => (emitFrameArea)

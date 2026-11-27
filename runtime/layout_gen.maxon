@@ -126,7 +126,7 @@ let partRunOffset = 8 as Count
 // partJobOffset is where a part of a parallel loop holds the address of its job.
 let partJobOffset = 16 as Count
 
-// partEnvOffset is where a part of a parallel loop holds the word that the chunk code is given with each chunk: the closure of the loop's body.
+// partEnvOffset is where a part of a parallel loop holds the word that the chunk code is given with each chunk: the address of the environment of the loop's body.
 let partEnvOffset = 24 as Count
 
 // partLowOffset is where a part of a parallel loop holds the first index of the chunk it runs, counted from 0.

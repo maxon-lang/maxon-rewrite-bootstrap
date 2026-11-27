@@ -61,7 +61,7 @@ let schedulerUsed = "used"
 let schedulerUnused = "none"
 
 // The words of which every program that runs the scheduler has one in one of its files: a behaviour's when, a coroutine's
-// async, a sleep, and the Scheduler's yield. A run of the behaviours alone compiles only the programs that have one, and
+// async, a sleep, the Scheduler's yield, and a parallel loop. A run of the behaviours alone compiles only the programs that have one, and
 // the link then says which of them run the scheduler.
 let whenWord = "when"
 
@@ -70,6 +70,8 @@ let asyncWord = "async"
 let sleepWord = "sleep"
 
 let schedulerWord = "Scheduler"
+
+let parallelWord = "parallel"
 
 // A file of this extension is a case of the fix command: a program that, fixed, must check clean and be the text of the
 // file beside it with the other extension.
@@ -378,7 +380,7 @@ end 'applyDirective'
 
 // mentionsConcurrency is whether a line has a word that every program that runs the scheduler has.
 function mentionsConcurrency(line String) returns bool
-	return findText(line, needle: whenWord).isSome() or findText(line, needle: asyncWord).isSome() or findText(line, needle: sleepWord).isSome() or findText(line, needle: schedulerWord).isSome()
+	return findText(line, needle: whenWord).isSome() or findText(line, needle: asyncWord).isSome() or findText(line, needle: sleepWord).isSome() or findText(line, needle: schedulerWord).isSome() or findText(line, needle: parallelWord).isSome()
 end 'mentionsConcurrency'
 
 // readExpectation reads the directives of a program, a file or a project's directory, whose files are read in order.

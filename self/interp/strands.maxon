@@ -34,14 +34,17 @@ end 'holdsTurn'
 // sameStrand is whether two threads reach the same data without a race: they are one thread, or members of one strand,
 // which never run at once.
 function sameStrand(vm Vm, a Count, b Count) returns bool
-	return a == b or (vm.threads[a].strand != 0 and vm.threads[a].strand == vm.threads[b].strand)
+	let x = forkRoot(vm, t: a)
+	let y = forkRoot(vm, t: b)
+	return x == y or (vm.threads[x].strand != 0 and vm.threads[x].strand == vm.threads[y].strand)
 end 'sameStrand'
 
 // behaviourOf is the behaviour whose cowns a thread may touch: its own, or its strand's root's for a coroutine.
 function behaviourOf(vm Vm, t Count) returns Count
-	let s = vm.threads[t].strand
+	let root = forkRoot(vm, t: t)
+	let s = vm.threads[root].strand
 	if s == 0 'alone'
-		return vm.threads[t].behaviour
+		return vm.threads[root].behaviour
 	end 'alone'
 	return vm.threads[vm.strands.root[s]].behaviour
 end 'behaviourOf'

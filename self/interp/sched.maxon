@@ -363,6 +363,10 @@ end 'restoreThread'
 // then what was captured.
 function beginFrame(mutates vm Vm, t Count) throws Halt
 	vm.threads[t].begun = true
+	if vm.threads[t].job != 0 'worker'
+		try beginWorker(vm, t: t)
+		return
+	end 'worker'
 	let row = vm.threads[t].promise
 	if row != 0 'coroutine'
 		try beginCoroutine(vm, t: t, row: row)
@@ -391,6 +395,12 @@ end 'beginFrame'
 // its function gave for its promise, which it finishes once the drops it made are done, which it may wait for.
 function endThread(mutates vm Vm) returns bool
 	let t = vm.cur
+	if vm.threads[t].job != 0 and not vm.threads[t].finished 'worker'
+		let goesOn = try workerGoesOn(vm, t: t) otherwise return false
+		if goesOn 'next'
+			return true
+		end 'next'
+	end 'worker'
 	if not vm.threads[t].finished 'last'
 		vm.threads[t].finished = true
 		let row = vm.threads[t].promise

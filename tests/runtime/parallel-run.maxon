@@ -88,7 +88,7 @@ function testSquares()
 		for i in 0 upto testCount 'clear'
 			__Raw.storeWord(out, offset: testAt(i), value: 0)
 		end 'clear'
-		if parallelRun(__Raw.codeAddress("squareChunk"), env: env, count: testCount, drop: noDrop) != noError 'failed'
+		if testRun(__Raw.codeAddress("squareChunk"), env: env, count: testCount, drop: noDrop) != noError 'failed'
 			panic("a loop of squares failed")
 		end 'failed'
 		if testSum(env, count: testCount) != 333328333350000 'sum'
@@ -139,7 +139,7 @@ function testFailures()
 	for loop in 0 upto testLoops 'loops'
 		__Raw.storeWord(env, offset: envRanFailsOffset, value: 0)
 		__Raw.storeWord(env, offset: envDropsOffset, value: 0)
-		let word = parallelRun(__Raw.codeAddress("squareChunk"), env: env, count: testCount, drop: __Raw.codeAddress("testDropError"))
+		let word = testRun(__Raw.codeAddress("squareChunk"), env: env, count: testCount, drop: __Raw.codeAddress("testDropError"))
 		if word == noError or __Raw.loadWord(word, offset: errorIndexOffset) != 1234 'lowest'
 			panic("a loop gave another error than its lowest index's")
 		end 'lowest'
@@ -158,7 +158,7 @@ function outerChunk(part Count) returns Count
 	let out = __Raw.loadWord(env, offset: envOutOffset)
 	for i in __Raw.loadWord(part, offset: partLowOffset) upto __Raw.loadWord(part, offset: partHighOffset) 'indices'
 		let inner = testEnv(nestedInner)
-		if parallelRun(__Raw.codeAddress("indexChunk"), env: inner, count: nestedInner, drop: noDrop) != noError 'failed'
+		if testRun(__Raw.codeAddress("indexChunk"), env: inner, count: nestedInner, drop: noDrop) != noError 'failed'
 			panic("an inner loop failed")
 		end 'failed'
 		__Raw.storeWord(out, offset: testAt(i), value: testSum(inner, count: nestedInner))
@@ -179,7 +179,7 @@ end 'indexChunk'
 
 function testNested()
 	let env = testEnv(nestedOuter)
-	if parallelRun(__Raw.codeAddress("outerChunk"), env: env, count: nestedOuter, drop: noDrop) != noError 'failed'
+	if testRun(__Raw.codeAddress("outerChunk"), env: env, count: nestedOuter, drop: noDrop) != noError 'failed'
 		panic("the outer loop failed")
 	end 'failed'
 	testWrite("nested: {nestedOuter} by {nestedInner}, sum {testSum(env, count: nestedOuter)}\n")
@@ -203,7 +203,7 @@ end 'parkChunk'
 
 function testParking()
 	let env = testEnv(64)
-	if parallelRun(__Raw.codeAddress("parkChunk"), env: env, count: 64, drop: noDrop) != noError 'failed'
+	if testRun(__Raw.codeAddress("parkChunk"), env: env, count: 64, drop: noDrop) != noError 'failed'
 		panic("the parking loop failed")
 	end 'failed'
 	testWrite("parking: {testSum(env, count: 64)} bodies, {__Raw.loadWord(env, offset: envSleptOffset)} slept\n")
@@ -213,14 +213,22 @@ end 'testParking'
 function testEdges()
 	let env = testEnv(1)
 	__Raw.storeWord(__Raw.loadWord(env, offset: envOutOffset), offset: 0, value: 0)
-	let none = parallelRun(__Raw.codeAddress("indexChunk"), env: env, count: 0, drop: noDrop)
-	if parallelRun(__Raw.codeAddress("squareChunk"), env: env, count: 1, drop: noDrop) != noError 'failed'
+	let none = testRun(__Raw.codeAddress("indexChunk"), env: env, count: 0, drop: noDrop)
+	if testRun(__Raw.codeAddress("squareChunk"), env: env, count: 1, drop: noDrop) != noError 'failed'
 		panic("the loop of one index failed")
 	end 'failed'
 	__Raw.storeWord(__Raw.loadWord(env, offset: envOutOffset), offset: 0, value: 1)
 	testWrite("empty: {none}, one: {testSum(env, count: 1)}\n")
 	testFreeEnv(env)
 end 'testEdges'
+
+// testRun is a parallel loop with a part area of its own for the caller, as the compiler gives each loop in its frame.
+function testRun(chunk Count, env Count, count Count, drop Count) returns Count
+	let part = alloc(partBytes)
+	let word = parallelRun(chunk, env: env, count: count, drop: drop, part: part)
+	free(part)
+	return word
+end 'testRun'
 
 function testWrite(text String)
 	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)

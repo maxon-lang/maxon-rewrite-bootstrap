@@ -57,6 +57,7 @@ export enum Opcode
 	opCallCode
 	opCallHost
 	opCodeAddress
+	opBodyAddress
 	opBin
 	opCmp
 	opFBin
@@ -732,6 +733,9 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opCodeAddress 'opCodeAddress'
 		return 0
 	end 'opCodeAddress'
+	if op == Opcode.opBodyAddress 'opBodyAddress'
+		return 0
+	end 'opBodyAddress'
 	if op == Opcode.opBin 'opBin'
 		return 64
 	end 'opBin'
@@ -1196,6 +1200,15 @@ export function newCodeAddress(dst Reg, callee Index) returns Instr
 	r.c = callee
 	return r
 end 'newCodeAddress'
+
+// BodyAddress gives the address of the code of the body Body, which the runtime calls: the chunk of a parallel
+// loop and the drop of its errors.
+export function newBodyAddress(dst Reg, body Count) returns Instr
+	var r = Instr.make(Opcode.opBodyAddress)
+	r.dst = dst
+	r.imm = try body as Word otherwise panic("ir: bodyAddress body is out of range")
+	return r
+end 'newBodyAddress'
 
 // Bin is Left Op Right; when Checked, it goes to Fail when the result does not fit, which for a
 // signed '/' is i64.min / -1. MulHi is the high word of the 128-bit product, which a division by a constant is
@@ -1824,6 +1837,9 @@ export function opcodeName(op Opcode) returns String
 	if op == Opcode.opCodeAddress 'opCodeAddress'
 		return "CodeAddress"
 	end 'opCodeAddress'
+	if op == Opcode.opBodyAddress 'opBodyAddress'
+		return "BodyAddress"
+	end 'opBodyAddress'
 	if op == Opcode.opBin 'opBin'
 		return "Bin"
 	end 'opBin'
@@ -2355,6 +2371,13 @@ export function codeAddressCallee(f IrFunction, x Instr) returns ast.FuncID
 	end 'op'
 	return f.calleeAt(x.c)
 end 'codeAddressCallee'
+
+export function bodyAddressBody(f IrFunction, x Instr) returns Count
+	if x.op != Opcode.opBodyAddress 'op'
+		wrongInstr("bodyAddressBody", found: x.op)
+	end 'op'
+	return try x.imm as Count otherwise panic("ir: bodyAddress body is out of range")
+end 'bodyAddressBody'
 
 export function binOp(x Instr) returns BinOp
 	if x.op != Opcode.opBin 'op'
@@ -3392,6 +3415,9 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opCodeAddress 'opCodeAddress'
 		return table.Option.some(x.dst)
 	end 'opCodeAddress'
+	if x.op == Opcode.opBodyAddress 'opBodyAddress'
+		return table.Option.some(x.dst)
+	end 'opBodyAddress'
 	if x.op == Opcode.opBin 'opBin'
 		return table.Option.some(x.dst)
 	end 'opBin'
@@ -3631,6 +3657,9 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opCodeAddress 'opCodeAddress'
 		return table.Option.none
 	end 'opCodeAddress'
+	if x.op == Opcode.opBodyAddress 'opBodyAddress'
+		return table.Option.none
+	end 'opBodyAddress'
 	if x.op == Opcode.opBin 'opBin'
 		return binFail(x)
 	end 'opBin'
@@ -3797,6 +3826,7 @@ export function instrCanFail(x Instr) returns bool
 		opCallCode gives false
 		opCallHost gives false
 		opCodeAddress gives false
+		opBodyAddress gives false
 		opBin gives binHasFail(x)
 		opCmp gives false
 		opFBin gives false
@@ -3961,6 +3991,9 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 	if x.op == Opcode.opCodeAddress 'opCodeAddress'
 		return
 	end 'opCodeAddress'
+	if x.op == Opcode.opBodyAddress 'opBodyAddress'
+		return
+	end 'opBodyAddress'
 	if x.op == Opcode.opBin 'opBin'
 		out.push(binLeft(x))
 		out.push(binRight(x))
@@ -4292,6 +4325,10 @@ export function instrWrites(x Instr, mutates out RegList)
 		out.push(x.dst)
 		return
 	end 'opCodeAddress'
+	if x.op == Opcode.opBodyAddress 'opBodyAddress'
+		out.push(x.dst)
+		return
+	end 'opBodyAddress'
 	if x.op == Opcode.opBin 'opBin'
 		out.push(x.dst)
 		return
@@ -4596,6 +4633,9 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 	if x.op == Opcode.opCodeAddress 'opCodeAddress'
 		return
 	end 'opCodeAddress'
+	if x.op == Opcode.opBodyAddress 'opBodyAddress'
+		return
+	end 'opBodyAddress'
 	if x.op == Opcode.opBin 'opBin'
 		x.a = renamedReg(names, r: x.a)
 		x.b = renamedReg(names, r: x.b)
@@ -4986,6 +5026,11 @@ export function relocateInstr(mutates x Instr, at Relocation)
 		x.c = shiftedIndex(x.c, by: at.callees)
 		return
 	end 'opCodeAddress'
+	if x.op == Opcode.opBodyAddress 'opBodyAddress'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.imm = shiftedWord(x.imm, by: at.bodies)
+		return
+	end 'opBodyAddress'
 	if x.op == Opcode.opBin 'opBin'
 		x.dst = renamedReg(at.names, r: x.dst)
 		x.a = renamedReg(at.names, r: x.a)
@@ -5318,6 +5363,7 @@ export interface InstrVisitor
 	function visitCallCode(mutates self, f IrFunction, x Instr)
 	function visitCallHost(mutates self, f IrFunction, x Instr)
 	function visitCodeAddress(mutates self, f IrFunction, x Instr)
+	function visitBodyAddress(mutates self, f IrFunction, x Instr)
 	function visitBin(mutates self, f IrFunction, x Instr)
 	function visitCmp(mutates self, f IrFunction, x Instr)
 	function visitFBin(mutates self, f IrFunction, x Instr)
@@ -5485,6 +5531,10 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitCodeAddress(f, x: x)
 		return
 	end 'opCodeAddress'
+	if x.op == Opcode.opBodyAddress 'opBodyAddress'
+		visitor.visitBodyAddress(f, x: x)
+		return
+	end 'opBodyAddress'
 	if x.op == Opcode.opBin 'opBin'
 		visitor.visitBin(f, x: x)
 		return
@@ -5807,6 +5857,9 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 	if x.op == Opcode.opCodeAddress 'opCodeAddress'
 		return "{resultText(x.dst)}codeaddr {funcSymbol(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, fid: codeAddressCallee(f, x: x))}"
 	end 'opCodeAddress'
+	if x.op == Opcode.opBodyAddress 'opBodyAddress'
+		return "{resultText(x.dst)}bodyaddr {f.bodyName(bodyAddressBody(f, x: x))}"
+	end 'opBodyAddress'
 	if x.op == Opcode.opBin 'opBin'
 		var text = "{resultText(x.dst)}{binOpText(binOp(x))}"
 		if binUnsigned(x) 'unsigned'
@@ -6051,6 +6104,7 @@ export function printedOpNames() returns ast.StringList
 	names.push("async")
 	names.push("atomicadd")
 	names.push("atomicxchg")
+	names.push("bodyaddr")
 	names.push("bounds")
 	names.push("box")
 	names.push("branch")

@@ -124,6 +124,12 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		panic("interp: codeaddr is the runtime source's, which the interpreter never runs")
 	end 'visitCodeAddress'
 
+	// visitBodyAddress gives the function of a body, which rt.parallelRun runs for each chunk of its loop.
+	function visitBodyAddress(mutates self, f ir.IrFunction, x ir.Instr)
+		let body = vm.prog.fnChildren[vm.curFn][ir.bodyAddressBody(f, x: x)]
+		vm.setNum(x.dst, n: try body as ir.Word otherwise panic("interp: a function past a word"))
+	end 'visitBodyAddress'
+
 	function visitCallCode(mutates self, f ir.IrFunction, x ir.Instr)
 		panic("interp: callcode is the runtime source's, which the interpreter never runs")
 	end 'visitCallCode'

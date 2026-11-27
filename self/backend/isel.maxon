@@ -1169,6 +1169,13 @@ function emitFuncValue(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.closureBox(vregOf(ins.dst), code: code, drop: "", captures: 0)
 end 'emitFuncValue'
 
+// emitBodyAddress gives the address of the code of a body of the function, which the runtime calls by the internal
+// convention: a parallel loop's chunk and the drop of its errors.
+function emitBodyAddress(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let code = sel.address(bodySymbol(sel.fnSymbol, index: ir.bodyAddressBody(fn, x: ins)))
+	sel.copy(vregOf(ins.dst), src: code)
+end 'emitBodyAddress'
+
 // emitBox makes an interface value: a box on the heap of the address of the table and the value.
 function emitBox(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let box = vregOf(ins.dst)

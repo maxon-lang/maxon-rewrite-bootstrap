@@ -194,6 +194,22 @@ end 'SlotLoop'
 
 export typealias SlotLoopList = Array with SlotLoop
 
+// ChunkState is what the lowering of a parallel loop's chunk keeps (parallel.maxon): whether the function being lowered is a
+// chunk; for each parameter of the function around the loop that the body reads, the chunk's slot that holds it, or noSlot;
+// and the slot that holds the error a failure in the body gives, with the type that drops it (noType for a word) and its
+// bias, or noSlot while nothing in the body can fail.
+export type ChunkState
+	export var active as bool
+	export var paramSlots as Array with Index
+	export var errorSlot as Index
+	export var errorDrop as ast.TypeID
+	export var errorBias as Word
+
+	export static function none() returns ChunkState
+		return ChunkState{active: false, paramSlots: Array.create(0), errorSlot: noSlot, errorDrop: ast.noType, errorBias: 0}
+	end 'none'
+end 'ChunkState'
+
 // Lowerer lowers one function at a time into the IR a builder makes. It reads what the check pass found out about every
 // module's bodies: a body that lowering reaches may be another module's (an instance of its generic, a constant, a
 // field's default), so a node is looked up in the typing of the module it is in, which module names.
@@ -253,9 +269,11 @@ export type Lowerer
 	// resultWords is how many words the result of the function takes where it writes it to the area its caller passes as its
 	// last parameter, and 0 otherwise (resultWords).
 	export var resultWords as Count
+	// chunk is the state of the lowering of a parallel loop's chunk, inactive for any other function.
+	export var chunk as ChunkState
 
 	export static function new(consumes instances InstanceSet) returns Lowerer
-		return Lowerer{module: 0 as diag.ModuleID, mi: 0 as Count, fnModule: 0 as diag.ModuleID, fn: ast.noFunc, origin: ast.noFunc, b: Builder.new(), instances: instances, bindParams: ast.TypeIDList.create(0), bindArgs: ast.TypeIDList.create(0), bindWitnesses: ast.WitnessList.create(0), jumps: JumpFrameList.create(0), cur: 0 as BlockID, scopes: ScopeList.create(0), ownerSlots: OwnerSlotList.create(0), selfOwner: noSlot, lentElements: 0, args: RegList.create(0), handlers: HandlerList.create(0), pending: PendingList.create(0), operators: OperatorFrameList.create(0), writeBacks: WriteBackList.create(0), slotLoops: SlotLoopList.create(0), parallelSlots: SlotLoopList.create(0), slotWords: Array.create(0), slotAreas: Array.create(0), resultWords: 0}
+		return Lowerer{module: 0 as diag.ModuleID, mi: 0 as Count, fnModule: 0 as diag.ModuleID, fn: ast.noFunc, origin: ast.noFunc, b: Builder.new(), instances: instances, bindParams: ast.TypeIDList.create(0), bindArgs: ast.TypeIDList.create(0), bindWitnesses: ast.WitnessList.create(0), jumps: JumpFrameList.create(0), cur: 0 as BlockID, scopes: ScopeList.create(0), ownerSlots: OwnerSlotList.create(0), selfOwner: noSlot, lentElements: 0, args: RegList.create(0), handlers: HandlerList.create(0), pending: PendingList.create(0), operators: OperatorFrameList.create(0), writeBacks: WriteBackList.create(0), slotLoops: SlotLoopList.create(0), parallelSlots: SlotLoopList.create(0), slotWords: Array.create(0), slotAreas: Array.create(0), resultWords: 0, chunk: ChunkState.none()}
 	end 'new'
 end 'Lowerer'
 
@@ -375,6 +393,9 @@ export function strReg(mutates l Lowerer, value String) returns Reg
 end 'strReg'
 
 export function paramReg(mutates l Lowerer, index Count, kind IrKind) returns Reg
+	if l.chunk.active 'chunk'
+		return chunkParam(l, index: index, kind: kind)
+	end 'chunk'
 	let d = newReg(l, kind: kind)
 	emit(l, i: newLoadParam(d, param: index))
 	return d
