@@ -1,7 +1,15 @@
-// Timers: the sleeping green threads, on one heap under the scheduler's lock, ordered by when each wakes (greenWhenOffset),
-// as maxon's runtime keeps its timer store under __sched_lock. A thread that looks for work runs the timers that are due
+// Timers: the sleeping green threads, on one heap under the timers' lock (schedTimersLockOffset), ordered by when each is
+// due, as maxon's runtime keeps its timer store under __sched_lock. A thread that looks for work runs the timers that are due
 // (findRunnable), and a thread with nothing to run waits in the event queue until the earliest (waitInEventQueue), which a new
 // earlier timer breaks the wait of, as Go's wakeNetPoller does.
+//
+// The heap is Go's timers.heap: 4-ary (timerHeapN), of 16-byte slots {when, entry} (timerWhen), so a sift compares the
+// whens in the heap's own array and never loads an entry. An entry is a green thread, which keeps its index in the heap
+// (greenTimerIndexOffset) and its when (greenWhenOffset), which says whether it is on the heap.
+//
+// The timers' lock is a leaf but for the page heap's lock, which growTimers takes under it: no thread takes the scheduler's
+// lock while it holds the timers' lock, or the timers' lock while it holds the scheduler's. The scheduler's next timer
+// (schedTimerNextOffset) is written under the timers' lock and read without it.
 
 // noTimer is a green thread's wake while it is not on the heap, and the scheduler's next timer while there is none.
 let noTimer = 0 as Count
@@ -9,25 +17,49 @@ let noTimer = 0 as Count
 // timersFirstCapacity is the heap's first room, which doubles when full.
 let timersFirstCapacity = 64 as Count
 
+// timerSlotWhenOffset is where a slot of the heap holds when its timer is due, in nanoseconds.
+let timerSlotWhenOffset = 0 as Count
+
+// timerSlotEntryOffset is where a slot of the heap holds its entry, a green thread.
+let timerSlotEntryOffset = 8 as Count
+
+// timerSlotBytes is the size of a slot of the heap.
+let timerSlotBytes = 16 as Count
+
+// timerHeapShift is the log2 of how many children a slot of the heap has, 4 (Go's timerHeapN).
+let timerHeapShift = 2 as Count
+
+// timerHeapArity is how many children a slot of the heap has.
+let timerHeapArity = 4 as Count
+
+// lockTimers takes the timers' lock, which guards the heap (see above for its order).
+function lockTimers(scheduler Count)
+	spinLock(scheduler, offset: schedTimersLockOffset)
+end 'lockTimers'
+
+function unlockTimers(scheduler Count)
+	spinUnlock(scheduler, offset: schedTimersLockOffset)
+end 'unlockTimers'
+
 // greenSleep is Go's timeSleep: the running green thread parks until at least a number of nanoseconds have passed. A
 // cancelled coroutine's sleep ends at once, after a yield that lets its strand's other members run, as maxon's does. The
-// cancel is read under the lock that asyncCancel's expireSleep takes after it marks the coroutine, so a cancel either is
+// cancel is read under the timers' lock that asyncCancel's expireSleep takes after it marks the coroutine, so a cancel either is
 // seen here or finds the timer on the heap.
 function greenSleep(nanoseconds Count)
 	let context = __Raw.threadContext()
 	let g = greenCurrent()
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	let wake = try nanotime(context) + nanoseconds otherwise panic("a sleep past the end of the clock")
-	lockScheduler(scheduler)
+	lockTimers(scheduler)
 	if isCancelled(g) 'cancelled'
-		unlockScheduler(scheduler)
+		unlockTimers(scheduler)
 		greenYield()
 		return
 	end 'cancelled'
 	__Raw.storeWord(g, offset: greenWhenOffset, value: wake)
-	timerPush(scheduler, g: g)
+	timerPush(scheduler, due: wake, entry: g)
 	let earliest = __Raw.loadWord(scheduler, offset: schedTimerNextOffset) == wake
-	unlockScheduler(scheduler)
+	unlockTimers(scheduler)
 	if earliest 'earliest'
 		wakeEventQueue(scheduler, at: wake)
 	end 'earliest'
@@ -39,23 +71,23 @@ end 'greenSleep'
 
 // expireSleep makes the sleep of g, if it is on the timers' heap, due now, as Go's modtimer moves a timer earlier: the
 // timer rises to its place in the heap, and the next search for work readies g. g holds no timer otherwise. A green
-// thread is on the heap while its wake is set (greenWhenOffset), which only the lock's holder changes.
+// thread is on the heap while its wake is set (greenWhenOffset), which only the timers' lock's holder changes.
 function expireSleep(context Count, g Count)
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	if scheduler == noScheduler 'none'
 		return
 	end 'none'
 	let now = nanotime(context)
-	lockScheduler(scheduler)
+	lockTimers(scheduler)
 	let wake = __Raw.loadWord(g, offset: greenWhenOffset)
 	if wake == noTimer or wake <= now 'notSleeping'
-		unlockScheduler(scheduler)
+		unlockTimers(scheduler)
 		return
 	end 'notSleeping'
 	__Raw.storeWord(g, offset: greenWhenOffset, value: now)
-	timerSiftUp(scheduler, at: __Raw.loadWord(g, offset: greenTimerIndexOffset), g: g)
+	timerSiftUp(scheduler, at: __Raw.loadWord(g, offset: greenTimerIndexOffset), due: now, entry: g)
 	__Raw.storeRelease(scheduler, offset: schedTimerNextOffset, value: timerWhen(scheduler, index: 0))
-	unlockScheduler(scheduler)
+	unlockTimers(scheduler)
 	wakeEventQueue(scheduler, at: now)
 end 'expireSleep'
 
@@ -86,8 +118,8 @@ function runTimers(context Count, proc Count)
 		return
 	end 'notDue'
 	var due = noGreen
-	lockScheduler(scheduler)
-	while __Raw.loadWord(scheduler, offset: schedTimerCountOffset) > 0 and __Raw.loadWord(timerAt(scheduler, index: 0), offset: greenWhenOffset) <= now 'due'
+	lockTimers(scheduler)
+	while __Raw.loadWord(scheduler, offset: schedTimerCountOffset) > 0 and timerWhen(scheduler, index: 0) <= now 'due'
 		let g = timerPop(scheduler)
 		__Raw.storeWord(g, offset: greenWhenOffset, value: noTimer)
 		if not claimEventWake(g, claim: eventClaimedByDeadline) 'taken'
@@ -96,7 +128,7 @@ function runTimers(context Count, proc Count)
 		__Raw.storeWord(g, offset: greenLinkOffset, value: due)
 		due = g
 	end 'due'
-	unlockScheduler(scheduler)
+	unlockTimers(scheduler)
 	while due != noGreen 'ready'
 		let after = __Raw.loadWord(due, offset: greenLinkOffset)
 		ready(context, g: due)
@@ -104,49 +136,52 @@ function runTimers(context Count, proc Count)
 	end 'ready'
 end 'runTimers'
 
-// timerAt is the green thread at an index of the heap.
-function timerAt(scheduler Count, index Count) returns Count
-	return __Raw.loadWord(timerSlot(scheduler, index: index), offset: 0)
-end 'timerAt'
-
+// timerSlot is the address of the slot at an index of the heap.
 function timerSlot(scheduler Count, index Count) returns Count
-	return __Raw.wrappingAdd(__Raw.loadWord(scheduler, offset: schedTimersOffset), right: wordsBytes(index))
+	return __Raw.wrappingAdd(__Raw.loadWord(scheduler, offset: schedTimersOffset), right: slotsBytes(index))
 end 'timerSlot'
 
+// timerAt is the entry at an index of the heap.
+function timerAt(scheduler Count, index Count) returns Count
+	return __Raw.loadWord(timerSlot(scheduler, index: index), offset: timerSlotEntryOffset)
+end 'timerAt'
+
+// timerWhen is when the timer at an index of the heap is due.
 function timerWhen(scheduler Count, index Count) returns Count
-	return __Raw.loadWord(timerAt(scheduler, index: index), offset: greenWhenOffset)
+	return __Raw.loadWord(timerSlot(scheduler, index: index), offset: timerSlotWhenOffset)
 end 'timerWhen'
 
-// timerPush puts a green thread on the heap, under the lock, and keeps the scheduler's next timer.
-function timerPush(scheduler Count, g Count)
+// timerPush puts an entry due at due on the heap, under the timers' lock, and keeps the scheduler's next timer.
+function timerPush(scheduler Count, due Count, entry Count)
 	let count = __Raw.loadWord(scheduler, offset: schedTimerCountOffset)
 	if count == __Raw.loadWord(scheduler, offset: schedTimerCapacityOffset) 'full'
 		growTimers(scheduler, count: count)
 	end 'full'
 	__Raw.storeWord(scheduler, offset: schedTimerCountOffset, value: __Raw.wrappingAdd(count, right: 1))
-	timerSiftUp(scheduler, at: count, g: g)
+	timerSiftUp(scheduler, at: count, due: due, entry: entry)
 	__Raw.storeRelease(scheduler, offset: schedTimerNextOffset, value: timerWhen(scheduler, index: 0))
 end 'timerPush'
 
-// timerPop takes the earliest green thread off the heap, under the lock, and keeps the scheduler's next timer.
+// timerPop takes the earliest entry off the heap, under the timers' lock, and keeps the scheduler's next timer.
 function timerPop(scheduler Count) returns Count
 	let first = timerAt(scheduler, index: 0)
 	timerRemove(scheduler, g: first)
 	return first
 end 'timerPop'
 
-// timerRemove takes a green thread on the heap off it, from its index, under the lock, and keeps the scheduler's next
-// timer: the last of the heap takes its place, and rises or sinks from there.
+// timerRemove takes a green thread on the heap off it, from its index, under the timers' lock, and keeps the scheduler's
+// next timer: the last of the heap takes its place, and rises or sinks from there.
 function timerRemove(scheduler Count, g Count)
 	let at = __Raw.loadWord(g, offset: greenTimerIndexOffset)
 	let count = __Raw.wrappingSub(__Raw.loadWord(scheduler, offset: schedTimerCountOffset), right: 1)
 	__Raw.storeWord(scheduler, offset: schedTimerCountOffset, value: count)
 	if at != count 'moved'
+		let lastDue = timerWhen(scheduler, index: count)
 		let last = timerAt(scheduler, index: count)
-		if at > 0 and timerWhen(scheduler, index: __Raw.wrappingSub(at, right: 1) / 2) > __Raw.loadWord(last, offset: greenWhenOffset) 'up'
-			timerSiftUp(scheduler, at: at, g: last)
+		if at > 0 and timerWhen(scheduler, index: timerParent(at)) > lastDue 'up'
+			timerSiftUp(scheduler, at: at, due: lastDue, entry: last)
 		end 'up' else 'down'
-			timerSiftDown(scheduler, at: at, g: last, count: count)
+			timerSiftDown(scheduler, at: at, due: lastDue, entry: last, count: count)
 		end 'down'
 	end 'moved'
 	if count == 0 'empty'
@@ -156,69 +191,87 @@ function timerRemove(scheduler Count, g Count)
 	__Raw.storeRelease(scheduler, offset: schedTimerNextOffset, value: timerWhen(scheduler, index: 0))
 end 'timerRemove'
 
-// timerSiftUp places a green thread at an index of the heap or above it, past the parents that wake no earlier.
-function timerSiftUp(scheduler Count, at Count, g Count)
+// timerParent is the index of the parent of a slot of the heap past the first.
+function timerParent(index Count) returns Count
+	return __Raw.wrappingSub(index, right: 1) shr timerHeapShift
+end 'timerParent'
+
+// timerSiftUp places an entry due at due at an index of the heap or above it, past the parents that are due no earlier.
+function timerSiftUp(scheduler Count, at Count, due Count, entry Count)
 	var index = at
-	let wake = __Raw.loadWord(g, offset: greenWhenOffset)
 	while index > 0 'up'
-		let parent = __Raw.wrappingSub(index, right: 1) / 2
-		if timerWhen(scheduler, index: parent) <= wake 'placed'
+		let parent = timerParent(index)
+		let parentWhen = timerWhen(scheduler, index: parent)
+		if parentWhen <= due 'placed'
 			break 'up'
 		end 'placed'
-		timerPlace(scheduler, index: index, g: timerAt(scheduler, index: parent))
+		timerPlace(scheduler, index: index, due: parentWhen, entry: timerAt(scheduler, index: parent))
 		index = parent
 	end 'up'
-	timerPlace(scheduler, index: index, g: g)
+	timerPlace(scheduler, index: index, due: due, entry: entry)
 end 'timerSiftUp'
 
-// timerSiftDown places a green thread at an index of a heap of count or below it, past the children that wake earlier.
-function timerSiftDown(scheduler Count, at Count, g Count, count Count)
+// timerSiftDown places an entry due at due at an index of a heap of count or below it, past the children that are due
+// earlier: of the up to four children, the earliest.
+function timerSiftDown(scheduler Count, at Count, due Count, entry Count, count Count)
 	var index = at
-	let wake = __Raw.loadWord(g, offset: greenWhenOffset)
 	while true 'down'
-		let left = __Raw.wrappingAdd(__Raw.wrappingAdd(index, right: index), right: 1)
-		if left >= count 'leaf'
+		let first = __Raw.wrappingAdd(try index * timerHeapArity otherwise panic("the timers outgrow memory"), right: 1)
+		if first >= count 'leaf'
 			break 'down'
 		end 'leaf'
-		var child = left
-		let right = __Raw.wrappingAdd(left, right: 1)
-		if right < count and timerWhen(scheduler, index: right) < timerWhen(scheduler, index: left) 'right'
-			child = right
-		end 'right'
-		if wake <= timerWhen(scheduler, index: child) 'placed'
+		var past = __Raw.wrappingAdd(first, right: timerHeapArity)
+		if past > count 'fewer'
+			past = count
+		end 'fewer'
+		var child = first
+		var childWhen = timerWhen(scheduler, index: first)
+		for other in __Raw.wrappingAdd(first, right: 1) upto past 'children'
+			let otherWhen = timerWhen(scheduler, index: other)
+			if otherWhen < childWhen 'earlier'
+				child = other
+				childWhen = otherWhen
+			end 'earlier'
+		end 'children'
+		if due <= childWhen 'placed'
 			break 'down'
 		end 'placed'
-		timerPlace(scheduler, index: index, g: timerAt(scheduler, index: child))
+		timerPlace(scheduler, index: index, due: childWhen, entry: timerAt(scheduler, index: child))
 		index = child
 	end 'down'
-	timerPlace(scheduler, index: index, g: g)
+	timerPlace(scheduler, index: index, due: due, entry: entry)
 end 'timerSiftDown'
 
-// timerPlace puts a green thread at an index of the heap, which it keeps.
-function timerPlace(scheduler Count, index Count, g Count)
-	__Raw.storeWord(timerSlot(scheduler, index: index), offset: 0, value: g)
-	__Raw.storeWord(g, offset: greenTimerIndexOffset, value: index)
+// timerPlace puts an entry due at due at an index of the heap, which the entry keeps.
+function timerPlace(scheduler Count, index Count, due Count, entry Count)
+	let slot = timerSlot(scheduler, index: index)
+	__Raw.storeWord(slot, offset: timerSlotWhenOffset, value: due)
+	__Raw.storeWord(slot, offset: timerSlotEntryOffset, value: entry)
+	__Raw.storeWord(entry, offset: greenTimerIndexOffset, value: index)
 end 'timerPlace'
 
-// growTimers gives the heap twice the room, under the lock.
+// growTimers gives the heap twice the room, under the timers' lock.
 function growTimers(scheduler Count, count Count)
 	var capacity = __Raw.wrappingAdd(count, right: count)
 	if capacity == 0 'first'
 		capacity = timersFirstCapacity
 	end 'first'
-	let grown = keep(wordsBytes(capacity))
+	let grown = keep(slotsBytes(capacity))
 	let old = __Raw.loadWord(scheduler, offset: schedTimersOffset)
 	for i in 0 upto count 'copy'
-		__Raw.storeWord(grown, offset: wordsBytes(i), value: __Raw.loadWord(old, offset: wordsBytes(i)))
+		let from = __Raw.wrappingAdd(old, right: slotsBytes(i))
+		let to = __Raw.wrappingAdd(grown, right: slotsBytes(i))
+		__Raw.storeWord(to, offset: timerSlotWhenOffset, value: __Raw.loadWord(from, offset: timerSlotWhenOffset))
+		__Raw.storeWord(to, offset: timerSlotEntryOffset, value: __Raw.loadWord(from, offset: timerSlotEntryOffset))
 	end 'copy'
 	__Raw.storeWord(scheduler, offset: schedTimersOffset, value: grown)
 	__Raw.storeWord(scheduler, offset: schedTimerCapacityOffset, value: capacity)
 	if old != 0 'release'
-		unkeep(old, bytes: wordsBytes(count))
+		unkeep(old, bytes: slotsBytes(count))
 	end 'release'
 end 'growTimers'
 
-// wordsBytes is the bytes of a number of words of the heap.
-function wordsBytes(words Count) returns Count
-	return try words * wordBytes otherwise panic("the timers outgrow memory")
-end 'wordsBytes'
+// slotsBytes is the bytes of a number of slots of the heap.
+function slotsBytes(slots Count) returns Count
+	return try slots * timerSlotBytes otherwise panic("the timers outgrow memory")
+end 'slotsBytes'

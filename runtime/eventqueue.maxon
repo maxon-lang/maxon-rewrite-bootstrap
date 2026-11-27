@@ -267,11 +267,11 @@ function eventWaitOnce(scheduler Count, g Count, entry Count, mode Count, deadli
 	#endif
 	_ = __Raw.atomicExchange(g, offset: greenEventOffset, value: __Raw.wrappingAdd(entry, right: mode))
 	if deadline != eventNoDeadline 'timer'
-		lockScheduler(scheduler)
+		lockTimers(scheduler)
 		__Raw.storeWord(g, offset: greenWhenOffset, value: deadline)
-		timerPush(scheduler, g: g)
+		timerPush(scheduler, due: deadline, entry: g)
 		let earliest = __Raw.loadWord(scheduler, offset: schedTimerNextOffset) == deadline
-		unlockScheduler(scheduler)
+		unlockTimers(scheduler)
 		if earliest 'earliest'
 			wakeEventQueue(scheduler, at: deadline)
 		end 'earliest'
@@ -291,13 +291,13 @@ function eventWaitOnce(scheduler Count, g Count, entry Count, mode Count, deadli
 		end 'early'
 	end 'wait'
 	if deadline != eventNoDeadline 'untimer'
-		lockScheduler(scheduler)
+		lockTimers(scheduler)
 		if __Raw.loadWord(g, offset: greenWhenOffset) != noTimer 'onHeap'
 			timerRemove(scheduler, g: g)
 			__Raw.storeWord(g, offset: greenWhenOffset, value: noTimer)
 		end 'onHeap'
 		__Raw.storeWord(g, offset: greenEventOffset, value: 0)
-		unlockScheduler(scheduler)
+		unlockTimers(scheduler)
 	end 'untimer' else 'untimed'
 		__Raw.storeRelease(g, offset: greenEventOffset, value: 0)
 	end 'untimed'
@@ -317,7 +317,7 @@ function eventWaitOnce(scheduler Count, g Count, entry Count, mode Count, deadli
 	return eventReady
 end 'eventWaitOnce'
 
-// claimEventWake is whether a timer that fell due may ready its green thread, under the scheduler's lock: a sleeper may,
+// claimEventWake is whether a timer that fell due may ready its green thread, under the timers' lock: a sleeper may,
 // and a waiter on an event entry may once the claim is in its state word, before an event's ready or another claim.
 // Its state word's address is read plainly: a waiter with a deadline writes it before its timer is pushed and clears it
 // after its timer is taken off, under the lock both times.
