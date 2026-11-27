@@ -173,7 +173,7 @@ function cacheSetupOf(p ast.Project, first Count, options Options) returns Cache
 	h.addText(p.target.archText())
 	h.addBool(options.countAllocations)
 	if first > 0 and p.modules[0].isRuntime 'program'
-		h.addDigest(sourceDigestOfParsed(p.modules[0]))
+		h.addDigest(p.modules[0].sourceDigest)
 	end 'program'
 	return CacheSetup.make(options.cacheDir.clone(), base: h.digest(), verifies: options.verifiesCache, speculates: options.speculates and not options.verifiesCache, now: fileSystemNow(options.cacheDir))
 end 'cacheSetupOf'
@@ -189,17 +189,6 @@ type ModuleDigests
 		return ModuleDigests{source: table.Digest.none(), shown: table.Digest.none(), summary: table.Digest.none()}
 	end 'none'
 end 'ModuleDigests'
-
-// sourceDigestOfParsed is the digest of the source of a module that is parsed, from the text and files that its parse made.
-function sourceDigestOfParsed(m ast.Module) returns table.Digest
-	var names = ast.StringList.create(0)
-	var texts = ast.StringList.create(0)
-	for file in m.files 'files'
-		names.push(file.path.clone())
-		texts.push(m.tree.text.sliceBytes(file.start as Count, endPos: file.endOff as Count).clone())
-	end 'files'
-	return project.sourceDigest(m.path, filePaths: names, fileTexts: texts)
-end 'sourceDigestOfParsed'
 
 // publicDigest is the digest of a module's public text: its source without its comment lines and without the body of each
 // function, method or test that another module never copies: one that uses no type parameter and stands in no type that does,

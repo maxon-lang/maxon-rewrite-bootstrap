@@ -1319,7 +1319,9 @@ the test runners and a compile with `--emit-ir` or `--verify-ir`, which need eve
 - **Digests.** `table.Hasher` makes a 128-bit `table.Digest`: two lanes of 64 bits read the same words, each with xxHash64's
   round under its own constants and rotation, and each is finished by MurmurHash3's fmix64 with the length. For inputs nobody
   made to collide, two of n entries share a digest with a chance of about n² / 2^129, so a digest is taken for what it stands for.
-- **A module's digests** are made by its parse (`ModuleDigests`): its *source*, its path and each file's name and bytes; and its
+- **A module's digests** are made by its parse (`ModuleDigests`): its *source* (`project.sourceDigest`, which the module keeps as
+  `Module.sourceDigest`, so that a program's compile holds the runtime's source in its base after the runtime's body was
+  taken), its path and each file's name and bytes; and its
   *shown text*, the same without its comment lines and without the body of each function, method or test that no other module
   copies (`publicDigest`): one that has no `uses` and stands in no `uses` type, no `interface` and no `extension`. The layout is
   part of the language, so a header is one line and its body the lines below it to the `end` at the header's indentation.
