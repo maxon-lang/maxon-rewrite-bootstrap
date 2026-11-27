@@ -791,6 +791,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entrySocketClose(vm, f: f, x: x)
 		return
 	end 'rtSocketClose'
+	if symbol == ir.Rt.rtSocketResolve 'rtSocketResolve'
+		try entrySocketResolve(vm, f: f, x: x)
+		return
+	end 'rtSocketResolve'
 	if symbol == ir.Rt.rtDebugLaunch 'rtDebugLaunch'
 		try entryDebugLaunch(vm, f: f, x: x)
 		return

@@ -1314,6 +1314,18 @@ let macosSockaddrIn4AddressOffset = 4 as Count
 // macosSockaddrIn6AddressOffset is where a struct sockaddr_in6 holds its address.
 let macosSockaddrIn6AddressOffset = 8 as Count
 
+// macosAddrinfoBytes is a struct addrinfo: ai_flags, ai_family, ai_socktype, ai_protocol (32 bits each), ai_addrlen (32 bits, then 4 of padding), ai_canonname, ai_addr and ai_next.
+let macosAddrinfoBytes = 48 as Count
+
+// macosAddrinfoFamilyOffset is where a struct addrinfo holds ai_family, 32 bits.
+let macosAddrinfoFamilyOffset = 4 as Count
+
+// macosAddrinfoSocktypeOffset is where a struct addrinfo holds ai_socktype, 32 bits.
+let macosAddrinfoSocktypeOffset = 8 as Count
+
+// macosAddrinfoAddrOffset is where a struct addrinfo holds ai_addr, the address of its sockaddr: after ai_canonname, which BSD puts first.
+let macosAddrinfoAddrOffset = 32 as Count
+
 // macosSigkill is SIGKILL.
 let macosSigkill = 9 as Count
 

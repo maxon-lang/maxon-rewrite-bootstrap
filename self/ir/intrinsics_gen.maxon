@@ -836,6 +836,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrManagedSocketClose 'intrManagedSocketClose'
 		return lowerManagedSocketClose(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrManagedSocketClose'
+	if op == ast.Intrinsic.intrManagedSocketResolve 'intrManagedSocketResolve'
+		return lowerManagedSocketResolve(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketResolve'
 	if op == ast.Intrinsic.intrRawLoad8 'intrRawLoad8'
 		return lowerRawLoad8(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawLoad8'
@@ -1831,6 +1834,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrManagedSocketClose 'intrManagedSocketClose'
 		return false
 	end 'intrManagedSocketClose'
+	if op == ast.Intrinsic.intrManagedSocketResolve 'intrManagedSocketResolve'
+		return false
+	end 'intrManagedSocketResolve'
 	if op == ast.Intrinsic.intrRawLoad8 'intrRawLoad8'
 		return false
 	end 'intrRawLoad8'

@@ -101,9 +101,10 @@ function waitingHandleRow(op ast.Intrinsic) returns bool
 end 'waitingHandleRow'
 
 // waitingSocketRow is whether a row of a socket waits: a connect, an accept, a read and a send, which park the green thread on the
-// socket's event entry while the call would wait, and the close, a call into the kernel in the blocking bracket.
+// socket's event entry while the call would wait, the close, a call into the kernel in the blocking bracket, and a resolve, which
+// may wait on the network.
 function waitingSocketRow(op ast.Intrinsic) returns bool
-	return op == ast.Intrinsic.intrManagedSocketConnect or op == ast.Intrinsic.intrManagedSocketAccept or op == ast.Intrinsic.intrManagedSocketReadAppending or op == ast.Intrinsic.intrManagedSocketSendFrom or op == ast.Intrinsic.intrManagedSocketClose
+	return op == ast.Intrinsic.intrManagedSocketConnect or op == ast.Intrinsic.intrManagedSocketAccept or op == ast.Intrinsic.intrManagedSocketReadAppending or op == ast.Intrinsic.intrManagedSocketSendFrom or op == ast.Intrinsic.intrManagedSocketClose or op == ast.Intrinsic.intrManagedSocketResolve
 end 'waitingSocketRow'
 
 // waitingSubprocessRow is whether a row of maxon's subprocess surface parks the green thread that calls it: the waits for a child's

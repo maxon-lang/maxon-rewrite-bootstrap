@@ -548,6 +548,7 @@ export enum Intrinsic
 	intrManagedSocketTimedOut
 	intrManagedSocketShutdownWrite
 	intrManagedSocketClose
+	intrManagedSocketResolve
 	intrRawLoad8
 	intrRawLoad16
 	intrRawLoad32
@@ -1036,6 +1037,7 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrManagedSocketTimedOut or
 		intrManagedSocketShutdownWrite or
 		intrManagedSocketClose or
+		intrManagedSocketResolve or
 		intrRawLoad8 or
 		intrRawLoad16 or
 		intrRawLoad32 or
@@ -1363,6 +1365,7 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrManagedSocketTimedOut or
 		intrManagedSocketShutdownWrite or
 		intrManagedSocketClose or
+		intrManagedSocketResolve or
 		intrRawLoad8 or
 		intrRawLoad16 or
 		intrRawLoad32 or
@@ -1736,6 +1739,7 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrManagedSocketTimedOut or
 		intrManagedSocketShutdownWrite or
 		intrManagedSocketClose or
+		intrManagedSocketResolve or
 		intrRawLoad8 or
 		intrRawLoad16 or
 		intrRawLoad32 or
@@ -2179,6 +2183,9 @@ export function rawCallInstead(b Builtins, owner TypeID, name String) returns ta
 		if name == "socketClose" 'socketClose'
 			return table.Option.some("a TcpClient's close()")
 		end 'socketClose'
+		if name == "socketResolve" 'socketResolve'
+			return table.Option.some("TcpClient.connect(host, port)")
+		end 'socketResolve'
 		panic("'{name}' is no static function of __Builtins")
 	end 'rawBuiltins'
 	return table.Option.none
@@ -4010,6 +4017,11 @@ function declareBuiltinsMethods(mutates tt TypeSlot, reads TypeTable, mutates ft
 	ps114.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
 	let f115 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketClose, name: "socketClose", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps114, listed: true)
 	ft.lists[funcList(ft, f: f115)][funcIndex(ft, f: f115)].errTy = b.managedSocketErrorTy
+	let ty116 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps117 = ParamSpecList.create(0)
+	ps117.push(ParamSpec.make("_", ty: ty116, conv: Convention.convLet))
+	let f118 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketResolve, name: "socketResolve", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps117, listed: true)
+	ft.lists[funcList(ft, f: f118)][funcIndex(ft, f: f118)].errTy = b.managedSocketErrorTy
 end 'declareBuiltinsMethods'
 
 function declareRawMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

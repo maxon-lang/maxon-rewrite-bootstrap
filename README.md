@@ -6073,8 +6073,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   (`cmd/convert`, files.go); the spec tests that let a socket die open fail with `E3919`. x64-windows has no sockets yet: a
   module outside the library that names `TcpClient`, `TcpListener` or `__ManagedSocket` in a compile for it is refused at the name
   (`E3104`, maxon's `targetUnsupportedConstruct`), by a row of `internal/targetgen/target`'s `Facilities`.
-  A host is an address literal, read by the library (IPv4's dotted quad, IPv6's grammar without zone or brackets); a name
-  resolves to nothing yet.
+  A host is an address literal, read by the library (IPv4's dotted quad, IPv6's grammar without zone or brackets), or a name,
+  resolved to an IPv4 address as maxon's are: by `getaddrinfo` on macOS (`__Builtins.socketResolve`), and on Linux, which links
+  no libc, by the library itself (`stdlib/net/resolver.maxon`): `/etc/hosts`, then a query of type A over TCP to each nameserver
+  of `/etc/resolv.conf`. Like maxon's, the Linux resolver is IPv4-only, with no search list and no ndots.
 - **A file's close throws.** maxon's `close()` throws nothing and its drop discards what the system's close reports. Here,
   as Go's `Close` does, `close()` throws it, `__ManagedFileError.writeFailed`, which `FileWriter.close` throws as
   `FileWriteError.failed` and `FileSource.close` as `FileReadError.failed` (`FileFailure.failed`), so a program that must know

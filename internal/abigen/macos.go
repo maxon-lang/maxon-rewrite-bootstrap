@@ -92,6 +92,10 @@ var macosABI = []layoutConst{
 	{"macosSockaddrPortOffset", 2, true, toRuntime, "where a struct sockaddr_in or sockaddr_in6 holds its port, its high byte first."},
 	{"macosSockaddrIn4AddressOffset", 4, true, toRuntime, "where a struct sockaddr_in holds its address."},
 	{"macosSockaddrIn6AddressOffset", 8, true, toRuntime, "where a struct sockaddr_in6 holds its address."},
+	{"macosAddrinfoBytes", 48, true, toRuntime, "a struct addrinfo: ai_flags, ai_family, ai_socktype, ai_protocol (32 bits each), ai_addrlen (32 bits, then 4 of padding), ai_canonname, ai_addr and ai_next."},
+	{"macosAddrinfoFamilyOffset", 4, true, toRuntime, "where a struct addrinfo holds ai_family, 32 bits."},
+	{"macosAddrinfoSocktypeOffset", 8, true, toRuntime, "where a struct addrinfo holds ai_socktype, 32 bits."},
+	{"macosAddrinfoAddrOffset", 32, true, toRuntime, "where a struct addrinfo holds ai_addr, the address of its sockaddr: after ai_canonname, which BSD puts first."},
 
 	// The signals, and the struct sigaction of libSystem's sigaction, which supplies the trampoline a handler returns
 	// through itself: the handler, the mask and the flags, 16 bytes.

@@ -59,3 +59,7 @@ end 'lowerManagedSocketShutdownWrite'
 function lowerManagedSocketClose(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return socketFailingVoid(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtSocketClose)
 end 'lowerManagedSocketClose'
+
+function lowerManagedSocketResolve(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return socketFailing(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtSocketResolve)
+end 'lowerManagedSocketResolve'

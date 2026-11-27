@@ -50,3 +50,7 @@ end 'entrySocketShutdownWrite'
 function entrySocketClose(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	throw haltSocketRow(vm, row: "__Builtins.socketClose")
 end 'entrySocketClose'
+
+function entrySocketResolve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSocketRow(vm, row: "__Builtins.socketResolve")
+end 'entrySocketResolve'

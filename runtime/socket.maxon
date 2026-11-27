@@ -63,6 +63,8 @@ let portHighShift = 8 as Count
 // The cases of __ManagedSocketError and __ManagedListenerError that the rows fail with, by their position in the enum.
 let socketBufferOutOfBounds = 0 as Count
 
+let socketResolveFailed = 1 as Count
+
 let socketConnectFailed = 2 as Count
 
 let socketSendFailed = 3 as Count
@@ -502,4 +504,12 @@ end 'addressFamilyBytes'
 	function socketClose(socket Count, errorAddress Count)
 		panic("sockets are not written for x64-windows yet (concurrency plan step 2, Windows half)")
 	end 'socketClose'
+#endif
+
+#if os(Linux) or os(Windows)
+	// socketResolve is macOS's alone: the library resolves a name on Linux itself (stdlib/net/resolver.maxon), and Windows has
+	// no sockets yet.
+	function socketResolve(host Count, errorAddress Count) returns Count
+		panic("the runtime resolves a host's name on macOS alone")
+	end 'socketResolve'
 #endif

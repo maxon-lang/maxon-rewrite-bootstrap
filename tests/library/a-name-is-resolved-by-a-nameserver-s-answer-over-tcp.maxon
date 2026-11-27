@@ -1,0 +1,116 @@
+// The Linux resolver's exchange with a nameserver (stdlib/net/resolver.maxon), pointed by its seam, resolveAt, at a nameserver
+// that the test runs itself on the loopback, so no network outside is needed: the query of type A comes over TCP, framed by
+// its length; an answer whose name is a pointer to the question's gives the address, and an answer that says the name does
+// not exist (RCODE 3) fails to resolve.
+// native-only
+// unsupported-targets: x64-windows
+//> example.test -> 10.1.2.3
+//> missing.test -> resolveFailed
+typealias Bytes = __ManagedMemory with Byte
+
+let mostQueryBytes = 512 as Count
+
+function loopback() returns ByteArray
+	var address = ByteArray.create(0)
+	address.push(127)
+	address.push(0)
+	address.push(0)
+	address.push(1)
+	return address
+end 'loopback'
+
+function push16(mutates bytes ByteArray, value Count)
+	bytes.push(((value shr 8) and 0xFF) as Byte)
+	bytes.push((value and 0xFF) as Byte)
+end 'push16'
+
+// answer is the framed response to a framed query: its ID and question, then one answer of type A pointing at the question's
+// name, or no answer and RCODE 3 where found is not set.
+function answer(query ByteArray, found bool) returns ByteArray
+	var message = ByteArray.create(0)
+	message.push(try query.get(2) otherwise 0)
+	message.push(try query.get(3) otherwise 0)
+	push16(message, value: 0x8180 if found else 0x8183)
+	push16(message, value: 1)
+	push16(message, value: 1 if found else 0)
+	push16(message, value: 0)
+	push16(message, value: 0)
+	for i in 14 upto query.count() 'question'
+		message.push(query.get(i))
+	end 'question'
+	if found 'found'
+		push16(message, value: 0xC00C)
+		push16(message, value: 1)
+		push16(message, value: 1)
+		push16(message, value: 0)
+		push16(message, value: 60)
+		push16(message, value: 4)
+		message.push(10)
+		message.push(1)
+		message.push(2)
+		message.push(3)
+	end 'found'
+	var framed = ByteArray.create(0)
+	push16(framed, value: message.count())
+	framed.append(message)
+	return framed
+end 'answer'
+
+// serveOnce accepts one connection, reads one framed query and answers it.
+function serveOnce(listener Count, found bool) returns bool
+	let connection = try __Builtins.socketAccept(listener) otherwise return false
+	var buffer = try Bytes.create(mostQueryBytes, elementSize: 1) otherwise return false
+	var wanted = 2 as Count
+	var ok = true
+	while buffer.length() < wanted and ok 'read'
+		let got = try __Builtins.socketReadAppending(connection, buffer, wanted - buffer.length()) otherwise 0
+		if got == 0 'ended'
+			ok = false
+		end 'ended'
+		if wanted == 2 and buffer.length() >= 2 'framed'
+			wanted = 2 + (((try buffer.byteAt(0) otherwise 0) as Count) shl 8) + ((try buffer.byteAt(1) otherwise 0) as Count)
+		end 'framed'
+	end 'read'
+	if ok 'answer'
+		let response = answer(ByteArray.init(buffer), found: found)
+		var done = 0 as Count
+		while done < response.count() 'send'
+			let sent = try __Builtins.socketSendFrom(connection, response.managed, done, response.count() - done) otherwise response.count()
+			done = try done + sent otherwise response.count()
+		end 'send'
+	end 'answer'
+	try __Builtins.socketClose(connection) otherwise ignore
+	return ok
+end 'serveOnce'
+
+// serve answers two queries in turn, the first found, the second not.
+function serve(listener Count) returns bool
+	let first = serveOnce(listener, found: true)
+	let second = serveOnce(listener, found: false)
+	return first and second
+end 'serve'
+
+function shown(address ByteArray) returns String
+	var text = ""
+	for b in address 'bytes'
+		text = "{text}." if not text.isEmpty() else text
+		text = "{text}{b}"
+	end 'bytes'
+	return text
+end 'shown'
+
+function main() returns ExitCode
+	let listener = try __Builtins.socketListen(loopback().managed, 0) otherwise return 1
+	let port = try __Builtins.socketBoundPort(listener) otherwise return 2
+	let server = async serve(listener)
+	let found = try resolveAt("example.test".addressableBytes(), server: "127.0.0.1".addressableBytes(), port: port) otherwise ByteArray.create(0)
+	print("example.test -> {shown(found)}\n")
+	if let missing = try resolveAt("missing.test".addressableBytes(), server: "127.0.0.1".addressableBytes(), port: port) 'found'
+		print("missing.test -> {shown(missing)}\n")
+	end 'found' else (e) 'failed'
+		print("missing.test -> {e.name}\n")
+	end 'failed'
+	let served = await server
+	try __Builtins.socketClose(listener) otherwise return 3
+	return 0 if served else 4
+end 'main'

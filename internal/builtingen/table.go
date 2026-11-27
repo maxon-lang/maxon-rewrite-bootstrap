@@ -1291,6 +1291,9 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "socketTimedOut", Static: true, Params: []string{"_ Count"}, Result: "Bool", Intrinsic: "ManagedSocketTimedOut", Instead: "the NetworkError a TcpClient throws"},
 	{Owner: "Builtins", Name: "socketShutdownWrite", Static: true, Params: []string{"_ Count"}, Throws: "ManagedSocketError", Intrinsic: "ManagedSocketShutdownWrite", Instead: "a TcpClient's shutdownWrite()"},
 	{Owner: "Builtins", Name: "socketClose", Static: true, Params: []string{"_ Count"}, Throws: "ManagedSocketError", Intrinsic: "ManagedSocketClose", Instead: "a TcpClient's close()"},
+	// The resolve of a host's name to an IPv4 address, the system's resolver's on macOS (getaddrinfo, in the blocking bracket, as
+	// Go's darwin resolver asks libSystem); the library resolves names itself on Linux, and has no sockets on Windows yet.
+	{Owner: "Builtins", Name: "socketResolve", Static: true, Params: []string{"_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedSocketError", Intrinsic: "ManagedSocketResolve", Instead: "TcpClient.connect(host, port)"},
 }
 
 // unit is a code unit of the backend's runtime, or a place an entry lives that has no code of its own.
@@ -1583,6 +1586,7 @@ var entries = []entry{
 	{"SocketTimedOut", "rt.socket.timedOut", "Os", roleCall, "(socket) -> bool: whether the socket's last read, send or accept was ended by its deadline"},
 	{"SocketShutdownWrite", "rt.socket.shutdownWrite", "Os", roleCall, "(socket, error): ends the socket's sending, which the peer reads as the end, while it can still read; sendFailed when the system refuses it"},
 	{"SocketClose", "rt.socket.close", "Os", roleCall, "(socket, error): takes the socket off the event queue, closes it and frees its record, in one bracketed call into the kernel; what the system's close reports sets the error word with sendFailed, the socket closed all the same"},
+	{"SocketResolve", "rt.socket.resolve", "Os", roleCall, "(host ByteArray, error) -> the IPv4 address the host's name resolves to, its first byte the most significant of the low 32 bits; resolveFailed when it resolves to none. macOS's getaddrinfo, in the blocking bracket; the library resolves names on Linux itself"},
 	// The debug port's entries, on Windows; a read or a write that fails sets its error word as an OS entry's does.
 	{"DebugLaunch", "rt.debug.launch", "Os", roleCall, "(executable String, arguments Array with String, outputToError, error) -> process id: starts the executable as the calling thread's debuggee"},
 	{"DebugWaitEvent", "rt.debug.waitEvent", "Os", roleCall, "(budgetMs) -> ByteArray: the debug event that came within the milliseconds, empty for none"},
@@ -1854,6 +1858,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"SocketTimedOut", "socketTimedOut(socket Count) Bool"},
 	{"SocketShutdownWrite", "socketShutdownWrite(socket Count, errorAddress Count)"},
 	{"SocketClose", "socketClose(socket Count, errorAddress Count)"},
+	{"SocketResolve", "socketResolve(host Count, errorAddress Count) Count"},
 	{"OsRun", "osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 	{"OsRunIn", "osRunIn(executable String, arguments Count, directory String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 	{"OsRunInput", "osRunInput(executable String, arguments Count, input String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},

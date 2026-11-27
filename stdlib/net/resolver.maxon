@@ -1,7 +1,371 @@
-// The resolver of a host's name, which a host that is no address literal reaches (managedSocket.maxon). None is written yet:
-// every name fails to resolve.
+// The resolver of a host's name, which a host that is no address literal reaches (managedSocket.maxon), to an IPv4 address, as
+// maxon's resolves names. On macOS it is the system's, getaddrinfo, which the runtime calls in the blocking bracket, as Go's
+// darwin resolver asks libSystem (__Builtins.socketResolve). A Linux program links no libc, so the library reads the name itself,
+// as maxon's runtime and Go's pure-Go resolver do: /etc/hosts first, then a query of type A to each nameserver that
+// /etc/resolv.conf names (127.0.0.1 where it names none, as glibc's default is), over TCP, since the runtime has TCP sockets
+// alone, each nameserver given resolverDeadlineMs to connect and to answer. Like maxon's, it resolves to IPv4 addresses
+// alone, adds no search domain to a name and reads no ndots: the name is asked as it is written. A name of more than 253
+// bytes, or with a label of more than 63 or of none, resolves to nothing.
+
+// Fields are the fields of a line of a file, and Lines a file's.
+typealias Fields = Array with ByteArray
+
+typealias Lines = Array with Fields
+
+let resolverDeadlineMs = 5000 as Count
+
+let dnsPort = 53 as NetworkPort
+
+let newlineByte = 10 as Byte
+
+let hashByte = 35 as Byte
+
+let spaceByte = 32 as Byte
+
+let tabByte = 9 as Byte
+
+let returnByte = 13 as Byte
+
+let upperA = 65 as Byte
+
+let upperZ = 90 as Byte
+
+let caseOffset = 32 as Byte
+
+// The longest name and label of DNS (RFC 1035 2.3.4).
+let mostNameBytes = 253 as Count
+
+let mostLabelBytes = 63 as Count
+
+// A query's header: its ID, the flags with RD (recursion desired) set, one question and no other record.
+let queryId = 0x4D58 as Count
+
+let queryFlags = 0x0100 as Count
+
+let dnsHeaderBytes = 12 as Count
+
+// A question's and an answer's type A and class IN.
+let typeA = 1 as Count
+
+let classIn = 1 as Count
+
+// A response's flags: QR, set in a response, and RCODE, 0 where the name was found.
+let responseBit = 0x8000 as Count
+
+let rcodeMask = 0x000F as Count
+
+// The two top bits of a label's length byte that make it a pointer to a name (RFC 1035 4.1.4).
+let pointerBits = 0xC0 as Count
+
+let mostResponseBytes = 65537 as Count
 
 // resolveName is the 4 bytes of an IPv4 address that a host's name resolves to.
 function resolveName(host __ManagedMemory with Byte) returns ByteArray throws __ManagedSocketError
-	throw __ManagedSocketError.resolveFailed
+	#if os(macOS)
+		return quadOfWord(try __Builtins.socketResolve(host))
+	#else
+		let name = try canonicalName(host)
+		if let listed = try hostsAddress(name) 'listed'
+			return listed
+		end 'listed'
+		for server in nameservers() 'servers'
+			if let answered = try askNameserver(server, port: dnsPort, name: name) 'answered'
+				return answered
+			end 'answered'
+		end 'servers'
+		throw __ManagedSocketError.resolveFailed
+	#endif
 end 'resolveName'
+
+// quadOfWord is the 4 bytes of an IPv4 address whose low 32 bits a word holds, the first the most significant.
+function quadOfWord(word Count) returns ByteArray
+	var quad = ByteArray.create(0)
+	quad.push(((word shr 24) and 0xFF) as Byte)
+	quad.push(((word shr 16) and 0xFF) as Byte)
+	quad.push(((word shr 8) and 0xFF) as Byte)
+	quad.push((word and 0xFF) as Byte)
+	return quad
+end 'quadOfWord'
+
+// canonicalName is a host's name in lower case without the dot that may end it, which must be a name DNS can ask.
+function canonicalName(host __ManagedMemory with Byte) returns ByteArray throws __ManagedSocketError
+	var name = ByteArray.create(0)
+	var label = 0 as Count
+	for i in 0 upto host.length() 'bytes'
+		let b = try host.byteAt(i) otherwise throw __ManagedSocketError.resolveFailed
+		if b == dotByte 'dot'
+			if label == 0 'emptyLabel'
+				if i + 1 == host.length() and i > 0 'trailing'
+					break 'bytes'
+				end 'trailing'
+				throw __ManagedSocketError.resolveFailed
+			end 'emptyLabel'
+			label = 0
+		end 'dot' else 'other'
+			label = try label + 1 otherwise mostNameBytes
+			if label > mostLabelBytes 'longLabel'
+				throw __ManagedSocketError.resolveFailed
+			end 'longLabel'
+		end 'other'
+		name.push(lowered(b))
+	end 'bytes'
+	if name.count() > mostNameBytes 'long'
+		throw __ManagedSocketError.resolveFailed
+	end 'long'
+	return name
+end 'canonicalName'
+
+// lowered is an ASCII letter in lower case, and any other byte as it is.
+function lowered(b Byte) returns Byte
+	if b >= upperA and b <= upperZ 'upper'
+		return b + caseOffset
+	end 'upper'
+	return b
+end 'lowered'
+
+// linesOf is the whitespace-separated fields of each line of a file, with what a '#' starts left out, or none where the file
+// cannot be read.
+function linesOf(path String) returns Lines
+	var lines = Lines.create(0)
+	let file = try FilePath.from(path) otherwise return lines
+	let content = try File.readBinary(file) otherwise return lines
+	var fields = Fields.create(0)
+	var field = ByteArray.create(0)
+	var comment = false
+	for b in content 'bytes'
+		if b == newlineByte 'line'
+			if not field.isEmpty() 'lastField'
+				fields.push(field)
+				field = ByteArray.create(0)
+			end 'lastField'
+			if not fields.isEmpty() 'kept'
+				lines.push(fields)
+				fields = Fields.create(0)
+			end 'kept'
+			comment = false
+			continue 'bytes'
+		end 'line'
+		if comment 'commented'
+			continue 'bytes'
+		end 'commented'
+		if b == hashByte 'hash'
+			comment = true
+			continue 'bytes'
+		end 'hash'
+		if b == spaceByte or b == tabByte or b == returnByte 'space'
+			if not field.isEmpty() 'ended'
+				fields.push(field)
+				field = ByteArray.create(0)
+			end 'ended'
+			continue 'bytes'
+		end 'space'
+		field.push(b)
+	end 'bytes'
+	if not field.isEmpty() 'lastField'
+		fields.push(field)
+	end 'lastField'
+	if not fields.isEmpty() 'kept'
+		lines.push(fields)
+	end 'kept'
+	return lines
+end 'linesOf'
+
+// sameName is whether a field of a file names a canonical name, in any case.
+function sameName(field ByteArray, name ByteArray) returns bool
+	if field.count() != name.count() 'length'
+		return false
+	end 'length'
+	var at = 0 as Count
+	for b in field 'bytes'
+		if lowered(b) != (try name.get(at) otherwise 0) 'differs'
+			return false
+		end 'differs'
+		at = try at + 1 otherwise at
+	end 'bytes'
+	return true
+end 'sameName'
+
+// hostsAddress is the IPv4 address of the first line of /etc/hosts that lists a name, as glibc's files source reads it.
+function hostsAddress(name ByteArray) returns ByteArray throws __ManagedSocketError
+	for fields in linesOf("/etc/hosts") 'lines'
+		var first = true
+		var address = ByteArray.create(0)
+		for field in fields 'fields'
+			if first 'address'
+				first = false
+				address = try ipv4Literal(field.managed, from: 0, to: field.count()) otherwise break 'fields'
+				continue 'fields'
+			end 'address'
+			if sameName(field, name: name) 'named'
+				return address
+			end 'named'
+		end 'fields'
+	end 'lines'
+	throw __ManagedSocketError.resolveFailed
+end 'hostsAddress'
+
+// nameservers are the IPv4 nameservers of /etc/resolv.conf in its order, or 127.0.0.1 where it names none.
+function nameservers() returns Fields
+	var servers = Fields.create(0)
+	for fields in linesOf("/etc/resolv.conf") 'lines'
+		if fields.count() >= 2 and sameName(fields.get(0), name: "nameserver".toByteArray()) 'nameserver'
+			let text = fields.get(1)
+			if let server = try ipv4Literal(text.managed, from: 0, to: text.count()) 'four'
+				servers.push(server)
+			end 'four'
+		end 'nameserver'
+	end 'lines'
+	if servers.isEmpty() 'none'
+		var loopback = ByteArray.create(0)
+		loopback.push(127)
+		loopback.push(0)
+		loopback.push(0)
+		loopback.push(1)
+		servers.push(loopback)
+	end 'none'
+	return servers
+end 'nameservers'
+
+// appendWord16 appends the 16 bits of a word, the high byte first.
+function appendWord16(mutates bytes ByteArray, value Count)
+	bytes.push(((value shr 8) and 0xFF) as Byte)
+	bytes.push((value and 0xFF) as Byte)
+end 'appendWord16'
+
+// query is a DNS query over TCP of type A and class IN for a canonical name: its length, 16 bits, then the message.
+function query(name ByteArray) returns ByteArray
+	var message = ByteArray.create(0)
+	appendWord16(message, value: queryId)
+	appendWord16(message, value: queryFlags)
+	appendWord16(message, value: 1)
+	appendWord16(message, value: 0)
+	appendWord16(message, value: 0)
+	appendWord16(message, value: 0)
+	var label = ByteArray.create(0)
+	for b in name 'bytes'
+		if b == dotByte 'dot'
+			message.push((label.count() and 0xFF) as Byte)
+			message.append(label)
+			label = ByteArray.create(0)
+		end 'dot' else 'other'
+			label.push(b)
+		end 'other'
+	end 'bytes'
+	message.push((label.count() and 0xFF) as Byte)
+	message.append(label)
+	message.push(0)
+	appendWord16(message, value: typeA)
+	appendWord16(message, value: classIn)
+	var framed = ByteArray.create(0)
+	appendWord16(framed, value: message.count())
+	framed.append(message)
+	return framed
+end 'query'
+
+/// resolveAt is the IPv4 address that the nameserver at an IPv4 literal and a port answers for a host's name, asked as the
+/// resolver of Linux asks one of /etc/resolv.conf: the seam a test of the exchange points at a nameserver of its own.
+export function resolveAt(host __ManagedMemory with Byte, server __ManagedMemory with Byte, port NetworkPort) returns ByteArray throws __ManagedSocketError
+	let name = try canonicalName(host)
+	let address = try ipv4Literal(server, from: 0, to: server.length())
+	return try askNameserver(address, port: port, name: name)
+end 'resolveAt'
+
+// askNameserver is the first IPv4 address that a nameserver at a port answers for a canonical name, through one TCP
+// connection.
+function askNameserver(server ByteArray, port NetworkPort, name ByteArray) returns ByteArray throws __ManagedSocketError
+	let socket = try __Builtins.socketConnect(server.managed, port, resolverDeadlineMs) otherwise throw __ManagedSocketError.resolveFailed
+	__Builtins.socketSetReadDeadline(socket, resolverDeadlineMs)
+	__Builtins.socketSetWriteDeadline(socket, resolverDeadlineMs)
+	let response = exchange(socket, request: query(name))
+	try __Builtins.socketClose(socket) otherwise ignore
+	return try answerOf(response)
+end 'askNameserver'
+
+// exchange sends a framed query over a connected socket and reads the framed response, its message without the length, or
+// an empty one where the exchange failed.
+function exchange(socket Count, request ByteArray) returns ByteArray
+	var done = 0 as Count
+	while done < request.count() 'send'
+		let sent = try __Builtins.socketSendFrom(socket, request.managed, done, request.count() - done) otherwise return ByteArray.create(0)
+		if sent == 0 'stalled'
+			return ByteArray.create(0)
+		end 'stalled'
+		done = try done + sent otherwise request.count()
+	end 'send'
+	var buffer = try ByteMemory.create(mostResponseBytes, elementSize: 1) otherwise return ByteArray.create(0)
+	var wanted = 2 as Count
+	while buffer.length() < wanted 'read'
+		let got = try __Builtins.socketReadAppending(socket, buffer, wanted - buffer.length()) otherwise return ByteArray.create(0)
+		if got == 0 'ended'
+			return ByteArray.create(0)
+		end 'ended'
+		if wanted == 2 and buffer.length() >= 2 'framed'
+			let high = (try buffer.byteAt(0) otherwise 0) as Count
+			let low = (try buffer.byteAt(1) otherwise 0) as Count
+			wanted = 2 + ((high shl 8) or low)
+		end 'framed'
+	end 'read'
+	var message = ByteArray.create(0)
+	for i in 2 upto buffer.length() 'copy'
+		message.push(try buffer.byteAt(i) otherwise 0)
+	end 'copy'
+	return message
+end 'exchange'
+
+// word16At is the 16 bits of a message at an index, the high byte first.
+function word16At(message ByteArray, at Count) returns Count throws __ManagedSocketError
+	let high = (try message.get(at) otherwise throw __ManagedSocketError.resolveFailed) as Count
+	let low = (try message.get(try at + 1 otherwise at) otherwise throw __ManagedSocketError.resolveFailed) as Count
+	return (high shl 8) or low
+end 'word16At'
+
+// afterName is the index after a name of a message at an index: labels ended by an empty one or by a pointer.
+function afterName(message ByteArray, from Count) returns Count throws __ManagedSocketError
+	var at = from
+	while true 'labels'
+		let length = (try message.get(at) otherwise throw __ManagedSocketError.resolveFailed) as Count
+		if length == 0 'root'
+			return try at + 1 otherwise throw __ManagedSocketError.resolveFailed
+		end 'root'
+		if (length and pointerBits) == pointerBits 'pointer'
+			return try at + 2 otherwise throw __ManagedSocketError.resolveFailed
+		end 'pointer'
+		at = try at + 1 + length otherwise throw __ManagedSocketError.resolveFailed
+	end 'labels'
+	throw __ManagedSocketError.resolveFailed
+end 'afterName'
+
+// answerOf is the address of the first answer of type A and class IN of a response to the query, which must be the
+// response to it and say the name was found.
+function answerOf(message ByteArray) returns ByteArray throws __ManagedSocketError
+	if message.count() < dnsHeaderBytes 'short'
+		throw __ManagedSocketError.resolveFailed
+	end 'short'
+	let flags = try word16At(message, at: 2)
+	let id = try word16At(message, at: 0)
+	if id != queryId or (flags and responseBit) == 0 or (flags and rcodeMask) != 0 'refused'
+		throw __ManagedSocketError.resolveFailed
+	end 'refused'
+	let questions = try word16At(message, at: 4)
+	let answers = try word16At(message, at: 6)
+	var at = dnsHeaderBytes
+	for _ in 0 upto questions 'questions'
+		at = try (try afterName(message, from: at)) + 4 otherwise throw __ManagedSocketError.resolveFailed
+	end 'questions'
+	for _ in 0 upto answers 'answers'
+		at = try afterName(message, from: at)
+		let kind = try word16At(message, at: at)
+		let klass = try word16At(message, at: try at + 2 otherwise at)
+		let length = try word16At(message, at: try at + 8 otherwise at)
+		let data = try at + 10 otherwise throw __ManagedSocketError.resolveFailed
+		if kind == typeA and klass == classIn and length == 4 'address'
+			var address = ByteArray.create(0)
+			for i in 0 upto 4 'bytes'
+				address.push(try message.get(try data + i otherwise data) otherwise throw __ManagedSocketError.resolveFailed)
+			end 'bytes'
+			return address
+		end 'address'
+		at = try data + length otherwise throw __ManagedSocketError.resolveFailed
+	end 'answers'
+	throw __ManagedSocketError.resolveFailed
+end 'answerOf'

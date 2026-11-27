@@ -2,13 +2,15 @@
 // port 0 accepts a client that a coroutine connects, the client's line comes back, the client's shutdown is the server's
 // empty read, and each socket is closed by its close, which throws NetworkError. Address literals are read by the library:
 // an IPv6 one binds over ::1, and a malformed one, a host holding a NUL and the empty host fail to resolve without reaching a
-// resolver. A connect to a port whose listener has closed fails.
+// resolver. A name is resolved: localhost through the system's resolver on macOS and /etc/hosts on Linux. A connect to a port
+// whose listener has closed fails.
 // native-only
 // unsupported-targets: x64-windows
 //> the server heard: ping
 //> the server read the end
 //> the client heard: ping
 //> ::1: bound: true
+//> localhost: bound: true
 //> 1::2::3: resolveFailed
 //> 127.0.0.1\0junk: resolveFailed
 //> empty: resolveFailed
@@ -61,6 +63,7 @@ function main() returns ExitCode
 	print("the client heard: {await talk}\n")
 	try listener.close() otherwise return 2
 	print("::1: {verdict("::1")}\n")
+	print("localhost: {verdict("localhost")}\n")
 	print("1::2::3: {verdict("1::2::3")}\n")
 	print("127.0.0.1\\0junk: {verdict("127.0.0.1\0junk")}\n")
 	print("empty: {verdict("")}\n")

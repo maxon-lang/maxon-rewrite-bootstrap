@@ -114,4 +114,36 @@
 		__Raw.storeByte(name, offset: 0, value: (sockaddrBytes(length) and byteMask) as Byte)
 		__Raw.storeByte(name, offset: macosSockaddrFamilyOffset, value: (systemFamily(length) and byteMask) as Byte)
 	end 'sockaddrFamily'
+
+	// eaiNoError is what getaddrinfo gives when it found the name.
+	let eaiNoError = 0 as Count
+
+	// socketResolve is the IPv4 address that the system's resolver gives first for a host's name, the bytes of a byte array,
+	// as a word whose low 32 bits are its bytes, the first the most significant; or 0 with the error word set to resolveFailed.
+	// getaddrinfo may wait on the network, so it is called in the blocking bracket, as Go's darwin resolver calls libSystem.
+	function socketResolve(host Count, errorAddress Count) returns Count
+		let name = cStringOfBytes(collectionData(host), length: collectionLength(host))
+		let hints = alloc(macosAddrinfoBytes)
+		zeroRange(hints, from: 0, to: macosAddrinfoBytes)
+		__Raw.storeWord32(hints, offset: macosAddrinfoFamilyOffset, value: afInet)
+		__Raw.storeWord32(hints, offset: macosAddrinfoSocktypeOffset, value: macosSockStream)
+		var found = 0 as Count
+		enterBlocking()
+		let status = intResult(__Raw.callImport4("getaddrinfo", arg1: name, arg2: 0, arg3: hints, arg4: __Raw.addressOf(found)))
+		exitBlocking()
+		free(hints)
+		free(name)
+		if status != eaiNoError or found == 0 'unresolved'
+			failWith(errorAddress, errorCase: socketResolveFailed)
+			return 0
+		end 'unresolved'
+		let sockaddr = __Raw.loadWord(found, offset: macosAddrinfoAddrOffset)
+		var address = 0 as Count
+		for i in 0 upto ipv4AddressBytes 'bytes'
+			address = ((address and 0xFFFFFF) shl 8) or (__Raw.loadByte(sockaddr, offset: __Raw.wrappingAdd(sockaddrIn4AddressOffset, right: i)) as Count)
+		end 'bytes'
+		_ = __Raw.callImport1("freeaddrinfo", arg1: found)
+		succeed(errorAddress)
+		return address
+	end 'socketResolve'
 #endif
