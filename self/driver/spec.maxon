@@ -1310,7 +1310,8 @@ function stageSpecTest(shared SharedRuntime, host SharedRuntime, job SpecJob, fi
 	let source = file.text.sliceBytes(job.test.sourceStart, endPos: job.test.sourceFinish)
 	let sections = splitSections(source)
 	var errs = diag.ErrorList.create(0)
-	let compiled = compileSpecSource(shared, exe: exe, test: job.test, source: source, sections: sections, verifies: options.verifiesIr, keepsLowered: options.interprets, errs: errs)
+	let interprets = options.interprets and interpretsAsWritten(job.test)
+	let compiled = compileSpecSource(shared, exe: exe, test: job.test, source: source, sections: sections, verifies: options.verifiesIr, keepsLowered: interprets, errs: errs)
 	let checked = checkSpecTest(job.test, text: file.text, stem: file.stem, errs: errs, sections: sections)
 	if options.compilesOnly 'compiledOnly'
 		if buildsDebugInfo(job.test) and errs.count() == 0 'sidecar'
@@ -1336,8 +1337,15 @@ function stageSpecTest(shared SharedRuntime, host SharedRuntime, job SpecJob, fi
 			return doneBuilt(TestResult.failed(fault.unwrap()), exe: exe, built: true)
 		end 'unwalkable'
 	end 'sidecar'
-	return Staged.needsRun(PendingRun.spec(SpecPending.make(index, exe: exe.clone(), test: job.test.clone(), file: job.file, compiled: compiled, interprets: options.interprets)))
+	return Staged.needsRun(PendingRun.spec(SpecPending.make(index, exe: exe.clone(), test: job.test.clone(), file: job.file, compiled: compiled, interprets: interprets)))
 end 'stageSpecTest'
+
+// interpretsAsWritten is whether the interpreter runs the test as it is written: the interpreter's scheduler has neither a
+// processor count nor a preemption switch, so a test that sets either (environmentOf) is about the native scheduler's, and
+// runs natively only.
+function interpretsAsWritten(test SpecTest) returns bool
+	return environmentOf(test).count() == 0
+end 'interpretsAsWritten'
 
 // compiledOnlyFailure is what a spec test that a compile-only run compiled for another target than the host, and that did not
 // compile as its blocks say (failure), comes to: a failure when the host's compile of it does compile as they say, since a

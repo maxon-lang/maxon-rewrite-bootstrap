@@ -2284,7 +2284,7 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   its count (see "Where it differs from Maxon", the array's slot operations), has no test for one either, and its `loadat` or
   `elem` says so (` filled`) where an empty slot is told apart, a managed element or a String: one that finds its slot empty
   is the violation `read of an empty slot`, which names the read and its index, so the array's invariant is tested as a proof is. The test is the interpreter's own, so it costs a compiled program
-  nothing. `test specs --interpret` (the gate's spec run passes it) runs each spec test that passes under the interpreter too,
+  nothing. `test specs --interpret` (the gate's spec run passes it) runs each spec test that passes under the interpreter too, but for one that sets the processor count or the preemption (`<!-- procs: N -->`, `<!-- preempt: ... -->`), whose subject is the native scheduler,
   compiled uncached since the cache keeps a library module as code, and fails it for a proven access out of range or a read of an empty slot alone: its output and exit code are the executable's to give, and the rules of the memory model are the corpus's to hold programs to. The interpreter
   acts in the directory it runs in, so the gate starts the run from a scratch directory
 - **Threads.** `main` is the first thread; a `when` makes a behaviour that is queued on each cown it names, in the order
