@@ -216,7 +216,8 @@ end 'loadIndexed'
 
 // programWords are the words of the library that a module of the program writes, each once, which parsed is the parse of: the
 // names its code writes (ast.ParsedModule.nameUses), the name of the type that a map literal or a range value makes
-// (addLiteralWords), and PostedMessage where it writes a call of a handle's post, which gives one.
+// (addLiteralWords), and the marks of a call of a handle's post and of a spawn (postsMark, spawnsMark), which together reach
+// PostedMessage, the type a post gives (postedWritten).
 function programWords(parsed ast.ParsedModule, library WordSet) returns ast.StringList
 	var words = ast.StringList.create(0)
 	var seen = WordSet.new()
@@ -231,20 +232,36 @@ function programWords(parsed ast.ParsedModule, library WordSet) returns ast.Stri
 			posts = true
 		end 'post'
 	end 'names'
-	if posts and library.has(ast.libraryPostedName) and not seen.has(ast.libraryPostedName) 'posted'
-		words.push(ast.libraryPostedName.clone())
-	end 'posted'
+	if posts 'posts'
+		words.push(postsMark.clone())
+	end 'posts'
 	addLiteralWords(words, tree: parsed.tree)
 	return words
 end 'programWords'
 
+// postsMark and spawnsMark are the words a module of the program gives where it writes a call of post and where it spawns a
+// service, neither of which a module of the library declares. A handle's post needs a handle, which only a spawn of the
+// program makes, as the library spawns no service, so a program reaches PostedMessage only where it writes both, in the same
+// module or in two, and a program with no service never does, though it write post (postedWritten).
+let postsMark = ".post"
+
+let spawnsMark = "spawn"
+
+// postedWritten adds PostedMessage to the words written of a program that writes both marks (postsMark, spawnsMark).
+function postedWritten(mutates written WordSet)
+	if written.has(postsMark) and written.has(spawnsMark) and not written.has(ast.libraryPostedName) 'posts'
+		written.insert(ast.libraryPostedName.clone(), value: 1)
+	end 'posts'
+end 'postedWritten'
+
 // addLiteralWords adds to the words of a program the names of the library types that its literals make, which it never writes
 // and so would never reach the module of: a map literal makes the Map and a range value the Range or the OpenRange
-// (ast.libraryMapName, ast.rangeTypeName).
+// (ast.libraryMapName, ast.rangeTypeName), and the mark of a spawn (spawnsMark).
 function addLiteralWords(mutates words ast.StringList, tree ast.Tree)
 	var makesMap = false
 	var makesRange = false
 	var makesOpenRange = false
+	var spawns = false
 	for n in 1 upto tree.records.count() 'nodes'
 		let id = try n as ast.NodeID otherwise panic("driver: more nodes than a node id holds")
 		let kind = tree.kindOf(id)
@@ -256,7 +273,9 @@ function addLiteralWords(mutates words ast.StringList, tree ast.Tree)
 			end 'inclusive' else 'open'
 				makesOpenRange = true
 			end 'open'
-		end 'range'
+		end 'range' else if kind == ast.NodeKind.spawnExpr 'spawn'
+			spawns = true
+		end 'spawn'
 	end 'nodes'
 	if makesMap 'map'
 		words.push(ast.libraryMapName.clone())
@@ -267,6 +286,9 @@ function addLiteralWords(mutates words ast.StringList, tree ast.Tree)
 	if makesOpenRange 'openRange'
 		words.push(ast.rangeTypeName(false))
 	end 'openRange'
+	if spawns 'spawns'
+		words.push(spawnsMark.clone())
+	end 'spawns'
 end 'addLiteralWords'
 
 typealias WordSet = table.StringMap with Count

@@ -461,8 +461,9 @@ function scanTask(c Compile, mutates work ModuleWork, m Count, memory project.So
 end 'scanTask'
 
 // reachedByProgram is whether the program reaches library module m: the words of the program's modules, whose parses the parse
-// of m waited on, reach the library's core, each library module one of whose words they are, and what those may name, as the
-// scans of the modules, which the parse of m waited on too, found them (reachedLibrary).
+// of m waited on, with PostedMessage where they post and spawn (postedWritten), reach the library's core, each library module
+// one of whose words they are, and what those may name, as the scans of the modules, which the parse of m waited on too, found
+// them (reachedLibrary).
 function reachedByProgram(c Compile, known Known, m Count) returns bool
 	var written = WordSet.new()
 	var slot = 0 as Count
@@ -476,6 +477,7 @@ function reachedByProgram(c Compile, known Known, m Count) returns bool
 		end 'program'
 		slot = after(slot)
 	end 'modules'
+	postedWritten(written)
 	let reached = reachedLibrary(c, known: known, written: written)
 	return try reached.get(c.slotOf(m)) otherwise panic("driver: a library module past the compile's")
 end 'reachedByProgram'
