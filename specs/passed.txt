@@ -673,6 +673,7 @@ async-stack-growth.md: async-stack-growth.grow-then-complete-then-respawn
 async-stack-growth.md: async-stack-growth.main-recurses-deeper-than-the-os-stack
 async-stack-growth.md: async-stack-growth.multi-growth
 async-subprocess.md: async-subprocess.the-bare-name-is-an-ordinary-declaration
+async-tcp.md: async-tcp.resolve-error
 async-timer-growth.md: async-timer-growth.beyond-seed-capacity
 async-try-await.md: async-try-await.error.double-try-await
 async-try-await.md: async-try-await.otherwise-bind
@@ -5582,6 +5583,15 @@ nested-typed-array-literal.md: nested-typed-array-literal-over-records
 nested-typed-array-literal.md: nested-typed-array-literal-the-same-brand-fits
 nested-typed-array-literal.md: nested-typed-array-literal-three-levels
 nested-typed-array-literal.md: nested-typed-array-literal.error.an-element-of-another-instance
+netpoll-socket.md: netpoll-socket.a-connection-reset-before-it-is-accepted-leaves-the-listener-serving
+netpoll-socket.md: netpoll-socket.a-listener-lent-to-a-parked-accept-cannot-be-closed-under-it
+netpoll-socket.md: netpoll-socket.a-second-accept-cannot-be-started-on-a-listener-lent-to-the-first
+netpoll-socket.md: netpoll-socket.a-second-bind-of-a-live-port-is-refused
+netpoll-socket.md: netpoll-socket.a-second-reader-cannot-be-started-on-a-socket-lent-to-the-first
+netpoll-socket.md: netpoll-socket.a-socket-lent-to-a-parked-reader-cannot-be-closed-under-it
+netpoll-socket.md: netpoll-socket.a-write-deadline-fires-on-a-send-the-peer-never-reads
+netpoll-socket.md: netpoll-socket.an-accept-deadline-fires
+netpoll-socket.md: netpoll-socket.an-accept-out-of-descriptors-is-retriable
 nominal-function-alias.md: a-branded-comparator-decays-into-the-per-instance-sort-alias
 nominal-function-alias.md: a-closure-literal-decays-into-any-function-alias
 nominal-function-alias.md: a-declared-function-decays-into-any-function-alias
@@ -8273,6 +8283,11 @@ tan.md: tan.multiple-values
 tan.md: tan.quarter-pi
 tan.md: tan.with-int-promotion
 tan.md: tan.zero
+tcp-client.md: tcp-client.a-host-holding-a-nul-resolves-to-nothing-not-its-prefix
+tcp-client.md: tcp-client.a-listener-host-holding-a-nul-resolves-to-nothing-not-its-prefix
+tcp-client.md: tcp-client.an-ipv6-literal-binds-connects-and-echoes-in-every-spelling
+tcp-client.md: tcp-client.an-ipv6-literal-is-read-to-the-address-grammar
+tcp-client.md: tcp-client.resolve-error
 temporary-borrow-lifetime.md: a-borrow-out-of-a-temporary-inside-a-loop-body
 temporary-borrow-lifetime.md: a-borrow-out-of-a-temporary-inside-a-short-circuit-right-hand-side
 temporary-borrow-lifetime.md: a-borrow-out-of-a-temporary-inside-a-ternary-arm
