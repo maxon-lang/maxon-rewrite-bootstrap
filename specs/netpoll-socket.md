@@ -80,13 +80,15 @@ enum Attempt implements Error
 	disturbed
 end 'Attempt'
 
-function echoRounds(listener TcpListener) returns Tally
+function echoRounds(mutates listener TcpListener) returns Tally
 	var served = 0 as Tally
 	while served < rounds 'serving'
 		let conn = try listener.accept() otherwise return served
-		let heard = String.from(try conn.readSome(1024) otherwise return served)
+		let socketValue1 = try conn.readSome(1024) otherwise return served
+		let heard = String.from(socketValue1)
 		_ = try conn.send(heard) otherwise return served
 		served = served + 1
+		try conn.close() otherwise ignore
 	end 'serving'
 	return served
 end 'echoRounds'
@@ -95,7 +97,8 @@ function echoOnce(port NetworkPort, n Tally) returns Tally throws NetworkError
 	let client = try TcpClient.connect("127.0.0.1", port: port)
 	let msg = "maxon line {n}\n"
 	_ = try client.send(msg)
-	let response = String.from(try client.readSome(1024) otherwise return 0)
+	let socketValue2 = try client.readSome(1024) otherwise return 0
+	let response = String.from(socketValue2)
 	if response == msg 'echoed'
 		return 1
 	end 'echoed'
@@ -110,7 +113,7 @@ function attempt() returns (Tally, bool) throws Attempt
 	return try attemptOver(listener)
 end 'attempt'
 
-function attemptOver(listener TcpListener) returns (Tally, bool) throws Attempt
+function attemptOver(mutates listener TcpListener) returns (Tally, bool) throws Attempt
 	let port = listener.port()
 	let peer = async echoRounds(listener)
 	_ = try echoOnce(port, n: 0) otherwise 0
@@ -178,13 +181,15 @@ typealias Tally = int(0 to u64.max)
 // Four in flight at once plus the warm-up, and the peer is done when it has answered exactly that many.
 let rounds = 5
 
-function echoRounds(listener TcpListener) returns Tally
+function echoRounds(mutates listener TcpListener) returns Tally
 	var served = 0 as Tally
 	while served < rounds 'serving'
 		let conn = try listener.accept() otherwise return served
-		let heard = String.from(try conn.readSome(1024) otherwise return served)
+		let socketValue1 = try conn.readSome(1024) otherwise return served
+		let heard = String.from(socketValue1)
 		_ = try conn.send(heard) otherwise return served
 		served = served + 1
+		try conn.close() otherwise ignore
 	end 'serving'
 	return served
 end 'echoRounds'
@@ -193,14 +198,15 @@ function echoOnce(port NetworkPort, n Tally) returns Tally throws NetworkError
 	let client = try TcpClient.connect("127.0.0.1", port: port)
 	let msg = "maxon line {n}\n"
 	_ = try client.send(msg)
-	let response = String.from(try client.readSome(1024) otherwise return 0)
+	let socketValue2 = try client.readSome(1024) otherwise return 0
+	let response = String.from(socketValue2)
 	if response == msg 'echoed'
 		return 1
 	end 'echoed'
 	return 0
 end 'echoOnce'
 
-function exchangeOver(listener TcpListener) returns ExitCode
+function exchangeOver(mutates listener TcpListener) returns ExitCode
 	let port = listener.port()
 	let peer = async echoRounds(listener)
 	_ = try echoOnce(port, n: 0) otherwise 0
@@ -252,13 +258,15 @@ typealias Tally = int(0 to u64.max)
 // One poller park per reader is the floor: a reader that held its machine never reached the poller at all.
 let readers = 2
 
-function echoRounds(listener TcpListener) returns Tally
+function echoRounds(mutates listener TcpListener) returns Tally
 	var served = 0 as Tally
 	while served < readers 'serving'
 		let conn = try listener.accept() otherwise return served
-		let heard = String.from(try conn.readSome(1024) otherwise return served)
+		let socketValue1 = try conn.readSome(1024) otherwise return served
+		let heard = String.from(socketValue1)
 		_ = try conn.send(heard) otherwise return served
 		served = served + 1
+		try conn.close() otherwise ignore
 	end 'serving'
 	return served
 end 'echoRounds'
@@ -267,14 +275,15 @@ function echoOnce(port NetworkPort, n Tally) returns Tally throws NetworkError
 	let client = try TcpClient.connect("127.0.0.1", port: port)
 	let msg = "maxon line {n}\n"
 	_ = try client.send(msg)
-	let response = String.from(try client.readSome(1024) otherwise return 0)
+	let socketValue2 = try client.readSome(1024) otherwise return 0
+	let response = String.from(socketValue2)
 	if response == msg 'echoed'
 		return 1
 	end 'echoed'
 	return 0
 end 'echoOnce'
 
-function exchangeOver(listener TcpListener) returns ExitCode
+function exchangeOver(mutates listener TcpListener) returns ExitCode
 	let beforeParks = Scheduler.counters().netpollBlocks
 	let port = listener.port()
 	let peer = async echoRounds(listener)
@@ -333,7 +342,7 @@ function main() returns ExitCode
 	end 'cancelled3'
 	let client = try await dialing otherwise return 1
 	_ = try peer.send("abc") otherwise return 1
-	peer.close()
+	try peer.close() otherwise ignore
 	try client.setReadDeadline(1) otherwise return 1
 	sleep(100)
 	var heard = ""
@@ -382,14 +391,24 @@ function oneChunk() returns String
 end 'oneChunk'
 
 function main() returns ExitCode
-	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let dialing = async TcpClient.connect("127.0.0.1", port: listener.port())
 	let peer = try listener.accept() otherwise 'cancelled17'
 		dialing.cancel()
+		try listener.close() otherwise ignore
 		return 1
 	end 'cancelled17'
-	let client = try await dialing otherwise return 1
-	try client.setWriteDeadline(WriteDeadlineMs) otherwise return 1
+	var client = try await dialing otherwise 'listenerEnded'
+		try listener.close() otherwise ignore
+		try peer.close() otherwise ignore
+		return 1
+	end 'listenerEnded'
+	try client.setWriteDeadline(WriteDeadlineMs) otherwise 'listenerEnded'
+		try listener.close() otherwise ignore
+		try peer.close() otherwise ignore
+		try client.close() otherwise ignore
+		return 1
+	end 'listenerEnded'
 	let chunk = oneChunk()
 	var chunks = 0 as Count
 	var fired = false
@@ -403,9 +422,10 @@ function main() returns ExitCode
 		end 'failed'
 		chunks = chunks + 1
 	end 'sending'
-	client.close()
-	peer.close()
+	try client.close() otherwise panic("out of range")
+	try peer.close() otherwise ignore
 	print("timedOut={fired}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -434,17 +454,20 @@ let dialCap = 1000
 
 function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
-	let held = HeldClients.create(0)
+	var held = HeldClients.create(0)
 	var dialled = 0 as Tally
 	while dialled < dialCap 'fill'
 		let client = try TcpClient.connect("127.0.0.1", port: listener.port(), deadlineMs: deadlineMs) otherwise (e) 'dialErr'
 			print("{e.name}\n")
+			try listener.close() otherwise ignore
 			return 0
 		end 'dialErr'
 		held.push(client)
 		dialled = dialled + 1
+		try client.close() otherwise ignore
 	end 'fill'
 	print("the backlog never filled\n")
+	try listener.close() otherwise ignore
 	return 1
 end 'main'
 ```
@@ -617,21 +640,26 @@ lends the socket to the coroutine that reads it until the promise is awaited or 
 in between is a use of a lent value (E3102). The reader closes its own socket when it returns, and it cannot do that
 while it is parked in `readSome`.
 ```maxon
-function readUntilClosed(client TcpClient) returns ExitCode
+function readUntilClosed(mutates client TcpClient) returns ExitCode
 	_ = try client.readSome(1024) otherwise return 1
 	return 0
 end 'readUntilClosed'
 
-function readOver(client TcpClient) returns ExitCode
+function readOver(consumes client TcpClient) returns ExitCode
+	var client = client
 	let reader = async readUntilClosed(client)
 	Scheduler.yield()
-	client.close()
+	try client.close() otherwise ignore
 	return await reader
 end 'readOver'
 
 function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
-	let client = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise return 1
+	let client = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise 'closedExit1'
+		try listener.close() otherwise ignore
+		return 1
+	end 'closedExit1'
+	try listener.close() otherwise ignore
 	return readOver(client)
 end 'main'
 ```
@@ -695,7 +723,7 @@ function parkedAt(from ParkMark) returns bool
 end 'parkedAt'
 
 // Nothing is ever sent on this connection, so this read parks and is still parked when the owner cancels.
-function readNothing(client TcpClient, parkedFrom ParkMark) returns ReadOutcome
+function readNothing(mutates client TcpClient, parkedFrom ParkMark) returns ReadOutcome
 	var code = 0 as ReadOutcome
 	parkedFrom.publish(Scheduler.counters().netpollBlocks + 1)
 	try client.readSome(1024) otherwise (e) 'readErr'
@@ -709,7 +737,7 @@ function readNothing(client TcpClient, parkedFrom ParkMark) returns ReadOutcome
 	return code
 end 'readNothing'
 
-function echoUntilAnswered(listener TcpListener, peerFrom ParkMark) returns Answered
+function echoUntilAnswered(mutates listener TcpListener, peerFrom ParkMark) returns Answered
 	var answered = 0 as Answered
 	while answered == 0 'serving'
 		let conn = try listener.accept() otherwise return 0
@@ -720,6 +748,7 @@ function echoUntilAnswered(listener TcpListener, peerFrom ParkMark) returns Answ
 		end 'silent'
 		_ = try conn.send(String.from(heard)) otherwise return 0
 		answered = 1
+		try conn.close() otherwise ignore
 	end 'serving'
 	return answered
 end 'echoUntilAnswered'
@@ -729,7 +758,7 @@ function main() returns ExitCode
 	return reuseOver(listener)
 end 'main'
 
-function reuseOver(listener TcpListener) returns ExitCode
+function reuseOver(mutates listener TcpListener) returns ExitCode
 	let peerFrom = ParkMark.create(0 as SchedulerEventCount)
 	let boundPort = listener.port()
 	let peer = async echoUntilAnswered(listener, peerFrom: peerFrom.clone())
@@ -746,7 +775,8 @@ function reuseOver(listener TcpListener) returns ExitCode
 	return 0
 end 'reuseOver'
 
-function reuseItsDescriptor(first TcpClient, port NetworkPort, peerFrom ParkMark) returns String
+function reuseItsDescriptor(consumes first TcpClient, port NetworkPort, peerFrom ParkMark) returns String
+	var first = first
 	while not parkedAt(peerFrom) 'untilPeerParked'
 		sleep(1)
 	end 'untilPeerParked'
@@ -756,11 +786,12 @@ function reuseItsDescriptor(first TcpClient, port NetworkPort, peerFrom ParkMark
 		sleep(1)
 	end 'untilReaderParked'
 	stale.cancel()
-	first.close()
+	try first.close() otherwise ignore
 	// The lowest free descriptor is the one just closed, so this connection inherits the released record.
 	let second = try TcpClient.connect("127.0.0.1", port: port) otherwise return "the second connect failed\n"
 	_ = try second.send("reuse\n") otherwise return "the send failed\n"
-	let echo = String.from(try second.readSome(1024) otherwise return "the echo never arrived\n")
+	let socketValue1 = try second.readSome(1024) otherwise return "the echo never arrived\n"
+	let echo = String.from(socketValue1)
 	return "echoed={echo == "reuse\n"}\n"
 end 'reuseItsDescriptor'
 ```
@@ -778,22 +809,31 @@ echoed=true
 socket to the coroutine that reads it until the promise is awaited or cancelled, so `readOver` reading it again in
 between is a use of a lent value (E3102). Two reads of one socket are never in flight together.
 ```maxon
-function readNothing(client TcpClient) returns ExitCode
+function readNothing(mutates client TcpClient) returns ExitCode
 	_ = try client.readSome(1024) otherwise return 1
 	return 0
 end 'readNothing'
 
-function readOver(client TcpClient) returns ExitCode
+function readOver(mutates client TcpClient) returns ExitCode
 	let first = async readNothing(client)
 	Scheduler.yield()
-	_ = try client.readSome(1024) otherwise return 2
+	_ = try client.readSome(1024) otherwise 'beforeExit'
+		first.cancel()
+		return 2
+	end 'beforeExit'
 	return await first
 end 'readOver'
 
 function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
-	let client = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise return 1
-	return readOver(client)
+	var client = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise 'closedExit1'
+		try listener.close() otherwise ignore
+		return 1
+	end 'closedExit1'
+	try listener.close() otherwise ignore
+	let socketResult = readOver(client)
+	try client.close() otherwise ignore
+	return socketResult
 end 'main'
 ```
 ```maxoncstderr
@@ -814,12 +854,12 @@ so a reader that never parks is a TIMEOUT and no sleep has to outlast the host.
 ⚠ **THE PEER SENDS ONLY AFTER THE CANCEL.** The reader cannot be the one to take the bytes, so the read that returns
 them is the owner's.
 ```maxon
-function readNothing(client TcpClient) returns ExitCode
+function readNothing(mutates client TcpClient) returns ExitCode
 	_ = try client.readSome(1024) otherwise return 1
 	return 0
 end 'readNothing'
 
-function readOver(client TcpClient, peer TcpClient) returns String
+function readOver(mutates client TcpClient, mutates peer TcpClient) returns String
 	let parksBefore = Scheduler.counters().netpollBlocks
 	let first = async readNothing(client)
 	while Scheduler.counters().netpollBlocks == parksBefore 'untilParked'
@@ -861,9 +901,10 @@ a collision into a failure that looks like a defect.
 ```maxon
 typealias Served = int(0 to 1)
 
-function serveOne(listener TcpListener) returns Served
+function serveOne(mutates listener TcpListener) returns Served
 	let conn = try listener.accept() otherwise return 0
-	let heard = String.from(try conn.readSome(1024) otherwise return 0)
+	let socketValue1 = try conn.readSome(1024) otherwise return 0
+	let heard = String.from(socketValue1)
 	_ = try conn.send(heard) otherwise return 0
 	return 1
 end 'serveOne'
@@ -872,11 +913,12 @@ function roundTrip(port NetworkPort) returns bool
 	let payload = "maxon loopback\n"
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return false
 	_ = try client.send(payload) otherwise return false
-	let answer = String.from(try client.readSome(1024) otherwise return false)
+	let socketValue2 = try client.readSome(1024) otherwise return false
+	let answer = String.from(socketValue2)
 	return answer == payload
 end 'roundTrip'
 
-function exchangeOver(listener TcpListener) returns ExitCode
+function exchangeOver(mutates listener TcpListener) returns ExitCode
 	let port = listener.port()
 	let peer = async serveOne(listener)
 	let echoed = roundTrip(port)
@@ -923,7 +965,7 @@ function parkedInAccept(parkedFrom ParkMark) returns bool
 	return Scheduler.counters().netpollBlocks >= mark
 end 'parkedInAccept'
 
-function acceptOne(listener TcpListener, parkedFrom ParkMark) returns Served
+function acceptOne(mutates listener TcpListener, parkedFrom ParkMark) returns Served
 	parkedFrom.publish(Scheduler.counters().netpollBlocks + 1)
 	let conn = try listener.accept() otherwise return 0
 	_ = try conn.readSome(1024) otherwise return 0
@@ -939,7 +981,7 @@ function dialOnceParked(port NetworkPort, parkedFrom ParkMark) returns bool
 	return true
 end 'dialOnceParked'
 
-function exchangeOver(listener TcpListener) returns ExitCode
+function exchangeOver(mutates listener TcpListener) returns ExitCode
 	let port = listener.port()
 	let parkedFrom = ParkMark.create(0 as SchedulerEventCount)
 	let acceptor = async acceptOne(listener, parkedFrom: parkedFrom.clone())
@@ -974,14 +1016,16 @@ so the verdict is per-connection identity and not an ordering the scheduler happ
 ```maxon
 typealias Served = int(0 to 2)
 
-function serveBoth(listener TcpListener) returns Served
+function serveBoth(mutates listener TcpListener) returns Served
 	let earlier = try listener.accept() otherwise return 0
 	let later = try listener.accept() otherwise return 0
 	var served = 0 as Served
-	let fromEarlier = String.from(try earlier.readSome(1024) otherwise return served)
+	let socketValue1 = try earlier.readSome(1024) otherwise return served
+	let fromEarlier = String.from(socketValue1)
 	_ = try earlier.send(fromEarlier) otherwise return served
 	served = served + 1
-	let fromLater = String.from(try later.readSome(1024) otherwise return served)
+	let socketValue2 = try later.readSome(1024) otherwise return served
+	let fromLater = String.from(socketValue2)
 	_ = try later.send(fromLater) otherwise return served
 	served = served + 1
 	return served
@@ -990,11 +1034,12 @@ end 'serveBoth'
 function roundTrip(port NetworkPort, payload String) returns bool
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return false
 	_ = try client.send(payload) otherwise return false
-	let answer = String.from(try client.readSome(1024) otherwise return false)
+	let socketValue3 = try client.readSome(1024) otherwise return false
+	let answer = String.from(socketValue3)
 	return answer == payload
 end 'roundTrip'
 
-function exchangeOver(listener TcpListener) returns ExitCode
+function exchangeOver(mutates listener TcpListener) returns ExitCode
 	let port = listener.port()
 	let peer = async serveBoth(listener)
 	let earlier = async roundTrip(port, payload: "first payload\n")
@@ -1051,13 +1096,14 @@ function parkedInAccept(parkedFrom ParkMark) returns bool
 	return Scheduler.counters().netpollBlocks >= mark
 end 'parkedInAccept'
 
-function stall(listener TcpListener, parkedFrom ParkMark) returns ExitCode throws NetworkError
+function stall(mutates listener TcpListener, parkedFrom ParkMark) returns ExitCode throws NetworkError
 	parkedFrom.publish(Scheduler.counters().netpollBlocks + 1)
-	_ = try listener.accept()
+	var discardedSocket = try listener.accept()
+	try discardedSocket.close() otherwise ignore
 	return 0
 end 'stall'
 
-function exchangeOver(listener TcpListener) returns ExitCode
+function exchangeOver(mutates listener TcpListener) returns ExitCode
 	let port = listener.port()
 	let parkedFrom = ParkMark.create(0 as SchedulerEventCount)
 	let acceptor = async stall(listener, parkedFrom: parkedFrom.clone())
@@ -1091,15 +1137,17 @@ lends the listener to the coroutine that accepts on it until the promise is awai
 closing it in between is a use of a lent value (E3102). A listener is closed by its owner once the accept is over,
 and an accept that is no longer wanted is ended by `cancel()`.
 ```maxon
-function acceptUntilClosed(listener TcpListener) returns ExitCode
-	_ = try listener.accept() otherwise return 1
+function acceptUntilClosed(mutates listener TcpListener) returns ExitCode
+	var discardedSocket = try listener.accept() otherwise return 1
+	try discardedSocket.close() otherwise ignore
 	return 0
 end 'acceptUntilClosed'
 
-function exchangeOver(listener TcpListener) returns ExitCode
+function exchangeOver(consumes listener TcpListener) returns ExitCode
+	var listener = listener
 	let acceptor = async acceptUntilClosed(listener)
 	Scheduler.yield()
-	listener.close()
+	try listener.close() otherwise ignore
 	return await acceptor
 end 'exchangeOver'
 
@@ -1135,14 +1183,15 @@ let cleanExit = 42
 
 typealias SleepingFlag = SharedValue with Sleeping
 
-function stall(listener TcpListener, sleeping SleepingFlag) returns ExitCode throws NetworkError
+function stall(mutates listener TcpListener, sleeping SleepingFlag) returns ExitCode throws NetworkError
 	sleeping.publish(1 as Sleeping)
 	sleep(1000)
-	_ = try listener.accept()
+	var discardedSocket = try listener.accept()
+	try discardedSocket.close() otherwise ignore
 	return 0
 end 'stall'
 
-function exchangeOver(listener TcpListener) returns ExitCode
+function exchangeOver(mutates listener TcpListener) returns ExitCode
 	let port = listener.port()
 	let sleeping = SleepingFlag.create(0 as Sleeping)
 	let acceptor = async stall(listener, sleeping: sleeping.clone())
@@ -1175,21 +1224,28 @@ dropped=true bound=true
 listener to the coroutine that accepts on it until the promise is awaited or cancelled, so `exchangeOver` accepting
 again in between is a use of a lent value (E3102). Two accepts on one listener are never in flight together.
 ```maxon
-function acceptOnce(listener TcpListener) returns ExitCode
-	_ = try listener.accept() otherwise return 1
+function acceptOnce(mutates listener TcpListener) returns ExitCode
+	var discardedSocket = try listener.accept() otherwise return 1
+	try discardedSocket.close() otherwise ignore
 	return 0
 end 'acceptOnce'
 
-function exchangeOver(listener TcpListener) returns ExitCode
+function exchangeOver(mutates listener TcpListener) returns ExitCode
 	let first = async acceptOnce(listener)
 	Scheduler.yield()
-	_ = try listener.accept() otherwise return 2
+	var discardedSocket = try listener.accept() otherwise 'beforeExit'
+		first.cancel()
+		return 2
+	end 'beforeExit'
+	try discardedSocket.close() otherwise ignore
 	return await first
 end 'exchangeOver'
 
 function main() returns ExitCode
-	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
-	return exchangeOver(listener)
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	let socketResult = exchangeOver(listener)
+	try listener.close() otherwise ignore
+	return socketResult
 end 'main'
 ```
 ```maxoncstderr
@@ -1220,6 +1276,7 @@ function main() returns ExitCode
 		end 'which'
 	end 'again'
 	print("refused={refused}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -1239,13 +1296,16 @@ let clockSlackMs = 20
 
 function connectOnce(port NetworkPort) returns ExitCode
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return 1
-	client.close()
+	try client.close() otherwise ignore
 	return 0
 end 'connectOnce'
 
 function main() returns ExitCode
-	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
-	try listener.setAcceptDeadline(deadlineMs) otherwise return 2
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	try listener.setAcceptDeadline(deadlineMs) otherwise 'listenerEnded'
+		try listener.close() otherwise ignore
+		return 2
+	end 'listenerEnded'
 	var fired = false
 	let start = Clock.nowMs()
 	try listener.accept() otherwise (e) 'acceptErr'
@@ -1255,15 +1315,20 @@ function main() returns ExitCode
 		end 'check'
 	end 'acceptErr'
 	let tookMs = Clock.elapsedMs(start)
-	try listener.setAcceptDeadline(0) otherwise return 3
+	try listener.setAcceptDeadline(0) otherwise 'listenerEnded'
+		try listener.close() otherwise ignore
+		return 3
+	end 'listenerEnded'
 	let peer = async connectOnce(listener.port())
 	let accepted = try listener.accept() otherwise 'cancelled28'
 		peer.cancel()
+		try listener.close() otherwise ignore
 		return 4
 	end 'cancelled28'
-	accepted.close()
+	try accepted.close() otherwise ignore
 	let connected = await peer
-	print("timedOut={fired} notEarly={tookMs + clockSlackMs >= deadlineMs} servedAfterClearing={connected == 0}\n")
+	print("timedOut={fired} notEarly={(try tookMs + clockSlackMs otherwise panic("out of range")) >= deadlineMs} servedAfterClearing={connected == 0}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -1275,13 +1340,14 @@ timedOut=true notEarly=true servedAfterClearing=true
 ```
 
 <!-- test: netpoll-socket.shutting-down-the-write-side-ends-the-peers-reads-and-leaves-its-own -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- procs: 1 -->
 **`shutdownWrite` ENDS ONE DIRECTION AND ONLY ONE.** The peer's next read sees the end of the stream, the peer can
 still send, and the side that shut its writes still reads what arrives. The server's lingering close stands on all
 three and reports none of them, so a wrong call or a missing import on a lane is invisible anywhere else. Once the
 socket is closed there is nothing left to shut, and saying so is the call's to do.
 ```maxon
-function halfClosed(listener TcpListener) returns String
+function halfClosed(mutates listener TcpListener) returns String
 	let conn = try listener.accept() otherwise return "accept-failed"
 	_ = try conn.send("before") otherwise return "send-failed"
 	try conn.shutdownWrite() otherwise (e) 'unshut'
@@ -1290,19 +1356,19 @@ function halfClosed(listener TcpListener) returns String
 	let heard = try conn.readSome(1024) otherwise (e) 'unheard'
 		return "recv threw {e.name}"
 	end 'unheard'
-	conn.close()
+	try conn.close() otherwise ignore
 	let again = "shutdown after close {shutdownOutcome(conn)}"
 	return "heard={String.from(heard)} {again}"
 end 'halfClosed'
 
-function shutdownOutcome(conn TcpClient) returns String
+function shutdownOutcome(mutates conn TcpClient) returns String
 	try conn.shutdownWrite() otherwise (e) 'refused'
 		return "threw {e.name}"
 	end 'refused'
 	return "returned"
 end 'shutdownOutcome'
 
-function nextRead(client TcpClient) returns String
+function nextRead(mutates client TcpClient) returns String
 	let read = try client.readSome(1024) otherwise (e) 'unread'
 		return e.name
 	end 'unread'
@@ -1312,7 +1378,7 @@ function nextRead(client TcpClient) returns String
 	return String.from(read)
 end 'nextRead'
 
-function exchangeOver(listener TcpListener) returns ExitCode
+function exchangeOver(mutates listener TcpListener) returns ExitCode
 	let boundPort = listener.port()
 	let peer = async halfClosed(listener)
 	let client = try TcpClient.connect("127.0.0.1", port: boundPort) otherwise 'cancelled36'
@@ -1326,7 +1392,7 @@ function exchangeOver(listener TcpListener) returns ExitCode
 		return 4
 	end 'cancelled40'
 	let served = await peer
-	client.close()
+	try client.close() otherwise ignore
 	print("first={first} then={ended}\n")
 	print("{served}\n")
 	return 0
@@ -1356,7 +1422,7 @@ let AcceptRounds = 8 as AcceptRound
 let Greeting = "hello"
 
 function resetBeforeAccept(port NetworkPort) returns bool
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	#if os(Windows)
 		argv.push("-NoProfile")
 		argv.push("-Command")
@@ -1373,29 +1439,32 @@ function resetBeforeAccept(port NetworkPort) returns bool
 end 'resetBeforeAccept'
 
 function greet(port NetworkPort) returns ExitCode
-	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return 1
-	_ = try client.send(Greeting) otherwise return 2
-	client.close()
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise return 1
+	_ = try client.send(Greeting) otherwise 'clientEnded'
+		try client.close() otherwise ignore
+		return 2
+	end 'clientEnded'
+	try client.close() otherwise ignore
 	return 0
 end 'greet'
 
-function greetingOf(conn TcpClient) returns String
+function greetingOf(mutates conn TcpClient) returns String
 	let read = try conn.readSome(1024) otherwise (e) 'unread'
 		return e.name
 	end 'unread'
 	return String.from(read)
 end 'greetingOf'
 
-function serveTheGreeting(listener TcpListener) returns String
+function serveTheGreeting(mutates listener TcpListener) returns String
 	for round in 0 upto AcceptRounds 'eachAccept'
-		let conn = try listener.accept() otherwise (e) 'refused'
+		var conn = try listener.accept() otherwise (e) 'refused'
 			if e == NetworkError.acceptInterrupted 'retriable'
 				continue
 			end 'retriable'
 			return "ended by {e.name} in round {round}"
 		end 'refused'
 		let heard = greetingOf(conn)
-		conn.close()
+		try conn.close() otherwise ignore
 		if heard == Greeting 'theGreeting'
 			return "served"
 		end 'theGreeting'
@@ -1404,12 +1473,13 @@ function serveTheGreeting(listener TcpListener) returns String
 end 'serveTheGreeting'
 
 function main() returns ExitCode
-	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let reset = resetBeforeAccept(listener.port())
 	let peer = async greet(listener.port())
 	let outcome = serveTheGreeting(listener)
 	let greeted = await peer
 	print("reset={reset} {outcome} greeted={greeted == 0}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -1432,33 +1502,34 @@ let DescriptorLimit = "ulimit -n 64 && exec \"$0\" child"
 
 let RanOut = "ran-out"
 
-function acceptOutcome(listener TcpListener) returns String
+function acceptOutcome(mutates listener TcpListener) returns String
 	let conn = try listener.accept() otherwise (e) 'refused'
 		return e.name
 	end 'refused'
-	conn.close()
+	try conn.close() otherwise ignore
 	return "accepted"
 end 'acceptOutcome'
 
-function fillThenProbe(listener TcpListener, depth HeldCount) returns String
+function fillThenProbe(mutates listener TcpListener, depth HeldCount) returns String
 	if depth >= HeldLimit 'neverRanOut'
 		return "filled=false"
 	end 'neverRanOut'
 	let client = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise return RanOut
 	let below = fillThenProbe(listener, depth: depth + 1)
 	if below != RanOut 'probedBelow'
-		client.close()
+		try client.close() otherwise ignore
 		return below
 	end 'probedBelow'
 	let first = acceptOutcome(listener)
-	client.close()
+	try client.close() otherwise ignore
 	let second = acceptOutcome(listener)
 	return "filled=true first={first} second={second}"
 end 'fillThenProbe'
 
 function outOfDescriptors() returns ExitCode
-	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 5
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 5
 	print("{fillThenProbe(listener, depth: 0)}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'outOfDescriptors'
 
@@ -1467,7 +1538,7 @@ function main() returns ExitCode
 		return outOfDescriptors()
 	end 'theChild'
 	let exe = try Process.executablePath() otherwise return 2
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push(DescriptorLimit)
 	argv.push(exe.path)

@@ -258,9 +258,10 @@ authority `[::1]:<port>` as `Host`. The peer is a raw listener so the case reads
 ```maxon
 let RequestBytes = 4096
 
-function answer(listener TcpListener) returns String
+function answer(mutates listener TcpListener) returns String
 	let conn = try listener.accept() otherwise return "accept-failed"
-	let request = String.from(try conn.readSome(RequestBytes) otherwise return "recv-failed")
+	let socketValue1 = try conn.readSome(RequestBytes) otherwise return "recv-failed"
+	let request = String.from(socketValue1)
 	_ = try conn.send("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nhi") otherwise return "send-failed"
 	var hostLine = "no-host-line"
 	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
@@ -308,7 +309,7 @@ here too.
 ```maxon
 let RequestBytes = 4096
 
-function answerAndHold(listener TcpListener, answer String) returns String
+function answerAndHold(mutates listener TcpListener, answer String) returns String
 	let conn = try listener.accept() otherwise return "accept-failed"
 	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
 	_ = try conn.send(answer) otherwise return "send-failed"
@@ -320,6 +321,7 @@ function answerAndHold(listener TcpListener, answer String) returns String
 			return "connectionClosed"
 		end 'clientLeft'
 	end 'held'
+	try conn.close() otherwise ignore
 end 'answerAndHold'
 
 function fetch(port NetworkPort, method HttpMethod) returns String
@@ -331,7 +333,7 @@ function fetch(port NetworkPort, method HttpMethod) returns String
 	return "{response.statusCode().number()} [{response.body()}]"
 end 'fetch'
 
-function exchange(listener TcpListener, method HttpMethod, answer String) returns String
+function exchange(mutates listener TcpListener, method HttpMethod, answer String) returns String
 	let boundPort = listener.port()
 	let peer = async answerAndHold(listener, answer: answer)
 	let got = fetch(boundPort, method: method)
@@ -362,15 +364,15 @@ head=200 [] peer=connectionClosed
 ```maxon
 let RequestBytes = 4096
 
-function answer(listener TcpListener, reply String) returns String
+function answer(mutates listener TcpListener, reply String) returns String
 	let conn = try listener.accept() otherwise return "accept-failed"
 	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
 	_ = try conn.send(reply) otherwise return "send-failed"
-	conn.close()
+	try conn.close() otherwise ignore
 	return "answered"
 end 'answer'
 
-function exchange(listener TcpListener, reply String) returns String
+function exchange(mutates listener TcpListener, reply String) returns String
 	let boundPort = listener.port()
 	let peer = async answer(listener, reply: reply)
 	let response = try HttpClient.get("http://127.0.0.1:{boundPort}/") otherwise (e) 'failed'
@@ -473,7 +475,7 @@ let ClientLimitMs = 200
 
 let RequestBytes = 4096
 
-function staySilent(listener TcpListener) returns String
+function staySilent(mutates listener TcpListener) returns String
 	let conn = try listener.accept() otherwise return "unaccepted"
 	while true 'held'
 		let chunk = try conn.readSome(RequestBytes) otherwise (e) 'left'
@@ -483,6 +485,7 @@ function staySilent(listener TcpListener) returns String
 			return "connectionClosed"
 		end 'clientLeft'
 	end 'held'
+	try conn.close() otherwise ignore
 end 'staySilent'
 
 function clientOutcome(request HttpRequest, limits HttpClientLimits) returns String
@@ -492,7 +495,7 @@ function clientOutcome(request HttpRequest, limits HttpClientLimits) returns Str
 	return "client=answered {response.statusCode().number()}"
 end 'clientOutcome'
 
-function exchangeOver(listener TcpListener) returns ExitCode
+function exchangeOver(mutates listener TcpListener) returns ExitCode
 	let boundPort = listener.port()
 	let peer = async staySilent(listener)
 	let request = try HttpRequest.create(HttpMethod.get, url: "http://127.0.0.1:{boundPort}/") otherwise 'cancelled23'
@@ -530,15 +533,15 @@ let RequestBytes = 4096
 
 let TenBytes = "0123456789"
 
-function answer(listener TcpListener, reply String) returns String
+function answer(mutates listener TcpListener, reply String) returns String
 	let conn = try listener.accept() otherwise return "accept-failed"
 	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
 	_ = try conn.send(reply) otherwise return "send-failed"
-	conn.close()
+	try conn.close() otherwise ignore
 	return "answered"
 end 'answer'
 
-function exchange(listener TcpListener, reply String, limits HttpClientLimits) returns String
+function exchange(mutates listener TcpListener, reply String, limits HttpClientLimits) returns String
 	let boundPort = listener.port()
 	let peer = async answer(listener, reply: reply)
 	let request = try HttpRequest.create(HttpMethod.get, url: "http://127.0.0.1:{boundPort}/") otherwise 'cancelled14'
@@ -596,12 +599,12 @@ client leaves at once.
 ```maxon
 let RequestBytes = 4096
 
-function answer(listener TcpListener, reply String, hold bool) returns String
+function answer(mutates listener TcpListener, reply String, hold bool) returns String
 	let conn = try listener.accept() otherwise return "accept-failed"
 	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
 	_ = try conn.send(reply) otherwise return "send-failed"
 	if not hold 'closing'
-		conn.close()
+		try conn.close() otherwise ignore
 		return "closed"
 	end 'closing'
 	while true 'held'
@@ -623,7 +626,7 @@ function fetch(port NetworkPort) returns String
 	return "{response.statusCode().number()} [{response.body()}]"
 end 'fetch'
 
-function exchange(listener TcpListener, reply String, hold bool) returns String
+function exchange(mutates listener TcpListener, reply String, hold bool) returns String
 	let boundPort = listener.port()
 	let peer = async answer(listener, reply: reply, hold: hold)
 	let got = fetch(boundPort)
@@ -669,7 +672,7 @@ let RequestBytes = 4096
 
 let EarlyHints = "HTTP/1.1 103 Early Hints\r\nLink: </style.css>; rel=preload\r\n\r\n"
 
-function answer(listener TcpListener, interimCount InterimCount) returns String
+function answer(mutates listener TcpListener, interimCount InterimCount) returns String
 	let conn = try listener.accept() otherwise return "accept-failed"
 	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
 	var reply = ""
@@ -678,11 +681,11 @@ function answer(listener TcpListener, interimCount InterimCount) returns String
 	end 'eachInterim'
 	reply = "{reply}HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"
 	_ = try conn.send(reply) otherwise return "send-failed"
-	conn.close()
+	try conn.close() otherwise ignore
 	return "answered"
 end 'answer'
 
-function exchange(listener TcpListener, interimCount InterimCount) returns String
+function exchange(mutates listener TcpListener, interimCount InterimCount) returns String
 	let boundPort = listener.port()
 	let peer = async answer(listener, interimCount: interimCount)
 	let response = try HttpClient.get("http://127.0.0.1:{boundPort}/") otherwise (e) 'failed'
@@ -718,7 +721,7 @@ on would wait for a peer that waits for it, until its own deadline ended the exc
 ```maxon
 let RequestBytes = 4096
 
-function switchAndHold(listener TcpListener) returns String
+function switchAndHold(mutates listener TcpListener) returns String
 	let conn = try listener.accept() otherwise return "accept-failed"
 	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
 	_ = try conn.send("HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n") otherwise return "send-failed"
@@ -730,9 +733,10 @@ function switchAndHold(listener TcpListener) returns String
 			return "connectionClosed"
 		end 'clientLeft'
 	end 'held'
+	try conn.close() otherwise ignore
 end 'switchAndHold'
 
-function exchangeOver(listener TcpListener) returns ExitCode
+function exchangeOver(mutates listener TcpListener) returns ExitCode
 	let boundPort = listener.port()
 	let peer = async switchAndHold(listener)
 	let request = try HttpRequest.create(HttpMethod.get, url: "http://127.0.0.1:{boundPort}/") otherwise 'cancelled16'
@@ -771,7 +775,7 @@ let RequestBytes = 4096
 
 let MostLines = 65536
 
-function streamAHead(listener TcpListener) returns String
+function streamAHead(mutates listener TcpListener) returns String
 	let conn = try listener.accept() otherwise return "accept-failed"
 	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
 	_ = try conn.send("HTTP/1.1 200 OK\r\n") otherwise return "send-failed"
@@ -787,11 +791,11 @@ function streamAHead(listener TcpListener) returns String
 		_ = try conn.send(field) otherwise break
 		sent = sent + 1
 	end 'stream'
-	conn.close()
+	try conn.close() otherwise ignore
 	return "stoppedEarly={sent < MostLines}"
 end 'streamAHead'
 
-function exchangeOver(listener TcpListener) returns ExitCode
+function exchangeOver(mutates listener TcpListener) returns ExitCode
 	let boundPort = listener.port()
 	let peer = async streamAHead(listener)
 	let outcome = try HttpClient.get("http://127.0.0.1:{boundPort}/") otherwise (e) 'failed'
@@ -1070,7 +1074,7 @@ end 'doFileIo'
 function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let port = listener.port()
-	listener.close()
+	try listener.close() otherwise ignore
 	let fileTask = async doFileIo()
 	let httpTask = async doHttp(port)
 	let fileResult = await fileTask

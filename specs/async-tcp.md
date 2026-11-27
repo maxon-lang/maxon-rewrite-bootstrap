@@ -32,9 +32,11 @@ end 'main'
 ## Tests
 
 <!-- test: async-tcp.connect-error -->
+<!-- skip: language difference: minimaxon has no TEST-NET-1 short-circuit: a connect to 192.0.2.1 dials as Go's does and the OS's timeout applies, where maxon's runtime refuses the address without dialling (README, Where it differs from Maxon) -->
 ```maxon
 function tryConnect() returns ExitCode throws NetworkError
-	_ = try TcpClient.connect("192.0.2.1", port: 1)
+	var discardedSocket = try TcpClient.connect("192.0.2.1", port: 1)
+	try discardedSocket.close() otherwise ignore
 	return 0
 end 'tryConnect'
 
@@ -51,7 +53,8 @@ end 'main'
 <!-- test: async-tcp.resolve-error -->
 ```maxon
 function resolve() returns ExitCode throws NetworkError
-	_ = try TcpClient.connect("this.host.does.not.exist.invalid", port: 80)
+	var discardedSocket = try TcpClient.connect("this.host.does.not.exist.invalid", port: 80)
+	try discardedSocket.close() otherwise ignore
 	return 0
 end 'resolve'
 
@@ -73,14 +76,15 @@ too. That listener exists only to hand out a free port, and it is closed before 
 refused without a live host.
 ```maxon
 function connect(port NetworkPort) returns ExitCode throws NetworkError
-	_ = try TcpClient.connect("localhost", port: port)
+	var discardedSocket = try TcpClient.connect("localhost", port: port)
+	try discardedSocket.close() otherwise ignore
 	return 0
 end 'connect'
 
 function main() returns ExitCode
 	let listener = try TcpListener.bind("localhost", port: 0) otherwise return 1
 	let port = listener.port()
-	listener.close()
+	try listener.close() otherwise ignore
 	let p = async connect(port)
 	let result = try await p otherwise 99
 	return result
@@ -111,7 +115,8 @@ bind does not park and the connect parks once, for the dial.
 ```maxon
 function mixedIo(port NetworkPort) returns ExitCode throws NetworkError
 	_ = File.exists(FilePath from "nofile.txt")
-	_ = try TcpClient.connect("127.0.0.1", port: port)
+	var discardedSocket = try TcpClient.connect("127.0.0.1", port: port)
+	try discardedSocket.close() otherwise ignore
 	return 0
 end 'mixedIo'
 
@@ -119,6 +124,7 @@ function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let p = async mixedIo(listener.port())
 	let result = try await p otherwise 99
+	try listener.close() otherwise ignore
 	return result
 end 'main'
 ```
@@ -147,14 +153,37 @@ would add lines that land wherever the poller wakes it. The listener is the prog
 address, so the bind does not park and the dial parks once.
 ```maxon
 function main() returns ExitCode
-	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
-	let client = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise return 2
-	let server = try listener.accept() otherwise return 3
-	_ = try client.send("ping") otherwise return 4
-	let heard = try server.readSome(16) otherwise return 5
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	var client = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise 'listenerEnded'
+		try listener.close() otherwise ignore
+		return 2
+	end 'listenerEnded'
+	var server = try listener.accept() otherwise 'listenerEnded'
+		try listener.close() otherwise ignore
+		try client.close() otherwise ignore
+		return 3
+	end 'listenerEnded'
+	_ = try client.send("ping") otherwise 'listenerEnded'
+		try listener.close() otherwise ignore
+		try client.close() otherwise ignore
+		try server.close() otherwise ignore
+		return 4
+	end 'listenerEnded'
+	let heard = try server.readSome(16) otherwise 'listenerEnded'
+		try listener.close() otherwise ignore
+		try client.close() otherwise ignore
+		try server.close() otherwise ignore
+		return 5
+	end 'listenerEnded'
 	if String.from(heard) == "ping" 'echoed'
+		try listener.close() otherwise ignore
+		try client.close() otherwise ignore
+		try server.close() otherwise ignore
 		return 0
 	end 'echoed'
+	try listener.close() otherwise ignore
+	try client.close() otherwise ignore
+	try server.close() otherwise ignore
 	return 6
 end 'main'
 ```
@@ -182,10 +211,14 @@ io_resume #1 [net_close]
 <!-- network: live -->
 ```maxon
 function echo() returns ExitCode throws NetworkError
-	let client = try TcpClient.connect("tcpbin.com", port: 4242)
+	var client = try TcpClient.connect("tcpbin.com", port: 4242)
 	_ = try client.send("Hello Async\n")
-	let response = try client.readSome(1024) otherwise return 1
+	let response = try client.readSome(1024) otherwise 'clientEnded'
+		try client.close() otherwise ignore
+		return 1
+	end 'clientEnded'
 	print(String.from(response))
+	try client.close() otherwise ignore
 	return 0
 end 'echo'
 

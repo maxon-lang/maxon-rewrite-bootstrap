@@ -497,7 +497,7 @@ end 'Plain'
 type Port implements Shape
 	export let listener as TcpListener
 
-	static function create(listener TcpListener) returns Self
+	static function create(consumes listener TcpListener) returns Self
 		return Self{listener: listener}
 	end 'create'
 
@@ -514,7 +514,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-function open(listener TcpListener) returns Shape
+function open(mutates listener TcpListener) returns Shape
 	return Port.create(listener)
 end 'open'
 
@@ -524,6 +524,7 @@ function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let held = freeze(Holder.create(Plain.create()))
 	print("{held.shape.area()} {open(listener).area()}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -575,7 +576,7 @@ end 'Calm'
 type Port implements Inner
 	export let listener as TcpListener
 
-	static function create(listener TcpListener) returns Self
+	static function create(consumes listener TcpListener) returns Self
 		return Self{listener: listener}
 	end 'create'
 
@@ -604,7 +605,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-function open(listener TcpListener) returns Inner
+function open(mutates listener TcpListener) returns Inner
 	return Port.create(listener)
 end 'open'
 
@@ -618,6 +619,7 @@ function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let held = freeze(Holder.create(wrapped()))
 	print("{held.outer.measure()} {open(listener).area()}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```

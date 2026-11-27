@@ -46,11 +46,15 @@ reference goes out of scope, the socket is automatically closed via the destruct
 <!-- network: live -->
 ```maxon
 function runEcho() returns ExitCode throws NetworkError
-	let client = try TcpClient.connect("tcpbin.com", port: 4242)
+	var client = try TcpClient.connect("tcpbin.com", port: 4242)
 	let msg = "Hello Maxon\n"
 	_ = try client.send(msg)
-	let response = try client.readSome(1024) otherwise return 1
+	let response = try client.readSome(1024) otherwise 'clientEnded'
+		try client.close() otherwise ignore
+		return 1
+	end 'clientEnded'
 	print(String.from(response))
+	try client.close() otherwise ignore
 	return 0
 end 'runEcho'
 
@@ -67,12 +71,14 @@ Hello Maxon
 ```
 
 <!-- test: tcp-client.connect-error -->
+<!-- skip: language difference: minimaxon has no TEST-NET-1 short-circuit: a connect to 192.0.2.1 dials as Go's does and the OS's timeout applies, where maxon's runtime refuses the address without dialling (README, Where it differs from Maxon) -->
 ⚠ The `default` arm says *unreachable*, and in a function declaring no `throws` it has to say so with
 `panic` rather than `throws`: `main` has no error channel, so a `default throws` here is silently discarded —
 and with a payload-carrying error it leaks the box (`exit 101`). E3059 refuses it.
 ```maxon
 function main() returns ExitCode
 	if let client = try TcpClient.connect("192.0.2.1", port: 1) 'ok'
+		try client.close() otherwise ignore
 		return 1
 	end 'ok' else (e) 'err'
 		match e 'check'
@@ -93,6 +99,7 @@ and with a payload-carrying error it leaks the box (`exit 101`). E3059 refuses i
 ```maxon
 function main() returns ExitCode
 	if let client = try TcpClient.connect("this.host.does.not.exist.invalid", port: 1) 'ok'
+		try client.close() otherwise ignore
 		return 1
 	end 'ok' else (e) 'err'
 		match e 'check'
@@ -115,9 +122,11 @@ function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 2
 	if let client = try TcpClient.connect("127.0.0.1\0junk", port: listener.port()) 'ok'
 		print("connected\n")
+		try client.close() otherwise ignore
 	end 'ok' else (e) 'err'
 		print("refused {e.name}\n")
 	end 'err'
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -135,6 +144,7 @@ the address the bytes before the NUL name, or every local address an empty name 
 function main() returns ExitCode
 	if let listener = try TcpListener.bind("127.0.0.1\0junk", port: 0) 'ok'
 		print("bound {listener.port() > 0}\n")
+		try listener.close() otherwise ignore
 	end 'ok' else (e) 'err'
 		print("refused {e.name}\n")
 	end 'err'
@@ -157,38 +167,50 @@ IPv6 socket.
 ```maxon
 let RequestBytes = 64
 
-function echoOnce(listener TcpListener) returns String
-	let conn = try listener.accept() otherwise return "accept-failed"
-	let heard = String.from(try conn.readSome(RequestBytes) otherwise return "recv-failed")
-	_ = try conn.send(heard) otherwise return "send-failed"
+function echoOnce(mutates listener TcpListener) returns String
+	var conn = try listener.accept() otherwise return "accept-failed"
+	let socketValue1 = try conn.readSome(RequestBytes) otherwise 'connEnded'
+		try conn.close() otherwise ignore
+		return "recv-failed"
+	end 'connEnded'
+	let heard = String.from(socketValue1)
+	_ = try conn.send(heard) otherwise 'connEnded'
+		try conn.close() otherwise ignore
+		return "send-failed"
+	end 'connEnded'
+	try conn.close() otherwise ignore
 	return heard
 end 'echoOnce'
 
-function reach(spelling String, port NetworkPort, listener TcpListener) returns String
+function reach(spelling String, port NetworkPort, mutates listener TcpListener) returns String
 	let peer = async echoOnce(listener)
-	let client = try TcpClient.connect(spelling, port: port) otherwise (e) 'refused'
+	var client = try TcpClient.connect(spelling, port: port) otherwise (e) 'refused'
 		peer.cancel()
 		return "refused {e.name}"
 	end 'refused'
 	_ = try client.send("ping") otherwise 'cancelled17'
 		peer.cancel()
+		try client.close() otherwise ignore
 		return "send-failed"
 	end 'cancelled17'
 	let answer = try client.readSome(RequestBytes) otherwise 'cancelled18'
 		peer.cancel()
+		try client.close() otherwise ignore
 		return "recv-failed"
 	end 'cancelled18'
 	let heard = await peer
+	try client.close() otherwise ignore
 	return "{String.from(answer)}/{heard}"
 end 'reach'
 
 function main() returns ExitCode
-	let listener = try TcpListener.bind("::1", port: 0) otherwise return 1
+	var listener = try TcpListener.bind("::1", port: 0) otherwise return 1
 	let port = listener.port()
 	let spellings = ["::1", "0:0:0:0:0:0:0:1", "0::1", "0:0:0:0:0:0::1", "0000:0000:0000:0000:0000:0000:0000:0001", "::0.0.0.1", "0:0:0:0:0:0:0.0.0.1", "0:0:0:0:0::0.0.0.1"]
 	for spelling in spellings 'eachSpelling'
 		print("{spelling} -> {reach(spelling, port: port, listener: listener)}\n")
 	end 'eachSpelling'
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -215,7 +237,9 @@ over four digits, a stray single colon, a bad or misplaced dotted quad, a zone, 
 ```maxon
 function verdict(host String) returns String
 	if let listener = try TcpListener.bind(host, port: 0) 'bound'
-		return "bound {listener.port() > 0}"
+		let socketResult = "bound {listener.port() > 0}"
+		try listener.close() otherwise ignore
+		return socketResult
 	end 'bound' else (e) 'refused'
 		return e.name
 	end 'refused'
@@ -272,7 +296,7 @@ let ConnectDeadlineMs = 10000 as SocketDeadlineMs
 
 function report(label String, host String)
 	if let client = try TcpClient.connect(host, port: 80, deadlineMs: ConnectDeadlineMs) 'ok'
-		client.close()
+		try client.close() otherwise ignore
 		print("{label}: connected\n")
 	end 'ok' else (e) 'err'
 		print("{label}: refused {e.name}\n")

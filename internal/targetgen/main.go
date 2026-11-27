@@ -125,6 +125,14 @@ func generateModel(targets []target.Target) (string, error) {
 		}
 	}
 	b.WriteString("\treturn \"\"\nend 'missingFacility'\n\n")
+	b.WriteString("// facilityTypes are the library's types that are a facility some system lacks (missingFacility).\n")
+	b.WriteString("export function facilityTypes() returns StringList\n\tvar names = StringList.create(0)\n")
+	for _, f := range target.Facilities {
+		for _, ty := range f.Types {
+			fmt.Fprintf(&b, "\tnames.push(%q)\n", ty)
+		}
+	}
+	b.WriteString("\treturn names\nend 'facilityTypes'\n\n")
 	b.WriteString("// knownTargets are the targets this compiler compiles for, each architecture on each system it runs, in the order a\n// usage message lists them.\n")
 	b.WriteString("export function knownTargets() returns TargetList\n\tvar targets = TargetList.create(0)\n")
 	for _, t := range targets {

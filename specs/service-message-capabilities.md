@@ -729,12 +729,12 @@ type Acceptor
 	var listener as TcpListener
 	var accepted as Tally
 
-	static function create(listener TcpListener) returns Self
+	static function create(consumes listener TcpListener) returns Self
 		return Self{listener: listener, accepted: 0}
 	end 'create'
 
-	export function next() returns TcpClient throws NetworkError
-		self.accepted = self.accepted + 1
+	export function next(mutates self) returns TcpClient throws NetworkError
+		self.accepted = try self.accepted + 1 otherwise panic("out of range")
 		return try self.listener.accept()
 	end 'next'
 end 'Acceptor'
@@ -744,14 +744,27 @@ function main() returns ExitCode
 	let port = listener.port()
 	let acceptor = spawn Acceptor.create(listener)
 	let pending = try acceptor.next() otherwise return 2
-	let out = try TcpClient.connect("127.0.0.1", port: port) otherwise 'refused3x23'
+	var out = try TcpClient.connect("127.0.0.1", port: port) otherwise 'refused3x23'
 		pending.cancel()
 		return 3
 	end 'refused3x23'
-	let served = try await pending otherwise return 4
-	_ = try out.send("handle") otherwise return 5
-	let heard = try served.readSome(64) otherwise return 6
+	var served = try await pending otherwise 'outEnded'
+		try out.close() otherwise ignore
+		return 4
+	end 'outEnded'
+	_ = try out.send("handle") otherwise 'outEnded'
+		try out.close() otherwise ignore
+		try served.close() otherwise ignore
+		return 5
+	end 'outEnded'
+	let heard = try served.readSome(64) otherwise 'outEnded'
+		try out.close() otherwise ignore
+		try served.close() otherwise ignore
+		return 6
+	end 'outEnded'
 	print("{String.from(heard)}\n")
+	try out.close() otherwise ignore
+	try served.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -769,7 +782,7 @@ A record with a field that is an OS handle is `unique` by that field, so it move
 type Door
 	var listener as TcpListener
 
-	static function create(listener TcpListener) returns Self
+	static function create(consumes listener TcpListener) returns Self
 		return Self{listener: listener}
 	end 'create'
 
@@ -808,6 +821,7 @@ true
 ```
 
 <!-- test: error.a-record-holding-no-handle-keeps-its-word-beside-a-handle -->
+<!-- positions: moved -->
 A `TcpListener` parameter is accepted unmarked, and the plain `Point` beside it is still refused.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -827,8 +841,8 @@ type Watcher
 		return Self{total: 0}
 	end 'create'
 
-	export function watch(listener TcpListener, point Point)
-		self.total = self.total + point.x + (listener.port() as Integer)
+	export function watch(mutates self, listener TcpListener, point Point)
+		self.total = try self.total + point.x + (listener.port() as Integer) otherwise panic("out of range")
 	end 'watch'
 end 'Watcher'
 

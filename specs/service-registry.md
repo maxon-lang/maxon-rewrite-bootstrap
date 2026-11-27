@@ -3612,12 +3612,13 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-shared-value-holding-an-os-handle-is-refused -->
+<!-- positions: moved -->
 An OS handle is closed by its one owner, and a share walk cannot mark it for every thread at once.
 ```maxon
 type Config
 	export let client as TcpClient
 
-	static function create(client TcpClient) returns Self
+	static function create(consumes client TcpClient) returns Self
 		return Self{client: client}
 	end 'create'
 end 'Config'
@@ -3666,6 +3667,7 @@ error E3171: <fragment>:17:9: `Config` cannot be a registry value or a `SharedVa
 ```
 
 <!-- test: error.create-of-an-interface-whose-converted-conformer-holds-an-os-handle -->
+<!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` and `TcpListener.bind` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
 
@@ -3702,7 +3704,7 @@ end 'Plain'
 type Port implements Shape
 	export let listener as TcpListener
 
-	static function create(listener TcpListener) returns Self
+	static function create(consumes listener TcpListener) returns Self
 		return Self{listener: listener}
 	end 'create'
 
@@ -3721,7 +3723,7 @@ end 'Config'
 
 typealias Cell = SharedValue with Config
 
-function open(listener TcpListener) returns Shape
+function open(mutates listener TcpListener) returns Shape
 	return Port.create(listener)
 end 'open'
 
@@ -3731,6 +3733,7 @@ function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let cell = Cell.create(Config.create(Plain.create()))
 	print("{cell.current().shape.area()} {open(listener).area()}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```

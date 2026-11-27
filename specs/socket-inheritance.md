@@ -25,7 +25,7 @@ while the child is still alive: the child leaves only after the client has been 
 holding a copy of the accepted socket would keep the connection open for ever, and the case would not finish.
 ```maxon
 function waitingChild() returns ExitCode
-	let stdin = Console.stdin()
+	var stdin = Console.stdin()
 	let read = try stdin.readLine() otherwise return 2
 	return match read 'read'
 		ended gives 0
@@ -34,12 +34,17 @@ function waitingChild() returns ExitCode
 end 'waitingChild'
 
 function readsItsEnd(port NetworkPort) returns bool
-	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return false
-	let heard = try client.readSome(64) otherwise return false
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise return false
+	let heard = try client.readSome(64) otherwise 'clientEnded'
+		try client.close() otherwise ignore
+		return false
+	end 'clientEnded'
 	if heard.isEmpty() 'ended'
+		try client.close() otherwise ignore
 		return true
 	end 'ended'
 	print("unexpected bytes '{String.from(heard)}'\n")
+	try client.close() otherwise ignore
 	return false
 end 'readsItsEnd'
 
@@ -48,24 +53,31 @@ function main() returns ExitCode
 		return waitingChild()
 	end 'iAmTheChild'
 	let me = try Process.executablePath() otherwise return 2
-	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 3
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 3
 	let reader = async readsItsEnd(listener.port())
 	let conn = try listener.accept() otherwise 'refused4x27'
 		reader.cancel()
+		try listener.close() otherwise ignore
 		return 4
 	end 'refused4x27'
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: argv) otherwise 'refused5x31'
+	var child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: argv) otherwise 'refused5x31'
 		reader.cancel()
+		try listener.close() otherwise ignore
+		try conn.close() otherwise ignore
 		return 5
 	end 'refused5x31'
-	conn.close()
+	try conn.close() otherwise ignore
 	let ended = await reader
 	child.closeStdin()
-	let code = try child.wait() otherwise return 6
+	let code = try child.wait() otherwise 'listenerEnded'
+		try listener.close() otherwise ignore
+		return 6
+	end 'listenerEnded'
 	child.release()
 	print("ended={ended} child={code}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -84,7 +96,7 @@ the client, which closes its socket; the server, reading to the end of the conne
 the child is still alive, because the server closes the child's input only after it has seen that end.
 ```maxon
 function waitingChild() returns ExitCode
-	let stdin = Console.stdin()
+	var stdin = Console.stdin()
 	let read = try stdin.readLine() otherwise return 2
 	return match read 'read'
 		ended gives 0
@@ -93,13 +105,16 @@ function waitingChild() returns ExitCode
 end 'waitingChild'
 
 function closesOnSignal(port NetworkPort) returns bool
-	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return false
-	let signal = try client.readSome(1) otherwise return false
-	client.close()
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise return false
+	let signal = try client.readSome(1) otherwise 'clientEnded'
+		try client.close() otherwise ignore
+		return false
+	end 'clientEnded'
+	try client.close() otherwise ignore
 	return String.from(signal) == "!"
 end 'closesOnSignal'
 
-function readsItsEnd(conn TcpClient) returns bool
+function readsItsEnd(mutates conn TcpClient) returns bool
 	let heard = try conn.readSome(64) otherwise return false
 	if heard.isEmpty() 'ended'
 		return true
@@ -113,28 +128,39 @@ function main() returns ExitCode
 		return waitingChild()
 	end 'iAmTheChild'
 	let me = try Process.executablePath() otherwise return 2
-	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 3
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 3
 	let closer = async closesOnSignal(listener.port())
-	let conn = try listener.accept() otherwise 'refused4x34'
+	var conn = try listener.accept() otherwise 'refused4x34'
 		closer.cancel()
+		try listener.close() otherwise ignore
 		return 4
 	end 'refused4x34'
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: argv) otherwise 'refused5x38'
+	var child = try StreamingSubprocess.spawn(MxExecutable.path(me), arguments: argv) otherwise 'refused5x38'
 		closer.cancel()
+		try listener.close() otherwise ignore
+		try conn.close() otherwise ignore
 		return 5
 	end 'refused5x38'
 	_ = try conn.send("!") otherwise 'refused6x39'
 		closer.cancel()
+		try listener.close() otherwise ignore
+		try conn.close() otherwise ignore
 		return 6
 	end 'refused6x39'
 	let ended = readsItsEnd(conn)
 	let signalled = await closer
 	child.closeStdin()
-	let code = try child.wait() otherwise return 7
+	let code = try child.wait() otherwise 'listenerEnded'
+		try listener.close() otherwise ignore
+		try conn.close() otherwise ignore
+		return 7
+	end 'listenerEnded'
 	child.release()
 	print("signalled={signalled} ended={ended} child={code}\n")
+	try listener.close() otherwise ignore
+	try conn.close() otherwise ignore
 	return 0
 end 'main'
 ```

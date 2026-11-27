@@ -533,7 +533,7 @@ function exchangeOver(server HttpServer) returns ExitCode
 		peer.cancel()
 		return 4
 	end 'cancelled18'
-	client.close()
+	try client.close() otherwise ignore
 	let seen = await peer
 	server.close()
 	print("accept={seen}\n")
@@ -580,8 +580,9 @@ end 'statusCodeOf'
 function shout(port NetworkPort, block String) returns String
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
 	_ = try client.send(block) otherwise return "send-failed"
-	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
-	client.close()
+	let socketValue1 = try client.readSome(ReadBufferBytes) otherwise return "recv-failed"
+	let answer = String.from(socketValue1)
+	try client.close() otherwise ignore
 	return statusCodeOf(answer)
 end 'shout'
 
@@ -648,8 +649,9 @@ end 'statusCodeOf'
 function shout(port NetworkPort, block String) returns String
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
 	_ = try client.send(block) otherwise return "send-failed"
-	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
-	client.close()
+	let socketValue1 = try client.readSome(ReadBufferBytes) otherwise return "recv-failed"
+	let answer = String.from(socketValue1)
+	try client.close() otherwise ignore
 	return statusCodeOf(answer)
 end 'shout'
 
@@ -697,8 +699,9 @@ end 'statusCodeOf'
 function shout(port NetworkPort, block String) returns String
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
 	_ = try client.send(block) otherwise return "send-failed"
-	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
-	client.close()
+	let socketValue1 = try client.readSome(ReadBufferBytes) otherwise return "recv-failed"
+	let answer = String.from(socketValue1)
+	try client.close() otherwise ignore
 	return statusCodeOf(answer)
 end 'shout'
 
@@ -752,8 +755,9 @@ end 'statusCodeOf'
 
 function saySilence(port NetworkPort) returns String
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
-	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
-	client.close()
+	let socketValue1 = try client.readSome(ReadBufferBytes) otherwise return "recv-failed"
+	let answer = String.from(socketValue1)
+	try client.close() otherwise ignore
 	return statusCodeOf(answer)
 end 'saySilence'
 
@@ -813,8 +817,9 @@ end 'statusCodeOf'
 function shout(port NetworkPort, block String) returns String
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
 	_ = try client.send(block) otherwise return "send-failed"
-	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
-	client.close()
+	let socketValue1 = try client.readSome(ReadBufferBytes) otherwise return "recv-failed"
+	let answer = String.from(socketValue1)
+	try client.close() otherwise ignore
 	return statusCodeOf(answer)
 end 'shout'
 
@@ -866,8 +871,9 @@ end 'statusCodeOf'
 function shout(port NetworkPort, block String) returns String
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
 	_ = try client.send(block) otherwise return "send-failed"
-	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
-	client.close()
+	let socketValue1 = try client.readSome(ReadBufferBytes) otherwise return "recv-failed"
+	let answer = String.from(socketValue1)
+	try client.close() otherwise ignore
 	return statusCodeOf(answer)
 end 'shout'
 
@@ -880,11 +886,11 @@ function serveOne(server HttpServer) returns Served
 	return 3
 end 'serveOne'
 
-function answerWithABadHeaderLine(listener TcpListener) returns Served
+function answerWithABadHeaderLine(mutates listener TcpListener) returns Served
 	let connection = try listener.accept() otherwise return 1
 	_ = try connection.readSome(ReadBufferBytes) otherwise return 2
 	_ = try connection.send("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nBadHeaderLine\r\n\r\nhi") otherwise return 3
-	connection.close()
+	try connection.close() otherwise ignore
 	return 3
 end 'answerWithABadHeaderLine'
 
@@ -945,8 +951,9 @@ function trickle(port NetworkPort) returns String
 		_ = try client.send(String.from(one)) otherwise return "send-failed"
 		Scheduler.yield()
 	end 'eachByte'
-	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
-	client.close()
+	let socketValue1 = try client.readSome(ReadBufferBytes) otherwise return "recv-failed"
+	let answer = String.from(socketValue1)
+	try client.close() otherwise ignore
 	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
 	return try firstLine.split(" ").get(1) otherwise "no-status-code"
 end 'trickle'
@@ -1008,8 +1015,9 @@ end 'statusCodeOf'
 function shout(port NetworkPort, block String) returns String
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
 	_ = try client.send(block) otherwise return "send-failed"
-	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
-	client.close()
+	let socketValue1 = try client.readSome(ReadBufferBytes) otherwise return "recv-failed"
+	let answer = String.from(socketValue1)
+	try client.close() otherwise ignore
 	return statusCodeOf(answer)
 end 'shout'
 
@@ -1223,8 +1231,9 @@ end 'statusCodeOf'
 function shout(port NetworkPort, block String) returns String
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
 	_ = try client.send(block) otherwise return "send-failed"
-	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
-	client.close()
+	let socketValue1 = try client.readSome(ReadBufferBytes) otherwise return "recv-failed"
+	let answer = String.from(socketValue1)
+	try client.close() otherwise ignore
 	return statusCodeOf(answer)
 end 'shout'
 
@@ -1303,8 +1312,9 @@ end 'statusCodeOf'
 function shout(port NetworkPort, block String) returns String
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
 	_ = try client.send(block) otherwise return "send-failed"
-	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
-	client.close()
+	let socketValue1 = try client.readSome(ReadBufferBytes) otherwise return "recv-failed"
+	let answer = String.from(socketValue1)
+	try client.close() otherwise ignore
 	return statusCodeOf(answer)
 end 'shout'
 
@@ -1364,8 +1374,9 @@ end 'statusCodeOf'
 function shout(port NetworkPort, block String) returns String
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
 	_ = try client.send(block) otherwise return "send-failed"
-	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
-	client.close()
+	let socketValue1 = try client.readSome(ReadBufferBytes) otherwise return "recv-failed"
+	let answer = String.from(socketValue1)
+	try client.close() otherwise ignore
 	return statusCodeOf(answer)
 end 'shout'
 
@@ -1434,7 +1445,7 @@ function serveOne(server HttpServer) returns Served
 	return 3
 end 'serveOne'
 
-function everythingFrom(client TcpClient) returns String
+function everythingFrom(mutates client TcpClient) returns String
 	var answer = ""
 	var open = true
 	while open 'untilClosed'
@@ -1460,7 +1471,7 @@ function exchangeOver(server HttpServer) returns ExitCode
 		return 3
 	end 'cancelled30'
 	let answer = everythingFrom(client)
-	client.close()
+	try client.close() otherwise ignore
 	let served = await peer
 	server.close()
 	let parts = answer.split("\r\n\r\n")
@@ -1703,7 +1714,7 @@ function exchangeOver(server HttpServer) returns ExitCode
 		return 5
 	end 'cancelled33'
 	let refused = statusCodeOf(String.from(refusal))
-	client.close()
+	try client.close() otherwise ignore
 	let response = try HttpClient.get("http://127.0.0.1:{boundPort}/next") otherwise 'cancelled36'
 		peer.cancel()
 		return 4
@@ -1756,7 +1767,8 @@ function statusCodeOf(answer String) returns String
 	return try firstLine.split(" ").get(1) otherwise "no-status-code"
 end 'statusCodeOf'
 
-function trickle(client TcpClient) returns String
+function trickle(consumes client TcpClient) returns String
+	var client = client
 	_ = try client.send(HeadStart) otherwise return "send-failed"
 	while true 'trickling'
 		sleep(TrickleIntervalMs)
@@ -1770,7 +1782,7 @@ function trickle(client TcpClient) returns String
 				secure then return e.name
 			end 'cause'
 		end 'notYet'
-		client.close()
+		try client.close() otherwise ignore
 		return statusCodeOf(String.from(answer))
 	end 'trickling'
 end 'trickle'
@@ -1844,7 +1856,7 @@ function upload(port NetworkPort) returns String
 	let answer = try client.readSome(ReadBufferBytes) otherwise (e) 'recvFailed'
 		return "recv {e.name}"
 	end 'recvFailed'
-	client.close()
+	try client.close() otherwise ignore
 	return statusCodeOf(String.from(answer))
 end 'upload'
 
@@ -1889,8 +1901,9 @@ end 'statusCodeOf'
 function shout(port NetworkPort, block String) returns String
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
 	_ = try client.send(block) otherwise return "send-failed"
-	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
-	client.close()
+	let socketValue1 = try client.readSome(ReadBufferBytes) otherwise return "recv-failed"
+	let answer = String.from(socketValue1)
+	try client.close() otherwise ignore
 	return statusCodeOf(answer)
 end 'shout'
 
@@ -2004,7 +2017,7 @@ function exchangeOver(listening HttpServer) returns ExitCode
 	end 'cancelled41'
 	peer.cancel()
 	listening.close()
-	client.close()
+	try client.close() otherwise ignore
 	return 0
 end 'exchangeOver'
 
@@ -2034,7 +2047,7 @@ hands no exchange to the caller; the asterisk with any other method is malformed
 ```maxon
 let ReadBufferBytes = 4096
 
-function everythingFrom(client TcpClient) returns String
+function everythingFrom(mutates client TcpClient) returns String
 	var answer = ""
 	var open = true
 	while open 'untilClosed'
@@ -2052,7 +2065,7 @@ function shout(port NetworkPort, block String) returns String
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
 	_ = try client.send(block) otherwise return "send-failed"
 	let answer = everythingFrom(client)
-	client.close()
+	try client.close() otherwise ignore
 	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
 	let status = try firstLine.split(" ").get(1) otherwise "no-status-code"
 	let allow = answer.contains("allow: GET, POST, PUT, DELETE, HEAD, PATCH, OPTIONS")
@@ -2125,8 +2138,9 @@ end 'statusCodeOf'
 function shout(port NetworkPort, block String) returns String
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
 	_ = try client.send(block) otherwise return "send-failed"
-	let answer = String.from(try client.readSome(ReadBufferBytes) otherwise return "recv-failed")
-	client.close()
+	let socketValue1 = try client.readSome(ReadBufferBytes) otherwise return "recv-failed"
+	let answer = String.from(socketValue1)
+	try client.close() otherwise ignore
 	return statusCodeOf(answer)
 end 'shout'
 
@@ -2181,7 +2195,7 @@ may carry no CR, LF or other control, or one response could be read as two.
 ```maxon
 let ReadBufferBytes = 4096
 
-function everythingFrom(client TcpClient) returns String
+function everythingFrom(mutates client TcpClient) returns String
 	var answer = ""
 	var open = true
 	while open 'untilClosed'
@@ -2199,7 +2213,7 @@ function answeredWith(port NetworkPort) returns String
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect-failed"
 	_ = try client.send("GET / HTTP/1.1\r\nHost: x\r\n\r\n") otherwise return "send-failed"
 	let answer = everythingFrom(client)
-	client.close()
+	try client.close() otherwise ignore
 	let firstLine = try answer.split("\r\n").get(0) otherwise return "no-status-line"
 	let status = try firstLine.split(" ").get(1) otherwise "no-status-code"
 	let length = answer.toLower().contains("content-length")
@@ -2267,7 +2281,7 @@ let ReadBufferBytes = 4096
 
 let OverflowBytes = 131072
 
-function everythingFrom(client TcpClient) returns String
+function everythingFrom(mutates client TcpClient) returns String
 	var answer = ""
 	var open = true
 	while open 'untilClosed'
@@ -2306,7 +2320,7 @@ function exchangeOver(server HttpServer) returns ExitCode
 	end 'cancelled38'
 	let accepted = await peer
 	let answer = everythingFrom(client)
-	client.close()
+	try client.close() otherwise ignore
 	server.close()
 	print("accept={accepted} answered={answer.endsWith("first answered")}\n")
 	return 0
@@ -2363,13 +2377,13 @@ function exchangeOver(server HttpServer) returns ExitCode
 	end 'cancelled27'
 	let response = try HttpClient.get("http://127.0.0.1:{port}/after") otherwise (error) 'failed'
 		print("a request beside a silent client: error {error.name}\n")
-		silent.close()
+		try silent.close() otherwise ignore
 		peer.cancel()
 		server.close()
 		return 0
 	end 'failed'
 	print("a request beside a silent client: {response.statusCode().number()} [{response.body()}]\n")
-	silent.close()
+	try silent.close() otherwise ignore
 	peer.cancel()
 	server.close()
 	return 0

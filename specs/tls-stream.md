@@ -3757,7 +3757,7 @@ function main() returns ExitCode
 	end 'requestNone'
 	let probe = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let freePort = probe.port()
-	probe.close()
+	try probe.close() otherwise ignore
 	print("connect to a closed port: {connectOutcome("127.0.0.1", port: freePort)}\n")
 	print("connect to an unresolvable name: {connectOutcome("this.host.does.not.exist.invalid", port: 443)}\n")
 	let held = try TlsListener.bind("127.0.0.1", port: 0, options: server) otherwise return 2
@@ -3860,7 +3860,7 @@ let leafP256Hex = "3082015930820100a00302010202010a300a06082a8648ce3d040302300f3
 
 let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502010104200f9999d9198528f9f986f8315fe0c7aaf7b2aef840198d77b859dc4f4a8c4a2b"
 
-function holdOpen(silent TcpListener) returns String
+function holdOpen(mutates silent TcpListener) returns String
 	let connection = try silent.accept() otherwise return "accept failed"
 	let hello = try connection.readSome(4096) otherwise return "no hello"
 	let greeted = hello.count() > 0
@@ -3908,7 +3908,7 @@ function main() returns ExitCode
 		return 3
 	end 'refused3x236'
 	print("server: {await waiting}\n")
-	mute.close()
+	try mute.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -4007,6 +4007,7 @@ function refuseThree(listener TlsListener) returns String
 			continue
 		end 'unshaken'
 		report.append("[{attempt}: accepted]")
+		try stream.close() otherwise ignore
 	end 'eachAttempt'
 	return report
 end 'refuseThree'
@@ -4322,7 +4323,7 @@ function serveEcho(listener TlsListener) returns String
 	end 'unsent'
 	let peers = (try stream.peerCertificates() otherwise return "peerCertificates: unavailable").count()
 	let version = (try stream.protocol() otherwise return "protocol: unavailable").name
-	stream.close()
+	try stream.close() otherwise ignore
 	return "served {heard} {version} peers={peers}"
 end 'serveEcho'
 
@@ -4338,9 +4339,11 @@ function clientTurn(options TlsClientOptions, port NetworkPort) returns String
 	end 'unheard'
 	let reply = String.from(replyBytes)
 	let version = (try stream.protocol() otherwise return "protocol: unavailable").name
-	let suite = suiteName(try stream.cipherSuite() otherwise return "cipherSuite: unavailable")
-	let alpn = alpnName(try stream.applicationProtocol() otherwise return "applicationProtocol: unavailable")
-	stream.close()
+	let socketValue1 = try stream.cipherSuite() otherwise return "cipherSuite: unavailable"
+	let suite = suiteName(socketValue1)
+	let socketValue2 = try stream.applicationProtocol() otherwise return "applicationProtocol: unavailable"
+	let alpn = alpnName(socketValue2)
+	try stream.close() otherwise ignore
 	return "{reply} {version} {suite} alpn={alpn}"
 end 'clientTurn'
 
@@ -4372,7 +4375,7 @@ function describeStall(error TlsError) returns String
 	end 'error'
 end 'describeStall'
 
-function holdOpen(silent TcpListener) returns String
+function holdOpen(mutates silent TcpListener) returns String
 	let connection = try silent.accept() otherwise return "accept failed"
 	_ = try connection.readSome(4096) otherwise return "no hello"
 	let more = try connection.readSome(4096) otherwise (error) 'failed'
@@ -4412,7 +4415,7 @@ function phasesOver(listener TlsListener) returns ExitCode
 		return 4
 	end 'refused4x284'
 	print("a client that says nothing: {await waiting}\n")
-	mute.close()
+	try mute.close() otherwise ignore
 	let boundPort = listener.port()
 	let again = async serveEcho(listener)
 	let reply = clientTurn(trustedClient(rootHex), port: boundPort)
@@ -4532,6 +4535,7 @@ function refuseThree(listener TlsListener) returns String
 			continue
 		end 'unshaken'
 		report.append("[{attempt}: accepted]")
+		try stream.close() otherwise ignore
 	end 'eachAttempt'
 	return report
 end 'refuseThree'
@@ -4546,7 +4550,7 @@ function filler() returns String
 	return text
 end 'filler'
 
-function hearAll(raw TcpClient) returns String
+function hearAll(mutates raw TcpClient) returns String
 	let heard = ByteArray.create(0)
 	while true 'reading'
 		let chunk = try raw.readSome(1024) otherwise break
@@ -5088,7 +5092,7 @@ function main() returns ExitCode
 		return 2
 	end 'refused2x141'
 	print("echo client: {dial(trustedClient(rootHex), port: listenerPort)}\n")
-	silent.close()
+	try silent.close() otherwise ignore
 	print("server: {await server}\n")
 	return 0
 end 'main'

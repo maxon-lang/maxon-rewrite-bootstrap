@@ -276,7 +276,7 @@ type Fetcher
 	end 'fetch'
 end 'Fetcher'
 
-function answer(listener TcpListener) returns String
+function answer(mutates listener TcpListener) returns String
 	let conn = try listener.accept() otherwise return "accept-failed"
 	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
 	_ = try conn.send("HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello") otherwise return "send-failed"

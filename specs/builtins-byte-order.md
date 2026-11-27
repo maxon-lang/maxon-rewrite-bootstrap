@@ -507,12 +507,11 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.a-socket-recv-into-a-let-binding-is-accepted -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `recv` fills the buffer it is given, so a `let` binding is accepted for it.
 ```maxon
-public function receive(socket __ManagedSocket) returns ExitCode
-	let managed = try __ManagedMemory.create(16, 1) otherwise return 1
+public function receive(mutates socket __ManagedSocket) returns ExitCode
+	var managed = try ByteMemory.create(16, 1) otherwise return 1
 	let got = try socket.recv(managed) otherwise return 1
 	print("{got}\n")
 	return 0

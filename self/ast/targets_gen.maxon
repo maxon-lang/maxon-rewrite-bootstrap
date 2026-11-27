@@ -115,6 +115,15 @@ export function missingFacility(name String, system TargetSystem) returns String
 	return ""
 end 'missingFacility'
 
+// facilityTypes are the library's types that are a facility some system lacks (missingFacility).
+export function facilityTypes() returns StringList
+	var names = StringList.create(0)
+	names.push("__ManagedSocket")
+	names.push("TcpClient")
+	names.push("TcpListener")
+	return names
+end 'facilityTypes'
+
 // knownTargets are the targets this compiler compiles for, each architecture on each system it runs, in the order a
 // usage message lists them.
 export function knownTargets() returns TargetList

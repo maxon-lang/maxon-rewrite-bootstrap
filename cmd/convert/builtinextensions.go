@@ -300,6 +300,8 @@ type programNames struct {
 	own []string
 	// usesLibrarySubprocess is whether the program runs a child through Subprocess and so names the library's types.
 	usesLibrarySubprocess bool
+	// expectsError is whether the program is a spec test's that expects a compile error.
+	expectsError bool
 }
 
 // programNamesOf reads the names of a program from its source, all its files together.

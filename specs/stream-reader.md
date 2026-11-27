@@ -721,7 +721,7 @@ function shown(read LineOrEnd) returns String
 	end 'read'
 end 'shown'
 
-function serve(listener TcpListener) returns String
+function serve(mutates listener TcpListener) returns String
 	let conn = try listener.accept() otherwise return "accept-failed"
 	let reader = StreamReader.over(conn)
 	let request = try reader.readLine() otherwise (e) 'unheard'
@@ -740,7 +740,7 @@ function heard(reader TcpStreamReader) returns String throws StreamError
 	return "{header}|{body}|{rest}|{last}"
 end 'heard'
 
-function exchangeOver(listener TcpListener) returns ExitCode
+function exchangeOver(mutates listener TcpListener) returns ExitCode
 	let boundPort = listener.port()
 	let peer = async serve(listener)
 	let client = try TcpClient.connect("127.0.0.1", port: boundPort) otherwise 'refused'

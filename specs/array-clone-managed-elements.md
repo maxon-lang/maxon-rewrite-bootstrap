@@ -649,14 +649,13 @@ end 'main'
 ```
 
 <!-- test: an-array-of-socket-handle-holders-is-dropped-on-every-lane -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A lane with no socket substrate refuses every call that opens a socket, so an array of structs holding a `__ManagedSocket` is empty there and its drop closes nothing.
 ```maxon
 type Holder
 	export var s as __ManagedSocket
 
-	static function create(s __ManagedSocket) returns Self
+	static function create(consumes s __ManagedSocket) returns Self
 		return Self{s: s}
 	end 'create'
 end 'Holder'

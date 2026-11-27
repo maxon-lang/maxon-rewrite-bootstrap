@@ -1714,7 +1714,7 @@ let RequestBytes = 65536
 
 let AcceptWindowMs = 500
 
-function holdOpen(listener TcpListener) returns String
+function holdOpen(mutates listener TcpListener) returns String
 	let connection = try listener.accept() otherwise return "accept failed"
 	while true 'held'
 		let chunk = try connection.readSome(RequestBytes) otherwise (cause) 'left'
@@ -1724,6 +1724,7 @@ function holdOpen(listener TcpListener) returns String
 			return "ended"
 		end 'ended'
 	end 'held'
+	try connection.close() otherwise ignore
 end 'holdOpen'
 
 function stalledServer() returns ExitCode
@@ -1766,7 +1767,7 @@ function silentExchange(server HttpServer) returns ExitCode
 		return 5
 	end 'refused5x212'
 	print("after a client that sends nothing: {fetch(HttpMethod.get, url: "https://localhost:{port}/after", body: "", options: clientOptions())}\n")
-	silent.close()
+	try silent.close() otherwise ignore
 	peer.cancel()
 	server.close()
 	return 0
@@ -1786,7 +1787,7 @@ function deadlineExchange(server HttpServer) returns ExitCode
 		return 8
 	end 'refused8x229'
 	print("a stalled handshake, then a request: {fetch(HttpMethod.get, url: "https://localhost:{port}/after", body: "", options: clientOptions())}\n")
-	silent.close()
+	try silent.close() otherwise ignore
 	let ended = await peer
 	print("with no more connections serve ended: {ended.name}\n")
 	return 0
@@ -2360,7 +2361,7 @@ function exchangeOver(server HttpServer) returns ExitCode
 		return 2
 	end 'refused2x160'
 	print("a request beside a silent client: {fetchOnce("https://localhost:{port}/after", options: clientOptions())}\n")
-	silent.close()
+	try silent.close() otherwise ignore
 	peer.cancel()
 	server.close()
 	return 0

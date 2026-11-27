@@ -120,6 +120,7 @@ func ConvertSpec(file, src string) SpecResult {
 			c.closeTest()
 			c.startTest(line)
 			c.names = programNamesOf(testSource(lines, i+1))
+			c.names.expectsError = caseExpectsError(lines, i+1)
 		case strings.HasPrefix(line, specHeadingPrefix):
 			c.closeTest()
 			if strings.TrimRight(line, " \t") == specTestsHeading {
@@ -307,6 +308,23 @@ func testSource(lines []string, from int) string {
 		}
 	}
 	return strings.Join(src, "\n")
+}
+
+// caseExpectsError is whether the case that starts at from has a compiler-error expectation.
+func caseExpectsError(lines []string, from int) bool {
+	for i := from; i < len(lines); i++ {
+		line := lines[i]
+		if strings.HasPrefix(line, specTestMarker) || strings.HasPrefix(line, specHeadingPrefix) {
+			return false
+		}
+		if fence, ok := openingFence(line); ok {
+			if isErrorExpectation(line) {
+				return true
+			}
+			i = closingFence(lines, i, fence)
+		}
+	}
+	return false
 }
 
 func isSectionMarker(line string) bool {

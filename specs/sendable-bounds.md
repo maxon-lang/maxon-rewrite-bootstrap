@@ -687,7 +687,7 @@ end 'Shape'
 type Port implements Shape
 	export let listener as TcpListener
 
-	static function create(listener TcpListener) returns Self
+	static function create(consumes listener TcpListener) returns Self
 		return Self{listener: listener}
 	end 'create'
 
@@ -715,7 +715,7 @@ end 'Pool'
 
 typealias HolderPool = Pool with Holder
 
-function open(listener TcpListener) returns Shape
+function open(mutates listener TcpListener) returns Shape
 	return Port.create(listener)
 end 'open'
 
@@ -752,7 +752,7 @@ end 'Shape'
 type Port implements Shape
 	export let listener as TcpListener
 
-	static function create(listener TcpListener) returns Self
+	static function create(consumes listener TcpListener) returns Self
 		return Self{listener: listener}
 	end 'create'
 
@@ -792,16 +792,17 @@ type Door
 	end 'look'
 end 'Door'
 
-function open(listener TcpListener) returns Shape
+function open(mutates listener TcpListener) returns Shape
 	return Port.create(listener)
 end 'open'
 
 function main() returns ExitCode
 	let door = spawn Door.create()
 	door.shutdown()
-	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let pool = HolderPool.create(freeze(Holder.create(open(listener))))
 	print("{pool.item.shape.area()}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -1124,7 +1125,7 @@ sendable and the bound refuses it as a `unique` type.
 type Holder
 	export let listener as TcpListener
 
-	static function create(listener TcpListener) returns Self
+	static function create(consumes listener TcpListener) returns Self
 		return Self{listener: listener}
 	end 'create'
 end 'Holder'

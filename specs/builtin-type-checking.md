@@ -108,11 +108,12 @@ error E3005: specs/builtin-type-checking/builtin-type-checking.error-managed-mem
 ```
 
 <!-- test: builtin-type-checking.error-managed-socket-tcp-connect-int -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
+<!-- positions: moved -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
 	let result = __ManagedSocket.tcpConnect(0, 80)
+	try result.close() otherwise ignore
 	return 0
 end 'main'
 ```

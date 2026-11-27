@@ -186,9 +186,11 @@ type SpecTest
 	var sourceStart as Count
 	var sourceFinish as Count
 	var fences as SpecFenceList
+	// facilities are the library's types of a facility some system lacks that the source names (ast.facilityTypes).
+	var facilities as ast.StringList
 
 	static function make(consumes name String) returns SpecTest
-		return SpecTest{name: name, markerEnd: 0, skips: ast.StringList.create(0), directives: ast.StringList.create(0), positionsMoved: false, hasSource: false, sourceStart: 0, sourceFinish: 0, fences: SpecFenceList.create(0)}
+		return SpecTest{name: name, markerEnd: 0, skips: ast.StringList.create(0), directives: ast.StringList.create(0), positionsMoved: false, hasSource: false, sourceStart: 0, sourceFinish: 0, fences: SpecFenceList.create(0), facilities: ast.StringList.create(0)}
 	end 'make'
 end 'SpecTest'
 
@@ -252,6 +254,9 @@ function parseSpec(text String) returns SpecTests
 						bodyFinish = lineStart - 1
 					end 'body'
 					addFence(current, name: fenceName, start: bodyStart, finish: bodyFinish)
+					if fenceName == sourceFence 'source'
+						current.facilities = facilitiesNamed(text.sliceBytes(bodyStart, endPos: bodyFinish))
+					end 'source'
 				end 'keep'
 			end 'close'
 		end 'fence' else if first == backtickByte and matchesAt(text, at: lineStart, needle: fenceMark) 'open'
@@ -295,6 +300,43 @@ function commentText(rest String) returns String
 	end 'closed'
 	return trimSpace(rest.sliceBytes(0, endPos: finish)).clone()
 end 'commentText'
+
+// facilitiesNamed are the types of ast.facilityTypes that a source names as a whole word.
+function facilitiesNamed(source String) returns ast.StringList
+	let names = ast.facilityTypes()
+	var named = ast.StringList.create(0)
+	for i in 0 upto names.count() 'names'
+		if holdsWord(source, word: names[i]) 'named'
+			named.push(names[i].clone())
+		end 'named'
+	end 'names'
+	return named
+end 'facilitiesNamed'
+
+// holdsWord is whether a text holds a word with no letter, digit or underscore just before or after it.
+function holdsWord(text String, word String) returns bool
+	let length = text.byteLength()
+	let width = word.byteLength()
+	if width == 0 or width > length 'short'
+		return false
+	end 'short'
+	for at in 0 upto increment(length - width) 'starts'
+		let after = try at + width otherwise length
+		if text.sliceBytes(at, endPos: after) != word 'other'
+			continue 'starts'
+		end 'other'
+		let before = at == 0 or not isWordByte(text.byteAt(at - 1))
+		if before and (after == length or not isWordByte(text.byteAt(after))) 'whole'
+			return true
+		end 'whole'
+	end 'starts'
+	return false
+end 'holdsWord'
+
+// isWordByte is whether a byte may be part of a name.
+function isWordByte(b Byte) returns bool
+	return (b >= 48 and b <= 57) or (b >= 65 and b <= 90) or (b >= 97 and b <= 122) or b == 95
+end 'isWordByte'
 
 // addFence adds a fenced block that follows a test marker. The source is the one block called maxon; prose fences hold
 // nothing of the test.
@@ -506,10 +548,16 @@ function hostSkip(test SpecTest) returns table.Option with String
 	return targetSkip(test, target: hostTarget())
 end 'hostSkip'
 
-// targetSkip is why the test does not run for a target: its directive excludes the target, or it has a result block for
-// another target.
+// targetSkip is why the test does not run for a target: its directive excludes the target, it has a result block for
+// another target, or its source names a type of the library that the target's system does not have yet (ast.missingFacility).
 function targetSkip(test SpecTest, target ast.Target) returns table.Option with String
 	let name = target.name()
+	for i in 0 upto test.facilities.count() 'facilities'
+		let why = ast.missingFacility(test.facilities[i].clone(), system: target.system)
+		if not why.isEmpty() 'missing'
+			return table.Option.some("unsupported on {name}: {why}")
+		end 'missing'
+	end 'facilities'
 	for i in 0 upto test.directives.count() 'directives'
 		if directiveKey(test.directives[i]) == targetsDirective and listsTarget(directiveValue(test.directives[i]), target: name) 'excluded'
 			return table.Option.some("unsupported on {name}")

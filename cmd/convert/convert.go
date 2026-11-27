@@ -129,6 +129,9 @@ func convertProgram(file, src string, kind inputKind, names programNames) Result
 	if kind == sourceFile {
 		lines = addFileSyncs(lines)
 	}
+	if kind == specProgram {
+		lines = rewriteSocketEndings(lines, names.expectsError)
+	}
 	rewriteFileBuffers(lines)
 	warnIdentityOperators(lines, addWarn)
 

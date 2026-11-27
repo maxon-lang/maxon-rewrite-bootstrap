@@ -602,6 +602,7 @@ end 'main'
 ```
 
 <!-- test: error.clone-of-a-record-holding-an-interface-whose-conformer-owns-a-handle-is-refused -->
+<!-- positions: moved -->
 ### The clone is admitted only if EVERY conformer can be copied
 The conformer a field holds is not known until it runs, so the gate is the whole program's roster of
 conformers. One that cannot be duplicated refuses the clone at compile time, naming the field, the
@@ -629,7 +630,7 @@ end 'Square'
 type Tap implements Shape
 	var client as TcpClient
 
-	static function create(client TcpClient) returns Self
+	static function create(consumes client TcpClient) returns Self
 		return Self{client: client}
 	end 'create'
 
@@ -845,6 +846,7 @@ error E4014: <fragment>:25:6: type 'Scaled' contains a reference cycle (via Scal
 ```
 
 <!-- test: error.clone-of-a-record-holding-an-interface-a-handle-owner-conforms-to-through-an-extension-is-refused -->
+<!-- positions: moved -->
 ### The roster counts extensions, and follows `extends`
 A conformance declared by `extension T implements I` is a conformance, and a conformer of an
 interface that `extends` `Shape` is a conformer of `Shape`. A roster reading only the type
@@ -875,7 +877,7 @@ end 'Square'
 type Tap
 	var client as TcpClient
 
-	static function create(client TcpClient) returns Self
+	static function create(consumes client TcpClient) returns Self
 		return Self{client: client}
 	end 'create'
 end 'Tap'

@@ -334,6 +334,7 @@ error E3104: <fragment>:3:16: 'Clock.threadCpuTicks' lowers to the runtime entry
 ```
 
 <!-- test: stdlib-loading.target-refusal-blames-the-crossing-call-second-entry -->
+<!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 The attribution is a property of the CROSSING and not of one runtime entry: a second stdlib function
 reaching a second entry is refused at the same user span, naming what the author wrote and the entry that
@@ -353,6 +354,7 @@ grows a new facility is where this case belongs.
 ```maxon
 function main() returns ExitCode
 	let c = try TcpClient.connect("127.0.0.1", port: 9) otherwise return 4
+	try c.close() otherwise ignore
 	return 5
 end 'main'
 ```

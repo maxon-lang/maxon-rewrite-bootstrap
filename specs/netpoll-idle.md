@@ -187,16 +187,17 @@ closes its own listener when it returns, and it cannot do that while it is parke
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-function stall(listener TcpListener) returns Integer
-	_ = try listener.accept() otherwise return 2
+function stall(mutates listener TcpListener) returns Integer
+	var discardedSocket = try listener.accept() otherwise return 2
+	try discardedSocket.close() otherwise ignore
 	return 0
 end 'stall'
 
 function main() returns ExitCode
-	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise panic("a loopback bind on an ephemeral port succeeds")
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise panic("a loopback bind on an ephemeral port succeeds")
 	let accepter = async stall(listener)
 	Scheduler.yield()
-	listener.close()
+	try listener.close() otherwise ignore
 	_ = await accepter
 	print("released\n")
 	return 0

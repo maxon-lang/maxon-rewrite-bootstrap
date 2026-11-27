@@ -4398,7 +4398,7 @@ end 'Holder'
 
 function work(n Integer) returns Integer
 	Scheduler.yield()
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'work'
 
 function slow(n Integer) returns Integer

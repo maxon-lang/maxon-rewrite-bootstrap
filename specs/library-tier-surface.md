@@ -828,12 +828,16 @@ false
 ```
 
 <!-- test: error.a-managed-socket-static-is-refused-outside-the-library-tiers -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
+<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let listener = try __ManagedSocket.bindListener(b"127.0.0.1".managed, port: 0) otherwise return 1
-	let port = try listener.boundPort() otherwise return 2
+	let port = try listener.boundPort() otherwise 'closedExit1'
+		try listener.close() otherwise ignore
+		return 2
+	end 'closedExit1'
 	print("{port > 0}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -842,14 +846,17 @@ error E3185: <fragment>:3:21: '__ManagedSocket' named outside the library tiers:
 ```
 
 <!-- test: a-managed-socket-static-compiles-in-the-library-tier -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same program in the library tier: it binds a listener on a port the kernel picks.
 ```maxon
 function main() returns ExitCode
 	let listener = try __ManagedSocket.bindListener(b"127.0.0.1".managed, port: 0) otherwise return 1
-	let port = try listener.boundPort() otherwise return 2
+	let port = try listener.boundPort() otherwise 'listenerEnded'
+		try listener.close() otherwise ignore
+		return 2
+	end 'listenerEnded'
 	print("{port > 0}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -861,7 +868,6 @@ true
 ```
 
 <!-- test: error.the-managed-socket-type-is-refused-outside-the-library-tiers -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 function isLate(s __ManagedSocket) returns bool
 	return s.timedOut()
@@ -877,7 +883,6 @@ error E3185: <fragment>:2:19: '__ManagedSocket' named outside the library tiers:
 ```
 
 <!-- test: the-managed-socket-type-compiles-in-the-library-tier -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon

@@ -826,5 +826,7 @@ function codeSkipTable() returns CodeSkips
 	skips.push(CodeSkip.naming("stream-reader.md", test: "a-file-is-read-line-by-line-across-chunks", line: "<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->\n"))
 	skips.push(CodeSkip.naming("library-tier-surface.md", test: "the-managed-file-type-compiles-in-the-library-tier", line: "<!-- skip: language difference: an open file is a linear value, and nothing closes it but its close -->\n"))
 	skips.push(CodeSkip.naming("file-info.md", test: "file-info.timestamps", line: "<!-- skip: language difference: createdTime is a FileCreatedTime, time or notReported, where maxon gives a Timestamp that is st_ctime on Linux, so a comparison of it with a number does not type-check (README, Where it differs from Maxon) -->\n"))
+	skips.push(CodeSkip.naming("tcp-client.md", test: "tcp-client.connect-error", line: "<!-- skip: language difference: minimaxon has no TEST-NET-1 short-circuit: a connect to 192.0.2.1 dials as Go's does and the OS's timeout applies, where maxon's runtime refuses the address without dialling (README, Where it differs from Maxon) -->\n"))
+	skips.push(CodeSkip.naming("async-tcp.md", test: "async-tcp.connect-error", line: "<!-- skip: language difference: minimaxon has no TEST-NET-1 short-circuit: a connect to 192.0.2.1 dials as Go's does and the OS's timeout applies, where maxon's runtime refuses the address without dialling (README, Where it differs from Maxon) -->\n"))
 	return skips
 end 'codeSkipTable'
