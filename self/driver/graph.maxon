@@ -451,6 +451,7 @@ function compileOf(mutates p ast.Project, from Stage, first Count, goal Goal, ma
 	end 'from'
 	let modules = try p.modules.count() - first otherwise panic("driver: a compile from past the modules")
 	let libraryLater = libraryLaterOf(p, first: first)
+	let cache = cacheSetupOf(p, first: first, options: options)
 	var heads = project.LibraryHeads.none()
 	var indexSetup = IndexSetup.off()
 	var index = LibraryIndex.absent()
@@ -458,10 +459,10 @@ function compileOf(mutates p ast.Project, from Stage, first Count, goal Goal, ma
 		if libraryLater.contains(true) 'library'
 			heads = project.LibraryHeads.of(p, first: first)
 		end 'library'
-		indexSetup = indexSetupOf(p, libraryLater: libraryLater, first: first, options: options)
+		indexSetup = indexSetupOf(p, libraryLater: libraryLater, first: first, options: options, cache: cache)
 		index = readIndex(indexSetup)
 	end 'parsing'
-	return Compile.make(goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options.clone(), output: output.clone(), base: freeze(ast.baseOf(p, first: first)), cache: cacheSetupOf(p, first: first, options: options), libraryLater: libraryLater, heads: heads, indexSetup: indexSetup, index: index)
+	return Compile.make(goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options.clone(), output: output.clone(), base: freeze(ast.baseOf(p, first: first)), cache: cache, libraryLater: libraryLater, heads: heads, indexSetup: indexSetup, index: index)
 end 'compileOf'
 
 // startGraph adds the tasks of the compile c up to the order, from the stage from: those that every compile has, before it

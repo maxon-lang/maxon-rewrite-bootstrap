@@ -12,13 +12,25 @@
 // data instead of its source in the same way.
 //
 // The index is what the scans of the library's modules made, kept in the build cache under the digest of the compiler and of
-// every file of the library, path and bytes, so it is the library's as it is on disk: a compile that finds it there takes each
-// module's words and names from it, where it would read the module's files, and one that read them all writes it, so the next
-// compile has it. It is a cache of the scan, and no second rule of what reaches what.
+// every file of the library, its path, size and time of last write, so it is the library's as it is on disk: a compile that
+// finds it there takes each module's words and names from it, where it would read the module's files, and one that read them
+// all writes it, so the next compile has it. It is a cache of the scan, and no second rule of what reaches what.
+//
+// A compile asks the file system for each file's size and time (a directory's record of it, with no open) where it would read
+// and hash 575 KB, as Go's build cache trusts a stat before it reads a file, and a time has the seconds of the file system's
+// own resolution, so a file may change at the second its scan read it with its size and time as they were. The index therefore
+// holds the file system's time when the compile that wrote it began, before it read any file (stamp), and a compile takes it
+// only when every file was last written at least indexMarginSeconds before that time: a write after the stamp is at a time
+// not before the stamp less the coarsest resolution of a file system (two seconds, FAT's), so it is no write the key's time
+// holds, and the file that it wrote is read again, by a scan that writes the index again under a later stamp. What the key
+// cannot see is a file replaced by another of its size whose time is older than the stamp, as by an archive that keeps times.
 
 let indexMagic = "minimaxon library names index"
 
-let indexFormat = 2 as Count
+let indexFormat = 3 as Count
+
+// indexMarginSeconds is the longest that a file system's time of last write may lag a write, which it rounds down by.
+let indexMarginSeconds = 2 as Count
 
 let indexExtension = ".names"
 
@@ -50,18 +62,21 @@ type LibraryIndex
 	end 'of'
 end 'LibraryIndex'
 
-// IndexSetup is how a compile reads and writes the index: the cache's directory, or none, and the key the index is kept
-// under.
+// IndexSetup is how a compile reads and writes the index: the cache's directory, or none, the key the index is kept under, the
+// file system's time when the compile began (stamp), which an index that it writes holds, and the latest time of last write
+// of the library's files (newest), which an index that it reads is held to.
 type IndexSetup
 	var dir as String
 	var key as table.Digest
+	var stamp as Count
+	var newest as Count
 
 	static function off() returns IndexSetup
-		return IndexSetup{dir: "", key: table.Digest.none()}
+		return IndexSetup{dir: "", key: table.Digest.none(), stamp: 0, newest: 0}
 	end 'off'
 
-	static function make(consumes dir String, consumes key table.Digest) returns IndexSetup
-		return IndexSetup{dir: dir, key: key}
+	static function make(consumes dir String, consumes key table.Digest, stamp Count, newest Count) returns IndexSetup
+		return IndexSetup{dir: dir, key: key, stamp: stamp, newest: newest}
 	end 'make'
 
 	function enabled() returns bool
@@ -70,12 +85,18 @@ type IndexSetup
 end 'IndexSetup'
 
 // indexSetupOf is the index's setup for a compile of the modules of p from first on: off unless the compile is a program's
-// whose library resolves after it (libraryLater) and uses the build cache; otherwise keyed by the compiler and the bytes of
-// every file of the library, read from disk.
-function indexSetupOf(p ast.Project, libraryLater Placed, first Count, options Options) returns IndexSetup
+// whose library resolves after it (libraryLater) and uses the build cache; otherwise keyed by the compiler and the path, size
+// and time of last write of every file of the library, as the file system gives them, and off where it gives none or the
+// cache has no time of the file system's now (cache.now) to hold the files' times to.
+function indexSetupOf(p ast.Project, libraryLater Placed, first Count, options Options, cache CacheSetup) returns IndexSetup
 	if options.cacheDir == "" or options.emitIr or options.verifyIr 'off'
 		return IndexSetup.off()
 	end 'off'
+	var stamp = 0 as Count
+	match cache.now 'now'
+		some(t) then stamp = t
+		none then return IndexSetup.off()
+	end 'now'
 	var any = false
 	for i in 0 upto libraryLater.count() 'later'
 		if libraryLater[i] 'library'
@@ -89,21 +110,35 @@ function indexSetupOf(p ast.Project, libraryLater Placed, first Count, options O
 	h.addText(indexMagic)
 	h.addCount(indexFormat)
 	h.addDigest(options.compiler)
-	for m in first upto p.modules.count() 'modules'
-		if not p.modules[m].isLibrary 'program'
-			continue 'modules'
-		end 'program'
-		h.addCount(m)
-		h.addCount(p.modules[m].filePaths.count())
-		for i in 0 upto p.modules[m].filePaths.count() 'files'
-			let path = try FilePath.from(p.modules[m].filePaths[i]) otherwise return IndexSetup.off()
-			let text = try File.readText(path) otherwise return IndexSetup.off()
-			h.addText(p.modules[m].filePaths[i])
-			h.addText(text)
-		end 'files'
+	var newest = 0 as Count
+	var m = 0 as Count
+	for module in p.modules 'modules'
+		if m >= first and module.isLibrary 'library'
+			h.addCount(m)
+			h.addCount(module.filePaths.count())
+			for file in module.filePaths 'files'
+				let path = try FilePath.from(file) otherwise return IndexSetup.off()
+				let info = try File.info(path) otherwise return IndexSetup.off()
+				let written = info.modifiedTime as Count
+				h.addText(file)
+				h.addCount(info.size as Count)
+				h.addCount(written)
+				if written > newest 'later'
+					newest = written
+				end 'later'
+			end 'files'
+		end 'library'
+		m = after(m)
 	end 'modules'
-	return IndexSetup.make(options.cacheDir.clone(), key: h.digest())
+	return IndexSetup.make(options.cacheDir.clone(), key: h.digest(), stamp: stamp, newest: newest)
 end 'indexSetupOf'
+
+// indexSettled is whether the files of the library, the latest of which was last written at newest, were all written at least
+// indexMarginSeconds before an index that was begun at stamp, so that none of them could have been written after it, which
+// its key would not show.
+function indexSettled(newest Count, stamp Count) returns bool
+	return stamp > indexMarginSeconds and newest <= stamp - indexMarginSeconds
+end 'indexSettled'
 
 function indexPath(setup IndexSetup) returns String
 	return project.joinPath(setup.dir, name: "{setup.key.hex()}{indexExtension}")
@@ -121,9 +156,13 @@ function readIndex(setup IndexSetup) returns LibraryIndex
 	let magic = r.text()
 	let format = r.count()
 	let key = r.digest()
+	let stamp = r.count()
 	if r.broken or magic != indexMagic or format != indexFormat or not key.equals(setup.key) 'foreign'
 		return LibraryIndex.absent()
 	end 'foreign'
+	if not indexSettled(setup.newest, stamp: stamp) 'unsettled'
+		return LibraryIndex.absent()
+	end 'unsettled'
 	var modules = IndexedModules.create(0)
 	let count = r.items()
 	for _ in 0 upto count 'modules'
@@ -156,6 +195,7 @@ function writeIndex(setup IndexSetup, modules IndexedModules)
 	w.text(indexMagic)
 	w.count(indexFormat)
 	w.digest(setup.key)
+	w.count(setup.stamp)
 	w.count(modules.count())
 	for module in modules 'modules'
 		w.count(module.words.count())

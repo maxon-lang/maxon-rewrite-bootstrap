@@ -614,8 +614,8 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   branch of a `#if` count, whatever the target. The scan also gives the modules its source may name (each module whose
   qualifier's first name it writes before a dot and a name, comments included, and the core, a superset of what its resolve
   records), and keeps the text it read for the module's parse. The
-  library's names index (`libindex.maxon`) is a cache of these scans, kept under the digest of the compiler and every file of
-  the library: a compile that finds it takes each module's words and names from it in place of reading the files, and one that
+  library's names index (`libindex.maxon`) is a cache of these scans, kept under the digest of the compiler and the path, size and time of last write of every file of
+  the library (a stat, not a read; the index holds the file system's time when its compile began and is taken only when every file was last written two seconds before it, since a file system's time has a coarse resolution): a compile that finds it takes each module's words and names from it in place of reading the files, and one that
   scanned them all writes it. A program's parse gives the names its code writes, its interpolations' included and its comments
   and the text of its strings not (`ast.ParsedModule.nameUses`, from the tokens it parsed), and the module's words of the
   library are read from those (`programWords`, with the name of the type that a map literal or a range value makes), for which
