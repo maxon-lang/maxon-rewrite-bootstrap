@@ -5938,8 +5938,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   Not yet: an interface handle that becomes the handle of an interface its own inherits (`Derived.handle` as `Base.handle`),
   `T.request`, a generic service, a message with type parameters,
   one `try await h.m()` over a message that throws, and services in the interpreter. Not yet either, until the design of
-  logging is decided: maxon's `Log` and `TraceCapture`, which sit on `SharedValue` there (see "Where it differs from
-  Maxon": there is no `SharedValue`); the spec tests that name one are skipped with that reason.
+  logging is decided: maxon's `Log`, which sits on `SharedValue` there (see "Where it differs from Maxon": there is no
+  `SharedValue`); the spec tests that name it are skipped with that reason.
 - `stdlib/stream/Stream.maxon` and `stdlib/console/Console.maxon` (`Console.stdin()`, a `StreamReader` over a `StdinSource`) are minimaxon's own,
   written from maxon's (with `helpers/stream/streamBytes.maxon`) until they convert: maxon's name the network's, TLS's, files'
   and child processes' sources, which this library has not got, and spell a constant (`64 * 1024 * 1024 as LineCap`),
@@ -6349,6 +6349,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   stands in for it: Hylo has no shared mutable cell, and neither has minimaxon. A setting that changes lives in one service,
   and changing it is a message. A reader that needs it on a hot path keeps its own copy, refreshed by a message (the
   `Latest` overload policy fits). The spec tests that name `SharedValue` are skipped with that reason.
+- **TraceCapture is not brought over from maxon.** The spec tests that name it are skipped with that reason.
 
 ## Changing the language
 

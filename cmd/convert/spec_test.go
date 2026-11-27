@@ -58,6 +58,21 @@ func TestConvertSpecLogLibraryTakesTheReasonOfSharedValue(t *testing.T) {
 	}
 }
 
+// A test that names a type of TraceCapture's is skipped for that, the permanent reason, alone, though it names the Log library
+// and SharedValue too.
+func TestConvertSpecTraceCaptureTakesTheOtherReasons(t *testing.T) {
+	const cell = "typealias Flag = SharedValue with bool\n"
+	const log = "function main() returns ExitCode\n\tLog.info(\"a\")\n\treturn 0\nend 'main'\n"
+	const trace = "function f() returns ExitCode\n\tTraceCapture.startCapture()\n\treturn 0\nend 'f'\n"
+	src := "## Tests\n\n<!-- test: trace -->\n```maxon\n" + trace + "```\n\n<!-- test: all -->\n```maxon\n" + cell + "\n" + log + "\n" + trace + "```\n"
+	res := ConvertSpec("demo.md", src)
+	for _, test := range res.Tests {
+		if !slices.Equal(test.Skips, []string{traceCaptureWarning}) {
+			t.Errorf("test %q has skips %q, want %q", test.Name, test.Skips, []string{traceCaptureWarning})
+		}
+	}
+}
+
 func TestConvertSpecIsDeterministicAndReadsItsOwnOutput(t *testing.T) {
 	first := ConvertSpec("demo.md", specFile)
 	second := ConvertSpec("demo.md", specFile)

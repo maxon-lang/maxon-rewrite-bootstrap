@@ -2857,7 +2857,7 @@ sent 20 then 20, taken=40
 ```
 
 <!-- test: a-trace-capture-stop-waits-for-room-in-a-full-recorder-mailbox -->
-<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
+<!-- skip: language difference: TraceCapture is not brought over from maxon (README, Where it differs from Maxon) -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 `TraceCapture` records through a service whose mailbox holds 1024 messages, and `stopCapture()` is a barrier
@@ -2870,13 +2870,13 @@ let traces = 1024
 
 function main() returns ExitCode
 	Scheduler.yield()
-	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+	// TODO: language difference: TraceCapture is not brought over from maxon (README, Where it differs from Maxon)
 	TraceCapture.startCapture()
 	for _ in 0 upto traces 'emit'
-		// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+		// TODO: language difference: TraceCapture is not brought over from maxon (README, Where it differs from Maxon)
 		TraceCapture.trace("k")
 	end 'emit'
-	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+	// TODO: language difference: TraceCapture is not brought over from maxon (README, Where it differs from Maxon)
 	let keys = TraceCapture.stopCapture()
 	print("keys={keys.count()}\n")
 	return 0
@@ -4252,12 +4252,12 @@ n=2
 ```
 
 <!-- test: a-handle-of-a-service-the-program-never-spawns-is-cloned -->
-<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
+<!-- skip: not yet: Log is not designed yet (README, Services: not yet) -->
 <!-- process: own -->
 A handle type names a service whether or not the program spawns it. A program that spawns nothing holds no handle,
 so a `.clone()` it writes runs on none, and the program still compiles and runs.
 ```maxon
-// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+// TODO: not yet: Log is not designed yet (README, Services: not yet)
 typealias TextHandles = Array with TextLogHandler.handle
 
 function main() returns ExitCode
@@ -4278,12 +4278,12 @@ end 'main'
 ```
 
 <!-- test: an-array-of-handles-of-a-service-the-program-never-spawns-is-cloned -->
-<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
+<!-- skip: not yet: Log is not designed yet (README, Services: not yet) -->
 <!-- process: own -->
 Cloning an array of handles clones each handle. In a program that spawns nothing the array is empty and the clone
 is too.
 ```maxon
-// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+// TODO: not yet: Log is not designed yet (README, Services: not yet)
 typealias TextHandles = Array with TextLogHandler.handle
 
 function main() returns ExitCode
@@ -4301,14 +4301,14 @@ end 'main'
 ```
 
 <!-- test: a-union-that-can-carry-a-handle-is-cloned-in-a-program-that-spawns-nothing -->
-<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
+<!-- skip: not yet: Log is not designed yet (README, Services: not yet) -->
 <!-- process: own -->
 A union with a case that carries a handle has values that carry none. An array of them is cloned element by
 element in a program that spawns nothing.
 ```maxon
 union MaybeLog
 	nothing
-	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+	// TODO: not yet: Log is not designed yet (README, Services: not yet)
 	some(log TextLogHandler.handle)
 end 'MaybeLog'
 
@@ -4330,11 +4330,11 @@ end 'main'
 ```
 
 <!-- test: an-array-of-arrays-of-handles-is-cloned-in-a-program-that-spawns-nothing -->
-<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
+<!-- skip: not yet: Log is not designed yet (README, Services: not yet) -->
 <!-- process: own -->
 An array of handle arrays holds empty arrays in a program that spawns nothing, and cloning it clones each.
 ```maxon
-// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+// TODO: not yet: Log is not designed yet (README, Services: not yet)
 typealias TextHandles = Array with TextLogHandler.handle
 
 typealias HandleRows = Array with TextHandles
@@ -4355,16 +4355,16 @@ end 'main'
 ```
 
 <!-- test: an-array-of-structs-holding-a-handle-is-cloned-in-a-program-that-spawns-nothing -->
-<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
+<!-- skip: not yet: Log is not designed yet (README, Services: not yet) -->
 <!-- process: own -->
 A struct with a handle field has no value in a program that spawns nothing, so an array of them is empty and so is
 its clone.
 ```maxon
 type LogHolder
-	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+	// TODO: not yet: Log is not designed yet (README, Services: not yet)
 	var log as TextLogHandler.handle
 
-	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+	// TODO: not yet: Log is not designed yet (README, Services: not yet)
 	static function holding(log TextLogHandler.handle) returns Self
 		return Self{log: log}
 	end 'holding'
@@ -4387,11 +4387,11 @@ end 'main'
 ```
 
 <!-- test: a-handle-of-a-service-the-program-never-spawns-is-shut-down -->
-<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
+<!-- skip: not yet: Log is not designed yet (README, Services: not yet) -->
 <!-- process: own -->
 `shutdown` is written against the handle type, so a program that spawns nothing may write it; it runs on no handle.
 ```maxon
-// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+// TODO: not yet: Log is not designed yet (README, Services: not yet)
 typealias TextHandles = Array with TextLogHandler.handle
 
 function main() returns ExitCode
@@ -4411,12 +4411,12 @@ end 'main'
 ```
 
 <!-- test: an-interface-handle-is-cloned-in-a-program-that-spawns-nothing -->
-<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
+<!-- skip: not yet: Log is not designed yet (README, Services: not yet) -->
 <!-- process: own -->
 An interface handle type names whichever service implements the interface, whether or not the program spawns one. A
 program that spawns nothing holds no such handle, so a `.clone()` it writes runs on none.
 ```maxon
-// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+// TODO: not yet: Log is not designed yet (README, Services: not yet)
 typealias LogHandlers = Array with LogHandler.handle
 
 function main() returns ExitCode
@@ -4437,12 +4437,12 @@ end 'main'
 ```
 
 <!-- test: an-array-of-interface-handles-is-cloned-in-a-program-that-spawns-nothing -->
-<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
+<!-- skip: not yet: Log is not designed yet (README, Services: not yet) -->
 <!-- process: own -->
 Cloning an array of interface handles clones each handle. In a program that spawns nothing the array is empty and the
 clone is too.
 ```maxon
-// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+// TODO: not yet: Log is not designed yet (README, Services: not yet)
 typealias LogHandlers = Array with LogHandler.handle
 
 function main() returns ExitCode
@@ -4460,12 +4460,12 @@ end 'main'
 ```
 
 <!-- test: an-interface-handle-is-shut-down-in-a-program-that-spawns-nothing -->
-<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
+<!-- skip: not yet: Log is not designed yet (README, Services: not yet) -->
 <!-- process: own -->
 `shutdown` is written against an interface handle type as against a service's own, so a program that spawns
 nothing may write it; it runs on no handle.
 ```maxon
-// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+// TODO: not yet: Log is not designed yet (README, Services: not yet)
 typealias LogHandlers = Array with LogHandler.handle
 
 function main() returns ExitCode
@@ -4485,17 +4485,17 @@ end 'main'
 ```
 
 <!-- test: error.a-handle-clone-and-shutdown-are-rejected-on-wasm -->
-<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
+<!-- skip: not yet: Log is not designed yet (README, Services: not yet) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 A `.clone()` or `.shutdown()` written on a service handle, or on an interface handle, lowers to an entry of the
 green-thread substrate, so on a target with none each call is refused with `E3104` at its own span. A clone that
 only an array's clone reaches is not refused.
 ```maxon
-// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+// TODO: not yet: Log is not designed yet (README, Services: not yet)
 typealias TextHandles = Array with TextLogHandler.handle
 
-// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+// TODO: not yet: Log is not designed yet (README, Services: not yet)
 typealias LogHandlers = Array with LogHandler.handle
 
 function main() returns ExitCode

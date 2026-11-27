@@ -329,7 +329,7 @@ error E3220: <fragment>:27:11: the initializer of 'box' calls 'Box.start': a mod
 ```
 
 <!-- test: a-service-program-may-use-the-stdlibs-trace-capture -->
-<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
+<!-- skip: language difference: TraceCapture is not brought over from maxon (README, Where it differs from Maxon) -->
 ⭐⭐ **THE LIBRARY CODE A MESSAGE RUNS KEEPS ITS STATE IN A SERVICE AND A `SharedValue`.** `TraceCapture` holds
 its state in a service of its own and a `SharedValue`, and this program — which spawns `Counter` and starts
 and stops a capture from `main` — compiles and runs.
@@ -371,11 +371,11 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+	// TODO: language difference: TraceCapture is not brought over from maxon (README, Where it differs from Maxon)
 	TraceCapture.startCapture()
 	let h = spawn Counter.create()
 	let n = try await h.add(5) otherwise 0
-	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+	// TODO: language difference: TraceCapture is not brought over from maxon (README, Where it differs from Maxon)
 	let keys = TraceCapture.stopCapture()
 	print("n={n} keys={keys.count()}\n")
 	return n as ExitCode

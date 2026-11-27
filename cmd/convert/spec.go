@@ -202,7 +202,9 @@ func (c *specConverter) closeTest() {
 			}
 		}
 	}
-	if slices.Contains(c.kinds, logWarning) {
+	if slices.Contains(c.kinds, traceCaptureWarning) {
+		c.kinds = slices.DeleteFunc(c.kinds, func(kind string) bool { return kind == logWarning || kind == sharedValueWarning })
+	} else if slices.Contains(c.kinds, logWarning) {
 		c.kinds = slices.DeleteFunc(c.kinds, func(kind string) bool { return kind == sharedValueWarning })
 	}
 	slices.Sort(c.kinds)

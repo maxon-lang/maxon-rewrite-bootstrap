@@ -585,7 +585,7 @@ func TestConvertWarnsOfSharedValueAndTheLogLibrary(t *testing.T) {
 	}{
 		{"a cell", "typealias Flag = SharedValue with bool\n", []string{sharedValueWarning}},
 		{"a log call", "function main() returns ExitCode\n\tLog.info(\"a\")\n\treturn 0\nend 'main'\n", []string{logWarning}},
-		{"a trace capture", "function main() returns ExitCode\n\tTraceCapture.startCapture()\n\treturn 0\nend 'main'\n", []string{logWarning}},
+		{"a trace capture", "function main() returns ExitCode\n\tTraceCapture.startCapture()\n\treturn 0\nend 'main'\n", []string{traceCaptureWarning}},
 		{"its own type", "type Log\n\tvar n as Count\nend 'Log'\n\nfunction main() returns ExitCode\n\tlet l = Log{n: 1}\n\treturn l.n\nend 'main'\n", nil},
 		{"a member", "function main() returns ExitCode\n\treturn Shape.Log\nend 'main'\n", nil},
 		{"the math function", "function main() returns ExitCode\n\tlet x = Math.log(1.0)\n\treturn 0\nend 'main'\n", nil},

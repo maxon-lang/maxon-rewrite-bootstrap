@@ -2076,22 +2076,22 @@ end 'main'
 ```
 
 <!-- test: a-constant-record-of-let-values-is-stored-in-a-plain-field -->
-<!-- skip: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet) -->
+<!-- skip: not yet: Log is not designed yet (README, Services: not yet) -->
 `LogLevel.info` is a constant of an all-`let` record, so a plain field holds it and nothing is pinned.
 
 ```maxon
 type Holder
-	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+	// TODO: not yet: Log is not designed yet (README, Services: not yet)
 	export var level as LogLevel
 
-	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+	// TODO: not yet: Log is not designed yet (README, Services: not yet)
 	static function create(level LogLevel) returns Holder
 		return Self{level: level}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: not yet: maxon's Log and TraceCapture are not designed, and they sit on SharedValue, which minimaxon drops (README, Services: not yet)
+	// TODO: not yet: Log is not designed yet (README, Services: not yet)
 	let holder = Holder.create(LogLevel.info)
 	print("{holder.level.rank}\n")
 	return 0
