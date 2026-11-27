@@ -6923,6 +6923,7 @@ regions-tied.md: a-tied-promise-held-in-a-field-is-refused
 regions-tied.md: a-tied-promise-never-awaited-is-refused
 regions-tied.md: a-tied-promise-passed-to-a-function-is-refused
 regions-tied.md: a-tied-promise-pushed-into-an-array-is-refused
+regions-tied.md: a-tied-promise-returned-is-refused
 regions-tied.md: an-isolated-two-field-reader-handed-to-a-coroutine-stays-untied
 regions-unique.md: a-bound-cond-of-unique-locals-releases-the-other-arm
 regions-unique.md: a-bound-try-fallback-of-a-unique-local-releases-it-on-either-edge

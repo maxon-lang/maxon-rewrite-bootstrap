@@ -33,13 +33,13 @@ type Row
 	end 'create'
 end 'Row'
 
-function bump(row Row) returns Tally
+function bump(mutates row Row) returns Tally
 	sleep(1)
-	row.n = row.n + 1
+	row.n = try row.n + 1 otherwise panic("out of range")
 	return row.n
 end 'bump'
 
-function start(row Row) returns TallyPromise
+function start(mutates row Row) returns TallyPromise
 	return async bump(row)
 end 'start'
 
@@ -890,13 +890,13 @@ type Row
 	end 'create'
 end 'Row'
 
-function bump(row Row) returns Tally
+function bump(mutates row Row) returns Tally
 	sleep(1)
-	row.n = row.n + 1
+	row.n = try row.n + 1 otherwise panic("out of range")
 	return row.n
 end 'bump'
 
-function leave(row Row, early bool) returns Tally
+function leave(mutates row Row, early bool) returns Tally
 	let later = async bump(row)
 	if early 'leavingEarly'
 		return 0
@@ -935,9 +935,9 @@ type Row
 	end 'create'
 end 'Row'
 
-function bump(row Row) returns Tally
+function bump(mutates row Row) returns Tally
 	sleep(1)
-	row.n = row.n + 1
+	row.n = try row.n + 1 otherwise panic("out of range")
 	return row.n
 end 'bump'
 
@@ -948,10 +948,10 @@ function check(fail bool) returns Tally throws Refusal
 	return 1
 end 'check'
 
-function leave(row Row, fail bool) returns Tally throws Refusal
+function leave(mutates row Row, fail bool) returns Tally throws Refusal
 	let later = async bump(row)
 	let extra = try check(fail)
-	return extra + await later
+	return try extra + await later otherwise panic("out of range")
 end 'leave'
 
 function main() returns ExitCode

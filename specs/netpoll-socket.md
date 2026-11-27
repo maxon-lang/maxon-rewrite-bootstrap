@@ -889,6 +889,7 @@ heard=late
 ```
 
 <!-- test: netpoll-socket.a-loopback-echo-service-accepts-and-answers -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- procs: 1 -->
 **A LISTENER IN THIS PROCESS IS A PEER LIKE ANY OTHER: BIND, ACCEPT, ANSWER.** The service side of the poller
 has to compose with the client side end to end — a bound listener, an `accept` that yields a socket of its
@@ -1005,6 +1006,7 @@ served=1 dialled=true
 ```
 
 <!-- test: netpoll-socket.a-listener-serves-two-connections-in-turn -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- procs: 1 -->
 **EACH ACCEPTED SOCKET OWNS ITS OWN DESCRIPTOR, AND THE ANSWER COMES BACK ON THE ONE THE QUESTION ARRIVED ON.**
 Both connections are accepted BEFORE either is answered, so the peer holds two live sockets at once — an
