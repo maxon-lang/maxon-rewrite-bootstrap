@@ -1,0 +1,131 @@
+// A socket's readiness on Windows is polled through AFD handles that at most 32 sockets share (windows_poll.maxon), since a
+// cancel costs as many steps as its handle has requests pending. 100 sockets registered with the event queue fill three groups
+// and a fourth; closing the first 40 closes the handle of the group they emptied and leaves three; ten more sockets are given
+// the group a close last freed from fullness, and the other with room; and when every socket is closed one group is kept,
+// empty, for the next.
+// unsupported-targets: x64-linux, arm64-linux, arm64-macos
+//> 100 sockets: 4 groups, the most 32 sockets of one, the counts add up
+//> 40 closed: 3 groups, the most 32 sockets of one, the counts add up
+//> 10 more: 3 groups, the most 32 sockets of one, the counts add up
+//> all closed: one group with room, empty
+
+let testSockets = 100 as Count
+
+let testClosed = 40 as Count
+
+let testMore = 10 as Count
+
+// testWordShift is the shift that makes an index the offset of a word, and testIndexMask bounds an index so that it cannot overflow.
+let testWordShift = 3 as Count
+
+let testIndexMask = 0xFFFF as Count
+
+function testWord(index Count) returns Count
+	return (index and testIndexMask) shl testWordShift
+end 'testWord'
+
+function main() returns ExitCode
+	greenReady(greenSpawn(__Raw.codeAddress("testGroups")))
+	return 0
+end 'main'
+
+function testGroups(g Count) returns Count
+	let sockets = testOpen(testSockets)
+	testReport("100 sockets", sockets: sockets, from: 0, to: testSockets, more: 0, count: 0)
+	for i in 0 upto testClosed 'closeFirst'
+		testClose(sockets, index: i)
+	end 'closeFirst'
+	testReport("40 closed", sockets: sockets, from: testClosed, to: testSockets, more: 0, count: 0)
+	let more = testOpen(testMore)
+	testReport("10 more", sockets: sockets, from: testClosed, to: testSockets, more: more, count: testMore)
+	for i in testClosed upto testSockets 'closeRest'
+		testClose(sockets, index: i)
+	end 'closeRest'
+	for i in 0 upto testMore 'closeMore'
+		testClose(more, index: i)
+	end 'closeMore'
+	let first = __Raw.loadWord(winsockTable(), offset: winsockGroupsOffset)
+	if first != 0 and __Raw.loadWord(first, offset: groupNextOffset) == 0 and __Raw.loadWord(first, offset: groupCountOffset) == 0 'kept'
+		testWrite("all closed: one group with room, empty\n")
+	end 'kept' else 'other'
+		testWrite("all closed: not one group with room, empty\n")
+	end 'other'
+	free(sockets)
+	free(more)
+	return 0
+end 'testGroups'
+
+// testOpen is a run of a count of event entries of sockets that were made and registered with the event queue.
+function testOpen(count Count) returns Count
+	let run = alloc(testWord(count))
+	for i in 0 upto count 'open'
+		let fd = socketOpen(ipv4AddressBytes)
+		if failed(fd) 'refused'
+			panic("a socket cannot be made")
+		end 'refused'
+		let entry = eventRegisterSocket(fd)
+		if entry == noEntry 'unregistered'
+			panic("a socket cannot be registered")
+		end 'unregistered'
+		__Raw.storeWord(run, offset: testWord(i), value: entry)
+	end 'open'
+	return run
+end 'testOpen'
+
+// testClose closes the socket whose entry is a word of a run, as socketClose does: the entry's release, then the socket.
+function testClose(run Count, index Count)
+	let entry = __Raw.loadWord(run, offset: testWord(index))
+	let fd = __Raw.loadWord(entry, offset: entryHandleOffset)
+	eventRelease(entry)
+	closeFd(fd)
+end 'testClose'
+
+// testReport says how many groups the sockets of two runs belong to (the second may be of none), the most sockets that one
+// holds, and whether the counts of the groups add up to the sockets.
+function testReport(what String, sockets Count, from Count, to Count, more Count, count Count)
+	let groups = alloc(testWord(testSockets))
+	var distinct = 0 as Count
+	var open = 0 as Count
+	for i in from upto to 'sockets'
+		distinct = testNote(groups, distinct: distinct, group: testGroupOf(sockets, index: i))
+		open = __Raw.wrappingAdd(open, right: 1)
+	end 'sockets'
+	for i in 0 upto count 'more'
+		distinct = testNote(groups, distinct: distinct, group: testGroupOf(more, index: i))
+		open = __Raw.wrappingAdd(open, right: 1)
+	end 'more'
+	var most = 0 as Count
+	var total = 0 as Count
+	for i in 0 upto distinct 'groups'
+		let held = __Raw.loadWord(__Raw.loadWord(groups, offset: testWord(i)), offset: groupCountOffset)
+		total = __Raw.wrappingAdd(total, right: held)
+		if held > most 'larger'
+			most = held
+		end 'larger'
+	end 'groups'
+	free(groups)
+	if total == open 'adds'
+		testWrite("{what}: {distinct} groups, the most {most} sockets of one, the counts add up\n")
+	end 'adds' else 'differs'
+		testWrite("{what}: {distinct} groups, the most {most} sockets of one, the counts are {total} for {open} sockets\n")
+	end 'differs'
+end 'testReport'
+
+function testGroupOf(run Count, index Count) returns Count
+	return __Raw.loadWord(__Raw.loadWord(run, offset: testWord(index)), offset: pollGroupOffset)
+end 'testGroupOf'
+
+// testNote adds a group to those of a run that are not in it yet, and gives how many there are.
+function testNote(groups Count, distinct Count, group Count) returns Count
+	for i in 0 upto distinct 'known'
+		if __Raw.loadWord(groups, offset: testWord(i)) == group 'same'
+			return distinct
+		end 'same'
+	end 'known'
+	__Raw.storeWord(groups, offset: testWord(distinct), value: group)
+	return __Raw.wrappingAdd(distinct, right: 1)
+end 'testNote'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'

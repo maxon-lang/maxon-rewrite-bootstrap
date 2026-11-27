@@ -2,7 +2,6 @@
 // 15 s, 9 probes, which getsockopt reads back (SO_KEEPALIVE, TCP_KEEPIDLE or macOS's TCP_KEEPALIVE, TCP_KEEPINTVL, TCP_KEEPCNT).
 // socketSetKeepAlive, the row of TcpClient.setKeepAlivePeriod, changes the idle time, rounded up to a whole second, and leaves
 // the interval and the count; 0 turns keepalive off, and a period after that turns it on again.
-// unsupported-targets: x64-windows
 //> connected: keepalive on, idle 15, interval 15, probes 9
 //> accepted: keepalive on, idle 15, interval 15, probes 9
 //> after 30001 ms: keepalive on, idle 31, interval 15, probes 9

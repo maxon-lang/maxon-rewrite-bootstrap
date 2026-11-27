@@ -6,7 +6,6 @@
 // shutdown of its sending is the server's read of 0, every socket is closed, and a connect to a port whose listener has closed
 // throws connectFailed. The same over IPv6's loopback, ::1, without a coroutine: the connect ends before the accept.
 // native-only
-// unsupported-targets: x64-windows
 //> listened on a port of the system's
 //> accepted a connection
 //> the server read hello

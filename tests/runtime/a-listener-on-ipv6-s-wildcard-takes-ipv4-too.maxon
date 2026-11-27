@@ -1,7 +1,6 @@
 // A listener on IPv6's wildcard, ::, is dual-stack, as Go's wildcard listen is: IPV6_V6ONLY is 0, which getsockopt reads back,
 // whatever the system's default (Linux's net.ipv6.bindv6only, macOS's net.inet6.ip6.v6only), and a client that connects over
 // IPv4's loopback reaches it, its bytes read by the connection the listener accepts.
-// unsupported-targets: x64-windows
 //> IPV6_V6ONLY on the listener of ::: 0
 //> the IPv4 client's bytes: v4
 
