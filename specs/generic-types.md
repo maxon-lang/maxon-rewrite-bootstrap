@@ -2558,7 +2558,6 @@ type Mid uses T
 	export let item as T
 
 	static function boxUp(x U) uses U returns Tally
-		_ = x
 		return 2
 	end 'boxUp'
 end 'Mid'

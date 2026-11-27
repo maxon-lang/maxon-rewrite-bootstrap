@@ -2916,7 +2916,6 @@ type Picker uses T
 	export typealias Items = Array with T
 
 	static function pop(a Items, fallback T) returns T
-		_ = a
 		return fallback
 	end 'pop'
 end 'Picker'
@@ -2953,7 +2952,6 @@ type Picker uses T
 	export typealias Items = Array with T
 
 	static function get(a Items, fallback T) returns T
-		_ = a
 		return fallback
 	end 'get'
 end 'Picker'

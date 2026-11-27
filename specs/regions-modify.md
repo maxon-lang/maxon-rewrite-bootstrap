@@ -3495,7 +3495,6 @@ type Reply
 	end 'create'
 
 	function finish(destructs self, c Code)
-		_ = c
 	end 'finish'
 end 'Reply'
 
@@ -3566,7 +3565,6 @@ type Reply
 	end 'create'
 
 	function finish(destructs self, c Count)
-		_ = c
 	end 'finish'
 end 'Reply'
 

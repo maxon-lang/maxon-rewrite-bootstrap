@@ -39,9 +39,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -104,9 +102,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -161,9 +157,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -227,9 +221,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -267,9 +259,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -318,9 +308,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -374,9 +362,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -426,9 +412,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -472,9 +456,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -527,9 +509,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -550,7 +530,6 @@ type S
 	end 'create'
 
 	export function go(r Rl)
-		_ = self.b.n
 		useS(giveS(r))
 	end 'go'
 end 'S'
@@ -598,9 +577,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -644,9 +621,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -693,9 +668,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -726,9 +699,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -779,9 +750,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -794,7 +763,6 @@ type Bk
 end 'Bk'
 
 function takeI(consumes b Bk)
-	_ = b.code
 end 'takeI'
 
 function main() returns ExitCode
@@ -829,9 +797,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -889,9 +855,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -934,9 +898,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -973,9 +935,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1026,9 +986,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1061,9 +1019,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1111,9 +1067,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -1156,9 +1110,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1192,9 +1144,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1230,9 +1180,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1267,9 +1215,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1307,9 +1253,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1349,9 +1293,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1390,9 +1332,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1434,9 +1374,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1468,9 +1406,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1516,9 +1452,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1557,9 +1491,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1601,9 +1533,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1641,9 +1571,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1681,9 +1609,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1723,9 +1649,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1764,9 +1688,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1798,9 +1720,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1841,9 +1761,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1873,7 +1791,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1917,7 +1834,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1961,7 +1877,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -2001,9 +1916,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -2031,9 +1944,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -2062,9 +1973,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -2115,9 +2024,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -2149,9 +2056,7 @@ type Q
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function fin(destructs self, o Q)
-		_ = o.n
 	end 'fin'
 end 'Q'
 
@@ -2177,9 +2082,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -2224,9 +2127,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -2240,9 +2141,7 @@ type Q
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function fin(destructs self, o Resp)
-		_ = o.code
 	end 'fin'
 end 'Q'
 
@@ -2270,9 +2169,7 @@ type Q
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Q'
 
@@ -2398,7 +2295,7 @@ type Q
 
 	// TODO: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner
 	function fin(destructs self)
-		_ = self.n
+		let ignored1 = self.n
 	end 'fin'
 end 'Q'
 
@@ -2424,9 +2321,7 @@ type Q
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function fin(destructs self)
-		_ = self.n
 	end 'fin'
 end 'Q'
 
@@ -2495,9 +2390,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -2539,9 +2432,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -2579,9 +2470,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -2626,9 +2515,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -2665,9 +2552,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -2712,9 +2597,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -2757,9 +2640,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -2800,9 +2681,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -2849,9 +2728,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -2864,7 +2741,6 @@ function giveS(r Resp) returns Sent
 end 'giveS'
 
 function g(s Sent)
-	_ = s
 end 'g'
 
 function main() returns ExitCode
@@ -2893,9 +2769,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -2947,9 +2821,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -2992,9 +2864,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3032,9 +2902,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3068,9 +2936,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3123,9 +2989,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3178,9 +3042,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3234,9 +3096,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3297,9 +3157,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3358,9 +3216,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3391,9 +3247,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3431,9 +3285,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3468,9 +3320,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3505,9 +3355,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3542,9 +3390,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3575,9 +3421,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3587,7 +3431,6 @@ end 'Resp'
 
 function main() returns ExitCode
 	let r = Resp.create(0)
-	_ = r
 	return 0
 end 'main'
 ```
@@ -3609,9 +3452,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3647,9 +3488,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3687,9 +3526,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3727,9 +3564,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3767,9 +3602,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3815,9 +3648,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3863,9 +3694,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3911,9 +3740,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3957,9 +3784,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3980,7 +3805,7 @@ function main() returns ExitCode
 	a.push(Box.create(1))
 	let r = Resp.create(0)
 	for _ in a 'f1'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 'f1'
 	r.fin(1)
 	return 0
@@ -4006,9 +3831,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4057,9 +3880,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4101,9 +3922,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4144,9 +3963,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4188,9 +4005,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4226,9 +4041,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4267,9 +4080,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4285,7 +4096,7 @@ end 'ckr'
 function main() returns ExitCode
 	let r = Resp.create(0)
 	while ckr(r) != 0 'w1'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 'w1'
 	return 0
 end 'main'
@@ -4306,9 +4117,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4323,7 +4132,7 @@ end 'ckr'
 
 function main() returns ExitCode
 	while ckr(Resp.create(0)) != 0 'w1'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 'w1'
 	return 0
 end 'main'
@@ -4344,9 +4153,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4385,9 +4192,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4428,9 +4233,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4478,9 +4281,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4526,9 +4327,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4629,9 +4428,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4729,9 +4526,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4825,9 +4620,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4924,9 +4717,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5016,9 +4807,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5110,7 +4899,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5146,7 +4934,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5182,7 +4969,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5220,9 +5006,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5258,9 +5042,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5298,9 +5080,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5342,9 +5122,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5384,9 +5162,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5424,9 +5200,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5472,9 +5246,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5517,9 +5289,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5559,9 +5329,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5601,9 +5369,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5643,9 +5409,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5683,9 +5447,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5735,9 +5497,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5768,9 +5528,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5837,9 +5595,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5849,7 +5605,6 @@ end 'Resp'
 
 function main() returns ExitCode
 	let r = Resp.create(0)
-	_ = r.code
 	r.fin(1)
 	return 0
 end 'main'
@@ -5872,9 +5627,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5910,9 +5663,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5945,9 +5696,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5982,9 +5731,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6021,9 +5768,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6056,9 +5801,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6093,9 +5836,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6133,9 +5874,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6181,9 +5920,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6224,9 +5961,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6262,9 +5997,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6304,9 +6037,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6347,9 +6078,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6388,9 +6117,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6433,9 +6160,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6619,9 +6344,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6635,9 +6358,7 @@ type Q
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function f(destructs self, r Resp)
-		_ = r.code
 	end 'f'
 end 'Q'
 
@@ -6663,9 +6384,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6748,9 +6467,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6910,7 +6627,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-fin-self-into-union-dropped -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: E3067 refuses only a discard here, of any value that no call, send, await or panic made, a bare name too, where maxon's also refuses a self-assignment and admits a bare name, a let _ and a value it constructs (README, Where it differs from Maxon: A discard takes a value something made) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `fin-self-into-union-dropped` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7003,7 +6720,6 @@ type Fz
 end 'Fz'
 
 function useFz(t Fz)
-	_ = t.n
 end 'useFz'
 
 function main() returns ExitCode
@@ -7281,9 +6997,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7331,9 +7045,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7349,7 +7061,6 @@ type H2
 	end 'create'
 
 	export function m(nV Num, a Resp)
-		_ = nV
 		a.fin(1)
 	end 'm'
 end 'H2'
@@ -7382,9 +7093,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7434,9 +7143,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7485,9 +7192,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7543,9 +7248,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7601,9 +7304,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7659,9 +7360,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7717,9 +7416,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7786,9 +7483,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7843,9 +7538,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7899,9 +7592,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7950,9 +7641,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8012,9 +7701,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8079,9 +7766,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8146,9 +7831,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8195,9 +7878,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8232,9 +7913,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8270,9 +7949,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8321,9 +7998,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8372,9 +8047,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8417,9 +8090,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8464,9 +8135,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8504,9 +8173,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8544,9 +8211,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8594,9 +8259,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8635,9 +8298,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8674,9 +8335,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8720,9 +8379,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8757,9 +8414,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8817,9 +8472,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8850,9 +8503,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8887,9 +8538,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8899,7 +8548,6 @@ end 'Resp'
 
 function main() returns ExitCode
 	let r = Resp.create(0) as Resp
-	_ = r
 	return 0
 end 'main'
 ```
@@ -8926,9 +8574,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8966,9 +8612,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9010,9 +8654,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9050,9 +8692,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9103,9 +8743,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9153,9 +8791,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9205,9 +8841,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9251,9 +8885,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9301,9 +8933,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9350,9 +8980,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9399,9 +9027,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9446,9 +9072,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9493,7 +9117,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9540,9 +9163,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9586,9 +9207,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9635,9 +9254,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9673,9 +9290,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9711,9 +9326,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9749,9 +9362,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9786,9 +9397,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9823,9 +9432,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9862,9 +9469,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9902,9 +9507,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9943,9 +9546,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9989,9 +9590,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10030,9 +9629,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10068,9 +9665,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10108,9 +9703,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10153,9 +9746,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10198,9 +9789,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10249,9 +9838,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10305,9 +9892,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10357,9 +9942,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10410,9 +9993,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10461,9 +10042,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10520,9 +10099,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10580,9 +10157,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10631,9 +10206,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10682,9 +10255,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10734,9 +10305,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10776,9 +10345,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10819,9 +10386,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10873,9 +10438,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10924,9 +10487,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10970,9 +10531,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11008,9 +10567,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11046,9 +10603,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11093,9 +10648,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11157,9 +10710,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11221,9 +10772,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11293,9 +10842,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11344,9 +10891,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11396,9 +10941,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11446,9 +10989,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11493,9 +11034,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11533,9 +11072,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11574,9 +11111,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11616,9 +11151,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11658,9 +11191,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11715,9 +11246,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11766,9 +11295,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11835,9 +11362,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11904,9 +11429,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11972,9 +11495,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12013,9 +11534,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12051,9 +11570,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12093,9 +11610,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12136,9 +11651,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12175,9 +11688,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12212,9 +11723,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12250,9 +11759,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12297,9 +11804,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12337,9 +11842,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12390,9 +11893,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12441,9 +11942,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12484,9 +11983,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12526,9 +12023,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12562,9 +12057,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12601,9 +12094,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12646,9 +12137,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12689,9 +12178,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12737,9 +12224,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12798,9 +12283,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12846,9 +12329,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12896,9 +12377,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12944,9 +12423,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12996,9 +12473,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13034,9 +12509,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13076,9 +12549,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13111,9 +12582,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13150,9 +12619,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13192,9 +12659,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13234,9 +12699,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13274,9 +12737,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13329,9 +12790,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13372,9 +12831,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13390,7 +12847,7 @@ end 'consuming'
 function main() returns ExitCode
 	let r = Resp.create(0) as Resp
 	while consuming(r) != 0 'w1'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 'w1'
 	r.fin(1)
 	return 0
@@ -13414,9 +12871,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13453,9 +12908,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13495,9 +12948,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13541,9 +12992,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13583,9 +13032,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13625,9 +13072,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13675,9 +13120,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13725,9 +13168,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13767,9 +13208,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13811,9 +13250,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13861,9 +13298,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13898,9 +13333,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13934,9 +13367,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13971,9 +13402,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14007,9 +13436,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14047,9 +13474,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14106,9 +13531,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14174,9 +13597,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14253,9 +13674,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14323,9 +13742,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14377,9 +13794,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14448,9 +13863,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14506,9 +13919,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14575,9 +13986,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14620,9 +14029,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14669,9 +14076,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14718,9 +14123,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14769,9 +14172,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14815,9 +14216,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14859,9 +14258,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14907,9 +14304,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14957,9 +14352,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15008,9 +14401,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15052,9 +14443,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15098,9 +14487,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15142,9 +14529,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15194,9 +14579,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15220,7 +14603,7 @@ end 'fin2'
 function main() returns ExitCode
 	let r = Resp.create(0)
 	while fin2(r) != 0 'w1'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 'w1'
 	return 0
 end 'main'
@@ -15243,9 +14626,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15296,9 +14677,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15345,9 +14724,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15391,9 +14768,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15436,9 +14811,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15477,9 +14850,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15521,9 +14892,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15565,9 +14934,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15611,9 +14978,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15657,9 +15022,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15701,9 +15064,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15747,9 +15108,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15794,9 +15153,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15838,9 +15195,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15879,9 +15234,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15920,9 +15273,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15961,9 +15312,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -16002,9 +15351,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -16044,9 +15391,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -16085,9 +15430,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -16135,9 +15478,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -16536,9 +15877,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -16563,7 +15902,6 @@ type Hq
 	end 'two'
 
 	export function mix(x Num, r Resp, y Num)
-		_ = y
 		r.fin(x)
 	end 'mix'
 
@@ -16617,9 +15955,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -16644,7 +15980,6 @@ type Hq
 	end 'two'
 
 	export function mix(x Num, r Resp, y Num)
-		_ = y
 		r.fin(x)
 	end 'mix'
 
@@ -16694,9 +16029,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -16721,7 +16054,6 @@ type Hq
 	end 'two'
 
 	export function mix(x Num, r Resp, y Num)
-		_ = y
 		r.fin(x)
 	end 'mix'
 
@@ -16771,9 +16103,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -16798,7 +16128,6 @@ type Hq
 	end 'two'
 
 	export function mix(x Num, r Resp, y Num)
-		_ = y
 		r.fin(x)
 	end 'mix'
 
@@ -16848,9 +16177,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -16875,7 +16202,6 @@ type Hq
 	end 'two'
 
 	export function mix(x Num, r Resp, y Num)
-		_ = y
 		r.fin(x)
 	end 'mix'
 
@@ -16923,9 +16249,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -16968,9 +16292,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17020,9 +16342,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17068,9 +16388,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17116,9 +16434,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17163,9 +16479,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17217,9 +16531,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17267,9 +16579,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17294,7 +16604,6 @@ type Hq
 	end 'two'
 
 	export function mix(x Num, r Resp, y Num)
-		_ = y
 		r.fin(x)
 	end 'mix'
 
@@ -17348,9 +16657,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17375,7 +16682,6 @@ type Hq
 	end 'two'
 
 	export function mix(x Num, r Resp, y Num)
-		_ = y
 		r.fin(x)
 	end 'mix'
 
@@ -17435,9 +16741,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17462,7 +16766,6 @@ type Hq
 	end 'two'
 
 	export function mix(x Num, r Resp, y Num)
-		_ = y
 		r.fin(x)
 	end 'mix'
 
@@ -17519,9 +16822,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17546,7 +16847,6 @@ type Hq
 	end 'two'
 
 	export function mix(x Num, r Resp, y Num)
-		_ = y
 		r.fin(x)
 	end 'mix'
 
@@ -17600,9 +16900,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17638,9 +16936,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17685,9 +16981,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17735,9 +17029,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17781,9 +17073,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17825,9 +17115,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17881,9 +17169,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17923,9 +17209,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17974,9 +17258,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -18019,9 +17301,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -18064,9 +17344,7 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -18114,9 +17392,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -18170,9 +17446,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -18234,9 +17508,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -18298,9 +17570,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -18357,9 +17627,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -18422,9 +17690,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -18484,9 +17750,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -18539,9 +17803,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -18593,9 +17855,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -18651,9 +17911,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -18725,9 +17983,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -18789,9 +18045,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -18816,7 +18070,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -18856,9 +18109,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -18883,7 +18134,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(consumes y Bx, consumes m Mq)
@@ -18925,9 +18175,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -18956,7 +18204,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -19002,9 +18249,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -19070,9 +18315,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -19134,9 +18377,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -19200,9 +18441,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -19259,9 +18498,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -19325,9 +18562,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -19394,9 +18629,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -19463,9 +18696,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -19530,9 +18761,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -19603,9 +18832,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -19666,9 +18893,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -19725,9 +18950,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -19780,9 +19003,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -19835,9 +19056,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -19888,9 +19107,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -19915,7 +19132,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -19953,9 +19169,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -20010,9 +19224,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -20066,9 +19278,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -20123,9 +19333,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -20185,9 +19393,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -20249,9 +19455,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -20315,9 +19519,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -20379,9 +19581,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -20446,9 +19646,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -20509,9 +19707,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -20570,9 +19766,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -20642,9 +19836,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -20713,9 +19905,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -20744,7 +19934,6 @@ function useI(consumes r Rl)
 end 'useI'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -20783,9 +19972,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -20857,9 +20044,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -20913,9 +20098,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -20977,9 +20160,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -21041,9 +20222,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -21109,9 +20288,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -21181,9 +20358,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -21237,9 +20412,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -21306,9 +20479,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -21375,9 +20546,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -21447,9 +20616,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -21526,7 +20693,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -21600,9 +20766,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -21675,7 +20839,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -21788,7 +20951,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -21900,7 +21062,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -22008,9 +21169,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function wrap(consumes self) returns Sn
@@ -22076,9 +21235,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -22164,9 +21321,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -22248,9 +21403,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -22316,9 +21469,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -22382,9 +21533,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -22449,9 +21598,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -22521,9 +21668,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -22593,9 +21738,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -22664,9 +21807,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -22744,9 +21885,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -22825,9 +21964,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -22901,7 +22038,6 @@ type Cap1
 end 'Cap1'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function eatSh(pV Sh)
@@ -22972,9 +22108,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -23048,7 +22182,6 @@ type Cap1
 end 'Cap1'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function eatSh(pV Sh)
@@ -23104,9 +22237,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -23163,9 +22294,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -23227,7 +22356,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -23329,7 +22457,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -23431,7 +22558,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -23534,7 +22660,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -23636,7 +22761,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -23738,7 +22862,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -23836,7 +22959,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -23931,9 +23053,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -23993,9 +23113,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -24062,9 +23180,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -24134,9 +23250,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -24200,9 +23314,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -24227,7 +23339,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function eatUh(consumes p Uh)
@@ -24273,9 +23384,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -24342,9 +23451,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -24411,9 +23518,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -24482,9 +23587,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -24555,9 +23658,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -24620,9 +23721,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -24692,9 +23791,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -24762,9 +23859,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -24830,9 +23925,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -24893,9 +23986,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -24962,9 +24053,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -25027,9 +24116,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -25097,9 +24184,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -25149,9 +24234,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -25207,9 +24290,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -25260,9 +24341,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -25325,9 +24404,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -25389,9 +24466,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -25450,9 +24525,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -25484,7 +24557,6 @@ function useS(consumes s Sn)
 end 'useS'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -25523,9 +24595,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -25610,9 +24680,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -25686,9 +24754,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -25762,9 +24828,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -25826,9 +24890,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -25893,9 +24955,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -25970,9 +25030,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -26038,9 +25096,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -26102,9 +25158,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -26176,9 +25230,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -26248,9 +25300,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -26275,7 +25325,6 @@ type Bx
 end 'Bx'
 
 function takeBx(consumes b Bx)
-	_ = b.n
 end 'takeBx'
 
 function f(consumes u Mp)
@@ -26320,9 +25369,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -26386,9 +25433,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -26460,9 +25505,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -26537,9 +25580,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -26611,9 +25652,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -26684,9 +25723,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -26753,9 +25790,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -26794,13 +25829,9 @@ type Sk
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
-
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -26812,7 +25843,6 @@ type Bm
 	end 'create'
 
 	export function eat(u Mp, k Sk.handle)
-		_ = k
 		match u 'x1'
 			m0(x) then x.fin(1)
 			m1(y) then y.n = 1
@@ -26820,7 +25850,6 @@ type Bm
 	end 'eat'
 
 	export function eatN(u Mp, nV Num)
-		_ = nV
 		match u 'x1'
 			m0(x) then x.fin(1)
 			m1(y) then y.n = 1
@@ -26875,9 +25904,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -26916,13 +25943,9 @@ type Sk
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
-
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -26934,7 +25957,6 @@ type Bm
 	end 'create'
 
 	export function eat(u Mp, k Sk.handle)
-		_ = k
 		match u 'x1'
 			m0(x) then x.fin(1)
 			m1(y) then y.n = 1
@@ -26942,7 +25964,6 @@ type Bm
 	end 'eat'
 
 	export function eatN(u Mp, nV Num)
-		_ = nV
 		match u 'x1'
 			m0(x) then x.fin(1)
 			m1(y) then y.n = 1
@@ -26997,9 +26018,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -27067,9 +26086,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -27135,9 +26152,7 @@ type RpL
 	static function create(b Bx, code Num) returns Self
 		return Self{b: b, code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'RpL'
 
@@ -27181,9 +26196,7 @@ type RpL
 	static function create(b Bx, code Num) returns Self
 		return Self{b: b, code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'RpL'
 
@@ -27286,7 +26299,7 @@ type Rs
 	end 'create'
 
 	function iso(destructs self)
-		_ = self as Rs
+		let ignored1 = self as Rs
 	end 'iso'
 end 'Rs'
 
@@ -27326,9 +26339,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -27419,9 +26430,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -27491,9 +26500,7 @@ type RpL
 	static function create(b Bx, code Num) returns Self
 		return Self{b: b, code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function iso(consumes self) returns RpL
@@ -27544,9 +26551,7 @@ type RpL
 	static function create(b Bx, code Num) returns Self
 		return Self{b: b, code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function iso(consumes self) returns RpL
@@ -27592,9 +26597,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -27687,9 +26690,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -27778,9 +26779,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -27856,9 +26855,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -27936,9 +26933,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -28014,7 +27009,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -28088,9 +27082,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -28170,9 +27162,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -28252,9 +27242,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -28334,9 +27322,7 @@ type RpM
 	static function create(b Bx, code Num) returns Self
 		return Self{b: b, code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function iso(consumes self) returns RpM
@@ -28381,9 +27367,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -28467,9 +27451,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -28553,9 +27535,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -28640,9 +27620,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -28735,9 +27713,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -28829,9 +27805,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -28930,9 +27904,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -28967,7 +27939,7 @@ end 'Tq'
 function eatL(m La2)
 	match m 'x1'
 		g0(x) then x.fin(1)
-		g1 then _ = 1 as Num
+		g1 then break
 	end 'x1'
 end 'eatL'
 
@@ -29020,9 +27992,7 @@ type RiL
 	static function create(consumes w Wo, code Num) returns Self
 		return Self{w: w, code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'RiL'
 
@@ -29069,9 +28039,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -29121,7 +28089,7 @@ end 'eatMp'
 function eatLs(m Ls)
 	match m 'x1'
 		s0(x) then x.fin(1)
-		s1 then _ = 1 as Num
+		s1 then break
 	end 'x1'
 end 'eatLs'
 
@@ -29164,9 +28132,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -29233,9 +28199,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -29305,9 +28269,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -29373,7 +28335,6 @@ type RpL
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'RpL'
 
@@ -29617,9 +28578,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -29674,9 +28633,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -29730,9 +28687,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -29787,9 +28742,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -29843,9 +28796,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -29899,9 +28850,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -29956,9 +28905,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -30018,9 +28965,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -30082,9 +29027,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -30153,9 +29096,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -30213,9 +29154,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -30442,9 +29381,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -30619,9 +29556,7 @@ type Fz
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function f(consumes self)
-		_ = 1 as Num
 	end 'f'
 	function g(destructs self)
 	end 'g'
@@ -30654,9 +29589,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -30710,9 +29643,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -30761,9 +29692,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -30811,9 +29740,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -30886,9 +29813,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -30946,9 +29871,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -31014,9 +29937,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -31100,9 +30021,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -31157,9 +30076,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -31233,7 +30150,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -31323,7 +30239,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -31412,9 +30327,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -31501,7 +30414,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -31587,9 +30499,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -31678,7 +30588,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -31767,7 +30676,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -31859,9 +30767,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -31928,9 +30834,7 @@ type RpL
 	static function create(b Bx, code Num) returns Self
 		return Self{b: b, code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'RpL'
 
@@ -31973,9 +30877,7 @@ type RpS
 	static function create(b Bx) returns Self
 		return Self{b: b}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function iso(consumes self) returns RpS
@@ -32022,7 +30924,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -32093,9 +30994,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -32164,9 +31063,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -32238,9 +31135,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -32265,7 +31160,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function eatMx2(consumes m Mx)
@@ -32313,9 +31207,7 @@ type RpC
 	static function create(code Num, consumes item Bx) returns Self
 		return Self{code: code, item: item}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function iso(consumes self) returns RpC
@@ -32353,9 +31245,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -32379,7 +31269,7 @@ end 'fr'
 function main() returns ExitCode
 	let r = Rl.create(1)
 	fr(r)
-	_ = r.code
+	let ignored1 = r.code
 	return 0
 end 'main'
 ```
@@ -32406,9 +31296,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -32457,9 +31345,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -32527,9 +31413,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -32584,9 +31468,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -32634,9 +31516,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -32685,9 +31565,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -32801,9 +31679,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -32893,7 +31769,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -32998,9 +31873,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -33082,9 +31955,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -33175,7 +32046,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -33258,9 +32128,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -33300,7 +32168,6 @@ type Sm3
 end 'Sm3'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function eatMp(m Mp)
@@ -33347,9 +32214,7 @@ type RpL
 	static function create(b Bx, code Num) returns Self
 		return Self{b: b, code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'RpL'
 
@@ -33407,9 +32272,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -33485,9 +32348,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -33569,7 +32430,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -33654,9 +32514,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -33743,9 +32601,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -33783,7 +32639,6 @@ type Sm3
 end 'Sm3'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function eatMx(p Mx)
@@ -33832,7 +32687,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -33918,7 +32772,6 @@ type RpL
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'RpL'
 
@@ -33982,7 +32835,6 @@ type RpL
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'RpL'
 
@@ -34036,9 +32888,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -34106,9 +32956,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -34172,9 +33020,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -34221,9 +33067,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -34276,9 +33120,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -34332,7 +33174,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -34378,9 +33219,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -34446,9 +33285,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -34515,9 +33352,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -34595,9 +33430,7 @@ type Rq
 	static function create(b Bx) returns Self
 		return Self{b: b}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -34656,9 +33489,7 @@ type Rq
 	static function create(b Bx) returns Self
 		return Self{b: b}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -34699,9 +33530,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -34750,9 +33579,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -34803,9 +33630,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -34856,9 +33681,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -34906,9 +33729,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -34958,9 +33779,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -35014,9 +33833,7 @@ type Rq
 	static function create(b Bx) returns Self
 		return Self{b: b}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -35076,9 +33893,7 @@ type Rq
 	static function create(b Bx) returns Self
 		return Self{b: b}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -35122,9 +33937,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -35175,9 +33988,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -35247,9 +34058,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num

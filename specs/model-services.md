@@ -344,7 +344,6 @@ type Rcv
 	end 'create'
 
 	export function take(bV Bt)
-		_ = bV
 		self.n = 1
 	end 'take'
 end 'Rcv'
@@ -388,7 +387,6 @@ type Rcv
 	var n as Num
 
 	static function create(bV Bt) returns Self
-		_ = bV
 		return Self{n: 1}
 	end 'create'
 end 'Rcv'
@@ -671,7 +669,6 @@ type Sf
 	end 'go'
 
 	export function again(mutates self, me Sf.handle)
-		_ = me
 		self.n = 1
 	end 'again'
 end 'Sf'
@@ -762,7 +759,6 @@ type Kq
 end 'Kq'
 
 function keepLocal(t Tok)
-	_ = t
 end 'keepLocal'
 
 function main() returns ExitCode
@@ -888,7 +884,6 @@ type Qq
 	var n as Num
 
 	static function create(p Pl.handle) returns Self
-		_ = p
 		return Self{n: 1}
 	end 'create'
 end 'Qq'
@@ -938,7 +933,6 @@ type Fw
 	var n as Num
 
 	static function create(o Q.handle) returns Self
-		_ = o
 		return Self{n: 1}
 	end 'create'
 end 'Fw'
@@ -1075,7 +1069,6 @@ type Fx
 	end 'create'
 
 	export function put(me Fx.handle)
-		_ = me
 		let u = Hu.has(Hx.create(1))
 		match u 'x1'
 			none then break
@@ -1283,9 +1276,6 @@ type Su
 end 'Su'
 
 function f(uV UT, su Su.handle, hd Holdu, ua UTArray)
-	_ = su
-	_ = hd
-	_ = ua
 	match uV 'x1'
 		none then break
 		have then break
@@ -1498,7 +1488,7 @@ function main() returns ExitCode
 	_ = UTArray.create(0)
 	match uV 'x1'
 		none then break
-		have then _ = uV
+		have then break
 	end 'x1'
 	return 0
 end 'main'
@@ -1594,12 +1584,9 @@ type Su
 end 'Su'
 
 function f(uV UT, su Su.handle, hd Holdu, ua UTArray)
-	_ = su
-	_ = hd
-	_ = ua
 	match uV 'x1'
 		none then break
-		have then _ = uV
+		have then break
 	end 'x1'
 end 'f'
 
@@ -1708,7 +1695,7 @@ function main() returns ExitCode
 	_ = UTArray.create(0)
 	match hd.u 'x1'
 		none then break
-		have then _ = hd.u
+		have then let ignored1 = hd.u
 	end 'x1'
 	return 0
 end 'main'
@@ -1920,9 +1907,6 @@ function eatUT(uV UT)
 end 'eatUT'
 
 function f(uV UT, su Su.handle, hd Holdu, ua UTArray)
-	_ = su
-	_ = hd
-	_ = ua
 	match uV 'x1'
 		none then break
 		have then eatUT(uV)
@@ -2220,7 +2204,7 @@ function main() returns ExitCode
 	let u = UJ.have(Tj.create(1, t: Tk.create(2)))
 	match u 'x1'
 		none then break
-		have(j) then _ = j.t.n
+		have(j) then break
 	end 'x1'
 	return 0
 end 'main'
@@ -2401,7 +2385,7 @@ function main() returns ExitCode
 	let u = UJ.have(Tj.create(1, t: Tk.create(2)))
 	match u 'x1'
 		none then break
-		have(j) then _ = j.t
+		have(j) then let ignored1 = j.t
 	end 'x1'
 	return 0
 end 'main'
@@ -2446,7 +2430,7 @@ function main() returns ExitCode
 	let xs = TkArray.create(0)
 	xs.push(Tk.create(1))
 	for _ in xs 'f1'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 'f1'
 	return 0
 end 'main'
@@ -2499,7 +2483,7 @@ function main() returns ExitCode
 	let h = Hs2.create(TkArray.create(0))
 	h.xs.push(Tk.create(1))
 	for _ in h.xs 'f1'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 'f1'
 	return 0
 end 'main'
@@ -2545,7 +2529,7 @@ function main() returns ExitCode
 	let xs = TkArray.create(0)
 	xs.push(Tk.create(1))
 	for _ in xs 'f1'
-		_ = xs
+		let ignored1 = xs
 	end 'f1'
 	return 0
 end 'main'
@@ -2599,7 +2583,7 @@ function main() returns ExitCode
 	let h = Hs2.create(TkArray.create(0))
 	h.xs.push(Tk.create(1))
 	for _ in h.xs 'f1'
-		_ = h.xs
+		let ignored1 = h.xs
 	end 'f1'
 	return 0
 end 'main'
@@ -2645,8 +2629,7 @@ function main() returns ExitCode
 	let xs = TkArray.create(0)
 	xs.push(Tk.create(1))
 	for t in xs 'f1'
-		_ = xs
-		_ = t.n
+		let ignored1 = xs
 	end 'f1'
 	return 0
 end 'main'
@@ -2700,8 +2683,7 @@ function main() returns ExitCode
 	let h = Hs2.create(TkArray.create(0))
 	h.xs.push(Tk.create(1))
 	for t in h.xs 'f1'
-		_ = h.xs
-		_ = t.n
+		let ignored1 = h.xs
 	end 'f1'
 	return 0
 end 'main'
@@ -2747,7 +2729,7 @@ function main() returns ExitCode
 	let xs = TkArray.create(0)
 	xs.push(Tk.create(1))
 	for t in xs 'f1'
-		_ = xs
+		let ignored1 = xs
 		t.n = 4
 	end 'f1'
 	return 0
@@ -2802,7 +2784,7 @@ function main() returns ExitCode
 	let h = Hs2.create(TkArray.create(0))
 	h.xs.push(Tk.create(1))
 	for t in h.xs 'f1'
-		_ = h.xs
+		let ignored1 = h.xs
 		t.n = 4
 	end 'f1'
 	return 0
@@ -3279,13 +3261,9 @@ type Sk
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
-
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -3329,13 +3307,9 @@ type Sk
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
-
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -3377,7 +3351,6 @@ type Cap1
 	end 'create'
 
 	export function takeH(mutates self, h Sc.handle)
-		_ = h
 		self.n = 1
 	end 'takeH'
 
@@ -3451,10 +3424,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -3503,14 +3473,9 @@ type Sw
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function putU(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'putU'
-
 	export function putT(x Tk)
-		_ = x.n
 	end 'putT'
 end 'Sw'
 
@@ -3607,15 +3572,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -3633,7 +3592,7 @@ function main() returns ExitCode
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
-		q1 then _ = 1 as Num
+		q1 then break
 	end 'x1'
 	return 0
 end 'main'
@@ -3679,15 +3638,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -3705,7 +3658,7 @@ function main() returns ExitCode
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
-		q1 then _ = 1 as Num
+		q1 then break
 	end 'x1'
 	fb.n = 2
 	return 0
@@ -3752,15 +3705,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -3778,7 +3725,7 @@ function main() returns ExitCode
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
-		q1 then _ = 1 as Num
+		q1 then break
 	end 'x1'
 	fr.keep.n = 4
 	return 0
@@ -3825,15 +3772,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -3897,15 +3838,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -3970,15 +3905,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -4043,15 +3972,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -4115,15 +4038,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -4188,15 +4105,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -4261,15 +4172,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -4287,7 +4192,7 @@ function main() returns ExitCode
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
-		q1(o) then _ = o.keep
+		q1(o) then break
 	end 'x1'
 	return 0
 end 'main'
@@ -4333,15 +4238,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -4359,7 +4258,7 @@ function main() returns ExitCode
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
-		q1(o) then _ = o.keep
+		q1(o) then break
 	end 'x1'
 	fb.n = 2
 	return 0
@@ -4406,15 +4305,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -4432,7 +4325,7 @@ function main() returns ExitCode
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
-		q1(o) then _ = o.keep
+		q1(o) then break
 	end 'x1'
 	fr.keep.n = 4
 	return 0
@@ -4479,15 +4372,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -4551,15 +4438,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -4624,15 +4505,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -4697,15 +4572,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -4769,15 +4638,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -4842,15 +4705,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -4915,15 +4772,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -4987,15 +4838,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -5060,15 +4905,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -5138,15 +4977,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -5164,7 +4997,7 @@ function main() returns ExitCode
 	let u = Iq.i1(Wo.create(Bx.create(0), item: Bx.create(1))) as Iq
 	match u 'x1'
 		i0 then break
-		i1 then _ = 1 as Num
+		i1 then break
 	end 'x1'
 	return 0
 end 'main'
@@ -5215,15 +5048,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -5241,7 +5068,7 @@ function main() returns ExitCode
 	let u = Iq.i1(Wo.create(Bx.create(0), item: Bx.create(1))) as Iq
 	match u 'x1'
 		i0 then break
-		i1 then _ = 1 as Num
+		i1 then break
 	end 'x1'
 	fb.n = 2
 	return 0
@@ -5293,15 +5120,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -5319,7 +5140,7 @@ function main() returns ExitCode
 	let u = Iq.i1(Wo.create(Bx.create(0), item: Bx.create(1))) as Iq
 	match u 'x1'
 		i0 then break
-		i1 then _ = 1 as Num
+		i1 then break
 	end 'x1'
 	fr.keep.n = 4
 	return 0
@@ -5372,15 +5193,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -5450,15 +5265,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -5529,15 +5338,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -5607,15 +5410,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -5634,7 +5431,7 @@ function main() returns ExitCode
 	let u = Aq.a1(BxArray.create(0)) as Aq
 	match u 'x1'
 		a0 then break
-		a1 then _ = 1 as Num
+		a1 then break
 	end 'x1'
 	return 0
 end 'main'
@@ -5685,15 +5482,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -5712,7 +5503,7 @@ function main() returns ExitCode
 	let u = Aq.a1(BxArray.create(0)) as Aq
 	match u 'x1'
 		a0 then break
-		a1 then _ = 1 as Num
+		a1 then break
 	end 'x1'
 	fb.n = 2
 	return 0
@@ -5764,15 +5555,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -5842,15 +5627,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -5921,15 +5700,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -5999,15 +5772,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -6078,15 +5845,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -6105,7 +5866,7 @@ function main() returns ExitCode
 	let u = Ia.j1(BxArray.create(0)) as Ia
 	match u 'x1'
 		j0 then break
-		j1 then _ = 1 as Num
+		j1 then break
 	end 'x1'
 	return 0
 end 'main'
@@ -6156,15 +5917,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -6183,7 +5938,7 @@ function main() returns ExitCode
 	let u = Ia.j1(BxArray.create(0)) as Ia
 	match u 'x1'
 		j0 then break
-		j1 then _ = 1 as Num
+		j1 then break
 	end 'x1'
 	fb.n = 2
 	return 0
@@ -6230,15 +5985,9 @@ type Sv3
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
 	end 'takeW'
-
 	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
 	end 'takeA'
 
 	export function eatPq(consumes u Pq)
@@ -6254,8 +6003,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeWo(consumes w Wo)
-	_ = w
-	_ = 1 as Num
 end 'takeWo'
 
 function main() returns ExitCode
@@ -6314,19 +6061,13 @@ type Sw
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	export function putU(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'putU'
-
 	export function putT(x Tk)
-		_ = x.n
 	end 'putT'
 end 'Sw'
 
 function f(consumes t Tk, h Kp)
-	_ = h
 	let u = t
 	let s = spawn Sw.create(0)
 	try s.putU(UT.have(u)) otherwise ignore
@@ -6336,7 +6077,7 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -6377,7 +6118,6 @@ type Sk4
 end 'Sk4'
 
 function f(t Tk, h Kp)
-	_ = h
 	let u = t
 	_ = spawn Sk4.create(u)
 end 'f'
@@ -6386,7 +6126,6 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
 	return 0
 end 'main'
 ```
@@ -6926,10 +6665,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -6982,14 +6718,11 @@ type Sv3
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function tk(t Tk)
-		_ = t.n
 	end 'tk'
 end 'Sv3'
 
 function eatTk(x Tk)
-	_ = x.n
 end 'eatTk'
 
 function idTk(consumes x Tk) returns Tk
@@ -7048,16 +6781,11 @@ type Sh3
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function takeH(x Hd)
-		_ = x
-		_ = 1 as Num
 	end 'takeH'
 end 'Sh3'
 
 function readHd(x Hd)
-	_ = x
-	_ = 1 as Num
 end 'readHd'
 
 function fwdSendD(x Hd)
@@ -7101,14 +6829,11 @@ type Sv3
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function tk(t Tk)
-		_ = t.n
 	end 'tk'
 end 'Sv3'
 
 function eatTk(x Tk)
-	_ = x.n
 end 'eatTk'
 
 function idTk(x Tk) returns Tk
@@ -7157,9 +6882,7 @@ type Sv3
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function tk(t Tk)
-		_ = t.n
 	end 'tk'
 end 'Sv3'
 
@@ -7203,10 +6926,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -7273,16 +6993,11 @@ type SArB
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x ArB)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'SArB'
 
 function peekArB(x ArB)
-	_ = x
-	_ = 1 as Num
 end 'peekArB'
 
 function main() returns ExitCode
@@ -7329,16 +7044,11 @@ type SAr
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x Ar)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'SAr'
 
 function peekAr(x Ar)
-	_ = x
-	_ = 1 as Num
 end 'peekAr'
 
 function main() returns ExitCode
@@ -7387,16 +7097,11 @@ type SAr
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x Ar)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'SAr'
 
 function peekAr(x Ar)
-	_ = x
-	_ = 1 as Num
 end 'peekAr'
 
 function main() returns ExitCode
@@ -7449,16 +7154,11 @@ type SNdB
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x NdB)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'SNdB'
 
 function peekNdB(x NdB)
-	_ = x
-	_ = 1 as Num
 end 'peekNdB'
 
 function main() returns ExitCode
@@ -7510,16 +7210,11 @@ type SNdB
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x NdB)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'SNdB'
 
 function peekNdB(x NdB)
-	_ = x
-	_ = 1 as Num
 end 'peekNdB'
 
 function main() returns ExitCode
@@ -7571,16 +7266,11 @@ type SUM
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UM)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'SUM'
 
 function peekUM(x UM)
-	_ = x
-	_ = 1 as Num
 end 'peekUM'
 
 function main() returns ExitCode
@@ -7631,16 +7321,11 @@ type SUM
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UM)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'SUM'
 
 function peekUM(x UM)
-	_ = x
-	_ = 1 as Num
 end 'peekUM'
 
 function main() returns ExitCode
@@ -7691,16 +7376,11 @@ type SQi
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UQi)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'SQi'
 
 function peekQi(x UQi)
-	_ = x
-	_ = 1 as Num
 end 'peekQi'
 
 function main() returns ExitCode
@@ -7740,16 +7420,11 @@ type SIa
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x Ia)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'SIa'
 
 function peekIa(x Ia)
-	_ = x
-	_ = 1 as Num
 end 'peekIa'
 
 function main() returns ExitCode
@@ -7791,10 +7466,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -7843,10 +7515,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -7901,10 +7570,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -7954,10 +7620,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -8007,10 +7670,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -8057,10 +7717,7 @@ type SaT
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x TkArray)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'SaT'
 
@@ -8106,10 +7763,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -8163,10 +7817,7 @@ type Sh3
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function takeH(x Hd)
-		_ = x
-		_ = 1 as Num
 	end 'takeH'
 end 'Sh3'
 
@@ -8208,10 +7859,7 @@ type SaT
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x TkArray)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'SaT'
 
@@ -8220,7 +7868,7 @@ function main() returns ExitCode
 	a.push(Tk.create(1))
 	let t = spawn SaT.create(0)
 	for e in a 'f1'
-		_ = e.n
+		let ignored1 = e.n
 	end 'f1'
 	try t.take(a) otherwise ignore
 	return 0
@@ -8253,10 +7901,7 @@ type SaT
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x TkArray)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'SaT'
 
@@ -8298,10 +7943,7 @@ type SaT
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x TkArray)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'SaT'
 
@@ -8357,10 +7999,7 @@ type SAr2
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x Ta)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'SAr2'
 
@@ -8405,10 +8044,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -8453,10 +8089,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -8504,10 +8137,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -8556,10 +8186,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -8612,10 +8239,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -8689,10 +8313,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -8735,10 +8356,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -8791,10 +8409,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -8849,10 +8464,7 @@ type Sh3
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function takeH(x Hd)
-		_ = x
-		_ = 1 as Num
 	end 'takeH'
 end 'Sh3'
 
@@ -8903,10 +8515,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -8964,10 +8573,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -9024,10 +8630,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -9081,10 +8684,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -9143,10 +8743,7 @@ type Sh3
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function takeH(x Hd)
-		_ = x
-		_ = 1 as Num
 	end 'takeH'
 end 'Sh3'
 
@@ -9207,10 +8804,7 @@ type Sh3
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function takeH(x Hd)
-		_ = x
-		_ = 1 as Num
 	end 'takeH'
 end 'Sh3'
 
@@ -9281,10 +8875,7 @@ type Sh3
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function takeH(x Hd)
-		_ = x
-		_ = 1 as Num
 	end 'takeH'
 end 'Sh3'
 
@@ -9345,10 +8936,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -9358,10 +8946,7 @@ type Sh3
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function takeH(x Hd)
-		_ = x
-		_ = 1 as Num
 	end 'takeH'
 end 'Sh3'
 
@@ -9418,10 +9003,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -9466,10 +9048,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -9528,10 +9107,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -9580,10 +9156,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -9629,10 +9202,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -9641,7 +9211,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function two(x UT, y UT) returns UT
-	_ = y
 	return x
 end 'two'
 
@@ -9682,10 +9251,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -9742,10 +9308,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -9793,10 +9356,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -9847,10 +9407,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -9902,10 +9459,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -9952,10 +9506,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -10017,9 +9568,7 @@ type St
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function tk(t Tk)
-		_ = t.n
 	end 'tk'
 end 'St'
 
@@ -10183,7 +9732,6 @@ type Zm5
 end 'Zm5'
 
 function takeBx(consumes bV Bx)
-	_ = bV.n
 end 'takeBx'
 
 function main() returns ExitCode
@@ -10316,7 +9864,6 @@ type Zb
 end 'Zb'
 
 function takeBx(consumes b Bx)
-	_ = b.n
 end 'takeBx'
 
 function sendB(b Bx, a Zb.handle)
@@ -10526,7 +10073,6 @@ type Kz
 end 'Kz'
 
 function takeB(consumes bV Bx)
-	_ = bV.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -10584,7 +10130,6 @@ type Kt
 end 'Kt'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -10672,7 +10217,6 @@ type Kz
 end 'Kz'
 
 function takeB(consumes bV Bx)
-	_ = bV.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -10769,7 +10313,7 @@ function main() returns ExitCode
 	let u = Ub.u1(Bx.create(5)) as Ub
 	match u 'x1'
 		u0 then break
-		u1(o) then _ = o.n
+		u1(o) then break
 	end 'x1'
 	return 0
 end 'main'
@@ -10849,7 +10393,6 @@ type Kw
 end 'Kw'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -10938,8 +10481,6 @@ type Kw
 end 'Kw'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function main() returns ExitCode
@@ -11120,7 +10661,7 @@ function main() returns ExitCode
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
-			u1(o) then _ = o.n
+			u1(o) then break
 		end 'x2'
 	end 'i1'
 	return 0
@@ -11205,7 +10746,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -11300,8 +10840,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function main() returns ExitCode
@@ -11491,7 +11029,7 @@ function main() returns ExitCode
 		let w = Ub.u1(Bx.create(5)) as Ub
 		match w 'x2'
 			u0 then break
-			u1(o) then _ = o.n
+			u1(o) then break
 		end 'x2'
 		i = lg(0)
 	end 'w1'
@@ -11577,7 +11115,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -11674,8 +11211,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function main() returns ExitCode
@@ -11862,7 +11397,7 @@ function f(consumes u Ub)
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	match u 'x1'
 		u0 then break
-		u1(o) then _ = o.n
+		u1(o) then break
 	end 'x1'
 end 'f'
 
@@ -11946,7 +11481,6 @@ type Kw
 end 'Kw'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(consumes u Ub)
@@ -12038,8 +11572,6 @@ type Kw
 end 'Kw'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function f(consumes u Ub)
@@ -12225,7 +11757,7 @@ function f(consumes u Ub)
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
-			u1(o) then _ = o.n
+			u1(o) then break
 		end 'x2'
 	end 'i1'
 end 'f'
@@ -12314,7 +11846,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(consumes u Ub)
@@ -12412,8 +11943,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function f(consumes u Ub)
@@ -12603,7 +12132,7 @@ function main() returns ExitCode
 	let u = Mq.q1(Bx.create(5)) as Mq
 	match u 'x1'
 		q0(xa) then xa.n = 1
-		q1(o) then _ = o.n
+		q1(o) then break
 	end 'x1'
 	return 0
 end 'main'
@@ -12683,7 +12212,6 @@ type Kw
 end 'Kw'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -12772,8 +12300,6 @@ type Kw
 end 'Kw'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function main() returns ExitCode
@@ -12954,7 +12480,7 @@ function main() returns ExitCode
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			q0(xa) then xa.n = 1
-			q1(o) then _ = o.n
+			q1(o) then break
 		end 'x2'
 	end 'i1'
 	return 0
@@ -13039,7 +12565,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -13134,8 +12659,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function main() returns ExitCode
@@ -13325,7 +12848,7 @@ function main() returns ExitCode
 		let w = Mq.q1(Bx.create(5)) as Mq
 		match w 'x2'
 			q0(xa) then xa.n = 1
-			q1(o) then _ = o.n
+			q1(o) then break
 		end 'x2'
 		i = lg(0)
 	end 'w1'
@@ -13411,7 +12934,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -13508,8 +13030,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function main() returns ExitCode
@@ -13696,7 +13216,7 @@ function f(consumes u Mq)
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	match u 'x1'
 		q0(xa) then xa.n = 1
-		q1(o) then _ = o.n
+		q1(o) then break
 	end 'x1'
 end 'f'
 
@@ -13780,7 +13300,6 @@ type Kw
 end 'Kw'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(consumes u Mq)
@@ -13872,8 +13391,6 @@ type Kw
 end 'Kw'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function f(consumes u Mq)
@@ -14059,7 +13576,7 @@ function f(consumes u Mq)
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			q0(xa) then xa.n = 1
-			q1(o) then _ = o.n
+			q1(o) then break
 		end 'x2'
 	end 'i1'
 end 'f'
@@ -14148,7 +13665,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(consumes u Mq)
@@ -14246,8 +13762,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function f(consumes u Mq)
@@ -14437,7 +13951,7 @@ function main() returns ExitCode
 	let u = Pc.u1(Bx.create(5)) as Pc
 	match u 'x1'
 		u0 then break
-		u1(o) then _ = o.n
+		u1(o) then break
 	end 'x1'
 	return 0
 end 'main'
@@ -14601,7 +14115,6 @@ type Kw
 end 'Kw'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -14689,7 +14202,6 @@ type Kw
 end 'Kw'
 
 function readB(b Bx)
-	_ = b.n
 end 'readB'
 
 function main() returns ExitCode
@@ -14778,8 +14290,6 @@ type Kw
 end 'Kw'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function main() returns ExitCode
@@ -14876,7 +14386,7 @@ function main() returns ExitCode
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
-			u1(o) then _ = o.n
+			u1(o) then break
 		end 'x2'
 	end 'i1'
 	return 0
@@ -15051,7 +14561,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -15145,7 +14654,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function readB(b Bx)
-	_ = b.n
 end 'readB'
 
 function main() returns ExitCode
@@ -15240,8 +14748,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function main() returns ExitCode
@@ -15341,7 +14847,7 @@ function main() returns ExitCode
 		let w = Pc.u1(Bx.create(5)) as Pc
 		match w 'x2'
 			u0 then break
-			u1(o) then _ = o.n
+			u1(o) then break
 		end 'x2'
 		i = lg(0)
 	end 'w1'
@@ -15519,7 +15025,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -15615,7 +15120,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function readB(b Bx)
-	_ = b.n
 end 'readB'
 
 function main() returns ExitCode
@@ -15712,8 +15216,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function main() returns ExitCode
@@ -15808,7 +15310,7 @@ function f(consumes u Pc)
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	match u 'x1'
 		u0 then break
-		u1(o) then _ = o.n
+		u1(o) then break
 	end 'x1'
 end 'f'
 
@@ -15979,7 +15481,6 @@ type Kw
 end 'Kw'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(consumes u Pc)
@@ -16070,7 +15571,6 @@ type Kw
 end 'Kw'
 
 function readB(b Bx)
-	_ = b.n
 end 'readB'
 
 function f(consumes u Pc)
@@ -16162,8 +15662,6 @@ type Kw
 end 'Kw'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function f(consumes u Pc)
@@ -16262,7 +15760,7 @@ function f(consumes u Pc)
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
-			u1(o) then _ = o.n
+			u1(o) then break
 		end 'x2'
 	end 'i1'
 end 'f'
@@ -16444,7 +15942,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(consumes u Pc)
@@ -16541,7 +16038,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function readB(b Bx)
-	_ = b.n
 end 'readB'
 
 function f(consumes u Pc)
@@ -16639,8 +16135,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function f(consumes u Pc)
@@ -16750,7 +16244,7 @@ function main() returns ExitCode
 	let u = UT.have(Tk.create(5)) as UT
 	match u 'x1'
 		none then break
-		have(o) then _ = o.n
+		have(o) then break
 	end 'x1'
 	return 0
 end 'main'
@@ -16940,7 +16434,6 @@ type Kw
 end 'Kw'
 
 function takeT(consumes t Tk)
-	_ = t.n
 end 'takeT'
 
 function main() returns ExitCode
@@ -17050,7 +16543,7 @@ function main() returns ExitCode
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			none then break
-			have(o) then _ = o.n
+			have(o) then break
 		end 'x2'
 	end 'i1'
 	return 0
@@ -17251,7 +16744,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeT(consumes t Tk)
-	_ = t.n
 end 'takeT'
 
 function main() returns ExitCode
@@ -17364,7 +16856,7 @@ function main() returns ExitCode
 		let w = UT.have(Tk.create(5)) as UT
 		match w 'x2'
 			none then break
-			have(o) then _ = o.n
+			have(o) then break
 		end 'x2'
 		i = lg(0)
 	end 'w1'
@@ -17568,7 +17060,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeT(consumes t Tk)
-	_ = t.n
 end 'takeT'
 
 function main() returns ExitCode
@@ -17676,7 +17167,7 @@ function f(consumes u UT)
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	match u 'x1'
 		none then break
-		have(o) then _ = o.n
+		have(o) then break
 	end 'x1'
 end 'f'
 
@@ -17873,7 +17364,6 @@ type Kw
 end 'Kw'
 
 function takeT(consumes t Tk)
-	_ = t.n
 end 'takeT'
 
 function f(consumes u UT)
@@ -17985,7 +17475,7 @@ function f(consumes u UT)
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			none then break
-			have(o) then _ = o.n
+			have(o) then break
 		end 'x2'
 	end 'i1'
 end 'f'
@@ -18193,7 +17683,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeT(consumes t Tk)
-	_ = t.n
 end 'takeT'
 
 function f(consumes u UT)
@@ -18295,7 +17784,7 @@ function main() returns ExitCode
 	let u = Vc.u1(Bx.create(5)) as Vc
 	match u 'x1'
 		u0 then break
-		u1(o) then _ = o.n
+		u1(o) then break
 	end 'x1'
 	return 0
 end 'main'
@@ -18380,7 +17869,6 @@ type Kw
 end 'Kw'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -18474,8 +17962,6 @@ type Kw
 end 'Kw'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function main() returns ExitCode
@@ -18666,7 +18152,7 @@ function main() returns ExitCode
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
-			u1(o) then _ = o.n
+			u1(o) then break
 		end 'x2'
 	end 'i1'
 	return 0
@@ -18756,7 +18242,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -18856,8 +18341,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function main() returns ExitCode
@@ -19057,7 +18540,7 @@ function main() returns ExitCode
 		let w = Vc.u1(Bx.create(5)) as Vc
 		match w 'x2'
 			u0 then break
-			u1(o) then _ = o.n
+			u1(o) then break
 		end 'x2'
 		i = lg(0)
 	end 'w1'
@@ -19148,7 +18631,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -19250,8 +18732,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function main() returns ExitCode
@@ -19448,7 +18928,7 @@ function f(consumes u Vc)
 	_ = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
 	match u 'x1'
 		u0 then break
-		u1(o) then _ = o.n
+		u1(o) then break
 	end 'x1'
 end 'f'
 
@@ -19537,7 +19017,6 @@ type Kw
 end 'Kw'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(consumes u Vc)
@@ -19634,8 +19113,6 @@ type Kw
 end 'Kw'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function f(consumes u Vc)
@@ -19831,7 +19308,7 @@ function f(consumes u Vc)
 	if lg(1) != 0 'i1'
 		match u 'x2'
 			u0 then break
-			u1(o) then _ = o.n
+			u1(o) then break
 		end 'x2'
 	end 'i1'
 end 'f'
@@ -19925,7 +19402,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(consumes u Vc)
@@ -20028,8 +19504,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function f(consumes u Vc)
@@ -20521,7 +19995,6 @@ type Sr
 end 'Sr'
 
 function f(t Tk, h Kp)
-	_ = h
 	let u = t
 	let s = spawn Sr.create(0)
 	try s.tk(u) otherwise ignore
@@ -20531,7 +20004,6 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
 	return 0
 end 'main'
 ```
@@ -20566,10 +20038,7 @@ type Sy3
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy3'
 
@@ -21094,8 +20563,6 @@ function wrQ(x UQ)
 end 'wrQ'
 
 function f(u UQ, o Ko, s Sac.handle)
-	_ = o
-	_ = s
 	match u 'x1'
 		none then break
 		have then wrQ(u)
@@ -21256,7 +20723,6 @@ type Sv
 	end 'create'
 
 	export function go(s Sac.handle) returns Num
-		_ = s
 		let o = Ko.create(Bx.create(0), n: 0)
 		match self.u 'x1'
 			none then break
@@ -21522,7 +20988,6 @@ type Sac
 end 'Sac'
 
 function f(xs TqArray, o Ko, s Sac.handle)
-	_ = s
 	for t in xs 'f1'
 		o.n = 5
 		t.n = 2
@@ -21593,7 +21058,6 @@ function wrK(k Ko)
 end 'wrK'
 
 function f(xs TqArray, o Ko, s Sac.handle)
-	_ = s
 	for t in xs 'f1'
 		wrK(o)
 		t.n = 2
@@ -21660,7 +21124,6 @@ type Sac
 end 'Sac'
 
 function f(xs TqArray, o Ko, s Sac.handle)
-	_ = s
 	for t in xs 'f1'
 		o.keep = t.b
 		t.b.n = 3
@@ -21975,7 +21438,6 @@ type Sv
 	end 'add'
 
 	export function go(s Sac.handle) returns Num
-		_ = s
 		let o = Ko.create(Bx.create(0), n: 0)
 		for t in self.xs 'f1'
 			o.n = 5
@@ -22058,7 +21520,6 @@ type Sv
 	end 'add'
 
 	export function go(s Sac.handle) returns Num
-		_ = s
 		let o = Ko.create(Bx.create(0), n: 0)
 		for t in self.xs 'f1'
 			wrK(o)
@@ -22145,7 +21606,6 @@ type Sv
 	end 'add'
 
 	export function go(s Sac.handle) returns Num
-		_ = s
 		let o = Ko.create(Bx.create(0), n: 0)
 		for t in self.xs 'f1'
 			o.keep = t.b
@@ -23228,10 +22688,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -23308,10 +22765,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -23404,10 +22858,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -23502,10 +22953,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -23622,10 +23070,7 @@ type Sh3
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function takeH(x Hd)
-		_ = x
-		_ = 1 as Num
 	end 'takeH'
 end 'Sh3'
 
@@ -23679,16 +23124,11 @@ type Sh3
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function takeH(x Hd)
-		_ = x
-		_ = 1 as Num
 	end 'takeH'
 end 'Sh3'
 
 function readHd(x Hd)
-	_ = x
-	_ = 1 as Num
 end 'readHd'
 
 function main() returns ExitCode
@@ -23729,10 +23169,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -23741,7 +23178,7 @@ function main() returns ExitCode
 	let s = spawn Sy.create(0)
 	match u 'x1'
 		none then break
-		have(z) then _ = z.n
+		have(z) then break
 	end 'x1'
 	try s.take(u) otherwise ignore
 	return 0
@@ -23776,10 +23213,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -23831,10 +23265,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -23890,10 +23321,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -23950,10 +23378,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -24007,10 +23432,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -24065,10 +23487,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -24124,10 +23543,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -24182,10 +23598,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -24248,10 +23661,7 @@ type Sh3
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function takeH(x Hd)
-		_ = x
-		_ = 1 as Num
 	end 'takeH'
 end 'Sh3'
 
@@ -24260,8 +23670,6 @@ function keepUT(consumes x UT, mutates h Hd)
 end 'keepUT'
 
 function readHd(x Hd)
-	_ = x
-	_ = 1 as Num
 end 'readHd'
 
 function main() returns ExitCode
@@ -24305,10 +23713,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -24366,10 +23771,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -24419,10 +23821,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -24479,10 +23878,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -24542,16 +23938,11 @@ type Sq
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UQ)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sq'
 
 function peekUQ(x UQ)
-	_ = x
-	_ = 1 as Num
 end 'peekUQ'
 
 function main() returns ExitCode
@@ -24594,10 +23985,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -24692,10 +24080,7 @@ type Sh3
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function takeH(x Hd)
-		_ = x
-		_ = 1 as Num
 	end 'takeH'
 end 'Sh3'
 
@@ -24740,10 +24125,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -24791,10 +24173,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -24845,10 +24224,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -24950,10 +24326,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -24999,10 +24372,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -25055,10 +24425,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -25115,10 +24482,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -25171,10 +24535,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -25227,10 +24588,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -25283,10 +24641,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -25341,10 +24696,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -25402,14 +24754,11 @@ type SqP
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function takeP(x Tp)
-		_ = x.b.n
 	end 'takeP'
 end 'SqP'
 
 function peekP(x Tp)
-	_ = x.n
 end 'peekP'
 
 function main() returns ExitCode
@@ -25471,14 +24820,11 @@ type SqP
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function takeP(x Tp)
-		_ = x.b.n
 	end 'takeP'
 end 'SqP'
 
 function peekP(x Tp)
-	_ = x.n
 end 'peekP'
 
 function main() returns ExitCode
@@ -25528,10 +24874,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -25584,10 +24927,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -25598,7 +24938,6 @@ function main() returns ExitCode
 		none then break
 		have then try s.take(u) otherwise ignore
 	end 'x1'
-	_ = 1 as Num
 	return 0
 end 'main'
 ```
@@ -25632,10 +24971,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -25698,10 +25034,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -25752,10 +25085,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -25804,10 +25134,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -25861,10 +25188,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -25919,10 +25243,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -25976,10 +25297,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -26042,10 +25360,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -26107,10 +25422,7 @@ type Sy
 	static function create(k Num) returns Self
 		return Self{k: k}
 	end 'create'
-
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 

@@ -937,7 +937,6 @@ a buffer of its own.**
 function main() returns ExitCode
 	let key = ByteArray.create(16)
 	let aes = try Aes.create(key) otherwise panic("the key is valid")
-	_ = aes
 	return 0
 end 'main'
 ```

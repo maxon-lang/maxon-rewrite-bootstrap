@@ -159,7 +159,6 @@ function f1(bV Bytes, j Num) returns Num
 end 'f1'
 
 function f2(bV Bytes, j Num) returns Num
-	_ = j
 	_ = Reader.create(bV, pos: 0)
 	return 1
 end 'f2'
@@ -394,7 +393,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -456,7 +454,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -522,7 +519,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function wrap(consumes self) returns Sn
@@ -574,7 +570,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -621,7 +616,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -688,7 +682,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -742,7 +735,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -799,7 +791,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -856,7 +847,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -913,7 +903,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -971,7 +960,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1029,7 +1017,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1083,7 +1070,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1173,7 +1159,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1247,7 +1232,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1307,7 +1291,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1360,7 +1343,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1467,7 +1449,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1534,7 +1515,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1600,7 +1580,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1669,7 +1648,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1738,7 +1716,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1799,7 +1776,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1849,7 +1825,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1907,7 +1882,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -1965,7 +1939,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function wrap(consumes self) returns Sn
@@ -2028,7 +2001,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -2089,7 +2061,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function wrap(consumes self) returns Sn
@@ -2150,7 +2121,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -2214,7 +2184,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -2280,7 +2249,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -2468,7 +2436,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -2540,7 +2507,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -2595,7 +2561,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -2694,7 +2659,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -2741,7 +2705,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -2790,7 +2753,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -2850,7 +2812,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -2955,7 +2916,7 @@ function main() returns ExitCode
 	modify h 'm1'
 		// TODO: modify blocks are not supported in minimaxon
 		modify h.item 'm2'
-			_ = h.n
+			let ignored1 = h.n
 		end 'm2'
 	end 'm1'
 	return 0
@@ -3076,7 +3037,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -3121,7 +3081,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3157,7 +3116,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3195,7 +3153,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3233,7 +3190,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3271,7 +3227,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3322,7 +3277,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3372,7 +3326,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3419,7 +3372,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3466,7 +3418,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3514,7 +3465,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3561,7 +3511,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3609,7 +3558,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3657,7 +3605,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3707,7 +3654,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3757,7 +3703,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3804,7 +3749,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3851,7 +3795,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3899,7 +3842,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3948,7 +3890,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -3995,7 +3936,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4044,7 +3984,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4095,7 +4034,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4140,7 +4078,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4185,7 +4122,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4231,7 +4167,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4280,7 +4215,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4330,7 +4264,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4388,7 +4321,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4447,7 +4379,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4514,7 +4445,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4538,7 +4468,7 @@ function main() returns ExitCode
 	let s = giveS(Resp.create(0)) as Sent
 	// TODO: modify blocks are not supported in minimaxon
 	modify s 'm1'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 'm1'
 	return 0
 end 'main'
@@ -4568,7 +4498,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -4642,7 +4571,6 @@ type Rw
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function wrap(consumes self) returns Sw
@@ -4692,7 +4620,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4766,7 +4693,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4840,7 +4766,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4900,7 +4825,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4966,7 +4890,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5029,7 +4952,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5132,7 +5054,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5198,7 +5119,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5265,7 +5185,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5332,7 +5251,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5403,7 +5321,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5469,7 +5386,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5536,7 +5452,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5599,7 +5514,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5708,7 +5622,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5732,7 +5645,6 @@ type Rz
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function put(destructs self, x Rl)
@@ -5788,8 +5700,6 @@ type Rz
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
-		_ = self.code
 	end 'fin'
 end 'Rz'
 
@@ -5889,7 +5799,6 @@ type Rz
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function mk2(destructs self) returns Bx
@@ -5904,7 +5813,6 @@ function main() returns ExitCode
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'm1'
 		let w = v.mk2() as Bx
-		_ = w.n
 	end 'm1'
 	return 0
 end 'main'
@@ -6028,7 +5936,6 @@ type Sx
 end 'Sx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function keepB(b Bx)
@@ -6413,7 +6320,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -6462,7 +6368,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -6518,7 +6423,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6584,7 +6488,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6657,7 +6560,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6728,7 +6630,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6796,7 +6697,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6864,7 +6764,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6933,7 +6832,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7003,7 +6901,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7073,7 +6970,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7140,7 +7036,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7169,11 +7064,11 @@ function main() returns ExitCode
 	let u = Mq.m1(freeze(Bx.create(1)))
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'm1'
-		_ = 1 as Num
+		let ignored1 = 1 as Num
 	end 'm1'
 	match u 'x2'
 		m0(x) then x.fin(1)
-		m1(y) then _ = y.n
+		m1(y) then break
 	end 'x2'
 	return 0
 end 'main'
@@ -7203,7 +7098,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -7263,7 +7157,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -7324,7 +7217,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -7387,7 +7279,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -7446,7 +7337,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -7567,7 +7457,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7644,7 +7533,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7722,7 +7610,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7839,7 +7726,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7956,7 +7842,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8073,7 +7958,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8189,7 +8073,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8289,7 +8172,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8351,7 +8233,6 @@ type Bm
 	end 'create'
 
 	export function eat(u Mi, sk Sk.handle)
-		_ = sk
 		let h = Wo.create(Bx.create(0), item: Bx.create(1)) as Wo
 		_ = Hf.create(freeze(Bx.create(0)), keep: Bx.create(1)) as Hf
 		// TODO: modify blocks are not supported in minimaxon
@@ -8366,7 +8247,6 @@ type Bm
 end 'Bm'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function eatMi(p Mi)
@@ -8416,7 +8296,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8502,7 +8381,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8588,7 +8466,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8672,7 +8549,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function wrap(consumes self) returns Sn
@@ -8743,7 +8619,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function wrap(consumes self) returns Sn
@@ -8819,7 +8694,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function wrap(consumes self) returns Sn
@@ -8843,7 +8717,6 @@ function useS(s Sn)
 end 'useS'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -8888,7 +8761,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function wrap(consumes self) returns Sn
@@ -8963,7 +8835,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function wrap(consumes self) returns Sn
@@ -9035,7 +8906,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function wrap(consumes self) returns Sn
@@ -9108,7 +8978,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9195,7 +9064,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9282,7 +9150,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9373,7 +9240,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9465,7 +9331,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9552,7 +9417,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9639,7 +9503,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9726,7 +9589,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9813,7 +9675,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9909,7 +9770,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10005,7 +9865,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10105,7 +9964,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10206,7 +10064,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10308,7 +10165,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10400,7 +10256,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10491,7 +10346,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10600,7 +10454,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10688,7 +10541,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10775,7 +10627,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10867,7 +10718,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10959,7 +10809,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11046,7 +10895,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11125,7 +10973,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11212,7 +11059,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11299,7 +11145,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11378,7 +11223,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11471,7 +11315,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11621,7 +11464,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11762,7 +11604,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11802,7 +11643,6 @@ function useS(s Sn)
 end 'useS'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -11847,7 +11687,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11891,7 +11730,6 @@ function useS(s Sn)
 end 'useS'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -11936,7 +11774,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11976,7 +11813,6 @@ function useS(s Sn)
 end 'useS'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function mkSn(r Rl) returns Sn
@@ -12025,7 +11861,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12058,7 +11893,6 @@ type Hx
 end 'Hx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -12103,7 +11937,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12143,7 +11976,6 @@ function useS(s Sn)
 end 'useS'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(consumes u Mx)
@@ -12191,7 +12023,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12250,7 +12081,6 @@ function useS(s Sn)
 end 'useS'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function eatMx(p Mx)
@@ -12299,7 +12129,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12358,7 +12187,6 @@ function useS(s Sn)
 end 'useS'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function eatMx(p Mx)
@@ -12408,7 +12236,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12448,7 +12275,6 @@ function useS(s Sn)
 end 'useS'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -12498,7 +12324,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12538,7 +12363,6 @@ function useS(s Sn)
 end 'useS'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -12583,7 +12407,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12658,7 +12481,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12741,7 +12563,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12820,7 +12641,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12900,7 +12720,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -12979,7 +12798,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13065,7 +12883,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13154,7 +12971,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13238,7 +13054,7 @@ function main() returns ExitCode
 	modify h 'm1'
 		match h.u 'x2'
 			none then break
-			have then _ = h
+			have then let ignored1 = h
 		end 'x2'
 	end 'm1'
 	return 0
@@ -13378,7 +13194,7 @@ function main() returns ExitCode
 	modify h 'm1'
 		match h.u 'x2'
 			none then break
-			have then _ = h.u
+			have then let ignored1 = h.u
 		end 'x2'
 	end 'm1'
 	return 0
@@ -13422,7 +13238,7 @@ function main() returns ExitCode
 	modify h 'm1'
 		match h.u 'x2'
 			none then break
-			have(t) then _ = t.n
+			have(t) then break
 		end 'x2'
 	end 'm1'
 	return 0
@@ -13547,7 +13363,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13596,11 +13411,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -13655,7 +13468,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13696,11 +13508,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes wV Wo)
-		_ = wV.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -13720,7 +13530,6 @@ type HldW
 	end 'keepP'
 
 	export function go(u Mp, k2 Sk.handle)
-		_ = k2
 		// TODO: modify blocks are not supported in minimaxon
 		modify self.w 'm1'
 			match u 'x2'
@@ -13780,7 +13589,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13821,11 +13629,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes wV Wo)
-		_ = wV.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -13845,7 +13651,6 @@ type HldW
 	end 'keepP'
 
 	export function go(u Mp, k2 Sk.handle)
-		_ = k2
 		// TODO: modify blocks are not supported in minimaxon
 		modify self.w 'm1'
 			match u 'x2'
@@ -13903,7 +13708,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13984,7 +13788,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14064,7 +13867,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14113,11 +13915,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -14164,7 +13964,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14213,11 +14012,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -14268,7 +14065,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14317,11 +14113,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -14368,7 +14162,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14417,16 +14210,13 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
 function takeBx(consumes b Bx)
-	_ = b.n
 end 'takeBx'
 
 function main() returns ExitCode
@@ -14472,7 +14262,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14513,11 +14302,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -14564,7 +14351,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14605,11 +14391,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -14660,7 +14444,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14701,11 +14484,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -14752,7 +14533,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14793,16 +14573,13 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
 function takeBx(consumes b Bx)
-	_ = b.n
 end 'takeBx'
 
 function main() returns ExitCode
@@ -14849,7 +14626,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14890,11 +14666,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -14946,7 +14720,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -14987,11 +14760,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -15047,7 +14818,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15088,11 +14858,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -15144,7 +14912,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15185,11 +14952,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -15241,7 +15006,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15282,16 +15046,13 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
 function takeBx(consumes b Bx)
-	_ = b.n
 end 'takeBx'
 
 function main() returns ExitCode
@@ -15342,7 +15103,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15383,11 +15143,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes wV Wo)
-		_ = wV.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -15400,7 +15158,6 @@ type Bw
 	end 'create'
 
 	export function go(u Mp, k Sk.handle)
-		_ = k
 		// TODO: modify blocks are not supported in minimaxon
 		modify self.w 'm1'
 			match u 'x2'
@@ -15459,7 +15216,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15500,11 +15256,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes wV Wo)
-		_ = wV.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -15517,7 +15271,6 @@ type Bw
 	end 'create'
 
 	export function go(u Mp, k Sk.handle)
-		_ = k
 		// TODO: modify blocks are not supported in minimaxon
 		modify self.w 'm1'
 			match u 'x2'
@@ -15536,7 +15289,6 @@ function eatMp(p Mp)
 end 'eatMp'
 
 function takeBx(consumes b Bx)
-	_ = b.n
 end 'takeBx'
 
 function main() returns ExitCode
@@ -15580,7 +15332,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15662,7 +15413,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15736,7 +15486,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15816,7 +15565,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15897,7 +15645,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -15933,7 +15680,6 @@ end 'Wo'
 function main() returns ExitCode
 	let h = Wo.create(Bx.create(0), item: Bx.create(1)) as Wo
 	let w = Bx.create(2)
-	_ = w
 	// TODO: modify blocks are not supported in minimaxon
 	modify h 'm1'
 		_ = Mp.m1(w) as Mp
@@ -15971,7 +15717,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -16055,11 +15800,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes w Wo)
-		_ = w.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -16102,7 +15845,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -16152,7 +15894,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -16162,7 +15903,7 @@ function main() returns ExitCode
 		modify u 'm2'
 			match u 'x3'
 				u0 then break
-				u1(o) then _ = o.n
+				u1(o) then break
 			end 'x3'
 		end 'm2'
 	end 'i1' else 'e4'
@@ -16204,13 +15945,12 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function eatUb(u Ub)
 	match u 'x1'
 		u0 then break
-		u1(b) then _ = b.n
+		u1(b) then break
 	end 'x1'
 end 'eatUb'
 
@@ -16221,7 +15961,7 @@ function main() returns ExitCode
 		modify u 'm2'
 			match u 'x3'
 				u0 then break
-				u1(o) then _ = o.n
+				u1(o) then break
 			end 'x3'
 		end 'm2'
 	end 'i1' else 'e4'
@@ -16263,7 +16003,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -16273,13 +16012,13 @@ function main() returns ExitCode
 		modify u 'm2'
 			match u 'x3'
 				u0 then break
-				u1(o) then _ = o.n
+				u1(o) then break
 			end 'x3'
 		end 'm2'
 	end 'i1' else 'e4'
 		// TODO: modify blocks are not supported in minimaxon
 		modify u 'm5'
-			_ = 1 as Num
+			let ignored1 = 1 as Num
 		end 'm5'
 	end 'e4'
 	match u 'x6'
@@ -16315,7 +16054,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -16355,7 +16093,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -16533,8 +16270,6 @@ type Wo6
 end 'Wo6'
 
 function takeWo(consumes w Wo6)
-	_ = w
-	_ = 1 as Num
 end 'takeWo'
 
 function g(mutates o Wo6)
@@ -16627,7 +16362,6 @@ type Wo
 end 'Wo'
 
 function takeWo(consumes w Wo)
-	_ = w.keep.n
 end 'takeWo'
 
 function g(consumes o Wo)
@@ -16686,7 +16420,6 @@ type Wo
 end 'Wo'
 
 function takeWo(consumes w Wo)
-	_ = w.keep.n
 end 'takeWo'
 
 function lg(x Num) returns Num
@@ -16753,7 +16486,6 @@ type Wo
 end 'Wo'
 
 function takeWo(consumes w Wo)
-	_ = w.keep.n
 end 'takeWo'
 
 function wrWo(consumes w Wo)
@@ -16813,7 +16545,6 @@ type Wo
 end 'Wo'
 
 function takeWo(consumes w Wo)
-	_ = w.keep.n
 end 'takeWo'
 
 function wrWo(consumes w Wo)
@@ -16876,7 +16607,6 @@ type Wo
 end 'Wo'
 
 function takeWo(consumes w Wo)
-	_ = w.keep.n
 end 'takeWo'
 
 function g(consumes o Wo)
@@ -17081,7 +16811,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -17185,7 +16914,6 @@ type Sv
 end 'Sv'
 
 function takeWo(consumes wV Wo)
-	_ = wV.keep.n
 end 'takeWo'
 
 function main() returns ExitCode
@@ -24675,7 +24403,6 @@ type Sbq
 end 'Sbq'
 
 function so(consumes t Tq) returns Ko
-	_ = t.n
 	return Ko.create(Bx.create(1), n: 1)
 end 'so'
 
@@ -24996,7 +24723,7 @@ end 'Bx'
 function eatUb(u Ub)
 	match u 'x1'
 		u0 then break
-		u1(b) then _ = b.n
+		u1(b) then break
 	end 'x1'
 end 'eatUb'
 
@@ -25121,7 +24848,6 @@ function main() returns ExitCode
 			u1(t) then bk.item = t
 		end 'x2'
 	end 'm1'
-	_ = bk as Bk
 	return 0
 end 'main'
 ```
@@ -25181,7 +24907,6 @@ function main() returns ExitCode
 			u1(o) then bk.item = o
 		end 'x2'
 	end 'm1'
-	_ = bk as Bk
 	return 0
 end 'main'
 ```
@@ -25325,7 +25050,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function mkUb() returns Ub
@@ -25379,8 +25103,6 @@ type Tk is noncopyable
 end 'Tk'
 
 function isoUT(consumes x UT)
-	_ = x
-	_ = 1 as Num
 end 'isoUT'
 
 function main() returns ExitCode
@@ -25534,7 +25256,7 @@ function main() returns ExitCode
 	modify h 'm1'
 		match uV 'x2'
 			u0 then break
-			u1(o) then _ = o.n
+			u1(o) then let ignored1 = o.n
 		end 'x2'
 	end 'm1'
 	return 0
@@ -25626,7 +25348,6 @@ type Kw
 end 'Kw'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -25730,8 +25451,6 @@ type Kw
 end 'Kw'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function main() returns ExitCode
@@ -25941,7 +25660,7 @@ function f(consumes uV Ub)
 	modify h 'm1'
 		match uV 'x2'
 			u0 then break
-			u1(o) then _ = o.n
+			u1(o) then let ignored1 = o.n
 		end 'x2'
 	end 'm1'
 end 'f'
@@ -26037,7 +25756,6 @@ type Kw
 end 'Kw'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(consumes uV Ub)
@@ -26144,8 +25862,6 @@ type Kw
 end 'Kw'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function f(consumes uV Ub)
@@ -26362,7 +26078,7 @@ function main() returns ExitCode
 	modify h 'm1'
 		match uV 'x2'
 			q0(xa) then xa.n = 1
-			q1(o) then _ = o.n
+			q1(o) then let ignored1 = o.n
 		end 'x2'
 	end 'm1'
 	return 0
@@ -26454,7 +26170,6 @@ type Kw
 end 'Kw'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -26558,8 +26273,6 @@ type Kw
 end 'Kw'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function main() returns ExitCode
@@ -26769,7 +26482,7 @@ function f(consumes uV Mq)
 	modify h 'm1'
 		match uV 'x2'
 			q0(xa) then xa.n = 1
-			q1(o) then _ = o.n
+			q1(o) then let ignored1 = o.n
 		end 'x2'
 	end 'm1'
 end 'f'
@@ -26865,7 +26578,6 @@ type Kw
 end 'Kw'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(consumes uV Mq)
@@ -26972,8 +26684,6 @@ type Kw
 end 'Kw'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function f(consumes uV Mq)
@@ -27189,7 +26899,7 @@ function main() returns ExitCode
 	modify h 'm1'
 		match uV 'x2'
 			u0 then break
-			u1(o) then _ = o.n
+			u1(o) then break
 		end 'x2'
 	end 'm1'
 	return 0
@@ -27281,7 +26991,6 @@ type Kw
 end 'Kw'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -27384,7 +27093,6 @@ type Kw
 end 'Kw'
 
 function readB(b Bx)
-	_ = b.n
 end 'readB'
 
 function main() returns ExitCode
@@ -27488,8 +27196,6 @@ type Kw
 end 'Kw'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function main() returns ExitCode
@@ -27598,7 +27304,7 @@ function f(consumes uV Pc)
 	modify h 'm1'
 		match uV 'x2'
 			u0 then break
-			u1(o) then _ = o.n
+			u1(o) then break
 		end 'x2'
 	end 'm1'
 end 'f'
@@ -27694,7 +27400,6 @@ type Kw
 end 'Kw'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(consumes uV Pc)
@@ -27800,7 +27505,6 @@ type Kw
 end 'Kw'
 
 function readB(b Bx)
-	_ = b.n
 end 'readB'
 
 function f(consumes uV Pc)
@@ -27907,8 +27611,6 @@ type Kw
 end 'Kw'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function f(consumes uV Pc)
@@ -28034,7 +27736,7 @@ function main() returns ExitCode
 	modify h 'm1'
 		match uV 'x2'
 			none then break
-			have(o) then _ = o.n
+			have(o) then break
 		end 'x2'
 	end 'm1'
 	return 0
@@ -28139,7 +27841,6 @@ type Kw
 end 'Kw'
 
 function takeT(consumes t Tk)
-	_ = t.n
 end 'takeT'
 
 function main() returns ExitCode
@@ -28261,7 +27962,7 @@ function f(consumes uV UT)
 	modify h 'm1'
 		match uV 'x2'
 			none then break
-			have(o) then _ = o.n
+			have(o) then break
 		end 'x2'
 	end 'm1'
 end 'f'
@@ -28370,7 +28071,6 @@ type Kw
 end 'Kw'
 
 function takeT(consumes t Tk)
-	_ = t.n
 end 'takeT'
 
 function f(consumes uV UT)
@@ -28489,7 +28189,7 @@ function main() returns ExitCode
 	modify h 'm1'
 		match uV 'x2'
 			u0 then break
-			u1(o) then _ = o.n
+			u1(o) then let ignored1 = o.n
 		end 'x2'
 	end 'm1'
 	return 0
@@ -28586,7 +28286,6 @@ type Kw
 end 'Kw'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -28695,8 +28394,6 @@ type Kw
 end 'Kw'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function main() returns ExitCode
@@ -28916,7 +28613,7 @@ function f(consumes uV Vc)
 	modify h 'm1'
 		match uV 'x2'
 			u0 then break
-			u1(o) then _ = o.n
+			u1(o) then let ignored1 = o.n
 		end 'x2'
 	end 'm1'
 end 'f'
@@ -29017,7 +28714,6 @@ type Kw
 end 'Kw'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(consumes uV Vc)
@@ -29129,8 +28825,6 @@ type Kw
 end 'Kw'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function f(consumes uV Vc)
@@ -29288,7 +28982,7 @@ function main() returns ExitCode
 	modify u 'm1'
 		match u 'x2'
 			u0 then break
-			u1(o) then _ = o.n
+			u1(o) then break
 		end 'x2'
 	end 'm1'
 	return 0
@@ -29319,7 +29013,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -29328,7 +29021,7 @@ function main() returns ExitCode
 	modify u 'm1'
 		match u 'x2'
 			u0 then break
-			u1(o) then _ = o.n
+			u1(o) then break
 		end 'x2'
 	end 'm1'
 	match u 'x3'
@@ -29364,14 +29057,13 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
 	let u = Ub.u1(Bx.create(5)) as Ub
 	// TODO: modify blocks are not supported in minimaxon
 	modify u 'm1'
-		_ = 1 as Num
+		let ignored1 = 1 as Num
 	end 'm1'
 	match u 'x2'
 		u0 then break
@@ -29554,7 +29246,6 @@ type Wo6
 end 'Wo6'
 
 function readWo(w Wo6)
-	_ = w.keep.n
 end 'readWo'
 
 function mkW() returns Wo6
@@ -29827,8 +29518,6 @@ type Wo6
 end 'Wo6'
 
 function takeWo(consumes w Wo6)
-	_ = w
-	_ = 1 as Num
 end 'takeWo'
 
 function mkW() returns Wo6
@@ -29993,8 +29682,6 @@ type Wo6
 end 'Wo6'
 
 function takeWo(consumes w Wo6)
-	_ = w
-	_ = 1 as Num
 end 'takeWo'
 
 function mkW() returns Wo6
@@ -30096,7 +29783,6 @@ function main() returns ExitCode
 	modify h 'm1'
 		o = Bx.create(3)
 	end 'm1'
-	_ = o.n
 	return 0
 end 'main'
 ```
@@ -30200,7 +29886,6 @@ function main() returns ExitCode
 	modify h 'm1'
 		o = Tk.create(3)
 	end 'm1'
-	_ = o.n
 	return 0
 end 'main'
 ```
@@ -30229,7 +29914,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -30291,7 +29975,6 @@ function main() returns ExitCode
 	modify h 'm1'
 		o = 3
 	end 'm1'
-	_ = o
 	return 0
 end 'main'
 ```
@@ -30323,7 +30006,6 @@ function main() returns ExitCode
 		h.n = 3
 	end 'm1'
 	o = Bx.create(4)
-	_ = o.n
 	return 0
 end 'main'
 ```
@@ -33384,7 +33066,6 @@ type Sbq
 end 'Sbq'
 
 function part2(t Tq, u Tq) returns Bx
-	_ = u.n
 	return t.b
 end 'part2'
 
@@ -34913,7 +34594,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function mkUb() returns Ub
@@ -34980,7 +34660,6 @@ function main() returns ExitCode
 			have(t) then bh.p = t
 		end 'x2'
 	end 'm1'
-	_ = bh as Bh
 	return 0
 end 'main'
 ```
@@ -35025,8 +34704,6 @@ function peekUT(x UT) returns Num
 end 'peekUT'
 
 function isoUT(consumes x UT)
-	_ = x
-	_ = 1 as Num
 end 'isoUT'
 
 function main() returns ExitCode
@@ -35088,7 +34765,7 @@ function main() returns ExitCode
 	let g = Bx.create(1) as Bx
 	// TODO: modify blocks are not supported in minimaxon
 	modify g 'm1'
-		_ = u as UT
+		let ignored1 = u as UT
 	end 'm1'
 	return 0
 end 'main'
@@ -35123,7 +34800,6 @@ type Tp is noncopyable
 end 'Tp'
 
 function peekP(x Tp)
-	_ = x.n
 end 'peekP'
 
 function isoP(consumes x Tp)
@@ -35173,7 +34849,6 @@ type Tp is noncopyable
 end 'Tp'
 
 function peekP(x Tp)
-	_ = x.n
 end 'peekP'
 
 function main() returns ExitCode

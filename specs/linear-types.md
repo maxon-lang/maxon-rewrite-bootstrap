@@ -792,7 +792,6 @@ end 'Resp'
 
 function main() returns ExitCode
 	let r = Resp.create(1)
-	_ = r
 	return 0
 end 'main'
 ```
@@ -6121,7 +6120,6 @@ type Resp
 end 'Resp'
 
 function drop(r Resp)
-	_ = r
 end 'drop'
 
 function main() returns ExitCode
@@ -7038,9 +7036,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -7095,9 +7091,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -7153,9 +7147,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -7212,9 +7204,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -7273,7 +7263,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -7314,7 +7303,6 @@ function main() returns ExitCode
 	modify h 'mh'
 		bx.eat(v)
 	end 'mh'
-	_ = h
 	return 0
 end 'main'
 ```
@@ -7447,7 +7435,6 @@ type Bx
 end 'Bx'
 
 function takeIso(consumes b Bx)
-	_ = b
 end 'takeIso'
 
 function main() returns ExitCode
@@ -7482,7 +7469,6 @@ type Bx
 end 'Bx'
 
 function takeIso(consumes b Bx)
-	_ = b
 end 'takeIso'
 
 function main() returns ExitCode
@@ -7820,9 +7806,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -7886,9 +7870,7 @@ type Rl
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 

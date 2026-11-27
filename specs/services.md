@@ -189,7 +189,6 @@ function describe(_ Calc.request) returns Integer
 end 'describe'
 
 function main() returns ExitCode
-	_ = describe
 	let h = spawn Calc.create()
 	return serve(h) as ExitCode
 end 'main'
@@ -3918,6 +3917,7 @@ error E3221: <fragment>:21:18: the message 'post' may wait (it sends with a time
 ```
 
 <!-- test: error.a-message-that-starts-a-waiting-coroutine-is-refused -->
+<!-- positions: moved -->
 Starting a coroutine whose body waits is a wait: the message holds its own service while it awaits the coroutine,
 and the coroutine waits on another service's reply. The chain names the coroutine's function and the `await`
 inside it.
@@ -3956,8 +3956,6 @@ end 'Probe'
 function main() returns ExitCode
 	let probe = spawn Probe.create()
 	let peer = spawn Peer.create()
-	_ = probe
-	_ = peer
 	return 0
 end 'main'
 ```
@@ -13079,7 +13077,6 @@ end 'Reader'
 
 function main() returns ExitCode
 	let reader = spawn Reader.create()
-	_ = reader
 	return 7
 end 'main'
 ```
@@ -13110,8 +13107,6 @@ end 'Box'
 function main() returns ExitCode
 	let small = spawn Box.create(1)
 	let named = spawn Box.create("one")
-	_ = small
-	_ = named
 	return 7
 end 'main'
 ```
@@ -13147,7 +13142,6 @@ type Outer
 
 	export function start() returns Integer
 		let inner = spawn Inner.create()
-		_ = inner
 		return 7
 	end 'start'
 end 'Outer'

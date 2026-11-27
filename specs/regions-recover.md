@@ -2025,7 +2025,6 @@ function cover()
 end 'cover'
 
 function take(consumes q Iq6)
-	_ = q
 end 'take'
 
 function main() returns ExitCode
@@ -2116,7 +2115,6 @@ function cover()
 end 'cover'
 
 function take(consumes q Iq6)
-	_ = q
 end 'take'
 
 function main() returns ExitCode
@@ -2181,7 +2179,7 @@ function scn()
 		p.keep.n = 4
 		sink(p)
 	end 'mh'
-	_ = h
+	let ignored1 = h
 end 'scn'
 
 function cover()
@@ -2257,7 +2255,7 @@ function scn()
 		end 'mp'
 		sink(p)
 	end 'mh'
-	_ = h
+	let ignored1 = h
 end 'scn'
 
 function cover()
@@ -2330,7 +2328,7 @@ function scn()
 		p.touch(4)
 		sink(p)
 	end 'mh'
-	_ = h
+	let ignored1 = h
 end 'scn'
 
 function cover()
@@ -2402,7 +2400,6 @@ function scn()
 		g.keep.n = 4
 	end 'mh'
 	sink(g)
-	_ = h
 end 'scn'
 
 function cover()

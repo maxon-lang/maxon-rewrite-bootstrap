@@ -462,9 +462,14 @@ end 'f'
 			want: "function f() returns Count\n\tlet a = 1\n\tif a == 1 'one'\n\t\treturn 2\n\tend 'one'\n\treturn a\nend 'f'\n",
 		},
 		{
-			name: "a discard binding loses its let",
-			in:   "function f(c Color)\n\tlet _ = c\n\t_ = c\n\tmatch c 'm'\n\t\tred then let _ = c\n\t\tdefault then return\n\tend 'm'\nend 'f'\n",
-			want: "function f(c Color)\n\t_ = c\n\t_ = c\n\tmatch c 'm'\n\t\tred then _ = c\n\t\tdefault then return\n\tend 'm'\nend 'f'\n",
+			name: "a discard binding loses its let, and a discard of a value that already exists goes, or leaves a match arm",
+			in:   "function f(c Color)\n\tlet _ = c\n\t_ = c.code\n\tlet _ = g(c)\n\tmatch c 'm'\n\t\tred then let _ = c\n\t\tdefault then return\n\tend 'm'\nend 'f'\n",
+			want: "function f(c Color)\n\t_ = g(c)\n\tmatch c 'm'\n\t\tred then break\n\t\tdefault then return\n\tend 'm'\nend 'f'\n",
+		},
+		{
+			name: "a reading discard that is the one statement of its block binds a name of its own",
+			in:   "function f(c bool, ignored1 Count)\n\tif c 'only'\n\t\tlet _ = 0 as Count\n\tend 'only'\nend 'f'\n",
+			want: "function f(c bool, ignored1 Count)\n\tif c 'only'\n\t\tlet ignored2 = 0 as Count\n\tend 'only'\nend 'f'\n",
 		},
 		{
 			name: "tuples convert as they are written",
@@ -780,6 +785,11 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			name:     "the identity operator in an interpolation",
 			in:       "function f(a String, b String)\n\tprint(\"{a is b}\")\nend 'f'\n",
 			wantTodo: "minimaxon has no identity operator",
+		},
+		{
+			name:     "a discard of a value that already exists, the one statement of its block",
+			in:       "function f(c bool, n Count)\n\tif c 'only'\n\t\t_ = n\n\tend 'only'\nend 'f'\n",
+			wantTodo: "a discard of a value that already exists is E3067",
 		},
 		{
 			name:     "reserved word collision",

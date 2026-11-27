@@ -228,7 +228,6 @@ function main() returns ExitCode
 	let members = CharSet from ['x']
 	let adopted = CharacterSet.from(members)
 	print("{members.count()}")
-	_ = adopted
 	return 0
 end 'main'
 ```
@@ -487,7 +486,6 @@ end 'Trimmer'
 
 function main() returns ExitCode
 	let trimmer = Trimmer.init(freeze(CharacterSet.whitespaces))
-	_ = trimmer
 	return 0
 end 'main'
 ```

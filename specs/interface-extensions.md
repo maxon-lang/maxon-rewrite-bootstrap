@@ -482,6 +482,7 @@ end 'main'
 ### An extension NO type implements leaks nothing into file scope
 
 <!-- test: error.an-unconformed-extension-does-not-leak-its-associated-type-names -->
+<!-- positions: moved -->
 ⛔⛔ **AN `extension <Interface>` WHOSE INTERFACE NO TYPE IMPLEMENTS MUST NOT MAKE THAT INTERFACE'S
 ASSOCIATED-TYPE NAMES SPELLABLE AT FILE SCOPE.** `Parser.readExtensionHeader` installs the
 extended declaration's parameter names in `enclosingTypeParams` so `readWhereClause` can resolve a
@@ -516,7 +517,6 @@ extension Seq
 end 'Seq'
 
 function f(x Element) returns Num
-	_ = x
 	return 1
 end 'f'
 
@@ -529,6 +529,7 @@ error E3011: <fragment>:14:14: Unknown type 'Element'
 ```
 
 <!-- test: error.an-unconformed-extension-leak-is-not-a-compiler-panic -->
+<!-- positions: moved -->
 The deeper half of the case above: `f` returns a GENERIC INSTANCE, which is what routes its call through
 `SemanticCheck.checkTypeParameterArgs` — the pass that asks `opaqueTypeParamPosition` for an opaque
 formal's position in the declaring type's `uses` list, and a leaked name would PANIC the compiler there.
@@ -562,7 +563,6 @@ extension Seq
 end 'Seq'
 
 function f(x Element) returns BoxN
-	_ = x
 	return BoxN.of(7)
 end 'f'
 

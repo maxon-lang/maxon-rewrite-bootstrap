@@ -975,7 +975,6 @@ type Slot uses Item
 	function rebind(mutates self, first Item, second Item) returns Count where Item implements Copyable
 		var held = first.clone()
 		held = second.clone()
-		_ = held
 		self.swaps = try self.swaps + 1 otherwise panic("out of range")
 		return self.swaps
 	end 'rebind'

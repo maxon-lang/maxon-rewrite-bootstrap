@@ -1,7 +1,9 @@
 package main
 
 import (
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -121,6 +123,7 @@ func ConvertSpec(file, src string) SpecResult {
 			c.startTest(line)
 			c.names = programNamesOf(testSource(lines, i+1))
 			c.names.expectsError = caseExpectsError(lines, i+1)
+			c.names.errorLines = caseErrorLines(lines, i+1)
 		case strings.HasPrefix(line, specHeadingPrefix):
 			c.closeTest()
 			if strings.TrimRight(line, " \t") == specTestsHeading {
@@ -169,8 +172,10 @@ type specConverter struct {
 	rejected           []string
 	expectsSyntaxError bool
 
-	// block is the converted lines of the block convertBlock handled last.
-	block []string
+	// block is the converted lines of the block convertBlock handled last, and blockFirst the line of the file its first
+	// line is on.
+	block      []string
+	blockFirst int
 
 	// names is what the open test's program, all its files together, says about the names it writes.
 	names programNames
@@ -234,6 +239,7 @@ func (c *specConverter) closeTest() {
 // the block's first line is on.
 func (c *specConverter) convertBlock(body []string, firstLine int) {
 	c.block = c.block[:0]
+	c.blockFirst = firstLine
 	start := 0
 	section := func(end int) {
 		c.block = append(c.block, c.convertSection(body[start:end], firstLine+start)...)
@@ -272,7 +278,9 @@ func (c *specConverter) convertSection(body []string, firstLine int) []string {
 	if first == last {
 		return body
 	}
-	res := convertProgram(c.file, strings.Join(body[first:last], "\n"), specProgram, c.names)
+	names := c.names
+	names.lineOffset = firstLine - c.blockFirst + first
+	res := convertProgram(c.file, strings.Join(body[first:last], "\n"), specProgram, names)
 	res.Text = moveLibraryListing(res.Text)
 	for _, w := range res.Warnings {
 		w.Line += firstLine + first - 1
@@ -340,6 +348,36 @@ func caseExpectsError(lines []string, from int) bool {
 		}
 	}
 	return false
+}
+
+// fragmentLine is a position's line in a compile-error expectation, `<fragment>:L:C`: a line of the test's block.
+var fragmentLine = regexp.MustCompile(`<fragment>:(\d+):`)
+
+// caseErrorLines is the lines of the block of the test whose lines start at from that its compile-error expectations name.
+func caseErrorLines(lines []string, from int) []int {
+	var out []int
+	for i := from; i < len(lines); i++ {
+		line := lines[i]
+		if strings.HasPrefix(line, specTestMarker) || strings.HasPrefix(line, specHeadingPrefix) {
+			return out
+		}
+		fence, ok := openingFence(line)
+		if !ok {
+			continue
+		}
+		end := closingFence(lines, i, fence)
+		if isErrorExpectation(line) {
+			for _, l := range lines[i+1 : min(end, len(lines))] {
+				for _, m := range fragmentLine.FindAllStringSubmatch(l, -1) {
+					if n, err := strconv.Atoi(m[1]); err == nil {
+						out = append(out, n)
+					}
+				}
+			}
+		}
+		i = end
+	}
+	return out
 }
 
 func isSectionMarker(line string) bool {

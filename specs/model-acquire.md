@@ -63,7 +63,7 @@ function g(s Sv.handle)
 		_ = idb(s.r.bytes)
 		s.r.bytes.b = 1
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -122,7 +122,7 @@ function g(s Sv.handle)
 	acquire s 'a1'
 		_ = idb(s.r.bytes)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -242,7 +242,7 @@ function g(s Sv.handle)
 		let m = idb(s.r.bytes)
 		m.b = 1
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -301,7 +301,7 @@ function g(s Sv.handle)
 		_ = rd(s.r.bytes)
 		s.r.bytes.b = 1
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -361,7 +361,7 @@ function g(s Sv.handle)
 		_ = idb(s.r.bytes)
 		s.k = 1
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -414,10 +414,10 @@ end 'Sv'
 function g(s Sv.handle)
 	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'a1'
-		_ = s.r.bytes
+		let ignored1 = s.r.bytes
 		s.r.bytes.b = 1
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored2 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -595,7 +595,7 @@ function g(s Sv.handle)
 		_ = s.r.data()
 		s.r.bytes.b = 1
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -647,10 +647,9 @@ end 'Sv'
 function g(s Sv.handle, p Bt)
 	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'a1'
-		_ = p
 		s.r.bytes.b = 1
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -705,10 +704,10 @@ end 'Sv'
 function g(s Sv.handle)
 	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'a1'
-		_ = s.o.bytes
+		let ignored1 = s.o.bytes
 		s.r.bytes.b = 1
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored2 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -1159,10 +1158,10 @@ end 'Sv'
 function g(s Sv.handle)
 	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'a1'
-		_ = s.r
+		let ignored1 = s.r
 		s.r.b = 1
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored2 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -1263,7 +1262,7 @@ function g(s Sv.handle)
 		_ = pick(s.r, c: 0)
 		s.r.b = 1
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -1305,10 +1304,9 @@ end 'Sv'
 function g(s Sv.handle)
 	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'a1'
-		_ = 5 as Num
 		s.r.b = 1
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -1504,7 +1502,7 @@ function g(s Sv.handle)
 		_ = s.peekR()
 		s.r.b = 1
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -2262,7 +2260,7 @@ function g(s Hs.handle)
 	acquire s 'a1'
 		s.ar = TkArray.create(0)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -2311,7 +2309,7 @@ function g(s Hs.handle)
 	acquire s 'a1'
 		s.u = UT.none
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -2363,7 +2361,7 @@ function g(s Hs.handle)
 	acquire s 'a1'
 		s.ho = Hold.create(Tk.create(1))
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -2407,7 +2405,7 @@ function g(s Hs.handle)
 	acquire s 'a1'
 		s.tk = Tk.create(5)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -2449,7 +2447,7 @@ function g(s Hs.handle)
 	acquire s 'a1'
 		s.i = Bt.create(5)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'g'
 
@@ -2498,7 +2496,6 @@ type Sk
 	end 'create'
 
 	export function take(bV Bt)
-		_ = bV.b
 	end 'take'
 end 'Sk'
 
@@ -2507,7 +2504,7 @@ function g(s Sv.handle, k Sk.handle) returns Num
 	acquire s 'a1'
 		try k.take(s.r) otherwise ignore
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'g'
@@ -2558,7 +2555,6 @@ type Sk
 	end 'create'
 
 	export function take(bV Bt)
-		_ = bV.b
 	end 'take'
 end 'Sk'
 
@@ -2567,7 +2563,7 @@ function g(s Sv.handle, k Sk.handle) returns Num
 	acquire s 'a1'
 		try k.take(s.r.clone()) otherwise ignore
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'g'
@@ -2625,7 +2621,7 @@ function g(s Sv.handle) returns Num
 	acquire s 'a1'
 		_ = spawn Sk.create(0, b: s.r)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'g'
@@ -3084,7 +3080,6 @@ type Sk
 	end 'create'
 
 	export function take(consumes bV Bt)
-		_ = bV.b
 	end 'take'
 end 'Sk'
 
@@ -3095,10 +3090,9 @@ function g(s Sv.handle, t Sv.handle, k Sk.handle) returns Num
 		modify s.i 'm3'
 			let o = exchange(s.i, value: Bt.create(1))
 			try k.take(o) otherwise ignore
-			_ = t.i.b
 		end 'm3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'g'
@@ -3148,7 +3142,6 @@ type Sk
 	end 'create'
 
 	export function take(consumes bV Bt)
-		_ = bV.b
 	end 'take'
 end 'Sk'
 
@@ -3162,7 +3155,7 @@ function g(s Sv.handle, t Sv.handle, k Sk.handle) returns Num
 			t.i.b = 3
 		end 'm3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'g'
@@ -3219,7 +3212,7 @@ function g(r Rc.handle, s Sv.handle) returns Num
 	acquire s 'a1'
 		try r.put(exchange(s.t, value: Bt.create(5))) otherwise ignore
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'g'
@@ -3268,7 +3261,7 @@ function main() returns ExitCode
 		s.k = 1
 		s.r.b = 2
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -3311,7 +3304,7 @@ function main() returns ExitCode
 		let m = s.r.b
 		t.k = m
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -3353,14 +3346,14 @@ function main() returns ExitCode
 	acquire s 'a1'
 		s.k = 1
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	s = u
 	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'a3'
 		s.k = 2
 	end 'a3' otherwise 's4'
-		_ = 0 as Num
+		let ignored2 = 0 as Num
 	end 's4'
 	return 0
 end 'main'
@@ -3406,7 +3399,7 @@ function g(s Sv.handle) returns Num
 		try t.poke() otherwise ignore
 		s.k = 2
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'g'
@@ -3466,7 +3459,7 @@ function g(r Rc.handle, s Sv.handle) returns Num
 	acquire s 'a1'
 		try r.put(s.t) otherwise ignore
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'g'
@@ -3498,7 +3491,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -3520,7 +3512,7 @@ function main() returns ExitCode
 	acquire a 'a1'
 		_ = a.mk()
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -3544,7 +3536,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -3566,7 +3557,7 @@ function main() returns ExitCode
 	acquire a 'a1'
 		a.mk().fin(1)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -3590,7 +3581,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -3613,7 +3603,7 @@ function main() returns ExitCode
 		a.mk().fin(1)
 		a.mk().fin(2)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -3638,7 +3628,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -3662,7 +3651,7 @@ function main() returns ExitCode
 		let q = a.pass(r)
 		q.fin(1)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -3687,7 +3676,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -3711,7 +3699,7 @@ function main() returns ExitCode
 		let q = a.pass(r)
 		q.fin(1)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -3736,7 +3724,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -3761,7 +3748,7 @@ function main() returns ExitCode
 		q.fin(1)
 		r.fin(2)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -3786,7 +3773,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -3810,7 +3796,7 @@ function main() returns ExitCode
 		let r = Rl.create(0) as Rl
 		a.eat(r)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -3835,7 +3821,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -3861,7 +3846,7 @@ function main() returns ExitCode
 		a.eat(r)
 		b.eat(s)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -3886,7 +3871,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -3909,7 +3893,7 @@ function main() returns ExitCode
 		let r = Rl.create(0) as Rl
 		a.eat(r)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -3934,7 +3918,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -3958,7 +3941,7 @@ function main() returns ExitCode
 		a.eat(r)
 		a.eat(r)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -3989,7 +3972,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function wrap(consumes self) returns Sn
@@ -4031,7 +4013,7 @@ function main() returns ExitCode
 			useS(v.wrap())
 		end 'm3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -4061,7 +4043,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -4095,7 +4076,7 @@ function main() returns ExitCode
 		let v = Rl.create(0) as Rl
 		s.go(v)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -4126,7 +4107,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -4168,7 +4148,7 @@ function main() returns ExitCode
 			useS(giveS(v))
 		end 'm3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -4199,7 +4179,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -4213,7 +4192,6 @@ type S
 	end 'create'
 
 	function hold(s Sn)
-		_ = s
 		self.n = 1
 	end 'hold'
 end 'S'
@@ -4239,7 +4217,7 @@ function main() returns ExitCode
 			notSent(q) then useS(giveS(q))
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -4270,7 +4248,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -4307,7 +4284,7 @@ function main() returns ExitCode
 			notSent(q) then useS(giveS(q))
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -4369,7 +4346,7 @@ function main() returns ExitCode
 	acquire s 'a1'
 		s.go()
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -4431,7 +4408,7 @@ function main() returns ExitCode
 			end 'x4'
 		end 'm3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -4457,7 +4434,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4527,7 +4503,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4569,9 +4544,9 @@ function main() returns ExitCode
 	let r = Resp.create(0) as Resp
 	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire a 'a1'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored2 = 0 as Num
 	end 's2'
 	r.fin(1)
 	return 0
@@ -4598,7 +4573,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4642,7 +4616,7 @@ function f()
 		_ = Resp.create(0)
 		return
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'f'
 
@@ -4670,7 +4644,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4715,7 +4688,7 @@ function f()
 		r.fin(1)
 		return
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'f'
 
@@ -4745,7 +4718,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4789,7 +4761,7 @@ function main() returns ExitCode
 	acquire a 'a1'
 		r.fin(1)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	r = Resp.create(1)
 	r.fin(2)
@@ -4816,7 +4788,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4865,7 +4836,7 @@ function main() returns ExitCode
 			end 'x4'
 		end 'h3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -4890,7 +4861,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -4959,7 +4929,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5003,7 +4972,7 @@ function main() returns ExitCode
 	acquire a 'a1'
 		a.open1(r)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -5028,7 +4997,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5097,7 +5065,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5147,7 +5114,7 @@ function main() returns ExitCode
 			r.fin(2)
 		end 's4'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -5171,7 +5138,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5221,7 +5187,7 @@ function main() returns ExitCode
 			let r = Resp.create(0)
 			r.fin(1)
 		end 'a2' otherwise 's3'
-			_ = 0 as Num
+			let ignored1 = 0 as Num
 		end 's3'
 		i = lg(0)
 	end 'w1'
@@ -5249,7 +5215,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5293,9 +5258,9 @@ function main() returns ExitCode
 	while i != 0 'w1'
 		// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 		acquire a 'a2'
-			_ = 0 as Num
+			let ignored1 = 0 as Num
 		end 'a2' otherwise 's3'
-			_ = 0 as Num
+			let ignored2 = 0 as Num
 		end 's3'
 		i = 0
 	end 'w1'
@@ -5323,7 +5288,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5396,7 +5360,7 @@ function main() returns ExitCode
 	acquire a 'a1'
 		_ = a.mk()
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -5421,7 +5385,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5495,7 +5458,7 @@ function main() returns ExitCode
 		let r = a.mk()
 		r.fin(1)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -5519,7 +5482,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5592,7 +5554,7 @@ function main() returns ExitCode
 	acquire a 'a1'
 		a.eat(Resp.create(0))
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -5617,7 +5579,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5692,7 +5653,7 @@ function main() returns ExitCode
 	acquire a 'a1'
 		keep = a.mk()
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	keep.fin(1)
 	return 0
@@ -5718,7 +5679,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5793,7 +5753,7 @@ function main() returns ExitCode
 	acquire a 'a1'
 		keep = a.mk()
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -5818,7 +5778,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5918,7 +5877,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -5957,7 +5915,7 @@ function main() returns ExitCode
 			end 'x4'
 		end 'h3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -5982,7 +5940,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6035,7 +5992,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6088,7 +6044,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6116,7 +6071,7 @@ function main() returns ExitCode
 		useR(r)
 		r.fin(2)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -6141,7 +6096,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6196,9 +6150,9 @@ function main() returns ExitCode
 	let a = spawn Sa.create(0)
 	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire a, a 'a1'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored2 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -6223,7 +6177,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6251,7 +6204,7 @@ function main() returns ExitCode
 		k.eatM(r)
 		r.fin(2)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -6276,7 +6229,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6308,7 +6260,7 @@ function main() returns ExitCode
 		useR(r)
 		r.fin(2)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -6333,7 +6285,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6372,7 +6323,7 @@ function main() returns ExitCode
 	acquire a 'a1'
 		r.fin(1)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -6397,7 +6348,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6462,7 +6412,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6499,7 +6448,7 @@ function main() returns ExitCode
 	let r = Resp.create(0)
 	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire a 'a1'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 'a1' otherwise 's2'
 		r.fin(2)
 	end 's2'
@@ -6528,7 +6477,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6566,7 +6514,7 @@ function f(a Auth.handle)
 	acquire a 'a1'
 		return
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	r.fin(1)
 end 'f'
@@ -6597,7 +6545,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6636,7 +6583,7 @@ function main() returns ExitCode
 		let r = Resp.create(0)
 		r.fin(1)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -6661,7 +6608,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6729,7 +6675,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6789,7 +6734,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6850,7 +6794,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6885,7 +6828,7 @@ function main() returns ExitCode
 		let r = a.mk()
 		r.fin(1)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -6910,7 +6853,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -6944,7 +6886,7 @@ function main() returns ExitCode
 	acquire a 'a1'
 		_ = a.mk()
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -6969,7 +6911,6 @@ type Resp
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7004,7 +6945,7 @@ function main() returns ExitCode
 	acquire a 'a1'
 		out = a.mk()
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	out.fin(1)
 	return 0
@@ -7059,7 +7000,7 @@ function main() returns ExitCode
 	acquire s 'a1'
 		_ = s.y(pl)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -7100,7 +7041,7 @@ function main() returns ExitCode
 			a.add(1)
 		end 'f3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -7143,9 +7084,9 @@ type Mw
 	export function go(o Q.handle) returns Num
 		// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 		acquire o 'a1'
-			_ = 0 as Num
+			let ignored1 = 0 as Num
 		end 'a1' otherwise 's2'
-			_ = 0 as Num
+			let ignored2 = 0 as Num
 		end 's2'
 		return 0
 	end 'go'
@@ -7185,7 +7126,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -7231,7 +7171,7 @@ function main() returns ExitCode
 			m1(y) then b.k = y
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -7287,7 +7227,7 @@ function main() returns ExitCode
 	acquire a, b 'a1'
 		b.k = a.k
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -7344,7 +7284,7 @@ function main() returns ExitCode
 		let w = a.k
 		b.k = w
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -7400,7 +7340,7 @@ function main() returns ExitCode
 	acquire a, b 'a1'
 		b.setK(a.k)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -7431,7 +7371,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -7477,7 +7416,7 @@ function main() returns ExitCode
 			m1(y) then b.setK(y)
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -7508,7 +7447,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -7564,7 +7502,7 @@ function main() returns ExitCode
 			m1(y) then h.p = y
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -7595,7 +7533,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -7642,7 +7579,7 @@ function main() returns ExitCode
 			m1(y) then o = y
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	o.n = 1
 	return 0
@@ -7674,7 +7611,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -7734,7 +7670,7 @@ function main() returns ExitCode
 			m1(y) then keep(y, h: h)
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -7765,7 +7701,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 end 'Rl'
 
@@ -7814,7 +7749,7 @@ function main() returns ExitCode
 			m1(y) then b.k = y
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -7871,7 +7806,7 @@ function main() returns ExitCode
 	acquire a 'a1'
 		a.k = y
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	y.n = 2
 	return 0
@@ -7906,7 +7841,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -7943,7 +7877,7 @@ function main() returns ExitCode
 	acquire a 'a1'
 		a.eat(Sh.held(Rl.create(1)))
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -7978,7 +7912,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8039,7 +7972,7 @@ function main() returns ExitCode
 			m1(y) then s.keepI(y)
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -8075,7 +8008,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8185,7 +8117,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8293,7 +8224,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8403,7 +8333,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8510,7 +8439,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8620,7 +8548,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8727,7 +8654,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8836,7 +8762,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -8943,7 +8868,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9054,7 +8978,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9165,7 +9088,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9275,7 +9197,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9405,7 +9326,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function wrap(consumes self) returns Sn
@@ -9488,7 +9408,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9598,7 +9517,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9707,7 +9625,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9817,7 +9734,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -9927,7 +9843,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10037,7 +9952,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10147,7 +10061,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10278,7 +10191,7 @@ function main() returns ExitCode
 			u1 then _ = sm.peek()
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -10353,7 +10266,7 @@ function main() returns ExitCode
 			have then s.put(UT.none)
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -10428,7 +10341,7 @@ function main() returns ExitCode
 			have then s.u = UT.none
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -10501,10 +10414,10 @@ function main() returns ExitCode
 	acquire s 'a1'
 		match s.u 'x3'
 			none then break
-			have then _ = s.u
+			have then let ignored1 = s.u
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored2 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -10576,10 +10489,10 @@ function main() returns ExitCode
 	acquire s 'a1'
 		match s.u 'x3'
 			none then break
-			have(t) then _ = t.n
+			have(t) then break
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -10654,7 +10567,7 @@ function main() returns ExitCode
 			have(t) then t.n = 5
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -10729,7 +10642,7 @@ function main() returns ExitCode
 			have then break
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -10765,7 +10678,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10878,7 +10790,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -10994,7 +10905,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11110,7 +11020,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11223,7 +11132,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11338,7 +11246,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11388,11 +11295,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes wV Wo)
-		_ = wV.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -11466,7 +11371,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11516,11 +11420,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes wV Wo)
-		_ = wV.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -11598,7 +11500,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11648,11 +11549,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes wV Wo)
-		_ = wV.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -11726,7 +11625,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -11776,11 +11674,9 @@ type Sk
 	end 'create'
 
 	export function take(consumes b Bx)
-		_ = b.n
 	end 'take'
 
 	export function takeW(consumes wV Wo)
-		_ = wV.keep.n
 	end 'takeW'
 end 'Sk'
 
@@ -11806,7 +11702,6 @@ function eatMp(pV Mp)
 end 'eatMp'
 
 function takeBx(consumes b Bx)
-	_ = b.n
 end 'takeBx'
 
 function main() returns ExitCode
@@ -11893,7 +11788,7 @@ function main() returns ExitCode
 	acquire s 'a1'
 		s.keepI(w)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -11974,7 +11869,6 @@ type Kz
 end 'Kz'
 
 function takeB(consumes bV Bx)
-	_ = bV.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -11987,7 +11881,7 @@ function main() returns ExitCode
 			u1(o) then s.b = o
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -12067,13 +11961,12 @@ type Kz
 end 'Kz'
 
 function takeB(consumes bV Bx)
-	_ = bV.n
 end 'takeB'
 
 function eatUb(u Ub)
 	match u 'x1'
 		u0 then break
-		u1(bV) then _ = bV.n
+		u1(bV) then break
 	end 'x1'
 end 'eatUb'
 
@@ -12129,7 +12022,6 @@ type Su
 end 'Su'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -12141,7 +12033,7 @@ function main() returns ExitCode
 			u1(o) then takeB(o)
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -12233,7 +12125,7 @@ function main() returns ExitCode
 			u1(o) then s.keep = o
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	fb.n = 3
 	return 0
@@ -12314,7 +12206,6 @@ type Kz
 end 'Kz'
 
 function takeB(consumes bV Bx)
-	_ = bV.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -12411,13 +12302,12 @@ type Kz
 end 'Kz'
 
 function takeB(consumes bV Bx)
-	_ = bV.n
 end 'takeB'
 
 function eatUb(u Ub)
 	match u 'x1'
 		u0 then break
-		u1(bV) then _ = bV.n
+		u1(bV) then break
 	end 'x1'
 end 'eatUb'
 
@@ -12431,7 +12321,7 @@ function main() returns ExitCode
 			u1(o) then takeB(o)
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	eatUb(u)
 	return 0
@@ -12513,13 +12403,12 @@ type Kz
 end 'Kz'
 
 function takeB(consumes bV Bx)
-	_ = bV.n
 end 'takeB'
 
 function eatUb(u Ub)
 	match u 'x1'
 		u0 then break
-		u1(bV) then _ = bV.n
+		u1(bV) then break
 	end 'x1'
 end 'eatUb'
 
@@ -12528,7 +12417,7 @@ function main() returns ExitCode
 	let u = Ub.u1(Bx.create(5)) as Ub
 	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'a1'
-		_ = 1 as Num
+		let ignored1 = 1 as Num
 	end 'a1' otherwise 's2'
 		match u 'x3'
 			u0 then break
@@ -12614,7 +12503,6 @@ type Kz
 end 'Kz'
 
 function takeB(consumes bV Bx)
-	_ = bV.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -12622,7 +12510,7 @@ function main() returns ExitCode
 	var u = Ub.u1(Bx.create(5)) as Ub
 	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire s 'a1'
-		_ = 1 as Num
+		let ignored1 = 1 as Num
 	end 'a1' otherwise 's2'
 		match u 'x3'
 			u0 then break
@@ -12713,7 +12601,6 @@ type Kz
 end 'Kz'
 
 function takeB(consumes bV Bx)
-	_ = bV.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -12811,7 +12698,6 @@ type Kz
 end 'Kz'
 
 function takeB(consumes bV Bx)
-	_ = bV.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -12825,7 +12711,7 @@ function main() returns ExitCode
 		end 'x3'
 		u = Ub.u0
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	match u 'x4'
 		u0 then break
@@ -12909,7 +12795,6 @@ type Kz
 end 'Kz'
 
 function takeB(consumes bV Bx)
-	_ = bV.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -12923,7 +12808,7 @@ function main() returns ExitCode
 			u1(o) then takeB(o)
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -12972,8 +12857,6 @@ type Sw6
 end 'Sw6'
 
 function takeWo(consumes wV Wo6)
-	_ = wV
-	_ = 1 as Num
 end 'takeWo'
 
 function scn(s Sw6.handle)
@@ -12990,7 +12873,7 @@ function scn(s Sw6.handle)
 		end 'm3'
 		takeWo(p)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	takeWo(h)
 end 'scn'
@@ -13051,7 +12934,7 @@ function main() returns ExitCode
 		acquire s 'a2'
 			s.k = 1
 		end 'a2' otherwise 's3'
-			_ = 0 as Num
+			let ignored1 = 0 as Num
 		end 's3'
 		e.n = 2
 	end 'f1'
@@ -13112,7 +12995,7 @@ function f(s Sv.handle)
 			have then s.a.u = UT.none
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 end 'f'
 
@@ -13151,7 +13034,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13199,8 +13081,6 @@ type Sy
 	end 'create'
 
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -13212,7 +13092,7 @@ function main() returns ExitCode
 		let u = UT.have(Tk.create(1))
 		try s.take(u) otherwise ignore
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -13246,7 +13126,6 @@ type Rl
 	end 'create'
 
 	function fin(destructs self, c Num)
-		_ = c
 	end 'fin'
 
 	function peek() returns Num
@@ -13294,8 +13173,6 @@ type Sy
 	end 'create'
 
 	export function take(x UT)
-		_ = x
-		_ = 1 as Num
 	end 'take'
 end 'Sy'
 
@@ -13305,7 +13182,7 @@ function main() returns ExitCode
 	let a = spawn S.create(0)
 	// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 	acquire a 'a1'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 'a1' otherwise 's2'
 		try s.take(u) otherwise ignore
 	end 's2'
@@ -13353,7 +13230,7 @@ function main() returns ExitCode
 	acquire r 'a1'
 		r.keep(bV)
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -13433,7 +13310,6 @@ type Kz
 end 'Kz'
 
 function takeB(consumes bV Bx)
-	_ = bV.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -13446,7 +13322,7 @@ function main() returns ExitCode
 			u1(o) then takeB(o)
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'
@@ -13511,7 +13387,7 @@ function main() returns ExitCode
 		acquire s 'a2'
 			s.n = t.n
 		end 'a2' otherwise 's3'
-			_ = 0 as Num
+			let ignored1 = 0 as Num
 		end 's3'
 	end 'f1'
 	o.n = 1
@@ -13579,7 +13455,7 @@ function main() returns ExitCode
 		acquire s 'a2'
 			s.keep = t.b
 		end 'a2' otherwise 's3'
-			_ = 0 as Num
+			let ignored1 = 0 as Num
 		end 's3'
 	end 'f1'
 	o.n = 1
@@ -13637,13 +13513,12 @@ type Sac
 end 'Sac'
 
 function f(xs TqArray, o Ko, s Sac.handle)
-	_ = o
 	for t in xs 'f1'
 		// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 		acquire s 'a2'
 			s.n = t.n
 		end 'a2' otherwise 's3'
-			_ = 0 as Num
+			let ignored1 = 0 as Num
 		end 's3'
 	end 'f1'
 end 'f'
@@ -13710,13 +13585,12 @@ type Sac
 end 'Sac'
 
 function f(xs TqArray, o Ko, s Sac.handle)
-	_ = o
 	for t in xs 'f1'
 		// TODO: language difference: maxon's acquire block, which takes the states of several services at once, is dropped: states that share an invariant are one service (README, Where it differs from Maxon: there is no acquire)
 		acquire s 'a2'
 			s.keep = t.b
 		end 'a2' otherwise 's3'
-			_ = 0 as Num
+			let ignored1 = 0 as Num
 		end 's3'
 	end 'f1'
 end 'f'
@@ -13806,7 +13680,7 @@ function main() returns ExitCode
 		acquire s 'a2'
 			s.n = t.n
 		end 'a2' otherwise 's3'
-			_ = 0 as Num
+			let ignored1 = 0 as Num
 		end 's3'
 	end 'f1'
 	o.n = 1
@@ -13889,7 +13763,7 @@ function main() returns ExitCode
 		acquire s 'a2'
 			s.keep = t.b
 		end 'a2' otherwise 's3'
-			_ = 0 as Num
+			let ignored1 = 0 as Num
 		end 's3'
 	end 'f1'
 	o.n = 1
@@ -13952,7 +13826,7 @@ function main() returns ExitCode
 			have then o.n = 5
 		end 'x3'
 	end 'a1' otherwise 's2'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 's2'
 	return 0
 end 'main'

@@ -3219,7 +3219,6 @@ generic-opaque-value-store.md: a-bare-generic-static-called-inside-its-own-type-
 generic-opaque-value-store.md: a-closure-between-the-feed-and-the-store-still-stores-correctly
 generic-opaque-value-store.md: a-closure-in-main-returns-the-parameter-a-generic-static-picks-over-a-string-instance
 generic-opaque-value-store.md: a-closure-parameter-named-like-a-local-is-its-own-value
-generic-opaque-value-store.md: a-closure-parameter-named-like-the-methods-parameter-is-its-own-value
 generic-opaque-value-store.md: a-composed-container-cloned-in-a-closure-in-a-static-copies-through-the-call-sites-descriptor
 generic-opaque-value-store.md: a-concrete-function-that-reassigns-and-a-generic-one-that-does-not
 generic-opaque-value-store.md: a-conformer-binding-a-concrete-type-the-extension-stores-compiles
@@ -5086,6 +5085,7 @@ model-regions.md: model-hand-aj-id-call
 model-regions.md: model-hand-aj-id-call-rename
 model-regions.md: model-hand-aj-keep2
 model-regions.md: model-hand-aj-lend-then-keep-alias
+model-regions.md: model-hand-aj-m-bump
 model-regions.md: model-hand-aj-mutual
 model-regions.md: model-hand-aj-ovo-loop-window
 model-regions.md: model-hand-aj-pass2-store
@@ -5098,13 +5098,21 @@ model-regions.md: model-hand-al-nl-for-for-read
 model-regions.md: model-hand-am-cl-array-closed
 model-regions.md: model-hand-fa15-h2-no-try
 model-regions.md: model-hand-fa17-m-plain-mutable
+model-regions.md: model-hand-fa17-r-assign
 model-regions.md: model-hand-fa17-r-assign-store
+model-regions.md: model-hand-fa17-r-chain
 model-regions.md: model-hand-fa17-r-chain-store
+model-regions.md: model-hand-fa17-r-in-branch
 model-regions.md: model-hand-fa17-r-keeping-callee
+model-regions.md: model-hand-fa17-r-lent-on
+model-regions.md: model-hand-fa17-r-let-dies
+model-regions.md: model-hand-fa17-r-method
 model-regions.md: model-hand-fa17-r-method-store
 model-regions.md: model-hand-fa17-r-record-literal
 model-regions.md: model-hand-fa17-r-return
+model-regions.md: model-hand-fa17-r-slot-lend
 model-regions.md: model-hand-fa17-r-store
+model-regions.md: model-hand-fa17-r-var-overwritten
 model-regions.md: model-hand-fa17-r-var2-assign-store
 model-regions.md: model-hand-fa19-x-direct-lent-plain-value-control
 model-regions.md: model-hand-fa20-p3-kept-not-isolated
@@ -5295,9 +5303,7 @@ model-unions.md: model-hand-ai-l1-loop-break-refill
 model-unions.md: model-hand-ai-l2-loop-break-after-refill-read-after
 model-unions.md: model-hand-ai-l8-two-lap-nested-loops
 model-unions.md: model-hand-aj-ovo-arm-lend
-model-unions.md: model-hand-aj-union-discard
 model-unions.md: model-hand-aj-union-literal-stored
-model-unions.md: model-hand-al-ca-union-cond
 model-unions.md: model-hand-an-c1-cond-call-arg
 model-unions.md: model-hand-an-f1-for-elems-nb-move-root
 model-unions.md: model-hand-an-p1-call-plain-merge-keep
@@ -5364,6 +5370,7 @@ model-unions.md: model-hand-fa22-nb-none-local-direct
 model-unions.md: model-hand-fa22-nb-none-param-field-callee
 model-unions.md: model-hand-fa22-nb-none-param-field-direct
 model-unions.md: model-hand-fa22-nb-none-param-field-reassign
+model-unions.md: model-hand-fa23-p1-iso-cond-move-nb
 model-unions.md: model-hand-fa23-p1-iso-field-move-nb
 model-unions.md: model-hand-fa23-p1-iso-field-reassign-nb
 model-unions.md: model-hand-fa23-p1-iso-local-move-nb
@@ -5372,12 +5379,14 @@ model-unions.md: model-hand-fa23-p1-iso-local-move-sibling
 model-unions.md: model-hand-fa23-p1-iso-local-reassign-nb
 model-unions.md: model-hand-fa23-p1-iso-local-reassign-nbnone
 model-unions.md: model-hand-fa23-p1-iso-local-reassign-sibling
+model-unions.md: model-hand-fa23-p1-none-cond-move-nb
 model-unions.md: model-hand-fa23-p1-none-field-move-nb
 model-unions.md: model-hand-fa23-p1-none-field-reassign-nb
 model-unions.md: model-hand-fa23-p1-none-local-move-nb
 model-unions.md: model-hand-fa23-p1-none-local-move-nbnone
 model-unions.md: model-hand-fa23-p1-none-local-reassign-nb
 model-unions.md: model-hand-fa23-p1-none-local-reassign-nbnone
+model-unions.md: model-hand-fa23-p1-plain-cond-move-nb
 model-unions.md: model-hand-fa23-p1-plain-field-move-nb
 model-unions.md: model-hand-fa23-p1-plain-field-reassign-nb
 model-unions.md: model-hand-fa23-p1-plain-local-move-nb
@@ -6979,7 +6988,7 @@ regions-unique.md: a-unique-local-lent-to-a-reading-parameter-stays-readable
 regions-unique.md: a-unique-local-passed-beside-a-cond-of-it-is-refused
 regions-unique.md: a-unique-parameter-assigned-to-the-discard-runs
 regions-unique.md: a-unique-parameter-bound-to-a-second-name-twice-is-refused
-regions-unique.md: a-unique-parameter-discarded-in-a-branch-runs
+regions-unique.md: a-unique-parameter-discarded-in-a-loop-is-refused
 regions-unique.md: a-unique-parameter-discarded-with-let-underscore-runs
 regions-unique.md: a-unique-parameter-kept-by-a-call-is-refused-when-read-afterwards
 regions-unique.md: a-unique-popped-from-an-array-is-handed-to-a-keeping-parameter
@@ -7398,6 +7407,7 @@ services.md: error.a-factory-that-starts-a-promise-the-state-keeps-is-refused
 services.md: error.a-generic-service-argument-from-an-undefined-call-is-the-only-report
 services.md: error.a-handle-of-another-service-is-refused
 services.md: error.a-message-that-awaits-a-peer-of-its-own-type-is-refused
+services.md: error.a-message-that-starts-a-waiting-coroutine-is-refused
 services.md: error.a-message-that-waits-through-a-helper-is-refused
 services.md: error.a-message-with-two-awaits-is-refused-at-the-first
 services.md: error.a-private-method-is-absent-from-the-handle

@@ -302,8 +302,11 @@ type programNames struct {
 	ownLog []string
 	// usesLibrarySubprocess is whether the program runs a child through Subprocess and so names the library's types.
 	usesLibrarySubprocess bool
-	// expectsError is whether the program is a spec test's that expects a compile error.
+	// expectsError is whether the program is a spec test's that expects a compile error; errorLines are the lines of the
+	// test's block that its expectation names, and lineOffset is how many lines of the block stand before the program's.
 	expectsError bool
+	errorLines   []int
+	lineOffset   int
 }
 
 // programNamesOf reads the names of a program from its source, all its files together.

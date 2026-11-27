@@ -1761,7 +1761,6 @@ type Array_Foo
 end 'Array_Foo'
 
 function main() returns ExitCode
-	_ = sizeof(Foo)
 	let xs = [Bar.create(1), Bar.create(2)]
 	let m = Array_Foo.create(7)
 	return try ((xs.count() as Num) + m.tag) as ExitCode otherwise panic("out of range")
@@ -2954,7 +2953,6 @@ function relay(c Container) returns ExitCode
 end 'relay'
 
 function main() returns ExitCode
-	_ = relay
 	var fromBCalls = 0 as Count
 	_ = fromB(fromBCalls)
 	return 5 + fromA()
@@ -4057,7 +4055,6 @@ type Doc implements lib.Parsable
 end 'Doc'
 
 function main() returns ExitCode
-	_ = sizeof(Doc)
 	return 0
 end 'main'
 ```

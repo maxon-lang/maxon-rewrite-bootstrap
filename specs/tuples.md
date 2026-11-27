@@ -1985,7 +1985,6 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	_ = sizeof(Holder)
 	var b = StringBox.create("alpha")
 	b.replace("beta")
 	return 0

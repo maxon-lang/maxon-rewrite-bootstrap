@@ -61,14 +61,9 @@ function nowT13(tV Tk13) returns Num
 end 'nowT13'
 
 function keepX13(h Hd13, tV Tk13, c Num)
-	_ = h
-	_ = tV.n
-	_ = c
 end 'keepX13'
 
 function pickT13(tV Tk13, c Num) returns Tk13
-	_ = tV.n
-	_ = c
 	return Tk13.create(5)
 end 'pickT13'
 
@@ -117,12 +112,9 @@ function nowT(tV Tk) returns Num
 end 'nowT'
 
 function keepX(h Hd, tV Tk)
-	_ = h
-	_ = tV.n
 end 'keepX'
 
 function pickT(tV Tk) returns Tk
-	_ = tV.n
 	return Tk.create(5)
 end 'pickT'
 
@@ -169,12 +161,9 @@ function nowT(tV Tk) returns Num
 end 'nowT'
 
 function keepX(h Hd, tV Tk)
-	_ = h
-	_ = tV.n
 end 'keepX'
 
 function pickT(tV Tk) returns Tk
-	_ = tV.n
 	return Tk.create(5)
 end 'pickT'
 
@@ -217,8 +206,6 @@ function nowT(tV Tk) returns Num
 end 'nowT'
 
 function keepX(h Hd, tV Tk)
-	_ = h
-	_ = tV.n
 end 'keepX'
 
 function main() returns ExitCode
@@ -255,12 +242,9 @@ type Tk is noncopyable
 end 'Tk'
 
 function keepX(h Hd, tV Tk)
-	_ = h
-	_ = tV.n
 end 'keepX'
 
 function pickT(tV Tk) returns Tk
-	_ = tV.n
 	return Tk.create(5)
 end 'pickT'
 
@@ -342,8 +326,6 @@ function nowT(tV Tk) returns Num
 end 'nowT'
 
 function keepX(h Hd, tV Tk)
-	_ = h
-	_ = tV.n
 end 'keepX'
 
 function f(p0 Tk, p2 Hd)
@@ -377,18 +359,15 @@ type Tk is noncopyable
 end 'Tk'
 
 function keepX(t Tk)
-	_ = t.n
 end 'keepX'
 
 function pickT(t Tk) returns Tk
-	_ = t.n
 	return Tk.create(5)
 end 'pickT'
 
 function main() returns ExitCode
 	let a0 = Tk.create(7)
 	keepX(pickT(a0))
-	_ = 1 as Num
 	return 0
 end 'main'
 ```
@@ -423,12 +402,9 @@ function nowT(tV Tk) returns Num
 end 'nowT'
 
 function keepX(h Hd, tV Tk)
-	_ = h
-	_ = tV.n
 end 'keepX'
 
 function pickT(tV Tk) returns Tk
-	_ = tV.n
 	return Tk.create(5)
 end 'pickT'
 
@@ -578,7 +554,7 @@ end 'view'
 function main() returns ExitCode
 	let tV = Tk.create(1)
 	_ = view(tV)
-	_ = tV.n
+	let ignored1 = tV.n
 	return 0
 end 'main'
 ```
@@ -607,7 +583,6 @@ end 'look'
 function main() returns ExitCode
 	let t = Tk.create(1)
 	_ = look(t)
-	_ = t.n
 	return 0
 end 'main'
 ```
@@ -686,8 +661,6 @@ end 'wrap'
 function main() returns ExitCode
 	let tV = Tk.create(1)
 	let h = wrap(tV)
-	_ = h.t.n
-	_ = h.t.n
 	return 0
 end 'main'
 ```
@@ -739,7 +712,6 @@ The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compile
 typealias Num = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	_ = 1 as Num
 	return 0
 end 'main'
 ```
@@ -774,7 +746,6 @@ type Tok is noncopyable
 end 'Tok'
 
 function keepLocal(t Tok)
-	_ = t
 end 'keepLocal'
 
 function main() returns ExitCode
@@ -983,7 +954,7 @@ end 'Box'
 function main() returns ExitCode
 	let a = BoxArray.create(0)
 	for _ in a 'f1'
-		_ = 0 as Num
+		let ignored1 = 0 as Num
 	end 'f1'
 	return 0
 end 'main'
@@ -1026,7 +997,6 @@ type Tok is noncopyable
 end 'Tok'
 
 function keepLocal(t Tok)
-	_ = t
 end 'keepLocal'
 
 function main() returns ExitCode
@@ -1058,7 +1028,6 @@ function rd(t Tok) returns Num
 end 'rd'
 
 function keepLocal(t Tok)
-	_ = t
 end 'keepLocal'
 
 function main() returns ExitCode
@@ -1087,7 +1056,6 @@ type Tok is noncopyable
 end 'Tok'
 
 function keepVar(t Tok)
-	_ = t
 end 'keepVar'
 
 function main() returns ExitCode
@@ -1116,7 +1084,6 @@ type Tok is noncopyable
 end 'Tok'
 
 function keepLocal(t Tok)
-	_ = t
 end 'keepLocal'
 
 function main() returns ExitCode
@@ -1524,9 +1491,7 @@ type Ek
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function eat(t Tok)
-		_ = t
 	end 'eat'
 end 'Ek'
 
@@ -1564,9 +1529,7 @@ type Ek
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function eat(t Tok)
-		_ = t
 	end 'eat'
 end 'Ek'
 
@@ -1607,7 +1570,6 @@ function rd(t Tok) returns Num
 end 'rd'
 
 function keepLocal(t Tok)
-	_ = t
 end 'keepLocal'
 
 function main() returns ExitCode
@@ -1642,7 +1604,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function keepLocal(t Tok)
-	_ = t
 end 'keepLocal'
 
 function main() returns ExitCode
@@ -1676,7 +1637,6 @@ type Tok is noncopyable
 end 'Tok'
 
 function keepLocal(t Tok)
-	_ = t
 end 'keepLocal'
 
 function main() returns ExitCode
@@ -1709,7 +1669,6 @@ type Tok is noncopyable
 end 'Tok'
 
 function keepLocal(t Tok)
-	_ = t
 end 'keepLocal'
 
 function two(consumes t Tok)
@@ -1745,7 +1704,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -1763,7 +1721,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-m17-for-unique-array-copy -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m17-for-unique-array-copy` of redteamAG.hand_ag10, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -1781,11 +1738,10 @@ type Tk is noncopyable
 end 'Tk'
 
 function main() returns ExitCode
-	let xs = TkArray.create(0)
+	var xs = TkArray.create(0)
 	xs.push(Tk.create(1))
 	for t in xs 'f1'
-		_ = xs
-		_ = t.n
+		let ignored1 = xs
 	end 'f1'
 	return 0
 end 'main'
@@ -1811,7 +1767,6 @@ type Tk is noncopyable
 end 'Tk'
 
 function len(xs TkArray) returns Num
-	_ = xs
 	return 1
 end 'len'
 
@@ -1820,7 +1775,6 @@ function main() returns ExitCode
 	xs.push(Tk.create(1))
 	for t in xs 'f1'
 		_ = len(xs)
-		_ = t.n
 	end 'f1'
 	return 0
 end 'main'
@@ -1850,7 +1804,7 @@ function main() returns ExitCode
 	xs.push(Tk.create(1))
 	for _ in xs 'f1'
 		for t2 in xs 'f2'
-			_ = t2.n
+			let ignored1 = t2.n
 		end 'f2'
 	end 'f1'
 	return 0
@@ -1908,7 +1862,6 @@ type Bx
 end 'Bx'
 
 function takeBx(consumes b Bx)
-	_ = b.n
 end 'takeBx'
 
 function main() returns ExitCode
@@ -1938,8 +1891,6 @@ type Bx
 end 'Bx'
 
 function two(consumes a Bx, b Bx)
-	_ = a
-	_ = b.n
 end 'two'
 
 function main() returns ExitCode
@@ -1971,7 +1922,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeBx(consumes b Bx)
-	_ = b.n
 end 'takeBx'
 
 function main() returns ExitCode
@@ -2005,7 +1955,6 @@ type Bx
 end 'Bx'
 
 function takeBx(consumes b Bx)
-	_ = b.n
 end 'takeBx'
 
 function main() returns ExitCode
@@ -2037,7 +1986,6 @@ type Bx
 end 'Bx'
 
 function takeBx(consumes b Bx)
-	_ = b.n
 end 'takeBx'
 
 function main() returns ExitCode
@@ -2071,8 +2019,6 @@ type Bx
 end 'Bx'
 
 function takeArr(consumes a BxArray)
-	_ = a
-	_ = 1 as Num
 end 'takeArr'
 
 function main() returns ExitCode
@@ -2109,8 +2055,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeArr(consumes a BxArray)
-	_ = a
-	_ = 1 as Num
 end 'takeArr'
 
 function main() returns ExitCode
@@ -2149,8 +2093,6 @@ type Bx
 end 'Bx'
 
 function takeArr(consumes a BxArray)
-	_ = a
-	_ = 1 as Num
 end 'takeArr'
 
 function main() returns ExitCode
@@ -2195,7 +2137,6 @@ type Bag
 end 'Bag'
 
 function takeBag(consumes b Bag)
-	_ = b.n
 end 'takeBag'
 
 function main() returns ExitCode
@@ -2228,7 +2169,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeBx(consumes b Bx)
-	_ = b.n
 end 'takeBx'
 
 function main() returns ExitCode
@@ -2264,7 +2204,6 @@ type Bx
 end 'Bx'
 
 function takeBx(consumes b Bx)
-	_ = b.n
 end 'takeBx'
 
 function main() returns ExitCode
@@ -2298,7 +2237,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeBx(consumes b Bx)
-	_ = b.n
 end 'takeBx'
 
 function main() returns ExitCode
@@ -2334,7 +2272,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeBx(consumes b Bx)
-	_ = b.n
 end 'takeBx'
 
 function main() returns ExitCode
@@ -2368,7 +2305,6 @@ function lg10(x Num) returns Num
 end 'lg10'
 
 function takeB10(consumes b Bx10)
-	_ = b.n
 end 'takeB10'
 
 function soup()
@@ -2376,7 +2312,6 @@ function soup()
 	let a = w as Bx10
 	takeB10(a)
 	w = Bx10.create(lg10(2))
-	_ = w.n
 end 'soup'
 
 function main() returns ExitCode
@@ -2425,7 +2360,7 @@ function main() returns ExitCode
 	let h = Km.create(Tm.create(0))
 	let t = Tm.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -2471,7 +2406,7 @@ function main() returns ExitCode
 	let h = Km.create(Tm.create(0))
 	let t = Tm.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -2516,7 +2451,7 @@ function main() returns ExitCode
 	let h = Km.create(Tm.create(0))
 	let t = Tm.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -2525,7 +2460,6 @@ error E3102: <fragment>:33:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-aj-m-bump -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-bump` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
 ```maxon
@@ -2538,7 +2472,7 @@ type Tm is noncopyable
 		return Self{n: n}
 	end 'create'
 
-	function bump()
+	function bump(mutates self)
 		self.n = 2
 	end 'bump'
 end 'Tm'
@@ -2546,14 +2480,13 @@ end 'Tm'
 type Km
 	var k as Tm
 
-	static function create(k Tm) returns Self
+	static function create(consumes k Tm) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Km'
 
-function f(t Tm, h Km)
-	_ = h
-	let u = t
+function f(consumes t Tm, h Km)
+	var u = t
 	u.bump()
 end 'f'
 
@@ -2561,7 +2494,6 @@ function main() returns ExitCode
 	let h = Km.create(Tm.create(0))
 	let t = Tm.create(1)
 	f(t, h: h)
-	_ = t.n
 	return 0
 end 'main'
 ```
@@ -2606,7 +2538,7 @@ function main() returns ExitCode
 	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -2651,7 +2583,7 @@ function main() returns ExitCode
 	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -2683,7 +2615,6 @@ type Kp
 end 'Kp'
 
 function pass2(consumes x Tk, h Kp) returns Tk
-	_ = h
 	let y = x
 	return y
 end 'pass2'
@@ -2697,7 +2628,7 @@ function main() returns ExitCode
 	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -2746,7 +2677,7 @@ function main() returns ExitCode
 	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -2780,7 +2711,7 @@ function main() returns ExitCode
 	var a = TkArray.create(0)
 	let t = Tk.create(1)
 	f(t, a: a)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -2829,7 +2760,7 @@ function main() returns ExitCode
 	var h = Kw2.create(Tw2.create(0, t: Tk.create(0)))
 	let tV = Tk.create(1)
 	f(tV, h: h)
-	_ = tV.n
+	let ignored1 = tV.n
 	return 0
 end 'main'
 ```
@@ -2874,7 +2805,7 @@ function main() returns ExitCode
 	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -2918,7 +2849,7 @@ function main() returns ExitCode
 	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f2(t, t2: Tk.create(2), h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -2969,7 +2900,7 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -3022,7 +2953,7 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -3071,7 +3002,7 @@ function main() returns ExitCode
 	xs.push(1)
 	xs.push(2)
 	f(t, h: h, xs: xs)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -3124,7 +3055,7 @@ function main() returns ExitCode
 	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -3185,7 +3116,7 @@ function main() returns ExitCode
 	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -3228,7 +3159,7 @@ function main() returns ExitCode
 	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -3271,7 +3202,6 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
 	return 0
 end 'main'
 ```
@@ -3304,11 +3234,9 @@ type Kp
 end 'Kp'
 
 function takeT(consumes t Tk)
-	_ = t.n
 end 'takeT'
 
 function f(t Tk, h Kp)
-	_ = h
 	let u = t
 	let w = u as Tk
 	takeT(w)
@@ -3318,7 +3246,6 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
 	return 0
 end 'main'
 ```
@@ -3362,7 +3289,7 @@ function main() returns ExitCode
 	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -3800,7 +3727,6 @@ type Tc is noncopyable
 end 'Tc'
 
 function pa(xs TcArray) returns Num
-	_ = xs
 	return 1
 end 'pa'
 
@@ -4708,7 +4634,7 @@ function main() returns ExitCode
 	let a = TkArray.create(0)
 	a.push(Tk.create(1))
 	for _ in a 'f1'
-		_ = a as TkArray
+		let ignored1 = a as TkArray
 	end 'f1'
 	return 0
 end 'main'
@@ -4766,7 +4692,6 @@ type Bx
 end 'Bx'
 
 function takeBx(consumes b Bx)
-	_ = b.n
 end 'takeBx'
 
 function f(consumes z Bx)
@@ -4876,7 +4801,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function soup()
@@ -4884,7 +4808,6 @@ function soup()
 	let a = w as Bx
 	takeB(a)
 	w = Bx.create(lg(2))
-	_ = w.n
 end 'soup'
 
 function main() returns ExitCode
@@ -4897,7 +4820,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa17-r-let-dies -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `r-let-dies` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
 ```maxon
@@ -4914,14 +4836,13 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f(t Tk, h Kp)
-	_ = h
-	let u = t
+function f(consumes t Tk, h Kp)
+	var u = t
 	u.n = 3
 end 'f'
 
@@ -4929,7 +4850,6 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
 	return 0
 end 'main'
 ```
@@ -4938,7 +4858,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa17-r-var-overwritten -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `r-var-overwritten` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
 ```maxon
@@ -4955,13 +4874,12 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f(t Tk, h Kp)
-	_ = h
+function f(consumes t Tk, h Kp)
 	var u = t
 	u.n = 3
 	u = Tk.create(2)
@@ -4972,7 +4890,6 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
 	return 0
 end 'main'
 ```
@@ -4981,7 +4898,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa17-r-chain -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `r-chain` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
 ```maxon
@@ -4998,16 +4914,15 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f(t Tk, h Kp)
-	_ = h
+function f(consumes t Tk, h Kp)
 	let u = t
 	let w = u
-	let x = w
+	var x = w
 	x.n = 1
 end 'f'
 
@@ -5015,7 +4930,6 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
 	return 0
 end 'main'
 ```
@@ -5024,7 +4938,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa17-r-assign -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `r-assign` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
 ```maxon
@@ -5041,13 +4954,12 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f(t Tk, h Kp)
-	_ = h
+function f(consumes t Tk, h Kp)
 	var u = Tk.create(0)
 	u = t
 	u.n = 1
@@ -5057,7 +4969,6 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
 	return 0
 end 'main'
 ```
@@ -5066,7 +4977,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa17-r-lent-on -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `r-lent-on` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
 ```maxon
@@ -5083,17 +4993,15 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
 function rdTk(x Tk)
-	_ = x.n
 end 'rdTk'
 
-function f(t Tk, h Kp)
-	_ = h
+function f(consumes t Tk, h Kp)
 	let u = t
 	rdTk(u)
 	rdTk(u)
@@ -5103,7 +5011,6 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
 	return 0
 end 'main'
 ```
@@ -5112,7 +5019,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa17-r-in-branch -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `r-in-branch` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
 ```maxon
@@ -5129,7 +5035,7 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
@@ -5138,10 +5044,9 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function f(t Tk, h Kp)
-	_ = h
+function f(consumes t Tk, h Kp)
 	if lg(1) != 0 'i1'
-		let u = t
+		var u = t
 		u.n = 2
 	end 'i1'
 end 'f'
@@ -5150,7 +5055,6 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
 	return 0
 end 'main'
 ```
@@ -5159,7 +5063,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa17-r-method -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `r-method` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
 ```maxon
@@ -5180,8 +5083,8 @@ type Mm
 		return Self{n: n}
 	end 'create'
 
-	function g(t Tk)
-		let u = t
+	function g(consumes t Tk)
+		var u = t
 		u.n = 2
 	end 'g'
 end 'Mm'
@@ -5190,7 +5093,6 @@ function main() returns ExitCode
 	let m = Mm.create(0)
 	let t = Tk.create(1)
 	m.g(t)
-	_ = t.n
 	return 0
 end 'main'
 ```
@@ -5199,7 +5101,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa17-r-slot-lend -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `r-slot-lend` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
 ```maxon
@@ -5216,20 +5117,19 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function fs(t Tk)
-	let u = t
+function fs(consumes t Tk)
+	var u = t
 	u.n = 3
 end 'fs'
 
 function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	fs(h.k)
-	_ = h.k.n
 	return 0
 end 'main'
 ```
@@ -5270,7 +5170,6 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let g = Kp.create(Tk.create(1))
 	fs2(h.k, h2: g)
-	_ = h.k.n
 	return 0
 end 'main'
 ```
@@ -5310,7 +5209,7 @@ function main() returns ExitCode
 	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -5351,7 +5250,7 @@ function main() returns ExitCode
 	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -5392,7 +5291,7 @@ function main() returns ExitCode
 	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -5433,7 +5332,7 @@ function main() returns ExitCode
 	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f2(t, t2: Tk.create(2), h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -5465,7 +5364,6 @@ type Kp
 end 'Kp'
 
 function f(consumes t Tk, h Kp) returns Tk
-	_ = h
 	let u = t
 	return u
 end 'f'
@@ -5474,7 +5372,7 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	_ = f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -5506,7 +5404,6 @@ type Kp
 end 'Kp'
 
 function f(consumes t Tk, h Kp)
-	_ = h
 	let u = t
 	_ = Kp.create(u)
 end 'f'
@@ -5515,7 +5412,7 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -5559,7 +5456,7 @@ function main() returns ExitCode
 	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -5608,7 +5505,7 @@ function main() returns ExitCode
 	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	m.g(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -5713,7 +5610,6 @@ end 'g'
 function main() returns ExitCode
 	var b = Bx.create(1)
 	g(b)
-	_ = b.n
 	return 0
 end 'main'
 ```
@@ -6333,13 +6229,9 @@ type Hq is noncopyable
 end 'Hq'
 
 function peekHq(x Hq)
-	_ = x
-	_ = 1 as Num
 end 'peekHq'
 
 function isoHq(consumes x Hq)
-	_ = x
-	_ = 1 as Num
 end 'isoHq'
 
 function main() returns ExitCode
@@ -6375,7 +6267,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function readB(b Bx)
-	_ = b.n
 end 'readB'
 
 function main() returns ExitCode
@@ -6415,7 +6306,6 @@ type Tp is noncopyable
 end 'Tp'
 
 function peekP(x Tp)
-	_ = x.n
 end 'peekP'
 
 function main() returns ExitCode

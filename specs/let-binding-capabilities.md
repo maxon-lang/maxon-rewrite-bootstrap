@@ -2136,7 +2136,6 @@ end 'Holder'
 function keep() returns Count
 	let box = Box.create(1)
 	let holder = Holder.wrap(box)
-	_ = holder
 	return 1
 end 'keep'
 
@@ -2180,7 +2179,6 @@ end 'Holder'
 function main() returns ExitCode
 	let shelf = Box.create(7)
 	let holder = Holder.wrap(Box.create(1))
-	_ = holder
 	return shelf.read() as ExitCode
 end 'main'
 ```

@@ -2614,7 +2614,6 @@ type Bag uses Op implements Appendable with Integer
 
 	function absorb(mutates self, other Integer) where Op implements Copyable
 		self.ops.append(self.ops)
-		_ = other
 	end 'absorb'
 end 'Bag'
 

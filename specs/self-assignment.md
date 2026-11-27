@@ -37,7 +37,7 @@ error E3067: specs/self-assignment/docs-example-2.maxon:3:2: expected a function
 ## Tests
 
 <!-- test: self-assignment.basic -->
-<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
+<!-- skip: language difference: E3067 refuses only a discard here, of any value that no call, send, await or panic made, a bare name too, where maxon's also refuses a self-assignment and admits a bare name, a let _ and a value it constructs (README, Where it differs from Maxon: A discard takes a value something made) -->
 ```maxon
 
 function main() returns ExitCode
@@ -78,7 +78,7 @@ end 'main'
 ```
 
 <!-- test: self-assignment.field-self-assign -->
-<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
+<!-- skip: language difference: E3067 refuses only a discard here, of any value that no call, send, await or panic made, a bare name too, where maxon's also refuses a self-assignment and admits a bare name, a let _ and a value it constructs (README, Where it differs from Maxon: A discard takes a value something made) -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -103,11 +103,11 @@ error E3067: specs/self-assignment/self-assignment.field-self-assign.maxon:16:2:
 ```
 
 <!-- test: self-assignment.discard-literal -->
-<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
+<!-- skip: language difference: E3067 refuses only a discard here, of any value that no call, send, await or panic made, a bare name too, where maxon's also refuses a self-assignment and admits a bare name, a let _ and a value it constructs (README, Where it differs from Maxon: A discard takes a value something made) -->
+<!-- positions: moved -->
 ```maxon
 
 function main() returns ExitCode
-	_ = 42
 	return 0
 end 'main'
 ```

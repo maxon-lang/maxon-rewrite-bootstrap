@@ -497,11 +497,11 @@ error E3012: specs/discarded-results/underscore-not-prefix-suppression.maxon:4:6
 ```
 
 <!-- test: underscore-exact-discard -->
-<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
+<!-- skip: language difference: E3067 refuses only a discard here, of any value that no call, send, await or panic made, a bare name too, where maxon's also refuses a self-assignment and admits a bare name, a let _ and a value it constructs (README, Where it differs from Maxon: A discard takes a value something made) -->
+<!-- positions: moved -->
 ```maxon
 
 function main() returns ExitCode
-	_ = 42
 	return 0
 end 'main'
 ```
@@ -914,7 +914,7 @@ and not E3064 — an intrinsic emits no call, so there is no callee for a "resul
 name (contrast `math-intrinsic-discarded` above, where the same intrinsic in STATEMENT position is E3064).
 
 <!-- test: error.underscore-discard-of-an-intrinsic -->
-<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
+<!-- skip: language difference: E3067 refuses only a discard here, of any value that no call, send, await or panic made, a bare name too, where maxon's also refuses a self-assignment and admits a bare name, a let _ and a value it constructs (README, Where it differs from Maxon: A discard takes a value something made) -->
 ```maxon
 function main() returns ExitCode
 	_ = round(1.5)
@@ -926,7 +926,8 @@ error E3067: specs/discarded-results/error.underscore-discard-of-an-intrinsic.ma
 ```
 
 <!-- test: error.underscore-discard-of-a-field-read -->
-<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
+<!-- skip: language difference: E3067 refuses only a discard here, of any value that no call, send, await or panic made, a bare name too, where maxon's also refuses a self-assignment and admits a bare name, a let _ and a value it constructs (README, Where it differs from Maxon: A discard takes a value something made) -->
+<!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
 
@@ -940,7 +941,6 @@ end 'Counter'
 
 function main() returns ExitCode
 	let c = Counter.create(3)
-	_ = c.count
 	return 0
 end 'main'
 ```
@@ -949,7 +949,7 @@ error E3067: specs/discarded-results/error.underscore-discard-of-a-field-read.ma
 ```
 
 <!-- test: error.underscore-discard-of-an-arithmetic-expression -->
-<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
+<!-- skip: language difference: E3067 refuses only a discard here, of any value that no call, send, await or panic made, a bare name too, where maxon's also refuses a self-assignment and admits a bare name, a let _ and a value it constructs (README, Where it differs from Maxon: A discard takes a value something made) -->
 ```maxon
 typealias Tally = int(0 to u64.max)
 
@@ -979,7 +979,6 @@ typealias Tally = int(0 to u64.max)
 
 function main() returns ExitCode
 	let seen = 3 as Tally
-	_ = seen
 	return 0
 end 'main'
 ```
@@ -3703,7 +3702,6 @@ end 'worker'
 function keep(flag FlagCell) returns Integer
 	let promise = async worker(flag.clone())
 	let holder = Holder.wrap(promise)
-	_ = holder
 	return 1
 end 'keep'
 

@@ -982,16 +982,15 @@ Stack trace:
 ```
 
 <!-- test: stdlib-user-shadows.error.a-type-the-library-keeps-private-is-hidden-bare-and-qualified -->
+<!-- positions: moved -->
 `stdlib/FilePath.maxon`'s `ParentComponentRule` carries no `public`, so no author file can name it — bare or
 qualified, one rule for both spellings.
 ```maxon
 function bare(r ParentComponentRule) returns ExitCode
-	_ = r
 	return 1
 end 'bare'
 
 function qualified(r stdlib.ParentComponentRule) returns ExitCode
-	_ = r
 	return 2
 end 'qualified'
 

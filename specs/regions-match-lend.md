@@ -1069,7 +1069,6 @@ function main() returns ExitCode
 			i1(o) then sink(o)
 		end 'x1'
 	end 'mh'
-	_ = h
 	return 0
 end 'main'
 ```
@@ -4099,7 +4098,7 @@ function main() returns ExitCode
 			held then _ = spawn Keeper.create(try s.a.pop() otherwise panic("one"))
 		end 'm'
 	end 'a1' otherwise 'gone'
-		_ = 0 as Count
+		let ignored1 = 0 as Count
 	end 'gone'
 	let k = spawn Keeper.create(Slot.empty)
 	print("{try await k.size() otherwise 0}\n")

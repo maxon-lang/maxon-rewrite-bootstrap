@@ -261,7 +261,6 @@ type Cnt
 end 'Cnt'
 
 function touch(b Bx, mutates c Cnt)
-	_ = b
 	c.k = 3
 end 'touch'
 
@@ -306,7 +305,6 @@ function giveH(consumes r Bk) returns Sh
 end 'giveH'
 
 function useI(consumes r Bk)
-	_ = r.code
 end 'useI'
 
 function main() returns ExitCode
@@ -555,7 +553,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -563,7 +560,7 @@ function main() returns ExitCode
 	let u = Ub.u1(Bx.create(1))
 	match u 'x1'
 		u0 then break
-		u1(b) then _ = b.n
+		u1(b) then break
 	end 'x1'
 	takeB(b)
 	return 0
@@ -605,7 +602,7 @@ function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
 	match u 'x1'
 		none then break
-		have then _ = u
+		have then break
 	end 'x1'
 	eatUT(u)
 	return 0
@@ -646,7 +643,7 @@ function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
 	match u 'x1'
 		none then break
-		have then _ = u
+		have then break
 	end 'x1'
 	_ = peekUT(u)
 	return 0
@@ -768,7 +765,7 @@ function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
 	match u 'x1'
 		none then break
-		have then _ = u
+		have then break
 	end 'x1'
 	return 0
 end 'main'
@@ -876,7 +873,7 @@ function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
 	match u 'x1'
 		none then break
-		have then _ = u
+		have then break
 	end 'x1'
 	return 0
 end 'main'
@@ -1144,7 +1141,7 @@ function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
 	match u 'x1'
 		none then break
-		have(t) then _ = t.n
+		have(t) then break
 	end 'x1'
 	return 0
 end 'main'
@@ -1262,7 +1259,7 @@ function main() returns ExitCode
 	let h = Hn.create(UT.have(Tk.create(1)), k: 0)
 	match h.u 'x1'
 		none then break
-		have then _ = h
+		have then break
 	end 'x1'
 	return 0
 end 'main'
@@ -1302,7 +1299,6 @@ type Hn
 end 'Hn'
 
 function eatHn(x Hn)
-	_ = x.k
 end 'eatHn'
 
 function main() returns ExitCode
@@ -1546,7 +1542,7 @@ function main() returns ExitCode
 	let h = Hn.create(UT.have(Tk.create(1)), k: 0)
 	match h.u 'x1'
 		none then break
-		have then _ = h.u
+		have then let ignored1 = h.u
 	end 'x1'
 	return 0
 end 'main'
@@ -1689,7 +1685,7 @@ function main() returns ExitCode
 	let h = Hn.create(UT.have(Tk.create(1)), k: 0)
 	match h.u 'x1'
 		none then break
-		have(t) then _ = t.n
+		have(t) then break
 	end 'x1'
 	return 0
 end 'main'
@@ -1824,7 +1820,7 @@ function main() returns ExitCode
 	let h = Hd.create(UT.have(Tk.create(1)))
 	match h.u 'x1'
 		none then break
-		have then _ = h
+		have then break
 	end 'x1'
 	return 0
 end 'main'
@@ -2106,7 +2102,7 @@ function main() returns ExitCode
 	let h = Hd.create(UT.have(Tk.create(1)))
 	match h.u 'x1'
 		none then break
-		have then _ = h.u
+		have then let ignored1 = h.u
 	end 'x1'
 	return 0
 end 'main'
@@ -2246,7 +2242,7 @@ function main() returns ExitCode
 	let h = Hd.create(UT.have(Tk.create(1)))
 	match h.u 'x1'
 		none then break
-		have(t) then _ = t.n
+		have(t) then break
 	end 'x1'
 	return 0
 end 'main'
@@ -2388,7 +2384,7 @@ function main() returns ExitCode
 	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
 	match hV.h.u 'x1'
 		none then break
-		have then _ = hV
+		have then break
 	end 'x1'
 	return 0
 end 'main'
@@ -2436,8 +2432,6 @@ type Hx is noncopyable
 end 'Hx'
 
 function eatHx(x Hx)
-	_ = x
-	_ = 1 as Num
 end 'eatHx'
 
 function main() returns ExitCode
@@ -2721,7 +2715,7 @@ function main() returns ExitCode
 	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
 	match hV.h.u 'x1'
 		none then break
-		have then _ = hV.h.u
+		have then let ignored1 = hV.h.u
 	end 'x1'
 	return 0
 end 'main'
@@ -2888,7 +2882,7 @@ function main() returns ExitCode
 	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
 	match hV.h.u 'x1'
 		none then break
-		have(t) then _ = t.n
+		have(t) then break
 	end 'x1'
 	return 0
 end 'main'
@@ -3048,7 +3042,7 @@ function main() returns ExitCode
 	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
 	match hV.u 'x1'
 		none then break
-		have then _ = hV
+		have then break
 	end 'x1'
 	return 0
 end 'main'
@@ -3096,8 +3090,6 @@ type Hx is noncopyable
 end 'Hx'
 
 function eatHx(x Hx)
-	_ = x
-	_ = 1 as Num
 end 'eatHx'
 
 function main() returns ExitCode
@@ -3381,7 +3373,7 @@ function main() returns ExitCode
 	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
 	match hV.u 'x1'
 		none then break
-		have then _ = hV.u
+		have then let ignored1 = hV.u
 	end 'x1'
 	return 0
 end 'main'
@@ -3548,7 +3540,7 @@ function main() returns ExitCode
 	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
 	match hV.u 'x1'
 		none then break
-		have(t) then _ = t.n
+		have(t) then break
 	end 'x1'
 	return 0
 end 'main'
@@ -3686,7 +3678,7 @@ end 'Tk'
 function f(u UT)
 	match u 'x1'
 		none then break
-		have then _ = u
+		have then break
 	end 'x1'
 end 'f'
 
@@ -3722,7 +3714,7 @@ end 'Tk'
 function f(u UT)
 	match u 'x1'
 		none then break
-		have then _ = u
+		have then break
 	end 'x1'
 end 'f'
 
@@ -3844,7 +3836,7 @@ end 'Tk'
 function f(u UT)
 	match u 'x1'
 		none then break
-		have(t) then _ = t.n
+		have(t) then break
 	end 'x1'
 end 'f'
 
@@ -3880,7 +3872,7 @@ end 'Tk'
 function f(u UT)
 	match u 'x1'
 		none then break
-		have(t) then _ = t.n
+		have(t) then break
 	end 'x1'
 end 'f'
 
@@ -4074,8 +4066,6 @@ type Hs is noncopyable
 end 'Hs'
 
 function eatHs(x Hs)
-	_ = x
-	_ = 1 as Num
 end 'eatHs'
 
 function main() returns ExitCode
@@ -4120,7 +4110,7 @@ type Hs is noncopyable
 	function go(consumes self)
 		match self.u 'x1'
 			none then break
-			have then _ = self
+			have then break
 		end 'x1'
 	end 'go'
 end 'Hs'
@@ -4167,7 +4157,7 @@ type Hs is noncopyable
 	function go(consumes self)
 		match self.u 'x1'
 			none then break
-			have then _ = self.u
+			have then break
 		end 'x1'
 	end 'go'
 end 'Hs'
@@ -4214,7 +4204,7 @@ type Hs is noncopyable
 	function go(consumes self)
 		match self.u 'x1'
 			none then break
-			have(t) then _ = t.n
+			have(t) then break
 		end 'x1'
 	end 'go'
 end 'Hs'
@@ -4325,7 +4315,6 @@ error E3102: <fragment>:34:2: use of moved value 'h': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ah-f2-for-copy-no -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `f2-for-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -4348,12 +4337,12 @@ type Tk is noncopyable
 end 'Tk'
 
 function main() returns ExitCode
-	let a = UTArray.create(0)
+	var a = UTArray.create(0)
 	a.push(UT.have(Tk.create(1)))
 	for e in a 'f1'
 		match e 'x2'
 			none then break
-			have then _ = a
+			have then let ignored1 = a
 		end 'x2'
 	end 'f1'
 	return 0
@@ -4385,8 +4374,6 @@ type Tk is noncopyable
 end 'Tk'
 
 function eatArr(x UTArray)
-	_ = x
-	_ = 1 as Num
 end 'eatArr'
 
 function main() returns ExitCode
@@ -4473,7 +4460,7 @@ function main() returns ExitCode
 	for e in a 'f1'
 		match e 'x2'
 			none then break
-			have then _ = e
+			have then let ignored1 = e
 		end 'x2'
 	end 'f1'
 	return 0
@@ -4555,7 +4542,7 @@ function main() returns ExitCode
 	for e in a 'f1'
 		match e 'x2'
 			none then break
-			have(t) then _ = t.n
+			have(t) then break
 		end 'x2'
 	end 'f1'
 	return 0
@@ -4662,7 +4649,6 @@ type Tk is noncopyable
 end 'Tk'
 
 function peekArr(x UTArray) returns Num
-	_ = x
 	return 1
 end 'peekArr'
 
@@ -4711,7 +4697,7 @@ function main() returns ExitCode
 	_ = UT.have(Tk.create(2))
 	match id(u) 'x1'
 		none then break
-		have then _ = u
+		have then let ignored1 = u
 	end 'x1'
 	return 0
 end 'main'
@@ -4750,7 +4736,7 @@ function main() returns ExitCode
 	let w = UT.have(Tk.create(2))
 	match (u if lg(1) != 0 else w) 'x1'
 		none then break
-		have then _ = u
+		have then let ignored1 = u
 	end 'x1'
 	return 0
 end 'main'
@@ -4780,10 +4766,9 @@ end 'Tk'
 
 function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
-	_ = UT.none
 	match u 'x1'
 		none then break
-		have then _ = u
+		have then break
 	end 'x1'
 	return 0
 end 'main'
@@ -4910,7 +4895,6 @@ end 'eatUT'
 
 function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
-	_ = UT.none
 	match u 'x1'
 		none then break
 		have then eatUT(u)
@@ -4950,7 +4934,7 @@ function main() returns ExitCode
 	let w = UT.have(Tk.create(2))
 	match id(u) 'x1'
 		none then break
-		have then _ = w
+		have then break
 	end 'x1'
 	return 0
 end 'main'
@@ -4989,7 +4973,7 @@ function main() returns ExitCode
 	let w = UT.have(Tk.create(2))
 	match (u if lg(1) != 0 else w) 'x1'
 		none then break
-		have then _ = w
+		have then let ignored1 = w
 	end 'x1'
 	return 0
 end 'main'
@@ -5022,7 +5006,7 @@ function main() returns ExitCode
 	let w = UT.none
 	match u 'x1'
 		none then break
-		have then _ = w
+		have then break
 	end 'x1'
 	return 0
 end 'main'
@@ -5059,7 +5043,7 @@ function main() returns ExitCode
 	_ = UT.have(Tk.create(2))
 	match id(u) 'x1'
 		none then break
-		have(t) then _ = t.n
+		have(t) then break
 	end 'x1'
 	return 0
 end 'main'
@@ -5096,7 +5080,7 @@ function main() returns ExitCode
 	let w = UT.have(Tk.create(2))
 	match (u if lg(1) != 0 else w) 'x1'
 		none then break
-		have(t) then _ = t.n
+		have(t) then break
 	end 'x1'
 	return 0
 end 'main'
@@ -5126,10 +5110,9 @@ end 'Tk'
 
 function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
-	_ = UT.none
 	match u 'x1'
 		none then break
-		have(t) then _ = t.n
+		have(t) then break
 	end 'x1'
 	return 0
 end 'main'
@@ -5236,7 +5219,6 @@ end 'Tk'
 
 function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
-	_ = UT.none
 	match u 'x1'
 		none then break
 		have(t) then t.n = 5
@@ -5343,7 +5325,6 @@ end 'Tk'
 
 function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
-	_ = UT.none
 	match u 'x1'
 		none then break
 		have then break
@@ -5379,7 +5360,7 @@ function bothT(x UT, y Tk)
 	y.n = 5
 	match x 'x1'
 		none then break
-		have(z) then _ = z.n
+		have(z) then break
 	end 'x1'
 end 'bothT'
 
@@ -5418,9 +5399,9 @@ end 'Tk'
 function bothR(x UT, y Tk)
 	match x 'x1'
 		none then break
-		have(z) then _ = z.n
+		have(z) then break
 	end 'x1'
-	_ = y.n
+	let ignored1 = y.n
 end 'bothR'
 
 function main() returns ExitCode
@@ -5575,7 +5556,6 @@ union UT5
 	have(t Tk)
 
 	function cmp(o UT5) returns Num
-		_ = o
 		return 1
 	end 'cmp'
 end 'UT5'
@@ -5626,9 +5606,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function lend2(x UT, y UT)
-	_ = x
-	_ = y
-	_ = 1 as Num
 end 'lend2'
 
 function main() returns ExitCode
@@ -5719,7 +5696,6 @@ end 'Hd'
 
 function clearHdT(x Hd, y Tk)
 	x.u = UT.none
-	_ = y.n
 end 'clearHdT'
 
 function main() returns ExitCode
@@ -5756,8 +5732,6 @@ type Tk is noncopyable
 end 'Tk'
 
 function readUT(x UT)
-	_ = x
-	_ = 1 as Num
 end 'readUT'
 
 function f() returns UT
@@ -5802,7 +5776,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -5845,7 +5818,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -5893,7 +5865,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -5947,7 +5918,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -5997,7 +5967,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -6086,7 +6055,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -6136,7 +6104,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function cnt(consumes u Ub) returns Num
@@ -6184,7 +6151,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -6235,13 +6201,12 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function eatUb(u Ub)
 	match u 'x1'
 		u0 then break
-		u1(b) then _ = b.n
+		u1(b) then break
 	end 'x1'
 end 'eatUb'
 
@@ -6292,7 +6257,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -6341,13 +6305,12 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function eatUb(u Ub)
 	match u 'x1'
 		u0 then break
-		u1(b) then _ = b.n
+		u1(b) then break
 	end 'x1'
 end 'eatUb'
 
@@ -6372,6 +6335,7 @@ error E3102: <fragment>:39:9: use of moved value 'u': its ownership moved to ano
 ```
 
 <!-- test: model-hand-aj-union-discard -->
+<!-- skip: language difference: E3067 refuses only a discard here, of any value that no call, send, await or panic made, a bare name too, where maxon's also refuses a self-assignment and admits a bare name, a let _ and a value it constructs (README, Where it differs from Maxon: A discard takes a value something made) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `union-discard` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -6394,13 +6358,12 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(consumes k Tk) returns Self
+	static function create(k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f(consumes t Tk, h Kp)
-	_ = h
+function f(t Tk, h Kp)
 	let u = t
 	_ = UT.have(u)
 end 'f'
@@ -6409,7 +6372,7 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -6454,7 +6417,7 @@ function main() returns ExitCode
 	var h = Hd.create(UT.none)
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -6501,6 +6464,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-al-ca-union-cond -->
+<!-- skip: language difference: E3067 refuses only a discard here, of any value that no call, send, await or panic made, a bare name too, where maxon's also refuses a self-assignment and admits a bare name, a let _ and a value it constructs (README, Where it differs from Maxon: A discard takes a value something made) -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ca-union-cond` of redteamAL/hand_al3.txt, in capmodel `reggio/REPORTRTAL.txt`.
 
@@ -6525,12 +6489,12 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b.clone()}
+		return Self{n: n, b: b}
 	end 'create'
 end 'Tq'
 
 function main() returns ExitCode
-	var q = Tq.create(1, b: Bx.create(2))
+	let q = Tq.create(1, b: Bx.create(2))
 	_ = UQ.have((q if 1 != 0 else q))
 	q.n = 6
 	return 0
@@ -6587,7 +6551,6 @@ function rdR(rV Tr) returns Num
 end 'rdR'
 
 function both(rV Tr, x UQ)
-	_ = x
 	_ = rdR(rV)
 end 'both'
 
@@ -6647,7 +6610,6 @@ type Tq is noncopyable
 end 'Tq'
 
 function both(x UQ, rV Tr)
-	_ = x
 	rV.n = 4
 end 'both'
 
@@ -6743,7 +6705,7 @@ function main() returns ExitCode
 	let g = Ht.create(UT.none, n: 0)
 	match (h if 1 != 0 else g).u 'x1'
 		none then break
-		have then _ = h
+		have then let ignored1 = h
 	end 'x1'
 	return 0
 end 'main'
@@ -6965,7 +6927,6 @@ type Hq is noncopyable
 end 'Hq'
 
 function eatHq(h Hq)
-	_ = h.n
 end 'eatHq'
 
 function main() returns ExitCode
@@ -7112,7 +7073,7 @@ function main() returns ExitCode
 	while it != 0 'w1'
 		match u 'x2'
 			none then break
-			have then _ = u
+			have then break
 		end 'x2'
 		it = 0
 	end 'w1'
@@ -7180,7 +7141,7 @@ end 'Bx'
 function eatUb(u Ub)
 	match u 'x1'
 		u0 then break
-		u1(b) then _ = b.n
+		u1(b) then break
 	end 'x1'
 end 'eatUb'
 
@@ -7283,8 +7244,6 @@ function mkUP() returns UP
 end 'mkUP'
 
 function takeUPI(consumes x UP)
-	_ = x
-	_ = 1 as Num
 end 'takeUPI'
 
 function main() returns ExitCode
@@ -7336,7 +7295,6 @@ type Mk
 end 'Mk'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -8195,8 +8153,6 @@ function idUT(x UT) returns UT
 end 'idUT'
 
 function isoUT(consumes x UT)
-	_ = x
-	_ = 1 as Num
 end 'isoUT'
 
 function fwdIso(x UT)
@@ -8246,13 +8202,9 @@ type NdB is noncopyable
 end 'NdB'
 
 function isoNdB(consumes x NdB)
-	_ = x
-	_ = 1 as Num
 end 'isoNdB'
 
 function peekNdB(x NdB)
-	_ = x
-	_ = 1 as Num
 end 'peekNdB'
 
 function main() returns ExitCode
@@ -8408,8 +8360,6 @@ function idUT(x UT) returns UT
 end 'idUT'
 
 function isoUT(consumes x UT)
-	_ = x
-	_ = 1 as Num
 end 'isoUT'
 
 function main() returns ExitCode
@@ -8459,8 +8409,6 @@ function idUT(consumes x UT) returns UT
 end 'idUT'
 
 function isoUT(consumes x UT)
-	_ = x
-	_ = 1 as Num
 end 'isoUT'
 
 function main() returns ExitCode
@@ -8796,14 +8744,11 @@ function lg(x Num) returns Num
 end 'lg'
 
 function iso2(consumes x UT)
-	_ = x
-	_ = 1 as Num
 end 'iso2'
 
 function main() returns ExitCode
 	let i = UT.have(Tk.create(1)) as UT
 	iso2((i if lg(1) != 0 else i))
-	_ = 1 as Num
 	return 0
 end 'main'
 ```
@@ -8832,9 +8777,6 @@ type Tk is noncopyable
 end 'Tk'
 
 function lend2(x UT, y UT)
-	_ = x
-	_ = y
-	_ = 1 as Num
 end 'lend2'
 
 function main() returns ExitCode
@@ -8975,14 +8917,13 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
 	let rb = Bx.create(5) as Bx
 	let u = Mq.q1(rb) as Mq
 	match u 'x1'
-		q0(xa) then _ = xa.n
+		q0(xa) then break
 		q1(o) then takeB(o.clone())
 	end 'x1'
 	return 0
@@ -9012,7 +8953,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -9114,7 +9054,6 @@ type Tk is noncopyable
 end 'Tk'
 
 function takeT(consumes t Tk)
-	_ = t.n
 end 'takeT'
 
 function main() returns ExitCode
@@ -9150,7 +9089,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -9186,7 +9124,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(consumes u Ub)
@@ -9225,7 +9162,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function giveUb(consumes b Bx) returns Ub
@@ -9267,7 +9203,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -9309,7 +9244,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -9318,7 +9252,7 @@ function main() returns ExitCode
 		u0 then break
 		u1(o) then takeB(o)
 	end 'x1'
-	_ = u
+	let ignored1 = u
 	return 0
 end 'main'
 ```
@@ -9348,13 +9282,12 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function eatUb(u Ub)
 	match u 'x1'
 		u0 then break
-		u1(b) then _ = b.n
+		u1(b) then break
 	end 'x1'
 end 'eatUb'
 
@@ -9394,8 +9327,6 @@ type Bx
 end 'Bx'
 
 function takeTwo(consumes a Bx, consumes b Bx)
-	_ = b
-	_ = a.n
 end 'takeTwo'
 
 function main() returns ExitCode
@@ -9433,7 +9364,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(consumes u Ub)
@@ -9530,7 +9460,6 @@ type Wm
 end 'Wm'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -9568,7 +9497,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -9606,7 +9534,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(u Ub)
@@ -9648,11 +9575,11 @@ function main() returns ExitCode
 	let u = Ub.u1(Bx.create(1))
 	match u 'x1'
 		u0 then break
-		u1(o) then _ = o.n
+		u1(o) then break
 	end 'x1'
 	match u 'x2'
 		u0 then break
-		u1(o) then _ = o.n
+		u1(o) then break
 	end 'x2'
 	return 0
 end 'main'
@@ -9684,7 +9611,7 @@ end 'Bx'
 function eatUb(u Ub)
 	match u 'x1'
 		u0 then break
-		u1(b) then _ = b.n
+		u1(b) then break
 	end 'x1'
 end 'eatUb'
 
@@ -9692,7 +9619,7 @@ function main() returns ExitCode
 	let u = Ub.u1(Bx.create(5)) as Ub
 	match u 'x1'
 		u0 then break
-		u1(o) then _ = o.n
+		u1(o) then break
 	end 'x1'
 	eatUb(u)
 	return 0
@@ -9726,7 +9653,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -9766,7 +9692,7 @@ end 'Bx'
 function eatUb(u Ub)
 	match u 'x1'
 		u0 then break
-		u1(b) then _ = b.n
+		u1(b) then break
 	end 'x1'
 end 'eatUb'
 
@@ -9846,7 +9772,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -9892,7 +9817,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -9900,7 +9824,7 @@ function main() returns ExitCode
 	let w = Ub.u1(Bx.create(2)) as Ub
 	match (u if lg(1) != 0 else w) 'x1'
 		u0 then break
-		u1(o) then _ = o.n
+		u1(o) then break
 	end 'x1'
 	match u 'x2'
 		u0 then break
@@ -9939,13 +9863,12 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function eatUb(u Ub)
 	match u 'x1'
 		u0 then break
-		u1(b) then _ = b.n
+		u1(b) then break
 	end 'x1'
 end 'eatUb'
 
@@ -9989,7 +9912,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -10035,7 +9957,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -10093,12 +10014,11 @@ type Mt
 			u0 then break
 			u1(o) then takeB(o.clone())
 		end 'x1'
-		_ = 1 as Num
+		let ignored1 = 1 as Num
 	end 'eatTwice'
 end 'Mt'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -10143,7 +10063,6 @@ type Wm
 end 'Wm'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -10183,7 +10102,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function main() returns ExitCode
@@ -10222,7 +10140,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function pull(consumes u Ub) returns Bx
@@ -10265,7 +10182,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function pull(consumes u Ub) returns Ub
@@ -10306,7 +10222,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function f(consumes u Ub)
@@ -10390,12 +10305,9 @@ type Kp
 end 'Kp'
 
 function readUT(x UT)
-	_ = x
-	_ = 1 as Num
 end 'readUT'
 
 function f(consumes t Tk, h Kp)
-	_ = h
 	let u = t
 	let x = UT.have(u)
 	readUT(x)
@@ -10405,7 +10317,7 @@ function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
-	_ = t.n
+	let ignored1 = t.n
 	return 0
 end 'main'
 ```
@@ -10480,7 +10392,7 @@ function wrUTt(x UT, y Tk)
 		none then break
 		have(z) then z.n = 5
 	end 'x1'
-	_ = y.n
+	let ignored1 = y.n
 end 'wrUTt'
 
 function main() returns ExitCode
@@ -10540,10 +10452,9 @@ function clrW(x UW) returns Num
 end 'clrW'
 
 function rd2(a UT, k Num)
-	_ = k
 	match a 'x1'
 		none then break
-		have(q) then _ = q.n
+		have(q) then break
 	end 'x1'
 end 'rd2'
 
@@ -10604,10 +10515,9 @@ function clrW(x UW) returns Num
 end 'clrW'
 
 function rd3(k Num, a UT)
-	_ = k
 	match a 'x1'
 		none then break
-		have(q) then _ = q.n
+		have(q) then break
 	end 'x1'
 end 'rd3'
 
@@ -10668,10 +10578,9 @@ function clrW(x UW) returns Num
 end 'clrW'
 
 function rdTw(a Tw, k Num)
-	_ = k
 	match a.inner 'x1'
 		none then break
-		have(q) then _ = q.n
+		have(q) then break
 	end 'x1'
 end 'rdTw'
 
@@ -10746,7 +10655,7 @@ end 'Tk'
 function wrUi2(x Ui)
 	match x 'x1'
 		none then break
-		have then _ = 1 as Num
+		have then break
 	end 'x1'
 end 'wrUi2'
 
@@ -10835,7 +10744,6 @@ type Tj is noncopyable
 end 'Tj'
 
 function rd(tV Tk, z Num) returns Num
-	_ = z
 	return tV.n
 end 'rd'
 
@@ -13088,7 +12996,7 @@ function main() returns ExitCode
 	let u = UQ.have(Tq.create(1, b: Bx.create(2)))
 	match u 'x1'
 		none then break
-		have then _ = u
+		have then break
 	end 'x1'
 	return 0
 end 'main'
@@ -13131,9 +13039,9 @@ function main() returns ExitCode
 	let u = UQ.have(Tq.create(1, b: Bx.create(2)))
 	match u 'x1'
 		none then break
-		have then _ = u
+		have then break
 	end 'x1'
-	_ = u
+	let ignored1 = u
 	return 0
 end 'main'
 ```
@@ -13336,7 +13244,7 @@ function main() returns ExitCode
 	let u = UP.have(Pb.create(1))
 	match u 'x1'
 		none then break
-		have then _ = u
+		have then break
 	end 'x1'
 	return 0
 end 'main'
@@ -13367,7 +13275,7 @@ end 'Pb'
 function main() returns ExitCode
 	let u = UP.have(Pb.create(1))
 	match u 'x1'
-		none then _ = u
+		none then break
 		have then break
 	end 'x1'
 	return 0
@@ -13400,7 +13308,7 @@ end 'Pb'
 function main() returns ExitCode
 	let u = UP.have(Pb.create(1))
 	match u 'x1'
-		none then _ = u
+		none then break
 		have(t) then t.n = 2
 	end 'x1'
 	return 0
@@ -13411,7 +13319,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p1-plain-cond-move-nb -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-plain-cond-move-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -13435,7 +13342,7 @@ function main() returns ExitCode
 	let v = UP.none
 	match (u if 1 != 0 else v) 'x1'
 		none then break
-		have then _ = u
+		have then break
 	end 'x1'
 	return 0
 end 'main'
@@ -13572,7 +13479,7 @@ function main() returns ExitCode
 	var u = Ub.u1(Bx.create(1))
 	match u 'x1'
 		u0 then u = Ub.u0
-		u1(t) then _ = t.n
+		u1(t) then break
 	end 'x1'
 	return 0
 end 'main'
@@ -13680,7 +13587,7 @@ function main() returns ExitCode
 	let u = Ub.u1(Bx.create(1))
 	match u 'x1'
 		u0 then break
-		u1 then _ = u
+		u1 then break
 	end 'x1'
 	return 0
 end 'main'
@@ -13711,7 +13618,7 @@ end 'Bx'
 function main() returns ExitCode
 	let u = Ub.u1(Bx.create(1))
 	match u 'x1'
-		u0 then _ = u
+		u0 then break
 		u1 then break
 	end 'x1'
 	return 0
@@ -13743,8 +13650,8 @@ end 'Bx'
 function main() returns ExitCode
 	let u = Ub.u1(Bx.create(1))
 	match u 'x1'
-		u0 then _ = u
-		u1(t) then _ = t.n
+		u0 then break
+		u1(t) then break
 	end 'x1'
 	return 0
 end 'main'
@@ -13754,7 +13661,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p1-iso-cond-move-nb -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-iso-cond-move-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -13778,7 +13684,7 @@ function main() returns ExitCode
 	let v = Ub.u0
 	match (u if 1 != 0 else v) 'x1'
 		u0 then break
-		u1 then _ = u
+		u1 then break
 	end 'x1'
 	return 0
 end 'main'
@@ -13991,7 +13897,7 @@ end 'Tk'
 function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
 	match u 'x1'
-		none then _ = u
+		none then break
 		have then break
 	end 'x1'
 	return 0
@@ -14024,7 +13930,7 @@ end 'Tk'
 function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
 	match u 'x1'
-		none then _ = u
+		none then break
 		have(t) then t.n = 2
 	end 'x1'
 	return 0
@@ -14060,7 +13966,7 @@ function main() returns ExitCode
 	let v = UT.none
 	match (u if 1 != 0 else v) 'x1'
 		none then break
-		have then _ = u
+		have then let ignored1 = u
 	end 'x1'
 	return 0
 end 'main'
@@ -14224,7 +14130,7 @@ function main() returns ExitCode
 	let u = En.b
 	match u 'x1'
 		a then break
-		b then _ = u
+		b then break
 	end 'x1'
 	return 0
 end 'main'
@@ -14245,7 +14151,7 @@ end 'En'
 function main() returns ExitCode
 	let u = En.b
 	match u 'x1'
-		a then _ = u
+		a then break
 		b then break
 	end 'x1'
 	return 0
@@ -14256,7 +14162,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p1-none-cond-move-nb -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-none-cond-move-nb` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -14270,7 +14175,7 @@ function main() returns ExitCode
 	let v = En.a
 	match (u if 1 != 0 else v) 'x1'
 		a then break
-		b then _ = u
+		b then break
 	end 'x1'
 	return 0
 end 'main'
@@ -14336,9 +14241,9 @@ function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
 	match u 'x1'
 		none then break
-		have then _ = u
+		have then break
 	end 'x1'
-	_ = u
+	let ignored1 = u
 	return 0
 end 'main'
 ```
@@ -14423,7 +14328,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function mkUb() returns Ub
@@ -14466,7 +14370,6 @@ function mkUP() returns UP
 end 'mkUP'
 
 function takePI(consumes p Pb)
-	_ = p.n
 end 'takePI'
 
 function main() returns ExitCode
@@ -14501,7 +14404,6 @@ type Tk is noncopyable
 end 'Tk'
 
 function takeT(consumes t Tk)
-	_ = t.n
 end 'takeT'
 
 function mkUT() returns UT
@@ -14550,7 +14452,6 @@ type Wu
 end 'Wu'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function mkUb() returns Ub
@@ -14591,7 +14492,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function mkUb() returns Ub
@@ -14636,7 +14536,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function mkUb() returns Ub
@@ -14677,13 +14576,12 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function eatUb(u Ub)
 	match u 'x1'
 		u0 then break
-		u1(b) then _ = b.n
+		u1(b) then break
 	end 'x1'
 end 'eatUb'
 
@@ -14732,13 +14630,12 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function eatUb(u Ub)
 	match u 'x1'
 		u0 then break
-		u1(b) then _ = b.n
+		u1(b) then break
 	end 'x1'
 end 'eatUb'
 
@@ -14795,7 +14692,6 @@ type Wu
 end 'Wu'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function mkUb() returns Ub
@@ -14836,7 +14732,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function mkUb() returns Ub
@@ -14890,7 +14785,6 @@ type Wu
 end 'Wu'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function mkUb() returns Ub
@@ -14946,7 +14840,7 @@ function main() returns ExitCode
 	var w = Wu.create(mkUb(), n: 0)
 	match w.u 'x1'
 		u0 then break
-		u1(o) then _ = o.n
+		u1(o) then break
 	end 'x1'
 	w.n = 1
 	return 0
@@ -14978,7 +14872,6 @@ type Pb
 end 'Pb'
 
 function takePI(consumes p Pb)
-	_ = p.n
 end 'takePI'
 
 function main() returns ExitCode
@@ -15045,7 +14938,6 @@ type Bx
 end 'Bx'
 
 function takeB(consumes b Bx)
-	_ = b.n
 end 'takeB'
 
 function wrapB(consumes b Bx) returns Ub
@@ -15371,7 +15263,7 @@ function main() returns ExitCode
 	let g = Ht.create(UT.none, n: 0)
 	match (h if 1 != 0 else g).u 'x1'
 		none then break
-		have then _ = g
+		have then let ignored1 = g
 	end 'x1'
 	return 0
 end 'main'
@@ -15443,7 +15335,7 @@ function main() returns ExitCode
 	let g = Hp.create(UP.none, n: 0)
 	match (h if 1 != 0 else g).u 'x1'
 		none then break
-		have then _ = h
+		have then let ignored1 = h
 	end 'x1'
 	return 0
 end 'main'
@@ -15647,8 +15539,6 @@ type Tk is noncopyable
 end 'Tk'
 
 function isoUT(consumes x UT)
-	_ = x
-	_ = 1 as Num
 end 'isoUT'
 
 function main() returns ExitCode
@@ -15682,7 +15572,6 @@ end 'Tk'
 
 function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
-	_ = u as UT
 	return 0
 end 'main'
 ```
@@ -15827,13 +15716,9 @@ type Tp is noncopyable
 end 'Tp'
 
 function isoUQ(consumes x UQ)
-	_ = x
-	_ = 1 as Num
 end 'isoUQ'
 
 function peekUQ(x UQ)
-	_ = x
-	_ = 1 as Num
 end 'peekUQ'
 
 function main() returns ExitCode
@@ -15879,15 +15764,13 @@ type Tp is noncopyable
 end 'Tp'
 
 function peekUQ(x UQ)
-	_ = x
-	_ = 1 as Num
 end 'peekUQ'
 
 function main() returns ExitCode
 	let u = UQ.have(Tp.create(1, b: Bx.create(2)))
 	peekUQ(u)
 	peekUQ(u)
-	_ = u as UQ
+	let ignored1 = u as UQ
 	return 0
 end 'main'
 ```
@@ -15917,8 +15800,6 @@ type Tk is noncopyable
 end 'Tk'
 
 function isoUT(consumes x UT)
-	_ = x
-	_ = 1 as Num
 end 'isoUT'
 
 function main() returns ExitCode
@@ -15959,7 +15840,7 @@ function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
 	match u 'x1'
 		none then break
-		have then _ = u as UT
+		have then let ignored1 = u as UT
 	end 'x1'
 	return 0
 end 'main'
@@ -16372,7 +16253,6 @@ function peekUT(x UT) returns Num
 end 'peekUT'
 
 function isoRet(consumes x UT) returns Num
-	_ = x
 	return 1
 end 'isoRet'
 
@@ -16418,7 +16298,6 @@ function peekUT(x UT) returns Num
 end 'peekUT'
 
 function isoRet(consumes x UT) returns Num
-	_ = x
 	return 1
 end 'isoRet'
 
@@ -16457,7 +16336,6 @@ function lg(x Num) returns Num
 end 'lg'
 
 function isoRet(consumes x UT) returns Num
-	_ = x
 	return 1
 end 'isoRet'
 

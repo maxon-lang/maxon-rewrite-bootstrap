@@ -2148,7 +2148,6 @@ type Outer uses T
 	end 'create'
 
 	function f(a Inner) returns Tally
-		_ = a
 		return self.n
 	end 'f'
 end 'Outer'
@@ -3321,7 +3320,6 @@ type Outer uses T
 	end 'create'
 
 	function inspect(items Items) returns Tally
-		_ = items
 		return self.n
 	end 'inspect'
 end 'Outer'
@@ -3514,7 +3512,6 @@ extension Seq
 
 	function pooled() returns Tally
 		let p = SP.create(self.first())
-		_ = p
 		return 1
 	end 'pooled'
 end 'Seq'
@@ -3578,7 +3575,6 @@ extension Seq
 
 	function pooled() returns Tally
 		let p = SP.create(self.first())
-		_ = p
 		return 1
 	end 'pooled'
 end 'Seq'
@@ -3639,7 +3635,6 @@ extension Seq
 
 	function pooled() returns Tally
 		let p = SP.create(self.first())
-		_ = p
 		return 1
 	end 'pooled'
 end 'Seq'
@@ -3704,7 +3699,6 @@ extension Seq
 
 	function pooled() returns Tally
 		let p = SP.create(self.first())
-		_ = p
 		return 1
 	end 'pooled'
 end 'Seq'
@@ -3757,7 +3751,6 @@ extension Seq
 
 	function pooled() returns Tally
 		let p = SP.create(self.first())
-		_ = p
 		return 1
 	end 'pooled'
 end 'Seq'
@@ -3813,7 +3806,6 @@ extension Seq
 
 	function pooled() returns Tally
 		let p = SP.create(self.first())
-		_ = p
 		return 1
 	end 'pooled'
 end 'Seq'

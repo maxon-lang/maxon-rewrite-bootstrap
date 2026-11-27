@@ -4184,7 +4184,6 @@ type Maker uses T
 
 	static function cell(x T) returns Tally
 		let c = TCell.create(x)
-		_ = c
 		return 1
 	end 'cell'
 end 'Maker'

@@ -1782,7 +1782,6 @@ function main() returns ExitCode
 	let h = Box.create(1) as Box
 	let r = Box.create(2)
 	let a = r
-	_ = h
 	print("{a.value}\n")
 	return 0
 end 'main'

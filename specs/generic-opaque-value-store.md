@@ -2490,18 +2490,19 @@ overwrite payload long enough to allocate xxxxxxxx
 ```
 
 <!-- test: a-closure-parameter-named-like-the-methods-parameter-is-its-own-value -->
+<!-- skip: language difference: E3067 refuses only a discard here, of any value that no call, send, await or panic made, a bare name too, where maxon's also refuses a self-assignment and admits a bare name, a let _ and a value it constructs (README, Where it differs from Maxon: A discard takes a value something made) -->
 A closure inside a static that names its own parameter like the method's parameter builds the record from the closure's argument.
 ```maxon
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self where T implements Copyable
-		return Self{v: v.clone()}
+	static function make(v T) returns Self
+		return Self{v: v}
 	end 'make'
 
-	static function rewrap(v T, other Self) returns Self where T implements Droppable and Copyable
-		let f = function(v T) gives Self{v: v.clone()}
-		_ = Self{v: v.clone()}
+	static function rewrap(v T, other Self) returns Self
+		let f = function(v T) gives Self{v: v}
+		_ = Self{v: v}
 		return f(other.v)
 	end 'rewrap'
 end 'Cell'

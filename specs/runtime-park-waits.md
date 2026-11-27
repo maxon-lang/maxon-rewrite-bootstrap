@@ -34,7 +34,6 @@ end 'Settler'
 
 function main() returns ExitCode
 	let settler = spawn Settler.create()
-	_ = settler
 	return 0
 end 'main'
 ```
@@ -63,7 +62,6 @@ end 'Stresser'
 
 function main() returns ExitCode
 	let stresser = spawn Stresser.create()
-	_ = stresser
 	return 0
 end 'main'
 ```
@@ -90,7 +88,6 @@ end 'Booted'
 
 function main() returns ExitCode
 	let booted = spawn Booted.create()
-	_ = booted
 	return 0
 end 'main'
 ```
@@ -124,7 +121,6 @@ end 'Relay'
 
 function main() returns ExitCode
 	let relay = spawn Relay.create()
-	_ = relay
 	return 0
 end 'main'
 ```
@@ -226,7 +222,6 @@ end 'Account'
 
 function main() returns ExitCode
 	let account = spawn Account.create(1)
-	_ = account
 	return 0
 end 'main'
 ```
@@ -254,7 +249,6 @@ end 'Account'
 
 function main() returns ExitCode
 	let account = spawn Account.create(1)
-	_ = account
 	return 0
 end 'main'
 ```
@@ -282,7 +276,6 @@ end 'Account'
 
 function main() returns ExitCode
 	let account = spawn Account.create(1)
-	_ = account
 	return 0
 end 'main'
 ```
@@ -309,7 +302,6 @@ end 'Account'
 
 function main() returns ExitCode
 	let account = spawn Account.create(1)
-	_ = account
 	return 0
 end 'main'
 ```

@@ -127,6 +127,7 @@ func convertProgram(file, src string, kind inputKind, names programNames) Result
 	if kind == specProgram {
 		warnDroppedLibrary(lines, names.ownLog, addWarn)
 	}
+	dropDiscardsOfExistingValues(lines, names, addWarn)
 	transformLines(lines, addWarn)
 	lines = rewriteFileEndings(lines)
 	if kind == sourceFile {

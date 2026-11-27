@@ -81,7 +81,6 @@ function main() returns ExitCode
 	var row = Row.create(1)
 	let later = async bump(row)
 	print("started\n")
-	_ = later
 	return 0
 end 'main'
 ```
@@ -123,7 +122,6 @@ end 'bump'
 function main() returns ExitCode
 	var row = Row.create(1)
 	let held = Pending.of(async bump(row))
-	_ = held
 	return 0
 end 'main'
 ```
@@ -154,7 +152,6 @@ end 'takeOut'
 function main() returns ExitCode
 	var box = Box.create(1) as Box
 	let taken = takeOut(box)
-	_ = taken
 	return 0
 end 'main'
 ```

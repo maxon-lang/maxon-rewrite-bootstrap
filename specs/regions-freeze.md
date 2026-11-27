@@ -1137,7 +1137,6 @@ type Froze uses T
 
 	static function run(x T) returns Tally
 		let f = freeze(TCell.create(x).clone())
-		_ = f
 		return 1
 	end 'run'
 end 'Froze'
@@ -1202,7 +1201,6 @@ type Froze uses T
 
 	static function run(x T) returns Tally
 		let f = freeze(TCell.create(x).clone())
-		_ = f
 		return 1
 	end 'run'
 end 'Froze'
@@ -2273,7 +2271,6 @@ type ArrShape implements Shape
 end 'ArrShape'
 
 function pick(which Tally) returns Shape
-	_ = which
 	let all = StepperArray.create(0)
 	return ArrShape.create(all)
 end 'pick'
@@ -3104,7 +3101,6 @@ type Froze uses T
 
 	static function run(x T) returns Tally where T implements Copyable
 		let f = freeze(TCell.create(x).clone())
-		_ = f
 		return try 1 + Wider.touch() otherwise panic("out of range")
 	end 'run'
 

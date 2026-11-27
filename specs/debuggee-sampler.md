@@ -881,7 +881,7 @@ depth after the drop 0
 ```
 
 <!-- test: a-process-sampling-its-own-threads-never-suspends-its-caller -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got '_' -->
+<!-- skip: language difference: a discard of a value that already exists is E3067, and the block whose one statement it is may not be empty (README, Where it differs from Maxon: A discard takes a value something made) -->
 <!-- unsupported-targets: x64-linux, arm64-linux, wasm32-wasi -->
 <!-- procs: 4 -->
 <!-- process: own -->
@@ -919,6 +919,7 @@ function main() returns ExitCode
 	let work = async captureEverything(sampled)
 	let started = Clock.nowNanos()
 	while Clock.elapsedNanos(started) < HeldNanos 'holdTheMachine'
+		// TODO: language difference: a discard of a value that already exists is E3067, and the block whose one statement it is may not be empty (README, Where it differs from Maxon: A discard takes a value something made)
 		_ = started
 	end 'holdTheMachine'
 	let refusals = await work

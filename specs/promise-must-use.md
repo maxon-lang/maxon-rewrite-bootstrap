@@ -165,7 +165,6 @@ end 'slow'
 
 function main() returns ExitCode
 	let held = Pending.of(async slow())
-	_ = held
 	print("stored\n")
 	return 0
 end 'main'

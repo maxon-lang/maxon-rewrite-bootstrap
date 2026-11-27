@@ -1259,7 +1259,6 @@ function main() returns ExitCode
 	let viaFieldStore = Holder.create()
 	let rawForBox = try __ManagedDirectory.currentPath() otherwise return 1
 	let viaTypeArgument = MemBox.create(rawForBox)
-	_ = viaTypeArgument
 	return 0 if sizeOf(viaReturn) > 0 and sizeOf(viaReassign) > 0 and sizeOf(viaOtherwise) > 0 and sizeOf(viaMatchArm) > 0 and sizeOf(viaFieldStore.mem) > 0 else 2
 end 'main'
 

@@ -730,7 +730,7 @@ error E3004: <fragment>:3:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-field-discarded-in-arithmetic -->
-<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
+<!-- skip: language difference: E3067 refuses only a discard here, of any value that no call, send, await or panic made, a bare name too, where maxon's also refuses a self-assignment and admits a bare name, a let _ and a value it constructs (README, Where it differs from Maxon: A discard takes a value something made) -->
 A discard whose right side calls nothing is refused whatever its operand is — a grouping parenthesis
 is not a call.
 ```maxon

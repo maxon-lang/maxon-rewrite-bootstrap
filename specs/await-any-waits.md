@@ -56,8 +56,6 @@ end 'Probe'
 function main() returns ExitCode
 	let probe = spawn Probe.create()
 	let peer = spawn Peer.create()
-	_ = probe
-	_ = peer
 	return 0
 end 'main'
 ```

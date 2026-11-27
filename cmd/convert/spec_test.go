@@ -161,6 +161,16 @@ func TestConvertSpecMarksAnErrorTestWhoseBlockWasLaidOutDifferently(t *testing.T
 // TestConvertSpecNamesTheLibrarysSubprocessWhereAProgramRunsAChild: a spec program that runs a child names the types that the
 // library declares beside the built-ins, keeping a type it declares itself, and keeps the built-ins where it calls a built-in
 // that takes the built-in type.
+// TestConvertSpecKeepsTheDiscardThatAnErrorNames: a discard that reads a value goes, unless the expected error is at its
+// line, where the read is the point of the test.
+func TestConvertSpecKeepsTheDiscardThatAnErrorNames(t *testing.T) {
+	const moved = "<!-- test: moved -->\n```maxon\nfunction main() returns ExitCode\n\tlet t = Tk.create(1)\n\tlet _ = t.n\n\tf(t)\n\tlet _ = t.n\n\treturn 0\nend 'main'\n```\n```maxoncstderr\nerror E3102: <fragment>:6:10: use of moved value 't'\n```\n"
+	got := ConvertSpec("demo.md", "## Tests\n\n"+moved).Text
+	if want := "\tlet t = Tk.create(1)\n\tf(t)\n\tlet ignored1 = t.n\n"; !strings.Contains(got, want) {
+		t.Fatalf("the conversion lacks %q:\n%s", want, got)
+	}
+}
+
 func TestConvertSpecNamesTheLibrarysSubprocessWhereAProgramRunsAChild(t *testing.T) {
 	test := func(name, body string) string {
 		return "<!-- test: " + name + " -->\n```maxon\n" + body + "```\n\n"
@@ -178,7 +188,8 @@ func TestConvertSpecNamesTheLibrarysSubprocessWhereAProgramRunsAChild(t *testing
 		"deadline: MxWaitDeadline.within(5)",
 		"function f(c Configuration) returns MxExecutable",
 		"Debuggee.launch(Executable.name(\"x\")",
-		"_ = Subprocess.run\n\t_ = Directory.removeTree(Directory.currentPath(), waiting: WaitDeadline.none)",
+		// The discard that names Subprocess goes, as a discard of a value that already exists does, after the names are read.
+		"ExitCode\n\t_ = Directory.removeTree(Directory.currentPath(), waiting: WaitDeadline.none)",
 		"type Executable\n\tlet name as String",
 		"try MxSubprocess.run(Executable{name: \"x\"})",
 	} {

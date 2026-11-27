@@ -861,7 +861,6 @@ end 'sizeB'
 function main() returns ExitCode
 	let pick = true
 	let f = alpha.sizeA if pick else beta.sizeB
-	_ = f
 	return 0
 end 'main'
 ```

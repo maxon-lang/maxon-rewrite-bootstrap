@@ -234,12 +234,12 @@ error E3011: <fragment>:5:18: Unknown type 'NoSuchTypeAtAll'
 ```
 
 <!-- test: param-unknown-type-unread -->
+<!-- positions: moved -->
 A parameter whose undeclared type no member access ever reaches parses, so `resolveTypes` reports it,
 at the type name in the parameter's declaration.
 ```maxon
 
 function take(n NoSuchTypeAtAll) returns ExitCode
-	_ = n
 	return 0
 end 'take'
 
@@ -268,6 +268,7 @@ error E3011: <fragment>:3:25: Unknown type 'NoSuchTypeAtAll'
 ```
 
 <!-- test: tuple-element-unknown-type -->
+<!-- positions: moved -->
 A tuple type's element is a declaration type position too, so an unknown element type is reported at
 its name inside the tuple.
 ```maxon
@@ -275,7 +276,6 @@ its name inside the tuple.
 typealias Small = int(0 to 100)
 
 function take(p (NoSuchElementType, Small)) returns ExitCode
-	_ = p
 	return 0
 end 'take'
 
@@ -288,6 +288,7 @@ error E3011: <fragment>:5:18: Unknown type 'NoSuchElementType'
 ```
 
 <!-- test: tuple-element-unknown-type-at-each-declaration -->
+<!-- positions: moved -->
 The same tuple type written in two declarations is reported at each one: a declaration's element
 position belongs to that declaration, not to the first that spelled the tuple.
 ```maxon
@@ -295,8 +296,6 @@ position belongs to that declaration, not to the first that spelled the tuple.
 typealias Small = int(0 to 100)
 
 function take(p (NoSuchElementType, Small), q (NoSuchElementType, Small)) returns ExitCode
-	_ = p
-	_ = q
 	return 0
 end 'take'
 
@@ -319,7 +318,6 @@ typealias Small = int(0 to 100)
 typealias P = (NoSuchElementType, Small)
 
 function take(p P) returns ExitCode
-	_ = p
 	return 0
 end 'take'
 
@@ -332,13 +330,13 @@ error E3011: <fragment>:4:16: Unknown type 'NoSuchElementType'
 ```
 
 <!-- test: nested-tuple-element-unknown-type -->
+<!-- positions: moved -->
 A tuple inside a tuple reports its own unknown element; the outer element, the inner tuple, resolves.
 ```maxon
 
 typealias Small = int(0 to 100)
 
 function take(p ((NoSuchElementType, Small), Small)) returns ExitCode
-	_ = p
 	return 0
 end 'take'
 
@@ -351,6 +349,7 @@ error E3011: <fragment>:5:19: Unknown type 'NoSuchElementType'
 ```
 
 <!-- test: tuple-element-unknown-type-in-a-field-and-a-parameter -->
+<!-- positions: moved -->
 The same tuple spelled by a field and by a parameter is reported at each spelling.
 ```maxon
 
@@ -361,7 +360,6 @@ type Holder
 end 'Holder'
 
 function take(p (NoSuchElementType, Small)) returns ExitCode
-	_ = p
 	return 0
 end 'take'
 

@@ -2257,7 +2257,6 @@ type Tk is noncopyable
 end 'Tk'
 
 function keepX(a Tk)
-	_ = a
 end 'keepX'
 
 function main() returns ExitCode
@@ -2284,7 +2283,6 @@ type Tk is noncopyable
 end 'Tk'
 
 function keepX(a Tk)
-	_ = a
 end 'keepX'
 
 function main() returns ExitCode
@@ -2302,6 +2300,7 @@ end 'main'
 ```
 
 <!-- test: a-unique-parameter-discarded-in-a-branch-runs -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A discard that ends a branch is judged like one that ends the function.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -2316,7 +2315,7 @@ end 'Tk'
 
 function discardWhen(a Tk, flag bool)
 	if flag 'whether'
-		_ = a
+		let ignored1 = a
 	end 'whether'
 end 'discardWhen'
 
@@ -2348,7 +2347,6 @@ type Tk is noncopyable
 end 'Tk'
 
 function dropIt(a Tk)
-	_ = a
 end 'dropIt'
 
 function main() returns ExitCode
@@ -2380,7 +2378,6 @@ type Tk is noncopyable
 end 'Tk'
 
 function keepX(a Tk) returns Num
-	_ = a
 	return a.n
 end 'keepX'
 
@@ -2409,10 +2406,10 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-function discardTwice(a Tk)
+function discardTwice(consumes a Tk)
 	var i = 2 as Num
 	while i != 0 'laps'
-		_ = a
+		let ignored1 = a
 		i = try i - 1 otherwise panic("out of range")
 	end 'laps'
 end 'discardTwice'

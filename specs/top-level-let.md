@@ -3874,7 +3874,6 @@ function pickFn() returns UnaryOp
 end 'pickFn'
 
 function show(total Digit) returns Digit
-	_ = total
 	return pickFn().x
 end 'show'
 

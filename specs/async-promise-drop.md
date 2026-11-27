@@ -2173,7 +2173,6 @@ typealias IntPromise = Promise with Integer
 
 extension Array
 	function remove(element Element) returns bool
-		_ = element
 		return false
 	end 'remove'
 end 'Array'

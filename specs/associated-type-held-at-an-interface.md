@@ -533,7 +533,6 @@ typealias CursorBag = Bag with Cursor
 
 function neverDispatches(source CursorBag) returns Integer
 	let held = source
-	_ = held
 	return 7
 end 'neverDispatches'
 
@@ -1296,19 +1295,16 @@ type Holder
 end 'Holder'
 
 function viaA(source HeldA) returns Tally
-	_ = source
 	return 0
 end 'viaA'
 
 function viaB(source HeldB) returns Tally
-	_ = source
 	return 0
 end 'viaB'
 
 function main() returns ExitCode
 	let frozen = freeze(Holder.create(TextNest.create(1, held: "held")))
 	print("{viaA(TextNest.create(1, held: "held"))} {viaB(TextNest.create(2, held: "held"))}\n")
-	_ = frozen
 	return 0
 end 'main'
 ```
@@ -1375,12 +1371,10 @@ type Holder
 end 'Holder'
 
 function viaA(source HeldA) returns Tally
-	_ = source
 	return 0
 end 'viaA'
 
 function viaB(source HeldB) returns Tally
-	_ = source
 	return 0
 end 'viaB'
 
@@ -1389,7 +1383,6 @@ function main() returns ExitCode
 	door.shutdown()
 	let frozen = freeze(Holder.create(TextNest.create(1)))
 	print("{viaA(TextNest.create(1))} {viaB(TextNest.create(2))}\n")
-	_ = frozen
 	return 0
 end 'main'
 ```
@@ -1506,12 +1499,10 @@ type Holder
 end 'Holder'
 
 function viaI(source HeldI) returns Tally
-	_ = source
 	return 0
 end 'viaI'
 
 function viaJ(source HeldJ) returns Tally
-	_ = source
 	return 0
 end 'viaJ'
 
@@ -1520,7 +1511,6 @@ function main() returns ExitCode
 	door.shutdown()
 	let frozen = freeze(Holder.create(TextFoo.create("held", n: 1)))
 	print("{viaI(TextFoo.create("held", n: 1))} {viaJ(Other.create(2))}\n")
-	_ = frozen
 	return 0
 end 'main'
 ```
@@ -1613,7 +1603,6 @@ type Holder
 end 'Holder'
 
 function viaA(source HeldA) returns Tally
-	_ = source
 	return 0
 end 'viaA'
 
@@ -1622,7 +1611,6 @@ function main() returns ExitCode
 	door.shutdown()
 	let frozen = freeze(Holder.create(TextP.create(1)))
 	print("{viaA(TextP.create(1))}\n")
-	_ = frozen
 	return 0
 end 'main'
 ```

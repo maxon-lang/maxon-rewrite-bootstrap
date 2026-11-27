@@ -343,7 +343,6 @@ end 'S'
 function startAndStopAService()
 	let s = spawn S.create()
 	let t = s.clone()
-	_ = t
 end 'startAndStopAService'
 
 function main() returns ExitCode
