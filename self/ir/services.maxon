@@ -130,7 +130,8 @@ function lowerPolicySend(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	let isBehind = compare(l, op: CmpOp.cmpEq, a: status, b: behindWord, unsigned: false)
 	l.b.terminate(l.cur, t: newBranch(isBehind, ifTrue: behind, ifFalse: stopped))
 	l.cur = behind
-	let answer = admitted(l, p: p, ms: ms, site: site, handle: handle, policy: handler.policy)
+	let message = arrivingMessage(l, p: p, ms: ms, handler: c.info.fn, captures: captures)
+	let answer = admitted(l, p: p, ms: ms, site: site, handle: handle, policy: handler.policy, message: message)
 	let notQueue = l.b.newBlock()
 	let queueWord = konst(l, value: admitQueue)
 	let queues = compare(l, op: CmpOp.cmpEq, a: answer, b: queueWord, unsigned: false)
@@ -182,22 +183,20 @@ function lowerPolicySend(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 end 'lowerPolicySend'
 
 // admitted is the answer of the policy's admit to a message sent while its service is behind, a case of Admission: the
-// policy is a type of the service's, so the call is direct. What admit sees is held in place or boxed as its type is.
-function admitted(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, handle Reg, policy ast.TypeID) returns Reg
-	let admit = match ast.typeEntry(ms.types, reads: p.types, t: policy).findMethod(ast.admitName) 'admit'
-		some(f) gives f
-		none gives panic("ir: an overload policy without admit")
-	end 'admit'
+// policy is a type of the service's, so the call is direct. What admit sees is held in place or boxed as its type is, and the
+// message is lent to it where the sender holds it.
+function admitted(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, handle Reg, policy ast.TypeID, message Reg) returns Reg
+	let admit = policyMethod(l, p: p, ms: ms, policy: policy, name: ast.admitName)
 	let arrivalTy = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: admit).paramTypes[0]
 	var fields = RegList.create(0)
 	fields.push(entry(l, p: p, site: site, symbol: Rt.rtServiceQueued, kind: IrKind.kindScalar, args: argsOf1(handle)))
 	fields.push(entry(l, p: p, site: site, symbol: Rt.rtServiceTurn, kind: IrKind.kindScalar, args: RegList.create(0)))
 	let answer = newReg(l, kind: IrKind.kindScalar)
 	match heldAs(p, ms: ms, t: arrivalTy) 'holding'
-		heldAddress(words) then placedCall(l, p: p, ms: ms, admit: admit, arrivalTy: arrivalTy, words: words, fields: fields, answer: answer)
+		heldAddress(words) then placedCall(l, p: p, ms: ms, admit: admit, arrivalTy: arrivalTy, words: words, fields: fields, message: message, answer: answer)
 		heldWord or
 		heldString or
-		heldBox then arrivalCall(l, p: p, ms: ms, admit: admit, arrivalTy: arrivalTy, fields: fields, answer: answer)
+		heldBox then arrivalCall(l, p: p, ms: ms, admit: admit, arrivalTy: arrivalTy, fields: fields, message: message, answer: answer)
 		heldInline(_) panic("ir: a variable that holds words of its own or a byte of a buffer")
 		heldPacked panic("ir: a variable that holds words of its own or a byte of a buffer")
 	end 'holding'
@@ -205,17 +204,17 @@ function admitted(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, 
 end 'admitted'
 
 // arrivalCall calls admit with a box of the fields of what it sees, which it only borrows.
-function arrivalCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, admit ast.FuncID, arrivalTy ast.TypeID, fields RegList, answer Reg)
+function arrivalCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, admit ast.FuncID, arrivalTy ast.TypeID, fields RegList, message Reg, answer Reg)
 	let arrival = builtinRecord(l, p: p, ms: ms, t: arrivalTy, values: fields)
-	emitCall(l, p: p, ms: ms, dst: answer, target: admit, args: argsOf1(arrival))
+	emitCall(l, p: p, ms: ms, dst: answer, target: admit, args: argsOf2(arrival, b: message))
 	let drop = dropType(l, p: p, ms: ms, t: arrivalTy)
 	emitDropReg(l, src: arrival, ty: drop)
 end 'arrivalCall'
 
 // placedCall calls admit with what it sees held in place, in a frame area, which nothing drops.
-function placedCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, admit ast.FuncID, arrivalTy ast.TypeID, words Count, fields RegList, answer Reg)
+function placedCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, admit ast.FuncID, arrivalTy ast.TypeID, words Count, fields RegList, message Reg, answer Reg)
 	let arrival = placedFields(l, p: p, ms: ms, t: arrivalTy, words: words, values: fields)
-	emitCall(l, p: p, ms: ms, dst: answer, target: admit, args: argsOf1(arrival))
+	emitCall(l, p: p, ms: ms, dst: answer, target: admit, args: argsOf2(arrival, b: message))
 end 'placedCall'
 
 // placedFields is a value of the record t held in place in words words of a frame area of its own, whose fields are the
@@ -228,6 +227,72 @@ function placedFields(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	end 'each'
 	return area
 end 'placedFields'
+
+// policyMethod is the method of the policy type named so, the instance of it at the policy's type arguments for a generic
+// policy, as the library's are, which findInstances found at the send (notePolicies).
+function policyMethod(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, policy ast.TypeID, name String) returns ast.FuncID
+	var refused = diag.ErrorList.create(0)
+	return match consumes policyMethodOf(p, ms: ms, module: l.module, site: 0 as ast.NodeID, policy: policy, name: name, errs: refused) 'method'
+		some(f) gives checkedCallee(l, p: p, ms: ms, target: f)
+		none gives panic("ir: the {name} of an overload policy was refused after its module's instances were found")
+	end 'method'
+end 'policyMethod'
+
+// policyMethodOf is the method of the policy type named so, or its instance at the policy's type arguments.
+function policyMethodOf(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, policy ast.TypeID, name String, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
+	let origin = ast.typeEntry(ms.types, reads: p.types, t: policy).effectiveOrigin()
+	let method = match ast.typeEntry(ms.types, reads: p.types, t: origin).findMethod(name) 'found'
+		some(f) gives f
+		none gives panic("ir: an overload policy without {name}")
+	end 'found'
+	return instantiateMethod(p, ms: ms, module: module, site: site, method: method, recv: policy, errs: errs)
+end 'policyMethodOf'
+
+// notePolicies notes the instances of the methods of generic policies that a send of the message handler runs: its own
+// policy's admit, and the shed of each shedding policy of its type, which the start of each of its messages may call.
+function notePolicies(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, handler ast.FuncID, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
+	let decl = serviceDecl(p, ms: ms, handler: handler)
+	let methods = ast.typeEntry(ms.types, reads: p.types, t: decl).methods.clone()
+	for m in methods 'methods'
+		let policy = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m.func).policy
+		if policy == ast.noType or ast.typeEntry(ms.types, reads: p.types, t: policy).typeArgs.count() == 0 'plain'
+			continue 'methods'
+		end 'plain'
+		if m.func == handler 'admit'
+			let method = policyMethodOf(p, ms: ms, module: module, site: site, policy: policy, name: ast.admitName, errs: errs)
+			if not noteInstance(p, ms: ms, module: module, site: site, target: method, found: found, errs: errs) 'deepAdmit'
+				return false
+			end 'deepAdmit'
+		end 'admit'
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m.func).shedPolicy != ast.noShedPolicy 'shed'
+			let method = policyMethodOf(p, ms: ms, module: module, site: site, policy: policy, name: ast.shedName, errs: errs)
+			if not noteInstance(p, ms: ms, module: module, site: site, target: method, found: found, errs: errs) 'deepShed'
+				return false
+			end 'deepShed'
+		end 'shed'
+	end 'methods'
+	return true
+end 'notePolicies'
+
+// arrivingMessage is the message a send of the kind handler lends its policy's admit, a value of its type's message union: a
+// frame area of the words its behaviour holds from its case on, the case and the arguments, which the sender still owns and
+// the area borrows. It is made only while the service is behind.
+function arrivingMessage(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, handler ast.FuncID, captures RegList) returns Reg
+	let decl = serviceDecl(p, ms: ms, handler: handler)
+	let messages = ast.messageUnionOf(p, ms: ms, nt: decl)
+	let kind = ast.messageCase(ms.types, reads: p.types, u: messages, kind: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: handler).name)
+	let words = caseBoxBytes(ms.types, reads: p.types, owner: messages, caseIndex: kind) / wordBytes
+	let area = newReg(l, kind: IrKind.kindManaged)
+	let made = l.b.frameArea(area, words: words)
+	emit(l, i: made)
+	let tag = konst(l, value: try kind as Word otherwise panic("ir: a message case past a word"))
+	emit(l, i: newStoreField(area, offset: 0, src: tag, borrow: false))
+	for i in 0 upto captures.count() 'args'
+		let offset = payloadOffset(ms.types, reads: p.types, owner: messages, caseIndex: kind, index: i)
+		emit(l, i: newStoreField(area, offset: offset, src: captures[i], borrow: owning(regKind(l, v: captures[i]))))
+	end 'args'
+	return area
+end 'arrivingMessage'
 
 // pendingType is the box a message of a coalescing kind waits in, in its kind's pending word: a tuple of a word and its
 // arguments, as the behaviour's captures hold them, so that one drop routine drops what a replaced message held.
@@ -311,8 +376,8 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 		boxTy = pendingType(l, p: p, ms: ms, handler: target)
 	end 'boxed'
 	let sheds = not factory and handlerSheds(p, ms: ms, handler: c.info.fn)
-	// A message of a type with shedding kinds is given its mark word before its arguments.
-	let first = 2 if sheds else 1
+	// A message of a type with shedding kinds is given its mark word and its case before its arguments.
+	let first = 3 if sheds else 1
 	let cellIndex = first if pending else params + first
 	var inner = Lowerer.new(exchange(l.instances, value: InstanceSet.new()))
 	begin(inner, p: p, ms: ms, fn: c.info.body, bindParams: ast.cloneTypeArgs(l.bindParams), bindArgs: ast.cloneTypeArgs(l.bindArgs), bindWitnesses: l.bindWitnesses.clone(), name: name)
@@ -477,11 +542,8 @@ end 'lowerServiceMostQueued'
 // messages of its kinds and its shed is called directly, as admit is; and a message its view marked drops what it holds
 // instead of running its handler. A type with no such kind has no mark and starts its messages by rt.service.start.
 
-// The marks of runtime/service.maxon: a kind's shedding policy, from 1, times markPolicyUnit, plus its place among the
-// policy's kinds times markKindUnit.
+// The marks of runtime/service.maxon: a kind's shedding policy, from 1, times markPolicyUnit, and the bit of a shed message.
 let markPolicyUnit = 0x100000000 as Word
-
-let markKindUnit = 2 as Word
 
 // The answers of rt.service.shedStart: the message runs, it was shed, or the policies' shed is due first.
 let shedDroppedWord = 1 as Word
@@ -500,15 +562,19 @@ function serviceDecl(p ast.Project, ms ast.ModuleState, handler ast.FuncID) retu
 end 'serviceDecl'
 
 // addMark puts the mark word of a message of the kind handler first among the captures of its behaviour, where its type has
-// shedding kinds.
+// shedding kinds, and its case of the type's message union second: the case and the arguments after it are the words of a
+// value of the union, which a view lends a policy's shed where the message waits.
 function addMark(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, handler ast.FuncID, mutates captures RegList)
 	if not handlerSheds(p, ms: ms, handler: handler) 'plain'
 		return
 	end 'plain'
 	let f = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: handler).clone()
 	let policy = try f.shedPolicy as Word otherwise panic("ir: a shedding policy past a word")
-	let kind = try f.shedKind as Word otherwise panic("ir: a kind past a word")
-	let mark = try policy * markPolicyUnit + kind * markKindUnit otherwise panic("ir: a mark past a word")
+	let mark = try policy * markPolicyUnit otherwise panic("ir: a mark past a word")
+	let decl = serviceDecl(p, ms: ms, handler: handler)
+	let messages = ast.messageUnionOf(p, ms: ms, nt: decl)
+	let kind = try ast.messageCase(ms.types, reads: p.types, u: messages, kind: f.name) as Word otherwise panic("ir: a message case past a word")
+	captures.insert(0, value: konst(l, value: kind))
 	captures.insert(0, value: konst(l, value: mark))
 end 'addMark'
 
@@ -579,20 +645,20 @@ end 'runSheds'
 // runShed calls the shed of the shedding policy number of the service type decl, which the message kind names.
 function runShed(mutates inner Lowerer, mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, decl ast.TypeID, state Reg, horizon Reg, number Count, kind ast.FuncID)
 	let f = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: kind).clone()
-	let shed = match ast.typeEntry(ms.types, reads: p.types, t: f.policy).findMethod(ast.shedName) 'shed'
-		some(m) gives m
-		none gives panic("ir: a shedding policy without shed")
-	end 'shed'
+	let shed = policyMethod(inner, p: p, ms: ms, policy: f.policy, name: ast.shedName)
 	let viewTy = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: shed).paramTypes[0]
 	let policyWord = konst(inner, value: try number as Word otherwise panic("ir: a shedding policy past a word"))
 	let view = entry(inner, p: p, site: site, symbol: Rt.rtServiceViewOpen, kind: IrKind.kindScalar, args: argsOf3(state, b: horizon, c: policyWord))
 	var fields = RegList.create(0)
 	fields.push(view)
+	fields.push(entry(inner, p: p, site: site, symbol: Rt.rtServiceViewMessages, kind: IrKind.kindManaged, args: argsOf1(view)))
 	fields.push(entry(inner, p: p, site: site, symbol: Rt.rtServiceViewCount, kind: IrKind.kindScalar, args: argsOf1(view)))
 	fields.push(entry(inner, p: p, site: site, symbol: Rt.rtServiceTurn, kind: IrKind.kindScalar, args: RegList.create(0)))
-	let pending = lentTemporary(inner, p: p, ms: ms, t: viewTy, values: fields)
+	// The view is lent to shed, and dropped here: a box, since it holds the array of its messages.
+	let pending = builtinRecord(inner, p: p, ms: ms, t: viewTy, values: fields)
 	var args = RegList.create(0)
-	var policy = LentTemporary.none()
+	var made = noReg
+	var policyDrop = ast.noType
 	if f.policyField != ast.noPolicyField 'field'
 		let index = f.policyField - 1
 		let recv = newReg(inner, kind: IrKind.kindManaged)
@@ -604,19 +670,20 @@ function runShed(mutates inner Lowerer, mutates l Lowerer, p ast.Project, mutate
 		args.push(fieldReceiver(inner, p: p, ms: ms, owner: decl, index: index, t: fieldTy, addr: addr))
 	end 'field' else 'type'
 		// A receiver is given as a value: the policy's words, or its box, which nothing but the call holds.
-		let made = builtinRecord(inner, p: p, ms: ms, t: f.policy, values: RegList.create(0))
+		made = builtinRecord(inner, p: p, ms: ms, t: f.policy, values: RegList.create(0))
 		args.push(made)
 		if owning(regKind(inner, v: made)) 'boxed'
-			policy = LentTemporary.make(made, slot: 0 as Count, drop: dropType(l, p: p, ms: ms, t: f.policy))
+			policyDrop = dropType(l, p: p, ms: ms, t: f.policy)
 		end 'boxed'
 	end 'type'
-	args.push(pending.place)
+	args.push(pending)
 	emitCall(inner, p: p, ms: ms, dst: noReg, target: shed, args: args)
-	dropTemporary(inner, p: p, ms: ms, lent: pending)
-	if policy.drop != ast.noType 'policy'
-		emitDropReg(inner, src: policy.place, ty: policy.drop)
-	end 'policy'
+	// The view's messages are lent, so it gives them up before it is dropped with the array that held them.
 	entryVoid(inner, p: p, site: site, symbol: Rt.rtServiceViewClose, args: argsOf1(view))
+	emitDropReg(inner, src: pending, ty: dropType(l, p: p, ms: ms, t: viewTy))
+	if policyDrop != ast.noType 'policy'
+		emitDropReg(inner, src: made, ty: policyDrop)
+	end 'policy'
 end 'runShed'
 
 // fieldReceiver is the field at index of the record owner, of the type t, whose address is addr, as a method's receiver is
@@ -638,58 +705,6 @@ function lentWordAt(mutates l Lowerer, addr Reg, kind IrKind) returns Reg
 	emit(l, i: newLoadAt(d, addr: addr, filled: false))
 	return d
 end 'lentWordAt'
-
-// LentTemporary is a value made for one call that takes it by address: the place the call is given, the slot that holds the
-// value, and the type to drop what the slot holds after the call, which may have replaced it, or noType where it is held in
-// place and holds nothing to drop.
-type LentTemporary
-	var place as Reg
-	var slot as Count
-	var drop as ast.TypeID
-
-	static function make(place Reg, slot Count, drop ast.TypeID) returns Self
-		return Self{place: place, slot: slot, drop: drop}
-	end 'make'
-
-	static function none() returns Self
-		return Self{place: noReg, slot: 0 as Count, drop: ast.noType}
-	end 'none'
-end 'LentTemporary'
-
-// lentTemporary is a record of the type t with the fields values, in a slot of the frame whose address a call is given.
-function lentTemporary(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, values RegList) returns LentTemporary
-	let v = builtinRecord(l, p: p, ms: ms, t: t, values: values)
-	let applied = applyType(l, p: p, ms: ms, t: t)
-	let inPlace = match heldAs(p, ms: ms, t: applied) 'holding'
-		heldAddress(_) gives true
-		heldWord gives false
-		heldString gives false
-		heldBox gives false
-		heldInline(_) gives panic("ir: a variable that holds words of its own or a byte of a buffer")
-		heldPacked gives panic("ir: a variable that holds words of its own or a byte of a buffer")
-	end 'holding'
-	if inPlace 'area'
-		return LentTemporary.make(heldPlace(l, words: v), slot: 0 as Count, drop: ast.noType)
-	end 'area'
-	let kind = regKind(l, v: v)
-	let slot = l.b.f.newSlot(kind)
-	emit(l, i: newStoreSlot(slot, src: v, borrow: false))
-	let place = newReg(l, kind: IrKind.kindScalar)
-	emit(l, i: newSlotAddr(place, slot: slot))
-	var drop = ast.noType
-	if owning(kind) 'owned'
-		drop = dropType(l, p: p, ms: ms, t: t)
-	end 'owned'
-	return LentTemporary.make(place, slot: slot, drop: drop)
-end 'lentTemporary'
-
-function dropTemporary(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, lent LentTemporary)
-	if lent.drop == ast.noType 'nothing'
-		return
-	end 'nothing'
-	let held = load(l, slot: lent.slot)
-	emitDropReg(l, src: held, ty: lent.drop)
-end 'dropTemporary'
 
 // dropShed ends the body of a message that a view marked: it drops the arguments, from the parameter first, or the box its
 // pending word holds, as a message that is not handled is dropped.
@@ -714,10 +729,6 @@ function dropShed(mutates inner Lowerer, mutates l Lowerer, p ast.Project, mutat
 	let zero = konst(inner, value: 0 as Word)
 	inner.b.terminate(inner.cur, t: newRet(zero))
 end 'dropShed'
-
-function lowerServiceViewKind(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceViewKind, kind: IrKind.kindScalar, args: argsOf2(args[0], b: args[1]))
-end 'lowerServiceViewKind'
 
 function lowerServiceViewMark(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceViewMark, args: argsOf3(args[0], b: args[1], c: args[2]))

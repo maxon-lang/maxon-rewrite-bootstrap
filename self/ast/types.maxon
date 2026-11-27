@@ -474,12 +474,11 @@ export type FuncEntry
 	// type's, plus 1, and noPendingSlot otherwise. policyField is, for a policy a field of the service holds
 	// (`@policy(self.field)`), the field's index plus 1, and noPolicyField for one the annotation names as a type. shedPolicy
 	// is, where the policy is a SheddingPolicy, which of its type's shedding policies it is, from 1, and noShedPolicy
-	// otherwise; shedKind is the kind's place among the kinds that name that policy, which its PendingView's kind gives.
+	// otherwise.
 	export var policy as TypeID
 	export var pendingSlot as Count
 	export var policyField as Count
 	export var shedPolicy as Count
-	export var shedKind as Count
 	export var genericOrigin as FuncID
 	export var typeArgs as TypeIDList
 	// witnesses are, on an instance, the conformances it was given for the bounds of its type parameters.
@@ -496,7 +495,7 @@ export type FuncEntry
 	export var conditionalBounds as Count
 
 	export static function make(consumes name String, consumes visibility String, module diag.ModuleID, nodeID NodeID) returns FuncEntry
-		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), retTy: noType, result: ResultConv.resultOwned, lendsPlace: false, errTy: noType, policy: noType, pendingSlot: noPendingSlot, policyField: noPolicyField, shedPolicy: noShedPolicy, shedKind: 0 as Count, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false, extendedIface: noType, conditionalBounds: 0 as Count}
+		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), retTy: noType, result: ResultConv.resultOwned, lendsPlace: false, errTy: noType, policy: noType, pendingSlot: noPendingSlot, policyField: noPolicyField, shedPolicy: noShedPolicy, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false, extendedIface: noType, conditionalBounds: 0 as Count}
 	end 'make'
 end 'FuncEntry'
 

@@ -1153,7 +1153,40 @@ function nestedMemberDecls(td ast.TypeDecl, mutates out ast.DeclList)
 		out.push(ast.Decl.aliasDecl(a))
 	end 'each'
 	staticMemberDecls(td.statics, owner: td.name, visibility: td.visibility, out: out)
+	messageUnionDecl(td, out: out)
 end 'nestedMemberDecls'
+
+// messageUnionDecl files the message union of a type a message of which names a policy (README, "Overload policies"): a case
+// for each export instance method, its message kinds in source order, whose payload is the message's parameters, so that a
+// policy reads a message as one value of a closed set. Its cases are the methods' nodes and their types are the parameters'
+// type references, as written.
+function messageUnionDecl(td ast.TypeDecl, mutates out ast.DeclList)
+	var annotated = false
+	for i in 0 upto td.methods.count() 'annotated'
+		annotated = annotated or td.methods[i].isAnnotated
+	end 'annotated'
+	if not annotated 'none'
+		return
+	end 'none'
+	var ud = ast.UnionDecl.make(td.id)
+	ud.name = ast.nestedAliasName(td.name, name: ast.messageUnionMember)
+	ud.visibility = td.visibility.clone()
+	for i in 0 upto td.methods.count() 'methods'
+		if not ast.isMessageKind(td.methods[i]) 'other'
+			continue 'methods'
+		end 'other'
+		var kind = ast.UnionCaseDecl.make(td.methods[i].id)
+		kind.name = td.methods[i].name.clone()
+		for j in 0 upto td.methods[i].params.count() 'params'
+			var field = td.methods[i].params[j].clone()
+			field.convention = ""
+			field.defaultRef = 0 as ast.NodeID
+			kind.fields.push(field)
+		end 'params'
+		ud.cases.push(kind)
+	end 'methods'
+	out.push(ast.Decl.unionDecl(ud))
+end 'messageUnionDecl'
 
 // staticMemberDecls files the static lets of the body of the declaration owner, whose visibility bounds theirs.
 function staticMemberDecls(statics ast.ConstDeclList, owner String, visibility String, mutates out ast.DeclList)

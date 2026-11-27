@@ -876,7 +876,9 @@ let shedDue = 2 as ir.Word
 
 let markPolicyUnit = 4294967296 as Count
 
-let markKindUnit = 2 as Count
+// The captures of a behaviour of a type with shedding kinds: its mark, then its case of the message union, then the
+// arguments, which with the case are the union's value a view lends.
+let messageCapture = 1 as Count
 
 // coinBehind is whether the coin makes a service behind that is not.
 function coinBehind(mutates vm Vm) returns bool
@@ -979,10 +981,103 @@ function entryServiceViewCount(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	giveNum(vm, x: x, n: ir.wordOfBits(vm.views[view].count()))
 end 'entryServiceViewCount'
 
-function entryServiceViewClose(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+// entryServiceViewMessages gives the messages of a view as the runtime does, an array of values of the message union: a box
+// for each, of its case and the arguments its behaviour holds, which its cells hold until the view is closed.
+function entryServiceViewMessages(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let view = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 0))
+	let arr = newArray(vm)
+	for i in 0 upto vm.views[view].count() 'messages'
+		let b = vm.views[view][i]
+		let message = try messageBox(vm, b: b)
+		let cell = vm.h.newCell(arr)
+		vm.h.cellR[cell] = try message as ir.Word otherwise panic("interp: a handle past a word")
+		vm.h.oOwner[message] = cell
+		vm.h.elements[vm.h.oData[arr]].push(cell)
+	end 'messages'
+	while vm.viewArrays.count() <= view 'grow'
+		vm.viewArrays.push(0)
+	end 'grow'
+	vm.viewArrays[view] = arr
+	giveRef(vm, x: x, o: arr)
+end 'entryServiceViewMessages'
+
+// messageBox is a box of the message behaviour b holds: its case, and then each argument at the word the union's layout
+// gives it, two for a String and one for any other. The arguments are in flight in the behaviour, so the box's cells hold
+// them while the view lends the box, and a clone of the message copies them as the executable's does.
+function messageBox(mutates vm Vm, b Count) returns Count throws Halt
+	var words = 1 as Count
+	for k in messageCapture + 1 upto vm.behaviours.capturesN[b].count() 'size'
+		words = try words + capturedWords(vm, b: b, k: k) otherwise panic("interp: a message past memory")
+	end 'size'
+	let message = vm.h.newBox(words, site: vm.site())
+	vm.h.cellN[vm.h.field(message, i: 0)] = vm.behaviours.capturesN[b][messageCapture]
+	var at = 1 as Count
+	for k in messageCapture + 1 upto vm.behaviours.capturesN[b].count() 'args'
+		let c = vm.h.field(message, i: at)
+		let r = vm.behaviours.capturesR[b][k]
+		if r > 0 'held'
+			try adopt(vm, c: c, o: r as Count, what: "a view's message")
+		end 'held' else 'word'
+			vm.h.cellN[c] = vm.behaviours.capturesN[b][k]
+			vm.h.cellR[c] = r
+		end 'word'
+		at = try at + capturedWords(vm, b: b, k: k) otherwise panic("interp: a message past memory")
+	end 'args'
+	return message
+end 'messageBox'
+
+// capturedWords is how many words the capture k of behaviour b takes in a box: two for a String, one for any other value.
+function capturedWords(vm Vm, b Count, k Count) returns Count
+	let r = vm.behaviours.capturesR[b][k]
+	if r > 0 and vm.h.oKind[r as Count] == kindString 'string'
+		return 2
+	end 'string'
+	return 1
+end 'capturedWords'
+
+// entryServiceViewClose ends a view: its messages, which the array of its messages lends, leave the array, which the drop of
+// the view frees then, as the runtime's does.
+function entryServiceViewClose(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let view = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 0))
 	vm.views[view] = CountList.create(0)
+	if view >= vm.viewArrays.count() or vm.viewArrays[view] == 0 'none'
+		return
+	end 'none'
+	let arr = vm.viewArrays[view]
+	vm.viewArrays[view] = 0
+	let data = vm.h.oData[arr]
+	let cells = vm.h.elements[data].clone()
+	vm.h.elements[data] = CountList.create(0)
+	let version = vm.h.nextVersion()
+	vm.h.oVersion[arr] = version
+	for i in 0 upto cells.count() 'messages'
+		let c = cells[i]
+		let message = vm.h.refOf(c)
+		vm.h.cellN[c] = 0
+		vm.h.cellR[c] = 0
+		giveBackArguments(vm, message: message)
+		try free(vm, o: message)
+		vm.h.givePlaceUp(arr, c: c)
+	end 'messages'
 end 'entryServiceViewClose'
+
+// giveBackArguments empties the cells of a view's message, whose arguments go back in flight in their behaviour, which
+// drops or runs them.
+function giveBackArguments(mutates vm Vm, message Count)
+	for i in 1 upto vm.h.oSize[message] 'cells'
+		let c = vm.h.field(message, i: i)
+		let o = vm.h.refOf(c)
+		if o != 0 and not vm.h.oImmortal[o] 'held'
+			if vm.h.isShared(o) 'shared'
+				vm.h.removeHolder(o, c: c)
+			end 'shared' else 'owned'
+				vm.h.oOwner[o] = 0
+			end 'owned'
+		end 'held'
+		vm.h.cellN[c] = 0
+		vm.h.cellR[c] = 0
+	end 'cells'
+end 'giveBackArguments'
 
 // viewBehaviour is the behaviour of a view at an index, which the library holds below the view's count.
 function viewBehaviour(vm Vm, f ir.IrFunction, x ir.Instr) returns Count
@@ -993,11 +1088,6 @@ function viewBehaviour(vm Vm, f ir.IrFunction, x ir.Instr) returns Count
 	end 'past'
 	return vm.views[view][index]
 end 'viewBehaviour'
-
-function entryServiceViewKind(mutates vm Vm, f ir.IrFunction, x ir.Instr)
-	let b = viewBehaviour(vm, f: f, x: x)
-	giveNum(vm, x: x, n: ir.wordOfBits((markOf(vm, b: b) mod markPolicyUnit) / markKindUnit))
-end 'entryServiceViewKind'
 
 function entryServiceViewMark(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	let b = viewBehaviour(vm, f: f, x: x)

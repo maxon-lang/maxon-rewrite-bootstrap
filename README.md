@@ -4959,9 +4959,10 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   `self/ir/services.maxon`): a message kind says what becomes of its work while its service is behind by naming a policy
   before its `export function`, `@policy(Refuse) export function handle(request Request) returns Response`; a kind that
   names none, or `Keep`, compiles as it did, and its senders are slowed. A policy is a type that implements the library's
-  `OverloadPolicy`, whose `static function admit(arrival Arrival) returns Admission` runs at the send, only while the
-  service is behind, sees `arrival.count` (the messages the service holds) and `arrival.turnSize` (the runtime's turn),
-  and keeps no state, so a program writes its own and tests it as a plain function. Its answer is `queue` (the message
+  `OverloadPolicy with Api.Message`, whose `static function admit(arrival Arrival, message Api.Message) returns Admission`
+  runs at the send, only while the service is behind, sees `arrival.count` (the messages the service holds),
+  `arrival.turnSize` (the runtime's turn) and the message, and keeps no state, so a program writes its own and tests it as a
+  plain function, making a message as `Api.Message.handle(request)`. Its answer is `queue` (the message
   is queued and its sender slowed), `refuse` or `discard` (it is not handled and its sender is not slowed: a message with
   a reply fails its send with `busy`, any other is dropped with what it holds), or `replacePending`. The library's menu
   is `Keep`, `Refuse`, `DropNewest`, `DropOldest` (see "Shedding") and `Latest`. `Latest` implements `CoalescingPolicy`, whose kind has a pending word
@@ -4971,36 +4972,61 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   so only the newest that has not run is handled, at the place in the queue of the first it replaced. The send of a kind
   with a policy takes its place by `rt.service.tryReserve`, which is `rt.service.reserve` while the service is not
   behind, so it costs what any send does then: a plain send's IR is unchanged. `@policy` on a function that is no export
-  instance method is `E3946`, a type that implements no `OverloadPolicy` `E3947`, and `Latest`, `DropNewest` or another
+  instance method of the type's body is `E3946`, a type that implements no `OverloadPolicy` `E3947`, one that reads another
+  type's message union `E3950`, and `Latest`, `DropNewest` or another
   coalescing policy on a kind with a reply `E3948`, since the reply would never come. A send of a kind with a reply and a
   policy other than `Keep` fails with `SendBusyError`, `serviceStopped` or `busy`, which its sender handles; every other
   send's error is `SendError`. `underLoad()`, the library's, is whether the service whose message runs is behind, for a
   handler that does cheaper work then, and false off a message. The interpreter models the same (its pending words, a
   queue bound one message longer for each), and its oracles hold under every schedule; `fuzz --services` sends the walks
   of each graph as a kind of each policy of the menu in turn, and of a policy with state of its own.
+- **The message union** (`messageUnionDecl` in `self/syntax/parser.maxon`, `arrivingMessage` in `self/ir/services.maxon`):
+  a type a message of which names a policy has `T.Message`, a union the parser declares with a case for each of its message
+  kinds, its export instance methods in source order, whose payload is the message's parameters, so `Api.Message` of
+  `handle(request Request)` and `data(sample Sample)` is `handle(request Request)` and `data(sample Sample)`. A policy reads
+  a message by matching on it (`match message 'm'`, `handle(request) then ... request.client ...`). It is named
+  `Api.Message` wherever a type is written, and `Api.Message.handle(request)` makes one, for a test of a policy's admit. The
+  interfaces are generic over it (`OverloadPolicy uses Message`), so a program's own policy for its own service implements
+  `OverloadPolicy with Api.Message`, and a library policy is generic, `type DropOldest uses Message implements
+  SheddingPolicy with Message`: `@policy(T)` that names a generic policy bare is the instance at the message union of the
+  type it is written in, `@policy(DropOldest)` is `DropOldest with Api.Message`, and a field that holds one names it,
+  `var fair as PerClientFair with Api.Message`. A policy is lent messages and never owns one: admit's `message` is a `let`
+  parameter of what its sender still holds, and `pending.message(i)` `returns borrowed`, a place in the queue, so keeping
+  either, in the policy's state, in a collection or by passing it on to own, is `E3900`, and `.clone()` makes a copy that
+  is the policy's own. The union is always a box (`ir.unionForm`), laid out as a message's behaviour holds its case and its
+  arguments, so the value a view lends is the behaviour's own words, with no copy or allocation, and the one admit is lent is
+  a frame area of the sender's that borrows the arguments, made only once the send found the service behind: a plain send
+  and a send of a kind with a policy to a service that is not behind compile as they did, and a type with no message that
+  names a policy has no union. The library's `PerClientFair` (`PerClientFair.create(clientOf)`, a field of the service) is
+  fair to the clients of a service that is behind: it sheds the oldest messages of each client that holds more than its
+  share of a turn, the client named by the key function it is given, which reads the message's arguments.
 - **Shedding** (`SheddingPolicy`, `PendingView` and `DropOldest` in `stdlib/service/Overload.maxon`, `startShedding` in
   `self/ir/services.maxon`, "Shedding" in `runtime/service.maxon`): a policy that also implements `SheddingPolicy` has
-  `function shed(mutates self, mutates pending PendingView)`, which runs on the receiver, single-threaded as a handler, at
+  `function shed(mutates self, pending PendingView with Api.Message)`, which runs on the receiver, single-threaded as a handler, at
   the start of a message while the service is behind, once for the messages queued since its last view ended, so each
   message is in one view at most. Its `pending` holds the queued messages of the kinds that name the policy, the oldest
   first, from the one that starts up to the newest queued when the first view of that start was made: `pending.count` of
-  them, `pending.turnSize`, `pending.kind(i)` (the place, from 0, of the message's function among those of its type that
-  name the policy), `pending.shed(i)`, `pending.keep(i)` and `pending.isShed(i)`, which fail with `indexOutOfBounds` past
-  `count`. A message marked shed is not handled: its behaviour drops what it holds when it reaches the head, and it keeps
+  them, `pending.turnSize`, `pending.message(i)` (the message, lent where it waits), `pending.shed(i)`, `pending.keep(i)` and
+  `pending.isShed(i)`, which fail with `indexOutOfBounds` past `count`. A message marked shed is not handled: its behaviour drops what it holds when it reaches the head, and it keeps
   its sender's order. `DropOldest` queues every message and sheds the oldest of its kinds until a turn of them is left. A
   policy with state is a field of the service that its factory sets, named by `@policy(self.field)` (`E3018` for a field
   the type lacks, `E3947` for one whose type is no policy); its `shed` changes that field and no other, and a shedding
-  type with fields named as a type is `E3949`. A shedding policy on a kind with a reply is `E3948`, since a shed message
+  type with fields named as a type is `E3949`. A policy that is both a CoalescingPolicy and a SheddingPolicy is `E3951`: a
+  message of a coalescing kind waits in its kind's pending word, which the next send replaces, so no view could lend it. A
+  shedding policy on a kind with a reply is `E3948`, since a shed message
   could not answer `busy` at its sender's await, whose error is the handler's. A message's policy is declared once every
   type of its module is, so a policy may be declared after its service. Every behaviour of a type with shedding kinds holds
-  a mark word as its first capture (its kind's policy and place, and whether it is shed) and the service a horizon word
-  after its pending words, and its messages start by `rt.service.shedStart`: a load of the horizon and of the mark, and,
-  where the service is behind, the views; a type with no shedding kind holds neither and starts its messages as before.
+  a mark word as its first capture (its kind's policy, and whether it is shed) and its case of the message union as its
+  second, the service a horizon word after its pending words, and its messages start by `rt.service.shedStart`: a load of
+  the horizon and of the mark, and, where the service is behind, the views, each an array of the queued messages of its
+  policy's kinds that lends each from the behaviour's case on (`rt.service.viewMessages`) and gives them back before it is
+  dropped (`rt.service.viewClose`); a type with no shedding kind holds neither and starts its messages as before.
   The interpreter models the same, and makes a service behind at a send of a kind with a policy and at a message's start
-  by a coin of its own stream, one in four, so every `admit` and `shed` runs in ordinary programs; its oracles count a shed
-  message as delivered once, in its sender's order. Not yet: `age(i)` and the arguments of a message (`Arrival.args`,
-  `pending.args(i)`), a shed message with a reply answered `busy`, and the requirement of a policy for a kind fed from a
-  source that cannot be slowed (which needs the event registration of step 3).
+  by a coin of its own stream, one in four, so every `admit` and `shed` runs in ordinary programs; a view's messages are
+  boxes whose cells hold the behaviour's arguments until it is closed; its oracles count a shed message as delivered once, in
+  its sender's order. `fuzz --services` sends walks as kinds of the library's `PerClientFair` and of a program's policy that
+  reads their hops in admit and shed. Not yet: `age(i)`, a shed message with a reply answered `busy`, and the requirement of
+  a policy for a kind fed from a source that cannot be slowed (which needs the event registration of step 3).
 - A handler that returns or throws **replies**: the send gives `Promise with R` (or `Promise with (R, E)`), which the
   sender awaits as an async call's promise (`try await h.total() otherwise 0`, or `let p = try h.total()` and `await p`);
   `_ = try h.total() ...` drops the reply on the service, and a reply sent as a statement is `E3190`. A reply's promise is
@@ -5236,7 +5262,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   for: what becomes of its work while the service is behind (see "Overload policies"). A send of a kind with a reply and
   a policy other than `Keep` fails with `SendBusyError` (`serviceStopped`, `busy`), where maxon's send of any kind fails
   with the message's `sendError`; every other send fails with `SendError` as before. A policy with state is a field of
-  the service, `@policy(self.field)`. The policies are the library's (`stdlib/service`), and maxon's spec tests name none.
+  the service, `@policy(self.field)`. A type a message of which names a policy has a message union, `Api.Message`, that the
+  compiler declares, which a policy reads its messages as (see "The message union"). The policies are the library's
+  (`stdlib/service`), and maxon's spec tests name none.
 - **Two overlapping conditional conformances are refused.** maxon accepts two conditional conformances of one type to one
   interface whose conditions overlap when only one of them declares the member; here the second is `E3941`, as a second
   unconditional one is, since which one holds would otherwise depend on which declares what (see "Extensions").

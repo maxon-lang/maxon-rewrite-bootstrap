@@ -17,30 +17,30 @@ type Feed
 	end 'sample'
 end 'Feed'
 
-type Oldest implements SheddingPolicy
-	static function admit(arrival Arrival) returns Admission
+type Oldest implements SheddingPolicy with Feed.Message
+	static function admit(arrival Arrival, message Feed.Message) returns Admission
 		return Admission.queue
 	end 'admit'
 
-	function shed(mutates self, mutates pending PendingView)
+	function shed(mutates self, pending PendingView with Feed.Message)
 		if pending.count > 0 'some'
 			try pending.shed(0) otherwise return
 		end 'some'
 	end 'shed'
 end 'Oldest'
 
-type Halve implements SheddingPolicy
+type Halve implements SheddingPolicy with Feed.Message
 	var dropped as Count
 
 	static function create() returns Self
 		return Self{dropped: 0}
 	end 'create'
 
-	static function admit(arrival Arrival) returns Admission
+	static function admit(arrival Arrival, message Feed.Message) returns Admission
 		return Admission.refuse
 	end 'admit'
 
-	function shed(mutates self, mutates pending PendingView)
+	function shed(mutates self, pending PendingView with Feed.Message)
 		for i in 0 upto pending.count / 2 'half'
 			try pending.shed(i) otherwise return
 			self.dropped = try self.dropped + 1 otherwise 0

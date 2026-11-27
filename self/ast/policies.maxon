@@ -16,6 +16,82 @@ export let dropNewestPolicyName = "DropNewest"
 
 export let admitName = "admit"
 
+// messageUnionMember is the member that names the message union of a type a message of which names a policy: `Api.Message`,
+// a case for each of its message kinds, which a policy reads a message as.
+export let messageUnionMember = "Message"
+
+// isMessageKind is whether the method of a type's body is a message kind of the type, a case of its message union: an export
+// instance method, which a send through the type's handle runs.
+export function isMessageKind(f FuncDecl) returns bool
+	return not f.isStatic and f.visibility == "export"
+end 'isMessageKind'
+
+// isMessageUnion is whether the union named so is the message union of a type, which only the parser declares: no name written
+// in a source file has a dot.
+export function isMessageUnion(name String) returns bool
+	return isNestedAlias(name)
+end 'isMessageUnion'
+
+// policyMessage is the message union that the policy t reads: what it binds the Message of the library's OverloadPolicy to,
+// at its own type arguments, or noType where it implements no OverloadPolicy.
+export function policyMessage(p Project, mutates tt TypeSlot, reads TypeTable, t TypeID) returns TypeID
+	let origin = typeEntry(tt, reads: reads, t: t).effectiveOrigin()
+	let params = cloneTypeArgs(typeEntry(tt, reads: reads, t: origin).typeParams)
+	let args = typeArgsOf(tt, reads: reads, t: t)
+	for i in 0 upto typeEntry(tt, reads: reads, t: origin).conforms.count() 'conforms'
+		let c = typeEntry(tt, reads: reads, t: origin).conforms[i]
+		let bound = interfaceMessage(p, tt: tt, reads: reads, iface: c, bindings: typeArgsOf(tt, reads: reads, t: c))
+		if bound != noType 'found'
+			return substituteType(tt, reads: reads, t: bound, params: params, args: args)
+		end 'found'
+	end 'conforms'
+	return noType
+end 'policyMessage'
+
+// interfaceMessage is what the interface iface, at the bindings of its associated types, binds OverloadPolicy's Message to:
+// its own where it is OverloadPolicy, or that of an interface it extends.
+function interfaceMessage(p Project, mutates tt TypeSlot, reads TypeTable, iface TypeID, bindings TypeIDList) returns TypeID
+	if isLibraryServiceType(p, tt: tt, reads: reads, t: iface, name: overloadPolicyName) 'policy'
+		if bindings.count() == 0 'unbound'
+			return noType
+		end 'unbound'
+		return bindings[0]
+	end 'policy'
+	let orig = typeEntry(tt, reads: reads, t: iface).effectiveOrigin()
+	for i in 0 upto typeEntry(tt, reads: reads, t: orig).conforms.count() 'parents'
+		let parent = typeEntry(tt, reads: reads, t: orig).conforms[i]
+		let parentBindings = inheritedBindings(tt, reads: reads, child: orig, bindings: bindings, parent: parent)
+		let bound = interfaceMessage(p, tt: tt, reads: reads, iface: parent, bindings: parentBindings)
+		if bound != noType 'found'
+			return bound
+		end 'found'
+	end 'parents'
+	return noType
+end 'interfaceMessage'
+
+// messageUnionOf is the message union of the type nt, `nt.Message`, which the parser declares for a type a message of which
+// names a policy, or noType.
+export function messageUnionOf(p Project, ms ModuleState, nt TypeID) returns TypeID
+	return match consumes bodyAlias(p, ms: ms, t: nt, member: messageUnionMember) 'union'
+		some(ref) gives match consumes declType(p, ms: ms, ref: ref) 'declared'
+			some(t) gives t
+			none gives noType
+		end 'declared'
+		none gives noType
+	end 'union'
+end 'messageUnionOf'
+
+// messageCase is the case of the message union u that the message kind named so is.
+export function messageCase(tt TypeSlot, reads TypeTable, u TypeID, kind String) returns Count
+	let cases = typeEntry(tt, reads: reads, t: u).cases.count()
+	for i in 0 upto cases 'cases'
+		if typeEntry(tt, reads: reads, t: u).cases[i].name == kind 'hit'
+			return i
+		end 'hit'
+	end 'cases'
+	panic("ast: '{kind}' is no case of the message union {typeEntry(tt, reads: reads, t: u).name}")
+end 'messageCase'
+
 // isLibraryServiceType is whether t is the declaration of the library's service module of the name.
 export function isLibraryServiceType(p Project, tt TypeSlot, reads TypeTable, t TypeID, name String) returns bool
 	let origin = typeEntry(tt, reads: reads, t: t).effectiveOrigin()
@@ -81,3 +157,25 @@ end 'serviceWords'
 export function hasReply(f FuncEntry, voidTy TypeID) returns bool
 	return (f.retTy != voidTy and f.retTy != noType) or f.errTy != noType
 end 'hasReply'
+
+// hasMessageCase is whether the message union u has a case for the message kind named so.
+export function hasMessageCase(tt TypeSlot, reads TypeTable, u TypeID, kind String) returns bool
+	for i in 0 upto typeEntry(tt, reads: reads, t: u).cases.count() 'cases'
+		if typeEntry(tt, reads: reads, t: u).cases[i].name == kind 'hit'
+			return true
+		end 'hit'
+	end 'cases'
+	return false
+end 'hasMessageCase'
+
+// hasGenericPolicy is whether a message kind of the type nt names an instance of a generic policy, as the library's are,
+// whose methods a send to the service runs.
+export function hasGenericPolicy(tt TypeSlot, reads TypeTable, ft FuncSlot, funcReads FuncTable, nt TypeID) returns bool
+	for m in typeEntry(tt, reads: reads, t: nt).methods 'methods'
+		let policy = funcEntry(ft, funcReads: funcReads, f: m.func).policy
+		if policy != noType and typeEntry(tt, reads: reads, t: policy).typeArgs.count() > 0 'generic'
+			return true
+		end 'generic'
+	end 'methods'
+	return false
+end 'hasGenericPolicy'

@@ -1,0 +1,47 @@
+// A message a view lends a policy's shed is the queue's: shed may read it, but keeping it in the policy's state is refused.
+type Fair implements SheddingPolicy with Api.Message
+	var kept as Array with Api.Message
+
+	static function create() returns Self
+		return Self{kept: Array.create(0)}
+	end 'create'
+
+	static function admit(arrival Arrival, message Api.Message) returns Admission
+		return Admission.queue
+	end 'admit'
+
+	function shed(mutates self, pending PendingView with Api.Message)
+		for i in 0 upto pending.count 'each'
+			self.kept.push(try pending.message(i) otherwise return)
+		end 'each'
+	end 'shed'
+end 'Fair'
+
+type Request
+	var client as Count
+
+	static function make(client Count) returns Self
+		return Self{client: client}
+	end 'make'
+end 'Request'
+
+type Api
+	var fair as Fair
+	var seen as Count
+
+	static function create() returns Self
+		return Self{fair: Fair.create(), seen: 0}
+	end 'create'
+
+	@policy(self.fair) export function handle(mutates self, request Request)
+		self.seen = request.client
+	end 'handle'
+end 'Api'
+
+function main() returns ExitCode
+	let api = spawn Api.create()
+	try api.handle(Request.make(1)) otherwise ignore
+	return 0
+end 'main'
+
+// expect-error: E3900 at 15:31

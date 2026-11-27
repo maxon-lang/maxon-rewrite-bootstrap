@@ -1,11 +1,11 @@
-type Every implements SheddingPolicy
+type Every implements SheddingPolicy with Sink.Message
 	var seen as Count
 
-	static function admit(arrival Arrival) returns Admission
+	static function admit(arrival Arrival, message Sink.Message) returns Admission
 		return Admission.queue
 	end 'admit'
 
-	function shed(mutates self, mutates pending PendingView)
+	function shed(mutates self, pending PendingView with Sink.Message)
 		self.seen = try self.seen + pending.count otherwise 0
 	end 'shed'
 end 'Every'

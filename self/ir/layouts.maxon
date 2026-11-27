@@ -312,8 +312,13 @@ end 'leastWord'
 
 // unionForm is how a value of the union t is held. A case that carries more than one value, or one value in a union of
 // more cases than two, makes it a box at once, so most unions are decided by their first cases.
+// A message union is always a box, laid out as the words a message's behaviour holds after its case, so that a policy is
+// lent the queued message where it lies (README, "Overload policies").
 export function unionForm(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns UnionForm
 	let origin = ast.originOf(tt, reads: reads, t: t)
+	if ast.isMessageUnion(ast.typeEntry(tt, reads: reads, t: origin).name) 'messages'
+		return UnionForm.unionBoxed
+	end 'messages'
 	let cases = ast.typeEntry(tt, reads: reads, t: origin).cases.count()
 	var carrier = cases
 	for c in 0 upto cases 'cases'

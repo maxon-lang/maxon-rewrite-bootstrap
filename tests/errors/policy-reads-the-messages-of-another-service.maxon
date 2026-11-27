@@ -1,0 +1,36 @@
+// A policy is lent the messages of its own service: one written for another service's message union is refused.
+type Other
+	var seen as Count
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	@policy(Refuse) export function take(mutates self, n Count)
+		self.seen = n
+	end 'take'
+end 'Other'
+
+type ForOther implements OverloadPolicy with Other.Message
+	static function admit(arrival Arrival, message Other.Message) returns Admission
+		return Admission.queue
+	end 'admit'
+end 'ForOther'
+
+type Sink
+	var seen as Count
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	@policy(ForOther) export function take(mutates self, n Count)
+		self.seen = n
+	end 'take'
+end 'Sink'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3950 at 27:10

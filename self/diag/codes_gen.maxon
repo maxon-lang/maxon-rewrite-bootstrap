@@ -489,6 +489,12 @@ export let errPolicyWithReply = "E3948"
 // An '@policy' annotation names a SheddingPolicy type that has fields: the state its shed changes is a field of the service, named by '@policy(self.field)'.
 export let errPolicyStateNotHeld = "E3949"
 
+// The policy an '@policy' annotation names reads the message union of another type than the one whose message it names: a policy is lent the messages of its own service.
+export let errPolicyReadsOtherMessages = "E3950"
+
+// The policy an '@policy' annotation names is both a CoalescingPolicy and a SheddingPolicy: a message of a coalescing kind waits in its kind's pending word, which a later send replaces, so a view cannot lend it to shed.
+export let errPolicyCoalescesAndSheds = "E3951"
+
 // A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 export let errInvalidFieldAccess = "E4006"
 

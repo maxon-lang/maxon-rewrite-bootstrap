@@ -85,6 +85,9 @@ function aliasOfBody(p Project, owner DeclRef, ref DeclRef) returns table.Option
 	if declKindOf(p, ref: ref) == DeclKind.aliasDecl and declaresAliasNode(moduleDecl(p, ref: owner), id: declNodeID(p, ref: ref)) 'alias'
 		return table.Option.some(ref.clone())
 	end 'alias'
+	if declKindOf(p, ref: ref) == DeclKind.unionDecl and isMessageUnion(declName(p, ref: ref)) 'messages'
+		return table.Option.some(ref.clone())
+	end 'messages'
 	return table.Option.none
 end 'aliasOfBody'
 

@@ -139,7 +139,7 @@ export enum Rt
 	rtServiceViewOpen
 	rtServiceViewCount
 	rtServiceViewClose
-	rtServiceViewKind
+	rtServiceViewMessages
 	rtServiceViewMark
 	rtServiceViewMarked
 	rtReplyNew
@@ -673,9 +673,9 @@ export function rtSymbol(r Rt) returns String
 	if r == Rt.rtServiceViewClose 'rtServiceViewClose'
 		return "runtime::serviceViewClose"
 	end 'rtServiceViewClose'
-	if r == Rt.rtServiceViewKind 'rtServiceViewKind'
-		return "runtime::serviceViewKind"
-	end 'rtServiceViewKind'
+	if r == Rt.rtServiceViewMessages 'rtServiceViewMessages'
+		return "runtime::serviceViewMessages"
+	end 'rtServiceViewMessages'
 	if r == Rt.rtServiceViewMark 'rtServiceViewMark'
 		return "runtime::serviceViewMark"
 	end 'rtServiceViewMark'
@@ -1452,9 +1452,9 @@ export function rtText(r Rt) returns String
 	if r == Rt.rtServiceViewClose 'rtServiceViewClose'
 		return "rt.service.viewClose"
 	end 'rtServiceViewClose'
-	if r == Rt.rtServiceViewKind 'rtServiceViewKind'
-		return "rt.service.viewKind"
-	end 'rtServiceViewKind'
+	if r == Rt.rtServiceViewMessages 'rtServiceViewMessages'
+		return "rt.service.viewMessages"
+	end 'rtServiceViewMessages'
 	if r == Rt.rtServiceViewMark 'rtServiceViewMark'
 		return "rt.service.viewMark"
 	end 'rtServiceViewMark'
@@ -1960,7 +1960,7 @@ export function rtTexts() returns ast.StringList
 	texts.push("rt.service.viewOpen")
 	texts.push("rt.service.viewCount")
 	texts.push("rt.service.viewClose")
-	texts.push("rt.service.viewKind")
+	texts.push("rt.service.viewMessages")
 	texts.push("rt.service.viewMark")
 	texts.push("rt.service.viewMarked")
 	texts.push("rt.reply.new")
@@ -2495,9 +2495,9 @@ export function rtCode(r Rt) returns Count
 	if r == Rt.rtServiceViewClose 'rtServiceViewClose'
 		return 136
 	end 'rtServiceViewClose'
-	if r == Rt.rtServiceViewKind 'rtServiceViewKind'
+	if r == Rt.rtServiceViewMessages 'rtServiceViewMessages'
 		return 137
-	end 'rtServiceViewKind'
+	end 'rtServiceViewMessages'
 	if r == Rt.rtServiceViewMark 'rtServiceViewMark'
 		return 138
 	end 'rtServiceViewMark'
@@ -3003,7 +3003,7 @@ export function rtOf(code Count) returns Rt
 		134 gives Rt.rtServiceViewOpen
 		135 gives Rt.rtServiceViewCount
 		136 gives Rt.rtServiceViewClose
-		137 gives Rt.rtServiceViewKind
+		137 gives Rt.rtServiceViewMessages
 		138 gives Rt.rtServiceViewMark
 		139 gives Rt.rtServiceViewMarked
 		140 gives Rt.rtReplyNew
@@ -3550,9 +3550,9 @@ export function rtUnit(r Rt) returns RtUnit
 	if r == Rt.rtServiceViewClose 'rtServiceViewClose'
 		return RtUnit.rtUnitSource
 	end 'rtServiceViewClose'
-	if r == Rt.rtServiceViewKind 'rtServiceViewKind'
+	if r == Rt.rtServiceViewMessages 'rtServiceViewMessages'
 		return RtUnit.rtUnitSource
-	end 'rtServiceViewKind'
+	end 'rtServiceViewMessages'
 	if r == Rt.rtServiceViewMark 'rtServiceViewMark'
 		return RtUnit.rtUnitSource
 	end 'rtServiceViewMark'
@@ -4358,8 +4358,7 @@ export function rtFunctions(b ast.Builtins) returns RtFunctionList
 	fns.push(RtFunction.make(Rt.rtServiceViewClose, name: "serviceViewClose", params: params116, result: b.voidTy))
 	var params117 = RtParamList.create(0)
 	params117.push(RtParam.make(ast.Convention.convLet, name: "view", ty: b.countTy))
-	params117.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtServiceViewKind, name: "serviceViewKind", params: params117, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtServiceViewMessages, name: "serviceViewMessages", params: params117, result: b.countTy))
 	var params118 = RtParamList.create(0)
 	params118.push(RtParam.make(ast.Convention.convLet, name: "view", ty: b.countTy))
 	params118.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
@@ -4985,7 +4984,7 @@ export function rtGivesString(r Rt) returns bool
 		rtServiceViewOpen or
 		rtServiceViewCount or
 		rtServiceViewClose or
-		rtServiceViewKind or
+		rtServiceViewMessages or
 		rtServiceViewMark or
 		rtServiceViewMarked or
 		rtReplyNew or

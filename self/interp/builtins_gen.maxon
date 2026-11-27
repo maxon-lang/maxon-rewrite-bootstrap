@@ -408,13 +408,13 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		return
 	end 'rtServiceViewCount'
 	if symbol == ir.Rt.rtServiceViewClose 'rtServiceViewClose'
-		entryServiceViewClose(vm, f: f, x: x)
+		try entryServiceViewClose(vm, f: f, x: x)
 		return
 	end 'rtServiceViewClose'
-	if symbol == ir.Rt.rtServiceViewKind 'rtServiceViewKind'
-		entryServiceViewKind(vm, f: f, x: x)
+	if symbol == ir.Rt.rtServiceViewMessages 'rtServiceViewMessages'
+		try entryServiceViewMessages(vm, f: f, x: x)
 		return
-	end 'rtServiceViewKind'
+	end 'rtServiceViewMessages'
 	if symbol == ir.Rt.rtServiceViewMark 'rtServiceViewMark'
 		entryServiceViewMark(vm, f: f, x: x)
 		return

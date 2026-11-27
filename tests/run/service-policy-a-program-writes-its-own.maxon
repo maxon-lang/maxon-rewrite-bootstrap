@@ -1,12 +1,12 @@
-// A program writes its own overload policy as a type that implements OverloadPolicy: admit runs at the send, only while the
-// service is behind, sees how many messages it holds and the runtime's turn, and keeps no state, so it is tested as a plain
-// static function. A handler asks underLoad() whether its service is behind, to do cheaper work while it is.
+// A program writes its own overload policy as a type that implements OverloadPolicy with its service's message union: admit
+// runs at the send, only while the service is behind, sees how many messages it holds, the runtime's turn and the message,
+// and keeps no state, so it is tested as a plain static function. A handler asks underLoad() whether its service is behind, to do cheaper work while it is.
 // schedules: 6
 //> admits: queue refuse, handled and refused: 1000, underLoad off a message: false
 export typealias Amount = int(0 to 1000000)
 
-type TwoTurns implements OverloadPolicy
-	static function admit(arrival Arrival) returns Admission
+type TwoTurns implements OverloadPolicy with Worker.Message
+	static function admit(arrival Arrival, message Worker.Message) returns Admission
 		if arrival.count < (try 2 * arrival.turnSize otherwise arrival.count) 'room'
 			return Admission.queue
 		end 'room'
@@ -45,8 +45,8 @@ function admitText(a Admission) returns String
 end 'admitText'
 
 function main() returns ExitCode
-	let few = TwoTurns.admit(Arrival.make(10, turnSize: 64))
-	let many = TwoTurns.admit(Arrival.make(200, turnSize: 64))
+	let few = TwoTurns.admit(Arrival.make(10, turnSize: 64), message: Worker.Message.work(1))
+	let many = TwoTurns.admit(Arrival.make(200, turnSize: 64), message: Worker.Message.count)
 	let w = spawn Worker.create()
 	var refused = 0 as Amount
 	for i in 1 to 1000 'send'

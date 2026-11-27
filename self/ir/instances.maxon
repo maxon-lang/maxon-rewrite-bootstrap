@@ -320,6 +320,9 @@ function visitSites(p ast.Project, mutates ms ast.ModuleState, module diag.Modul
 		if witnessInterface(p, ms: ms, module: module, receiver: ast.callReceiver(p.modules[ast.modIndex(module)].tree, e: site, kind: info.kind), info: info, bindParams: bindParams, bindArgs: bindArgs) != ast.noType 'dispatched'
 			continue 'each'
 		end 'dispatched'
+		if info.kind == ast.CallKind.callSend and not notePolicies(p, ms: ms, module: module, site: site, handler: info.fn, found: found, errs: errs) 'deepPolicy'
+			return false
+		end 'deepPolicy'
 		let target = resolveCall(p, ms: ms, module: module, node: site, info: info, bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: bindWitnesses, errs: errs)
 		if not noteInstance(p, ms: ms, module: module, site: site, target: target, found: found, errs: errs) 'deep'
 			return false

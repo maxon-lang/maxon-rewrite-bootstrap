@@ -357,6 +357,12 @@ function declarePolicy(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	var policy = ast.noType
 	var field = ast.noPolicyField
 	var at = off
+	let serviceName = ast.typeName(ms.types, reads: p.types, t: nt)
+	let messages = ast.messageUnionOf(p, ms: ms, nt: nt)
+	if messages == ast.noType or not ast.hasMessageCase(ms.types, reads: p.types, u: messages, kind: name) 'outsideBody'
+		checkFail(c.modID, off: off, code: diag.errPolicyMisplaced, msg: "'@policy' names the policy of a message kind of '{serviceName}', a case of '{serviceName}.Message', which the body of '{serviceName}' declares: put '{name}' and its '@policy' in the body of '{serviceName}'", errs: errs)
+		return
+	end 'outsideBody'
 	if f.policyOfSelf 'field'
 		let found = ast.typeEntry(ms.types, reads: p.types, t: nt).findField(f.policyField)
 		if not found.isSome() 'missing'
@@ -368,17 +374,23 @@ function declarePolicy(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		policy = ast.typeEntry(ms.types, reads: p.types, t: nt).fields[i].ty
 		field = try i + 1 otherwise panic("check: more fields than a word")
 	end 'field' else 'type'
-		policy = resolveTypeRef(c, p: p, ms: ms, tr: f.policy, selfTy: ast.noType, errs: errs)
 		at = offsetOf(c, p: p, ms: ms, node: f.policy)
+		policy = policyTypeOf(c, p: p, ms: ms, tr: f.policy, messages: messages, errs: errs)
 	end 'type'
 	if policy == ast.noType 'unresolved'
 		return
 	end 'unresolved'
 	let policyName = ast.typeName(ms.types, reads: p.types, t: policy)
 	if not ast.reachesLibraryInterface(p, tt: ms.types, reads: p.types, have: policy, name: ast.overloadPolicyName) 'notPolicy'
-		checkFail(c.modID, off: at, code: diag.errPolicyNotAPolicy, msg: "'{policyName}' is no overload policy: name one of Keep, Refuse, DropNewest, DropOldest and Latest, or a type that implements 'OverloadPolicy'", errs: errs)
+		checkFail(c.modID, off: at, code: diag.errPolicyNotAPolicy, msg: "'{policyName}' is no overload policy: name one of Keep, Refuse, DropNewest, DropOldest, Latest and PerClientFair, or a type that implements 'OverloadPolicy with {serviceName}.Message'", errs: errs)
 		return
 	end 'notPolicy'
+	let read = ast.policyMessage(p, tt: ms.types, reads: p.types, t: policy)
+	if read != messages 'otherMessages'
+		let readName = ast.typeName(ms.types, reads: p.types, t: read)
+		checkFail(c.modID, off: at, code: diag.errPolicyReadsOtherMessages, msg: "'{policyName}' reads the messages '{readName}', and '{name}' is a message of '{serviceName}', whose policy is lent its own: implement the policy 'with {serviceName}.Message', or name a library policy bare, as '@policy(DropOldest)', which reads the messages of the type that names it", errs: errs)
+		return
+	end 'otherMessages'
 	if ast.isLibraryServiceType(p, tt: ms.types, reads: p.types, t: policy, name: ast.keepPolicyName) 'keep'
 		return
 	end 'keep'
@@ -390,6 +402,10 @@ function declarePolicy(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 			return
 		end 'unanswered'
 	end 'reply'
+	if coalescing and shedding 'both'
+		checkFail(c.modID, off: at, code: diag.errPolicyCoalescesAndSheds, msg: "'{policyName}' is both a CoalescingPolicy and a SheddingPolicy: a message of a coalescing kind waits in its kind's pending word, which the next send of the kind replaces, so a view could not lend it to shed; implement one of the two", errs: errs)
+		return
+	end 'both'
 	if shedding and field == ast.noPolicyField and ast.typeEntry(ms.types, reads: p.types, t: ast.typeEntry(ms.types, reads: p.types, t: policy).effectiveOrigin()).fields.count() > 0 'state'
 		checkFail(c.modID, off: at, code: diag.errPolicyStateNotHeld, msg: "'{policyName}' has state, which its shed changes, so a field of the service holds it: declare 'var name as {policyName}', set it in the factory, and write '@policy(self.name)'", errs: errs)
 		return
@@ -406,12 +422,35 @@ function declarePolicy(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	end 'shed'
 end 'declarePolicy'
 
+// policyTypeOf is the policy type that '@policy(T)' names: a generic policy written bare, as the library's are, is the
+// instance at the message union of the type whose message names it, which it reads.
+function policyTypeOf(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, messages ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let bare = ms.tree().listLen(ast.typeRefTypeArgsRef(ms.tree(), id: tr)) == 0 and not ast.typeRefIsTuple(ms.tree(), id: tr)
+	let origin = namedOrigin(p, ms: ms, tr: tr)
+	if bare and origin != ast.noType and ast.typeEntry(ms.types, reads: p.types, t: origin).typeParams.count() == 1 'generic'
+		var args = ast.TypeIDList.create(0)
+		args.push(messages)
+		return ast.instantiateType(ms.types, reads: p.types, origin: origin, args: args)
+	end 'generic'
+	return resolveTypeRef(c, p: p, ms: ms, tr: tr, selfTy: ast.noType, errs: errs)
+end 'policyTypeOf'
+
+// namedOrigin is the type of the declaration that the type reference tr names, or noType where it names none.
+function namedOrigin(p ast.Project, ms ast.ModuleState, tr ast.NodeID) returns ast.TypeID
+	return match consumes ast.nodeDecl(p, ms: ms, node: tr as Count) 'named'
+		some(ref) gives match consumes ast.declType(p, ms: ms, ref: ref) 'declared'
+			some(t) gives t
+			none gives ast.noType
+		end 'declared'
+		none gives ast.noType
+	end 'named'
+end 'namedOrigin'
+
 // numberShedPolicy gives the message fid its shedding policy's number among its type's, from 1 in source order, which a
-// kind before it that names the same policy (the same field, or the same type) already has, and its place among those kinds.
+// kind before it that names the same policy (the same field, or the same type) already has.
 function numberShedPolicy(p ast.Project, mutates ms ast.ModuleState, fid ast.FuncID, nt ast.TypeID, policy ast.TypeID, field Count)
 	var number = ast.noShedPolicy
 	var most = ast.noShedPolicy
-	var kinds = 0 as Count
 	for m in ast.typeEntry(ms.types, reads: p.types, t: nt).methods 'methods'
 		let other = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m.func).clone()
 		if other.shedPolicy == ast.noShedPolicy 'none'
@@ -422,12 +461,10 @@ function numberShedPolicy(p ast.Project, mutates ms ast.ModuleState, fid ast.Fun
 		end 'most'
 		if other.policyField == field and (field != ast.noPolicyField or other.policy == policy) 'same'
 			number = other.shedPolicy
-			kinds = try kinds + 1 otherwise panic("check: more kinds than a word")
 		end 'same'
 	end 'methods'
 	if number == ast.noShedPolicy 'first'
 		number = try most + 1 otherwise panic("check: more shedding policies than a word")
 	end 'first'
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].shedPolicy = number
-	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].shedKind = kinds
 end 'numberShedPolicy'

@@ -555,7 +555,7 @@ function callMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	if param != ast.noType 'parameter'
 		return callOnTypeParam(c, p: p, ms: ms, call: call, param: param, name: name, errs: errs)
 	end 'parameter'
-	var named = ast.noType
+	var named = messageUnionNamed(c, p: p, ms: ms, e: obj)
 	if ms.tree().kindOf(obj) == ast.NodeKind.nameExpr 'headIsName'
 		let mark = errs.count()
 		named = typeNamed(c, p: p, ms: ms, name: obj, errs: errs)
@@ -591,6 +591,24 @@ function callPrimitiveStatic(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	end 'static'
 	return unknownFunction(c, p: p, ms: ms, call: call, name: "{nameOfType(p, ms: ms, t: t)}.{name}", qualifiers: 1 as Count, fix: libraryNamingFix(c, p: p, ms: ms, call: call, name: name), errs: errs)
 end 'callPrimitiveStatic'
+
+// messageUnionNamed is the message union that the expression e names, `Api.Message`, which a program writes before one of
+// its cases to make a message, as a test of a policy's admit does, or noType for any other expression.
+function messageUnionNamed(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns ast.TypeID
+	if ms.tree().kindOf(e) != ast.NodeKind.memberExpr or ast.memberExprName(ms.tree(), id: e) != ast.messageUnionMember 'notMember'
+		return ast.noType
+	end 'notMember'
+	let head = ast.memberExprObj(ms.tree(), id: e)
+	if ms.tree().kindOf(head) != ast.NodeKind.nameExpr 'notName'
+		return ast.noType
+	end 'notName'
+	var probe = diag.ErrorList.create(0)
+	let owner = typeNamed(c, p: p, ms: ms, name: head, errs: probe)
+	if owner == ast.noType or ast.typeKind(ms.types, reads: p.types, t: owner) != ast.TypeKind.record 'notType'
+		return ast.noType
+	end 'notType'
+	return ast.messageUnionOf(p, ms: ms, nt: owner)
+end 'messageUnionNamed'
 
 // typeParamNamed is the type parameter that the expression e names, or none: a type parameter's name outranks a
 // declaration of that name.

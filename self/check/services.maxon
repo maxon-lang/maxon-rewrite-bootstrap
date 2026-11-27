@@ -132,6 +132,10 @@ function callSend(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	info.replyKept = replies and c.discardedSend != call
 	let kept = info.replyKept
 	c.typing.calls.insert(call as Count, value: info)
+	if ast.hasGenericPolicy(ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, nt: ast.typeEntry(ms.types, reads: p.types, t: state).effectiveOrigin()) 'policies'
+		// The send runs the instances of its type's generic policies, which are found where the send is (ir.notePolicies).
+		recordUse(c, call: call)
+	end 'policies'
 	if not kept 'noReply'
 		return p.builtins.voidTy
 	end 'noReply'

@@ -1,0 +1,49 @@
+// The library's PerClientFair is a reusable policy that reads messages: generic over the message union, it takes a key function
+// from the factory that names the client of a message, and while its service is behind sheds the oldest messages of each
+// client that holds more than its share of a turn. A client that floods the service is shed, one that sends a little never is.
+// schedules: 6
+//> quiet handled: 25, all counted: true
+export typealias Amount = int(0 to 1000000)
+
+let loud = 1 as Count
+
+let quiet = 2 as Count
+
+type Api
+	var fair as PerClientFair with Api.Message
+	var handled as Amount
+	var quietHandled as Amount
+
+	static function create() returns Self
+		return Self{fair: PerClientFair.create(clientOf), handled: 0, quietHandled: 0}
+	end 'create'
+
+	@policy(self.fair) export function handle(mutates self, client Count, n Amount)
+		self.handled = try self.handled + 1 otherwise 0
+		if client == quiet 'quiet'
+			self.quietHandled = try self.quietHandled + 1 otherwise 0
+		end 'quiet'
+	end 'handle'
+
+	export function total() returns (Amount, Amount)
+		return (self.handled, self.quietHandled)
+	end 'total'
+end 'Api'
+
+function clientOf(message Api.Message) returns Count
+	return match message 'm'
+		handle(client, _) gives client
+		total gives 0
+	end 'm'
+end 'clientOf'
+
+function main() returns ExitCode
+	let api = spawn Api.create()
+	for i in 1 to 1000 'send'
+		let client = quiet if i mod 40 == 0 else loud
+		try api.handle(client, n: i) otherwise ignore
+	end 'send'
+	let (handled, quietHandled) = try await api.total() otherwise (0, 0)
+	print("quiet handled: {quietHandled}, all counted: {handled <= 1000}\n")
+	return 0
+end 'main'

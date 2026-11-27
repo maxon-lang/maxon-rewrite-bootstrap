@@ -1,0 +1,50 @@
+// The message admit is lent is its sender's: admit may read it, but passing it on to own is refused.
+type Fair implements SheddingPolicy with Api.Message
+	var kept as Count
+
+	static function create() returns Self
+		return Self{kept: 0}
+	end 'create'
+
+	static function admit(arrival Arrival, message Api.Message) returns Admission
+		keep(message)
+		return Admission.queue
+	end 'admit'
+
+	function shed(mutates self, pending PendingView with Api.Message)
+		self.kept = pending.count
+	end 'shed'
+end 'Fair'
+
+function keep(consumes message Api.Message)
+	_ = message
+end 'keep'
+
+type Request
+	var client as Count
+
+	static function make(client Count) returns Self
+		return Self{client: client}
+	end 'make'
+end 'Request'
+
+type Api
+	var fair as Fair
+	var seen as Count
+
+	static function create() returns Self
+		return Self{fair: Fair.create(), seen: 0}
+	end 'create'
+
+	@policy(self.fair) export function handle(mutates self, request Request)
+		self.seen = request.client
+	end 'handle'
+end 'Api'
+
+function main() returns ExitCode
+	let api = spawn Api.create()
+	try api.handle(Request.make(1)) otherwise ignore
+	return 0
+end 'main'
+
+// expect-error: E3900 at 10:8

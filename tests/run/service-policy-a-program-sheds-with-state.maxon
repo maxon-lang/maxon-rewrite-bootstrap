@@ -5,7 +5,7 @@
 //> handled and shed: 1000
 export typealias Amount = int(0 to 1000000)
 
-type KeepEveryThird implements SheddingPolicy
+type KeepEveryThird implements SheddingPolicy with Sampler.Message
 	var seen as Amount
 	var dropped as Amount
 
@@ -13,11 +13,11 @@ type KeepEveryThird implements SheddingPolicy
 		return Self{seen: 0, dropped: 0}
 	end 'create'
 
-	static function admit(arrival Arrival) returns Admission
+	static function admit(arrival Arrival, message Sampler.Message) returns Admission
 		return Admission.queue
 	end 'admit'
 
-	function shed(mutates self, mutates pending PendingView)
+	function shed(mutates self, pending PendingView with Sampler.Message)
 		for i in 0 upto pending.count 'each'
 			self.seen = try self.seen + 1 otherwise 0
 			if self.seen mod 3 != 0 'drop'

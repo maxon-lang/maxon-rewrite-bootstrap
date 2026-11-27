@@ -1114,7 +1114,6 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "serviceUnderLoad", Static: true, Result: "Bool", Intrinsic: "ServiceUnderLoad", Instead: "underLoad()"},
 	// The floors of the library's PendingView, the view a shedding policy's shed is given of the messages of its kinds that
 	// are queued: the kind of one, and its mark, which sheds it or keeps it.
-	{Owner: "Builtins", Name: "serviceViewKind", Static: true, Params: []string{"view Count", "index Count"}, Result: "Count", Intrinsic: "ServiceViewKind", Instead: "pending.kind(i)"},
 	{Owner: "Builtins", Name: "serviceViewMark", Static: true, Params: []string{"view Count", "index Count", "shed Bool"}, Intrinsic: "ServiceViewMark", Instead: "pending.shed(i) or pending.keep(i)"},
 	{Owner: "Builtins", Name: "serviceViewMarked", Static: true, Params: []string{"view Count", "index Count"}, Result: "Bool", Intrinsic: "ServiceViewMarked", Instead: "pending.isShed(i)"},
 	{Owner: "Builtins", Name: "cpuCount", Static: true, Result: "Count", Intrinsic: "SchedulerMachineCpuCount", Instead: "Scheduler.machineCpuCount()"},
@@ -1417,8 +1416,8 @@ var entries = []entry{
 	{"ServiceShedMarked", "rt.service.shedMarked", "Source", roleCall, "(state address) -> bool: whether the message that starts is shed, once the policies' shed has run"},
 	{"ServiceViewOpen", "rt.service.viewOpen", "Source", roleCall, "(state address, horizon slot, policy) -> view: the queued messages of the kinds of a shedding policy, from the one that starts up to the newest its first view saw"},
 	{"ServiceViewCount", "rt.service.viewCount", "Source", roleCall, "(view) -> count: the messages of a view"},
-	{"ServiceViewClose", "rt.service.viewClose", "Source", roleCall, "(view): frees a view once its policy's shed has run"},
-	{"ServiceViewKind", "rt.service.viewKind", "Source", roleCall, "(view, index) -> count: the kind of a message of a view, its place among the kinds that name the policy"},
+	{"ServiceViewClose", "rt.service.viewClose", "Source", roleCall, "(view): gives up the messages a view lent once its policy's shed has run, before the view's array is dropped"},
+	{"ServiceViewMessages", "rt.service.viewMessages", "Source", roleCall, "(view) -> array: the messages of a view, each a value of its service's message union lent where it waits in the queue"},
 	{"ServiceViewMark", "rt.service.viewMark", "Source", roleCall, "(view, index, shed bool): marks a message of a view shed, or kept"},
 	{"ServiceViewMarked", "rt.service.viewMarked", "Source", roleCall, "(view, index) -> bool: whether a message of a view is marked shed"},
 	{"ReplyNew", "rt.reply.new", "Source", roleCall, "() -> promise: the cell a message's reply comes back in, which an await of a promise waits for as it waits for a coroutine"},
@@ -1682,7 +1681,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"ServiceViewOpen", "serviceViewOpen(state Count, slot Count, policy Count) Count"},
 	{"ServiceViewCount", "serviceViewCount(view Count) Count"},
 	{"ServiceViewClose", "serviceViewClose(view Count)"},
-	{"ServiceViewKind", "serviceViewKind(view Count, index Count) Count"},
+	{"ServiceViewMessages", "serviceViewMessages(view Count) Count"},
 	{"ServiceViewMark", "serviceViewMark(view Count, index Count, shed Bool)"},
 	{"ServiceViewMarked", "serviceViewMarked(view Count, index Count) Bool"},
 	{"ReplyNew", "replyNew() Count"},

@@ -1,0 +1,29 @@
+// A policy cannot both coalesce and shed: a message of a coalescing kind waits in its kind's pending word, which the next
+// send replaces, so a view could not lend it to shed.
+type Both implements CoalescingPolicy with Sink.Message, SheddingPolicy with Sink.Message
+	static function admit(arrival Arrival, message Sink.Message) returns Admission
+		return Admission.replacePending
+	end 'admit'
+
+	function shed(mutates self, pending PendingView with Sink.Message)
+		_ = pending.count
+	end 'shed'
+end 'Both'
+
+type Sink
+	var seen as Count
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	@policy(Both) export function take(mutates self, n Count)
+		self.seen = n
+	end 'take'
+end 'Sink'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3951 at 20:10

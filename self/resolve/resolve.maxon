@@ -1630,7 +1630,9 @@ let equatableName = "Equatable"
 let hashValueName = "HashValue"
 
 function resolveUnionDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, ud ast.UnionDecl, s Surface, mutates errs diag.ErrorList)
-	checkEnd(r, label: ud.name, endNode: ud.endRef, errs: errs)
+	if not ast.isMessageUnion(ud.name) 'written'
+		checkEnd(r, label: ud.name, endNode: ud.endRef, errs: errs)
+	end 'written'
 	let outer = enterTypeParams(r, p: p, owner: ud.name, s: s, params: ud.typeParams, constraints: ud.whereList, errs: errs)
 	resolveConforms(r, p: p, s: s, conforms: ud.conforms, errs: errs)
 	for i in 0 upto ud.cases.count() 'cs'

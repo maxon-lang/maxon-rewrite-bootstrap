@@ -253,7 +253,8 @@ end 'serviceUnderLoad'
 
 // Shedding (README, "Overload policies"). Every behaviour of a service whose type has kinds of a SheddingPolicy holds a mark
 // word as its first capture (markOffset): which of the type's shedding policies its kind names, times markPolicyUnit, plus
-// its kind's place among the kinds that name it, times markKindUnit, plus markShed once a policy sheds it. Such a service
+// markShed once a policy sheds it; its second is its case of the type's message union, so that from it on its captures are a
+// value of the union, which a view lends where it lies (messageOffset). Such a service
 // has one word after its pending words, its horizon: the newest message the last views were given, or 0. A message's start
 // (serviceShedStart) is where the policies' shed is due: while the service is behind and the messages of the last views have
 // all started, so each message is in at most one view. A view (serviceViewOpen) is the messages of one policy's kinds from the
@@ -268,8 +269,6 @@ let shedDue = 2 as Count
 
 let markShed = 1 as Count
 
-let markKindUnit = 2 as Count
-
 let markPolicyUnit = 0x100000000 as Count
 
 let noHorizon = 0 as Count
@@ -277,6 +276,11 @@ let noHorizon = 0 as Count
 function markOffset() returns Count
 	return cownOffset(1, index: 1)
 end 'markOffset'
+
+// messageOffset is where a behaviour's message, its case and its arguments, starts: after its mark.
+function messageOffset() returns Count
+	return __Raw.wrappingAdd(markOffset(), right: wordBytes)
+end 'messageOffset'
 
 // runningRecord is the record of the behaviour the green thread runs.
 function runningRecord() returns Count
@@ -315,9 +319,10 @@ function serviceShedMarked(state Count) returns bool
 	return markedShed(runningRecord()) == shedDropped
 end 'serviceShedMarked'
 
-// serviceViewOpen is the view of one shedding policy, a block of its count and the records of the messages of its kinds, from
-// the one that starts to the horizon, which the first view of the start sets to the tail of the queue. A message behind the
-// tail that has exchanged itself into it may not have linked yet, so the walk waits for each link, as a release does.
+// serviceViewOpen is the view of one shedding policy, an array of the messages of its kinds, from the one that starts to the
+// horizon, which the first view of the start sets to the tail of the queue: each element is a value of the message union,
+// the words of its behaviour from its case on, which the array lends. A message behind the tail that has exchanged itself
+// into it may not have linked yet, so the walk waits for each link, as a release does.
 function serviceViewOpen(state Count, slot Count, policy Count) returns Count
 	let handle = __Raw.wrappingSub(state, right: cownValueOffset)
 	let first = runningRecord()
@@ -337,13 +342,19 @@ function serviceViewOpen(state Count, slot Count, policy Count) returns Count
 		end 'end'
 		record = recordAfter(record)
 	end 'count'
-	let view = alloc(try (n + 1) * wordBytes otherwise panic("a view past memory"))
-	__Raw.storeWord(view, offset: 0, value: n)
-	var at = wordBytes
+	let view = arrayNew()
+	var data = 0 as Count
+	if n > 0 'some'
+		data = alloc(try n * wordBytes otherwise panic("a view past memory"))
+	end 'some'
+	__Raw.storeWord(view, offset: arrayLengthOffset, value: n)
+	__Raw.storeWord(view, offset: arrayCapacityOffset, value: n)
+	__Raw.storeWord(view, offset: arrayDataOffset, value: data)
+	var at = 0 as Count
 	record = first
 	while true 'fill'
 		if policyOfMark(record) == policy 'mine'
-			__Raw.storeWord(view, offset: at, value: record)
+			__Raw.storeWord(data, offset: at, value: __Raw.wrappingAdd(record, right: messageOffset()))
 			at = __Raw.wrappingAdd(at, right: wordBytes)
 		end 'mine'
 		if record == last 'end'
@@ -370,24 +381,28 @@ function recordAfter(record Count) returns Count
 end 'recordAfter'
 
 function serviceViewCount(view Count) returns Count
-	return __Raw.loadWord(view, offset: 0)
+	return __Raw.loadWord(view, offset: arrayLengthOffset)
 end 'serviceViewCount'
 
+// serviceViewMessages is the array of a view's messages, which is the view: the library holds it as its own field.
+function serviceViewMessages(view Count) returns Count
+	return view
+end 'serviceViewMessages'
+
+// serviceViewClose gives the messages a view lent back: the array is left empty, so that the drop of the view, which follows,
+// frees its buffer and its box and none of the messages, which their behaviours own.
 function serviceViewClose(view Count)
-	free(view)
+	__Raw.storeWord(view, offset: arrayLengthOffset, value: 0)
 end 'serviceViewClose'
 
 // viewRecord is the record of the message of a view at an index, which the library holds below the view's count.
 function viewRecord(view Count, index Count) returns Count
-	if index >= __Raw.loadWord(view, offset: 0) 'past'
+	if index >= __Raw.loadWord(view, offset: arrayLengthOffset) 'past'
 		panic("a view's message past its count")
 	end 'past'
-	return __Raw.loadWord(view, offset: try (index + 1) * wordBytes otherwise panic("a view past memory"))
+	let message = __Raw.loadWord(__Raw.loadWord(view, offset: arrayDataOffset), offset: try index * wordBytes otherwise panic("a view past memory"))
+	return __Raw.wrappingSub(message, right: messageOffset())
 end 'viewRecord'
-
-function serviceViewKind(view Count, index Count) returns Count
-	return (__Raw.loadWord(viewRecord(view, index: index), offset: markOffset()) mod markPolicyUnit) / markKindUnit
-end 'serviceViewKind'
 
 function serviceViewMark(view Count, index Count, shed bool)
 	let record = viewRecord(view, index: index)

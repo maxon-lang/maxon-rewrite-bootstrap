@@ -1,0 +1,106 @@
+// A program's own policy reads the messages of its service through the service's message union, `Api.Message`, a case for
+// each message kind whose payload is the message's arguments: admit is lent the message that arrives, and shed each queued
+// one by `pending.message(i)`, where it waits in the queue. This one is fair to the clients of the service: while it is
+// behind, it sheds the messages of the client that floods it beyond one turn, and refuses at the door what the blocked
+// client sends. Every message is handled, shed or refused, and the quiet client is never shed.
+// schedules: 6
+//> quiet handled: 50, all counted: true, admits: queue refuse
+export typealias Amount = int(0 to 1000000)
+
+type Request
+	var client as Amount
+	var n as Amount
+
+	static function make(client Amount, n Amount) returns Self
+		return Self{client: client, n: n}
+	end 'make'
+end 'Request'
+
+let loud = 1 as Amount
+
+let quiet = 2 as Amount
+
+let blocked = 3 as Amount
+
+type Fair implements SheddingPolicy with Api.Message
+	var shed as Amount
+
+	static function create() returns Self
+		return Self{shed: 0}
+	end 'create'
+
+	static function admit(arrival Arrival, message Api.Message) returns Admission
+		return match message 'm'
+			handle(request) gives Admission.refuse if request.client == blocked else Admission.queue
+			total gives Admission.queue
+		end 'm'
+	end 'admit'
+
+	function shed(mutates self, pending PendingView with Api.Message)
+		var loudSeen = 0 as Count
+		for k in 0 upto pending.count 'newestFirst'
+			let i = try pending.count - 1 - k otherwise return
+			let client = match (try pending.message(i) otherwise return) 'm'
+				handle(request) gives request.client
+				total gives 0
+			end 'm'
+			if client == loud 'loud'
+				loudSeen = try loudSeen + 1 otherwise 0
+				if loudSeen > pending.turnSize 'over'
+					try pending.shed(i) otherwise return
+					self.shed = try self.shed + 1 otherwise 0
+				end 'over'
+			end 'loud'
+		end 'newestFirst'
+	end 'shed'
+end 'Fair'
+
+type Api
+	var fair as Fair
+	var handled as Amount
+	var quietHandled as Amount
+
+	static function create() returns Self
+		return Self{fair: Fair.create(), handled: 0, quietHandled: 0}
+	end 'create'
+
+	@policy(self.fair) export function handle(mutates self, request Request)
+		self.handled = try self.handled + 1 otherwise 0
+		if request.client == quiet 'quiet'
+			self.quietHandled = try self.quietHandled + 1 otherwise 0
+		end 'quiet'
+	end 'handle'
+
+	export function total() returns (Amount, Amount)
+		return (try self.handled + self.fair.shed otherwise 0, self.quietHandled)
+	end 'total'
+end 'Api'
+
+function admitText(a Admission) returns String
+	return match a 'a'
+		queue gives "queue"
+		refuse gives "refuse"
+		discard gives "discard"
+		replacePending gives "replacePending"
+	end 'a'
+end 'admitText'
+
+function main() returns ExitCode
+	let api = spawn Api.create()
+	var sent = 0 as Amount
+	for i in 1 to 1000 'send'
+		var client = loud
+		if i mod 20 == 0 'quiet'
+			client = quiet
+		end 'quiet' else if i mod 7 == 0 'blocked'
+			client = blocked
+		end 'blocked'
+		sent = try sent + 1 otherwise 0
+		try api.handle(Request.make(client, n: i)) otherwise ignore
+	end 'send'
+	let (counted, quietHandled) = try await api.total() otherwise (0, 0)
+	let open = Fair.admit(Arrival.make(100, turnSize: 64), message: Api.Message.handle(Request.make(quiet, n: 0)))
+	let shut = Fair.admit(Arrival.make(100, turnSize: 64), message: Api.Message.handle(Request.make(blocked, n: 0)))
+	print("quiet handled: {quietHandled}, all counted: {counted <= sent}, admits: {admitText(open)} {admitText(shut)}\n")
+	return 0
+end 'main'

@@ -1,8 +1,9 @@
 // The program of the services lane of fuzz (self/driver/services.maxon), which runs it under the interpreter, whose oracles
 // of backpressure check every schedule. Its standard input is a send graph of up to four services: a byte '0' or '1' for each
 // edge, from service 0's to service 3 to service 3's to itself, then which service main stops after its first start, '0' for
-// none and '1' to '4' for the first to the fourth, then the overload policy of the kind every walk is sent as, '0' to '5'
-// for Keep, Refuse, DropNewest, Latest, DropOldest and a policy with state of the program's own, which a field holds. main starts a walk of the graph at service 0 a few times, and a service that is
+// none and '1' to '4' for the first to the fourth, then the overload policy of the kind every walk is sent as, '0' to '7'
+// for Keep, Refuse, DropNewest, Latest, DropOldest, a policy with state of the program's own, which a field holds, the
+// library's PerClientFair keyed by the service a walk is at, and a policy of the program's own that reads the walk's hops. main starts a walk of the graph at service 0 a few times, and a service that is
 // handed a walk with hops left passes it on along each of its edges, so a cycle carries a walk round until its hops are spent.
 export typealias Amount = int(0 to 1000000)
 
@@ -26,20 +27,24 @@ let dropsOldest = 4 as Amount
 
 let sampled = 5 as Amount
 
+let fairs = 6 as Amount
+
+let byHops = 7 as Amount
+
 // EveryOther is a shedding policy with state: while its service is behind it sheds every other message it sees, counting
 // them in its field.
-type EveryOther implements SheddingPolicy
+type EveryOther implements SheddingPolicy with Node.Message
 	var seen as Amount
 
 	static function create() returns Self
 		return Self{seen: 0}
 	end 'create'
 
-	static function admit(arrival Arrival) returns Admission
+	static function admit(arrival Arrival, message Node.Message) returns Admission
 		return Admission.queue
 	end 'admit'
 
-	function shed(mutates self, mutates pending PendingView)
+	function shed(mutates self, pending PendingView with Node.Message)
 		for i in 0 upto pending.count 'each'
 			self.seen = try self.seen + 1 otherwise 0
 			if self.seen mod 2 == 0 'other'
@@ -49,12 +54,57 @@ type EveryOther implements SheddingPolicy
 	end 'shed'
 end 'EveryOther'
 
+// SpentFirst reads the arguments of its messages: while its service is behind it refuses at the door a walk with no hops left,
+// which would pass nothing on, and sheds the queued ones with one hop left.
+type SpentFirst implements SheddingPolicy with Node.Message
+	static function admit(arrival Arrival, message Node.Message) returns Admission
+		return Admission.discard if hopsOf(message) == 0 else Admission.queue
+	end 'admit'
+
+	function shed(mutates self, pending PendingView with Node.Message)
+		for i in 0 upto pending.count 'each'
+			if hopsOf(try pending.message(i) otherwise return) == 1 'spent'
+				try pending.shed(i) otherwise return
+			end 'spent'
+		end 'each'
+	end 'shed'
+end 'SpentFirst'
+
+// hopsOf is how many hops a walk has left.
+function hopsOf(message Node.Message) returns Amount
+	return match message 'm'
+		walk(left, _, _, _, _, _, _) gives left
+		walkRefused(left, _, _, _, _, _, _) gives left
+		walkDropped(left, _, _, _, _, _, _) gives left
+		walkLatest(left, _, _, _, _, _, _) gives left
+		walkOldest(left, _, _, _, _, _, _) gives left
+		walkSampled(left, _, _, _, _, _, _) gives left
+		walkFair(left, _, _, _, _, _, _) gives left
+		walkSpent(left, _, _, _, _, _, _) gives left
+	end 'm'
+end 'hopsOf'
+
+// serviceOf is the service a walk is at, which PerClientFair counts as its client.
+function serviceOf(message Node.Message) returns Count
+	return match message 'm'
+		walk(_, at, _, _, _, _, _) gives at as Count
+		walkRefused(_, at, _, _, _, _, _) gives at as Count
+		walkDropped(_, at, _, _, _, _, _) gives at as Count
+		walkLatest(_, at, _, _, _, _, _) gives at as Count
+		walkOldest(_, at, _, _, _, _, _) gives at as Count
+		walkSampled(_, at, _, _, _, _, _) gives at as Count
+		walkFair(_, at, _, _, _, _, _) gives at as Count
+		walkSpent(_, at, _, _, _, _, _) gives at as Count
+	end 'm'
+end 'serviceOf'
+
 type Node
 	var handled as Amount
 	var sampler as EveryOther
+	var fair as PerClientFair with Node.Message
 
 	static function create() returns Self
-		return Self{handled: 0, sampler: EveryOther.create()}
+		return Self{handled: 0, sampler: EveryOther.create(), fair: PerClientFair.create(serviceOf)}
 	end 'create'
 
 	export function walk(mutates self, left Amount, at Amount, edges ByteArray, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
@@ -81,6 +131,14 @@ type Node
 		self.pass(left, at: at, edges: edges, policy: sampled, n0: n0, n1: n1, n2: n2, n3: n3)
 	end 'walkSampled'
 
+	@policy(self.fair) export function walkFair(mutates self, left Amount, at Amount, edges ByteArray, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
+		self.pass(left, at: at, edges: edges, policy: fairs, n0: n0, n1: n1, n2: n2, n3: n3)
+	end 'walkFair'
+
+	@policy(SpentFirst) export function walkSpent(mutates self, left Amount, at Amount, edges ByteArray, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
+		self.pass(left, at: at, edges: edges, policy: byHops, n0: n0, n1: n1, n2: n2, n3: n3)
+	end 'walkSpent'
+
 	function pass(mutates self, left Amount, at Amount, edges ByteArray, policy Amount, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
 		self.handled = try self.handled + 1 otherwise 0
 		if left == 0 'spent'
@@ -94,7 +152,7 @@ type Node
 	end 'pass'
 end 'Node'
 
-// send sends a walk to a service as the kind of the policy, keeps to sampled.
+// send sends a walk to a service as the kind of the policy, keeps to byHops.
 function send(to Node.handle, policy Amount, left Amount, at Amount, consumes edges ByteArray, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
 	match policy 'kind'
 		0 then try to.walk(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
@@ -102,7 +160,9 @@ function send(to Node.handle, policy Amount, left Amount, at Amount, consumes ed
 		2 then try to.walkDropped(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
 		3 then try to.walkLatest(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
 		4 then try to.walkOldest(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
-		default then try to.walkSampled(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
+		5 then try to.walkSampled(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
+		6 then try to.walkFair(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
+		default then try to.walkSpent(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
 	end 'kind'
 end 'send'
 

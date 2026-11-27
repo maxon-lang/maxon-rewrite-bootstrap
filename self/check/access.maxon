@@ -234,7 +234,7 @@ function checkMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 			return ast.noType
 		end 'ambiguous'
 	end 'primitive'
-	var named = ast.noType
+	var named = messageUnionNamed(c, p: p, ms: ms, e: obj)
 	if ms.tree().kindOf(obj) == ast.NodeKind.nameExpr 'headIsName'
 		let mark = errs.count()
 		named = typeNamed(c, p: p, ms: ms, name: obj, errs: errs)

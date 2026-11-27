@@ -1,9 +1,11 @@
 /// What becomes of the work of a message kind when its service is behind: the policy its type names with
 /// `@policy(T)` before the message's `export function`. The runtime asks a policy only while the service is
-/// behind, so a send to a service that keeps up costs what it does without one.
+/// behind, so a send to a service that keeps up costs what it does without one. `Message` is the message union of the
+/// service, `Api.Message`, a case for each of its message kinds, whose payload is the message's arguments: `admit` is lent
+/// the message that arrives, which its sender still owns, and may read it but never keep it.
 /// @category Services
-public interface OverloadPolicy
-	static function admit(arrival Arrival) returns Admission
+public interface OverloadPolicy uses Message
+	static function admit(arrival Arrival, message Message) returns Admission
 end 'OverloadPolicy'
 
 /// A policy that may answer `replacePending`: its message kind has a word of the service's own, which holds the one
@@ -15,37 +17,37 @@ end 'CoalescingPolicy'
 /// is behind, once for the messages queued since it last ran, single-threaded as a handler is, and marks which of the queued
 /// messages of its kinds are not handled. A policy with state of its own is a field of the service, set by its factory, and
 /// named by `@policy(self.field)`; its `shed` changes that field and nothing else of the service.
-public interface SheddingPolicy extends OverloadPolicy
-	function shed(mutates self, mutates pending PendingView)
+public interface SheddingPolicy uses Message extends OverloadPolicy
+	function shed(mutates self, pending PendingView with Message)
 end 'SheddingPolicy'
 
 /// What a shedding policy's `shed` sees: the messages of the kinds that name it, queued on the service, the oldest first,
-/// from the one that starts to the newest queued when the view was made; `count` of them, and the runtime's `turnSize`. A
-/// message marked by `shed(i)` is not handled: its behaviour drops what it holds and counts as handled for its sender's
-/// order. `keep(i)` takes the mark back, and every message is kept until it is marked. An index past `count` fails with
-/// `indexOutOfBounds`.
-public type PendingView
+/// from the one that starts to the newest queued when the view was made; `count` of them, and the runtime's `turnSize`.
+/// `message(i)` lends the message at i where it waits in the queue, as a case of the service's message union, which `shed`
+/// may read but never keep. A message marked by `shed(i)` is not handled: its behaviour drops what it holds and counts as
+/// handled for its sender's order. `keep(i)` takes the mark back, and every message is kept until it is marked. An index
+/// past `count` fails with `indexOutOfBounds`.
+public type PendingView uses Message
 	let view as Count
+	let messages as Array with Message
 	public let count as Count
 	public let turnSize as Count
 
-	/// The kind of the message at i: the place, from 0, of its message function among those of its type that name this
-	/// policy, in the order they are written.
-	public function kind(i Count) returns Count throws ArrayError
-		if i >= count 'past'
+	public function message(i Count) returns borrowed Message throws ArrayError
+		if i >= messages.count() 'past'
 			throw ArrayError.indexOutOfBounds
 		end 'past'
-		return __Builtins.serviceViewKind(view, index: i)
-	end 'kind'
+		return messages[i]
+	end 'message'
 
-	public function shed(mutates self, i Count) throws ArrayError
+	public function shed(i Count) throws ArrayError
 		if i >= count 'past'
 			throw ArrayError.indexOutOfBounds
 		end 'past'
 		__Builtins.serviceViewMark(view, index: i, shed: true)
 	end 'shed'
 
-	public function keep(mutates self, i Count) throws ArrayError
+	public function keep(i Count) throws ArrayError
 		if i >= count 'past'
 			throw ArrayError.indexOutOfBounds
 		end 'past'
@@ -86,35 +88,35 @@ end 'Arrival'
 
 /// Keep handles every message: the senders of a service that is behind are slowed until it catches up. It is what a
 /// message kind with no policy does, and naming it says so on purpose.
-public type Keep implements OverloadPolicy
-	public static function admit(arrival Arrival) returns Admission
+public type Keep uses Message implements OverloadPolicy with Message
+	public static function admit(arrival Arrival, message Message) returns Admission
 		return Admission.queue
 	end 'admit'
 end 'Keep'
 
 /// Refuse handles no message sent while the service is behind: a message with a reply fails its send with `busy` at once,
 /// so its sender can answer "try later", and the sender is not slowed.
-public type Refuse implements OverloadPolicy
-	public static function admit(arrival Arrival) returns Admission
+public type Refuse uses Message implements OverloadPolicy with Message
+	public static function admit(arrival Arrival, message Message) returns Admission
 		return Admission.refuse
 	end 'admit'
 end 'Refuse'
 
 /// DropNewest throws away a message sent while the service is behind: for telemetry, whose sender expects nothing back.
-public type DropNewest implements OverloadPolicy
-	public static function admit(arrival Arrival) returns Admission
+public type DropNewest uses Message implements OverloadPolicy with Message
+	public static function admit(arrival Arrival, message Message) returns Admission
 		return Admission.discard
 	end 'admit'
 end 'DropNewest'
 
 /// DropOldest queues every message, and while its service is behind sheds the oldest of its kinds until a turn of them is
 /// left, so the newest are handled: for work whose worth fades as it waits.
-public type DropOldest implements SheddingPolicy
-	public static function admit(arrival Arrival) returns Admission
+public type DropOldest uses Message implements SheddingPolicy with Message
+	public static function admit(arrival Arrival, message Message) returns Admission
 		return Admission.queue
 	end 'admit'
 
-	public function shed(mutates self, mutates pending PendingView)
+	public function shed(mutates self, pending PendingView with Message)
 		if pending.count <= pending.turnSize 'fits'
 			return
 		end 'fits'
@@ -126,11 +128,80 @@ end 'DropOldest'
 
 /// Latest keeps only the newest message of its kind that has not run: one sent while the service is behind waits in the
 /// kind's pending word, and the next of the kind replaces it there and drops it, so its sender is never slowed.
-public type Latest implements CoalescingPolicy
-	public static function admit(arrival Arrival) returns Admission
+public type Latest uses Message implements CoalescingPolicy with Message
+	public static function admit(arrival Arrival, message Message) returns Admission
 		return Admission.replacePending
 	end 'admit'
 end 'Latest'
+
+/// PerClientFair keeps a service that is behind fair to its clients: it queues every message, and while the service is
+/// behind sheds the oldest messages of each client that holds more than its share of a turn, so that a client that floods
+/// the service cannot crowd the others out. The share is the most messages a client may keep for all of them to fit in a
+/// turn, and at least one; a client under it keeps every message. The key function its factory is given names the client of
+/// a message, read from its arguments. A policy with state is a field of its service, set by the service's factory, `var fair
+/// as PerClientFair with Api.Message` and `Self{fair: PerClientFair.create(clientOf)}`, and named by `@policy(self.fair)`.
+public type PerClientFair uses Message implements SheddingPolicy with Message
+	public typealias Key = function(Message) returns Count
+	typealias Counts = Array with Count
+	let key as Key
+
+	public static function create(consumes key Key) returns Self
+		return Self{key: key}
+	end 'create'
+
+	public static function admit(arrival Arrival, message Message) returns Admission
+		return Admission.queue
+	end 'admit'
+
+	public function shed(mutates self, pending PendingView with Message)
+		if pending.count <= pending.turnSize 'fits'
+			return
+		end 'fits'
+		let keyOf = self.key
+		var clients = Counts.create(0)
+		var held = Counts.create(0)
+		var clientOf = Counts.create(0)
+		for i in 0 upto pending.count 'messages'
+			let client = keyOf(try pending.message(i) otherwise return)
+			var at = clients.count()
+			for c in 0 upto clients.count() 'find'
+				if clients[c] == client 'hit'
+					at = c
+					break 'find'
+				end 'hit'
+			end 'find'
+			if at == clients.count() 'first'
+				clients.push(client)
+				held.push(0)
+			end 'first'
+			held[at] = try held[at] + 1 otherwise return
+			clientOf.push(at)
+		end 'messages'
+		var share = 1 as Count
+		while share < pending.count and keptAtShare(held, share: share + 1) <= pending.turnSize 'grow'
+			share = share + 1
+		end 'grow'
+		var kept = Counts.create(clients.count())
+		for k in 0 upto pending.count 'newestFirst'
+			let i = try pending.count - 1 - k otherwise return
+			let c = clientOf[i]
+			if kept[c] < share 'keeps'
+				kept[c] = try kept[c] + 1 otherwise return
+			end 'keeps' else 'sheds'
+				try pending.shed(i) otherwise return
+			end 'sheds'
+		end 'newestFirst'
+	end 'shed'
+
+	// keptAtShare is how many messages the clients keep where each keeps at most share of the ones it holds.
+	static function keptAtShare(held Counts, share Count) returns Count
+		var kept = 0 as Count
+		for c in 0 upto held.count() 'clients'
+			kept = try kept + (held[c] if held[c] < share else share) otherwise return kept
+		end 'clients'
+		return kept
+	end 'keptAtShare'
+end 'PerClientFair'
 
 /// underLoad is whether the service whose message runs is behind: a handler may do cheaper work while it is. Off a
 /// message, it is false.
