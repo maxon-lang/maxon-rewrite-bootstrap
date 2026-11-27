@@ -649,6 +649,9 @@ var synthesizedIntrinsics = []string{"EnumHash", "EnumEquals", "EnumFromRawValue
 // maxImportArgs is the most words a DLL import of the runtime takes: CreateProcessA's ten.
 const maxImportArgs = 10
 
+// maxHostArgs is the most words a DLL function that the runtime found by its name takes: NtCreateFile's eleven.
+const maxHostArgs = 11
+
 var functions = append(slices.Clone(tableFunctions), rawFunctions()...)
 
 // rawFunctions are the __Raw intrinsics (runtime/README.md). An address and a word are a Count, the unsigned 64-bit
@@ -723,9 +726,6 @@ func rawFunctions() []function {
 		raw("threadContext", nil, "Count", "RawThreadContext"),
 		// callCode1 calls the code at an address with one word, as a behaviour's thunk is called with its record.
 		raw("callCode1", []string{"code Count", "arg1 Count"}, "Count", "RawCallCode"),
-		// callHost2 calls the code at an address with two words by the host convention, Win64, as an import is called:
-		// a DLL function the import table does not name, which the runtime found by its name.
-		raw("callHost2", []string{"code Count", "arg1 Count", "arg2 Count"}, "Count", "RawCallHost"),
 		raw("threadStartAddress", nil, "Count", "RawThreadStartAddress"),
 		// The addresses of the code of the entry stub that green threads switch and are stopped through, which only a
 		// callCode1 or the registers of a stack the runtime seeds reach, and of the link's table of preemptible code.
@@ -736,6 +736,15 @@ func rawFunctions() []function {
 		// codeAddress is the address of the code of the function of the runtime that a string literal names, which takes
 		// one word: the run of a behaviour's record that a test of the scheduler builds by hand.
 		checked(own(raw("codeAddress", []string{"name String"}, "Count", "RawCodeAddress"))),
+	}
+	// callHostN calls the code at an address with N words by the host convention, Win64, as an import is called: a DLL
+	// function the import table does not name, which the runtime found by its name.
+	for n := 0; n <= maxHostArgs; n++ {
+		params := []string{"code Count"}
+		for i := 1; i <= n; i++ {
+			params = append(params, fmt.Sprintf("arg%d Count", i))
+		}
+		fs = append(fs, raw(fmt.Sprintf("callHost%d", n), params, "Count", "RawCallHost"))
 	}
 	for n := 0; n <= maxImportArgs; n++ {
 		params := []string{"name String"}

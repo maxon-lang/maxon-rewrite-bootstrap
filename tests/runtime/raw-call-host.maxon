@@ -1,0 +1,58 @@
+// __Raw.callHostN, a call of a DLL function that the runtime found by its name with more than two words: kernel32's lstrcpynA of
+// three (copies at most 5 bytes, the last a terminator, of "hello" to a buffer), WideCharToMultiByte of eight (the UTF-16 text
+// "hi" to UTF-8, which counts its terminator) and CreateFileW of seven, whose last words go on the stack (a file that is not
+// there is not found, ERROR_PATH_NOT_FOUND).
+// unsupported-targets: x64-linux, arm64-linux, arm64-macos
+//> lstrcpynA copied: hell
+//> WideCharToMultiByte gave 3 bytes: hi
+//> CreateFileW refused the missing file with 3
+
+let testUtf8 = 65001 as Count
+
+let testOpenExisting = 3 as Count
+
+let testInvalidHandle = 0xFFFFFFFFFFFFFFFF as Count
+
+let testBytes = 16 as Count
+
+// testFunction is a function of kernel32 by its name.
+function testFunction(name String) returns Count
+	let library = cStringOf("kernel32.dll")
+	let module = __Raw.callImport1("GetModuleHandleA", arg1: library)
+	free(library)
+	let text = cStringOf(name)
+	let found = __Raw.callImport2("GetProcAddress", arg1: module, arg2: text)
+	free(text)
+	return found
+end 'testFunction'
+
+function main() returns ExitCode
+	let copy = testFunction("lstrcpynA")
+	let convert = testFunction("WideCharToMultiByte")
+	let open = testFunction("CreateFileW")
+	if copy == 0 or convert == 0 or open == 0 'unfound'
+		return 1
+	end 'unfound'
+	let target = alloc(testBytes)
+	zeroRange(target, from: 0, to: testBytes)
+	let hello = cStringOf("hello")
+	_ = __Raw.callHost3(copy, arg1: target, arg2: hello, arg3: 5)
+	free(hello)
+	print("lstrcpynA copied: {stringOfBytes(target, length: 4)}\n")
+	free(target)
+	let wide = wideOf("hi")
+	let narrow = alloc(testBytes)
+	zeroRange(narrow, from: 0, to: testBytes)
+	let count = __Raw.callHost8(convert, arg1: testUtf8, arg2: 0, arg3: wide, arg4: 0xFFFFFFFF, arg5: narrow, arg6: testBytes, arg7: 0, arg8: 0) and 0xFFFFFFFF
+	print("WideCharToMultiByte gave {count} bytes: {stringOfBytes(narrow, length: 2)}\n")
+	free(wide)
+	free(narrow)
+	let path = wideOf("C:\\no-such-directory\\no-such-file")
+	let handle = __Raw.callHost7(open, arg1: path, arg2: 0x80000000, arg3: 0, arg4: 0, arg5: testOpenExisting, arg6: 0, arg7: 0)
+	free(path)
+	if handle != testInvalidHandle 'opened'
+		return 2
+	end 'opened'
+	print("CreateFileW refused the missing file with {__Raw.callImport0("GetLastError") and 0xFFFFFFFF}\n")
+	return 0
+end 'main'

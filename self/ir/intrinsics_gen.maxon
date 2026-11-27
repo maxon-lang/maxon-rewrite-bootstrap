@@ -980,9 +980,6 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrRawCallCode 'intrRawCallCode'
 		return lowerRawCallCode(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawCallCode'
-	if op == ast.Intrinsic.intrRawCallHost 'intrRawCallHost'
-		return lowerRawCallHost(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrRawCallHost'
 	if op == ast.Intrinsic.intrRawThreadStartAddress 'intrRawThreadStartAddress'
 		return lowerRawThreadStartAddress(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawThreadStartAddress'
@@ -1001,6 +998,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrRawCodeAddress 'intrRawCodeAddress'
 		return lowerRawCodeAddress(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawCodeAddress'
+	if op == ast.Intrinsic.intrRawCallHost 'intrRawCallHost'
+		return lowerRawCallHost(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawCallHost'
 	if op == ast.Intrinsic.intrRawCallImport 'intrRawCallImport'
 		return lowerRawCallImport(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawCallImport'
@@ -2008,9 +2008,6 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrRawCallCode 'intrRawCallCode'
 		return false
 	end 'intrRawCallCode'
-	if op == ast.Intrinsic.intrRawCallHost 'intrRawCallHost'
-		return false
-	end 'intrRawCallHost'
 	if op == ast.Intrinsic.intrRawThreadStartAddress 'intrRawThreadStartAddress'
 		return false
 	end 'intrRawThreadStartAddress'
@@ -2029,6 +2026,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrRawCodeAddress 'intrRawCodeAddress'
 		return true
 	end 'intrRawCodeAddress'
+	if op == ast.Intrinsic.intrRawCallHost 'intrRawCallHost'
+		return false
+	end 'intrRawCallHost'
 	if op == ast.Intrinsic.intrRawCallImport 'intrRawCallImport'
 		return true
 	end 'intrRawCallImport'

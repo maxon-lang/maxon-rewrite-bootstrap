@@ -310,10 +310,10 @@ function checkIntrinsicArgs(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	if op == ast.Intrinsic.intrRawCompareExchange or op == ast.Intrinsic.intrRawSpinPause or op == ast.Intrinsic.intrRawCopyBytes or op == ast.Intrinsic.intrRawThreadContext 'signature76'
 		return
 	end 'signature76'
-	if op == ast.Intrinsic.intrRawCallCode or op == ast.Intrinsic.intrRawCallHost or op == ast.Intrinsic.intrRawThreadStartAddress or op == ast.Intrinsic.intrRawStackSwitchAddress 'signature77'
+	if op == ast.Intrinsic.intrRawCallCode or op == ast.Intrinsic.intrRawThreadStartAddress or op == ast.Intrinsic.intrRawStackSwitchAddress or op == ast.Intrinsic.intrRawGreenStartAddress 'signature77'
 		return
 	end 'signature77'
-	if op == ast.Intrinsic.intrRawGreenStartAddress or op == ast.Intrinsic.intrRawAsyncPreemptAddress or op == ast.Intrinsic.intrRawPreemptibleCodeAddress or op == ast.Intrinsic.intrRawSyscall 'signature78'
+	if op == ast.Intrinsic.intrRawAsyncPreemptAddress or op == ast.Intrinsic.intrRawPreemptibleCodeAddress or op == ast.Intrinsic.intrRawCallHost or op == ast.Intrinsic.intrRawSyscall 'signature78'
 		return
 	end 'signature78'
 	if op == ast.Intrinsic.intrRawProcessStartAddress or op == ast.Intrinsic.intrRawPreemptHandlerAddress or op == ast.Intrinsic.intrRawSignalReturnAddress or op == ast.Intrinsic.intrEnumHash 'signature79'
