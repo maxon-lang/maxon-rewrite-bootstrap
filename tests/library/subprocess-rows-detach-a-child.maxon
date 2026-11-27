@@ -27,7 +27,10 @@ let parentEnvironment = 1
 
 let waitMs = 50
 
-let waitLimitMs = 30000
+// waitBudgetMs is how long the whole program waits for the children, all of its waits together: the runner ends a program at
+// ten seconds (nine under cmd/envrun) and says only that it timed out, and the whole run takes under two where a child answers, so
+// a child that does not finish its file is reported by this program's own output, long before.
+let waitBudgetMs = 6000
 
 // settleMs lets the children that have written their file end, which a system that holds the program's executable open while one runs
 // needs before the runner deletes it.
@@ -56,19 +59,22 @@ function detach(tokens Words) returns FullRangeInt
 	return __Builtins.subprocessDetach(argv.managed, tokens.count(), empty.cstr(), env.managed, parentEnvironment, stdinNone, empty.cstr(), outputDiscard, empty.cstr(), 0, outputDiscard, empty.cstr(), 0, detachFlag, 0)
 end 'detach'
 
-// waitForFile gives the text of a file once it holds some, or what is there after the limit.
-function waitForFile(path String) returns String
-	var waited = 0 as Count
-	var text = ""
-	while waited < waitLimitMs 'poll'
-		if File.exists(pathOf(path)) 'present'
-			text = try File.readText(pathOf(path)) otherwise ""
-			if text.byteLength() > 0 'written'
-				return text
-			end 'written'
-		end 'present'
+// writtenText is the text of a file when it holds some, and "" before.
+function writtenText(path String) returns String
+	if File.exists(pathOf(path)) 'present'
+		let text = try File.readText(pathOf(path)) otherwise ""
+		return text
+	end 'present'
+	return ""
+end 'writtenText'
+
+// waitForFile gives the text of a file once it holds some, or "" once the budget, which it spends as it waits, is used up.
+function waitForFile(path String, mutates budget Count) returns String
+	var text = writtenText(path)
+	while text.byteLength() == 0 and budget > 0 'poll'
 		sleep(waitMs)
-		waited = waited + waitMs
+		budget = try budget - waitMs otherwise 0
+		text = writtenText(path)
 	end 'poll'
 	return text
 end 'waitForFile'
@@ -78,6 +84,12 @@ function removed(path String)
 		try File.delete(pathOf(path)) otherwise return
 	end 'present'
 end 'removed'
+
+// removedWithPartial removes a file of a child and the file that it writes first, which a child that did not finish leaves.
+function removedWithPartial(path String)
+	removed(path)
+	removed("{path}.partial")
+end 'removedWithPartial'
 
 function main() returns ExitCode
 	let args = CommandLine.args()
@@ -91,6 +103,7 @@ function main() returns ExitCode
 		return 0
 	end 'quiet'
 	let executable = try Process.executablePath() otherwise return 5
+	var budget = waitBudgetMs as Count
 	let file = "rows-detach-{Process.id()}.tmp"
 	var tokens = Words.create(0)
 	tokens.push(executable.path.clone())
@@ -99,8 +112,8 @@ function main() returns ExitCode
 	let pid = detach(tokens)
 	print("a detached child answers a process id: {pid > 0}\n")
 	print("the id names no child of the table: {__Builtins.subprocessGetPid(pid) == -1}\n")
-	print("the child did its work alone: written=[{waitForFile(file)}]\n")
-	removed(file)
+	print("the child did its work alone: written=[{waitForFile(file, budget: budget)}]\n")
+	removedWithPartial(file)
 	var own = true
 	if File.exists(pathOf("/bin/sh")) and File.exists(pathOf("/proc/self")) 'probe'
 		let probe = "rows-detach-{Process.id()}-session.tmp"
@@ -109,8 +122,8 @@ function main() returns ExitCode
 		shell.push("-c")
 		shell.push("if [ \"$(ps -o sid= -p $$ | tr -d ' ')\" = \"$$\" ]; then echo own > {probe}.partial; else echo shared > {probe}.partial; fi; mv {probe}.partial {probe}")
 		let sessionPid = detach(shell)
-		own = sessionPid > 0 and waitForFile(probe).trim() == "own"
-		removed(probe)
+		own = sessionPid > 0 and waitForFile(probe, budget: budget).trim() == "own"
+		removedWithPartial(probe)
 	end 'probe'
 	print("the child leads a session of its own: {own}\n")
 	var answered = 0 as Count
@@ -127,10 +140,10 @@ function main() returns ExitCode
 	end 'many'
 	for i in 0 upto 100 'each'
 		let each = "rows-detach-{Process.id()}-{i}.tmp"
-		if waitForFile(each).byteLength() > 0 'done'
+		if waitForFile(each, budget: budget).byteLength() > 0 'done'
 			finished = try finished + 1 otherwise 0
 		end 'done'
-		removed(each)
+		removedWithPartial(each)
 	end 'each'
 	sleep(settleMs)
 	print("a hundred detached children each answered an id: {answered}, and each did its work: {finished}\n")
