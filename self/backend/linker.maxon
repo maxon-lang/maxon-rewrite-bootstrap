@@ -307,7 +307,7 @@ export function link(units LinkUnits, entry String, choice SchedulerChoice, targ
 		forgetLive(links)
 		markLive(links, units: units, symbols: symbols, defined: defined, start: start)
 	end 'scheduler'
-	let sizes = layOut(links)
+	let sizes = layOut(links, arch: target.arch)
 	let table = PreemptibleTable.of(links, wanted: namedByLiveCode(links, id: preemptibleCode))
 	let tableAt = alignUp(sizes.data, alignment: linkDataAlignment)
 	let dataSize = try tableAt + table.bytes() otherwise panic("link: data past memory")
@@ -574,16 +574,17 @@ type ImageParts
 end 'ImageParts'
 
 // layOut places the live sections and pieces, unit after unit, and gives the sizes of the code, the read-only data and the
-// data. Each unit places its own parts from its own start, which is aligned; the running sum over the units then gives
-// each its base.
-function layOut(mutates links LinkUnitList) returns LinkSizes
+// data. Each unit places its own parts from its own start, which is on the architecture's codeBoundary; the running sum over
+// the units then gives each its base.
+function layOut(mutates links LinkUnitList, arch ast.TargetArch) returns LinkSizes
+	let boundary = codeBoundary(arch)
 	var codeSize = 0 as Count
 	var constSize = 0 as Count
 	var dataSize = 0 as Count
 	for i in 0 upto links.count() 'units'
-		place(links[i])
+		place(links[i], boundary: boundary)
 		if links[i].hasCode 'code'
-			codeSize = alignUp(codeSize, alignment: codeLineBytes)
+			codeSize = alignUp(codeSize, alignment: boundary)
 		end 'code'
 		links[i].codeBase = codeSize
 		codeSize = try codeSize + links[i].codeSize otherwise panic("link: code past memory")
@@ -601,12 +602,12 @@ function layOut(mutates links LinkUnitList) returns LinkSizes
 	return LinkSizes.make(codeSize, constant: constSize, data: dataSize)
 end 'layOut'
 
-// place gives each live section and piece its offset from the start of the unit's code and its data.
-function place(mutates l LinkUnit)
+// place gives each live section and piece its offset from the start of the unit's code, which is on boundary, and its data.
+function place(mutates l LinkUnit, boundary Count)
 	for s in 0 upto l.liveCode.count() 'sections'
 		if l.liveCode[s] 'live'
 			let alignment = l.sections[s].alignment
-			if alignment > codeLineBytes or alignment == 0 'boundary'
+			if alignment > boundary or alignment == 0 'boundary'
 				panic("link: a section that asks for a boundary of {alignment} bytes, which the image does not start its code on")
 			end 'boundary'
 			let length = try l.sections[s + 1].code - l.sections[s].code otherwise panic("link: a section that ends before it starts")

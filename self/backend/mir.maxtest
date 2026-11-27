@@ -240,7 +240,7 @@ function linkAndRun(mutates p ast.Project, fns MirFunctionList, entry ast.FuncID
 	var u = CodeUnit.new()
 	var lay = BlockLayout.new()
 	for i in 0 upto fns.count() 'each'
-		encodeX64Function(u, fn: fns[i], instance: false, lay: lay)
+		encodeX64Function(u, fn: fns[i], instance: false, start: functionAlignment, lay: lay)
 	end 'each'
 	u.asm.endLabels()
 	var units = UnitList.create(0)

@@ -246,7 +246,7 @@ function a64Allocated(mutates u CodeUnit, consumes f MirFunction)
 	end 'wrong'
 	var lay = BlockLayout.new()
 	let before = u.asm.code.count()
-	encodeArm64Function(u, fn: fn, instance: false, lay: lay)
+	encodeArm64Function(u, fn: fn, instance: false, start: functionAlignment, lay: lay)
 	let written = try u.asm.code.count() - before otherwise panic("{label}: the code shrank")
 	if written == 0 or written mod arm64WordBytes != 0 'words'
 		panic("{label}: encoded to no whole instruction words")
@@ -313,7 +313,7 @@ end 'a64ExpectWords'
 test 'arm64 branch relaxation'
 	var u = CodeUnit.new()
 	var lay = BlockLayout.new()
-	encodeArm64Function(u, fn: a64Far(), instance: false, lay: lay)
+	encodeArm64Function(u, fn: a64Far(), instance: false, start: functionAlignment, lay: lay)
 	u.asm.endLabels()
 	let word = arm64WordBytes as Imm32
 	let nops = a64FarNops as Imm32

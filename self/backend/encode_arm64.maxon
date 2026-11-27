@@ -15,15 +15,16 @@ let arm64ProbeBytes = 4096
 let arm64PreIndexReach = 504
 
 // encodeArm64Function writes a function whose registers are allocated into the unit, as a section of its own, and
-// defines its symbol. A conditional branch reaches 1 MB either way, so in a function longer than that one may not reach
+// defines its symbol, on the boundary start. A conditional branch reaches 1 MB either way, so in a function longer than that one may not reach
 // its block: the function is written again with each such branch the inverted branch over a b, as maxon does, until every
 // branch reaches. Only a branch that went far is written the long way, and it stays long, so the writing ends.
-export function encodeArm64Function(mutates u CodeUnit, fn MirFunction, instance bool, mutates lay BlockLayout)
+export function encodeArm64Function(mutates u CodeUnit, fn MirFunction, instance bool, start Count, mutates lay BlockLayout)
 	lay.plan(fn)
 	lay.framed = arm64NeedsFrame(fn)
 	lay.sites.clear()
 	lay.relaxed.clear()
 	u.beginSection()
+	u.alignSection(start)
 	u.defineFunction(fn.symbol, instance: instance)
 	u.asm.relaxes = true
 	arm64EncodeBlocks(u, fn: fn, lay: lay)

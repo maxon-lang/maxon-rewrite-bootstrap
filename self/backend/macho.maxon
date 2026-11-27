@@ -245,7 +245,7 @@ export function buildMachOImage(layout ImageLayout, imports NameList) returns Im
 	commandsSize = sum(commandsSize, b: sum(dylinkerCommandSize, b: sum(mainCommandSize, b: uuidCommandSize)))
 	commandsSize = sum(commandsSize, b: sum(dylibCommandSize, b: buildVersionCommandSize))
 	commandsSize = sum(commandsSize, b: sum(chainedFixupsCommandSize, b: sum(exportsTrieCommandSize, b: codeSignatureCommandSize)))
-	let codeOffset = alignUp(sum(machHeaderSize, b: commandsSize), alignment: codeLineBytes)
+	let codeOffset = alignUp(sum(machHeaderSize, b: commandsSize), alignment: codeBoundary(arm64Arch))
 	let constOffset = alignUp(sum(codeOffset, b: layout.codeSize), alignment: wordBytes)
 	let constLength = layout.constSize if layout.constSize > 0 else machoEmptyDataBytes
 	let textSegmentSize = alignUp(sum(constOffset, b: constLength), alignment: machoPageBytes)
@@ -285,7 +285,7 @@ export function buildMachOImage(layout ImageLayout, imports NameList) returns Im
 	pushU32(w, v: 0)
 	pushSegmentCommand(w, name: "__PAGEZERO", vmaddr: 0, vmsize: machoPageZeroSize, fileoff: 0, filesize: 0, prot: vmProtNone, sections: 0)
 	pushSegmentCommand(w, name: machoTextSegment, vmaddr: base, vmsize: textSegmentSize, fileoff: 0, filesize: textSegmentSize, prot: vmProtRead or vmProtExecute, sections: machoTextSectionCount)
-	pushSectionHeader64(w, name: "__text", segment: machoTextSegment, addr: sum(base, b: codeOffset), size: layout.codeSize, offset: codeOffset, alignment: codeLineBytes, flags: sAttrPureInstructions or sAttrSomeInstructions or sRegular)
+	pushSectionHeader64(w, name: "__text", segment: machoTextSegment, addr: sum(base, b: codeOffset), size: layout.codeSize, offset: codeOffset, alignment: codeBoundary(arm64Arch), flags: sAttrPureInstructions or sAttrSomeInstructions or sRegular)
 	pushSectionHeader64(w, name: "__const", segment: machoTextSegment, addr: sum(base, b: constOffset), size: constLength, offset: constOffset, alignment: wordBytes, flags: sRegular)
 	let dataAddr = sum(base, b: dataSegmentOffset)
 	pushSegmentCommand(w, name: machoDataSegment, vmaddr: dataAddr, vmsize: dataSegmentSize, fileoff: dataSegmentOffset, filesize: dataSegmentSize, prot: vmProtRead or vmProtWrite, sections: dataSectionCount)

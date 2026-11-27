@@ -5,14 +5,46 @@
 // functionAlignment, and a function, or the code of a loop from its head to the last branch back to it, that would run
 // into one more line than its length needs is moved to the start of the next line (fitLine); a function with a loop starts
 // on a line, which its loops are placed from. A function's padding is never run; a loop's runs once each time the loop is
-// entered from above, as the fewest nops.
+// entered from above, as the fewest nops. On arm64 every function of the runtime also starts on a line of 128 bytes
+// (runtimeAlignment), so that the runtime's hot code does not move within its lines when other runtime code changes.
+//
+// The references start a function on 16 bytes and align no loop on arm64: Go's linker (Funcalign, cmd/link/internal/arm64
+// and amd64) on 16 for arm64 and 32 for amd64, and clang 21 on 4 for arm64 and Apple's cores and 16 for x64, with loops on 16
+// for x64 only. Neither aligns anything to 128.
 
 // functionAlignment is the boundary every function starts on.
 let functionAlignment = 16 as Count
 
-// codeLineBytes is the line of code that a fetch reads and the cache of decoded operations holds, and the boundary the
-// image starts its code on and the link each unit's, so that a place in a line of a unit is the same place in memory.
+// codeLineBytes is the line of code that a fetch reads and the cache of decoded operations holds, by which fitLine places
+// code on every architecture, and x64's codeBoundary.
 let codeLineBytes = 64 as Count
+
+// arm64CodeLineBytes is the line that arm64 code is placed by, as codeLineBytes is x64's: on an Apple M3 the same
+// instructions took 1-2% more cycles when most of the runtime's code moved 448 bytes, 64 mod 128 (f8ab0e40), so its fetch is
+// sensitive to where 128-byte lines break.
+let arm64CodeLineBytes = 128 as Count
+
+// codeBoundary is the line of the architecture: the boundary the image starts its code on and the link each unit's, so that
+// a place in a line of a unit is the same place in memory, and the largest alignment a section may ask for.
+function codeBoundary(arch ast.TargetArch) returns Count
+	return match arch 'arch'
+		x64 gives codeLineBytes
+		arm64 gives arm64CodeLineBytes
+	end 'arch'
+end 'codeBoundary'
+
+// runtimeAlignment is the boundary every function of the runtime starts on. The runtime holds the hot code of every
+// program (the heap, strings, arrays, the scheduler), and a change to any of its functions moves all that the link places
+// after it. On arm64 each of its functions therefore starts on a line, so that a change to one moves no other within its
+// line, at about 51 bytes of padding a function (25 KB of the compiler's 5.6 MB of code). On x64 fitLine already keeps every
+// function to the fewest lines its length needs and every function with a loop on a line, so the runtime starts on
+// functionAlignment as the rest of the code does.
+function runtimeAlignment(arch ast.TargetArch) returns Count
+	return match arch 'arch'
+		x64 gives functionAlignment
+		arm64 gives arm64CodeLineBytes
+	end 'arch'
+end 'runtimeAlignment'
 
 // longestNop is the length of the longest nop of the x64 table.
 let longestNop = 9 as Count

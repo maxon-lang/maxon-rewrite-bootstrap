@@ -138,9 +138,12 @@ export type Selector
 	// spareInstrs is the buffer of the machine instructions of the function selected last, which the next one writes into
 	// rather than growing a new one.
 	var spareInstrs as MInstrList
+	// functionStart is the boundary each function of the module starts on: runtimeAlignment in the runtime, and
+	// functionAlignment elsewhere.
+	var functionStart as Count
 
 	static function new(verifies bool, target ast.Target) returns Selector
-		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false, arch: target.arch), defs: DefAtList.create(0), second: MRegList.create(0), stringTy: ast.noType, characterTy: ast.noType, args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), paramWordAt: CountList.create(0), wordPositions: CountList.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), thunks: TableSet.new(), dueThunks: ast.FuncIDList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies, target: target), classes: ClassChoice.new(), arch: target.arch, system: target.system, harvest: LocalHarvest.new(), sharedWords: WordSharing.new(), spareInstrs: MInstrList.create(0)}
+		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false, arch: target.arch), defs: DefAtList.create(0), second: MRegList.create(0), stringTy: ast.noType, characterTy: ast.noType, args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), paramWordAt: CountList.create(0), wordPositions: CountList.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), thunks: TableSet.new(), dueThunks: ast.FuncIDList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies, target: target), classes: ClassChoice.new(), arch: target.arch, system: target.system, harvest: LocalHarvest.new(), sharedWords: WordSharing.new(), spareInstrs: MInstrList.create(0), functionStart: functionAlignment}
 	end 'new'
 
 	// prepare names what the function's instructions ask for by handle: the symbols of its callees, and the drop and copy
@@ -1456,8 +1459,8 @@ end 'selectTerminator'
 // encodeFunction writes an allocated function into the unit by the encoder of the architecture compiled for.
 function encodeFunction(mutates sel Selector, fn MirFunction, instance bool)
 	match sel.arch 'arch'
-		x64 then encodeX64Function(sel.u, fn: fn, instance: instance, lay: sel.layout)
-		arm64 then encodeArm64Function(sel.u, fn: fn, instance: instance, lay: sel.layout)
+		x64 then encodeX64Function(sel.u, fn: fn, instance: instance, start: sel.functionStart, lay: sel.layout)
+		arm64 then encodeArm64Function(sel.u, fn: fn, instance: instance, start: sel.functionStart, lay: sel.layout)
 	end 'arch'
 end 'encodeFunction'
 
@@ -1643,6 +1646,15 @@ function selectFunctionTree(mutates sel Selector, p ast.Project, mutates ms ast.
 	end 'bodies'
 end 'selectFunctionTree'
 
+// functionStartOf is the boundary the functions of a module start on: runtimeAlignment in the runtime, and functionAlignment
+// in any other module, or in code of none, as a test's.
+function functionStartOf(p ast.Project, module diag.ModuleID) returns Count
+	if module >= 0 and ast.isRuntimeModule(p, modID: module) 'runtime'
+		return runtimeAlignment(p.target.arch)
+	end 'runtime'
+	return functionAlignment
+end 'functionStartOf'
+
 // emitModule is the unit with the code of a module's functions, and the hot loops E5001 refuses in errs. forms gives the
 // source form of a function where a hot loop of it does not fit. With verifies, register allocation holds each function to
 // its invariants. clock is charged the time of each phase.
@@ -1650,6 +1662,7 @@ export function emitModule(p ast.Project, mutates ms ast.ModuleState, fns ir.IrF
 	var sel = Selector.new(verifies, target: p.target)
 	sel.allocator.spiller.clock = exchange(clock, value: EmitClock.off())
 	sel.allocator.spiller.clock.restart()
+	sel.functionStart = functionStartOf(p, module: ms.module)
 	var path = CountList.create(0)
 	var source = Source.new()
 	for i in 0 upto fns.count() 'each'

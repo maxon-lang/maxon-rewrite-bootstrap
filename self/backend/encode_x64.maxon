@@ -8,12 +8,14 @@
 let machinePageSize = 4096
 
 // encodeX64Function writes a function whose registers are allocated into the unit, as a section of its own, and
-// defines its symbol. A function with a loop is written twice: first without padding, which gives each loop's length, and
-// then for good, with each loop's head placed so that the loop spans no more lines of code than its length needs.
-export function encodeX64Function(mutates u CodeUnit, fn MirFunction, instance bool, mutates lay BlockLayout)
+// defines its symbol, on the boundary start. A function with a loop is written twice: first without padding, which gives
+// each loop's length, and then for good, with each loop's head placed so that the loop spans no more lines of code than its
+// length needs.
+export function encodeX64Function(mutates u CodeUnit, fn MirFunction, instance bool, start Count, mutates lay BlockLayout)
 	lay.plan(fn)
 	lay.framed = needsFrame(fn)
 	u.beginSection()
+	u.alignSection(start)
 	if lay.heads 'loops'
 		lay.starts.clear()
 		encodeBlocks(u, fn: fn, lay: lay, measure: true)

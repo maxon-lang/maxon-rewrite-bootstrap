@@ -57,7 +57,7 @@ let elfNoSections = 0 as Count
 // pointers need no table here.
 export function buildElfImage(arch ast.TargetArch, layout ImageLayout) returns Image
 	let headersSize = sum(elfHeaderBytes, b: product(elfProgramHeaderBytes, b: elfProgramHeaderCount))
-	let codeOffset = alignUp(headersSize, alignment: codeLineBytes)
+	let codeOffset = alignUp(headersSize, alignment: codeBoundary(arch))
 	let codeEnd = sum(codeOffset, b: layout.codeSize)
 	let constOffset = alignUp(codeEnd, alignment: elfPageBytes)
 	let constLength = layout.constSize if layout.constSize > 0 else elfEmptyDataBytes
