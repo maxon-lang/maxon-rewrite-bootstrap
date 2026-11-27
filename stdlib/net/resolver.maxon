@@ -1,0 +1,7 @@
+// The resolver of a host's name, which a host that is no address literal reaches (managedSocket.maxon). None is written yet:
+// every name fails to resolve.
+
+// resolveName is the 4 bytes of an IPv4 address that a host's name resolves to.
+function resolveName(host __ManagedMemory with Byte) returns ByteArray throws __ManagedSocketError
+	throw __ManagedSocketError.resolveFailed
+end 'resolveName'

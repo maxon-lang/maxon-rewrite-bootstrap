@@ -1,0 +1,254 @@
+// maxon's __ManagedSocket, the owned socket that its library's TcpClient and TcpListener hold, which maxon's compiler declares
+// and minimaxon's library does, over the socket rows of __Builtins (runtime/socket.maxon), as __ManagedFile is declared over the
+// file rows. Its one destructor is close: a value of it has no copy and no drop, so every path that opens one closes it or moves
+// it on (E3919), and no close runs that the program does not write. close throws what the system's close reports, and the socket
+// is closed all the same. The type is the library tiers' (E3185), as maxon's is, and x64-windows has no sockets yet (E3104).
+//
+// A host is an address literal or a name. A literal is read here, IPv4's dotted quad or IPv6's grammar (RFC 4291 2.2, as Go's
+// netip reads it: no zone, no brackets), and never reaches a resolver; a host holding a colon is an IPv6 literal or nothing. A
+// name is resolved by the system's resolver (resolver.maxon), to IPv4 addresses alone, as maxon's are. An empty host and a host
+// holding a NUL name nothing, on every system.
+
+/// A buffer of bytes, which the rows of a socket read into and send from. A converted file of maxon's library calls a static of
+/// maxon's bare buffer, `__ManagedMemory.create(n, 1)`, through it (cmd/convert, rewriteFileBuffers).
+typealias ByteMemory = __ManagedMemory with Byte
+
+/// A TCP socket, connected or listening, which exactly one owner closes.
+public type __ManagedSocket
+	let word as Count
+
+	/// Connect to a host and a port, waiting at most `milliseconds` for the connection (0 for no limit).
+	public static function tcpConnect(host __ManagedMemory with Byte, port NetworkPort, milliseconds SocketDeadlineMs) returns __ManagedSocket throws __ManagedSocketError
+		let address = try hostAddress(host) otherwise throw __ManagedSocketError.resolveFailed
+		return __ManagedSocket{word: try __Builtins.socketConnect(address.managed, port, milliseconds as Count)}
+	end 'tcpConnect'
+
+	/// Bind a listener to a host's address and a port (0 for one the system picks), listening.
+	public static function bindListener(host __ManagedMemory with Byte, port NetworkPort) returns __ManagedSocket throws __ManagedListenerError
+		let address = try hostAddress(host) otherwise throw __ManagedListenerError.resolveFailed
+		return __ManagedSocket{word: try __Builtins.socketListen(address.managed, port)}
+	end 'bindListener'
+
+	/// The port the socket is bound to.
+	public function boundPort() returns NetworkPort throws __ManagedListenerError
+		return try __Builtins.socketBoundPort(word)
+	end 'boundPort'
+
+	/// The next connection to the listener, parking the green thread until one comes or the read deadline passes.
+	public function accept(mutates self) returns __ManagedSocket throws __ManagedListenerError
+		return __ManagedSocket{word: try __Builtins.socketAccept(word)}
+	end 'accept'
+
+	/// Send up to `count` bytes of `bytes` from `offset`, parking only while the socket takes none, and give what it took.
+	public function sendFrom(mutates self, bytes __ManagedMemory with Byte, offset BytePos, count BytePos) returns BytePos throws __ManagedSocketError
+		return try __Builtins.socketSendFrom(word, bytes, offset as Count, count as Count)
+	end 'sendFrom'
+
+	/// Read into `managed` after its length, up to its capacity, parking only while nothing has come, and give the count, 0 once
+	/// the peer has ended its sending.
+	public function recv(mutates self, mutates managed __ManagedMemory with Byte) returns BytePos throws __ManagedSocketError
+		let room = try (managed.capacity() as Count) - managed.length() otherwise 0
+		return try __Builtins.socketReadAppending(word, managed, room)
+	end 'recv'
+
+	/// Whether the socket's last read, send or accept was ended by its deadline.
+	public function timedOut() returns bool
+		return __Builtins.socketTimedOut(word)
+	end 'timedOut'
+
+	/// End a read or an accept still waiting `milliseconds` after this call (0 for none).
+	public function setReadDeadline(mutates self, milliseconds SocketDeadlineMs) throws __ManagedSocketError
+		__Builtins.socketSetReadDeadline(word, milliseconds as Count)
+	end 'setReadDeadline'
+
+	/// End a send still waiting `milliseconds` after this call (0 for none).
+	public function setWriteDeadline(mutates self, milliseconds SocketDeadlineMs) throws __ManagedSocketError
+		__Builtins.socketSetWriteDeadline(word, milliseconds as Count)
+	end 'setWriteDeadline'
+
+	/// End the socket's sending, which the peer reads as the end, while it can still read.
+	public function shutdownWrite(mutates self) throws __ManagedSocketError
+		try __Builtins.socketShutdownWrite(word)
+	end 'shutdownWrite'
+
+	/// Close the socket. It is closed whether or not this throws; `sendFailed` says the system's close reported an error, so what
+	/// was sent may not all have reached the peer.
+	public function close(destructs self) throws __ManagedSocketError
+		try __Builtins.socketClose(word)
+	end 'close'
+end '__ManagedSocket'
+
+/// closeFailureOf is the NetworkError of a socket's close that failed: what was sent may not have reached the peer.
+function closeFailureOf(e __ManagedSocketError) returns NetworkError
+	return NetworkError.sendFailed
+end 'closeFailureOf'
+
+// The bytes of a literal.
+let colonByte = 58 as Byte
+
+let dotByte = 46 as Byte
+
+let nulByte = 0 as Byte
+
+let ipv4Bytes = 4 as Count
+
+let ipv6Bytes = 16 as Count
+
+let noHexDigit = 16 as Count
+
+// hostAddress is the 4 or 16 bytes of the address a host names, its most significant first.
+function hostAddress(host __ManagedMemory with Byte) returns ByteArray throws __ManagedSocketError
+	let length = host.length()
+	if length == 0 'empty'
+		throw __ManagedSocketError.resolveFailed
+	end 'empty'
+	var colon = false
+	for i in 0 upto length 'scan'
+		let b = try host.byteAt(i) otherwise throw __ManagedSocketError.resolveFailed
+		if b == nulByte 'nul'
+			throw __ManagedSocketError.resolveFailed
+		end 'nul'
+		if b == colonByte 'colon'
+			colon = true
+		end 'colon'
+	end 'scan'
+	if colon 'six'
+		return try ipv6Literal(host)
+	end 'six'
+	if let quad = try ipv4Literal(host, from: 0, to: length) 'four'
+		return quad
+	end 'four'
+	return try resolveName(host)
+end 'hostAddress'
+
+// ipv4Literal is the 4 bytes of the dotted quad that the bytes of a host from an index to another spell: four decimal numbers
+// of 0 to 255, with no leading zero, between three dots.
+function ipv4Literal(host __ManagedMemory with Byte, from Count, to Count) returns ByteArray throws __ManagedSocketError
+	var quad = ByteArray.create(0)
+	var value = 0 as Count
+	var digits = 0 as Count
+	var leadingZero = false
+	for i in from upto to 'bytes'
+		let b = try host.byteAt(i) otherwise throw __ManagedSocketError.resolveFailed
+		if b == dotByte 'dot'
+			if digits == 0 or quad.count() == 3 'misplaced'
+				throw __ManagedSocketError.resolveFailed
+			end 'misplaced'
+			quad.push((value and 0xFF) as Byte)
+			value = 0
+			digits = 0
+			leadingZero = false
+			continue 'bytes'
+		end 'dot'
+		if b < 48 or b > 57 'notDigit'
+			throw __ManagedSocketError.resolveFailed
+		end 'notDigit'
+		if leadingZero 'leading'
+			throw __ManagedSocketError.resolveFailed
+		end 'leading'
+		leadingZero = digits == 0 and b == 48
+		value = try value * 10 + ((b as Count) - 48) otherwise throw __ManagedSocketError.resolveFailed
+		digits = try digits + 1 otherwise throw __ManagedSocketError.resolveFailed
+		if value > 255 'wide'
+			throw __ManagedSocketError.resolveFailed
+		end 'wide'
+	end 'bytes'
+	if digits == 0 or quad.count() != 3 'short'
+		throw __ManagedSocketError.resolveFailed
+	end 'short'
+	quad.push((value and 0xFF) as Byte)
+	return quad
+end 'ipv4Literal'
+
+// hexValue is the value of a hex digit, of either case, or noHexDigit.
+function hexValue(b Byte) returns Count
+	if b >= 48 and b <= 57 'decimal'
+		return (b as Count) - 48
+	end 'decimal'
+	if b >= 97 and b <= 102 'lower'
+		return (b as Count) - 87
+	end 'lower'
+	if b >= 65 and b <= 70 'upper'
+		return (b as Count) - 55
+	end 'upper'
+	return noHexDigit
+end 'hexValue'
+
+// ipv6Literal is the 16 bytes of the IPv6 address a host spells: eight groups of one to four hex digits between colons, a run
+// of zero groups written once as `::`, and the last two groups as a dotted quad where it ends with one, as Go's parseIPv6 reads
+// them.
+function ipv6Literal(host __ManagedMemory with Byte) returns ByteArray throws __ManagedSocketError
+	let length = host.length()
+	var groups = ByteArray.create(0)
+	var ellipsis = ipv6Bytes
+	var at = 0 as Count
+	if length >= 2 and (try host.byteAt(0) otherwise nulByte) == colonByte and (try host.byteAt(1) otherwise nulByte) == colonByte 'leading'
+		ellipsis = 0
+		at = 2
+	end 'leading'
+	while at < length and groups.count() < ipv6Bytes 'groups'
+		let start = at
+		var value = 0 as Count
+		var digits = 0 as Count
+		while at < length 'digits'
+			let digit = hexValue(try host.byteAt(at) otherwise nulByte)
+			if digit == noHexDigit 'other'
+				break 'digits'
+			end 'other'
+			value = try value * 16 + digit otherwise throw __ManagedSocketError.resolveFailed
+			digits = try digits + 1 otherwise throw __ManagedSocketError.resolveFailed
+			at = at + 1
+		end 'digits'
+		if digits == 0 or digits > 4 'badGroup'
+			throw __ManagedSocketError.resolveFailed
+		end 'badGroup'
+		if at < length and (try host.byteAt(at) otherwise nulByte) == dotByte 'quad'
+			if (ellipsis == ipv6Bytes and groups.count() != 12) or groups.count() > 12 'misplaced'
+				throw __ManagedSocketError.resolveFailed
+			end 'misplaced'
+			groups.append(try ipv4Literal(host, from: start, to: length))
+			at = length
+			break 'groups'
+		end 'quad'
+		groups.push(((value shr 8) and 0xFF) as Byte)
+		groups.push((value and 0xFF) as Byte)
+		if at == length 'end'
+			break 'groups'
+		end 'end'
+		if (try host.byteAt(at) otherwise nulByte) != colonByte or (try at + 1 otherwise panic("out of range")) == length 'notColon'
+			throw __ManagedSocketError.resolveFailed
+		end 'notColon'
+		at = try at + 1 otherwise length
+		if (try host.byteAt(at) otherwise nulByte) == colonByte 'ellipsis'
+			if ellipsis != ipv6Bytes 'twice'
+				throw __ManagedSocketError.resolveFailed
+			end 'twice'
+			ellipsis = groups.count()
+			at = try at + 1 otherwise length
+		end 'ellipsis'
+	end 'groups'
+	if at != length 'rest'
+		throw __ManagedSocketError.resolveFailed
+	end 'rest'
+	let found = groups.count()
+	if found == ipv6Bytes 'whole'
+		if ellipsis != ipv6Bytes 'emptyEllipsis'
+			throw __ManagedSocketError.resolveFailed
+		end 'emptyEllipsis'
+		return groups
+	end 'whole'
+	if ellipsis == ipv6Bytes 'short'
+		throw __ManagedSocketError.resolveFailed
+	end 'short'
+	var address = ByteArray.create(0)
+	for i in 0 upto ellipsis 'before'
+		address.push(try groups.get(i) otherwise nulByte)
+	end 'before'
+	for _ in found upto ipv6Bytes 'zeros'
+		address.push(nulByte)
+	end 'zeros'
+	for i in ellipsis upto found 'after'
+		address.push(groups.get(i))
+	end 'after'
+	return address
+end 'ipv6Literal'

@@ -100,6 +100,21 @@ export function temporaryDefault(system TargetSystem) returns String
 	end 'system'
 end 'temporaryDefault'
 
+// missingFacility is why a compile for a system refuses a type of the library that is a facility the system lacks
+// (internal/targetgen/target's Facilities), or empty where the system has it or the type is none of them.
+export function missingFacility(name String, system TargetSystem) returns String
+	if system == TargetSystem.windows and name == "__ManagedSocket" 'ManagedSocketWindows'
+		return "the Windows backend of sockets is not written yet"
+	end 'ManagedSocketWindows'
+	if system == TargetSystem.windows and name == "TcpClient" 'TcpClientWindows'
+		return "the Windows backend of sockets is not written yet"
+	end 'TcpClientWindows'
+	if system == TargetSystem.windows and name == "TcpListener" 'TcpListenerWindows'
+		return "the Windows backend of sockets is not written yet"
+	end 'TcpListenerWindows'
+	return ""
+end 'missingFacility'
+
 // knownTargets are the targets this compiler compiles for, each architecture on each system it runs, in the order a
 // usage message lists them.
 export function knownTargets() returns TargetList

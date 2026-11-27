@@ -103,6 +103,26 @@ var (
 // OSes are the systems, in the order of the cases of ast.TargetSystem.
 var OSes = []OS{Windows, Linux, MacOS}
 
+// Facility is a part of the library that some systems do not have yet, maxon's HostFacility of TargetFacilities.maxon: a
+// module outside the library that names one of its Types in a compile for such a system is refused at the name (E3104),
+// with Why. Lifting a system's refusal is taking it out of Missing.
+type Facility struct {
+	// Name is the facility's name in the generated code's comments.
+	Name string
+	// Types are the library's types that are the facility.
+	Types []string
+	// Missing are the systems that do not have it.
+	Missing []OS
+	// Why ends the diagnostic: what the system lacks.
+	Why string
+}
+
+// Facilities are the parts of the library that some systems lack.
+var Facilities = []Facility{
+	// TCP sockets: the event queue's readiness backend for Windows (AFD poll) is not written yet.
+	{Name: "sockets", Types: []string{"__ManagedSocket", "TcpClient", "TcpListener"}, Missing: []OS{Windows}, Why: "the Windows backend of sockets is not written yet"},
+}
+
 // System is what an operating system adds to a processor's table: the convention of its libraries' functions, the one
 // of its system calls where a program calls the kernel itself, and how a thread finds its context.
 type System struct {

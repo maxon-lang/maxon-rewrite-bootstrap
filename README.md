@@ -2335,7 +2335,7 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   streams**, the rows of an open file that the library's `__ManagedFile` is written over (`__Builtins.fileOpenRead` and the
   other opens, `fileReadAppending`, `fileWrite`, `fileSync`, `fileClose`, `self/interp/handles.maxon`), and so the library's `FileWriter`,
   `File.openRead` and `File.createText`, which are written over them, since its file layer reads and writes whole files and holds no
-  descriptor; and **sockets**, the rows of a TCP socket that the library's `__ManagedSocket` is to be written over
+  descriptor; and **sockets**, the rows of a TCP socket that the library's `__ManagedSocket` is written over
   (`__Builtins.socketListen`, `socketConnect`, `socketAccept` and the rest, `self/interp/socket.maxon`). It stops at the operation and not before the run, since a module is lowered whole and a program that never opens
   a file may hold code that does.
   `fuzz` generates none of these: its programs are drawn from `self/fuzz/library.txt`, which names none.
@@ -6064,6 +6064,17 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   read or a write takes the file `mutates`, so no two calls are on one at once, where maxon's may be. The spec tests that let a
   file die open, or assert maxon's close on drop (`managed-file.auto-close`, the readers of `stream-reader.md` left open, a
   handle held in an array or a struct and dropped), are skipped with this reason.
+- **A socket is a linear value too, and its close throws.** maxon's `TcpClient` and `TcpListener` close their `__ManagedSocket`
+  when the value dies, and `close()` throws nothing. Here `__ManagedSocket` (`stdlib/net/managedSocket.maxon`) is a record of the
+  library over the socket rows of `__Builtins`, whose one destructor is `close`, as `__ManagedFile`'s is: it, `TcpClient` and
+  `TcpListener` have no copy and no drop (`E3919`), and their `close()` throws `NetworkError` (`sendFailed` where the system's close
+  reports an error, the socket closed all the same). A read, a send, an accept and a deadline's set take the socket `mutates`, so
+  no two calls wait on one socket in one mode. `TcpClient.maxon` and `TcpListener.maxon` are converted from maxon's
+  (`cmd/convert`, files.go); the spec tests that let a socket die open fail with `E3919`. x64-windows has no sockets yet: a
+  module outside the library that names `TcpClient`, `TcpListener` or `__ManagedSocket` in a compile for it is refused at the name
+  (`E3104`, maxon's `targetUnsupportedConstruct`), by a row of `internal/targetgen/target`'s `Facilities`.
+  A host is an address literal, read by the library (IPv4's dotted quad, IPv6's grammar without zone or brackets); a name
+  resolves to nothing yet.
 - **A file's close throws.** maxon's `close()` throws nothing and its drop discards what the system's close reports. Here,
   as Go's `Close` does, `close()` throws it, `__ManagedFileError.writeFailed`, which `FileWriter.close` throws as
   `FileWriteError.failed` and `FileSource.close` as `FileReadError.failed` (`FileFailure.failed`), so a program that must know

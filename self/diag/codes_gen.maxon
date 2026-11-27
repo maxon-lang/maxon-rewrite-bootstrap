@@ -261,6 +261,9 @@ export let errUseAfterMove = "E3102"
 // A division or 'mod' has a constant zero divisor.
 export let errDivisionByZero = "E3103"
 
+// A module outside the library names a type of the library that the target's system does not have yet: TcpClient, TcpListener or __ManagedSocket on x64-windows.
+export let errTargetUnsupported = "E3104"
+
 // An array is created with zeroed elements of a type that has no zero value.
 export let errZeroOutsideElement = "E3106"
 

@@ -74,6 +74,8 @@ var rawLibraryTypes = []struct {
 }{
 	// __ManagedFile is maxon's owned handle of an open file, which FileSource and FileWriter hold.
 	{"__ManagedFile", "stdlib/file/managedFile.maxon", []string{"openRead", "openWrite", "openWriteExecutable", "openCreateNew", "readAppending", "write", "sync", "close"}, rawSurface{What: "the raw OS file handle type is nameable", Instead: "use 'File'"}},
+	// __ManagedSocket is maxon's owned TCP socket, which TcpClient and TcpListener hold.
+	{"__ManagedSocket", "stdlib/net/managedSocket.maxon", []string{"tcpConnect", "bindListener", "boundPort", "accept", "sendFrom", "recv", "timedOut", "setReadDeadline", "setWriteDeadline", "shutdownWrite", "close"}, rawSurface{What: "the raw OS socket type is nameable", Instead: "use 'TcpClient' or 'TcpListener'"}},
 }
 
 // stdAlias is a built-in ranged alias of maxon's stdlib (`Count`, `ExitCode`...), which the rows of the table name and

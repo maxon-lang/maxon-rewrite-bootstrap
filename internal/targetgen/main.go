@@ -115,6 +115,16 @@ func generateModel(targets []target.Target) (string, error) {
 	systemFunction(&b, "pathSeparator", "the separator of a system's paths", "String", func(o target.OS) string { return fmt.Sprintf("%q", o.PathSeparator) })
 	systemFunction(&b, "temporaryVariable", "the environment variable that names a system's directory of temporary files, as maxon reads it", "String", func(o target.OS) string { return fmt.Sprintf("%q", o.TempVariable) })
 	systemFunction(&b, "temporaryDefault", "the directory of temporary files when a system's variable is unset or empty, or empty for none", "String", func(o target.OS) string { return fmt.Sprintf("%q", o.TempDefault) })
+	b.WriteString("// missingFacility is why a compile for a system refuses a type of the library that is a facility the system lacks\n// (internal/targetgen/target's Facilities), or empty where the system has it or the type is none of them.\n")
+	b.WriteString("export function missingFacility(name String, system TargetSystem) returns String\n")
+	for _, f := range target.Facilities {
+		for _, ty := range f.Types {
+			for _, o := range f.Missing {
+				fmt.Fprintf(&b, "\tif system == TargetSystem.%s and name == %q '%s%s'\n\t\treturn %q\n\tend '%s%s'\n", o.Name, ty, strings.TrimLeft(ty, "_"), o.Display, f.Why, strings.TrimLeft(ty, "_"), o.Display)
+			}
+		}
+	}
+	b.WriteString("\treturn \"\"\nend 'missingFacility'\n\n")
 	b.WriteString("// knownTargets are the targets this compiler compiles for, each architecture on each system it runs, in the order a\n// usage message lists them.\n")
 	b.WriteString("export function knownTargets() returns TargetList\n\tvar targets = TargetList.create(0)\n")
 	for _, t := range targets {

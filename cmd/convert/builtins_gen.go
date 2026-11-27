@@ -152,5 +152,6 @@ var builtinMethods = map[string][]string{
 // libraryRawMembers are the functions of each type of maxon's raw surface that minimaxon's library declares, by the type's
 // name.
 var libraryRawMembers = map[string][]string{
-	"__ManagedFile": {"openRead", "openWrite", "openWriteExecutable", "openCreateNew", "readAppending", "write", "sync", "close"},
+	"__ManagedFile":   {"openRead", "openWrite", "openWriteExecutable", "openCreateNew", "readAppending", "write", "sync", "close"},
+	"__ManagedSocket": {"tcpConnect", "bindListener", "boundPort", "accept", "sendFrom", "recv", "timedOut", "setReadDeadline", "setWriteDeadline", "shutdownWrite", "close"},
 }

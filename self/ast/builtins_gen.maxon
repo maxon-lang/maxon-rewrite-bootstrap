@@ -1896,6 +1896,9 @@ export function rawLibraryTypeSurface(name String) returns table.Option with Raw
 	if name == "__ManagedFile" 'rawManagedFile'
 		return table.Option.some(RawSurface.make("the raw OS file handle type is nameable", instead: "use 'File'"))
 	end 'rawManagedFile'
+	if name == "__ManagedSocket" 'rawManagedSocket'
+		return table.Option.some(RawSurface.make("the raw OS socket type is nameable", instead: "use 'TcpClient' or 'TcpListener'"))
+	end 'rawManagedSocket'
 	return table.Option.none
 end 'rawLibraryTypeSurface'
 

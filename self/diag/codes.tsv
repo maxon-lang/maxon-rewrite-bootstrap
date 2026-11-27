@@ -93,6 +93,7 @@ ErrPromiseAlreadyAwaited	E3100	promiseAlreadyAwaited	A promise started outside a
 ErrFunctionValueThrows	E3101	throwingFunctionAsValue	A function that throws is used as a value, which no function type can hold.
 ErrUseAfterMove	E3102	useAfterMove	A name is read after its value was moved out of it.
 ErrDivisionByZero	E3103	semanticDivisionByZero	A division or 'mod' has a constant zero divisor.
+ErrTargetUnsupported	E3104	targetUnsupportedConstruct	A module outside the library names a type of the library that the target's system does not have yet: TcpClient, TcpListener or __ManagedSocket on x64-windows.
 ErrZeroOutsideElement	E3106	semanticArrayResizeManagedElement	An array is created with zeroed elements of a type that has no zero value.
 ErrDuplicateTestName	E3107	semanticDuplicateTestName	Two tests of a module have names that compile to one symbol.
 ErrThrowsNotAnErrorEnum	E3113	throwsTypeNotAnErrorEnum	A 'throws' clause names something other than an enum or a union.

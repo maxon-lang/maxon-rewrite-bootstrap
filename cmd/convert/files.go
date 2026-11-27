@@ -6,7 +6,9 @@ import (
 )
 
 // The rules of maxon's file streams, File.maxon's FileSource and helpers/file/fileWriter.maxon's FileWriter, over the library's
-// __ManagedFile (stdlib/file/managedFile.maxon): a file is a linear value here, which no drop closes, and its close throws.
+// __ManagedFile (stdlib/file/managedFile.maxon), and of its sockets, TcpClient.maxon's TcpClient and TcpListener.maxon's
+// TcpListener, over the library's __ManagedSocket (stdlib/net/managedSocket.maxon): a file or a socket is a linear value here,
+// which no drop closes, and its close throws.
 
 // fileEnding is a method of maxon's that ends the value of a type over an open file. Here a file is a linear value, ended
 // once by one of its destructors, so the method takes `destructs self`. A close throws what the system's close reports, as
@@ -14,14 +16,20 @@ import (
 // failures are made.
 type fileEnding struct {
 	owner, method, throws, mapper string
+	// field is the type's field that holds its __ManagedFile or __ManagedSocket, whose close the method's body makes; "" is
+	// "file".
+	field string
 }
 
 var fileEndings = []fileEnding{
-	{"FileWriter", "close", "FileWriteError", "writeFailureOf"},
-	{"FileWriter", "writeAll", "", ""},
-	{"FileWriter", "writeAllText", "", ""},
-	{"FileWriter", "writeAllManaged", "", ""},
-	{"FileSource", "close", "FileReadError", "readFailureOf"},
+	{"FileWriter", "close", "FileWriteError", "writeFailureOf", ""},
+	{"FileWriter", "writeAll", "", "", ""},
+	{"FileWriter", "writeAllText", "", "", ""},
+	{"FileWriter", "writeAllManaged", "", "", ""},
+	{"FileSource", "close", "FileReadError", "readFailureOf", ""},
+	// A socket's close that fails is NetworkError.sendFailed: what was sent may not have reached the peer.
+	{"TcpClient", "close", "NetworkError", "closeFailureOf", "socket"},
+	{"TcpListener", "close", "NetworkError", "closeFailureOf", "socket"},
 }
 
 // fileCloseLabel is the label of the handler that rewriteFileEndings writes around a close of an open file.
@@ -54,14 +62,22 @@ func rewriteFileEndings(lines []sourceLine) []sourceLine {
 		}
 		for i+1 < len(lines) && !(lines[i+1].indent == l.indent && len(lines[i+1].code) > 0 && lines[i+1].code[0].text == "end") {
 			i++
-			if isFileClose(lines[i]) {
-				out = append(out, throwingClose(lines[i], ending.mapper)...)
+			if isFileClose(lines[i], ending.closedField()) {
+				out = append(out, throwingClose(lines[i], ending.closedField(), ending.mapper)...)
 				continue
 			}
 			out = append(out, lines[i])
 		}
 	}
 	return out
+}
+
+// closedField is the field whose close the ending's body makes.
+func (e fileEnding) closedField() string {
+	if e.field == "" {
+		return "file"
+	}
+	return e.field
 }
 
 // declaredTypeName is the name of the type a top-level line declares, or "".
@@ -103,8 +119,8 @@ func endingSignature(code []token, ending fileEnding) []token {
 	return out
 }
 
-// isFileClose is whether a line is the close of the type's file, `file.close()`.
-func isFileClose(l sourceLine) bool {
+// isFileClose is whether a line is the close of the type's file or socket, `file.close()` of the field.
+func isFileClose(l sourceLine, field string) bool {
 	if l.removed || len(l.code) != 5 {
 		return false
 	}
@@ -112,13 +128,13 @@ func isFileClose(l sourceLine) bool {
 	for k, t := range l.code {
 		texts[k] = t.text
 	}
-	return slices.Equal(texts, []string{"file", ".", "close", "(", ")"})
+	return slices.Equal(texts, []string{field, ".", "close", "(", ")"})
 }
 
 // throwingClose is a close of the type's file whose failure throws the type's error, mapped by mapper.
-func throwingClose(l sourceLine, mapper string) []sourceLine {
+func throwingClose(l sourceLine, field, mapper string) []sourceLine {
 	text := strings.Join([]string{
-		l.indent + "try file.close() otherwise (e) " + fileCloseLabel,
+		l.indent + "try " + field + ".close() otherwise (e) " + fileCloseLabel,
 		l.indent + "\tthrow " + mapper + "(e)",
 		l.indent + "end " + fileCloseLabel,
 	}, "\n") + "\n"
@@ -133,13 +149,15 @@ func throwingClose(l sourceLine, mapper string) []sourceLine {
 // converted file calls a static of the buffer, since a static is called through a typealias of an instance.
 const fileBuffersAlias = "ByteMemory"
 
-// rewriteFileBuffers writes maxon's bare buffer, __ManagedMemory, as a buffer of bytes in a file that names __ManagedFile, whose
-// rows read and write bytes: the type as `__ManagedMemory with Byte`, and the create of one of the element size 1 through
+// rewriteFileBuffers writes maxon's bare buffer, __ManagedMemory, as a buffer of bytes in a file that names __ManagedFile or
+// __ManagedSocket, whose rows read and write bytes: the type as `__ManagedMemory with Byte`, and the create of one of the element size 1 through
 // the library's alias, `ByteMemory.create(n, 1)`. A bare buffer that some other code of the file names is no file's, and the
 // file is left as it is.
 func rewriteFileBuffers(lines []sourceLine) {
 	if !slices.ContainsFunc(lines, func(l sourceLine) bool {
-		return !l.removed && slices.ContainsFunc(l.code, func(t token) bool { return t.kind == tokIdent && t.text == "__ManagedFile" })
+		return !l.removed && slices.ContainsFunc(l.code, func(t token) bool {
+			return t.kind == tokIdent && (t.text == "__ManagedFile" || t.text == "__ManagedSocket")
+		})
 	}) {
 		return
 	}
@@ -151,19 +169,21 @@ func rewriteFileBuffers(lines []sourceLine) {
 	}
 }
 
-// fileCallLabels are the labels of the second parameter of the methods of __ManagedFile that maxon's code gives by its place,
-// which only a built-in's parameter may be given by here: `readAppending(managed, most)` is `readAppending(managed, most: most)`.
-var fileCallLabels = map[string]string{"readAppending": "most"}
+// fileCallLabels are the labels of the parameters after the first of the methods of __ManagedFile and __ManagedSocket that
+// maxon's code gives by their place, which only a built-in's parameter may be given by here: `readAppending(managed, most)` is
+// `readAppending(managed, most: most)`.
+var fileCallLabels = map[string][]string{"readAppending": {"most"}, "sendFrom": {"offset", "count"}}
 
-// labelFileCalls is a line's code with the second argument of each call of fileCallLabels given by its label.
+// labelFileCalls is a line's code with each argument after the first of each call of fileCallLabels given by its label.
 func labelFileCalls(code []token) []token {
 	for k := 1; k+1 < len(code); k++ {
-		label, ok := fileCallLabels[code[k].text]
+		labels, ok := fileCallLabels[code[k].text]
 		if !ok || code[k-1].text != "." || code[k+1].text != "(" {
 			continue
 		}
 		depth := 0
-		for j := k + 1; j < len(code); j++ {
+		next := 0
+		for j := k + 1; j < len(code) && next < len(labels); j++ {
 			switch code[j].text {
 			case "(", "[":
 				depth++
@@ -177,8 +197,8 @@ func labelFileCalls(code []token) []token {
 				if j+2 < len(code) && code[j+2].text == ":" {
 					break
 				}
-				code = slices.Concat(code[:j+1], []token{{kind: tokIdent, text: label}, {kind: tokPunct, text: ":"}}, code[j+1:])
-				break
+				code = slices.Concat(code[:j+1], []token{{kind: tokIdent, text: labels[next]}, {kind: tokPunct, text: ":"}}, code[j+1:])
+				next++
 			}
 		}
 	}

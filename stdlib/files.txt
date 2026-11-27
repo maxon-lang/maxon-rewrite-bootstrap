@@ -40,3 +40,5 @@ helpers/file/osErrorCodes.maxon subprocess
 Subprocess.maxon subprocess
 helpers/file/fileWriter.maxon file
 File.maxon file
+TcpClient.maxon net
+TcpListener.maxon net

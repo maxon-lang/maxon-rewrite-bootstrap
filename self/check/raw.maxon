@@ -10,16 +10,38 @@ end 'checksLibraryTier'
 
 // refusesRawType refuses a type of the raw surface that a module outside the library tiers names at off.
 function refusesRawType(c Checker, p ast.Project, ms ast.ModuleState, off diag.U32, t ast.TypeID, mutates errs diag.ErrorList) returns bool
+	let origin = ast.originOf(ms.types, reads: p.types, t: t)
+	if refusesMissingFacility(c, p: p, ms: ms, off: off, origin: origin, errs: errs) 'missing'
+		return true
+	end 'missing'
 	if checksLibraryTier(c, p: p) 'tier'
 		return false
 	end 'tier'
-	let origin = ast.originOf(ms.types, reads: p.types, t: t)
 	match consumes ast.rawTypeSurface(p.builtins, origin: origin) 'raw'
 		some(door) then checkFail(c.modID, off: off, code: diag.errRawSurfaceOutsideLibrary, msg: diag.rawTypeOutsideLibrary(ast.typeEntry(ms.types, reads: p.types, t: origin).name.clone(), what: door.what, instead: door.instead), errs: errs)
 		none then return refusesRawLibraryType(c, p: p, ms: ms, off: off, origin: origin, errs: errs)
 	end 'raw'
 	return true
 end 'refusesRawType'
+
+// refusesMissingFacility refuses a type of the library that is a facility the target's system does not have yet (E3104,
+// ast.missingFacility), named at off by a module outside the library: TcpClient on x64-windows. The library's own modules name
+// it freely, since a program that never names it compiles them too.
+function refusesMissingFacility(c Checker, p ast.Project, ms ast.ModuleState, off diag.U32, origin ast.TypeID, mutates errs diag.ErrorList) returns bool
+	if p.modules[c.modIdx].isLibrary or p.modules[c.modIdx].isRuntime 'library'
+		return false
+	end 'library'
+	let entry = ast.typeEntry(ms.types, reads: p.types, t: origin)
+	if not entry.hasDecl or entry.decl.module == diag.stdlibID or not ast.isLibraryModule(p, modID: entry.decl.module) 'unlisted'
+		return false
+	end 'unlisted'
+	let why = ast.missingFacility(entry.name.clone(), system: p.target.system)
+	if why.isEmpty() 'provided'
+		return false
+	end 'provided'
+	checkFail(c.modID, off: off, code: diag.errTargetUnsupported, msg: "'{entry.name}' is not available for {p.target.name()}: {why}", errs: errs)
+	return true
+end 'refusesMissingFacility'
 
 // refusesRawLibraryType refuses a type of the raw surface that the library declares (__ManagedFile), named at off outside the
 // library tiers. Only a module of a library tier declares a name that starts with `__` (E2051), so a declared type of such a

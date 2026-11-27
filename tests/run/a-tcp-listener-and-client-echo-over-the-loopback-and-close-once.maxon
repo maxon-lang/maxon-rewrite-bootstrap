@@ -1,0 +1,76 @@
+// TcpListener and TcpClient, converted from maxon's library over the library's __ManagedSocket: a listener on 127.0.0.1's
+// port 0 accepts a client that a coroutine connects, the client's line comes back, the client's shutdown is the server's
+// empty read, and each socket is closed by its close, which throws NetworkError. Address literals are read by the library:
+// an IPv6 one binds over ::1, and a malformed one, a host holding a NUL and the empty host fail to resolve without reaching a
+// resolver. A connect to a port whose listener has closed fails.
+// native-only
+// unsupported-targets: x64-windows
+//> the server heard: ping
+//> the server read the end
+//> the client heard: ping
+//> ::1: bound: true
+//> 1::2::3: resolveFailed
+//> 127.0.0.1\0junk: resolveFailed
+//> empty: resolveFailed
+//> a closed port: connectFailed
+let PieceBytes = 64
+
+function client(port NetworkPort) returns String
+	var connection = try TcpClient.connect("127.0.0.1", port: port) otherwise (e) 'refused'
+		return "refused {e.name}"
+	end 'refused'
+	_ = try connection.send("ping") otherwise 'unsent'
+		try connection.close() otherwise ignore
+		return "send-failed"
+	end 'unsent'
+	let answer = try connection.readSome(PieceBytes) otherwise 'unread'
+		try connection.close() otherwise ignore
+		return "recv-failed"
+	end 'unread'
+	try connection.shutdownWrite() otherwise ignore
+	try connection.close() otherwise return "close-failed"
+	return String.from(answer)
+end 'client'
+
+function serve(mutates listener TcpListener) returns String
+	var connection = try listener.accept() otherwise return "accept-failed"
+	let heard = String.from(try connection.readSome(PieceBytes) otherwise ByteArray.create(0))
+	_ = try connection.send(heard) otherwise 0
+	let last = try connection.readSome(PieceBytes) otherwise ByteArray.create(1)
+	try connection.close() otherwise return "close-failed"
+	if last.isEmpty() 'ended'
+		return "{heard}\nthe server read the end"
+	end 'ended'
+	return "{heard}\nthe server read more"
+end 'serve'
+
+function verdict(host String) returns String
+	var listener = try TcpListener.bind(host, port: 0) otherwise (e) 'refused'
+		return e.name
+	end 'refused'
+	let bound = listener.port() > 0
+	try listener.close() otherwise return "close-failed"
+	return "bound: {bound}"
+end 'verdict'
+
+function main() returns ExitCode
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	let port = listener.port()
+	let talk = async client(port)
+	print("the server heard: {serve(listener)}\n")
+	print("the client heard: {await talk}\n")
+	try listener.close() otherwise return 2
+	print("::1: {verdict("::1")}\n")
+	print("1::2::3: {verdict("1::2::3")}\n")
+	print("127.0.0.1\\0junk: {verdict("127.0.0.1\0junk")}\n")
+	print("empty: {verdict("")}\n")
+	var closed = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 3
+	let closedPort = closed.port()
+	try closed.close() otherwise return 4
+	var refused = try TcpClient.connect("127.0.0.1", port: closedPort) otherwise (e) 'refused'
+		print("a closed port: {e.name}\n")
+		return 0
+	end 'refused'
+	try refused.close() otherwise return 5
+	return 6
+end 'main'
