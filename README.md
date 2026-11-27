@@ -2332,10 +2332,13 @@ output and exit code are its own, a violation exits with 4 and a program that ou
 - **What it does not run.** An operation the interpreter has no model of stops the run with a message that names it and says to
   mark the program `// native-only`, and never gives a result: `Directory.delete`, `Subprocess.runWithInput`, the process's
   environment entries, a change of the process's priority, the debug port, the subprocess rows of the raw surface, and **file
-  streams**, the rows of an open file that the library's `__ManagedFile` is written over (`__Builtins.fileOpenRead` and the
-  other opens, `fileReadAppending`, `fileWrite`, `fileSync`, `fileClose`, `self/interp/handles.maxon`), and so the library's `FileWriter`,
-  `File.openRead` and `File.createText`, which are written over them, since its file layer reads and writes whole files and holds no
-  descriptor; and **sockets**, the rows of a TCP socket that the library's `__ManagedSocket` is written over
+  streams** other than the one that a program makes and writes: the rows of an open file that the library's `__ManagedFile` is written over (`__Builtins.fileOpenRead`,
+  `fileOpenWrite`, `fileOpenWriteExecutable`, `fileReadAppending` and `fileSync`, `self/interp/handles.maxon`), and so the library's
+  `FileWriter.open` and `File.openRead`, since its file layer reads and writes whole files and holds no descriptor. It runs the
+  rows of a file that a program makes and writes, `fileOpenCreateNew`, `fileWrite` and `fileClose`, so that `FileWriter.openNew`,
+  `writeAllText` and `File.createText` run: the open makes the file where none is there (the check and the write are one step, as
+  the interpreter runs one function at a time; a process outside the program that makes the file between them is not excluded, as it
+  is by the compiled open), and a write adds to what the file holds; and **sockets**, the rows of a TCP socket that the library's `__ManagedSocket` is written over
   (`__Builtins.socketListen`, `socketConnect`, `socketAccept` and the rest, `self/interp/socket.maxon`). It stops at the operation and not before the run, since a module is lowered whole and a program that never opens
   a file may hold code that does.
   `fuzz` generates none of these: its programs are drawn from `self/fuzz/library.txt`, which names none.
@@ -4655,7 +4658,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `File.readText(path)` | `String` | `FileReadError` |
 | `File.readBinary(path)` | `Array with Byte`, the whole content of the file, read as `readText` reads it (the same system calls; the bytes are copied from the read buffer to the array) | `FileReadError` |
 | `File.writeText(path, content: s)`, `File.writeBinary(path, content: bytes)`, each with an optional `mode: FilePermission` | — (a file that is there is replaced, and keeps its mode) | `FileWriteError` |
-| `File.createText(path, content: s)` | — (maxon's, the library's (`stdlib/file/File.maxon`), over `FileWriter.openNew` and `writeAllText`: makes a file that must not be there, in one step, `CreateFileW` with `CREATE_NEW`, `open` with `O_CREAT \| O_EXCL`; one that is there fails `alreadyExists` and is left as it was; a write that fails after the file was made deletes it, and the error is the write's, or `partialFileLeft` when that delete fails too and not as `notFound`) | `FileWriteError` |
+| `File.createText(path, content: s)` | — (maxon's, the library's (`stdlib/file/File.maxon`), over `FileWriter.openNew` and `writeAllText`: makes a file that must not be there, in one step, `CreateFileW` with `CREATE_NEW`, `open` with `O_CREAT \| O_EXCL`; one that is there fails `alreadyExists` and is left as it was; a write that fails after the file was made deletes it, and the error is the write's, or `partialFileLeft` when that delete fails too and not as `notFound`); the interpreter runs it (see "The interpreter") | `FileWriteError` |
 | `File.openRead(path)` | `FileStreamReader`, maxon's `stream.StreamReader with FileSource` (`stdlib/file`): lines, exact counts of bytes and the rest of the file, read as the file's reads are (see "An open file", below); it is ended with `reader.source.close()` | `FileReadError` |
 | `FileWriter.open(path)`, with an optional `mode: FilePermission`, and `FileWriter.openNew(path)` (a file that must not be there, `alreadyExists`) | `FileWriter`, maxon's (`stdlib/file/fileWriter.maxon`): `write(bytes)` writes all of them; `close()` ends it; `writeAll(bytes)` and `writeAllText(s)` write and then close, and end it too | `FileWriteError` |
 | `File.rename(from, to: dest)` | — (what is at `dest` is replaced) | `FileRenameError` |
@@ -6133,7 +6136,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   that the system refuses to sync, as Go's does, fails the same way and is not made to succeed: a pipe or a FIFO gives the
   system's error (`EINVAL` on Linux), and on Windows a handle that was not opened to write, or a console, gives Windows' own.
   A program that must know its bytes are on the device asks for it, as it asks for the bytes to reach the file by its close. The
-  interpreter has no file streams, so it stops at the sync as at every row of an open file ("The interpreter").
+  interpreter stops at the sync as at every row of an open file but those of a file that a program makes and writes ("The interpreter").
 
 ## Changing the language
 

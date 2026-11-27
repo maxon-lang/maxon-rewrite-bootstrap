@@ -257,12 +257,18 @@ function writeTextEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr, mode FilePer
 	try errorWord(vm, f: f, x: x, word: word)
 end 'writeTextEntry'
 
+// bytesOf is a copy of the bytes of the byte array that the argument at index of an entry's call gives.
+function bytesOf(mutates vm Vm, f ir.IrFunction, x ir.Instr, index Count, what String) returns ByteArray throws Halt
+	let bytes = try collection(vm, o: argRef(vm, f: f, x: x, i: index), kind: kindBytes, what: what)
+	return vm.h.buffers[vm.h.oData[bytes]].clone()
+end 'bytesOf'
+
 // writeBinaryEntry is the write of a byte array, which gives the file the mode.
 function writeBinaryEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr, mode FilePermission) throws Halt
 	let pathAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
 	let path = pathOf(vm.h.texts[pathAt].clone())
-	let bytes = try collection(vm, o: argRef(vm, f: f, x: x, i: 1), kind: kindBytes, what: "a file's content")
-	let word = writeBytes(path, content: vm.h.buffers[vm.h.oData[bytes]].clone(), mode: mode)
+	let content = try bytesOf(vm, f: f, x: x, index: 1, what: "a file's content")
+	let word = writeBytes(path, content: content, mode: mode)
 	try errorWord(vm, f: f, x: x, word: word)
 end 'writeBinaryEntry'
 

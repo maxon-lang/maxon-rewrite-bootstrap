@@ -1,8 +1,6 @@
 // File.createText makes a file that must not be there: it holds the content, a second create at the path fails alreadyExists
 // and leaves the first file as it was, a path in a directory that is not there fails notFound, and once the file is deleted the
-// path can be created again. The same program runs on every target, in the working directory. createText is maxon's, written
-// over a FileWriter, whose file the interpreter does not run.
-// native-only
+// path can be created again. The same program runs on every target and under the interpreter, in the working directory.
 //> made=created
 //> read=hello
 //> again=alreadyExists

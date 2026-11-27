@@ -1,12 +1,36 @@
-// The rows of an open file, run on a descriptor or a HANDLE of the system's, which the interpreter's file layer has none of (it
-// reads and writes whole files): it stops at each with the operation's name, never giving a result, and a program that opens a
-// file through the library's __ManagedFile says `// native-only`. The interpreter stops at the operation and not before the
-// program runs, since a module is lowered whole and a program that never opens a file may hold code that does.
+// The rows of an open file run on a descriptor or a HANDLE of the system's, which the interpreter's file layer has none of: it
+// reads and writes whole files. It models the three rows of a file that a program makes and writes, which the library's
+// FileWriter.openNew, writeAllText and close, and so File.createText, are written over. The exclusive open makes the file at once
+// (createEmpty), so that a path that is there fails alreadyExists and one in a directory that is not there fails notFound, and
+// keeps its path in a table of the open files; a write adds its bytes to what the file holds, which is all that the one that
+// made it has written; and the close has nothing left to do. Every other row of an open file stops at the operation with its name,
+// never giving a result, and a program that opens a file through the library's __ManagedFile in another way says `// native-only`.
+// The interpreter stops at the operation and not before the program runs, since a module is lowered whole and a program that
+// never opens a file may hold code that does.
+
+// OpenFiles are the files that the program has open, by their row from 1, which is the word of the handle that its
+// __ManagedFile holds: the path each was made at. Row 0 is no file.
+type OpenFiles
+	var paths as ast.StringList
+
+	static function new() returns OpenFiles
+		var files = OpenFiles{paths: ast.StringList.create(0)}
+		files.paths.push("")
+		return files
+	end 'new'
+
+	// open gives the row of a file that was made at the path.
+	function open(mutates self, path String) returns Count
+		let row = paths.count()
+		paths.push(path.clone())
+		return row
+	end 'open'
+end 'OpenFiles'
 
 // haltHandleRow is the halt of the interpreter at a row of an open file: what it does not model, which a run of the spec tests
 // under the interpreter meets in a test that passes natively.
 function haltHandleRow(mutates vm Vm, row String) returns Halt
-	return unmodelled(vm, what: "{row} is not run by the interpreter, which has no file streams: mark the program native-only")
+	return unmodelled(vm, what: "{row} is not run by the interpreter, which holds no file open to read or to replace: mark the program native-only")
 end 'haltHandleRow'
 
 function entryFileOpenRead(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
@@ -21,22 +45,79 @@ function entryFileOpenWriteExecutable(mutates vm Vm, f ir.IrFunction, x ir.Instr
 	throw haltHandleRow(vm, row: "__Builtins.fileOpenWriteExecutable")
 end 'entryFileOpenWriteExecutable'
 
+// createEmpty makes an empty file at a path where none is, in the interpreter's own file layer, as one step: the interpreter
+// runs one function of the program at a time, so nothing of the program runs between the check that no file is at the path and
+// the write, and the program cannot tell it from the exclusive open that the compiled entry makes. (A process outside the
+// program that makes the file between the two is not excluded, as it is by the compiled entry.) It gives the error word, or 0.
+function createEmpty(path FilePath) returns ir.Word
+	if File.exists(path) 'there'
+		return caseWord(ast.errorFileAlreadyExists)
+	end 'there'
+	try 'create'
+		File.writeText(path, content: "")
+	end 'create' otherwise (e) 'failed'
+		match e 'kind'
+			notFound then return caseWord(ast.errorFileNotFound)
+			accessDenied then return caseWord(ast.errorFileAccessDenied)
+			alreadyExists then return caseWord(ast.errorFileAlreadyExists)
+			busy then return caseWord(ast.errorFileBusy)
+			failed or
+			partialFileLeft then return caseWord(ast.errorFileOpenFailed)
+		end 'kind'
+	end 'failed'
+	return 0
+end 'createEmpty'
+
+// entryFileOpenCreateNew makes the file at the path that the call names, which must not be there, empty, and gives the word of
+// the handle that holds it open.
 function entryFileOpenCreateNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw haltHandleRow(vm, row: "__Builtins.fileOpenCreateNew")
+	let name = try bytesOf(vm, f: f, x: x, index: 0, what: "a path")
+	let path = pathOf(String.from(name))
+	let word = createEmpty(path)
+	try errorWord(vm, f: f, x: x, word: word)
+	if word == 0 'made'
+		let row = vm.files.open(path.toString())
+		giveNum(vm, x: x, n: try row as ir.Word otherwise panic("interp: a file's row past a word"))
+	end 'made'
 end 'entryFileOpenCreateNew'
 
 function entryFileReadAppending(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	throw haltHandleRow(vm, row: "__Builtins.fileReadAppending")
 end 'entryFileReadAppending'
 
+// openFilePath is the path of the open file whose handle's word is the call's argument at index.
+function openFilePath(vm Vm, f ir.IrFunction, x ir.Instr, index Count) returns FilePath
+	let row = ir.bitsOfWord(argNum(vm, f: f, x: x, i: index))
+	let text = try vm.files.paths.get(row) otherwise panic("interp: a row of an open file that no open gave")
+	return pathOf(text)
+end 'openFilePath'
+
+// entryFileWrite writes the whole of the buffer after what the file holds, and gives its length: what the file holds is what the
+// handle wrote, as nothing else has the file open to write. A file that cannot be read or written again is writeFailed.
 function entryFileWrite(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw haltHandleRow(vm, row: "__Builtins.fileWrite")
+	let path = openFilePath(vm, f: f, x: x, index: 0)
+	let added = try bytesOf(vm, f: f, x: x, index: 1, what: "a file's content")
+	var word = 0 as ir.Word
+	try 'read'
+		var content = File.readBinary(path)
+		content.append(added)
+		if writeBytes(path, content: content, mode: FilePermission.normal) != 0 'refused'
+			word = caseWord(ast.errorFileWriteFailed)
+		end 'refused'
+	end 'read' otherwise 'unread'
+		word = caseWord(ast.errorFileWriteFailed)
+	end 'unread'
+	try errorWord(vm, f: f, x: x, word: word)
+	if word == 0 'written'
+		giveNum(vm, x: x, n: try added.count() as ir.Word otherwise panic("interp: a buffer's length past a word"))
+	end 'written'
 end 'entryFileWrite'
 
 function entryFileSync(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	throw haltHandleRow(vm, row: "__Builtins.fileSync")
 end 'entryFileSync'
 
+// entryFileClose ends the handle: what it wrote is in the file already, so there is nothing to report.
 function entryFileClose(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw haltHandleRow(vm, row: "__Builtins.fileClose")
+	try errorWord(vm, f: f, x: x, word: 0)
 end 'entryFileClose'
