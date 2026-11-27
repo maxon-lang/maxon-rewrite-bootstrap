@@ -1334,12 +1334,17 @@ the test runners and a compile with `--emit-ir` or `--verify-ir`, which need eve
 - **The key** of a module (`keyOf`) is the digest of the compile's base (the compiler's identity, the target,
   `--count-allocations`, and for a program the runtime's source), the module's path, its source and the summary of each module it
   names. Handles, the project's directory, the schedule and the number of workers are in no key.
-- **The runtime's bodies are skimmed** where the cache holds its unit: `prepareRuntime` first compiles the runtime with
-  `Options.skimsBodies`, whose parse skips the body of each function, the lines from its header to the `end 'name'` at its
-  indentation (`syntax.parseModuleFilesSkimming`, `Lexer.skimBody`), so a warm compile parses and resolves only its declarations
-  and links the cached unit. A compile that then needs a body (a miss of the cache) fails at the module's bodies with an error no
-  compile reports (`skimmedBodyNeeded`), and any error ends the attempt: the runtime is compiled again whole, so the output and the
-  diagnostics are those of a compile without skimming. A check never skims.
+- **The runtime is not compiled where the cache holds its code.** Before any stage of the runtime's compile, `prepareRuntime`
+  (`loadedRuntime`) reads the files of the runtime's directory, makes the digest of their source (`project.sourceDigest`, the one
+  the parse makes) and looks for the entry under the key the runtime's own compile finds its unit under (`unitKeyHasher` of the
+  base, `runtime` and that digest; the runtime names no module). On a hit it links that unit and keeps the runtime's module as a
+  shell: its flags, directory, the names of its files and the digest, which the program's keys hold, and no text, declaration,
+  tree, resolution or type, since nothing after the runtime's compile reads them. The files are read and hashed on every build,
+  never keyed by their size or time: what decides which code is linked is the hash of its bytes. An entry exists only for a
+  compile of the same compiler whose `program` stage (`checkRuntimeFunctions`) passed, so a hit has nothing to check. On a miss
+  the runtime is compiled whole, as it is for `--emit-ir`, `--verify-ir`, `--debug-info` and `--verify-cache` (which compiles it
+  to hold its unit to the entry), and its entry is written. `cmd/gate`'s cache step holds a warm build's `--timings` to report no
+  compile of the runtime.
 - **The compiler's identity** (`compilerIdentity`) is its build ID, Go's: the link writes into every image that holds the
   build ID's field (the text `minimaxon build id ` and 32 zeros, which only the compiler's source declares) the digest of the image
   as it is with the zeros, before Mach-O signs it (`backend.stampBuildId`), so the compiler reads its identity from a constant

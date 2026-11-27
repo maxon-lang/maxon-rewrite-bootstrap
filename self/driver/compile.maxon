@@ -249,24 +249,45 @@ end 'compileRuntimeTest'
 // compiled by adding it to a copy of p and linking it with that code, which is the same for every program: the runtime's own
 // source is then loaded, checked and lowered once however many programs are compiled.
 function prepareRuntime(mutates p ast.Project, options Options, mutates errs diag.ErrorList) returns backend.UnitList
-	if options.cacheDir != "" and not options.emitIr and not options.verifyIr and not options.debugInfo and not options.verifiesCache 'skim'
-		var trial = copyOfProject(p)
-		var trialErrs = diag.ErrorList.create(0)
-		var skimming = options.clone()
-		skimming.skimsBodies = true
-		var units = runtimeUnits(trial, options: skimming, errs: trialErrs)
-		if trialErrs.count() == 0 'kept'
-			p = exchange(trial, value: ast.Project.new(""))
-			return exchange(units, value: backend.UnitList.create(0))
-		end 'kept'
-	end 'skim'
-	return runtimeUnits(p, options: options, errs: errs)
-end 'prepareRuntime'
-
-// runtimeUnits is prepareRuntime's compile of the runtime, its bodies skimmed where options say so.
-function runtimeUnits(mutates p ast.Project, options Options, mutates errs diag.ErrorList) returns backend.UnitList
 	let first = p.modules.count()
 	project.discoverRuntime(p)
+	if options.cacheDir != "" and not options.emitIr and not options.verifyIr and not options.debugInfo and not options.verifiesCache 'probe'
+		match consumes loadedRuntime(p, options: options) 'cached'
+			some(units) then return units
+			none then _ = 0
+		end 'cached'
+	end 'probe'
+	return runtimeUnits(p, first: first, options: options, errs: errs)
+end 'prepareRuntime'
+
+// loadedRuntime is the runtime's code from the build cache, or none where the cache holds none for the runtime's source on disk:
+// the runtime's module stays what discoverRuntime made of it, a shell with its files' names, none of their text, and its source's
+// digest, which the program's keys hold. The key is the one the runtime's own compile finds its unit under (unitKeyHasher, as
+// the runtime names no module), and an entry exists only for a compile that passed the check of the compiler's functions
+// (checkRuntimeFunctions) of the same compiler, so a hit has nothing left to check, and nothing after the runtime's compile
+// reads its declarations, types or bodies, which are what its stages would make.
+function loadedRuntime(mutates p ast.Project, options Options) returns table.Option with backend.UnitList
+	let setup = cacheSetupOf(p, first: 0, options: runtimeOptionsOf(options))
+	var digest = table.Digest.none()
+	match consumes project.diskSourceDigest(p.modules[0]) 'digested'
+		some(found) then digest = found
+		none then return table.Option.none
+	end 'digested'
+	var h = unitKeyHasher(setup.base, path: p.modules[0].path, source: digest)
+	let key = h.digest()
+	let found = readEntry(setup, key: key)
+	if not found.isSome() 'miss'
+		return table.Option.none
+	end 'miss'
+	p.modules[0].sourceDigest = digest
+	var units = backend.UnitList.create(0)
+	units.push(unitOf(found, dir: setup.dir, key: key))
+	return table.Option.some(units)
+end 'loadedRuntime'
+
+// runtimeOptionsOf are the options of the compile of the runtime that options ask for the program's compile: those that the
+// runtime's own code depends on.
+function runtimeOptionsOf(options Options) returns Options
 	var runtimeOptions = Options.new()
 	runtimeOptions.timings = options.timings
 	runtimeOptions.cacheDir = options.cacheDir.clone()
@@ -276,7 +297,13 @@ function runtimeUnits(mutates p ast.Project, options Options, mutates errs diag.
 	runtimeOptions.countAllocations = options.countAllocations
 	runtimeOptions.debugInfo = options.debugInfo
 	runtimeOptions.skimsBodies = options.skimsBodies
-	var run = runStages(p, from: Stage.parse, memory: project.SourceFiles.create(0), first: first, goal: Goal.units, makesProgram: false, output: "", options: runtimeOptions, ready: noReadyUnits(), errs: errs)
+	return runtimeOptions
+end 'runtimeOptionsOf'
+
+// runtimeUnits is prepareRuntime's compile of the runtime, which discoverRuntime put in p from the module at first on, from its
+// parse, its bodies skimmed where options say so.
+function runtimeUnits(mutates p ast.Project, first Count, options Options, mutates errs diag.ErrorList) returns backend.UnitList
+	var run = runStages(p, from: Stage.parse, memory: project.SourceFiles.create(0), first: first, goal: Goal.units, makesProgram: false, output: "", options: runtimeOptionsOf(options), ready: noReadyUnits(), errs: errs)
 	if errs.count() > 0 'failed'
 		ast.locateAllErrors(p.modules, errs: errs)
 	end 'failed'

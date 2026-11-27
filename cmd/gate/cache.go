@@ -49,15 +49,23 @@ func cacheRun(h host, compiler, testCase, procs string) error {
 	uncachedEnv := append(slices.Clone(env), cacheOffEnvironment()...)
 	// Every build is under one file name, each in a directory of its own: a Mach-O image is signed under its file's name.
 	exeOf := func(name string) string { return filepath.Join(root, name, "program"+h.exe) }
-	buildIn := func(buildEnv []string, name string, flags ...string) ([]byte, error) {
+	// run is what the compiler wrote building the project, which has the executable at exeOf(name).
+	run := func(buildEnv []string, name string, flags ...string) (string, error) {
 		exe := exeOf(name)
 		if err := os.MkdirAll(filepath.Dir(exe), 0o755); err != nil {
+			return "", err
+		}
+		out, err := output(buildEnv, "", compiler, append([]string{"build", project, "-o", exe}, flags...)...)
+		if err != nil {
+			return "", fmt.Errorf("the %s build failed: %s%w", name, out, err)
+		}
+		return out, nil
+	}
+	buildIn := func(buildEnv []string, name string, flags ...string) ([]byte, error) {
+		if _, err := run(buildEnv, name, flags...); err != nil {
 			return nil, err
 		}
-		if out, err := output(buildEnv, "", compiler, append([]string{"build", project, "-o", exe}, flags...)...); err != nil {
-			return nil, fmt.Errorf("the %s build failed: %s%w", name, out, err)
-		}
-		return os.ReadFile(exe)
+		return os.ReadFile(exeOf(name))
 	}
 	build := func(name string, flags ...string) ([]byte, error) { return buildIn(env, name, flags...) }
 	buildUncached := func(name string) ([]byte, error) { return buildIn(uncachedEnv, name) }
@@ -79,6 +87,9 @@ func cacheRun(h host, compiler, testCase, procs string) error {
 		return err
 	}
 	if err := same("warm", uncached, "the warm build differs from the uncached one"); err != nil {
+		return err
+	}
+	if err := runtimeNotCompiled(run, env, uncachedEnv); err != nil {
 		return err
 	}
 	leaf := filepath.Join(project, "gauges", "gauges.maxon")
@@ -136,6 +147,31 @@ func cacheRun(h host, compiler, testCase, procs string) error {
 	}
 	_, err = build("verified", "--verify-cache")
 	return err
+}
+
+// runtimeCompileReport is the line of --timings that a compile of the runtime's units writes, which a compile of the program
+// does not (its goal is the executable).
+const runtimeCompileReport = "compile timings, goal units"
+
+// runtimeNotCompiled holds a warm build to find the runtime's code in the cache under the key its source's digest makes, with no
+// stage of the runtime run: its timings report no compile of the runtime, where an uncached build's report one, so that the check
+// would fail if the report were renamed.
+func runtimeNotCompiled(run func([]string, string, ...string) (string, error), env, uncachedEnv []string) error {
+	uncached, err := run(uncachedEnv, "uncached-timings", "--timings")
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(uncached, runtimeCompileReport) {
+		return fmt.Errorf("an uncached build's timings have no %q, so that a warm build has none shows nothing", runtimeCompileReport)
+	}
+	warm, err := run(env, "warm-timings", "--timings")
+	if err != nil {
+		return err
+	}
+	if strings.Contains(warm, runtimeCompileReport) {
+		return errors.New("a warm build compiled the runtime: its code was not found in the cache under its source's key")
+	}
+	return nil
 }
 
 // copyTree copies the directory src, and everything under it, to dst.

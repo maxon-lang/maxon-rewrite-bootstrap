@@ -911,6 +911,19 @@ function copyParsedIntoModule(mutates ms ast.ModuleState, p ast.Project, consume
 	ms.parsed.sourceDigest = digest
 end 'copyParsedIntoModule'
 
+// diskSourceDigest is the digest of the source that the files of the module m hold on disk, which its parse would make, or none
+// where a file cannot be read.
+export function diskSourceDigest(m ast.Module) returns table.Option with table.Digest
+	var texts = ast.StringList.create(0)
+	for path in m.filePaths 'files'
+		match consumes readTextFile(path) 'read'
+			some(text) then texts.push(text)
+			none then return table.Option.none
+		end 'read'
+	end 'files'
+	return table.Option.some(sourceDigest(m.path, filePaths: m.filePaths, fileTexts: texts))
+end 'diskSourceDigest'
+
 // sourceDigest is the digest of a module's source: its path, and each file's name and bytes, in order. The parse makes it of
 // the files it read, and a compile that finds the module's code in the build cache makes it of the files alone, so that the
 // key of the code is the same whether or not the module is parsed.
