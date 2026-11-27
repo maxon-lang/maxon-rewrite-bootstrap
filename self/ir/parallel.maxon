@@ -236,6 +236,25 @@ function startElement(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	l.parallelSlots.push(SlotLoop.make(local, held: held, index: index, box: box.clone()))
 end 'startElement'
 
+// parallelElementPlace is the place a call that takes the variable of a parallel for over an array by address is given:
+// the element it is lent, which the call may change as a whole, the variable lent it again after the call (writeBack); or
+// noReg for any other variable.
+function parallelElementPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, local ast.LocalID, slot Count) returns Reg
+	for k in 0 upto l.parallelSlots.count() 'loops'
+		if l.parallelSlots[k].local == local 'loop'
+			let box = l.parallelSlots[k].box.clone()
+			let held = l.parallelSlots[k].held
+			let index = l.parallelSlots[k].index
+			let arr = load(l, slot: held)
+			let at = load(l, slot: index)
+			let place = arrayPlace(l, p: p, ms: ms, box: box, arr: arr, index: at, checked: false)
+			l.writeBacks.push(WriteBack.makeReload(box, arr: arr, index: at, slot: slot))
+			return place
+		end 'loop'
+	end 'loops'
+	return noReg
+end 'parallelElementPlace'
+
 // chunkLowerer is the lowerer of a chunk of the loop at the code being lowered: of the same function and instance, with the
 // function's outerSlots slots so far, those held in place included, and its owners of consumes parameters.
 function chunkLowerer(mutates l Lowerer, p ast.Project, ms ast.ModuleState, outerSlots Count) returns Lowerer

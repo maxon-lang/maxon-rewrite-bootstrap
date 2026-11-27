@@ -166,14 +166,21 @@ export type WriteBack
 	export var index as Reg
 	export var at as Reg
 	export var slot as Count
+	// reloads is whether the slot is given the element again instead, the variable of a parallel for that is lent its element
+	// (parallelElementPlace), whose element the call took by address and may have replaced.
+	export var reloads as bool
 
 	export static function make(consumes box ArrayBox, arr Reg, index Reg, slot Count) returns WriteBack
-		return WriteBack{box: box, arr: arr, index: index, at: noReg, slot: slot}
+		return WriteBack{box: box, arr: arr, index: index, at: noReg, slot: slot, reloads: false}
 	end 'make'
 
 	export static function makeAt(consumes box ArrayBox, at Reg, slot Count) returns WriteBack
-		return WriteBack{box: box, arr: noReg, index: noReg, at: at, slot: slot}
+		return WriteBack{box: box, arr: noReg, index: noReg, at: at, slot: slot, reloads: false}
 	end 'makeAt'
+
+	export static function makeReload(consumes box ArrayBox, arr Reg, index Reg, slot Count) returns WriteBack
+		return WriteBack{box: box, arr: arr, index: index, at: noReg, slot: slot, reloads: true}
+	end 'makeReload'
 end 'WriteBack'
 
 export typealias WriteBackList = Array with WriteBack

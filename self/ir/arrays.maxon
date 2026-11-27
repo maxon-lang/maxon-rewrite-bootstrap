@@ -599,10 +599,16 @@ function lentBytePlace(mutates l Lowerer, site diag.Site, t ast.TypeID, at Reg) 
 	return d
 end 'lentBytePlace'
 
-// writeBack stores the slots of the places taken since mark back into their elements.
+// writeBack stores the slots of the places taken since mark back into their elements, and gives the variable of a parallel
+// for whose element a call took by address the element again.
 function writeBack(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, mark Count)
 	for i in mark upto l.writeBacks.count() 'each'
 		let w = l.writeBacks[i].clone()
+		if w.reloads 'reload'
+			let elem = arrayLoad(l, p: p, ms: ms, box: w.box, arr: w.arr, index: w.index)
+			emit(l, i: newStoreSlot(w.slot, src: elem, borrow: owning(regKind(l, v: elem))))
+			continue 'each'
+		end 'reload'
 		let v = load(l, slot: w.slot)
 		if w.at != noReg 'lent'
 			emit(l, i: newStoreByteAt(w.at, src: v))

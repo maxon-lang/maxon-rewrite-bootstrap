@@ -2976,6 +2976,21 @@ across a preemption, a blocking call handed off, timers and a completion of the 
   across the processors and 25 ns with one, where Go's equivalent (a goroutine per helper claiming the same chunks by an
   atomic add, a `WaitGroup` as the join) takes 2.5 to 4.3 µs and 50 to 80 ns; ten million squares written to an array
   take 3.2 ms against Go's 3.1 ms, both bound by memory.
+  The statement itself, `parallel for (i, w) in out.enumerated()` against a plain `for` writing the same elements, with a
+  CPU-bound body (100 rounds of a 64-bit multiply, add, shift and xor per element), on the same machine:
+
+  | indices x rounds | plain `for` | 1 processor | 4 processors | 16 processors |
+  |---|---|---|---|---|
+  | 1 x 1 | 1 ns | 6 ns | 6 ns | 6 ns |
+  | 8 x 1 | 7 ns | 12 ns | 735 ns | 1.16 µs |
+  | 64 x 10 | 0.43 µs | 0.45 µs | 1.45 µs | 2.77 µs |
+  | 1000 x 100 | 123 µs | 125 µs | 43 µs (2.8x) | 35 µs (3.4x) |
+  | 100000 x 100 | 12.1 ms | 12.2 ms | 3.2 ms (3.8x) | 1.11 ms (11x) |
+  | 1000000 x 100 | 122 ms | 125 ms | 31 ms (3.9x) | 9.9 ms (12.3x) |
+
+  A loop of one index, and any loop with one processor, is one call of the chunk (no job, no allocation): a few
+  nanoseconds over the plain loop. Across processors a loop pays the fork and join, about a microsecond, so it gains
+  from some thousands of nanoseconds of work up.
 
 **Faults and the stack.** The executable's main thread has a 256 MB stack reserve (`peStackReserve` in
 `self/backend/pe.maxon`): the compiler's passes recurse once per level of nesting of an expression, except down a chain of
@@ -4954,7 +4969,7 @@ maxon's surface, on the green threads of the runtime (see "Green threads"):
 - `parallel for i in a upto b` (or `to`) runs the body for each integer of the range;
 - `parallel for x in xs` over an `Array` lends each iteration its own element, `x`, to change: parts of it as a plain
   `for` lets them change, and, where the function may change `xs` (a `var` or a `mutates` parameter or receiver),
-  the whole element too (`x = f(x)`), which stores into the array;
+  the whole element too (`x = f(x)`, or `f(x)` to a `mutates` parameter, which is given the element itself and after which`n  `x` reads what it left), which stores into the array;
 - `parallel for (i, x) in xs.enumerated()` adds the index of each element. Results are written into a preallocated
   array's own elements (`var out = Nums.filled(n, value: 0)` and `parallel for (i, r) in out.enumerated()`), since
   Maxon has no loop that gives values to collect.
@@ -4994,8 +5009,7 @@ interleaves as any threads, so iterations of different chunks run in an order th
 depended on the order would print another result under some seed. A worker belongs to the caller for the race rule
 and for the cowns its behaviour holds. The lowest index's error wins and a chunk taken past it is not run, as natively.
 
-Not yet: parallel fors in the programs `fuzz` writes; a whole element passed to a `mutates` parameter (`E2013`, as in a
-plain `for`), where an assignment works.
+Not yet: parallel fors in the programs `fuzz` writes.
 
 ### Services
 

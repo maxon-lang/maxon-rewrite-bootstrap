@@ -1,0 +1,57 @@
+// The body of a parallel for over an array may pass its element to a helper's mutates parameter, the normal way to write
+// a body: the helper is given the element itself, so it changes a number, a part of a record and a whole record in its
+// array, and the loop's variable reads what the helper left there.
+//> 3 3 c10 c30 7 true
+typealias Num = int(0 to 1000000)
+
+typealias Nums = Array with Num
+
+type Cell
+	export var value as Num
+	export var label as String
+
+	static function create(value Num) returns Self
+		return Self{value: value, label: ""}
+	end 'create'
+end 'Cell'
+
+typealias Cells = Array with Cell
+
+function bump(mutates n Num)
+	n = try n * 2 + 1 otherwise 0
+end 'bump'
+
+function relabel(mutates c Cell)
+	c.value = try c.value * 10 otherwise 0
+	c.label = "c{c.value}"
+end 'relabel'
+
+function replace(mutates c Cell)
+	c = Cell.create(7)
+end 'replace'
+
+function main() returns ExitCode
+	var xs = Nums.filled(4, value: 1)
+	parallel for x in xs 'nums'
+		bump(x)
+	end 'nums'
+	var cells = Cells.create(0)
+	for n in 1 to 3 'make'
+		cells.push(Cell.create(n))
+	end 'make'
+	parallel for c in cells 'cells'
+		relabel(c)
+	end 'cells'
+	var others = Cells.create(0)
+	others.push(Cell.create(1))
+	others.push(Cell.create(2))
+	parallel for (i, c) in others.enumerated() 'others'
+		replace(c)
+		if c.value == 7 'read'
+			c.label = "seven"
+		end 'read'
+	end 'others'
+	let relabelled = others[0].label == "seven" and others[1].label == "seven"
+	print("{xs[0]} {xs[3]} {cells[0].label} {cells[2].label} {others[1].value} {relabelled}\n")
+	return 0
+end 'main'

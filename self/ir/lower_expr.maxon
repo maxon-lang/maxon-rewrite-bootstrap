@@ -538,6 +538,10 @@ function address(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e
 			if isByRef(loc) 'byRef'
 				return refAddress(l, p: p, ms: ms, loc: loc)
 			end 'byRef'
+			let element = parallelElementPlace(l, p: p, ms: ms, local: name.local, slot: slotOf(loc))
+			if element != noReg 'element'
+				return element
+			end 'element'
 			placeSlot(l, slot: slotOf(loc))
 			let d = newReg(l, kind: IrKind.kindScalar)
 			emit(l, i: newSlotAddr(d, slot: slotOf(loc)))
