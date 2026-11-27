@@ -524,7 +524,7 @@ function waitInEventQueue(context Count, scheduler Count) returns bool
 	acquireProc(context, proc: proc)
 	var g = list
 	while g != noGreen 'readied'
-		let after = __Raw.loadWord(g, offset: greenLinkOffset)
+		let after = entryLink(g)
 		runqPut(proc, g: g, next: false)
 		g = after
 	end 'readied'
@@ -542,9 +542,9 @@ function eventsReadied(context Count, proc Count, list Count) returns Count
 	if list == noGreen 'none'
 		return noGreen
 	end 'none'
-	var g = __Raw.loadWord(list, offset: greenLinkOffset)
+	var g = entryLink(list)
 	while g != noGreen 'rest'
-		let next = __Raw.loadWord(g, offset: greenLinkOffset)
+		let next = entryLink(g)
 		runqPut(proc, g: g, next: false)
 		g = next
 	end 'rest'
@@ -1003,7 +1003,7 @@ end 'globalPutBatch'
 function globalPutList(scheduler Count, list Count)
 	var g = list
 	while g != noGreen 'each'
-		let next = __Raw.loadWord(g, offset: greenLinkOffset)
+		let next = entryLink(g)
 		globalPut(scheduler, g: g)
 		g = next
 	end 'each'

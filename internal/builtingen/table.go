@@ -75,7 +75,7 @@ var rawLibraryTypes = []struct {
 	// __ManagedFile is maxon's owned handle of an open file, which FileSource and FileWriter hold.
 	{"__ManagedFile", "stdlib/file/managedFile.maxon", []string{"openRead", "openWrite", "openWriteExecutable", "openCreateNew", "readAppending", "write", "sync", "close"}, rawSurface{What: "the raw OS file handle type is nameable", Instead: "use 'File'"}},
 	// __ManagedSocket is maxon's owned TCP socket, which TcpClient and TcpListener hold.
-	{"__ManagedSocket", "stdlib/net/managedSocket.maxon", []string{"tcpConnect", "bindListener", "boundPort", "accept", "sendFrom", "recv", "timedOut", "setReadDeadline", "setWriteDeadline", "shutdownWrite", "close"}, rawSurface{What: "the raw OS socket type is nameable", Instead: "use 'TcpClient' or 'TcpListener'"}},
+	{"__ManagedSocket", "stdlib/net/managedSocket.maxon", []string{"tcpConnect", "bindListener", "boundPort", "accept", "sendFrom", "recv", "timedOut", "setReadDeadline", "setWriteDeadline", "shutdownWrite", "ofAccepted", "close"}, rawSurface{What: "the raw OS socket type is nameable", Instead: "use 'TcpClient' or 'TcpListener'"}},
 }
 
 // stdAlias is a built-in ranged alias of maxon's stdlib (`Count`, `ExitCode`...), which the rows of the table name and
@@ -1311,6 +1311,13 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "socketClose", Static: true, Params: []string{"_ Count"}, Throws: "ManagedSocketError", Intrinsic: "ManagedSocketClose", Instead: "a TcpClient's close()"},
 	// postedCancel queues the record of a posted message that no registration took as cancelled, so it drops what it holds.
 	{Owner: "Builtins", Name: "postedCancel", Static: true, Params: []string{"_ Count"}, Intrinsic: "ServicePostedCancel", Instead: "a PostedMessage's cancel()"},
+	// The rows of a socket's readiness (stdlib/net/readiness.maxon): socketNotify arms a mode, 0 reading or accepting and 1
+	// sending, with the record of a posted message; the try rows make their call once and never wait, giving 2^62 for a read
+	// that would wait, 0 for a send that would and 0 for an accept that would.
+	{Owner: "Builtins", Name: "socketNotify", Static: true, Params: []string{"_ Count", "_ Count", "_ Count"}, Intrinsic: "ManagedSocketNotify", Instead: "a TcpClient's notifyReadable(message) or a TcpListener's notifyAcceptable(message)"},
+	{Owner: "Builtins", Name: "socketTryRead", Static: true, Params: []string{"_ Count", "mutates _ ManagedMemory with Byte", "_ Count"}, Result: "Count", Throws: "ManagedSocketError", Intrinsic: "ManagedSocketTryRead", Instead: "a TcpClient's readAvailable(most)"},
+	{Owner: "Builtins", Name: "socketTrySend", Static: true, Params: []string{"_ Count", "_ ManagedMemory with Byte", "_ Count", "_ Count"}, Result: "Count", Throws: "ManagedSocketError", Intrinsic: "ManagedSocketTrySend", Instead: "a TcpClient's trySend(data)"},
+	{Owner: "Builtins", Name: "socketTryAccept", Static: true, Params: []string{"_ Count"}, Result: "Count", Throws: "ManagedListenerError", Intrinsic: "ManagedSocketTryAccept", Instead: "a TcpListener's tryAccept()"},
 	// The resolve of a host's name to an IPv4 address, the system's resolver's on macOS (getaddrinfo, in the blocking bracket, as
 	// Go's darwin resolver asks libSystem); the library resolves names itself on Linux, and has no sockets on Windows yet.
 	{Owner: "Builtins", Name: "socketResolve", Static: true, Params: []string{"_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedSocketError", Intrinsic: "ManagedSocketResolve", Instead: "TcpClient.connect(host, port)"},
@@ -1618,6 +1625,10 @@ var entries = []entry{
 	{"SocketTimedOut", "rt.socket.timedOut", "Os", roleCall, "(socket) -> bool: whether the socket's last read, send or accept was ended by its deadline"},
 	{"SocketShutdownWrite", "rt.socket.shutdownWrite", "Os", roleCall, "(socket, error): ends the socket's sending, which the peer reads as the end, while it can still read; sendFailed when the system refuses it"},
 	{"SocketClose", "rt.socket.close", "Os", roleCall, "(socket, error): takes the socket off the event queue, closes it and frees its record, in one bracketed call into the kernel; what the system's close reports sets the error word with sendFailed, the socket closed all the same"},
+	{"SocketNotify", "rt.socket.notify", "Os", roleCall, "(socket, mode, record): arms the socket's mode, 0 reading or accepting and 1 sending, with a posted message's record, which the mode's next event queues on its service; an event that came before the arm queues it at once, and a record armed there before is cancelled"},
+	{"SocketTryRead", "rt.socket.tryRead", "Os", roleCall, "(socket, buffer ByteArray, most, error) -> count: reads up to most bytes after the buffer's length in one call that never waits: 0 once the peer has ended its sending, 2^62 where none have come"},
+	{"SocketTrySend", "rt.socket.trySend", "Os", roleCall, "(socket, buffer ByteArray, at, count, error) -> count: sends up to count bytes of the buffer from the index in one call that never waits, 0 where the socket takes none"},
+	{"SocketTryAccept", "rt.socket.tryAccept", "Os", roleCall, "(socket, error) -> socket: the next connection to the listening socket, registered with the event queue, in one call that never waits: 0 where none is waiting"},
 	{"SocketResolve", "rt.socket.resolve", "Os", roleCall, "(host ByteArray, error) -> the IPv4 address the host's name resolves to, its first byte the most significant of the low 32 bits; resolveFailed when it resolves to none. macOS's getaddrinfo, in the blocking bracket; the library resolves names on Linux itself"},
 	// The debug port's entries, on Windows; a read or a write that fails sets its error word as an OS entry's does.
 	{"DebugLaunch", "rt.debug.launch", "Os", roleCall, "(executable String, arguments Array with String, outputToError, error) -> process id: starts the executable as the calling thread's debuggee"},
@@ -1903,6 +1914,10 @@ var runtimeFunctions = []runtimeFunction{
 	{"SocketShutdownWrite", "socketShutdownWrite(socket Count, errorAddress Count)"},
 	{"SocketClose", "socketClose(socket Count, errorAddress Count)"},
 	{"SocketResolve", "socketResolve(host Count, errorAddress Count) Count"},
+	{"SocketNotify", "socketNotify(socket Count, mode Count, record Count)"},
+	{"SocketTryRead", "socketTryRead(socket Count, buffer Count, most Count, errorAddress Count) Count"},
+	{"SocketTrySend", "socketTrySend(socket Count, buffer Count, at Count, count Count, errorAddress Count) Count"},
+	{"SocketTryAccept", "socketTryAccept(socket Count, errorAddress Count) Count"},
 	{"OsRun", "osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 	{"OsRunIn", "osRunIn(executable String, arguments Count, directory String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 	{"OsRunInput", "osRunInput(executable String, arguments Count, input String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},

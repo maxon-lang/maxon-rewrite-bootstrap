@@ -6137,6 +6137,23 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   resolved to an IPv4 address as maxon's are: by `getaddrinfo` on macOS (`__Builtins.socketResolve`), and on Linux, which links
   no libc, by the library itself (`stdlib/net/resolver.maxon`): `/etc/hosts`, then a query of type A over TCP to each nameserver
   of `/etc/resolv.conf`. Like maxon's, the Linux resolver is IPv4-only, with no search list and no ndots.
+  **A socket's readiness is a message** (`stdlib/net/readiness.maxon`, "Readiness as a message" in `runtime/eventqueue.maxon`,
+  the concurrency plan's E5): `client.notifyReadable(h.post(Conn.Message.readable()))`, `notifyWritable` and a listener's
+  `notifyAcceptable` arm the socket's mode with a posted message (`h.post(m)`, the library's `PostedMessage`, as notifyStopped
+  takes), which the runtime posts to the service once the
+  socket may be ready, and the arm is spent; the handler reads with `readAvailable(most)` (`bytes`, `wouldBlock` or `ended`),
+  sends with `trySend(data)` (the count taken, 0 where none) and accepts with `tryAccept()` (`accepted` or `wouldBlock`), none of
+  which waits, and arms the socket again. No green thread is tied to an idle socket: the arm is the record in the entry's state
+  word (the record plus 1, beside a green thread's address), set by one compare-exchange and no system call, since the
+  registration stays edge-triggered; an event delivers it without a green thread or a processor, onto the take's list where
+  its service is idle and behind the behaviour ahead where it is not. An edge that came before the arm posts the message at
+  once, and a message may come with nothing to take, which the first call answers. Every arm is live and holds a hold on its
+  service (the step's decisions 2 and 3), so a program ends once its sockets are closed or the services they would tell have
+  ended: a close takes the arm back, its message never handled (a record its event queued already finds the socket closed
+  as it starts, the socket kept until then), the end of a service takes back each arm of its armed list
+  (`serviceArmedOffset`, one word a service), and a call that waits in an armed mode, `readSome`, `send` or `accept`, takes
+  the arm back first (decision 5). A posted message takes no place in the gate (decision 6). The interpreter has no sockets.
+  Not yet: a service whose state holds a socket (who closes it when the service ends is undecided), keepalive and dual-stack `::`, and the 1M-connection benchmark.
 - **There is no TEST-NET-1 short-circuit.** minimaxon has no TEST-NET-1 short-circuit; a connect dials as Go's does and the OS's timeout applies, where maxon's runtime refuses `192.0.2.0/24` without dialling (its two spec tests that connect there with no deadline are skipped with this reason).
 - **A file's close throws.** maxon's `close()` throws nothing and its drop discards what the system's close reports. Here,
   as Go's `Close` does, `close()` throws it, `__ManagedFileError.writeFailed`, which `FileWriter.close` throws as

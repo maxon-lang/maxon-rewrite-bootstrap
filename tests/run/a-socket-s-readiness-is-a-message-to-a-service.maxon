@@ -1,0 +1,79 @@
+// A socket's readiness is a message the runtime posts to a service (stdlib/net/readiness.maxon): a listener armed with
+// `w.post(Watcher.Message.acceptable)` tells its watcher once a connection waits, and the program accepts it with the
+// accept that never waits; the connection armed for reading tells another once its peer has written, and the read that never
+// waits takes the bytes, then finds nothing more; a send that never waits sends what the socket takes. An edge that came before
+// the arm is told at once. No green thread waits on either socket meanwhile: each arm is the socket's entry and a record.
+// native-only
+// unsupported-targets: x64-windows
+//> told: the listener is acceptable
+//> accepted without waiting
+//> told: the connection is readable
+//> read without waiting: hello
+//> a read with nothing come: would block
+//> sent without waiting: 3
+//> the client read: hey
+//> told: at once of an edge that came before the arm
+export typealias Amount = int(0 to 1000000)
+
+type Watcher
+	var told as Amount
+
+	static function create() returns Self
+		return Self{told: 0}
+	end 'create'
+
+	export function acceptable(mutates self)
+		print("told: the listener is acceptable\n")
+		self.stop()
+	end 'acceptable'
+
+	export function readable(mutates self, what String)
+		print("told: {what}\n")
+		self.stop()
+	end 'readable'
+end 'Watcher'
+
+function main() returns ExitCode
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise panic("a listener on the loopback")
+	let first = spawn Watcher.create()
+	let accepted = first.stopped()
+	listener.notifyAcceptable(first.post(Watcher.Message.acceptable))
+	var client = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise panic("a connection to the listener")
+	await accepted
+	var server = match consumes try listener.tryAccept() otherwise panic("an accept that never waits") 'accept'
+		accepted(c) gives c
+		wouldBlock panic("no connection waits after the listener was told one does")
+	end 'accept'
+	print("accepted without waiting\n")
+	let second = spawn Watcher.create()
+	let readable = second.stopped()
+	server.notifyReadable(second.post(Watcher.Message.readable("the connection is readable")))
+	_ = try client.send("hello") otherwise panic("a send to the server")
+	await readable
+	match consumes try server.readAvailable(64) otherwise panic("a read that never waits") 'read'
+		bytes(data) then print("read without waiting: {String.from(data)}\n")
+		wouldBlock then print("a read found nothing after the connection was told it is readable\n")
+		ended then print("a read found the end\n")
+	end 'read'
+	match consumes try server.readAvailable(64) otherwise panic("a read that never waits") 'again'
+		bytes(_) then print("a read found more\n")
+		wouldBlock then print("a read with nothing come: would block\n")
+		ended then print("a read found the end\n")
+	end 'again'
+	let sent = try server.trySend("hey") otherwise panic("a send that never waits")
+	print("sent without waiting: {sent}\n")
+	let echo = try client.readSome(64) otherwise panic("a read of the client")
+	print("the client read: {String.from(echo)}\n")
+	let third = spawn Watcher.create()
+	let early = third.stopped()
+	_ = try client.send("more") otherwise panic("a send to the server")
+	_ = try server.readSome(64) otherwise panic("a read of the server")
+	_ = try client.send("again") otherwise panic("a send to the server")
+	sleep(20)
+	server.notifyReadable(third.post(Watcher.Message.readable("at once of an edge that came before the arm")))
+	await early
+	try server.close() otherwise ignore
+	try client.close() otherwise ignore
+	try listener.close() otherwise ignore
+	return 0
+end 'main'

@@ -112,6 +112,7 @@ function serviceCreate(state Count) returns Count
 	__Raw.storeWord(service, offset: serviceMostOffset, value: 0)
 	__Raw.storeWord(service, offset: serviceLinkOffset, value: noSender)
 	__Raw.storeWord(service, offset: serviceWaitOffset, value: waitNone)
+	__Raw.storeWord(service, offset: serviceArmedOffset, value: 0)
 	return service
 end 'serviceCreate'
 
@@ -165,6 +166,7 @@ function serviceCreatePending(state Count, words Count) returns Count
 	__Raw.storeWord(service, offset: serviceMostOffset, value: 0)
 	__Raw.storeWord(service, offset: serviceLinkOffset, value: noSender)
 	__Raw.storeWord(service, offset: serviceWaitOffset, value: waitNone)
+	__Raw.storeWord(service, offset: serviceArmedOffset, value: 0)
 	var i = 0 as Count
 	while i < words 'words'
 		__Raw.storeWord(service, offset: pendingOffset(i), value: 0)
@@ -613,6 +615,14 @@ end 'serviceStopped'
 // queued all the same, and its thunk drops what it holds, which only the compiled code knows the types of.
 let postedCancelled = 1 as Count
 
+// postedExcessLive: the arm's count among the live ones is one too many, its event having queued it behind a behaviour whose
+// release makes it runnable and counts it then. postedListed: it is on its service's armed list; postedArmedOnce: it was.
+let postedExcessLive = 2 as Count
+
+let postedListed = 4 as Count
+
+let postedArmedOnce = 8 as Count
+
 let postedRun = 0 as Count
 
 let postedDropped = 1 as Count
@@ -683,10 +693,15 @@ function servicePostedStart(state Count, horizon Count) returns Count
 	__Raw.storeWord(g, offset: greenServiceOffset, value: handle)
 	honourAsk(context, g: g)
 	let record = runningRecord()
+	let closed = postedSocketStarts(record)
+	armedListRemove(handle, record: record)
+	if (postedMark(record) and postedExcessLive) != 0 'excess'
+		stepLive(context, change: stepDown)
+	end 'excess'
 	if horizon != 0 and __Raw.loadWord(handle, offset: pendingOffset(__Raw.wrappingSub(horizon, right: 1))) == record 'horizon'
 		__Raw.storeWord(handle, offset: pendingOffset(__Raw.wrappingSub(horizon, right: 1)), value: noHorizon)
 	end 'horizon'
-	if (postedMark(record) and postedCancelled) != 0 or stoppedNow(handle) 'dropped'
+	if closed or (postedMark(record) and postedCancelled) != 0 or stoppedNow(handle) 'dropped'
 		return postedDropped
 	end 'dropped'
 	return postedRun
@@ -708,6 +723,118 @@ function serviceNotifyStopped(handle Count, record Count)
 	end 'ended'
 end 'serviceNotifyStopped'
 
+// The armed list of a service (serviceArmedOffset): the posted records armed on event entries that would post to it, linked
+// through their prev and next words, so that its end takes each arm back (disarmArmed) and it can be freed and the program
+// end. armedLock is added to the head while one holds it, as mutedLock is to a ring of slowed senders: an arm, a record's start
+// and the end each take it once. A record that was listed takes it at its start even once the end has taken it off, so the end
+// never reads a record that has run.
+let armedLock = 1 as Count
+
+function postedPrevOffset() returns Count
+	return cownOffset(1, index: 2)
+end 'postedPrevOffset'
+
+function postedNextOffset() returns Count
+	return cownOffset(1, index: 3)
+end 'postedNextOffset'
+
+// postedSocketOffset is where a posted record armed on a socket holds the socket, and postedSlotOffset the state word it is
+// armed in, the entry's address plus its mode's offset.
+function postedSocketOffset() returns Count
+	return cownOffset(1, index: 4)
+end 'postedSocketOffset'
+
+function postedSlotOffset() returns Count
+	return cownOffset(1, index: 5)
+end 'postedSlotOffset'
+
+function lockArmed(service Count) returns Count
+	while true 'lock'
+		let word = __Raw.loadAcquire(service, offset: serviceArmedOffset)
+		if (word and armedLock) == 0 and __Raw.compareExchange(service, offset: serviceArmedOffset, expected: word, desired: __Raw.wrappingAdd(word, right: armedLock)) == word 'taken'
+			return word
+		end 'taken'
+		__Raw.spinPause()
+	end 'lock'
+	return 0
+end 'lockArmed'
+
+function unlockArmed(service Count, head Count)
+	__Raw.storeRelease(service, offset: serviceArmedOffset, value: head)
+end 'unlockArmed'
+
+// armedListAdd lists an armed record on the service it posts to.
+function armedListAdd(service Count, record Count)
+	setPostedMark(record, bit: postedListed)
+	setPostedMark(record, bit: postedArmedOnce)
+	let head = lockArmed(service)
+	__Raw.storeWord(record, offset: postedNextOffset(), value: head)
+	__Raw.storeWord(record, offset: postedPrevOffset(), value: 0)
+	if head != 0 'after'
+		__Raw.storeWord(head, offset: postedPrevOffset(), value: record)
+	end 'after'
+	unlockArmed(service, head: record)
+end 'armedListAdd'
+
+// armedListRemove takes a record that was armed off the list of its service as it starts, where the end has not taken it off.
+function armedListRemove(service Count, record Count)
+	if (postedMark(record) and postedArmedOnce) == 0 'never'
+		return
+	end 'never'
+	var head = lockArmed(service)
+	if (postedMark(record) and postedListed) != 0 'listed'
+		clearPostedMark(record, bit: postedListed)
+		let prev = __Raw.loadWord(record, offset: postedPrevOffset())
+		let next = __Raw.loadWord(record, offset: postedNextOffset())
+		if prev != 0 'inner'
+			__Raw.storeWord(prev, offset: postedNextOffset(), value: next)
+		end 'inner' else 'first'
+			head = next
+		end 'first'
+		if next != 0 'before'
+			__Raw.storeWord(next, offset: postedPrevOffset(), value: prev)
+		end 'before'
+	end 'listed'
+	unlockArmed(service, head: head)
+end 'armedListRemove'
+
+// disarmArmed takes back each arm of a service that has ended: a record still armed is queued cancelled, so its thunk drops
+// what it holds and gives the service's hold back; one its event queued already runs, as a message queued before a shutdown
+// does. Each record is taken off under the lock, which its start takes too.
+function disarmArmed(service Count)
+	if __Raw.loadAcquire(service, offset: serviceArmedOffset) == 0 'none'
+		return
+	end 'none'
+	var record = lockArmed(service)
+	while record != 0 'records'
+		let next = __Raw.loadWord(record, offset: postedNextOffset())
+		clearPostedMark(record, bit: postedListed)
+		let slot = __Raw.loadWord(record, offset: postedSlotOffset())
+		if slot != 0 and __Raw.compareExchange(slot, offset: 0, expected: __Raw.wrappingAdd(record, right: postedEntryTag), desired: eventNobody) == __Raw.wrappingAdd(record, right: postedEntryTag) 'disarmed'
+			let context = __Raw.threadContext()
+			stepLive(context, change: stepDown)
+			_ = __Raw.atomicAdd(__Raw.loadWord(context, offset: contextSchedulerOffset), offset: schedEventWaitersOffset, value: stepDown)
+			postedSocketDisarmed(record)
+			setPostedMark(record, bit: postedCancelled)
+			postedQueue(record)
+		end 'disarmed'
+		record = next
+	end 'records'
+	unlockArmed(service, head: 0)
+end 'disarmArmed'
+
+// clearPostedMark takes a bit off a posted record's mark.
+function clearPostedMark(record Count, bit Count)
+	var mark = __Raw.loadAcquire(record, offset: markOffset())
+	while (mark and bit) != 0 'clear'
+		let seen = __Raw.compareExchange(record, offset: markOffset(), expected: mark, desired: __Raw.wrappingSub(mark, right: bit))
+		if seen == mark 'done'
+			return
+		end 'done'
+		mark = seen
+	end 'clear'
+end 'clearPostedMark'
+
 // hasEnded is whether a service is closed and holds no message: none queued or being queued, and none that runs.
 function hasEnded(handle Count) returns bool
 	let gate = __Raw.loadAcquire(handle, offset: serviceGateOffset)
@@ -727,8 +854,10 @@ function serviceFreed(handle Count)
 	serviceEnded(handle)
 end 'serviceFreed'
 
-// serviceEnded takes the watches of a service that has ended off the list, and gives each its cell.
+// serviceEnded takes the watches of a service that has ended off the list, and gives each its cell, once it has taken back
+// the arms of the event entries that would post to it.
 function serviceEnded(handle Count)
+	disarmArmed(handle)
 	let scheduler = __Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset)
 	if scheduler == 0 or __Raw.loadAcquire(scheduler, offset: schedWatchersOffset) == noWatch 'unwatched'
 		return

@@ -38,7 +38,22 @@ let socketWriteDeadlineOffset = 24 as Count
 // socketTimedOutOffset is where a socket holds set when its last read, send or accept was ended by its deadline.
 let socketTimedOutOffset = 32 as Count
 
-let socketBytes = 40 as Count
+// socketArmedReadOffset and socketArmedWriteOffset are where a socket holds the posted record armed in each mode, or 0, and
+// socketPendingOffset how many still hold the socket allocated: its own close, and each record that its close found queued.
+let socketArmedReadOffset = 40 as Count
+
+let socketArmedWriteOffset = 48 as Count
+
+let socketPendingOffset = 56 as Count
+
+let socketBytes = 64 as Count
+
+// socketArmedClosed is added to the record a socket holds in a mode once its close found the record queued.
+let socketArmedClosed = 2 as Count
+
+// socketWouldBlock is what a row that never waits gives where the call would wait, past any count of bytes
+// (stdlib/net/readiness.maxon's wouldBlockWord).
+let socketWouldBlock = 0x4000000000000000 as Count
 
 // The bytes of an IPv4 address and of an IPv6 one, which say an address's family.
 let ipv4AddressBytes = 4 as Count
@@ -188,6 +203,7 @@ end 'addressFamilyBytes'
 				continue 'attempt'
 			end 'again'
 			if errno == eagain 'unready'
+				socketDisarm(socket, mode: eventRead, closing: false)
 				let status = eventWait(entry, mode: eventRead, deadline: __Raw.loadWord(socket, offset: socketReadDeadlineOffset))
 				if status == eventReady 'ready'
 					continue 'attempt'
@@ -359,6 +375,7 @@ end 'addressFamilyBytes'
 			if errno != eagain 'refused'
 				return transferFailed
 			end 'refused'
+			socketDisarm(socket, mode: mode, closing: false)
 			let status = eventWait(entry, mode: mode, deadline: __Raw.loadWord(socket, offset: deadlineOffset))
 			if status != eventReady 'ended'
 				if status == eventExpired 'expired'
@@ -383,9 +400,13 @@ end 'addressFamilyBytes'
 	// socketClose gives a socket's entry back, closes its fd and frees its record, and sets the error word to sendFailed when the
 	// system's close reports an error, the socket closed all the same. No wait on it is in progress: its one owner is the caller.
 	function socketClose(socket Count, errorAddress Count)
+		socketDisarm(socket, mode: eventRead, closing: true)
+		socketDisarm(socket, mode: eventWrite, closing: true)
 		eventRelease(__Raw.loadWord(socket, offset: socketEntryOffset))
 		let osError = closeFileHandle(__Raw.loadWord(socket, offset: socketFdOffset), writes: false)
-		free(socket)
+		if __Raw.atomicAdd(socket, offset: socketPendingOffset, value: stepDown) == 1 'last'
+			free(socket)
+		end 'last'
 		if osError != 0 'refused'
 			failWith(errorAddress, errorCase: socketSendFailed)
 			return
@@ -407,6 +428,9 @@ end 'addressFamilyBytes'
 		__Raw.storeWord(socket, offset: socketReadDeadlineOffset, value: eventNoDeadline)
 		__Raw.storeWord(socket, offset: socketWriteDeadlineOffset, value: eventNoDeadline)
 		__Raw.storeWord(socket, offset: socketTimedOutOffset, value: unset)
+		__Raw.storeWord(socket, offset: socketArmedReadOffset, value: 0)
+		__Raw.storeWord(socket, offset: socketArmedWriteOffset, value: 0)
+		__Raw.storeWord(socket, offset: socketPendingOffset, value: 1)
 		return socket
 	end 'socketOf'
 
@@ -468,6 +492,206 @@ end 'addressFamilyBytes'
 		var one = 1 as Count
 		_ = socketOptionWrite(fd, level: ipprotoTcp, option: tcpNodelay, value: __Raw.addressOf(one), length: intBytes)
 	end 'noDelay'
+
+	// Readiness (eventqueue.maxon, "Readiness as a message"): a socket holds the record armed in each of its modes, or 0, so
+	// that whoever ends the arm finds it, and while it is closed with a record of its still queued, the record and the bit
+	// socketArmedClosed, which the record's start reads (servicePostedStart). A socket whose close found a record so stays
+	// allocated until the last such start: socketPendingOffset counts the close and those starts.
+	function socketArmedOffset(mode Count) returns Count
+		return socketArmedReadOffset if mode == eventRead else socketArmedWriteOffset
+	end 'socketArmedOffset'
+
+	// socketNotify arms a mode of a socket with a posted record, which the next event of the mode queues on its service:
+	// one already armed there is cancelled first, and an event that came before the arm queues the record at once.
+	function socketNotify(socket Count, mode Count, record Count)
+		let entry = __Raw.loadWord(socket, offset: socketEntryOffset)
+		let modeOffset = eventRead if mode == 0 else eventWrite
+		socketDisarm(socket, mode: modeOffset, closing: false)
+		let at = __Raw.wrappingAdd(socket, right: socketArmedOffset(modeOffset))
+		__Raw.storeWord(record, offset: postedSocketOffset(), value: socket)
+		__Raw.storeWord(record, offset: postedSlotOffset(), value: __Raw.wrappingAdd(entry, right: modeOffset))
+		__Raw.storeRelease(at, offset: 0, value: record)
+		armedListAdd(__Raw.loadWord(record, offset: cownOffset(1, index: 0)), record: record)
+		if not eventArm(entry, mode: modeOffset, record: record) 'came'
+			postedQueue(record)
+		end 'came'
+	end 'socketNotify'
+
+	// socketDisarm ends the arm of a mode of a socket, as its close and a call that waits in the mode do: a record still armed is
+	// the caller's, and is queued cancelled, so it drops what it holds; one its event queued already runs, but where the socket
+	// is closing it finds the socket closed as it starts and drops what it holds too.
+	function socketDisarm(socket Count, mode Count, closing bool)
+		let at = __Raw.wrappingAdd(socket, right: socketArmedOffset(mode))
+		let record = __Raw.loadAcquire(at, offset: 0)
+		if record == 0 or (record and socketArmedClosed) != 0 'none'
+			return
+		end 'none'
+		let entry = __Raw.loadWord(socket, offset: socketEntryOffset)
+		if eventDisarm(entry, mode: mode, record: record) 'disarmed'
+			__Raw.storeRelease(at, offset: 0, value: 0)
+			__Raw.storeWord(record, offset: postedSocketOffset(), value: 0)
+			setPostedMark(record, bit: postedCancelled)
+			postedQueue(record)
+			return
+		end 'disarmed'
+		if closing 'closing'
+			_ = __Raw.atomicAdd(socket, offset: socketPendingOffset, value: 1)
+			if __Raw.compareExchange(at, offset: 0, expected: record, desired: __Raw.wrappingAdd(record, right: socketArmedClosed)) != record 'started'
+				_ = __Raw.atomicAdd(socket, offset: socketPendingOffset, value: stepDown)
+			end 'started'
+		end 'closing'
+	end 'socketDisarm'
+
+	// socketTryRead reads up to most bytes of a socket into a byte array after its length, never waiting: the count, 0 once the
+	// peer has ended its sending, or socketWouldBlock where nothing has come.
+	function socketTryRead(socket Count, buffer Count, most Count, errorAddress Count) returns Count
+		let length = collectionLength(buffer)
+		let capacity = __Raw.loadWord(buffer, offset: arrayCapacityOffset)
+		if most > capacity or length > capacity - most 'past'
+			failWith(errorAddress, errorCase: socketBufferOutOfBounds)
+			return 0
+		end 'past'
+		if most == 0 'nothing'
+			succeed(errorAddress)
+			return 0
+		end 'nothing'
+		let room = __Raw.wrappingAdd(collectionData(buffer), right: length)
+		let got = socketTryCall(socket, mode: eventRead, buffer: room, length: most)
+		if got == socketWouldBlock 'none'
+			succeed(errorAddress)
+			return socketWouldBlock
+		end 'none'
+		if got > most 'refused'
+			failWith(errorAddress, errorCase: socketRecvFailed)
+			return 0
+		end 'refused'
+		__Raw.storeWord(buffer, offset: arrayLengthOffset, value: __Raw.wrappingAdd(length, right: got))
+		succeed(errorAddress)
+		return got
+	end 'socketTryRead'
+
+	// socketTrySend sends up to count bytes of a byte array from an index, never waiting, and gives what the system took, 0
+	// where it took none.
+	function socketTrySend(socket Count, buffer Count, at Count, count Count, errorAddress Count) returns Count
+		let length = collectionLength(buffer)
+		if at > length or count > length - at 'past'
+			failWith(errorAddress, errorCase: socketBufferOutOfBounds)
+			return 0
+		end 'past'
+		if count == 0 'nothing'
+			succeed(errorAddress)
+			return 0
+		end 'nothing'
+		let from = __Raw.wrappingAdd(collectionData(buffer), right: at)
+		let sent = socketTryCall(socket, mode: eventWrite, buffer: from, length: count)
+		if sent == socketWouldBlock 'none'
+			succeed(errorAddress)
+			return 0
+		end 'none'
+		if sent > count 'refused'
+			failWith(errorAddress, errorCase: socketSendFailed)
+			return 0
+		end 'refused'
+		succeed(errorAddress)
+		return sent
+	end 'socketTrySend'
+
+	// socketTryCall is one read or send of a socket's, made again only where a signal broke it off: a count, socketWouldBlock,
+	// or transferFailed.
+	function socketTryCall(socket Count, mode Count, buffer Count, length Count) returns Count
+		let fd = __Raw.loadWord(socket, offset: socketFdOffset)
+		let asked = length if length < socketMostBytes else socketMostBytes
+		while true 'attempt'
+			let result = socketCall(fd, mode: mode, buffer: buffer, length: asked)
+			if not failed(result) 'moved'
+				return result
+			end 'moved'
+			let errno = errnoOf(result)
+			if errno == eintr 'interrupted'
+				continue 'attempt'
+			end 'interrupted'
+			if errno == eagain 'unready'
+				return socketWouldBlock
+			end 'unready'
+			return transferFailed
+		end 'attempt'
+		return transferFailed
+	end 'socketTryCall'
+
+	// socketTryAccept is the next connection to a listening socket, registered with the event queue, never waiting: 0 where
+	// none is waiting, or 0 with the error word set, as socketAccept's.
+	function socketTryAccept(socket Count, errorAddress Count) returns Count
+		let fd = __Raw.loadWord(socket, offset: socketFdOffset)
+		while true 'attempt'
+			let accepted = acceptCall(fd)
+			if not failed(accepted) 'taken'
+				let connection = socketOf(accepted)
+				if connection == 0 'unregistered'
+					failWith(errorAddress, errorCase: listenerAcceptRetriable)
+					return 0
+				end 'unregistered'
+				noDelay(accepted)
+				succeed(errorAddress)
+				return connection
+			end 'taken'
+			let errno = errnoOf(accepted)
+			if errno == eintr or errno == econnaborted 'again'
+				continue 'attempt'
+			end 'again'
+			if errno == eagain 'unready'
+				succeed(errorAddress)
+				return 0
+			end 'unready'
+			if errno == enotsock or errno == ebadf or errno == einval or errno == efault 'fatal'
+				failWith(errorAddress, errorCase: listenerAcceptFailed)
+				return 0
+			end 'fatal'
+			failWith(errorAddress, errorCase: listenerAcceptRetriable)
+			return 0
+		end 'attempt'
+		failWith(errorAddress, errorCase: listenerAcceptFailed)
+		return 0
+	end 'socketTryAccept'
+
+	// postedSocketDisarmed is what the end of a service that took back an arm does to the socket the record was armed on: the
+	// socket no longer holds it, unless its close came first and waits for the record's start, which then reads it.
+	function postedSocketDisarmed(record Count)
+		let socket = __Raw.loadWord(record, offset: postedSocketOffset())
+		if socket == 0 'none'
+			return
+		end 'none'
+		let at = armedWordOf(socket, record: record)
+		if __Raw.compareExchange(at, offset: 0, expected: record, desired: 0) == record 'taken'
+			__Raw.storeWord(record, offset: postedSocketOffset(), value: 0)
+		end 'taken'
+	end 'postedSocketDisarmed'
+
+	// postedSocketStarts is what the start of a posted record armed on a socket does: the socket no longer holds it, and it
+	// says whether the socket was closed while the record was queued, which the last such start frees.
+	function postedSocketStarts(record Count) returns bool
+		let socket = __Raw.loadWord(record, offset: postedSocketOffset())
+		if socket == 0 'none'
+			return false
+		end 'none'
+		let at = armedWordOf(socket, record: record)
+		if __Raw.compareExchange(at, offset: 0, expected: record, desired: 0) == record 'held'
+			return false
+		end 'held'
+		if __Raw.loadAcquire(at, offset: 0) != __Raw.wrappingAdd(record, right: socketArmedClosed) 'rearmed'
+			// The socket was armed again since: the word is another record's.
+			return false
+		end 'rearmed'
+		if __Raw.atomicAdd(socket, offset: socketPendingOffset, value: stepDown) == 1 'last'
+			free(socket)
+		end 'last'
+		return true
+	end 'postedSocketStarts'
+
+	// armedWordOf is the word of a socket that holds a record armed on it, by the mode of the state word the record names.
+	function armedWordOf(socket Count, record Count) returns Count
+		let mode = __Raw.wrappingSub(__Raw.loadWord(record, offset: postedSlotOffset()), right: __Raw.loadWord(socket, offset: socketEntryOffset))
+		return __Raw.wrappingAdd(socket, right: socketArmedOffset(mode))
+	end 'armedWordOf'
 #endif
 
 #if os(Windows)
@@ -504,6 +728,32 @@ end 'addressFamilyBytes'
 	function socketClose(socket Count, errorAddress Count)
 		panic("sockets are not written for x64-windows yet (concurrency plan step 2, Windows half)")
 	end 'socketClose'
+
+	// The readiness of a socket (eventqueue.maxon, "Readiness as a message") comes with Windows's sockets: no record is ever
+	// armed on one, so a posted record's start finds no socket, and the end of a service none to give back.
+	function socketNotify(socket Count, mode Count, record Count)
+		panic("sockets are not written for x64-windows yet (concurrency plan step 2, Windows half)")
+	end 'socketNotify'
+
+	function socketTryRead(socket Count, buffer Count, most Count, errorAddress Count) returns Count
+		panic("sockets are not written for x64-windows yet (concurrency plan step 2, Windows half)")
+	end 'socketTryRead'
+
+	function socketTrySend(socket Count, buffer Count, at Count, count Count, errorAddress Count) returns Count
+		panic("sockets are not written for x64-windows yet (concurrency plan step 2, Windows half)")
+	end 'socketTrySend'
+
+	function socketTryAccept(socket Count, errorAddress Count) returns Count
+		panic("sockets are not written for x64-windows yet (concurrency plan step 2, Windows half)")
+	end 'socketTryAccept'
+
+	function postedSocketStarts(record Count) returns bool
+		return false
+	end 'postedSocketStarts'
+
+	function postedSocketDisarmed(record Count)
+		return
+	end 'postedSocketDisarmed'
 #endif
 
 #if os(Linux) or os(Windows)

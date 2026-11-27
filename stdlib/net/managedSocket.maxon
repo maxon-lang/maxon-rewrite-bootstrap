@@ -71,6 +71,11 @@ public type __ManagedSocket
 		try __Builtins.socketShutdownWrite(word)
 	end 'shutdownWrite'
 
+	/// The socket of a connection that the runtime accepted without waiting (stdlib/net/readiness.maxon).
+	public static function ofAccepted(word Count) returns __ManagedSocket
+		return __ManagedSocket{word: word}
+	end 'ofAccepted'
+
 	/// Close the socket. It is closed whether or not this throws; `sendFailed` says the system's close reported an error, so what
 	/// was sent may not all have reached the peer.
 	public function close(destructs self) throws __ManagedSocketError

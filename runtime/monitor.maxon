@@ -116,7 +116,7 @@ function takeEventsIfStale(context Count, scheduler Count, now Count)
 	var g = list
 	while g != noGreen 'count'
 		count = __Raw.wrappingAdd(count, right: 1)
-		g = __Raw.loadWord(g, offset: greenLinkOffset)
+		g = entryLink(g)
 	end 'count'
 	lockScheduler(scheduler)
 	globalPutList(scheduler, list: list)

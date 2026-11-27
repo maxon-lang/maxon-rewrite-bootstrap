@@ -1,0 +1,92 @@
+// Readiness as a message (out/dev/step3-readiness-design.md §2): a TcpClient or a TcpListener that a service handles without
+// a green thread. `notifyReadable`, `notifyWritable` and `notifyAcceptable` arm the socket with a posted message, made by
+// `h.post(T.Message.kind(...))`, which the runtime posts to the service once the socket may be ready, and the arm is spent:
+// the handler reads, sends or accepts with the calls that never wait (`readAvailable`, `trySend`, `tryAccept`) until one
+// would, and arms the socket again. An edge that came before the arm posts the message at once, and a message may come when
+// there is nothing to take, which the first call answers. A close ends the arm, and its message is never handled; a call that
+// waits, `readSome`, `send` or `accept`, ends the arm of its mode first. x64-windows has no sockets yet (E3104).
+
+// wouldBlockWord is what a socket's row that never waits gives where the call would wait (runtime/socket.maxon).
+let wouldBlockWord = 0x4000000000000000 as Count
+
+let readMode = 0 as Count
+
+let writeMode = 1 as Count
+
+/// What a read that never waits found: bytes, nothing yet, or the end of the peer's sending.
+public union ReadAttempt
+	bytes(data ByteArray)
+	wouldBlock
+	ended
+end 'ReadAttempt'
+
+/// What an accept that never waits found: a connection, or none yet.
+public union AcceptAttempt
+	accepted(client TcpClient)
+	wouldBlock
+end 'AcceptAttempt'
+
+public extension TcpClient
+	/// Post `message` to its service once the connection may have bytes to read, or has ended: once, until it is armed again.
+	public function notifyReadable(mutates self, consumes message service.PostedMessage)
+		__Builtins.socketNotify(socket.word, readMode, message.registered())
+	end 'notifyReadable'
+
+	/// Post `message` to its service once the connection may take bytes again: once, until it is armed again.
+	public function notifyWritable(mutates self, consumes message service.PostedMessage)
+		__Builtins.socketNotify(socket.word, writeMode, message.registered())
+	end 'notifyWritable'
+
+	/// Read up to `most` bytes that have come, never waiting: `wouldBlock` where none have, `ended` once the peer has ended its
+	/// sending.
+	public function readAvailable(mutates self, most stream.ReadCapacity) returns ReadAttempt throws stream.StreamError
+		let managedBlock = try ByteMemory.create(most as ElementIndex, 1) otherwise 'createErr'
+			panic("TcpClient.readAvailable: create — most >= 1 guaranteed")
+		end 'createErr'
+		var managed = managedBlock
+		let room = try (managed.capacity() as Count) - managed.length() otherwise 0
+		let received = try __Builtins.socketTryRead(socket.word, managed, room) otherwise 'recvErr'
+			throw stream.StreamError.failed("receiving from the socket failed")
+		end 'recvErr'
+		if received == wouldBlockWord 'none'
+			return ReadAttempt.wouldBlock
+		end 'none'
+		if received == 0 'end'
+			return ReadAttempt.ended
+		end 'end'
+		managed.setLength(received)
+		return ReadAttempt.bytes(ByteArray.init(managed))
+	end 'readAvailable'
+
+	/// Send what the connection takes of `data` now, never waiting, and give the count: 0 where it takes none, which
+	/// `notifyWritable` waits out.
+	public function trySend(mutates self, data String) returns BytePos throws NetworkError
+		let bytes = data.addressableBytes()
+		let length = bytes.length()
+		if length == 0 'empty'
+			return 0
+		end 'empty'
+		let sent = try __Builtins.socketTrySend(socket.word, bytes, 0, length) otherwise 'sendErr'
+			throw NetworkError.sendFailed
+		end 'sendErr'
+		return sent as BytePos
+	end 'trySend'
+end 'TcpClient'
+
+public extension TcpListener
+	/// Post `message` to its service once a connection may be waiting to be accepted: once, until it is armed again.
+	public function notifyAcceptable(mutates self, consumes message service.PostedMessage)
+		__Builtins.socketNotify(socket.word, readMode, message.registered())
+	end 'notifyAcceptable'
+
+	/// The next connection, never waiting: `wouldBlock` where none is waiting.
+	public function tryAccept(mutates self) returns AcceptAttempt throws NetworkError
+		let word = try __Builtins.socketTryAccept(socket.word) otherwise 'acceptErr'
+			throw NetworkError.acceptFailed
+		end 'acceptErr'
+		if word == 0 'none'
+			return AcceptAttempt.wouldBlock
+		end 'none'
+		return AcceptAttempt.accepted(TcpClient.adopt(__ManagedSocket.ofAccepted(word)))
+	end 'tryAccept'
+end 'TcpListener'

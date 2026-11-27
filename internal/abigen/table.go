@@ -153,7 +153,9 @@ var layouts = []layoutConst{
 		"where a service listed on another holds its link in that one's ring, and once its unmute queues its kept message, the rest of the ring that message unmutes when it runs."},
 	{"serviceWaitOffset", 9, false, toRuntime,
 		"where a service holds 0, waitListed while it is listed on another that slows it, or the record of its message whose release is kept while it is muted."},
-	{"serviceBytes", 10, false, toRuntime,
+	{"serviceArmedOffset", 10, false, toRuntime,
+		"where a service holds the posted records armed on event entries that would post to it, linked through their prev and next words, 0 for none, with armedLock added while one holds it."},
+	{"serviceBytes", 11, false, toRuntime,
 		"the size of a service."},
 
 	// A behaviour's record: its header, its request slots in the order of their cowns' addresses, its cowns in the order

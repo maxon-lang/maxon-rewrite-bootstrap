@@ -63,3 +63,20 @@ end 'lowerManagedSocketClose'
 function lowerManagedSocketResolve(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return socketFailing(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtSocketResolve)
 end 'lowerManagedSocketResolve'
+
+function lowerManagedSocketNotify(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSocketNotify, args: args)
+	return konst(l, value: 0 as Word)
+end 'lowerManagedSocketNotify'
+
+function lowerManagedSocketTryRead(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return socketFailing(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtSocketTryRead)
+end 'lowerManagedSocketTryRead'
+
+function lowerManagedSocketTrySend(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return socketFailing(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtSocketTrySend)
+end 'lowerManagedSocketTrySend'
+
+function lowerManagedSocketTryAccept(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return socketFailing(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtSocketTryAccept)
+end 'lowerManagedSocketTryAccept'

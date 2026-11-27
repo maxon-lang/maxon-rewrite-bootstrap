@@ -851,6 +851,18 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrServicePostedCancel 'intrServicePostedCancel'
 		return lowerServicePostedCancel(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrServicePostedCancel'
+	if op == ast.Intrinsic.intrManagedSocketNotify 'intrManagedSocketNotify'
+		return lowerManagedSocketNotify(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketNotify'
+	if op == ast.Intrinsic.intrManagedSocketTryRead 'intrManagedSocketTryRead'
+		return lowerManagedSocketTryRead(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketTryRead'
+	if op == ast.Intrinsic.intrManagedSocketTrySend 'intrManagedSocketTrySend'
+		return lowerManagedSocketTrySend(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketTrySend'
+	if op == ast.Intrinsic.intrManagedSocketTryAccept 'intrManagedSocketTryAccept'
+		return lowerManagedSocketTryAccept(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketTryAccept'
 	if op == ast.Intrinsic.intrManagedSocketResolve 'intrManagedSocketResolve'
 		return lowerManagedSocketResolve(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrManagedSocketResolve'
@@ -1864,6 +1876,18 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrServicePostedCancel 'intrServicePostedCancel'
 		return false
 	end 'intrServicePostedCancel'
+	if op == ast.Intrinsic.intrManagedSocketNotify 'intrManagedSocketNotify'
+		return false
+	end 'intrManagedSocketNotify'
+	if op == ast.Intrinsic.intrManagedSocketTryRead 'intrManagedSocketTryRead'
+		return false
+	end 'intrManagedSocketTryRead'
+	if op == ast.Intrinsic.intrManagedSocketTrySend 'intrManagedSocketTrySend'
+		return false
+	end 'intrManagedSocketTrySend'
+	if op == ast.Intrinsic.intrManagedSocketTryAccept 'intrManagedSocketTryAccept'
+		return false
+	end 'intrManagedSocketTryAccept'
 	if op == ast.Intrinsic.intrManagedSocketResolve 'intrManagedSocketResolve'
 		return false
 	end 'intrManagedSocketResolve'
