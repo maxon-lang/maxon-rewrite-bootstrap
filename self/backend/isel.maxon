@@ -1654,7 +1654,7 @@ export function emitModule(p ast.Project, mutates ms ast.ModuleState, fns ir.IrF
 	var source = Source.new()
 	for i in 0 upto fns.count() 'each'
 		let symbol = ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: fns[i].decl)
-		let instance = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fns[i].decl).genericOrigin != ast.noFunc
+		let instance = ast.isLinkedOnce(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fns[i].decl))
 		sel.u.preemptible = ast.preemptibleFunction(p, ms: ms, fid: fns[i].decl)
 		source.forget()
 		selectFunctionTree(sel, p: p, ms: ms, fns: fns, at: i, f: fns[i], path: path, source: source, forms: forms, symbol: symbol, instance: instance, closure: false, errs: errs)

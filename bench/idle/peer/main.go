@@ -67,7 +67,7 @@ func goServer(args []string) {
 	var m0, m1 runtime.MemStats
 	runtime.ReadMemStats(&m0)
 	var started time.Time
-	for i := 0; i < n; i++ {
+	for i := range n {
 		c, err := ln.Accept()
 		check(err)
 		if i == 0 {
@@ -253,7 +253,7 @@ func measure(pid int) sample {
 	if runtime.GOOS == "linux" {
 		status, err := os.ReadFile(fmt.Sprintf("/proc/%d/status", pid))
 		check(err)
-		for _, line := range strings.Split(string(status), "\n") {
+		for line := range strings.SplitSeq(string(status), "\n") {
 			f := strings.Fields(line)
 			if len(f) >= 2 && f[0] == "RssAnon:" {
 				s.rssKB, _ = strconv.ParseInt(f[1], 10, 64)
@@ -285,10 +285,10 @@ func measure(pid int) sample {
 	s.threads = strings.Count(string(threads), "\n") - 1
 	if fp, err := exec.Command("footprint", p).Output(); err == nil {
 		text := string(fp)
-		if at := strings.Index(text, "Footprint: "); at >= 0 {
+		if _, after, ok := strings.Cut(text, "Footprint: "); ok {
 			var v float64
 			var unit string
-			fmt.Sscanf(text[at+len("Footprint: "):], "%f %s", &v, &unit)
+			fmt.Sscanf(after, "%f %s", &v, &unit)
 			switch unit {
 			case "MB":
 				v *= 1024
@@ -304,7 +304,7 @@ func measure(pid int) sample {
 // cpuTime reads ps's [[hh:]mm:]ss.cc.
 func cpuTime(t string) float64 {
 	var total float64
-	for _, part := range strings.Split(t, ":") {
+	for part := range strings.SplitSeq(t, ":") {
 		v, _ := strconv.ParseFloat(part, 64)
 		total = total*60 + v
 	}

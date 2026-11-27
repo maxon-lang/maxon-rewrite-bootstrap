@@ -1,0 +1,27 @@
+// A send through an interface handle reaches only the interface's requirements, whatever else its service declares.
+// expect-error: E3136 at 25:8
+export typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping(value Count) returns Count
+end 'Pinger'
+
+type Echo implements Pinger
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function ping(value Count) returns Count
+		return value
+	end 'ping'
+
+	export function reset()
+		return
+	end 'reset'
+end 'Echo'
+
+function main() returns ExitCode
+	let h = (spawn Echo.create()) as Pinger.handle
+	try h.reset() otherwise ignore
+	return 0
+end 'main'

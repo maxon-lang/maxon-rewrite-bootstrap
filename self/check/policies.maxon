@@ -192,10 +192,15 @@ end 'funcTitle'
 // fedFromOutside is the text of E3957 for a first hop of the kind, a kind with no policy, from the posted kind, made by via
 // where that is a function of another module that sends it, or noFunc for a send written here.
 function fedFromOutside(p ast.Project, ms ast.ModuleState, kind ast.FuncID, posted ast.FuncID, via ast.FuncID) returns String
-	let receiver = ast.typeName(ms.types, reads: p.types, t: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: kind).ownerTy)
+	let owner = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: kind).ownerTy
+	let receiver = ast.typeName(ms.types, reads: p.types, t: owner)
 	let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: kind).name.clone()
 	let source = funcTitle(p, ms: ms, f: posted)
 	let by = "" if via == ast.noFunc else ", in a send that '{funcTitle(p, ms: ms, f: via)}' makes"
+	// A send through an interface handle sends a requirement, which names no policy, to services the sender does not know.
+	if ast.typeKind(ms.types, reads: p.types, t: owner) == ast.TypeKind.interfaceTy 'requirement'
+		return "'{receiver}.{name}' is sent through '{receiver}.handle' with work from a source that cannot be slowed ('{source}', which the runtime posts{by}), and an interface handle does not say what each service behind it does with that work when it falls behind: send it through the service's own handle, and put an '@policy(...)' before its 'export function {name}'"
+	end 'requirement'
 	let menu = "\n  @policy(Keep)        every message is handled; the source waits (clients wait, the kernel's buffers fill)\n  @policy(Refuse)      a new message is not handled; its sender gets 'busy' at once and can answer \"try later\"\n  @policy(DropNewest)  a new message is thrown away and counted; for telemetry\n  @policy(DropOldest)  the longest-waiting message is thrown away, so the newest is handled\n  @policy(Latest)      only the newest message is kept; an older undelivered one is replaced"
 	return "'{receiver}.{name}' receives work from a source that cannot be slowed ('{source}', which the runtime posts{by}), so '{receiver}' must say what happens to that work when it falls behind. Put one of these before 'export function {name}' (or your own, '@policy(YourType)', a type that implements 'OverloadPolicy'):{menu}"
 end 'fedFromOutside'

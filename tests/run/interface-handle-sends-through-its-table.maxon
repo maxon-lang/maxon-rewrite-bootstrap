@@ -1,0 +1,104 @@
+// A send through an interface handle runs the message of whichever service the handle holds, in the order sent, with its
+// policy's admit where the service is behind; a reply discarded through it is dropped by the service. Its copy is another
+// handle of the same service, its stopped() watches that service, and its shutdown() is the service's own, which drops the
+// state of one that parks Replies once the queued messages have run, so a parked reply fails its await with serviceStopped.
+// schedules: 6
+//> 5 6 stopped watched
+export typealias Count = int(0 to 1000)
+
+export typealias Parked = Array with Reply with Count
+
+// Queued is a policy whose admit queues every message: it runs at each send through the interface handle while the service
+// is behind, which the interpreter makes it often.
+type Queued implements OverloadPolicy with Adder.Message
+	static function admit(arrival Arrival, message Adder.Message) returns Admission
+		return Admission.queue
+	end 'admit'
+end 'Queued'
+
+interface Sink
+	function put(mutates self, value Count)
+	function total() returns Count
+end 'Sink'
+
+interface Waiter
+	function wait(mutates self) returns Count throws ReplyStopped
+end 'Waiter'
+
+type Adder implements Sink
+	var sum as Count
+
+	static function create() returns Self
+		return Self{sum: 0}
+	end 'create'
+
+	@policy(Queued) export function put(mutates self, value Count)
+		self.sum = try self.sum + value otherwise 1000
+	end 'put'
+
+	export function total() returns Count
+		return self.sum
+	end 'total'
+end 'Adder'
+
+type Doubler implements Sink
+	var sum as Count
+
+	static function create() returns Self
+		return Self{sum: 0}
+	end 'create'
+
+	export function put(mutates self, value Count)
+		self.sum = try self.sum + value * 2 otherwise 1000
+	end 'put'
+
+	export function total() returns Count
+		return self.sum
+	end 'total'
+end 'Doubler'
+
+type Parker implements Waiter
+	var parked as Parked
+
+	static function create() returns Self
+		return Self{parked: Parked.create(0)}
+	end 'create'
+
+	export function wait(mutates self) returns Count throws ReplyStopped
+		let pending = reply.later()
+		self.parked.push(pending)
+		return
+	end 'wait'
+end 'Parker'
+
+typealias Sinks = Array with Sink.handle
+
+function fill(sink Sink.handle, by Count) returns Count
+	try sink.put(by) otherwise panic("a running service takes the send")
+	_ = try sink.total() otherwise panic("a running service takes the send")
+	return try await sink.total() otherwise 0
+end 'fill'
+
+function main() returns ExitCode
+	var sinks = Sinks.create(0)
+	sinks.push(spawn Adder.create())
+	sinks.push(spawn Doubler.create())
+	let first = fill(sinks[0], by: 5)
+	let second = sinks.get(1)
+	try second.put(1) otherwise panic("a running service takes the send")
+	let doubled = fill(second, by: 2)
+	let waiter = (spawn Parker.create()) as Waiter.handle
+	let parked = try waiter.wait() otherwise panic("a running service takes the send")
+	waiter.shutdown()
+	var stopped = "answered"
+	try await parked otherwise (e) 'failed'
+		match e 'why'
+			serviceStopped then stopped = "stopped"
+		end 'why'
+	end 'failed'
+	let watch = second.stopped()
+	second.shutdown()
+	await watch
+	print("{first} {doubled} {stopped} watched\n")
+	return 0
+end 'main'

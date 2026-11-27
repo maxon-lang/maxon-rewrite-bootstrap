@@ -1,0 +1,22 @@
+// A service's handle becomes the handle of an interface its type implements, and of no other.
+// expect-error: E3005 at 20:36
+export typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping(value Count) returns Count
+end 'Pinger'
+
+type Stranger
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function ping(value Count) returns Count
+		return value
+	end 'ping'
+end 'Stranger'
+
+function main() returns ExitCode
+	let h = (spawn Stranger.create()) as Pinger.handle
+	return (try await h.ping(1) otherwise 0) as ExitCode
+end 'main'

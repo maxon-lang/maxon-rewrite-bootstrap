@@ -1,0 +1,24 @@
+// No interface implements StopsNow, so an interface handle is never stopped at once: its services' senders await their
+// replies as if the queued messages always ran.
+// expect-error: E3952 at 22:4
+export typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping(value Count) returns Count
+end 'Pinger'
+
+type Echo implements Pinger
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function ping(value Count) returns Count
+		return value
+	end 'ping'
+end 'Echo'
+
+function main() returns ExitCode
+	let h = (spawn Echo.create()) as Pinger.handle
+	h.stopNow()
+	return 0
+end 'main'

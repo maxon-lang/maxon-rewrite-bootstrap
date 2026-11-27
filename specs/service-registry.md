@@ -52,11 +52,11 @@ type Counter implements Tally
 		return Self{n: 0}
 	end 'create'
 
-	export function add(by Integer)
-		self.n = self.n + by
+	export function add(mutates self, by Integer)
+		self.n = try self.n + by otherwise panic("out of range")
 	end 'add'
 
-	export function total() returns Integer
+	export function total(mutates self) returns Integer
 		return self.n
 	end 'total'
 end 'Counter'
@@ -66,7 +66,7 @@ function main() returns ExitCode
 	try h.add(4) otherwise panic("send add 4")
 	try h.add(5) otherwise panic("send add 5")
 	let total = try await h.total() otherwise 0
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -100,7 +100,7 @@ type Holder
 	export let source as Source.handle
 
 	static function create(concrete Fixed.handle) returns Self
-		return Self{source: concrete}
+		return Self{source: concrete.clone()}
 	end 'create'
 end 'Holder'
 
@@ -111,8 +111,8 @@ type Relay
 		return Self{asked: 0}
 	end 'create'
 
-	export function ask(source Source.handle) returns Source.handle
-		self.asked = self.asked + 1
+	export function ask(mutates self, source Source.handle) returns Source.handle
+		self.asked = try self.asked + 1 otherwise panic("out of range")
 		return source.clone()
 	end 'ask'
 end 'Relay'
@@ -133,14 +133,14 @@ function main() returns ExitCode
 	let fromReturn = try await returned.value() otherwise 0
 	let holder = Holder.create(spawn Fixed.create(4))
 	let fromField = try await holder.source.value() otherwise 0
-	let sources = SourceArray.create(0)
+	var sources = SourceArray.create(0)
 	sources.push(spawn Fixed.create(8))
-	let element = try sources.get(0) otherwise panic("sources.get(0)")
+	let element = sources.get(0)
 	let fromElement = try await element.value() otherwise 0
 	let relay = spawn Relay.create()
 	let kept = try await relay.ask(spawn Fixed.create(16)) otherwise panic("the relay answers")
 	let fromMessage = try await kept.value() otherwise 0
-	return (fromArgument + fromReturn + fromField + fromElement + fromMessage) as ExitCode
+	return try (fromArgument + fromReturn + fromField + fromElement + fromMessage) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -165,8 +165,8 @@ type Counter implements Bumper
 		return Self{n: 0}
 	end 'create'
 
-	export function bump(by Integer) returns Integer
-		self.n = self.n + by
+	export function bump(mutates self, by Integer) returns Integer
+		self.n = try self.n + by otherwise panic("out of range")
 		return self.n
 	end 'bump'
 
@@ -182,7 +182,7 @@ function drive(b Bumper.handle) returns Integer
 end 'drive'
 
 function main() returns ExitCode
-	return drive(spawn Counter.create()) as ExitCode
+	return try drive(spawn Counter.create()) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1157,8 +1157,8 @@ type Counter implements Tally
 		return Self{n: 6}
 	end 'create'
 
-	export function total() returns Integer
-		self.n = self.n + 1
+	export function total(mutates self) returns Integer
+		self.n = try self.n + 1 otherwise panic("out of range")
 		return self.n
 	end 'total'
 end 'Counter'
@@ -1168,13 +1168,13 @@ function probe(t Tally.handle) returns Integer
 end 'probe'
 
 function probeNumber(n Integer) returns Integer
-	return n * 100
+	return try n * 100 otherwise panic("out of range")
 end 'probeNumber'
 
 function main() returns ExitCode
 	let fromHandle = probe(spawn Counter.create())
 	let fromInteger = probeNumber(1)
-	return (fromHandle + fromInteger) as ExitCode
+	return try (fromHandle + fromInteger) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1199,11 +1199,11 @@ type Counter implements Tally
 		return Self{n: 0}
 	end 'create'
 
-	export function add(by Integer)
-		self.n = self.n + by
+	export function add(mutates self, by Integer)
+		self.n = try self.n + by otherwise panic("out of range")
 	end 'add'
 
-	export function total() returns Integer
+	export function total(mutates self) returns Integer
 		return self.n
 	end 'total'
 end 'Counter'
@@ -1217,13 +1217,13 @@ type Ledger implements Tally
 		return Self{label: "a ledger label long enough to be a heap string", adds: 0, sum: 10}
 	end 'create'
 
-	export function total() returns Integer
-		return self.sum + self.adds * 100 + (self.label.byteLength() as Integer) * 0
+	export function total(mutates self) returns Integer
+		return try self.sum + self.adds * 100 + (self.label.byteLength() as Integer) * 0 otherwise panic("out of range")
 	end 'total'
 
-	export function add(by Integer)
-		self.adds = self.adds + 1
-		self.sum = self.sum + by
+	export function add(mutates self, by Integer)
+		self.adds = try self.adds + 1 otherwise panic("out of range")
+		self.sum = try self.sum + by otherwise panic("out of range")
 	end 'add'
 end 'Ledger'
 
@@ -1235,7 +1235,7 @@ end 'drive'
 function main() returns ExitCode
 	let fromCounter = drive(spawn Counter.create(), by: 3)
 	let fromLedger = drive(spawn Ledger.create(), by: 4)
-	return (fromCounter + fromLedger) as ExitCode
+	return try (fromCounter + fromLedger) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1533,8 +1533,8 @@ type Fixed implements Source
 		return self.n
 	end 'value'
 
-	export function bump(by Integer)
-		self.n = self.n + by
+	export function bump(mutates self, by Integer)
+		self.n = try self.n + by otherwise panic("out of range")
 	end 'bump'
 end 'Fixed'
 
@@ -1556,7 +1556,7 @@ function main() returns ExitCode
 	through(bumpSource, source: second)
 	let direct = try await first.value() otherwise 0
 	let passed = try await second.value() otherwise 0
-	return (direct * 10 + passed) as ExitCode
+	return try (direct * 10 + passed) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1587,7 +1587,7 @@ end 'Fixed'
 
 function main() returns ExitCode
 	let f = function(s Source.handle) gives (try await s.value() otherwise 0)
-	return f(spawn Fixed.create(3)) as ExitCode
+	return try f(spawn Fixed.create(3)) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1611,8 +1611,8 @@ type Counter implements Tally
 		return Self{n: 6}
 	end 'create'
 
-	export function total() returns Integer
-		self.n = self.n + 1
+	export function total(mutates self) returns Integer
+		self.n = try self.n + 1 otherwise panic("out of range")
 		return self.n
 	end 'total'
 end 'Counter'
@@ -1638,7 +1638,7 @@ end 'Doubling'
 type Holder
 	export let probe as Probe
 
-	static function create(probe Probe) returns Self
+	static function create(consumes probe Probe) returns Self
 		return Self{probe: probe}
 	end 'create'
 end 'Holder'
@@ -1647,7 +1647,7 @@ function main() returns ExitCode
 	let holder = Holder.create(Doubling.create(2))
 	let counter = spawn Counter.create()
 	holder.probe.read(counter)
-	return (try await counter.total() otherwise 0) as ExitCode
+	return try (try await counter.total() otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1795,6 +1795,7 @@ error E3016: <fragment>:8:6: Partial interface implementation: type 'B' is missi
 ```
 
 <!-- test: error.an-interface-message-no-service-implements-is-refused -->
+<!-- skip: language difference: a service is held to an interface's requirements where its handle becomes the interface's handle, every requirement a message that takes, gives and fails with what the requirement declares, never by a search of the program for the services a send through the interface handle may reach (README, Where it differs from Maxon) -->
 When no service implementing the interface declares the requirement, the handle has no such message to send.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -1829,6 +1830,7 @@ error E3136: <fragment>:22:22: `interface Pinger` requires `ping`, but no servic
 ```
 
 <!-- test: error.a-withheld-interface-message-is-refused -->
+<!-- skip: language difference: a service is held to an interface's requirements where its handle becomes the interface's handle, every requirement a message that takes, gives and fails with what the requirement declares, never by a search of the program for the services a send through the interface handle may reach (README, Where it differs from Maxon) -->
 A service that declares the requirement as a private method withholds it: it is not a message, so the handle cannot send it.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -1874,6 +1876,7 @@ end 'main'
 error E3136: <fragment>:35:22: `interface Pinger` requires `ping`, and `type A` implements it, but not as an `export` instance method — so it is not a message of `A`, and `Pinger.handle` cannot send it to every service behind it. Declare `ping` on `A` as an `export` instance method
 ```
 <!-- test: a-withheld-interface-message-with-no-send-compiles -->
+<!-- skip: language difference: a service is held to an interface's requirements where its handle becomes the interface's handle, every requirement a message that takes, gives and fails with what the requirement declares, never by a search of the program for the services a send through the interface handle may reach (README, Where it differs from Maxon) -->
 The same conformers compile when nothing sends the withheld requirement through the handle.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -1959,7 +1962,7 @@ end 'B'
 typealias PingerHandles = Array with Pinger.handle
 
 function main() returns ExitCode
-	let handles = PingerHandles.create(0)
+	var handles = PingerHandles.create(0)
 	handles.push((spawn A.create()) as Pinger.handle)
 	let b = spawn B.create()
 	let w = try await b.ping() otherwise 0
@@ -2024,6 +2027,7 @@ end 'main'
 ```
 
 <!-- test: error.a-withheld-interface-message-spawned-first-is-refused -->
+<!-- skip: language difference: a service is held to an interface's requirements where its handle becomes the interface's handle, every requirement a message that takes, gives and fails with what the requirement declares, never by a search of the program for the services a send through the interface handle may reach (README, Where it differs from Maxon) -->
 The order of the spawns does not decide whether the withheld requirement is refused.
 ```maxon
 typealias Count = int(0 to 1000)

@@ -1,0 +1,211 @@
+// Interface handles in the IR (README, "Interface handles"): an `I.handle` is an interface value, the box of a table and the
+// handle of the service's own type. The table belongs to that handle type as the interface handle: its drop and copy
+// entries are the handle's, and its methods are send stubs, one for each requirement of I in the order of ast.requirementsOf
+// and then one for shutdown. A stub is the send through the service's own handle (sendMessage), so its policy, its marks and
+// its reply are what they are there; a send through the interface handle calls the stub through the table, which is the one
+// indirect call it costs more. Every module that makes a handle an interface handle makes the stubs it names, as it does an
+// instance, and the link keeps one of each.
+
+// shutdownName is the method of every handle that a shutdown stub stops the service with.
+let shutdownName = "shutdown"
+
+// handleTable is the table that the handle concrete, of the service's own type, is boxed with to be the interface handle
+// wanted, with the stubs of the conformance the module sees, which the verify stage held to the requirements. It is none
+// after it refused a conformance that the module does not see, or sees twice.
+function handleTable(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, concrete ast.TypeID, wanted ast.TypeID, mutates errs diag.ErrorList) returns table.Option with WitnessTable
+	let state = ast.serviceState(ms.types, reads: p.types, t: concrete)
+	let iface = ast.serviceState(ms.types, reads: p.types, t: wanted)
+	let mark = errs.count()
+	let stateName = ast.typeName(ms.types, reads: p.types, t: state)
+	let ifaceName = ast.typeName(ms.types, reads: p.types, t: iface)
+	var conformance = module
+	match consumes ast.conformanceSource(p, ms: ms, from: module, t: state, iface: iface) 'source'
+		found(c) then conformance = c.module
+		ambiguous(first, second) then pushInstanceError(p, module: module, site: site, code: diag.errAmbiguousConformance, message: ast.ambiguousConformanceText(p, from: module, typeName: stateName, ifaceName: ifaceName, first: first, second: second), errs: errs)
+		absent then pushInstanceError(p, module: module, site: site, code: diag.errTypeMismatch, message: diag.notConforming(stateName, iface: ifaceName), errs: errs)
+	end 'source'
+	if errs.count() > mark 'refused'
+		return table.Option.none
+	end 'refused'
+	let origin = ast.typeEntry(ms.types, reads: p.types, t: state).effectiveOrigin()
+	let declaring = ast.declaringModuleIn(ms.types, reads: p.types, t: state)
+	let ifaceLink = ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: iface)
+	let reqs = ast.requirementsOf(ms.types, reads: p.types, iface: iface)
+	var methods = ast.FuncIDList.create(0)
+	var discarding = ast.FuncIDList.create(0)
+	for i in 0 upto reqs.count() 'methods'
+		let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: reqs[i].sig).name.clone()
+		let handler = match consumes ast.typeEntry(ms.types, reads: p.types, t: origin).findMethod(name) 'own'
+			some(m) gives m
+			none gives panic("ir: '{stateName}' has no message '{name}' after the verify stage held it to '{ifaceName}'")
+		end 'own'
+		let reply = stubReply(p, ms: ms, sig: reqs[i].sig)
+		let kept = ast.sendStub(ms.funcs, funcReads: p.funcs, module: declaring, handler: handler, sendTy: concrete, ifaceHandle: wanted, reply: reply, sendError: p.builtins.sendErrorTy, name: "{name} as {ifaceLink}")
+		methods.push(kept)
+		if reply == p.builtins.voidTy 'noReply'
+			discarding.push(kept)
+		end 'noReply' else 'replies'
+			// A send whose reply is discarded keeps no cell, so the behaviour drops the reply, as through the service's own handle.
+			discarding.push(ast.sendStub(ms.funcs, funcReads: p.funcs, module: declaring, handler: handler, sendTy: concrete, ifaceHandle: wanted, reply: p.builtins.voidTy, sendError: p.builtins.sendErrorTy, name: "{name} as {ifaceLink} discarded"))
+		end 'replies'
+	end 'methods'
+	let shutdown = match consumes ast.typeEntry(ms.types, reads: p.types, t: p.builtins.serviceOrigin).findMethod(shutdownName) 'handleMethod'
+		some(m) gives m
+		none gives panic("ir: a handle has no {shutdownName}")
+	end 'handleMethod'
+	// A shutdown stub is keyed by the type's own handle, the one it stops, since a built-in method is every handle's.
+	methods.push(ast.sendStub(ms.funcs, funcReads: p.funcs, module: declaring, handler: shutdown, sendTy: concrete, ifaceHandle: concrete, reply: p.builtins.voidTy, sendError: ast.noType, name: shutdownName))
+	methods.append(discarding)
+	let symbol = "{tableWord} {ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: concrete)} as {ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: wanted)} by {ast.moduleLinkPath(p, modID: conformance)}"
+	return table.Option.some(WitnessTable.make(symbol, concrete: concrete, iface: wanted, methods: methods))
+end 'handleTable'
+
+// stubReply is what a send of the requirement sig gives: the promise of its reply, of what it returns and throws, or
+// nothing where it does neither.
+function stubReply(p ast.Project, mutates ms ast.ModuleState, sig ast.FuncID) returns ast.TypeID
+	let ret = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).retTy
+	let thrown = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).errTy
+	if (ret == ast.noType or ret == p.builtins.voidTy) and thrown == ast.noType 'none'
+		return p.builtins.voidTy
+	end 'none'
+	var args = ast.TypeIDList.create(0)
+	args.push(p.builtins.voidTy if ret == ast.noType else ret)
+	args.push(p.builtins.voidTy if thrown == ast.noType else thrown)
+	return ast.instantiateType(ms.types, reads: p.types, origin: p.builtins.promiseOrigin, args: args)
+end 'stubReply'
+
+// interfaceSlot is the place in the table of the interface handle handleTy of the stub that sends the requirement sig, and
+// keeps its reply where kept says: the stubs that keep it, then the shutdown stub (sig noFunc), then the stubs whose sender
+// discards it.
+function interfaceSlot(p ast.Project, ms ast.ModuleState, handleTy ast.TypeID, sig ast.FuncID, kept bool) returns Count
+	let iface = ast.serviceState(ms.types, reads: p.types, t: handleTy)
+	let requirements = ast.requirementsOf(ms.types, reads: p.types, iface: iface).count()
+	if sig == ast.noFunc 'shutdown'
+		return requirements
+	end 'shutdown'
+	let slot = ast.requirementSlot(ms.types, reads: p.types, iface: iface, sig: sig)
+	if kept 'keeps'
+		return slot
+	end 'keeps'
+	return try requirements + 1 + slot otherwise panic("ir: a table past a word")
+end 'interfaceSlot'
+
+// lowerInterfaceSend sends the message c through the interface handle box: the arguments move to the stub of the table,
+// which sends them to the service and gives the reply's promise, or fails with SendError.
+function lowerInterfaceSend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, box Reg, handleTy ast.TypeID, mark Count) returns Reg
+	let base = l.args.count()
+	pushOrderedArgs(l, p: p, ms: ms, c: c)
+	let args = messageArgs(l, p: p, ms: ms, c: c, base: base)
+	popArgs(l, n: base)
+	let reply = stubReply(p, ms: ms, sig: c.info.fn)
+	var dst = noReg
+	if reply != p.builtins.voidTy and c.info.replyKept 'replies'
+		dst = newReg(l, kind: IrKind.kindManaged)
+	end 'replies'
+	let err = newReg(l, kind: IrKind.kindScalar)
+	var floats = 0 as FloatMask
+	for i in 0 upto c.info.paramSpecs.count() 'params'
+		let t = applyType(l, p: p, ms: ms, t: c.info.paramSpecs[i].ty)
+		if passesFloat(p, ms: ms, conv: c.info.paramSpecs[i].conv, t: t) 'float'
+			floats = floats or floatBit(i + 1)
+		end 'float'
+	end 'params'
+	let slot = interfaceSlot(p, ms: ms, handleTy: handleTy, sig: c.info.fn, kept: c.info.replyKept)
+	let call = l.b.callWitness(dst, conv: ReceiverConv.receiverLent, slot: slot, recv: box, args: args, err: err, sig: FloatSignature.make(floats, result: false))
+	emit(l, i: call)
+	// The stub has the arguments now, and drops them itself where the send fails.
+	popPending(l, n: mark)
+	let ok = l.b.newBlock()
+	let zero = konst(l, value: 0 as Word)
+	let failed = compare(l, op: CmpOp.cmpNe, a: err, b: zero, unsigned: false)
+	let stopped = failure(l, p: p, ms: ms, errorCase: 0 as Count, err: err, errDrop: ast.noType)
+	l.b.terminate(l.cur, t: newBranch(failed, ifTrue: stopped, ifFalse: ok))
+	l.cur = ok
+	if dst == noReg 'none'
+		return konst(l, value: 0 as Word)
+	end 'none'
+	return dst
+end 'lowerInterfaceSend'
+
+// lowerInterfaceShutdown shuts down the service behind the interface handle box through the shutdown stub of its table,
+// which ends the state of a service that can hold a Reply or whose type implements Ends as a shutdown through its own handle
+// does.
+function lowerInterfaceShutdown(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box Reg, handleTy ast.TypeID) returns Reg
+	let slot = interfaceSlot(p, ms: ms, handleTy: handleTy, sig: ast.noFunc, kept: true)
+	let call = l.b.callWitness(noReg, conv: ReceiverConv.receiverLent, slot: slot, recv: box, args: RegList.create(0), err: noReg, sig: FloatSignature.make(0 as FloatMask, result: false))
+	emit(l, i: call)
+	return konst(l, value: 0 as Word)
+end 'lowerInterfaceShutdown'
+
+// handleOf is the handle of the service's own type that recv, the receiver of a method of every handle, is or holds: an
+// interface handle's box holds it as its value.
+function handleOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg) returns Reg
+	if c.receiver == 0 'unwritten'
+		return recv
+	end 'unwritten'
+	let handleTy = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.receiver))
+	if not ast.isInterfaceHandle(ms.types, reads: p.types, t: handleTy) 'own'
+		return recv
+	end 'own'
+	let held = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newLoadField(held, obj: recv, offset: ifaceValueOffset))
+	return held
+end 'handleOf'
+
+// lowerSendStub is the IR of a send stub: it takes the service's handle, lent, and the message's arguments, which it owns,
+// and sends them as a send through that handle does, or shuts the service down for the shutdown stub.
+function lowerSendStub(p ast.Project, mutates ms ast.ModuleState, fn ast.FuncID, mutates instances InstanceSet) returns IrFunction
+	var l = Lowerer.new(exchange(instances, value: InstanceSet.new()))
+	let stub = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).clone()
+	let unbound = ast.TypeIDList.create(0)
+	begin(l, p: p, ms: ms, fn: fn, bindParams: unbound.clone(), bindArgs: unbound.clone(), bindWitnesses: ast.WitnessList.create(0), name: "")
+	// A send that fails gives its SendError to the caller, the send through the interface handle.
+	_ = enterPropagating(l)
+	let handle = paramReg(l, index: 0 as Count, kind: IrKind.kindManaged)
+	let handler = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: stub.sendsTo).clone()
+	var info = ast.CallInfo.make(ast.CallKind.callSend, fn: stub.sendsTo, receiverTy: stub.ownerTy)
+	info.paramSpecs = stub.params.clone()
+	info.body = stubBody(l, p: p, ms: ms, stub: fn)
+	if handler.intrinsic == ast.Intrinsic.intrServiceShutdown 'shutdown'
+		if not ast.endsAtStop(p, tt: ms.types, reads: p.types, nt: ast.serviceState(ms.types, reads: p.types, t: stub.ownerTy)) 'plain'
+			info.body = ast.noFunc
+		end 'plain'
+		let c = CallSite.make(0 as ast.NodeID, info: info, receiver: 0 as ast.NodeID, ordered: ast.NodeIDList.create(0))
+		_ = lowerServiceShutdown(l, p: p, ms: ms, c: c, recv: handle, args: RegList.create(0))
+		let none = konst(l, value: 0 as Word)
+		return finishStub(l, p: p, ms: ms, fn: fn, result: none, instances: instances)
+	end 'shutdown'
+	info.replyKept = stub.retTy != p.builtins.voidTy
+	let mark = l.pending.count()
+	var captures = RegList.create(0)
+	for i in 0 upto stub.params.count() 'params'
+		let ty = stub.paramTypes[i]
+		let kind = holderKind(l, p: p, ms: ms, t: ty)
+		let v = paramReg(l, index: i + 1, kind: kind)
+		if owning(kind) 'owned'
+			let drop = dropType(l, p: p, ms: ms, t: ty)
+			l.pending.push(PendingDrop.ofReg(v, ty: drop))
+		end 'owned'
+		captures.push(v)
+	end 'params'
+	let c = CallSite.make(0 as ast.NodeID, info: info, receiver: 0 as ast.NodeID, ordered: ast.NodeIDList.create(0))
+	let reply = sendMessage(l, p: p, ms: ms, c: c, handle: handle, handleTy: stub.ownerTy, captures: captures, mark: mark)
+	return finishStub(l, p: p, ms: ms, fn: fn, result: reply, instances: instances)
+end 'lowerSendStub'
+
+// stubBody is the function of the behaviour that a send stub queues, or of the one its shutdown ends the state with.
+function stubBody(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, stub ast.FuncID) returns ast.FuncID
+	let symbol = ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: stub)
+	var entry = ast.FuncEntry.make(ast.behaviourName(symbol, index: 0 as Count), visibility: "export", module: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: stub).module, nodeID: 0 as ast.NodeID)
+	entry.retTy = p.builtins.voidTy
+	let module = entry.module
+	return ast.allocFunc(ms.funcs, module: module, f: entry)
+end 'stubBody'
+
+function finishStub(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, fn ast.FuncID, result Reg, mutates instances InstanceSet) returns IrFunction
+	l.b.terminate(l.cur, t: newRet(result))
+	var f = l.b.finish()
+	f.takeSignature(funcSignature(p, ms: ms, fid: fn))
+	instances = exchange(l.instances, value: InstanceSet.new())
+	return f
+end 'finishStub'

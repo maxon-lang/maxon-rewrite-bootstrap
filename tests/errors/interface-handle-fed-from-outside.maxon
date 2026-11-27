@@ -1,0 +1,42 @@
+// A posted kind's handler that sends through an interface handle sends work a source that cannot be slowed feeds to services
+// the sender does not know, whose policies the handle does not name: it sends through the service's own handle.
+// expect-error: E3957 at 30:17
+export typealias Count = int(0 to 1000)
+
+interface Sink
+	function put(mutates self, value Count)
+end 'Sink'
+
+type Tally implements Sink
+	var sum as Count
+
+	static function create() returns Self
+		return Self{sum: 0}
+	end 'create'
+
+	@policy(Keep) export function put(mutates self, value Count)
+		self.sum = try self.sum + value otherwise 0
+	end 'put'
+end 'Tally'
+
+type Sup
+	var sink as Sink.handle
+
+	static function create(sink Sink.handle) returns Self
+		return Self{sink: sink}
+	end 'create'
+
+	export function told(mutates self, id Count)
+		try self.sink.put(id) otherwise panic("a running service takes the send")
+	end 'told'
+
+	export function watch(mutates self, child Tally.handle, id Count)
+		child.notifyStopped(self.handle.post(Sup.Message.told(id)))
+	end 'watch'
+end 'Sup'
+
+function main() returns ExitCode
+	let sup = spawn Sup.create(spawn Tally.create())
+	try sup.watch(spawn Tally.create(), id: 1) otherwise panic("a running service takes the send")
+	return 0
+end 'main'

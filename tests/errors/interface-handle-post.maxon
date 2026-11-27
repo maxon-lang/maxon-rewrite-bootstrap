@@ -1,0 +1,26 @@
+// A posted message is a value of the message union of the service's own type, which an interface handle does not name: a
+// message is posted through the service's own handle.
+// expect-error: E3954 at 23:12
+export typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping(value Count)
+end 'Pinger'
+
+type Echo implements Pinger
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function ping(value Count)
+		print("{value}\n")
+	end 'ping'
+end 'Echo'
+
+function main() returns ExitCode
+	let h = (spawn Echo.create()) as Pinger.handle
+	let watcher = spawn Echo.create()
+	let m = h.post(Echo.Message.ping(1))
+	watcher.notifyStopped(m)
+	return 0
+end 'main'

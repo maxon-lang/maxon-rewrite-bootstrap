@@ -121,6 +121,9 @@ function callSend(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		end 'stop'
 		return typed
 	end 'handleMethod'
+	if ast.isInterfaceHandle(ms.types, reads: p.types, t: handle) 'interface'
+		return callInterfaceSend(c, p: p, ms: ms, call: call, handle: handle, name: name, errs: errs)
+	end 'interface'
 	let state = ast.serviceState(ms.types, reads: p.types, t: handle)
 	let method = methodOf(c, p: p, ms: ms, t: state, name: name, node: call, errs: errs)
 	if failedSince(errs, mark: mark) 'ambiguousMessage'
@@ -162,11 +165,7 @@ function callSend(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		return p.builtins.voidTy
 	end 'noReply'
 	c.partyWaitNow = true
-	var args = ast.TypeIDList.create(0)
-	args.push(reply)
-	let awaited = ast.awaitErrorOf(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method))
-	args.push(awaited if awaited != ast.noType else p.builtins.voidTy)
-	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: call), orig: p.builtins.promiseOrigin, args: args, errs: errs)
+	return replyPromise(c, p: p, ms: ms, call: call, reply: reply, thrown: ast.awaitErrorOf(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method)), errs: errs)
 end 'callSend'
 
 // The stops a message asks of its own service (README, "Stops"): `self.stop()` closes its mailbox as a shutdown does, and
@@ -303,6 +302,12 @@ function callPost(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		failAt(c, p: p, ms: ms, node: call, code: diag.errCallArgCountMismatch, msg: "'post' takes the message to post the service, as 'self.handle.post(Sup.Message.childStopped(id))'", errs: errs)
 		return ast.noType
 	end 'arity'
+	// A posted message is a value of the message union of the service's own type, which an interface handle does not name.
+	if ast.isInterfaceHandle(ms.types, reads: p.types, t: handle) 'interface'
+		let handleName = nameOfType(p, ms: ms, t: handle)
+		failAt(c, p: p, ms: ms, node: call, code: diag.errPostedMessageOfOtherType, msg: "a message posted to a service is a value of its own type's message union, which '{handleName}' does not name: post through the service's own handle, as 'self.handle.post(Sup.Message.childStopped(id))'", errs: errs)
+		return ast.noType
+	end 'interface'
 	let messages = postedUnion(c, p: p, ms: ms, node: call, handle: handle, errs: errs)
 	if messages == ast.noType 'noUnion'
 		return ast.noType
@@ -438,6 +443,10 @@ function requireStopsNow(c Checker, p ast.Project, ms ast.ModuleState, node ast.
 		return true
 	end 'declared'
 	let stateName = nameOfType(p, ms: ms, t: state)
+	if ast.typeKind(ms.types, reads: p.types, t: state) == ast.TypeKind.interfaceTy 'interface'
+		failAt(c, p: p, ms: ms, node: node, code: diag.errStopNowUndeclared, msg: "stopNow() would drop the messages queued on the service behind '{stateName}.handle', whose senders through it await their replies as if they always ran, since no requirement of '{stateName}' fails with serviceStopped: stop it at once through its own handle, whose type implements StopsNow, or with shutdown(), which runs the queued messages first", errs: errs)
+		return false
+	end 'interface'
 	failAt(c, p: p, ms: ms, node: node, code: diag.errStopNowUndeclared, msg: "stopNow() would drop the messages queued on '{stateName}', whose senders await their replies as if they always ran, since '{stateName}' does not implement StopsNow: declare 'type {stateName} implements StopsNow', which tells each await of its replies that it may fail with serviceStopped, or stop it with shutdown() (self.stop() in a message), which runs the queued messages first", errs: errs)
 	return false
 end 'requireStopsNow'

@@ -361,7 +361,7 @@ function emitDrop(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates m
 		dropClosure(u, a: a)
 		return
 	end 'function'
-	if kind == ast.TypeKind.interfaceTy 'interface'
+	if kind == ast.TypeKind.interfaceTy or ast.isInterfaceHandle(ms.types, reads: p.types, t: ty) 'interface'
 		dropInterfaceValue(u, a: a)
 		return
 	end 'interface'
@@ -429,7 +429,7 @@ function emitCopy(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates m
 		copyShared(u, a: a, countOffset: closureCountOffset)
 		return
 	end 'function'
-	if kind == ast.TypeKind.interfaceTy 'interface'
+	if kind == ast.TypeKind.interfaceTy or ast.isInterfaceHandle(ms.types, reads: p.types, t: ty) 'interface'
 		copyInterfaceValue(u, a: a)
 		return
 	end 'interface'
@@ -1007,7 +1007,8 @@ export function emitTable(mutates u CodeUnit, p ast.Project, mutates ms ast.Modu
 	end 'nothing'
 	padEntry(u, a: a, start: start)
 	start = u.asm.pos()
-	if not ast.reachesInterface(ms.types, reads: p.types, have: t.iface, want: p.builtins.copyableTy) 'uncopied'
+	// A handle is copied whatever its interface, as every handle is: its copy counts the service once more.
+	if not ast.isInterfaceHandle(ms.types, reads: p.types, t: t.iface) and not ast.reachesInterface(ms.types, reads: p.types, have: t.iface, want: p.builtins.copyableTy) 'uncopied'
 		rTrap(u, a: a)
 	end 'uncopied' else if managed 'copy'
 		let copy = u.needed.symbol(p, ms: ms, kind: RoutineKind.copyRoutine, ty: t.concrete)

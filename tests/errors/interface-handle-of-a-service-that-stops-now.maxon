@@ -1,0 +1,23 @@
+// The await of a reply of a service that implements StopsNow may fail with serviceStopped, which a requirement does not
+// declare, so its handle does not become the interface's handle.
+// expect-error: E3177 at 21:34
+export typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping(value Count) returns Count
+end 'Pinger'
+
+type Abrupt implements Pinger, StopsNow
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function ping(value Count) returns Count
+		return value
+	end 'ping'
+end 'Abrupt'
+
+function main() returns ExitCode
+	let h = (spawn Abrupt.create()) as Pinger.handle
+	return (try await h.ping(1) otherwise 0) as ExitCode
+end 'main'

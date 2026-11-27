@@ -1,0 +1,23 @@
+// A service's handle becomes an interface handle only where the service declares every requirement as a message, an export
+// instance method: one send serves every service behind the handle.
+// expect-error: E3136 at 21:33
+export typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping(value Count) returns Count
+end 'Pinger'
+
+type Quiet implements Pinger
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function ping(value Count) returns Count
+		return value
+	end 'ping'
+end 'Quiet'
+
+function main() returns ExitCode
+	let h = (spawn Quiet.create()) as Pinger.handle
+	return (try await h.ping(1) otherwise 0) as ExitCode
+end 'main'

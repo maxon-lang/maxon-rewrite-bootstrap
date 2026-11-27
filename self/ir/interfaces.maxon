@@ -29,6 +29,9 @@ export function witnessTable(p ast.Project, mutates ms ast.ModuleState, module d
 	let applied = ast.substituteType(ms.types, reads: p.types, t: src, params: bindParams, args: bindArgs)
 	let concrete = tableConcrete(p, ms: ms, t: applied)
 	let wanted = ast.substituteType(ms.types, reads: p.types, t: iface, params: bindParams, args: bindArgs)
+	if ast.isInterfaceHandle(ms.types, reads: p.types, t: wanted) 'handle'
+		return handleTable(p, ms: ms, module: module, site: site, concrete: concrete, wanted: wanted, errs: errs)
+	end 'handle'
 	var conformance = module
 	if ast.typeKind(ms.types, reads: p.types, t: src) == ast.TypeKind.typeParam 'passed'
 		conformance = passedWitness(p, ms: ms, enclosing: bindWitnesses, param: src, iface: wanted)
@@ -60,6 +63,10 @@ export function witnessTable(p ast.Project, mutates ms ast.ModuleState, module d
 			pushInstanceError(p, module: module, site: site, code: diag.errUnsupported, message: "Unsupported: an interface value of a '{ast.typeName(ms.types, reads: p.types, t: concrete)}', whose '{name}' is built in, has no code to call through its table; call it on the value, or through a bound of a type parameter", errs: errs)
 			return table.Option.none
 		end 'builtin'
+		if ast.defers(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: methods[pred(methods.count())])) 'deferring'
+			pushInstanceError(p, module: module, site: site, code: diag.errUnsupported, message: "Unsupported: an interface value of a '{ast.typeName(ms.types, reads: p.types, t: concrete)}', whose '{name}' defers its reply, which only a send runs: send it through a handle of the service, a '{ast.typeName(ms.types, reads: p.types, t: concrete)}.handle' or the interface's handle", errs: errs)
+			return table.Option.none
+		end 'deferring'
 	end 'methods'
 	let symbol = "{tableWord} {ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: concrete)} as {ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: wanted)} by {ast.moduleLinkPath(p, modID: conformance)}"
 	return table.Option.some(WitnessTable.make(symbol, concrete: concrete, iface: wanted, methods: methods))

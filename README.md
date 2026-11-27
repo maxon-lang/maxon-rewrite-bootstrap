@@ -5151,6 +5151,32 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   sender awaits as an async call's promise (`try await h.total() otherwise 0`, or `let p = try h.total()` and `await p`);
   `_ = try h.total() ...` drops the reply on the service, and a reply sent as a statement is `E3190`. A reply's promise is
   never tied: nothing is lent to a service.
+- **Interface handles** (`self/check/handles.maxon`, `self/ir/handles.maxon`), maxon's (`specs/service-registry.md`):
+  `I.handle`, for an interface `I`, is the handle of a service known only by an interface its type implements, so code sends
+  to any service that implements `Logger`. A `T.handle` becomes an `I.handle` wherever one is expected (a binding, an
+  argument, a return, a field, an element, a message's argument) or by `h as I.handle`, and a call through it of a
+  requirement of `I` is a send of the service's message of that name (`E3136` for any other name), whose arguments move, which
+  fails with `SendError` and whose reply, where the requirement returns or throws, is a promise of what the requirement
+  returns and throws. One send serves every service behind the handle, so each service whose handle becomes an `I.handle`
+  declares every requirement as a message (`E3136`), which the conformance holds to the requirement's parameters, reply and
+  error, and whose send and await fail with no more than the requirement says (`E3177`): a reply of a kind whose policy may
+  refuse it (`busy`) or of a type that implements StopsNow (`serviceStopped`) is sent through the type's own handle. The
+  check is made where the handle becomes an `I.handle`, in the module that sees both, never by a search for the services a
+  send may reach. A kind without a reply keeps its policy, and its send through the interface handle runs its type's admit.
+  `stopped()`, `mostQueued()`, `notifyStopped(m)`, `clone()` and `shutdown()` are every handle's; `stopNow()` is `E3952`, since no
+  requirement fails with `serviceStopped`, and `post(m)` is `E3954`, since a posted message is a value of the message union of
+  the service's own type. A posted kind's handler that sends through an `I.handle` is `E3957`: the handle does not name the
+  policy of each service behind it. An interface handle is an interface value (see "Interface values in the IR"): one word, the
+  box of the table of the type's handle as `I.handle` and the type's handle, made where the handle becomes one (in the frame,
+  where only lent), so a send allocates nothing. The table's drop and copy entries are the handle's, and its methods are send
+  stubs (`ast.sendStub`): for each requirement one that keeps the reply, then one that shuts the service down, ending a state
+  that can hold a Reply or whose type implements `Ends` as `h.shutdown()` does, then for each requirement with a reply one whose sender discards it. A stub
+  is the send through the type's own handle (`sendMessage`), so a send through an interface handle costs one indirect call
+  more, and a send through a `T.handle` compiles as it did. Every module that makes a handle an `I.handle` makes the stubs it
+  names, and the link keeps one of each, as of an instance. The interpreter runs the same code; `fuzz --services` sends
+  every walk with an odd number of hops left through an interface handle. A service's state that reaches an `I.handle` of an
+  interface its own type implements is `E4014`, as one that reaches its own handle. Not yet: an `I.handle` that becomes the
+  handle of an interface `I` extends.
 - **What crosses** is one predicate, `ast.unsendable` (`self/ast/crossing.maxon`), for every parameter of a message and of
   the factory, every reply and every error a message throws, at the spawn, and for what a behaviour takes: a scalar, a
   float, a `String`, an enum, a value that owns its parts and holds only what crosses, a `frozen with T` of such a value, a
@@ -5811,7 +5837,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   it, and the state of a service whose state can hold a Reply is dropped once a stop's queued messages have run, where any
   other's is dropped with its last handle (see "Deferred replies"). maxon has no hook that ends a service's state: a state
   that cannot be dropped implements minimaxon's `Ends`, whose `finish` the service calls as it ends (`E3956`; see "Stops"),
-  named so since `end` is a keyword. Not yet: interface handles (`I.handle`),
+  named so since `end` is a keyword. A service is held to an interface's requirements where its handle becomes an interface
+  handle, every requirement a message whose send and await fail with no more than the requirement declares, where maxon looks,
+  at each send through the interface handle, for the program's services behind it and refuses one that declares the
+  requirement another way ("Interface handles"; the spec tests that pin maxon's place for it are skipped with that reason).
+  Not yet: an interface handle that becomes the handle of an interface its own inherits (`Derived.handle` as `Base.handle`),
   `T.request`, a generic service, a message with type parameters,
   one `try await h.m()` over a message that throws, and services in the interpreter. Not yet either, until the design of
   logging is decided: maxon's `Log` and `TraceCapture`, which sit on `SharedValue` there (see "Where it differs from

@@ -58,18 +58,28 @@ end 'newService'
 // lowerSend sends a message: the handle is read, the arguments move into the behaviour, and the send fails, dropping them,
 // when the service is shut down. It gives the reply's promise where the sender keeps it.
 function lowerSend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite) returns Reg
-	let site = siteOf(l, p: p, node: c.node)
 	let mark = l.pending.count()
 	let handle = lowerRead(l, p: p, ms: ms, e: c.receiver)
 	let handleTy = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.receiver))
+	if ast.isInterfaceHandle(ms.types, reads: p.types, t: handleTy) 'interface'
+		return lowerInterfaceSend(l, p: p, ms: ms, c: c, box: handle, handleTy: handleTy, mark: mark)
+	end 'interface'
 	let base = l.args.count()
 	pushOrderedArgs(l, p: p, ms: ms, c: c)
-	var captures = messageArgs(l, p: p, ms: ms, c: c, base: base)
+	let captures = messageArgs(l, p: p, ms: ms, c: c, base: base)
 	popArgs(l, n: base)
+	return sendMessage(l, p: p, ms: ms, c: c, handle: handle, handleTy: handleTy, captures: captures, mark: mark)
+end 'lowerSend'
+
+// sendMessage sends the message c to the service of handle with the arguments captures, which move into its behaviour: the
+// send of lowerSend, and of a send stub (lowerSendStub), which a send through an interface handle calls.
+function sendMessage(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, handle Reg, handleTy ast.TypeID, captures RegList, mark Count) returns Reg
+	let site = siteOf(l, p: p, node: c.node)
 	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.fn).policy != ast.noType 'policy'
 		return lowerPolicySend(l, p: p, ms: ms, c: c, handle: handle, handleTy: handleTy, captures: captures, mark: mark)
 	end 'policy'
-	addMark(l, p: p, ms: ms, handler: c.info.fn, captures: captures)
+	var behaviourCaptures = captures.clone()
+	addMark(l, p: p, ms: ms, handler: c.info.fn, captures: behaviourCaptures)
 	let status = entry(l, p: p, site: site, symbol: Rt.rtServiceReserve, kind: IrKind.kindScalar, args: argsOf1(handle))
 	let ok = l.b.newBlock()
 	let zero = konst(l, value: 0 as Word)
@@ -81,16 +91,16 @@ function lowerSend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	var reply = noReg
 	if c.info.replyKept 'kept'
 		reply = entry(l, p: p, site: site, symbol: Rt.rtReplyNew, kind: IrKind.kindManaged, args: RegList.create(0))
-		captures.push(reply)
+		behaviourCaptures.push(reply)
 	end 'kept'
 	let body = lowerServiceBody(l, p: p, ms: ms, c: c, handleTy: handleTy, factory: false, cell: c.info.replyKept, pendingSlot: ast.noPendingSlot)
-	emitWhen(l, behaviour: body, cowns: argsOf1(handle), captures: captures)
+	emitWhen(l, behaviour: body, cowns: argsOf1(handle), captures: behaviourCaptures)
 	popPending(l, n: mark)
 	if reply == noReg 'none'
 		return konst(l, value: 0 as Word)
 	end 'none'
 	return reply
-end 'lowerSend'
+end 'sendMessage'
 
 // The words rt.service.tryReserve gives besides a SendError's (runtime/service.maxon): the service is behind, so the policy
 // is asked; and the cases of the library's Admission that the send tells apart.
@@ -588,6 +598,12 @@ function lowerReplyAnswer(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 end 'lowerReplyAnswer'
 
 function lowerServiceShutdown(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	if c.receiver != 0 'written'
+		let handleTy = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.receiver))
+		if ast.isInterfaceHandle(ms.types, reads: p.types, t: handleTy) 'interface'
+			return lowerInterfaceShutdown(l, p: p, ms: ms, box: recv, handleTy: handleTy)
+		end 'interface'
+	end 'written'
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceShutdown, args: argsOf1(recv))
 	endStateOf(l, p: p, ms: ms, c: c, handle: recv)
 	return konst(l, value: 0 as Word)
@@ -620,7 +636,9 @@ function endStateOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 	if c.info.body == ast.noFunc 'plain'
 		return
 	end 'plain'
-	let handleTy = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.receiver))
+	// A shutdown stub has no receiver written, and stops a handle of the type the call records.
+	let written = c.info.receiverTy if c.receiver == 0 else exprType(p, module: l.module, node: c.receiver)
+	let handleTy = applyType(l, p: p, ms: ms, t: written)
 	endState(l, p: p, ms: ms, c: c, handle: handle, handleTy: handleTy)
 end 'endStateOf'
 
@@ -702,8 +720,9 @@ function dropStateIfLast(mutates inner Lowerer, mutates l Lowerer, p ast.Project
 	inner.cur = done
 end 'dropStateIfLast'
 
-function lowerServiceStopped(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceStopped, kind: IrKind.kindManaged, args: argsOf1(recv))
+function lowerServiceStopped(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let handle = handleOf(l, p: p, ms: ms, c: c, recv: recv)
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceStopped, kind: IrKind.kindManaged, args: argsOf1(handle))
 end 'lowerServiceStopped'
 
 function lowerServiceStopSelf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
@@ -733,8 +752,9 @@ function lowerServiceUnderLoad(mutates l Lowerer, p ast.Project, ms ast.ModuleSt
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceUnderLoad, kind: IrKind.kindScalar, args: RegList.create(0))
 end 'lowerServiceUnderLoad'
 
-function lowerServiceMostQueued(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceMostQueued, kind: IrKind.kindScalar, args: argsOf1(recv))
+function lowerServiceMostQueued(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let handle = handleOf(l, p: p, ms: ms, c: c, recv: recv)
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceMostQueued, kind: IrKind.kindScalar, args: argsOf1(handle))
 end 'lowerServiceMostQueued'
 
 // Shedding (README, "Overload policies"; runtime/service.maxon, "Shedding"). Every behaviour of a service whose type has kinds
@@ -1154,6 +1174,7 @@ function lowerServiceNotifyStopped(mutates l Lowerer, p ast.Project, mutates ms 
 	let drop = dropType(l, p: p, ms: ms, t: postedTy)
 	emitDropReg(l, src: args[0], ty: drop)
 	let site = siteOf(l, p: p, node: c.node)
-	entryVoid(l, p: p, site: site, symbol: Rt.rtServiceNotifyStopped, args: argsOf2(recv, b: record))
+	let handle = handleOf(l, p: p, ms: ms, c: c, recv: recv)
+	entryVoid(l, p: p, site: site, symbol: Rt.rtServiceNotifyStopped, args: argsOf2(handle, b: record))
 	return konst(l, value: 0 as Word)
 end 'lowerServiceNotifyStopped'

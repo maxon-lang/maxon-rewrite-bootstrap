@@ -285,6 +285,8 @@ export function moduleVerify(mutates state ModuleState, p ast.Project, mutates c
 	verifyBorrowFree(state.checker, p: p, ms: state.unit, pending: borrowFree, errs: errs)
 	let boxes = state.checker.pendingBoxes.clone()
 	verifyBoxes(state.checker, p: p, ms: state.unit, boxes: boxes, errs: errs)
+	let handles = state.checker.pendingHandles.clone()
+	verifyHandles(state.checker, p: p, ms: state.unit, handles: handles, errs: errs)
 	verifyAsyncs(state.checker, p: p, ms: state.unit, errs: errs)
 	verifyHolders(state.checker, p: p, ms: state.unit, errs: errs)
 	verifyFirstHops(state.checker, p: p, ms: state.unit, errs: errs)

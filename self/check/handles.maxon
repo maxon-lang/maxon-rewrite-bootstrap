@@ -1,0 +1,178 @@
+// Interface handles (README, "Interface handles"): `I.handle` is the handle of a service known only by an interface I that
+// its type implements. A `T.handle` becomes one where an `I.handle` is expected, and a send through it of a requirement of I
+// is a send of the service's message of that name. One send serves every service behind the handle, so the sender knows
+// only the requirement: each service whose handle becomes an `I.handle` declares every requirement as a message that takes,
+// gives and fails with what the requirement declares, which is checked where the handle becomes one, in the module that
+// sees both, and never by looking for the other services of the program.
+
+// PendingHandle is a service's handle that becomes an interface handle, whose messages the verify stage holds to the
+// interface's requirements once the declarations of the service's type are known.
+export type PendingHandle
+	export var off as diag.U32
+	export var state as ast.TypeID
+	export var iface as ast.TypeID
+
+	export static function make(off diag.U32, state ast.TypeID, iface ast.TypeID) returns PendingHandle
+		return PendingHandle{off: off, state: state, iface: iface}
+	end 'make'
+end 'PendingHandle'
+
+export typealias PendingHandleList = Array with PendingHandle
+
+// boxHandleInto puts the handle of node, of the type src, in a value of the interface handle target, where one is expected.
+// An interface handle converts to no other.
+function boxHandleInto(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID, at diag.U32, src ast.TypeID, target ast.TypeID, wrong Mismatch, mutates errs diag.ErrorList) returns bool
+	let state = ast.serviceState(ms.types, reads: p.types, t: src)
+	let targetName = nameOfType(p, ms: ms, t: target)
+	if ast.isInterfaceHandle(ms.types, reads: p.types, t: src) 'interface'
+		checkFail(c.modID, off: at, code: diag.errUnsupportedFeature, msg: "Unsupported: '{nameOfType(p, ms: ms, t: src)}' is the handle of a service known by another interface, and an interface handle becomes no other yet: pass the service's own handle where a '{targetName}' is wanted", errs: errs)
+		return false
+	end 'interface'
+	if ast.typeKind(ms.types, reads: p.types, t: state) != ast.TypeKind.record 'notService'
+		checkFail(c.modID, off: at, code: diag.errTypeMismatch, msg: wrong.conformWords(gotName(p, ms: ms, t: src), iface: targetName), errs: errs)
+		return false
+	end 'notService'
+	let valueNode = ast.through(ms.tree(), e: node)
+	if not c.typing.boxes.has(valueNode as Count) 'first'
+		c.typing.boxes.insert(valueNode as Count, value: target)
+		c.pendingHandles.push(PendingHandle.make(at, state: state, iface: ast.serviceState(ms.types, reads: p.types, t: target)))
+		recordUse(c, call: valueNode)
+	end 'first'
+	return true
+end 'boxHandleInto'
+
+// checkHandleCast types `h as I.handle`, which makes the handle of a service an interface handle as where one is expected.
+function checkHandleCast(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, operand ast.NodeID, target ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let src = checkExpecting(c, p: p, ms: ms, e: operand, want: target, errs: errs)
+	if src == ast.noType 'badSource'
+		return ast.noType
+	end 'badSource'
+	if sameType(ms.types, reads: p.types, a: src, b: target) 'same'
+		return target
+	end 'same'
+	let off = offsetOf(c, p: p, ms: ms, node: e)
+	if not ast.isServiceType(ms.types, reads: p.types, t: src) 'notHandle'
+		checkFail(c.modID, off: off, code: diag.errUnsafeCast, msg: diag.castFormsAValue("'{nameOfType(p, ms: ms, t: src)}'", target: "'{nameOfType(p, ms: ms, t: target)}'", remedy: "only the handle of a service becomes an interface handle"), errs: errs)
+		return ast.noType
+	end 'notHandle'
+	if not boxHandleInto(c, p: p, ms: ms, node: operand, at: off, src: src, target: target, wrong: Mismatch.expectedGot, errs: errs) 'refused'
+		return ast.noType
+	end 'refused'
+	return target
+end 'checkHandleCast'
+
+// verifyHandles checks each service's handle that the module makes an interface handle: its type implements the interface,
+// by a declaration the module sees, and declares every requirement as a message the one send can serve.
+export function verifyHandles(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, handles PendingHandleList, mutates errs diag.ErrorList)
+	for i in 0 upto handles.count() 'each'
+		let state = handles[i].state
+		let iface = handles[i].iface
+		let stateName = nameOfType(p, ms: ms, t: state)
+		let ifaceName = spelled(c, p: p, ms: ms, iface: iface)
+		match consumes ast.conformanceSource(p, ms: ms, from: c.modID, t: state, iface: iface) 'source'
+			found(_) then requireHandleMessages(c, p: p, ms: ms, off: handles[i].off, state: state, iface: iface, errs: errs)
+			ambiguous(first, second) then failAmbiguousConformance(c, p: p, off: handles[i].off, typeName: stateName, ifaceName: ifaceName, first: first, second: second, errs: errs)
+			absent then checkFail(c.modID, off: handles[i].off, code: diag.errTypeMismatch, msg: "'{stateName}' does not implement '{ifaceName}', so a '{stateName}.handle' is no '{ifaceName}.handle': declare 'type {stateName} implements {ifaceName}'", errs: errs)
+		end 'source'
+	end 'each'
+end 'verifyHandles'
+
+// requireHandleMessages refuses a requirement of iface that the type state does not declare as a message (E3136), or
+// declares as one whose parameters, reply or the error of its await differ from the requirement's (E3177): a send through
+// the interface handle passes and awaits what the requirement says.
+function requireHandleMessages(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, off diag.U32, state ast.TypeID, iface ast.TypeID, mutates errs diag.ErrorList)
+	let stateName = nameOfType(p, ms: ms, t: state)
+	let ifaceName = nameOfType(p, ms: ms, t: iface)
+	let origin = ast.typeEntry(ms.types, reads: p.types, t: state).effectiveOrigin()
+	let reqs = ast.requirementsOf(ms.types, reads: p.types, iface: iface)
+	for i in 0 upto reqs.count() 'requirements'
+		let sig = reqs[i].sig
+		let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).name.clone()
+		let method = match consumes ast.typeEntry(ms.types, reads: p.types, t: origin).findMethod(name) 'own'
+			some(m) gives m
+			none gives ast.noFunc
+		end 'own'
+		if not isMessage(p, ms: ms, method: method) 'notMessage'
+			checkFail(c.modID, off: off, code: diag.errNotAMessage, msg: "`interface {ifaceName}` requires `{name}`, and `type {stateName}` implements it, but not as an `export` instance method — so it is not a message of `{stateName}`, and `{ifaceName}.handle` cannot send it to every service behind it. Declare `{name}` on `{stateName}` as an `export` instance method", errs: errs)
+			continue 'requirements'
+		end 'notMessage'
+		let why = messageDisagreement(p, ms: ms, method: method)
+		if why != "" 'disagrees'
+			checkFail(c.modID, off: off, code: diag.errHandleImplementerDisagrees, msg: "the message '{stateName}.{name}' {why}, and a send through '{ifaceName}.handle' fails and is awaited only as '{ifaceName}.{name}' declares for every service behind it: send it through '{stateName}.handle', whose sender handles what it may fail with", errs: errs)
+		end 'disagrees'
+	end 'requirements'
+end 'requireHandleMessages'
+
+// messageDisagreement says how the send of the message method may fail beyond what the requirement it meets declares, which a
+// send through an interface handle passes and awaits, and is empty where it may not: the conformance holds its parameters,
+// reply and error to the requirement's, and its send and the await of its reply fail with more where its policy may refuse or
+// shed it (busy) or its type implements StopsNow (serviceStopped).
+function messageDisagreement(p ast.Project, ms ast.ModuleState, method ast.FuncID) returns String
+	let handler = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).clone()
+	if ast.answersBusy(handler, voidTy: p.builtins.voidTy) 'refused'
+		return "replies and names a policy that may refuse it while its service is behind, so its send may fail with busy, which a send through the interface handle cannot"
+	end 'refused'
+	if handler.awaitErrTy != ast.noType 'widened'
+		return "may fail at its sender's await with more than it throws, busy where its policy sheds it or serviceStopped where its type implements StopsNow, which the requirement does not declare"
+	end 'widened'
+	return ""
+end 'messageDisagreement'
+
+// callInterfaceSend types a send through an interface handle of the requirement of its interface named so: its arguments
+// move into the service as a message's do, it fails with SendError, and where the requirement returns or throws it gives
+// the reply's promise, of what the requirement returns and throws.
+function callInterfaceSend(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, handle ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
+	let iface = ast.serviceState(ms.types, reads: p.types, t: handle)
+	let ifaceName = nameOfType(p, ms: ms, t: iface)
+	let named = requirementsNamed(p, ms: ms, iface: iface, name: name)
+	if named.count() == 0 'notRequired'
+		failAt(c, p: p, ms: ms, node: call, code: diag.errNotAMessage, msg: "'{ifaceName}' requires no '{name}': a send through '{ifaceName}.handle' reaches the requirements of '{ifaceName}', each a message of every service behind it", errs: errs)
+		return ast.noType
+	end 'notRequired'
+	if named.count() > 1 'inheritedTwice'
+		failAt(c, p: p, ms: ms, node: call, code: diag.errAmbiguousBound, msg: "'{name}' is required by both {requirementText(p, ms: ms, req: named[0])} and {requirementText(p, ms: ms, req: named[1])}, and a send through '{ifaceName}.handle' sends one of them; rename one requirement", errs: errs)
+		return ast.noType
+	end 'inheritedTwice'
+	let sig = named[0].sig
+	let mark = errs.count()
+	requireCrossingParams(c, p: p, ms: ms, e: call, what: "the requirement '{ifaceName}.{name}'", fn: sig, errs: errs)
+	let reply = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).retTy
+	let replyWhy = unsendable(p, ms: ms, t: reply)
+	if replyWhy != "" 'reply'
+		failAt(c, p: p, ms: ms, node: call, code: diag.errReplyNotCarriable, msg: "the requirement '{ifaceName}.{name}' returns a '{nameOfType(p, ms: ms, t: reply)}', which cannot cross back to the sender: {replyWhy}", errs: errs)
+	end 'reply'
+	if failedSince(errs, mark: mark) 'uncrossing'
+		return ast.noType
+	end 'uncrossing'
+	let result = callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callSend, target: sig, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
+	if result == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	var info = match consumes c.typing.calls.get(call as Count) 'info'
+		some(i) gives i
+		none panic("check: a send was typed without a record of what it calls")
+	end 'info'
+	if not requireNoFrozenContents(c, p: p, ms: ms, call: call, info: info, errs: errs) 'lent'
+		return ast.noType
+	end 'lent'
+	movesEveryArgument(info)
+	info.receiverTy = handle
+	let thrown = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).errTy
+	let replies = result != p.builtins.voidTy or thrown != ast.noType
+	info.replyKept = replies and c.discardedSend != call
+	let kept = info.replyKept
+	c.typing.calls.insert(call as Count, value: info)
+	if not kept 'noReply'
+		return p.builtins.voidTy
+	end 'noReply'
+	c.partyWaitNow = true
+	return replyPromise(c, p: p, ms: ms, call: call, reply: result, thrown: thrown, errs: errs)
+end 'callInterfaceSend'
+
+// replyPromise is the promise of a reply of the type reply that fails with thrown, or with nothing where it is none.
+function replyPromise(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, reply ast.TypeID, thrown ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	var args = ast.TypeIDList.create(0)
+	args.push(reply)
+	args.push(thrown if thrown != ast.noType else p.builtins.voidTy)
+	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: call), orig: p.builtins.promiseOrigin, args: args, errs: errs)
+end 'replyPromise'

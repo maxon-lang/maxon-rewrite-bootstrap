@@ -7,6 +7,8 @@
 // for Keep, Refuse, DropNewest, Latest, DropOldest, a policy with state of the program's own, which a field holds, the
 // library's PerClientFair keyed by the service a walk is at, and a policy of the program's own that reads the walk's hops. main starts a walk of the graph at service 0 a few times, and a service that is
 // handed a walk with hops left passes it on along each of its edges, so a cycle carries a walk round until its hops are spent.
+// A walk with an odd number of hops left goes through the service's handle as a Walker.handle, an interface every kind of walk
+// is a requirement of, as does every settle at the end, so the stubs of an interface handle's table are under the oracles too.
 // After each start main asks a service for a reply of each of three kinds, one that is kept, one that DropOldest sheds, and one
 // that the service defers with reply.later() and parks in its state, which a settle answers; at the end it settles every
 // service and awaits them all: each is answered once, with a value, busy or serviceStopped, a deferred one parked in a service
@@ -116,7 +118,21 @@ function serviceOf(message Node.Message) returns Count
 	end 'm'
 end 'serviceOf'
 
-type Node implements StopsNow
+// Walker is what a walk is sent through as well as a service's own handle: every kind of walk, and settle, none of which
+// replies, so a Node, which implements StopsNow and names policies, is one.
+interface Walker
+	function walk(mutates self, left Amount, at Amount, edges ByteArray, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
+	function walkRefused(mutates self, left Amount, at Amount, edges ByteArray, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
+	function walkDropped(mutates self, left Amount, at Amount, edges ByteArray, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
+	function walkLatest(mutates self, left Amount, at Amount, edges ByteArray, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
+	function walkOldest(mutates self, left Amount, at Amount, edges ByteArray, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
+	function walkSampled(mutates self, left Amount, at Amount, edges ByteArray, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
+	function walkFair(mutates self, left Amount, at Amount, edges ByteArray, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
+	function walkSpent(mutates self, left Amount, at Amount, edges ByteArray, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
+	function settle(mutates self)
+end 'Walker'
+
+type Node implements StopsNow, Walker
 	var handled as Amount
 	var sampler as EveryOther
 	var fair as PerClientFair with Node.Message
@@ -196,8 +212,13 @@ type Node implements StopsNow
 	end 'pass'
 end 'Node'
 
-// send sends a walk to a service as the kind of the policy, keeps to byHops.
+// send sends a walk to a service as the kind of the policy, keeps to byHops: a walk with an odd number of hops left through
+// the service's handle as a Walker.handle, and any other through the handle itself.
 function send(to Node.handle, policy Amount, left Amount, at Amount, consumes edges ByteArray, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
+	if left mod 2 == 1 'asWalker'
+		sendAs(to, policy: policy, left: left, at: at, edges: edges, n0: n0, n1: n1, n2: n2, n3: n3)
+		return
+	end 'asWalker'
 	match policy 'kind'
 		0 then try to.walk(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
 		1 then try to.walkRefused(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
@@ -209,6 +230,20 @@ function send(to Node.handle, policy Amount, left Amount, at Amount, consumes ed
 		default then try to.walkSpent(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
 	end 'kind'
 end 'send'
+
+// sendAs sends a walk through an interface handle, whose table's stub sends it as the service's own handle would.
+function sendAs(to Walker.handle, policy Amount, left Amount, at Amount, consumes edges ByteArray, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle)
+	match policy 'kind'
+		0 then try to.walk(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
+		1 then try to.walkRefused(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
+		2 then try to.walkDropped(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
+		3 then try to.walkLatest(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
+		4 then try to.walkOldest(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
+		5 then try to.walkSampled(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
+		6 then try to.walkFair(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
+		default then try to.walkSpent(left, at: at, edges: edges, n0: n0.clone(), n1: n1.clone(), n2: n2.clone(), n3: n3.clone()) otherwise ignore
+	end 'kind'
+end 'sendAs'
 
 function pick(i Amount, n0 Node.handle, n1 Node.handle, n2 Node.handle, n3 Node.handle) returns Node.handle
 	return match i 'which'
@@ -254,7 +289,8 @@ function main() returns ExitCode
 		end 'settled'
 	end 'starts'
 	for i in 0 upto nodes 'settle'
-		try pick(i, n0: n0, n1: n1, n2: n2, n3: n3).settle() otherwise ignore
+		let settled = pick(i, n0: n0, n1: n1, n2: n2, n3: n3) as Walker.handle
+		try settled.settle() otherwise ignore
 	end 'settle'
 	for p in counts 'counts'
 		_ = try await p otherwise continue 'counts'

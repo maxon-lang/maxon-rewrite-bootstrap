@@ -814,6 +814,7 @@ function storeFuncEntry(mutates w table.CacheWriter, v FuncEntry)
 	w.flag(v.isTest)
 	w.word64(v.extendedIface as table.Word64)
 	w.word64(v.conditionalBounds as table.Word64)
+	w.word64(v.sendsTo as table.Word64)
 end 'storeFuncEntry'
 
 extension FuncEntry
@@ -856,7 +857,8 @@ extension FuncEntry
 		let theIsTest = r.flag()
 		let theExtendedIface = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
 		let theConditionalBounds = r.word64() as Count
-		return FuncEntry{id: theId, name: theName, visibility: theVisibility, hasDecl: theHasDecl, decl: theDecl, module: theModule, nodeID: theNodeID, isStatic: theIsStatic, isDestructor: theIsDestructor, hasReceiver: theHasReceiver, isClosure: theIsClosure, ownerTy: theOwnerTy, selfConv: theSelfConv, generics: theGenerics, bounds: theBounds, params: theParams, paramTypes: theParamTypes, retTy: theRetTy, result: theResult, lendsPlace: theLendsPlace, errTy: theErrTy, policy: thePolicy, policyWritten: thePolicyWritten, pendingSlot: thePendingSlot, policyField: thePolicyField, shedPolicy: theShedPolicy, awaitErrTy: theAwaitErrTy, deferredTy: theDeferredTy, deferredErrTy: theDeferredErrTy, genericOrigin: theGenericOrigin, typeArgs: theTypeArgs, witnesses: theWitnesses, intrinsic: theIntrinsic, linkName: theLinkName, bodyRef: theBodyRef, isTest: theIsTest, extendedIface: theExtendedIface, conditionalBounds: theConditionalBounds}
+		let theSendsTo = try (r.word64() as FuncID) otherwise panic("cache: a stored FuncID is out of its range")
+		return FuncEntry{id: theId, name: theName, visibility: theVisibility, hasDecl: theHasDecl, decl: theDecl, module: theModule, nodeID: theNodeID, isStatic: theIsStatic, isDestructor: theIsDestructor, hasReceiver: theHasReceiver, isClosure: theIsClosure, ownerTy: theOwnerTy, selfConv: theSelfConv, generics: theGenerics, bounds: theBounds, params: theParams, paramTypes: theParamTypes, retTy: theRetTy, result: theResult, lendsPlace: theLendsPlace, errTy: theErrTy, policy: thePolicy, policyWritten: thePolicyWritten, pendingSlot: thePendingSlot, policyField: thePolicyField, shedPolicy: theShedPolicy, awaitErrTy: theAwaitErrTy, deferredTy: theDeferredTy, deferredErrTy: theDeferredErrTy, genericOrigin: theGenericOrigin, typeArgs: theTypeArgs, witnesses: theWitnesses, intrinsic: theIntrinsic, linkName: theLinkName, bodyRef: theBodyRef, isTest: theIsTest, extendedIface: theExtendedIface, conditionalBounds: theConditionalBounds, sendsTo: theSendsTo}
 	end 'cacheLoad'
 end 'FuncEntry'
 

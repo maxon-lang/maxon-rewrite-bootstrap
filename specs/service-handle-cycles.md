@@ -162,7 +162,7 @@ type Hub implements Listener
 		return Self{count: 0, listeners: ListenerHandleArray.create(0)}
 	end 'create'
 
-	export function note(by Tally)
+	export function note(mutates self, by Tally)
 		self.count = self.count + by
 	end 'note'
 

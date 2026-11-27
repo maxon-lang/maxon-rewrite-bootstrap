@@ -1091,6 +1091,9 @@ end 'protocolCall'
 // lowerFunction is the IR of a function, or of an instance of a generic one. instances are the ones the function's module
 // needs, which every generic call in the body must be one of.
 export function lowerFunction(p ast.Project, mutates ms ast.ModuleState, fn ast.FuncID, mutates instances InstanceSet) returns IrFunction
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).sendsTo != ast.noFunc 'stub'
+		return lowerSendStub(p, ms: ms, fn: fn, instances: instances)
+	end 'stub'
 	var l = Lowerer.new(exchange(instances, value: InstanceSet.new()))
 	var bindParams = ast.TypeIDList.create(0)
 	var bindArgs = ast.TypeIDList.create(0)

@@ -278,8 +278,9 @@ end 'requireImplements'
 // does there. A method that an extension of an interface adds does at its instance for own.
 function witnessMatches(c Checker, p ast.Project, mutates ms ast.ModuleState, m ast.FuncID, own ast.TypeID, wantSpecs ast.ParamSpecList, wantReturn ast.TypeID, wantError ast.TypeID, wantResult ast.ResultConv) returns bool
 	var specs = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).params.clone()
-	var ret = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).retTy
-	var err = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).errTy
+	// A message that defers its reply meets a requirement by what its header declares, which its senders await.
+	var ret = ast.replyTypeOf(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m))
+	var err = ast.replyErrorOf(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m))
 	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).extendedIface != ast.noType 'ofInterface'
 		let generics = ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).generics)
 		let args = ast.interfaceExtensionArgs(p, ms: ms, recv: own, have: ast.seenInterfaces(p, ms: ms, from: c.modID, t: own), fid: m)

@@ -321,6 +321,9 @@ export let errExposesHiddenType = "E3167"
 // A value that more than one thread reaches, a frozen value or a cown's, holds what cannot cross between threads.
 export let errValueNotShareable = "E3171"
 
+// A service's handle becomes an interface handle while one of its messages takes, gives or fails with other than what the interface's requirement declares.
+export let errHandleImplementerDisagrees = "E3177"
+
 // A typealias implements one whose range does not hold its own, or that is over another primitive or signedness.
 export let errAliasRangeDoesNotFit = "E3178"
 

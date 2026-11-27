@@ -507,9 +507,11 @@ export type FuncEntry
 	export var extendedIface as TypeID
 	// conditionalBounds is how many of its bounds, first among them, the 'where' of the extension that declares it gives.
 	export var conditionalBounds as Count
+	// sendsTo is, for a send stub (sendStub), the message it sends, and noFunc for every other function.
+	export var sendsTo as FuncID
 
 	export static function make(consumes name String, consumes visibility String, module diag.ModuleID, nodeID NodeID) returns FuncEntry
-		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), retTy: noType, result: ResultConv.resultOwned, lendsPlace: false, errTy: noType, policy: noType, policyWritten: false, pendingSlot: noPendingSlot, policyField: noPolicyField, shedPolicy: noShedPolicy, awaitErrTy: noType, deferredTy: noType, deferredErrTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false, extendedIface: noType, conditionalBounds: 0 as Count}
+		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), retTy: noType, result: ResultConv.resultOwned, lendsPlace: false, errTy: noType, policy: noType, policyWritten: false, pendingSlot: noPendingSlot, policyField: noPolicyField, shedPolicy: noShedPolicy, awaitErrTy: noType, deferredTy: noType, deferredErrTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false, extendedIface: noType, conditionalBounds: 0 as Count, sendsTo: noFunc}
 	end 'make'
 end 'FuncEntry'
 
@@ -2797,3 +2799,50 @@ end 'isServiceType'
 export function serviceState(tt TypeSlot, reads TypeTable, t TypeID) returns TypeID
 	return typeEntry(tt, reads: reads, t: t).typeArgs[0]
 end 'serviceState'
+
+// isInterfaceHandle is whether a type is `I.handle`, the handle of a service known only by an interface I its type
+// implements: a value of it is an interface value, the box of a table and the handle of the service's own type, whose
+// methods send each requirement as the service's own handle would (README, "Interface handles").
+export function isInterfaceHandle(tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	return isServiceType(tt, reads: reads, t: t) and typeKind(tt, reads: reads, t: serviceState(tt, reads: reads, t: t)) == TypeKind.interfaceTy
+end 'isInterfaceHandle'
+
+// sendStubKey is the key among a module's instances of the send stub of the handler through the interface handle ifaceHandle
+// that gives reply.
+function sendStubKey(handler FuncID, ifaceHandle TypeID, reply TypeID) returns String
+	return "send;{handler};{ifaceHandle};{reply}"
+end 'sendStubKey'
+
+// sendStub is the function that the table of a service's handle as the interface handle ifaceHandle calls for the message
+// handler: it takes the service's handle, then the message's arguments, which it moves, and sends them as a send through the
+// handle sendTy, the service's own, would, giving the reply's promise (reply), or nothing where the message does not reply,
+// and failing with SendError. One for each in the slot of the module whose stage asks for it, as an instance is.
+export function sendStub(mutates ft FuncSlot, funcReads FuncTable, module diag.ModuleID, handler FuncID, sendTy TypeID, ifaceHandle TypeID, reply TypeID, sendError TypeID, consumes name String) returns FuncID
+	let key = sendStubKey(handler, ifaceHandle: ifaceHandle, reply: reply)
+	var slot as Count
+	if ft.instCache.find(key, slot: slot) 'hit'
+		return ft.instCache.valueAt(slot)
+	end 'hit'
+	var stub = FuncEntry.make(name, visibility: "export", module: module, nodeID: 0 as NodeID)
+	stub.hasReceiver = true
+	stub.selfConv = Convention.convLet
+	stub.ownerTy = sendTy
+	stub.sendsTo = handler
+	stub.retTy = reply
+	stub.errTy = sendError
+	for i in 0 upto funcEntry(ft, funcReads: funcReads, f: handler).params.count() 'params'
+		var spec = funcEntry(ft, funcReads: funcReads, f: handler).params[i].clone()
+		spec.conv = Convention.convConsumes
+		stub.paramTypes.push(spec.ty)
+		stub.params.push(spec)
+	end 'params'
+	let id = allocFuncIn(ft, f: stub)
+	ft.instCache.insert(key, value: id)
+	return id
+end 'sendStub'
+
+// isLinkedOnce is whether the code of a function is made by every module that needs it, as an instance's or a send stub's
+// is, so that the link keeps one definition of its name.
+export function isLinkedOnce(f FuncEntry) returns bool
+	return f.genericOrigin != noFunc or f.sendsTo != noFunc
+end 'isLinkedOnce'

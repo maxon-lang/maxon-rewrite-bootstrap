@@ -1,0 +1,33 @@
+// A service whose state holds an interface handle of an interface its own type implements may hold its own handle, which
+// would keep it alive for ever.
+// expect-error: E4014 at 30:12
+export typealias Tally = int(0 to 1000)
+
+typealias Listeners = Array with Listener.handle
+
+interface Listener
+	function note(mutates self, by Tally)
+end 'Listener'
+
+type Hub implements Listener
+	var count as Tally
+	var listeners as Listeners
+
+	static function create() returns Self
+		return Self{count: 0, listeners: Listeners.create(0)}
+	end 'create'
+
+	export function note(mutates self, by Tally)
+		self.count = by
+	end 'note'
+
+	export function subscribe(mutates self, listener Listener.handle)
+		self.listeners.push(listener)
+	end 'subscribe'
+end 'Hub'
+
+function main() returns ExitCode
+	let hub = spawn Hub.create()
+	hub.shutdown()
+	return 0
+end 'main'

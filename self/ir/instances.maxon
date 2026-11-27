@@ -320,7 +320,7 @@ function visitSites(p ast.Project, mutates ms ast.ModuleState, module diag.Modul
 		if witnessInterface(p, ms: ms, module: module, receiver: ast.callReceiver(p.modules[ast.modIndex(module)].tree, e: site, kind: info.kind), info: info, bindParams: bindParams, bindArgs: bindArgs) != ast.noType 'dispatched'
 			continue 'each'
 		end 'dispatched'
-		if info.kind == ast.CallKind.callSend and not notePolicies(p, ms: ms, module: module, site: site, handler: info.fn, found: found, errs: errs) 'deepPolicy'
+		if info.kind == ast.CallKind.callSend and not ast.isInterfaceHandle(ms.types, reads: p.types, t: info.receiverTy) and not notePolicies(p, ms: ms, module: module, site: site, handler: info.fn, found: found, errs: errs) 'deepPolicy'
 			return false
 		end 'deepPolicy'
 		let target = resolveCall(p, ms: ms, module: module, node: site, info: info, bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: bindWitnesses, errs: errs)
@@ -459,18 +459,23 @@ end 'noteTable'
 
 // noteInstance adds the instance a call at site runs to those found, when it is a new one, and says whether its type
 // arguments are finite. A target that is none was refused already.
-function noteInstance(p ast.Project, ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, consumes target table.Option with ast.FuncID, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
+function noteInstance(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, consumes target table.Option with ast.FuncID, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
 	if not target.isSome() 'refused'
 		return false
 	end 'refused'
 	return noteFound(p, ms: ms, module: module, site: site, target: target.unwrap(), found: found, errs: errs)
 end 'noteInstance'
 
-function noteFound(p ast.Project, ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, target ast.FuncID, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
-	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).genericOrigin == ast.noFunc or found.has(target) 'known'
+function noteFound(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, target ast.FuncID, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
+	if not ast.isLinkedOnce(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target)) or found.has(target) 'known'
 		return true
 	end 'known'
 	found.add(target)
+	let sends = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).sendsTo
+	if sends != ast.noFunc 'stub'
+		// A send stub runs the instances of its message's generic policies, as a send through the service's own handle does.
+		return ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sends).intrinsic != ast.Intrinsic.intrNone or notePolicies(p, ms: ms, module: module, site: site, handler: sends, found: found, errs: errs)
+	end 'stub'
 	if not requireFinite(p, ms: ms, module: module, site: site, instance: target, errs: errs) 'deep'
 		return false
 	end 'deep'
@@ -511,6 +516,10 @@ function followInstances(p ast.Project, mutates ms ast.ModuleState, mutates foun
 	var next = from
 	while next < found.list.count() 'follow'
 		let instance = found.list[next]
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: instance).sendsTo != ast.noFunc 'stub'
+			next = succ(next)
+			continue 'follow'
+		end 'stub'
 		let origin = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: instance).genericOrigin
 		let params = ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: origin).generics)
 		let args = ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: instance).typeArgs)
@@ -529,7 +538,7 @@ end 'followInstances'
 export function instancesOf(p ast.Project, ms ast.ModuleState, fns IrFunctionList) returns InstanceSet
 	var found = InstanceSet.new()
 	for i in 0 upto fns.count() 'functions'
-		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fns[i].decl).genericOrigin != ast.noFunc 'instance'
+		if ast.isLinkedOnce(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fns[i].decl)) 'instance'
 			found.add(fns[i].decl)
 		end 'instance'
 	end 'functions'

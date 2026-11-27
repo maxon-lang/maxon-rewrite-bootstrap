@@ -1,0 +1,23 @@
+// A message with a reply whose policy may refuse it fails its send with busy, which a send through an interface handle cannot
+// say, so its service's handle does not become the interface's handle.
+// expect-error: E3177 at 21:32
+export typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping(value Count) returns Count
+end 'Pinger'
+
+type Busy implements Pinger
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	@policy(Refuse) export function ping(value Count) returns Count
+		return value
+	end 'ping'
+end 'Busy'
+
+function main() returns ExitCode
+	let h = (spawn Busy.create()) as Pinger.handle
+	return (try await h.ping(1) otherwise 0) as ExitCode
+end 'main'

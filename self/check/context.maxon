@@ -180,6 +180,7 @@ export type Checker
 	export var pendingBounds as PendingBoundList
 	export var pendingBorrowFree as PendingBorrowFreeList
 	export var pendingBoxes as PendingBoxList
+	export var pendingHandles as PendingHandleList
 	export var pendingValueTypes as PendingValueTypeList
 	export var callers as ast.FuncIDList
 	export var callersSeen as BoolIntMap
@@ -267,7 +268,7 @@ export type Checker
 	export static function make(modID diag.ModuleID, consumes typing ast.Typing) returns Checker
 		let mIdx = ast.modIndex(modID)
 		let csMap = BoolIntMap.new()
-		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBorrowFree: PendingBorrowFreeList.create(0), pendingBoxes: PendingBoxList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", constNamesParams: false, deferredNames: ast.NodeIDList.create(0), deferredHeads: ast.NodeIDList.create(0), inRawValue: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0), waitNow: false, waitCalls: ast.FuncIDList.create(0), waits: WaitFacts.new(), waitSends: UnpolicedSends.create(0), sendsUnpoliced: false, posted: PostedKindList.create(0), pendingAsyncs: PendingAsyncList.create(0), pendingPolicies: PendingPolicyList.create(0), partyWaitNow: false, spawned: ast.TypeIDList.create(0), spawnSites: ast.NodeIDList.create(0), servicesChecked: ast.TypeIDList.create(0), discardedSend: 0 as ast.NodeID}
+		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBorrowFree: PendingBorrowFreeList.create(0), pendingBoxes: PendingBoxList.create(0), pendingHandles: PendingHandleList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", constNamesParams: false, deferredNames: ast.NodeIDList.create(0), deferredHeads: ast.NodeIDList.create(0), inRawValue: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0), waitNow: false, waitCalls: ast.FuncIDList.create(0), waits: WaitFacts.new(), waitSends: UnpolicedSends.create(0), sendsUnpoliced: false, posted: PostedKindList.create(0), pendingAsyncs: PendingAsyncList.create(0), pendingPolicies: PendingPolicyList.create(0), partyWaitNow: false, spawned: ast.TypeIDList.create(0), spawnSites: ast.NodeIDList.create(0), servicesChecked: ast.TypeIDList.create(0), discardedSend: 0 as ast.NodeID}
 	end 'make'
 end 'Checker'
 
@@ -591,6 +592,9 @@ export function coerce(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	if dk == ast.TypeKind.interfaceTy and sk != ast.TypeKind.interfaceTy 'interface'
 		return boxInto(c, p: p, ms: ms, node: node, at: at, src: src, iface: target, wrong: wrong, errs: errs)
 	end 'interface'
+	if ast.isInterfaceHandle(ms.types, reads: p.types, t: target) and ast.isServiceType(ms.types, reads: p.types, t: src) 'handle'
+		return boxHandleInto(c, p: p, ms: ms, node: node, at: at, src: src, target: target, wrong: wrong, errs: errs)
+	end 'handle'
 	if dk == ast.TypeKind.floatRange and (ast.isFloatType(ms.types, reads: p.types, t: src) or ast.isIntType(ms.types, reads: p.types, t: src)) 'float'
 		floatMismatch(c, p: p, ms: ms, node: node, at: at, src: src, target: target, wrong: wrong, errs: errs)
 		return false

@@ -1,0 +1,60 @@
+// A shutdown through an interface handle of a service whose type implements Ends gives its state to finish once, after the
+// messages queued before it, as a shutdown through its own handle does; notifyStopped through the interface handle posts to
+// the watcher once that service has ended, and its stopped() completes then.
+// native-only
+//> put 1
+//> put 3
+//> finish of 3
+//> told 7
+export typealias Amount = int(0 to 1000)
+
+interface Sink
+	function put(mutates self, value Amount)
+end 'Sink'
+
+type Tally implements Sink, Ends
+	var sum as Amount
+
+	static function create() returns Self
+		return Self{sum: 0}
+	end 'create'
+
+	export function put(mutates self, value Amount)
+		self.sum = try self.sum + value otherwise 0
+		print("put {self.sum}\n")
+	end 'put'
+
+	function finish(consumes self)
+		print("finish of {self.sum}\n")
+	end 'finish'
+end 'Tally'
+
+type Sup
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function watch(mutates self, sink Sink.handle, id Amount)
+		sink.notifyStopped(self.handle.post(Sup.Message.told(id)))
+	end 'watch'
+
+	export function told(mutates self, id Amount)
+		print("told {id}\n")
+		self.stop()
+	end 'told'
+end 'Sup'
+
+function main() returns ExitCode
+	let tally = spawn Tally.create()
+	let sup = spawn Sup.create()
+	let done = sup.stopped()
+	let sink = tally as Sink.handle
+	try sup.watch(sink.clone(), id: 7) otherwise panic("a running service takes the send")
+	try sink.put(1) otherwise panic("a running service takes the send")
+	try sink.put(2) otherwise panic("a running service takes the send")
+	let gone = sink.stopped()
+	sink.shutdown()
+	await gone
+	await done
+	return 0
+end 'main'

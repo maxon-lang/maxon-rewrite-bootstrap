@@ -969,6 +969,9 @@ function checkCast(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	if typeHasKind(p, ms: ms, t: target, kind: ast.TypeKind.interfaceTy) 'interface'
 		return checkInterfaceCast(c, p: p, ms: ms, e: e, operand: operand, target: target, errs: errs)
 	end 'interface'
+	if ast.isInterfaceHandle(ms.types, reads: p.types, t: target) 'interfaceHandle'
+		return checkHandleCast(c, p: p, ms: ms, e: e, operand: operand, target: target, errs: errs)
+	end 'interfaceHandle'
 	if ast.familyOfSelf(ms.types, reads: p.types, t: target) != ast.noType 'ofFamily'
 		return checkFamilyCast(c, p: p, ms: ms, e: e, operand: operand, target: target, errs: errs)
 	end 'ofFamily'

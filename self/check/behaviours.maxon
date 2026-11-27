@@ -560,6 +560,11 @@ function reachesThroughCown(p ast.Project, mutates ms ast.ModuleState, from ast.
 		end 'cases'
 		return false
 	end 'union'
+	if services and ast.isInterfaceHandle(ms.types, reads: p.types, t: from) and implementsHandled(p, ms: ms, t: target, handle: from) 'interfaceHandle'
+		// An interface handle may hold a handle of any type that implements its interface, the target's among them.
+		path.push(holder)
+		return true
+	end 'interfaceHandle'
 	if kind.isBuiltin() and kind != ast.TypeKind.builtinSlotKey 'builtin'
 		for ai in 0 upto ast.typeEntry(ms.types, reads: p.types, t: from).typeArgs.count() 'args'
 			let held = ast.typeEntry(ms.types, reads: p.types, t: from).typeArgs[ai]
@@ -570,6 +575,20 @@ function reachesThroughCown(p ast.Project, mutates ms ast.ModuleState, from ast.
 	end 'builtin'
 	return false
 end 'reachesThroughCown'
+
+// implementsHandled is whether the type t implements the interface of the interface handle handle, by a declaration its
+// own module sees, so a handle of a service of t may be behind it.
+function implementsHandled(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, handle ast.TypeID) returns bool
+	if ast.typeKind(ms.types, reads: p.types, t: t) != ast.TypeKind.record 'notService'
+		return false
+	end 'notService'
+	let iface = ast.serviceState(ms.types, reads: p.types, t: handle)
+	return match consumes ast.conformanceSource(p, ms: ms, from: ast.declaringModuleIn(ms.types, reads: p.types, t: t), t: t, iface: iface) 'source'
+		found(_) gives true
+		ambiguous(_, _) gives true
+		absent gives false
+	end 'source'
+end 'implementsHandled'
 
 // followHolding follows one edge of the search: a field, a payload, an element, or what a frozen value or a cown holds. A
 // handle holds nothing.
