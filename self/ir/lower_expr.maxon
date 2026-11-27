@@ -1277,6 +1277,9 @@ function visitMemberExpr(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	if kind == ast.MemberKind.memberView 'view'
 		return visitExpr(l, p: p, ms: ms, e: obj)
 	end 'view'
+	if kind == ast.MemberKind.memberSelfHandle 'selfHandle'
+		return entry(l, p: p, site: siteOf(l, p: p, node: e), symbol: Rt.rtServiceSelfHandle, kind: IrKind.kindManaged, args: RegList.create(0))
+	end 'selfHandle'
 	if kind == ast.MemberKind.memberEnumCase 'enumCase'
 		return konst(l, value: try member.enumCase as Word otherwise panic("ir: a case index is out of range"))
 	end 'enumCase'

@@ -1,0 +1,21 @@
+typealias Mine = Array with Keeper.handle
+
+type Keeper
+	var mine as Mine
+
+	static function create() returns Self
+		return Self{mine: Mine.create(0)}
+	end 'create'
+
+	export function keep(mutates self)
+		self.mine.push(self.handle)
+	end 'keep'
+end 'Keeper'
+
+function main() returns ExitCode
+	let k = spawn Keeper.create()
+	try k.keep() otherwise ignore
+	return 0
+end 'main'
+
+// expect-error: E4014 at 16:10

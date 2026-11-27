@@ -1,0 +1,53 @@
+// A message passes self.handle, the handle of its own service, to another service, which answers through it by a message of
+// its own: a request and its answer, and no message waits on another.
+// schedules: 6
+//> asked 3 times, answered 3 times, the last 30
+export typealias Amount = int(0 to 1000000)
+
+type Echo
+	var calls as Amount
+
+	static function create() returns Self
+		return Self{calls: 0}
+	end 'create'
+
+	export function ask(mutates self, n Amount, back Asker.handle)
+		self.calls = try self.calls + 1 otherwise 0
+		try back.answer(try n * 10 otherwise 0) otherwise ignore
+	end 'ask'
+end 'Echo'
+
+type Asker
+	var asked as Amount
+	var answered as Amount
+	var last as Amount
+
+	static function create() returns Self
+		return Self{asked: 0, answered: 0, last: 0}
+	end 'create'
+
+	export function start(mutates self, echo Echo.handle)
+		while self.asked < 3 'ask'
+			self.asked = self.asked + 1
+			try echo.ask(self.asked, back: self.handle) otherwise ignore
+		end 'ask'
+	end 'start'
+
+	export function answer(mutates self, n Amount)
+		self.answered = try self.answered + 1 otherwise 0
+		self.last = n
+		if self.answered == self.asked 'all'
+			print("asked {self.asked} times, answered {self.answered} times, the last {self.last}\n")
+			self.stop()
+		end 'all'
+	end 'answer'
+end 'Asker'
+
+function main() returns ExitCode
+	let echo = spawn Echo.create()
+	let asker = spawn Asker.create()
+	let done = asker.stopped()
+	try asker.start(echo.clone()) otherwise panic("a send to a service that runs")
+	await done
+	return 0
+end 'main'

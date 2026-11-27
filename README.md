@@ -5044,14 +5044,19 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   what it holds, the box of a pending word among it, and fails the await of its reply with `serviceStopped`. Its slowed senders
   are let go at once and it slows none again, and its shedding horizon is never read again. A type that declares a method
   named `stop` or `stopNow` keeps the name, and `self.stop()` off a message stops nothing.
+  **A message's own handle** is `self.handle`, a `T.handle` that is another owner of the service whose message runs, as a
+  copy of a handle is (`rt.service.selfHandle`), so a message can pass it to another service that answers by a message of
+  its own (`peer.ask(n, back: self.handle)`). It is only in an export instance method of the type (`E3953` elsewhere: pass
+  the handle as a parameter), a type that declares a field named `handle` keeps the name, and keeping it in the state is
+  `E4014`, as any handle to the service itself is.
   **A task watches a stop** with `let done = h.stopped()`, a promise of no value that the service's end completes: once its
   mailbox is closed and its last message has ended, whichever stop closed it, or once the service is freed, which only one with
   no message and no handle is (`await done`). A watch of a service that has ended already completes at once, and its cancel or
   drop takes it off without waiting. A message never awaits one (`E3221`), as it never awaits a reply. A watch is an entry of
   the scheduler's list (`schedWatchersOffset`, "Watching a stop" in `runtime/service.maxon`), so a service nobody watches holds
   nothing for it, and the end of a service reads the list's one word to find nobody watches. Not yet: `notifyStopped`, which
-  tells a watcher that is a service by a message, and needs a handler's handle to its own service and a message kind as a value,
-  which the event registration of step 3 brings.
+  tells a watcher that is a service by a message, and needs a message kind as a value, which the event registration of step 3
+  brings.
   The **error of an await** is the handler's own unless the reply may fail with more: for a message whose policy sheds it
   (`busy`) or of a type that implements StopsNow (`serviceStopped`), the compiler makes an enum, named
   `Worker.work.Error` in messages, of the handler's cases, then `busy`, then `serviceStopped` (one the handler already throws

@@ -1,0 +1,25 @@
+export typealias Amount = int(0 to 1000000)
+
+type Worker
+	var n as Amount
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function work(mutates self)
+		self.n = try self.n + 1 otherwise 0
+	end 'work'
+
+	function mine() returns Worker.handle
+		return self.handle
+	end 'mine'
+end 'Worker'
+
+function main() returns ExitCode
+	let w = spawn Worker.create()
+	try w.work() otherwise ignore
+	return 0
+end 'main'
+
+// expect-error: E3953 at 15:15

@@ -879,6 +879,17 @@ function entryServiceStopNowSelf(mutates vm Vm, f ir.IrFunction, x ir.Instr) thr
 	end 'message'
 end 'entryServiceStopNowSelf'
 
+// entryServiceSelfHandle is `self.handle`: another owner of the service whose message the thread runs.
+function entryServiceSelfHandle(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let service = messageOf(vm, t: vm.cur)
+	if service == 0 'off'
+		panic("interp: self.handle off a message of its service")
+	end 'off'
+	let at = vm.h.oData[service]
+	vm.h.shareds[at].count = try vm.h.shareds[at].count + 1 otherwise panic("interp: a count past a word")
+	giveRef(vm, x: x, o: service)
+end 'entryServiceSelfHandle'
+
 // entryServiceStopStart is entryServiceStart of a message of a type that implements StopsNow, and says whether its service was
 // stopped at once, so that it is not handled.
 function entryServiceStopStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt

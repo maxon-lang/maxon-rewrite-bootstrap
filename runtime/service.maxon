@@ -555,6 +555,16 @@ function serviceStopNowSelf()
 	end 'message'
 end 'serviceStopNowSelf'
 
+// serviceSelfHandle is `self.handle`: another owner of the service whose message runs, as a copy of a handle is. The checker
+// refuses it off a message (E3953), so a call that finds none is the compiler's fault.
+function serviceSelfHandle() returns Count
+	let service = runningService()
+	if service == noService 'off'
+		panic("self.handle off a message of its service")
+	end 'off'
+	return share(service)
+end 'serviceSelfHandle'
+
 // Watching a stop (README, "Stops"): `h.stopped()` is a promise of no value that the end of the service completes: once its
 // mailbox is closed and its last message has ended, or once it is freed, which only a service with no message and no handle
 // is. Its cell is a reply's that names the service in its greenServiceOffset, which a reply's never does, and an entry of

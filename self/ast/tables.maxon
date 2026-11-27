@@ -59,6 +59,9 @@ export enum MemberKind
 	memberLimit
 	// memberView is a view of a built-in generic value (`xs.managed`): the value itself, as an instance of another type.
 	memberView
+	// memberSelfHandle is `self.handle` in a message: another owner of the handle of the service whose message runs, a fresh
+	// value of the type's handle, for a type that declares no field of the name.
+	memberSelfHandle
 end 'MemberKind'
 
 // memberOfType is whether a member is read from a type that the expression names, never from a value, so there is no

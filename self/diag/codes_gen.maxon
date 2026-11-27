@@ -504,6 +504,9 @@ export let errPolicyCoalescesAndSheds = "E3951"
 // A stopNow() stops a service whose type does not implement StopsNow, whose senders' awaits are not told they may fail with serviceStopped.
 export let errStopNowUndeclared = "E3952"
 
+// 'self.handle', a handler's handle to its own service, is written outside a message of a type: off a message no service runs.
+export let errSelfHandleOffMessage = "E3953"
+
 // A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 export let errInvalidFieldAccess = "E4006"
 

@@ -545,6 +545,9 @@ function checkValueMember(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	if typeHasKind(p, ms: ms, t: content, kind: ast.TypeKind.record) and ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: content)).findField(member).isSome() 'field'
 		return checkFieldMember(c, p: p, ms: ms, e: e, rt: content, member: member, errs: errs)
 	end 'field'
+	if member == selfHandleMember and ms.tree().kindOf(ast.memberExprObj(ms.tree(), id: e)) == ast.NodeKind.selfExpr 'selfHandle'
+		return checkSelfHandle(c, p: p, ms: ms, e: e, content: content, errs: errs)
+	end 'selfHandle'
 	match consumes ast.builtinView(p.builtins, owner: ast.originOf(ms.types, reads: p.types, t: content), name: member) 'view'
 		some(view) then return checkViewMember(c, p: p, ms: ms, e: e, t: content, member: member, view: view, errs: errs)
 		none then _ = 0
@@ -567,6 +570,28 @@ function checkValueMember(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	failAt(c, p: p, ms: ms, node: e, code: diag.errUnknownField, msg: diag.unknownField(nameOfType(p, ms: ms, t: t), fieldName: member), errs: errs)
 	return ast.noType
 end 'checkValueMember'
+
+// selfHandle is the member `self.handle` reads in a message of a type that declares no field of the name: the handle of the
+// service whose message runs (README, "Stops").
+let selfHandleMember = "handle"
+
+// checkSelfHandle types `self.handle`, which only a message of the type content has: a fresh owner of the handle of its own
+// service, which it may pass to another, never store in its state (E4014, as any handle to the service itself). Off a
+// message no service runs, so it is refused (E3953).
+function checkSelfHandle(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, content ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let stateName = nameOfType(p, ms: ms, t: content)
+	var inMessage = c.fn != ast.noFunc and isMessage(p, ms: ms, method: c.fn)
+	if inMessage 'owner'
+		let owner = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.fn).ownerTy
+		inMessage = owner != ast.noType and ast.typeEntry(ms.types, reads: p.types, t: owner).effectiveOrigin() == ast.typeEntry(ms.types, reads: p.types, t: content).effectiveOrigin()
+	end 'owner'
+	if not inMessage 'offMessage'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errSelfHandleOffMessage, msg: "'self.handle' is the handle of the service whose message runs, and only a message of '{stateName}', an export instance method, runs on one: pass the handle as a parameter to the function that needs it", errs: errs)
+		return ast.noType
+	end 'offMessage'
+	c.typing.members.insert(e as Count, value: ast.MemberInfo.make(ast.MemberKind.memberSelfHandle, ownerTy: content))
+	return serviceHandleType(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), state: content, errs: errs)
+end 'checkSelfHandle'
 
 // checkFieldMember types 'record.field', which the module must be able to name.
 function checkFieldMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, rt ast.TypeID, member String, mutates errs diag.ErrorList) returns ast.TypeID
