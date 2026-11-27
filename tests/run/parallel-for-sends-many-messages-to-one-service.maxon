@@ -1,0 +1,32 @@
+// The parts of a parallel for are tasks that send to one service many times each, slowed whenever it is behind: every
+// message is handled, and the service's queue stays within the bound its tasks allow, which the interpreter's oracle checks
+// under each schedule (seeds 4, 12, 16, 20, 24, 25 and 36 park more tasks than a turn as the queue empties).
+// schedules: 40
+//> total 5050
+typealias Num = int(0 to 1000000)
+
+type Tally
+	var sum as Num
+
+	static function create() returns Self
+		return Self{sum: 0}
+	end 'create'
+
+	export function add(mutates self, value Num)
+		self.sum = try self.sum + value otherwise 0
+	end 'add'
+
+	export function total() returns Num
+		return self.sum
+	end 'total'
+end 'Tally'
+
+function main() returns ExitCode
+	let tally = spawn Tally.create()
+	parallel for i in 1 to 100 'sends'
+		try tally.add(i as Num) otherwise panic("a running service takes the send")
+	end 'sends'
+	let total = try await tally.total() otherwise 0
+	print("total {total}\n")
+	return 0
+end 'main'

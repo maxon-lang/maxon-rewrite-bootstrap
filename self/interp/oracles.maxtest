@@ -104,6 +104,11 @@ test 'the queue bound follows the shape of the senders'
 	if not relay.isSome() or relay.unwrap() != turn + 2 or not consumer.isSome() or consumer.unwrap() != 2 * turn + 4 or not leaf.isSome() or leaf.unwrap() != turn + 2 'wrong'
 		panic("the bounds of a relay, its consumer and a leaf of two tasks are wrong")
 	end 'wrong'
+	// Past a turn's worth of tasks, each can hold a place parked as the leaf's queue empties.
+	let short = queueBound(d, service: 9, turn: 1)
+	if not short.isSome() or short.unwrap() != 4 'parked'
+		panic("the bound of a leaf of two tasks with a turn of 1 is not 4")
+	end 'parked'
 	_ = d.pairOf(taskSender(2), to: 8)
 	if queueBound(d, service: 8, turn: turn).isSome() 'stated'
 		panic("a consumer that a task sends to beside the relay has a bound")
