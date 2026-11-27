@@ -94,6 +94,7 @@ var macosImports = []libSystemFunction{
 	{name: "posix_spawnattr_setpgroup"},
 	{name: "posix_spawnattr_destroy"},
 	{name: "socket"},
+	{name: "socketpair"},
 	{name: "bind"},
 	{name: "listen"},
 	{name: "accept"},
