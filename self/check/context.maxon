@@ -245,6 +245,12 @@ export type Checker
 	export var waitNow as bool
 	export var waitCalls as ast.FuncIDList
 	export var waits as WaitFacts
+	// waitSends are the sends the function being checked makes of kinds that name no policy, and its calls of other modules'
+	// functions; sendsUnpoliced is whether a body of the module sends such a kind, directly or through another module; posted
+	// are the kinds the module's posts name (policies.maxon).
+	export var waitSends as UnpolicedSends
+	export var sendsUnpoliced as bool
+	export var posted as PostedKindList
 	export var pendingAsyncs as PendingAsyncList
 	// pendingPolicies are the messages of the module whose '@policy' is declared once every type of the module is (policies.maxon).
 	export var pendingPolicies as PendingPolicyList
@@ -261,7 +267,7 @@ export type Checker
 	export static function make(modID diag.ModuleID, consumes typing ast.Typing) returns Checker
 		let mIdx = ast.modIndex(modID)
 		let csMap = BoolIntMap.new()
-		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBorrowFree: PendingBorrowFreeList.create(0), pendingBoxes: PendingBoxList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", constNamesParams: false, deferredNames: ast.NodeIDList.create(0), deferredHeads: ast.NodeIDList.create(0), inRawValue: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0), waitNow: false, waitCalls: ast.FuncIDList.create(0), waits: WaitFacts.new(), pendingAsyncs: PendingAsyncList.create(0), pendingPolicies: PendingPolicyList.create(0), partyWaitNow: false, spawned: ast.TypeIDList.create(0), spawnSites: ast.NodeIDList.create(0), servicesChecked: ast.TypeIDList.create(0), discardedSend: 0 as ast.NodeID}
+		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBorrowFree: PendingBorrowFreeList.create(0), pendingBoxes: PendingBoxList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", constNamesParams: false, deferredNames: ast.NodeIDList.create(0), deferredHeads: ast.NodeIDList.create(0), inRawValue: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0), waitNow: false, waitCalls: ast.FuncIDList.create(0), waits: WaitFacts.new(), waitSends: UnpolicedSends.create(0), sendsUnpoliced: false, posted: PostedKindList.create(0), pendingAsyncs: PendingAsyncList.create(0), pendingPolicies: PendingPolicyList.create(0), partyWaitNow: false, spawned: ast.TypeIDList.create(0), spawnSites: ast.NodeIDList.create(0), servicesChecked: ast.TypeIDList.create(0), discardedSend: 0 as ast.NodeID}
 	end 'make'
 end 'Checker'
 

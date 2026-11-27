@@ -8,14 +8,16 @@
 // program, and makes the second refuse what it cannot show sound.
 
 // WaitFact is what the check of a function found: whether it waits itself, whether it waits on another party (a reply
-// it keeps, or the start of a service whose factory throws), and the functions of the module it calls.
+// it keeps, or the start of a service whose factory throws), the functions of the module it calls, and the sends it makes
+// of kinds that name no policy, with its calls of other modules' functions that do (policies.maxon).
 export type WaitFact
 	export var waits as bool
 	export var calls as ast.FuncIDList
 	export var partyWaits as bool
+	export var sends as UnpolicedSends
 
 	export static function make(waits bool, consumes calls ast.FuncIDList) returns WaitFact
-		return WaitFact{waits: waits, calls: calls, partyWaits: false}
+		return WaitFact{waits: waits, calls: calls, partyWaits: false, sends: UnpolicedSends.create(0)}
 	end 'make'
 end 'WaitFact'
 
@@ -39,6 +41,7 @@ function startWaits(mutates c Checker)
 	c.waitNow = false
 	c.partyWaitNow = false
 	c.waitCalls = ast.FuncIDList.create(0)
+	c.waitSends = UnpolicedSends.create(0)
 end 'startWaits'
 
 // finishWaits keeps the facts of the function whose body was checked.
@@ -48,6 +51,7 @@ function finishWaits(mutates c Checker)
 	end 'none'
 	var fact = WaitFact.make(c.waitNow, calls: exchange(c.waitCalls, value: ast.FuncIDList.create(0)))
 	fact.partyWaits = c.partyWaitNow
+	fact.sends = exchange(c.waitSends, value: UnpolicedSends.create(0))
 	c.waits.insert(c.rootFn as Count, value: fact)
 end 'finishWaits'
 
@@ -59,6 +63,10 @@ function noteCallWaits(mutates c Checker, p ast.Project, ms ast.ModuleState, cal
 	end 'unrecorded'
 	let k = c.typing.calls.valueAt(slot).kind
 	let callee = c.typing.calls.valueAt(slot).fn
+	if k == ast.CallKind.callSend 'send'
+		noteSend(c, p: p, ms: ms, call: call, kind: callee)
+		return
+	end 'send'
 	if k == ast.CallKind.callValue or k == ast.CallKind.callBound 'unknown'
 		c.waitNow = true
 		c.partyWaitNow = true
@@ -67,6 +75,7 @@ function noteCallWaits(mutates c Checker, p ast.Project, ms ast.ModuleState, cal
 	if k != ast.CallKind.callFunction and k != ast.CallKind.callStatic and k != ast.CallKind.callMethod 'noCall'
 		return
 	end 'noCall'
+	noteForeignSends(c, p: p, ms: ms, call: call, callee: callee)
 	noteCallee(c, p: p, ms: ms, callee: callee)
 end 'noteCallWaits'
 
@@ -178,8 +187,13 @@ function publishedWaiting(p ast.Project, module diag.ModuleID, f ast.FuncID) ret
 	if module == diag.stdlibID 'std'
 		return ast.Waiting.waitsOnParty
 	end 'std'
-	return p.typings[ast.modIndex(module)].waiting.getOr(f as Count, fallback: ast.Waiting.waitsOnParty)
+	return typingOf(p, module: module).waiting.getOr(f as Count, fallback: ast.Waiting.waitsOnParty)
 end 'publishedWaiting'
+
+// typingOf is what the verify of a module published, which the verify of a module that names it reads.
+function typingOf(p ast.Project, module diag.ModuleID) returns borrowed ast.Typing
+	return p.typings[ast.modIndex(module)]
+end 'typingOf'
 
 // publishWaits keeps in the module's typing what each of its functions may wait for, which the check of a module that calls
 // one reads.

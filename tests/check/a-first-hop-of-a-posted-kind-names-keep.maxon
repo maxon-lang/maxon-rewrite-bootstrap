@@ -1,0 +1,57 @@
+// A kind that a posted kind's handler sends, the first hop, may name Keep, written, which satisfies the rule; a kind that the
+// first hop's handler sends in its turn, the second hop, needs no policy.
+export typealias Amount = int(0 to 1000000)
+
+type Child
+	var id as Amount
+
+	static function create(id Amount) returns Self
+		return Self{id: id}
+	end 'create'
+end 'Child'
+
+type Store
+	var last as Amount
+
+	static function create() returns Self
+		return Self{last: 0}
+	end 'create'
+
+	export function put(mutates self, id Amount)
+		self.last = id
+	end 'put'
+end 'Store'
+
+type Log
+	var store as Store.handle
+
+	static function create(consumes store Store.handle) returns Self
+		return Self{store: store}
+	end 'create'
+
+	@policy(Keep) export function record(mutates self, id Amount)
+		try self.store.put(id) otherwise ignore
+	end 'record'
+end 'Log'
+
+type Sup
+	var log as Log.handle
+
+	static function create(consumes log Log.handle) returns Self
+		return Self{log: log}
+	end 'create'
+
+	export function watch(mutates self, child Child.handle)
+		child.notifyStopped(self.handle.post(Sup.Message.childStopped(1)))
+	end 'watch'
+
+	export function childStopped(mutates self, id Amount)
+		try self.log.record(id) otherwise ignore
+	end 'childStopped'
+end 'Sup'
+
+function main() returns ExitCode
+	let sup = spawn Sup.create(spawn Log.create(spawn Store.create()))
+	try sup.watch(spawn Child.create(1)) otherwise ignore
+	return 0
+end 'main'

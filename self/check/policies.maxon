@@ -51,3 +51,211 @@ function declarePolicies(mutates c Checker, p ast.Project, mutates ms ast.Module
 		declarePolicy(c, p: p, ms: ms, f: pending[i].decl, fid: pending[i].fid, nt: pending[i].nt, errs: errs)
 	end 'each'
 end 'declarePolicies'
+
+// The fed-from-outside rule (README, "Overload policies"): a kind the runtime posts, one that `h.post(m)` names, is fed by a
+// source that cannot be slowed, the event queue or the stop of a child, so the work its handler sends on must say what
+// becomes of it while its receiver is behind. A send made in a posted kind's handler, or in a function of the module it
+// calls, walked as the wait inference walks, is a first hop, and the kind it sends must name a policy, Keep included when
+// written (E3957). A function of another module is judged by what its module published (ast.Typing.unpoliced), a kind
+// with no policy it sends; the receiver's policy is read from its kind's declaration, so the check is the same in every
+// module. Only the first hop needs one, and the posted kind none of its own.
+
+// UnpolicedSend is a send of a kind whose declaration names no policy: the send, and the kind, with via noFunc; or a call of
+// another module's function that sends one, the call, the kind and via the function called.
+export type UnpolicedSend
+	export var node as ast.NodeID
+	export var kind as ast.FuncID
+	export var via as ast.FuncID
+
+	export static function make(node ast.NodeID, kind ast.FuncID, via ast.FuncID) returns UnpolicedSend
+		return UnpolicedSend{node: node, kind: kind, via: via}
+	end 'make'
+end 'UnpolicedSend'
+
+export typealias UnpolicedSends = Array with UnpolicedSend
+
+// PostedKind is a kind a post of the module names, the handler of the kind, and the post.
+export type PostedKind
+	export var node as ast.NodeID
+	export var kind as ast.FuncID
+
+	export static function make(node ast.NodeID, kind ast.FuncID) returns PostedKind
+		return PostedKind{node: node, kind: kind}
+	end 'make'
+end 'PostedKind'
+
+export typealias PostedKindList = Array with PostedKind
+
+// declaredFunc is the function a generic instance was made of, or f itself.
+function declaredFunc(p ast.Project, ms ast.ModuleState, f ast.FuncID) returns ast.FuncID
+	let origin = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).genericOrigin
+	return origin if origin != ast.noFunc else f
+end 'declaredFunc'
+
+// noteSend notes a send of the function being checked, of a kind whose declaration names no policy.
+function noteSend(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, kind ast.FuncID)
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: declaredFunc(p, ms: ms, f: kind)).policyWritten 'named'
+		return
+	end 'named'
+	c.waitSends.push(UnpolicedSend.make(call, kind: kind, via: ast.noFunc))
+	c.sendsUnpoliced = true
+end 'noteSend'
+
+// noteForeignSends notes a call of another module's function, which may send kinds with no policy: what its module publishes
+// says, which the verify of this module reads, once that module's verify has published it.
+function noteForeignSends(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, callee ast.FuncID)
+	let fid = declaredFunc(p, ms: ms, f: callee)
+	let module = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).module
+	if module == c.modID or module == diag.stdlibID 'own'
+		return
+	end 'own'
+	c.waitSends.push(UnpolicedSend.make(call, kind: ast.noFunc, via: fid))
+end 'noteForeignSends'
+
+// publishedKind is a kind with no policy that f sends, as f's module published, or noFunc where it sends none.
+function publishedKind(p ast.Project, ms ast.ModuleState, f ast.FuncID) returns ast.FuncID
+	let module = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).module
+	if module == diag.stdlibID 'std'
+		return ast.noFunc
+	end 'std'
+	return ast.unpolicedKindOf(typingOf(p, module: module), f: f)
+end 'publishedKind'
+
+// verifyFirstHops is E3957 for each first hop of a kind the module posts whose kind names no policy: at the send, or at the
+// call of another module's function that makes it; and, for a posted kind of another module, whose sends that module
+// checked, at the post.
+function verifyFirstHops(c Checker, p ast.Project, ms ast.ModuleState, mutates errs diag.ErrorList)
+	if c.posted.count() == 0 'none'
+		return
+	end 'none'
+	var reported = BoolIntMap.new()
+	for posted in c.posted 'posted'
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: posted.kind).module == c.modID 'own'
+			var visited = BoolIntMap.new()
+			walkFirstHops(c, p: p, ms: ms, posted: posted.kind, f: posted.kind, visited: visited, reported: reported, errs: errs)
+			continue 'posted'
+		end 'own'
+		reportForeign(c, p: p, ms: ms, node: posted.node, posted: posted.kind, via: posted.kind, reported: reported, errs: errs)
+	end 'posted'
+end 'verifyFirstHops'
+
+// walkFirstHops reports the first hops of the posted kind that the function f of the module makes, by its body and the
+// functions of the module it calls.
+function walkFirstHops(c Checker, p ast.Project, ms ast.ModuleState, posted ast.FuncID, f ast.FuncID, mutates visited BoolIntMap, mutates reported BoolIntMap, mutates errs diag.ErrorList)
+	let fid = declaredFunc(p, ms: ms, f: f)
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).module != c.modID or visited.has(fid as Count) 'done'
+		return
+	end 'done'
+	visited.insert(fid as Count, value: true)
+	var slot as Count
+	if not c.waits.find(fid as Count, slot: slot) 'unchecked'
+		return
+	end 'unchecked'
+	let fact = c.waits.valueAt(slot)
+	for send in fact.sends 'sends'
+		if send.kind == ast.noFunc 'foreign'
+			reportForeign(c, p: p, ms: ms, node: send.node, posted: posted, via: send.via, reported: reported, errs: errs)
+			continue 'sends'
+		end 'foreign'
+		if reported.has(send.node as Count) 'seen'
+			continue 'sends'
+		end 'seen'
+		reported.insert(send.node as Count, value: true)
+		checkFail(c.modID, off: ms.tree().reportStartOf(send.node), code: diag.errPolicyFedFromOutside, msg: fedFromOutside(p, ms: ms, kind: send.kind, posted: posted, via: ast.noFunc), errs: errs)
+	end 'sends'
+	for callee in fact.calls 'calls'
+		walkFirstHops(c, p: p, ms: ms, posted: posted, f: callee, visited: visited, reported: reported, errs: errs)
+	end 'calls'
+end 'walkFirstHops'
+
+// reportForeign reports, at node, a first hop of the posted kind that via, a function of another module, makes, by what its
+// module published: a kind with no policy it sends, if any.
+function reportForeign(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID, posted ast.FuncID, via ast.FuncID, mutates reported BoolIntMap, mutates errs diag.ErrorList)
+	let kind = publishedKind(p, ms: ms, f: via)
+	if kind == ast.noFunc or reported.has(node as Count) 'clean'
+		return
+	end 'clean'
+	reported.insert(node as Count, value: true)
+	checkFail(c.modID, off: ms.tree().reportStartOf(node), code: diag.errPolicyFedFromOutside, msg: fedFromOutside(p, ms: ms, kind: kind, posted: posted, via: via), errs: errs)
+end 'reportForeign'
+
+// funcTitle is how a message names a function: 'Type.name' for a method, and its name otherwise.
+function funcTitle(p ast.Project, ms ast.ModuleState, f ast.FuncID) returns String
+	let owner = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).ownerTy
+	let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).name.clone()
+	if owner == ast.noType 'free'
+		return name
+	end 'free'
+	return "{ast.typeName(ms.types, reads: p.types, t: owner)}.{name}"
+end 'funcTitle'
+
+// fedFromOutside is the text of E3957 for a first hop of the kind, a kind with no policy, from the posted kind, made by via
+// where that is a function of another module that sends it, or noFunc for a send written here.
+function fedFromOutside(p ast.Project, ms ast.ModuleState, kind ast.FuncID, posted ast.FuncID, via ast.FuncID) returns String
+	let receiver = ast.typeName(ms.types, reads: p.types, t: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: kind).ownerTy)
+	let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: kind).name.clone()
+	let source = funcTitle(p, ms: ms, f: posted)
+	let by = "" if via == ast.noFunc else ", in a send that '{funcTitle(p, ms: ms, f: via)}' makes"
+	let menu = "\n  @policy(Keep)        every message is handled; the source waits (clients wait, the kernel's buffers fill)\n  @policy(Refuse)      a new message is not handled; its sender gets 'busy' at once and can answer \"try later\"\n  @policy(DropNewest)  a new message is thrown away and counted; for telemetry\n  @policy(DropOldest)  the longest-waiting message is thrown away, so the newest is handled\n  @policy(Latest)      only the newest message is kept; an older undelivered one is replaced"
+	return "'{receiver}.{name}' receives work from a source that cannot be slowed ('{source}', which the runtime posts{by}), so '{receiver}' must say what happens to that work when it falls behind. Put one of these before 'export function {name}' (or your own, '@policy(YourType)', a type that implements 'OverloadPolicy'):{menu}"
+end 'fedFromOutside'
+
+// publishUnpoliced keeps in the module's typing a kind with no policy that each of its functions sends, by its body or a
+// call it makes, which the check of a module whose posted kind's handler calls one reads. A module that sends none
+// publishes nothing.
+function publishUnpoliced(mutates c Checker, p ast.Project, ms ast.ModuleState, functions ast.FuncIDList)
+	if not c.sendsUnpoliced and not callsUnpoliced(c, p: p, ms: ms, functions: functions) 'none'
+		return
+	end 'none'
+	for f in functions 'functions'
+		var visited = BoolIntMap.new()
+		let kind = unpolicedKind(c, p: p, ms: ms, f: f, visited: visited)
+		if kind != ast.noFunc 'some'
+			ast.publishUnpolicedKind(c.typing, f: f, kind: kind)
+		end 'some'
+	end 'functions'
+end 'publishUnpoliced'
+
+// unpolicedKind is a kind with no policy that f sends, by its body or the functions of the module it calls, or noFunc.
+function unpolicedKind(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, mutates visited BoolIntMap) returns ast.FuncID
+	let fid = declaredFunc(p, ms: ms, f: f)
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).module != c.modID or visited.has(fid as Count) 'done'
+		return ast.noFunc
+	end 'done'
+	visited.insert(fid as Count, value: true)
+	var slot as Count
+	if not c.waits.find(fid as Count, slot: slot) 'unchecked'
+		return ast.noFunc
+	end 'unchecked'
+	let fact = c.waits.valueAt(slot)
+	for send in fact.sends 'sends'
+		let kind = send.kind if send.kind != ast.noFunc else publishedKind(p, ms: ms, f: send.via)
+		if kind != ast.noFunc 'found'
+			return kind
+		end 'found'
+	end 'sends'
+	for callee in fact.calls 'calls'
+		let kind = unpolicedKind(c, p: p, ms: ms, f: callee, visited: visited)
+		if kind != ast.noFunc 'reached'
+			return kind
+		end 'reached'
+	end 'calls'
+	return ast.noFunc
+end 'unpolicedKind'
+
+// callsUnpoliced is whether a function of the module calls a function of another module that its module published as
+// sending a kind with no policy.
+function callsUnpoliced(c Checker, p ast.Project, ms ast.ModuleState, functions ast.FuncIDList) returns bool
+	for f in functions 'functions'
+		var slot as Count
+		if not c.waits.find(f as Count, slot: slot) 'unchecked'
+			continue 'functions'
+		end 'unchecked'
+		for send in c.waits.valueAt(slot).sends 'sends'
+			if send.via != ast.noFunc and publishedKind(p, ms: ms, f: send.via) != ast.noFunc 'some'
+				return true
+			end 'some'
+		end 'sends'
+	end 'functions'
+	return false
+end 'callsUnpoliced'

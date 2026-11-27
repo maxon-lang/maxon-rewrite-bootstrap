@@ -1,0 +1,18 @@
+export typealias Amount = int(0 to 1000000)
+
+export type Log
+	var last as Amount
+
+	export static function create() returns Self
+		return Self{last: 0}
+	end 'create'
+
+	export function record(mutates self, id Amount)
+		self.last = id
+	end 'record'
+end 'Log'
+
+// tell sends a kind that names no policy.
+export function tell(log Log.handle, id Amount)
+	try log.record(id) otherwise ignore
+end 'tell'

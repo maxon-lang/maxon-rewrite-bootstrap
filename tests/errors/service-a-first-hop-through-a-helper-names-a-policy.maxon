@@ -1,0 +1,50 @@
+// A send in a function of the module that a posted kind's handler calls is a first hop too, as the wait inference walks.
+export typealias Amount = int(0 to 1000000)
+
+type Child
+	var id as Amount
+
+	static function create(id Amount) returns Self
+		return Self{id: id}
+	end 'create'
+end 'Child'
+
+type Log
+	var last as Amount
+
+	static function create() returns Self
+		return Self{last: 0}
+	end 'create'
+
+	export function record(mutates self, id Amount)
+		self.last = id
+	end 'record'
+end 'Log'
+
+function tell(log Log.handle, id Amount)
+	try log.record(id) otherwise ignore
+end 'tell'
+
+type Sup
+	var log as Log.handle
+
+	static function create(consumes log Log.handle) returns Self
+		return Self{log: log}
+	end 'create'
+
+	export function watch(mutates self, child Child.handle)
+		child.notifyStopped(self.handle.post(Sup.Message.childStopped(1)))
+	end 'watch'
+
+	export function childStopped(mutates self, id Amount)
+		tell(self.log, id: id)
+	end 'childStopped'
+end 'Sup'
+
+function main() returns ExitCode
+	let sup = spawn Sup.create(spawn Log.create())
+	try sup.watch(spawn Child.create(1)) otherwise ignore
+	return 0
+end 'main'
+
+// expect-error: E3957 at 25:10

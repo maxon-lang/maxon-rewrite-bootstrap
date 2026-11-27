@@ -5034,8 +5034,21 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   by a coin of its own stream, one in four, so every `admit` and `shed` runs in ordinary programs; a view's messages are
   boxes whose cells hold the behaviour's arguments until it is closed; its oracles count a shed message as delivered once, in
   its sender's order. `fuzz --services` sends walks as kinds of the library's `PerClientFair` and of a program's policy that
-  reads their hops in admit and shed. Not yet: `age(i)`, and the requirement of
-  a policy for a kind fed from a source that cannot be slowed (which needs the event registration of step 3).
+  reads their hops in admit and shed. Not yet: `age(i)`.
+- **Fed from outside** (`verifyFirstHops` in `self/check/policies.maxon`): a kind that a post names,
+  `h.post(Conn.Message.readable())` or `h.post(Sup.Message.childStopped(id))`, is fed by a source that cannot be slowed, the
+  event queue or the end of a child, so the work its handler passes on must say what becomes of it while its receiver is
+  behind. A send made in the handler of a posted kind, or in a function of the module the handler calls, walked as the
+  wait inference walks, is a first hop, and the kind it sends must name a policy: any `@policy(T)` or `@policy(self.field)`,
+  `Keep` included when written (`E3957`, at the send, with the menu of the library's policies, one line each). A function
+  of another module is judged by what its module's check published (`ast.Typing.unpoliced`, beside `waiting`: a kind
+  with no policy it sends, by its body or its calls), and refused at the call of it; the receiver's policy is read from
+  its kind's declaration, so the rule is the same where the send is written in another module. A kind is posted where a post
+  names it, as a case of the union (`Sup.Message.childStopped(id)`) or, for a value of any other form, every case of the
+  union; a post of a kind of another module is refused at the post. Only the first hop needs a policy: a send in the
+  handler of a first hop's kind is a second hop and needs none, and the posted kind itself names none (the runtime
+  coalesces its posts). `E3948` and `busy` apply to a first hop's policy as to any. A call through a function value or an
+  interface, whose target the check cannot see, is taken to send nothing.
 - **Stops** (`stdlib/service/Stop.maxon`, `declareAwaitErrors` in `self/check/policies.maxon`, `startStopping` and
   `dropUnhandled` in `self/ir/services.maxon`, "Stops" in `runtime/service.maxon`): a service stops in one of two ways, chosen
   at the stop. `h.shutdown()` by the owner of its handle, or `self.stop()` in one of its messages, closes its mailbox and lets
@@ -5077,7 +5090,8 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   `lowerPostedBody` in `self/ir/services.maxon`, "Posted messages" in `runtime/service.maxon`): its record is made with no
   acquire (a `when` that gives its record) and holds a hold on the service, its body dispatches on the union's case to the
   case's handler, and its start (`rt.service.postedStart`) takes no place in the gate, so it is never slowed, and drops what
-  it holds where it was cancelled or its service was stopped at once.
+  it holds where it was cancelled or its service was stopped at once. Since no source of posted messages can be slowed, a
+  kind that the handler of a posted kind sends names a policy (`E3957`, "Fed from outside" under "Overload policies").
   **A service watches a stop** with `child.notifyStopped(self.handle.post(Sup.Message.childStopped(id)))`: the runtime posts
   the message to its service once the service of `child` has ended, as it would complete a watch, and at once where it has
   ended already. The watch is an entry of the scheduler's list whose cell is the record, so it is not live: the watched

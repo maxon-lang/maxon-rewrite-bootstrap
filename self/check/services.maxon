@@ -355,7 +355,7 @@ end 'postedUnion'
 
 // checkPostedMessage types the message a registration posts to the service of a handle: a value of that service's message
 // union (E3954), whose kind gives no reply (E3955). A kind written as a case of the union is that case; any other value may be
-// any case of it.
+// any case of it. The kinds it may be are kept as posted, for the fed-from-outside rule.
 function checkPostedMessage(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, handle ast.TypeID, messages ast.TypeID, mutates errs diag.ErrorList) returns bool
 	let t = checkExpr(c, p: p, ms: ms, e: e, errs: errs)
 	if t == ast.noType 'failed'
@@ -370,6 +370,7 @@ function checkPostedMessage(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	let decl = ast.typeEntry(ms.types, reads: p.types, t: state).effectiveOrigin()
 	let named = writtenCase(c, ms: ms, e: e)
 	let cases = ast.typeEntry(ms.types, reads: p.types, t: messages).cases.count()
+	var posted = PostedKindList.create(0)
 	for i in 0 upto cases 'cases'
 		if named != noWrittenCase and named != i 'otherCase'
 			continue 'cases'
@@ -381,7 +382,12 @@ function checkPostedMessage(mutates c Checker, p ast.Project, mutates ms ast.Mod
 			failAt(c, p: p, ms: ms, node: e, code: diag.errPostedKindReplies, msg: "{which} returns or throws, and nobody awaits a message the runtime posts: post a kind whose handler returns nothing and throws nothing, and send its answer on as a message of its own", errs: errs)
 			return false
 		end 'replies'
+		if handler != ast.noFunc 'handled'
+			posted.push(PostedKind.make(e, kind: declaredFunc(p, ms: ms, f: handler)))
+		end 'handled'
 	end 'cases'
+	// The kinds a post names are fed from outside (policies.maxon).
+	c.posted.append(posted)
 	return true
 end 'checkPostedMessage'
 

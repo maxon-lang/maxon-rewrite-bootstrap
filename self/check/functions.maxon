@@ -38,6 +38,8 @@ function newFuncEntry(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	fn.hasReceiver = ownerTy != ast.noType and not f.isStatic
 	fn.bodyRef = f.body
 	fn.isTest = f.testName != ""
+	// A kind that names a policy, Keep included, even one refused later, meets the fed-from-outside rule (policies.maxon).
+	fn.policyWritten = f.isAnnotated and f.annotation == policyAnnotationWord
 	if ownerTy == ast.noType 'free'
 		fn.hasDecl = true
 		fn.decl = ref.clone()

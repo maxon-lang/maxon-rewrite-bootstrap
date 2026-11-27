@@ -798,6 +798,7 @@ function storeFuncEntry(mutates w table.CacheWriter, v FuncEntry)
 	w.flag(v.lendsPlace)
 	w.word64(v.errTy as table.Word64)
 	w.word64(v.policy as table.Word64)
+	w.flag(v.policyWritten)
 	w.word64(v.pendingSlot as table.Word64)
 	w.word64(v.policyField as table.Word64)
 	w.word64(v.shedPolicy as table.Word64)
@@ -839,6 +840,7 @@ extension FuncEntry
 		let theLendsPlace = r.flag()
 		let theErrTy = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
 		let thePolicy = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
+		let thePolicyWritten = r.flag()
 		let thePendingSlot = r.word64() as Count
 		let thePolicyField = r.word64() as Count
 		let theShedPolicy = r.word64() as Count
@@ -854,7 +856,7 @@ extension FuncEntry
 		let theIsTest = r.flag()
 		let theExtendedIface = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
 		let theConditionalBounds = r.word64() as Count
-		return FuncEntry{id: theId, name: theName, visibility: theVisibility, hasDecl: theHasDecl, decl: theDecl, module: theModule, nodeID: theNodeID, isStatic: theIsStatic, isDestructor: theIsDestructor, hasReceiver: theHasReceiver, isClosure: theIsClosure, ownerTy: theOwnerTy, selfConv: theSelfConv, generics: theGenerics, bounds: theBounds, params: theParams, paramTypes: theParamTypes, retTy: theRetTy, result: theResult, lendsPlace: theLendsPlace, errTy: theErrTy, policy: thePolicy, pendingSlot: thePendingSlot, policyField: thePolicyField, shedPolicy: theShedPolicy, awaitErrTy: theAwaitErrTy, deferredTy: theDeferredTy, deferredErrTy: theDeferredErrTy, genericOrigin: theGenericOrigin, typeArgs: theTypeArgs, witnesses: theWitnesses, intrinsic: theIntrinsic, linkName: theLinkName, bodyRef: theBodyRef, isTest: theIsTest, extendedIface: theExtendedIface, conditionalBounds: theConditionalBounds}
+		return FuncEntry{id: theId, name: theName, visibility: theVisibility, hasDecl: theHasDecl, decl: theDecl, module: theModule, nodeID: theNodeID, isStatic: theIsStatic, isDestructor: theIsDestructor, hasReceiver: theHasReceiver, isClosure: theIsClosure, ownerTy: theOwnerTy, selfConv: theSelfConv, generics: theGenerics, bounds: theBounds, params: theParams, paramTypes: theParamTypes, retTy: theRetTy, result: theResult, lendsPlace: theLendsPlace, errTy: theErrTy, policy: thePolicy, policyWritten: thePolicyWritten, pendingSlot: thePendingSlot, policyField: thePolicyField, shedPolicy: theShedPolicy, awaitErrTy: theAwaitErrTy, deferredTy: theDeferredTy, deferredErrTy: theDeferredErrTy, genericOrigin: theGenericOrigin, typeArgs: theTypeArgs, witnesses: theWitnesses, intrinsic: theIntrinsic, linkName: theLinkName, bodyRef: theBodyRef, isTest: theIsTest, extendedIface: theExtendedIface, conditionalBounds: theConditionalBounds}
 	end 'cacheLoad'
 end 'FuncEntry'
 
@@ -2191,6 +2193,7 @@ export function storeTyping(mutates w table.CacheWriter, v Typing)
 	storeIntMapOfBool(w, v: v.rawReads)
 	storeIntMapOfBool(w, v: v.subscripts)
 	storeIntMapOfWaiting(w, v: v.waiting)
+	storeIntMapOfFuncID(w, v: v.unpoliced)
 	w.flag(v.declared)
 end 'storeTyping'
 
@@ -2227,8 +2230,9 @@ extension Typing
 		let theRawReads = loadIntMapOfBool(r)
 		let theSubscripts = loadIntMapOfBool(r)
 		let theWaiting = loadIntMapOfWaiting(r)
+		let theUnpoliced = loadIntMapOfFuncID(r)
 		let theDeclared = r.flag()
-		return Typing{module: theModule, types: theTypes, arith: theArith, names: theNames, members: theMembers, calls: theCalls, structLits: theStructLits, patterns: thePatterns, arms: theArms, whens: theWhens, closures: theClosures, iterations: theIterations, hooks: theHooks, jumps: theJumps, locals: theLocals, nodeLocals: theNodeLocals, indexes: theIndexes, drains: theDrains, expansions: theExpansions, funcLocals: theFuncLocals, funcUses: theFuncUses, fieldUses: theFieldUses, consumed: theConsumed, slotTakes: theSlotTakes, lendsPlace: theLendsPlace, lentTries: theLentTries, boxes: theBoxes, staticInstances: theStaticInstances, rawReads: theRawReads, subscripts: theSubscripts, waiting: theWaiting, declared: theDeclared}
+		return Typing{module: theModule, types: theTypes, arith: theArith, names: theNames, members: theMembers, calls: theCalls, structLits: theStructLits, patterns: thePatterns, arms: theArms, whens: theWhens, closures: theClosures, iterations: theIterations, hooks: theHooks, jumps: theJumps, locals: theLocals, nodeLocals: theNodeLocals, indexes: theIndexes, drains: theDrains, expansions: theExpansions, funcLocals: theFuncLocals, funcUses: theFuncUses, fieldUses: theFieldUses, consumed: theConsumed, slotTakes: theSlotTakes, lendsPlace: theLendsPlace, lentTries: theLentTries, boxes: theBoxes, staticInstances: theStaticInstances, rawReads: theRawReads, subscripts: theSubscripts, waiting: theWaiting, unpoliced: theUnpoliced, declared: theDeclared}
 	end 'cacheLoad'
 end 'Typing'
 

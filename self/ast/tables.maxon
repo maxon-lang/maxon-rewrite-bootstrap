@@ -504,6 +504,20 @@ end 'Waiting'
 
 export typealias FuncWaitingMap = table.IntMap with Waiting
 
+// FuncKindMap is, by the function, a message kind it sends, by its body or a call it makes, whose declaration names no
+// policy (check/policies.maxon).
+export typealias FuncKindMap = table.IntMap with FuncID
+
+// unpolicedKindOf is the kind with no policy that the function f sends, as the typing tp of its module published, or noFunc.
+export function unpolicedKindOf(tp Typing, f FuncID) returns FuncID
+	return tp.unpoliced.getOr(f as Count, fallback: noFunc)
+end 'unpolicedKindOf'
+
+// publishUnpolicedKind keeps in tp that the function f sends kind, which names no policy.
+export function publishUnpolicedKind(mutates tp Typing, f FuncID, kind FuncID)
+	tp.unpoliced.insert(f as Count, value: kind)
+end 'publishUnpolicedKind'
+
 // expansionOf is the statements that the check made a destructuring or a tuple assignment out of, in the order they run.
 export function expansionOf(tp Typing, node NodeID) returns borrowed NodeIDList
 	return tp.expansions.expect(node as Count, what: "expansion of a statement")
@@ -563,6 +577,10 @@ export type Typing
 	// waiting is what each function whose body the module checked may wait for, by its body and every call it makes, which
 	// the check of a module that calls it reads (check/waits.maxon), by the function.
 	export var waiting as FuncWaitingMap
+	// unpoliced is, for each function whose body the module checked that sends a message kind whose declaration names no
+	// policy, by its body or a call it makes, the first such kind found, which the check of a module whose posted kind's
+	// handler calls it reads (check/policies.maxon), by the function. A function that sends none has no entry.
+	export var unpoliced as FuncKindMap
 	// declared is whether the declare stage reached the module, which is what gives its nodes their results: a module that it
 	// did not reach has none.
 	export var declared as bool
@@ -599,7 +617,8 @@ export type Typing
 		let rr = NodeBoolMap.new()
 		let sub = NodeBoolMap.new()
 		let wt = FuncWaitingMap.new()
-		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, hooks: hk, jumps: jm, locals: ls, nodeLocals: nlm, indexes: ixm, drains: drm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, slotTakes: st, lendsPlace: lp, lentTries: lt, boxes: bx, staticInstances: si, rawReads: rr, subscripts: sub, waiting: wt, declared: false}
+		let up = FuncKindMap.new()
+		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, hooks: hk, jumps: jm, locals: ls, nodeLocals: nlm, indexes: ixm, drains: drm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, slotTakes: st, lendsPlace: lp, lentTries: lt, boxes: bx, staticInstances: si, rawReads: rr, subscripts: sub, waiting: wt, unpoliced: up, declared: false}
 	end 'new'
 
 	export function allocLocal(mutates self, consumes entry LocalEntry) returns LocalID

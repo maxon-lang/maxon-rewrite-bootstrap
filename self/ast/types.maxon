@@ -476,8 +476,10 @@ export type FuncEntry
 	// type's, plus 1, and noPendingSlot otherwise. policyField is, for a policy a field of the service holds
 	// (`@policy(self.field)`), the field's index plus 1, and noPolicyField for one the annotation names as a type. shedPolicy
 	// is, where the policy is a SheddingPolicy, which of its type's shedding policies it is, from 1, and noShedPolicy
-	// otherwise.
+	// otherwise. policyWritten is whether the kind's declaration names a policy, Keep included, which a kind whose message
+	// a source that cannot be slowed feeds must (README, "Overload policies").
 	export var policy as TypeID
+	export var policyWritten as bool
 	export var pendingSlot as Count
 	export var policyField as Count
 	export var shedPolicy as Count
@@ -507,7 +509,7 @@ export type FuncEntry
 	export var conditionalBounds as Count
 
 	export static function make(consumes name String, consumes visibility String, module diag.ModuleID, nodeID NodeID) returns FuncEntry
-		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), retTy: noType, result: ResultConv.resultOwned, lendsPlace: false, errTy: noType, policy: noType, pendingSlot: noPendingSlot, policyField: noPolicyField, shedPolicy: noShedPolicy, awaitErrTy: noType, deferredTy: noType, deferredErrTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false, extendedIface: noType, conditionalBounds: 0 as Count}
+		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), retTy: noType, result: ResultConv.resultOwned, lendsPlace: false, errTy: noType, policy: noType, policyWritten: false, pendingSlot: noPendingSlot, policyField: noPolicyField, shedPolicy: noShedPolicy, awaitErrTy: noType, deferredTy: noType, deferredErrTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false, extendedIface: noType, conditionalBounds: 0 as Count}
 	end 'make'
 end 'FuncEntry'
 
