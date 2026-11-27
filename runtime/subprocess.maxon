@@ -1530,6 +1530,60 @@ end 'osRunInput'
 		return statusCodeOf(status)
 	end 'killedCodeOf'
 
+	// The errnos that maxon's runtime tells apart in Win32's words, each system's own constant (the two systems number these the
+	// same, but the mapping is keyed on the constants, not on their values), and those of a table of files that is full.
+	#if os(Linux)
+		let errnoNoEntry = linuxEnoent
+
+		let errnoNotDirectory = linuxEnotdir
+
+		let errnoAccess = linuxEacces
+
+		let errnoPermission = linuxEperm
+
+		let errnoBusy = linuxEbusy
+
+		let errnoTextBusy = linuxEtxtbsy
+	#else
+		let errnoNoEntry = macosEnoent
+
+		let errnoNotDirectory = macosEnotdir
+
+		let errnoAccess = macosEacces
+
+		let errnoPermission = macosEperm
+
+		let errnoBusy = macosEbusy
+
+		let errnoTextBusy = macosEtxtbsy
+	#endif
+
+	let errnoTooManyFiles = 24
+
+	let errnoFileTableOverflow = 23
+
+	// win32CodeOf is an errno in the words of Win32 that maxon's runtime uses on every system: a file or a directory that is not
+	// there, access that is refused, a table of files that is full and a file that is busy are the codes of Windows that say so;
+	// any other errno is ERROR_GEN_FAILURE.
+	function win32CodeOf(errno Count) returns Count
+		if errno == errnoNoEntry 'missing'
+			return codeFileNotFound
+		end 'missing'
+		if errno == errnoNotDirectory 'notDirectory'
+			return codePathNotFound
+		end 'notDirectory'
+		if errno == errnoAccess or errno == errnoPermission 'denied'
+			return codeAccessDenied
+		end 'denied'
+		if errno == errnoTooManyFiles or errno == errnoFileTableOverflow 'full'
+			return codeTooManyOpenFiles
+		end 'full'
+		if errno == errnoBusy or errno == errnoTextBusy 'busy'
+			return codeSharingViolation
+		end 'busy'
+		return codeGeneralFailure
+	end 'win32CodeOf'
+
 	// argumentVector is a new null-ended vector of the addresses of the argc tokens of a blob, each already ended by a NUL, as
 	// execve and posix_spawn read it; it is the caller's to free, and holds no copy of the blob, which must stay until the child has
 	// executed.

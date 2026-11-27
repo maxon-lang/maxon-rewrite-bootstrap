@@ -68,13 +68,6 @@
 
 	let nullDevicePath = "/dev/null"
 
-	// The errnos that a failed spawn gives besides those of linux.maxon, which maxon's runtime tells apart in Win32's words: a
-	// file or a directory that is not there, access that is refused, a table of files that is full and a file that is busy are
-	// the codes of Windows that say so; any other errno is ERROR_GEN_FAILURE.
-	let errnoTooManyFiles = 24
-
-	let errnoFileTableOverflow = 23
-
 	// execFailedExitCode is what a child whose execve failed exits with, as a shell's does.
 	let execFailedExitCode = 127
 
@@ -532,26 +525,6 @@
 	// finishRun gives back what a child holds once its wait has ended, which on Linux is nothing: the pid was waited for.
 	function finishRun(run Count)
 	end 'finishRun'
-
-	// win32CodeOf is an errno in the words of Win32 that maxon's runtime uses on every system.
-	function win32CodeOf(errno Count) returns Count
-		if errno == linuxEnoent 'missing'
-			return codeFileNotFound
-		end 'missing'
-		if errno == linuxEnotdir 'notDirectory'
-			return codePathNotFound
-		end 'notDirectory'
-		if errno == linuxEacces or errno == linuxEperm 'denied'
-			return codeAccessDenied
-		end 'denied'
-		if errno == errnoTooManyFiles or errno == errnoFileTableOverflow 'full'
-			return codeTooManyOpenFiles
-		end 'full'
-		if errno == linuxEbusy or errno == linuxEtxtbsy 'busy'
-			return codeSharingViolation
-		end 'busy'
-		return codeGeneralFailure
-	end 'win32CodeOf'
 
 	// resolveProgram is the program that a name asks for, as a new zero-terminated path, or 0 when there is none: the name's own
 	// lookup (programPath), as execvp does.
