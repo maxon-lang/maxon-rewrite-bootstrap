@@ -76,6 +76,11 @@ let skipPassedFlag = "--skip-passed"
 
 let requirePassedFlag = "--require-passed"
 
+// The flag that narrows what a run that records adds to the list to the tests of the spec files it names, one file to a flag
+// (`--record-only=netpoll-socket.md`): a host records the tests of its change, and the other tests it finds passing are left
+// for the host whose gate holds the list, as every host's does.
+let recordOnlyFlag = "--record-only="
+
 // The flag that has each spec test run under the interpreter as well, which fails it for an access left unchecked whose check fails (interpretedViolations).
 let interpretFlag = "--interpret"
 
@@ -142,16 +147,31 @@ type SpecOptions
 	var requirePassed as bool
 	var results as ResultsMode
 	var resultsPath as String
+	var recordOnly as ast.StringList
 
 	// new is a run that does what a bare `test specs` does.
 	static function new() returns SpecOptions
-		return SpecOptions{verbose: false, record: false, skipPassed: false, requirePassed: false, results: ResultsMode.resultsOff, resultsPath: ""}
+		return SpecOptions{verbose: false, record: false, skipPassed: false, requirePassed: false, results: ResultsMode.resultsOff, resultsPath: "", recordOnly: ast.StringList.create(0)}
 	end 'new'
 
 	// needsList is whether the run reads the list of the tests that passed.
 	function needsList() returns bool
 		return record or skipPassed or requirePassed
 	end 'needsList'
+
+	// adds is whether a run that records adds a test of the key that the list does not have: any, unless the run names the
+	// files whose tests it adds (recordOnlyFlag), and then those of the named files alone.
+	function adds(key String) returns bool
+		if recordOnly.count() == 0 'all'
+			return true
+		end 'all'
+		for file in recordOnly 'files'
+			if hasPrefix(key, prefix: "{file}: ") 'named'
+				return true
+			end 'named'
+		end 'files'
+		return false
+	end 'adds'
 
 	// reportsNew is whether the run says which tests pass that the list does not have.
 	function reportsNew() returns bool
@@ -985,7 +1005,9 @@ type SpecRun
 	// notePass counts a test that passed, and says so when a run that reports new passes finds one that is not listed.
 	function notePass(mutates self, key String)
 		passed = offsetBy(passed, by: 1)
-		keptKeys.push(key.clone())
+		if listed.has(key) or options.adds(key) 'kept'
+			keptKeys.push(key.clone())
+		end 'kept'
 		if options.reportsNew() and not listed.has(key) 'fresh'
 			print("{newPrefix} {key}\n")
 		end 'fresh'

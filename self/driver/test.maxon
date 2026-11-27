@@ -576,7 +576,9 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 			corpusFlags = true
 		end 'repeat' else if rest[i] == recordPassedFlag 'record'
 			options.record = true
-		end 'record' else if rest[i] == skipPassedFlag 'skip'
+		end 'record' else if hasPrefix(rest[i], prefix: recordOnlyFlag) 'recordOnly'
+			options.recordOnly.push(afterPrefix(rest[i], prefix: recordOnlyFlag).clone())
+		end 'recordOnly' else if rest[i] == skipPassedFlag 'skip'
 			options.skipPassed = true
 		end 'skip' else if rest[i] == requirePassedFlag 'require'
 			options.requirePassed = true
@@ -595,6 +597,10 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 		printError("test: {recordPassedFlag}, {skipPassedFlag}, {requirePassedFlag}, {saveResultsFlag} and {replayResultsFlag} are for the spec files: name the specs directory\n")
 		return usageExitCode
 	end 'listFlags'
+	if options.recordOnly.count() > 0 and not options.record 'recordOnly'
+		printError("test: {recordOnlyFlag} narrows what {recordPassedFlag} adds: give {recordPassedFlag} too\n")
+		return usageExitCode
+	end 'recordOnly'
 	if options.results != ResultsMode.resultsOff and (options.skipPassed or options.resultsPath == "") 'results'
 		printError("test: {saveResultsFlag} and {replayResultsFlag} take the file of the results of every test: give it a path, and not {skipPassedFlag}\n")
 		return usageExitCode
