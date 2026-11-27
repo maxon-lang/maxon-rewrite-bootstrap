@@ -25,3 +25,14 @@ the scaled lanes, with no root).
 The proposed acceptance is a user-space cost of at most 512 bytes a connection and no green thread while idle. A green
 thread would show as its stack in the memory per connection: at least the page it has touched, 16 KiB on macOS arm64
 and 4 KiB on Linux.
+
+What an idle connection costs (16000 connections, macOS and arm64 Linux): 7 heap boxes with 456 B asked, about 512 B with
+their 8-byte headers, and the connection's 128-byte event entry, carved from the scheduler's blocks and not counted by the
+heap: about 535 B of RSS a connection (530-544 measured), against Go's 3600 (a goroutine's stack, its netFD and pollDesc).
+
+The Linux wake latency depends on where the kernel puts the two threads, not on the runtime. In a VM (OrbStack, 7 vCPUs)
+a wake that crosses to another, halted vCPU costs about 10 µs each way, so a run whose server thread and peer thread
+settle on different vCPUs measures p50 about 25 µs, and one where they share a vCPU about 7 µs, for either server: pinned
+to different CPUs, minimaxon 25.3-25.9 µs and Go 28.4-30 µs; pinned to one, minimaxon 6.7-7.0 µs and Go 8.2-11 µs. The
+server's own path from the epoll return to its send is 1.0-1.6 µs. Unpinned, Go's pair has always settled on one vCPU and
+minimaxon's in about a third of the runs, so for a comparison pin the whole run: `taskset -c 2 bench/idle/run.sh`.
