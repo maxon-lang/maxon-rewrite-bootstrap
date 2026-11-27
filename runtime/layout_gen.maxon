@@ -462,8 +462,11 @@ let schedFileLimitOffset = 2424 as Count
 // schedFileLimitRaisedOffset is where the scheduler's record holds 1 once the soft open-file limit is raised from the one the process started with.
 let schedFileLimitRaisedOffset = 2440 as Count
 
+// schedWinsockOffset is where the scheduler's record holds the address of the table of the sockets of Windows (windows_socket.maxon): the functions of ws2_32 and ntdll that its sockets call, found by name, and the groups of AFD handles that poll them, 0 until the first socket.
+let schedWinsockOffset = 2448 as Count
+
 // schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made.
-let schedProcessorsOffset = 2448 as Count
+let schedProcessorsOffset = 2456 as Count
 
 // procIdOffset is where a processor holds its index among the processors.
 let procIdOffset = 0 as Count

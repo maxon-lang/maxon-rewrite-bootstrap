@@ -449,7 +449,9 @@ var layouts = []layoutConst{
 		"where the scheduler's record holds the open-file limit the process started with, on Linux and macOS, a struct rlimit of two words (the soft limit, then the hard one), which a child is given back on Linux."},
 	{"schedFileLimitRaisedOffset", 305, false, toRuntime,
 		"where the scheduler's record holds 1 once the soft open-file limit is raised from the one the process started with."},
-	{"schedProcessorsOffset", 306, false, toRuntime,
+	{"schedWinsockOffset", 306, false, toRuntime,
+		"where the scheduler's record holds the address of the table of the sockets of Windows (windows_socket.maxon): the functions of ws2_32 and ntdll that its sockets call, found by name, and the groups of AFD handles that poll them, 0 until the first socket."},
+	{"schedProcessorsOffset", 307, false, toRuntime,
 		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made."},
 
 	// A processor (Go's P): what a thread must hold to run green threads, its local run queue (a ring that its owner puts
