@@ -1356,10 +1356,10 @@ the test runners and a compile with `--emit-ir` or `--verify-ir`, which need eve
   when it is read back (`backend.readUnit`). Entries are written to a file of their own and renamed over their name, so a reader
   never meets half of one; a file that is no whole entry of this layout under its key is no entry, and one whose unit's bytes
   differ from their digest stops the compile, naming the file to delete.
-- **Eviction** is Go's: a file's time on the file system says when a compile last used it. A compile that reads an entry or
-  a summary whose time is more than an hour old writes it again whole (`markUsed`), so a use costs one `File.info` and, at
+- **Eviction** is Go's: a file's time on the file system says when a compile last used it. A compile that reads an entry, a
+  checked state, a summary or the library's names index whose time is more than an hour old writes it again whole (`markUsed`), so a use costs one `File.info` and, at
   most once an hour, a write; the end of a compile that used the cache, when `trim.txt` is a day old, writes `trim.txt`
-  first and then deletes every entry, summary and temporary file unused for five days (`trimWhenDue`; the periods are named
+  first and then deletes every entry, checked state, summary, names index and temporary file unused for five days (`trimWhenDue`; the periods are named
   constants of `cache.maxon`). Every time is the file system's own: a compile reads "now" as the time of a file it writes
   and deletes, so no clock of the machine is held against a file's. Several compilers at once are safe: a write is a rename
   over the name, an entry is read whole when it is probed, and a delete that meets a file another process holds open, or

@@ -13,13 +13,15 @@ test 'a file of the cache unused for five days is trimmed, and nothing else is'
 	files.push(fileAt("c\\old.entry", written: now - 5 * day - 1))
 	files.push(fileAt("c\\recent.entry", written: now - 5 * day + 1))
 	files.push(fileAt("c\\old.summary", written: now - 6 * day))
+	files.push(fileAt("c\\old.names", written: now - 7 * day))
+	files.push(fileAt("c\\recent.names", written: now - day))
 	files.push(fileAt("c\\clock.1.tmp", written: now - 9 * day))
 	files.push(fileAt("c\\trim.txt", written: now - 9 * day))
 	files.push(fileAt("c\\notes.md", written: now - 9 * day))
 	files.push(fileAt("c\\future.entry", written: now + day))
 	let stale = staleFiles(files, now: now, limit: trimLimitSeconds)
-	if stale.count() != 3 or stale[0] != "c\\old.entry" or stale[1] != "c\\old.summary" or stale[2] != "c\\clock.1.tmp" 'stale'
-		panic("the trim deletes {stale.count()} files, not the old entry, summary and temporary file")
+	if stale.count() != 4 or stale[0] != "c\\old.entry" or stale[1] != "c\\old.summary" or stale[2] != "c\\old.names" or stale[3] != "c\\clock.1.tmp" 'stale'
+		panic("the trim deletes {stale.count()} files, not the old entry, summary, names index and temporary file")
 	end 'stale'
 end 'a file of the cache unused for five days is trimmed, and nothing else is'
 

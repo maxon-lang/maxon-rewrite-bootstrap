@@ -420,7 +420,7 @@ function readEntry(setup CacheSetup, key table.Digest) returns table.Option with
 	let dir = setup.dir.clone()
 	let path = try FilePath.from(entryPath(dir, key: key)) otherwise return table.Option.none
 	let text = try File.readText(path) otherwise return table.Option.none
-	markUsed(setup, path: entryPath(dir, key: key), bytes: text)
+	markUsed(setup.now, path: entryPath(dir, key: key), bytes: text)
 	var r = table.ByteReader.of(text)
 	let magic = r.text()
 	let format = r.count()
@@ -652,7 +652,7 @@ function readSpeculation(setup CacheSetup, key table.Digest) returns table.Optio
 	let dir = setup.dir.clone()
 	let path = try FilePath.from(speculationPath(dir, key: key)) otherwise return table.Option.none
 	let text = try File.readText(path) otherwise return table.Option.none
-	markUsed(setup, path: speculationPath(dir, key: key), bytes: text)
+	markUsed(setup.now, path: speculationPath(dir, key: key), bytes: text)
 	var r = table.ByteReader.of(text)
 	let magic = r.text()
 	let found = r.digest()
@@ -719,13 +719,13 @@ function needsRefresh(written Count, now Count) returns bool
 	return now > written and now - written > usedRefreshSeconds
 end 'needsRefresh'
 
-// markUsed writes down that the file of the cache at path, which holds bytes, is used now: where its time is older than the
-// refresh allows, it is written again whole, as any write of the cache is, so that a reader meets the old bytes or the same
-// new ones. A write that fails leaves the use unrecorded, which can cost a trim that comes too early, so a miss, and never a
-// wrong build.
-function markUsed(setup CacheSetup, path String, bytes String)
+// markUsed writes down that the file of the cache at path, which holds bytes, is used at the file system's time now, which a
+// compile that has none (it cannot read it) does not: where its time is older than the refresh allows, it is written again
+// whole, as any write of the cache is, so that a reader meets the old bytes or the same new ones. A write that fails leaves the
+// use unrecorded, which can cost a trim that comes too early, so a miss, and never a wrong build.
+function markUsed(at table.Option with Count, path String, bytes String)
 	var now = 0 as Count
-	match setup.now 'n'
+	match at 'n'
 		some(t) then now = t
 		none then return
 	end 'n'
@@ -760,9 +760,10 @@ end 'CacheFile'
 typealias CacheFiles = Array with CacheFile
 
 // isCacheFile is whether a file of the cache's directory is one the cache wrote and a trim or a clear may delete: an entry, a
-// checked state, a summary or a temporary file, never the stamp of the trims nor anything else that is there.
+// checked state, a summary, the library's names index or a temporary file, never the stamp of the trims nor anything else that
+// is there.
 function isCacheFile(path String) returns bool
-	return project.endsWithText(path, suffix: entryExtension) or project.endsWithText(path, suffix: checkedExtension) or project.endsWithText(path, suffix: speculationExtension) or project.endsWithText(path, suffix: temporaryExtension)
+	return project.endsWithText(path, suffix: entryExtension) or project.endsWithText(path, suffix: checkedExtension) or project.endsWithText(path, suffix: speculationExtension) or project.endsWithText(path, suffix: indexExtension) or project.endsWithText(path, suffix: temporaryExtension)
 end 'isCacheFile'
 
 // staleFiles are the paths of the files of the cache among files that were last written longer than limit seconds before now.
@@ -949,7 +950,7 @@ function readChecked(setup CacheSetup, key table.Digest) returns table.Option wi
 	let dir = setup.dir.clone()
 	let path = try FilePath.from(checkedPath(dir, key: key)) otherwise return table.Option.none
 	let text = try File.readText(path) otherwise return table.Option.none
-	markUsed(setup, path: checkedPath(dir, key: key), bytes: text)
+	markUsed(setup.now, path: checkedPath(dir, key: key), bytes: text)
 	var r = table.ByteReader.of(text)
 	let magic = r.text()
 	let format = r.count()

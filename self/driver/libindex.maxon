@@ -152,6 +152,7 @@ function readIndex(setup IndexSetup) returns LibraryIndex
 	end 'off'
 	let path = try FilePath.from(indexPath(setup)) otherwise return LibraryIndex.absent()
 	let text = try File.readText(path) otherwise return LibraryIndex.absent()
+	markUsed(table.Option.some(setup.stamp), path: indexPath(setup), bytes: text)
 	var r = table.ByteReader.of(text)
 	let magic = r.text()
 	let format = r.count()
