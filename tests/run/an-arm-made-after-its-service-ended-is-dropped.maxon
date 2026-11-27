@@ -1,0 +1,89 @@
+// A posted message armed after the service it tells has ended is dropped: never handled, its captures dropped, and the
+// program ends. A socket armed for reading with `w.post(...)` once w has stopped, by a shutdown, posts its message at once
+// for the bytes already come, and a watch `c.notifyStopped(w.post(...))` registered once w has stopped is told as c stops:
+// neither runs a handler of w, whose state may be gone (a state that can hold a Reply is dropped by its last behaviour), and
+// whose stopped() watches were given already. Natively at any number of processors.
+// native-only
+// unsupported-targets: x64-windows
+//> a socket armed toward an ended service: never told
+//> a socket armed toward an ended service that held Replies: never told
+//> a stop told to an ended service: never told
+//> a stop told to an ended service that held Replies: never told
+export typealias Amount = int(0 to 1000000)
+
+export typealias Waiting = Array with Reply with String
+
+type Plain
+	var told as Amount
+
+	static function create() returns Self
+		return Self{told: 0}
+	end 'create'
+
+	export function readable(mutates self, what String)
+		print("told after its end: {what}\n")
+		self.told = try self.told + 1 otherwise 0
+	end 'readable'
+end 'Plain'
+
+type Parker
+	var waiting as Waiting
+
+	static function create() returns Self
+		return Self{waiting: Waiting.create(0)}
+	end 'create'
+
+	export function readable(mutates self, what String)
+		print("told after its end, holding {self.waiting.count()} Replies: {what}\n")
+	end 'readable'
+end 'Parker'
+
+function main() returns ExitCode
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise panic("a listener on the loopback")
+	var client = try TcpClient.connect("127.0.0.1", port: listener.port()) otherwise panic("a connection to the listener")
+	var server = try listener.accept() otherwise panic("an accept")
+	_ = try client.send("bytes") otherwise panic("a send to the server")
+	sleep(20)
+	let p = spawn Plain.create()
+	let pEnded = p.stopped()
+	p.shutdown()
+	await pEnded
+	server.notifyReadable(p.post(Plain.Message.readable("a socket")))
+	sleep(20)
+	print("a socket armed toward an ended service: never told\n")
+	let q = spawn Parker.create()
+	let qEnded = q.stopped()
+	q.shutdown()
+	await qEnded
+	_ = try client.send("more") otherwise panic("a send to the server")
+	sleep(20)
+	server.notifyReadable(q.post(Parker.Message.readable("a socket")))
+	sleep(20)
+	print("a socket armed toward an ended service that held Replies: never told\n")
+	let w = spawn Plain.create()
+	let wEnded = w.stopped()
+	w.shutdown()
+	await wEnded
+	let c = spawn Plain.create()
+	let cEnded = c.stopped()
+	c.notifyStopped(w.post(Plain.Message.readable("a stop")))
+	c.shutdown()
+	await cEnded
+	sleep(20)
+	print("a stop told to an ended service: never told\n")
+	let v = spawn Parker.create()
+	let vEnded = v.stopped()
+	v.shutdown()
+	await vEnded
+	let d = spawn Plain.create()
+	let dEnded = d.stopped()
+	d.notifyStopped(v.post(Parker.Message.readable("a stop")))
+	d.shutdown()
+	await dEnded
+	sleep(20)
+	print("a stop told to an ended service that held Replies: never told\n")
+	try server.close() otherwise ignore
+	try client.close() otherwise ignore
+	try listener.close() otherwise ignore
+	return 0
+end 'main'

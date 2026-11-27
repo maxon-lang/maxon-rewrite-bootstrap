@@ -5220,8 +5220,9 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   **A service watches a stop** with `child.notifyStopped(self.handle.post(Sup.Message.childStopped(id)))`: the runtime posts
   the message to its service once the service of `child` has ended, as it would complete a watch, and at once where it has
   ended already. The watch is an entry of the scheduler's list whose cell is the record, so it is not live: the watched
-  service keeps the program alive, not the watch; and a watcher that ends first is told nothing, its watch dropped on it. The
-  interpreter does not model posted messages yet: a program that makes one is `// native-only`. A reason argument, H4's, can
+  service keeps the program alive, not the watch; and a watcher that ends first is told nothing, its watch dropped on it. A
+  message posted to a service that has ended, by an arm or a watch made after its end, is dropped too, never handled, so
+  nothing runs on an ended service's state, which may be gone. The interpreter does not model posted messages yet: a program that makes one is `// native-only`. A reason argument, H4's, can
   come later.
   The **error of an await** is the handler's own unless the reply may fail with more: for a message whose policy sheds it
   (`busy`) or of a type that implements StopsNow (`serviceStopped`), the compiler makes an enum, named

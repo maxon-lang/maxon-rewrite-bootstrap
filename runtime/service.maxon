@@ -721,6 +721,11 @@ end 'servicePostedCancel'
 // back, names the service as the one its green thread runs a message of and honours a stop the monitor asked for, clears the
 // shedding horizon where it is this record (horizon is the horizon's word plus 1, or 0 for a type that sheds nothing), and says
 // whether the message runs or is dropped.
+//
+// Nothing runs on a service that has ended: a posted message armed or registered after its service's end (armedEnded,
+// which armedListAdd marks such an arm cancelled by), or one that starts once its state is gone (a state that can hold a
+// Reply is dropped by the service's last behaviour, which a posted message takes no place in the gate behind), is dropped,
+// its captures dropped by its thunk and its handler never run.
 function servicePostedStart(state Count, horizon Count) returns Count
 	let handle = __Raw.wrappingSub(state, right: cownValueOffset)
 	let context = __Raw.threadContext()
@@ -736,7 +741,7 @@ function servicePostedStart(state Count, horizon Count) returns Count
 	if horizon != 0 and __Raw.loadWord(handle, offset: pendingOffset(__Raw.wrappingSub(horizon, right: 1))) == record 'horizon'
 		__Raw.storeWord(handle, offset: pendingOffset(__Raw.wrappingSub(horizon, right: 1)), value: noHorizon)
 	end 'horizon'
-	if closed or (postedMark(record) and postedCancelled) != 0 or stoppedNow(handle) 'dropped'
+	if closed or (postedMark(record) and postedCancelled) != 0 or stoppedNow(handle) or armedHasEnded(handle) or not serviceStateHeld(state) 'dropped'
 		return postedDropped
 	end 'dropped'
 	return postedRun
@@ -762,8 +767,16 @@ end 'serviceNotifyStopped'
 // through their prev and next words, so that its end takes each arm back (disarmArmed) and it can be freed and the program
 // end. armedLock is added to the head while one holds it, as mutedLock is to a ring of slowed senders: an arm, a record's start
 // and the end each take it once. A record that was listed takes it at its start even once the end has taken it off, so the end
-// never reads a record that has run.
+// never reads a record that has run. armedEnded is added for good by the end (disarmArmed), under the lock, so an arm made
+// after it is never listed: armedListAdd marks it cancelled, and its caller queues it at once, so it drops what it holds.
 let armedLock = 1 as Count
+
+let armedEnded = 2 as Count
+
+// armedHasEnded is whether the end of a service has taken back its arms, after which none is listed.
+function armedHasEnded(service Count) returns bool
+	return (__Raw.loadAcquire(service, offset: serviceArmedOffset) and armedEnded) != 0
+end 'armedHasEnded'
 
 function postedPrevOffset() returns Count
 	return cownOffset(1, index: 2)
@@ -798,17 +811,25 @@ function unlockArmed(service Count, head Count)
 	__Raw.storeRelease(service, offset: serviceArmedOffset, value: head)
 end 'unlockArmed'
 
-// armedListAdd lists an armed record on the service it posts to.
-function armedListAdd(service Count, record Count)
+// armedListAdd lists an armed record on the service it posts to, and says whether it did: a service that has ended lists
+// none, and the record is marked cancelled, for its caller to queue at once in place of arming it (a late arm to an ended
+// service is dropped, its captures dropped, and nothing runs on the ended state).
+function armedListAdd(service Count, record Count) returns bool
+	let head = lockArmed(service)
+	if (head and armedEnded) != 0 'ended'
+		unlockArmed(service, head: head)
+		setPostedMark(record, bit: postedCancelled)
+		return false
+	end 'ended'
 	setPostedMark(record, bit: postedListed)
 	setPostedMark(record, bit: postedArmedOnce)
-	let head = lockArmed(service)
 	__Raw.storeWord(record, offset: postedNextOffset(), value: head)
 	__Raw.storeWord(record, offset: postedPrevOffset(), value: 0)
 	if head != 0 'after'
 		__Raw.storeWord(head, offset: postedPrevOffset(), value: record)
 	end 'after'
 	unlockArmed(service, head: record)
+	return true
 end 'armedListAdd'
 
 // armedListRemove takes a record that was armed off the list of its service as it starts, where the end has not taken it off.
@@ -835,12 +856,15 @@ end 'armedListRemove'
 
 // disarmArmed takes back each arm of a service that has ended: a record still armed is queued cancelled, so its thunk drops
 // what it holds and gives the service's hold back; one its event queued already runs, as a message queued before a shutdown
-// does. Each record is taken off under the lock, which its start takes too.
+// does. Each record is taken off under the lock, which its start takes too, and armedEnded is left in the word, so no arm is
+// listed after. An end that comes again (a posted record queued on the ended service ends it once more as it goes) finds
+// none.
 function disarmArmed(service Count)
-	if __Raw.loadAcquire(service, offset: serviceArmedOffset) == 0 'none'
+	if __Raw.loadAcquire(service, offset: serviceArmedOffset) == armedEnded 'again'
 		return
-	end 'none'
-	var record = lockArmed(service)
+	end 'again'
+	let word = lockArmed(service)
+	var record = word if (word and armedEnded) == 0 else __Raw.wrappingSub(word, right: armedEnded)
 	while record != 0 'records'
 		let next = __Raw.loadWord(record, offset: postedNextOffset())
 		clearPostedMark(record, bit: postedListed)
@@ -855,7 +879,7 @@ function disarmArmed(service Count)
 		end 'disarmed'
 		record = next
 	end 'records'
-	unlockArmed(service, head: 0)
+	unlockArmed(service, head: armedEnded)
 end 'disarmArmed'
 
 // clearPostedMark takes a bit off a posted record's mark.

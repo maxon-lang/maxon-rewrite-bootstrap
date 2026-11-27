@@ -588,7 +588,14 @@ function socketNotify(socket Count, mode Count, record Count)
 	__Raw.storeWord(record, offset: postedSocketOffset(), value: socket)
 	__Raw.storeWord(record, offset: postedSlotOffset(), value: __Raw.wrappingAdd(entry, right: modeOffset))
 	__Raw.storeRelease(at, offset: 0, value: record)
-	armedListAdd(__Raw.loadWord(record, offset: cownOffset(1, index: 0)), record: record)
+	if not armedListAdd(__Raw.loadWord(record, offset: cownOffset(1, index: 0)), record: record) 'ended'
+		// The service it would tell has ended: the record, marked cancelled, is queued unarmed and drops what it holds.
+		__Raw.storeRelease(at, offset: 0, value: 0)
+		__Raw.storeWord(record, offset: postedSocketOffset(), value: 0)
+		__Raw.storeWord(record, offset: postedSlotOffset(), value: 0)
+		postedQueue(record)
+		return
+	end 'ended'
 	if not eventArm(entry, mode: modeOffset, record: record) 'came'
 		postedQueue(record)
 	end 'came'
