@@ -1,0 +1,117 @@
+// The idle-connection benchmark's server (bench/README.md, out/dev/step3-readiness-design.md §6): it listens on the
+// loopback at the port it is given, takes the peer's control connection, then accepts the count of connections it is given,
+// each into a service of its own, Conn, that arms its socket for reading with a posted message and holds no green thread
+// while it waits. A wake reads what came and echoes it, then arms again. The peer (bench/idle/peer) paces its connects to the
+// backlog: the server sends `a` on the control connection after each ackEvery accepts, then, once all are in, `r`, the
+// nanoseconds the accepts took, the boxes they left live and the bytes they asked of the heap. `q` from the peer ends the
+// process.
+export typealias Amount = int(0 to 10000000)
+
+// ackEvery is how many accepts the server answers with one `a`: the peer's ackEvery (bench/idle/peer).
+let ackEvery = 64 as Amount
+
+type Conn implements Ends
+	var client as TcpClient
+	var wakes as Amount
+
+	static function create(consumes client TcpClient) returns Self
+		return Self{client: client, wakes: 0}
+	end 'create'
+
+	export function start(mutates self)
+		self.client.notifyReadable(self.handle.post(Conn.Message.readable))
+	end 'start'
+
+	export function readable(mutates self)
+		var ended = false
+		match consumes try self.client.readAvailable(16) otherwise ReadAttempt.ended 'read'
+			bytes(data) then self.echo(data)
+			wouldBlock then ended = false
+			ended then ended = true
+		end 'read'
+		if ended 'gone'
+			self.stop()
+			return
+		end 'gone'
+		self.client.notifyReadable(self.handle.post(Conn.Message.readable))
+	end 'readable'
+
+	function echo(mutates self, data ByteArray)
+		_ = try self.client.trySend(String.from(data)) otherwise 0
+		self.wakes = try self.wakes + 1 otherwise 0
+	end 'echo'
+
+	function finish(consumes self)
+		try self.client.close() otherwise ignore
+	end 'finish'
+end 'Conn'
+
+// digits is the count a decimal argument writes, 0 where it is not one.
+function digits(text String) returns Count
+	var value = 0 as Count
+	for i in 0 upto text.byteLength() 'each'
+		let digit = try (text.byteAt(i) as Count) - 48 otherwise return 0
+		if digit > 9 'other'
+			return 0
+		end 'other'
+		value = try value * 10 + digit otherwise return 0
+	end 'each'
+	return value
+end 'digits'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() < 3 'usage'
+		print("usage: server <port> <connections>\n")
+		return 2
+	end 'usage'
+	let port = try digits(args[1]) as NetworkPort otherwise 0
+	let wanted = try digits(args[2]) as Amount otherwise 0
+	var listener = try TcpListener.bind("127.0.0.1", port: port) otherwise 'bind'
+		print("server: cannot listen on 127.0.0.1:{port}\n")
+		return 1
+	end 'bind'
+	print("listening {listener.port()} {Process.id()}\n")
+	var control = try listener.accept() otherwise panic("the control connection")
+	let heapBefore = HeapStats.process()
+	var accepted = 0 as Amount
+	var batch = 0 as Amount
+	var started = Clock.nowNanos()
+	while accepted < wanted 'accepts'
+		let client = try listener.accept() otherwise 'accept'
+			print("server: an accept failed after {accepted}\n")
+			try control.close() otherwise ignore
+			try listener.close() otherwise ignore
+			return 1
+		end 'accept'
+		if accepted == 0 'first'
+			started = Clock.nowNanos()
+		end 'first'
+		let conn = spawn Conn.create(client)
+		try conn.start() otherwise panic("a send to a service that runs")
+		accepted = accepted + 1
+		batch = try batch + 1 otherwise 0
+		if batch == ackEvery 'batch'
+			batch = 0
+			_ = try control.send("a") otherwise panic("a send on the control connection")
+		end 'batch'
+	end 'accepts'
+	let took = try Clock.nowNanos() - started otherwise 0
+	let heapAfter = HeapStats.process()
+	let boxes = try (heapAfter.allocations - heapAfter.frees) - (heapBefore.allocations - heapBefore.frees) otherwise 0
+	let asked = try heapAfter.bytes - heapBefore.bytes otherwise 0
+	_ = try control.send("r {took} {boxes} {asked}\n") otherwise panic("a send on the control connection")
+	while true 'wait'
+		let got = try control.readSome(16) otherwise ByteArray.create(0)
+		if got.count() == 0 'end'
+			break 'wait'
+		end 'end'
+		if String.from(got).contains("q") 'quit'
+			break 'wait'
+		end 'quit'
+	end 'wait'
+	try control.close() otherwise ignore
+	try listener.close() otherwise ignore
+	// The services stay armed: the process ends without stopping them, as the peer's measurement is over.
+	Process.exit(0)
+end 'main'
