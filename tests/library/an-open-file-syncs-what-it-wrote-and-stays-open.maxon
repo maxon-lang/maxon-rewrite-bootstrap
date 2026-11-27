@@ -1,0 +1,71 @@
+// An open file's sync forces its data to the device, as Go's File.Sync does (F_FULLFSYNC on macOS, fsync on Linux,
+// FlushFileBuffers on Windows): a sync after each of two writes, and a second one at once, all succeed, the file stays open for
+// the writes that follow them, and its close and a read of the file see everything that was written. Each failure ends the
+// handle that is open with its close before it goes on, as every way out of a function must.
+// native-only
+//> synced: 6 then 5 then 0
+//> text: hello world
+
+// name is a file in the working directory, which every target can write.
+function name() returns String
+	return "minimaxon_file_sync_{Process.id()}"
+end 'name'
+
+// failureName is the case of a failure of an open, a write, a sync or a close.
+function failureName(e __ManagedFileError) returns String
+	return match e 'kind'
+		notFound gives "notFound"
+		accessDenied gives "accessDenied"
+		openFailed gives "openFailed"
+		readFailed gives "readFailed"
+		writeFailed gives "writeFailed"
+		sizeFailed gives "sizeFailed"
+		deleteFailed gives "deleteFailed"
+		statFailed gives "statFailed"
+		invalidStatBuffer gives "invalidStatBuffer"
+		invalidStatIndex gives "invalidStatIndex"
+		closed gives "closed"
+		alreadyExists gives "alreadyExists"
+		busy gives "busy"
+	end 'kind'
+end 'failureName'
+
+// writeSynced writes two buffers, each followed by a sync, then syncs again with nothing new written, and closes the file.
+function writeSynced(path String) returns String throws __ManagedFileError
+	var file = try __ManagedFile.openWrite(path.addressableBytes())
+	let first = try file.write("hello ".toByteArray().managed) otherwise (e) 'first'
+		try file.close() otherwise ignore
+		throw e
+	end 'first'
+	try file.sync() otherwise (e) 'firstSync'
+		try file.close() otherwise ignore
+		throw e
+	end 'firstSync'
+	let second = try file.write("world".toByteArray().managed) otherwise (e) 'second'
+		try file.close() otherwise ignore
+		throw e
+	end 'second'
+	try file.sync() otherwise (e) 'secondSync'
+		try file.close() otherwise ignore
+		throw e
+	end 'secondSync'
+	try file.sync() otherwise (e) 'again'
+		try file.close() otherwise ignore
+		throw e
+	end 'again'
+	try file.close()
+	return "{first} then {second} then 0"
+end 'writeSynced'
+
+function main() returns ExitCode
+	let path = name()
+	let synced = try writeSynced(path) otherwise (e) 'unsynced'
+		print("sync: {failureName(e)}\n")
+		return 1
+	end 'unsynced'
+	print("synced: {synced}\n")
+	let file = try FilePath.from(path) otherwise return 2
+	print("text: {try File.readText(file) otherwise "unread"}\n")
+	try File.delete(file) otherwise return 3
+	return 0
+end 'main'

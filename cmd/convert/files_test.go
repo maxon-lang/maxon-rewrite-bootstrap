@@ -7,9 +7,10 @@ import (
 	"testing"
 )
 
+// The writer also gains its sync, which maxon's has not.
 func TestConvertFileEndingsAreDestructors(t *testing.T) {
 	in := "type FileWriter\n\tlet file as __ManagedFile\n\n\tfunction write(content ByteArray)\n\t\tfile.write(content.managed)\n\tend 'write'\n\n\tfunction close()\n\t\tfile.close()\n\tend 'close'\n\n\tfunction writeAll(content ByteArray)\n\t\twrite(content)\n\t\tclose()\n\tend 'writeAll'\nend 'FileWriter'\n"
-	want := "type FileWriter\n\tlet file as __ManagedFile\n\n\tfunction write(content ByteArray)\n\t\tfile.write(content.managed)\n\tend 'write'\n\n\tfunction close(destructs self) throws FileWriteError\n\t\ttry file.close() otherwise (e) 'unclosed'\n\t\t\tthrow writeFailureOf(e)\n\t\tend 'unclosed'\n\tend 'close'\n\n\tfunction writeAll(destructs self, content ByteArray)\n\t\twrite(content)\n\t\tclose()\n\tend 'writeAll'\nend 'FileWriter'\n"
+	want := "type FileWriter\n\tlet file as __ManagedFile\n\n\tfunction write(content ByteArray)\n\t\tfile.write(content.managed)\n\tend 'write'\n\n\tfunction close(destructs self) throws FileWriteError\n\t\ttry file.close() otherwise (e) 'unclosed'\n\t\t\tthrow writeFailureOf(e)\n\t\tend 'unclosed'\n\tend 'close'\n\n\tfunction writeAll(destructs self, content ByteArray)\n\t\twrite(content)\n\t\tclose()\n\tend 'writeAll'\n\n\t/// Force the file's data to its device and throw `FileWriteError.failed` where the system refuses or fails it, as Go's `File.Sync` does.\n\tpublic function sync(mutates self) throws FileWriteError\n\t\ttry file.sync() otherwise (e) 'unsynced'\n\t\t\tthrow writeFailureOf(e)\n\t\tend 'unsynced'\n\tend 'sync'\nend 'FileWriter'\n"
 	if got := Convert("test.maxon", in, sourceFile).Text; got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}

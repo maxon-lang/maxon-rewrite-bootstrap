@@ -97,8 +97,8 @@ function fileOpen(path Count, how Count, errorAddress Count) returns Count
 	return box
 end 'fileOpen'
 
-// fileReadFailures and fileWriteFailures are the tables of a read and a write: whatever the system reports, the transfer did not
-// happen as it was asked for.
+// fileReadFailures and fileWriteFailures are the tables of a read, and of a write and a sync: whatever the system reports, the
+// transfer did not happen as it was asked for.
 function fileReadFailures() returns Count
 	return failureCases(managedFileReadFailed, accessDenied: managedFileReadFailed, busy: managedFileReadFailed, alreadyExists: managedFileReadFailed, other: managedFileReadFailed)
 end 'fileReadFailures'
@@ -166,6 +166,16 @@ function fileWrite(handle Count, buffer Count, errorAddress Count) returns Count
 	succeed(errorAddress)
 	return length
 end 'fileWrite'
+
+// fileSync forces the data of the file whose box is the handle's word to its device, as Go's File.Sync does on each system
+// (syncFileHandle), and sets the error word with what the system reports: writeFailed, as a write that fails, so that what was
+// written may not be on the device. A handle that the system refuses to sync, a pipe, a FIFO or a console among them, fails the
+// same way, the system's EINVAL (and Windows' equivalent) being the error, as Go gives it. The handle stays open, whether or not
+// the sync fails. The sync is one bracketed call into the kernel, which a file system may hold, and never parks the green thread.
+function fileSync(handle Count, errorAddress Count)
+	let osError = syncFileHandle(__Raw.loadWord(handle, offset: fileHandleOffset))
+	endWithError(errorAddress, osError: osError, table: fileWriteFailures())
+end 'fileSync'
 
 // closeFailures is the table of a close: whatever the system's close reports, the bytes written may not be in the file.
 function closeFailures() returns Count

@@ -73,7 +73,7 @@ var rawLibraryTypes = []struct {
 	Named   rawSurface
 }{
 	// __ManagedFile is maxon's owned handle of an open file, which FileSource and FileWriter hold.
-	{"__ManagedFile", "stdlib/file/managedFile.maxon", []string{"openRead", "openWrite", "openWriteExecutable", "openCreateNew", "readAppending", "write", "close"}, rawSurface{What: "the raw OS file handle type is nameable", Instead: "use 'File'"}},
+	{"__ManagedFile", "stdlib/file/managedFile.maxon", []string{"openRead", "openWrite", "openWriteExecutable", "openCreateNew", "readAppending", "write", "sync", "close"}, rawSurface{What: "the raw OS file handle type is nameable", Instead: "use 'File'"}},
 }
 
 // stdAlias is a built-in ranged alias of maxon's stdlib (`Count`, `ExitCode`...), which the rows of the table name and
@@ -1242,6 +1242,9 @@ var tableFunctions = []function{
 	// the event queue and is a plain call in the blocking bracket on any other.
 	{Owner: "Builtins", Name: "fileReadAppending", Static: true, Params: []string{"_ Count", "mutates _ ManagedMemory with Byte", "_ Count"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileReadAppending", Instead: "File"},
 	{Owner: "Builtins", Name: "fileWrite", Static: true, Params: []string{"_ Count", "_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileWrite", Instead: "File"},
+	// The sync forces the file's data to its device and throws writeFailed with what the system reports, as Go's Sync does: the
+	// handle stays open whether or not it throws.
+	{Owner: "Builtins", Name: "fileSync", Static: true, Params: []string{"_ Count"}, Throws: "ManagedFileError", Intrinsic: "ManagedFileSync", Instead: "File"},
 	{Owner: "Builtins", Name: "fileClose", Static: true, Params: []string{"_ Count"}, Throws: "ManagedFileError", Intrinsic: "ManagedFileClose", Instead: "File"},
 }
 
@@ -1520,6 +1523,7 @@ var entries = []entry{
 	{"FileOpenCreateNew", "rt.file.openCreateNew", "Os", roleCall, "(path ByteArray, error) -> handle: a file that must not be there (alreadyExists), made and opened to write in one step"},
 	{"FileReadAppending", "rt.file.readAppending", "Os", roleCall, "(handle, buffer ByteArray, most, error) -> count: reads up to most bytes after the buffer's length, which grows by them, within its capacity; 0 at the end of the file"},
 	{"FileWrite", "rt.file.write", "Os", roleCall, "(handle, buffer ByteArray, error) -> count: writes the whole buffer"},
+	{"FileSync", "rt.file.sync", "Os", roleCall, "(handle, error): forces the handle's data to its device in one bracketed call into the kernel, as Go's File.Sync does (macOS F_FULLFSYNC, fsync where the file system has none; Linux fsync; Windows FlushFileBuffers); what the system reports sets the error word with writeFailed, the handle open all the same"},
 	{"FileClose", "rt.file.close", "Os", roleCall, "(handle, error): closes the handle and frees its box, in one bracketed call into the kernel, which never parks the green thread or yields; what the system's close reports sets the error word with writeFailed, the handle closed all the same"},
 	// The debug port's entries, on Windows; a read or a write that fails sets its error word as an OS entry's does.
 	{"DebugLaunch", "rt.debug.launch", "Os", roleCall, "(executable String, arguments Array with String, outputToError, error) -> process id: starts the executable as the calling thread's debuggee"},
@@ -1779,6 +1783,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"FileOpenCreateNew", "fileOpenCreateNew(path Count, errorAddress Count) Count"},
 	{"FileReadAppending", "fileReadAppending(handle Count, buffer Count, most Count, errorAddress Count) Count"},
 	{"FileWrite", "fileWrite(handle Count, buffer Count, errorAddress Count) Count"},
+	{"FileSync", "fileSync(handle Count, errorAddress Count)"},
 	{"FileClose", "fileClose(handle Count, errorAddress Count)"},
 	{"OsRun", "osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 	{"OsRunIn", "osRunIn(executable String, arguments Count, directory String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},

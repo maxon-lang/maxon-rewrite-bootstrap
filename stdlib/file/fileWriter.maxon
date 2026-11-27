@@ -46,4 +46,11 @@ public type FileWriter
 		end 'unwritten'
 		try close()
 	end 'writeAllManaged'
+
+	/// Force the file's data to its device and throw `FileWriteError.failed` where the system refuses or fails it, as Go's `File.Sync` does.
+	public function sync(mutates self) throws FileWriteError
+		try file.sync() otherwise (e) 'unsynced'
+			throw writeFailureOf(e)
+		end 'unsynced'
+	end 'sync'
 end 'FileWriter'

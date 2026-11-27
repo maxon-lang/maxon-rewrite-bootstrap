@@ -569,6 +569,29 @@
 		return errno
 	end 'writeFileHandle'
 
+	// syncFileHandle is a sync of an open file's fd as Go's File.Sync makes it on macOS, in the blocking bracket since a file
+	// system may hold it, made again after a signal: the errno that it fails with, read before exitBlocking, or 0. A pipe, a FIFO
+	// and a terminal are refused, and the system's error is the one given.
+	function syncFileHandle(fd Count) returns Count
+		enterBlocking()
+		var result = fullSync(fd)
+		while interrupted(result) 'again'
+			result = fullSync(fd)
+		end 'again'
+		exitBlocking()
+		return osErrorOf(result)
+	end 'syncFileHandle'
+
+	// fullSync is F_FULLFSYNC of an fd, which has the device write its own cache, where fsync leaves the data in it; a file
+	// system that has no F_FULLFSYNC (ENOTSUP, an SMB mount's) is synced by fsync instead. It gives 0 or -errno.
+	function fullSync(fd Count) returns Count
+		let result = checkedInt(__Raw.callImport3("fcntl", arg1: fd, arg2: macosFcntlFullFsync, arg3: 0))
+		if failed(result) and errnoOf(result) == macosEnotsup 'unsupported'
+			return checkedInt(__Raw.callImport1("fsync", arg1: fd))
+		end 'unsupported'
+		return result
+	end 'fullSync'
+
 	// statPath fills a struct stat of the file a path names and gives 0, or gives -errno, as statCString does for a
 	// zero-terminated path.
 	function statPath(path String, stat Count) returns Count

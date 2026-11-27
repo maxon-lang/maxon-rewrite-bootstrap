@@ -375,13 +375,26 @@ function lowerManagedFileWrite(mutates l Lowerer, p ast.Project, ms ast.ModuleSt
 	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtFileWrite, args: argsOf2(handle, b: buffer))
 end 'lowerManagedFileWrite'
 
+// lowerManagedFileHandleEntry is a call of the runtime's entry of the handle whose word is the call's one argument, which gives
+// no result and sets the error word when the system reports an error.
+function lowerManagedFileHandleEntry(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, args RegList, symbol Rt) returns Reg
+	let handle = try args.get(0) otherwise panic("a call on a file takes its handle's word, which the checker has seen")
+	_ = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: symbol, args: argsOf1(handle))
+	return konst(l, value: 0 as Word)
+end 'lowerManagedFileHandleEntry'
+
+// lowerManagedFileSync is the runtime's sync of the handle whose word is the call's one argument, which the library's
+// __ManagedFile.sync gives: it forces the file's data to its device and sets the error word with writeFailed when the system
+// reports an error, as Go's Sync does, the handle left open.
+function lowerManagedFileSync(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerManagedFileHandleEntry(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtFileSync)
+end 'lowerManagedFileSync'
+
 // lowerManagedFileClose ends the handle whose word is the call's one argument, which the library's __ManagedFile.close gives up:
 // the runtime's close, which closes it whether or not it fails and sets the error word with writeFailed when the system's
 // close reports an error, as Go's Close does.
 function lowerManagedFileClose(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let handle = try args.get(0) otherwise panic("a close of a file takes its handle's word, which the checker has seen")
-	_ = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtFileClose, args: argsOf1(handle))
-	return konst(l, value: 0 as Word)
+	return lowerManagedFileHandleEntry(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtFileClose)
 end 'lowerManagedFileClose'
 
 function lowerFileWriteBinary(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg

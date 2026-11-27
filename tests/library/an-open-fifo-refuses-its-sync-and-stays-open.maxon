@@ -1,0 +1,89 @@
+// A FIFO has no sync on Linux: fsync fails with EINVAL, as Go's File.Sync gives it, which an open file throws as writeFailed, the
+// error of a failed write or close, and the file stays open, so a write after the refused sync still writes and the close still
+// closes it. The other end of the FIFO is the shell's, started detached, so the open, which waits for the reader, waits on another
+// process and not on this program. Windows has no FIFO, and macOS's answer for one is the system's, which this test does not
+// state.
+// unsupported-targets: x64-windows, arm64-macos
+// native-only
+// runs: alone
+//> sync of the FIFO: writeFailed
+//> written after the refused sync: 4
+typealias Arguments = Array with String
+
+function shellArguments(script String) returns Arguments
+	var arguments = Arguments.create(0)
+	arguments.push("-c")
+	arguments.push(script.clone())
+	return arguments
+end 'shellArguments'
+
+// shell runs a script to its end and says whether it ran.
+function shell(script String) returns bool
+	let sh = try FilePath.from("/bin/sh") otherwise return false
+	_ = try Subprocess.run(Executable.path(sh), arguments: shellArguments(script)) otherwise return false
+	return true
+end 'shell'
+
+// detached starts a script that this program does not wait for, and says whether it started.
+function detached(script String) returns bool
+	let sh = try FilePath.from("/bin/sh") otherwise return false
+	var configuration = Configuration.create(MxExecutable.path(sh))
+	configuration.arguments = shellArguments(script)
+	_ = try configuration.runDetached() otherwise return false
+	return true
+end 'detached'
+
+function failureName(e __ManagedFileError) returns String
+	return match e 'kind'
+		notFound gives "notFound"
+		accessDenied gives "accessDenied"
+		openFailed gives "openFailed"
+		readFailed gives "readFailed"
+		writeFailed gives "writeFailed"
+		sizeFailed gives "sizeFailed"
+		deleteFailed gives "deleteFailed"
+		statFailed gives "statFailed"
+		invalidStatBuffer gives "invalidStatBuffer"
+		invalidStatIndex gives "invalidStatIndex"
+		closed gives "closed"
+		alreadyExists gives "alreadyExists"
+		busy gives "busy"
+	end 'kind'
+end 'failureName'
+
+// syncFifo opens the FIFO to write, writes to it and syncs it: the case that the sync failed with, or "synced" where it did not,
+// and the count of a write after it. The file is closed on every way out.
+function syncFifo(path String) returns String throws __ManagedFileError
+	var file = try __ManagedFile.openWrite(path.addressableBytes())
+	_ = try file.write("one".toByteArray().managed) otherwise (e) 'first'
+		try file.close() otherwise ignore
+		throw e
+	end 'first'
+	var outcome = "synced"
+	try file.sync() otherwise (e) 'refused'
+		outcome = failureName(e)
+	end 'refused'
+	let after = try file.write("four".toByteArray().managed) otherwise (e) 'second'
+		try file.close() otherwise ignore
+		throw e
+	end 'second'
+	try file.close()
+	return "sync of the FIFO: {outcome}\nwritten after the refused sync: {after}"
+end 'syncFifo'
+
+function main() returns ExitCode
+	let fifo = "/tmp/minimaxon_fifo_sync_{Process.id()}"
+	if not shell("mkfifo '{fifo}'") 'unmade'
+		return 1
+	end 'unmade'
+	if not detached("cat '{fifo}' > /dev/null") 'reader'
+		return 2
+	end 'reader'
+	let text = try syncFifo(fifo) otherwise (e) 'unsynced'
+		print("fifo: {failureName(e)}\n")
+		return 3
+	end 'unsynced'
+	print("{text}\n")
+	_ = shell("rm -f '{fifo}'")
+	return 0
+end 'main'

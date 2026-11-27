@@ -902,6 +902,19 @@ let nanosPerFileTimeStep = 100 as Count
 		return win32
 	end 'writeFileHandle'
 
+	// syncFileHandle is FlushFileBuffers of an open file's HANDLE, as Go's File.Sync makes it, in the blocking bracket since a
+	// file system may hold it: its Win32 error, read before exitBlocking, or 0. A handle that was not opened to write and a console
+	// are refused, and the system's error is the one given.
+	function syncFileHandle(file Count) returns Count
+		var win32 = 0 as Count
+		enterBlocking()
+		if dword(__Raw.callImport1("FlushFileBuffers", arg1: file)) == 0 'failed'
+			win32 = win32Error()
+		end 'failed'
+		exitBlocking()
+		return win32
+	end 'syncFileHandle'
+
 	// openWide is openFile of a zero-terminated UTF-16 path, which it frees.
 	function openWide(widePath Count, access Count, share Count, disposition Count, flags Count, win32Address Count) returns Count
 		enterBlocking()

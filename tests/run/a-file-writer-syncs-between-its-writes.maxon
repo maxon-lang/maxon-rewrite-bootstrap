@@ -1,0 +1,35 @@
+// maxon's FileWriter has no sync, and the library's gains one: it forces what the writer has written to the device, as Go's
+// File.Sync does on each system, and throws FileWriteError.failed where the system refuses it. A program writes a file in two
+// writes with a sync after each, closes it, and reads it back whole; the writer stays open across its syncs.
+// native-only
+//> synced twice
+//> text: first|second
+function writeSynced(path FilePath) throws FileWriteError
+	var writer = try FileWriter.open(path)
+	try writer.write("first|".toByteArray()) otherwise (e) 'first'
+		try writer.close() otherwise ignore
+		throw e
+	end 'first'
+	try writer.sync() otherwise (e) 'firstSync'
+		try writer.close() otherwise ignore
+		throw e
+	end 'firstSync'
+	try writer.write("second".toByteArray()) otherwise (e) 'second'
+		try writer.close() otherwise ignore
+		throw e
+	end 'second'
+	try writer.sync() otherwise (e) 'secondSync'
+		try writer.close() otherwise ignore
+		throw e
+	end 'secondSync'
+	try writer.close()
+end 'writeSynced'
+
+function main() returns ExitCode
+	let path = try FilePath.from("minimaxon_file_writer_sync_{Process.id()}.txt") otherwise return 1
+	try writeSynced(path) otherwise return 2
+	print("synced twice\n")
+	print("text: {try File.readText(path) otherwise "unread"}\n")
+	try File.delete(path) otherwise return 3
+	return 0
+end 'main'

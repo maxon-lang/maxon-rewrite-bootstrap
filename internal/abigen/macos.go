@@ -49,6 +49,7 @@ var macosABI = []layoutConst{
 	{"macosFdCloexec", 1, true, toRuntime, "FD_CLOEXEC: an fd that an exec closes."},
 	{"macosOpenNonblock", 4, true, toRuntime, "O_NONBLOCK: a write that would wait writes what fits, or fails with EAGAIN."},
 	{"macosFcntlSetNoSigpipe", 73, true, toRuntime, "F_SETNOSIGPIPE: a write to the fd whose reader has closed it fails with EPIPE and sends no SIGPIPE."},
+	{"macosFcntlFullFsync", 51, true, toRuntime, "F_FULLFSYNC: the file's data written to the device and the device's own cache flushed, which fsync does not promise on macOS."},
 	{"macosDirentNameOffset", 21, true, toRuntime, "where a struct dirent that readdir gives holds its name, zero-terminated, after d_ino, d_seekoff, d_reclen, d_namlen and d_type."},
 
 	// The errors told apart, which a call that fails leaves in errno.
@@ -65,6 +66,7 @@ var macosABI = []layoutConst{
 	{"macosEtxtbsy", 26, true, toRuntime, "ETXTBSY."},
 	{"macosEagain", 35, true, toRuntime, "EAGAIN."},
 	{"macosEnotempty", 66, true, toRuntime, "ENOTEMPTY."},
+	{"macosEnotsup", 45, true, toRuntime, "ENOTSUP: a file system that has no F_FULLFSYNC, whose sync is made by fsync."},
 
 	{"macosEfault", 14, true, toRuntime, "EFAULT: an address the kernel cannot reach, which accept refuses for good."},
 	{"macosEinval", 22, true, toRuntime, "EINVAL: an accept of a socket that is not listening, refused for good."},

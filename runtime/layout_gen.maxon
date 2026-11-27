@@ -1200,6 +1200,9 @@ let macosOpenNonblock = 4 as Count
 // macosFcntlSetNoSigpipe is F_SETNOSIGPIPE: a write to the fd whose reader has closed it fails with EPIPE and sends no SIGPIPE.
 let macosFcntlSetNoSigpipe = 73 as Count
 
+// macosFcntlFullFsync is F_FULLFSYNC: the file's data written to the device and the device's own cache flushed, which fsync does not promise on macOS.
+let macosFcntlFullFsync = 51 as Count
+
 // macosDirentNameOffset is where a struct dirent that readdir gives holds its name, zero-terminated, after d_ino, d_seekoff, d_reclen, d_namlen and d_type.
 let macosDirentNameOffset = 21 as Count
 
@@ -1241,6 +1244,9 @@ let macosEagain = 35 as Count
 
 // macosEnotempty is ENOTEMPTY.
 let macosEnotempty = 66 as Count
+
+// macosEnotsup is ENOTSUP: a file system that has no F_FULLFSYNC, whose sync is made by fsync.
+let macosEnotsup = 45 as Count
 
 // macosEfault is EFAULT: an address the kernel cannot reach, which accept refuses for good.
 let macosEfault = 14 as Count
@@ -1510,6 +1516,9 @@ let macosSpawnSetSid = 1024 as Count
 	// linuxSysFcntl is fcntl(fd, command, argument).
 	let linuxSysFcntl = 25 as Count
 
+	// linuxSysFsync is fsync(fd): the file's data and metadata written to its device.
+	let linuxSysFsync = 82 as Count
+
 	// linuxSysRtSigtimedwait is rt_sigtimedwait(set, info, timeout, size of the signal mask): takes a pending signal of the set.
 	let linuxSysRtSigtimedwait = 137 as Count
 
@@ -1719,6 +1728,9 @@ let macosSpawnSetSid = 1024 as Count
 
 	// linuxSysFcntl is fcntl(fd, command, argument).
 	let linuxSysFcntl = 72 as Count
+
+	// linuxSysFsync is fsync(fd): the file's data and metadata written to its device.
+	let linuxSysFsync = 74 as Count
 
 	// linuxSysRtSigtimedwait is rt_sigtimedwait(set, info, timeout, size of the signal mask): takes a pending signal of the set.
 	let linuxSysRtSigtimedwait = 128 as Count

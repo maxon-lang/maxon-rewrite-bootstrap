@@ -126,6 +126,9 @@ func convertProgram(file, src string, kind inputKind, names programNames) Result
 	dropMailboxCapacity(lines, addWarn)
 	transformLines(lines, addWarn)
 	lines = rewriteFileEndings(lines)
+	if kind == sourceFile {
+		lines = addFileSyncs(lines)
+	}
 	rewriteFileBuffers(lines)
 	warnIdentityOperators(lines, addWarn)
 

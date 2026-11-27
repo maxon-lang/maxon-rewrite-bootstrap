@@ -202,3 +202,57 @@ func bytesBuffers(code []token) []token {
 	}
 	return out
 }
+
+// fileSync is a sync that a type over an open file gains, which maxon's type has not: the library's own member, which forces the
+// type's file to its device. Its failure throws the type's error that mapper makes of it, as the type's close does.
+type fileSync struct {
+	owner, throws, mapper string
+}
+
+var fileSyncs = []fileSync{
+	{"FileWriter", "FileWriteError", "writeFailureOf"},
+}
+
+// fileSyncLabel is the label of the handler that a sync writes around the sync of the type's file.
+const fileSyncLabel = "'unsynced'"
+
+// addFileSyncs gives each type of fileSyncs that holds an open file a sync, the last member of the type.
+func addFileSyncs(lines []sourceLine) []sourceLine {
+	var out []sourceLine
+	owner := ""
+	holdsFile := false
+	for _, l := range lines {
+		if l.removed || len(l.code) == 0 {
+			out = append(out, l)
+			continue
+		}
+		if l.indent == "" {
+			if l.code[0].text == "end" {
+				if at := slices.IndexFunc(fileSyncs, func(s fileSync) bool { return s.owner == owner }); at >= 0 && holdsFile {
+					out = append(out, syncMember(fileSyncs[at])...)
+				}
+				owner = ""
+			} else if name := declaredTypeName(l.code); name != "" {
+				owner = name
+				holdsFile = false
+			}
+		}
+		holdsFile = holdsFile || slices.ContainsFunc(l.code, func(t token) bool { return t.kind == tokIdent && t.text == "__ManagedFile" })
+		out = append(out, l)
+	}
+	return out
+}
+
+// syncMember is the lines of a type's sync, after a blank line.
+func syncMember(s fileSync) []sourceLine {
+	text := strings.Join([]string{
+		"",
+		"\t/// Force the file's data to its device and throw `" + s.throws + ".failed` where the system refuses or fails it, as Go's `File.Sync` does.",
+		"\tpublic function sync(mutates self) throws " + s.throws,
+		"\t\ttry file.sync() otherwise (e) " + fileSyncLabel,
+		"\t\t\tthrow " + s.mapper + "(e)",
+		"\t\tend " + fileSyncLabel,
+		"\tend 'sync'",
+	}, "\n") + "\n"
+	return splitLines(text)
+}

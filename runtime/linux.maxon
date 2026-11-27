@@ -531,6 +531,19 @@
 		return errno
 	end 'writeFileHandle'
 
+	// syncFileHandle is fsync of an open file's fd, as Go's File.Sync makes it, in the blocking bracket since a file system may
+	// hold it, made again after a signal: the errno that it fails with, or 0. A pipe, a FIFO and a socket have no fsync, and the
+	// kernel's EINVAL is the error.
+	function syncFileHandle(fd Count) returns Count
+		enterBlocking()
+		var result = __Raw.syscall1(linuxSysFsync, arg1: fd)
+		while failed(result) and errnoOf(result) == linuxEintr 'again'
+			result = __Raw.syscall1(linuxSysFsync, arg1: fd)
+		end 'again'
+		exitBlocking()
+		return osErrorOf(result)
+	end 'syncFileHandle'
+
 	// statPath fills a struct stat of the file a path names and gives 0, or gives -errno, as statCString does for a
 	// zero-terminated path.
 	function statPath(path String, stat Count) returns Count

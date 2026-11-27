@@ -33,6 +33,10 @@ function entryFileWrite(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	throw haltHandleRow(vm, row: "__Builtins.fileWrite")
 end 'entryFileWrite'
 
+function entryFileSync(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltHandleRow(vm, row: "__Builtins.fileSync")
+end 'entryFileSync'
+
 function entryFileClose(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	throw haltHandleRow(vm, row: "__Builtins.fileClose")
 end 'entryFileClose'

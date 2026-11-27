@@ -507,6 +507,7 @@ export enum Intrinsic
 	intrManagedFileOpenCreateNew
 	intrManagedFileReadAppending
 	intrManagedFileWrite
+	intrManagedFileSync
 	intrManagedFileClose
 	intrRawLoad8
 	intrRawLoad16
@@ -983,6 +984,7 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrManagedFileOpenCreateNew or
 		intrManagedFileReadAppending or
 		intrManagedFileWrite or
+		intrManagedFileSync or
 		intrManagedFileClose or
 		intrRawLoad8 or
 		intrRawLoad16 or
@@ -1298,6 +1300,7 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrManagedFileOpenCreateNew or
 		intrManagedFileReadAppending or
 		intrManagedFileWrite or
+		intrManagedFileSync or
 		intrManagedFileClose or
 		intrRawLoad8 or
 		intrRawLoad16 or
@@ -1659,6 +1662,7 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrManagedFileOpenCreateNew or
 		intrManagedFileReadAppending or
 		intrManagedFileWrite or
+		intrManagedFileSync or
 		intrManagedFileClose or
 		intrRawLoad8 or
 		intrRawLoad16 or
@@ -2061,6 +2065,9 @@ export function rawCallInstead(b Builtins, owner TypeID, name String) returns ta
 		if name == "fileWrite" 'fileWrite'
 			return table.Option.some("File")
 		end 'fileWrite'
+		if name == "fileSync" 'fileSync'
+			return table.Option.some("File")
+		end 'fileSync'
 		if name == "fileClose" 'fileClose'
 			return table.Option.some("File")
 		end 'fileClose'
@@ -3816,8 +3823,12 @@ function declareBuiltinsMethods(mutates tt TypeSlot, reads TypeTable, mutates ft
 	ft.lists[funcList(ft, f: f88)][funcIndex(ft, f: f88)].errTy = b.managedFileErrorTy
 	var ps89 = ParamSpecList.create(0)
 	ps89.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	let f90 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedFileClose, name: "fileClose", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps89, listed: true)
+	let f90 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedFileSync, name: "fileSync", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps89, listed: true)
 	ft.lists[funcList(ft, f: f90)][funcIndex(ft, f: f90)].errTy = b.managedFileErrorTy
+	var ps91 = ParamSpecList.create(0)
+	ps91.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f92 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedFileClose, name: "fileClose", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps91, listed: true)
+	ft.lists[funcList(ft, f: f92)][funcIndex(ft, f: f92)].errTy = b.managedFileErrorTy
 end 'declareBuiltinsMethods'
 
 function declareRawMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

@@ -45,6 +45,14 @@ public type __ManagedFile
 		return try __Builtins.fileWrite(word, managed)
 	end 'write'
 
+	/// Force the file's data to its device, as Go's `File.Sync` does on each system: `F_FULLFSYNC` on macOS, where `fsync` instead
+	/// where the file system has none, `fsync` on Linux and `FlushFileBuffers` on Windows. `writeFailed` says the
+	/// system refused or failed it, so what was written may not be on the device: a handle that has no sync, a pipe or a FIFO is
+	/// refused with the system's error (`EINVAL` on Linux), as Go gives it. The file stays open whether or not this throws.
+	public function sync(mutates self) throws __ManagedFileError
+		try __Builtins.fileSync(word)
+	end 'sync'
+
 	/// Close the file. It is closed whether or not this throws; `writeFailed` says the system's close reported an error, so
 	/// what was written may not all be in the file.
 	public function close(destructs self) throws __ManagedFileError
