@@ -1528,6 +1528,7 @@ var entries = []entry{
 	{"ReplyAnswer", "rt.reply.answer", "Source", roleCall, "(reply, value): gives a deferred reply that a sender awaits its value, which readies the green thread that awaits it"},
 	{"ReplyDrop", "rt.reply.drop", "Source", roleCall, "(reply): the drop of a deferred reply that no answer took, which fails its sender's await with ReplyStopped.serviceStopped"},
 	{"ReplyDropString", "rt.reply.dropString", "Source", roleCall, "(reply): rt.reply.drop of a Reply with String, whose failed value is a box of the empty String, which the await of a String takes its words out of as it does a value's"},
+	{"ServiceEnding", "rt.service.ending", "Source", roleCall, "(handle): gives a service whose state type implements Ends the code of its finish, the instruction's Routine, whose address the backend passes as a second word, which ends the state in place of its drop where the last owner of the service lets go of it with the state still in it"},
 
 	{"ArrayNew", "rt.array.new", "Arrays", roleCall, "() -> Array"},
 	{"ArrayLen", "rt.array.len", "Arrays", roleCall, "(array) -> count"},
@@ -1829,6 +1830,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"ReplyAnswer", "replyAnswer(reply Count, value Count)"},
 	{"ReplyDrop", "replyDrop(reply Count)"},
 	{"ReplyDropString", "replyDropString(reply Count)"},
+	{"ServiceEnding", "serviceEnding(handle Count, ending Count)"},
 	{"FrozenFreeze", "frozenFreeze(value Count) Count"},
 	{"FrozenGet", "frozenGet(frozen Count) Count"},
 	{"Share", "share(box Count) Count"},

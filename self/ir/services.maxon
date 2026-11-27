@@ -35,16 +35,24 @@ function visitSpawnExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 end 'visitSpawnExpr'
 
 // newService is a new service of the state, with a pending word for each message kind of its type whose policy is a
-// CoalescingPolicy, and none for a type that has no such kind.
+// CoalescingPolicy, and none for a type that has no such kind. A state type that implements Ends gives the service its
+// finish (rt.service.ending), which the drop of its last owner calls where no stop's behaviour took the state first.
 function newService(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, state Reg, stateTy ast.TypeID) returns Reg
 	let applied = applyType(l, p: p, ms: ms, t: stateTy)
 	let decl = ast.typeEntry(ms.types, reads: p.types, t: applied).effectiveOrigin()
 	let words = ast.serviceWords(ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, nt: decl)
+	var handle = noReg
 	if words == 0 'none'
-		return entry(l, p: p, site: site, symbol: Rt.rtServiceNew, kind: IrKind.kindManaged, args: argsOf1(state))
-	end 'none'
-	let count = konst(l, value: try words as Word otherwise panic("ir: more pending words than a word"))
-	return entry(l, p: p, site: site, symbol: Rt.rtServiceNewPending, kind: IrKind.kindManaged, args: argsOf2(state, b: count))
+		handle = entry(l, p: p, site: site, symbol: Rt.rtServiceNew, kind: IrKind.kindManaged, args: argsOf1(state))
+	end 'none' else 'pending'
+		let count = konst(l, value: try words as Word otherwise panic("ir: more pending words than a word"))
+		handle = entry(l, p: p, site: site, symbol: Rt.rtServiceNewPending, kind: IrKind.kindManaged, args: argsOf2(state, b: count))
+	end 'pending'
+	let finish = stateFinish(p, ms: ms, stateTy: applied)
+	if finish != ast.noFunc 'ends'
+		emitEntry(l, p: p, site: site, dst: noReg, symbol: Rt.rtServiceEnding, args: argsOf1(handle), routine: finish)
+	end 'ends'
+	return handle
 end 'newService'
 
 // lowerSend sends a message: the handle is read, the arguments move into the behaviour, and the send fails, dropping them,
@@ -586,8 +594,21 @@ function lowerServiceStopNow(mutates l Lowerer, p ast.Project, mutates ms ast.Mo
 	return konst(l, value: 0 as Word)
 end 'lowerServiceStopNow'
 
-// endStateOf queues, after a stop of a service whose state can hold a Reply (check.noteStateEnd), the behaviour that drops
-// its state once the messages queued before it have run: a behaviour on the service's cown, which runs after them and holds
+// stateFinish is the finish of the service state type stateTy where it implements Ends, and noFunc where it does not.
+function stateFinish(p ast.Project, mutates ms ast.ModuleState, stateTy ast.TypeID) returns ast.FuncID
+	if not ast.ends(p, tt: ms.types, reads: p.types, nt: stateTy) 'plain'
+		return ast.noFunc
+	end 'plain'
+	let finish = ast.finishOf(ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, nt: stateTy)
+	if finish == ast.noFunc 'missing'
+		panic("ir: a service state that implements Ends has no finish")
+	end 'missing'
+	return finish
+end 'stateFinish'
+
+// endStateOf queues, after a stop of a service whose state can hold a Reply or whose type implements Ends
+// (check.noteStateEnd), the behaviour that ends its state once the messages queued before it have run, by its finish where
+// it has one and else by its drop: a behaviour on the service's cown, which runs after them and holds
 // the service alone, so no message reads the state after it. One that finds the state gone, which an earlier stop's
 // behaviour dropped, does nothing, and the drop of the service's last handle then finds it gone too.
 function endStateOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, handle Reg)
@@ -615,8 +636,14 @@ function endState(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, 
 	emit(inner, i: newMoveAt(value, addr: state))
 	let empty = konst(inner, value: 0 as Word)
 	emit(inner, i: newStoreAt(state, src: empty))
-	let drop = dropType(l, p: p, ms: ms, t: stateTy)
-	emitDropReg(inner, src: value, ty: drop)
+	let finish = stateFinish(p, ms: ms, stateTy: stateTy)
+	if finish != ast.noFunc 'finish'
+		// finish is given the state, which it ends: what it leaves, a Reply among it, is dropped where it returns.
+		emitCall(inner, p: p, ms: ms, dst: noReg, target: finish, args: argsOf1(value))
+	end 'finish' else 'drop'
+		let drop = dropType(l, p: p, ms: ms, t: stateTy)
+		emitDropReg(inner, src: value, ty: drop)
+	end 'drop'
 	inner.b.terminate(inner.cur, t: newJump(done))
 	inner.cur = done
 	let zero = konst(inner, value: 0 as Word)

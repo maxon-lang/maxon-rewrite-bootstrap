@@ -954,6 +954,10 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		emitCownNew(sel, fn: fn, ins: ins)
 		return
 	end 'cown'
+	if symbol == ir.Rt.rtServiceEnding 'ending'
+		emitServiceEnding(sel, fn: fn, ins: ins)
+		return
+	end 'ending'
 	if symbol == ir.Rt.rtFrozenFreeze 'freeze'
 		let value = fn.args[start]
 		sel.addArg(vregOf(value), float: false)
@@ -1120,6 +1124,17 @@ function emitCownNew(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.takeResult(ins.dst, float: false)
 	sel.storeSecondWord(fn, value: value, holder: ins.dst, offset: cownValueOffset)
 end 'emitCownNew'
+
+// emitServiceEnding passes the entry the service and the address of the code of its state type's finish.
+function emitServiceEnding(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let routine = match ir.callRuntimeRoutine(fn, x: ins) 'routine'
+		some(r) gives sel.address(sel.calleeSymbol(r))
+		none gives panic("backend: the ending of a service names no finish")
+	end 'routine'
+	sel.addArg(vregOf(fn.args[ir.callRuntimeArgsStart(ins)]), float: false)
+	sel.addArg(routine, float: false)
+	sel.callSymbol(ir.rtSymbol(ir.Rt.rtServiceEnding))
+end 'emitServiceEnding'
 
 // emitClosure makes the box of a closure: a count of 1, the code of its body, the routine that drops what it owns, and
 // what it captured.

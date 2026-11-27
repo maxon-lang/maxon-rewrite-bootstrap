@@ -1,0 +1,62 @@
+// A service whose type implements Ends and that nobody stops ends where its last handle goes, once its last message has
+// run: its finish is given the state then, in place of the state's drop. Here finish tells a witness, whose message parked
+// the reply main awaits, so main sees the count the service had reached.
+// schedules: 6
+//> finish at 2
+//> told: 2
+export typealias Waiting = Array with Reply with Count
+
+type Witness
+	var waiting as Waiting
+
+	static function create() returns Self
+		return Self{waiting: Waiting.create(0)}
+	end 'create'
+
+	export function wait(mutates self) returns Count throws ReplyStopped
+		let pending = reply.later()
+		self.waiting.push(pending)
+		return
+	end 'wait'
+
+	export function told(mutates self, n Count)
+		while self.waiting.count() > 0 'each'
+			let pending = self.waiting.pop()
+			pending.answer(n)
+		end 'each'
+	end 'told'
+end 'Witness'
+
+type Counter implements Ends
+	var n as Count
+	var witness as Witness.handle
+
+	static function create(consumes witness Witness.handle) returns Self
+		return Self{n: 0, witness: witness}
+	end 'create'
+
+	export function bump(mutates self)
+		self.n = try self.n + 1 otherwise 0
+	end 'bump'
+
+	function finish(consumes self)
+		print("finish at {self.n}\n")
+		try self.witness.told(self.n) otherwise ignore
+	end 'finish'
+end 'Counter'
+
+function count(witness Witness.handle)
+	let c = spawn Counter.create(witness.clone())
+	try c.bump() otherwise panic("a running service takes the send")
+	try c.bump() otherwise panic("a running service takes the send")
+end 'count'
+
+function main() returns ExitCode
+	let witness = spawn Witness.create()
+	let told = try witness.wait() otherwise panic("a running service takes the send")
+	count(witness)
+	let n = try await told otherwise 0
+	print("told: {n}\n")
+	witness.shutdown()
+	return 0
+end 'main'

@@ -1,0 +1,61 @@
+// A service whose state holds an open file implements Ends, and its finish is given the state once the service has stopped,
+// after the messages queued before the stop have run: it writes the file's last line with writeAllText, which closes it, so
+// what the service wrote is all in the file once its stop has been awaited. The stop is the owner's shutdown() or the
+// service's own self.stop().
+// native-only
+//> finish after 2 lines
+//> by shutdown: one|two|end of 2
+//> finish after 1 lines
+//> by stop: three|end of 1
+type Log implements Ends
+	var out as FileWriter
+	var lines as Count
+
+	static function create(path FilePath) returns Self throws FileWriteError
+		return Self{out: try FileWriter.open(path), lines: 0}
+	end 'create'
+
+	export function line(mutates self, consumes text String)
+		try self.out.write(text.toByteArray()) otherwise ignore
+		self.lines = try self.lines + 1 otherwise 0
+	end 'line'
+
+	export function close(mutates self)
+		self.stop()
+	end 'close'
+
+	function finish(consumes self)
+		print("finish after {self.lines} lines\n")
+		try self.out.writeAllText("end of {self.lines}\n") otherwise ignore
+	end 'finish'
+end 'Log'
+
+function shown(path FilePath) returns String
+	let text = try File.readText(path) otherwise return "unread"
+	var lines = ""
+	for line in text.split("\n") 'lines'
+		if line != "" 'line'
+			lines = "{lines}|{line}" if lines != "" else line.clone()
+		end 'line'
+	end 'lines'
+	return lines
+end 'shown'
+
+function main() returns ExitCode
+	let path = try FilePath.from("minimaxon_ends_{Process.id()}.txt") otherwise return 1
+	let log = try spawn Log.create(path) otherwise return 2
+	try log.line("one\n") otherwise return 3
+	try log.line("two\n") otherwise return 3
+	let done = log.stopped()
+	log.shutdown()
+	await done
+	print("by shutdown: {shown(path)}\n")
+	let again = try spawn Log.create(path) otherwise return 4
+	try again.line("three\n") otherwise return 5
+	let ended = again.stopped()
+	try again.close() otherwise panic("a send to a service that runs")
+	await ended
+	print("by stop: {shown(path)}\n")
+	try File.delete(path) otherwise return 6
+	return 0
+end 'main'

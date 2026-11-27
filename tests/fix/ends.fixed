@@ -1,0 +1,52 @@
+// A service whose state cannot be dropped is declared Ends by fix, after the interfaces it implements, and given a finish
+// that ends each field with the one destructor that takes nothing, called with try ... otherwise ignore where it throws.
+type Log implements StopsNow, Ends
+	var out as FileWriter
+	var copy as FileWriter
+	var lines as Count
+
+	static function create(path FilePath, other FilePath) returns Self throws FileWriteError
+		let out = try FileWriter.open(path)
+		let copy = try FileWriter.open(other) otherwise (e) 'copy'
+			try out.close() otherwise ignore
+			throw e
+		end 'copy'
+		return Self{out: out, copy: copy, lines: 0}
+	end 'create'
+
+	export function line(mutates self, consumes text String)
+		try self.out.write(text.toByteArray()) otherwise ignore
+		self.lines = try self.lines + 1 otherwise 0
+	end 'line'
+
+	function finish(consumes self)
+		try self.out.close() otherwise ignore
+		try self.copy.close() otherwise ignore
+	end 'finish'
+end 'Log'
+
+type Single implements Ends
+	var out as FileWriter
+
+	static function create(path FilePath) returns Self throws FileWriteError
+		return Self{out: try FileWriter.open(path)}
+	end 'create'
+
+	export function line(mutates self, consumes text String)
+		try self.out.write(text.toByteArray()) otherwise ignore
+	end 'line'
+
+	function finish(consumes self)
+		try self.out.close() otherwise ignore
+	end 'finish'
+end 'Single'
+
+function main() returns ExitCode
+	let path = try FilePath.from("log.txt") otherwise return 1
+	let other = try FilePath.from("copy.txt") otherwise return 1
+	let log = try spawn Log.create(path, other: other) otherwise return 2
+	log.stopNow()
+	let single = try spawn Single.create(path) otherwise return 3
+	single.shutdown()
+	return 0
+end 'main'

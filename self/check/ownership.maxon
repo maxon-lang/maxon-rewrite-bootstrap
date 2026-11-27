@@ -747,7 +747,7 @@ function endingFixFor(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 	if not exits or d.name == "" or d.name.contains(".") 'notLocal'
 		return diag.Fix.none()
 	end 'notLocal'
-	match consumes endingOf(o, p: p, ms: ms, t: t, depth: 0) 'ending'
+	match consumes endingOf(o.c, p: p, ms: ms, t: t, depth: 0) 'ending'
 		some(ending) then return endingFix(ms.tree(), at: site, call: endingCall(d.name, ending: ending), label: "{d.name}Ended")
 		none then return diag.Fix.none()
 	end 'ending'
@@ -766,7 +766,7 @@ let endingParts = 4 as Count
 // endingOf is the one way to end a value of type t that takes nothing: its one destructor without parameters (`.close()`),
 // or, for a record without destructors, the ending of its one part that cannot be dropped (`.file.close()`); none where
 // there is no single such way.
-function endingOf(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, depth Count) returns table.Option with Ending
+function endingOf(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, depth Count) returns table.Option with Ending
 	if depth >= endingParts or ast.typeKind(ms.types, reads: p.types, t: t) != ast.TypeKind.record 'opaque'
 		return table.Option.none
 	end 'opaque'
@@ -796,7 +796,7 @@ function endingOf(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState
 	var partType = ast.noType
 	for f in ast.typeEntry(ms.types, reads: p.types, t: orig).fields.clone() 'fields'
 		let fTy = ast.fieldType(ms.types, reads: p.types, owner: t, index: f.index)
-		if isManagedOwn(p, ms: ms, t: fTy) and lacksDroppable(o, p: p, ms: ms, t: fTy) 'linear'
+		if isManagedOwn(p, ms: ms, t: fTy) and lacksCap(c, p: p, ms: ms, wantCopy: false, t: fTy).missing 'linear'
 			parts.push(f.name.clone())
 			partType = fTy
 		end 'linear'
@@ -805,7 +805,7 @@ function endingOf(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState
 		return table.Option.none
 	end 'parts'
 	for part in parts 'part'
-		match consumes endingOf(o, p: p, ms: ms, t: partType, depth: depth + 1) 'inner'
+		match consumes endingOf(c, p: p, ms: ms, t: partType, depth: depth + 1) 'inner'
 			some(ending) then return table.Option.some(Ending.make(".{part}{ending.path}", fails: ending.fails))
 			none then return table.Option.none
 		end 'inner'

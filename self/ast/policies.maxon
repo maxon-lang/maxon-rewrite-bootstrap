@@ -217,6 +217,35 @@ export function stopsNow(p Project, tt TypeSlot, reads TypeTable, nt TypeID) ret
 	return reachesLibraryInterface(p, tt: tt, reads: reads, have: nt, name: stopsNowName)
 end 'stopsNow'
 
+// Ends (README, "Stops"): a service type that implements the library's Ends is given its state by its finish once it has
+// stopped, or where its last handle goes, so the state's linear fields are closed rather than dropped.
+export let endsName = "Ends"
+
+export let finishName = "finish"
+
+// ends is whether the service type nt implements Ends.
+export function ends(p Project, tt TypeSlot, reads TypeTable, nt TypeID) returns bool
+	return reachesLibraryInterface(p, tt: tt, reads: reads, have: nt, name: endsName)
+end 'ends'
+
+// finishOf is the finish of the type nt, which implements Ends: its instance method of the name, noFunc where it has none.
+export function finishOf(tt TypeSlot, reads TypeTable, ft FuncSlot, funcReads FuncTable, nt TypeID) returns FuncID
+	let orig = typeEntry(tt, reads: reads, t: nt).effectiveOrigin()
+	for m in typeEntry(tt, reads: reads, t: orig).methods 'methods'
+		if m.name == finishName and not funcEntry(ft, funcReads: funcReads, f: m.func).isStatic 'hit'
+			return m.func
+		end 'hit'
+	end 'methods'
+	return noFunc
+end 'finishOf'
+
+// endsAtStop is whether a stop of a service of the state type nt queues the behaviour that ends its state once the messages
+// queued before it have run: the state can hold a Reply, which then fails its sender's await, or its type implements Ends,
+// whose finish then ends it.
+export function endsAtStop(p Project, mutates tt TypeSlot, reads TypeTable, nt TypeID) returns bool
+	return holdsReply(tt, reads: reads, t: nt) or ends(p, tt: tt, reads: reads, nt: nt)
+end 'endsAtStop'
+
 // awaitErrorOf is the error an await of the reply of the message f fails with: the one the compiler made where the reply may
 // fail with more than the handler throws, and else the handler's own, or noType.
 export function awaitErrorOf(f FuncEntry) returns TypeID

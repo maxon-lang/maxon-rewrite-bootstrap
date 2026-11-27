@@ -1,0 +1,55 @@
+// A service whose state parks Replies and implements Ends is given its state by finish once it has stopped: finish answers
+// the Reply parked first, and the one it leaves is dropped where finish returns, which fails its sender's await with
+// serviceStopped then, after finish, so the answer finish gave arrives. A stop at once ends it the same way, with no message
+// queued.
+// schedules: 6
+//> finish of 2
+//> first: finished, second: stopped
+//> finish of 1
+//> at once: stopped
+export typealias Waiting = Array with Reply with String
+
+type Parker implements StopsNow, Ends
+	var waiting as Waiting
+
+	static function create() returns Self
+		return Self{waiting: Waiting.create(0)}
+	end 'create'
+
+	export function park(mutates self) returns String throws ReplyStopped
+		let pending = reply.later()
+		self.waiting.push(pending)
+		return
+	end 'park'
+
+	export function parked() returns Count
+		return self.waiting.count()
+	end 'parked'
+
+	function finish(consumes self)
+		print("finish of {self.waiting.count()}\n")
+		var parked = self.waiting
+		if parked.count() > 1 'answer'
+			let first = parked.remove(0)
+			first.answer("finished")
+		end 'answer'
+	end 'finish'
+end 'Parker'
+
+function main() returns ExitCode
+	let parker = spawn Parker.create()
+	let first = try parker.park() otherwise panic("a running service takes the send")
+	let second = try parker.park() otherwise panic("a running service takes the send")
+	parker.shutdown()
+	let one = try await first otherwise "stopped"
+	let two = try await second otherwise "stopped"
+	print("first: {one}, second: {two}\n")
+	let other = spawn Parker.create()
+	let third = try other.park() otherwise panic("a running service takes the send")
+	let count = try other.parked() otherwise panic("a running service takes the send")
+	_ = try await count otherwise 0
+	other.stopNow()
+	let three = try await third otherwise "stopped"
+	print("at once: {three}\n")
+	return 0
+end 'main'

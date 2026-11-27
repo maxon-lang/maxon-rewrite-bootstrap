@@ -503,6 +503,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryReplyDropString(vm, f: f, x: x)
 		return
 	end 'rtReplyDropString'
+	if symbol == ir.Rt.rtServiceEnding 'rtServiceEnding'
+		try entryServiceEnding(vm, f: f, x: x)
+		return
+	end 'rtServiceEnding'
 	if symbol == ir.Rt.rtArrayNew 'rtArrayNew'
 		entryArrayNew(vm, f: f, x: x)
 		return

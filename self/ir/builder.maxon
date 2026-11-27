@@ -291,7 +291,7 @@ export type Builder
 	end 'throwingCall'
 
 	// callRuntime calls a runtime entry. routine is the function the entry stores to call later, noFunc for every entry
-	// but the one that makes a cown; proven is the flag of an element's entry whose index is proved in range.
+	// but the one that makes a cown and the one that gives a service its ending; proven is the flag of an element's entry whose index is proved in range.
 	export function callRuntime(mutates self, dst Reg, symbol Rt, args RegList, routine ast.FuncID, proven bool) returns Instr
 		let start = self.arguments(args)
 		var stored = noRoutine

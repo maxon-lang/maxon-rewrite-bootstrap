@@ -5045,6 +5045,19 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   what it holds, the box of a pending word among it, and fails the await of its reply with `serviceStopped`. Its slowed senders
   are let go at once and it slows none again, and its shedding horizon is never read again. A type that declares a method
   named `stop` or `stopNow` keeps the name, and `self.stop()` off a message stops nothing.
+  **A state that ends with its service** is one whose type implements the library's `Ends` (`stdlib/service/Ends.maxon`),
+  `function finish(consumes self)`, which is no message: the service gives it the state once it has stopped, after the
+  messages queued before the stop have run (the behaviour a stop queues, `endState` in `self/ir/services.maxon`), and, where
+  nobody stops it, where its last handle goes, in place of the state's drop (the service's ending word, which
+  `rt.service.ending` sets at the spawn, as a cown's `dropWith:` destructor; the drop of the last owner calls it with the
+  state, which a stop's behaviour has taken out first where one ran). A state that cannot be dropped, one that holds an open
+  file, a socket or another value with a destructor, is `E3956` unless its type implements `Ends` (at the type's declaration
+  in its own module, and at the spawn in another): the service would drop what only a destructor may end. `minimaxon fix`
+  (kind `ends`) declares the type `Ends`, after the interfaces it implements, and writes its `finish` last in its body, with a
+  line that ends each such field where its type has one way to end it that takes nothing (`try self.out.close() otherwise
+  ignore`); the body of `finish` ends each field that cannot be dropped, as any `consumes self` must (`E3919`), and what it
+  leaves is dropped where it returns, a Reply failing its sender's await then. The interpreter runs the same IR, and a
+  service's ending is its cown's (`entryServiceEnding`).
   **A message's own handle** is `self.handle`, a `T.handle` that is another owner of the service whose message runs, as a
   copy of a handle is (`rt.service.selfHandle`), so a message can pass it to another service that answers by a message of
   its own (`peer.ask(n, back: self.handle)`). It is only in an export instance method of the type (`E3953` elsewhere: pass
@@ -5101,6 +5114,8 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   takes its words out of a box). A stop of a service whose state can hold a Reply, `shutdown()`, `stopNow()` or a message's
   `self.stop()` or `self.stopNow()`, queues a behaviour on its cown after the queued messages that drops the state, so the
   Replies it holds fail their awaits then, as maxon's do when the service finishes, and not only once its last handle goes.
+  Of a type that implements `Ends` (see "Stops"), the behaviour gives the state to its `finish` instead, and what finish
+  leaves, a Reply among it, is dropped where finish returns, so a Reply fails its await after finish has run.
   `E3222` refuses, in maxon's words: `reply.later()` in a closure, inside a block, other than as a whole `let` initializer,
   twice, in a message with no reply or with an interface value as its reply, in a generic type, without `throws ReplyStopped`,
   or in what is no message; a deferring message's `return` with a value, its `throw` or propagating `try`, and a call of it
@@ -5772,7 +5787,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   where maxon's `<Service>.<message>.sendError` carries them (the spec tests whose handler binds them are skipped with
   that reason). A `Reply with T` is built in, the cell its sender awaits, where maxon's library declares a record that holds
   it, and the state of a service whose state can hold a Reply is dropped once a stop's queued messages have run, where any
-  other's is dropped with its last handle (see "Deferred replies"). Not yet: interface handles (`I.handle`),
+  other's is dropped with its last handle (see "Deferred replies"). maxon has no hook that ends a service's state: a state
+  that cannot be dropped implements minimaxon's `Ends`, whose `finish` the service calls as it ends (`E3956`; see "Stops"),
+  named so since `end` is a keyword. Not yet: interface handles (`I.handle`),
   `T.request`, a generic service, a message with type parameters,
   one `try await h.m()` over a message that throws, and services in the interpreter. Not yet either, until the design of
   logging is decided: maxon's `Log` and `TraceCapture`, which sit on `SharedValue` there (see "Where it differs from

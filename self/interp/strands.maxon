@@ -977,6 +977,13 @@ function entryServiceStateHeld(mutates vm Vm, f ir.IrFunction, x ir.Instr) throw
 	giveFlag(vm, x: x, b: vm.h.refOf(c) != 0)
 end 'entryServiceStateHeld'
 
+// entryServiceEnding gives a service whose state type implements Ends its finish, which ends the state in place of its drop
+// where the service is freed with the state still in it, as a cown's dropWith: destructor ends its value.
+function entryServiceEnding(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "the ending of a service")
+	giveEnding(vm, f: f, x: x, cown: service)
+end 'entryServiceEnding'
+
 // entryServiceCurrent is the service whose message the thread runs.
 function entryServiceCurrent(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let service = messageOf(vm, t: vm.cur)

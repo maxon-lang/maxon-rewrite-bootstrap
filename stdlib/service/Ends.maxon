@@ -1,0 +1,10 @@
+/// A service type whose state ends with the service: its `finish` is given the state once the service has stopped, after the
+/// messages queued before the stop have run, or where its last handle goes, so the state's linear fields, an open file or a
+/// socket, are closed rather than dropped. A service type whose state holds a value that cannot be dropped must implement it
+/// (E3956), and the body of `finish` ends each such field (E3919), with a destructor or by moving it on. What `finish` leaves
+/// is dropped where it returns: a `Reply` still held fails its sender's await with `serviceStopped` then, after the closes.
+/// `finish` is no message: it is an instance method that is not exported.
+/// @category Services
+public interface Ends
+	function finish(consumes self)
+end 'Ends'

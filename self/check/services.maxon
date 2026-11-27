@@ -207,7 +207,7 @@ function callSelfStop(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 		panic("check: the built-ins have no floor of {name}")
 	end 'missing'
 	let typed = callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callStatic, target: floor, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
-	if typed != ast.noType and ast.holdsReply(ms.types, reads: p.types, t: content) 'stop'
+	if typed != ast.noType and ast.endsAtStop(p, tt: ms.types, reads: p.types, nt: content) 'stop'
 		noteStateEnd(c, p: p, ms: ms, call: call, state: content)
 		// The behaviour is queued on the service whose message stops it, a handle of the type.
 		let handle = serviceHandleType(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: call), state: content, errs: errs)
@@ -221,11 +221,11 @@ function callSelfStop(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	return typed
 end 'callSelfStop'
 
-// noteStateEnd gives a stop of a service whose state can hold a Reply the behaviour that drops the state once the queued
-// messages have run (ir.endState): the Replies it holds fail their senders' awaits then, as maxon's do when the service
-// finishes, rather than when its last handle goes.
+// noteStateEnd gives a stop of a service whose state can hold a Reply, or whose type implements Ends, the behaviour that
+// ends the state once the queued messages have run (ir.endState): its finish closes what it holds, and the Replies it holds
+// fail their senders' awaits then, as maxon's do when the service finishes, rather than when its last handle goes.
 function noteStateEnd(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, state ast.TypeID)
-	if not ast.holdsReply(ms.types, reads: p.types, t: state) 'none'
+	if not ast.endsAtStop(p, tt: ms.types, reads: p.types, nt: state) 'none'
 		return
 	end 'none'
 	var info = match consumes c.typing.calls.get(call as Count) 'info'
@@ -476,6 +476,7 @@ function requireService(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	if holdsPromise(p, ms: ms, t: state, visiting: visiting) 'promise'
 		failAt(c, p: p, ms: ms, node: e, code: diag.errServiceStatePromise, msg: "the state of the service '{stateName}' holds a promise, and each message may run on another green thread while a coroutine belongs to the strand that started it: await the coroutine in the message that starts it, and keep its result", errs: errs)
 	end 'promise'
+	requireEnds(c, p: p, ms: ms, e: e, state: state, errs: errs)
 	var path = ast.StringList.create(0)
 	var visited = BoolIntMap.new()
 	if reachesThroughCown(p, ms: ms, from: state, target: state, via: false, services: true, path: path, visited: visited) 'cycle'
@@ -490,6 +491,65 @@ function requireService(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	end 'methods'
 	return not failedSince(errs, mark: mark)
 end 'requireService'
+
+// requireEnds refuses a service whose state holds a value that cannot be dropped, an open file or a socket, where its type
+// does not implement Ends (E3956): the service would drop that value when it stops, which only its destructor may end. The
+// type's own module is told at the type's declaration, with the fix that declares it Ends and writes its finish, which ends
+// each such field where it has one way to end that takes nothing; another module is told at the spawn.
+function requireEnds(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, state ast.TypeID, mutates errs diag.ErrorList)
+	if ast.ends(p, tt: ms.types, reads: p.types, nt: state) 'declared'
+		return
+	end 'declared'
+	let lacking = lacksCap(c, p: p, ms: ms, wantCopy: false, t: state)
+	if not lacking.missing 'droppable'
+		return
+	end 'droppable'
+	let stateName = nameOfType(p, ms: ms, t: state)
+	let why = lackWhyText(ms.types, reads: p.types, info: lacking, capName: "Droppable")
+	let msg = "the state of the service '{stateName}' cannot be dropped ({why}), so the service cannot end it when it stops: declare 'type {stateName} implements Ends' and its 'function finish(consumes self)', which is given the state once the service has stopped, and end each such field there"
+	let orig = ast.originOf(ms.types, reads: p.types, t: state)
+	let hasDecl = ast.typeEntry(ms.types, reads: p.types, t: orig).hasDecl
+	let ref = ast.typeEntry(ms.types, reads: p.types, t: orig).decl.clone()
+	if not hasDecl or ref.module != ms.module 'elsewhere'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errServiceStateNotEnded, msg: msg, errs: errs)
+		return
+	end 'elsewhere'
+	match ast.moduleDecl(p, ref: ref) 'declared'
+		typeDecl(td) then endsAtDecl(c, p: p, ms: ms, state: state, td: td, msg: msg, errs: errs)
+		funcDecl(_) then failAt(c, p: p, ms: ms, node: e, code: diag.errServiceStateNotEnded, msg: msg.clone(), errs: errs)
+		constDecl(_) then failAt(c, p: p, ms: ms, node: e, code: diag.errServiceStateNotEnded, msg: msg.clone(), errs: errs)
+		enumDecl(_) then failAt(c, p: p, ms: ms, node: e, code: diag.errServiceStateNotEnded, msg: msg.clone(), errs: errs)
+		unionDecl(_) then failAt(c, p: p, ms: ms, node: e, code: diag.errServiceStateNotEnded, msg: msg.clone(), errs: errs)
+		aliasDecl(_) then failAt(c, p: p, ms: ms, node: e, code: diag.errServiceStateNotEnded, msg: msg.clone(), errs: errs)
+		interfaceDecl(_) then failAt(c, p: p, ms: ms, node: e, code: diag.errServiceStateNotEnded, msg: msg.clone(), errs: errs)
+		extensionDecl(_) then failAt(c, p: p, ms: ms, node: e, code: diag.errServiceStateNotEnded, msg: msg.clone(), errs: errs)
+	end 'declared'
+end 'requireEnds'
+
+// endsAtDecl is E3956 at the declaration of the state type, with its fix.
+function endsAtDecl(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, state ast.TypeID, td ast.TypeDecl, msg String, mutates errs diag.ErrorList)
+	let fix = endsFix(c, p: p, ms: ms, state: state, td: td)
+	diag.pushFixedError(errs, code: diag.errServiceStateNotEnded, message: msg.clone(), module: c.modID, offset: offsetOf(c, p: p, ms: ms, node: td.id), fix: fix)
+end 'endsAtDecl'
+
+// endsFix declares the state type of a service Ends and writes its finish, whose body ends each field that cannot be dropped
+// where its type has one way to end it that takes nothing (endingOf): `try self.out.close() otherwise ignore` for a
+// FileWriter. A field with no such way is left for the author, whom E3919 then shows the field.
+function endsFix(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, state ast.TypeID, td ast.TypeDecl) returns diag.Fix
+	var calls = ast.StringList.create(0)
+	let orig = ast.originOf(ms.types, reads: p.types, t: state)
+	for f in ast.typeEntry(ms.types, reads: p.types, t: orig).fields.clone() 'fields'
+		let fTy = ast.fieldType(ms.types, reads: p.types, owner: state, index: f.index)
+		if not ast.isManagedType(ms.types, reads: p.types, t: fTy) or not lacksCap(c, p: p, ms: ms, wantCopy: false, t: fTy).missing 'droppable'
+			continue 'fields'
+		end 'droppable'
+		match consumes endingOf(c, p: p, ms: ms, t: fTy, depth: 1) 'ending'
+			some(ending) then calls.push(endingCall("self.{f.name}", ending: ending))
+			none then _ = 0
+		end 'ending'
+	end 'fields'
+	return endsDeclFix(ms.tree(), td: td, calls: calls)
+end 'endsFix'
 
 // requireMessage checks a message: it takes its state as let or mutates, takes only what can cross, and replies with what
 // can cross.

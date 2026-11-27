@@ -543,6 +543,13 @@ function serviceCurrent() returns Count
 	return runningService()
 end 'serviceCurrent'
 
+// serviceEnding gives a service whose state type implements Ends the address of its finish, which the drop of its last
+// owner calls with the state in place of the state's drop, as a cown's dropWith: destructor ends its value, where no stop's
+// behaviour took the state first.
+function serviceEnding(handle Count, ending Count)
+	__Raw.storeWord(handle, offset: cownEndingOffset, value: ending)
+end 'serviceEnding'
+
 function serviceStopSelf()
 	let service = runningService()
 	if service != noService 'message'

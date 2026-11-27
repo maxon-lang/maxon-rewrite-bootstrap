@@ -1,0 +1,25 @@
+// The state of a service that holds an open file cannot be dropped, so its type implements Ends, whose finish the service
+// calls once it has stopped and which closes the file: a type that does not is refused at its declaration.
+type Log
+	var out as FileWriter
+	var lines as Count
+
+	static function create(path FilePath) returns Self throws FileWriteError
+		return Self{out: try FileWriter.open(path), lines: 0}
+	end 'create'
+
+	export function line(mutates self, consumes text String)
+		try self.out.write(text.toByteArray()) otherwise ignore
+		self.lines = try self.lines + 1 otherwise 0
+	end 'line'
+end 'Log'
+
+function main() returns ExitCode
+	let path = try FilePath.from("log.txt") otherwise return 1
+	let log = try spawn Log.create(path) otherwise return 2
+	try log.line("one\n") otherwise return 3
+	log.shutdown()
+	return 0
+end 'main'
+
+// expect-error: E3956 at 3:6

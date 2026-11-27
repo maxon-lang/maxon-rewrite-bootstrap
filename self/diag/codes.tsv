@@ -177,6 +177,7 @@ ErrStopNowUndeclared	E3952	-	A stopNow() stops a service whose type does not imp
 ErrSelfHandleOffMessage	E3953	-	'self.handle', a handler's handle to its own service, is written outside a message of a type: off a message no service runs.
 ErrPostedMessageOfOtherType	E3954	-	The message h.post(m) makes for a service is not a value of that service's own message union, or names a service with none.
 ErrPostedKindReplies	E3955	-	The kind of a message the runtime posts returns or throws, and nobody awaits a posted message.
+ErrServiceStateNotEnded	E3956	-	The state of a service holds a value that cannot be dropped, and its type does not implement Ends, whose finish would end it when the service stops.
 ErrInvalidFieldAccess	E4006	invalidFieldAccess	A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 ErrTypeCycle	E4014	irTypeCycle	A type contains itself.
 ErrRegisterPressure	E5001	registerPressure	A loop holds more values at once than the target has registers of their class, so a load or store would land in the loop.

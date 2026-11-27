@@ -276,12 +276,18 @@ end 'entryFrozenFreeze'
 function entryCownNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	vm.tracking = true
 	let cown = try newShared(vm, f: f, kind: kindCown, src: argAt(f, x: x, i: 0), what: "the new cown")
+	giveEnding(vm, f: f, x: x, cown: cown)
+	giveRef(vm, x: x, o: cown)
+end 'entryCownNew'
+
+// giveEnding gives a cown, or a service, the function of the instruction's Routine, where it has one, which ends its value
+// in place of its drop when the cown is freed.
+function giveEnding(mutates vm Vm, f ir.IrFunction, x ir.Instr, cown Count)
 	match consumes ir.callRuntimeRoutine(f, x: x) 'routine'
 		some(routine) then vm.h.shareds[vm.h.oData[cown]].ending = functionOf(vm, id: routine)
 		none then _ = 0
 	end 'routine'
-	giveRef(vm, x: x, o: cown)
-end 'entryCownNew'
+end 'giveEnding'
 
 // functionOf is the index of the function that a declaration has IR for.
 function functionOf(vm Vm, id ast.FuncID) returns Count

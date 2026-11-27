@@ -513,6 +513,9 @@ export let errPostedMessageOfOtherType = "E3954"
 // The kind of a message the runtime posts returns or throws, and nobody awaits a posted message.
 export let errPostedKindReplies = "E3955"
 
+// The state of a service holds a value that cannot be dropped, and its type does not implement Ends, whose finish would end it when the service stops.
+export let errServiceStateNotEnded = "E3956"
+
 // A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 export let errInvalidFieldAccess = "E4006"
 

@@ -28,6 +28,8 @@ export let fixKindMatchConsumes = "match consumes"
 
 export let fixKindUntry = "no try"
 
+let fixKindEnds = "ends"
+
 let fixKindUnrequire = "no requires"
 
 let fixKindThaw = "thaw"
@@ -604,6 +606,53 @@ function isDottedName(text String) returns bool
 	end 'each'
 	return true
 end 'isDottedName'
+
+// endsDeclFix declares the type td Ends, after the interfaces it implements or its name and type parameters, and writes its
+// finish last in its body, with a line of its body for each call: what E3956 asks of a service's state that cannot be
+// dropped. A type with no end label has none.
+function endsDeclFix(t ast.Tree, td ast.TypeDecl, calls ast.StringList) returns diag.Fix
+	if td.endRef == 0 'unlabelled'
+		return diag.Fix.none()
+	end 'unlabelled'
+	let start = t.startOf(td.id) as Count
+	var lineEnd = start
+	while lineEnd < t.text.byteLength() and t.text.byteAt(lineEnd) != newlineByte and t.text.byteAt(lineEnd) != carriageReturnByte 'header'
+		lineEnd = nextOf(lineEnd)
+	end 'header'
+	var at = lineEnd
+	if td.whereList.count() > 0 'where'
+		let clause = " where "
+		var scan = start
+		var past = clause.byteLength()
+		past = try past + scan otherwise panic("fixes: an offset past a module")
+		while past <= lineEnd 'scan'
+			if t.text.sliceBytes(scan, endPos: past) == clause 'found'
+				at = scan
+				break 'scan'
+			end 'found'
+			scan = nextOf(scan)
+			past = nextOf(past)
+		end 'scan'
+	end 'where'
+	let named = ", Ends" if td.conforms != 0 else " implements Ends"
+	var endLine = t.startOf(td.endRef) as Count
+	while endLine > 0 and t.text.byteAt(endLine - 1) != newlineByte 'back'
+		endLine = endLine - 1
+	end 'back'
+	var indentEnd = endLine
+	while isBlank(t.text.byteAt(indentEnd)) 'indent'
+		indentEnd = nextOf(indentEnd)
+	end 'indent'
+	let indent = "{t.text.sliceBytes(endLine, endPos: indentEnd)}\t"
+	var body = ""
+	for call in calls 'calls'
+		body = "{body}{indent}\t{call}\n"
+	end 'calls'
+	var edits = diag.FixEdits.create(0)
+	edits.push(diag.FixEdit.insert(t.module, at: at32(at), text: named))
+	edits.push(diag.FixEdit.insert(t.module, at: at32(endLine), text: "\n{indent}function finish(consumes self)\n{body}{indent}end 'finish'\n"))
+	return fixOf(fixKindEnds, edits: edits)
+end 'endsDeclFix'
 
 // boundFix gives the type parameter named param the bound in the where clause of the function declared at decl, a type
 // parameter of its own or of the type it is a method of: what "add the bound 'where T implements Copyable'" asks for.
