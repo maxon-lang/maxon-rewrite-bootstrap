@@ -61,7 +61,7 @@ let mostResponseBytes = 65537 as Count
 
 // resolveName is the 4 bytes of an IPv4 address that a host's name resolves to.
 function resolveName(host __ManagedMemory with Byte) returns ByteArray throws __ManagedSocketError
-	#if os(macOS)
+	#if os(macOS) or os(Windows)
 		return quadOfWord(try __Builtins.socketResolve(host))
 	#else
 		let name = try canonicalName(host)

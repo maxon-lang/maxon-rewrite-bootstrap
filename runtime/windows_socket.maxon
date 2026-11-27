@@ -1,0 +1,392 @@
+// The calls of a socket on Windows (socket.maxon): ws2_32's, each giving what it returned or -error, the Winsock error read at once
+// (WSAGetLastError, which is the calling thread's: the runtime's code is never stopped by the monitor, so the thread is the same
+// from the call to the read). A PE imports from kernel32 alone, so the runtime loads ws2_32 and finds the functions of it and of
+// ntdll that its sockets call by their names, once, at the first socket, as it finds ProcessPrng (hash.maxon): the table of them is
+// a block the scheduler's record points at (schedWinsockOffset), and the calls go by their addresses (__Raw.callHostN). A socket is
+// made, and an accepted one set, not to wait (FIONBIO) and not to be inherited by a child (WSA_FLAG_NO_HANDLE_INHERIT, and
+// HANDLE_FLAG_INHERIT cleared on an accepted one, as Go's and libuv's are); a read and a send of it are recv and send, which
+// raise no signal when a peer has gone. The readiness of a socket is windows_poll.maxon's.
+
+#if os(Windows)
+	let afInet = 2 as Count
+
+	let afInet6 = 23 as Count
+
+	let solSocket = 0xFFFF as Count
+
+	let soError = 0x1007 as Count
+
+	let ipprotoTcp = 6 as Count
+
+	let tcpNodelay = 1 as Count
+
+	let soKeepalive = 8 as Count
+
+	// The idle time before the first probe, the interval between probes and their count: TCP_KEEPIDLE, TCP_KEEPINTVL and
+	// TCP_KEEPCNT, which Windows 10 version 1709 (1703 for the count) sets for a socket.
+	let tcpKeepIdle = 3 as Count
+
+	let tcpKeepInterval = 17 as Count
+
+	let tcpKeepCount = 16 as Count
+
+	let ipprotoIpv6 = 41 as Count
+
+	let ipv6V6only = 27 as Count
+
+	let sockaddrIn4Bytes = 16 as Count
+
+	let sockaddrIn6Bytes = 28 as Count
+
+	let sockaddrPortOffset = 2 as Count
+
+	let sockaddrIn4AddressOffset = 4 as Count
+
+	let sockaddrIn6AddressOffset = 8 as Count
+
+	// The Winsock errors that the socket code tells apart, under the names of the errnos it asks for on the other systems: a
+	// connect that has not ended, a call that would wait and one that a signal broke off (which Windows has none of) are told as
+	// Windows tells them, WSAEWOULDBLOCK, and a connect that is made again is WSAEALREADY.
+	let einprogress = 10035 as Count
+
+	let eagain = 10035 as Count
+
+	let eintr = 10004 as Count
+
+	let ealready = 10037 as Count
+
+	let eisconn = 10056 as Count
+
+	let econnaborted = 10053 as Count
+
+	let enotsock = 10038 as Count
+
+	let ebadf = 10009 as Count
+
+	let einval = 10022 as Count
+
+	let efault = 10014 as Count
+
+	// econnreset is WSAECONNRESET, which an accept gives for a connection that was reset before it was taken, where the other
+	// systems give ECONNABORTED: acceptCall tells it as that.
+	let econnreset = 10054 as Count
+
+	let noPeer = 0 as Count
+
+	// The values of the calls: SOCK_STREAM, WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT, FIONBIO, SD_SEND, SIO_BASE_HANDLE
+	// and HANDLE_FLAG_INHERIT.
+	let sockStream = 1 as Count
+
+	let socketCreateFlags = 0x81 as Count
+
+	let fionbio = 0x8004667E as Count
+
+	let shutdownSend = 1 as Count
+
+	let sioBaseHandle = 0x48000022 as Count
+
+	let handleFlagInherit = 1 as Count
+
+	// invalidSocket is INVALID_SOCKET, and socketError what an int-returning function gives for a failure (-1, its low 32 bits).
+	let invalidSocket = 0xFFFFFFFFFFFFFFFF as Count
+
+	let socketError = 0xFFFFFFFF as Count
+
+	// errorLimit is above any Winsock error: a result in the last errorLimit words of the address space is -error, as a
+	// system call's is on Linux, and a socket or a count is far below it.
+	let errorLimit = 65536 as Count
+
+	// WSAStartup's version, 2.2, and the room of its WSADATA (408 bytes on x64).
+	let winsockVersion = 0x202 as Count
+
+	let winsockDataBytes = 512 as Count
+
+	// The slots of the table of functions: the byte offset of each one's address. The table's words after the last are the
+	// groups of AFD handles that poll the sockets (windows_poll.maxon).
+	let wsaStartupSlot = 0 as Count
+
+	let wsaSocketSlot = 8 as Count
+
+	let bindSlot = 16 as Count
+
+	let listenSlot = 24 as Count
+
+	let getsocknameSlot = 32 as Count
+
+	let getpeernameSlot = 40 as Count
+
+	let acceptSlot = 48 as Count
+
+	let connectSlot = 56 as Count
+
+	let getsockoptSlot = 64 as Count
+
+	let setsockoptSlot = 72 as Count
+
+	let shutdownSlot = 80 as Count
+
+	let recvSlot = 88 as Count
+
+	let sendSlot = 96 as Count
+
+	let ioctlsocketSlot = 104 as Count
+
+	let wsaIoctlSlot = 112 as Count
+
+	let closesocketSlot = 120 as Count
+
+	let wsaGetLastErrorSlot = 128 as Count
+
+	let getaddrinfoSlot = 136 as Count
+
+	let freeaddrinfoSlot = 144 as Count
+
+	let ntCreateFileSlot = 152 as Count
+
+	let ntDeviceIoControlFileSlot = 160 as Count
+
+	let ntCancelIoFileExSlot = 168 as Count
+
+	// winsockGroupsOffset is where the table holds the first of the groups of AFD handles that have room for a socket, and
+	// winsockSpareGroupsOffset the first of the group records that are free, both under the scheduler's lock.
+	let winsockGroupsOffset = 176 as Count
+
+	let winsockSpareGroupsOffset = 184 as Count
+
+	let winsockTableBytes = 192 as Count
+
+	// winsockTable is the table of the process's sockets, which the first call makes: ws2_32 loaded and started, and the functions
+	// the sockets call found. A thread that is late with its own makes the same table, and its copy is given back.
+	function winsockTable() returns Count
+		let scheduler = schedulerOf(__Raw.threadContext())
+		let made = __Raw.loadAcquire(scheduler, offset: schedWinsockOffset)
+		if made != 0 'made'
+			return made
+		end 'made'
+		let table = winsockMake()
+		let first = __Raw.compareExchange(scheduler, offset: schedWinsockOffset, expected: 0, desired: table)
+		if first != 0 'lost'
+			unkeep(table, bytes: winsockTableBytes)
+			return first
+		end 'lost'
+		return table
+	end 'winsockTable'
+
+	// winsockMake loads ws2_32, starts it and finds the functions of it and of ntdll that the sockets call.
+	function winsockMake() returns Count
+		let table = keep(winsockTableBytes)
+		let library = cStringOf("ws2_32.dll")
+		let winsock = __Raw.callImport1("LoadLibraryA", arg1: library)
+		free(library)
+		let system = cStringOf("ntdll.dll")
+		let native = __Raw.callImport1("GetModuleHandleA", arg1: system)
+		free(system)
+		if winsock == 0 or native == 0 'unloaded'
+			panic("the operating system has no sockets: ws2_32.dll cannot be loaded")
+		end 'unloaded'
+		winsockFind(table, slot: wsaStartupSlot, module: winsock, name: "WSAStartup")
+		winsockFind(table, slot: wsaSocketSlot, module: winsock, name: "WSASocketW")
+		winsockFind(table, slot: bindSlot, module: winsock, name: "bind")
+		winsockFind(table, slot: listenSlot, module: winsock, name: "listen")
+		winsockFind(table, slot: getsocknameSlot, module: winsock, name: "getsockname")
+		winsockFind(table, slot: getpeernameSlot, module: winsock, name: "getpeername")
+		winsockFind(table, slot: acceptSlot, module: winsock, name: "accept")
+		winsockFind(table, slot: connectSlot, module: winsock, name: "connect")
+		winsockFind(table, slot: getsockoptSlot, module: winsock, name: "getsockopt")
+		winsockFind(table, slot: setsockoptSlot, module: winsock, name: "setsockopt")
+		winsockFind(table, slot: shutdownSlot, module: winsock, name: "shutdown")
+		winsockFind(table, slot: recvSlot, module: winsock, name: "recv")
+		winsockFind(table, slot: sendSlot, module: winsock, name: "send")
+		winsockFind(table, slot: ioctlsocketSlot, module: winsock, name: "ioctlsocket")
+		winsockFind(table, slot: wsaIoctlSlot, module: winsock, name: "WSAIoctl")
+		winsockFind(table, slot: closesocketSlot, module: winsock, name: "closesocket")
+		winsockFind(table, slot: wsaGetLastErrorSlot, module: winsock, name: "WSAGetLastError")
+		winsockFind(table, slot: getaddrinfoSlot, module: winsock, name: "getaddrinfo")
+		winsockFind(table, slot: freeaddrinfoSlot, module: winsock, name: "freeaddrinfo")
+		winsockFind(table, slot: ntCreateFileSlot, module: native, name: "NtCreateFile")
+		winsockFind(table, slot: ntDeviceIoControlFileSlot, module: native, name: "NtDeviceIoControlFile")
+		winsockFind(table, slot: ntCancelIoFileExSlot, module: native, name: "NtCancelIoFileEx")
+		let data = alloc(winsockDataBytes)
+		zeroRange(data, from: 0, to: winsockDataBytes)
+		let started = dword(__Raw.callHost2(__Raw.loadWord(table, offset: wsaStartupSlot), arg1: winsockVersion, arg2: data))
+		free(data)
+		if started != 0 'unstarted'
+			panic("the operating system has no sockets: WSAStartup failed")
+		end 'unstarted'
+		return table
+	end 'winsockMake'
+
+	// winsockFind finds a function of a loaded library by its name and keeps its address in a slot of the table.
+	function winsockFind(table Count, slot Count, module Count, name String)
+		let text = cStringOf(name)
+		let address = __Raw.callImport2("GetProcAddress", arg1: module, arg2: text)
+		free(text)
+		if address == 0 'missing'
+			panic("the operating system's sockets lack the function {name}")
+		end 'missing'
+		__Raw.storeWord(table, offset: slot, value: address)
+	end 'winsockFind'
+
+	// winsockFunction is the address of a function of the table, by its slot.
+	function winsockFunction(slot Count) returns Count
+		return __Raw.loadWord(winsockTable(), offset: slot)
+	end 'winsockFunction'
+
+	// failed is whether what a call gave is -error, a word in the last errorLimit of the address space.
+	function failed(result Count) returns bool
+		return result > __Raw.wrappingSub(0, right: errorLimit)
+	end 'failed'
+
+	// errnoOf is the Winsock error of a result that failed.
+	function errnoOf(result Count) returns Count
+		return __Raw.wrappingSub(0, right: result)
+	end 'errnoOf'
+
+	// lastError is -error where the last Winsock call of the thread failed.
+	function lastError() returns Count
+		return __Raw.wrappingSub(0, right: dword(__Raw.callHost0(winsockFunction(wsaGetLastErrorSlot))))
+	end 'lastError'
+
+	// intResult is what an int-returning function of ws2_32 gave, or -error where it failed (-1).
+	function intResult(result Count) returns Count
+		let low = dword(result)
+		if low == socketError 'failed'
+			return lastError()
+		end 'failed'
+		return low
+	end 'intResult'
+
+	// socketResult is what a function of ws2_32 that gives a socket gave, or -error where it gave INVALID_SOCKET.
+	function socketResult(result Count) returns Count
+		if result == invalidSocket 'failed'
+			return lastError()
+		end 'failed'
+		return result
+	end 'socketResult'
+
+	// closeFd closes a socket, which is what an fd of the runtime is on Windows.
+	function closeFd(fd Count)
+		_ = __Raw.callHost1(winsockFunction(closesocketSlot), arg1: fd)
+	end 'closeFd'
+
+	// closeSocketHandle closes a socket and gives the error the system reported, or 0.
+	function closeSocketHandle(fd Count) returns Count
+		let result = intResult(__Raw.callHost1(winsockFunction(closesocketSlot), arg1: fd))
+		if failed(result) 'refused'
+			return errnoOf(result)
+		end 'refused'
+		return 0
+	end 'closeSocketHandle'
+
+	// socketOpen opens a TCP socket of the family of an address of a length that does not wait, and gives it or -error.
+	function socketOpen(length Count) returns Count
+		let fd = socketResult(__Raw.callHost6(winsockFunction(wsaSocketSlot), arg1: systemFamily(length), arg2: sockStream, arg3: ipprotoTcp, arg4: 0, arg5: 0, arg6: socketCreateFlags))
+		if not failed(fd) 'opened'
+			let refused = nonblocking(fd)
+			if failed(refused) 'refused'
+				closeFd(fd)
+				return refused
+			end 'refused'
+		end 'opened'
+		return fd
+	end 'socketOpen'
+
+	// nonblocking makes a socket not wait (FIONBIO), and gives 0 or -error.
+	function nonblocking(fd Count) returns Count
+		var on = 1 as Count
+		return intResult(__Raw.callHost3(winsockFunction(ioctlsocketSlot), arg1: fd, arg2: fionbio, arg3: __Raw.addressOf(on)))
+	end 'nonblocking'
+
+	function socketBind(fd Count, name Count, length Count) returns Count
+		return intResult(__Raw.callHost3(winsockFunction(bindSlot), arg1: fd, arg2: name, arg3: length))
+	end 'socketBind'
+
+	function socketListenCall(fd Count, backlog Count) returns Count
+		return intResult(__Raw.callHost2(winsockFunction(listenSlot), arg1: fd, arg2: backlog))
+	end 'socketListenCall'
+
+	function socketName(fd Count, name Count, lengthAddress Count) returns Count
+		return intResult(__Raw.callHost3(winsockFunction(getsocknameSlot), arg1: fd, arg2: name, arg3: lengthAddress))
+	end 'socketName'
+
+	function peerName(fd Count, name Count, lengthAddress Count) returns Count
+		return intResult(__Raw.callHost3(winsockFunction(getpeernameSlot), arg1: fd, arg2: name, arg3: lengthAddress))
+	end 'peerName'
+
+	// acceptCall takes the next connection, which does not wait and is not inherited by a child, and gives its socket or -error:
+	// a connection that was reset before it was taken is told as one that was aborted.
+	function acceptCall(fd Count) returns Count
+		let accepted = socketResult(__Raw.callHost3(winsockFunction(acceptSlot), arg1: fd, arg2: noPeer, arg3: noPeer))
+		if failed(accepted) 'refused'
+			if errnoOf(accepted) == econnreset 'reset'
+				return __Raw.wrappingSub(0, right: econnaborted)
+			end 'reset'
+			return accepted
+		end 'refused'
+		_ = __Raw.callImport3("SetHandleInformation", arg1: accepted, arg2: handleFlagInherit, arg3: 0)
+		let unblocked = nonblocking(accepted)
+		if failed(unblocked) 'unblocked'
+			closeFd(accepted)
+			return unblocked
+		end 'unblocked'
+		return accepted
+	end 'acceptCall'
+
+	function connectCall(fd Count, name Count, length Count) returns Count
+		return intResult(__Raw.callHost3(winsockFunction(connectSlot), arg1: fd, arg2: name, arg3: length))
+	end 'connectCall'
+
+	function socketOptionRead(fd Count, level Count, option Count, value Count, lengthAddress Count) returns Count
+		return intResult(__Raw.callHost5(winsockFunction(getsockoptSlot), arg1: fd, arg2: level, arg3: option, arg4: value, arg5: lengthAddress))
+	end 'socketOptionRead'
+
+	function socketOptionWrite(fd Count, level Count, option Count, value Count, length Count) returns Count
+		return intResult(__Raw.callHost5(winsockFunction(setsockoptSlot), arg1: fd, arg2: level, arg3: option, arg4: value, arg5: length))
+	end 'socketOptionWrite'
+
+	function shutdownWriteCall(fd Count) returns Count
+		return intResult(__Raw.callHost2(winsockFunction(shutdownSlot), arg1: fd, arg2: shutdownSend))
+	end 'shutdownWriteCall'
+
+	// socketCall is one read (recv) or send of a connected socket, its count or -error.
+	function socketCall(fd Count, mode Count, buffer Count, length Count) returns Count
+		if mode == eventWrite 'send'
+			return intResult(__Raw.callHost4(winsockFunction(sendSlot), arg1: fd, arg2: buffer, arg3: length, arg4: 0))
+		end 'send'
+		return intResult(__Raw.callHost4(winsockFunction(recvSlot), arg1: fd, arg2: buffer, arg3: length, arg4: 0))
+	end 'socketCall'
+
+	// sockaddrFamily writes the family of an address of a length into a sockaddr, 16 bits at its start.
+	function sockaddrFamily(name Count, length Count)
+		__Raw.storeWord16(name, offset: 0, value: systemFamily(length))
+	end 'sockaddrFamily'
+
+	// baseHandle is the socket under any layered provider (SIO_BASE_HANDLE), which AFD polls, or 0 where the system refuses it.
+	function baseHandle(fd Count) returns Count
+		var base = 0 as Count
+		var returned = 0 as Count
+		let result = intResult(__Raw.callHost9(winsockFunction(wsaIoctlSlot), arg1: fd, arg2: sioBaseHandle, arg3: 0, arg4: 0, arg5: __Raw.addressOf(base), arg6: wordBytes, arg7: __Raw.addressOf(returned), arg8: 0, arg9: 0))
+		if failed(result) 'refused'
+			return 0
+		end 'refused'
+		return base
+	end 'baseHandle'
+
+	// The calls of the system's resolver (socket.maxon's socketResolve): getaddrinfo, whose ADDRINFOA is 48 bytes, its family at 4,
+	// its socket type at 8 and its address at 32.
+	let addrinfoBytes = 48 as Count
+
+	let addrinfoFamilyOffset = 4 as Count
+
+	let addrinfoSocktypeOffset = 8 as Count
+
+	let addrinfoAddrOffset = 32 as Count
+
+	function resolveCall(name Count, hints Count, found Count) returns Count
+		return dword(__Raw.callHost4(winsockFunction(getaddrinfoSlot), arg1: name, arg2: 0, arg3: hints, arg4: found))
+	end 'resolveCall'
+
+	function resolveFree(found Count)
+		_ = __Raw.callHost1(winsockFunction(freeaddrinfoSlot), arg1: found)
+	end 'resolveFree'
+#endif

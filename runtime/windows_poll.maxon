@@ -1,0 +1,505 @@
+// The readiness of a socket on Windows (eventqueue.maxon): AFD poll, the interface under Winsock that libuv, mio and wepoll poll
+// sockets by, on the runtime's completion port. A socket's event entry (entryKindSocket) is registered with no system call of its
+// own: it holds the one poll that may be pending on it, an IOCTL_AFD_POLL on an AFD handle of the group the socket belongs to
+// (\Device\Afd, NtCreateFile), whose completion is a packet on the port keyed eventPollKey, the poll's own IO_STATUS_BLOCK its
+// address. A poll reports a socket's readiness as it is when the poll is made and then once, where epoll and kqueue report each
+// edge, so the entry polls only for what is wanted: a green thread that waits in a mode (eventWait) and a posted record armed in
+// it (eventArm) want it, a poll is started for the modes wanted and, when it completes, the event is told to each mode that was
+// wanted and is ready (eventQueuedInto, as an edge is on the other systems) and its want is spent. A socket that nothing waits
+// for has no poll pending, so an idle connection costs its entry and, while it is armed, the system's request (about 1.1 KB of
+// nonpaged pool charged to the process, where that of a zero-byte WSARecv is about 0.5 KB); a poll that is not yet made is not
+// an edge missed, since the poll reports the state it finds.
+//
+// The state word of an entry (pollStateOffset) holds what it is wanted for (a bit for each mode), whether a poll is pending
+// (the entry's operation is the poll's memory until its completion has been taken) and whether the socket is closing. A want
+// starts the poll where none is pending, and cancels the one that does not ask for it (NtCancelIoFileEx), whose completion then
+// starts the poll again for what is wanted. A completion tells the modes that are wanted and ready, and starts the next poll in
+// its place where something is still wanted; it clears the pending bit only when nothing is, which is the last it does with
+// the entry. A close (pollRelease) says the socket is closing and cancels the poll; the entry is given back by the completion,
+// or at once where none is pending, so the kernel never writes into an entry that has another owner. A wait that ends otherwise
+// than by an event takes its want back, and cancels the poll when nothing else is wanted: no poll is left on a socket that
+// nothing waits for, as no operation of a file is.
+//
+// A poll names its sockets' base handle (SIO_BASE_HANDLE) and goes to a group's AFD handle: at most afdGroupSockets sockets
+// share one handle, since a cancel costs as many steps as the handle has requests pending. A new socket joins the first group
+// with room, which is the one that last had a socket close out of a full one, or was made; a group that is left empty is closed
+// while another has room, and one is kept for the next socket.
+//
+// The events of a poll are those Linux's epoll reports for the same states: the data or the peer's end (RECEIVE, ACCEPT,
+// DISCONNECT) is readable, room to send (SEND) is writable, and a connection that was reset or aborted, a connect that failed
+// (CONNECT_FAIL) and the socket's own close (LOCAL_CLOSE) are both, as EPOLLHUP and EPOLLERR are.
+
+#if os(Windows)
+	// The events of AFD_POLL_INFO and the ones this runtime asks for and tells.
+	let afdReceive = 0x1 as Count
+
+	let afdSend = 0x4 as Count
+
+	let afdDisconnect = 0x8 as Count
+
+	let afdAbort = 0x10 as Count
+
+	let afdLocalClose = 0x20 as Count
+
+	let afdAccept = 0x80 as Count
+
+	let afdConnectFail = 0x100 as Count
+
+	let afdHangUp = (afdAbort or afdConnectFail or afdLocalClose) as Count
+
+	let afdReadable = (afdReceive or afdAccept or afdDisconnect or afdHangUp) as Count
+
+	let afdWritable = (afdSend or afdHangUp) as Count
+
+	// IOCTL_AFD_POLL, and the AFD_POLL_INFO of one handle: the timeout (a LARGE_INTEGER, none), the count of handles and whether
+	// the poll is exclusive, and the handle with the events asked for, which the poll gives back as those that came.
+	let afdPollIoctl = 0x12024 as Count
+
+	let afdPollInfoBytes = 32 as Count
+
+	let afdNoTimeout = 0x7FFFFFFFFFFFFFFF as Count
+
+	let afdTimeoutOffset = 0 as Count
+
+	let afdHandleCountOffset = 8 as Count
+
+	let afdExclusiveOffset = 12 as Count
+
+	let afdHandleOffset = 16 as Count
+
+	let afdEventsOffset = 24 as Count
+
+	let afdStatusOffset = 28 as Count
+
+	// An NTSTATUS of a poll.
+	let statusPending = 0x103 as Count
+
+	// A socket's entry holds where a handle's holds the OVERLAPPED of its operations: the poll's IO_STATUS_BLOCK, its AFD_POLL_INFO,
+	// the group of the socket and the state word, and where a process's holds the pid of a child that nothing waits for, the base
+	// handle of the socket, which every poll names.
+	let pollStatusOffset = entryReadOverlappedOffset
+
+	let pollInfoOffset = (entryReadOverlappedOffset + 16) as Count
+
+	let pollBaseOffset = entryOrphanOffset
+
+	let pollEventsOffset = (pollInfoOffset + afdEventsOffset) as Count
+
+	let pollGroupOffset = (entryReadOverlappedOffset + 48) as Count
+
+	let pollStateOffset = (entryReadOverlappedOffset + 56) as Count
+
+	// The bits of the state word: a poll is pending, the socket is closing, and a mode is wanted.
+	let pollPending = 1 as Count
+
+	let pollClosing = 2 as Count
+
+	let pollWantRead = 4 as Count
+
+	let pollWantWrite = 8 as Count
+
+	let pollWants = (pollWantRead or pollWantWrite) as Count
+
+	let pollAll = 0xFFFFFFFFFFFFFFFF as Count
+
+	// A group of AFD handles: the handle, how many sockets belong to it, and the groups with room before and after it.
+	let groupHandleOffset = 0 as Count
+
+	let groupCountOffset = 8 as Count
+
+	let groupPreviousOffset = 16 as Count
+
+	let groupNextOffset = 24 as Count
+
+	let groupBytes = 32 as Count
+
+	let afdGroupSockets = 32 as Count
+
+	let afdGroupLastRoom = (afdGroupSockets - 1) as Count
+
+	let afdDeviceNameMaximumBytes = (afdDeviceNameBytes + 2) as Count
+
+	// The AFD device that a handle is opened on, whose last part names the opener only, and the room of the OBJECT_ATTRIBUTES,
+	// UNICODE_STRING and IO_STATUS_BLOCK that NtCreateFile reads and writes, and the handle.
+	let afdDeviceName = "\\Device\\Afd\\Minimaxon"
+
+	let afdDeviceNameBytes = 42 as Count
+
+	let afdOpenBytes = 88 as Count
+
+	let objectAttributesBytes = 48 as Count
+
+	let objectNameOffset = 16 as Count
+
+	let unicodeStringOffset = 48 as Count
+
+	let unicodeMaximumOffset = 50 as Count
+
+	let unicodeBufferOffset = 56 as Count
+
+	let openStatusOffset = 64 as Count
+
+	let openHandleOffset = 80 as Count
+
+	// NtCreateFile's access SYNCHRONIZE, its sharing (FILE_SHARE_READ | FILE_SHARE_WRITE) and FILE_OPEN, and the notification mode
+	// FILE_SKIP_SET_EVENT_ON_HANDLE: no event of the handle is set, and a poll that completes at once is still a packet.
+	let synchronizeAccess = 0x100000 as Count
+
+	let afdShare = 3 as Count
+
+	let afdOpenExisting = 1 as Count
+
+	let skipSetEvent = 2 as Count
+
+	// eventRegisterSocket registers a socket with the event queue and gives its event entry, or noEntry where its base handle or
+	// a group of AFD handles cannot be had.
+	function eventRegisterSocket(socket Count) returns Count
+		let base = baseHandle(socket)
+		if base == 0 'unbased'
+			return noEntry
+		end 'unbased'
+		let group = groupAcquire()
+		if group == 0 'ungrouped'
+			return noEntry
+		end 'ungrouped'
+		let scheduler = schedulerOf(__Raw.threadContext())
+		let entry = entryTake(scheduler, kind: entryKindSocket, handle: socket)
+		__Raw.storeWord(entry, offset: pollBaseOffset, value: base)
+		__Raw.storeWord(entry, offset: pollGroupOffset, value: group)
+		__Raw.storeRelease(entry, offset: pollStateOffset, value: 0)
+		return entry
+	end 'eventRegisterSocket'
+
+	// pollWantOf is the bit of the state word that a mode is wanted by.
+	function pollWantOf(mode Count) returns Count
+		return pollWantRead if mode == eventRead else pollWantWrite
+	end 'pollWantOf'
+
+	// pollWithout is the mask that keeps every bit of the state word but the bits given.
+	function pollWithout(bits Count) returns Count
+		return bits xor pollAll
+	end 'pollWithout'
+
+	// pollStateChange sets bits of an entry's state word and keeps those the mask keeps, as one step, and gives the word it found.
+	function pollStateChange(entry Count, add Count, keeping Count) returns Count
+		while true 'change'
+			let old = __Raw.loadAcquire(entry, offset: pollStateOffset)
+			let next = (old or add) and keeping
+			if __Raw.compareExchange(entry, offset: pollStateOffset, expected: old, desired: next) == old 'changed'
+				return old
+			end 'changed'
+		end 'change'
+		return 0
+	end 'pollStateChange'
+
+	// pollEventsOf is the events that a poll asks for the modes of a state word.
+	function pollEventsOf(state Count) returns Count
+		var events = afdLocalClose
+		if (state and pollWantRead) != 0 'read'
+			events = events or afdReadable
+		end 'read'
+		if (state and pollWantWrite) != 0 'write'
+			events = events or afdWritable
+		end 'write'
+		return events
+	end 'pollEventsOf'
+
+	// pollWant has a mode of a socket's entry wanted, so that a poll is pending for it, and says whether one could be made: where
+	// none could, the want is taken back.
+	function pollWant(entry Count, mode Count) returns bool
+		let bit = pollWantOf(mode)
+		_ = pollStateChange(entry, add: bit, keeping: pollAll)
+		if pollKick(entry) 'kicked'
+			return true
+		end 'kicked'
+		_ = pollStateChange(entry, add: 0, keeping: pollWithout(bit))
+		return false
+	end 'pollWant'
+
+	// pollUnwant takes back the want of a mode of a socket's entry that its wait or its arm has ended without an event, and
+	// cancels the poll where nothing else is wanted.
+	function pollUnwant(entry Count, mode Count)
+		let bit = pollWantOf(mode)
+		let old = pollStateChange(entry, add: 0, keeping: pollWithout(bit))
+		if (old and pollPending) != 0 and (old and pollWants) == bit 'idle'
+			pollCancel(entry)
+		end 'idle'
+	end 'pollUnwant'
+
+	// pollDisarm takes back the want of a mode of a socket's entry whose posted record was taken back, leaving a poll that is
+	// pending to complete, or to serve the next arm.
+	function pollDisarm(entry Count, mode Count)
+		_ = pollStateChange(entry, add: 0, keeping: pollWithout(pollWantOf(mode)))
+	end 'pollDisarm'
+
+	// pollKick starts the poll that the modes wanted ask for where none is pending, and cancels the one that is pending where it
+	// does not ask for all of them, whose completion then starts the poll; it says false where the poll could not be started.
+	function pollKick(entry Count) returns bool
+		while true 'kick'
+			let state = __Raw.loadAcquire(entry, offset: pollStateOffset)
+			if (state and pollClosing) != 0 or (state and pollWants) == 0 'nothing'
+				return true
+			end 'nothing'
+			if (state and pollPending) != 0 'pending'
+				let wanted = pollEventsOf(state)
+				if (__Raw.loadWord32(entry, offset: pollEventsOffset) and wanted) != wanted 'narrow'
+					pollCancel(entry)
+				end 'narrow'
+				return true
+			end 'pending'
+			if __Raw.compareExchange(entry, offset: pollStateOffset, expected: state, desired: state or pollPending) == state 'taken'
+				if not pollStart(entry, state: state) 'refused'
+					_ = pollStateChange(entry, add: 0, keeping: pollWithout(pollPending))
+					return false
+				end 'refused'
+				return true
+			end 'taken'
+		end 'kick'
+		return true
+	end 'pollKick'
+
+	// pollStart makes the poll of a socket's entry for the modes of a state word, and says whether the system took it.
+	function pollStart(entry Count, state Count) returns bool
+		let operation = __Raw.wrappingAdd(entry, right: pollStatusOffset)
+		let info = __Raw.wrappingAdd(entry, right: pollInfoOffset)
+		__Raw.storeWord(operation, offset: 0, value: statusPending)
+		__Raw.storeWord(operation, offset: wordBytes, value: 0)
+		__Raw.storeWord(info, offset: afdTimeoutOffset, value: afdNoTimeout)
+		__Raw.storeWord32(info, offset: afdHandleCountOffset, value: 1)
+		__Raw.storeWord32(info, offset: afdExclusiveOffset, value: 0)
+		__Raw.storeWord(info, offset: afdHandleOffset, value: __Raw.loadWord(entry, offset: pollBaseOffset))
+		__Raw.storeWord32(info, offset: afdEventsOffset, value: pollEventsOf(state))
+		__Raw.storeWord32(info, offset: afdStatusOffset, value: 0)
+		let handle = __Raw.loadWord(__Raw.loadWord(entry, offset: pollGroupOffset), offset: groupHandleOffset)
+		let status = dword(__Raw.callHost10(winsockFunction(ntDeviceIoControlFileSlot), arg1: handle, arg2: 0, arg3: 0, arg4: operation, arg5: operation, arg6: afdPollIoctl, arg7: info, arg8: afdPollInfoBytes, arg9: info, arg10: afdPollInfoBytes))
+		return status == statusSuccess or status == statusPending
+	end 'pollStart'
+
+	// pollCancel cancels the poll of a socket's entry, whose completion comes whether the cancel took hold or the poll had
+	// completed.
+	function pollCancel(entry Count)
+		let handle = __Raw.loadWord(__Raw.loadWord(entry, offset: pollGroupOffset), offset: groupHandleOffset)
+		_ = __Raw.callHost3(winsockFunction(ntCancelIoFileExSlot), arg1: handle, arg2: __Raw.wrappingAdd(entry, right: pollStatusOffset), arg3: __Raw.wrappingAdd(threadBlockSwitch(__Raw.threadContext()), right: threadBlockClockOffset))
+	end 'pollCancel'
+
+	// pollRelease is the close of a socket's entry: it says the socket is closing and wants nothing, and cancels the poll that is
+	// pending, whose completion gives the entry back; where none is, it gives the entry back at once.
+	function pollRelease(scheduler Count, entry Count)
+		let old = pollStateChange(entry, add: pollClosing, keeping: pollWithout(pollWants))
+		if (old and pollPending) != 0 'pending'
+			pollCancel(entry)
+			return
+		end 'pending'
+		pollClosed(scheduler, entry: entry)
+	end 'pollRelease'
+
+	// pollClosed gives back the entry of a closed socket, and its place in its group, once no poll of it is pending.
+	function pollClosed(scheduler Count, entry Count)
+		groupRelease(__Raw.loadWord(entry, offset: pollGroupOffset))
+		entryGive(scheduler, entry: entry)
+	end 'pollClosed'
+
+	// pollReadyOf is the modes, as the bits of the state word, that the completion of a poll tells are ready: none where the poll
+	// was cancelled or found nothing, and both where it failed, so that the call that waited makes its call and gives the error.
+	function pollReadyOf(entry Count) returns Count
+		let status = dword(__Raw.loadWord(entry, offset: pollStatusOffset))
+		if status == statusCancelled 'cancelled'
+			return 0
+		end 'cancelled'
+		if status != statusSuccess 'failed'
+			return pollWants
+		end 'failed'
+		if __Raw.loadWord32(entry, offset: __Raw.wrappingAdd(pollInfoOffset, right: afdHandleCountOffset)) == 0 'nothing'
+			return 0
+		end 'nothing'
+		let events = __Raw.loadWord32(entry, offset: pollEventsOffset)
+		var ready = 0 as Count
+		if (events and afdReadable) != 0 'read'
+			ready = ready or pollWantRead
+		end 'read'
+		if (events and afdWritable) != 0 'write'
+			ready = ready or pollWantWrite
+		end 'write'
+		return ready
+	end 'pollReadyOf'
+
+	// pollCompleted is what the completion of a socket's poll does, its IO_STATUS_BLOCK at an address: it tells each mode that is
+	// wanted and ready, joining what it readies to the list, which it gives back, and then starts the next poll in the place of
+	// this one where a mode is still wanted. The entry is the poll's until the completion has finished with it.
+	function pollCompleted(operation Count, list Count) returns Count
+		let entry = __Raw.wrappingSub(operation, right: pollStatusOffset)
+		var told = list
+		let ready = pollReadyOf(entry)
+		let state = __Raw.loadAcquire(entry, offset: pollStateOffset)
+		let telling = ready and state
+		if telling != 0 'tell'
+			_ = pollStateChange(entry, add: 0, keeping: pollWithout(telling))
+			if (telling and pollWantRead) != 0 'read'
+				told = eventQueuedInto(entry, mode: eventRead, list: told)
+			end 'read'
+			if (telling and pollWantWrite) != 0 'write'
+				told = eventQueuedInto(entry, mode: eventWrite, list: told)
+			end 'write'
+		end 'tell'
+		return pollNext(entry, list: told)
+	end 'pollCompleted'
+
+	// pollNext starts the poll that follows a completion where a mode is still wanted, in the entry's place, and otherwise ends the
+	// poll: the entry is given back where its socket was closed meanwhile. A poll that the system refuses tells the modes wanted,
+	// whose calls then give the error.
+	function pollNext(entry Count, list Count) returns Count
+		var told = list
+		while true 'next'
+			let state = __Raw.loadAcquire(entry, offset: pollStateOffset)
+			if (state and pollWants) != 0 and (state and pollClosing) == 0 'wanted'
+				if pollStart(entry, state: state) 'started'
+					return told
+				end 'started'
+				_ = pollStateChange(entry, add: 0, keeping: pollWithout(pollWants))
+				if (state and pollWantRead) != 0 'read'
+					told = eventQueuedInto(entry, mode: eventRead, list: told)
+				end 'read'
+				if (state and pollWantWrite) != 0 'write'
+					told = eventQueuedInto(entry, mode: eventWrite, list: told)
+				end 'write'
+				continue 'next'
+			end 'wanted'
+			if __Raw.compareExchange(entry, offset: pollStateOffset, expected: state, desired: state and pollWithout(pollPending)) == state 'ended'
+				if (state and pollClosing) != 0 'closed'
+					pollClosed(schedulerOf(__Raw.threadContext()), entry: entry)
+				end 'closed'
+				return told
+			end 'ended'
+		end 'next'
+		return told
+	end 'pollNext'
+
+	// groupAcquire is the group of AFD handles that a new socket joins, whose count of sockets it raises, or 0 where a handle cannot
+	// be opened.
+	function groupAcquire() returns Count
+		let scheduler = schedulerOf(__Raw.threadContext())
+		let table = winsockTable()
+		while true 'acquire'
+			lockScheduler(scheduler)
+			let group = __Raw.loadWord(table, offset: winsockGroupsOffset)
+			if group != 0 'room'
+				let count = __Raw.wrappingAdd(__Raw.loadWord(group, offset: groupCountOffset), right: 1)
+				__Raw.storeWord(group, offset: groupCountOffset, value: count)
+				if count == afdGroupSockets 'full'
+					groupUnlink(table, group: group)
+				end 'full'
+				unlockScheduler(scheduler)
+				return group
+			end 'room'
+			unlockScheduler(scheduler)
+			if not groupMake(scheduler, table: table) 'refused'
+				return 0
+			end 'refused'
+		end 'acquire'
+		return 0
+	end 'groupAcquire'
+
+	// groupMake opens an AFD handle and adds a group of it, with no sockets, to those with room, and says whether it could.
+	function groupMake(scheduler Count, table Count) returns bool
+		lockScheduler(scheduler)
+		var group = __Raw.loadWord(table, offset: winsockSpareGroupsOffset)
+		if group != 0 'spare'
+			__Raw.storeWord(table, offset: winsockSpareGroupsOffset, value: __Raw.loadWord(group, offset: groupNextOffset))
+		end 'spare'
+		unlockScheduler(scheduler)
+		if group == 0 'carve'
+			group = carve(scheduler, bytes: groupBytes)
+		end 'carve'
+		let handle = afdOpen(scheduler)
+		lockScheduler(scheduler)
+		if handle == 0 'refused'
+			__Raw.storeWord(group, offset: groupNextOffset, value: __Raw.loadWord(table, offset: winsockSpareGroupsOffset))
+			__Raw.storeWord(table, offset: winsockSpareGroupsOffset, value: group)
+			unlockScheduler(scheduler)
+			return false
+		end 'refused'
+		__Raw.storeWord(group, offset: groupHandleOffset, value: handle)
+		__Raw.storeWord(group, offset: groupCountOffset, value: 0)
+		groupPush(table, group: group)
+		unlockScheduler(scheduler)
+		return true
+	end 'groupMake'
+
+	// groupPush makes a group the first of those with room, under the scheduler's lock.
+	function groupPush(table Count, group Count)
+		let first = __Raw.loadWord(table, offset: winsockGroupsOffset)
+		__Raw.storeWord(group, offset: groupPreviousOffset, value: 0)
+		__Raw.storeWord(group, offset: groupNextOffset, value: first)
+		if first != 0 'others'
+			__Raw.storeWord(first, offset: groupPreviousOffset, value: group)
+		end 'others'
+		__Raw.storeWord(table, offset: winsockGroupsOffset, value: group)
+	end 'groupPush'
+
+	// groupUnlink takes a group off the list of those with room, under the scheduler's lock.
+	function groupUnlink(table Count, group Count)
+		let previous = __Raw.loadWord(group, offset: groupPreviousOffset)
+		let next = __Raw.loadWord(group, offset: groupNextOffset)
+		if previous != 0 'middle'
+			__Raw.storeWord(previous, offset: groupNextOffset, value: next)
+		end 'middle' else 'first'
+			__Raw.storeWord(table, offset: winsockGroupsOffset, value: next)
+		end 'first'
+		if next != 0 'before'
+			__Raw.storeWord(next, offset: groupPreviousOffset, value: previous)
+		end 'before'
+		__Raw.storeWord(group, offset: groupPreviousOffset, value: 0)
+		__Raw.storeWord(group, offset: groupNextOffset, value: 0)
+	end 'groupUnlink'
+
+	// groupRelease lowers the count of sockets of a group whose socket was closed. A group that was full has room again and is the
+	// first to be given sockets, so that the groups fill from those that were fullest; one that is left empty is closed unless it
+	// is the only group with room, which is kept for the next socket.
+	function groupRelease(group Count)
+		let scheduler = schedulerOf(__Raw.threadContext())
+		let table = winsockTable()
+		var handle = 0 as Count
+		lockScheduler(scheduler)
+		let count = __Raw.wrappingSub(__Raw.loadWord(group, offset: groupCountOffset), right: 1)
+		__Raw.storeWord(group, offset: groupCountOffset, value: count)
+		if count == afdGroupLastRoom 'wasFull'
+			groupPush(table, group: group)
+		end 'wasFull' else 'room'
+			if count == 0 and (__Raw.loadWord(group, offset: groupPreviousOffset) != 0 or __Raw.loadWord(group, offset: groupNextOffset) != 0) 'empty'
+				groupUnlink(table, group: group)
+				handle = __Raw.loadWord(group, offset: groupHandleOffset)
+				__Raw.storeWord(group, offset: groupNextOffset, value: __Raw.loadWord(table, offset: winsockSpareGroupsOffset))
+				__Raw.storeWord(table, offset: winsockSpareGroupsOffset, value: group)
+			end 'empty'
+		end 'room'
+		unlockScheduler(scheduler)
+		if handle != 0 'close'
+			closeHandle(handle)
+		end 'close'
+	end 'groupRelease'
+
+	// afdOpen opens an AFD handle (\Device\Afd) that completes its polls on the event queue, and gives it or 0.
+	function afdOpen(scheduler Count) returns Count
+		let name = wideOf(afdDeviceName)
+		let block = alloc(afdOpenBytes)
+		zeroRange(block, from: 0, to: afdOpenBytes)
+		__Raw.storeWord32(block, offset: 0, value: objectAttributesBytes)
+		__Raw.storeWord(block, offset: objectNameOffset, value: __Raw.wrappingAdd(block, right: unicodeStringOffset))
+		__Raw.storeWord16(block, offset: unicodeStringOffset, value: afdDeviceNameBytes)
+		__Raw.storeWord16(block, offset: unicodeMaximumOffset, value: afdDeviceNameMaximumBytes)
+		__Raw.storeWord(block, offset: unicodeBufferOffset, value: name)
+		let status = dword(__Raw.callHost11(winsockFunction(ntCreateFileSlot), arg1: __Raw.wrappingAdd(block, right: openHandleOffset), arg2: synchronizeAccess, arg3: block, arg4: __Raw.wrappingAdd(block, right: openStatusOffset), arg5: 0, arg6: 0, arg7: afdShare, arg8: afdOpenExisting, arg9: 0, arg10: 0, arg11: 0))
+		let handle = __Raw.loadWord(block, offset: openHandleOffset)
+		free(block)
+		free(name)
+		if status != statusSuccess 'refused'
+			return 0
+		end 'refused'
+		let port = __Raw.loadWord(scheduler, offset: schedEventQueueOffset)
+		if __Raw.callImport4("CreateIoCompletionPort", arg1: handle, arg2: port, arg3: eventPollKey, arg4: anyConcurrency) == 0 or __Raw.callImport2("SetFileCompletionNotificationModes", arg1: handle, arg2: skipSetEvent) == 0 'unassociated'
+			closeHandle(handle)
+			return 0
+		end 'unassociated'
+		return handle
+	end 'afdOpen'
+#endif

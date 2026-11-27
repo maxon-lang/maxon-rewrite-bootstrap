@@ -14,6 +14,11 @@
 //   says the operation completed, its OVERLAPPED holding the status and the count. An operation that completes at once
 //   posts no completion (FILE_SKIP_COMPLETION_PORT_ON_SUCCESS) and is not waited for. A handle the event queue refuses, such
 //   as a regular file on Linux, has no entry (noEntry), and its caller makes its calls blocking.
+// - A socket's on Windows (eventRegisterSocket, entryKindSocket), whose readiness is a poll of AFD on the port
+//   (windows_poll.maxon) in place of an operation: a wait and an arm want a mode of the entry, which starts a poll for the modes
+//   wanted, and its completion signals each mode that is wanted and ready, as an edge does on Linux and macOS. A wait that ends
+//   otherwise than by its event takes its want back and cancels the poll where nothing else is wanted; a close cancels it, and
+//   the completion gives the entry back, so no poll is left to write into an entry that has another owner.
 // - A user event's (eventUserNew), which eventSignal signals from any thread, as a completion of the system's reaches a green
 //   thread: a packet posted to the port, an eventfd of its own, a user event of the kqueue. Its mode is eventRead.
 // - A process's (eventProcessNew), which an exit of a process the caller started readies in the mode eventRead, the kernel
@@ -83,6 +88,11 @@ let entryKindHandle = 2 as Count
 // A process's entry on the systems whose event queue names a process by more than a handle's fd (macOS, Windows).
 let entryKindProcess = 3 as Count
 
+// A socket's entry on Windows, whose readiness is a poll of AFD (windows_poll.maxon) in place of the operation of a handle's.
+#if os(Windows)
+	let entryKindSocket = 4 as Count
+#endif
+
 let nanosPerMilli = 1000000 as Count
 
 // eventRegister registers a handle with the event queue and gives its event entry, or noEntry when the event queue refuses
@@ -115,6 +125,12 @@ function eventRelease(entry Count)
 		panic("runtime: an event entry is released while a wait on it is in progress")
 	end 'waiting'
 	let scheduler = schedulerOf(__Raw.threadContext())
+	#if os(Windows)
+		if __Raw.loadWord(entry, offset: entryKindOffset) == entryKindSocket 'socket'
+			pollRelease(scheduler, entry: entry)
+			return
+		end 'socket'
+	#endif
 	entryUnregister(scheduler, entry: entry)
 	entryGive(scheduler, entry: entry)
 end 'eventRelease'
@@ -215,6 +231,9 @@ function eventWait(entry Count, mode Count, deadline Count) returns Count
 		if status != eventReady and __Raw.loadWord(entry, offset: entryKindOffset) == entryKindHandle 'pending'
 			status = cancelPending(scheduler, g: g, entry: entry, mode: mode, status: status)
 		end 'pending'
+		if status != eventReady and __Raw.loadWord(entry, offset: entryKindOffset) == entryKindSocket 'unwanted'
+			pollUnwant(entry, mode: mode)
+		end 'unwanted'
 	#endif
 	_ = __Raw.atomicAdd(scheduler, offset: schedEventWaitersOffset, value: stepDown)
 	_ = __Raw.atomicAdd(entry, offset: entryWaitingOffset, value: stepDown)
@@ -241,6 +260,11 @@ function eventWaitOnce(scheduler Count, g Count, entry Count, mode Count, deadli
 	if deadline != eventNoDeadline and deadline <= nanotime(context) 'past'
 		return eventExpired
 	end 'past'
+	#if os(Windows)
+		if ending and __Raw.loadWord(entry, offset: entryKindOffset) == entryKindSocket and not pollWant(entry, mode: mode) 'unpolled'
+			return eventClosed
+		end 'unpolled'
+	#endif
 	_ = __Raw.atomicExchange(g, offset: greenEventOffset, value: __Raw.wrappingAdd(entry, right: mode))
 	if deadline != eventNoDeadline 'timer'
 		lockScheduler(scheduler)
@@ -376,6 +400,16 @@ function eventArm(entry Count, mode Count, record Count) returns bool
 	_ = __Raw.atomicAdd(scheduler, offset: schedEventWaitersOffset, value: 1)
 	let armed = __Raw.wrappingAdd(record, right: postedEntryTag)
 	if __Raw.compareExchange(entry, offset: mode, expected: eventNobody, desired: armed) == eventNobody 'armed'
+		#if os(Windows)
+			if __Raw.loadWord(entry, offset: entryKindOffset) == entryKindSocket and not pollWant(entry, mode: mode) 'unpolled'
+				// No poll could be made: the arm is taken back, and the caller delivers as it does for an event that came first.
+				if __Raw.compareExchange(entry, offset: mode, expected: armed, desired: eventNobody) == armed 'taken'
+					stepLive(context, change: stepDown)
+					_ = __Raw.atomicAdd(scheduler, offset: schedEventWaitersOffset, value: stepDown)
+					return false
+				end 'taken'
+			end 'unpolled'
+		#endif
 		return true
 	end 'armed'
 	if __Raw.compareExchange(entry, offset: mode, expected: eventQueued, desired: eventNobody) != eventQueued 'waited'
@@ -395,6 +429,11 @@ function eventDisarm(entry Count, mode Count, record Count) returns bool
 	let context = __Raw.threadContext()
 	stepLive(context, change: stepDown)
 	_ = __Raw.atomicAdd(__Raw.loadWord(context, offset: contextSchedulerOffset), offset: schedEventWaitersOffset, value: stepDown)
+	#if os(Windows)
+		if __Raw.loadWord(entry, offset: entryKindOffset) == entryKindSocket 'socket'
+			pollDisarm(entry, mode: mode)
+		end 'socket'
+	#endif
 	return true
 end 'eventDisarm'
 
@@ -502,6 +541,10 @@ end 'tookBreak'
 
 	let notAlertable = 0 as Count
 
+	// eventPollKey is the completion key of the AFD handles that poll sockets (windows_poll.maxon): no entry's address, and not
+	// eventBreakKey.
+	let eventPollKey = 2 as Count
+
 	// skipOnSuccess is FILE_SKIP_COMPLETION_PORT_ON_SUCCESS | FILE_SKIP_SET_EVENT_ON_HANDLE: an operation that completes
 	// at once posts no completion, and sets no event of the handle.
 	let skipOnSuccess = 3 as Count
@@ -582,7 +625,11 @@ end 'tookBreak'
 			if key == eventBreakKey 'break'
 				tookBreak(scheduler, delay: delay)
 			end 'break' else 'completion'
-				list = eventQueuedForCompletion(entry, key: key, list: list)
+				if key == eventPollKey 'poll'
+					list = pollCompleted(__Raw.loadWord(entry, offset: windowsEntryOverlappedOffset), list: list)
+				end 'poll' else 'operation'
+					list = eventQueuedForCompletion(entry, key: key, list: list)
+				end 'operation'
 			end 'completion'
 			entry = __Raw.wrappingAdd(entry, right: windowsEntryBytes)
 		end 'entries'
