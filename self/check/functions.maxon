@@ -158,7 +158,7 @@ function addFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].retTy = ret
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].errTy = err
 	if f.isAnnotated 'policy'
-		declarePolicy(c, p: p, ms: ms, f: f, fid: fid, nt: nt, errs: errs)
+		placePolicy(c, p: p, ms: ms, f: f, fid: fid, nt: nt, errs: errs)
 	end 'policy'
 	declared.push(fid)
 end 'addFunction'
@@ -349,44 +349,85 @@ function mainFuncOf(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncDecl
 	panic("the entry function of module {c.modID} was not declared")
 end 'mainFuncOf'
 
-// policyAnnotationWord is the one word an annotation before a function may be (README, "Overload policies").
-let policyAnnotationWord = "policy"
-
-// declarePolicy records the policy of the message fid of the type nt, or refuses it.
+// declarePolicy records the policy of the message fid of the type nt, or refuses it: the type the annotation names, or the
+// type of the field of nt it names.
 function declarePolicy(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, fid ast.FuncID, nt ast.TypeID, mutates errs diag.ErrorList)
 	let off = offsetOf(c, p: p, ms: ms, node: f.id)
-	if f.annotation != policyAnnotationWord 'word'
-		checkFail(c.modID, off: off, code: diag.errUnexpectedToken, msg: "Unknown annotation '@{f.annotation}' (expected '@policy')", errs: errs)
-		return
-	end 'word'
 	let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).name.clone()
-	if nt == ast.noType or ast.typeKind(ms.types, reads: p.types, t: nt) != ast.TypeKind.record or f.isStatic or f.visibility != "export" 'misplaced'
-		checkFail(c.modID, off: off, code: diag.errPolicyMisplaced, msg: "'@policy' says what becomes of a message's work while its service is behind, and '{name}' is no message: put it before an 'export function' of a type that is spawned, which a send runs", errs: errs)
-		return
-	end 'misplaced'
-	let policy = resolveTypeRef(c, p: p, ms: ms, tr: f.policy, selfTy: ast.noType, errs: errs)
+	var policy = ast.noType
+	var field = ast.noPolicyField
+	var at = off
+	if f.policyOfSelf 'field'
+		let found = ast.typeEntry(ms.types, reads: p.types, t: nt).findField(f.policyField)
+		if not found.isSome() 'missing'
+			let typeName = ast.typeName(ms.types, reads: p.types, t: nt)
+			checkFail(c.modID, off: off, code: diag.errUnknownField, msg: "'{typeName}' has no field '{f.policyField}' to hold the policy of '{name}': declare one whose type implements 'OverloadPolicy', and set it in the factory", errs: errs)
+			return
+		end 'missing'
+		let i = found.unwrap()
+		policy = ast.typeEntry(ms.types, reads: p.types, t: nt).fields[i].ty
+		field = try i + 1 otherwise panic("check: more fields than a word")
+	end 'field' else 'type'
+		policy = resolveTypeRef(c, p: p, ms: ms, tr: f.policy, selfTy: ast.noType, errs: errs)
+		at = offsetOf(c, p: p, ms: ms, node: f.policy)
+	end 'type'
 	if policy == ast.noType 'unresolved'
 		return
 	end 'unresolved'
 	let policyName = ast.typeName(ms.types, reads: p.types, t: policy)
 	if not ast.reachesLibraryInterface(p, tt: ms.types, reads: p.types, have: policy, name: ast.overloadPolicyName) 'notPolicy'
-		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: f.policy), code: diag.errPolicyNotAPolicy, msg: "'{policyName}' is no overload policy: name one of Keep, Refuse, DropNewest and Latest, or a type that implements 'OverloadPolicy'", errs: errs)
+		checkFail(c.modID, off: at, code: diag.errPolicyNotAPolicy, msg: "'{policyName}' is no overload policy: name one of Keep, Refuse, DropNewest, DropOldest and Latest, or a type that implements 'OverloadPolicy'", errs: errs)
 		return
 	end 'notPolicy'
 	if ast.isLibraryServiceType(p, tt: ms.types, reads: p.types, t: policy, name: ast.keepPolicyName) 'keep'
 		return
 	end 'keep'
 	let coalescing = ast.reachesLibraryInterface(p, tt: ms.types, reads: p.types, have: policy, name: ast.coalescingPolicyName)
+	let shedding = ast.reachesLibraryInterface(p, tt: ms.types, reads: p.types, have: policy, name: ast.sheddingPolicyName)
 	if ast.hasReply(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid), voidTy: p.builtins.voidTy) 'reply'
-		if coalescing or ast.isLibraryServiceType(p, tt: ms.types, reads: p.types, t: policy, name: ast.dropNewestPolicyName) 'unanswered'
-			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: f.policy), code: diag.errPolicyWithReply, msg: "'{name}' has a reply, which its sender waits for, and '{policyName}' would throw the message away or replace it unanswered: name 'Refuse', whose sender is answered 'busy' at once, or 'Keep', or remove the reply", errs: errs)
+		if coalescing or shedding or ast.isLibraryServiceType(p, tt: ms.types, reads: p.types, t: policy, name: ast.dropNewestPolicyName) 'unanswered'
+			checkFail(c.modID, off: at, code: diag.errPolicyWithReply, msg: "'{name}' has a reply, which its sender waits for, and '{policyName}' would throw the message away, shed it or replace it unanswered: name 'Refuse', whose sender is answered 'busy' at once, or 'Keep', or remove the reply", errs: errs)
 			return
 		end 'unanswered'
 	end 'reply'
+	if shedding and field == ast.noPolicyField and ast.typeEntry(ms.types, reads: p.types, t: ast.typeEntry(ms.types, reads: p.types, t: policy).effectiveOrigin()).fields.count() > 0 'state'
+		checkFail(c.modID, off: at, code: diag.errPolicyStateNotHeld, msg: "'{policyName}' has state, which its shed changes, so a field of the service holds it: declare 'var name as {policyName}', set it in the factory, and write '@policy(self.name)'", errs: errs)
+		return
+	end 'state'
 	var slot = ast.noPendingSlot
 	if coalescing 'pending'
 		slot = try ast.pendingWords(ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, nt: nt) + 1 otherwise panic("check: more pending words than a word")
 	end 'pending'
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].policy = policy
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].pendingSlot = slot
+	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].policyField = field
+	if shedding 'shed'
+		numberShedPolicy(p, ms: ms, fid: fid, nt: nt, policy: policy, field: field)
+	end 'shed'
 end 'declarePolicy'
+
+// numberShedPolicy gives the message fid its shedding policy's number among its type's, from 1 in source order, which a
+// kind before it that names the same policy (the same field, or the same type) already has, and its place among those kinds.
+function numberShedPolicy(p ast.Project, mutates ms ast.ModuleState, fid ast.FuncID, nt ast.TypeID, policy ast.TypeID, field Count)
+	var number = ast.noShedPolicy
+	var most = ast.noShedPolicy
+	var kinds = 0 as Count
+	for m in ast.typeEntry(ms.types, reads: p.types, t: nt).methods 'methods'
+		let other = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m.func).clone()
+		if other.shedPolicy == ast.noShedPolicy 'none'
+			continue 'methods'
+		end 'none'
+		if other.shedPolicy > most 'most'
+			most = other.shedPolicy
+		end 'most'
+		if other.policyField == field and (field != ast.noPolicyField or other.policy == policy) 'same'
+			number = other.shedPolicy
+			kinds = try kinds + 1 otherwise panic("check: more kinds than a word")
+		end 'same'
+	end 'methods'
+	if number == ast.noShedPolicy 'first'
+		number = try most + 1 otherwise panic("check: more shedding policies than a word")
+	end 'first'
+	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].shedPolicy = number
+	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].shedKind = kinds
+end 'numberShedPolicy'

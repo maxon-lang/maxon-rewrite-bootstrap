@@ -603,5 +603,6 @@ export function declareModule(mutates c Checker, p ast.Project, mutates ms ast.M
 		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
 		declareDecl(c, p: p, ms: ms, ord: ord, paramsOk: paramsOk[i] == 1, declared: declared, errs: errs)
 	end 'decls'
+	declarePolicies(c, p: p, ms: ms, errs: errs)
 	return declared
 end 'declareModule'

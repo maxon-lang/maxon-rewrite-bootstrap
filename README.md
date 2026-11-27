@@ -4964,7 +4964,7 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   and keeps no state, so a program writes its own and tests it as a plain function. Its answer is `queue` (the message
   is queued and its sender slowed), `refuse` or `discard` (it is not handled and its sender is not slowed: a message with
   a reply fails its send with `busy`, any other is dropped with what it holds), or `replacePending`. The library's menu
-  is `Keep`, `Refuse`, `DropNewest` and `Latest`. `Latest` implements `CoalescingPolicy`, whose kind has a pending word
+  is `Keep`, `Refuse`, `DropNewest`, `DropOldest` (see "Shedding") and `Latest`. `Latest` implements `CoalescingPolicy`, whose kind has a pending word
   in its service, after the service's own words, which only such a type reserves (`rt.service.newPending`): a message of
   the kind sent while its service is behind waits there in a box of its arguments, with a place in the mailbox that
   never slows its sender, and a later message of the kind, behind or not, replaces it and drops it (one atomic exchange),
@@ -4977,9 +4977,30 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   send's error is `SendError`. `underLoad()`, the library's, is whether the service whose message runs is behind, for a
   handler that does cheaper work then, and false off a message. The interpreter models the same (its pending words, a
   queue bound one message longer for each), and its oracles hold under every schedule; `fuzz --services` sends the walks
-  of each graph as a kind of each policy of the menu in turn. Not yet: `shed` at a turn's start with `PendingView` and
-  `DropOldest`, a stateful policy named by a field, and the requirement of a policy for a kind fed from a source that
-  cannot be slowed (which needs the event registration of step 3).
+  of each graph as a kind of each policy of the menu in turn, and of a policy with state of its own.
+- **Shedding** (`SheddingPolicy`, `PendingView` and `DropOldest` in `stdlib/service/Overload.maxon`, `startShedding` in
+  `self/ir/services.maxon`, "Shedding" in `runtime/service.maxon`): a policy that also implements `SheddingPolicy` has
+  `function shed(mutates self, mutates pending PendingView)`, which runs on the receiver, single-threaded as a handler, at
+  the start of a message while the service is behind, once for the messages queued since its last view ended, so each
+  message is in one view at most. Its `pending` holds the queued messages of the kinds that name the policy, the oldest
+  first, from the one that starts up to the newest queued when the first view of that start was made: `pending.count` of
+  them, `pending.turnSize`, `pending.kind(i)` (the place, from 0, of the message's function among those of its type that
+  name the policy), `pending.shed(i)`, `pending.keep(i)` and `pending.isShed(i)`, which fail with `indexOutOfBounds` past
+  `count`. A message marked shed is not handled: its behaviour drops what it holds when it reaches the head, and it keeps
+  its sender's order. `DropOldest` queues every message and sheds the oldest of its kinds until a turn of them is left. A
+  policy with state is a field of the service that its factory sets, named by `@policy(self.field)` (`E3018` for a field
+  the type lacks, `E3947` for one whose type is no policy); its `shed` changes that field and no other, and a shedding
+  type with fields named as a type is `E3949`. A shedding policy on a kind with a reply is `E3948`, since a shed message
+  could not answer `busy` at its sender's await, whose error is the handler's. A message's policy is declared once every
+  type of its module is, so a policy may be declared after its service. Every behaviour of a type with shedding kinds holds
+  a mark word as its first capture (its kind's policy and place, and whether it is shed) and the service a horizon word
+  after its pending words, and its messages start by `rt.service.shedStart`: a load of the horizon and of the mark, and,
+  where the service is behind, the views; a type with no shedding kind holds neither and starts its messages as before.
+  The interpreter models the same, and makes a service behind at a send of a kind with a policy and at a message's start
+  by a coin of its own stream, one in four, so every `admit` and `shed` runs in ordinary programs; its oracles count a shed
+  message as delivered once, in its sender's order. Not yet: `age(i)` and the arguments of a message (`Arrival.args`,
+  `pending.args(i)`), a shed message with a reply answered `busy`, and the requirement of a policy for a kind fed from a
+  source that cannot be slowed (which needs the event registration of step 3).
 - A handler that returns or throws **replies**: the send gives `Promise with R` (or `Promise with (R, E)`), which the
   sender awaits as an async call's promise (`try await h.total() otherwise 0`, or `let p = try h.total()` and `await p`);
   `_ = try h.total() ...` drops the reply on the service, and a reply sent as a statement is `E3190`. A reply's promise is
@@ -5214,8 +5235,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - **A message kind may name an overload policy**, `@policy(T)` before its `export function`, which maxon has no form
   for: what becomes of its work while the service is behind (see "Overload policies"). A send of a kind with a reply and
   a policy other than `Keep` fails with `SendBusyError` (`serviceStopped`, `busy`), where maxon's send of any kind fails
-  with the message's `sendError`; every other send fails with `SendError` as before. The policies are the library's
-  (`stdlib/service`), and maxon's spec tests name none.
+  with the message's `sendError`; every other send fails with `SendError` as before. A policy with state is a field of
+  the service, `@policy(self.field)`. The policies are the library's (`stdlib/service`), and maxon's spec tests name none.
 - **Two overlapping conditional conformances are refused.** maxon accepts two conditional conformances of one type to one
   interface whose conditions overlap when only one of them declares the member; here the second is `E3941`, as a second
   unconditional one is, since which one holds would otherwise depend on which declares what (see "Extensions").

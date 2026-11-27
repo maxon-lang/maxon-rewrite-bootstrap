@@ -1,0 +1,17 @@
+type Sink
+	var seen as Count
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	@policy(self.sampler) export function take(mutates self, n Count)
+		self.seen = n
+	end 'take'
+end 'Sink'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3018 at 8:2

@@ -391,6 +391,38 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		entryServiceUnderLoad(vm, f: f, x: x)
 		return
 	end 'rtServiceUnderLoad'
+	if symbol == ir.Rt.rtServiceShedStart 'rtServiceShedStart'
+		try entryServiceShedStart(vm, f: f, x: x)
+		return
+	end 'rtServiceShedStart'
+	if symbol == ir.Rt.rtServiceShedMarked 'rtServiceShedMarked'
+		entryServiceShedMarked(vm, f: f, x: x)
+		return
+	end 'rtServiceShedMarked'
+	if symbol == ir.Rt.rtServiceViewOpen 'rtServiceViewOpen'
+		try entryServiceViewOpen(vm, f: f, x: x)
+		return
+	end 'rtServiceViewOpen'
+	if symbol == ir.Rt.rtServiceViewCount 'rtServiceViewCount'
+		entryServiceViewCount(vm, f: f, x: x)
+		return
+	end 'rtServiceViewCount'
+	if symbol == ir.Rt.rtServiceViewClose 'rtServiceViewClose'
+		entryServiceViewClose(vm, f: f, x: x)
+		return
+	end 'rtServiceViewClose'
+	if symbol == ir.Rt.rtServiceViewKind 'rtServiceViewKind'
+		entryServiceViewKind(vm, f: f, x: x)
+		return
+	end 'rtServiceViewKind'
+	if symbol == ir.Rt.rtServiceViewMark 'rtServiceViewMark'
+		entryServiceViewMark(vm, f: f, x: x)
+		return
+	end 'rtServiceViewMark'
+	if symbol == ir.Rt.rtServiceViewMarked 'rtServiceViewMarked'
+		entryServiceViewMarked(vm, f: f, x: x)
+		return
+	end 'rtServiceViewMarked'
 	if symbol == ir.Rt.rtReplyNew 'rtReplyNew'
 		try entryReplyNew(vm, f: f, x: x)
 		return

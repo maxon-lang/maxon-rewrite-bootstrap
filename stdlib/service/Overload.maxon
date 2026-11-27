@@ -11,6 +11,55 @@ end 'OverloadPolicy'
 public interface CoalescingPolicy extends OverloadPolicy
 end 'CoalescingPolicy'
 
+/// A policy that also sheds, on the receiver: its `shed` runs at the start of a message of the service while the service
+/// is behind, once for the messages queued since it last ran, single-threaded as a handler is, and marks which of the queued
+/// messages of its kinds are not handled. A policy with state of its own is a field of the service, set by its factory, and
+/// named by `@policy(self.field)`; its `shed` changes that field and nothing else of the service.
+public interface SheddingPolicy extends OverloadPolicy
+	function shed(mutates self, mutates pending PendingView)
+end 'SheddingPolicy'
+
+/// What a shedding policy's `shed` sees: the messages of the kinds that name it, queued on the service, the oldest first,
+/// from the one that starts to the newest queued when the view was made; `count` of them, and the runtime's `turnSize`. A
+/// message marked by `shed(i)` is not handled: its behaviour drops what it holds and counts as handled for its sender's
+/// order. `keep(i)` takes the mark back, and every message is kept until it is marked. An index past `count` fails with
+/// `indexOutOfBounds`.
+public type PendingView
+	let view as Count
+	public let count as Count
+	public let turnSize as Count
+
+	/// The kind of the message at i: the place, from 0, of its message function among those of its type that name this
+	/// policy, in the order they are written.
+	public function kind(i Count) returns Count throws ArrayError
+		if i >= count 'past'
+			throw ArrayError.indexOutOfBounds
+		end 'past'
+		return __Builtins.serviceViewKind(view, index: i)
+	end 'kind'
+
+	public function shed(mutates self, i Count) throws ArrayError
+		if i >= count 'past'
+			throw ArrayError.indexOutOfBounds
+		end 'past'
+		__Builtins.serviceViewMark(view, index: i, shed: true)
+	end 'shed'
+
+	public function keep(mutates self, i Count) throws ArrayError
+		if i >= count 'past'
+			throw ArrayError.indexOutOfBounds
+		end 'past'
+		__Builtins.serviceViewMark(view, index: i, shed: false)
+	end 'keep'
+
+	public function isShed(i Count) returns bool throws ArrayError
+		if i >= count 'past'
+			throw ArrayError.indexOutOfBounds
+		end 'past'
+		return __Builtins.serviceViewMarked(view, index: i)
+	end 'isShed'
+end 'PendingView'
+
 /// What a policy's `admit` decides for a message sent while its service is behind.
 public enum Admission
 	// queue keeps it: it is handled later, and its sender is slowed as every sender of a service that is behind is.
@@ -57,6 +106,23 @@ public type DropNewest implements OverloadPolicy
 		return Admission.discard
 	end 'admit'
 end 'DropNewest'
+
+/// DropOldest queues every message, and while its service is behind sheds the oldest of its kinds until a turn of them is
+/// left, so the newest are handled: for work whose worth fades as it waits.
+public type DropOldest implements SheddingPolicy
+	public static function admit(arrival Arrival) returns Admission
+		return Admission.queue
+	end 'admit'
+
+	public function shed(mutates self, mutates pending PendingView)
+		if pending.count <= pending.turnSize 'fits'
+			return
+		end 'fits'
+		for i in 0 upto pending.count - pending.turnSize 'old'
+			try pending.shed(i) otherwise return
+		end 'old'
+	end 'shed'
+end 'DropOldest'
 
 /// Latest keeps only the newest message of its kind that has not run: one sent while the service is behind waits in the
 /// kind's pending word, and the next of the kind replaces it there and drops it, so its sender is never slowed.

@@ -1,0 +1,56 @@
+// A program's own shedding policy with state is a field of the service, set by its factory and named by
+// `@policy(self.field)`: its shed runs on the receiver at the start of a message while the service is behind, sees each
+// queued message of its kinds once, and changes its own fields. Every message is handled or shed, never both.
+// schedules: 6
+//> handled and shed: 1000
+export typealias Amount = int(0 to 1000000)
+
+type KeepEveryThird implements SheddingPolicy
+	var seen as Amount
+	var dropped as Amount
+
+	static function create() returns Self
+		return Self{seen: 0, dropped: 0}
+	end 'create'
+
+	static function admit(arrival Arrival) returns Admission
+		return Admission.queue
+	end 'admit'
+
+	function shed(mutates self, mutates pending PendingView)
+		for i in 0 upto pending.count 'each'
+			self.seen = try self.seen + 1 otherwise 0
+			if self.seen mod 3 != 0 'drop'
+				try pending.shed(i) otherwise return
+				self.dropped = try self.dropped + 1 otherwise 0
+			end 'drop'
+		end 'each'
+	end 'shed'
+end 'KeepEveryThird'
+
+type Sampler
+	var sampler as KeepEveryThird
+	var handled as Amount
+
+	static function create(consumes sampler KeepEveryThird) returns Self
+		return Self{sampler: sampler, handled: 0}
+	end 'create'
+
+	@policy(self.sampler) export function sample(mutates self, n Amount)
+		self.handled = try self.handled + 1 otherwise 0
+	end 'sample'
+
+	export function report() returns Amount
+		return try self.handled + self.sampler.dropped otherwise 0
+	end 'report'
+end 'Sampler'
+
+function main() returns ExitCode
+	let s = spawn Sampler.create(KeepEveryThird.create())
+	for i in 1 to 1000 'send'
+		try s.sample(i) otherwise ignore
+	end 'send'
+	let n = try await s.report() otherwise 0
+	print("handled and shed: {n}\n")
+	return 0
+end 'main'

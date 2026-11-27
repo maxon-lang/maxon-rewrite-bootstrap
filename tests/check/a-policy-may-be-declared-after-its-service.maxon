@@ -1,0 +1,56 @@
+// A message may name a policy that its module declares after the message's type, a stateless shedding policy by its type
+// and one with state by the field that holds it.
+type Feed
+	var sampler as Halve
+	var seen as Count
+
+	static function create() returns Self
+		return Self{sampler: Halve.create(), seen: 0}
+	end 'create'
+
+	@policy(Oldest) export function update(mutates self, n Count)
+		self.seen = n
+	end 'update'
+
+	@policy(self.sampler) export function sample(mutates self, n Count)
+		self.seen = n
+	end 'sample'
+end 'Feed'
+
+type Oldest implements SheddingPolicy
+	static function admit(arrival Arrival) returns Admission
+		return Admission.queue
+	end 'admit'
+
+	function shed(mutates self, mutates pending PendingView)
+		if pending.count > 0 'some'
+			try pending.shed(0) otherwise return
+		end 'some'
+	end 'shed'
+end 'Oldest'
+
+type Halve implements SheddingPolicy
+	var dropped as Count
+
+	static function create() returns Self
+		return Self{dropped: 0}
+	end 'create'
+
+	static function admit(arrival Arrival) returns Admission
+		return Admission.refuse
+	end 'admit'
+
+	function shed(mutates self, mutates pending PendingView)
+		for i in 0 upto pending.count / 2 'half'
+			try pending.shed(i) otherwise return
+			self.dropped = try self.dropped + 1 otherwise 0
+		end 'half'
+	end 'shed'
+end 'Halve'
+
+function main() returns ExitCode
+	let f = spawn Feed.create()
+	try f.update(1) otherwise ignore
+	try f.sample(2) otherwise ignore
+	return 0
+end 'main'

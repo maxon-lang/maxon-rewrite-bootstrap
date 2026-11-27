@@ -114,10 +114,10 @@ testDecl builds FuncDecl
 // `returns borrowed T` gives a place of type T that the function borrows from its parameters instead of a value it makes.
 // `borrowed` is a word only between `returns` and a type, so it stays a name everywhere else. A function's name, as a
 // parameter's, may be any keyword, since nothing else stands there. A message of a service may start with
-// `@policy(T)`, the overload policy of its kind (README, "Overload policies"); the checker refuses another word after the
-// `@`.
+// `@policy(T)`, the overload policy of its kind, or `@policy(self.field)`, a policy with state that a field of the service
+// holds (README, "Overload policies"); the checker refuses another word after the `@`.
 funcDecl
-    : (isAnnotated='@' annotation=Name ^'(' policy=typeRef ')')?
+    : (isAnnotated='@' annotation=Name ^'(' (policyOfSelf='self' ^'.' policyField=Name | policy=typeRef) ')')?
       visibility=('export' | 'public')? isStatic='static'? 'function' name=(Name | Keyword){declares}
       ^'(' ( receiver=('mutates' | 'consumes' | 'destructs') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*

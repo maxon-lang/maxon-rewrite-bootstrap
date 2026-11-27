@@ -10,3 +10,44 @@ function sendErrorOf(p ast.Project, ms ast.ModuleState, handler ast.FuncID) retu
 	end 'busy'
 	return p.builtins.sendErrorTy
 end 'sendErrorOf'
+
+// policyAnnotationWord is the one word an annotation before a function may be.
+let policyAnnotationWord = "policy"
+
+// PendingPolicy is a message whose '@policy' waits for every type of its module to be declared, so that the policy it names
+// may be any of them, and its pending word and its shedding policy are numbered in source order.
+export type PendingPolicy
+	var decl as ast.FuncDecl
+	var fid as ast.FuncID
+	var nt as ast.TypeID
+
+	static function make(consumes decl ast.FuncDecl, fid ast.FuncID, nt ast.TypeID) returns Self
+		return Self{decl: decl, fid: fid, nt: nt}
+	end 'make'
+end 'PendingPolicy'
+
+export typealias PendingPolicyList = Array with PendingPolicy
+
+// placePolicy refuses an annotation that is no '@policy', or one before a function that is no message, and keeps the rest
+// for declarePolicies.
+function placePolicy(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, fid ast.FuncID, nt ast.TypeID, mutates errs diag.ErrorList)
+	let off = offsetOf(c, p: p, ms: ms, node: f.id)
+	if f.annotation != policyAnnotationWord 'word'
+		checkFail(c.modID, off: off, code: diag.errUnexpectedToken, msg: "Unknown annotation '@{f.annotation}' (expected '@policy')", errs: errs)
+		return
+	end 'word'
+	if nt == ast.noType or ast.typeKind(ms.types, reads: p.types, t: nt) != ast.TypeKind.record or f.isStatic or f.visibility != "export" 'misplaced'
+		let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).name.clone()
+		checkFail(c.modID, off: off, code: diag.errPolicyMisplaced, msg: "'@policy' says what becomes of a message's work while its service is behind, and '{name}' is no message: put it before an 'export function' of a type that is spawned, which a send runs", errs: errs)
+		return
+	end 'misplaced'
+	c.pendingPolicies.push(PendingPolicy.make(f.clone(), fid: fid, nt: nt))
+end 'placePolicy'
+
+// declarePolicies declares the policy of each message kept by placePolicy, in source order.
+function declarePolicies(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, mutates errs diag.ErrorList)
+	let pending = exchange(c.pendingPolicies, value: PendingPolicyList.create(0))
+	for i in 0 upto pending.count() 'each'
+		declarePolicy(c, p: p, ms: ms, f: pending[i].decl, fid: pending[i].fid, nt: pending[i].nt, errs: errs)
+	end 'each'
+end 'declarePolicies'

@@ -39,7 +39,7 @@ end 'visitSpawnExpr'
 function newService(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, state Reg, stateTy ast.TypeID) returns Reg
 	let applied = applyType(l, p: p, ms: ms, t: stateTy)
 	let decl = ast.typeEntry(ms.types, reads: p.types, t: applied).effectiveOrigin()
-	let words = ast.pendingWords(ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, nt: decl)
+	let words = ast.serviceWords(ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, nt: decl)
 	if words == 0 'none'
 		return entry(l, p: p, site: site, symbol: Rt.rtServiceNew, kind: IrKind.kindManaged, args: argsOf1(state))
 	end 'none'
@@ -61,6 +61,7 @@ function lowerSend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.fn).policy != ast.noType 'policy'
 		return lowerPolicySend(l, p: p, ms: ms, c: c, handle: handle, handleTy: handleTy, captures: captures, mark: mark)
 	end 'policy'
+	addMark(l, p: p, ms: ms, handler: c.info.fn, captures: captures)
 	let status = entry(l, p: p, site: site, symbol: Rt.rtServiceReserve, kind: IrKind.kindScalar, args: argsOf1(handle))
 	let ok = l.b.newBlock()
 	let zero = konst(l, value: 0 as Word)
@@ -160,6 +161,7 @@ function lowerPolicySend(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	l.cur = queued
 	var reply = noReg
 	var behaviourCaptures = captures.clone()
+	addMark(l, p: p, ms: ms, handler: c.info.fn, captures: behaviourCaptures)
 	if c.info.replyKept 'kept'
 		reply = entry(l, p: p, site: site, symbol: Rt.rtReplyNew, kind: IrKind.kindManaged, args: RegList.create(0))
 		behaviourCaptures.push(reply)
@@ -273,7 +275,9 @@ function replacePending(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	l.b.terminate(l.cur, t: newJump(done))
 	l.cur = first
 	let body = lowerServiceBody(l, p: p, ms: ms, c: c, handleTy: handleTy, factory: false, cell: false, pendingSlot: slot)
-	emitWhen(l, behaviour: body, cowns: argsOf1(handle), captures: RegList.create(0))
+	var marked = RegList.create(0)
+	addMark(l, p: p, ms: ms, handler: c.info.fn, captures: marked)
+	emitWhen(l, behaviour: body, cowns: argsOf1(handle), captures: marked)
 	l.b.terminate(l.cur, t: newJump(done))
 end 'replacePending'
 
@@ -306,13 +310,18 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	if pending 'boxed'
 		boxTy = pendingType(l, p: p, ms: ms, handler: target)
 	end 'boxed'
-	let cellIndex = 1 if pending else params + 1
+	let sheds = not factory and handlerSheds(p, ms: ms, handler: c.info.fn)
+	// A message of a type with shedding kinds is given its mark word before its arguments.
+	let first = 2 if sheds else 1
+	let cellIndex = first if pending else params + first
 	var inner = Lowerer.new(exchange(l.instances, value: InstanceSet.new()))
 	begin(inner, p: p, ms: ms, fn: c.info.body, bindParams: ast.cloneTypeArgs(l.bindParams), bindArgs: ast.cloneTypeArgs(l.bindArgs), bindWitnesses: l.bindWitnesses.clone(), name: name)
 	inner.b.f.paramCount = cellIndex + (1 if cell else 0)
 	let state = paramReg(inner, index: 0 as Count, kind: IrKind.kindScalar)
 	var args = RegList.create(0)
-	if not factory 'message'
+	if sheds 'shedding'
+		startShedding(inner, l: l, p: p, ms: ms, c: c, state: state, first: first, pendingSlot: pendingSlot)
+	end 'shedding' else if not factory 'message'
 		entryVoid(inner, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceStart, args: argsOf1(state))
 	end 'message'
 	var box = noReg
@@ -325,6 +334,7 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	for i in 0 upto params 'params'
 		let ty = applyType(l, p: p, ms: ms, t: fn.paramTypes[i])
 		let kind = holderKind(l, p: p, ms: ms, t: ty)
+		let param = try i + first otherwise panic("ir: more parameters than a word")
 		var v = noReg
 		if pending 'field'
 			v = newReg(inner, kind: kind)
@@ -338,9 +348,9 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 			end 'word'
 		end 'field' else 'param'
 			if kind == IrKind.kindString 'string'
-				strings = strings or floatBit(i + 1)
+				strings = strings or floatBit(param)
 			end 'string'
-			v = paramReg(inner, index: i + 1, kind: kind)
+			v = paramReg(inner, index: param, kind: kind)
 		end 'param'
 		args.push(v)
 		owned.push(v)
@@ -460,3 +470,260 @@ end 'lowerServiceUnderLoad'
 function lowerServiceMostQueued(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceMostQueued, kind: IrKind.kindScalar, args: argsOf1(recv))
 end 'lowerServiceMostQueued'
+
+// Shedding (README, "Overload policies"; runtime/service.maxon, "Shedding"). Every behaviour of a service whose type has kinds
+// of a SheddingPolicy holds the mark word of its kind as its first capture, and every message of it starts by
+// rt.service.shedStart: where the policies' shed is due, each of the type's shedding policies is given a view of the queued
+// messages of its kinds and its shed is called directly, as admit is; and a message its view marked drops what it holds
+// instead of running its handler. A type with no such kind has no mark and starts its messages by rt.service.start.
+
+// The marks of runtime/service.maxon: a kind's shedding policy, from 1, times markPolicyUnit, plus its place among the
+// policy's kinds times markKindUnit.
+let markPolicyUnit = 0x100000000 as Word
+
+let markKindUnit = 2 as Word
+
+// The answers of rt.service.shedStart: the message runs, it was shed, or the policies' shed is due first.
+let shedDroppedWord = 1 as Word
+
+let shedDueWord = 2 as Word
+
+// handlerSheds is whether the type of the message handler has kinds of a SheddingPolicy.
+function handlerSheds(p ast.Project, ms ast.ModuleState, handler ast.FuncID) returns bool
+	return ast.sheds(ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, nt: serviceDecl(p, ms: ms, handler: handler))
+end 'handlerSheds'
+
+// serviceDecl is the declaration of the type of the message handler.
+function serviceDecl(p ast.Project, ms ast.ModuleState, handler ast.FuncID) returns ast.TypeID
+	let owner = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: handler).ownerTy
+	return ast.typeEntry(ms.types, reads: p.types, t: owner).effectiveOrigin()
+end 'serviceDecl'
+
+// addMark puts the mark word of a message of the kind handler first among the captures of its behaviour, where its type has
+// shedding kinds.
+function addMark(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, handler ast.FuncID, mutates captures RegList)
+	if not handlerSheds(p, ms: ms, handler: handler) 'plain'
+		return
+	end 'plain'
+	let f = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: handler).clone()
+	let policy = try f.shedPolicy as Word otherwise panic("ir: a shedding policy past a word")
+	let kind = try f.shedKind as Word otherwise panic("ir: a kind past a word")
+	let mark = try policy * markPolicyUnit + kind * markKindUnit otherwise panic("ir: a mark past a word")
+	captures.insert(0, value: konst(l, value: mark))
+end 'addMark'
+
+// startShedding starts a message of a type with shedding kinds in its behaviour's body: the policies' shed runs where it is
+// due, and a message of a kind of a shedding policy that is marked drops its arguments, which start at the parameter first,
+// or its pending box, and ends the body. The body goes on in the block that runs the handler.
+function startShedding(mutates inner Lowerer, mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, state Reg, first Count, pendingSlot Count)
+	let site = siteOf(l, p: p, node: c.node)
+	let handler = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.fn).clone()
+	let decl = serviceDecl(p, ms: ms, handler: c.info.fn)
+	let words = ast.pendingWords(ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, nt: decl)
+	let horizon = konst(inner, value: try words as Word otherwise panic("ir: a pending word past a word"))
+	let status = entry(inner, p: p, site: site, symbol: Rt.rtServiceShedStart, kind: IrKind.kindScalar, args: argsOf2(state, b: horizon))
+	let mayShed = handler.shedPolicy != ast.noShedPolicy
+	let due = inner.b.newBlock()
+	let notDue = inner.b.newBlock()
+	let run = inner.b.newBlock()
+	var dropped = noBlock
+	if mayShed 'drops'
+		dropped = inner.b.newBlock()
+	end 'drops'
+	let dueWord = konst(inner, value: shedDueWord)
+	let isDue = compare(inner, op: CmpOp.cmpEq, a: status, b: dueWord, unsigned: false)
+	inner.b.terminate(inner.cur, t: newBranch(isDue, ifTrue: due, ifFalse: notDue))
+	inner.cur = notDue
+	if mayShed 'marked'
+		let droppedWord = konst(inner, value: shedDroppedWord)
+		let isDropped = compare(inner, op: CmpOp.cmpEq, a: status, b: droppedWord, unsigned: false)
+		inner.b.terminate(inner.cur, t: newBranch(isDropped, ifTrue: dropped, ifFalse: run))
+	end 'marked' else 'kept'
+		inner.b.terminate(inner.cur, t: newJump(run))
+	end 'kept'
+	inner.cur = due
+	runSheds(inner, l: l, p: p, ms: ms, site: site, decl: decl, state: state, horizon: horizon)
+	if mayShed 'shedNow'
+		let marked = entry(inner, p: p, site: site, symbol: Rt.rtServiceShedMarked, kind: IrKind.kindScalar, args: argsOf1(state))
+		inner.b.terminate(inner.cur, t: newBranch(marked, ifTrue: dropped, ifFalse: run))
+		inner.cur = dropped
+		dropShed(inner, l: l, p: p, ms: ms, site: site, handler: c.info.fn, state: state, first: first, pendingSlot: pendingSlot)
+	end 'shedNow' else 'noShed'
+		inner.b.terminate(inner.cur, t: newJump(run))
+	end 'noShed'
+	inner.cur = run
+end 'startShedding'
+
+// runSheds calls the shed of each shedding policy of the service type decl, in their order, with a view of the messages of
+// its kinds: on the field that holds it, or on a value of a policy type that holds nothing.
+function runSheds(mutates inner Lowerer, mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, decl ast.TypeID, state Reg, horizon Reg)
+	var number = 1 as Count
+	while true 'policies'
+		var found = false
+		var rep = ast.noFunc
+		for m in ast.typeEntry(ms.types, reads: p.types, t: decl).methods 'methods'
+			if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m.func).shedPolicy == number 'this'
+				found = true
+				rep = m.func
+				break 'methods'
+			end 'this'
+		end 'methods'
+		if not found 'done'
+			return
+		end 'done'
+		runShed(inner, l: l, p: p, ms: ms, site: site, decl: decl, state: state, horizon: horizon, number: number, kind: rep)
+		number = try number + 1 otherwise panic("ir: more shedding policies than a word")
+	end 'policies'
+end 'runSheds'
+
+// runShed calls the shed of the shedding policy number of the service type decl, which the message kind names.
+function runShed(mutates inner Lowerer, mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, decl ast.TypeID, state Reg, horizon Reg, number Count, kind ast.FuncID)
+	let f = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: kind).clone()
+	let shed = match ast.typeEntry(ms.types, reads: p.types, t: f.policy).findMethod(ast.shedName) 'shed'
+		some(m) gives m
+		none gives panic("ir: a shedding policy without shed")
+	end 'shed'
+	let viewTy = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: shed).paramTypes[0]
+	let policyWord = konst(inner, value: try number as Word otherwise panic("ir: a shedding policy past a word"))
+	let view = entry(inner, p: p, site: site, symbol: Rt.rtServiceViewOpen, kind: IrKind.kindScalar, args: argsOf3(state, b: horizon, c: policyWord))
+	var fields = RegList.create(0)
+	fields.push(view)
+	fields.push(entry(inner, p: p, site: site, symbol: Rt.rtServiceViewCount, kind: IrKind.kindScalar, args: argsOf1(view)))
+	fields.push(entry(inner, p: p, site: site, symbol: Rt.rtServiceTurn, kind: IrKind.kindScalar, args: RegList.create(0)))
+	let pending = lentTemporary(inner, p: p, ms: ms, t: viewTy, values: fields)
+	var args = RegList.create(0)
+	var policy = LentTemporary.none()
+	if f.policyField != ast.noPolicyField 'field'
+		let index = f.policyField - 1
+		let recv = newReg(inner, kind: IrKind.kindManaged)
+		emit(inner, i: newLoadAt(recv, addr: state, filled: false))
+		let addr = newReg(inner, kind: IrKind.kindScalar)
+		let offset = fieldAt(inner, p: p, ms: ms, owner: decl, index: index)
+		emit(inner, i: newFieldAddr(addr, obj: recv, offset: offset))
+		let fieldTy = ast.typeEntry(ms.types, reads: p.types, t: decl).fields[index].ty
+		args.push(fieldReceiver(inner, p: p, ms: ms, owner: decl, index: index, t: fieldTy, addr: addr))
+	end 'field' else 'type'
+		// A receiver is given as a value: the policy's words, or its box, which nothing but the call holds.
+		let made = builtinRecord(inner, p: p, ms: ms, t: f.policy, values: RegList.create(0))
+		args.push(made)
+		if owning(regKind(inner, v: made)) 'boxed'
+			policy = LentTemporary.make(made, slot: 0 as Count, drop: dropType(l, p: p, ms: ms, t: f.policy))
+		end 'boxed'
+	end 'type'
+	args.push(pending.place)
+	emitCall(inner, p: p, ms: ms, dst: noReg, target: shed, args: args)
+	dropTemporary(inner, p: p, ms: ms, lent: pending)
+	if policy.drop != ast.noType 'policy'
+		emitDropReg(inner, src: policy.place, ty: policy.drop)
+	end 'policy'
+	entryVoid(inner, p: p, site: site, symbol: Rt.rtServiceViewClose, args: argsOf1(view))
+end 'runShed'
+
+// fieldReceiver is the field at index of the record owner, of the type t, whose address is addr, as a method's receiver is
+// given it: its words where they are the record's own, and else the word the field holds.
+function fieldReceiver(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, owner ast.TypeID, index Count, t ast.TypeID, addr Reg) returns Reg
+	return match fieldHeld(l, p: p, ms: ms, owner: owner, index: index, t: t) 'holding'
+		heldInline(_) gives addr
+		heldWord gives lentWordAt(l, addr: addr, kind: IrKind.kindScalar)
+		heldString gives panic("ir: a policy held as a String")
+		heldBox gives lentWordAt(l, addr: addr, kind: IrKind.kindManaged)
+		heldAddress(_) gives panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
+		heldPacked gives panic("ir: a field that holds the address of words elsewhere or a byte of a buffer")
+	end 'holding'
+end 'fieldReceiver'
+
+// lentWordAt is the word at addr, which stays where it is: a receiver lent from its holder.
+function lentWordAt(mutates l Lowerer, addr Reg, kind IrKind) returns Reg
+	let d = newReg(l, kind: kind)
+	emit(l, i: newLoadAt(d, addr: addr, filled: false))
+	return d
+end 'lentWordAt'
+
+// LentTemporary is a value made for one call that takes it by address: the place the call is given, the slot that holds the
+// value, and the type to drop what the slot holds after the call, which may have replaced it, or noType where it is held in
+// place and holds nothing to drop.
+type LentTemporary
+	var place as Reg
+	var slot as Count
+	var drop as ast.TypeID
+
+	static function make(place Reg, slot Count, drop ast.TypeID) returns Self
+		return Self{place: place, slot: slot, drop: drop}
+	end 'make'
+
+	static function none() returns Self
+		return Self{place: noReg, slot: 0 as Count, drop: ast.noType}
+	end 'none'
+end 'LentTemporary'
+
+// lentTemporary is a record of the type t with the fields values, in a slot of the frame whose address a call is given.
+function lentTemporary(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, values RegList) returns LentTemporary
+	let v = builtinRecord(l, p: p, ms: ms, t: t, values: values)
+	let applied = applyType(l, p: p, ms: ms, t: t)
+	let inPlace = match heldAs(p, ms: ms, t: applied) 'holding'
+		heldAddress(_) gives true
+		heldWord gives false
+		heldString gives false
+		heldBox gives false
+		heldInline(_) gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+		heldPacked gives panic("ir: a variable that holds words of its own or a byte of a buffer")
+	end 'holding'
+	if inPlace 'area'
+		return LentTemporary.make(heldPlace(l, words: v), slot: 0 as Count, drop: ast.noType)
+	end 'area'
+	let kind = regKind(l, v: v)
+	let slot = l.b.f.newSlot(kind)
+	emit(l, i: newStoreSlot(slot, src: v, borrow: false))
+	let place = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newSlotAddr(place, slot: slot))
+	var drop = ast.noType
+	if owning(kind) 'owned'
+		drop = dropType(l, p: p, ms: ms, t: t)
+	end 'owned'
+	return LentTemporary.make(place, slot: slot, drop: drop)
+end 'lentTemporary'
+
+function dropTemporary(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, lent LentTemporary)
+	if lent.drop == ast.noType 'nothing'
+		return
+	end 'nothing'
+	let held = load(l, slot: lent.slot)
+	emitDropReg(l, src: held, ty: lent.drop)
+end 'dropTemporary'
+
+// dropShed ends the body of a message that a view marked: it drops the arguments, from the parameter first, or the box its
+// pending word holds, as a message that is not handled is dropped.
+function dropShed(mutates inner Lowerer, mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, handler ast.FuncID, state Reg, first Count, pendingSlot Count)
+	if pendingSlot != ast.noPendingSlot 'pending'
+		let word = konst(inner, value: try (pendingSlot - 1) as Word otherwise panic("ir: a pending word past a word"))
+		let box = entry(inner, p: p, site: site, symbol: Rt.rtServiceTakePending, kind: IrKind.kindManaged, args: argsOf2(state, b: word))
+		let boxTy = pendingType(l, p: p, ms: ms, handler: handler)
+		let drop = dropType(l, p: p, ms: ms, t: boxTy)
+		emitDropReg(inner, src: box, ty: drop)
+	end 'pending' else 'args'
+		let fn = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: handler).clone()
+		for i in 0 upto fn.paramTypes.count() 'params'
+			let ty = applyType(l, p: p, ms: ms, t: fn.paramTypes[i])
+			let kind = holderKind(l, p: p, ms: ms, t: ty)
+			if owning(kind) 'owned'
+				let v = paramReg(inner, index: try i + first otherwise panic("ir: more parameters than a word"), kind: kind)
+				emitDropReg(inner, src: v, ty: dropType(l, p: p, ms: ms, t: ty))
+			end 'owned'
+		end 'params'
+	end 'args'
+	let zero = konst(inner, value: 0 as Word)
+	inner.b.terminate(inner.cur, t: newRet(zero))
+end 'dropShed'
+
+function lowerServiceViewKind(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceViewKind, kind: IrKind.kindScalar, args: argsOf2(args[0], b: args[1]))
+end 'lowerServiceViewKind'
+
+function lowerServiceViewMark(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceViewMark, args: argsOf3(args[0], b: args[1], c: args[2]))
+	return konst(l, value: 0 as Word)
+end 'lowerServiceViewMark'
+
+function lowerServiceViewMarked(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtServiceViewMarked, kind: IrKind.kindScalar, args: argsOf2(args[0], b: args[1]))
+end 'lowerServiceViewMarked'

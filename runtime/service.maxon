@@ -251,6 +251,155 @@ function serviceUnderLoad() returns bool
 	return gate < serviceClosed and gate >= turnBehaviours
 end 'serviceUnderLoad'
 
+// Shedding (README, "Overload policies"). Every behaviour of a service whose type has kinds of a SheddingPolicy holds a mark
+// word as its first capture (markOffset): which of the type's shedding policies its kind names, times markPolicyUnit, plus
+// its kind's place among the kinds that name it, times markKindUnit, plus markShed once a policy sheds it. Such a service
+// has one word after its pending words, its horizon: the newest message the last views were given, or 0. A message's start
+// (serviceShedStart) is where the policies' shed is due: while the service is behind and the messages of the last views have
+// all started, so each message is in at most one view. A view (serviceViewOpen) is the messages of one policy's kinds from the
+// one that starts up to the horizon, the tail of the queue the first view of a start found, and a message a policy marked
+// runs its behaviour's thunk all the same, which drops what it holds instead of running the handler. A service whose type
+// has no shedding kind holds no mark and no horizon, and its messages start as they did.
+let shedRun = 0 as Count
+
+let shedDropped = 1 as Count
+
+let shedDue = 2 as Count
+
+let markShed = 1 as Count
+
+let markKindUnit = 2 as Count
+
+let markPolicyUnit = 0x100000000 as Count
+
+let noHorizon = 0 as Count
+
+function markOffset() returns Count
+	return cownOffset(1, index: 1)
+end 'markOffset'
+
+// runningRecord is the record of the behaviour the green thread runs.
+function runningRecord() returns Count
+	return __Raw.loadWord(__Raw.loadWord(__Raw.threadContext(), offset: contextGreenOffset), offset: greenArgOffset)
+end 'runningRecord'
+
+function markedShed(record Count) returns Count
+	if (__Raw.loadWord(record, offset: markOffset()) and markShed) != 0 'shed'
+		return shedDropped
+	end 'shed'
+	return shedRun
+end 'markedShed'
+
+// serviceShedStart is serviceStart of a message of a type with shedding kinds, and says what becomes of it: it runs, it was
+// shed by a view it was in, or the policies' shed is due first. Only the service's holder reads and writes the horizon.
+function serviceShedStart(state Count, slot Count) returns Count
+	serviceStart(state)
+	let handle = __Raw.wrappingSub(state, right: cownValueOffset)
+	let record = runningRecord()
+	let horizon = __Raw.loadWord(handle, offset: pendingOffset(slot))
+	if horizon == record 'last'
+		__Raw.storeWord(handle, offset: pendingOffset(slot), value: noHorizon)
+		return markedShed(record)
+	end 'last'
+	if horizon != noHorizon 'seen'
+		return markedShed(record)
+	end 'seen'
+	let gate = __Raw.loadAcquire(handle, offset: serviceGateOffset)
+	if (gate and serviceBehind) != 0 or (gate and serviceQueued) >= turnBehaviours 'behind'
+		return shedDue
+	end 'behind'
+	return markedShed(record)
+end 'serviceShedStart'
+
+function serviceShedMarked(state Count) returns bool
+	return markedShed(runningRecord()) == shedDropped
+end 'serviceShedMarked'
+
+// serviceViewOpen is the view of one shedding policy, a block of its count and the records of the messages of its kinds, from
+// the one that starts to the horizon, which the first view of the start sets to the tail of the queue. A message behind the
+// tail that has exchanged itself into it may not have linked yet, so the walk waits for each link, as a release does.
+function serviceViewOpen(state Count, slot Count, policy Count) returns Count
+	let handle = __Raw.wrappingSub(state, right: cownValueOffset)
+	let first = runningRecord()
+	var last = __Raw.loadWord(handle, offset: pendingOffset(slot))
+	if last == noHorizon 'tail'
+		last = __Raw.loadWord(__Raw.loadAcquire(handle, offset: cownTailOffset), offset: requestOwnerOffset)
+		__Raw.storeWord(handle, offset: pendingOffset(slot), value: last)
+	end 'tail'
+	var n = 0 as Count
+	var record = first
+	while true 'count'
+		if policyOfMark(record) == policy 'mine'
+			n = __Raw.wrappingAdd(n, right: 1)
+		end 'mine'
+		if record == last 'end'
+			break 'count'
+		end 'end'
+		record = recordAfter(record)
+	end 'count'
+	let view = alloc(try (n + 1) * wordBytes otherwise panic("a view past memory"))
+	__Raw.storeWord(view, offset: 0, value: n)
+	var at = wordBytes
+	record = first
+	while true 'fill'
+		if policyOfMark(record) == policy 'mine'
+			__Raw.storeWord(view, offset: at, value: record)
+			at = __Raw.wrappingAdd(at, right: wordBytes)
+		end 'mine'
+		if record == last 'end'
+			break 'fill'
+		end 'end'
+		record = recordAfter(record)
+	end 'fill'
+	return view
+end 'serviceViewOpen'
+
+function policyOfMark(record Count) returns Count
+	return __Raw.loadWord(record, offset: markOffset()) / markPolicyUnit
+end 'policyOfMark'
+
+// recordAfter is the record of the behaviour queued after one on a service, which is queued already.
+function recordAfter(record Count) returns Count
+	let slot = requestSlot(record, index: 0)
+	var next = __Raw.loadAcquire(slot, offset: requestNextOffset)
+	while next == notQueued 'link'
+		__Raw.spinPause()
+		next = __Raw.loadAcquire(slot, offset: requestNextOffset)
+	end 'link'
+	return __Raw.loadWord(next, offset: requestOwnerOffset)
+end 'recordAfter'
+
+function serviceViewCount(view Count) returns Count
+	return __Raw.loadWord(view, offset: 0)
+end 'serviceViewCount'
+
+function serviceViewClose(view Count)
+	free(view)
+end 'serviceViewClose'
+
+// viewRecord is the record of the message of a view at an index, which the library holds below the view's count.
+function viewRecord(view Count, index Count) returns Count
+	if index >= __Raw.loadWord(view, offset: 0) 'past'
+		panic("a view's message past its count")
+	end 'past'
+	return __Raw.loadWord(view, offset: try (index + 1) * wordBytes otherwise panic("a view past memory"))
+end 'viewRecord'
+
+function serviceViewKind(view Count, index Count) returns Count
+	return (__Raw.loadWord(viewRecord(view, index: index), offset: markOffset()) mod markPolicyUnit) / markKindUnit
+end 'serviceViewKind'
+
+function serviceViewMark(view Count, index Count, shed bool)
+	let record = viewRecord(view, index: index)
+	let mark = __Raw.loadWord(record, offset: markOffset())
+	let kept = __Raw.wrappingSub(mark, right: mark and markShed)
+	__Raw.storeWord(record, offset: markOffset(), value: __Raw.wrappingAdd(kept, right: markShed) if shed else kept)
+end 'serviceViewMark'
+
+function serviceViewMarked(view Count, index Count) returns bool
+	return (__Raw.loadWord(viewRecord(view, index: index), offset: markOffset()) and markShed) != 0
+end 'serviceViewMarked'
+
 // noteQueued keeps the most messages a slowed send found queued with its own. Every count past turnBehaviours is reached
 // by a slowed send, so the most is exact once it passes a turn's worth, and a send that is not slowed writes nothing.
 function noteQueued(handle Count, queued Count)

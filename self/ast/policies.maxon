@@ -4,6 +4,12 @@ export let overloadPolicyName = "OverloadPolicy"
 
 export let coalescingPolicyName = "CoalescingPolicy"
 
+export let sheddingPolicyName = "SheddingPolicy"
+
+export let pendingViewName = "PendingView"
+
+export let shedName = "shed"
+
 export let keepPolicyName = "Keep"
 
 export let dropNewestPolicyName = "DropNewest"
@@ -49,6 +55,27 @@ export function pendingWords(tt TypeSlot, reads TypeTable, ft FuncSlot, funcRead
 	end 'methods'
 	return words
 end 'pendingWords'
+
+// sheds is whether a message of the type nt may be shed: some kind of it names a SheddingPolicy. Every behaviour of such a
+// type carries its mark word, and every message's start may run the policies' shed.
+export function sheds(tt TypeSlot, reads TypeTable, ft FuncSlot, funcReads FuncTable, nt TypeID) returns bool
+	for m in typeEntry(tt, reads: reads, t: nt).methods 'methods'
+		if funcEntry(ft, funcReads: funcReads, f: m.func).shedPolicy != noShedPolicy 'shedding'
+			return true
+		end 'shedding'
+	end 'methods'
+	return false
+end 'sheds'
+
+// serviceWords is how many words the service of the type nt holds after its own: a pending word for each kind of a
+// CoalescingPolicy, and the horizon of its shedding policies' views where it has a SheddingPolicy.
+export function serviceWords(tt TypeSlot, reads TypeTable, ft FuncSlot, funcReads FuncTable, nt TypeID) returns Count
+	let words = pendingWords(tt, reads: reads, ft: ft, funcReads: funcReads, nt: nt)
+	if sheds(tt, reads: reads, ft: ft, funcReads: funcReads, nt: nt) 'horizon'
+		return try words + 1 otherwise panic("ast: more service words than a word")
+	end 'horizon'
+	return words
+end 'serviceWords'
 
 // hasReply is whether a message of the function gives its sender a reply: it returns a value or throws.
 export function hasReply(f FuncEntry, voidTy TypeID) returns bool

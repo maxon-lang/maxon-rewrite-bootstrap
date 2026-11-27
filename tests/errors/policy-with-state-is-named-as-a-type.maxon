@@ -1,0 +1,29 @@
+type Every implements SheddingPolicy
+	var seen as Count
+
+	static function admit(arrival Arrival) returns Admission
+		return Admission.queue
+	end 'admit'
+
+	function shed(mutates self, mutates pending PendingView)
+		self.seen = try self.seen + pending.count otherwise 0
+	end 'shed'
+end 'Every'
+
+type Sink
+	var seen as Count
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	@policy(Every) export function take(mutates self, n Count)
+		self.seen = n
+	end 'take'
+end 'Sink'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3949 at 20:10

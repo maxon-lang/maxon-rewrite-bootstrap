@@ -128,9 +128,12 @@ type SharedData
 	var kept as Count
 	// pending is, for a service whose type has kinds of a coalescing policy, the box in each kind's pending word, or 0.
 	var pending as CountList
+	// sheds is whether a message of the service has started as one of a type with shedding kinds, whose last pending word is
+	// the horizon of its views (strands.maxon), the behaviour that ends them, or 0.
+	var sheds as bool
 
 	static function new() returns SharedData
-		return SharedData{count: 1, holders: CountList.create(0), queue: CountList.create(0), running: 0, ending: 0, cell: 0, owned: BoolList.create(0), gate: 0, behind: false, muted: false, turn: 0, senders: CountList.create(0), most: 0, listedOn: 0, kept: 0, pending: CountList.create(0)}
+		return SharedData{count: 1, holders: CountList.create(0), queue: CountList.create(0), running: 0, ending: 0, cell: 0, owned: BoolList.create(0), gate: 0, behind: false, muted: false, turn: 0, senders: CountList.create(0), most: 0, listedOn: 0, kept: 0, pending: CountList.create(0), sheds: false}
 	end 'new'
 end 'SharedData'
 

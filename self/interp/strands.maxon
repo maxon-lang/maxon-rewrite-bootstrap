@@ -516,7 +516,7 @@ function entryServiceTryReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) thro
 		giveNum(vm, x: x, n: caseWord(ast.sendServiceStopped))
 		return
 	end 'closed'
-	if slowsSenders(vm, at: at, queued: gate) 'behind'
+	if slowsSenders(vm, at: at, queued: gate) or coinBehind(vm) 'behind'
 		giveNum(vm, x: x, n: sendBehind)
 		return
 	end 'behind'
@@ -862,3 +862,155 @@ function reportDeadlock(mutates vm Vm)
 	vm.violations.push(v)
 	vm.fatal = fatalViolation
 end 'reportDeadlock'
+
+// Shedding, as the runtime's (runtime/service.maxon, "Shedding"): a behaviour of a service whose type has shedding kinds holds
+// its mark as its first capture, and the service's last pending word is its horizon, the behaviour that ends the last views.
+// The coin makes a start due where the service is not behind, one in coinSides, so that shed runs in ordinary programs.
+let coinSides = 4 as Count
+
+let shedRun = 0 as ir.Word
+
+let shedDropped = 1 as ir.Word
+
+let shedDue = 2 as ir.Word
+
+let markPolicyUnit = 4294967296 as Count
+
+let markKindUnit = 2 as Count
+
+// coinBehind is whether the coin makes a service behind that is not.
+function coinBehind(mutates vm Vm) returns bool
+	return vm.coin.intN(coinSides) == 0
+end 'coinBehind'
+
+function markOf(vm Vm, b Count) returns Count
+	return ir.bitsOfWord(vm.behaviours.capturesN[b][0])
+end 'markOf'
+
+// stateService is the service whose state the address an entry is given is.
+function stateService(mutates vm Vm, f ir.IrFunction, x ir.Instr, what String) returns Count
+	let c = vm.address(argAt(f, x: x, i: 0))
+	let service = vm.h.cellHolder[c]
+	if c == 0 or vm.h.oKind[service] != kindCown 'notState'
+		panic("interp: {what} is given no service's state")
+	end 'notState'
+	return service
+end 'stateService'
+
+// markedOf is what becomes of behaviour b, a message that starts: it runs, or it was shed, which counts it delivered once.
+function markedOf(mutates vm Vm, b Count) returns ir.Word
+	if markOf(vm, b: b) mod 2 == 1 'shed'
+		noteShed(vm, b: b)
+		return shedDropped
+	end 'shed'
+	noteHandled(vm, b: b)
+	return shedRun
+end 'markedOf'
+
+// entryServiceShedStart is entryServiceStart of a message of a type with shedding kinds, and says whether it runs, was shed,
+// or the policies' shed is due first, which is where the service is behind, or the coin says so, and no view holds it.
+function entryServiceShedStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let service = stateService(vm, f: f, x: x, what: "rt.service.shedStart")
+	let at = vm.h.oData[service]
+	vm.h.shareds[at].gate = try vm.h.shareds[at].gate - 1 otherwise panic("interp: a message taken that no send reserved")
+	vm.h.shareds[at].sheds = true
+	vm.threads[vm.cur].service = service
+	let b = vm.threads[vm.cur].behaviour
+	let slot = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let horizon = vm.h.shareds[at].pending[slot]
+	if horizon == b 'last'
+		vm.h.shareds[at].pending[slot] = 0
+		let answer = markedOf(vm, b: b)
+		giveNum(vm, x: x, n: answer)
+		return
+	end 'last'
+	if horizon == 0 and (slowsSenders(vm, at: at, queued: vm.h.shareds[at].gate mod serviceClosed) or coinBehind(vm)) 'due'
+		// A message of a kind no shedding policy names is never shed, so it is delivered now; another is once its mark is
+		// read after the policies' shed (entryServiceShedMarked).
+		if markOf(vm, b: b) / markPolicyUnit == 0 'kept'
+			noteHandled(vm, b: b)
+		end 'kept'
+		giveNum(vm, x: x, n: shedDue)
+		return
+	end 'due'
+	let answer = markedOf(vm, b: b)
+	giveNum(vm, x: x, n: answer)
+end 'entryServiceShedStart'
+
+// entryServiceShedMarked is what becomes of the message that starts once the policies' shed has run.
+function entryServiceShedMarked(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let b = vm.threads[vm.cur].behaviour
+	let answer = markedOf(vm, b: b)
+	giveFlag(vm, x: x, b: answer == shedDropped)
+end 'entryServiceShedMarked'
+
+// entryServiceViewOpen gives a view of the behaviours of a shedding policy's kinds queued on the service, from the one that
+// starts up to the horizon, which the first view of a start sets to the newest queued.
+function entryServiceViewOpen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let service = stateService(vm, f: f, x: x, what: "rt.service.viewOpen")
+	let at = vm.h.oData[service]
+	let slot = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let policy = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 2))
+	let queue = vm.h.shareds[at].queue.clone()
+	if queue.count() == 0 or queue[0] != vm.threads[vm.cur].behaviour 'head'
+		panic("interp: a view of a service whose message that starts is not first in its queue")
+	end 'head'
+	if vm.h.shareds[at].pending[slot] == 0 'tail'
+		vm.h.shareds[at].pending[slot] = queue[try queue.count() - 1 otherwise panic("interp: a view of an empty queue")]
+	end 'tail'
+	let last = vm.h.shareds[at].pending[slot]
+	var held = CountList.create(0)
+	for i in 0 upto queue.count() 'queue'
+		let b = queue[i]
+		if markOf(vm, b: b) / markPolicyUnit == policy 'mine'
+			held.push(b)
+		end 'mine'
+		if b == last 'end'
+			break 'queue'
+		end 'end'
+	end 'queue'
+	let view = vm.views.count()
+	vm.views.push(held)
+	giveNum(vm, x: x, n: ir.wordOfBits(view))
+end 'entryServiceViewOpen'
+
+function entryServiceViewCount(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let view = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 0))
+	giveNum(vm, x: x, n: ir.wordOfBits(vm.views[view].count()))
+end 'entryServiceViewCount'
+
+function entryServiceViewClose(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let view = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 0))
+	vm.views[view] = CountList.create(0)
+end 'entryServiceViewClose'
+
+// viewBehaviour is the behaviour of a view at an index, which the library holds below the view's count.
+function viewBehaviour(vm Vm, f ir.IrFunction, x ir.Instr) returns Count
+	let view = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 0))
+	let index = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	if index >= vm.views[view].count() 'past'
+		panic("interp: a view's message past its count")
+	end 'past'
+	return vm.views[view][index]
+end 'viewBehaviour'
+
+function entryServiceViewKind(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let b = viewBehaviour(vm, f: f, x: x)
+	giveNum(vm, x: x, n: ir.wordOfBits((markOf(vm, b: b) mod markPolicyUnit) / markKindUnit))
+end 'entryServiceViewKind'
+
+function entryServiceViewMark(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let b = viewBehaviour(vm, f: f, x: x)
+	let mark = markOf(vm, b: b)
+	let kept = try mark - mark mod 2 otherwise panic("interp: a mark below its own bit")
+	if argNum(vm, f: f, x: x, i: 2) != 0 'shed'
+		vm.behaviours.capturesN[b][0] = ir.wordOfBits(try kept + 1 otherwise panic("interp: a mark past a word"))
+		return
+	end 'shed'
+	vm.behaviours.capturesN[b][0] = ir.wordOfBits(kept)
+end 'entryServiceViewMark'
+
+function entryServiceViewMarked(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let b = viewBehaviour(vm, f: f, x: x)
+	giveFlag(vm, x: x, b: markOf(vm, b: b) mod 2 == 1)
+end 'entryServiceViewMarked'

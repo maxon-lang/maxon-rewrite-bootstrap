@@ -483,8 +483,11 @@ export let errPolicyMisplaced = "E3946"
 // The type an '@policy' annotation names does not implement OverloadPolicy.
 export let errPolicyNotAPolicy = "E3947"
 
-// A message that has a reply names a policy that throws messages away unanswered or replaces them: Latest, DropNewest, or another CoalescingPolicy.
+// A message that has a reply names a policy that throws messages away unanswered or replaces them: Latest, DropNewest, another CoalescingPolicy, or a SheddingPolicy such as DropOldest.
 export let errPolicyWithReply = "E3948"
+
+// An '@policy' annotation names a SheddingPolicy type that has fields: the state its shed changes is a field of the service, named by '@policy(self.field)'.
+export let errPolicyStateNotHeld = "E3949"
 
 // A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 export let errInvalidFieldAccess = "E4006"

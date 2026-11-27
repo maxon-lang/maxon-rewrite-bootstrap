@@ -21,6 +21,9 @@ let pcgCheapMultiplier = 0xda942042e4dd58b5 as Count
 // seedStream is the second word of the generator's state, fixed so that a seed alone names a schedule.
 let seedStream = 0x9e3779b97f4a7c15 as Count
 
+// coinStream is the second word of the state of the interpreter's coin (Vm.coin).
+let coinStream = 0x6a09e667f3bcc909 as Count
+
 type Rng
 	var hi as Count
 	var lo as Count
@@ -28,6 +31,10 @@ type Rng
 	static function new(seed ir.Word) returns Rng
 		return Rng{hi: ir.bitsOfWord(seed), lo: seedStream}
 	end 'new'
+
+	static function stream(seed ir.Word, lo Count) returns Rng
+		return Rng{hi: ir.bitsOfWord(seed), lo: lo}
+	end 'stream'
 
 	function uint64(mutates self) returns Count
 		let product = ir.mulWide(lo, b: pcgMultiplierLow)

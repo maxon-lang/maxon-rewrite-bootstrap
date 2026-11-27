@@ -2,7 +2,8 @@
 // the interpreter's model of them must keep under every schedule. A failure is the model's or the runtime's design's, never
 // the program's, so the run that finds one ends in an internal error naming the oracle and the seed of its schedule.
 //
-// - exactly once: every message whose send succeeded is handled once; a send that fails, fails only "stopped";
+// - exactly once: every message whose send succeeded is handled once, or dropped once by a shedding policy's mark; a send that
+//   fails, fails only "stopped", or "busy" where its policy refuses it;
 // - sender order: the messages of one sender to one service are handled in the order they were sent;
 // - progress: the run never stops with only backpressure holding it, every live service muted and every task parked at a send;
 // - queue bound: a service's queue stays within the bound the header of runtime/service.maxon states for the shape of its
@@ -171,6 +172,16 @@ end 'noteMessage'
 
 // noteHandled counts the message that behaviour b is as its handler starts: handled once, and in its sender's order.
 function noteHandled(mutates vm Vm, b Count)
+	noteDelivered(vm, b: b, verb: "handled")
+end 'noteHandled'
+
+// noteShed counts the message that behaviour b is as a shedding policy's mark drops it, which is its one delivery: dropped
+// once, and in its sender's order as its handler would have run.
+function noteShed(mutates vm Vm, b Count)
+	noteDelivered(vm, b: b, verb: "dropped")
+end 'noteShed'
+
+function noteDelivered(mutates vm Vm, b Count, verb String)
 	let pair = vm.behaviours.pair[b]
 	if pair == 0 'untagged'
 		return
@@ -178,14 +189,14 @@ function noteHandled(mutates vm Vm, b Count)
 	vm.behaviours.handled[b] = try vm.behaviours.handled[b] + 1 otherwise panic("interp: a count past a word")
 	let what = "message {vm.behaviours.pairSeq[b]} of {senderText(vm, key: vm.deliveries.sender[pair])} to {objectText(vm, o: vm.deliveries.receiver[pair])} (behaviour #{vm.behaviours.seq[b]})"
 	if vm.behaviours.handled[b] > 1 'again'
-		oracleFails(vm, oracle: oracleOnce, found: "{what} is handled again")
+		oracleFails(vm, oracle: oracleOnce, found: "{what} is {verb} after it was handled or dropped")
 		return
 	end 'again'
 	let last = vm.deliveries.handled[pair]
 	if not vm.deliveries.handle(pair, seq: vm.behaviours.pairSeq[b]) 'order'
-		oracleFails(vm, oracle: oracleOrder, found: "{what} is handled after message {last} of that sender")
+		oracleFails(vm, oracle: oracleOrder, found: "{what} is {verb} after message {last} of that sender")
 	end 'order'
-end 'noteHandled'
+end 'noteDelivered'
 
 // checkEnded checks a run that has ended with nothing left to run: every message is handled, and every queue stayed within
 // its bound.
@@ -204,7 +215,10 @@ function checkEnded(mutates vm Vm)
 		end 'again'
 		seen.push(service)
 		// A pending word holds one message at most, whose behaviour its sends queue without being slowed.
-		let words = vm.h.shareds[vm.h.oData[service]].pending.count()
+		var words = vm.h.shareds[vm.h.oData[service]].pending.count()
+		if vm.h.shareds[vm.h.oData[service]].sheds 'horizon'
+			words = try words - 1 otherwise panic("interp: a service that sheds without its horizon")
+		end 'horizon'
 		let bound = queueBound(vm.deliveries, service: service, turn: vm.turnLimit)
 		if bound.isSome() 'stated'
 			let most = vm.h.shareds[vm.h.oData[service]].most

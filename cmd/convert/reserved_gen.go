@@ -5,6 +5,7 @@ package main
 // reservedWords are the keywords of minimaxon.
 var reservedWords = map[string]bool{
 	"end":         true,
+	"self":        true,
 	"export":      true,
 	"public":      true,
 	"static":      true,
@@ -12,7 +13,6 @@ var reservedWords = map[string]bool{
 	"mutates":     true,
 	"consumes":    true,
 	"destructs":   true,
-	"self":        true,
 	"returns":     true,
 	"throws":      true,
 	"sets":        true,

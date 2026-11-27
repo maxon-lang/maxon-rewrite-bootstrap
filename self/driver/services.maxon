@@ -16,9 +16,9 @@ let laneScheduleSeeds = 4 as Count
 
 let laneStepLimit = 20000000 as Count
 
-// lanePolicies is how many overload policies the program's walks may be sent as: Keep, Refuse, DropNewest and Latest, one
-// for each run of a graph in turn.
-let lanePolicies = 4 as Count
+// lanePolicies is how many overload policies the program's walks may be sent as: Keep, Refuse, DropNewest, Latest, DropOldest
+// and the program's own with state, one for each run of a graph in turn.
+let lanePolicies = 6 as Count
 
 let laneProgramPath = "services.maxon"
 
@@ -105,7 +105,7 @@ type SendGraph
 	end 'make'
 
 	// input is the program's standard input for the graph, with main stopping service stop - 1 after its first start, or
-	// none for 0, and every walk sent as the kind of the policy numbered policy (the program's keeps to latest).
+	// none for 0, and every walk sent as the kind of the policy numbered policy (the program's keeps to sampled).
 	function input(stop Count, policy Count) returns String
 		var text = ""
 		for a in 0 upto laneServices 'from'

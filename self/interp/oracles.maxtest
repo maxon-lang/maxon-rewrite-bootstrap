@@ -53,7 +53,7 @@ test 'a message whose handler starts twice fails exactly once'
 	let body = m.ret(zero)
 	let main = mainSending(p, body: body, places: 2)
 	let out = runOracles(p, main: main, others: others1(body), seed: seedOfTest(seedOfTurn4))
-	expectOracle("twice", out: out, oracle: oracleOnce, fragment: "is handled again")
+	expectOracle("twice", out: out, oracle: oracleOnce, fragment: "is handled after it was handled or dropped")
 end 'a message whose handler starts twice fails exactly once'
 
 test 'a message whose handler never starts fails exactly once'

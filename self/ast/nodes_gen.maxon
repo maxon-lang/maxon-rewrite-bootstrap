@@ -81,6 +81,7 @@ end 'NodeKind'
 export function isReserved(word String) returns bool
 	return match word 'kw'
 		"end" or
+		"self" or
 		"export" or
 		"public" or
 		"static" or
@@ -88,7 +89,6 @@ export function isReserved(word String) returns bool
 		"mutates" or
 		"consumes" or
 		"destructs" or
-		"self" or
 		"returns" or
 		"throws" or
 		"sets" or
@@ -222,6 +222,8 @@ export type FuncDecl
 	export var visibility as String
 	export var isAnnotated as bool
 	export var annotation as String
+	export var policyOfSelf as bool
+	export var policyField as String
 	export var policy as NodeID
 	export var isStatic as bool
 	export var receiver as String
@@ -236,7 +238,7 @@ export type FuncDecl
 	export var testName as String
 
 	export static function make(id NodeID) returns FuncDecl
-		return FuncDecl{id: id, name: "", visibility: "", isAnnotated: false, annotation: "", policy: 0 as NodeID, isStatic: false, receiver: "", params: ParamList.create(0), typeParams: TypeParamList.create(0), resultMode: "", returnsRef: 0 as NodeID, throwsRef: 0 as NodeID, whereList: ConstraintList.create(0), body: 0 as diag.U32, endRef: 0 as NodeID, testName: ""}
+		return FuncDecl{id: id, name: "", visibility: "", isAnnotated: false, annotation: "", policyOfSelf: false, policyField: "", policy: 0 as NodeID, isStatic: false, receiver: "", params: ParamList.create(0), typeParams: TypeParamList.create(0), resultMode: "", returnsRef: 0 as NodeID, throwsRef: 0 as NodeID, whereList: ConstraintList.create(0), body: 0 as diag.U32, endRef: 0 as NodeID, testName: ""}
 	end 'make'
 end 'FuncDecl'
 
