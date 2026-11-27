@@ -1829,6 +1829,12 @@ directory-scope.md: error.module-before-a-member-is-a-stray-word
 directory-scope.md: every-unmarked-declaration-kind-is-visible-to-another-file-of-its-directory
 directory-scope.md: module-is-an-ordinary-identifier
 directory-scope.md: unmarked-functions-call-each-other-across-three-files-of-a-directory
+directory.md: a-drive-relative-and-a-rooted-path-name-the-same-entry-at-both-lengths
+directory.md: a-path-of-each-length-around-the-extension-threshold-is-created-found-and-read-both-ways
+directory.md: a-path-spelled-with-slashes-repeated-separators-and-a-trailing-separator-names-the-same-entry-at-both-lengths
+directory.md: a-relative-path-past-the-legacy-windows-limit-names-the-same-entries-as-a-short-one
+directory.md: a-segment-ending-in-a-dot-or-a-space-names-the-same-entry-at-both-lengths
+directory.md: an-absolute-path-past-the-legacy-windows-limit-names-the-same-entries-as-a-short-one
 directory.md: current-directory-is-directory
 directory.md: current-directory-not-empty
 directory.md: delete-answers-not-found-for-a-path-through-a-file
@@ -4478,6 +4484,7 @@ map-try-otherwise-block.md: map-get-try-otherwise-block-string
 map-try-otherwise-block.md: map-get-try-otherwise-block-struct
 map-try-otherwise-block.md: try-block-forward-declared-throwing-call
 map-try-otherwise-block.md: try-block-throwing-method-on-param-array
+map.md: a-churn-of-inserts-and-removes-makes-the-same-allocations-wherever-the-keys-hash
 map.md: a-let-map-for-in-keys-and-values-are-range-known
 map.md: a-let-map-read-after-a-reading-call-keeps-its-range
 map.md: a-let-map-value-read-is-range-known
@@ -6205,6 +6212,7 @@ random.md: random.below-stays-below-large-bounds
 random.md: random.below-zero-is-refused
 random.md: random.bytes-draws-differ
 random.md: random.bytes-reach-every-byte-value
+random.md: random.bytes-returns-exactly-the-count-asked-for
 random.md: random.draw-reaches-the-top-bit
 random.md: random.fill-random-arity-checked
 random.md: random.fill-random-fills-a-buffer-longer-than-one-request
@@ -7404,6 +7412,7 @@ set-string.md: remove-loop-no-leak
 set-string.md: remove-nonexistent
 set-string.md: remove-then-contains
 set.md: a-bare-head-literal-of-struct-members-infers-the-key
+set.md: a-churn-of-inserts-and-removes-makes-the-same-allocations-wherever-the-keys-hash
 set.md: basic.contains-true
 set.md: basic.creation
 set.md: empty-set
@@ -8160,6 +8169,7 @@ subprocess.md: subprocess-a-missing-working-directory-is-spawn-failed
 subprocess.md: subprocess-a-path-to-a-missing-file-is-not-found
 subprocess.md: subprocess-a-program-path-holding-a-nul-is-refused-before-the-spawn
 subprocess.md: subprocess-a-redirect-file-path-holding-a-nul-is-refused-before-the-spawn
+subprocess.md: subprocess-a-redirect-file-path-past-the-legacy-windows-limit-is-opened
 subprocess.md: subprocess-a-short-payload-fed-to-a-child-that-exits-unread-ends-in-the-childs-own-exit
 subprocess.md: subprocess-a-spawn-of-an-executable-open-for-writing-follows-the-operating-systems-answer
 subprocess.md: subprocess-a-working-directory-holding-a-nul-is-refused-before-the-spawn
