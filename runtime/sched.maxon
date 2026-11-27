@@ -1134,7 +1134,8 @@ end 'wakeThread'
 // makeScheduler makes the scheduler's record and the processors, the event queue, and the main thread's part as thread 0 with
 // processor 0. On Linux and macOS it opens the null device at each standard fd that the process started with closed
 // (reopenStandardFds) before the event queue, or anything else, takes the number: every fd the runtime opens, a spawn's pipes
-// among them, comes after the scheduler.
+// among them, comes after the scheduler. There too it raises the soft open-file limit to the hard one (raiseFileLimit,
+// ulimit.maxon), as Go's start-up does.
 function makeScheduler(mainContext Count) returns Count
 	let procs = workerCount()
 	let scheduler = keep(try schedProcessorsOffset + procs * wordBytes otherwise panic("too many processors for memory"))
@@ -1148,9 +1149,11 @@ function makeScheduler(mainContext Count) returns Count
 	setThreadIdentity(mainContext)
 	#if os(Linux)
 		reopenStandardFds()
+		raiseFileLimit(scheduler)
 	#endif
 	#if os(macOS)
 		reopenStandardFds()
+		raiseFileLimit(scheduler)
 	#endif
 	initEventQueue(scheduler)
 	initPreemption()

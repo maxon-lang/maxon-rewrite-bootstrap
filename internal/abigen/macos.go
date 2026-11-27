@@ -58,6 +58,7 @@ var macosABI = []layoutConst{
 	{"macosEsrch", 3, true, toRuntime, "ESRCH: a kevent of EVFILT_PROC for a process that has ended or is ending, which the filter cannot watch, and a signal to a process or a group that has no member left."},
 	{"macosEintr", 4, true, toRuntime, "EINTR: a call that a signal broke off, which is made again."},
 	{"macosEbadf", 9, true, toRuntime, "EBADF: an fd that is not open."},
+	{"macosRlimitNofile", 8, true, toRuntime, "RLIMIT_NOFILE: the limit of the fds a process may have open, a struct rlimit of the soft limit then the hard one, 64 bits each."},
 	{"macosEacces", 13, true, toRuntime, "EACCES."},
 	{"macosEbusy", 16, true, toRuntime, "EBUSY."},
 	{"macosEexist", 17, true, toRuntime, "EEXIST."},

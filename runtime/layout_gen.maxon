@@ -396,8 +396,14 @@ let schedWriterSlots = 256 as Count
 // schedWatchersOffset is where the scheduler's record holds the newest of the watches of services' stops (service.maxon, "Watching a stop"), linked from each to the one before, written under the lock and read without it, 0 for none.
 let schedWatchersOffset = 2416 as Count
 
+// schedFileLimitOffset is where the scheduler's record holds the open-file limit the process started with, on Linux and macOS, a struct rlimit of two words (the soft limit, then the hard one), which a child is given back on Linux.
+let schedFileLimitOffset = 2424 as Count
+
+// schedFileLimitRaisedOffset is where the scheduler's record holds 1 once the soft open-file limit is raised from the one the process started with.
+let schedFileLimitRaisedOffset = 2440 as Count
+
 // schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made.
-let schedProcessorsOffset = 2424 as Count
+let schedProcessorsOffset = 2448 as Count
 
 // procIdOffset is where a processor holds its index among the processors.
 let procIdOffset = 0 as Count
@@ -1047,6 +1053,9 @@ let linuxEsrch = 3 as Count
 // linuxEbadf is EBADF: an fd that is not open.
 let linuxEbadf = 9 as Count
 
+// linuxRlimitNofile is RLIMIT_NOFILE: the limit of the fds a process may have open, a struct rlimit of the soft limit then the hard one, 64 bits each.
+let linuxRlimitNofile = 7 as Count
+
 // linuxEintr is EINTR: a call that a signal broke off, which is made again.
 let linuxEintr = 4 as Count
 
@@ -1241,6 +1250,9 @@ let macosEintr = 4 as Count
 
 // macosEbadf is EBADF: an fd that is not open.
 let macosEbadf = 9 as Count
+
+// macosRlimitNofile is RLIMIT_NOFILE: the limit of the fds a process may have open, a struct rlimit of the soft limit then the hard one, 64 bits each.
+let macosRlimitNofile = 8 as Count
 
 // macosEacces is EACCES.
 let macosEacces = 13 as Count
@@ -1630,6 +1642,9 @@ let macosSpawnSetSid = 1024 as Count
 	// linuxSysGetsockopt is getsockopt(fd, level, option, value, value length).
 	let linuxSysGetsockopt = 209 as Count
 
+	// linuxSysPrlimit64 is prlimit64(pid, resource, new limit, old limit): reads or sets a limit of a process, 0 for the caller, as Go's syscall package does.
+	let linuxSysPrlimit64 = 261 as Count
+
 	// linuxEpollEventDataOffset is where a struct epoll_event, which x86-64 packs, holds its 64-bit data word, after the 32-bit events.
 	let linuxEpollEventDataOffset = 8 as Count
 
@@ -1845,6 +1860,9 @@ let macosSpawnSetSid = 1024 as Count
 
 	// linuxSysGetsockopt is getsockopt(fd, level, option, value, value length).
 	let linuxSysGetsockopt = 55 as Count
+
+	// linuxSysPrlimit64 is prlimit64(pid, resource, new limit, old limit): reads or sets a limit of a process, 0 for the caller, as Go's syscall package does.
+	let linuxSysPrlimit64 = 302 as Count
 
 	// linuxEpollEventDataOffset is where a struct epoll_event, which x86-64 packs, holds its 64-bit data word, after the 32-bit events.
 	let linuxEpollEventDataOffset = 4 as Count

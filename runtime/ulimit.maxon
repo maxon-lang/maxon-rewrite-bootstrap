@@ -1,0 +1,104 @@
+// The open-file limit (RLIMIT_NOFILE), which the scheduler raises as it is made, as Go's syscall package raises it at start-up
+// (syscall/rlimit.go, init): the soft limit goes up to the hard one, on macOS no higher than kern.maxfilesperproc (Go's
+// adjustFileLimit, rlimit_darwin.go), so that a program that holds many sockets is not refused at a default soft limit of 256
+// (macOS) or 1024 (Linux), which is there for programs that use select(). The limit the process started with is kept in the
+// scheduler's record (schedFileLimitOffset), and on Linux a child is given it back before its execve (execChild,
+// restoreFileLimit), as Go's forkAndExecInChild does; on macOS, where posix_spawn has no attribute for a limit, a child inherits
+// the raised one (runtime/README.md, "The scheduler and Go's"). A limit that cannot be read, or a hard limit that is no higher, is
+// left as it was. A program whose code reaches no scheduler never raises it. The code runs once, so it lies here, after the
+// runtime's hot code.
+
+#if os(Linux) or os(macOS)
+	// fileLimitBytes is a struct rlimit: the soft limit, then the hard one, 64 bits each.
+	let fileLimitBytes = 16 as Count
+
+	let fileLimitHardOffset = 8 as Count
+
+	// raiseFileLimit raises the soft open-file limit to the hard one, no higher than the system allows a process, and keeps the
+	// limit the process started with in the scheduler's record.
+	function raiseFileLimit(scheduler Count)
+		let original = __Raw.wrappingAdd(scheduler, right: schedFileLimitOffset)
+		if failed(readFileLimit(original)) 'unread'
+			return
+		end 'unread'
+		let soft = __Raw.loadWord(original, offset: 0)
+		let hard = __Raw.loadWord(original, offset: fileLimitHardOffset)
+		let most = mostFilesPerProcess(hard)
+		if soft < 0 or most < 0 or soft >= most 'raised'
+			return
+		end 'raised'
+		let raised = alloc(fileLimitBytes)
+		__Raw.storeWord(raised, offset: 0, value: most)
+		__Raw.storeWord(raised, offset: fileLimitHardOffset, value: hard)
+		let result = writeFileLimit(raised)
+		free(raised)
+		if not failed(result) 'set'
+			__Raw.storeWord(scheduler, offset: schedFileLimitRaisedOffset, value: set)
+		end 'set'
+	end 'raiseFileLimit'
+#endif
+
+#if os(Linux)
+	// readFileLimit reads the process's open-file limit into a struct rlimit, and gives 0 or -errno.
+	function readFileLimit(limit Count) returns Count
+		return __Raw.syscall4(linuxSysPrlimit64, arg1: 0, arg2: linuxRlimitNofile, arg3: 0, arg4: limit)
+	end 'readFileLimit'
+
+	// writeFileLimit sets the process's open-file limit from a struct rlimit, and gives 0 or -errno.
+	function writeFileLimit(limit Count) returns Count
+		return __Raw.syscall4(linuxSysPrlimit64, arg1: 0, arg2: linuxRlimitNofile, arg3: limit, arg4: 0)
+	end 'writeFileLimit'
+
+	// mostFilesPerProcess is how high the soft limit may go under a hard limit: the hard limit itself, which the kernel holds
+	// at fs.nr_open or below; RLIM_INFINITY, which it never is, reads as below 0 and leaves the limit alone.
+	function mostFilesPerProcess(hard Count) returns Count
+		return hard
+	end 'mostFilesPerProcess'
+
+	// startingFileLimit is the struct rlimit that a child is given back before its execve, or 0 where the limit was not raised.
+	function startingFileLimit() returns Count
+		let scheduler = __Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset)
+		if scheduler == 0 'single'
+			return 0
+		end 'single'
+		if __Raw.loadWord(scheduler, offset: schedFileLimitRaisedOffset) != set 'unraised'
+			return 0
+		end 'unraised'
+		return __Raw.wrappingAdd(scheduler, right: schedFileLimitOffset)
+	end 'startingFileLimit'
+
+	// restoreFileLimit gives the child of a clone the open-file limit the process started with, where the process raised it,
+	// before its execve: one raw call, which allocates nothing (execChild); a refusal leaves the child the raised one, as Go's
+	// child ignores it.
+	function restoreFileLimit(limit Count)
+		if limit != 0 'raised'
+			_ = writeFileLimit(limit)
+		end 'raised'
+	end 'restoreFileLimit'
+#endif
+
+#if os(macOS)
+	function readFileLimit(limit Count) returns Count
+		return checkedInt(__Raw.callImport2("getrlimit", arg1: macosRlimitNofile, arg2: limit))
+	end 'readFileLimit'
+
+	function writeFileLimit(limit Count) returns Count
+		return checkedInt(__Raw.callImport2("setrlimit", arg1: macosRlimitNofile, arg2: limit))
+	end 'writeFileLimit'
+
+	// mostFilesPerProcess is how high the soft limit may go under a hard limit: no higher than kern.maxfilesperproc, since a
+	// setrlimit of a soft limit above it fails (RLIM_INFINITY among them, which the hard limit often is), as Go's adjustFileLimit
+	// caps it; the hard limit where the sysctl cannot be read.
+	function mostFilesPerProcess(hard Count) returns Count
+		let name = cStringOf("kern.maxfilesperproc")
+		var most = 0 as Count
+		var length = intBytes
+		let result = checkedInt(__Raw.callImport5("sysctlbyname", arg1: name, arg2: __Raw.addressOf(most), arg3: __Raw.addressOf(length), arg4: 0, arg5: 0))
+		free(name)
+		if failed(result) 'unread'
+			return hard
+		end 'unread'
+		let perProcess = most and lowHalfMask
+		return perProcess if perProcess < hard else hard
+	end 'mostFilesPerProcess'
+#endif

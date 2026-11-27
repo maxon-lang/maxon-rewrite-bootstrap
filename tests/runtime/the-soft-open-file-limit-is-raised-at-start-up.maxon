@@ -1,0 +1,109 @@
+// A program raises its soft open-file limit (RLIMIT_NOFILE) to the hard one at start-up, as Go's does, on macOS no higher than
+// kern.maxfilesperproc, and keeps the limit it started with. This program runs itself through a shell that lowers the soft
+// limit to 256 first; the child reads its own limit, raised, and the one its scheduler kept, 256, and runs a shell that says its
+// soft limit: on Linux the limit the program started with, 256, which the child of a clone is given back before its execve, as
+// Go's is; on macOS the raised one, which a child of posix_spawn inherits (runtime/README.md, "The scheduler and Go's").
+// unsupported-targets: x64-windows
+//> the program's soft limit is raised above the 256 it started with: true
+//> the scheduler kept the 256 it started with: true
+//> a child's soft limit is the one the program started with on Linux, the raised one on macOS: true
+
+let testNoHandle = 0xFFFFFFFFFFFFFFFF as Count
+
+let testStartingLimit = 256 as Count
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'
+
+function testAppend(blob Count, text String)
+	appendBytesOf(blob, address: __Raw.stringBytes(text), length: __Raw.stringLength(text))
+	let at = collectionExtend(blob, count: 1, elementBytes: byteBytes)
+	__Raw.storeByte(at, offset: 0, value: 0)
+end 'testAppend'
+
+function testCopy(address Count, length Count) returns String
+	let room = __Raw.stringRoom(length)
+	if length != 0 'some'
+		copyBytes(address, target: room, count: length)
+	end 'some'
+	return stringOfRoom(room, length: length)
+end 'testCopy'
+
+function testDropArgs(args Count)
+	let data = __Raw.loadWord(args, offset: osArrayDataOffset)
+	let count = collectionLength(args)
+	for index in 0 upto count 'each'
+		let offset = collectionBytes(index, elementBytes: __Raw.stringSize())
+		if not holdsInline(__Raw.stringLengthAt(data, offset: offset)) 'room'
+			__Raw.freeStringRoom(__Raw.stringBytesAt(data, offset: offset))
+		end 'room'
+	end 'each'
+	free(data)
+	free(args)
+end 'testDropArgs'
+
+// testShell is what a shell that runs a script prints, with the arguments after it as $0 and on, the tokens the blob holds.
+function testShell(blob Count, tokens Count) returns String
+	let handle = subprocessSpawn(blob, argc: tokens, cwd: "", env: 0, envInherit: spawnEnvironmentParent, stdinKind: spawnStdinNone, stdinData: "", stdoutKind: spawnOutputCollect, stdoutData: "", stdoutLimit: 0, stderrKind: spawnOutputInherit, stderrData: "", stderrLimit: 0, flags: 0, stdinLength: 0)
+	free(collectionData(blob))
+	free(blob)
+	if handle == testNoHandle 'failed'
+		panic("the shell did not start")
+	end 'failed'
+	let result = subprocessWaitCollect(handle, ms: 0)
+	let out = subprocessResultStdout(result)
+	let printed = testCopy(collectionData(out), length: collectionLength(out))
+	free(collectionData(out))
+	free(out)
+	subprocessResultRelease(result)
+	subprocessReleaseHandle(handle)
+	return printed
+end 'testShell'
+
+// testChild reads the limits of a program that a shell started at a soft limit of 256.
+function testChild() returns ExitCode
+	let scheduler = schedulerOf(__Raw.threadContext())
+	let limit = alloc(fileLimitBytes)
+	if failed(readFileLimit(limit)) 'unread'
+		panic("the open-file limit cannot be read")
+	end 'unread'
+	let soft = __Raw.loadWord(limit, offset: 0)
+	free(limit)
+	testWrite("the program's soft limit is raised above the 256 it started with: {soft > testStartingLimit}\n")
+	let kept = __Raw.loadWord(scheduler, offset: schedFileLimitOffset)
+	testWrite("the scheduler kept the 256 it started with: {kept == testStartingLimit}\n")
+	let blob = bytesNew()
+	testAppend(blob, text: "/bin/sh")
+	testAppend(blob, text: "-c")
+	testAppend(blob, text: "ulimit -S -n")
+	let printed = testShell(blob, tokens: 3)
+	#if os(Linux)
+		let expected = "{testStartingLimit}\n"
+	#else
+		let expected = "{soft}\n"
+	#endif
+	testWrite("a child's soft limit is the one the program started with on Linux, the raised one on macOS: {streq(printed, right: expected)}\n")
+	return 0
+end 'testChild'
+
+function main() returns ExitCode
+	let own = osArgs()
+	let count = collectionLength(own)
+	testDropArgs(own)
+	if count > 1 'child'
+		return testChild()
+	end 'child'
+	var unset = 0 as Count
+	let executable = osExecutablePath(__Raw.addressOf(unset))
+	if unset != 0 'unknown'
+		panic("the program's own path is unknown")
+	end 'unknown'
+	let blob = bytesNew()
+	testAppend(blob, text: "/bin/sh")
+	testAppend(blob, text: "-c")
+	testAppend(blob, text: "ulimit -S -n {testStartingLimit} && exec \"$0\" child")
+	testAppend(blob, text: executable)
+	testWrite(testShell(blob, tokens: 4))
+	return 0
+end 'main'

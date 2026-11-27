@@ -48,7 +48,11 @@
 	// Whether the child leads a session of its own (a detached one) and not only a process group.
 	let runSessionOffset = (runErrorFdOffset + wordBytes) as Count
 
-	let runStreamFilesOffset = (runSessionOffset + wordBytes) as Count
+	// The open-file limit the child is given back before its execve, the scheduler's record of the one the process started with,
+	// or 0 where the process did not raise it (ulimit.maxon).
+	let runFileLimitOffset = (runSessionOffset + wordBytes) as Count
+
+	let runStreamFilesOffset = (runFileLimitOffset + wordBytes) as Count
 
 	let runWaitOffset = (runStreamFilesOffset + streamFilesBytes) as Count
 
@@ -164,8 +168,9 @@
 	// holds alone keeps as it is, before any step that may fail and end it (closeWriters, linux.maxon); it leads a process group
 	// of its own (a session of its own for a detached child), puts the fds that the run names (an end of a pipe, a
 	// file or the null device) in place of its standard input, output and error, which dup3 leaves open on exec, moves to the
-	// zero-terminated directory unless that is noDirectory, and executes the program with the environment that the vector of its
-	// entries is. When a step fails it writes the errno down the status pipe and exits.
+	// zero-terminated directory unless that is noDirectory, gives itself back the open-file limit the process started with where
+	// the process raised it (restoreFileLimit, as Go's child does), and executes the program with the environment that the vector
+	// of its entries is. When a step fails it writes the errno down the status pipe and exits.
 	//
 	// The child shares the run's memory and runs on the run's stack below the frame of runChild, while the run's thread
 	// waits in the clone, as Go's forkAndExecInChild1 does. So it makes only raw system calls and reads what the run made
@@ -201,6 +206,7 @@
 				failChild(run, errno: errnoOf(moved) or unmovedMark)
 			end 'unmoved'
 		end 'directory'
+		restoreFileLimit(wordAt(run, offset: runFileLimitOffset))
 		failChildUnless(run, result: __Raw.syscall4(linuxSysRtSigprocmask, arg1: linuxSigSetMask, arg2: fieldAt(run, offset: runCloneMaskOffset), arg3: 0, arg4: linuxSignalMaskBytes))
 		let result = __Raw.syscall3(linuxSysExecve, arg1: path, arg2: vector, arg3: envp)
 		failChild(run, errno: errnoOf(result))
@@ -343,10 +349,11 @@
 		return openPathBytes(path, length: length, flags: linuxOpenReadOnly, mode: 0)
 	end 'openStreamFile'
 
-	// prepareClone fills what the clone and its child read of the run's record: the set of every signal, and SIG_DFL's
-	// struct sigaction.
+	// prepareClone fills what the clone and its child read of the run's record: the set of every signal, SIG_DFL's struct
+	// sigaction, and the open-file limit the process started with, where it raised it.
 	function prepareClone(run Count)
 		__Raw.storeWord(run, offset: runAllSignalsOffset, value: 0xFFFFFFFFFFFFFFFF as Count)
+		__Raw.storeWord(run, offset: runFileLimitOffset, value: startingFileLimit())
 		for at in 0 upto linuxSigactionBytes / wordBytes 'action'
 			__Raw.storeWord(fieldAt(run, offset: runDefaultActionOffset), offset: at * wordBytes, value: 0)
 		end 'action'

@@ -401,7 +401,11 @@ var layouts = []layoutConst{
 		"how many fds the writers' list holds at most: an open for writing past them fails as the kernel's EMFILE does, before the file is opened."},
 	{"schedWatchersOffset", 302, false, toRuntime,
 		"where the scheduler's record holds the newest of the watches of services' stops (service.maxon, \"Watching a stop\"), linked from each to the one before, written under the lock and read without it, 0 for none."},
-	{"schedProcessorsOffset", 303, false, toRuntime,
+	{"schedFileLimitOffset", 303, false, toRuntime,
+		"where the scheduler's record holds the open-file limit the process started with, on Linux and macOS, a struct rlimit of two words (the soft limit, then the hard one), which a child is given back on Linux."},
+	{"schedFileLimitRaisedOffset", 305, false, toRuntime,
+		"where the scheduler's record holds 1 once the soft open-file limit is raised from the one the process started with."},
+	{"schedProcessorsOffset", 306, false, toRuntime,
 		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made."},
 
 	// A processor (Go's P): what a thread must hold to run green threads, its local run queue (a ring that its owner puts

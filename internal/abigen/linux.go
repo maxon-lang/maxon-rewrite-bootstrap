@@ -71,6 +71,7 @@ var linuxABI = []layoutConst{
 	{"linuxSysGetpeername", 52, true, toRuntime, "getpeername(fd, address, address length): a socket's peer, which a connect that has ended has."},
 	{"linuxSysSetsockopt", 54, true, toRuntime, "setsockopt(fd, level, option, value, value length)."},
 	{"linuxSysGetsockopt", 55, true, toRuntime, "getsockopt(fd, level, option, value, value length)."},
+	{"linuxSysPrlimit64", 302, true, toRuntime, "prlimit64(pid, resource, new limit, old limit): reads or sets a limit of a process, 0 for the caller, as Go's syscall package does."},
 
 	// epoll and eventfd.
 	{"linuxEpollCloexec", 0x80000, true, toRuntime, "EPOLL_CLOEXEC: the event queue is closed in a child that execs."},
@@ -195,6 +196,7 @@ var linuxABI = []layoutConst{
 	{"linuxEnoent", 2, true, toRuntime, "ENOENT."},
 	{"linuxEsrch", 3, true, toRuntime, "ESRCH: a signal to a process or a group that has no member left."},
 	{"linuxEbadf", 9, true, toRuntime, "EBADF: an fd that is not open."},
+	{"linuxRlimitNofile", 7, true, toRuntime, "RLIMIT_NOFILE: the limit of the fds a process may have open, a struct rlimit of the soft limit then the hard one, 64 bits each."},
 	{"linuxEintr", 4, true, toRuntime, "EINTR: a call that a signal broke off, which is made again."},
 	{"linuxEnxio", 6, true, toRuntime, "ENXIO: an open for writing with O_NONBLOCK of a FIFO that no reader has open."},
 	{"linuxEagain", 11, true, toRuntime, "EAGAIN."},
@@ -285,6 +287,7 @@ var linuxArm64 = []archValue{
 	{"linuxSysRecvfrom", 207},
 	{"linuxSysSetsockopt", 208},
 	{"linuxSysGetsockopt", 209},
+	{"linuxSysPrlimit64", 261},
 	{"linuxSysShutdown", 210},
 	{"linuxSysAccept4", 242},
 	// arm64 does not pack a struct epoll_event: its 64-bit data word is aligned after the 32-bit events.
