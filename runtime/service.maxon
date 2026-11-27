@@ -538,6 +538,24 @@ function serviceStateHeld(state Count) returns bool
 	return __Raw.loadWord(state, offset: 0) != 0
 end 'serviceStateHeld'
 
+// serviceBehaviourStart names the service as the one the green thread runs a message of as a behaviour of it that is no
+// message starts, its factory's or the one that drops its state at a stop, as serviceStart does without the place in the
+// mailbox, which such a behaviour never took. Its release is then the service's (behaviourRelease): the one that empties the
+// queue of a closed service ends it, even on a green thread that started no message of the service before it.
+function serviceBehaviourStart(state Count)
+	let g = __Raw.loadWord(__Raw.threadContext(), offset: contextGreenOffset)
+	__Raw.storeWord(g, offset: greenServiceOffset, value: __Raw.wrappingSub(state, right: cownValueOffset))
+end 'serviceBehaviourStart'
+
+// serviceStateEnds is whether the behaviour that runs, holding the service, is its last, which drops the state of a service
+// whose state can hold a Reply: the service is closed and its gate counts no message still to start, so none reads the state
+// after it. The gate counts a message from its send's reservation, before it is queued, so a send that reserved before the
+// stop and queues its message after the behaviour the stop queued keeps the state for that message, whose end drops it.
+function serviceStateEnds(state Count) returns bool
+	let gate = __Raw.loadAcquire(__Raw.wrappingSub(state, right: cownValueOffset), offset: serviceGateOffset)
+	return gate >= serviceClosed and (gate and serviceQueued) == 0 and serviceStateHeld(state)
+end 'serviceStateEnds'
+
 // serviceCurrent is the service whose message runs, on which its stop queues the behaviour that drops its state.
 function serviceCurrent() returns Count
 	return runningService()

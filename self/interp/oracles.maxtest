@@ -83,8 +83,8 @@ end 'a run that backpressure alone holds fails progress'
 test 'a message handled before the one sent before it fails sender order'
 	var d = Deliveries.new()
 	let pair = d.pairOf(taskSender(1), to: 7)
-	let first = d.send(pair)
-	let second = d.send(pair)
+	let first = d.send(pair, from: 0)
+	let second = d.send(pair, from: 0)
 	if first != 1 or second != 2 or d.handle(pair, seq: second) 'kept'
 		panic("the second message of a pair, handled first, came in its turn")
 	end 'kept'
@@ -109,3 +109,28 @@ test 'the queue bound follows the shape of the senders'
 		panic("a consumer that a task sends to beside the relay has a bound")
 	end 'stated'
 end 'the queue bound follows the shape of the senders'
+
+// The header counts a relay's messages per mute as a whole handler's, so the bound of two turns and 4 is its consumer's only
+// where each handler of the relay sends it one message: a handler that sends three (behaviour 5) leaves the shape unbounded.
+test 'a relay whose handler sends many leaves its consumer without a bound'
+	var d = Deliveries.new()
+	let turn = 3 as Count
+	let fed = d.pairOf(taskSender(1), to: 7)
+	_ = d.send(fed, from: 0)
+	let relayed = d.pairOf(serviceSender(7), to: 8)
+	_ = d.send(relayed, from: 4)
+	_ = d.send(relayed, from: 6)
+	let single = queueBound(d, service: 8, turn: turn)
+	if not single.isSome() or single.unwrap() != 2 * turn + 4 'single'
+		panic("the consumer of a relay that sends one message per handler has no bound of two turns and 4")
+	end 'single'
+	for i in 0 upto 3 'many'
+		_ = d.send(relayed, from: 5)
+	end 'many'
+	if d.sendsPerHandler(serviceSender(7), to: 8) != 3 or queueBound(d, service: 8, turn: turn).isSome() 'stated'
+		panic("the consumer of a relay whose handler sends three messages has a bound")
+	end 'stated'
+	if not queueBound(d, service: 7, turn: turn).isSome() 'relay'
+		panic("the relay lost its own bound")
+	end 'relay'
+end 'a relay whose handler sends many leaves its consumer without a bound'

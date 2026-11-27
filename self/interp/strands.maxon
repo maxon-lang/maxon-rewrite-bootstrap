@@ -984,6 +984,24 @@ function entryServiceEnding(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws H
 	giveEnding(vm, f: f, x: x, cown: service)
 end 'entryServiceEnding'
 
+// entryServiceBehaviourStart makes the service of a behaviour that is no message, its factory's or the one a stop queues to
+// drop its state, the one the thread runs a message of, as a message's start does with no place in the mailbox to give back,
+// so that its release is the service's (releaseBehaviour).
+function entryServiceBehaviourStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let service = stateService(vm, f: f, x: x, what: "rt.service.behaviourStart")
+	vm.threads[vm.cur].service = service
+end 'entryServiceBehaviourStart'
+
+// entryServiceStateEnds is whether the behaviour that runs is the last of its service, which drops a state that can hold a
+// Reply: the service is closed, its gate counts no message still to start, from its send's reservation on, and it holds its
+// state.
+function entryServiceStateEnds(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let service = stateService(vm, f: f, x: x, what: "rt.service.stateEnds")
+	let at = vm.h.oData[service]
+	let c = vm.address(argAt(f, x: x, i: 0))
+	giveFlag(vm, x: x, b: vm.h.shareds[at].gate == serviceClosed and vm.h.refOf(c) != 0)
+end 'entryServiceStateEnds'
+
 // entryServiceCurrent is the service whose message the thread runs.
 function entryServiceCurrent(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let service = messageOf(vm, t: vm.cur)

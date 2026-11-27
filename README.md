@@ -5130,6 +5130,14 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   Replies it holds fail their awaits then, as maxon's do when the service finishes, and not only once its last handle goes.
   Of a type that implements `Ends` (see "Stops"), the behaviour gives the state to its `finish` instead, and what finish
   leaves, a Reply among it, is dropped where finish returns, so a Reply fails its await after finish has run.
+  The gate counts a message from its send's reservation, before its message is queued, so a send that took its place before
+  the stop may queue its message after that behaviour; the state is ended, by finish or by its drop, by the service's last
+  behaviour, the one whose end finds the service closed with no message counted still to start (`rt.service.stateEnds`):
+  that behaviour, or else the end of the last such message.
+  That behaviour, like the factory's, is one of the service's own, as a message is: it starts by `rt.service.behaviourStart`,
+  which names the service as the one its green thread runs a message of, so its release, the one that leaves the closed
+  service with nothing queued, ends it and completes the watches of its stop on whatever green thread it runs, and where
+  the type sheds it holds the mark of no policy, which a view walking the queue reads.
   `E3222` refuses, in maxon's words: `reply.later()` in a closure, inside a block, other than as a whole `let` initializer,
   twice, in a message with no reply or with an interface value as its reply, in a generic type, without `throws ReplyStopped`,
   or in what is no message; a deferring message's `return` with a value, its `throw` or propagating `try`, and a call of it

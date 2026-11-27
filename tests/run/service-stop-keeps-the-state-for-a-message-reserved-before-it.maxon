@@ -1,0 +1,65 @@
+// A send takes its place in a service's mailbox, and is counted by its gate, before its message is queued, so a stop can
+// come between the two and queue the behaviour that drops a Reply-holding state ahead of that message. The message still
+// runs, as every send that took its place does, so the state is dropped by the service's last behaviour: the one whose
+// end leaves the closed service with no message counted still to start, here a poke queued after the stop's behaviour.
+// The interpreter's schedules of seeds 4 and 19 put a poke in that gap.
+//> parked failed: true, watched
+export typealias Count = int(0 to 1000)
+
+export typealias Parked = Array with Reply with Count
+
+type Parker
+	var parked as Parked
+	var pokes as Count
+
+	static function create() returns Self
+		return Self{parked: Parked.create(0), pokes: 0}
+	end 'create'
+
+	export function wait(mutates self) returns Count throws ReplyStopped
+		let pending = reply.later()
+		self.parked.push(pending)
+		return
+	end 'wait'
+
+	export function poke(mutates self)
+		self.pokes = try self.pokes + 1 otherwise 0
+	end 'poke'
+end 'Parker'
+
+type Poker
+	var sent as Count
+
+	static function create() returns Self
+		return Self{sent: 0}
+	end 'create'
+
+	export function pokeAll(mutates self, parker Parker.handle)
+		for i in 0 upto 20 'pokes'
+			try parker.poke() otherwise return
+			self.sent = i
+		end 'pokes'
+	end 'pokeAll'
+end 'Poker'
+
+// stopped is what main takes for the reply of the parked message, which the drop of the state fails.
+let stopped = 999 as Count
+
+function main() returns ExitCode
+	let parker = spawn Parker.create()
+	let a = spawn Poker.create()
+	let b = spawn Poker.create()
+	let c = spawn Poker.create()
+	let d = spawn Poker.create()
+	let parked = try parker.wait() otherwise panic("send")
+	try a.pokeAll(parker.clone()) otherwise panic("send")
+	try b.pokeAll(parker.clone()) otherwise panic("send")
+	try c.pokeAll(parker.clone()) otherwise panic("send")
+	try d.pokeAll(parker.clone()) otherwise panic("send")
+	let watch = parker.stopped()
+	parker.shutdown()
+	let failed = (try await parked otherwise stopped) == stopped
+	await watch
+	print("parked failed: {failed}, watched\n")
+	return 0
+end 'main'

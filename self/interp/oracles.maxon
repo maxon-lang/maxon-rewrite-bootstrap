@@ -21,19 +21,26 @@ let oracleProgress = "progress"
 let oracleBound = "queue bound"
 
 // Deliveries are the messages sent, by pair of sender and receiver, from 1, 0 being no pair: how many were sent and how many
-// of them have been handled, in order.
+// of them have been handled, in order, and the most that one behaviour of the sender sent on the pair.
 type Deliveries
 	var sender as CountList
 	var receiver as CountList
 	var sent as CountList
 	var handled as CountList
+	// by is the behaviour that sent the pair's last message, 0 for a task's, and run how many in a row it sent.
+	var by as CountList
+	var run as CountList
+	var most as CountList
 
 	static function new() returns Deliveries
-		var d = Deliveries{sender: CountList.create(0), receiver: CountList.create(0), sent: CountList.create(0), handled: CountList.create(0)}
+		var d = Deliveries{sender: CountList.create(0), receiver: CountList.create(0), sent: CountList.create(0), handled: CountList.create(0), by: CountList.create(0), run: CountList.create(0), most: CountList.create(0)}
 		d.sender.push(0)
 		d.receiver.push(0)
 		d.sent.push(0)
 		d.handled.push(0)
+		d.by.push(0)
+		d.run.push(0)
+		d.most.push(0)
 		return d
 	end 'new'
 
@@ -48,14 +55,37 @@ type Deliveries
 		receiver.push(to)
 		sent.push(0)
 		handled.push(0)
+		by.push(0)
+		run.push(0)
+		most.push(0)
 		return try sender.count() - 1 otherwise panic("interp: a pair that was not made")
 	end 'pairOf'
 
-	// send counts a message of a pair, and gives its place among the pair's messages, from 1.
-	function send(mutates self, pair Count) returns Count
+	// send counts a message of a pair that behaviour from sent, 0 for a task, and gives its place among the pair's messages,
+	// from 1.
+	function send(mutates self, pair Count, from Count) returns Count
 		sent[pair] = try sent[pair] + 1 otherwise panic("interp: more messages than a word")
+		if from != 0 and from == by[pair] 'again'
+			run[pair] = try run[pair] + 1 otherwise panic("interp: more messages than a word")
+		end 'again' else 'first'
+			by[pair] = from
+			run[pair] = 1
+		end 'first'
+		if run[pair] > most[pair] 'most'
+			most[pair] = run[pair]
+		end 'most'
 		return sent[pair]
 	end 'send'
+
+	// sendsPerHandler is the most messages one behaviour of a sender sent to a receiver, 0 where it sent none.
+	function sendsPerHandler(from Count, to Count) returns Count
+		for i in 1 upto sender.count() 'pairs'
+			if sender[i] == from and receiver[i] == to 'found'
+				return most[i]
+			end 'found'
+		end 'pairs'
+		return 0
+	end 'sendsPerHandler'
 
 	// handle counts the message of a pair at place seq as it is handled, and gives whether it came in its turn: the one after
 	// the last the pair had handled.
@@ -103,7 +133,9 @@ end 'taskSender'
 // queueBound is the bound in messages that runtime/service.maxon states for the queue of a service, for the senders and
 // receivers it had, with turn for its turnBehaviours, where it states one: a service that sends to none and that only tasks
 // send to holds at most a turn and a message of each task; a relay that one task sends to and that sends to one other
-// service, a turn and 2; and the consumer that only such a relay sends to, two turns and 4.
+// service, a turn and 2; and the consumer that only such a relay sends to, two turns and 4, where each handler of the relay
+// sends it one message. The header counts a service's messages from its first slowed send to its mute, which is a whole
+// handler's, so a relay whose handler sends more passes its consumer more per mute, and that shape states no number.
 function queueBound(d Deliveries, service Count, turn Count) returns table.Option with Count
 	let senders = d.sendersOf(service)
 	let receivers = d.receiversOf(serviceSender(service))
@@ -113,7 +145,7 @@ function queueBound(d Deliveries, service Count, turn Count) returns table.Optio
 	if isRelay(d, service: service) 'relay'
 		return table.Option.some(try turn + 2 otherwise panic("interp: a bound past a word"))
 	end 'relay'
-	if receivers.count() == 0 and senders.count() == 1 and not isTaskSender(senders[0]) and isRelay(d, service: senders[0] / senderTag) 'consumer'
+	if receivers.count() == 0 and senders.count() == 1 and not isTaskSender(senders[0]) and isRelay(d, service: senders[0] / senderTag) and d.sendsPerHandler(senders[0], to: service) <= 1 'consumer'
 		return table.Option.some(try 2 * turn + 4 otherwise panic("interp: a bound past a word"))
 	end 'consumer'
 	return table.Option.none
@@ -168,7 +200,7 @@ function noteMessage(mutates vm Vm, b Count, cowns CountList)
 	end 'service'
 	let pair = vm.deliveries.pairOf(from, to: to)
 	vm.behaviours.pair[b] = pair
-	vm.behaviours.pairSeq[b] = vm.deliveries.send(pair)
+	vm.behaviours.pairSeq[b] = vm.deliveries.send(pair, from: vm.threads[vm.cur].behaviour)
 end 'noteMessage'
 
 // noteHandled counts the message that behaviour b is as its handler starts: handled once, and in its sender's order.

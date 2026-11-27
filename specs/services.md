@@ -17810,7 +17810,7 @@ peer sent on its own green thread and writes it back; the peer, still on `main`'
 ```maxon
 typealias Tally = int(0 to 1000000)
 
-type Echo
+type Echo implements Ends
 	var client as TcpClient
 
 	static function create(consumes client TcpClient) returns Self
@@ -17824,6 +17824,10 @@ type Echo
 		try client.close() otherwise ignore
 		return try got.byteLength() as Tally otherwise panic("out of range")
 	end 'serve'
+
+	function finish(consumes self)
+		try self.client.close() otherwise ignore
+	end 'finish'
 end 'Echo'
 
 function main() returns ExitCode
@@ -17877,7 +17881,7 @@ socket, not to a thread, so the service's `readSome` parks on it and is woken wh
 ```maxon
 typealias Tally = int(0 to 1000000)
 
-type Echo
+type Echo implements Ends
 	var client as TcpClient
 
 	static function create(consumes client TcpClient) returns Self
@@ -17895,6 +17899,10 @@ type Echo
 		try client.close() otherwise ignore
 		return total
 	end 'serve'
+
+	function finish(consumes self)
+		try self.client.close() otherwise ignore
+	end 'finish'
 end 'Echo'
 
 function main() returns ExitCode
@@ -18120,7 +18128,7 @@ service in the first place.
 ```maxon
 typealias Tally = int(0 to 1000000)
 
-type Acceptor
+type Acceptor implements Ends
 	var listener as TcpListener
 	var accepted as Tally
 
@@ -18132,6 +18140,10 @@ type Acceptor
 		self.accepted = try self.accepted + 1 otherwise panic("out of range")
 		return try self.listener.accept()
 	end 'next'
+
+	function finish(consumes self)
+		try self.listener.close() otherwise ignore
+	end 'finish'
 end 'Acceptor'
 
 function main() returns ExitCode

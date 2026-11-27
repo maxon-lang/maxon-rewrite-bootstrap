@@ -483,6 +483,14 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryServiceCurrent(vm, f: f, x: x)
 		return
 	end 'rtServiceCurrent'
+	if symbol == ir.Rt.rtServiceBehaviourStart 'rtServiceBehaviourStart'
+		try entryServiceBehaviourStart(vm, f: f, x: x)
+		return
+	end 'rtServiceBehaviourStart'
+	if symbol == ir.Rt.rtServiceStateEnds 'rtServiceStateEnds'
+		try entryServiceStateEnds(vm, f: f, x: x)
+		return
+	end 'rtServiceStateEnds'
 	if symbol == ir.Rt.rtReplyDefer 'rtReplyDefer'
 		try entryReplyDefer(vm, f: f, x: x)
 		return

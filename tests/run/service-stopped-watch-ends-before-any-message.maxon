@@ -1,0 +1,28 @@
+// A service shut down while its factory's behaviour is the only one it holds ends once that behaviour has run: the factory's
+// behaviour is one of the service's own, as a message is, so its release, which leaves the closed service with nothing
+// queued, ends it, and a watch of its stop completes while main still holds its handle.
+// schedules: 6
+//> watched with the handle held
+export typealias Count = int(0 to 1000)
+
+type Counter
+	var n as Count
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function get() returns Count
+		return self.n
+	end 'get'
+end 'Counter'
+
+function main() returns ExitCode
+	let counter = spawn Counter.create()
+	let watch = counter.stopped()
+	counter.shutdown()
+	await watch
+	let refused = (try await counter.get() otherwise 999) == 999
+	print("watched with the handle {"held" if refused else "lost"}\n")
+	return 0
+end 'main'

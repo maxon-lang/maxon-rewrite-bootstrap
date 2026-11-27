@@ -727,7 +727,7 @@ A `TcpListener` and a `TcpClient` each own an OS socket, so each is `unique`: th
 ```maxon
 typealias Tally = int(0 to 1000000)
 
-type Acceptor
+type Acceptor implements Ends
 	var listener as TcpListener
 	var accepted as Tally
 
@@ -739,6 +739,10 @@ type Acceptor
 		self.accepted = try self.accepted + 1 otherwise panic("out of range")
 		return try self.listener.accept()
 	end 'next'
+
+	function finish(consumes self)
+		try self.listener.close() otherwise ignore
+	end 'finish'
 end 'Acceptor'
 
 function main() returns ExitCode
