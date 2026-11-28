@@ -57,3 +57,5 @@ helpers/file/fileWriter.maxon file
 File.maxon file
 TcpClient.maxon net
 TcpListener.maxon net
+helpers/http/httpHelpers.maxon http
+HttpClient.maxon http

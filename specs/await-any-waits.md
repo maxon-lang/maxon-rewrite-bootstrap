@@ -253,6 +253,7 @@ main ready=1 sum=7 coroutine=103
 ```
 
 <!-- test: await-any-waits.a-message-body-may-make-an-http-request -->
+<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 `fetch` runs in `Fetcher`'s message body and makes an `HttpClient` request over `http` to a peer coroutine of `main`. The client reaches no wait, so the message is accepted.
 
 ```maxon

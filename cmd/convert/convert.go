@@ -103,6 +103,13 @@ func convertProgram(file, src string, kind inputKind, names programNames) Result
 		if libraryRoot(file) != "" && !isLibraryHelper(file) {
 			dropUnprovidedMembers(lines)
 		}
+		if libraryRoot(file) != "" {
+			// The sessions go first, so that what only a hand-written member calls is kept for the hand-written file.
+			dropTlsSessions(lines)
+			dropHandWrittenMembers(file, lines)
+			dropLibraryMerges(lines)
+			closeOpenRanges(lines)
+		}
 		addInterfaceWheres(lines)
 		lendRequirements(lines)
 		dropReplacedMembers(lines)
@@ -115,6 +122,7 @@ func convertProgram(file, src string, kind inputKind, names programNames) Result
 	rewriteTypeNames(lines)
 	if kind == sourceFile && libraryRoot(file) != "" {
 		renameNamesHidingModules(lines)
+		renameLocalsHidingModules(lines)
 	}
 	renameLibraryTypes(file, lines, kind, names.own)
 	if kind == specProgram && names.usesLibrarySubprocess {
@@ -1280,11 +1288,14 @@ func isLibraryHelper(file string) bool {
 // public member of the library's root names in its signature (`Array.sortBy(cmp)`'s `SortComparator`): they stay public, where a
 // helper's other names become export, since a public function may not name a less visible type (E3167). A type of them keeps
 // its public members too: a program writes to a file through maxon's FileWriter (`FileWriter.open(path)`), and encrypts with
-// the ciphers of `helpers/crypto/` (`Aes.create(key)`) and their errors.
+// the ciphers of `helpers/crypto/` (`Aes.create(key)`) and their errors, and the HTTP codec's parsers and what they give, which
+// maxon's HTTP spec tests call.
 var publicHelperNames = []string{
 	"SortComparator", "swap", "FileWriter",
 	"Aead", "AeadError", "AeadSealedParts", "Aes", "AesCounter", "AesError", "AesKeyStreamError",
 	"ChaCha20", "ChaCha20Counter", "ChaCha20Error", "Poly1305", "Poly1305Error",
+	"HttpUrlScheme", "HttpConnectTarget", "HttpRequestHead", "HttpResponseStatus", "httpConnectTargetOf", "httpBuildRequest",
+	"httpResponseStatusOf", "httpParseRequestHead",
 }
 
 // publicHelperKinds are the declarations that a name of publicHelperNames keeps public as.

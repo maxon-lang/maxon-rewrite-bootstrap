@@ -1,0 +1,44 @@
+// TLS is not brought over yet, so HttpClient refuses an https URL with unsupportedScheme once it has connected, where maxon's
+// would begin its handshake: the listener's peer sees the connection close with nothing sent, and no TLS failure is reported
+// for a handshake that never began. An http URL to the same listener is answered.
+// native-only
+//> https: unsupportedScheme, the peer read 0 bytes
+//> http: 200 hello
+function peerReads(mutates listener TcpListener) returns Count
+	var conn = try listener.accept() otherwise return 99
+	let got = try conn.readSome(4096) otherwise ByteArray.create(0)
+	try conn.close() otherwise ignore
+	return got.count()
+end 'peerReads'
+
+function answers(mutates listener TcpListener) returns Count
+	var conn = try listener.accept() otherwise return 99
+	let got = try conn.readSome(4096) otherwise ByteArray.create(0)
+	_ = try conn.send("HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello") otherwise 0
+	try conn.close() otherwise ignore
+	return got.count()
+end 'answers'
+
+function main() returns ExitCode
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	let port = listener.port()
+	let peer = async peerReads(listener)
+	let refused = try HttpClient.get("https://127.0.0.1:{port}/") otherwise (e) 'refused'
+		print("https: {e.name}, the peer read {await peer} bytes\n")
+		let second = async answers(listener)
+		let response = try HttpClient.get("http://127.0.0.1:{port}/") otherwise (f) 'failed'
+			print("http: {f.name}\n")
+			_ = await second
+			try listener.close() otherwise ignore
+			return 3
+		end 'failed'
+		_ = await second
+		print("http: {response.statusCode().number()} {response.body()}\n")
+		try listener.close() otherwise ignore
+		return 0
+	end 'refused'
+	print("https answered {refused.statusCode().number()}\n")
+	_ = await peer
+	try listener.close() otherwise ignore
+	return 2
+end 'main'

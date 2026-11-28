@@ -310,22 +310,29 @@ here too.
 let RequestBytes = 4096
 
 function answerAndHold(mutates listener TcpListener, answer String) returns String
-	let conn = try listener.accept() otherwise return "accept-failed"
-	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
-	_ = try conn.send(answer) otherwise return "send-failed"
+	var conn = try listener.accept() otherwise return "accept-failed"
+	_ = try conn.readSome(RequestBytes) otherwise 'connEnded'
+		try conn.close() otherwise ignore
+		return "recv-failed"
+	end 'connEnded'
+	_ = try conn.send(answer) otherwise 'connEnded'
+		try conn.close() otherwise ignore
+		return "send-failed"
+	end 'connEnded'
 	while true 'held'
 		let chunk = try conn.readSome(RequestBytes) otherwise (e) 'left'
+			try conn.close() otherwise ignore
 			return e.name
 		end 'left'
 		if chunk.isEmpty() 'clientLeft'
+			try conn.close() otherwise ignore
 			return "connectionClosed"
 		end 'clientLeft'
 	end 'held'
-	try conn.close() otherwise ignore
 end 'answerAndHold'
 
 function fetch(port NetworkPort, method HttpMethod) returns String
-	let request = try HttpRequest.create(method, url: "http://127.0.0.1:{port}/") otherwise return "bad-url"
+	var request = try HttpRequest.create(method, url: "http://127.0.0.1:{port}/") otherwise return "bad-url"
 	request.setHeader("Connection", value: "keep-alive")
 	let response = try HttpClient.send(request) otherwise (e) 'failed'
 		return e.name
@@ -342,9 +349,10 @@ function exchange(mutates listener TcpListener, method HttpMethod, answer String
 end 'exchange'
 
 function main() returns ExitCode
-	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	print("get={exchange(listener, method: HttpMethod.get, answer: "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: keep-alive\r\n\r\nhello")}\n")
 	print("head={exchange(listener, method: HttpMethod.head, answer: "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: keep-alive\r\n\r\n")}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -365,9 +373,15 @@ head=200 [] peer=connectionClosed
 let RequestBytes = 4096
 
 function answer(mutates listener TcpListener, reply String) returns String
-	let conn = try listener.accept() otherwise return "accept-failed"
-	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
-	_ = try conn.send(reply) otherwise return "send-failed"
+	var conn = try listener.accept() otherwise return "accept-failed"
+	_ = try conn.readSome(RequestBytes) otherwise 'connEnded'
+		try conn.close() otherwise ignore
+		return "recv-failed"
+	end 'connEnded'
+	_ = try conn.send(reply) otherwise 'connEnded'
+		try conn.close() otherwise ignore
+		return "send-failed"
+	end 'connEnded'
 	try conn.close() otherwise ignore
 	return "answered"
 end 'answer'
@@ -383,10 +397,11 @@ function exchange(mutates listener TcpListener, reply String) returns String
 end 'exchange'
 
 function main() returns ExitCode
-	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	print("listed={exchange(listener, reply: "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok")}\n")
 	print("unlisted={exchange(listener, reply: "HTTP/1.1 299 Custom\r\nContent-Length: 2\r\n\r\nhi")}\n")
 	print("two-digits={exchange(listener, reply: "HTTP/1.1 99 Short\r\nContent-Length: 2\r\n\r\nhi")}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -442,7 +457,7 @@ function main() returns ExitCode
 			print("{code.number()} [{reasonPhraseOf(code)}] came back as {back.number()} [{reasonPhraseOf(back)}]\n")
 			return 1
 		end 'lost'
-		named = named + 1
+		named = try named + 1 otherwise panic("out of range")
 		code = successor(code)
 	end 'eachNamed'
 	print("{named} named statuses round-trip\n")
@@ -457,6 +472,7 @@ end 'main'
 ```
 
 <!-- test: http-client.the-client-deadline-covers-the-whole-exchange -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- procs: 1 -->
 **`HttpClientLimits.timeoutMs` BOUNDS THE WHOLE EXCHANGE, SO A PEER THAT NEVER ANSWERS ENDS IT WITH
 `timedOut`.** The peer accepts and then answers nothing, with no deadline of its own, so only the client's
@@ -485,7 +501,6 @@ function staySilent(mutates listener TcpListener) returns String
 			return "connectionClosed"
 		end 'clientLeft'
 	end 'held'
-	try conn.close() otherwise ignore
 end 'staySilent'
 
 function clientOutcome(request HttpRequest, limits HttpClientLimits) returns String
@@ -534,9 +549,15 @@ let RequestBytes = 4096
 let TenBytes = "0123456789"
 
 function answer(mutates listener TcpListener, reply String) returns String
-	let conn = try listener.accept() otherwise return "accept-failed"
-	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
-	_ = try conn.send(reply) otherwise return "send-failed"
+	var conn = try listener.accept() otherwise return "accept-failed"
+	_ = try conn.readSome(RequestBytes) otherwise 'connEnded'
+		try conn.close() otherwise ignore
+		return "recv-failed"
+	end 'connEnded'
+	_ = try conn.send(reply) otherwise 'connEnded'
+		try conn.close() otherwise ignore
+		return "send-failed"
+	end 'connEnded'
 	try conn.close() otherwise ignore
 	return "answered"
 end 'answer'
@@ -555,14 +576,14 @@ function exchange(mutates listener TcpListener, reply String, limits HttpClientL
 end 'exchange'
 
 function main() returns ExitCode
-	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let declared = "HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\n{TenBytes}"
 	let chunked = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n4\r\n0123\r\n6\r\n456789\r\n0\r\n\r\n"
 	let closeDelimited = "HTTP/1.1 200 OK\r\n\r\n{TenBytes}"
 	let uncapped = HttpClientLimits.create()
-	let capped = HttpClientLimits.create()
+	var capped = HttpClientLimits.create()
 	capped.maxBodyBytes = HttpBodyCap.atMost(4)
-	let roomy = HttpClientLimits.create()
+	var roomy = HttpClientLimits.create()
 	roomy.maxBodyBytes = HttpBodyCap.atMost(10)
 	print("declared-uncapped={exchange(listener, reply: declared, limits: uncapped)}\n")
 	print("declared-at-the-cap={exchange(listener, reply: declared, limits: roomy)}\n")
@@ -571,6 +592,7 @@ function main() returns ExitCode
 	print("chunked-at-the-cap={exchange(listener, reply: chunked, limits: roomy)}\n")
 	print("close-delimited-over={exchange(listener, reply: closeDelimited, limits: capped)}\n")
 	print("close-delimited-at-the-cap={exchange(listener, reply: closeDelimited, limits: roomy)}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -600,25 +622,33 @@ client leaves at once.
 let RequestBytes = 4096
 
 function answer(mutates listener TcpListener, reply String, hold bool) returns String
-	let conn = try listener.accept() otherwise return "accept-failed"
-	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
-	_ = try conn.send(reply) otherwise return "send-failed"
+	var conn = try listener.accept() otherwise return "accept-failed"
+	_ = try conn.readSome(RequestBytes) otherwise 'connEnded'
+		try conn.close() otherwise ignore
+		return "recv-failed"
+	end 'connEnded'
+	_ = try conn.send(reply) otherwise 'connEnded'
+		try conn.close() otherwise ignore
+		return "send-failed"
+	end 'connEnded'
 	if not hold 'closing'
 		try conn.close() otherwise ignore
 		return "closed"
 	end 'closing'
 	while true 'held'
 		let chunk = try conn.readSome(RequestBytes) otherwise (e) 'left'
+			try conn.close() otherwise ignore
 			return e.name
 		end 'left'
 		if chunk.isEmpty() 'clientLeft'
+			try conn.close() otherwise ignore
 			return "connectionClosed"
 		end 'clientLeft'
 	end 'held'
 end 'answer'
 
 function fetch(port NetworkPort) returns String
-	let request = try HttpRequest.create(HttpMethod.get, url: "http://127.0.0.1:{port}/") otherwise return "bad-url"
+	var request = try HttpRequest.create(HttpMethod.get, url: "http://127.0.0.1:{port}/") otherwise return "bad-url"
 	request.setHeader("Connection", value: "keep-alive")
 	let response = try HttpClient.send(request) otherwise (e) 'failed'
 		return e.name
@@ -635,7 +665,7 @@ function exchange(mutates listener TcpListener, reply String, hold bool) returns
 end 'exchange'
 
 function main() returns ExitCode
-	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let chunks = "5;name=value\r\nhello\r\n6\r\n world\r\n0\r\nX-Checksum: 1\r\n\r\n"
 	print("chunked={exchange(listener, reply: "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n{chunks}", hold: false)}\n")
 	print("chunked-with-length={exchange(listener, reply: "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nTransfer-Encoding: chunked\r\n\r\n{chunks}", hold: false)}\n")
@@ -644,6 +674,7 @@ function main() returns ExitCode
 	print("bad-size={exchange(listener, reply: "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: keep-alive\r\n\r\nzz\r\nhello\r\n0\r\n\r\n", hold: true)}\n")
 	print("blank-before-an-extension={exchange(listener, reply: "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: keep-alive\r\n\r\n5 \t;name\r\nhello\r\n0\r\n\r\n", hold: true)}\n")
 	print("text-after-the-size={exchange(listener, reply: "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: keep-alive\r\n\r\n5 junk\r\nhello\r\n0\r\n\r\n", hold: true)}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -673,14 +704,20 @@ let RequestBytes = 4096
 let EarlyHints = "HTTP/1.1 103 Early Hints\r\nLink: </style.css>; rel=preload\r\n\r\n"
 
 function answer(mutates listener TcpListener, interimCount InterimCount) returns String
-	let conn = try listener.accept() otherwise return "accept-failed"
-	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
+	var conn = try listener.accept() otherwise return "accept-failed"
+	_ = try conn.readSome(RequestBytes) otherwise 'connEnded'
+		try conn.close() otherwise ignore
+		return "recv-failed"
+	end 'connEnded'
 	var reply = ""
 	for _ in 0 upto interimCount 'eachInterim'
 		reply = "{reply}{EarlyHints}"
 	end 'eachInterim'
 	reply = "{reply}HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"
-	_ = try conn.send(reply) otherwise return "send-failed"
+	_ = try conn.send(reply) otherwise 'connEnded'
+		try conn.close() otherwise ignore
+		return "send-failed"
+	end 'connEnded'
 	try conn.close() otherwise ignore
 	return "answered"
 end 'answer'
@@ -695,10 +732,11 @@ function exchange(mutates listener TcpListener, interimCount InterimCount) retur
 end 'exchange'
 
 function main() returns ExitCode
-	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	print("one={exchange(listener, interimCount: 1)}\n")
 	print("eight={exchange(listener, interimCount: 8)}\n")
 	print("nine={exchange(listener, interimCount: 9)}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -712,6 +750,7 @@ nine=invalidResponse peer=answered
 ```
 
 <!-- test: http-client.a-switching-protocols-response-is-refused -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- procs: 1 -->
 **A `101 Switching Protocols` IS NOT AN INTERIM RESPONSE TO THIS CLIENT, AND IT IS REFUSED.** After a 101 the
 connection speaks another protocol, which this client does not, so reading on for a final HTTP response would
@@ -733,7 +772,6 @@ function switchAndHold(mutates listener TcpListener) returns String
 			return "connectionClosed"
 		end 'clientLeft'
 	end 'held'
-	try conn.close() otherwise ignore
 end 'switchAndHold'
 
 function exchangeOver(mutates listener TcpListener) returns ExitCode
@@ -766,6 +804,7 @@ client=invalidResponse peer=connectionClosed
 ```
 
 <!-- test: http-client.an-endless-response-head-is-refused-at-its-cap -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- procs: 1 -->
 **A RESPONSE HEAD THAT NEVER ENDS IS REFUSED, NOT BUFFERED.** The peer streams header fields with no blank line
 after them. The client stops at its head cap and answers `invalidResponse`, and the peer's sends fail when the
@@ -883,7 +922,7 @@ length-conflicting=malformedRequest
 ```maxon
 function finalResponseOf(head String) returns HttpResponse throws HttpError
 	match try httpResponseStatusOf(head) 'status'
-		final(response) then return response
+		final(response) then return response.clone()
 		interim then throw HttpError.invalidResponse
 	end 'status'
 end 'finalResponseOf'
@@ -1080,7 +1119,7 @@ function main() returns ExitCode
 	let fileResult = await fileTask
 	let httpResult = try await httpTask otherwise 99
 	sleep(napMs)
-	return httpResult + fileResult
+	return try httpResult + fileResult otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

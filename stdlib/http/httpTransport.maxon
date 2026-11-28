@@ -1,0 +1,76 @@
+// maxon's helpers/http/httpTransport.maxon, written here: maxon's is a union of a plain TCP connection and a TLS session,
+// and TLS is not brought over yet (README, "Where it differs from Maxon"), so the transport is the plain connection alone,
+// a linear value that its close or its closeAfterDraining ends, as a socket is here. The names, the behaviour and the
+// messages are maxon's.
+
+/// The byte stream HTTP/1.1 runs over: a plain TCP connection or a TLS session on one.
+/// @category Internal
+export union HttpTransportFault implements Error
+	closed
+	timedOut
+	failed
+	secure(error tls.TlsError)
+end 'HttpTransportFault'
+
+export type HttpTransport implements stream.ByteSource
+	var connection as net.TcpClient
+
+	export static function plain(consumes connection net.TcpClient) returns HttpTransport
+		return HttpTransport{connection: connection}
+	end 'plain'
+
+	export function readSome(mutates self, most stream.ReadCapacity) returns ByteArray throws stream.StreamError
+		return try self.connection.readSome(most)
+	end 'readSome'
+
+	export function send(mutates self, data String) throws HttpTransportFault
+		_ = try self.connection.send(data) otherwise (cause) 'unsent'
+			throw httpPlainFault(cause)
+		end 'unsent'
+	end 'send'
+
+	export function setReadDeadline(mutates self, milliseconds net.SocketDeadlineMs) throws HttpTransportFault
+		try self.connection.setReadDeadline(milliseconds) otherwise (cause) 'refused'
+			throw httpPlainFault(cause)
+		end 'refused'
+	end 'setReadDeadline'
+
+	export function setWriteDeadline(mutates self, milliseconds net.SocketDeadlineMs) throws HttpTransportFault
+		try self.connection.setWriteDeadline(milliseconds) otherwise (cause) 'refused'
+			throw httpPlainFault(cause)
+		end 'refused'
+	end 'setWriteDeadline'
+
+	export function shutdownWrite(mutates self) throws HttpTransportFault
+		try self.connection.shutdownWrite() otherwise (cause) 'refused'
+			throw httpPlainFault(cause)
+		end 'refused'
+	end 'shutdownWrite'
+
+	// A close that fails is ignored, as maxon's close throws nothing: the exchange is over either way.
+	export function close(destructs self)
+		try connection.close() otherwise ignore
+	end 'close'
+
+	export function closeAfterDraining(destructs self)
+		net.lingerForThePeer(connection)
+		try connection.close() otherwise ignore
+	end 'closeAfterDraining'
+
+	export function security() returns HttpConnectionSecurity throws tls.TlsError
+		return HttpConnectionSecurity.plaintext
+	end 'security'
+end 'HttpTransport'
+
+function httpPlainFault(cause net.NetworkError) returns HttpTransportFault
+	return match cause 'cause'
+		connectionClosed gives HttpTransportFault.closed
+		timedOut gives HttpTransportFault.timedOut
+		sendFailed gives HttpTransportFault.failed
+		resolveFailed or
+		connectFailed or
+		bindFailed or
+		acceptFailed or
+		acceptInterrupted panic("HttpTransport: a connected socket does not throw `{cause.name}`")
+	end 'cause'
+end 'httpPlainFault'

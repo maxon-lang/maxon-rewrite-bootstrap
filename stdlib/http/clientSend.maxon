@@ -1,0 +1,48 @@
+// maxon's HttpClient.send and the functions that hand its connection on, transportOver and boundByTheDeadline, written here
+// (cmd/convert, handwritten.go): a socket is a linear value, which every path closes, where maxon's closes when it dies. An
+// https URL is refused with `unsupportedScheme` once it is connected, where maxon's would begin its handshake, since TLS is
+// not brought over yet (README, "Where it differs from Maxon"). The names, the behaviour and the messages are maxon's.
+
+public extension HttpClient
+	/// Send an HTTP request and return the response. Throws `timedOut` past `limits.timeoutMs` and
+	/// `bodyTooLarge` past `limits.maxBodyBytes`. An https URL is fetched over TLS under `tls`, and
+	/// a failure of its handshake or session is `tlsFailed`.
+	public static function send(request HttpRequest, limits HttpClientLimits = HttpClientLimits.create(), tls tls.TlsClientOptions = tls.TlsClientOptions.create()) returns HttpResponse throws HttpError
+		let start = Clock.nowMs()
+		let target = try httpConnectTargetOf(request.url())
+		let rawRequest = httpBuildRequest(request, target: target)
+		let connectBudgetMs = try remainingBudget(start, timeoutMs: limits.timeoutMs)
+		let client = try net.TcpClient.connect(target.host, port: target.port, deadlineMs: connectBudgetMs) otherwise (cause) 'connFail'
+			throw HttpError.timedOut if cause == net.NetworkError.timedOut else HttpError.connectFailed
+		end 'connFail'
+		var transport = try transportOver(client, target: target)
+		try boundByTheDeadline(transport, start: start, timeoutMs: limits.timeoutMs) otherwise (cause) 'spent'
+			transport.close()
+			throw cause
+		end 'spent'
+		var inbound = stream.StreamReader.over(transport)
+		let response = try exchangeOver(inbound, request: request, rawRequest: rawRequest, limits: limits) otherwise (cause) 'failed'
+			inbound.source.close()
+			throw cause
+		end 'failed'
+		inbound.source.close()
+		return response
+	end 'send'
+end 'HttpClient'
+
+function transportOver(consumes client net.TcpClient, target HttpConnectTarget) returns HttpTransport throws HttpError
+	match target.scheme 'scheme'
+		http then return HttpTransport.plain(client)
+		https then break
+	end 'scheme'
+	try client.close() otherwise ignore
+	throw HttpError.unsupportedScheme
+end 'transportOver'
+
+// A `TcpClient` deadline counts from the call that sets it, so both are set once, to what is left of the
+// exchange's budget.
+function boundByTheDeadline(mutates transport HttpTransport, start InstantMs, timeoutMs HttpExchangeDeadlineMs) throws HttpError
+	let remainingMs = try remainingBudget(start, timeoutMs: timeoutMs)
+	try transport.setReadDeadline(remainingMs) otherwise panic("HttpClient: a connection it just opened is not closed")
+	try transport.setWriteDeadline(remainingMs) otherwise panic("HttpClient: a connection it just opened is not closed")
+end 'boundByTheDeadline'

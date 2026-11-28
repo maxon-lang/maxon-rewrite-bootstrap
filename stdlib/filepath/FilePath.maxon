@@ -129,14 +129,14 @@ extension FilePath
 			return input.clone()
 		end 'notURL'
 		// Parse as URL
-		let url = try url.URL.parse(input) otherwise throw FilePathError.malformedURL
+		let address = try url.URL.parse(input) otherwise throw FilePathError.malformedURL
 		// Check scheme is "file"
-		if url.scheme != "file" 'notFile'
+		if address.scheme != "file" 'notFile'
 			throw FilePathError.notFileURL
 		end 'notFile'
 		#if os(Windows)
 			// file:///C:/path produces path "/C:/path" — strip leading slash before drive letter
-			let filePath = percentDecodedPath(url.path)
+			let filePath = percentDecodedPath(address.path)
 			if filePath.byteLength() == 0 or filePath.byteAtOrPanic(0) != otherSeparatorByte 'noLeadingSlash'
 				return filePath
 			end 'noLeadingSlash'
@@ -144,7 +144,7 @@ extension FilePath
 			let unslashed = String.init(afterSlash)
 			return unslashed if hasDrivePrefix(unslashed) else filePath
 		#else
-			return percentDecodedPath(url.path)
+			return percentDecodedPath(address.path)
 		#endif
 	end 'resolveFileURL'
 

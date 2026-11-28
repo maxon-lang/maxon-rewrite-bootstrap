@@ -1,0 +1,526 @@
+/// HTTP/1.1 client for making HTTP and HTTPS requests.
+/// @category Network
+/// HTTP client errors. `tlsFailed` carries the `TlsError` of a handshake or a TLS session that failed.
+public union HttpError implements Error
+	invalidUrl
+	connectFailed
+	sendFailed
+	recvFailed
+	invalidResponse
+	unsupportedScheme
+	timedOut
+	bodyTooLarge
+	tlsFailed(error tls.TlsError)
+end 'HttpError'
+
+/// HTTP request methods
+public enum HttpMethod
+	get
+	post
+	put
+	delete
+	head
+	patch
+	options
+end 'HttpMethod'
+
+/// Case-insensitive HTTP header map.
+public type HttpHeaders
+	public typealias CaseInsensitiveHeaders = map.Map with String, String
+	public var headers as CaseInsensitiveHeaders
+
+	public static function create() returns HttpHeaders
+		return HttpHeaders{headers: CaseInsensitiveHeaders.create()}
+	end 'create'
+
+	/// Set a header (name is lowercased for case-insensitive storage).
+	public function set(mutates self, name String, value String)
+		let key = name.clone()
+		headers.upsert(key.toLower(), value: value.clone())
+	end 'set'
+
+	/// Get a header value by name. Throws if not present.
+	public function get(name String) returns String throws HttpError
+		let key = name.clone()
+		let val = try headers.get(key.toLower()) otherwise 'notFound'
+			throw HttpError.invalidResponse
+		end 'notFound'
+		return val
+	end 'get'
+
+	/// Check if a header is present.
+	public function has(name String) returns bool
+		let key = name.clone()
+		return headers.contains(key.toLower())
+	end 'has'
+end 'HttpHeaders'
+
+/// An HTTP request with method, URL, headers, and body.
+public type HttpRequest
+	var httpMethod as HttpMethod
+	var requestUrl as url.URL
+	var requestHeaders as HttpHeaders
+	var requestBody as String
+
+	/// Create a request from a method and URL string.
+	public static function create(method HttpMethod, url String) returns HttpRequest throws HttpError
+		let parsed = try url.URL.parse(url) otherwise 'badUrl'
+			throw HttpError.invalidUrl
+		end 'badUrl'
+		return HttpRequest.parsed(method, url: parsed, headers: HttpHeaders.create())
+	end 'create'
+
+	export static function parsed(method HttpMethod, url url.URL, headers HttpHeaders) returns HttpRequest
+		return HttpRequest{httpMethod: method, requestUrl: url.clone(), requestHeaders: headers.clone(), requestBody: ""}
+	end 'parsed'
+
+	/// Set a request header.
+	public function setHeader(mutates self, name String, value String)
+		requestHeaders.set(name, value: value)
+	end 'setHeader'
+
+	/// Set the request body.
+	public function setBody(mutates self, body String)
+		requestBody = body.clone()
+	end 'setBody'
+
+	public function url() returns url.URL
+		return requestUrl.clone()
+	end 'url'
+
+	public function method() returns HttpMethod
+		return httpMethod
+	end 'method'
+
+	public function headers() returns HttpHeaders
+		return requestHeaders.clone()
+	end 'headers'
+
+	public function body() returns String
+		return requestBody.clone()
+	end 'body'
+end 'HttpRequest'
+
+/// A status code's three-digit number.
+public typealias HttpStatusNumber = int(100 to 999)
+
+/// HTTP status codes. A status with no named case is `other`, carrying its number.
+public union StatusCode
+	ok
+	created
+	accepted
+	noContent
+	movedPermanently
+	found
+	notModified
+	badRequest
+	unauthorized
+	forbidden
+	notFound
+	methodNotAllowed
+	requestTimeout
+	conflict
+	gone
+	lengthRequired
+	payloadTooLarge
+	tooManyRequests
+	headerFieldsTooLarge
+	internalServerError
+	notImplemented
+	badGateway
+	serviceUnavailable
+	httpVersionNotSupported
+	other(code HttpStatusNumber)
+
+	public function number() returns HttpStatusNumber
+		return match self 'which'
+			ok gives 200
+			created gives 201
+			accepted gives 202
+			noContent gives 204
+			movedPermanently gives 301
+			found gives 302
+			notModified gives 304
+			badRequest gives 400
+			unauthorized gives 401
+			forbidden gives 403
+			notFound gives 404
+			methodNotAllowed gives 405
+			requestTimeout gives 408
+			conflict gives 409
+			gone gives 410
+			lengthRequired gives 411
+			payloadTooLarge gives 413
+			tooManyRequests gives 429
+			headerFieldsTooLarge gives 431
+			internalServerError gives 500
+			notImplemented gives 501
+			badGateway gives 502
+			serviceUnavailable gives 503
+			httpVersionNotSupported gives 505
+			other(code) gives code
+		end 'which'
+	end 'number'
+end 'StatusCode'
+
+/// The `StatusCode` for a status number: its named case, or `other(number)`.
+public function statusCodeOf(number HttpStatusNumber) returns StatusCode
+	return match number 'which'
+		200 gives StatusCode.ok
+		201 gives StatusCode.created
+		202 gives StatusCode.accepted
+		204 gives StatusCode.noContent
+		301 gives StatusCode.movedPermanently
+		302 gives StatusCode.found
+		304 gives StatusCode.notModified
+		400 gives StatusCode.badRequest
+		401 gives StatusCode.unauthorized
+		403 gives StatusCode.forbidden
+		404 gives StatusCode.notFound
+		405 gives StatusCode.methodNotAllowed
+		408 gives StatusCode.requestTimeout
+		409 gives StatusCode.conflict
+		410 gives StatusCode.gone
+		411 gives StatusCode.lengthRequired
+		413 gives StatusCode.payloadTooLarge
+		429 gives StatusCode.tooManyRequests
+		431 gives StatusCode.headerFieldsTooLarge
+		500 gives StatusCode.internalServerError
+		501 gives StatusCode.notImplemented
+		502 gives StatusCode.badGateway
+		503 gives StatusCode.serviceUnavailable
+		505 gives StatusCode.httpVersionNotSupported
+		100 upto 200 or
+		203 or
+		205 upto 301 or
+		303 or
+		305 upto 400 or
+		402 or
+		406 to 407 or
+		412 or
+		414 upto 429 or
+		430 or
+		432 upto 500 or
+		504 or
+		506 to 999 gives StatusCode.other(number)
+		default panic("statusCodeOf: {number} fell outside every arm, which together cover every integer")
+	end 'which'
+end 'statusCodeOf'
+
+/// The reason phrase HTTP/1.1 pairs with a status code; empty for `other`.
+public function reasonPhraseOf(code StatusCode) returns String
+	return match code 'which'
+		other gives ""
+		ok gives "OK"
+		created gives "Created"
+		accepted gives "Accepted"
+		noContent gives "No Content"
+		movedPermanently gives "Moved Permanently"
+		found gives "Found"
+		notModified gives "Not Modified"
+		badRequest gives "Bad Request"
+		unauthorized gives "Unauthorized"
+		forbidden gives "Forbidden"
+		notFound gives "Not Found"
+		methodNotAllowed gives "Method Not Allowed"
+		requestTimeout gives "Request Timeout"
+		conflict gives "Conflict"
+		gone gives "Gone"
+		lengthRequired gives "Length Required"
+		payloadTooLarge gives "Payload Too Large"
+		tooManyRequests gives "Too Many Requests"
+		headerFieldsTooLarge gives "Request Header Fields Too Large"
+		internalServerError gives "Internal Server Error"
+		notImplemented gives "Not Implemented"
+		badGateway gives "Bad Gateway"
+		serviceUnavailable gives "Service Unavailable"
+		httpVersionNotSupported gives "HTTP Version Not Supported"
+	end 'which'
+end 'reasonPhraseOf'
+
+/// An HTTP response with status code, headers, and body.
+public type HttpResponse
+	export var code as StatusCode
+	export var reasonPhrase as String
+	export var responseHeaders as HttpHeaders
+	export var responseBody as String
+
+	public static function create(code StatusCode, reasonPhrase String, responseHeaders HttpHeaders, responseBody String) returns HttpResponse
+		return HttpResponse{code: code.clone(), reasonPhrase: reasonPhrase.clone(), responseHeaders: responseHeaders.clone(), responseBody: responseBody.clone()}
+	end 'create'
+
+	public function statusCode() returns StatusCode
+		return code.clone()
+	end 'statusCode'
+
+	public function reason() returns String
+		return reasonPhrase.clone()
+	end 'reason'
+
+	public function headers() returns HttpHeaders
+		return responseHeaders.clone()
+	end 'headers'
+
+	public function body() returns String
+		return responseBody.clone()
+	end 'body'
+
+	/// Get a response header by name. Throws if not present.
+	public function header(name String) returns String throws HttpError
+		return try responseHeaders.get(name)
+	end 'header'
+end 'HttpResponse'
+
+let FormContentType = "application/x-www-form-urlencoded"
+
+public typealias HttpExchangeDeadlineMs = int(1 to 4294967295)
+
+let DefaultExchangeDeadlineMs = 30000
+
+/// The largest response body `HttpClient.send` accepts.
+public union HttpBodyCap
+	unbounded
+	atMost(bytes HttpByteCap)
+end 'HttpBodyCap'
+
+/// Bounds on one `HttpClient.send`. `timeoutMs` covers the whole exchange, connect included, and
+/// defaults to 30000; `maxBodyBytes` defaults to `unbounded`.
+public type HttpClientLimits
+	public var timeoutMs as HttpExchangeDeadlineMs
+	public var maxBodyBytes as HttpBodyCap
+
+	public static function create() returns HttpClientLimits
+		return HttpClientLimits{timeoutMs: DefaultExchangeDeadlineMs, maxBodyBytes: HttpBodyCap.unbounded}
+	end 'create'
+end 'HttpClientLimits'
+
+/// Stateless HTTP/1.1 client. All methods are static.
+/// A response body is framed by `Transfer-Encoding`, then `Content-Length`, and is otherwise read
+/// until the server closes the connection; over TLS that close must be a close_notify.
+public type HttpClient
+	/// Perform an HTTP GET request.
+	public static function get(url String) returns HttpResponse throws HttpError
+		let request = try HttpRequest.create(HttpMethod.get, url: url)
+		return try send(request)
+	end 'get'
+
+	/// Perform an HTTP POST request with a body.
+	public static function post(url String, body String) returns HttpResponse throws HttpError
+		var request = try HttpRequest.create(HttpMethod.post, url: url)
+		request.setBody(body)
+		request.setHeader(HttpContentTypeHeaderName, value: FormContentType)
+		return try send(request)
+	end 'post'
+
+	/// Perform an HTTP PUT request with a body.
+	public static function put(url String, body String) returns HttpResponse throws HttpError
+		var request = try HttpRequest.create(HttpMethod.put, url: url)
+		request.setBody(body)
+		return try send(request)
+	end 'put'
+
+	/// Perform an HTTP DELETE request.
+	public static function delete(url String) returns HttpResponse throws HttpError
+		let request = try HttpRequest.create(HttpMethod.delete, url: url)
+		return try send(request)
+	end 'delete'
+end 'HttpClient'
+
+let MaxResponseHeadBytes = 65536
+
+let MaxChunkLineBytes = 4096
+
+let MostInterimResponses = 8
+
+let HexBase = 16 as BytePos
+
+let ChunkBlankBytes = " \t"
+
+let ChunkExtensionIntroducer = ";"
+
+// A close here ends a message before its framing does, so it is a truncated response. The close
+// that ends a close-delimited body is a short read in `readUntilClosed` and never reaches this mapping.
+function clientReadFault(cause stream.StreamError) returns HttpError
+	return match cause 'which'
+		closed gives HttpError.invalidResponse
+		failed gives HttpError.recvFailed
+		timedOut gives HttpError.timedOut
+	end 'which'
+end 'clientReadFault'
+
+function clientWriteFault(cause HttpTransportFault) returns HttpError
+	return match cause 'which'
+		closed or
+		failed gives HttpError.sendFailed
+		timedOut gives HttpError.timedOut
+		secure(error) gives HttpError.tlsFailed(error.clone())
+	end 'which'
+end 'clientWriteFault'
+
+function exchangeOver(mutates inbound HttpTransportReader, request HttpRequest, rawRequest String, limits HttpClientLimits) returns HttpResponse throws HttpError
+	try inbound.source.send(rawRequest) otherwise (cause) 'sendFail'
+		throw clientWriteFault(cause)
+	end 'sendFail'
+	return try receiveResponse(inbound, method: request.method(), cap: limits.maxBodyBytes)
+end 'exchangeOver'
+
+function remainingBudget(start InstantMs, timeoutMs HttpExchangeDeadlineMs) returns net.SocketDeadlineMs throws HttpError
+	let leftMs = Clock.remainingMs(start, deadlineMs: timeoutMs as clock.DurationMs)
+	if leftMs == 0 'spent'
+		throw HttpError.timedOut
+	end 'spent'
+	return try leftMs as net.SocketDeadlineMs otherwise panic("out of range")
+end 'remainingBudget'
+
+function exceedsCap(cap HttpBodyCap, bodyBytes BytePos) returns bool
+	return match cap 'which'
+		unbounded gives false
+		atMost(bytes) gives bodyBytes > bytes as BytePos
+	end 'which'
+end 'exceedsCap'
+
+function receiveResponse(mutates inbound HttpTransportReader, method HttpMethod, cap HttpBodyCap) returns HttpResponse throws HttpError
+	for _ in 0 to MostInterimResponses 'eachHead'
+		let head = try readResponseHead(inbound)
+		match try httpResponseStatusOf(head) 'status'
+			final(response) then return try withFramedBody(inbound, response: response, method: method, cap: cap)
+			interim then continue
+		end 'status'
+	end 'eachHead'
+	throw HttpError.invalidResponse
+end 'receiveResponse'
+
+function readResponseHead(mutates inbound HttpTransportReader) returns String throws HttpError
+	let read = try httpReadHead(inbound, cap: MaxResponseHeadBytes) otherwise (cause) 'readFailed'
+		throw clientReadFault(cause)
+	end 'readFailed'
+	return try clientTextOf(read)
+end 'readResponseHead'
+
+function readChunkLine(mutates inbound HttpTransportReader) returns String throws HttpError
+	let read = try inbound.readUntil(HttpLineBreak, cap: MaxChunkLineBytes) otherwise (cause) 'readFailed'
+		throw clientReadFault(cause)
+	end 'readFailed'
+	return try clientTextOf(read)
+end 'readChunkLine'
+
+function clientTextOf(read stream.LineRead) returns String throws HttpError
+	match read 'read'
+		line(text) then return text.clone()
+		ended or
+		pastTheCap then throw HttpError.invalidResponse
+	end 'read'
+end 'clientTextOf'
+
+function withFramedBody(mutates inbound HttpTransportReader, response HttpResponse, method HttpMethod, cap HttpBodyCap) returns HttpResponse throws HttpError
+	let body = match try httpResponseFramingOf(response, method: method) 'framing'
+		bodiless gives ""
+		declared(length) gives try readCappedDeclaredBody(inbound, length: length, cap: cap)
+		chunked gives try readChunkedBody(inbound, cap: cap)
+		closeDelimited gives try readUntilClosed(inbound, cap: cap)
+	end 'framing'
+	return HttpResponse.create(response.statusCode(), reasonPhrase: response.reason(), responseHeaders: response.headers(), responseBody: body)
+end 'withFramedBody'
+
+function readDeclaredBody(mutates inbound HttpTransportReader, length BytePos) returns String throws HttpError
+	let body = try httpReadDeclared(inbound, length: length) otherwise (cause) 'readFailed'
+		throw clientReadFault(cause)
+	end 'readFailed'
+	return body
+end 'readDeclaredBody'
+
+function readCappedDeclaredBody(mutates inbound HttpTransportReader, length BytePos, cap HttpBodyCap) returns String throws HttpError
+	if exceedsCap(cap, bodyBytes: length) 'pastTheCap'
+		throw HttpError.bodyTooLarge
+	end 'pastTheCap'
+	return try readDeclaredBody(inbound, length: length)
+end 'readCappedDeclaredBody'
+
+function readUntilClosed(mutates inbound HttpTransportReader, cap HttpBodyCap) returns String throws HttpError
+	var body = ByteArray.create(0)
+	var open = true
+	while open 'drain'
+		let part = try inbound.readBytes(HttpReadChunkBytes) otherwise (cause) 'unread'
+			throw clientReadFault(cause)
+		end 'unread'
+		open = part.count() == HttpReadChunkBytes
+		body.append(part)
+		let received = body.count() as BytePos
+		if received > HttpLargestBodyBytes 'pastTheLargestBody'
+			throw HttpError.invalidResponse
+		end 'pastTheLargestBody'
+		if exceedsCap(cap, bodyBytes: received) 'pastTheCap'
+			throw HttpError.bodyTooLarge
+		end 'pastTheCap'
+	end 'drain'
+	return String.from(body)
+end 'readUntilClosed'
+
+function readChunkedBody(mutates inbound HttpTransportReader, cap HttpBodyCap) returns String throws HttpError
+	var body = ""
+	var bodyBytes = 0 as BytePos
+	var size = try chunkSizeOf(try readChunkLine(inbound))
+	while size > 0 'eachChunk'
+		if size > (try HttpLargestBodyBytes - bodyBytes otherwise panic("out of range")) 'pastTheLargestBody'
+			throw HttpError.invalidResponse
+		end 'pastTheLargestBody'
+		bodyBytes = try bodyBytes + size otherwise panic("out of range")
+		if exceedsCap(cap, bodyBytes: bodyBytes) 'pastTheCap'
+			throw HttpError.bodyTooLarge
+		end 'pastTheCap'
+		body = "{body}{try readDeclaredBody(inbound, length: size)}"
+		let dataEnd = try readChunkLine(inbound)
+		if not dataEnd.isEmpty() 'dataOverranItsSize'
+			throw HttpError.invalidResponse
+		end 'dataOverranItsSize'
+		size = try chunkSizeOf(try readChunkLine(inbound))
+	end 'eachChunk'
+	try discardTrailerSection(inbound)
+	return body
+end 'readChunkedBody'
+
+function discardTrailerSection(mutates inbound HttpTransportReader) throws HttpError
+	var trailerBytes = 0 as BytePos
+	var field = try readChunkLine(inbound)
+	while not field.isEmpty() 'eachTrailerField'
+		trailerBytes = try trailerBytes + field.byteLength() + HttpLineBreak.byteLength() otherwise panic("out of range")
+		if trailerBytes > MaxResponseHeadBytes 'pastTheCap'
+			throw HttpError.invalidResponse
+		end 'pastTheCap'
+		field = try readChunkLine(inbound)
+	end 'eachTrailerField'
+end 'discardTrailerSection'
+
+function chunkSizeOf(line String) returns BytePos throws HttpError
+	var size = 0 as BytePos
+	var sizeEnd = 0 as BytePos
+	while sizeEnd < line.byteLength() 'eachDigit'
+		match url.urlHexDigitOf(line.byteAtOrPanic(sizeEnd as Count)) 'reading'
+			value(digit) then size = try withHexDigit(size, digit: digit as BytePos)
+			notAHexDigit then break 'eachDigit'
+		end 'reading'
+		sizeEnd = sizeEnd + 1
+	end 'eachDigit'
+	if sizeEnd == 0 'noSize'
+		throw HttpError.invalidResponse
+	end 'noSize'
+	if sizeEnd < line.byteLength() and not extensionFollows(line, from: sizeEnd) 'notAnExtension'
+		throw HttpError.invalidResponse
+	end 'notAnExtension'
+	return size
+end 'chunkSizeOf'
+
+function withHexDigit(size BytePos, digit BytePos) returns BytePos throws HttpError
+	if size > (try (HttpLargestBodyBytes - digit) / HexBase otherwise panic("out of range")) 'pastTheLargest'
+		throw HttpError.invalidResponse
+	end 'pastTheLargest'
+	return try size * HexBase + digit otherwise panic("out of range")
+end 'withHexDigit'
+
+function extensionFollows(line String, from BytePos) returns bool
+	var pos = from
+	while pos < line.byteLength() and url.urlByteIsOneOf(line.byteAtOrPanic(pos as Count), bytes: ChunkBlankBytes) 'eachBlank'
+		pos = pos + 1
+	end 'eachBlank'
+	return pos < line.byteLength() and url.urlByteIsOneOf(line.byteAtOrPanic(pos as Count), bytes: ChunkExtensionIntroducer)
+end 'extensionFollows'

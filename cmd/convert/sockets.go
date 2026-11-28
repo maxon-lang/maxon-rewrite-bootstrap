@@ -617,7 +617,7 @@ func closeAtScopeEnds(lines []sourceLine) []sourceLine {
 				replaced[k] = []string{r.indent + "let " + socketResult + " = " + value, r.indent + socketClose(name), r.indent + "return " + socketResult}
 			}
 		}
-		if last >= 0 && !exits(lines[last]) && end <= len(lines) {
+		if last >= 0 && !exits(lines[last]) && !endsEndlessLoop(lines, last) && end <= len(lines) {
 			inserts = append(inserts, insertion{end, []string{strings.Repeat("\t", bodyDepth) + socketClose(name)}})
 		}
 	}
@@ -646,6 +646,27 @@ func closeAtScopeEnds(lines []sourceLine) []sourceLine {
 		out = append(out, lines[i])
 	}
 	return out
+}
+
+// endsEndlessLoop is whether line last ends a `while true` loop that no break leaves, after which a scope's code is never
+// reached, so a close written there would be the statement a missing return is reported for.
+func endsEndlessLoop(lines []sourceLine, last int) bool {
+	end := lines[last]
+	if len(end.code) != 2 || end.code[0].text != "end" || end.code[1].kind != tokLabel {
+		return false
+	}
+	for k := last - 1; k >= 0; k-- {
+		l := lines[k]
+		if !isCode(l) || indentDepth(l) > indentDepth(end) {
+			if isCode(l) && hasToken(l.code, "break") {
+				return false
+			}
+			continue
+		}
+		texts := codeTexts(l.code)
+		return indentDepth(l) == indentDepth(end) && slices.Equal(texts, []string{"while", "true", end.code[1].text})
+	}
+	return false
 }
 
 // renderCode is the source of a line's tokens, spaced as the conversion spaces them.

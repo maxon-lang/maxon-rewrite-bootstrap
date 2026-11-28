@@ -579,7 +579,7 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   directory, from the compiler's executable's upward, that has one). It is laid out by what a programmer uses, which maxon's
   `stdlib/` is not, and its root holds no file (a `.maxon` file there is `E3928`, which names the module to move it to), so
   `stdlib/` lists only modules: `array` (the methods of `Array` and its sorts), `string`, `character`, `characterset`, `map`,
-  `set`, `list`, `range`, `parsable`, `json`, `url`, `filepath`, `stream`, `console`, `math`, `random`, `base64`, `pem`, `clock`,
+  `set`, `list`, `range`, `parsable`, `json`, `url`, `http` (`HttpClient` and `HttpServer`), `tls`, `filepath`, `stream`, `console`, `math`, `random`, `base64`, `pem`, `clock`,
   `directory`, `process`, `subprocess`, `cell`, `slotmap`, `unicode`, `ascii`, `sha2`, `heap`, `service` (the overload policies, minimaxon's own), the `core` and `_helpers`. The `core` holds the
   interfaces, the conformances that the built-in types need to meet them and the hashing: a module sees an `extension
   <built-in> implements I` only when the module that writes it declares `I` (see "Extensions"), so each conformance of
@@ -6478,7 +6478,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `TlsServerOptions`, and what a TLS connection reports of its session; `TlsError`'s `certificateRejected` names the `x509`
   module's `X509VerifyError`), with maxon's names and cases, and each of them and of
   maxon's session types is a row of the facility table that every system lacks, so a program that names one is refused at the
-  name (`E3104`) and a spec test that does is skipped as unsupported.
+  name (`E3104`) and a spec test that does is skipped as unsupported. An `https` URL is refused with
+  `HttpError.unsupportedScheme` until TLS is brought over, once its connection is made, where maxon's would begin its
+  handshake: no TLS failure is reported for a handshake that never happened. `HttpServer.bindTls` takes options no program
+  can make. The `tlsFailed` cases of `HttpError` and `HttpServerError` are kept, for when TLS comes. A converted file of the
+  library leaves out what runs a session (`cmd/convert`, tls.go).
 - **There is no TEST-NET-1 short-circuit.** minimaxon has no TEST-NET-1 short-circuit; a connect dials as Go's does and the OS's timeout applies, where maxon's runtime refuses `192.0.2.0/24` without dialling (its two spec tests that connect there with no deadline are skipped with this reason).
 - **A file's close throws.** maxon's `close()` throws nothing and its drop discards what the system's close reports. Here,
   as Go's `Close` does, `close()` throws it, `__ManagedFileError.writeFailed`, which `FileWriter.close` throws as

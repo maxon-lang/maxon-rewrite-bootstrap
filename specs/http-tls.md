@@ -1724,7 +1724,6 @@ function holdOpen(mutates listener TcpListener) returns String
 			return "ended"
 		end 'ended'
 	end 'held'
-	try connection.close() otherwise ignore
 end 'holdOpen'
 
 function stalledServer() returns ExitCode

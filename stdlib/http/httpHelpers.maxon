@@ -1,0 +1,611 @@
+/// Internal helpers that build and parse HTTP/1.1 messages for `HttpClient` and `HttpServer`.
+/// @category Internal
+typealias IgnoredLineTally = int(0 to 4)
+
+typealias StatusNumber = int(i64.min to i64.max)
+
+export let HttpContentTypeHeaderName = "content-type"
+
+export let HttpReadChunkBytes = 8192
+
+export let HttpLineBreak = "\r\n"
+
+export let HttpLargestBodyBytes = 1099511627776 as BytePos
+
+let MaxIgnoredLeadingEmptyLines = 4
+
+let FirstInterimStatus = 100
+
+let SwitchingProtocolsStatus = 101
+
+let LastInterimStatus = 199
+
+let NoContentStatus = 204
+
+let NotModifiedStatus = 304
+
+let StatusCodeDigits = 3
+
+let ChunkedCoding = "chunked"
+
+let CodingListSeparator = ","
+
+let HeaderNameTerminator = ":"
+
+let HeaderNameValueSeparator = ": "
+
+let StartLineSeparator = " "
+
+let HeadBlockTerminator = "\r\n\r\n"
+
+let HostHeaderName = "host"
+
+let ConnectionHeaderName = "connection"
+
+let ContentLengthHeaderName = "content-length"
+
+let TransferEncodingHeaderName = "transfer-encoding"
+
+let SetCookieHeaderName = "set-cookie"
+
+let SentHostName = "Host"
+
+let SentConnectionName = "Connection"
+
+export let SentContentLengthName = "Content-Length"
+
+let ClosingConnection = "close"
+
+let RepeatedListSeparator = ", "
+
+let RepeatedLineSeparator = "\n"
+
+let ObsFoldReplacement = " "
+
+let DefaultHttpPort = 80
+
+let DefaultHttpsPort = 443
+
+let HttpScheme = "http"
+
+let HttpsScheme = "https"
+
+export let HttpApplicationProtocol = "http/1.1"
+
+let HttpVersionPrefix = "HTTP/"
+
+let HttpSentVersion = "HTTP/1.1"
+
+let HttpVersionBytes = 8
+
+let HttpVersionMajorAt = 5
+
+let HttpVersionDotAt = 6
+
+let HttpVersionMinorAt = 7
+
+let HttpVersionDot = 46
+
+let SupportedHttpMajor = 49
+
+let HostlessHttpMinor = 48
+
+let RequestLineParts = 3
+
+let AsteriskForm = "*"
+
+let TokenMarkBytes = "!#$%&'*+-.^_`|~"
+
+let FieldWhitespaceBytes = " \t"
+
+let HorizontalTab = 9
+
+let FirstPrintableByte = 32
+
+let DeleteByte = 127
+
+enum HeaderBlockFault implements Error
+	malformed
+end 'HeaderBlockFault'
+
+enum HttpMessageSide
+	request
+	response
+end 'HttpMessageSide'
+
+enum HeaderRepeatRule
+	refused
+	mustAgree
+	joinedByLine
+	joinedByComma
+end 'HeaderRepeatRule'
+
+public union HttpRequestHead
+	resource(method HttpMethod, url url.URL, headers HttpHeaders)
+	wholeServer(headers HttpHeaders)
+end 'HttpRequestHead'
+
+public enum HttpUrlScheme
+	http
+	https
+end 'HttpUrlScheme'
+
+export function httpSchemeText(scheme HttpUrlScheme) returns String
+	return match scheme 'scheme'
+		http gives HttpScheme
+		https gives HttpsScheme
+	end 'scheme'
+end 'httpSchemeText'
+
+export function httpDefaultPortOf(scheme HttpUrlScheme) returns NetworkPort
+	return match scheme 'scheme'
+		http gives DefaultHttpPort
+		https gives DefaultHttpsPort
+	end 'scheme'
+end 'httpDefaultPortOf'
+
+public type HttpConnectTarget
+	public let host as String
+	public let authorityHost as String
+	public let port as NetworkPort
+	public let scheme as HttpUrlScheme
+
+	static function create(host String, authorityHost String, port NetworkPort, scheme HttpUrlScheme) returns HttpConnectTarget
+		return HttpConnectTarget{host: host.clone(), authorityHost: authorityHost.clone(), port: port, scheme: scheme}
+	end 'create'
+
+	public function authority() returns String
+		return self.authorityHost.clone() if self.port == httpDefaultPortOf(self.scheme) else "{self.authorityHost}:{self.port}"
+	end 'authority'
+end 'HttpConnectTarget'
+
+export function httpMethodToString(method HttpMethod) returns String
+	return method.name.toUpper()
+end 'httpMethodToString'
+
+function httpUrlSchemeOf(spelled String) returns HttpUrlScheme throws HttpError
+	for scheme in HttpUrlScheme.allCases 'eachScheme'
+		if httpSchemeText(scheme) == spelled 'named'
+			return scheme
+		end 'named'
+	end 'eachScheme'
+	throw HttpError.unsupportedScheme
+end 'httpUrlSchemeOf'
+
+public function httpConnectTargetOf(url url.URL) returns HttpConnectTarget throws HttpError
+	let scheme = try httpUrlSchemeOf(url.scheme)
+	let host = try url.host() otherwise throw HttpError.invalidUrl
+	let authorityHost = try url.authorityHost() otherwise throw HttpError.invalidUrl
+	let port = try url.port() otherwise httpDefaultPortOf(scheme)
+	return HttpConnectTarget.create(host, authorityHost: authorityHost, port: port, scheme: scheme)
+end 'httpConnectTargetOf'
+
+public function httpBuildRequest(request HttpRequest, target HttpConnectTarget) returns String
+	let address = request.url()
+	var path = request.url().path.clone()
+	if path.isEmpty() 'noPath'
+		path = url.UrlOriginFormRoot
+	end 'noPath'
+	if let query = try address.query() 'hasQuery'
+		path = "{path}?{query}"
+	end 'hasQuery'
+	var raw = ""
+	raw = "{raw}{httpMethodToString(request.method())} {path} {HttpSentVersion}{HttpLineBreak}"
+	if not request.headers().has(HostHeaderName) 'addHost'
+		appendHeaderLine(raw, name: SentHostName, value: target.authority())
+	end 'addHost'
+	if not request.headers().has(ConnectionHeaderName) 'addConn'
+		appendHeaderLine(raw, name: SentConnectionName, value: ClosingConnection)
+	end 'addConn'
+	let bodyLen = request.body().byteLength()
+	if bodyLen > 0 'hasBodyLen'
+		appendHeaderLine(raw, name: SentContentLengthName, value: "{bodyLen}")
+	end 'hasBodyLen'
+	appendHeaderLines(raw, headers: request.headers(), skipping: ContentLengthHeaderName)
+	raw = "{raw}{HttpLineBreak}"
+	raw = "{raw}{request.body()}"
+	return raw
+end 'httpBuildRequest'
+
+export function httpStatusAllowsContent(code StatusCode) returns bool
+	let number = code.number() as StatusNumber
+	return number > LastInterimStatus and number != NoContentStatus and number != NotModifiedStatus
+end 'httpStatusAllowsContent'
+
+export function httpRequireSendableResponse(response HttpResponse) throws HttpServerError
+	if not httpStatusAllowsContent(response.statusCode()) and not response.body().isEmpty() 'bodyOnABodilessStatus'
+		throw HttpServerError.invalidResponse
+	end 'bodyOnABodilessStatus'
+	if not isFieldContent(response.reason()) 'badReason'
+		throw HttpServerError.invalidResponse
+	end 'badReason'
+	// A CR or LF in a handler's header would end its line early and let the text forge more of the
+	// response.
+	for (name, value) in response.headers().headers 'eachHeader'
+		if not isToken(name) or not isFieldContent(value) 'unsendable'
+			throw HttpServerError.invalidResponse
+		end 'unsendable'
+	end 'eachHeader'
+end 'httpRequireSendableResponse'
+
+export function httpBuildResponseHead(response HttpResponse) returns String throws HttpServerError
+	try httpRequireSendableResponse(response)
+	return httpBuildSendableResponseHead(response)
+end 'httpBuildResponseHead'
+
+export function httpBuildSendableResponseHead(response HttpResponse) returns String
+	let carriesContent = httpStatusAllowsContent(response.statusCode())
+	var raw = ""
+	raw = "{raw}{HttpSentVersion} {response.statusCode().number()} {response.reason()}{HttpLineBreak}"
+	if carriesContent 'statesItsLength'
+		appendHeaderLine(raw, name: SentContentLengthName, value: "{response.body().byteLength()}")
+	end 'statesItsLength'
+	appendHeaderLine(raw, name: SentConnectionName, value: ClosingConnection)
+	appendHeaderLines(raw, headers: response.headers(), skipping: ConnectionHeaderName)
+	raw = "{raw}{HttpLineBreak}"
+	return raw
+end 'httpBuildSendableResponseHead'
+
+function appendHeaderLine(mutates raw String, name String, value String)
+	raw = "{raw}{name}{HeaderNameValueSeparator}{value}{HttpLineBreak}"
+end 'appendHeaderLine'
+
+function appendHeaderLines(mutates raw String, headers HttpHeaders, skipping String)
+	for (name, value) in headers.headers 'eachHeader'
+		if name == skipping or name == ContentLengthHeaderName 'stated'
+			continue
+		end 'stated'
+		appendHeaderLine(raw, name: name, value: value)
+	end 'eachHeader'
+end 'appendHeaderLines'
+
+export function httpResponseWith(code StatusCode, body String, contentType String) returns HttpResponse
+	var headers = HttpHeaders.create()
+	headers.set(HttpContentTypeHeaderName, value: contentType)
+	return HttpResponse.create(code, reasonPhrase: reasonPhraseOf(code), responseHeaders: headers, responseBody: body)
+end 'httpResponseWith'
+
+export typealias HttpTransportReader = stream.StreamReader with HttpTransport
+
+export function httpReadHead(mutates reader HttpTransportReader, cap stream.LineCap) returns stream.LineRead throws stream.StreamError
+	var skipped = 0 as IgnoredLineTally
+	while skipped < MaxIgnoredLeadingEmptyLines 'leadingEmptyLines'
+		let next = try reader.readUntil(HttpLineBreak, cap: 0)
+		match next 'next'
+			line then skipped = skipped + 1
+			ended or
+			pastTheCap then break 'leadingEmptyLines'
+		end 'next'
+	end 'leadingEmptyLines'
+	return try reader.readUntil(HeadBlockTerminator, cap: cap)
+end 'httpReadHead'
+
+export function httpReadDeclared(mutates reader HttpTransportReader, length BytePos) returns String throws stream.StreamError
+	let body = try reader.readBytes(length)
+	if body.count() < length 'cutShort'
+		throw stream.StreamError.closed
+	end 'cutShort'
+	return String.from(body)
+end 'httpReadDeclared'
+
+public function httpParseRequestHead(head String, scheme HttpUrlScheme) returns HttpRequestHead throws HttpServerError
+	let lines = head.split(HttpLineBreak)
+	let requestLine = try lines.get(0) otherwise panic("httpParseRequestHead: a split answers at least one part")
+	let parts = requestLine.split(StartLineSeparator)
+	if parts.count() != RequestLineParts 'notARequestLine'
+		throw HttpServerError.malformedRequest
+	end 'notARequestLine'
+	let spelledMethod = parts.get(0)
+	let target = parts.get(1)
+	let version = parts.get(2)
+	if not isToken(spelledMethod) or target.isEmpty() 'notARequestLine2'
+		throw HttpServerError.malformedRequest
+	end 'notARequestLine2'
+	let hostRequired = try hostRequiredBy(version)
+	let method = try knownMethodSpelled(spelledMethod)
+	var headers = HttpHeaders.create()
+	try parseHeaderLines(lines, from: 1, into: headers, side: HttpMessageSide.request) otherwise throw HttpServerError.malformedRequest
+	if headers.has(TransferEncodingHeaderName) 'chunked'
+		throw HttpServerError.unsupportedTransferEncoding
+	end 'chunked'
+	if hostRequired and not headers.has(HostHeaderName) 'noHost'
+		throw HttpServerError.malformedRequest
+	end 'noHost'
+	if target == AsteriskForm 'asteriskForm'
+		if method != HttpMethod.options 'notServerWide'
+			throw HttpServerError.malformedRequest
+		end 'notServerWide'
+		return HttpRequestHead.wholeServer(headers)
+	end 'asteriskForm'
+	let address = try requestUrlOf(target, headers: headers, scheme: scheme) otherwise throw HttpServerError.malformedRequest
+	return HttpRequestHead.resource(method, url: address, headers: headers)
+end 'httpParseRequestHead'
+
+function requestUrlOf(target String, headers HttpHeaders, scheme HttpUrlScheme) returns url.URL throws url.URLError
+	let spelled = httpSchemeText(scheme)
+	if not target.startsWith(url.UrlOriginFormRoot) 'absoluteForm'
+		return try url.URL.forAbsoluteForm(spelled, target: target)
+	end 'absoluteForm'
+	if not headers.has(HostHeaderName) 'hostless'
+		return try url.URL.forHostlessOriginForm(spelled, target: target)
+	end 'hostless'
+	let authority = try headers.get(HostHeaderName) otherwise panic("requestUrlOf: `{HostHeaderName}` was just found present")
+	return try url.URL.forOriginForm(spelled, authority: authority, target: target)
+end 'requestUrlOf'
+
+function hostRequiredBy(version String) returns bool throws HttpServerError
+	if version.byteLength() != HttpVersionBytes or not version.startsWith(HttpVersionPrefix) 'notAVersion'
+		throw HttpServerError.malformedRequest
+	end 'notAVersion'
+	let major = version.byteAtOrPanic(HttpVersionMajorAt)
+	let minor = version.byteAtOrPanic(HttpVersionMinorAt)
+	if not url.urlIsDigit(major) or version.byteAtOrPanic(HttpVersionDotAt) != HttpVersionDot or not url.urlIsDigit(minor) 'notAVersionNumber'
+		throw HttpServerError.malformedRequest
+	end 'notAVersionNumber'
+	if major != SupportedHttpMajor 'anotherMajor'
+		throw HttpServerError.unsupportedVersion
+	end 'anotherMajor'
+	return minor != HostlessHttpMinor
+end 'hostRequiredBy'
+
+function knownMethodSpelled(spelled String) returns HttpMethod throws HttpServerError
+	for method in HttpMethod.allCases 'eachMethod'
+		if httpMethodToString(method) == spelled 'named'
+			return method
+		end 'named'
+	end 'eachMethod'
+	throw HttpServerError.unsupportedMethod
+end 'knownMethodSpelled'
+
+export union DeclaredLength
+	undeclared
+	notADecimal(spelled String)
+	aboveTheBound
+	value(length BytePos)
+end 'DeclaredLength'
+
+export function declaredLengthOf(headers HttpHeaders, bound url.UrlDecimalBound) returns DeclaredLength
+	let spelled = try headers.get(ContentLengthHeaderName) otherwise return DeclaredLength.undeclared
+	return match url.urlDecimalWithin(spelled, from: 0, until: spelled.byteLength() as BytePos, bound: bound) 'declared'
+		value(length) gives DeclaredLength.value(length as BytePos)
+		notADecimal gives DeclaredLength.notADecimal(spelled)
+		aboveTheBound gives DeclaredLength.aboveTheBound
+	end 'declared'
+end 'declaredLengthOf'
+
+export function httpDeclaredBodyLength(headers HttpHeaders, cap HttpByteCap) returns BytePos throws HttpServerError
+	match declaredLengthOf(headers, bound: cap as url.UrlDecimalBound) 'declared'
+		undeclared then return 0
+		value(length) then return length
+		notADecimal then throw HttpServerError.malformedRequest
+		aboveTheBound then throw HttpServerError.bodyTooLarge
+	end 'declared'
+end 'httpDeclaredBodyLength'
+
+export union HeaderBlockLength
+	undeclared
+	malformedBlock
+	notADecimal(spelled String)
+	aboveTheBound
+	value(length BytePos)
+end 'HeaderBlockLength'
+
+export function httpHeaderBlockLength(lines StringArray, bound url.UrlDecimalBound) returns HeaderBlockLength
+	var headers = HttpHeaders.create()
+	try parseHeaderLines(lines, from: 0, into: headers, side: HttpMessageSide.request) otherwise return HeaderBlockLength.malformedBlock
+	return match declaredLengthOf(headers, bound: bound) 'declared'
+		undeclared gives HeaderBlockLength.undeclared
+		value(length) gives HeaderBlockLength.value(length)
+		notADecimal(spelled) gives HeaderBlockLength.notADecimal(spelled.clone())
+		aboveTheBound gives HeaderBlockLength.aboveTheBound
+	end 'declared'
+end 'httpHeaderBlockLength'
+
+export union HttpResponseFraming
+	bodiless
+	declared(length BytePos)
+	chunked
+	closeDelimited
+end 'HttpResponseFraming'
+
+export function httpResponseFramingOf(response HttpResponse, method HttpMethod) returns HttpResponseFraming throws HttpError
+	if method == HttpMethod.head or not httpStatusAllowsContent(response.statusCode()) 'noContent'
+		return HttpResponseFraming.bodiless
+	end 'noContent'
+	// Asked before `Content-Length`: a response carrying both is framed by its coding (RFC 9112
+	// section 6.3), and reading the declared length instead would end the body at the wrong byte.
+	if response.headers().has(TransferEncodingHeaderName) 'transferCoded'
+		return HttpResponseFraming.chunked if finalCodingIsChunked(response.headers()) else HttpResponseFraming.closeDelimited
+	end 'transferCoded'
+	match declaredLengthOf(response.headers(), bound: HttpLargestBodyBytes as url.UrlDecimalBound) 'declared'
+		undeclared then return HttpResponseFraming.closeDelimited
+		value(length) then return HttpResponseFraming.declared(length)
+		notADecimal or
+		aboveTheBound then throw HttpError.invalidResponse
+	end 'declared'
+end 'httpResponseFramingOf'
+
+function finalCodingIsChunked(headers HttpHeaders) returns bool
+	let codings = (try headers.get(TransferEncodingHeaderName) otherwise panic("finalCodingIsChunked: `{TransferEncodingHeaderName}` was just found present")).split(CodingListSeparator)
+	var finalCoding = ""
+	for element in codings 'eachElement'
+		let coding = withoutFieldWhitespaceEnds(element, from: 0)
+		if not coding.isEmpty() 'aCoding'
+			finalCoding = coding.toLower()
+		end 'aCoding'
+	end 'eachElement'
+	return finalCoding == ChunkedCoding
+end 'finalCodingIsChunked'
+
+public union HttpResponseStatus
+	interim
+	final(response HttpResponse)
+end 'HttpResponseStatus'
+
+public function httpResponseStatusOf(head String) returns HttpResponseStatus throws HttpError
+	let lines = head.split(HttpLineBreak)
+	let statusLine = try lines.get(0) otherwise panic("httpResponseStatusOf: a split answers at least one part")
+	let afterVersion = try statusLine.findFirst(StartLineSeparator) otherwise throw HttpError.invalidResponse
+	let codeStart = try statusLine.indexAfter(afterVersion) otherwise panic("httpResponseStatusOf: a space the search found has an index after it")
+	let codeAndReason = statusLine.slice(codeStart, endIndex: statusLine.endIndex()).clone()
+	let codeEnd = try codeAndReason.findFirst(StartLineSeparator) otherwise codeAndReason.endIndex()
+	let codeText = codeAndReason.slice(codeAndReason.startIndex(), endIndex: codeEnd).clone()
+	let reason = url.urlByteRange(codeAndReason, from: try codeEnd.bytePos() + 1 otherwise panic("out of range"), until: codeAndReason.byteLength() as BytePos)
+	if not isStatusCodeText(codeText) 'notThreeDigits'
+		throw HttpError.invalidResponse
+	end 'notThreeDigits'
+	let codeInt = (try int.fromString(codeText) otherwise panic("httpResponseStatusOf: three decimal digits parse as an integer")) as StatusNumber
+	var headers = HttpHeaders.create()
+	try parseHeaderLines(lines, from: 1, into: headers, side: HttpMessageSide.response) otherwise throw HttpError.invalidResponse
+	// Asked before the interim range, which holds 101: the bytes after a 101 are another protocol's,
+	// and skipping it would parse them as the next response head.
+	if codeInt == SwitchingProtocolsStatus 'anotherProtocol'
+		throw HttpError.invalidResponse
+	end 'anotherProtocol'
+	if codeInt >= FirstInterimStatus and codeInt <= LastInterimStatus 'interim'
+		return HttpResponseStatus.interim
+	end 'interim'
+	if codeInt < FirstInterimStatus 'belowEveryStatus'
+		throw HttpError.invalidResponse
+	end 'belowEveryStatus'
+	return HttpResponseStatus.final(HttpResponse.create(statusCodeOf(try codeInt as HttpStatusNumber otherwise panic("out of range")), reasonPhrase: reason, responseHeaders: headers, responseBody: ""))
+end 'httpResponseStatusOf'
+
+function parseHeaderLines(lines StringArray, from ElementIndex, mutates into HttpHeaders, side HttpMessageSide) throws HeaderBlockFault
+	let fieldLines = try unfoldedFieldLines(lines, from: from, side: side)
+	for line in fieldLines 'eachLine'
+		let colon = try line.findFirst(HeaderNameTerminator) otherwise throw HeaderBlockFault.malformed
+		let name = line.slice(line.startIndex(), endIndex: colon).clone()
+		if not isToken(name) 'notAFieldName'
+			throw HeaderBlockFault.malformed
+		end 'notAFieldName'
+		let value = try fieldValueOf(line, from: try colon.bytePos() + 1 otherwise panic("out of range"))
+		try appendHeaderField(into, name: name, value: value, side: side)
+	end 'eachLine'
+end 'parseHeaderLines'
+
+function unfoldedFieldLines(lines StringArray, from ElementIndex, side HttpMessageSide) returns StringArray throws HeaderBlockFault
+	var logical = StringArray.create(0)
+	var lineIdx = from
+	while lineIdx < lines.count() 'eachLine'
+		let line = lines.get(lineIdx)
+		if line.isEmpty() 'endOfHeaders'
+			break
+		end 'endOfHeaders'
+		if url.urlByteIsOneOf(line.byteAtOrPanic(0), bytes: FieldWhitespaceBytes) 'foldedOrIndented'
+			try unfoldInto(logical, continuation: line, side: side)
+		end 'foldedOrIndented' else 'aFieldLine'
+			logical.push(line)
+		end 'aFieldLine'
+		lineIdx = lineIdx + 1
+	end 'eachLine'
+	return logical
+end 'unfoldedFieldLines'
+
+// RFC 9112 section 5.2: a server refuses obs-fold in a request, and a client reading a response replaces
+// each fold with a space.
+function unfoldInto(mutates logical StringArray, continuation String, side HttpMessageSide) throws HeaderBlockFault
+	if side == HttpMessageSide.request 'refusedOnARequest'
+		throw HeaderBlockFault.malformed
+	end 'refusedOnARequest'
+	let folded = try logical.pop() otherwise throw HeaderBlockFault.malformed
+	logical.push("{folded}{ObsFoldReplacement}{withoutFieldWhitespaceEnds(continuation, from: 0)}")
+end 'unfoldInto'
+
+function isToken(text String) returns bool
+	if text.isEmpty() 'empty'
+		return false
+	end 'empty'
+	for b in text.bytes() 'eachByte'
+		if not (url.urlIsAlpha(b) or url.urlIsDigit(b) or url.urlByteIsOneOf(b, bytes: TokenMarkBytes)) 'notATokenByte'
+			return false
+		end 'notATokenByte'
+	end 'eachByte'
+	return true
+end 'isToken'
+
+function isStatusCodeText(text String) returns bool
+	if text.byteLength() != StatusCodeDigits 'notThreeBytes'
+		return false
+	end 'notThreeBytes'
+	for b in text.bytes() 'eachByte'
+		if not url.urlIsDigit(b) 'notADigit'
+			return false
+		end 'notADigit'
+	end 'eachByte'
+	return true
+end 'isStatusCodeText'
+
+function isFieldContentByte(b Byte) returns bool
+	return (b >= FirstPrintableByte or b == HorizontalTab) and b != DeleteByte
+end 'isFieldContentByte'
+
+function isFieldContent(text String, from BytePos = 0) returns bool
+	for pos in from upto text.byteLength() 'eachByte'
+		if not isFieldContentByte(text.byteAtOrPanic(pos as Count)) 'aControl'
+			return false
+		end 'aControl'
+	end 'eachByte'
+	return true
+end 'isFieldContent'
+
+function fieldValueOf(line String, from BytePos) returns String throws HeaderBlockFault
+	if not isFieldContent(line, from: from) 'aControl'
+		throw HeaderBlockFault.malformed
+	end 'aControl'
+	return withoutFieldWhitespaceEnds(line, from: from)
+end 'fieldValueOf'
+
+function withoutFieldWhitespaceEnds(line String, from BytePos) returns String
+	let len = line.byteLength()
+	var first = len
+	var last = from
+	for pos in from upto len 'eachByte'
+		if not url.urlByteIsOneOf(line.byteAtOrPanic(pos as Count), bytes: FieldWhitespaceBytes) 'content'
+			first = (pos if first == len else first) as Count
+			last = pos + 1
+		end 'content'
+	end 'eachByte'
+	return url.urlByteRange(line, from: first as BytePos, until: last)
+end 'withoutFieldWhitespaceEnds'
+
+function headerRepeatRuleOf(lowered String, side HttpMessageSide) returns HeaderRepeatRule
+	if lowered == HostHeaderName and side == HttpMessageSide.request 'host'
+		return HeaderRepeatRule.refused
+	end 'host'
+	if lowered == ContentLengthHeaderName 'contentLength'
+		return HeaderRepeatRule.mustAgree
+	end 'contentLength'
+	// A `Set-Cookie` value carries commas of its own (an `Expires` date), so a comma cannot separate two.
+	if lowered == SetCookieHeaderName 'setCookie'
+		return HeaderRepeatRule.joinedByLine
+	end 'setCookie'
+	return HeaderRepeatRule.joinedByComma
+end 'headerRepeatRuleOf'
+
+function appendHeaderField(mutates headers HttpHeaders, name String, value String, side HttpMessageSide) throws HeaderBlockFault
+	let lowered = name.toLower()
+	if not headers.has(lowered) 'firstLine'
+		headers.set(lowered, value: value)
+		return
+	end 'firstLine'
+	let earlier = try headers.get(lowered) otherwise panic("appendHeaderField: `{lowered}` was just found present")
+	match headerRepeatRuleOf(lowered, side: side) 'rule'
+		refused then throw HeaderBlockFault.malformed
+		mustAgree then try requireAgreeingRepeat(earlier, value: value)
+		joinedByLine then headers.set(lowered, value: "{earlier}{RepeatedLineSeparator}{value}")
+		joinedByComma then headers.set(lowered, value: "{earlier}{RepeatedListSeparator}{value}")
+	end 'rule'
+end 'appendHeaderField'
+
+function requireAgreeingRepeat(earlier String, value String) throws HeaderBlockFault
+	if not earlier.equals(value) 'conflicting'
+		throw HeaderBlockFault.malformed
+	end 'conflicting'
+end 'requireAgreeingRepeat'
+
+function stringAnchor(anchored string.GraphemeIndex)
+end 'stringAnchor'
+
+function parsableAnchor(anchored parsable.ParseError)
+end 'parsableAnchor'

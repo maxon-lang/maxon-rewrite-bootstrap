@@ -3736,6 +3736,17 @@ hmac.md: hmac.tags
 hold-window-across-ternary-blocks.md: a-clear-inside-a-short-circuit-arm-of-a-ternary-ends-the-hold
 hold-window-across-ternary-blocks.md: a-range-check-inside-a-short-circuit-arm-stays-in-front-of-its-value
 hold-window-across-ternary-blocks.md: a-ternary-arm-that-releases-nothing-leaves-the-read-uncounted-and-correct
+http-client.md: http-client.a-body-over-the-callers-cap-is-refused
+http-client.md: http-client.a-chunked-response-is-decoded
+http-client.md: http-client.a-kept-alive-response-ends-at-its-declared-length
+http-client.md: http-client.a-response-header-name-is-a-token-and-host-is-a-request-rule
+http-client.md: http-client.an-ftp-url-is-refused-before-connecting
+http-client.md: http-client.an-interim-response-is-skipped
+http-client.md: http-client.an-unlisted-status-is-carried-by-its-number
+http-client.md: http-client.build-request
+http-client.md: http-client.conflicting-repeated-singleton-headers-are-refused
+http-client.md: http-client.every-named-status-round-trips-through-its-number
+http-client.md: http-client.invalid-url
 if-statements.md: else-if-chain-every-arm
 if-statements.md: error.mismatched-else-end-label
 if-statements.md: error.mismatched-if-end-label

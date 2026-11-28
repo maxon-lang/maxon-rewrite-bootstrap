@@ -1,0 +1,43 @@
+// maxon's stdlib/HttpServer.maxon, written here (README, "Where it differs from Maxon"): its connections are services that
+// read by readiness, which maxon's are not. This holds the declarations that the converted codec and client name. The
+// names, the cases and the documentation are maxon's.
+
+/// Server-side HTTP errors. `tlsFailed` carries the `TlsError` of a connection whose handshake or TLS session failed.
+public union HttpServerError implements Error
+	acceptFailed
+	malformedRequest
+	headersTooLarge
+	bodyTooLarge
+	unsupportedTransferEncoding
+	readTimedOut
+	connectionClosed
+	sendFailed
+	listenerClosed
+	acceptTimedOut
+	alreadyResponded
+	unsupportedMethod
+	unsupportedVersion
+	acceptInterrupted
+	invalidResponse
+	deferralUnavailable
+	tlsFailed(error tls.TlsError)
+end 'HttpServerError'
+
+/// A byte count `HttpServerLimits` caps a request's head or body at.
+public typealias HttpByteCap = int(0 to 1099511627776)
+
+/// What a handler can tell of the connection a request arrived on. A TLS connection reports the protocol and
+/// cipher suite negotiated, the ALPN protocol, and the chain the client presented, empty when it presented none.
+public union HttpConnectionSecurity
+	plaintext
+	tls(protocol tls.TlsProtocol, cipherSuite tls.TlsCipherSuite, applicationProtocol tls.TlsApplicationProtocol, peerCertificates ByteArrays)
+end 'HttpConnectionSecurity'
+
+/// The certificates of a chain, each its DER bytes.
+public typealias ByteArrays = Array with ByteArray
+
+// timerMsOf is the time a deadline of the limits gives a service's Timer. It names the clock module, whose extension of Clock
+// the client calls too (Clock.nowMs), which a module sees only where it names the module (README, "Modules").
+function timerMsOf(deadline net.SocketDeadlineMs) returns clock.DurationMs
+	return deadline as clock.DurationMs
+end 'timerMsOf'

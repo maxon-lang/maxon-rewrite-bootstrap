@@ -433,6 +433,43 @@ func renameNamesHidingModules(lines []sourceLine) {
 	}
 }
 
+// localsHidingModules are the names of library modules that a local of maxon's library is named where its function also names
+// a constant or a function of that module, which a module's name before the local's scope reaches no more (a module's name
+// is read past a local only before a type of the module, README "Modules"): httpHelpers' httpBuildRequest has a local url
+// and reads url.UrlOriginFormRoot. A local, unlike a parameter, is no label of a call, so it is renamed, from its
+// declaration to the end of its function.
+var localsHidingModules = map[string]string{"url": "address"}
+
+// renameLocalsHidingModules writes each local of localsHidingModules as its replacement in the function that declares it.
+func renameLocalsHidingModules(lines []sourceLine) {
+	for i := range lines {
+		l := &lines[i]
+		if len(l.code) < 3 || (l.code[0].text != "let" && l.code[0].text != "var") || l.code[2].text != "=" {
+			continue
+		}
+		here, ok := localsHidingModules[l.code[1].text]
+		if !ok {
+			continue
+		}
+		old := l.code[1].text
+		depth := len(l.indent)
+		for j := i; j < len(lines); j++ {
+			m := &lines[j]
+			if j > i && len(m.code) > 0 && len(m.indent) < depth {
+				break
+			}
+			for k, t := range m.code {
+				switch {
+				case t.kind == tokIdent && t.text == old && (k == 0 || m.code[k-1].text != ".") && (k+1 >= len(m.code) || m.code[k+1].text != ":"):
+					m.code[k].text = here
+				case t.kind == tokString:
+					m.code[k].text = renameInInterpolations(t.text, map[string]string{old: here})
+				}
+			}
+		}
+	}
+}
+
 // renameInInterpolations writes each whole word of an interpolation of a string that names is a key of names, as its value.
 func renameInInterpolations(text string, names map[string]string) string {
 	return interpolationPart.ReplaceAllStringFunc(text, func(part string) string {
