@@ -156,28 +156,32 @@ func TestParseSkipsRefusesBadRows(t *testing.T) {
 	codes := []row{{"ErrA", "E2001", noMaxonName, "m"}, {"ErrB", "E2002", noMaxonName, "m"}}
 	const declared = "code\tE3223\tmeaning\n"
 	for name, tc := range map[string]struct{ src, want string }{
-		"kind":         {"other\tErrA\tErrB\tr\n", "want a code row"},
-		"columns":      {"skip\tErrA\tErrB\n", "want a code row"},
-		"code":         {"code\t3223\tm\n", "not a code"},
-		"in the table": {"code\tE2001\tm\n", "name its constant"},
-		"twice":        {declared + declared, "declared twice"},
-		"no meaning":   {"code\tE3223\t\n", "no meaning"},
-		"unknown":      {"skip\tErrC\tErrB\tr\n", "neither a constant"},
-		"undeclared":   {"skip\tE3223\tErrB\tr\n", "neither a constant"},
-		"reported":     {declared + "skip\tErrA\tE3223\tr\n", "neither a constant"},
-		"reason":       {"skip\tErrA\tErrB\t\n", "reason is empty"},
-		"quote":        {"skip\tErrA\tErrB\tsay \"x\"\n", "reason is empty"},
-		"empty":        {"# only a comment\n", "no skip rows"},
-		"ok":           {declared + "skip\tErrA,E3223\tErrB\tr\n", ""},
-		"run maxon":    {declared + "run\tE3223\tr\n", "neither a constant"},
-		"expect ok":    {declared + "expect\tErrA,E3223\tr\n", ""},
-		"run ok":       {"run\tErrB\tr\n", ""},
-		"test ok":      {"test\ta.md\tone-test\tr\n", ""},
-		"test file":    {"test\ta.txt\tone-test\tr\n", "not the name of a spec file"},
-		"test path":    {"test\tspecs/a.md\tone-test\tr\n", "not the name of a spec file"},
-		"test name":    {"test\ta.md\t\tr\n", "test's name is empty"},
-		"test twice":   {"test\ta.md\tone-test\tr\ntest\ta.md\tone-test\ts\n", "named twice"},
-		"test reason":  {"test\ta.md\tone-test\t\n", "reason is empty"},
+		"kind":              {"other\tErrA\tErrB\tr\n", "want a code row"},
+		"columns":           {"skip\tErrA\tErrB\n", "want a code row"},
+		"code":              {"code\t3223\tm\n", "not a code"},
+		"in the table":      {"code\tE2001\tm\n", "name its constant"},
+		"twice":             {declared + declared, "declared twice"},
+		"no meaning":        {"code\tE3223\t\n", "no meaning"},
+		"unknown":           {"skip\tErrC\tErrB\tr\n", "neither a constant"},
+		"undeclared":        {"skip\tE3223\tErrB\tr\n", "neither a constant"},
+		"reported":          {declared + "skip\tErrA\tE3223\tr\n", "neither a constant"},
+		"reason":            {"skip\tErrA\tErrB\t\n", "reason is empty"},
+		"quote":             {"skip\tErrA\tErrB\tsay \"x\"\n", "reason is empty"},
+		"empty":             {"# only a comment\n", "no skip rows"},
+		"ok":                {declared + "skip\tErrA,E3223\tErrB\tr\n", ""},
+		"run maxon":         {declared + "run\tE3223\tr\n", "neither a constant"},
+		"expect ok":         {declared + "expect\tErrA,E3223\tr\n", ""},
+		"run ok":            {"run\tErrB\tr\n", ""},
+		"test ok":           {"test\ta.md\tone-test\tr\n", ""},
+		"test file":         {"test\ta.txt\tone-test\tr\n", "not the name of a spec file"},
+		"test path":         {"test\tspecs/a.md\tone-test\tr\n", "not the name of a spec file"},
+		"test name":         {"test\ta.md\t\tr\n", "test's name is empty"},
+		"test twice":        {"test\ta.md\tone-test\tr\ntest\ta.md\tone-test\ts\n", "named twice"},
+		"test reason":       {"test\ta.md\tone-test\t\n", "reason is empty"},
+		"manual ok":         {"manual\ta.md\tone-test\tr\n", ""},
+		"manual file":       {"manual\ta.txt\tone-test\tr\n", "not the name of a spec file"},
+		"manual twice":      {"manual\ta.md\tone-test\tr\nmanual\ta.md\tone-test\ts\n", "named twice"},
+		"manual and a skip": {"test\ta.md\tone-test\tr\nmanual\ta.md\tone-test\ts\n", ""},
 	} {
 		_, err := parseSkips(tc.src, codes)
 		switch {
@@ -191,7 +195,7 @@ func TestParseSkipsRefusesBadRows(t *testing.T) {
 
 func TestSkipTablePairsEveryExpectedWithEveryReported(t *testing.T) {
 	codes := []row{{"ErrA", "E2001", noMaxonName, "m"}, {"ErrB", "E2002", noMaxonName, "m"}}
-	skips, err := parseSkips("code\tE3223\tm\nskip\tErrA,E3223\tErrA,ErrB\twhy\nexpect\tE3223\tso\nrun\tErrB\tthus\ntest\ta.md\tone-test\tsince\n", codes)
+	skips, err := parseSkips("code\tE3223\tm\nskip\tErrA,E3223\tErrA,ErrB\twhy\nexpect\tE3223\tso\nrun\tErrB\tthus\ntest\ta.md\tone-test\tsince\nmanual\tb.md\tslow\tlong\n", codes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,6 +208,7 @@ func TestSkipTablePairsEveryExpectedWithEveryReported(t *testing.T) {
 		`CodeSkip.expecting("E3223", line: "<!-- skip: so -->\n")`,
 		`CodeSkip.refusing(diag.errB.clone(), line: "<!-- skip: thus -->\n")`,
 		`CodeSkip.naming("a.md", test: "one-test", line: "<!-- skip: since -->\n")`,
+		`CodeSkip.byHand("b.md", test: "slow", line: "<!-- manual: long -->\n")`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("generated table lacks %s:\n%s", want, got)

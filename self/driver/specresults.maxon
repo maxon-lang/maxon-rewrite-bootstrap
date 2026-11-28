@@ -12,6 +12,8 @@ let failedTag = "F"
 
 let unsupportedTag = "U"
 
+let manualTag = "M"
+
 let lowerN = 110 as Byte
 
 let lowerR = 114 as Byte
@@ -63,6 +65,9 @@ function resultTag(outcome TestOutcome) returns String
 	if outcome == TestOutcome.testUnsupported 'unsupported'
 		return unsupportedTag
 	end 'unsupported'
+	if outcome == TestOutcome.testManual 'manual'
+		return manualTag
+	end 'manual'
 	panic("test: the result of a test that the run left out is not kept")
 end 'resultTag'
 
@@ -77,6 +82,9 @@ function resultOf(tag String, consumes detail String) returns table.Option with 
 	if tag == unsupportedTag 'unsupported'
 		return table.Option.some(TestResult.unsupported(detail))
 	end 'unsupported'
+	if tag == manualTag 'manual'
+		return table.Option.some(TestResult.manual())
+	end 'manual'
 	return table.Option.none
 end 'resultOf'
 

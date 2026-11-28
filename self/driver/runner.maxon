@@ -94,15 +94,17 @@ type CorpusJob
 end 'CorpusJob'
 
 // SpecJob is a test of a spec file: the file, by its place among the run's, the test's key in the output and in the list of
-// the tests that passed, the test, and whether that list has it, which leaves the test out of a run that skips them.
+// the tests that passed, the test, whether that list has it, which leaves the test out of a run that skips them, and whether
+// the test is run by hand and the run leaves it out (byHand), which the summary names.
 type SpecJob
 	var file as Count
 	var key as String
 	var test as SpecTest
 	var listed as bool
+	var byHand as bool
 
-	static function make(file Count, consumes key String, consumes test SpecTest, listed bool) returns SpecJob
-		return SpecJob{file: file, key: key, test: test, listed: listed}
+	static function make(file Count, consumes key String, consumes test SpecTest, listed bool, byHand bool) returns SpecJob
+		return SpecJob{file: file, key: key, test: test, listed: listed, byHand: byHand}
 	end 'make'
 end 'SpecJob'
 
@@ -461,7 +463,7 @@ end 'startLine'
 function isLeftOut(job Job) returns bool
 	return match job 'job'
 		corpus(value) gives value.leftOut or value.byHand
-		spec(value) gives value.listed
+		spec(value) gives value.listed or value.byHand
 	end 'job'
 end 'isLeftOut'
 
@@ -469,7 +471,7 @@ end 'isLeftOut'
 function leftOutResult(job Job) returns TestResult
 	return match job 'job'
 		corpus(value) gives TestResult.manual() if value.byHand and not value.leftOut else TestResult.leftOut()
-		spec(_) gives TestResult.leftOut()
+		spec(value) gives TestResult.manual() if value.byHand and not value.listed else TestResult.leftOut()
 	end 'job'
 end 'leftOutResult'
 

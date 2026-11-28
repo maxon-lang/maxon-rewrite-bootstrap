@@ -135,8 +135,8 @@ programs as an artifact. The workflow reads the repository and writes nothing to
 | `minimaxon check [--tests] <file\|dir>` | diagnostics only, exit code 1 when there are any; `check runtime` checks the runtime's source and holds it to the functions the compiler calls (see "The runtime"); `--tests` checks every module's files of tests (`.maxtest`) with its source |
 | `minimaxon test [--update-positions] [--behaviours] [--manual] [--repeat=N] [--worker-counts=N,N,...] [--env-runner=path] [--executables=N] [--target=<arch>-<os>] [dir\|file.maxon]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests"), or the one program at a path, compiled for the target and run through its runner |
 | `minimaxon test <specs-dir\|file.md> [--verbose] [--interpret] [--require-passed\|--skip-passed] [--record-passed] [--executables=N]` | run maxon's spec tests (see "Tests") |
-| `minimaxon test <module dir> [--compile-only] [--target=<arch>-<os>]` | run the tests of the modules under the directory: the `test` declarations of their files of tests (`.maxtest`), compiled with the modules they name and the runtime into one executable whose entry calls each, which is then run (see "Tests"); `--compile-only` builds that executable for the target, through code generation, and runs nothing, and without it a target other than the host's is refused, as the executable runs only on the host |
-| `minimaxon selftest [--compile-only]` | run the compiler's own tests: `test self`, from the root of the repository |
+| `minimaxon test <module dir> [--compile-only] [--manual] [--target=<arch>-<os>]` | run the tests of the modules under the directory: the `test` declarations of their files of tests (`.maxtest`), compiled with the modules they name and the runtime into one executable whose entry calls each, which is then run (see "Tests"); `--compile-only` builds that executable for the target, through code generation, and runs nothing, and without it a target other than the host's is refused, as the executable runs only on the host |
+| `minimaxon selftest [--compile-only] [--manual]` | run the compiler's own tests: `test self`, from the root of the repository; the files of tests named `*.manual.maxtest` are left out and named unless `--manual` |
 | `minimaxon debug --symbolize <exe> <offset\|rip=0x<address>>...` | name the function, `file:line:column` and the inlined calls of code offsets (decimal or `0x` hex) of an executable that `build --debug-info` made, or of the address of a fault line, from the sidecar beside it, refusing one that describes another build (see "Debug info") |
 | `minimaxon debug --dump-info <exe> [header\|files\|functions\|types\|lines\|inline\|layout]...` | print the sidecar's sections, every one when none is named |
 | `minimaxon debug --batch --commands=<cmd;cmd;...\|@file> [--stop-timeout=<seconds>] <exe> [-- <args>...]` | debug an executable that `build --debug-info` made, on x64 Windows: launch it under the debugger, run the commands and write one JSON event per line, maxon's batch mode (see "Debug info") |
@@ -498,6 +498,21 @@ Directives in comments say what the program must do:
 | `// stdin: <text>` | a line of the program's standard input, which ends after the last: each directive is one more line, its text after the one space as `//>`'s is. A program without one reads the end of its input at once. The runner gives each executable its input through `__Builtins.runWithInput`, and the interpreter reads the same text |
 | `// schedules: N` | run the program under N schedules of the interpreter (seeds 0 to N - 1) instead of 20; for a program of thousands of behaviours |
 | `// expect-scheduler: used` or `none` | the link must give the program the scheduler, or must not (see "Main with or without the scheduler"); what a program does cannot show it |
+
+**Manual tests.** The gate has no test that runs for long: a test that takes over 2 seconds a run on a quiet machine, on any target, is
+a manual test, which the default runs and the gate leave out, and which is run by name or with `--manual` where a change touches what it tests.
+One mechanism marks them for every kind of test. A program of the corpus says `// runs: manual` (table above). A file of a module's tests
+(`.maxtest`) is named `<name>.manual.maxtest`, and `selftest` and `test <module dir>` leave it out unless they are given `--manual`; the
+summary says `ok: 176 tests of <dir>, 1 manual files, left out: <file>`. A spec test of maxon's is named by a `manual` row of
+`self/driver/skips.tsv` (`manual`, the spec file, the test's name, the reason, apart by tabs), which the conversion writes into the spec file as a
+`<!-- manual: reason -->` line after the test's marker, never by hand: the test is fixed as any, a run of the spec files leaves it out unless it
+is given `--manual`, and the summary names it (`9436 passed, 0 failed, 5906 skipped, 2 manual, left out: sha2.md: sha2.a-million-letters, ...`).
+A manual spec test that `specs/passed.txt` lists is left out, listed and not lost: `--require-passed` does not count it among the tests that did
+not pass, and `--record-passed` keeps it in the list. A run that leaves a manual test out never leaves it out silently, so a test that nothing runs
+is always one that the output names. `test --compile-only` and `check self --tests` still compile every manual test, which costs no run. Run the
+manual tests when a change touches what they test; the manual tests of the timers' latency (a ticker's ticks on their grid, a late handler's
+skipped ticks) are the ones to run on Windows, and on every target, whenever the event wait or the timed wait of the runtime is touched, since the
+tests that stay in the gate hold only what does not depend on how late a wake comes.
 
 ### Errors
 

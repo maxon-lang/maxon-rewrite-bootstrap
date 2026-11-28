@@ -16,6 +16,10 @@ let commentSuffix = "-->"
 
 let skipKey = "skip"
 
+// A test that the conversion's rows name as run by hand has a `<!-- manual: reason -->` line (skips.tsv, the manual rows), which a
+// run leaves it out for unless it is given --manual, and names in its summary.
+let manualKey = "manual"
+
 let positionsKey = "positions"
 
 let positionsMoved = "moved"
@@ -202,6 +206,8 @@ type SpecTest
 	var skips as ast.StringList
 	var directives as ast.StringList
 	var positionsMoved as bool
+	// manual is whether the test is run by hand (manualKey).
+	var manual as bool
 	var hasSource as bool
 	var sourceStart as Count
 	var sourceFinish as Count
@@ -210,7 +216,7 @@ type SpecTest
 	var facilities as ast.StringList
 
 	static function make(consumes name String) returns SpecTest
-		return SpecTest{name: name, markerEnd: 0, skips: ast.StringList.create(0), directives: ast.StringList.create(0), positionsMoved: false, hasSource: false, sourceStart: 0, sourceFinish: 0, fences: SpecFenceList.create(0), facilities: ast.StringList.create(0)}
+		return SpecTest{name: name, markerEnd: 0, skips: ast.StringList.create(0), directives: ast.StringList.create(0), positionsMoved: false, manual: false, hasSource: false, sourceStart: 0, sourceFinish: 0, fences: SpecFenceList.create(0), facilities: ast.StringList.create(0)}
 	end 'make'
 end 'SpecTest'
 
@@ -384,7 +390,9 @@ function addComment(mutates test SpecTest, line String)
 	let value = trimSpace(text.sliceBytes(offsetBy(at, by: 1), endPos: text.byteLength())).clone()
 	if key == skipKey 'skip'
 		test.skips.push(value)
-	end 'skip' else if key == positionsKey and value == positionsMoved 'positions'
+	end 'skip' else if key == manualKey 'manual'
+		test.manual = true
+	end 'manual' else if key == positionsKey and value == positionsMoved 'positions'
 		test.positionsMoved = true
 	end 'positions' else 'directive'
 		test.directives.push(text)
@@ -969,17 +977,20 @@ type SpecRun
 	var keptKeys as ast.StringList
 	// lost counts the tests of the list that a run requiring it found failing or skipped.
 	var lost as Count
+	// includesManual is whether the run includes the tests that are run by hand, and byHand the keys of those it left out.
+	var includesManual as bool
+	var byHand as ast.StringList
 	// listPath is where the list is, which a run that renews it writes.
 	var listPath as String
 	// saved is the line of results of each test taken in, which a run that saves them writes at the end.
 	var saved as ast.StringList
 
-	static function make(consumes options SpecOptions, before ast.StringList, consumes listPath String) returns SpecRun
+	static function make(consumes options SpecOptions, before ast.StringList, consumes listPath String, includesManual bool) returns SpecRun
 		var listed = TestSet.new()
 		for i in 0 upto before.count() 'keys'
 			listed.insert(before[i].clone(), value: setMember)
 		end 'keys'
-		return SpecRun{options: options, passed: 0, failed: 0, skipped: 0, reasons: ast.StringList.create(0), counts: CountList.create(0), indexes: ReasonIndex.new(), listed: listed, keptKeys: ast.StringList.create(0), lost: 0, listPath: listPath, saved: ast.StringList.create(0)}
+		return SpecRun{options: options, passed: 0, failed: 0, skipped: 0, reasons: ast.StringList.create(0), counts: CountList.create(0), indexes: ReasonIndex.new(), listed: listed, keptKeys: ast.StringList.create(0), lost: 0, includesManual: includesManual, byHand: ast.StringList.create(0), listPath: listPath, saved: ast.StringList.create(0)}
 	end 'make'
 
 	// countSkip counts a skipped test under its reason.
@@ -996,6 +1007,11 @@ type SpecRun
 		reasons.push(reason.clone())
 		counts.push(1)
 	end 'addReason'
+
+	// leavesOut is whether the run leaves the test out because it is run by hand.
+	function leavesOut(test SpecTest) returns bool
+		return test.manual and not includesManual
+	end 'leavesOut'
 
 	// skipsPassed is whether the test with this key is left out because it passed before.
 	function skipsPassed(key String) returns bool
@@ -1032,7 +1048,13 @@ type SpecRun
 		if job.listed 'known'
 			self.countSkip(passedBeforeReason)
 			keptKeys.push(job.key.clone())
-		end 'known' else if result.outcome == TestOutcome.testFailed 'failed'
+		end 'known' else if result.outcome == TestOutcome.testManual 'byHand'
+			// Left out, and named in the summary: a test of the list stays in it and is not lost.
+			byHand.push(job.key.clone())
+			if inList 'kept'
+				keptKeys.push(job.key.clone())
+			end 'kept'
+		end 'byHand' else if result.outcome == TestOutcome.testFailed 'failed'
 			failed = offsetBy(failed, by: 1)
 			if inList and options.requirePassed 'lost'
 				self.noteLost(job.key, what: result.detail)
@@ -1161,7 +1183,11 @@ end 'writePassedList'
 // printSummary prints the counts, and the skipped tests by reason, the most first; the reasons past the first ones are
 // counted together unless the run is verbose.
 function printSummary(tally SpecRun)
-	print("{tally.passed} passed, {tally.failed} failed, {tally.skipped} skipped\n")
+	var manual = ""
+	if tally.byHand.count() > 0 'byHand'
+		manual = ", {tally.byHand.count()} manual, left out: {joinWith(tally.byHand, separator: ", ")}"
+	end 'byHand'
+	print("{tally.passed} passed, {tally.failed} failed, {tally.skipped} skipped{manual}\n")
 	if tally.skipped == 0 'none'
 		return
 	end 'none'
@@ -1272,7 +1298,7 @@ function runSpecs(path String, options SpecOptions, compiling CorpusOptions, wid
 			return diagnosticsExitCode
 		end 'missing'
 	end 'list'
-	let tally = SpecRun.make(options.clone(), before: before, listPath: listPath)
+	let tally = SpecRun.make(options.clone(), before: before, listPath: listPath, includesManual: compiling.includesManual or compiling.compilesOnly)
 	var files = SpecFiles.create(0)
 	var jobs = Jobs.create(0)
 	let paths = specFiles(root)
@@ -1347,7 +1373,7 @@ function addSpecJobs(path String, file Count, tally SpecRun, mutates jobs Jobs, 
 	for i in 0 upto tests.count() 'tests'
 		let key = "{display}: {tests[i].name}"
 		let listed = tally.skipsPassed(key)
-		jobs.push(Job.spec(SpecJob.make(file, key: key, test: tests[i].clone(), listed: listed)))
+		jobs.push(Job.spec(SpecJob.make(file, key: key, test: tests[i].clone(), listed: listed, byHand: tally.leavesOut(tests[i]))))
 	end 'tests'
 	files.push(SpecFile.make(text, stem: fileStem(path)))
 end 'addSpecJobs'

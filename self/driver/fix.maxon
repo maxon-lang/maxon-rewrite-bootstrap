@@ -25,6 +25,8 @@ enum CodeSkipKind
 	namedTest
 	// byCause is the cause of the first diagnostic left after the fixes, where its code covers several.
 	byCause
+	// manualTest is one test, by its spec file and its name, that is run by hand: it is fixed as any, and gets the line that says so.
+	manualTest
 end 'CodeSkipKind'
 
 // CodeSkip is a row of the skip table: the codes of a test that minimaxon refuses or reports for a known reason, as its kind
@@ -58,6 +60,10 @@ type CodeSkip
 	static function naming(consumes file String, consumes test String, consumes line String) returns CodeSkip
 		return CodeSkip{kind: CodeSkipKind.namedTest, expected: "", reported: "", file: file, test: test, cause: diag.ErrorCause.none, line: line}
 	end 'naming'
+
+	static function byHand(consumes file String, consumes test String, consumes line String) returns CodeSkip
+		return CodeSkip{kind: CodeSkipKind.manualTest, expected: "", reported: "", file: file, test: test, cause: diag.ErrorCause.none, line: line}
+	end 'byHand'
 
 	static function causing(cause diag.ErrorCause, consumes line String) returns CodeSkip
 		return CodeSkip{kind: CodeSkipKind.byCause, expected: "", reported: "", file: "", test: "", cause: cause, line: line}
@@ -152,6 +158,16 @@ function namedSkipLine(skips CodeSkips, file String, test String) returns table.
 	end 'rows'
 	return table.Option.none
 end 'namedSkipLine'
+
+// manualLine is the line of the test of the spec file named file that the table names as run by hand, or nothing.
+function manualLine(skips CodeSkips, file String, test String) returns table.Option with String
+	for i in 0 upto skips.count() 'rows'
+		if skips[i].kind == CodeSkipKind.manualTest and skips[i].file == file and skips[i].test == test 'found'
+			return table.Option.some(skips[i].line.clone())
+		end 'found'
+	end 'rows'
+	return table.Option.none
+end 'manualLine'
 
 // causeSkipLine is the skip line of a test whose first diagnostic left after the fixes has a cause that the table skips, or
 // nothing.
@@ -1020,6 +1036,10 @@ end 'expectedRuleSkip'
 // file, which with check are only counted and named. exe is where a compile of the test may make its executable.
 function fixSpecTestAt(shared SharedRuntimes, libraries FixLibraries, exe String, skips CodeSkips, display String, text String, test SpecTest, checkOnly bool) returns FixResult
 	var result = FixResult.new()
+	let byHand = manualLine(skips, file: display, test: test.name)
+	if byHand.isSome() and not test.manual 'manual'
+		result.edits.push(syntax.Edit.make(test.markerEnd, until: test.markerEnd, replacement: byHand.unwrap()))
+	end 'manual'
 	let expectSkip = expectedRuleSkip(skips, file: display, test: test, text: text)
 	if expectSkip.isSome() 'ruleSkipped'
 		skipSpecTest(result, test: test, line: expectSkip.unwrap())

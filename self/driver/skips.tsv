@@ -22,6 +22,10 @@
 #           and runs to another answer than maxon's, because a language change (README, "Where it differs from Maxon") gives
 #           the program another meaning, or because it asserts a line of maxon's library source, which the converted file
 #           does not share
+#   manual  `manual`, the name of a spec file, the name of one of its tests and the reason: a test that runs for longer than
+#           the gate may spend on one (README, "Tests"), as a program of the corpus that says `// runs: manual` does. It gets
+#           a `<!-- manual: reason -->` line, and is fixed as any test: a run leaves it out unless it is given --manual, names it
+#           in its summary, and keeps it in specs/passed.txt, where it is not lost for being left out
 #   cause   `cause`, a case of diag.ErrorCause and the reason: a test is skipped when the first diagnostic left after the fixes
 #           has that cause and is not the code the test expects, where the cause tells apart what its code covers
 code	E2027	a match arm that repeats the pattern of an earlier arm
