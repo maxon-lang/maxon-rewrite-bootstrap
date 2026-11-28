@@ -89,7 +89,50 @@ function emitArm64GreenRoutines(mutates u CodeUnit, system ast.TargetSystem)
 	emitArm64StackSwitch(u)
 	emitArm64GreenStart(u)
 	emitArm64AsyncPreempt(u, system: system)
+	emitArm64StackWipe(u)
 end 'emitArm64GreenRoutines'
+
+// The registers of rt.stackWipe, which the internal convention lets a call change: the lowest address it zeroes, the one
+// it zeroes next, and 8, its step.
+let arm64WipeLow = Arm64Register.x9
+
+let arm64WipeCursor = Arm64Register.x10
+
+let arm64WipeStep = Arm64Register.x11
+
+// emitArm64StackWipe writes rt.stackWipe: given a count of bytes and a floor, it zeroes the vector registers the internal
+// convention lets a call change, then the words below the stack pointer from the top down to the higher of the floor and
+// the stack pointer less the bytes. It takes no stack of its own, so what it zeroes is all below its caller's.
+function emitArm64StackWipe(mutates u CodeUnit)
+	u.beginSection()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtStackWipe))
+	let changed = arm64InternalCallerSaved()
+	for r in arm64FirstVector upto arm64RegisterFileSize 'vectors'
+		if maskHas(changed, number: regNumOfCount(r)) 'changed'
+			let v = arm64RegisterOf((r - arm64FirstVector) as RegNum)
+			encodeArm64EorVec16(u.asm.code, dest: v, left: v, right: v)
+		end 'changed'
+	end 'vectors'
+	let floorReady = u.asm.newLabel()
+	let loop = u.asm.newLabel()
+	let done = u.asm.newLabel()
+	u.asm.arm64Mov(arm64WipeCursor, src: Arm64Register.sp)
+	u.asm.arm64Sub(arm64WipeLow, left: arm64WipeCursor, right: arm64ArgWord())
+	u.asm.arm64Cmp(arm64WipeLow, right: arm64InternalArg(1))
+	u.asm.arm64BranchIf(MCond.aboveEqual, label: floorReady)
+	u.asm.arm64Mov(arm64WipeLow, src: arm64InternalArg(1))
+	u.asm.bind(floorReady)
+	u.asm.arm64MovImm(arm64WipeStep, value: wordBytes as FullRangeInt)
+	u.asm.bind(loop)
+	u.asm.arm64Cmp(arm64WipeCursor, right: arm64WipeLow)
+	u.asm.arm64BranchIf(MCond.belowEqual, label: done)
+	u.asm.arm64Sub(arm64WipeCursor, left: arm64WipeCursor, right: arm64WipeStep)
+	u.asm.arm64Store(arm64WipeCursor, disp: 0, src: arm64ZeroRegister)
+	u.asm.arm64Jump(loop)
+	u.asm.bind(done)
+	u.asm.arm64Ret()
+	u.setSectionStack(0)
+end 'emitArm64StackWipe'
 
 // emitArm64StackSwitch writes rt.stackSwitch: given the address of a pair of switch records, it pushes its return address
 // on the running stack, saves the registers of the running stack into the first record, goes on the stack of the second

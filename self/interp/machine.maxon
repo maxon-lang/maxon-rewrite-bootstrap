@@ -116,6 +116,10 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		panic("interp: spinpause is the runtime source's, which the interpreter never runs")
 	end 'visitSpinPause'
 
+	function visitCalleeStackDepth(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: calleestackdepth is the runtime source's, which the interpreter never runs")
+	end 'visitCalleeStackDepth'
+
 	function visitThreadContext(mutates self, f ir.IrFunction, x ir.Instr)
 		panic("interp: threadcontext is the runtime source's, which the interpreter never runs")
 	end 'visitThreadContext'

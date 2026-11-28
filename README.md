@@ -2829,6 +2829,8 @@ are a `Count`:
 | `__Raw.stackSwitchAddress()`, `greenStartAddress()`, `asyncPreemptAddress()` | the address of the entry stub's `rt.stackSwitch`, `rt.greenStart` and `rt.asyncPreempt` (see "Green threads") |
 | `__Raw.preemptHandlerAddress()`, `signalReturnAddress()` | on Linux, the address of the stub's handler of the preemption signal, `rt.preemptHandler`, and of the restorer it returns through, `rt.sigreturn` |
 | `__Raw.preemptibleCodeAddress()` | the address of the link's table of the code a green thread may be stopped in, `g.preemptibleCode` (see "Green threads") |
+| `__Raw.calleeStackDepth()` | the most of the stack that the calls of the function it is written in may take below its stack pointer: a read-only word of the data that the link fills in, from the stack each section of code says it takes (`CodeSection.stackBytes`: a compiled function's frame and what it pushes for a call, a stub's own) through the sections its symbol fixups name; a call that recurses has no bound and fails the link |
+| `__Raw.wipeStack(bytes, floor: f)` | `rt.stackWipe`: zeroes the vector registers the internal convention lets a call change, then the words below the caller's stack pointer from the top down to the higher of `f` and that pointer less `bytes`, so that `wipeStack(calleeStackDepth(), floor: ...)` leaves nothing of what the calls before it kept in vectors or frames |
 
 Only the runtime module may call them: a call anywhere else is `E3152` (maxon's `rawIntrinsicOutsideRuntimeTier`, with
 its message), which `callFunction` in `self/check/calls.maxon` raises from the rows' runtime-only flag

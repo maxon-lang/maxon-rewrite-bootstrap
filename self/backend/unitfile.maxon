@@ -37,6 +37,11 @@ export function writeUnit(u CodeUnit, mutates w table.ByteWriter)
 		w.count(u.data.pointers[i].pos)
 		w.count(u.data.pointers[i].target)
 	end 'pointers'
+	w.count(u.data.depths.count())
+	for i in 0 upto u.data.depths.count() 'depths'
+		w.count(u.data.depths[i].pos)
+		w.text(u.data.depths[i].symbol)
+	end 'depths'
 	writeSymbols(w, defs: u.codeSymbols)
 	writeSymbols(w, defs: u.dataSymbols)
 	w.count(u.sections.count())
@@ -47,6 +52,8 @@ export function writeUnit(u CodeUnit, mutates w table.ByteWriter)
 		w.count(u.sections[i].importFixups)
 		w.count(u.sections[i].alignment)
 		w.flag(u.sections[i].preemptible)
+		w.count(u.sections[i].stackBytes)
+		w.flag(u.sections[i].stackKnown)
 	end 'sections'
 end 'writeUnit'
 
@@ -87,6 +94,10 @@ export function readUnit(mutates r table.ByteReader) returns CodeUnit
 		let pos = r.count()
 		u.data.pointers.push(DataPointer.make(pos, target: r.count()))
 	end 'pointers'
+	for _ in 0 upto r.items() 'depths'
+		let pos = r.count()
+		u.data.depths.push(StackDepthWord.make(pos, symbol: r.text()))
+	end 'depths'
 	u.codeSymbols = readSymbols(r)
 	u.dataSymbols = readSymbols(r)
 	for _ in 0 upto r.items() 'sections'
@@ -95,7 +106,10 @@ export function readUnit(mutates r table.ByteReader) returns CodeUnit
 		let data = r.count()
 		let imports = r.count()
 		let alignment = r.count()
-		u.sections.push(CodeSection.make(code, symbolFixups: symbols, dataFixups: data, importFixups: imports, alignment: alignment, preemptible: r.flag()))
+		var section = CodeSection.make(code, symbolFixups: symbols, dataFixups: data, importFixups: imports, alignment: alignment, preemptible: r.flag())
+		section.stackBytes = r.count()
+		section.stackKnown = r.flag()
+		u.sections.push(section)
 	end 'sections'
 	return u
 end 'readUnit'

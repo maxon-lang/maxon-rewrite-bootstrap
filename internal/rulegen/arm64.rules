@@ -29,6 +29,7 @@
 (datum) => (Adrp t [sel.datumRef(fn, ins: ins)]) (AddPageOff r t [sel.datumRef(fn, ins: ins)])
 (loadGlobal [g]) => (Adrp t [sel.symbolRef(ir.rtSymbol(g))]) (Ldr64PageOff r t [sel.symbolRef(ir.rtSymbol(g))])
 (globalAddr [g]) => (Adrp t [sel.symbolRef(ir.rtSymbol(g))]) (AddPageOff r t [sel.symbolRef(ir.rtSymbol(g))])
+(calleeStackDepth) => (Adrp t [sel.stackDepthRef()]) (Ldr64PageOff r t [sel.stackDepthRef()])
 (codeAddress) => (Adrp t [sel.calleeRef(ir.codeAddressCallee(fn, x: ins))]) (AddPageOff r t [sel.calleeRef(ir.codeAddressCallee(fn, x: ins))])
 
 // The frame: slots are words above the frame record; emitArm64LoadParam reads parameters, by the convention.

@@ -316,8 +316,9 @@ export function link(units LinkUnits, entry String, choice SchedulerChoice, targ
 	var image = buildImage(target, layout: ImageLayout.make(sizes.code, constSize: sizes.constant, dataSize: dataSize, entryOffset: codeOffset(links, t: start), pointers: pointers.clone()), imports: imports.names)
 	var code = ByteArray.create(0)
 	var parts = ImageParts.make(ByteArray.create(sizes.constant), data: ByteArray.create(dataSize))
+	var depths = StackDepths.of(links)
 	for i in 0 upto links.count() 'copy'
-		copyAndPatch(code, parts: parts, links: links, unit: i, u: units.at(i), defined: defined, image: image, imports: imports, tableAt: tableAt, arch: target.arch)
+		copyAndPatch(code, parts: parts, links: links, unit: i, u: units.at(i), defined: defined, image: image, imports: imports, tableAt: tableAt, arch: target.arch, depths: depths, units: units, symbols: symbols)
 	end 'copy'
 	table.write(parts.data, at: tableAt, image: image)
 	writePointers(target.system, image: image, data: parts.data, pointers: pointers)
@@ -670,6 +671,64 @@ function appendRange(mutates dest ByteArray, src ByteArray, begin Count, finish 
 	end 'each'
 end 'appendRange'
 
+// StackDepths are, of each section of each unit of a link, the most of the stack that the calls its code makes may take
+// below its stack pointer, which a word of a stack depth asks for (__Raw.calleeStackDepth): each found once, by the sections
+// its symbol fixups name, the code of each taking its own stack (CodeSection.stackBytes) and then its callees' most. A
+// fixup's symbol of data counts nothing, nor a call of an import, which is the system's own stack.
+type StackDepths
+	// state is, per unit and section, 0 for not looked at, 1 while its callees are being looked at and 2 once depth holds
+	// its depth.
+	var state as CountLists
+	var depth as CountLists
+
+	static function of(links LinkUnitList) returns StackDepths
+		var state = CountLists.create(0)
+		var depth = CountLists.create(0)
+		for i in 0 upto links.count() 'units'
+			state.push(zeros(links[i].liveCode.count()))
+			depth.push(zeros(links[i].liveCode.count()))
+		end 'units'
+		return StackDepths{state: state, depth: depth}
+	end 'of'
+
+	// below is the most of the stack the calls of the section's code may take below its stack pointer.
+	function below(mutates self, links LinkUnitList, units LinkUnits, defined LinkTargetList, unit Count, section Count) returns Count
+		let seen = state[unit][section]
+		if seen == stackDepthFound 'found'
+			return depth[unit][section]
+		end 'found'
+		if seen == stackDepthLooking 'cycle'
+			panic("link: a stack depth through a call that recurses, which has no bound")
+		end 'cycle'
+		state[unit][section] = stackDepthLooking
+		let u = units.at(unit)
+		let first = links[unit].sections[section].symbolFixups
+		let last = links[unit].sections[try section + 1 otherwise panic("link: more sections than memory")].symbolFixups
+		var most = 0 as Count
+		for j in first upto last 'fixups'
+			let target = defined[links[unit].targets[j]].clone()
+			if target.kind != LinkTargetKind.linkCode 'notCode'
+				continue 'fixups'
+			end 'notCode'
+			let callee = links[target.unit].sections[target.part].clone()
+			if not callee.stackKnown 'unknown'
+				panic("link: a stack depth through {u.asm.symbolFixups[j].symbol}, whose code says nothing of its stack")
+			end 'unknown'
+			let total = try callee.stackBytes + self.below(links, units: units, defined: defined, unit: target.unit, section: target.part) otherwise panic("link: a stack depth past memory")
+			most = maxOf(most, b: total)
+		end 'fixups'
+		state[unit][section] = stackDepthFound
+		depth[unit][section] = most
+		return most
+	end 'below'
+end 'StackDepths'
+
+typealias CountLists = Array with CountList
+
+let stackDepthLooking = 1 as Count
+
+let stackDepthFound = 2 as Count
+
 // linkPatch makes the field of a kind at pos of the code, which sits at textRva, reach target, an address of the image.
 function linkPatch(mutates code ByteArray, kind FixupKind, pos Count, textRva Count, target Count)
 	match kind 'kind'
@@ -698,7 +757,7 @@ end 'patchLinkRel32'
 // copyAndPatch puts the live sections and pieces of a unit, u at place unit of the layout, into the code and the data of the
 // image and fills in the addresses they refer to. A section moves as a whole, so a fixup keeps its place in it. The units
 // come in the order of their places, so the code is written in that order, with traps in the gaps that align a section.
-function copyAndPatch(mutates code ByteArray, mutates parts ImageParts, links LinkUnitList, unit Count, u CodeUnit, defined LinkTargetList, image Image, imports LinkImports, tableAt Count, arch ast.TargetArch)
+function copyAndPatch(mutates code ByteArray, mutates parts ImageParts, links LinkUnitList, unit Count, u CodeUnit, defined LinkTargetList, image Image, imports LinkImports, tableAt Count, arch ast.TargetArch, mutates depths StackDepths, units LinkUnits, symbols SymbolIds)
 	let l = links[unit].clone()
 	for p in 0 upto l.liveData.count() 'pieces'
 		if not l.liveData[p] 'dropped'
@@ -710,6 +769,18 @@ function copyAndPatch(mutates code ByteArray, mutates parts ImageParts, links Li
 			copyRange(parts.data, at: try l.dataBase + l.dataAt[p] otherwise panic("link: data past memory"), src: u.data.bytes, begin: l.pieces[p], finish: l.pieces[p + 1])
 		end 'data'
 	end 'pieces'
+	for d in 0 upto u.data.depths.count() 'depths'
+		let piece = containing(l.pieces, offset: u.data.depths[d].pos)
+		if not l.liveData[piece] 'dropped'
+			continue 'depths'
+		end 'dropped'
+		let target = defined[lookupSymbol(symbols, symbol: u.data.depths[d].symbol)].clone()
+		if target.kind != LinkTargetKind.linkCode 'notCode'
+			panic("link: the stack depth of {u.data.depths[d].symbol}, which is not code")
+		end 'notCode'
+		let bytes = depths.below(links, units: units, defined: defined, unit: target.unit, section: target.part)
+		patch64(parts.constants, at: try l.constBase + l.dataAt[piece] + (u.data.depths[d].pos - l.pieces[piece]) otherwise panic("link: data past memory"), value: bytes)
+	end 'depths'
 	for s in 0 upto l.liveCode.count() 'sections'
 		if not l.liveCode[s] 'dropped'
 			continue 'sections'

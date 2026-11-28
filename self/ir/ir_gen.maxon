@@ -53,6 +53,7 @@ export enum Opcode
 	opAtomicExchange
 	opCompareExchange
 	opSpinPause
+	opCalleeStackDepth
 	opThreadContext
 	opCallCode
 	opCallHost
@@ -1027,6 +1028,9 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opSpinPause 'opSpinPause'
 		return 3
 	end 'opSpinPause'
+	if op == Opcode.opCalleeStackDepth 'opCalleeStackDepth'
+		return 0
+	end 'opCalleeStackDepth'
 	if op == Opcode.opThreadContext 'opThreadContext'
 		return 1
 	end 'opThreadContext'
@@ -1523,6 +1527,14 @@ export function newSpinPause() returns Instr
 	var r = Instr.make(Opcode.opSpinPause)
 	return r
 end 'newSpinPause'
+
+// CalleeStackDepth gives the most of the stack that the calls of the function it is in may take below its stack
+// pointer, which the link finds from the frames of the functions they reach.
+export function newCalleeStackDepth(dst Reg) returns Instr
+	var r = Instr.make(Opcode.opCalleeStackDepth)
+	r.dst = dst
+	return r
+end 'newCalleeStackDepth'
 
 // ThreadContext gives the word the running thread keeps in the runtime's thread-local slot: its context.
 export function newThreadContext(dst Reg) returns Instr
@@ -2362,6 +2374,9 @@ export function opcodeName(op Opcode) returns String
 	if op == Opcode.opSpinPause 'opSpinPause'
 		return "SpinPause"
 	end 'opSpinPause'
+	if op == Opcode.opCalleeStackDepth 'opCalleeStackDepth'
+		return "CalleeStackDepth"
+	end 'opCalleeStackDepth'
 	if op == Opcode.opThreadContext 'opThreadContext'
 		return "ThreadContext"
 	end 'opThreadContext'
@@ -4283,6 +4298,9 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opSpinPause 'opSpinPause'
 		return table.Option.none
 	end 'opSpinPause'
+	if x.op == Opcode.opCalleeStackDepth 'opCalleeStackDepth'
+		return table.Option.some(x.dst)
+	end 'opCalleeStackDepth'
 	if x.op == Opcode.opThreadContext 'opThreadContext'
 		return table.Option.some(x.dst)
 	end 'opThreadContext'
@@ -4579,6 +4597,9 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opSpinPause 'opSpinPause'
 		return table.Option.none
 	end 'opSpinPause'
+	if x.op == Opcode.opCalleeStackDepth 'opCalleeStackDepth'
+		return table.Option.none
+	end 'opCalleeStackDepth'
 	if x.op == Opcode.opThreadContext 'opThreadContext'
 		return table.Option.none
 	end 'opThreadContext'
@@ -4810,6 +4831,7 @@ export function instrCanFail(x Instr) returns bool
 		opAtomicExchange gives false
 		opCompareExchange gives false
 		opSpinPause gives false
+		opCalleeStackDepth gives false
 		opThreadContext gives false
 		opCallCode gives false
 		opCallHost gives false
@@ -4983,6 +5005,9 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 	if x.op == Opcode.opSpinPause 'opSpinPause'
 		return
 	end 'opSpinPause'
+	if x.op == Opcode.opCalleeStackDepth 'opCalleeStackDepth'
+		return
+	end 'opCalleeStackDepth'
 	if x.op == Opcode.opThreadContext 'opThreadContext'
 		return
 	end 'opThreadContext'
@@ -5396,6 +5421,10 @@ export function instrWrites(x Instr, mutates out RegList)
 	if x.op == Opcode.opSpinPause 'opSpinPause'
 		return
 	end 'opSpinPause'
+	if x.op == Opcode.opCalleeStackDepth 'opCalleeStackDepth'
+		out.push(x.dst)
+		return
+	end 'opCalleeStackDepth'
 	if x.op == Opcode.opThreadContext 'opThreadContext'
 		out.push(x.dst)
 		return
@@ -5777,6 +5806,9 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 	if x.op == Opcode.opSpinPause 'opSpinPause'
 		return
 	end 'opSpinPause'
+	if x.op == Opcode.opCalleeStackDepth 'opCalleeStackDepth'
+		return
+	end 'opCalleeStackDepth'
 	if x.op == Opcode.opThreadContext 'opThreadContext'
 		return
 	end 'opThreadContext'
@@ -6246,6 +6278,10 @@ export function relocateInstr(mutates x Instr, at Relocation)
 	if x.op == Opcode.opSpinPause 'opSpinPause'
 		return
 	end 'opSpinPause'
+	if x.op == Opcode.opCalleeStackDepth 'opCalleeStackDepth'
+		x.dst = renamedReg(at.names, r: x.dst)
+		return
+	end 'opCalleeStackDepth'
 	if x.op == Opcode.opThreadContext 'opThreadContext'
 		x.dst = renamedReg(at.names, r: x.dst)
 		return
@@ -6696,6 +6732,7 @@ export interface InstrVisitor
 	function visitAtomicExchange(mutates self, f IrFunction, x Instr)
 	function visitCompareExchange(mutates self, f IrFunction, x Instr)
 	function visitSpinPause(mutates self, f IrFunction, x Instr)
+	function visitCalleeStackDepth(mutates self, f IrFunction, x Instr)
 	function visitThreadContext(mutates self, f IrFunction, x Instr)
 	function visitCallCode(mutates self, f IrFunction, x Instr)
 	function visitCallHost(mutates self, f IrFunction, x Instr)
@@ -6870,6 +6907,10 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitSpinPause(f, x: x)
 		return
 	end 'opSpinPause'
+	if x.op == Opcode.opCalleeStackDepth 'opCalleeStackDepth'
+		visitor.visitCalleeStackDepth(f, x: x)
+		return
+	end 'opCalleeStackDepth'
 	if x.op == Opcode.opThreadContext 'opThreadContext'
 		visitor.visitThreadContext(f, x: x)
 		return
@@ -7272,6 +7313,9 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 	if x.op == Opcode.opSpinPause 'opSpinPause'
 		return "spinpause"
 	end 'opSpinPause'
+	if x.op == Opcode.opCalleeStackDepth 'opCalleeStackDepth'
+		return "{resultText(x.dst)}calleestackdepth"
+	end 'opCalleeStackDepth'
 	if x.op == Opcode.opThreadContext 'opThreadContext'
 		return "{resultText(x.dst)}threadcontext"
 	end 'opThreadContext'
@@ -7596,6 +7640,7 @@ export function printedOpNames() returns ast.StringList
 	names.push("byteat")
 	names.push("call")
 	names.push("callcode")
+	names.push("calleestackdepth")
 	names.push("callhost")
 	names.push("callvalue")
 	names.push("callwitness")

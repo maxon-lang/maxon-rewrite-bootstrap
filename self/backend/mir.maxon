@@ -343,6 +343,9 @@ export type MirFunction
 	// incomingStack is whether the function takes arguments on the stack, whose address its prologue then gives where
 	// the architecture's selection reads them (arm64IncomingBase).
 	export var incomingStack as bool
+	// belowFrame is the most that the function's code takes of the stack below its frame for a call, on an architecture whose
+	// calls push their arguments past the registers or a host call's room (x64).
+	export var belowFrame as Count
 	// keepsSpans is whether the function keeps the span of each instruction, by its index, in spans, as its IR did
 	// (ir.IrFunction.spans): selection gives what it writes for an IR instruction that one's span, pos, and a pass that
 	// lays the instructions out again carries them (keepSpan); what allocation adds has none, so it is the code of the
@@ -356,8 +359,13 @@ export type MirFunction
 	export var lengthened as Array with bool
 
 	export static function new(symbol String, canThrow bool, arch ast.TargetArch) returns MirFunction
-		return MirFunction{symbol: symbol.clone(), arch: arch, instrs: MInstrList.create(0), blocks: MBlockList.create(0), order: MBlockIDList.create(0), blockParams: MRegList.create(0), edges: MEdgeList.create(0), edgeArgs: MRegList.create(0), copies: MCopyList.create(0), symbols: NameList.create(0), classes: RegClassList.create(0), fixedSlots: 0, spillSlots: 0, savedRegs: 0, canThrow: canThrow, floatResult: false, stringResult: false, outgoingBytes: 0, incomingStack: false, keepsSpans: false, pos: ir.noSpan, spans: ir.SpanList.create(0), lengthened: Array.create(0)}
+		return MirFunction{symbol: symbol.clone(), arch: arch, instrs: MInstrList.create(0), blocks: MBlockList.create(0), order: MBlockIDList.create(0), blockParams: MRegList.create(0), edges: MEdgeList.create(0), edgeArgs: MRegList.create(0), copies: MCopyList.create(0), symbols: NameList.create(0), classes: RegClassList.create(0), fixedSlots: 0, spillSlots: 0, savedRegs: 0, canThrow: canThrow, floatResult: false, stringResult: false, outgoingBytes: 0, incomingStack: false, belowFrame: 0, keepsSpans: false, pos: ir.noSpan, spans: ir.SpanList.create(0), lengthened: Array.create(0)}
 	end 'new'
+
+	// noteBelowFrame says that the function's code takes bytes of the stack below its frame for a call.
+	export function noteBelowFrame(mutates self, bytes Count)
+		belowFrame = maxOf(belowFrame, b: bytes)
+	end 'noteBelowFrame'
 
 	export function newVReg(mutates self, class RegClass) returns MReg
 		let r = try (firstVirtual as Count + classes.count()) as MReg otherwise panic("backend: more virtual registers than an operand names")
