@@ -1,0 +1,63 @@
+// At its connection cap (ServerConfig.maxConnections) a server accepts no more connections until one ends, and the kernel's
+// backlog holds the next: with a cap of one, a second client's whole request is not answered while the first client's
+// request is still arriving, and is answered once the first connection has ended. Then a third and a fourth are each
+// answered in turn, the slot of each ended connection taken again.
+// native-only
+//> the second while the first is open: no answer yet
+//> the first: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 17\r\nConnection: close\r\n\r\nGET /one HTTP/1.1
+//> the second: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 17\r\nConnection: close\r\n\r\nGET /two HTTP/1.1
+//> the third: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 19\r\nConnection: close\r\n\r\nGET /three HTTP/1.1
+//> the fourth: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 18\r\nConnection: close\r\n\r\nGET /four HTTP/1.1
+//> stopped
+function shown(text String) returns String
+	return text.replace("\r\n", with: "\\r\\n")
+end 'shown'
+
+// readToEnd reads what the server sends until it closes the connection.
+function readToEnd(mutates client TcpClient) returns String
+	var all = ByteArray.create(0)
+	while true 'reading'
+		let chunk = try client.readSome(4096) otherwise return "{shown(String.from(all))} [the read failed]"
+		if chunk.isEmpty() 'closed'
+			break 'reading'
+		end 'closed'
+		all.append(chunk)
+	end 'reading'
+	return shown(String.from(all))
+end 'readToEnd'
+
+function answerTo(port NetworkPort, request String) returns String
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "no connection"
+	try client.setReadDeadline(5000) otherwise ignore
+	_ = try client.send(request) otherwise 0
+	let answer = readToEnd(client)
+	try client.close() otherwise ignore
+	return answer
+end 'answerTo'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
+	let port = server.port()
+	var config = ServerConfig.create()
+	config.maxConnections = ConnectionCap.atMost(1)
+	let serving = server.serve(config)
+	var first = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
+	_ = try first.send("GET /one HTTP/1.1\r\n") otherwise 0
+	var second = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
+	_ = try second.send("GET /two HTTP/1.1\r\n\r\n") otherwise 0
+	try second.setReadDeadline(200) otherwise ignore
+	let early = try second.readSome(4096) otherwise ByteArray.create(0)
+	print("the second while the first is open: {"no answer yet" if early.isEmpty() else shown(String.from(early))}\n")
+	try first.setReadDeadline(5000) otherwise ignore
+	_ = try first.send("\r\n") otherwise 0
+	print("the first: {readToEnd(first)}\n")
+	try first.close() otherwise ignore
+	try second.setReadDeadline(5000) otherwise ignore
+	print("the second: {readToEnd(second)}\n")
+	try second.close() otherwise ignore
+	print("the third: {answerTo(port, request: "GET /three HTTP/1.1\r\n\r\n")}\n")
+	print("the fourth: {answerTo(port, request: "GET /four HTTP/1.1\r\n\r\n")}\n")
+	serving.stop(1000)
+	print("stopped\n")
+	return 0
+end 'main'

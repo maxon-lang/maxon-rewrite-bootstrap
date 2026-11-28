@@ -203,7 +203,7 @@ function bigBody() returns String
 	var body = ""
 	var written = 0 as Count
 	while written < ChunkCount 'fill'
-		body.append(ChunkText)
+		body = "{body}{ChunkText}"
 		written = written + 1
 	end 'fill'
 	return body
@@ -590,10 +590,10 @@ function oversizeHeaderBlock() returns String
 	var block = "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n"
 	var written = 0 as PadCount
 	while written < PadLines 'pad'
-		block.append("X-Pad-{written}: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n")
+		block = "{block}X-Pad-{written}: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n"
 		written = written + 1
 	end 'pad'
-	block.append("\r\n")
+	block = "{block}\r\n"
 	return block
 end 'oversizeHeaderBlock'
 
@@ -1032,9 +1032,9 @@ end 'acceptedAs'
 function paddedHead() returns String
 	var head = "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Pad: "
 	while head.byteLength() <= HeadCap 'pad'
-		head.append("aaaaaaaaaa")
+		head = "{head}aaaaaaaaaa"
 	end 'pad'
-	head.append("\r\n\r\n")
+	head = "{head}\r\n\r\n"
 	return head
 end 'paddedHead'
 
@@ -1449,7 +1449,7 @@ function everythingFrom(mutates client TcpClient) returns String
 	var open = true
 	while open 'untilClosed'
 		if let chunk = try client.readSome(ReadBufferBytes) 'more'
-			answer.append(String.from(chunk))
+			answer = "{answer}{String.from(chunk)}"
 			open = not chunk.isEmpty()
 		end 'more' else 'closed'
 			open = false
@@ -1840,7 +1840,7 @@ function oversizeRequest() returns String
 	var block = "POST /upload HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: {DeclaredBodyBytes}\r\n\r\n"
 	var written = 0 as Count
 	while written < SentBodyChunks 'fill'
-		block.append(BodyChunk)
+		block = "{block}{BodyChunk}"
 		written = written + 1
 	end 'fill'
 	return block
@@ -1918,7 +1918,7 @@ function postWithBody() returns String
 	var block = "POST /upload HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: {BodyBytes}\r\n\r\n"
 	var written = 0 as Count
 	while written < BodyBytes 'fill'
-		block.append("b")
+		block = "{block}b"
 		written = written + 1
 	end 'fill'
 	return block
@@ -2050,7 +2050,7 @@ function everythingFrom(mutates client TcpClient) returns String
 	var open = true
 	while open 'untilClosed'
 		if let chunk = try client.readSome(ReadBufferBytes) 'more'
-			answer.append(String.from(chunk))
+			answer = "{answer}{String.from(chunk)}"
 			open = not chunk.isEmpty()
 		end 'more' else 'closed'
 			open = false
@@ -2198,7 +2198,7 @@ function everythingFrom(mutates client TcpClient) returns String
 	var open = true
 	while open 'untilClosed'
 		if let chunk = try client.readSome(ReadBufferBytes) 'more'
-			answer.append(String.from(chunk))
+			answer = "{answer}{String.from(chunk)}"
 			open = not chunk.isEmpty()
 		end 'more' else 'closed'
 			open = false
@@ -2284,7 +2284,7 @@ function everythingFrom(mutates client TcpClient) returns String
 	var open = true
 	while open 'untilClosed'
 		if let chunk = try client.readSome(ReadBufferBytes) 'more'
-			answer.append(String.from(chunk))
+			answer = "{answer}{String.from(chunk)}"
 			open = not chunk.isEmpty()
 		end 'more' else 'closed'
 			open = false

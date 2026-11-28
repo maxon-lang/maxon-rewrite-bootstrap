@@ -1,0 +1,225 @@
+// A connection of a serving HttpServer: a service of its own, driven by the socket's readiness and one Timer, so no green
+// thread waits while its client is idle or slow. The acceptor spawns it with the accepted TcpClient and tells it to begin.
+//
+// Until the handler can be called from here (an interface value that crosses, and one that may be called in a message), a
+// request is answered by StandIn, which says what it read: one request per connection, and every answer closes it.
+
+let CarriageReturnByte = 13 as Byte
+
+let LineFeedByte = 10 as Byte
+
+let HeadEndBytes = 4 as Count
+
+// The most bytes one read takes from the socket.
+let ReadChunkBytes = 16384
+
+/// Answers in the handler's place until the handler is called from the connection.
+export type StandIn
+	let reason as String
+
+	export static function create() returns StandIn
+		return StandIn{reason: "the handler is not called yet"}
+	end 'create'
+
+	/// The answer to a request whose head is `head`: its request line.
+	export function bodyFor(head String) returns String
+		let length = head.byteLength()
+		for at in 0 upto length 'seeking'
+			if head.byteAt(at) == CarriageReturnByte 'lineEnd'
+				return head.sliceBytes(0, endPos: at).clone()
+			end 'lineEnd'
+		end 'seeking'
+		return head.clone()
+	end 'bodyFor'
+end 'StandIn'
+
+union ConnTimer
+	armed(timer service.Timer)
+	none
+end 'ConnTimer'
+
+enum ConnPhase
+	readingHead
+	closed
+end 'ConnPhase'
+
+// What the bytes that have come hold of a head: the head and where it ends, more to wait for, or a head past the cap.
+union HeadScan
+	head(text String, through Count)
+	needsMore
+	pastTheCap
+end 'HeadScan'
+
+export type Conn implements service.Ends
+	var client as net.TcpClient
+	let handler as frozen with StandIn
+	let config as frozen with ServerConfig
+	var arrived as ByteArray
+	var phase as ConnPhase
+	var timer as ConnTimer
+
+	export static function create(consumes client net.TcpClient, handler frozen with StandIn, config frozen with ServerConfig) returns Self
+		return Self{client: client, handler: handler.clone(), config: config.clone(), arrived: ByteArray.create(0), phase: ConnPhase.readingHead, timer: ConnTimer.none}
+	end 'create'
+
+	/// Arm the socket for the first request, and its head deadline.
+	@policy(service.Keep) export function begin(mutates self)
+		try self.client.setWriteDeadline(self.config.writeDeadlineMs) otherwise 'gone'
+			self.close()
+			self.stop()
+			return
+		end 'gone'
+		self.arm(self.config.headDeadlineMs.clone(), me: self.handle)
+		self.client.notifyReadable(self.handle.post(Conn.Message.readable))
+	end 'begin'
+
+	export function readable(mutates self)
+		if self.phase == ConnPhase.readingHead 'reading'
+			self.readHead(true, me: self.handle)
+		end 'reading'
+		if self.phase == ConnPhase.closed 'over'
+			self.stop()
+		end 'over'
+	end 'readable'
+
+	export function timedOut(mutates self)
+		if self.phase == ConnPhase.readingHead 'reading'
+			if self.arrived.count() > 0 'started'
+				self.answerStatus(StatusCode.requestTimeout)
+			end 'started'
+			self.close()
+		end 'reading'
+		self.stop()
+	end 'timedOut'
+
+	/// The server stops: close at once while no request has begun to arrive, and otherwise after its answer.
+	export function stopGracefully(mutates self)
+		// What came before the stop is read first, so a request sent before it is answered.
+		self.readHead(false, me: self.handle)
+		if self.phase == ConnPhase.readingHead and self.arrived.count() == 0 'idle'
+			self.close()
+		end 'idle'
+		if self.phase == ConnPhase.closed 'over'
+			self.stop()
+		end 'over'
+	end 'stopGracefully'
+
+	/// The server's stop deadline has passed: close now.
+	@policy(service.Keep) export function closeNow(mutates self)
+		self.close()
+		self.stop()
+	end 'closeNow'
+
+	// readHead takes what has come, until the head is whole or a read finds nothing more, which arms the socket again where
+	// `arming` (the socket is armed already otherwise): an arm posts only on bytes that come after it, so bytes left unread
+	// would never be told of.
+	function readHead(mutates self, arming bool, me Conn.handle)
+		while self.phase == ConnPhase.readingHead 'reading'
+			var blocked = false
+			var ended = false
+			match consumes try self.client.readAvailable(ReadChunkBytes) otherwise net.ReadAttempt.ended 'read'
+				bytes(data) then self.arrived.append(data)
+				wouldBlock then blocked = true
+				ended then ended = true
+			end 'read'
+			match scanHead(self.arrived, cap: self.config.maxHeadBytes as Count) 'scan'
+				head(text, _) then self.answer(text)
+				needsMore then break
+				pastTheCap then self.refuse(StatusCode.headerFieldsTooLarge)
+			end 'scan'
+			if self.phase != ConnPhase.readingHead 'done'
+				return
+			end 'done'
+			if ended 'cutShort'
+				if self.arrived.count() > 0 'partial'
+					self.answerStatus(StatusCode.badRequest)
+				end 'partial'
+				self.close()
+				return
+			end 'cutShort'
+			if blocked 'nothingMore'
+				if arming 'arm'
+					self.client.notifyReadable(me.post(Conn.Message.readable))
+				end 'arm'
+				return
+			end 'nothingMore'
+		end 'reading'
+	end 'readHead'
+
+	function answer(mutates self, head String)
+		let body = self.handler.bodyFor(head)
+		self.send(StatusCode.ok, body: body)
+		self.close()
+	end 'answer'
+
+	function refuse(mutates self, code StatusCode)
+		self.answerStatus(code)
+		self.close()
+	end 'refuse'
+
+	function answerStatus(mutates self, code StatusCode)
+		self.send(code, body: "")
+	end 'answerStatus'
+
+	// send writes the answer's head and then its body, two sends, so the body is never copied behind the head. A send that
+	// fails ends the connection, which the caller closes.
+	function send(mutates self, code StatusCode, body String)
+		let head = "HTTP/1.1 {code.number()} {reasonPhraseOf(code)}\r\nContent-Type: text/plain\r\nContent-Length: {body.byteLength()}\r\nConnection: close\r\n\r\n"
+		_ = try self.client.send(head) otherwise return
+		if body.byteLength() > 0 'withBody'
+			_ = try self.client.send(body) otherwise return
+		end 'withBody'
+	end 'send'
+
+	function arm(mutates self, ms net.SocketDeadlineMs, me Conn.handle)
+		let old = exchange(self.timer, value: ConnTimer.armed(service.Timer.notifyAfter(timerMsOf(ms), message: me.post(Conn.Message.timedOut))))
+		match consumes old 'old'
+			armed(t) then t.cancel()
+			none then return
+		end 'old'
+	end 'arm'
+
+	// close ends the connection: the message that closes it stops the service, and finish closes the socket.
+	function close(mutates self)
+		let old = exchange(self.timer, value: ConnTimer.none)
+		match consumes old 'old'
+			armed(t) then t.cancel()
+			none then break
+		end 'old'
+		self.phase = ConnPhase.closed
+	end 'close'
+
+	function finish(consumes self)
+		var held = self.timer
+		match consumes held 'timer'
+			armed(armed) then armed.cancel()
+			none then break
+		end 'timer'
+		try self.client.close() otherwise ignore
+	end 'finish'
+end 'Conn'
+
+// scanHead finds the end of a head, the first empty line, in the bytes that have come: at most `cap` bytes before it.
+function scanHead(arrived ByteArray, cap Count) returns HeadScan
+	let count = arrived.count()
+	var at = 0 as Count
+	while (try at + HeadEndBytes otherwise count + 1) <= count 'seeking'
+		if isHeadEnd(arrived, at: at) 'found'
+			if at > cap 'long'
+				return HeadScan.pastTheCap
+			end 'long'
+			let text = String.from(try arrived.slice(0, endIndex: at) otherwise panic("scanHead: the head is inside what has come"))
+			return HeadScan.head(text, through: try at + HeadEndBytes otherwise panic("out of range"))
+		end 'found'
+		at = try at + 1 otherwise panic("out of range")
+	end 'seeking'
+	return HeadScan.pastTheCap if count > cap else HeadScan.needsMore
+end 'scanHead'
+
+function isHeadEnd(arrived ByteArray, at Count) returns bool
+	return byteOf(arrived, at: at) == CarriageReturnByte and byteOf(arrived, at: try at + 1 otherwise panic("out of range")) == LineFeedByte and byteOf(arrived, at: try at + 2 otherwise panic("out of range")) == CarriageReturnByte and byteOf(arrived, at: try at + 3 otherwise panic("out of range")) == LineFeedByte
+end 'isHeadEnd'
+
+function byteOf(arrived ByteArray, at Count) returns Byte
+	return try arrived.get(at as ElementIndex) otherwise panic("scanHead: {at} is inside what has come")
+end 'byteOf'

@@ -6503,6 +6503,17 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   handshake: no TLS failure is reported for a handshake that never happened. `HttpServer.bindTls` takes options no program
   can make. The `tlsFailed` cases of `HttpError` and `HttpServerError` are kept, for when TLS comes. A converted file of the
   library leaves out what runs a session (`cmd/convert`, tls.go).
+- **The HTTP server is minimaxon's own design, not maxon's** (being built; `stdlib/http`). `HttpServer.bind(host, port:)`
+  gives a linear server that `close()` or `serve(config)` ends; `serve` gives an `HttpServing`, whose `stop(deadlineMs)`
+  closes the listener, closes each connection that holds no request at once, lets one whose request has begun to arrive
+  finish its answer, closes those still open at the deadline, and returns once every connection has ended. The accept loop
+  is a service on the listener's readiness (`acceptor.maxon`), which keeps each connection's handle in a slot table and
+  learns of its end by `conn.notifyStopped(...)`; at `ServerConfig.maxConnections` it leaves the listener unarmed until a
+  connection ends, so the kernel's backlog holds the rest. Each connection is a service of its own (`conn.maxon`) on its
+  socket's readiness and one `Timer`. `ServerConfig` holds the limits and deadlines, sized for clients that misbehave by
+  bug, not for attackers. Not yet: the handler (a stand-in answers with the request line), keep-alive, bodies and the
+  limits other than the head's size and deadline; every answer closes its connection. maxon's `accept()`, `serve(handler)`
+  and `HttpServerLimits` are not provided.
 - **There is no TEST-NET-1 short-circuit.** minimaxon has no TEST-NET-1 short-circuit; a connect dials as Go's does and the OS's timeout applies, where maxon's runtime refuses `192.0.2.0/24` without dialling (its two spec tests that connect there with no deadline are skipped with this reason).
 - **A file's close throws.** maxon's `close()` throws nothing and its drop discards what the system's close reports. Here,
   as Go's `Close` does, `close()` throws it, `__ManagedFileError.writeFailed`, which `FileWriter.close` throws as

@@ -1,0 +1,257 @@
+// A serving HttpServer's accept loop: a service driven by the listener's readiness, so no green thread waits for a
+// connection. It is a service, not a task, because it is told of each connection's end by a posted message
+// (`conn.notifyStopped(...)`), which only a service receives, and because its cap is kept by not arming the listener, which
+// a task's parking accept cannot do.
+//
+// - Accepting: once told the listener is acceptable, it accepts every connection waiting, until an accept finds none and
+//   arms the listener again. An arm posts only on a connection that comes after it, so it is armed only once none waits.
+// - The cap (ServerConfig.maxConnections): at the cap it accepts no more and leaves the listener unarmed, so the kernel's
+//   backlog holds the rest, as Go's LimitListener does. A connection's end takes it back below the cap, and it accepts
+//   what waits then.
+// - The slot table: each open connection's handle, at the slot its end is posted with, so a stop reaches every one.
+// - Stopping: the listener closes, each connection is told to stop, and those still open at the stop's deadline are closed.
+//   The service stops once the last has ended.
+
+// The wait before an accept is tried again after one failed, doubling from the first to the most: an accept fails where the
+// process is out of descriptors, and trying again at once would spin until one is freed.
+let FirstAcceptRetryMs = 5 as clock.DurationMs
+
+let MostAcceptRetryMs = 1000 as clock.DurationMs
+
+union ListenerHold
+	open(listener net.TcpListener)
+	closed
+end 'ListenerHold'
+
+union ConnSlot
+	open(conn Conn.handle)
+	free
+end 'ConnSlot'
+
+typealias ConnSlots = Array with ConnSlot
+
+typealias SlotIndices = Array with Count
+
+union AcceptorTimer
+	armed(timer service.Timer)
+	none
+end 'AcceptorTimer'
+
+// What the listener waits on: its arm, an accept tried again after a failure, a connection's end below the cap, or nothing
+// once it is closed.
+enum Listening
+	armed
+	retrying
+	capped
+	closed
+end 'Listening'
+
+enum AcceptorPhase
+	serving
+	stopping
+	closing
+end 'AcceptorPhase'
+
+export type Acceptor implements service.Ends
+	var listener as ListenerHold
+	let handler as frozen with StandIn
+	let config as frozen with ServerConfig
+	var slots as ConnSlots
+	var freeSlots as SlotIndices
+	var openCount as Count
+	var listening as Listening
+	var phase as AcceptorPhase
+	var retryMs as clock.DurationMs
+	var retry as AcceptorTimer
+	var deadline as AcceptorTimer
+
+	export static function create(consumes listener net.TcpListener, handler frozen with StandIn, config frozen with ServerConfig) returns Self
+		return Self{listener: ListenerHold.open(listener), handler: handler.clone(), config: config.clone(), slots: ConnSlots.create(0), freeSlots: SlotIndices.create(0), openCount: 0, listening: Listening.retrying, phase: AcceptorPhase.serving, retryMs: FirstAcceptRetryMs, retry: AcceptorTimer.none, deadline: AcceptorTimer.none}
+	end 'create'
+
+	/// Start accepting.
+	export function begin(mutates self)
+		self.acceptWaiting(self.handle)
+	end 'begin'
+
+	export function acceptable(mutates self)
+		if self.listening == Listening.armed 'told'
+			self.acceptWaiting(self.handle)
+		end 'told'
+	end 'acceptable'
+
+	export function retryAccept(mutates self)
+		if self.listening == Listening.retrying 'due'
+			self.acceptWaiting(self.handle)
+		end 'due'
+	end 'retryAccept'
+
+	/// The connection at `slot` has ended.
+	export function ended(mutates self, slot Count)
+		self.slots[slot] = ConnSlot.free
+		self.freeSlots.push(slot)
+		self.openCount = try self.openCount - 1 otherwise panic("Acceptor.ended: a connection ended that was never counted open")
+		if self.phase != AcceptorPhase.serving 'stopping'
+			if self.openCount == 0 'last'
+				self.stop()
+			end 'last'
+			return
+		end 'stopping'
+		if self.listening == Listening.capped 'belowTheCap'
+			self.acceptWaiting(self.handle)
+		end 'belowTheCap'
+	end 'ended'
+
+	/// Stop serving: close the listener, tell every connection to stop, and close those still open `deadlineMs` later.
+	export function stopServing(mutates self, deadlineMs net.SocketDeadlineMs)
+		if self.phase != AcceptorPhase.serving 'already'
+			return
+		end 'already'
+		self.phase = AcceptorPhase.stopping
+		self.closeListener()
+		self.disarmRetry()
+		for i in 0 upto self.slots.count() 'each'
+			match self.slots[i] 'slot'
+				open(conn) then try conn.stopGracefully() otherwise ignore
+				free then continue
+			end 'slot'
+		end 'each'
+		if self.openCount == 0 'none'
+			self.stop()
+			return
+		end 'none'
+		let old = exchange(self.deadline, value: AcceptorTimer.armed(service.Timer.notifyAfter(timerMsOf(deadlineMs), message: self.handle.post(Acceptor.Message.stopDeadline))))
+		match consumes old 'old'
+			armed(timer) then timer.cancel()
+			none then return
+		end 'old'
+	end 'stopServing'
+
+	/// The stop's deadline has passed: close every connection still open.
+	export function stopDeadline(mutates self)
+		if self.phase != AcceptorPhase.stopping 'notStopping'
+			return
+		end 'notStopping'
+		self.phase = AcceptorPhase.closing
+		for i in 0 upto self.slots.count() 'each'
+			match self.slots[i] 'slot'
+				open(conn) then try conn.closeNow() otherwise ignore
+				free then continue
+			end 'slot'
+		end 'each'
+	end 'stopDeadline'
+
+	// acceptWaiting accepts every connection that waits, up to the cap, then arms the listener; at the cap it leaves it
+	// unarmed, and after a failed accept it tries again after a wait.
+	function acceptWaiting(mutates self, me Acceptor.handle)
+		let held = exchange(self.listener, value: ListenerHold.closed)
+		match consumes held 'held'
+			open(socket) then self.acceptFrom(socket, me: me)
+			closed then self.listening = Listening.closed
+		end 'held'
+	end 'acceptWaiting'
+
+	function acceptFrom(mutates self, consumes socket net.TcpListener, me Acceptor.handle)
+		var taking = socket
+		while true 'accepting'
+			if self.atTheCap() 'capped'
+				self.listening = Listening.capped
+				break 'accepting'
+			end 'capped'
+			let attempt = try taking.tryAccept() otherwise 'failed'
+				self.listening = Listening.retrying
+				self.armRetry(me)
+				break 'accepting'
+			end 'failed'
+			var none = false
+			match consumes attempt 'accept'
+				accepted(client) then self.admit(client, me: me)
+				wouldBlock then none = true
+			end 'accept'
+			if none 'drained'
+				self.listening = Listening.armed
+				self.retryMs = FirstAcceptRetryMs
+				taking.notifyAcceptable(me.post(Acceptor.Message.acceptable))
+				break 'accepting'
+			end 'drained'
+		end 'accepting'
+		self.putBack(taking)
+	end 'acceptFrom'
+
+	function putBack(mutates self, consumes socket net.TcpListener)
+		let old = exchange(self.listener, value: ListenerHold.open(socket))
+		match consumes old 'old'
+			open(other) then try other.close() otherwise ignore
+			closed then return
+		end 'old'
+	end 'putBack'
+
+	function atTheCap() returns bool
+		return match self.config.maxConnections 'cap'
+			unlimited gives false
+			atMost(connections) gives self.openCount >= connections
+		end 'cap'
+	end 'atTheCap'
+
+	function admit(mutates self, consumes client net.TcpClient, me Acceptor.handle)
+		let conn = spawn Conn.create(client, handler: share(self.handler), config: share(self.config))
+		let slot = self.takeSlot(conn.clone())
+		conn.notifyStopped(me.post(Acceptor.Message.ended(slot)))
+		self.openCount = try self.openCount + 1 otherwise panic("Acceptor.admit: more connections than a count holds")
+		try conn.begin() otherwise ignore
+	end 'admit'
+
+	function takeSlot(mutates self, conn Conn.handle) returns Count
+		let reused = try self.freeSlots.pop() otherwise 'none'
+			self.slots.push(ConnSlot.open(conn.clone()))
+			return try self.slots.count() - 1 otherwise panic("Acceptor.takeSlot: a slot was just pushed")
+		end 'none'
+		self.slots[reused] = ConnSlot.open(conn.clone())
+		return reused
+	end 'takeSlot'
+
+	function closeListener(mutates self)
+		self.listening = Listening.closed
+		let held = exchange(self.listener, value: ListenerHold.closed)
+		match consumes held 'held'
+			open(socket) then try socket.close() otherwise ignore
+			closed then return
+		end 'held'
+	end 'closeListener'
+
+	function armRetry(mutates self, me Acceptor.handle)
+		let waitMs = self.retryMs
+		self.retryMs = MostAcceptRetryMs if waitMs >= MostAcceptRetryMs / 2 else waitMs * 2
+		let old = exchange(self.retry, value: AcceptorTimer.armed(service.Timer.notifyAfter(waitMs, message: me.post(Acceptor.Message.retryAccept))))
+		match consumes old 'old'
+			armed(timer) then timer.cancel()
+			none then return
+		end 'old'
+	end 'armRetry'
+
+	function disarmRetry(mutates self)
+		let old = exchange(self.retry, value: AcceptorTimer.none)
+		match consumes old 'old'
+			armed(timer) then timer.cancel()
+			none then return
+		end 'old'
+	end 'disarmRetry'
+
+	function finish(consumes self)
+		var held = self.listener
+		match consumes held 'listener'
+			open(socket) then try socket.close() otherwise ignore
+			closed then break
+		end 'listener'
+		var retrying = self.retry
+		match consumes retrying 'retry'
+			armed(timer) then timer.cancel()
+			none then break
+		end 'retry'
+		var stopping = self.deadline
+		match consumes stopping 'deadline'
+			armed(timer) then timer.cancel()
+			none then break
+		end 'deadline'
+	end 'finish'
+end 'Acceptor'

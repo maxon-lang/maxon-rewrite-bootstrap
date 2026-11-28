@@ -1,0 +1,69 @@
+// A server's stop (RFC 9112 §9.6, a graceful close) closes its listener and each connection that holds no request at once,
+// lets a connection whose request has begun to arrive finish it and be answered, and closes one still open at the stop's
+// deadline unanswered; `stop` returns once every connection has ended. The bytes a client sent before the stop count as
+// begun, whether or not the connection had read them yet.
+// native-only
+//> a probe: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 19\r\nConnection: close\r\n\r\nGET /probe HTTP/1.1
+//> the idle connection: closed with nothing sent
+//> the busy connection: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 18\r\nConnection: close\r\n\r\nGET /busy HTTP/1.1
+//> the stalled connection: closed with nothing sent
+//> stopped
+function shown(text String) returns String
+	return text.replace("\r\n", with: "\\r\\n")
+end 'shown'
+
+// readToEnd reads what the server sends until it closes the connection.
+function readToEnd(mutates client TcpClient) returns String
+	var all = ByteArray.create(0)
+	while true 'reading'
+		let chunk = try client.readSome(4096) otherwise return "{shown(String.from(all))} [the read failed]"
+		if chunk.isEmpty() 'closed'
+			break 'reading'
+		end 'closed'
+		all.append(chunk)
+	end 'reading'
+	return shown(String.from(all))
+end 'readToEnd'
+
+function answerTo(port NetworkPort, request String) returns String
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "no connection"
+	try client.setReadDeadline(5000) otherwise ignore
+	_ = try client.send(request) otherwise 0
+	let answer = readToEnd(client)
+	try client.close() otherwise ignore
+	return answer
+end 'answerTo'
+
+function stopWithin(serving HttpServing, deadlineMs SocketDeadlineMs) returns bool
+	serving.stop(deadlineMs)
+	return true
+end 'stopWithin'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
+	let port = server.port()
+	let serving = server.serve(ServerConfig.create())
+	var idle = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
+	var busy = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
+	var stalled = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
+	_ = try busy.send("GET /busy HTTP/1.1\r\n") otherwise 0
+	_ = try stalled.send("GET /stalled HTTP/1.1\r\n") otherwise 0
+	try idle.setReadDeadline(5000) otherwise ignore
+	try busy.setReadDeadline(5000) otherwise ignore
+	try stalled.setReadDeadline(5000) otherwise ignore
+	// Connections are accepted in the order they came, so once a later one is answered the three are open.
+	print("a probe: {answerTo(port, request: "GET /probe HTTP/1.1\r\n\r\n")}\n")
+	let stopping = async stopWithin(serving, deadlineMs: 300)
+	let idleGot = readToEnd(idle)
+	print("the idle connection: {"closed with nothing sent" if idleGot.isEmpty() else idleGot}\n")
+	_ = try busy.send("\r\n") otherwise 0
+	print("the busy connection: {readToEnd(busy)}\n")
+	let stalledGot = readToEnd(stalled)
+	print("the stalled connection: {"closed with nothing sent" if stalledGot.isEmpty() else stalledGot}\n")
+	_ = await stopping
+	print("stopped\n")
+	try idle.close() otherwise ignore
+	try busy.close() otherwise ignore
+	try stalled.close() otherwise ignore
+	return 0
+end 'main'

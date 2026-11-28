@@ -41,3 +41,120 @@ public typealias ByteArrays = Array with ByteArray
 function timerMsOf(deadline net.SocketDeadlineMs) returns clock.DurationMs
 	return deadline as clock.DurationMs
 end 'timerMsOf'
+
+// The defaults of ServerConfig (README, "Where it differs from Maxon"): sized for clients that misbehave by bug, not for
+// attackers, whom a proxy in front of the server handles.
+let DefaultHeadDeadlineMs = 10000
+
+let DefaultMaxHeadBytes = 32768
+
+let DefaultMaxRequestLineBytes = 8192
+
+let DefaultMaxHeaderCount = 100
+
+let DefaultBodyDeadlineMs = 60000
+
+let DefaultMaxBodyBytes = 1048576
+
+let DefaultWriteDeadlineMs = 60000
+
+let DefaultIdleTimeoutMs = 75000
+
+let DefaultMaxDrainBytes = 262144
+
+let DefaultLingerMs = 500
+
+let DefaultLingerBytes = 262144
+
+/// How many connections a server keeps open at once. At the cap it accepts no more until one ends, and the kernel's backlog
+/// holds the rest.
+public union ConnectionCap
+	unlimited
+	atMost(connections Count)
+end 'ConnectionCap'
+
+/// The limits and deadlines one server's connections run under. Every deadline is one connection's timer or its socket's
+/// write deadline, so a client that stalls, vanishes or sends too much holds its connection for a bounded time.
+public type ServerConfig
+	/// A request's head must have arrived this long after the connection opened, or after its first byte past an idle wait:
+	/// 408 and a close otherwise.
+	public var headDeadlineMs as net.SocketDeadlineMs
+	/// The most bytes of a request's head, its request line and its headers: 431 past it.
+	public var maxHeadBytes as HttpByteCap
+	/// The most bytes of a request line: 431 past it, as RFC 9112 §3 lets a server answer a long one.
+	public var maxRequestLineBytes as HttpByteCap
+	/// The most header lines of a request: 431 past it.
+	public var maxHeaderCount as Count
+	/// A request's body must have arrived this long after its head: 408 and a close otherwise.
+	public var bodyDeadlineMs as net.SocketDeadlineMs
+	/// The most bytes of a request's body: 413 and a close past it.
+	public var maxBodyBytes as HttpByteCap
+	/// A send to the client that makes no progress for this long fails, and the connection closes.
+	public var writeDeadlineMs as net.SocketDeadlineMs
+	/// A kept-alive connection with no request coming is closed after this long.
+	public var idleTimeoutMs as net.SocketDeadlineMs
+	/// After an answer, an unread body up to this many bytes is read and dropped to keep the connection; a longer one closes it.
+	public var maxDrainBytes as HttpByteCap
+	/// A connection closed with bytes still coming reads and drops them for at most this long and this many bytes first, so
+	/// that the close does not reset the answer before the client reads it (RFC 9112 §9.6).
+	public var lingerMs as net.SocketDeadlineMs
+	public var lingerBytes as HttpByteCap
+	/// How many connections the server keeps open at once.
+	public var maxConnections as ConnectionCap
+
+	public static function create() returns ServerConfig
+		return ServerConfig{headDeadlineMs: DefaultHeadDeadlineMs, maxHeadBytes: DefaultMaxHeadBytes, maxRequestLineBytes: DefaultMaxRequestLineBytes, maxHeaderCount: DefaultMaxHeaderCount, bodyDeadlineMs: DefaultBodyDeadlineMs, maxBodyBytes: DefaultMaxBodyBytes, writeDeadlineMs: DefaultWriteDeadlineMs, idleTimeoutMs: DefaultIdleTimeoutMs, maxDrainBytes: DefaultMaxDrainBytes, lingerMs: DefaultLingerMs, lingerBytes: DefaultLingerBytes, maxConnections: ConnectionCap.unlimited}
+	end 'create'
+end 'ServerConfig'
+
+/// A bound listener, not yet serving. It holds the listening socket, so it is ended by `serve` or `close`.
+public type HttpServer
+	var listener as net.TcpListener
+
+	/// Bind and begin listening. `port: 0` takes whichever free port the kernel gives, which `port()` reports.
+	public static function bind(host String, port NetworkPort) returns HttpServer throws net.NetworkError
+		return HttpServer{listener: try net.TcpListener.bind(host, port: port)}
+	end 'bind'
+
+	/// The port this server is bound to: the one the kernel chose when `bind` was asked for `0`.
+	public function port() returns NetworkPort
+		return listener.port()
+	end 'port'
+
+	/// Serve the connections that come, each a service of its own under `config`, until `stop` on what this gives.
+	public function serve(destructs self, config ServerConfig) returns HttpServing
+		let handler = freeze(StandIn.create())
+		let frozenConfig = freeze(config.clone())
+		let acceptor = spawn Acceptor.create(listener, handler: handler, config: frozenConfig)
+		try acceptor.begin() otherwise panic("HttpServer.serve: an acceptor that has just been spawned takes its first message")
+		return HttpServing.over(acceptor)
+	end 'serve'
+
+	/// Stop listening and release the port, serving nothing.
+	public function close(destructs self)
+		try listener.close() otherwise ignore
+	end 'close'
+end 'HttpServer'
+
+/// A server that serves: `stop(deadlineMs)` ends it, and `wait()` waits for its end.
+public type HttpServing
+	let acceptor as Acceptor.handle
+
+	static function over(acceptor Acceptor.handle) returns HttpServing
+		return HttpServing{acceptor: acceptor.clone()}
+	end 'over'
+
+	/// Stop the server and wait until every connection has ended: the listener closes at once, an idle connection closes
+	/// at once, and a connection busy with a request finishes its answer and closes. One still open `deadlineMs` after the
+	/// stop is closed then, its answer unfinished.
+	public function stop(deadlineMs net.SocketDeadlineMs)
+		let done = self.acceptor.stopped()
+		try self.acceptor.stopServing(deadlineMs) otherwise ignore
+		await done
+	end 'stop'
+
+	/// Wait until the server has stopped.
+	public function wait()
+		await self.acceptor.stopped()
+	end 'wait'
+end 'HttpServing'
