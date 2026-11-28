@@ -267,11 +267,12 @@ function eventWaitOnce(scheduler Count, g Count, entry Count, mode Count, deadli
 	#endif
 	_ = __Raw.atomicExchange(g, offset: greenEventOffset, value: __Raw.wrappingAdd(entry, right: mode))
 	if deadline != eventNoDeadline 'timer'
-		lockTimers(scheduler)
+		let proc = runningProc(context)
+		lockTimers(proc)
 		__Raw.storeWord(g, offset: greenWhenOffset, value: deadline)
-		timerPush(scheduler, due: deadline, entry: g)
-		let earliest = __Raw.loadWord(scheduler, offset: schedTimerNextOffset) == deadline
-		unlockTimers(scheduler)
+		timerPush(proc, due: deadline, entry: g)
+		let earliest = __Raw.loadWord(proc, offset: procTimerNextOffset) == deadline
+		unlockTimers(proc)
 		if earliest 'earliest'
 			wakeEventQueue(scheduler, at: deadline)
 		end 'earliest'
@@ -291,13 +292,17 @@ function eventWaitOnce(scheduler Count, g Count, entry Count, mode Count, deadli
 		end 'early'
 	end 'wait'
 	if deadline != eventNoDeadline 'untimer'
-		lockTimers(scheduler)
-		if __Raw.loadWord(g, offset: greenWhenOffset) != noTimer 'onHeap'
-			timerRemove(scheduler, entry: g)
+		// The deadline's timer is on the heap lockHeapOf finds until runTimers, under that heap's lock, has claimed or failed to
+		// claim the wake and taken it off, so the state word's address is cleared after the claim either way.
+		let proc = lockHeapOf(g, idle: noProc)
+		if proc != noProc 'onHeap'
+			timerRemove(proc, entry: g)
 			__Raw.storeWord(g, offset: greenWhenOffset, value: noTimer)
 		end 'onHeap'
-		__Raw.storeWord(g, offset: greenEventOffset, value: 0)
-		unlockTimers(scheduler)
+		__Raw.storeRelease(g, offset: greenEventOffset, value: 0)
+		if proc != noProc 'unlock'
+			unlockTimers(proc)
+		end 'unlock'
 	end 'untimer' else 'untimed'
 		__Raw.storeRelease(g, offset: greenEventOffset, value: 0)
 	end 'untimed'
@@ -317,10 +322,10 @@ function eventWaitOnce(scheduler Count, g Count, entry Count, mode Count, deadli
 	return eventReady
 end 'eventWaitOnce'
 
-// claimEventWake is whether a timer that fell due may ready its green thread, under the timers' lock: a sleeper may,
+// claimEventWake is whether a timer that fell due may ready its green thread, under the lock of the heap it is on: a sleeper may,
 // and a waiter on an event entry may once the claim is in its state word, before an event's ready or another claim.
 // Its state word's address is read plainly: a waiter with a deadline writes it before its timer is pushed and clears it
-// after its timer is taken off, under the lock both times.
+// after its timer is taken off, by itself under the heap's lock or by runTimers after this claim (eventWaitOnce).
 function claimEventWake(g Count, claim Count) returns bool
 	let slot = __Raw.loadWord(g, offset: greenEventOffset)
 	if slot == 0 'none'

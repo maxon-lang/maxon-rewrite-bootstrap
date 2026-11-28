@@ -67,8 +67,8 @@ Go's none, and a wake's round trip is p50 67 µs, p99 101 µs for minimaxon and 
 
 ## timers: service timers
 
-What a service timer (`stdlib/service/Timer.maxon`) costs on the timers' one heap, a 4-ary heap of 16-byte slots under its
-own lock (`runtime/timers.maxon`), against Go's `time.AfterFunc`, `Reset` and `Stop` on its per-P heaps
+What a service timer (`stdlib/service/Timer.maxon`) costs on the timers' heaps, a 4-ary heap of 16-byte slots for each
+processor under the processor's timers' lock (`runtime/timers.maxon`), against Go's `time.AfterFunc`, `Reset` and `Stop` on its per-P heaps
 (out/dev/timers-design.md §5, "Measurement plan").
 
 - `bench/timers/timers.maxon run <count> <workers> <stormMs> <churnServices> <churnTimers> <churnMs>` runs four lanes on
@@ -101,35 +101,36 @@ own lock (`runtime/timers.maxon`), against Go's `time.AfterFunc`, `Reset` and `S
   bytes, CPU and threads on Windows, as `ps`, `footprint` and `/proc` give them elsewhere.
 
 Measured on an Apple M3 (arm64 macOS, 4 performance and 4 efficiency cores, 24 GB), one run of `bench/timers/run.sh` with
-its defaults; ns are the wall time of the whole set over its count, so they fall as the processors share the work and rise
-where they contend:
+its defaults, with the per-processor heaps; ns are the wall time of the whole set over its count, so they fall as the
+processors share the work and rise where they contend:
 
 | lane | procs 1 | procs 2 | procs 4 | procs 8 |
 |---|---|---|---|---|
-| arm, 1e5 armed, ns a timer: minimaxon / Go | 60 / 178 | 84 / 124 | 117 / 59 | 178 / 55 |
-| arm, 1e6 armed | 62 / 165 | 90 / 74 | 118 / 45 | 189 / 46 |
-| fire, 1e5 due at once, ns a fire | 166 / 612 | 168 / 483 | 164 / 230 | 186 / 261 |
-| fire, 1e6 due at once | 279 / 567 | 244 / 386 | 207 / 325 | 251 / 259 |
-| cancel, 1e5 armed, ns a timer | 23 / 6 | 31 / 3 | 55 / 8 | 83 / 8 |
-| cancel, 1e6 armed | 34 / 6 | 63 / 3 | 75 / 9 | 160 / 10 |
-| reset storm on 1e5 armed, millions a second | 45.5 / 36.1 | 91.4 / 72.9 | 183 / 124 | 295 / 192 |
-| reset storm on 1e6 armed | 12.1 / 8.4 | 22.8 / 17.4 | 37.8 / 34.6 | 37.5 / 49.4 |
-| churn, 16 services × 4096 1 ms one-shots, millions of fires a second | 7.60 / 3.55 | 6.53 / 4.66 | 5.20 / 6.26 | 2.68 / 6.32 |
+| arm, 1e5 armed, ns a timer: minimaxon / Go | 64 / 180 | 34 / 126 | 18 / 76 | 18 / 58 |
+| arm, 1e6 armed | 66 / 173 | 35 / 86 | 19 / 50 | 17 / 45 |
+| fire, 1e5 due at once, ns a fire | 164 / 609 | 147 / 488 | 58 / 309 | 82 / 238 |
+| fire, 1e6 due at once | 265 / 562 | 142 / 494 | 76 / 300 | 72 / 313 |
+| cancel, 1e5 armed, ns a timer | 28 / 6 | 14 / 3 | 7 / 8 | 9 / 10 |
+| cancel, 1e6 armed | 39 / 6 | 21 / 3 | 13 / 5 | 15 / 9 |
+| reset storm on 1e5 armed, millions a second | 47.0 / 37.8 | 93.3 / 73.4 | 195 / 140 | 321 / 192 |
+| reset storm on 1e6 armed | 12.2 / 8.9 | 23.5 / 17.9 | 45.2 / 30.3 | 68.0 / 50.2 |
+| churn, 16 services × 4096 1 ms one-shots, millions of fires a second | 7.6 / 3.7 | 14.8 / 4.7 | 25.7 / 6.5 | 24.9 / 6.5 |
 
 Idle, 1e6 timers armed an hour out: minimaxon's RSS grows by 257 B a timer (4 heap boxes, 200 B asked: the 56-byte timer
-record, its posted record and message, and the array's 8-byte slot of the handle), Go's by 168-171 B. Over an idle 5 s or
-10 s minimaxon used 10 ms of CPU, the same for either period, so once and not while idle, with 4 threads; Go none, with
-10-11.
+record, its posted record and message, and the array's 8-byte slot of the handle), Go's by 161-167 B. Over an idle 5 s
+minimaxon used 10 ms of CPU, so once and not while idle, with 4 threads; Go none, with 10.
 
-On one processor a timer costs less than Go's to arm, reset and fire (60 against 178 ns an arm, 166 against 612 a fire,
-where Go's callback starts a goroutine), and a reset storm scales with the processors, since a reset to later takes
-no shared word; at 1e6 timers both are bound by the cache misses of random timers. Arms and cancels from several
-processors at once contend for the heap's lock, and so does the churn, which falls as processors are added: 2.68 million
-fires a second at 8 processors is 0.35 times the 7.60 of one, where §5 calls for per-P heaps below 4 times. A sample of the
-churn at 8 processors (`sample` on a `--debug-info` build) has about 85% of the busy threads' samples in `spinLock`'s
-`yieldThread` under `lockTimers`, almost all from `timerArm` of a `rearm` and the rest from `runTimers`, against the 5% of
-§5; no build counts the spin rounds of `spinLock`, so that share is sampled, not counted. By §5's rule the churn calls for
-per-P heaps; they are not built here.
+The timers are on a heap for each processor (runtime/timers.maxon, Go's p.timers): an arm goes on the heap of the processor
+that makes it, a thread that looks for work runs its own processor's due timers and steals the other processors' due ones,
+and a cancel or a reset to earlier from another processor takes the lock of the heap the timer is on. On one processor a
+timer still costs less than Go's to arm, reset and fire (64 against 180 ns an arm, 164 against 609 a fire, where Go's
+callback starts a goroutine); a cancel costs about 5 ns more than on the one heap before (22 and 34 ns), the price of
+finding the timer's heap. Arms, cancels and fires now scale with the processors where on the one heap they fell (an arm
+took 176 ns at 8 processors, a cancel 144, a fire 185), and the churn runs 24.9 million fires a second at 8 processors,
+3.3 times the 7.6 of one, where the one heap ran 2.68, 0.35 times. Before the per-P heaps a sample of the churn at 8
+processors had about 85% of the busy threads' samples in `spinLock`'s `yieldThread` under the one timers' lock; now about
+4% of them are in `spinLock` at all. Go's lazy stop (zombies swept by the heap's owner) is not built: a cancel from
+another processor takes that heap's lock, which the spins of 8 services cancelling 8e5 timers armed by others show.
 
 A bug the churn found, which the runtime has not fixed: a send from main to a service whose own timers keep it behind
 never returns: the send is slowed by backpressure until the

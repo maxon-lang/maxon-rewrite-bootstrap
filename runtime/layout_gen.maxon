@@ -372,18 +372,6 @@ let schedFreeGreensOffset = 112 as Count
 // schedFreeStacksOffset is where the scheduler's record holds the stacks that are free beyond what the processors keep, linked through pooledStackNextOffset, under the lock.
 let schedFreeStacksOffset = 120 as Count
 
-// schedTimersOffset is where the scheduler's record holds the address of the timers' heap, a 4-ary min-heap of 16-byte slots {when, entry} (Go's timerWhen) by when each is due, whose entries are the sleeping green threads and the timers that post a message, under the timers' lock (schedTimersLockOffset).
-let schedTimersOffset = 128 as Count
-
-// schedTimerCountOffset is where the scheduler's record holds how many timers the heap holds, under the timers' lock.
-let schedTimerCountOffset = 136 as Count
-
-// schedTimerCapacityOffset is where the scheduler's record holds how many timers the heap has room for, under the timers' lock.
-let schedTimerCapacityOffset = 144 as Count
-
-// schedTimerNextOffset is where the scheduler's record holds when the earliest timer is due, in nanoseconds, or 0 when there is none: written under the timers' lock and read without it.
-let schedTimerNextOffset = 152 as Count
-
 // schedEventQueueOffset is where the scheduler's record holds the event queue: the completion port on Windows, the epoll fd on Linux.
 let schedEventQueueOffset = 160 as Count
 
@@ -480,9 +468,6 @@ let schedFileLimitRaisedOffset = 2440 as Count
 // schedWinsockOffset is where the scheduler's record holds the address of the table of the sockets of Windows (windows_socket.maxon): the functions of ws2_32 and ntdll that its sockets call, found by name, and the groups of AFD handles that poll them, 0 until the first socket.
 let schedWinsockOffset = 2448 as Count
 
-// schedTimersLockOffset is where the scheduler's record holds the timers' lock (Go's timers.mu): 1 while a thread holds it. It guards the timers' heap, the wake and heap index of each green thread on it, and the clear of an event waiter's state word's address after its deadline's timer is taken off. It comes after a service's armedLock and before a timer's own lock (Go's timers < timer), which runTimers takes under it to fire a timer as one step against a reset to later, and the page heap's lock, which a growth of the heap takes under it: no thread takes the scheduler's lock while it holds it, or it while it holds the scheduler's, and none takes an armedLock while it holds it.
-let schedTimersLockOffset = 2456 as Count
-
 // schedWaitTimerOffset is where the scheduler's record holds, on Windows, the high-resolution waitable timer that wakes the thread in the event queue's wait at the earliest timer's time (Go's m.waitIocpTimer), made with the record, 0 where the system makes none: GetQueuedCompletionStatusEx counts its timeout in the system's timer ticks, 15.6 ms by default.
 let schedWaitTimerOffset = 2464 as Count
 
@@ -495,7 +480,7 @@ let schedWaitAssociateOffset = 2480 as Count
 // schedWaitCancelOffset is where the scheduler's record holds, on Windows, the address of ntdll's NtCancelWaitCompletionPacket, found by name.
 let schedWaitCancelOffset = 2488 as Count
 
-// schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made: on a cache line past the timers' lock, which the readers of a processor's address do not share.
+// schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made.
 let schedProcessorsOffset = 2496 as Count
 
 // procIdOffset is where a processor holds its index among the processors.
@@ -570,8 +555,23 @@ let procSliceAskedOffset = 2208 as Count
 // procInheritOffset is where a processor holds 1 while the entry its thread's search for work took last came from its runnext, which then runs on the slice of the green thread that readied it (Go's inheritTime).
 let procInheritOffset = 2216 as Count
 
+// procTimersLockOffset is where a processor holds its timers' lock (Go's timers.mu): 1 while a thread holds it. It guards the processor's heap, the processor word of each entry on it (a timer's in its timerHoldsOffset, greenTimerHeapOffset) and the index of each entry on it, and the clear of an event waiter's state word's address after its deadline's timer is taken off. It comes after a service's armedLock and before a timer's own lock (Go's timers < timer) and the page heap's lock; no thread holds two processors' timers' locks at once, takes the scheduler's lock while it holds one, or takes one while it holds the scheduler's.
+let procTimersLockOffset = 2304 as Count
+
+// procTimersOffset is where a processor holds the address of its timers' heap, a 4-ary min-heap of 16-byte slots {when, entry} (Go's timerWhen) by when each is due, whose entries are the sleeping green threads and the timers that post a message, under the processor's timers' lock.
+let procTimersOffset = 2312 as Count
+
+// procTimerCountOffset is where a processor holds how many timers its heap holds, under its timers' lock.
+let procTimerCountOffset = 2320 as Count
+
+// procTimerCapacityOffset is where a processor holds how many timers its heap has room for, under its timers' lock.
+let procTimerCapacityOffset = 2328 as Count
+
+// procTimerNextOffset is where a processor holds when the earliest timer of its heap is due, in nanoseconds, or 0 when there is none (Go's minWhenHeap): written under its timers' lock and read without it.
+let procTimerNextOffset = 2336 as Count
+
 // procBytes is the size of a processor.
-let procBytes = 2224 as Count
+let procBytes = 2432 as Count
 
 // greenStatusOffset is where a green thread holds its status (greenIdle, greenRunnable, ...), changed with compare-exchanges where a reader of another thread may race.
 let greenStatusOffset = 0 as Count
@@ -597,7 +597,7 @@ let greenWaiterOffset = 48 as Count
 // greenKindOffset is where a green thread holds whether it runs a behaviour, whose record the scheduler frees when it finishes, or is awaited.
 let greenKindOffset = 56 as Count
 
-// greenWhenOffset is where a green thread holds when its sleep ends, in nanoseconds, while it is on the timers' heap, whose slot holds it too, and 0 (noTimer) while it is not, written under the timers' lock.
+// greenWhenOffset is where a green thread holds when its sleep ends, in nanoseconds, while it is on a processor's timers' heap, whose slot holds it too, and 0 (noTimer) while it is not, written under that heap's lock.
 let greenWhenOffset = 64 as Count
 
 // greenPreemptOffset is where a green thread holds 1 while the monitor asks that it be stopped (Go's g.preempt).
@@ -654,7 +654,7 @@ let greenCpuKeptOffset = 480 as Count
 // greenCpuClockOffset is where a green thread holds what its CPU clock adds to the CPU time of the thread it runs on: the time of the threads it ran on before, less what the thread it runs on had used when it came to it; only its own thread reads and writes it.
 let greenCpuClockOffset = 488 as Count
 
-// greenTimerIndexOffset is where a green thread holds its index in the timers' heap while it is on it, under the timers' lock, so it is taken off in a logarithmic time.
+// greenTimerIndexOffset is where a green thread holds its index in the timers' heap it is on, under that heap's lock, so it is taken off in a logarithmic time.
 let greenTimerIndexOffset = 496 as Count
 
 // greenEventOffset is where a green thread holds the address of the state word of the event entry it waits on, 0 while it waits on none: a timer that falls due for it and a cancel claim its wake there.
@@ -669,8 +669,11 @@ let greenMuteOffset = 520 as Count
 // greenMarkOffset is where a task parked on a service that slows it holds its mark: the count of the service's messages that must start before it is let go.
 let greenMarkOffset = 528 as Count
 
+// greenTimerHeapOffset is where a green thread holds the processor whose timers' heap holds its timer (Go's t.ts), 0 while it is on none, written under that processor's timers' lock.
+let greenTimerHeapOffset = 536 as Count
+
 // greenBytes is the size of a green thread's record.
-let greenBytes = 536 as Count
+let greenBytes = 544 as Count
 
 // selectorGreenOffset is where a selector holds the green thread that waits.
 let selectorGreenOffset = 0 as Count

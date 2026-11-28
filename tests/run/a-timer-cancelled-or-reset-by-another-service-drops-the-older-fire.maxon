@@ -1,0 +1,278 @@
+// Timers armed by four services are handed, as they are armed, to four others, which cancel them, reset them to later,
+// reset them from an hour out to 1 ms, or arm them anew, while their fires race them; the services run on whatever
+// processors the scheduler gives them, so a timer is cancelled or reset from a processor other than the one whose heap it
+// went on (the per-processor heaps' lockHeapOf). A fire is handled at most once, never after its timer's cancel or a reset
+// that said the timer was spent, never before the deadline of a reset to later, and the message of an arm that rearm
+// replaced is never handled after the rearm; every timer reset from an hour out to 1 ms fires once before its holder's
+// final cancel. Nothing is left in the end.
+// native-only
+//> 8000 timers handed across services: no fire after a cancel or a spent reset, none early, none replaced, none twice, none lost
+export typealias Amount = int(0 to 1000000)
+
+export typealias Amounts = Array with Amount
+
+export typealias Instants = Array with InstantMs
+
+export typealias Held = Array with Timer
+
+export typealias Holders = Array with Holder.handle
+
+export typealias Armers = Array with Armer.handle
+
+export typealias Runs = Array with Promise with Amount
+
+let replacedKind = 3 as Amount
+
+let earlierKind = 2 as Amount
+
+let perArmer = 2000 as Amount
+
+let armers = 4 as Amount
+
+function zeros(n Amount) returns Amounts
+	var xs = Amounts.create(0)
+	for i in 0 upto n 'fill'
+		xs.push(0)
+	end 'fill'
+	return xs
+end 'zeros'
+
+function instants(n Amount) returns Instants
+	var xs = Instants.create(0)
+	for i in 0 upto n 'fill'
+		xs.push(0)
+	end 'fill'
+	return xs
+end 'instants'
+
+function bump(mutates xs Amounts, at Amount) returns Amount
+	var now = try xs.get(at as ElementIndex) otherwise 0
+	now = try now + 1 otherwise now
+	try xs.set(at as ElementIndex, value: now) otherwise ignore
+	return now
+end 'bump'
+
+function isSet(xs Amounts, at Amount) returns bool
+	return (try xs.get(at as ElementIndex) otherwise 0) != 0
+end 'isSet'
+
+// The Sink handles every fire and holds what the holders did to each timer before the fire was handled.
+type Sink
+	var handled as Amounts
+	var replacedHandled as Amounts
+	var cancelled as Amounts
+	var spent as Amounts
+	var rearmed as Amounts
+	var hastened as Amounts
+	var firedAt as Instants
+	var movedUntil as Instants
+	var violations as Amount
+
+	static function create(n Amount) returns Self
+		return Self{handled: zeros(n), replacedHandled: zeros(n), cancelled: zeros(n), spent: zeros(n), rearmed: zeros(n), hastened: zeros(n), firedAt: instants(n), movedUntil: instants(n), violations: 0}
+	end 'create'
+
+	function violated(mutates self, what String, at Amount)
+		if self.violations < 5 'say'
+			print("timer {at}: {what}\n")
+		end 'say'
+		self.violations = try self.violations + 1 otherwise self.violations
+	end 'violated'
+
+	export function fired(mutates self, at Amount, replaced bool)
+		let now = Clock.nowMs()
+		if replaced 'replaced'
+			if bump(self.replacedHandled, at: at) > 1 'twice'
+				self.violated("an arm's fire was handled twice", at: at)
+			end 'twice'
+			if isSet(self.rearmed, at: at) 'afterRearm'
+				self.violated("the fire of a replaced arm was handled after the rearm", at: at)
+			end 'afterRearm'
+		end 'replaced' else 'final'
+			if bump(self.handled, at: at) > 1 'twice'
+				self.violated("a fire was handled twice", at: at)
+			end 'twice'
+			try self.firedAt.set(at as ElementIndex, value: now) otherwise ignore
+			let until = try self.movedUntil.get(at as ElementIndex) otherwise 0
+			if until != 0 and now < until 'early'
+				self.violated("a fire came before the deadline its reset moved it to", at: at)
+			end 'early'
+		end 'final'
+		if isSet(self.cancelled, at: at) 'afterCancel'
+			self.violated("a fire was handled after its timer's cancel", at: at)
+		end 'afterCancel'
+		if isSet(self.spent, at: at) 'afterSpent'
+			self.violated("a fire was handled after a reset said the timer was spent", at: at)
+		end 'afterSpent'
+	end 'fired'
+
+	export function wasCancelled(mutates self, at Amount)
+		_ = bump(self.cancelled, at: at)
+	end 'wasCancelled'
+
+	export function wasSpent(mutates self, at Amount)
+		_ = bump(self.spent, at: at)
+	end 'wasSpent'
+
+	export function wasRearmed(mutates self, at Amount)
+		_ = bump(self.rearmed, at: at)
+	end 'wasRearmed'
+
+	export function wasHastened(mutates self, at Amount)
+		_ = bump(self.hastened, at: at)
+	end 'wasHastened'
+
+	export function wasMoved(mutates self, at Amount, until InstantMs)
+		try self.movedUntil.set(at as ElementIndex, value: until) otherwise ignore
+		if isSet(self.handled, at: at) 'handled'
+			let handledAt = try self.firedAt.get(at as ElementIndex) otherwise 0
+			if handledAt < until 'early'
+				self.violated("a fire came before the deadline its reset moved it to", at: at)
+			end 'early'
+		end 'handled'
+	end 'wasMoved'
+
+	// report counts, past the violations seen, each timer reset from an hour out to 1 ms that has not fired once.
+	export function report(mutates self, n Amount) returns Amount
+		for at in 0 upto n 'lost'
+			if isSet(self.hastened, at: at) and (try self.handled.get(at as ElementIndex) otherwise 0) != 1 'never'
+				self.violated("a timer reset to 1 ms from another service did not fire once", at: at)
+			end 'never'
+		end 'lost'
+		return self.violations
+	end 'report'
+end 'Sink'
+
+// A Holder takes the timers an Armer hands it and races their fires from its own turns.
+type Holder implements Ends
+	var held as Held
+	var sink as Sink.handle
+
+	static function create(consumes sink Sink.handle) returns Self
+		return Self{held: Held.create(0), sink: sink}
+	end 'create'
+
+	export function take(mutates self, consumes t Timer, at Amount)
+		var timer = t
+		let kind = at mod 4
+		if kind == 0 'cancel'
+			timer.cancel()
+			try self.sink.wasCancelled(at) otherwise ignore
+			return
+		end 'cancel'
+		if kind == replacedKind 'rearm'
+			timer.rearm(1, message: self.sink.post(Sink.Message.fired(at, replaced: false)))
+			try self.sink.wasRearmed(at) otherwise ignore
+		end 'rearm' else if kind == earlierKind 'earlier'
+			if timer.reset(1) 'hastened'
+				try self.sink.wasHastened(at) otherwise ignore
+			end 'hastened'
+		end 'earlier' else 'later'
+			let before = Clock.nowMs()
+			if timer.reset(20) 'moved'
+				try self.sink.wasMoved(at, until: try before + 20 otherwise before) otherwise ignore
+			end 'moved' else 'spent'
+				try self.sink.wasSpent(at) otherwise ignore
+			end 'spent'
+		end 'later'
+		self.held.push(timer)
+	end 'take'
+
+	// settle waits for the fires of the resets, then cancels every timer it holds.
+	export function settle(mutates self) returns Amount
+		sleep(80)
+		var n = 0 as Amount
+		while self.held.count() > 0 'cancel'
+			let t = self.held.pop()
+			t.cancel()
+			n = try n + 1 otherwise n
+		end 'cancel'
+		return n
+	end 'settle'
+
+	function finish(consumes self)
+		var ts = self.held
+		while ts.count() > 0 'cancel'
+			let t = ts.pop()
+			t.cancel()
+		end 'cancel'
+		ts.dropEmpty()
+	end 'finish'
+end 'Holder'
+
+// An Armer arms its share of the timers toward the sink and hands each to a holder as it is armed.
+type Armer
+	var first as Amount
+
+	static function create(first Amount) returns Self
+		return Self{first: first}
+	end 'create'
+
+	export function run(mutates self, sink Sink.handle, holders Holders) returns Amount
+		var at = self.first
+		for i in 0 upto perArmer 'arm'
+			let kind = at mod 4
+			let ms = 3600000 if kind == earlierKind else at mod 3
+			let t = Timer.notifyAfter(ms, message: sink.post(Sink.Message.fired(at, replaced: kind == replacedKind)))
+			let to = try holders.get((i mod armers) as ElementIndex) otherwise panic("a holder")
+			try to.take(t, at: at) otherwise panic("a send to a service that runs")
+			if i mod 64 == 0 'yield'
+				Scheduler.yield()
+			end 'yield'
+			at = try at + 1 otherwise at
+		end 'arm'
+		return perArmer
+	end 'run'
+end 'Armer'
+
+function main() returns ExitCode
+	let n = 8000 as Amount
+	let sink = spawn Sink.create(n)
+	let sinkDone = sink.stopped()
+	var holders = Holders.create(0)
+	for h in 0 upto armers 'holders'
+		holders.push(spawn Holder.create(sink.clone()))
+	end 'holders'
+	var runs = Runs.create(0)
+	var armerList = Armers.create(0)
+	for a in 0 upto armers 'armers'
+		let armer = spawn Armer.create(a * perArmer)
+		runs.push(try armer.run(sink.clone(), holders: holders.clone()) otherwise panic("a send to a service that runs"))
+		armerList.push(armer)
+	end 'armers'
+	while not runs.isEmpty() 'runs'
+		let r = runs.pop()
+		_ = await r
+	end 'runs'
+	var finishes = Runs.create(0)
+	for h in 0 upto armers 'finish'
+		let holder = try holders.get(h as ElementIndex) otherwise panic("a holder")
+		finishes.push(try holder.settle() otherwise panic("a send to a service that runs"))
+	end 'finish'
+	while not finishes.isEmpty() 'finishes'
+		let f = finishes.pop()
+		_ = await f
+	end 'finishes'
+	let report = try sink.report(n) otherwise panic("a send to a service that runs")
+	let violations = await report
+	if violations == 0 'clean'
+		print("{n} timers handed across services: no fire after a cancel or a spent reset, none early, none replaced, none twice, none lost\n")
+	end 'clean' else 'violated'
+		print("{violations} violations among {n} timers handed across services\n")
+	end 'violated'
+	while not armerList.isEmpty() 'armersEnd'
+		let a = armerList.pop()
+		let d = a.stopped()
+		a.shutdown()
+		await d
+	end 'armersEnd'
+	while not holders.isEmpty() 'holdersEnd'
+		let h = holders.pop()
+		let d = h.stopped()
+		h.shutdown()
+		await d
+	end 'holdersEnd'
+	sink.shutdown()
+	await sinkDone
+	return 0
+end 'main'

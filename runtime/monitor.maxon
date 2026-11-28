@@ -84,7 +84,7 @@ function monitorMain(context Count)
 		sleepMicros(context, micros: sleep)
 		let now = nanotime(context)
 		takeEventsIfStale(context, scheduler: scheduler, now: now)
-		let next = __Raw.loadAcquire(scheduler, offset: schedTimerNextOffset)
+		let next = timersNext(scheduler)
 		if next != noTimer and next <= now and __Raw.loadAcquire(scheduler, offset: schedLastTakeOffset) != 0 'timer'
 			startThreadFor(scheduler, proc: noProc, spinning: false)
 		end 'timer'

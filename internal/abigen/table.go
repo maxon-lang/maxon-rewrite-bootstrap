@@ -355,8 +355,8 @@ var layouts = []layoutConst{
 
 	// The scheduler's record (Go's sched), made when the first behaviour or green thread is made or an exit code set: the
 	// counts every thread reads, the global run queue, the idle processors and threads, the free green threads and stacks,
-	// the timers, the event queue, the fork lock and the writers' list, then the address of each processor, the main thread's first. The words that several fields
-	// change together are under its lock, but for the timers' heap, which is under the timers' lock.
+	// the event queue, the fork lock and the writers' list, then the address of each processor, the main thread's first. The words that several fields
+	// change together are under its lock; the timers are each processor's (procTimersOffset).
 	{"schedProcsOffset", 0, false, toRuntime,
 		"where the scheduler's record holds how many processors there are (Go's gomaxprocs): the processors of the machine, or what MAXON_MAX_PROCS asks."},
 	{"schedMadeProcsOffset", 1, false, toRuntime,
@@ -389,14 +389,6 @@ var layouts = []layoutConst{
 		"where the scheduler's record holds the green threads' records that are free beyond what the processors keep, linked through greenLinkOffset, under the lock."},
 	{"schedFreeStacksOffset", 15, false, toRuntime,
 		"where the scheduler's record holds the stacks that are free beyond what the processors keep, linked through pooledStackNextOffset, under the lock."},
-	{"schedTimersOffset", 16, false, toRuntime,
-		"where the scheduler's record holds the address of the timers' heap, a 4-ary min-heap of 16-byte slots {when, entry} (Go's timerWhen) by when each is due, whose entries are the sleeping green threads and the timers that post a message, under the timers' lock (schedTimersLockOffset)."},
-	{"schedTimerCountOffset", 17, false, toRuntime,
-		"where the scheduler's record holds how many timers the heap holds, under the timers' lock."},
-	{"schedTimerCapacityOffset", 18, false, toRuntime,
-		"where the scheduler's record holds how many timers the heap has room for, under the timers' lock."},
-	{"schedTimerNextOffset", 19, false, toRuntime,
-		"where the scheduler's record holds when the earliest timer is due, in nanoseconds, or 0 when there is none: written under the timers' lock and read without it."},
 	{"schedEventQueueOffset", 20, false, toRuntime,
 		"where the scheduler's record holds the event queue: the completion port on Windows, the epoll fd on Linux."},
 	{"schedEventBreakOffset", 21, false, toRuntime,
@@ -461,8 +453,6 @@ var layouts = []layoutConst{
 		"where the scheduler's record holds 1 once the soft open-file limit is raised from the one the process started with."},
 	{"schedWinsockOffset", 306, false, toRuntime,
 		"where the scheduler's record holds the address of the table of the sockets of Windows (windows_socket.maxon): the functions of ws2_32 and ntdll that its sockets call, found by name, and the groups of AFD handles that poll them, 0 until the first socket."},
-	{"schedTimersLockOffset", 307, false, toRuntime,
-		"where the scheduler's record holds the timers' lock (Go's timers.mu): 1 while a thread holds it. It guards the timers' heap, the wake and heap index of each green thread on it, and the clear of an event waiter's state word's address after its deadline's timer is taken off. It comes after a service's armedLock and before a timer's own lock (Go's timers < timer), which runTimers takes under it to fire a timer as one step against a reset to later, and the page heap's lock, which a growth of the heap takes under it: no thread takes the scheduler's lock while it holds it, or it while it holds the scheduler's, and none takes an armedLock while it holds it."},
 	{"schedWaitTimerOffset", 308, false, toRuntime,
 		"where the scheduler's record holds, on Windows, the high-resolution waitable timer that wakes the thread in the event queue's wait at the earliest timer's time (Go's m.waitIocpTimer), made with the record, 0 where the system makes none: GetQueuedCompletionStatusEx counts its timeout in the system's timer ticks, 15.6 ms by default."},
 	{"schedWaitPacketOffset", 309, false, toRuntime,
@@ -472,11 +462,11 @@ var layouts = []layoutConst{
 	{"schedWaitCancelOffset", 311, false, toRuntime,
 		"where the scheduler's record holds, on Windows, the address of ntdll's NtCancelWaitCompletionPacket, found by name."},
 	{"schedProcessorsOffset", 312, false, toRuntime,
-		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made: on a cache line past the timers' lock, which the readers of a processor's address do not share."},
+		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made."},
 
 	// A processor (Go's P): what a thread must hold to run green threads, its local run queue (a ring that its owner puts
 	// at the tail of and that the owner and thieves take from the head of, and runnext, the green thread readied last),
-	// its caches of free green threads and stacks, and the ticks the monitor reads.
+	// its caches of free green threads and stacks, the ticks the monitor reads, and its timers.
 	{"procIdOffset", 0, false, toRuntime,
 		"where a processor holds its index among the processors."},
 	{"procStatusOffset", 1, false, toRuntime,
@@ -540,7 +530,20 @@ var layouts = []layoutConst{
 		"where a processor holds 1 while the monitor's ask to stop the slice it runs is not answered: left by the green thread that switched back with it, for the next green thread that inherits the slice to take as its own ask."},
 	{"procInheritOffset", 277, false, toRuntime,
 		"where a processor holds 1 while the entry its thread's search for work took last came from its runnext, which then runs on the slice of the green thread that readied it (Go's inheritTime)."},
-	{"procBytes", 278, false, toRuntime,
+	// The processor's timers (Go's p.timers, runtime/timers.maxon), on a line of their own past the owner's words, since
+	// other processors take the lock to steal what is due or to cancel or reset a timer on the heap, and the thread that
+	// waits in the event queue and the monitor read the earliest.
+	{"procTimersLockOffset", 288, false, toRuntime,
+		"where a processor holds its timers' lock (Go's timers.mu): 1 while a thread holds it. It guards the processor's heap, the processor word of each entry on it (a timer's in its timerHoldsOffset, greenTimerHeapOffset) and the index of each entry on it, and the clear of an event waiter's state word's address after its deadline's timer is taken off. It comes after a service's armedLock and before a timer's own lock (Go's timers < timer) and the page heap's lock; no thread holds two processors' timers' locks at once, takes the scheduler's lock while it holds one, or takes one while it holds the scheduler's."},
+	{"procTimersOffset", 289, false, toRuntime,
+		"where a processor holds the address of its timers' heap, a 4-ary min-heap of 16-byte slots {when, entry} (Go's timerWhen) by when each is due, whose entries are the sleeping green threads and the timers that post a message, under the processor's timers' lock."},
+	{"procTimerCountOffset", 290, false, toRuntime,
+		"where a processor holds how many timers its heap holds, under its timers' lock."},
+	{"procTimerCapacityOffset", 291, false, toRuntime,
+		"where a processor holds how many timers its heap has room for, under its timers' lock."},
+	{"procTimerNextOffset", 292, false, toRuntime,
+		"where a processor holds when the earliest timer of its heap is due, in nanoseconds, or 0 when there is none (Go's minWhenHeap): written under its timers' lock and read without it."},
+	{"procBytes", 304, false, toRuntime,
 		"the size of a processor."},
 
 	// A green thread (Go's g): its state, the code it runs and the word it runs it with, the arguments the code reads, the
@@ -562,7 +565,7 @@ var layouts = []layoutConst{
 	{"greenKindOffset", 7, false, toRuntime,
 		"where a green thread holds whether it runs a behaviour, whose record the scheduler frees when it finishes, or is awaited."},
 	{"greenWhenOffset", 8, false, toRuntime,
-		"where a green thread holds when its sleep ends, in nanoseconds, while it is on the timers' heap, whose slot holds it too, and 0 (noTimer) while it is not, written under the timers' lock."},
+		"where a green thread holds when its sleep ends, in nanoseconds, while it is on a processor's timers' heap, whose slot holds it too, and 0 (noTimer) while it is not, written under that heap's lock."},
 	{"greenPreemptOffset", 9, false, toRuntime,
 		"where a green thread holds 1 while the monitor asks that it be stopped (Go's g.preempt)."},
 	{"greenArgsOffset", 10, false, toRuntime | toSelfBack,
@@ -607,7 +610,7 @@ var layouts = []layoutConst{
 	{"greenCpuClockOffset", 61, false, toRuntime,
 		"where a green thread holds what its CPU clock adds to the CPU time of the thread it runs on: the time of the threads it ran on before, less what the thread it runs on had used when it came to it; only its own thread reads and writes it."},
 	{"greenTimerIndexOffset", 62, false, toRuntime,
-		"where a green thread holds its index in the timers' heap while it is on it, under the timers' lock, so it is taken off in a logarithmic time."},
+		"where a green thread holds its index in the timers' heap it is on, under that heap's lock, so it is taken off in a logarithmic time."},
 	{"greenEventOffset", 63, false, toRuntime,
 		"where a green thread holds the address of the state word of the event entry it waits on, 0 while it waits on none: a timer that falls due for it and a cancel claim its wake there."},
 	// What a green thread that runs behaviours knows of backpressure (service.maxon).
@@ -617,7 +620,9 @@ var layouts = []layoutConst{
 		"where a task readied from a list of slowed senders holds the entries its wake goes on to unmute; 0 otherwise."},
 	{"greenMarkOffset", 66, false, toRuntime,
 		"where a task parked on a service that slows it holds its mark: the count of the service's messages that must start before it is let go."},
-	{"greenBytes", 67, false, toRuntime,
+	{"greenTimerHeapOffset", 67, false, toRuntime,
+		"where a green thread holds the processor whose timers' heap holds its timer (Go's t.ts), 0 while it is on none, written under that processor's timers' lock."},
+	{"greenBytes", 68, false, toRuntime,
 		"the size of a green thread's record."},
 
 	// A selector: the record of an awaitAny that waits, which every promise it waits on names as its waiter, tagged, as the

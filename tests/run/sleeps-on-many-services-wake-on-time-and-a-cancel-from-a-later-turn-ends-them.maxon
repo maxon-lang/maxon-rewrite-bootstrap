@@ -1,0 +1,126 @@
+// Eight services each start coroutines that sleep forever and coroutines that sleep 1 to 5 ms, beside two services that keep
+// the processors busy; each then sleeps itself, so it may go on on another processor than the one whose heap its
+// coroutines' sleeps went on, and cancels the forever sleeps from there (expireSleep through the per-processor heaps'
+// lockHeapOf), which end at once. Every short sleep wakes, none before its time, whichever processor's heap it is on and
+// whichever processor runs it; nothing is left in the end.
+// native-only
+//> 8 services, 10 rounds each: 1600 short sleeps woke on time, 1600 forever sleeps ended by their cancels
+export typealias Amount = int(0 to 1000000)
+
+export typealias Sleeps = Array with Promise with Amount
+
+export typealias Runs = Array with Promise with Amount
+
+export typealias Nappers = Array with Napper.handle
+
+let perRound = 20 as Amount
+
+function forever() returns Amount
+	sleep(ForeverMs)
+	return 0
+end 'forever'
+
+function short(ms Amount) returns Amount
+	let start = Clock.nowMs()
+	sleep(ms as Milliseconds)
+	let now = Clock.nowMs()
+	if now < (try start + (ms as InstantMs) otherwise start) 'early'
+		return 0
+	end 'early'
+	return 1
+end 'short'
+
+type Napper
+	var rounds as Amount
+
+	static function create() returns Self
+		return Self{rounds: 0}
+	end 'create'
+
+	export function nap(mutates self, count Amount) returns Amount
+		var woke = 0 as Amount
+		for r in 0 upto count 'rounds'
+			var forevers = Sleeps.create(0)
+			var shorts = Sleeps.create(0)
+			for i in 0 upto perRound 'start'
+				forevers.push(async forever())
+				shorts.push(async short(i mod 5 + 1))
+			end 'start'
+			sleep(2)
+			Scheduler.yield()
+			while forevers.count() > 0 'cancel'
+				let p = forevers.pop()
+				p.cancel()
+			end 'cancel'
+			forevers.dropEmpty()
+			while shorts.count() > 0 'await'
+				let p = shorts.pop()
+				woke = try woke + (await p) otherwise woke
+			end 'await'
+			shorts.dropEmpty()
+			self.rounds = try self.rounds + 1 otherwise self.rounds
+		end 'rounds'
+		return woke
+	end 'nap'
+end 'Napper'
+
+type Spinner
+	var spins as Amount
+
+	static function create() returns Self
+		return Self{spins: 0}
+	end 'create'
+
+	export function spin(mutates self, ms Amount) returns Amount
+		let until = try Clock.nowMs() + (ms as InstantMs) otherwise 0
+		while Clock.nowMs() < until 'busy'
+			self.spins = (self.spins + 1) mod 1000
+			if self.spins == 0 'yield'
+				Scheduler.yield()
+			end 'yield'
+		end 'busy'
+		return self.spins
+	end 'spin'
+end 'Spinner'
+
+function main() returns ExitCode
+	let services = 8 as Amount
+	let rounds = 10 as Amount
+	let a = spawn Spinner.create()
+	let aDone = a.stopped()
+	let b = spawn Spinner.create()
+	let bDone = b.stopped()
+	let spinA = try a.spin(150) otherwise panic("a send to a service that runs")
+	let spinB = try b.spin(150) otherwise panic("a send to a service that runs")
+	var runs = Runs.create(0)
+	var nappers = Nappers.create(0)
+	for s in 0 upto services 'spawn'
+		let n = spawn Napper.create()
+		runs.push(try n.nap(rounds) otherwise panic("a send to a service that runs"))
+		nappers.push(n)
+	end 'spawn'
+	var woke = 0 as Amount
+	while runs.count() > 0 'runs'
+		let r = runs.pop()
+		woke = try woke + (await r) otherwise woke
+	end 'runs'
+	_ = await spinA
+	_ = await spinB
+	let total = services * rounds * perRound
+	if woke == total 'onTime'
+		print("{services} services, {rounds} rounds each: {woke} short sleeps woke on time, {total} forever sleeps ended by their cancels\n")
+	end 'onTime' else 'late'
+		print("{woke} of {total} short sleeps woke on time\n")
+	end 'late'
+	while nappers.count() > 0 'end'
+		let n = nappers.pop()
+		let d = n.stopped()
+		n.shutdown()
+		await d
+	end 'end'
+	a.shutdown()
+	b.shutdown()
+	await aDone
+	await bDone
+	return 0
+end 'main'

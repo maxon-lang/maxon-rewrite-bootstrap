@@ -1,4 +1,4 @@
-// The timers benchmark (bench/README.md, out/dev/timers-design.md §5): what a service timer costs on the timers' one heap,
+// The timers benchmark (bench/README.md, out/dev/timers-design.md §5): what a service timer costs on the timers' heaps,
 // against Go's time.AfterFunc and Reset (bench/timers/gobench). Each lane runs on `workers` services, which the scheduler
 // spreads over the processors (MAXON_MAX_PROCS), and every timer posts to the service that armed it.
 //

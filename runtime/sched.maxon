@@ -347,7 +347,7 @@ function startPinned(context Count, g Count)
 end 'startPinned'
 
 // findRunnable is Go's: the next green thread for the thread's processor, from its timers, its run queue, the global run
-// queue, the event queue and the other processors' queues, or else the processor goes idle and the thread waits, in the event queue
+// queue, the other processors' timers that are due (stealTimers), the event queue and the other processors' queues, or else the processor goes idle and the thread waits, in the event queue
 // when something is pending there, until it is handed a processor. It gives noGreen only on the main thread's drain,
 // once nothing is left. procInheritOffset of the processor it gave it for says whether it came from runnext (runqGet).
 function findRunnable(context Count) returns Count
@@ -376,6 +376,12 @@ function findRunnable(context Count) returns Count
 				return global
 			end 'found'
 		end 'global'
+		if stealTimers(context, proc: proc) 'stoleTimers'
+			let fired = runqGet(proc)
+			if fired != noGreen 'found'
+				return fired
+			end 'found'
+		end 'stoleTimers'
 		if __Raw.loadAcquire(scheduler, offset: schedEventWaitersOffset) > 0 and __Raw.loadAcquire(scheduler, offset: schedLastTakeOffset) != 0 'take'
 			let taken = eventsReadied(context, proc: proc, list: takeEvents(context, delay: takeEventsNoWait))
 			if taken != noGreen 'found'
@@ -503,7 +509,7 @@ end 'nextRandom'
 // the earliest timer, or a completion, or a break. Then it takes an idle processor for what the event queue readied, and says
 // whether it got one; when there is none, what was readied goes on the global run queue, and the thread stops.
 function waitInEventQueue(context Count, scheduler Count) returns bool
-	let next = __Raw.loadAcquire(scheduler, offset: schedTimerNextOffset)
+	let next = timersNext(scheduler)
 	var delay = takeEventsForever
 	if next != noTimer 'timer'
 		let now = nanotime(context)
@@ -534,7 +540,7 @@ end 'waitInEventQueue'
 // eventsPending is whether a thread should wait in the event queue rather than stop: a timer is armed or a green thread waits
 // on an event entry.
 function eventsPending(scheduler Count) returns bool
-	return __Raw.loadAcquire(scheduler, offset: schedTimerNextOffset) != noTimer or __Raw.loadAcquire(scheduler, offset: schedEventWaitersOffset) > 0
+	return timersNext(scheduler) != noTimer or __Raw.loadAcquire(scheduler, offset: schedEventWaitersOffset) > 0
 end 'eventsPending'
 
 // eventsReadied puts what a take that did not wait readied on the thread's processor and gives the first of it to run.
