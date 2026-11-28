@@ -6,6 +6,7 @@
 // stops the command.
 //
 //	go run ./cmd/gate check [--host-only] [--record-specs=<maxon specs dir>] [test args...]
+//	go run ./cmd/gate check --focused [--since=<rev>] [--maxon-specs=<dir>] [--maxon-stdlib=<dir>]
 //	go run ./cmd/gate suites [--host-only] <compiler> [test args...]
 //	go run ./cmd/gate seed [--staged]
 //	go run ./cmd/gate specs [--advance-source] <maxon specs dir>
@@ -38,6 +39,9 @@ const usage = `usage:
                                      specs/passed.txt; --host-only runs only the lanes of the host's own target and names each
                                      step it leaves out (CI's Windows runner has no WSL, qemu or Mac), and on Windows then also
                                      checks that the compiler reproduces itself
+  gate check --focused [--since=<rev>] [--maxon-specs=<dir>] [--maxon-stdlib=<dir>]
+                                     the landing gate: the steps of the gate that the paths changed since the revision (default: the
+                                     merge base with origin/main) and the working tree call for, each timed (README, "Tests")
   gate suites [--host-only] <compiler> [args...]
                                      the suites a compiler must pass (on arm64 Linux, which has no seed, the lanes it runs natively)
   gate seed [--staged]               renew the seeds, each proven to reproduce itself; --staged for a change of a layout\n                                     the seed bakes in, which it cannot compile the runtime of: run before committing it
@@ -93,6 +97,10 @@ func gate() {
 	}
 	switch os.Args[1] {
 	case "check":
+		if slices.Contains(args, focusedFlag) {
+			err = focusedGate(h, args)
+			break
+		}
 		err = check(h, args)
 		printStepTable()
 		if err == nil {
