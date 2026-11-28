@@ -1,5 +1,9 @@
 // A TcpListener bound to IPv6's wildcard, ::, takes IPv4 connections too, as Go's listen on the wildcard does: a client that
-// connects to 127.0.0.1 reaches it, and the line it sends comes back.
+// connects to 127.0.0.1 reaches it, and the line it sends comes back. A listen on a wildcard raises a Windows Firewall prompt for
+// each new executable, and the corpus's executables are each at a path of their own, so x64-windows leaves the program out; it is
+// run there by hand, which raises the prompt: `bin\minimaxon.exe run tests\run\an-ipv4-client-reaches-a-tcp-listener-on-ipv6-s-wildcard.maxon`
+// prints the two lines below.
+// unsupported-targets: x64-windows
 // native-only
 //> the listener on :: heard: over IPv4
 //> the IPv4 client heard: over IPv4

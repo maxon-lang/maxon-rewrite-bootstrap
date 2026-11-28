@@ -256,6 +256,10 @@ test), and a run for that target prints it as `SKIP` and counts it as not suppor
 `file-permission-on-linux` Linux's (which macOS runs too, its paths and programs being POSIX's), as
 `children-started-at-once-each-read-their-own-output-on-posix` is the twin of the cmd.exe one that WSL runs too, and the two
 programs that E5001 refuses for x64's register count are not arm64's, which has more registers.
+The two programs that listen on IPv6's wildcard, `::`, are `unsupported-targets: x64-windows`, since Windows Firewall asks the
+user to allow a program that listens on a non-loopback address, once for each executable path, and each test executable has a path
+of its own: no gate run raises a prompt. Every other listener of the corpus, the benchmark and the spec tests binds a loopback
+address. Each of the two says in its comment how it is run by hand on Windows.
 The compiler cross-compiles itself: `build self --target=x64-linux` makes a Linux compiler, which checks and builds programs
 under WSL, and builds itself there to the same bytes. On Linux a compiler finds `runtime/` as on Windows and joins paths
 with `/` (`nativeSeparator` of `self/project`); its build cache is under `MINIMAXON_CACHE` only, since there is no

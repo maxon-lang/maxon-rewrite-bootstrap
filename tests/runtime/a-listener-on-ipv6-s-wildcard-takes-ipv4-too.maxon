@@ -1,6 +1,12 @@
 // A listener on IPv6's wildcard, ::, is dual-stack, as Go's wildcard listen is: IPV6_V6ONLY is 0, which getsockopt reads back,
 // whatever the system's default (Linux's net.ipv6.bindv6only, macOS's net.inet6.ip6.v6only), and a client that connects over
 // IPv4's loopback reaches it, its bytes read by the connection the listener accepts.
+// A listen on a wildcard raises a Windows Firewall prompt for each new executable, and the corpus's executables are each at a path
+// of their own, so x64-windows leaves the program out (tests/run/an-ipv4-client-reaches-a-tcp-listener-on-ipv6-s-wildcard.maxon
+// is the one that is run there by hand). To run this one there, which raises the prompt, put it in a corpus of its own without the
+// directive: `mkdir $env:TEMP\dual\runtime; (Get-Content -Raw <this file>).Replace("// unsupported-targets: x64-windows`n", '') |
+// Set-Content -NoNewline $env:TEMP\dual\runtime\wildcard.maxon; bin\minimaxon.exe test $env:TEMP\dual`.
+// unsupported-targets: x64-windows
 //> IPV6_V6ONLY on the listener of ::: 0
 //> the IPv4 client's bytes: v4
 
