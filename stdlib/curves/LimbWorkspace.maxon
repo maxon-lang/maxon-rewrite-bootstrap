@@ -1,0 +1,228 @@
+export typealias WorkspaceLimb = bits(64)
+
+export typealias WorkspaceLimbs = Array with WorkspaceLimb
+
+export function zeroLimbs(count Count) returns WorkspaceLimbs
+	var limbs = WorkspaceLimbs.create(0)
+	limbs.growFilled(count, value: 0)
+	return limbs
+end 'zeroLimbs'
+
+export function workspaceLimbAt(limbs WorkspaceLimbs, index ElementIndex) returns WorkspaceLimb
+	return try limbs.get(index) otherwise panic("limb workspace: index past the operand")
+end 'workspaceLimbAt'
+
+export function workspaceLimbPut(mutates limbs WorkspaceLimbs, index ElementIndex, value WorkspaceLimb)
+	try limbs.set(index, value: value) otherwise panic("limb workspace: index past the operand")
+end 'workspaceLimbPut'
+
+export function selectByMask(kept WorkspaceLimb, replacement WorkspaceLimb, mask WorkspaceLimb) returns WorkspaceLimb
+	return kept xor (mask and (kept xor replacement))
+end 'selectByMask'
+
+let limbWordBits = 32
+
+let limbTopBit = 63
+
+let limbWordMask = 0xFFFFFFFF as WorkspaceLimb
+
+let limbNone = 0 as WorkspaceLimb
+
+let limbOne = 1
+
+let limbAllOnes = u64.max as WorkspaceLimb
+
+export function limbEqualMask(a WorkspaceLimb, b WorkspaceLimb) returns WorkspaceLimb
+	return (((a xor b) - limbOne) shr limbTopBit) * limbAllOnes
+end 'limbEqualMask'
+
+export function limbBorrowChain(mutates dst WorkspaceLimbs, dstBase ElementIndex, a WorkspaceLimbs, aBase ElementIndex, b WorkspaceLimbs, bBase ElementIndex, count Count) returns WorkspaceLimb
+	var borrow = limbNone
+	for index in 0 upto count 'eachLimb'
+		let total = workspaceLimbAt(a, index: try aBase + index otherwise panic("out of range")) - workspaceLimbAt(b, index: try bBase + index otherwise panic("out of range")) - borrow
+		workspaceLimbPut(dst, index: try dstBase + index otherwise panic("out of range"), value: total and limbWordMask)
+		borrow = total shr limbTopBit
+	end 'eachLimb'
+	return borrow
+end 'limbBorrowChain'
+
+export function limbBorrowChainSharingA(mutates dst WorkspaceLimbs, dstBase ElementIndex, aBase ElementIndex, b WorkspaceLimbs, bBase ElementIndex, count Count) returns WorkspaceLimb
+	var borrow = limbNone
+	for index in 0 upto count 'eachLimb'
+		let total = workspaceLimbAt(dst, index: try aBase + index otherwise panic("out of range")) - workspaceLimbAt(b, index: try bBase + index otherwise panic("out of range")) - borrow
+		workspaceLimbPut(dst, index: try dstBase + index otherwise panic("out of range"), value: total and limbWordMask)
+		borrow = total shr limbTopBit
+	end 'eachLimb'
+	return borrow
+end 'limbBorrowChainSharingA'
+
+export function limbBorrowChainSharingB(mutates dst WorkspaceLimbs, dstBase ElementIndex, a WorkspaceLimbs, aBase ElementIndex, bBase ElementIndex, count Count) returns WorkspaceLimb
+	var borrow = limbNone
+	for index in 0 upto count 'eachLimb'
+		let total = workspaceLimbAt(a, index: try aBase + index otherwise panic("out of range")) - workspaceLimbAt(dst, index: try bBase + index otherwise panic("out of range")) - borrow
+		workspaceLimbPut(dst, index: try dstBase + index otherwise panic("out of range"), value: total and limbWordMask)
+		borrow = total shr limbTopBit
+	end 'eachLimb'
+	return borrow
+end 'limbBorrowChainSharingB'
+
+export function limbBorrowChainSharingAB(mutates dst WorkspaceLimbs, dstBase ElementIndex, aBase ElementIndex, bBase ElementIndex, count Count) returns WorkspaceLimb
+	var borrow = limbNone
+	for index in 0 upto count 'eachLimb'
+		let total = workspaceLimbAt(dst, index: try aBase + index otherwise panic("out of range")) - workspaceLimbAt(dst, index: try bBase + index otherwise panic("out of range")) - borrow
+		workspaceLimbPut(dst, index: try dstBase + index otherwise panic("out of range"), value: total and limbWordMask)
+		borrow = total shr limbTopBit
+	end 'eachLimb'
+	return borrow
+end 'limbBorrowChainSharingAB'
+
+export function limbCarryChain(mutates dst WorkspaceLimbs, dstBase ElementIndex, a WorkspaceLimbs, aBase ElementIndex, b WorkspaceLimbs, bBase ElementIndex, bMask WorkspaceLimb, count Count) returns WorkspaceLimb
+	var carry = limbNone
+	for index in 0 upto count 'eachLimb'
+		let total = workspaceLimbAt(a, index: try aBase + index otherwise panic("out of range")) + (workspaceLimbAt(b, index: try bBase + index otherwise panic("out of range")) and bMask) + carry
+		workspaceLimbPut(dst, index: try dstBase + index otherwise panic("out of range"), value: total and limbWordMask)
+		carry = total shr limbWordBits
+	end 'eachLimb'
+	return carry
+end 'limbCarryChain'
+
+export function limbCarryChainSharingA(mutates dst WorkspaceLimbs, dstBase ElementIndex, aBase ElementIndex, b WorkspaceLimbs, bBase ElementIndex, bMask WorkspaceLimb, count Count) returns WorkspaceLimb
+	var carry = limbNone
+	for index in 0 upto count 'eachLimb'
+		let total = workspaceLimbAt(dst, index: try aBase + index otherwise panic("out of range")) + (workspaceLimbAt(b, index: try bBase + index otherwise panic("out of range")) and bMask) + carry
+		workspaceLimbPut(dst, index: try dstBase + index otherwise panic("out of range"), value: total and limbWordMask)
+		carry = total shr limbWordBits
+	end 'eachLimb'
+	return carry
+end 'limbCarryChainSharingA'
+
+export function limbCarryChainSharingB(mutates dst WorkspaceLimbs, dstBase ElementIndex, a WorkspaceLimbs, aBase ElementIndex, bBase ElementIndex, bMask WorkspaceLimb, count Count) returns WorkspaceLimb
+	var carry = limbNone
+	for index in 0 upto count 'eachLimb'
+		let total = workspaceLimbAt(a, index: try aBase + index otherwise panic("out of range")) + (workspaceLimbAt(dst, index: try bBase + index otherwise panic("out of range")) and bMask) + carry
+		workspaceLimbPut(dst, index: try dstBase + index otherwise panic("out of range"), value: total and limbWordMask)
+		carry = total shr limbWordBits
+	end 'eachLimb'
+	return carry
+end 'limbCarryChainSharingB'
+
+export function limbCarryChainSharingAB(mutates dst WorkspaceLimbs, dstBase ElementIndex, aBase ElementIndex, bBase ElementIndex, bMask WorkspaceLimb, count Count) returns WorkspaceLimb
+	var carry = limbNone
+	for index in 0 upto count 'eachLimb'
+		let total = workspaceLimbAt(dst, index: try aBase + index otherwise panic("out of range")) + (workspaceLimbAt(dst, index: try bBase + index otherwise panic("out of range")) and bMask) + carry
+		workspaceLimbPut(dst, index: try dstBase + index otherwise panic("out of range"), value: total and limbWordMask)
+		carry = total shr limbWordBits
+	end 'eachLimb'
+	return carry
+end 'limbCarryChainSharingAB'
+
+export function limbMultiplyInto(mutates dst WorkspaceLimbs, dstBase ElementIndex, a WorkspaceLimbs, aBase ElementIndex, aCount Count, b WorkspaceLimbs, bBase ElementIndex, bCount Count)
+	for index in 0 upto bCount 'eachClear'
+		workspaceLimbPut(dst, index: try dstBase + index otherwise panic("out of range"), value: limbNone)
+	end 'eachClear'
+	for index in 0 upto aCount 'eachMultiplier'
+		let multiplier = workspaceLimbAt(a, index: try aBase + index otherwise panic("out of range"))
+		var carry = limbNone
+		for offset in 0 upto bCount 'eachMultiplicand'
+			let total = workspaceLimbAt(dst, index: try dstBase + index + offset otherwise panic("out of range")) + multiplier * workspaceLimbAt(b, index: try bBase + offset otherwise panic("out of range")) + carry
+			workspaceLimbPut(dst, index: try dstBase + index + offset otherwise panic("out of range"), value: total and limbWordMask)
+			carry = total shr limbWordBits
+		end 'eachMultiplicand'
+		workspaceLimbPut(dst, index: try dstBase + index + bCount otherwise panic("out of range"), value: carry)
+	end 'eachMultiplier'
+end 'limbMultiplyInto'
+
+export type LimbSlots
+	let slotWidth as Count
+	export let limbCount as Count
+
+	export static function create(slotWidth Count, limbCount Count) returns LimbSlots
+		return Self{slotWidth: slotWidth, limbCount: limbCount}
+	end 'create'
+
+	export function offset(slot Count) returns ElementIndex
+		return try slot * self.slotWidth otherwise panic("out of range")
+	end 'offset'
+
+	export function workspace(slots Count) returns WorkspaceLimbs
+		return zeroLimbs(try slots * self.slotWidth otherwise panic("out of range"))
+	end 'workspace'
+
+	export function load(mutates ws WorkspaceLimbs, slot Count, value WorkspaceLimbs)
+		let base = offset(slot)
+		for index in 0 upto value.count() 'eachLimb'
+			workspaceLimbPut(ws, index: try base + index otherwise panic("out of range"), value: workspaceLimbAt(value, index: index))
+		end 'eachLimb'
+	end 'load'
+
+	// Every entry is read and masked: the digit can be a private key's or a nonce's, and indexing the
+	// table by it would leak that scalar through cache timing.
+	export function lookup(mutates ws WorkspaceLimbs, dst Count, table Count, entryCount Count, entrySlots Count, digit WorkspaceLimb)
+		for slot in 0 upto entrySlots 'eachClear'
+			clear(ws, slot: try dst + slot otherwise panic("out of range"))
+		end 'eachClear'
+		for entry in 0 upto entryCount 'eachEntry'
+			let mask = limbEqualMask(entry as WorkspaceLimb, b: digit)
+			for slot in 0 upto entrySlots 'eachSlot'
+				accumulate(ws, dst: try dst + slot otherwise panic("out of range"), source: try table + entry * entrySlots + slot otherwise panic("out of range"), mask: mask)
+			end 'eachSlot'
+		end 'eachEntry'
+	end 'lookup'
+
+	export function copyPoint(mutates ws WorkspaceLimbs, dst Count, src Count, slotCount Count)
+		for slot in 0 upto slotCount 'eachSlot'
+			copy(ws, dst: try dst + slot otherwise panic("out of range"), src: try src + slot otherwise panic("out of range"))
+		end 'eachSlot'
+	end 'copyPoint'
+
+	export function loadPacked(mutates ws WorkspaceLimbs, firstSlot Count, packed WorkspaceLimbs, slotCount Count)
+		for slot in 0 upto slotCount 'eachSlot'
+			let target = offset(try firstSlot + slot otherwise panic("out of range"))
+			let origin = try slot * self.limbCount otherwise panic("out of range")
+			for index in 0 upto self.limbCount 'eachLimb'
+				workspaceLimbPut(ws, index: try target + index otherwise panic("out of range"), value: workspaceLimbAt(packed, index: try origin + index otherwise panic("out of range")))
+			end 'eachLimb'
+		end 'eachSlot'
+	end 'loadPacked'
+
+	export function read(ws WorkspaceLimbs, slot Count) returns WorkspaceLimbs
+		let base = offset(slot)
+		var values = WorkspaceLimbs.create(self.limbCount, zeroed: false)
+		for index in 0 upto self.limbCount 'eachLimb'
+			values.push(workspaceLimbAt(ws, index: try base + index otherwise panic("out of range")))
+		end 'eachLimb'
+		return values
+	end 'read'
+
+	export function clear(mutates ws WorkspaceLimbs, slot Count)
+		let base = offset(slot)
+		for index in 0 upto self.limbCount 'eachLimb'
+			workspaceLimbPut(ws, index: try base + index otherwise panic("out of range"), value: 0)
+		end 'eachLimb'
+	end 'clear'
+
+	export function copy(mutates ws WorkspaceLimbs, dst Count, src Count)
+		let target = offset(dst)
+		let source = offset(src)
+		for index in 0 upto self.limbCount 'eachLimb'
+			workspaceLimbPut(ws, index: try target + index otherwise panic("out of range"), value: workspaceLimbAt(ws, index: try source + index otherwise panic("out of range")))
+		end 'eachLimb'
+	end 'copy'
+
+	export function select(mutates ws WorkspaceLimbs, dst Count, kept Count, replacement Count, mask WorkspaceLimb)
+		let target = offset(dst)
+		let first = offset(kept)
+		let second = offset(replacement)
+		for index in 0 upto self.limbCount 'eachLimb'
+			workspaceLimbPut(ws, index: try target + index otherwise panic("out of range"), value: selectByMask(workspaceLimbAt(ws, index: try first + index otherwise panic("out of range")), replacement: workspaceLimbAt(ws, index: try second + index otherwise panic("out of range")), mask: mask))
+		end 'eachLimb'
+	end 'select'
+
+	export function accumulate(mutates ws WorkspaceLimbs, dst Count, source Count, mask WorkspaceLimb)
+		let target = offset(dst)
+		let origin = offset(source)
+		for index in 0 upto self.limbCount 'eachLimb'
+			workspaceLimbPut(ws, index: try target + index otherwise panic("out of range"), value: workspaceLimbAt(ws, index: try target + index otherwise panic("out of range")) or (workspaceLimbAt(ws, index: try origin + index otherwise panic("out of range")) and mask))
+		end 'eachLimb'
+	end 'accumulate'
+end 'LimbSlots'

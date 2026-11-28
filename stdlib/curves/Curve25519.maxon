@@ -1,0 +1,865 @@
+/// X25519 key agreement (RFC 7748) and Ed25519 signing and signature verification (RFC 8032), over
+/// the field of integers modulo 2^255 - 19.
+/// @category Crypto
+typealias Curve25519LimbIndex = int(0 to 9) implements ElementIndex
+
+typealias Curve25519LimbWidth = int(25 to 26)
+
+typealias Curve25519LimbOffset = int(0 to 230) implements ElementIndex
+
+typealias Curve25519PendingBits = int(0 to 33)
+
+typealias Curve25519SquaringCount = int(1 to 100)
+
+typealias Curve25519ScalarBit = int(0 to 255)
+
+typealias Curve25519DigestBit = int(0 to 511) implements ElementIndex
+
+/// Why `X25519.publicKey` or `X25519.sharedSecret` refused its input.
+public enum X25519Error implements Error
+	invalidLength
+	allZeroSharedSecret
+end 'X25519Error'
+
+/// Why an `Ed25519` call refused its input.
+public enum Ed25519Error implements Error
+	invalidLength
+end 'Ed25519Error'
+
+enum EdwardsDecodingError implements Error
+	nonCanonical
+	notOnCurve
+	negativeZero
+end 'EdwardsDecodingError'
+
+let curve25519KeyBytes = 32
+
+let ed25519SignatureBytes = 64
+
+let curve25519LimbCount = 10
+
+let curve25519BitsPerByte = 8
+
+let curve25519ByteShift = 3
+
+let curve25519ByteBitMask = 7
+
+let curve25519ReadBytes = 4
+
+let curve25519LastByte = 31
+
+let curve25519SignShift = 7
+
+let curve25519LimbStride = 25
+
+let curve25519OddLimbBit = 1
+
+let curve25519ScalarWordCount = 8
+
+let curve25519WideScalarWordCount = 16
+
+let curve25519ScalarWordShift = 5
+
+let curve25519ScalarWordBitMask = 31
+
+let curve25519InversionTailSquarings = 5
+
+let curve25519SquareRootTailSquarings = 2
+
+let x25519LadderSteps = 255
+
+let x25519TopLadderBit = 254
+
+let ed25519ScalarBits = 256
+
+let ed25519TopScalarBit = 255
+
+let ed25519SignatureScalarStart = 32
+
+let ed25519ExpandedSeedBytes = 64
+
+let curve25519EvenLimbWidth = 26
+
+let curve25519EvenLimbMask = 0x3FFFFFF as WorkspaceLimb
+
+let curve25519OddLimbMask = 0x1FFFFFF as WorkspaceLimb
+
+let curve25519ByteMask = 0xFF as WorkspaceLimb
+
+let curve25519AllOnes = u64.max as WorkspaceLimb
+
+let curve25519ZeroWord = 0 as WorkspaceLimb
+
+let curve25519OneWord = 1 as WorkspaceLimb
+
+let curve25519WrapFactor = 19
+
+let curve25519Doubling = 2
+
+let x25519ClampLowMask = 248 as Byte
+
+let x25519ClampHighMask = 127 as Byte
+
+let x25519ClampHighBit = 64 as Byte
+
+let x25519BasePointU = 9 as Byte
+
+let x25519A24 = 121665
+
+let curve25519ZeroByte = 0 as Byte
+
+let curve25519SignMask = 0x7F as Byte
+
+let curve25519WideSlot = 0
+
+let curve25519TwiceSlot = 2
+
+let curve25519OneSlot = 3
+
+let curve25519ZeroSlot = 4
+
+let curve25519CurveDSlot = 5
+
+let curve25519TwiceDSlot = 6
+
+let curve25519SqrtMinusOneSlot = 7
+
+let curve25519EncodeSlot = 8
+
+let curve25519PowerSlot = 10
+
+let curve25519PointSlots = 4
+
+let curve25519SumSlot = 21
+
+let curve25519BaseSlot = 25
+
+let curve25519NegatedSlot = 33
+
+let curve25519AddScratchSlot = 37
+
+let curve25519DecodeSlot = 47
+
+let curve25519EdwardsSlots = 56
+
+let x25519X1Slot = 21
+
+let x25519X2Slot = 22
+
+let x25519Z2Slot = 23
+
+let x25519X3Slot = 24
+
+let x25519Z3Slot = 25
+
+let x25519ScratchSlot = 26
+
+let x25519Slots = 40
+
+let curve25519PowerTop = 10
+
+let curve25519PowerEleven = 2
+
+let curve25519ColumnCount = 19
+
+let curve25519FoldedColumns = 9
+
+let curve25519TopColumn = 9
+
+let ed25519ScalarSlotWidth = 18
+
+let ed25519BarrettWordCount = 9
+
+let ed25519WideSlot = 0
+
+let ed25519ProductSlot = 1
+
+let ed25519RemainderSlot = 2
+
+let ed25519ScratchSlot = 3
+
+let ed25519OrderSlot = 4
+
+let ed25519BarrettSlot = 5
+
+let ed25519MultiplierSlot = 6
+
+let ed25519MultiplicandSlot = 7
+
+let ed25519AddendSlot = 8
+
+let ed25519SignatureSlot = 9
+
+let ed25519ScalarSlotCount = 10
+
+let ed25519LookedSlot = curve25519EdwardsSlots
+
+let ed25519TableSlot = ed25519LookedSlot + curve25519PointSlots
+
+function curve25519Offset(slot Count) returns ElementIndex
+	return try slot * curve25519LimbCount otherwise panic("out of range")
+end 'curve25519Offset'
+
+function ed25519ScalarOffset(slot Count) returns ElementIndex
+	return try slot * ed25519ScalarSlotWidth otherwise panic("out of range")
+end 'ed25519ScalarOffset'
+
+function curve25519Slots() returns LimbSlots
+	return LimbSlots.create(curve25519LimbCount, limbCount: curve25519LimbCount)
+end 'curve25519Slots'
+
+function ed25519ScalarSlots() returns LimbSlots
+	return LimbSlots.create(ed25519ScalarSlotWidth, limbCount: ed25519BarrettWordCount)
+end 'ed25519ScalarSlots'
+
+function ed25519Comb() returns FixedBaseComb
+	return FixedBaseComb.create(curve25519Slots(), pointSlots: curve25519PointSlots, chunkCount: curve25519ScalarWordCount)
+end 'ed25519Comb'
+
+function curve25519OneLimbs() returns WorkspaceLimbs
+	return WorkspaceLimbs from [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+end 'curve25519OneLimbs'
+
+function curve25519TwiceP() returns WorkspaceLimbs
+	return WorkspaceLimbs from [134217690, 67108862, 134217726, 67108862, 134217726, 67108862, 134217726, 67108862, 134217726, 67108862]
+end 'curve25519TwiceP'
+
+function ed25519CurveD() returns WorkspaceLimbs
+	return WorkspaceLimbs from [56195235, 13857412, 51736253, 6949390, 114729, 24766616, 60832955, 30306712, 48412415, 21499315]
+end 'ed25519CurveD'
+
+function ed25519CurveTwiceD() returns WorkspaceLimbs
+	return WorkspaceLimbs from [45281625, 27714825, 36363642, 13898781, 229458, 15978800, 54557047, 27058993, 29715967, 9444199]
+end 'ed25519CurveTwiceD'
+
+function ed25519SqrtMinusOne() returns WorkspaceLimbs
+	return WorkspaceLimbs from [34513072, 25610706, 9377949, 3500415, 12389472, 33281959, 41962654, 31548777, 326685, 11406482]
+end 'ed25519SqrtMinusOne'
+
+function ed25519BaseX() returns WorkspaceLimbs
+	return WorkspaceLimbs from [52811034, 25909283, 16144682, 17082669, 27570973, 30858332, 40966398, 8378388, 20764389, 8758491]
+end 'ed25519BaseX'
+
+function ed25519BaseY() returns WorkspaceLimbs
+	return WorkspaceLimbs from [40265304, 26843545, 13421772, 20132659, 26843545, 6710886, 53687091, 13421772, 40265318, 26843545]
+end 'ed25519BaseY'
+
+function ed25519BaseT() returns WorkspaceLimbs
+	return WorkspaceLimbs from [28827043, 27438313, 39759291, 244362, 8635006, 11264893, 19351346, 13413597, 16611511, 27139452]
+end 'ed25519BaseT'
+
+function ed25519GroupOrder() returns WorkspaceLimbs
+	return WorkspaceLimbs from [0x5CF5D3ED, 0x5812631A, 0xA2F79CD6, 0x14DEF9DE, 0, 0, 0, 0x10000000]
+end 'ed25519GroupOrder'
+
+function ed25519BarrettFactor() returns WorkspaceLimbs
+	return WorkspaceLimbs from [0x0A2C131B, 0xED9CE5A3, 0x086329A7, 0x2106215D, 0xFFFFFFEB, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xF]
+end 'ed25519BarrettFactor'
+
+function curve25519Byte(bytes ByteArray, index ElementIndex) returns WorkspaceLimb
+	return (try bytes.get(index) otherwise panic("curve25519: byte index past the 32 bytes the caller checked")) as WorkspaceLimb
+end 'curve25519Byte'
+
+function curve25519ReadWord(bytes ByteArray, first ElementIndex) returns WorkspaceLimb
+	return (try __Builtins.readLittleEndian(bytes, first, curve25519ReadBytes) otherwise panic("curve25519: word index past the bytes the caller checked")) as WorkspaceLimb
+end 'curve25519ReadWord'
+
+function curve25519Parity(encoded ByteArray) returns WorkspaceLimb
+	return curve25519Byte(encoded, index: 0) and curve25519OneWord
+end 'curve25519Parity'
+
+function curve25519BitOf(bytes ByteArray, index Curve25519DigestBit) returns WorkspaceLimb
+	return (curve25519Byte(bytes, index: index shr curve25519ByteShift) shr (index and curve25519ByteBitMask)) and curve25519OneWord
+end 'curve25519BitOf'
+
+function curve25519Workspace(slots Count) returns WorkspaceLimbs
+	var ws = curve25519Slots().workspace(slots)
+	curve25519Slots().load(ws, slot: curve25519OneSlot, value: curve25519OneLimbs())
+	curve25519Slots().load(ws, slot: curve25519TwiceSlot, value: curve25519TwiceP())
+	curve25519Slots().load(ws, slot: curve25519CurveDSlot, value: ed25519CurveD())
+	curve25519Slots().load(ws, slot: curve25519TwiceDSlot, value: ed25519CurveTwiceD())
+	curve25519Slots().load(ws, slot: curve25519SqrtMinusOneSlot, value: ed25519SqrtMinusOne())
+	return ws
+end 'curve25519Workspace'
+
+function feLimbWidth(index Curve25519LimbIndex) returns Curve25519LimbWidth
+	return curve25519EvenLimbWidth - (index and curve25519OddLimbBit)
+end 'feLimbWidth'
+
+function feLimbMask(index Curve25519LimbIndex) returns WorkspaceLimb
+	return curve25519OddLimbMask if (index and curve25519OddLimbBit) == curve25519OddLimbBit else curve25519EvenLimbMask
+end 'feLimbMask'
+
+function feLimbOffset(index Curve25519LimbIndex) returns Curve25519LimbOffset
+	return try curve25519LimbStride * index + ((index + 1) shr 1) otherwise panic("out of range")
+end 'feLimbOffset'
+
+function feCarryPass(mutates ws WorkspaceLimbs, base ElementIndex) returns WorkspaceLimb
+	var carry = curve25519ZeroWord
+	for index in 0 upto curve25519LimbCount 'eachLimb'
+		let value = workspaceLimbAt(ws, index: try base + index otherwise panic("out of range")) + carry
+		carry = value shr feLimbWidth(index)
+		workspaceLimbPut(ws, index: try base + index otherwise panic("out of range"), value: value and feLimbMask(index))
+	end 'eachLimb'
+	return carry
+end 'feCarryPass'
+
+function feCarry(mutates ws WorkspaceLimbs, slot Count)
+	let base = curve25519Offset(slot)
+	let overflow = feCarryPass(ws, base: base)
+	let low = workspaceLimbAt(ws, index: base) + overflow * curve25519WrapFactor
+	workspaceLimbPut(ws, index: base, value: low and curve25519EvenLimbMask)
+	workspaceLimbPut(ws, index: try base + 1 otherwise panic("out of range"), value: workspaceLimbAt(ws, index: try base + 1 otherwise panic("out of range")) + (low shr curve25519EvenLimbWidth))
+end 'feCarry'
+
+function feAdd(mutates ws WorkspaceLimbs, dst Count, a Count, b Count)
+	let target = curve25519Offset(dst)
+	let left = curve25519Offset(a)
+	let right = curve25519Offset(b)
+	for index in 0 upto curve25519LimbCount 'eachLimb'
+		workspaceLimbPut(ws, index: try target + index otherwise panic("out of range"), value: workspaceLimbAt(ws, index: try left + index otherwise panic("out of range")) + workspaceLimbAt(ws, index: try right + index otherwise panic("out of range")))
+	end 'eachLimb'
+	feCarry(ws, slot: dst)
+end 'feAdd'
+
+function feSub(mutates ws WorkspaceLimbs, dst Count, a Count, b Count)
+	let target = curve25519Offset(dst)
+	let left = curve25519Offset(a)
+	let right = curve25519Offset(b)
+	let twice = curve25519Offset(curve25519TwiceSlot)
+	for index in 0 upto curve25519LimbCount 'eachLimb'
+		workspaceLimbPut(ws, index: try target + index otherwise panic("out of range"), value: workspaceLimbAt(ws, index: try left + index otherwise panic("out of range")) + workspaceLimbAt(ws, index: try twice + index otherwise panic("out of range")) - workspaceLimbAt(ws, index: try right + index otherwise panic("out of range")))
+	end 'eachLimb'
+	feCarry(ws, slot: dst)
+end 'feSub'
+
+function feMulSmall(mutates ws WorkspaceLimbs, dst Count, a Count, factor WorkspaceLimb)
+	let target = curve25519Offset(dst)
+	let source = curve25519Offset(a)
+	for index in 0 upto curve25519LimbCount 'eachLimb'
+		workspaceLimbPut(ws, index: try target + index otherwise panic("out of range"), value: workspaceLimbAt(ws, index: try source + index otherwise panic("out of range")) * factor)
+	end 'eachLimb'
+	feCarry(ws, slot: dst)
+end 'feMulSmall'
+
+function feMul(mutates ws WorkspaceLimbs, dst Count, a Count, b Count)
+	let wide = curve25519Offset(curve25519WideSlot)
+	let left = curve25519Offset(a)
+	let right = curve25519Offset(b)
+	for column in 0 upto curve25519ColumnCount 'eachColumn'
+		let first = column - curve25519TopColumn if column > curve25519TopColumn else 0
+		let last = column if column < curve25519TopColumn else curve25519TopColumn
+		var sum = curve25519ZeroWord
+		for index in first to last 'eachTerm'
+			let factor = try ((index and (column - index) and curve25519OddLimbBit) + 1) as WorkspaceLimb otherwise panic("out of range")
+			sum = sum + workspaceLimbAt(ws, index: try left + index otherwise panic("out of range")) * workspaceLimbAt(ws, index: try right + column - index otherwise panic("out of range")) * factor
+		end 'eachTerm'
+		workspaceLimbPut(ws, index: try wide + column otherwise panic("out of range"), value: sum)
+	end 'eachColumn'
+	let target = curve25519Offset(dst)
+	for index in 0 upto curve25519FoldedColumns 'eachFold'
+		workspaceLimbPut(ws, index: try target + index otherwise panic("out of range"), value: workspaceLimbAt(ws, index: try wide + index otherwise panic("out of range")) + workspaceLimbAt(ws, index: try wide + index + curve25519LimbCount otherwise panic("out of range")) * curve25519WrapFactor)
+	end 'eachFold'
+	workspaceLimbPut(ws, index: try target + curve25519FoldedColumns otherwise panic("out of range"), value: workspaceLimbAt(ws, index: try wide + curve25519FoldedColumns otherwise panic("out of range")))
+	feCarry(ws, slot: dst)
+end 'feMul'
+
+function feSquareTimes(mutates ws WorkspaceLimbs, dst Count, a Count, times Curve25519SquaringCount)
+	feMul(ws, dst: dst, a: a, b: a)
+	for _ in 1 upto times 'eachSquaring'
+		feMul(ws, dst: dst, a: dst, b: dst)
+	end 'eachSquaring'
+end 'feSquareTimes'
+
+function fePow2250Minus1(mutates ws WorkspaceLimbs, z Count)
+	let z2 = curve25519PowerSlot
+	let z9 = curve25519PowerSlot + 1
+	let z11 = curve25519PowerSlot + 2
+	let z2to5 = curve25519PowerSlot + 3
+	let z2to10 = curve25519PowerSlot + 4
+	let z2to20 = curve25519PowerSlot + 5
+	let z2to40 = curve25519PowerSlot + 6
+	let z2to50 = curve25519PowerSlot + 7
+	let z2to100 = curve25519PowerSlot + 8
+	let z2to200 = curve25519PowerSlot + 9
+	let z2to250 = curve25519PowerSlot + 10
+	feMul(ws, dst: z2, a: z, b: z)
+	feSquareTimes(ws, dst: z9, a: z2, times: 2)
+	feMul(ws, dst: z9, a: z9, b: z)
+	feMul(ws, dst: z11, a: z9, b: z2)
+	feMul(ws, dst: z2to5, a: z11, b: z11)
+	feMul(ws, dst: z2to5, a: z2to5, b: z9)
+	feSquareTimes(ws, dst: z2to10, a: z2to5, times: 5)
+	feMul(ws, dst: z2to10, a: z2to10, b: z2to5)
+	feSquareTimes(ws, dst: z2to20, a: z2to10, times: 10)
+	feMul(ws, dst: z2to20, a: z2to20, b: z2to10)
+	feSquareTimes(ws, dst: z2to40, a: z2to20, times: 20)
+	feMul(ws, dst: z2to40, a: z2to40, b: z2to20)
+	feSquareTimes(ws, dst: z2to50, a: z2to40, times: 10)
+	feMul(ws, dst: z2to50, a: z2to50, b: z2to10)
+	feSquareTimes(ws, dst: z2to100, a: z2to50, times: 50)
+	feMul(ws, dst: z2to100, a: z2to100, b: z2to50)
+	feSquareTimes(ws, dst: z2to200, a: z2to100, times: 100)
+	feMul(ws, dst: z2to200, a: z2to200, b: z2to100)
+	feSquareTimes(ws, dst: z2to250, a: z2to200, times: 50)
+	feMul(ws, dst: z2to250, a: z2to250, b: z2to50)
+end 'fePow2250Minus1'
+
+function feInvert(mutates ws WorkspaceLimbs, dst Count, z Count)
+	fePow2250Minus1(ws, z: z)
+	feSquareTimes(ws, dst: dst, a: curve25519PowerSlot + curve25519PowerTop, times: curve25519InversionTailSquarings)
+	feMul(ws, dst: dst, a: dst, b: curve25519PowerSlot + curve25519PowerEleven)
+end 'feInvert'
+
+function fePowPMinus5Over8(mutates ws WorkspaceLimbs, dst Count, z Count)
+	fePow2250Minus1(ws, z: z)
+	feSquareTimes(ws, dst: dst, a: curve25519PowerSlot + curve25519PowerTop, times: curve25519SquareRootTailSquarings)
+	feMul(ws, dst: dst, a: dst, b: z)
+end 'fePowPMinus5Over8'
+
+function feDecode(mutates ws WorkspaceLimbs, slot Count, bytes ByteArray)
+	let base = curve25519Offset(slot)
+	for index in 0 upto curve25519LimbCount 'eachLimb'
+		let offset = feLimbOffset(index)
+		let window = curve25519ReadWord(bytes, first: offset shr curve25519ByteShift)
+		workspaceLimbPut(ws, index: try base + index otherwise panic("out of range"), value: (window shr (offset and curve25519ByteBitMask)) and feLimbMask(index))
+	end 'eachLimb'
+end 'feDecode'
+
+function feEncode(mutates ws WorkspaceLimbs, slot Count) returns ByteArray
+	let probe = curve25519EncodeSlot
+	let reduced = curve25519EncodeSlot + 1
+	curve25519Slots().copy(ws, dst: probe, src: slot)
+	let probeBase = curve25519Offset(probe)
+	let reducedBase = curve25519Offset(reduced)
+	workspaceLimbPut(ws, index: probeBase, value: workspaceLimbAt(ws, index: probeBase) + curve25519WrapFactor)
+	let quotient = feCarryPass(ws, base: probeBase)
+	curve25519Slots().copy(ws, dst: reduced, src: slot)
+	workspaceLimbPut(ws, index: reducedBase, value: workspaceLimbAt(ws, index: reducedBase) + quotient * curve25519WrapFactor)
+	_ = feCarryPass(ws, base: reducedBase)
+	var bytes = ByteArray.create(curve25519KeyBytes, zeroed: false)
+	var pending = curve25519ZeroWord
+	var pendingBits = 0 as Curve25519PendingBits
+	for index in 0 upto curve25519LimbCount 'eachLimb'
+		pending = pending or (workspaceLimbAt(ws, index: try reducedBase + index otherwise panic("out of range")) shl pendingBits)
+		pendingBits = try pendingBits + (feLimbWidth(index) as Curve25519PendingBits) otherwise panic("out of range")
+		while pendingBits >= curve25519BitsPerByte 'eachByte'
+			bytes.push((pending and curve25519ByteMask) as Byte)
+			pending = pending shr curve25519BitsPerByte
+			pendingBits = pendingBits - curve25519BitsPerByte
+		end 'eachByte'
+	end 'eachLimb'
+	bytes.push(try pending as Byte otherwise panic("out of range"))
+	return bytes
+end 'feEncode'
+
+function feEqual(mutates ws WorkspaceLimbs, a Count, b Count) returns bool
+	return feEncode(ws, slot: a).equals(feEncode(ws, slot: b))
+end 'feEqual'
+
+function feSwap(mutates ws WorkspaceLimbs, a Count, b Count, mask WorkspaceLimb)
+	let left = curve25519Offset(a)
+	let right = curve25519Offset(b)
+	for index in 0 upto curve25519LimbCount 'eachLimb'
+		let first = workspaceLimbAt(ws, index: try left + index otherwise panic("out of range"))
+		let second = workspaceLimbAt(ws, index: try right + index otherwise panic("out of range"))
+		workspaceLimbPut(ws, index: try left + index otherwise panic("out of range"), value: selectByMask(first, replacement: second, mask: mask))
+		workspaceLimbPut(ws, index: try right + index otherwise panic("out of range"), value: selectByMask(second, replacement: first, mask: mask))
+	end 'eachLimb'
+end 'feSwap'
+
+function x25519LadderStep(mutates ws WorkspaceLimbs)
+	let a = x25519ScratchSlot
+	let aa = x25519ScratchSlot + 1
+	let b = x25519ScratchSlot + 2
+	let bb = x25519ScratchSlot + 3
+	let e = x25519ScratchSlot + 4
+	let c = x25519ScratchSlot + 5
+	let d = x25519ScratchSlot + 6
+	let da = x25519ScratchSlot + 7
+	let cb = x25519ScratchSlot + 8
+	let sum = x25519ScratchSlot + 9
+	let difference = x25519ScratchSlot + 10
+	let product = x25519ScratchSlot + 11
+	feAdd(ws, dst: a, a: x25519X2Slot, b: x25519Z2Slot)
+	feMul(ws, dst: aa, a: a, b: a)
+	feSub(ws, dst: b, a: x25519X2Slot, b: x25519Z2Slot)
+	feMul(ws, dst: bb, a: b, b: b)
+	feSub(ws, dst: e, a: aa, b: bb)
+	feAdd(ws, dst: c, a: x25519X3Slot, b: x25519Z3Slot)
+	feSub(ws, dst: d, a: x25519X3Slot, b: x25519Z3Slot)
+	feMul(ws, dst: da, a: d, b: a)
+	feMul(ws, dst: cb, a: c, b: b)
+	feAdd(ws, dst: sum, a: da, b: cb)
+	feSub(ws, dst: difference, a: da, b: cb)
+	feMul(ws, dst: x25519X3Slot, a: sum, b: sum)
+	feMul(ws, dst: product, a: difference, b: difference)
+	feMul(ws, dst: x25519Z3Slot, a: x25519X1Slot, b: product)
+	feMul(ws, dst: x25519X2Slot, a: aa, b: bb)
+	feMulSmall(ws, dst: product, a: e, factor: x25519A24)
+	feAdd(ws, dst: product, a: aa, b: product)
+	feMul(ws, dst: x25519Z2Slot, a: e, b: product)
+end 'x25519LadderStep'
+
+function curve25519ClampedScalar(privateKey ByteArray) returns ByteArray
+	var scalar = privateKey.clone()
+	let low = try scalar.get(0) otherwise panic("curve25519: private key length checked")
+	let high = try scalar.get(curve25519LastByte) otherwise panic("curve25519: private key length checked")
+	try scalar.set(0, value: low and x25519ClampLowMask) otherwise panic("curve25519: private key length checked")
+	try scalar.set(curve25519LastByte, value: (high and x25519ClampHighMask) or x25519ClampHighBit) otherwise panic("curve25519: private key length checked")
+	return scalar
+end 'curve25519ClampedScalar'
+
+function x25519Multiply(privateKey ByteArray, uCoordinate ByteArray) returns ByteArray
+	let scalar = curve25519ClampedScalar(privateKey)
+	var ws = curve25519Workspace(x25519Slots)
+	feDecode(ws, slot: x25519X1Slot, bytes: uCoordinate)
+	feDecode(ws, slot: x25519X3Slot, bytes: uCoordinate)
+	curve25519Slots().copy(ws, dst: x25519X2Slot, src: curve25519OneSlot)
+	curve25519Slots().copy(ws, dst: x25519Z3Slot, src: curve25519OneSlot)
+	var swap = curve25519ZeroWord
+	for step in 0 upto x25519LadderSteps 'eachBit'
+		let bit = curve25519BitOf(scalar, index: x25519TopLadderBit - step)
+		let mask = (swap xor bit) * curve25519AllOnes
+		feSwap(ws, a: x25519X2Slot, b: x25519X3Slot, mask: mask)
+		feSwap(ws, a: x25519Z2Slot, b: x25519Z3Slot, mask: mask)
+		swap = bit
+		x25519LadderStep(ws)
+	end 'eachBit'
+	let mask = swap * curve25519AllOnes
+	feSwap(ws, a: x25519X2Slot, b: x25519X3Slot, mask: mask)
+	feSwap(ws, a: x25519Z2Slot, b: x25519Z3Slot, mask: mask)
+	feInvert(ws, dst: x25519ScratchSlot, z: x25519Z2Slot)
+	feMul(ws, dst: x25519ScratchSlot, a: x25519X2Slot, b: x25519ScratchSlot)
+	return feEncode(ws, slot: x25519ScratchSlot)
+end 'x25519Multiply'
+
+function x25519BasePoint() returns ByteArray
+	var point = ByteArray.create(0)
+	point.growFilled(curve25519KeyBytes, value: curve25519ZeroByte)
+	try point.set(0, value: x25519BasePointU) otherwise panic("x25519: base point has 32 bytes")
+	return point
+end 'x25519BasePoint'
+
+/// X25519 Diffie-Hellman key agreement (RFC 7748).
+public type X25519
+	/// The 32-byte public key of a 32-byte `privateKey`.
+	public static function publicKey(privateKey ByteArray) returns ByteArray throws X25519Error
+		if privateKey.count() != curve25519KeyBytes 'keyLength'
+			throw X25519Error.invalidLength
+		end 'keyLength'
+		return x25519Multiply(privateKey, uCoordinate: x25519BasePoint())
+	end 'publicKey'
+
+	/// The 32-byte secret shared by `privateKey` and the peer whose public key is `peerPublicKey`.
+	public static function sharedSecret(privateKey ByteArray, peerPublicKey ByteArray) returns ByteArray throws X25519Error
+		if privateKey.count() != curve25519KeyBytes or peerPublicKey.count() != curve25519KeyBytes 'keyLength'
+			throw X25519Error.invalidLength
+		end 'keyLength'
+		let secret = x25519Multiply(privateKey, uCoordinate: peerPublicKey)
+		var combined = curve25519ZeroByte
+		for byte in secret 'eachByte'
+			combined = combined or byte
+		end 'eachByte'
+		if combined == curve25519ZeroByte 'lowOrder'
+			throw X25519Error.allZeroSharedSecret
+		end 'lowOrder'
+		return secret
+	end 'sharedSecret'
+end 'X25519'
+
+function ed25519ScalarWorkspace() returns WorkspaceLimbs
+	var ws = ed25519ScalarSlots().workspace(ed25519ScalarSlotCount)
+	ed25519ScalarSlots().load(ws, slot: ed25519OrderSlot, value: ed25519GroupOrder())
+	ed25519ScalarSlots().load(ws, slot: ed25519BarrettSlot, value: ed25519BarrettFactor())
+	return ws
+end 'ed25519ScalarWorkspace'
+
+function scalarLoadBytes(mutates ws WorkspaceLimbs, slot Count, bytes ByteArray, first ElementIndex, wordCount Count)
+	let base = ed25519ScalarOffset(slot)
+	for index in 0 upto wordCount 'eachWord'
+		workspaceLimbPut(ws, index: try base + index otherwise panic("out of range"), value: curve25519ReadWord(bytes, first: try first + index * curve25519ReadBytes otherwise panic("out of range")))
+	end 'eachWord'
+	for index in wordCount upto ed25519ScalarSlotWidth 'eachClear'
+		workspaceLimbPut(ws, index: try base + index otherwise panic("out of range"), value: curve25519ZeroWord)
+	end 'eachClear'
+end 'scalarLoadBytes'
+
+export function scalarBytes(ws WorkspaceLimbs, slot Count) returns ByteArray
+	let base = ed25519ScalarOffset(slot)
+	var bytes = ByteArray.create(curve25519KeyBytes, zeroed: false)
+	for index in 0 upto curve25519ScalarWordCount 'eachWord'
+		__Builtins.appendLittleEndian(bytes, workspaceLimbAt(ws, index: try base + index otherwise panic("out of range")) as OrderedWord, curve25519ReadBytes)
+	end 'eachWord'
+	return bytes
+end 'scalarBytes'
+
+function scalarBelowOrder(mutates ws WorkspaceLimbs, slot Count) returns bool
+	let borrow = limbBorrowChainSharingAB(ws, dstBase: ed25519ScalarOffset(ed25519ScratchSlot), aBase: ed25519ScalarOffset(slot), bBase: ed25519ScalarOffset(ed25519OrderSlot), count: curve25519ScalarWordCount)
+	return borrow == curve25519OneWord
+end 'scalarBelowOrder'
+
+function scalarBit(ws WorkspaceLimbs, slot Count, index Curve25519ScalarBit) returns WorkspaceLimb
+	let word = workspaceLimbAt(ws, index: try ed25519ScalarOffset(slot) + ((index shr curve25519ScalarWordShift) as ElementIndex) otherwise panic("out of range"))
+	return (word shr (index and curve25519ScalarWordBitMask)) and curve25519OneWord
+end 'scalarBit'
+
+// Barrett reduction mod L. With 2^512 mod L ≈ 0.2249·L the quotient estimate is short by at most one
+// L, so the remainder is below 2L and one subtraction completes it. That subtraction is a masked
+// select: `Ed25519.sign` reduces its nonce here, and a branch would leak it through timing.
+function scalarReduceWide(mutates ws WorkspaceLimbs)
+	let wide = ed25519ScalarOffset(ed25519WideSlot)
+	let product = ed25519ScalarOffset(ed25519ProductSlot)
+	let remainder = ed25519ScalarOffset(ed25519RemainderSlot)
+	let scratch = ed25519ScalarOffset(ed25519ScratchSlot)
+	limbMultiplyInto(ws, dstBase: product, a: ws.clone(), aBase: try wide + curve25519ScalarWordCount - 1 otherwise panic("out of range"), aCount: ed25519BarrettWordCount, b: ws.clone(), bBase: ed25519ScalarOffset(ed25519BarrettSlot), bCount: ed25519BarrettWordCount)
+	limbMultiplyInto(ws, dstBase: scratch, a: ws.clone(), aBase: try product + ed25519BarrettWordCount otherwise panic("out of range"), aCount: ed25519BarrettWordCount, b: ws.clone(), bBase: ed25519ScalarOffset(ed25519OrderSlot), bCount: curve25519ScalarWordCount)
+	_ = limbBorrowChainSharingAB(ws, dstBase: remainder, aBase: wide, bBase: scratch, count: ed25519BarrettWordCount)
+	let borrow = limbBorrowChainSharingAB(ws, dstBase: scratch, aBase: remainder, bBase: ed25519ScalarOffset(ed25519OrderSlot), count: ed25519BarrettWordCount)
+	ed25519ScalarSlots().select(ws, dst: ed25519RemainderSlot, kept: ed25519RemainderSlot, replacement: ed25519ScratchSlot, mask: (borrow xor curve25519OneWord) * curve25519AllOnes)
+end 'scalarReduceWide'
+
+function scalarReduceDigest(mutates ws WorkspaceLimbs, digest ByteArray) returns ByteArray
+	scalarLoadBytes(ws, slot: ed25519WideSlot, bytes: digest, first: 0, wordCount: curve25519WideScalarWordCount)
+	scalarReduceWide(ws)
+	return scalarBytes(ws, slot: ed25519RemainderSlot)
+end 'scalarReduceDigest'
+
+function scalarProductSum(mutates ws WorkspaceLimbs, multiplier Count, multiplicand Count, addend Count)
+	let wide = ed25519ScalarOffset(ed25519WideSlot)
+	limbMultiplyInto(ws, dstBase: wide, a: ws.clone(), aBase: ed25519ScalarOffset(multiplier), aCount: curve25519ScalarWordCount, b: ws.clone(), bBase: ed25519ScalarOffset(multiplicand), bCount: curve25519ScalarWordCount)
+	_ = limbCarryChainSharingAB(ws, dstBase: wide, aBase: wide, bBase: ed25519ScalarOffset(addend), bMask: curve25519AllOnes, count: curve25519WideScalarWordCount)
+	scalarReduceWide(ws)
+end 'scalarProductSum'
+
+function edwardsIdentity(mutates ws WorkspaceLimbs, point Count)
+	curve25519Slots().copy(ws, dst: point, src: curve25519ZeroSlot)
+	curve25519Slots().copy(ws, dst: try point + 1 otherwise panic("out of range"), src: curve25519OneSlot)
+	curve25519Slots().copy(ws, dst: try point + 2 otherwise panic("out of range"), src: curve25519OneSlot)
+	curve25519Slots().copy(ws, dst: try point + 3 otherwise panic("out of range"), src: curve25519ZeroSlot)
+end 'edwardsIdentity'
+
+function edwardsBase(mutates ws WorkspaceLimbs, point Count)
+	curve25519Slots().load(ws, slot: point, value: ed25519BaseX())
+	curve25519Slots().load(ws, slot: try point + 1 otherwise panic("out of range"), value: ed25519BaseY())
+	curve25519Slots().copy(ws, dst: try point + 2 otherwise panic("out of range"), src: curve25519OneSlot)
+	curve25519Slots().load(ws, slot: try point + 3 otherwise panic("out of range"), value: ed25519BaseT())
+end 'edwardsBase'
+
+function edwardsAdd(mutates ws WorkspaceLimbs, result Count, p Count, q Count)
+	let left = curve25519AddScratchSlot
+	let right = curve25519AddScratchSlot + 1
+	let a = curve25519AddScratchSlot + 2
+	let b = curve25519AddScratchSlot + 3
+	let c = curve25519AddScratchSlot + 4
+	let d = curve25519AddScratchSlot + 5
+	let e = curve25519AddScratchSlot + 6
+	let f = curve25519AddScratchSlot + 7
+	let g = curve25519AddScratchSlot + 8
+	let h = curve25519AddScratchSlot + 9
+	feSub(ws, dst: left, a: try p + 1 otherwise panic("out of range"), b: p)
+	feSub(ws, dst: right, a: try q + 1 otherwise panic("out of range"), b: q)
+	feMul(ws, dst: a, a: left, b: right)
+	feAdd(ws, dst: left, a: try p + 1 otherwise panic("out of range"), b: p)
+	feAdd(ws, dst: right, a: try q + 1 otherwise panic("out of range"), b: q)
+	feMul(ws, dst: b, a: left, b: right)
+	feMul(ws, dst: left, a: try p + 3 otherwise panic("out of range"), b: curve25519TwiceDSlot)
+	feMul(ws, dst: c, a: left, b: try q + 3 otherwise panic("out of range"))
+	feMul(ws, dst: left, a: try p + 2 otherwise panic("out of range"), b: try q + 2 otherwise panic("out of range"))
+	feMulSmall(ws, dst: d, a: left, factor: curve25519Doubling)
+	feSub(ws, dst: e, a: b, b: a)
+	feSub(ws, dst: f, a: d, b: c)
+	feAdd(ws, dst: g, a: d, b: c)
+	feAdd(ws, dst: h, a: b, b: a)
+	feMul(ws, dst: result, a: e, b: f)
+	feMul(ws, dst: try result + 1 otherwise panic("out of range"), a: g, b: h)
+	feMul(ws, dst: try result + 2 otherwise panic("out of range"), a: f, b: g)
+	feMul(ws, dst: try result + 3 otherwise panic("out of range"), a: e, b: h)
+end 'edwardsAdd'
+
+function edwardsNegate(mutates ws WorkspaceLimbs, point Count)
+	feSub(ws, dst: point, a: curve25519ZeroSlot, b: point)
+	feSub(ws, dst: try point + 3 otherwise panic("out of range"), a: curve25519ZeroSlot, b: try point + 3 otherwise panic("out of range"))
+end 'edwardsNegate'
+
+function edwardsEncode(mutates ws WorkspaceLimbs, point Count) returns ByteArray
+	let inverse = curve25519DecodeSlot
+	let affineX = curve25519DecodeSlot + 1
+	let affineY = curve25519DecodeSlot + 2
+	feInvert(ws, dst: inverse, z: try point + 2 otherwise panic("out of range"))
+	feMul(ws, dst: affineY, a: try point + 1 otherwise panic("out of range"), b: inverse)
+	feMul(ws, dst: affineX, a: point, b: inverse)
+	var encoded = feEncode(ws, slot: affineY)
+	let parity = curve25519Parity(feEncode(ws, slot: affineX))
+	let last = try encoded.get(curve25519LastByte) otherwise panic("ed25519: encoding has 32 bytes")
+	try encoded.set(curve25519LastByte, value: last or ((parity shl curve25519SignShift) as Byte)) otherwise panic("ed25519: encoding has 32 bytes")
+	return encoded
+end 'edwardsEncode'
+
+function edwardsDecode(mutates ws WorkspaceLimbs, point Count, encoded ByteArray) throws EdwardsDecodingError
+	feDecode(ws, slot: try point + 1 otherwise panic("out of range"), bytes: encoded)
+	let canonical = feEncode(ws, slot: try point + 1 otherwise panic("out of range"))
+	for (iter, byte) in encoded.enumerated() 'eachByte'
+		let expected = try canonical.get(iter) otherwise panic("ed25519: encoding has 32 bytes")
+		let given = byte and curve25519SignMask if iter == curve25519LastByte else byte
+		if given != expected 'mismatch'
+			throw EdwardsDecodingError.nonCanonical
+		end 'mismatch'
+	end 'eachByte'
+	let sign = curve25519Byte(encoded, index: curve25519LastByte) shr curve25519SignShift
+	let yy = curve25519DecodeSlot
+	let u = curve25519DecodeSlot + 1
+	let v = curve25519DecodeSlot + 2
+	let v3 = curve25519DecodeSlot + 3
+	let v7 = curve25519DecodeSlot + 4
+	let power = curve25519DecodeSlot + 5
+	let vxx = curve25519DecodeSlot + 6
+	let negated = curve25519DecodeSlot + 7
+	feMul(ws, dst: yy, a: try point + 1 otherwise panic("out of range"), b: try point + 1 otherwise panic("out of range"))
+	feSub(ws, dst: u, a: yy, b: curve25519OneSlot)
+	feMul(ws, dst: v, a: yy, b: curve25519CurveDSlot)
+	feAdd(ws, dst: v, a: v, b: curve25519OneSlot)
+	feMul(ws, dst: v3, a: v, b: v)
+	feMul(ws, dst: v3, a: v3, b: v)
+	feMul(ws, dst: v7, a: v3, b: v3)
+	feMul(ws, dst: v7, a: v7, b: v)
+	feMul(ws, dst: v7, a: u, b: v7)
+	fePowPMinus5Over8(ws, dst: power, z: v7)
+	feMul(ws, dst: point, a: u, b: v3)
+	feMul(ws, dst: point, a: point, b: power)
+	feMul(ws, dst: vxx, a: point, b: point)
+	feMul(ws, dst: vxx, a: v, b: vxx)
+	feSub(ws, dst: negated, a: curve25519ZeroSlot, b: u)
+	if feEqual(ws, a: vxx, b: negated) 'negated'
+		feMul(ws, dst: point, a: point, b: curve25519SqrtMinusOneSlot)
+	end 'negated' else if not feEqual(ws, a: vxx, b: u) 'noRoot'
+		throw EdwardsDecodingError.notOnCurve
+	end 'noRoot'
+	let xBytes = feEncode(ws, slot: point)
+	let parity = curve25519Parity(xBytes)
+	if sign == curve25519OneWord and xBytes.equals(feEncode(ws, slot: curve25519ZeroSlot)) 'zeroWithSign'
+		throw EdwardsDecodingError.negativeZero
+	end 'zeroWithSign'
+	if parity != sign 'flip'
+		feSub(ws, dst: point, a: curve25519ZeroSlot, b: point)
+	end 'flip'
+	feMul(ws, dst: try point + 3 otherwise panic("out of range"), a: point, b: try point + 1 otherwise panic("out of range"))
+	curve25519Slots().copy(ws, dst: try point + 2 otherwise panic("out of range"), src: curve25519OneSlot)
+end 'edwardsDecode'
+
+type Ed25519Points implements CombPoints
+	export static function create() returns Ed25519Points
+		return Self{}
+	end 'create'
+
+	export function addPoints(mutates ws WorkspaceLimbs, result Count, p Count, q Count)
+		edwardsAdd(ws, result: result, p: p, q: q)
+	end 'addPoints'
+
+	export function doublePoint(mutates ws WorkspaceLimbs, result Count, p Count)
+		edwardsAdd(ws, result: result, p: p, q: p)
+	end 'doublePoint'
+
+	export function loadIdentity(mutates ws WorkspaceLimbs, slot Count)
+		edwardsIdentity(ws, point: slot)
+	end 'loadIdentity'
+end 'Ed25519Points'
+
+function ed25519FixedBaseWorkspace(termCount Count) returns WorkspaceLimbs
+	return curve25519Workspace(try ed25519TableSlot + termCount * ed25519Comb().tableSlots() otherwise panic("out of range"))
+end 'ed25519FixedBaseWorkspace'
+
+function ed25519BuildBaseTable() returns WorkspaceLimbs
+	var ws = ed25519FixedBaseWorkspace(1)
+	edwardsBase(ws, point: curve25519BaseSlot)
+	return ed25519Comb().buildChunkTables(ws, points: Ed25519Points.create(), scratch: ed25519TableSlot, base: curve25519BaseSlot)
+end 'ed25519BuildBaseTable'
+
+function ed25519ScalarLimbs(scalar ByteArray) returns WorkspaceLimbs
+	var limbs = WorkspaceLimbs.create(0)
+	for index in 0 upto curve25519ScalarWordCount 'eachWord'
+		limbs.push(curve25519ReadWord(scalar, first: index * curve25519ReadBytes))
+	end 'eachWord'
+	return limbs
+end 'ed25519ScalarLimbs'
+
+function ed25519EncodedBaseMultiple(scalar ByteArray) returns ByteArray
+	var ws = ed25519FixedBaseWorkspace(ed25519Comb().chunkCount)
+	ed25519Comb().loadChunkTables(ws, firstSlot: ed25519TableSlot, packed: combTable(CombCurve.ed25519))
+	ed25519Comb().multiply(ws, points: Ed25519Points.create(), table: ed25519TableSlot, scalars: ed25519Comb().chunks(ed25519ScalarLimbs(scalar)), looked: ed25519LookedSlot, result: curve25519SumSlot)
+	return edwardsEncode(ws, point: curve25519SumSlot)
+end 'ed25519EncodedBaseMultiple'
+
+function ed25519Expand(privateKey ByteArray) returns (ByteArray, ByteArray) throws Ed25519Error
+	if privateKey.count() != curve25519KeyBytes 'keyLength'
+		throw Ed25519Error.invalidLength
+	end 'keyLength'
+	let expanded = sha2.sha512(privateKey)
+	let scalar = try expanded.slice(0, endIndex: curve25519KeyBytes) otherwise panic("ed25519: a SHA-512 digest has 64 bytes")
+	let prefix = try expanded.slice(curve25519KeyBytes, endIndex: ed25519ExpandedSeedBytes) otherwise panic("ed25519: a SHA-512 digest has 64 bytes")
+	return (curve25519ClampedScalar(scalar), prefix)
+end 'ed25519Expand'
+
+/// Ed25519 key derivation, signing and signature verification (RFC 8032).
+public type Ed25519
+	/// Whether `signature` is a valid Ed25519 signature of `message` under `publicKey`.
+	public static function verify(publicKey ByteArray, message ByteArray, signature ByteArray) returns bool throws Ed25519Error
+		if publicKey.count() != curve25519KeyBytes or signature.count() != ed25519SignatureBytes 'lengths'
+			throw Ed25519Error.invalidLength
+		end 'lengths'
+		var ws = curve25519Workspace(curve25519EdwardsSlots)
+		try edwardsDecode(ws, point: curve25519NegatedSlot, encoded: publicKey) otherwise return false
+		var scalars = ed25519ScalarWorkspace()
+		scalarLoadBytes(scalars, slot: ed25519SignatureSlot, bytes: signature, first: ed25519SignatureScalarStart, wordCount: curve25519ScalarWordCount)
+		if not scalarBelowOrder(scalars, slot: ed25519SignatureSlot) 'nonCanonicalS'
+			return false
+		end 'nonCanonicalS'
+		let rBytes = try signature.slice(0, endIndex: ed25519SignatureScalarStart) otherwise panic("ed25519: signature length checked")
+		var hashed = rBytes.clone()
+		hashed.append(publicKey)
+		hashed.append(message)
+		_ = scalarReduceDigest(scalars, digest: sha2.sha512(hashed))
+		edwardsNegate(ws, point: curve25519NegatedSlot)
+		edwardsBase(ws, point: curve25519BaseSlot)
+		edwardsIdentity(ws, point: curve25519SumSlot)
+		for step in 0 upto ed25519ScalarBits 'eachBit'
+			let index = ed25519TopScalarBit - step
+			edwardsAdd(ws, result: curve25519SumSlot, p: curve25519SumSlot, q: curve25519SumSlot)
+			if scalarBit(scalars, slot: ed25519SignatureSlot, index: index) == curve25519OneWord 'baseBit'
+				edwardsAdd(ws, result: curve25519SumSlot, p: curve25519SumSlot, q: curve25519BaseSlot)
+			end 'baseBit'
+			if scalarBit(scalars, slot: ed25519RemainderSlot, index: index) == curve25519OneWord 'keyBit'
+				edwardsAdd(ws, result: curve25519SumSlot, p: curve25519SumSlot, q: curve25519NegatedSlot)
+			end 'keyBit'
+		end 'eachBit'
+		return edwardsEncode(ws, point: curve25519SumSlot).equals(rBytes)
+	end 'verify'
+
+	/// The 32-byte public key of a 32-byte private key.
+	public static function publicKey(privateKey ByteArray) returns ByteArray throws Ed25519Error
+		let (scalar, _) = try ed25519Expand(privateKey)
+		return ed25519EncodedBaseMultiple(scalar)
+	end 'publicKey'
+
+	/// The 64-byte signature `R ‖ S` of `message` under a 32-byte private key, in time independent
+	/// of the key.
+	public static function sign(privateKey ByteArray, message ByteArray) returns ByteArray throws Ed25519Error
+		let (scalar, prefix) = try ed25519Expand(privateKey)
+		let publicKey = ed25519EncodedBaseMultiple(scalar)
+		var nonceInput = prefix.clone()
+		nonceInput.append(message)
+		var scalars = ed25519ScalarWorkspace()
+		let nonce = scalarReduceDigest(scalars, digest: sha2.sha512(nonceInput))
+		var signature = ed25519EncodedBaseMultiple(nonce)
+		var challengeInput = signature.clone()
+		challengeInput.append(publicKey)
+		challengeInput.append(message)
+		let challenge = scalarReduceDigest(scalars, digest: sha2.sha512(challengeInput))
+		scalarLoadBytes(scalars, slot: ed25519MultiplierSlot, bytes: challenge, first: 0, wordCount: curve25519ScalarWordCount)
+		scalarLoadBytes(scalars, slot: ed25519MultiplicandSlot, bytes: scalar, first: 0, wordCount: curve25519ScalarWordCount)
+		scalarLoadBytes(scalars, slot: ed25519AddendSlot, bytes: nonce, first: 0, wordCount: curve25519ScalarWordCount)
+		scalarProductSum(scalars, multiplier: ed25519MultiplierSlot, multiplicand: ed25519MultiplicandSlot, addend: ed25519AddendSlot)
+		signature.append(scalarBytes(scalars, slot: ed25519RemainderSlot))
+		return signature
+	end 'sign'
+end 'Ed25519'

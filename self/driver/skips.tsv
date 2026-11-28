@@ -895,3 +895,6 @@ native	builtins-clock.md	builtins-clock.thread-cpu-ticks-advances-under-work	its
 native	hkdf.md	hkdf.derive	its interpreted run takes 2.0 s, beyond the 2 s the gate may spend on one test
 native	aes-hardware.md	aes-hardware.xor-key-stream-matches-the-bitsliced-cipher	its interpreted run takes over 10 s (it is stopped at the run deadline), over the 2 s the gate may spend on one test
 native	aes-hardware.md	aes-hardware.gcm-large-messages-match-the-software-backing	its interpreted run takes over 10 s (it is stopped at the run deadline), over the 2 s the gate may spend on one test
+native	x25519.md	*	every test multiplies curve points in field arithmetic of 64-bit limbs, which the interpreter runs in 5 to 15 seconds a test where the executable takes under a tenth of a second
+native	ed25519.md	*	the tests sign and verify with Edwards-curve point arithmetic, which the interpreter runs in 3 to 15 seconds a test where the executable takes about a tenth of a second
+native	ecdsa.md	*	the tests sign and verify over P-256 and P-384 in Montgomery limb arithmetic, which the interpreter runs in 6 to 16 seconds a test where the executable takes at most two tenths of a second

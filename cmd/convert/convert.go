@@ -96,6 +96,8 @@ func convertProgram(file, src string, kind inputKind, names programNames) Result
 		rewriteBuiltinParamTypes(lines)
 		dropBuiltinDeclarations(lines)
 		dropHardwareRegions(lines)
+		rewriteRegistryCaches(lines)
+		dropRegistryCaches(lines)
 		rewriteBuiltinExtensions(lines)
 		dropPrimitiveToStrings(lines)
 		if libraryRoot(file) != "" && !isLibraryHelper(file) {
@@ -105,6 +107,7 @@ func convertProgram(file, src string, kind inputKind, names programNames) Result
 		lendRequirements(lines)
 		dropReplacedMembers(lines)
 		dropSelfClones(lines)
+		lines = rewriteSharedArguments(lines)
 		if root := libraryRoot(file); root != "" {
 			exportDeclarationsNamedElsewhere(lines, namedByOtherModules(root, file))
 		}

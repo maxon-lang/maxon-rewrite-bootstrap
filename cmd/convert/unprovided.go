@@ -35,6 +35,12 @@ func dropUnprovidedMembers(lines []sourceLine) {
 		dropMember(lines, i, end, owner, named, droppedMembers)
 		i = end
 	}
+	dropReachedOnlyByDropped(lines, named, droppedMembers, false)
+}
+
+// dropReachedOnlyByDropped leaves out, to a fixpoint, each method that calls a member of droppedMembers and each declaration
+// whose name only dropped lines (named) wrote; with keepPublic, a public or export declaration stays, for the library's other files.
+func dropReachedOnlyByDropped(lines []sourceLine, named, droppedMembers map[string]bool, keepPublic bool) {
 	for dropped := true; dropped; {
 		dropped = false
 		inInterface := false
@@ -58,7 +64,7 @@ func dropUnprovidedMembers(lines []sourceLine) {
 				continue
 			}
 			first, end, name := reachedOnlyByDropped(lines, i, named)
-			if name == "" {
+			if name == "" || keepPublic && (hasModifier(l.code[:skipModifiers(l.code)], "public") || hasModifier(l.code[:skipModifiers(l.code)], "export")) {
 				continue
 			}
 			dropLines(lines, first, end, named)

@@ -69,7 +69,8 @@ func readStdlibListing() ([]stdlibEntry, error) {
 // regenerateStdlib writes stdlib/ again from maxon's standard library: cmd/convert converts each file that stdlib/files.txt
 // names into its module, then the compiler's fix command applies the fixes of what minimaxon's language differences raise
 // in it, as for the spec tests (a `let` that is changed becomes a `var`, a name of another library module is qualified).
-// The files are never edited here, and a file of stdlib/ that no line names is minimaxon's own, which the run leaves alone.
+// The files are never edited here, and a file of stdlib/ that no line names is minimaxon's own, which the run leaves alone,
+// but for the curves' tables, which the run computes with the converted library (combtables.go).
 // The compiler is bin/minimaxon, built first when it is not of the sources as they are (currentCompiler).
 func regenerateStdlib(h host, maxonStdlib string) error {
 	compiler, err := currentCompiler(h)
@@ -120,7 +121,13 @@ func convertStdlib(compiler, maxonStdlib string, say func(env []string, name str
 			}
 		}
 	}
-	return say(env, compiler, "fix", "stdlib")
+	if err := writeCombTablesStub(); err != nil {
+		return err
+	}
+	if err := say(env, compiler, "fix", "stdlib"); err != nil {
+		return err
+	}
+	return generateCombTables(compiler)
 }
 
 // place copies the converted file from to the path to under stdlib/.

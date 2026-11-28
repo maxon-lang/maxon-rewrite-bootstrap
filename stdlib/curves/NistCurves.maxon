@@ -1,0 +1,882 @@
+/// NIST P-256 and P-384 elliptic curves: ECDH key agreement, ECDSA verification and deterministic ECDSA signing.
+/// @category Crypto
+export typealias NistAffinePoint = (WorkspaceLimbs, WorkspaceLimbs)
+
+export typealias NistScalarBytes = int(32 to 48) implements Count
+
+typealias NistSpan = (ElementIndex, ElementIndex)
+
+let nistLimbBits = 32
+
+let nistLimbBytes = 4
+
+let nistBitsPerByte = 8
+
+let nistInverseRefinements = 4
+
+let nistSlotWidth = 14
+
+let nistCoordinates = 3
+
+let nistProductSlot = 0
+
+let nistRemainderSlot = 1
+
+let nistOneSlot = 2
+
+let nistSquaredSlot = 3
+
+let nistUnitSlot = 4
+
+let nistDoubledSlot = 5
+
+let nistCurveBSlot = 6
+
+let nistFirstFreeSlot = 7
+
+let nistPointASlot = 7
+
+let nistPointBSlot = 10
+
+let nistPointCSlot = 13
+
+let nistLookedSlot = 16
+
+let nistTemporarySlot = 19
+
+let nistTemporarySlots = 32
+
+let nistTableSlot = nistTemporarySlot + nistTemporarySlots
+
+let nistFieldSlots = 16
+
+let nistLimbMask = 0xFFFFFFFF as WorkspaceLimb
+
+let nistAllOnes = u64.max as WorkspaceLimb
+
+let nistZero = 0 as WorkspaceLimb
+
+let nistOne = 1 as WorkspaceLimb
+
+let nistTwo = 2
+
+let nistUncompressedTag = 0x04 as Byte
+
+let nistDerSequenceTag = 0x30
+
+let nistDerIntegerTag = 0x02
+
+let nistDerLongForm = 0x80
+
+let nistDerSignBit = 0x80
+
+let nistDerLengthBytesLimit = 4
+
+let nistPointTagBytes = 1
+
+let nistPointCoordinates = 2
+
+let p256ScalarBytes = 32
+
+let p384ScalarBytes = 48
+
+let nistByteRadix = 256
+
+let nistZeroByte = 0 as Byte
+
+let nistNonceOneByte = 0x01 as Byte
+
+let nistHexLetterStart = 0x61
+
+let nistHexLetterBase = 0x57
+
+let nistHexDigitBase = 0x30
+
+let nistHexDigitsPerByte = 2
+
+let nistHexDigitBits = 4
+
+let p256PrimeHex = "ffffffff00000001000000000000000000000000ffffffffffffffffffffffff"
+
+let p256OrderHex = "ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"
+
+let p256BHex = "5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b"
+
+let p256GxHex = "6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296"
+
+let p256GyHex = "4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5"
+
+let p384PrimeHex = "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffff0000000000000000ffffffff"
+
+let p384OrderHex = "ffffffffffffffffffffffffffffffffffffffffffffffffc7634d81f4372ddf581a0db248b0a77aecec196accc52973"
+
+let p384BHex = "b3312fa7e23ee7e4988e056be3f82d19181d9c6efe8141120314088f5013875ac656398d8a2ed19d2a85c8edd3ec2aef"
+
+let p384GxHex = "aa87ca22be8b05378eb1c71ef320ad746e1d3b628ba79b9859f741e082542a385502f25dbf55296c3a545e3872760ab7"
+
+let p384GyHex = "3617de4a96262c6f5d9e98bf9292dc29f8f41dbd289a147ce9da3113b5f0b8c00a60b1ce1d7e819d7a431d7c90ea0e5f"
+
+export enum NistRefusal implements Error
+	invalidEncoding
+	rejectedNonce
+end 'NistRefusal'
+
+function nistByte(bytes ByteArray, index ElementIndex) returns Byte throws NistRefusal
+	return try bytes.get(index) otherwise throw NistRefusal.invalidEncoding
+end 'nistByte'
+
+function nistSmall(count Count, value WorkspaceLimb) returns WorkspaceLimbs
+	var limbs = zeroLimbs(count)
+	workspaceLimbPut(limbs, index: 0, value: value)
+	return limbs
+end 'nistSmall'
+
+function nistMask(bit WorkspaceLimb) returns WorkspaceLimb
+	return bit * nistAllOnes
+end 'nistMask'
+
+function nistSubtract(a WorkspaceLimbs, b WorkspaceLimbs) returns (WorkspaceLimbs, WorkspaceLimb)
+	var difference = zeroLimbs(a.count())
+	let borrow = limbBorrowChain(difference, dstBase: 0, a: a, aBase: 0, b: b, bBase: 0, count: a.count())
+	return (difference, borrow)
+end 'nistSubtract'
+
+function nistIsZero(limbs WorkspaceLimbs) returns bool
+	var accumulated = nistZero
+	for limb in limbs 'eachLimb'
+		accumulated = accumulated or limb
+	end 'eachLimb'
+	return accumulated == nistZero
+end 'nistIsZero'
+
+function nistEqual(a WorkspaceLimbs, b WorkspaceLimbs) returns bool
+	var difference = nistZero
+	for (iter, limb) in a.enumerated() 'eachLimb'
+		difference = difference or (limb xor workspaceLimbAt(b, index: iter))
+	end 'eachLimb'
+	return difference == nistZero
+end 'nistEqual'
+
+function nistLimbsFromBytes(bytes ByteArray, start ElementIndex, count Count) returns WorkspaceLimbs
+	let limbCount = count / nistLimbBytes
+	var limbs = WorkspaceLimbs.create(limbCount, zeroed: false)
+	for index in 0 upto limbCount 'eachLimb'
+		let first = try start + count - (index + 1) * nistLimbBytes otherwise panic("out of range")
+		limbs.push((try __Builtins.readBigEndian(bytes, first, nistLimbBytes) otherwise panic("nist: byte index past the checked length")) as WorkspaceLimb)
+	end 'eachLimb'
+	return limbs
+end 'nistLimbsFromBytes'
+
+function nistBytesFromLimbs(limbs WorkspaceLimbs) returns ByteArray
+	var bytes = ByteArray.create(try limbs.count() * nistLimbBytes otherwise panic("out of range"), zeroed: false)
+	for step in 0 upto limbs.count() 'eachLimb'
+		__Builtins.appendBigEndian(bytes, workspaceLimbAt(limbs, index: try limbs.count() - 1 - step otherwise panic("out of range")) as OrderedWord, nistLimbBytes)
+	end 'eachLimb'
+	return bytes
+end 'nistBytesFromLimbs'
+
+function nistHexDigit(symbol Byte) returns Byte
+	if symbol >= nistHexLetterStart 'letter'
+		return symbol - nistHexLetterBase
+	end 'letter'
+	return try symbol - nistHexDigitBase otherwise panic("out of range")
+end 'nistHexDigit'
+
+function nistLimbsFromHex(hex String) returns WorkspaceLimbs
+	var bytes = ByteArray.create(hex.byteLength() / nistHexDigitsPerByte, zeroed: false)
+	var high = nistZeroByte
+	var isHigh = true
+	for symbol in hex.bytes() 'eachSymbol'
+		if isHigh 'first'
+			high = nistHexDigit(symbol)
+		end 'first' else 'second'
+			bytes.push((try high shl nistHexDigitBits otherwise panic("out of range")) or nistHexDigit(symbol))
+		end 'second'
+		isHigh = not isHigh
+	end 'eachSymbol'
+	return nistLimbsFromBytes(bytes, start: 0, count: bytes.count())
+end 'nistLimbsFromHex'
+
+function nistMontgomeryInverse(low WorkspaceLimb) returns WorkspaceLimb
+	var inverse = low
+	for _ in 0 upto nistInverseRefinements 'eachRefinement'
+		inverse = (inverse * (nistTwo - low * inverse)) and nistLimbMask
+	end 'eachRefinement'
+	return (nistZero - inverse) and nistLimbMask
+end 'nistMontgomeryInverse'
+
+function nistDerSpan(der ByteArray, position ElementIndex, tag Byte) returns NistSpan throws NistRefusal
+	let found = try nistByte(der, index: position)
+	if found != tag 'wrongTag'
+		throw NistRefusal.invalidEncoding
+	end 'wrongTag'
+	let lengthStart = try position + 1 otherwise panic("out of range")
+	let first = try nistByte(der, index: lengthStart)
+	if first < nistDerLongForm 'shortForm'
+		return try nistDerBounded(der, start: try lengthStart + 1 otherwise panic("out of range"), length: first as ElementIndex)
+	end 'shortForm'
+	let lengthBytes = (first - nistDerLongForm) as ElementIndex
+	if lengthBytes == 0 or lengthBytes > nistDerLengthBytesLimit 'unsupportedLength'
+		throw NistRefusal.invalidEncoding
+	end 'unsupportedLength'
+	var length = 0 as ElementIndex
+	for offset in 1 to lengthBytes 'eachLengthByte'
+		let byte = try nistByte(der, index: try lengthStart + offset otherwise panic("out of range"))
+		length = try length * nistByteRadix + (byte as ElementIndex) otherwise panic("out of range")
+	end 'eachLengthByte'
+	if length < nistDerLongForm or length shr ((lengthBytes - 1) * nistBitsPerByte) == 0 'nonMinimalLength'
+		throw NistRefusal.invalidEncoding
+	end 'nonMinimalLength'
+	return try nistDerBounded(der, start: try lengthStart + 1 + lengthBytes otherwise panic("out of range"), length: length)
+end 'nistDerSpan'
+
+function nistDerBounded(der ByteArray, start ElementIndex, length ElementIndex) returns NistSpan throws NistRefusal
+	if (try start + length otherwise panic("out of range")) > der.count() 'truncated'
+		throw NistRefusal.invalidEncoding
+	end 'truncated'
+	return (start, try start + length otherwise panic("out of range"))
+end 'nistDerBounded'
+
+function nistDerInteger(der ByteArray, position ElementIndex) returns NistSpan throws NistRefusal
+	let (start, limit) = try nistDerSpan(der, position: position, tag: nistDerIntegerTag)
+	if start == limit 'empty'
+		throw NistRefusal.invalidEncoding
+	end 'empty'
+	let lead = try nistByte(der, index: start)
+	if lead >= nistDerSignBit 'negative'
+		throw NistRefusal.invalidEncoding
+	end 'negative'
+	if lead == nistZeroByte and (try limit - start otherwise panic("out of range")) > 1 'leadingZero'
+		let next = try nistByte(der, index: try start + 1 otherwise panic("out of range"))
+		if next < nistDerSignBit 'paddedInteger'
+			throw NistRefusal.invalidEncoding
+		end 'paddedInteger'
+	end 'leadingZero'
+	return (start, limit)
+end 'nistDerInteger'
+
+function nistParseSignature(der ByteArray) returns (ByteArray, ByteArray) throws NistRefusal
+	let (start, limit) = try nistDerSpan(der, position: 0, tag: nistDerSequenceTag)
+	if limit != der.count() 'trailingBytes'
+		throw NistRefusal.invalidEncoding
+	end 'trailingBytes'
+	let (rStart, rEnd) = try nistDerInteger(der, position: start)
+	let (sStart, sEnd) = try nistDerInteger(der, position: rEnd)
+	if sEnd != limit 'extraElements'
+		throw NistRefusal.invalidEncoding
+	end 'extraElements'
+	let r = try der.slice(rStart, endIndex: rEnd) otherwise panic("nist: integer span checked against the input")
+	let s = try der.slice(sStart, endIndex: sEnd) otherwise panic("nist: integer span checked against the input")
+	return (r, s)
+end 'nistParseSignature'
+
+function nistDerEncodedInteger(value WorkspaceLimbs) returns ByteArray
+	var content = ByteArray.create(0)
+	for byte in nistBytesFromLimbs(value) 'eachByte'
+		if content.isEmpty() and byte == nistZeroByte 'leadingZero'
+			continue
+		end 'leadingZero'
+		if content.isEmpty() and byte >= nistDerSignBit 'signPad'
+			content.push(nistZeroByte)
+		end 'signPad'
+		content.push(byte)
+	end 'eachByte'
+	return asn1.derElement(nistDerIntegerTag, contents: content)
+end 'nistDerEncodedInteger'
+
+function nistNonceStep(hash sha2.HashAlgorithm, key ByteArray, value ByteArray, suffix ByteArray) returns (ByteArray, ByteArray)
+	var keyed = value.clone()
+	keyed.append(suffix)
+	let nextKey = sha2.hmac(hash, key: key, message: keyed)
+	return (nextKey.clone(), sha2.hmac(hash, key: nextKey, message: value))
+end 'nistNonceStep'
+
+type NistModulus
+	export let limbs as WorkspaceLimbs
+	export let inverse as WorkspaceLimb
+	export let slots as LimbSlots
+	export let one as WorkspaceLimbs
+	export let exponent as WorkspaceLimbs
+
+	export static function create(hex String) returns NistModulus
+		let limbs = nistLimbsFromHex(hex)
+		let count = limbs.count()
+		let (one, _) = nistSubtract(zeroLimbs(count), b: limbs)
+		let (exponent, _) = nistSubtract(limbs, b: nistSmall(count, value: nistTwo))
+		let inverse = nistMontgomeryInverse(workspaceLimbAt(limbs, index: 0))
+		return NistModulus{limbs: limbs, inverse: inverse, slots: LimbSlots.create(nistSlotWidth, limbCount: count), one: one, exponent: exponent}
+	end 'create'
+
+	function blankWorkspace(slotCount Count) returns WorkspaceLimbs
+		var ws = self.slots.workspace(slotCount)
+		self.slots.load(ws, slot: nistOneSlot, value: self.one)
+		self.slots.load(ws, slot: nistUnitSlot, value: nistSmall(self.slots.limbCount, value: nistOne))
+		return ws
+	end 'blankWorkspace'
+
+	function workspace(slotCount Count, squared WorkspaceLimbs) returns WorkspaceLimbs
+		var ws = blankWorkspace(slotCount)
+		self.slots.load(ws, slot: nistSquaredSlot, value: squared)
+		return ws
+	end 'workspace'
+
+	function computeSquared() returns WorkspaceLimbs
+		var ws = blankWorkspace(nistFieldSlots)
+		self.slots.load(ws, slot: nistFirstFreeSlot, value: self.one)
+		for _ in 0 upto try self.slots.limbCount * nistLimbBits otherwise panic("out of range") 'eachDoubling'
+			add(ws, dst: nistFirstFreeSlot, a: nistFirstFreeSlot, b: nistFirstFreeSlot)
+		end 'eachDoubling'
+		return self.slots.read(ws, slot: nistFirstFreeSlot)
+	end 'computeSquared'
+
+	function isBelow(value WorkspaceLimbs) returns bool
+		let (_, borrow) = nistSubtract(value, b: self.limbs)
+		return borrow == nistOne
+	end 'isBelow'
+
+	export function settle(mutates ws WorkspaceLimbs, dst Count)
+		let width = self.slots.limbCount
+		let sum = self.slots.offset(nistProductSlot)
+		let borrow = limbBorrowChainSharingA(ws, dstBase: self.slots.offset(nistRemainderSlot), aBase: sum, b: self.limbs, bBase: 0, count: width)
+		let replace = nistMask(workspaceLimbAt(ws, index: try sum + width otherwise panic("out of range")) or (borrow xor nistOne))
+		self.slots.select(ws, dst: dst, kept: nistProductSlot, replacement: nistRemainderSlot, mask: replace)
+	end 'settle'
+
+	function reduceOnce(value WorkspaceLimbs) returns WorkspaceLimbs
+		let (difference, borrow) = nistSubtract(value, b: self.limbs)
+		let replace = nistMask(borrow xor nistOne)
+		var reduced = WorkspaceLimbs.create(value.count(), zeroed: false)
+		for (iter, limb) in value.enumerated() 'eachLimb'
+			reduced.push(selectByMask(limb, replacement: workspaceLimbAt(difference, index: iter), mask: replace))
+		end 'eachLimb'
+		return reduced
+	end 'reduceOnce'
+
+	export function add(mutates ws WorkspaceLimbs, dst Count, a Count, b Count)
+		let sum = self.slots.offset(nistProductSlot)
+		let carry = limbCarryChainSharingAB(ws, dstBase: sum, aBase: self.slots.offset(a), bBase: self.slots.offset(b), bMask: nistAllOnes, count: self.slots.limbCount)
+		workspaceLimbPut(ws, index: try sum + self.slots.limbCount otherwise panic("out of range"), value: carry)
+		settle(ws, dst: dst)
+	end 'add'
+
+	function triple(mutates ws WorkspaceLimbs, dst Count, a Count)
+		add(ws, dst: nistDoubledSlot, a: a, b: a)
+		add(ws, dst: dst, a: nistDoubledSlot, b: a)
+	end 'triple'
+
+	function subtract(mutates ws WorkspaceLimbs, dst Count, a Count, b Count)
+		let difference = self.slots.offset(nistProductSlot)
+		let borrow = limbBorrowChainSharingAB(ws, dstBase: difference, aBase: self.slots.offset(a), bBase: self.slots.offset(b), count: self.slots.limbCount)
+		_ = limbCarryChainSharingA(ws, dstBase: self.slots.offset(dst), aBase: difference, b: self.limbs, bBase: 0, bMask: nistMask(borrow), count: self.slots.limbCount)
+	end 'subtract'
+
+	export function multiply(mutates ws WorkspaceLimbs, dst Count, a Count, b Count)
+		let width = self.slots.limbCount
+		let accumulator = self.slots.offset(nistProductSlot)
+		let left = self.slots.offset(a)
+		let right = self.slots.offset(b)
+		let modulus = self.limbs.clone()
+		let factor = self.inverse
+		let first = workspaceLimbAt(modulus, index: 0)
+		for index in 0 upto try width + 2 otherwise panic("out of range") 'eachClear'
+			workspaceLimbPut(ws, index: try accumulator + index otherwise panic("out of range"), value: nistZero)
+		end 'eachClear'
+		for step in 0 upto width 'eachWord'
+			let word = workspaceLimbAt(ws, index: try right + step otherwise panic("out of range"))
+			var carry = nistZero
+			for index in 0 upto width 'eachProduct'
+				let total = workspaceLimbAt(ws, index: try accumulator + index otherwise panic("out of range")) + workspaceLimbAt(ws, index: try left + index otherwise panic("out of range")) * word + carry
+				workspaceLimbPut(ws, index: try accumulator + index otherwise panic("out of range"), value: total and nistLimbMask)
+				carry = total shr nistLimbBits
+			end 'eachProduct'
+			let top = workspaceLimbAt(ws, index: try accumulator + width otherwise panic("out of range")) + carry
+			workspaceLimbPut(ws, index: try accumulator + width otherwise panic("out of range"), value: top and nistLimbMask)
+			workspaceLimbPut(ws, index: try accumulator + width + 1 otherwise panic("out of range"), value: top shr nistLimbBits)
+			let low = workspaceLimbAt(ws, index: accumulator)
+			let quotient = (low * factor) and nistLimbMask
+			var shifted = (low + quotient * first) shr nistLimbBits
+			for index in 1 upto width 'eachReduction'
+				let total = workspaceLimbAt(ws, index: try accumulator + index otherwise panic("out of range")) + quotient * workspaceLimbAt(modulus, index: index) + shifted
+				workspaceLimbPut(ws, index: try accumulator + index - 1 otherwise panic("out of range"), value: total and nistLimbMask)
+				shifted = total shr nistLimbBits
+			end 'eachReduction'
+			let reducedTop = workspaceLimbAt(ws, index: try accumulator + width otherwise panic("out of range")) + shifted
+			workspaceLimbPut(ws, index: try accumulator + width - 1 otherwise panic("out of range"), value: reducedTop and nistLimbMask)
+			workspaceLimbPut(ws, index: try accumulator + width otherwise panic("out of range"), value: workspaceLimbAt(ws, index: try accumulator + width + 1 otherwise panic("out of range")) + (reducedTop shr nistLimbBits))
+		end 'eachWord'
+		settle(ws, dst: dst)
+	end 'multiply'
+
+	function loadMontgomery(mutates ws WorkspaceLimbs, slot Count, value WorkspaceLimbs)
+		self.slots.load(ws, slot: slot, value: value)
+		multiply(ws, dst: slot, a: slot, b: nistSquaredSlot)
+	end 'loadMontgomery'
+
+	function inverted(mutates ws WorkspaceLimbs, dst Count, a Count)
+		self.slots.copy(ws, dst: dst, src: nistOneSlot)
+		for step in 0 upto self.exponent.count() 'eachLimb'
+			let limb = workspaceLimbAt(self.exponent, index: try self.exponent.count() - 1 - step otherwise panic("out of range"))
+			for offset in 1 to nistLimbBits 'eachBit'
+				multiply(ws, dst: dst, a: dst, b: dst)
+				if ((limb shr (nistLimbBits - offset)) and nistOne) == nistOne 'setBit'
+					multiply(ws, dst: dst, a: dst, b: a)
+				end 'setBit'
+			end 'eachBit'
+		end 'eachLimb'
+	end 'inverted'
+end 'NistModulus'
+
+type NistParameters
+	export let cache as CombCurve
+	export let primeHex as String
+	export let orderHex as String
+	export let bHex as String
+	export let gxHex as String
+	export let gyHex as String
+	export let scalarBytes as NistScalarBytes
+	export let hash as sha2.HashAlgorithm
+
+	export static function of(curve EcdsaCurve) returns NistParameters
+		return match curve 'parameters'
+			p256 gives Self{cache: CombCurve.p256, primeHex: p256PrimeHex, orderHex: p256OrderHex, bHex: p256BHex, gxHex: p256GxHex, gyHex: p256GyHex, scalarBytes: p256ScalarBytes, hash: sha2.HashAlgorithm.sha256}
+			p384 gives Self{cache: CombCurve.p384, primeHex: p384PrimeHex, orderHex: p384OrderHex, bHex: p384BHex, gxHex: p384GxHex, gyHex: p384GyHex, scalarBytes: p384ScalarBytes, hash: sha2.HashAlgorithm.sha384}
+		end 'parameters'
+	end 'of'
+end 'NistParameters'
+
+type NistCurve implements CombPoints
+	let primeField as NistModulus
+	let scalarField as NistModulus
+	let primeSquared as WorkspaceLimbs
+	let orderSquared as WorkspaceLimbs
+	export let b as WorkspaceLimbs
+	let generator as NistAffinePoint
+	export let scalarBytes as NistScalarBytes
+	export let hash as sha2.HashAlgorithm
+	let cache as CombCurve
+	let comb as FixedBaseComb
+
+	static function squaredOf(curve EcdsaCurve) returns CombModuli
+		let parameters = NistParameters.of(curve)
+		return CombModuli.create(NistModulus.create(parameters.primeHex).computeSquared(), order: NistModulus.create(parameters.orderHex).computeSquared())
+	end 'squaredOf'
+
+	export static function of(curve EcdsaCurve) returns NistCurve
+		let parameters = NistParameters.of(curve)
+		let squared = combModuli(parameters.cache)
+		let primeField = NistModulus.create(parameters.primeHex)
+		let comb = FixedBaseComb.create(primeField.slots, pointSlots: nistCoordinates, chunkCount: primeField.slots.limbCount)
+		return NistCurve{primeField: primeField, scalarField: NistModulus.create(parameters.orderHex), primeSquared: squared.prime.clone(), orderSquared: squared.order.clone(), b: nistLimbsFromHex(parameters.bHex), generator: (nistLimbsFromHex(parameters.gxHex), nistLimbsFromHex(parameters.gyHex)), scalarBytes: parameters.scalarBytes, hash: parameters.hash, cache: parameters.cache, comb: comb}
+	end 'of'
+
+	function tableAt(term Count) returns Count
+		return try nistTableSlot + term * self.comb.tableSlots() otherwise panic("out of range")
+	end 'tableAt'
+
+	function workspace(termCount Count) returns WorkspaceLimbs
+		var ws = self.primeField.workspace(try nistTableSlot + termCount * self.comb.tableSlots() otherwise panic("out of range"), squared: self.primeSquared)
+		self.primeField.loadMontgomery(ws, slot: nistCurveBSlot, value: self.b)
+		return ws
+	end 'workspace'
+
+	function loadPoint(mutates ws WorkspaceLimbs, slot Count, point NistAffinePoint)
+		self.primeField.loadMontgomery(ws, slot: slot, value: point.0)
+		self.primeField.loadMontgomery(ws, slot: try slot + 1 otherwise panic("out of range"), value: point.1)
+		self.primeField.slots.copy(ws, dst: try slot + 2 otherwise panic("out of range"), src: nistOneSlot)
+	end 'loadPoint'
+
+	export function loadIdentity(mutates ws WorkspaceLimbs, slot Count)
+		self.primeField.slots.clear(ws, slot: slot)
+		self.primeField.slots.copy(ws, dst: try slot + 1 otherwise panic("out of range"), src: nistOneSlot)
+		self.primeField.slots.clear(ws, slot: try slot + 2 otherwise panic("out of range"))
+	end 'loadIdentity'
+
+	export function addPoints(mutates ws WorkspaceLimbs, result Count, p Count, q Count)
+		let field = self.primeField.clone()
+		let t0 = nistTemporarySlot
+		let t1 = nistTemporarySlot + 1
+		let t2 = nistTemporarySlot + 2
+		let t3 = nistTemporarySlot + 3
+		let t4 = nistTemporarySlot + 4
+		let sumLeft = nistTemporarySlot + 5
+		let sumRight = nistTemporarySlot + 6
+		let sumBoth = nistTemporarySlot + 7
+		let xz = nistTemporarySlot + 8
+		let y3a = nistTemporarySlot + 9
+		let scaled = nistTemporarySlot + 10
+		let x3a = nistTemporarySlot + 11
+		let z3a = nistTemporarySlot + 12
+		let x3b = nistTemporarySlot + 13
+		let t2b = nistTemporarySlot + 14
+		let y3b = nistTemporarySlot + 15
+		let t0b = nistTemporarySlot + 16
+		let other = nistTemporarySlot + 17
+		field.multiply(ws, dst: t0, a: p, b: q)
+		field.multiply(ws, dst: t1, a: try p + 1 otherwise panic("out of range"), b: try q + 1 otherwise panic("out of range"))
+		field.multiply(ws, dst: t2, a: try p + 2 otherwise panic("out of range"), b: try q + 2 otherwise panic("out of range"))
+		field.add(ws, dst: sumLeft, a: p, b: try p + 1 otherwise panic("out of range"))
+		field.add(ws, dst: sumRight, a: q, b: try q + 1 otherwise panic("out of range"))
+		field.multiply(ws, dst: t3, a: sumLeft, b: sumRight)
+		field.add(ws, dst: sumBoth, a: t0, b: t1)
+		field.subtract(ws, dst: t3, a: t3, b: sumBoth)
+		field.add(ws, dst: sumLeft, a: try p + 1 otherwise panic("out of range"), b: try p + 2 otherwise panic("out of range"))
+		field.add(ws, dst: sumRight, a: try q + 1 otherwise panic("out of range"), b: try q + 2 otherwise panic("out of range"))
+		field.multiply(ws, dst: t4, a: sumLeft, b: sumRight)
+		field.add(ws, dst: sumBoth, a: t1, b: t2)
+		field.subtract(ws, dst: t4, a: t4, b: sumBoth)
+		field.add(ws, dst: sumLeft, a: p, b: try p + 2 otherwise panic("out of range"))
+		field.add(ws, dst: sumRight, a: q, b: try q + 2 otherwise panic("out of range"))
+		field.multiply(ws, dst: xz, a: sumLeft, b: sumRight)
+		field.add(ws, dst: sumBoth, a: t0, b: t2)
+		field.subtract(ws, dst: y3a, a: xz, b: sumBoth)
+		field.multiply(ws, dst: scaled, a: nistCurveBSlot, b: t2)
+		field.subtract(ws, dst: x3a, a: y3a, b: scaled)
+		field.triple(ws, dst: x3a, a: x3a)
+		field.subtract(ws, dst: z3a, a: t1, b: x3a)
+		field.add(ws, dst: x3b, a: t1, b: x3a)
+		field.triple(ws, dst: t2b, a: t2)
+		field.multiply(ws, dst: scaled, a: nistCurveBSlot, b: y3a)
+		field.subtract(ws, dst: y3b, a: scaled, b: t2b)
+		field.subtract(ws, dst: y3b, a: y3b, b: t0)
+		field.triple(ws, dst: y3b, a: y3b)
+		field.triple(ws, dst: t0b, a: t0)
+		field.subtract(ws, dst: t0b, a: t0b, b: t2b)
+		field.multiply(ws, dst: scaled, a: x3b, b: z3a)
+		field.multiply(ws, dst: other, a: t0b, b: y3b)
+		field.add(ws, dst: try result + 1 otherwise panic("out of range"), a: scaled, b: other)
+		field.multiply(ws, dst: scaled, a: t3, b: x3b)
+		field.multiply(ws, dst: other, a: t4, b: y3b)
+		field.subtract(ws, dst: result, a: scaled, b: other)
+		field.multiply(ws, dst: scaled, a: t4, b: z3a)
+		field.multiply(ws, dst: other, a: t3, b: t0b)
+		field.add(ws, dst: try result + 2 otherwise panic("out of range"), a: scaled, b: other)
+	end 'addPoints'
+
+	export function doublePoint(mutates ws WorkspaceLimbs, result Count, p Count)
+		let field = self.primeField.clone()
+		let t0 = nistTemporarySlot
+		let t1 = nistTemporarySlot + 1
+		let t2 = nistTemporarySlot + 2
+		let t3 = nistTemporarySlot + 3
+		let z3a = nistTemporarySlot + 4
+		let y3a = nistTemporarySlot + 5
+		let x3a = nistTemporarySlot + 6
+		let y3b = nistTemporarySlot + 7
+		let x3b = nistTemporarySlot + 8
+		let t2b = nistTemporarySlot + 9
+		let z3b = nistTemporarySlot + 10
+		let t0b = nistTemporarySlot + 11
+		let scaled = nistTemporarySlot + 12
+		let other = nistTemporarySlot + 13
+		field.multiply(ws, dst: t0, a: p, b: p)
+		field.multiply(ws, dst: t1, a: try p + 1 otherwise panic("out of range"), b: try p + 1 otherwise panic("out of range"))
+		field.multiply(ws, dst: t2, a: try p + 2 otherwise panic("out of range"), b: try p + 2 otherwise panic("out of range"))
+		field.multiply(ws, dst: other, a: p, b: try p + 1 otherwise panic("out of range"))
+		field.add(ws, dst: t3, a: other, b: other)
+		field.multiply(ws, dst: other, a: p, b: try p + 2 otherwise panic("out of range"))
+		field.add(ws, dst: z3a, a: other, b: other)
+		field.multiply(ws, dst: other, a: try p + 1 otherwise panic("out of range"), b: try p + 2 otherwise panic("out of range"))
+		field.add(ws, dst: t0b, a: other, b: other)
+		field.multiply(ws, dst: scaled, a: nistCurveBSlot, b: t2)
+		field.subtract(ws, dst: y3a, a: scaled, b: z3a)
+		field.triple(ws, dst: y3a, a: y3a)
+		field.subtract(ws, dst: x3a, a: t1, b: y3a)
+		field.add(ws, dst: scaled, a: t1, b: y3a)
+		field.multiply(ws, dst: y3b, a: x3a, b: scaled)
+		field.multiply(ws, dst: x3b, a: x3a, b: t3)
+		field.triple(ws, dst: t2b, a: t2)
+		field.multiply(ws, dst: scaled, a: nistCurveBSlot, b: z3a)
+		field.subtract(ws, dst: z3b, a: scaled, b: t2b)
+		field.subtract(ws, dst: z3b, a: z3b, b: t0)
+		field.triple(ws, dst: z3b, a: z3b)
+		field.triple(ws, dst: scaled, a: t0)
+		field.subtract(ws, dst: scaled, a: scaled, b: t2b)
+		field.multiply(ws, dst: other, a: scaled, b: z3b)
+		field.add(ws, dst: try result + 1 otherwise panic("out of range"), a: y3b, b: other)
+		field.multiply(ws, dst: other, a: t0b, b: z3b)
+		field.subtract(ws, dst: result, a: x3b, b: other)
+		field.multiply(ws, dst: scaled, a: t0b, b: t1)
+		field.add(ws, dst: other, a: scaled, b: scaled)
+		field.add(ws, dst: try result + 2 otherwise panic("out of range"), a: other, b: other)
+	end 'doublePoint'
+
+	function affine(mutates ws WorkspaceLimbs, point Count) returns NistAffinePoint
+		let field = self.primeField.clone()
+		let inverse = nistTemporarySlot
+		let x = nistTemporarySlot + 1
+		let y = nistTemporarySlot + 2
+		field.inverted(ws, dst: inverse, a: try point + 2 otherwise panic("out of range"))
+		field.multiply(ws, dst: x, a: point, b: inverse)
+		field.multiply(ws, dst: y, a: try point + 1 otherwise panic("out of range"), b: inverse)
+		field.multiply(ws, dst: x, a: x, b: nistUnitSlot)
+		field.multiply(ws, dst: y, a: y, b: nistUnitSlot)
+		return (field.slots.read(ws, slot: x), field.slots.read(ws, slot: y))
+	end 'affine'
+
+	function multiplyAffine(scalar WorkspaceLimbs, point NistAffinePoint) returns NistAffinePoint
+		var ws = workspace(1)
+		loadPoint(ws, slot: nistPointBSlot, point: point)
+		self.comb.buildTable(ws, points: self, table: tableAt(0), base: nistPointBSlot)
+		self.comb.multiply(ws, points: self, table: tableAt(0), scalars: CombScalars from [scalar.clone()], looked: nistLookedSlot, result: nistPointASlot)
+		return affine(ws, point: nistPointASlot)
+	end 'multiplyAffine'
+
+	function multiplyGenerator(scalar WorkspaceLimbs) returns NistAffinePoint
+		var ws = workspace(self.comb.chunkCount)
+		self.comb.loadChunkTables(ws, firstSlot: nistTableSlot, packed: generatorTable())
+		self.comb.multiply(ws, points: self, table: nistTableSlot, scalars: self.comb.chunks(scalar), looked: nistLookedSlot, result: nistPointASlot)
+		return affine(ws, point: nistPointASlot)
+	end 'multiplyGenerator'
+
+	function generatorTable() returns WorkspaceLimbs
+		return combTable(self.cache)
+	end 'generatorTable'
+
+	function buildGeneratorTable() returns WorkspaceLimbs
+		var ws = workspace(1)
+		loadPoint(ws, slot: nistPointBSlot, point: self.generator)
+		return self.comb.buildChunkTables(ws, points: self, scratch: tableAt(0), base: nistPointBSlot)
+	end 'buildGeneratorTable'
+
+	export function scalar(value WorkspaceLimbs) returns WorkspaceLimbs throws NistRefusal
+		if nistIsZero(value) or not self.scalarField.isBelow(value) 'outOfRange'
+			throw NistRefusal.invalidEncoding
+		end 'outOfRange'
+		return value.clone()
+	end 'scalar'
+
+	function decodeScalar(bytes ByteArray) returns WorkspaceLimbs throws NistRefusal
+		if bytes.count() != self.scalarBytes 'wrongLength'
+			throw NistRefusal.invalidEncoding
+		end 'wrongLength'
+		return try scalar(nistLimbsFromBytes(bytes, start: 0, count: self.scalarBytes))
+	end 'decodeScalar'
+
+	function signatureScalar(content ByteArray) returns WorkspaceLimbs throws NistRefusal
+		var padded = ByteArray.create(self.scalarBytes, zeroed: false)
+		for byte in content 'eachByte'
+			if padded.isEmpty() and byte == nistZeroByte 'leadingZero'
+				continue
+			end 'leadingZero'
+			padded.push(byte)
+		end 'eachByte'
+		if padded.count() > self.scalarBytes 'tooLong'
+			throw NistRefusal.invalidEncoding
+		end 'tooLong'
+		while padded.count() < self.scalarBytes 'eachPad'
+			padded.insert(0, value: nistZeroByte)
+		end 'eachPad'
+		return try decodeScalar(padded)
+	end 'signatureScalar'
+
+	function decodePoint(bytes ByteArray) returns NistAffinePoint throws NistRefusal
+		if bytes.count() != nistPointTagBytes + nistPointCoordinates * self.scalarBytes 'wrongLength'
+			throw NistRefusal.invalidEncoding
+		end 'wrongLength'
+		let tag = try nistByte(bytes, index: 0)
+		if tag != nistUncompressedTag 'notUncompressed'
+			throw NistRefusal.invalidEncoding
+		end 'notUncompressed'
+		let x = nistLimbsFromBytes(bytes, start: nistPointTagBytes, count: self.scalarBytes)
+		let y = nistLimbsFromBytes(bytes, start: nistPointTagBytes + self.scalarBytes, count: self.scalarBytes)
+		if not self.primeField.isBelow(x) or not self.primeField.isBelow(y) 'nonCanonical'
+			throw NistRefusal.invalidEncoding
+		end 'nonCanonical'
+		let field = self.primeField.clone()
+		var ws = workspace(0)
+		let xm = nistFirstFreeSlot
+		let ym = nistFirstFreeSlot + 1
+		let rightSide = nistFirstFreeSlot + 2
+		let leftSide = nistFirstFreeSlot + 3
+		field.loadMontgomery(ws, slot: xm, value: x)
+		field.loadMontgomery(ws, slot: ym, value: y)
+		field.multiply(ws, dst: rightSide, a: xm, b: xm)
+		field.multiply(ws, dst: rightSide, a: rightSide, b: xm)
+		field.triple(ws, dst: leftSide, a: xm)
+		field.subtract(ws, dst: rightSide, a: rightSide, b: leftSide)
+		field.add(ws, dst: rightSide, a: rightSide, b: nistCurveBSlot)
+		field.multiply(ws, dst: leftSide, a: ym, b: ym)
+		if not nistEqual(field.slots.read(ws, slot: leftSide), b: field.slots.read(ws, slot: rightSide)) 'offCurve'
+			throw NistRefusal.invalidEncoding
+		end 'offCurve'
+		return (x, y)
+	end 'decodePoint'
+
+	function encodePoint(point NistAffinePoint) returns ByteArray
+		var encoded = ByteArray.create(nistPointTagBytes + nistPointCoordinates * self.scalarBytes, zeroed: false)
+		encoded.push(nistUncompressedTag)
+		encoded.append(nistBytesFromLimbs(point.0))
+		encoded.append(nistBytesFromLimbs(point.1))
+		return encoded
+	end 'encodePoint'
+
+	export function digest(message ByteArray) returns WorkspaceLimbs
+		var digest = sha2.Digest.create(self.hash)
+		digest.update(message)
+		return nistLimbsFromBytes(digest.finalize(), start: 0, count: self.scalarBytes)
+	end 'digest'
+
+	export function verifies(q NistAffinePoint, message ByteArray, rContent ByteArray, sContent ByteArray) returns bool
+		let r = try signatureScalar(rContent) otherwise return false
+		let s = try signatureScalar(sContent) otherwise return false
+		let order = self.scalarField.clone()
+		var orderWs = order.workspace(nistFieldSlots, squared: self.orderSquared)
+		let sMontgomery = nistFirstFreeSlot
+		let sInverse = nistFirstFreeSlot + 1
+		let first = nistFirstFreeSlot + 2
+		let second = nistFirstFreeSlot + 3
+		order.loadMontgomery(orderWs, slot: sMontgomery, value: s)
+		order.inverted(orderWs, dst: sInverse, a: sMontgomery)
+		order.loadMontgomery(orderWs, slot: first, value: digest(message))
+		order.multiply(orderWs, dst: first, a: first, b: sInverse)
+		order.multiply(orderWs, dst: first, a: first, b: nistUnitSlot)
+		order.loadMontgomery(orderWs, slot: second, value: r)
+		order.multiply(orderWs, dst: second, a: second, b: sInverse)
+		order.multiply(orderWs, dst: second, a: second, b: nistUnitSlot)
+		var ws = workspace(2)
+		loadPoint(ws, slot: nistPointBSlot, point: self.generator)
+		loadPoint(ws, slot: nistPointCSlot, point: q)
+		self.comb.buildTable(ws, points: self, table: tableAt(0), base: nistPointBSlot)
+		self.comb.buildTable(ws, points: self, table: tableAt(1), base: nistPointCSlot)
+		self.comb.multiply(ws, points: self, table: tableAt(0), scalars: CombScalars from [order.slots.read(orderWs, slot: first), order.slots.read(orderWs, slot: second)], looked: nistLookedSlot, result: nistPointASlot)
+		if nistIsZero(self.primeField.slots.read(ws, slot: nistPointASlot + 2)) 'infinity'
+			return false
+		end 'infinity'
+		let (x, _) = affine(ws, point: nistPointASlot)
+		return nistEqual(order.reduceOnce(x), b: r)
+	end 'verifies'
+
+	export function signature(nonce WorkspaceLimbs, key WorkspaceLimbs, hashed WorkspaceLimbs) returns ByteArray throws NistRefusal
+		let k = try scalar(nonce) otherwise throw NistRefusal.rejectedNonce
+		let order = self.scalarField.clone()
+		let (x, _) = multiplyGenerator(k)
+		let r = order.reduceOnce(x)
+		if nistIsZero(r) 'zeroR'
+			throw NistRefusal.rejectedNonce
+		end 'zeroR'
+		var ws = order.workspace(nistFieldSlots, squared: self.orderSquared)
+		let kMontgomery = nistFirstFreeSlot
+		let kInverse = nistFirstFreeSlot + 1
+		let keyMontgomery = nistFirstFreeSlot + 2
+		let rMontgomery = nistFirstFreeSlot + 3
+		let hashMontgomery = nistFirstFreeSlot + 4
+		order.loadMontgomery(ws, slot: kMontgomery, value: k)
+		order.inverted(ws, dst: kInverse, a: kMontgomery)
+		order.loadMontgomery(ws, slot: keyMontgomery, value: key)
+		order.loadMontgomery(ws, slot: rMontgomery, value: r)
+		order.loadMontgomery(ws, slot: hashMontgomery, value: hashed)
+		order.multiply(ws, dst: keyMontgomery, a: keyMontgomery, b: rMontgomery)
+		order.add(ws, dst: hashMontgomery, a: hashMontgomery, b: keyMontgomery)
+		order.multiply(ws, dst: hashMontgomery, a: kInverse, b: hashMontgomery)
+		order.multiply(ws, dst: hashMontgomery, a: hashMontgomery, b: nistUnitSlot)
+		let s = order.slots.read(ws, slot: hashMontgomery)
+		if nistIsZero(s) 'zeroS'
+			throw NistRefusal.rejectedNonce
+		end 'zeroS'
+		var content = nistDerEncodedInteger(r)
+		content.append(nistDerEncodedInteger(s))
+		return asn1.derElement(nistDerSequenceTag, contents: content)
+	end 'signature'
+
+	export function sign(privateKey ByteArray, message ByteArray) returns ByteArray throws EcdsaSignError
+		let key = try decodeScalar(privateKey) otherwise throw EcdsaSignError.invalidPrivateKey
+		return deterministicSignature(key, privateKey: privateKey, message: message)
+	end 'sign'
+
+	function deterministicSignature(key WorkspaceLimbs, privateKey ByteArray, message ByteArray) returns ByteArray
+		let hashed = digest(message)
+		let hashOctets = nistBytesFromLimbs(self.scalarField.reduceOnce(hashed))
+		var nonceKey = ByteArray.create(0)
+		nonceKey.growFilled(self.scalarBytes, value: nistZeroByte)
+		var nonceValue = ByteArray.create(0)
+		nonceValue.growFilled(self.scalarBytes, value: nistNonceOneByte)
+		for separator in ByteArray from [nistZeroByte, nistNonceOneByte] 'eachSeed'
+			var suffix = ByteArray from [separator]
+			suffix.append(privateKey)
+			suffix.append(hashOctets)
+			(nonceKey, nonceValue) = nistNonceStep(self.hash, key: nonceKey, value: nonceValue, suffix: suffix)
+		end 'eachSeed'
+		while true 'eachCandidate'
+			nonceValue = sha2.hmac(self.hash, key: nonceKey, message: nonceValue)
+			let nonce = nistLimbsFromBytes(nonceValue, start: 0, count: self.scalarBytes)
+			if let accepted = try signature(nonce, key: key, hashed: hashed) 'accepted'
+				return accepted
+			end 'accepted'
+			(nonceKey, nonceValue) = nistNonceStep(self.hash, key: nonceKey, value: nonceValue, suffix: ByteArray from [nistZeroByte])
+		end 'eachCandidate'
+	end 'deterministicSignature'
+end 'NistCurve'
+
+export function nistPublicKey(curve EcdsaCurve, privateKey ByteArray) returns ByteArray throws EcdhError
+	let nist = NistCurve.of(curve)
+	let d = try nist.decodeScalar(privateKey) otherwise throw EcdhError.invalidPrivateKey
+	return nist.encodePoint(nist.multiplyGenerator(d))
+end 'nistPublicKey'
+
+/// Why `EcdhP256` refused a key.
+public enum EcdhError implements Error
+	invalidPrivateKey
+	invalidPublicKey
+end 'EcdhError'
+
+/// Elliptic-curve Diffie-Hellman over NIST P-256 (SP 800-56A ECC CDH, cofactor 1).
+public type EcdhP256
+	/// The 65-byte uncompressed point `04 ‖ x ‖ y` of `d · G` for a 32-byte big-endian private key `d` in `[1, n - 1]`.
+	public static function publicKey(privateKey ByteArray) returns ByteArray throws EcdhError
+		return try nistPublicKey(EcdsaCurve.p256, privateKey: privateKey)
+	end 'publicKey'
+
+	/// The 32-byte x-coordinate of `d · Q` for a private key `d` and a validated uncompressed peer point `Q`.
+	public static function sharedSecret(privateKey ByteArray, peerPublicKey ByteArray) returns ByteArray throws EcdhError
+		let curve = NistCurve.of(EcdsaCurve.p256)
+		let d = try curve.decodeScalar(privateKey) otherwise throw EcdhError.invalidPrivateKey
+		let q = try curve.decodePoint(peerPublicKey) otherwise throw EcdhError.invalidPublicKey
+		let (x, _) = curve.multiplyAffine(d, point: q)
+		return nistBytesFromLimbs(x)
+	end 'sharedSecret'
+end 'EcdhP256'
+
+/// A curve and hash pair `Ecdsa.verify` accepts: P-256 with SHA-256 or P-384 with SHA-384.
+public enum EcdsaCurve
+	p256
+	p384
+end 'EcdsaCurve'
+
+/// Why `Ecdsa.verify` refused its input.
+public enum EcdsaError implements Error
+	invalidPublicKey
+	invalidSignatureEncoding
+end 'EcdsaError'
+
+/// ECDSA signature verification (FIPS 186-5).
+public type Ecdsa
+	/// Whether the strict-DER `signature` is valid for `message` under the uncompressed point `publicKey`.
+	public static function verify(curve EcdsaCurve, publicKey ByteArray, message ByteArray, signature ByteArray) returns bool throws EcdsaError
+		let nist = NistCurve.of(curve)
+		let q = try nist.decodePoint(publicKey) otherwise throw EcdsaError.invalidPublicKey
+		let (r, s) = try nistParseSignature(signature) otherwise throw EcdsaError.invalidSignatureEncoding
+		return nist.verifies(q, message: message, rContent: r, sContent: s)
+	end 'verify'
+end 'Ecdsa'
+
+/// Why `EcdsaP256.sign` or `EcdsaP384.sign` refused a key.
+public enum EcdsaSignError implements Error
+	invalidPrivateKey
+end 'EcdsaSignError'
+
+/// Deterministic ECDSA signing on P-256 with SHA-256 (RFC 6979).
+public type EcdsaP256
+	/// The DER signature of `message` under a 32-byte private key, with the RFC 6979 nonce over HMAC-SHA-256.
+	public static function sign(privateKey ByteArray, message ByteArray) returns ByteArray throws EcdsaSignError
+		return try NistCurve.of(EcdsaCurve.p256).sign(privateKey, message: message)
+	end 'sign'
+end 'EcdsaP256'
+
+/// Deterministic ECDSA signing on P-384 with SHA-384 (RFC 6979).
+public type EcdsaP384
+	/// The DER signature of `message` under a 48-byte private key, with the RFC 6979 nonce over
+	/// HMAC-SHA-384.
+	public static function sign(privateKey ByteArray, message ByteArray) returns ByteArray throws EcdsaSignError
+		return try NistCurve.of(EcdsaCurve.p384).sign(privateKey, message: message)
+	end 'sign'
+end 'EcdsaP384'

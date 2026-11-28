@@ -29,6 +29,11 @@ AesGcm.maxon aes
 helpers/crypto/ChaCha20.maxon chacha
 Der.maxon asn1
 Rsa.maxon rsa
+helpers/crypto/LimbWorkspace.maxon curves
+helpers/crypto/FixedBaseComb.maxon curves
+helpers/crypto/CombCache.maxon curves
+Curve25519.maxon curves
+NistCurves.maxon curves
 Slot.maxon cell Cell.maxon
 Clock.maxon clock
 Sleep.maxon sleep

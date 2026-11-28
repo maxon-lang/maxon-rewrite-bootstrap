@@ -863,5 +863,8 @@ function codeSkipTable() returns CodeSkips
 	skips.push(CodeSkip.nativeOnly("hkdf.md", test: "hkdf.derive", line: "<!-- native: its interpreted run takes 2.0 s, beyond the 2 s the gate may spend on one test -->\n"))
 	skips.push(CodeSkip.nativeOnly("aes-hardware.md", test: "aes-hardware.xor-key-stream-matches-the-bitsliced-cipher", line: "<!-- native: its interpreted run takes over 10 s (it is stopped at the run deadline), over the 2 s the gate may spend on one test -->\n"))
 	skips.push(CodeSkip.nativeOnly("aes-hardware.md", test: "aes-hardware.gcm-large-messages-match-the-software-backing", line: "<!-- native: its interpreted run takes over 10 s (it is stopped at the run deadline), over the 2 s the gate may spend on one test -->\n"))
+	skips.push(CodeSkip.nativeOnly("x25519.md", test: "*", line: "<!-- native: every test multiplies curve points in field arithmetic of 64-bit limbs, which the interpreter runs in 5 to 15 seconds a test where the executable takes under a tenth of a second -->\n"))
+	skips.push(CodeSkip.nativeOnly("ed25519.md", test: "*", line: "<!-- native: the tests sign and verify with Edwards-curve point arithmetic, which the interpreter runs in 3 to 15 seconds a test where the executable takes about a tenth of a second -->\n"))
+	skips.push(CodeSkip.nativeOnly("ecdsa.md", test: "*", line: "<!-- native: the tests sign and verify over P-256 and P-384 in Montgomery limb arithmetic, which the interpreter runs in 6 to 16 seconds a test where the executable takes at most two tenths of a second -->\n"))
 	return skips
 end 'codeSkipTable'

@@ -1,0 +1,18 @@
+export enum CombCurve
+	p256
+	p384
+	ed25519
+end 'CombCurve'
+
+export type CombModuli
+	export let prime as WorkspaceLimbs
+	export let order as WorkspaceLimbs
+
+	export static function create(prime WorkspaceLimbs, order WorkspaceLimbs) returns CombModuli
+		return Self{prime: prime.clone(), order: order.clone()}
+	end 'create'
+end 'CombModuli'
+
+export typealias CombTableBuild = function() returns WorkspaceLimbs mutates captures
+
+export typealias CombModuliBuild = function() returns CombModuli

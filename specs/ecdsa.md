@@ -43,24 +43,25 @@ implementation, as each case states.
 ## Tests
 
 <!-- test: ecdsa.verify-1 -->
+<!-- native: the tests sign and verify over P-256 and P-384 in Montgomery limb arithmetic, which the interpreter runs in 6 to 16 seconds a test where the executable takes at most two tenths of a second -->
 `Ecdsa.verify` on well-formed inputs against the canra ecdsa-verify vectors: NIST CAVP, Wycheproof and constructed. Vectors verify-001 to verify-074 (74).
 ```maxon
 function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -241,24 +242,25 @@ verify-074 true
 ```
 
 <!-- test: ecdsa.verify-2 -->
+<!-- native: the tests sign and verify over P-256 and P-384 in Montgomery limb arithmetic, which the interpreter runs in 6 to 16 seconds a test where the executable takes at most two tenths of a second -->
 `Ecdsa.verify` on well-formed inputs against the canra ecdsa-verify vectors: NIST CAVP, Wycheproof and constructed. Vectors verify-075 to verify-148 (74).
 ```maxon
 function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -439,24 +441,25 @@ verify-148 false
 ```
 
 <!-- test: ecdsa.verify-refusals -->
+<!-- native: the tests sign and verify over P-256 and P-384 in Montgomery limb arithmetic, which the interpreter runs in 6 to 16 seconds a test where the executable takes at most two tenths of a second -->
 `Ecdsa.verify` refusing a public key or a signature encoding, from the canra ecdsa-verify vectors. Vectors verify-err-001 to verify-err-081 (75).
 ```maxon
 function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -639,24 +642,25 @@ verify-err-081 invalidSignatureEncoding
 ```
 
 <!-- test: ecdsa.sign-p256 -->
+<!-- native: the tests sign and verify over P-256 and P-384 in Montgomery limb arithmetic, which the interpreter runs in 6 to 16 seconds a test where the executable takes at most two tenths of a second -->
 `EcdsaP256.sign` against the canra ecdsa-sign-p256 vectors: RFC 6979 A.2.5, computed signatures and refused keys. Vectors sign-001 to sign-err-007 (33).
 ```maxon
 function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -666,7 +670,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -762,24 +766,25 @@ sign-err-007 invalidPrivateKey
 ```
 
 <!-- test: ecdsa.sign-p384 -->
+<!-- native: the tests sign and verify over P-256 and P-384 in Montgomery limb arithmetic, which the interpreter runs in 6 to 16 seconds a test where the executable takes at most two tenths of a second -->
 `EcdsaP384.sign` against the canra ecdsa-sign-p384 vectors: RFC 6979 A.2.6, computed signatures and refused keys. Vectors sign-001 to sign-err-008 (25).
 ```maxon
 function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -789,7 +794,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -869,24 +874,25 @@ sign-err-008 invalidPrivateKey
 ```
 
 <!-- test: ecdsa.verify-joint-multiply-edges -->
+<!-- native: the tests sign and verify over P-256 and P-384 in Montgomery limb arithmetic, which the interpreter runs in 6 to 16 seconds a test where the executable takes at most two tenths of a second -->
 `Ecdsa.verify` when the joint multiplication `u1·G + u2·Q` meets its degenerate sums. Each vector is constructed for a fixed message and `s`: `doubling` takes `r = x(2·(z/s)·G)` and `Q = (z/r)·G`, so `u1·G` and `u2·Q` are the same point and the final addition is a doubling (`doubling-high-s` is the same signature with `s` replaced by `n - s`); `infinity` takes `Q = -(z/r)·G`, so the sum is the point at infinity and the answer is `false`, never an error. Each expectation was checked by Python `cryptography` (OpenSSL) verifying the DER signature under the same key. Vectors edge-doubling-p256 to edge-infinity-p384 (6).
 ```maxon
 function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -931,24 +937,25 @@ edge-infinity-p384 false
 ```
 
 <!-- test: ecdsa.digest-above-the-order -->
+<!-- native: the tests sign and verify over P-256 and P-384 in Montgomery limb arithmetic, which the interpreter runs in 6 to 16 seconds a test where the executable takes at most two tenths of a second -->
 A message whose SHA-256 digest `ffffffffe50edc4d27674023ce1746624a9cb68ef2f8fd03d422ef0d3d44bb44` is at least the P-256 group order `n`, so the digest must be reduced mod `n` on both paths: RFC 6979 section 2.3.4 reduces it for the nonce derivation and FIPS 186-5 uses `e mod n` in `u1 = e·s⁻¹`. The message `maxon-nist-digest-above-order-759881945` was found by exhaustive search for a SHA-256 prefix of `ffffffff`. The expected signature is the RFC 6979 deterministic signature from an independent Python implementation (it reproduces RFC 6979 A.2.5 and A.2.6 exactly) and Python `cryptography` (OpenSSL) accepts it; the last vector is a randomized OpenSSL signature of the same message under a fresh key.
 ```maxon
 function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -958,7 +965,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -990,24 +997,25 @@ above-order-verify-openssl true
 ```
 
 <!-- test: ecdsa.p384-sign-verify-round-trip -->
+<!-- native: the tests sign and verify over P-256 and P-384 in Montgomery limb arithmetic, which the interpreter runs in 6 to 16 seconds a test where the executable takes at most two tenths of a second -->
 `EcdsaP384.sign` then `Ecdsa.verify` on P-384 for three private keys (a mid-range key, `n - 1` and 1) and three messages each (empty, short and 200 bytes). Each line prints the deterministic signature, whether `Ecdsa.verify` accepts it under the matching public key, and whether it accepts it for the message with one byte appended. The signatures are RFC 6979 over HMAC-SHA-384 from an independent Python implementation that reproduces RFC 6979 A.2.6, and each was accepted by Python `cryptography` (OpenSSL).
 ```maxon
 function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -1026,7 +1034,7 @@ function round(id String, privateKeyHex String, publicKeyHex String, messageHex 
 	let message = fromHex(messageHex)
 	let publicKey = fromHex(publicKeyHex)
 	let signature = try EcdsaP384.sign(fromHex(privateKeyHex), message: message) otherwise panic("a valid key signs")
-	let altered = message.clone()
+	var altered = message.clone()
 	altered.push(0x21)
 	let accepted = try Ecdsa.verify(EcdsaCurve.p384, publicKey: publicKey, message: message, signature: signature) otherwise panic("a signature verifies")
 	let acceptedAltered = try Ecdsa.verify(EcdsaCurve.p384, publicKey: publicKey, message: altered, signature: signature) otherwise panic("a signature verifies")
@@ -1062,24 +1070,25 @@ round-trip-009 3065023030ee67b44ff564902a6c3768f639ccc340570f717c5d6898636f307bc
 ```
 
 <!-- test: ecdsa.verify-p384-openssl -->
+<!-- native: the tests sign and verify over P-256 and P-384 in Montgomery limb arithmetic, which the interpreter runs in 6 to 16 seconds a test where the executable takes at most two tenths of a second -->
 `Ecdsa.verify` on P-384 with SHA-384 against signatures produced by Python `cryptography` (OpenSSL) under three fresh keys, each followed by the same signature checked against an altered message (`false`). Vectors openssl-p384-001 to openssl-p384-006 (6).
 ```maxon
 function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'

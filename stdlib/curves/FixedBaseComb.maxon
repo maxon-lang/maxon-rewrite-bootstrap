@@ -1,0 +1,103 @@
+export interface CombPoints
+	function addPoints(mutates ws WorkspaceLimbs, result Count, p Count, q Count)
+	function doublePoint(mutates ws WorkspaceLimbs, result Count, p Count)
+	function loadIdentity(mutates ws WorkspaceLimbs, slot Count)
+end 'CombPoints'
+
+export typealias CombScalars = Array with WorkspaceLimbs
+
+// The limb width: `chunks` makes each scalar limb one chunk, so table j must hold the multiples of
+// 2^(32j)·Base for the shared doubling loop to sum the right point.
+let combChunkBits = 32
+
+let combWindowBits = 4
+
+let combWindowsPerChunk = 8
+
+let combWindowsPerChunkShift = 3
+
+let combWindowInChunkMask = 7 as WorkspaceLimb
+
+let combWindowMask = 0xF as WorkspaceLimb
+
+let combTableEntries = 16
+
+export type FixedBaseComb
+	let slots as LimbSlots
+	let pointSlots as Count
+	export let chunkCount as Count
+
+	export static function create(slots LimbSlots, pointSlots Count, chunkCount Count) returns FixedBaseComb
+		return Self{slots: slots.clone(), pointSlots: pointSlots, chunkCount: chunkCount}
+	end 'create'
+
+	export function tableSlots() returns Count
+		return try combTableEntries * self.pointSlots otherwise panic("out of range")
+	end 'tableSlots'
+
+	export function chunks(scalar WorkspaceLimbs) returns CombScalars
+		var terms = CombScalars.create(0)
+		for index in 0 upto self.chunkCount 'eachChunk'
+			var chunk = zeroLimbs(1)
+			workspaceLimbPut(chunk, index: 0, value: workspaceLimbAt(scalar, index: index))
+			terms.push(chunk)
+		end 'eachChunk'
+		return terms
+	end 'chunks'
+
+	function windowDigits(scalars CombScalars) returns WorkspaceLimbs
+		let leading = try scalars.first() otherwise panic("comb: a multiplication has a term")
+		let windowCount = try leading.count() * combWindowsPerChunk otherwise panic("out of range")
+		var digits = WorkspaceLimbs.create(try windowCount * scalars.count() otherwise panic("out of range"), zeroed: false)
+		for step in 0 upto windowCount 'eachWindow'
+			let window = try (windowCount - 1 - step) as WorkspaceLimb otherwise panic("out of range")
+			for scalar in scalars 'eachTerm'
+				let limb = workspaceLimbAt(scalar, index: (window shr combWindowsPerChunkShift) as ElementIndex)
+				digits.push((limb shr ((window and combWindowInChunkMask) * combWindowBits)) and combWindowMask)
+			end 'eachTerm'
+		end 'eachWindow'
+		return digits
+	end 'windowDigits'
+
+	export function buildTable(mutates ws WorkspaceLimbs, points CombPoints, table Count, base Count)
+		points.loadIdentity(ws, slot: table)
+		self.slots.copyPoint(ws, dst: try table + self.pointSlots otherwise panic("out of range"), src: base, slotCount: self.pointSlots)
+		for entry in 2 upto combTableEntries 'eachMultiple'
+			points.addPoints(ws, result: try table + entry * self.pointSlots otherwise panic("out of range"), p: try table + (entry - 1) * self.pointSlots otherwise panic("out of range"), q: base)
+		end 'eachMultiple'
+	end 'buildTable'
+
+	export function buildChunkTables(mutates ws WorkspaceLimbs, points CombPoints, scratch Count, base Count) returns WorkspaceLimbs
+		var packed = WorkspaceLimbs.create(try self.chunkCount * tableSlots() * self.slots.limbCount otherwise panic("out of range"), zeroed: false)
+		for _ in 0 upto self.chunkCount 'eachChunk'
+			buildTable(ws, points: points, table: scratch, base: base)
+			for slot in 0 upto tableSlots() 'eachSlot'
+				packed.append(self.slots.read(ws, slot: try scratch + slot otherwise panic("out of range")))
+			end 'eachSlot'
+			for _ in 0 upto combChunkBits 'eachDoubling'
+				points.doublePoint(ws, result: base, p: base)
+			end 'eachDoubling'
+		end 'eachChunk'
+		return packed
+	end 'buildChunkTables'
+
+	export function loadChunkTables(mutates ws WorkspaceLimbs, firstSlot Count, packed WorkspaceLimbs)
+		self.slots.loadPacked(ws, firstSlot: firstSlot, packed: packed, slotCount: try self.chunkCount * tableSlots() otherwise panic("out of range"))
+	end 'loadChunkTables'
+
+	export function multiply(mutates ws WorkspaceLimbs, points CombPoints, table Count, scalars CombScalars, looked Count, result Count)
+		let digits = windowDigits(scalars)
+		points.loadIdentity(ws, slot: result)
+		var cursor = 0 as ElementIndex
+		while cursor < digits.count() 'eachWindow'
+			for _ in 0 upto combWindowBits 'eachDoubling'
+				points.doublePoint(ws, result: result, p: result)
+			end 'eachDoubling'
+			for term in 0 upto scalars.count() 'eachTerm'
+				self.slots.lookup(ws, dst: looked, table: try table + term * tableSlots() otherwise panic("out of range"), entryCount: combTableEntries, entrySlots: self.pointSlots, digit: workspaceLimbAt(digits, index: cursor))
+				points.addPoints(ws, result: result, p: result, q: looked)
+				cursor = try cursor + 1 otherwise panic("out of range")
+			end 'eachTerm'
+		end 'eachWindow'
+	end 'multiply'
+end 'FixedBaseComb'
