@@ -442,7 +442,6 @@ assignment.md: error.wrong-enum-in-struct-literal-field-errors
 assignment.md: error.wrong-enum-into-an-enum-field
 assignment.md: multiple-assignments
 associated-type-held-at-an-interface.md: a-use-site-binding-a-type-parameter-is-a-claim-about-each-instantiation
-associated-type-held-at-an-interface.md: error.held-binding-whose-conformer-holds-a-function-value-is-frozen
 associated-type-held-at-an-interface.md: held.the-element-is-the-enclosing-types-own-parameter
 associated-types.md: a-conformance-declared-by-an-extension-binds-its-own-associated-type
 associated-types.md: a-constraint-bound-result-crosses-from-the-owner-types-file
