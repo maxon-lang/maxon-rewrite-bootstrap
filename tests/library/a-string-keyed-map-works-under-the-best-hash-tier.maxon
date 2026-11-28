@@ -1,0 +1,71 @@
+// A String-keyed Map works under the best hash tier the processor runs, the AES tier where it has AES: the program runs
+// itself again with MAXON_HASH_TIER empty, which is no tier named, since the test runners pin the software tier. The child
+// fills a map with keys of every length class of both tiers, finds each, removes every other one and finds the rest, and
+// prints only counts, which no order changes.
+// native-only
+//> child: tier best, 400 keys, 400 found, 200 left, 200 found, 0 strays
+
+typealias Counts = Map with String, Count
+
+typealias Keys = Array with String
+
+let keyCount = 400 as Count
+
+// keyOf is the key of an index: its digits, then letters out to a length that steps through 0 to 300 bytes.
+function keyOf(index Count) returns String
+	var key = "{index}"
+	let length = (try index * 7 otherwise 0) mod 301
+	while key.byteLength() < length 'grow'
+		key = "{key}k"
+	end 'grow'
+	return key
+end 'keyOf'
+
+function child() returns ExitCode
+	let tier = try Process.environmentVariable("MAXON_HASH_TIER") otherwise ""
+	var keys = Keys.create(0)
+	var map = Counts.create()
+	for i in 0 upto keyCount 'fill'
+		keys.push(keyOf(i))
+		map.upsert(keyOf(i), value: i)
+	end 'fill'
+	var found = 0 as Count
+	for i in 0 upto keyCount 'find'
+		if (try map.get(keys[i]) otherwise keyCount) == i 'hit'
+			found = try found + 1 otherwise found
+		end 'hit'
+	end 'find'
+	for i in 0 upto keyCount 'remove'
+		if i mod 2 == 0 'even'
+			_ = map.remove(keys[i])
+		end 'even'
+	end 'remove'
+	var left = 0 as Count
+	var strays = 0 as Count
+	for i in 0 upto keyCount 'again'
+		let has = map.contains(keys[i])
+		if has and i mod 2 == 1 'kept'
+			left = try left + 1 otherwise left
+		end 'kept' else if has 'stray'
+			strays = try strays + 1 otherwise strays
+		end 'stray'
+	end 'again'
+	let name = "best" if tier == "" else tier
+	print("child: tier {name}, {keys.count()} keys, {found} found, {map.count()} left, {left} found, {strays} strays")
+	return 0
+end 'child'
+
+function main() returns ExitCode
+	if CommandLine.args().count() > 1 'child'
+		return child()
+	end 'child'
+	let own = try Process.executablePath() otherwise return 1
+	var vars = EnvMap.create()
+	try vars.insert("MAXON_HASH_TIER", value: "") otherwise ignore
+	var configuration = Configuration.create(MxExecutable.path(own))
+	configuration.arguments.push("child")
+	configuration.environment = Environment.inheritUpdating(vars)
+	let out = try configuration.run() otherwise return 2
+	print("{out.stdout}\n")
+	return 0
+end 'main'

@@ -352,7 +352,11 @@ function hashStringBytes(text String, at Count, count Count, seed Count) returns
 		end 'aes'
 		return hashShortFold(__Raw.stringFirstWord(text) as HashWord, rest: inlineRest(text) as HashWord, count: count, seed: seed as HashWord) as Count
 	end 'inline'
-	return hashTieredSpan(__Raw.wrappingAdd(__Raw.stringBytes(text), right: at), count: count, seed: seed)
+	let input = __Raw.wrappingAdd(__Raw.stringBytes(text), right: at)
+	if hashTierIsAes() 'aesSpan'
+		return aesHashSpan(input, count: count, seed: seed)
+	end 'aesSpan'
+	return hashSpan(input as HashInput, count: count, seed: seed as HashWord) as Count
 end 'hashStringBytes'
 
 function hashLoadWord(input HashInput, at Count) returns HashWord

@@ -24,6 +24,12 @@ const behaviourWorkers = "1,2,4"
 // setting it.
 const hashSeedPin = "1111111111111111"
 
+// hashTierPin is the hash tier of every program a test runner starts, as maxon's harness pins one beside the seed: the
+// interpreter runs the software tier alone, so a native program on a processor with AES would otherwise fold its String and
+// ByteArray keys by another hash and lay out a map in another order. A tier already in the environment is kept. The AES tier
+// keeps its own tests (tests/runtime/the-hash-tiers-fold-spans-as-maxons-do.maxon, and a program that runs itself under the best tier).
+const hashTierPin = "software"
+
 // proofSeeds is how many programs of the proof generator the gate runs, which is what fits in half a minute and is far more
 // than the few that find a hole in a proof the generator is aimed at (the closure that changes an index, a count effect).
 const proofSeeds = "180"
@@ -36,15 +42,19 @@ const serviceGraphs = "200"
 // natively, which takes seconds where the wide run (uzz --concurrent --native --count=2000) takes minutes.
 const concurrentSeeds = "40"
 
-// pinHashSeed sets the hash seed of the programs the gate starts, for the suites and for the regeneration of the specs alike:
+// pinHashSeed sets the hash seed and tier of the programs the gate starts, for the suites and for the regeneration of the specs alike:
 // the spec results are kept under a stamp that holds the seed, so a run under another one is not the run that the gate
 // replays.
 func pinHashSeed() {
 	if os.Getenv("MAXON_HASH_SEED") == "" {
 		os.Setenv("MAXON_HASH_SEED", hashSeedPin)
 	}
+	if os.Getenv("MAXON_HASH_TIER") == "" {
+		os.Setenv("MAXON_HASH_TIER", hashTierPin)
+	}
 	// WSL passes on only the variables that WSLENV names.
 	passToWsl("MAXON_HASH_SEED")
+	passToWsl("MAXON_HASH_TIER")
 }
 
 // recordSpecsFlag, with maxon's specs directory after it, has a run convert the specs from maxon's (as `gate specs` does)
@@ -690,7 +700,7 @@ const specInterpretFlag = "--interpret"
 const replayRefusedCode = 3
 
 // specStampEnvironment is the environment that a test inherits and a result can follow.
-var specStampEnvironment = []string{"MAXON_MAX_PROCS", "MAXON_HASH_SEED", cacheVariable}
+var specStampEnvironment = []string{"MAXON_MAX_PROCS", "MAXON_HASH_SEED", "MAXON_HASH_TIER", cacheVariable}
 
 // specStampOf is the text a spec run's results are kept under, equal texts being equal inputs: the compiler, which holds the
 // runner and finds the runtime and the library beside itself, the spec files (the conversion's skips are lines of them),
