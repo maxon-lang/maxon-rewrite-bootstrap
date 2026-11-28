@@ -276,7 +276,7 @@ func changedPaths(since string) (string, []string, error) {
 		return since, nil, fmt.Errorf("%s%w", untracked, err)
 	}
 	var paths []string
-	for _, line := range strings.Fields(diff + "\n" + untracked) {
+	for line := range strings.FieldsSeq(diff + "\n" + untracked) {
 		if !slices.Contains(paths, line) {
 			paths = append(paths, line)
 		}

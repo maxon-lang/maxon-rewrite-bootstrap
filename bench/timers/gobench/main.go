@@ -79,13 +79,11 @@ func parallel(k int, f func(w int)) time.Duration {
 	took := make([]time.Duration, k)
 	var wg sync.WaitGroup
 	for w := range k {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			start := time.Now()
 			f(w)
 			took[w] = time.Since(start)
-		}()
+		})
 	}
 	wg.Wait()
 	most := time.Duration(0)

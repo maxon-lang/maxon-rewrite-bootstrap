@@ -26,11 +26,12 @@ var sharedArgumentFunctions = []sharedArgumentFunction{
 
 // sharedFormName is the name of f's form in which the parameters shared read the array f writes: `limbCarryChainSharingAB`.
 func sharedFormName(f sharedArgumentFunction, shared []string) string {
-	name := f.name + "Sharing"
+	var name strings.Builder
+	name.WriteString(f.name + "Sharing")
 	for _, p := range shared {
-		name += strings.ToUpper(p[:1]) + p[1:]
+		name.WriteString(strings.ToUpper(p[:1]) + p[1:])
 	}
-	return name
+	return name.String()
 }
 
 // sharedSubsets is every non-empty set of f's read parameters, in the order of f.reads.
