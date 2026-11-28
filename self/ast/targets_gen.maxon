@@ -103,12 +103,152 @@ end 'temporaryDefault'
 // missingFacility is why a compile for a system refuses a type of the library that is a facility the system lacks
 // (internal/targetgen/target's Facilities), or empty where the system has it or the type is none of them.
 export function missingFacility(name String, system TargetSystem) returns String
+	if system == TargetSystem.windows and name == "TlsError" 'TlsErrorWindows'
+		return "TLS is not brought over yet"
+	end 'TlsErrorWindows'
+	if system == TargetSystem.linux and name == "TlsError" 'TlsErrorLinux'
+		return "TLS is not brought over yet"
+	end 'TlsErrorLinux'
+	if system == TargetSystem.macos and name == "TlsError" 'TlsErrormacOS'
+		return "TLS is not brought over yet"
+	end 'TlsErrormacOS'
+	if system == TargetSystem.windows and name == "TlsClientOptions" 'TlsClientOptionsWindows'
+		return "TLS is not brought over yet"
+	end 'TlsClientOptionsWindows'
+	if system == TargetSystem.linux and name == "TlsClientOptions" 'TlsClientOptionsLinux'
+		return "TLS is not brought over yet"
+	end 'TlsClientOptionsLinux'
+	if system == TargetSystem.macos and name == "TlsClientOptions" 'TlsClientOptionsmacOS'
+		return "TLS is not brought over yet"
+	end 'TlsClientOptionsmacOS'
+	if system == TargetSystem.windows and name == "TlsServerOptions" 'TlsServerOptionsWindows'
+		return "TLS is not brought over yet"
+	end 'TlsServerOptionsWindows'
+	if system == TargetSystem.linux and name == "TlsServerOptions" 'TlsServerOptionsLinux'
+		return "TLS is not brought over yet"
+	end 'TlsServerOptionsLinux'
+	if system == TargetSystem.macos and name == "TlsServerOptions" 'TlsServerOptionsmacOS'
+		return "TLS is not brought over yet"
+	end 'TlsServerOptionsmacOS'
+	if system == TargetSystem.windows and name == "TlsProtocol" 'TlsProtocolWindows'
+		return "TLS is not brought over yet"
+	end 'TlsProtocolWindows'
+	if system == TargetSystem.linux and name == "TlsProtocol" 'TlsProtocolLinux'
+		return "TLS is not brought over yet"
+	end 'TlsProtocolLinux'
+	if system == TargetSystem.macos and name == "TlsProtocol" 'TlsProtocolmacOS'
+		return "TLS is not brought over yet"
+	end 'TlsProtocolmacOS'
+	if system == TargetSystem.windows and name == "TlsCipherSuite" 'TlsCipherSuiteWindows'
+		return "TLS is not brought over yet"
+	end 'TlsCipherSuiteWindows'
+	if system == TargetSystem.linux and name == "TlsCipherSuite" 'TlsCipherSuiteLinux'
+		return "TLS is not brought over yet"
+	end 'TlsCipherSuiteLinux'
+	if system == TargetSystem.macos and name == "TlsCipherSuite" 'TlsCipherSuitemacOS'
+		return "TLS is not brought over yet"
+	end 'TlsCipherSuitemacOS'
+	if system == TargetSystem.windows and name == "Tls13CipherSuite" 'Tls13CipherSuiteWindows'
+		return "TLS is not brought over yet"
+	end 'Tls13CipherSuiteWindows'
+	if system == TargetSystem.linux and name == "Tls13CipherSuite" 'Tls13CipherSuiteLinux'
+		return "TLS is not brought over yet"
+	end 'Tls13CipherSuiteLinux'
+	if system == TargetSystem.macos and name == "Tls13CipherSuite" 'Tls13CipherSuitemacOS'
+		return "TLS is not brought over yet"
+	end 'Tls13CipherSuitemacOS'
+	if system == TargetSystem.windows and name == "Tls12CipherSuite" 'Tls12CipherSuiteWindows'
+		return "TLS is not brought over yet"
+	end 'Tls12CipherSuiteWindows'
+	if system == TargetSystem.linux and name == "Tls12CipherSuite" 'Tls12CipherSuiteLinux'
+		return "TLS is not brought over yet"
+	end 'Tls12CipherSuiteLinux'
+	if system == TargetSystem.macos and name == "Tls12CipherSuite" 'Tls12CipherSuitemacOS'
+		return "TLS is not brought over yet"
+	end 'Tls12CipherSuitemacOS'
+	if system == TargetSystem.windows and name == "TlsApplicationProtocol" 'TlsApplicationProtocolWindows'
+		return "TLS is not brought over yet"
+	end 'TlsApplicationProtocolWindows'
+	if system == TargetSystem.linux and name == "TlsApplicationProtocol" 'TlsApplicationProtocolLinux'
+		return "TLS is not brought over yet"
+	end 'TlsApplicationProtocolLinux'
+	if system == TargetSystem.macos and name == "TlsApplicationProtocol" 'TlsApplicationProtocolmacOS'
+		return "TLS is not brought over yet"
+	end 'TlsApplicationProtocolmacOS'
+	if system == TargetSystem.windows and name == "TlsAlert" 'TlsAlertWindows'
+		return "TLS is not brought over yet"
+	end 'TlsAlertWindows'
+	if system == TargetSystem.linux and name == "TlsAlert" 'TlsAlertLinux'
+		return "TLS is not brought over yet"
+	end 'TlsAlertLinux'
+	if system == TargetSystem.macos and name == "TlsAlert" 'TlsAlertmacOS'
+		return "TLS is not brought over yet"
+	end 'TlsAlertmacOS'
+	if system == TargetSystem.windows and name == "X509VerifyError" 'X509VerifyErrorWindows'
+		return "TLS is not brought over yet"
+	end 'X509VerifyErrorWindows'
+	if system == TargetSystem.linux and name == "X509VerifyError" 'X509VerifyErrorLinux'
+		return "TLS is not brought over yet"
+	end 'X509VerifyErrorLinux'
+	if system == TargetSystem.macos and name == "X509VerifyError" 'X509VerifyErrormacOS'
+		return "TLS is not brought over yet"
+	end 'X509VerifyErrormacOS'
+	if system == TargetSystem.windows and name == "TlsIdentity" 'TlsIdentityWindows'
+		return "TLS is not brought over yet"
+	end 'TlsIdentityWindows'
+	if system == TargetSystem.linux and name == "TlsIdentity" 'TlsIdentityLinux'
+		return "TLS is not brought over yet"
+	end 'TlsIdentityLinux'
+	if system == TargetSystem.macos and name == "TlsIdentity" 'TlsIdentitymacOS'
+		return "TLS is not brought over yet"
+	end 'TlsIdentitymacOS'
+	if system == TargetSystem.windows and name == "TlsClient" 'TlsClientWindows'
+		return "TLS is not brought over yet"
+	end 'TlsClientWindows'
+	if system == TargetSystem.linux and name == "TlsClient" 'TlsClientLinux'
+		return "TLS is not brought over yet"
+	end 'TlsClientLinux'
+	if system == TargetSystem.macos and name == "TlsClient" 'TlsClientmacOS'
+		return "TLS is not brought over yet"
+	end 'TlsClientmacOS'
+	if system == TargetSystem.windows and name == "TlsListener" 'TlsListenerWindows'
+		return "TLS is not brought over yet"
+	end 'TlsListenerWindows'
+	if system == TargetSystem.linux and name == "TlsListener" 'TlsListenerLinux'
+		return "TLS is not brought over yet"
+	end 'TlsListenerLinux'
+	if system == TargetSystem.macos and name == "TlsListener" 'TlsListenermacOS'
+		return "TLS is not brought over yet"
+	end 'TlsListenermacOS'
+	if system == TargetSystem.windows and name == "TlsStream" 'TlsStreamWindows'
+		return "TLS is not brought over yet"
+	end 'TlsStreamWindows'
+	if system == TargetSystem.linux and name == "TlsStream" 'TlsStreamLinux'
+		return "TLS is not brought over yet"
+	end 'TlsStreamLinux'
+	if system == TargetSystem.macos and name == "TlsStream" 'TlsStreammacOS'
+		return "TLS is not brought over yet"
+	end 'TlsStreammacOS'
 	return ""
 end 'missingFacility'
 
 // facilityTypes are the library's types that are a facility some system lacks (missingFacility).
 export function facilityTypes() returns StringList
 	var names = StringList.create(0)
+	names.push("TlsError")
+	names.push("TlsClientOptions")
+	names.push("TlsServerOptions")
+	names.push("TlsProtocol")
+	names.push("TlsCipherSuite")
+	names.push("Tls13CipherSuite")
+	names.push("Tls12CipherSuite")
+	names.push("TlsApplicationProtocol")
+	names.push("TlsAlert")
+	names.push("X509VerifyError")
+	names.push("TlsIdentity")
+	names.push("TlsClient")
+	names.push("TlsListener")
+	names.push("TlsStream")
 	return names
 end 'facilityTypes'
 

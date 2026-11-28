@@ -1,0 +1,7 @@
+// TLS is not brought over yet: a program that names one of maxon's TLS types (stdlib/tls) is refused at the name on every
+// system (internal/targetgen/target's Facilities).
+// expect-error: E3104
+function main() returns ExitCode
+	let options = TlsClientOptions.create()
+	return 0
+end 'main'

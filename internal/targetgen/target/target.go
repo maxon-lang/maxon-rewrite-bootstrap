@@ -117,8 +117,15 @@ type Facility struct {
 	Why string
 }
 
-// Facilities are the parts of the library that some systems lack: none now, since Windows has its sockets (runtime/windows_poll.maxon).
-var Facilities = []Facility{}
+// Facilities are the parts of the library that some systems lack.
+var Facilities = []Facility{
+	// TLS is not brought over yet (README, "Where it differs from Maxon"): stdlib/tls declares the types the HTTP library
+	// names, and maxon's sessions are named here too, so that a spec test that names one is skipped as unsupported.
+	{Name: "TLS", Types: []string{
+		"TlsError", "TlsClientOptions", "TlsServerOptions", "TlsProtocol", "TlsCipherSuite", "Tls13CipherSuite", "Tls12CipherSuite",
+		"TlsApplicationProtocol", "TlsAlert", "X509VerifyError", "TlsIdentity", "TlsClient", "TlsListener", "TlsStream",
+	}, Missing: []OS{Windows, Linux, MacOS}, Why: "TLS is not brought over yet"},
+}
 
 // System is what an operating system adds to a processor's table: the convention of its libraries' functions, the one
 // of its system calls where a program calls the kernel itself, and how a thread finds its context.

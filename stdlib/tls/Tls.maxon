@@ -1,0 +1,136 @@
+// maxon's declarations of TLS that its HTTP library names, written here until TLS is brought over (README, "Where it differs
+// from Maxon"): TlsError and the types of its cases, the options HttpClient.send and HttpServer.bindTls take, and what
+// HttpConnectionSecurity reports of a session. Nothing here runs a session, and each type is a row of the facility table that
+// every system lacks, so a module outside the library that names one is refused (E3104). The names, the cases and the
+// documentation are maxon's.
+
+/// Why a TLS operation failed. Transport cases mirror `NetworkError`; `connectionClosed` is the
+/// peer's close_notify, `truncated` a transport that ended without one, and `closed` a stream
+/// already closed. `handshakeTimedOut` is a connection whose handshake missed its deadline, where
+/// `timedOut` is a connect, accept, read or write deadline. `certificateRejected` is this side
+/// refusing the peer's chain, `protocolError` the alert this side sent, `peerAlert` the alert the
+/// peer sent. `handshakePending` is a query for what the handshake negotiated, made on a stream
+/// whose handshake has not completed.
+public union TlsError implements Error
+	resolveFailed
+	connectFailed
+	bindFailed
+	acceptFailed
+	acceptInterrupted
+	timedOut
+	handshakeTimedOut
+	sendFailed
+	recvFailed
+	connectionClosed
+	truncated
+	closed
+	handshakePending
+	trustStoreUnavailable
+	entropyUnavailable
+	invalidConfiguration
+	invalidCertificate
+	invalidPrivateKey
+	invalidPem
+	certificateRejected(reason X509VerifyError)
+	protocolError(alert TlsAlert)
+	peerAlert(alert TlsAlert)
+	peerAlertUnrecognised(code Byte)
+end 'TlsError'
+
+/// Why `X509.verify` refused a chain.
+public enum X509VerifyError implements Error
+	invalidCertificate
+	unsupportedAlgorithm
+	expired
+	notYetValid
+	incompatibleKeyUsage
+	hostnameMismatch
+	unknownAuthority
+	notAuthorizedToSign
+	pathLengthExceeded
+	nameConstraintViolation
+	badSignature
+	signatureCheckLimitExceeded
+	invalidArgument
+end 'X509VerifyError'
+
+/// A TLS alert description (RFC 8446 section 6), with its code point as the raw value.
+public enum TlsAlert
+	closeNotify = 0
+	unexpectedMessage = 10
+	badRecordMac = 20
+	recordOverflow = 22
+	handshakeFailure = 40
+	badCertificate = 42
+	unsupportedCertificate = 43
+	certificateRevoked = 44
+	certificateExpired = 45
+	certificateUnknown = 46
+	illegalParameter = 47
+	unknownCa = 48
+	accessDenied = 49
+	decodeError = 50
+	decryptError = 51
+	protocolVersion = 70
+	insufficientSecurity = 71
+	internalError = 80
+	inappropriateFallback = 86
+	userCanceled = 90
+	noRenegotiation = 100
+	missingExtension = 109
+	unsupportedExtension = 110
+	unrecognizedName = 112
+	badCertificateStatusResponse = 113
+	unknownPskIdentity = 115
+	certificateRequired = 116
+	noApplicationProtocol = 120
+end 'TlsAlert'
+
+/// A TLS version.
+public enum TlsProtocol
+	tls13
+	tls12
+end 'TlsProtocol'
+
+/// A TLS 1.3 cipher suite, with its code point as the raw value.
+public enum Tls13CipherSuite
+	aes128GcmSha256 = 0x1301
+	aes256GcmSha384 = 0x1302
+	chaCha20Poly1305Sha256 = 0x1303
+end 'Tls13CipherSuite'
+
+/// A TLS 1.2 cipher suite, with its code point as the raw value.
+public enum Tls12CipherSuite
+	ecdheEcdsaAes128GcmSha256 = 0xC02B
+	ecdheRsaAes128GcmSha256 = 0xC02F
+	ecdheEcdsaAes256GcmSha384 = 0xC02C
+	ecdheRsaAes256GcmSha384 = 0xC030
+	ecdheEcdsaChaCha20Poly1305Sha256 = 0xCCA9
+	ecdheRsaChaCha20Poly1305Sha256 = 0xCCA8
+end 'Tls12CipherSuite'
+
+/// The cipher suite a handshake negotiated, of either version.
+public union TlsCipherSuite
+	tls13(suite Tls13CipherSuite)
+	tls12(suite Tls12CipherSuite)
+end 'TlsCipherSuite'
+
+/// The ALPN protocol a handshake settled on.
+public union TlsApplicationProtocol
+	unnegotiated
+	negotiated(name String)
+end 'TlsApplicationProtocol'
+
+/// What a client verifies and offers. Here it holds nothing: no session is run, and an https URL is refused with
+/// `HttpError.unsupportedScheme`.
+public type TlsClientOptions
+	/// The options a client is given by default.
+	public static function create() returns TlsClientOptions
+		return TlsClientOptions{}
+	end 'create'
+end 'TlsClientOptions'
+
+/// What a server presents and requires. Here no value of it is made: maxon's makes one of a `TlsIdentity`, which this
+/// library has not got.
+public type TlsServerOptions
+end 'TlsServerOptions'

@@ -6456,6 +6456,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   listen is**: it clears IPV6_V6ONLY before the bind, so it takes IPv4 connections too, whatever the system's default; a
   listener of any other IPv6 address keeps the system's.
   Not yet: a service whose state holds a socket (who closes it when the service ends is undecided), and the 1M-connection benchmark.
+- **TLS is not brought over yet.** maxon's TLS sessions (`TlsClient`, `TlsListener`, `TlsStream`) are not in the library:
+  `stdlib/tls` declares only what maxon's HTTP library names (`TlsError` and the types of its cases, `TlsClientOptions`,
+  `TlsServerOptions`, and what a TLS connection reports of its session), with maxon's names and cases, and each of them and of
+  maxon's session types is a row of the facility table that every system lacks, so a program that names one is refused at the
+  name (`E3104`) and a spec test that does is skipped as unsupported.
 - **There is no TEST-NET-1 short-circuit.** minimaxon has no TEST-NET-1 short-circuit; a connect dials as Go's does and the OS's timeout applies, where maxon's runtime refuses `192.0.2.0/24` without dialling (its two spec tests that connect there with no deadline are skipped with this reason).
 - **A file's close throws.** maxon's `close()` throws nothing and its drop discards what the system's close reports. Here,
   as Go's `Close` does, `close()` throws it, `__ManagedFileError.writeFailed`, which `FileWriter.close` throws as
