@@ -479,8 +479,11 @@ associated-type-held-at-an-interface.md: error.a-non-conforming-binding-that-is-
 associated-type-held-at-an-interface.md: error.held-position-reaches-a-parameter
 associated-type-held-at-an-interface.md: held.a-conformer-binds-a-generic-instance
 associated-type-held-at-an-interface.md: held.a-conformer-reaching-the-holding-through-extends
+associated-type-held-at-an-interface.md: held.a-generic-conformer-binding-an-instance-over-its-own-parameter-is-frozen
 associated-type-held-at-an-interface.md: held.bindings-differing-in-a-constrained-position-keep-their-own-tables
 associated-type-held-at-an-interface.md: held.bindings-differing-in-a-constrained-position-nothing-reads-run
+associated-type-held-at-an-interface.md: held.bindings-differing-in-a-held-position-no-share-walk-reaches-keep-their-own-tables
+associated-type-held-at-an-interface.md: held.bindings-differing-in-a-parameter-only-a-nested-instance-reads-keep-their-own-tables
 associated-type-held-at-an-interface.md: held.managed-values-through-the-nested-dispatch
 associated-type-held-at-an-interface.md: held.nested-dispatch
 associated-type-held-at-an-interface.md: held.the-element-is-the-enclosing-types-own-parameter
@@ -505,6 +508,8 @@ associated-types.md: byte-element-type
 associated-types.md: character-element-type
 associated-types.md: conformance-argument-in-parentheses-at-arity-one
 associated-types.md: conformance-argument-in-parentheses-is-a-tuple-type
+associated-types.md: conformance-argument-in-parentheses-is-the-conformers-own-type-parameter
+associated-types.md: conformance-argument-is-the-conformers-own-type-parameter
 associated-types.md: conformance-argument-type-parameter-mismatch
 associated-types.md: conformance-argument-unparenthesized-at-arity-one
 associated-types.md: conformance-arguments-in-parentheses-at-arity-two
@@ -529,6 +534,7 @@ associated-types.md: two-alias-spellings-of-one-generic-instance-meet-through-as
 associated-types.md: w61.conformer-names-the-alias-differently
 associated-types.md: w61.expansion-descends-into-a-nested-instance-argument
 associated-types.md: w61.interface-alias-over-a-concrete-type
+associated-types.md: w61.interface-scoped-alias-in-a-requirement
 associated-types.md: wrong-param-type-error
 associated-types.md: wrong-return-type-error
 async-await.md: an-awaited-collection-as-a-for-source
@@ -1762,6 +1768,10 @@ deep-let-door-agreement.md: a-value-made-here-and-stored-once-is-stored-into-a-l
 deep-let-door-agreement.md: a-var-moved-into-a-let-field-at-its-last-use-is-accepted
 deep-let-door-agreement.md: an-element-of-an-array-another-field-also-names-is-kept-by-a-let-field
 deep-let-generic-instantiation.md: a-generic-body-keeping-its-type-parameter-takes-a-value-type
+deep-let-generic-instantiation.md: a-generic-body-reached-through-an-interface-takes-a-value-type
+deep-let-generic-instantiation.md: a-generic-body-reached-through-an-interface-takes-a-writable-record-at-the-conversion
+deep-let-generic-instantiation.md: a-generic-body-returned-at-an-interface-type-is-accepted-at-the-conversion
+deep-let-generic-instantiation.md: a-generic-body-stored-in-an-interface-field-is-accepted-at-the-conversion
 deep-let-generic-instantiation.md: a-generic-create-keeps-an-argument-another-name-still-holds
 deep-let-generic-instantiation.md: a-generic-create-keeps-its-type-parameter-argument-in-a-let-field
 deep-let-generic-instantiation.md: a-generic-store-of-a-value-read-out-of-an-array-is-judged-at-the-call
@@ -2836,6 +2846,7 @@ first-class-functions.md: first-class-function.indirect-call-arity-26
 first-class-functions.md: first-class-function.int-literal-widens-at-indirect-call
 first-class-functions.md: first-class-function.int-literal-widens-through-closure
 first-class-functions.md: first-class-function.int-literal-widens-through-function-ref
+first-class-functions.md: first-class-function.interface-extension-alias-over-an-associated-type-at-two-instantiations
 first-class-functions.md: first-class-function.let-from-call-returning-fn
 first-class-functions.md: first-class-function.matching-enum-shape-agrees-across-doors
 first-class-functions.md: first-class-function.matching-signature-cast-accepted
@@ -3287,6 +3298,11 @@ generic-opaque-borrowed-element-store.md: the-borrows-owner-may-be-destroyed-fir
 generic-opaque-borrowed-element-store.md: the-loop-form-copies-every-borrowed-element
 generic-opaque-call-result.md: a-trivial-instantiation-of-an-adopted-opaque-result-is-inert
 generic-opaque-call-result.md: an-opaque-result-adopted-from-a-nested-instance-is-released
+generic-opaque-cursor-element.md: aliased-cursor-releases-every-trip
+generic-opaque-cursor-element.md: contains-on-a-generic-conformer
+generic-opaque-cursor-element.md: contains-over-a-managed-element
+generic-opaque-cursor-element.md: contains-through-an-aliased-cursor
+generic-opaque-cursor-element.md: every-trip-releases-its-own-element
 generic-opaque-element-borrow-liveness.md: a-bare-field-read-in-a-method-with-no-other-opaque-signal-is-counted
 generic-opaque-element-borrow-liveness.md: a-field-read-through-a-bare-nested-instance-field-is-counted
 generic-opaque-element-borrow-liveness.md: a-field-read-through-a-local-bound-to-a-nested-instance-is-counted
@@ -3505,6 +3521,7 @@ generic-type-nested-array-typealias.md: forward-to-consuming-sibling
 generic-type-nested-array-typealias.md: get-borrows-opaque-element
 generic-type-nested-array-typealias.md: implicit-self-push-feeds-opaque-element
 generic-type-nested-array-typealias.md: implicit-self-push-heap-element
+generic-type-nested-array-typealias.md: interface-extension-body-forwards-a-descriptor
 generic-type-nested-array-typealias.md: multi-hop-forward
 generic-type-nested-array-typealias.md: opaque-append-managed
 generic-type-nested-array-typealias.md: opaque-clone-both-live
@@ -4116,9 +4133,11 @@ interface-dispatch.md: witness-impl-reaching-stdlib-through-a-returned-existenti
 interface-dispatch.md: witness-impl-reaching-stdlib-through-an-untouched-constraint
 interface-dispatch.md: witness-impl-reaching-stdlib-when-dispatched
 interface-dispatch.md: witness-impl-reaching-stdlib-when-only-boxed
+interface-extension-body-namespace.md: a-conformer-field-named-like-an-extension-local
 interface-extension-body-namespace.md: error.an-extension-body-cannot-name-a-conformers-field
 interface-extension-body-namespace.md: error.an-extension-method-refused-only-by-the-first-conformer-is-reported-once
 interface-extension-body-namespace.md: error.an-extension-method-refused-only-by-the-second-conformer-is-reported-once
+interface-extension-body-namespace.md: the-same-collision-over-a-managed-element
 interface-extensions.md: a-base-extension-discharges-a-derived-interfaces-requirement
 interface-extensions.md: a-two-parameter-iterable-answers-an-extension-predicate
 interface-extensions.md: basic-extension-on-array

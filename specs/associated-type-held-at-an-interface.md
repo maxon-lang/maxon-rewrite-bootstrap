@@ -1079,7 +1079,7 @@ type UpCursor uses Slot implements Cursor
 	let spare as Slot
 
 	static function create(pos Tally, spare Slot) returns Self where Slot implements Copyable
-		return Self{pos: pos, spare: spare}
+		return Self{pos: pos, spare: spare.clone()}
 	end 'create'
 
 	function current() returns Tally
@@ -1087,15 +1087,15 @@ type UpCursor uses Slot implements Cursor
 	end 'current'
 end 'UpCursor'
 
-type UpBag uses Slot implements Bag with SlotCursor
+type UpBag uses Slot implements Bag with SlotCursor where Slot implements Copyable
 	typealias SlotCursor = UpCursor with Slot
 	let spare as Slot
 
 	static function create(spare Slot) returns Self where Slot implements Copyable
-		return Self{spare: spare}
+		return Self{spare: spare.clone()}
 	end 'create'
 
-	function createIterator() returns SlotCursor throws IterationError where Slot implements Copyable
+	function createIterator() returns SlotCursor throws IterationError
 		return SlotCursor.create(7, spare: self.spare)
 	end 'createIterator'
 end 'UpBag'
@@ -1644,7 +1644,7 @@ type Wrap uses X, Y implements Probe
 	let x as X
 
 	static function create(x X) returns Self where X implements Copyable
-		return Self{x: x}
+		return Self{x: x.clone()}
 	end 'create'
 
 	function width() returns Tally
@@ -1656,7 +1656,7 @@ type Inner uses W implements Cursor where W implements Probe
 	let w as W
 
 	static function create(w W) returns Self where W implements Copyable
-		return Self{w: w}
+		return Self{w: w.clone()}
 	end 'create'
 
 	function current() returns Tally
@@ -1664,16 +1664,16 @@ type Inner uses W implements Cursor where W implements Probe
 	end 'current'
 end 'Inner'
 
-type Outer uses X, Y implements Bag with In
+type Outer uses X, Y implements Bag with In where X implements Droppable and Copyable
 	typealias Pairing = Wrap with (X, Y)
 	typealias In = Inner with Pairing
 	let x as X
 
 	static function create(x X) returns Self where X implements Copyable
-		return Self{x: x}
+		return Self{x: x.clone()}
 	end 'create'
 
-	function createIterator() returns In throws IterationError where X implements Droppable
+	function createIterator() returns In throws IterationError
 		return In.create(Pairing.create(self.x))
 	end 'createIterator'
 end 'Outer'
@@ -1745,8 +1745,8 @@ type Item uses T, P implements Cursor
 	typealias PItems = Array with P
 	export let items as PItems
 
-	static function create(t T, items PItems) returns Self where T implements Copyable
-		return Self{t: t, items: items}
+	static function create(t T, items PItems) returns Self where T implements Copyable, P implements Copyable
+		return Self{t: t.clone(), items: items.clone()}
 	end 'create'
 
 	function current() returns Tally
@@ -1754,18 +1754,18 @@ type Item uses T, P implements Cursor
 	end 'current'
 end 'Item'
 
-type Outer uses X, Y implements Bag with In
+type Outer uses X, Y implements Bag with In where Y implements Copyable
 	typealias In = Item with (Tally, Y)
 	typealias Items = Array with Y
 	let y as Y
 
 	static function create(y Y) returns Self where Y implements Copyable
-		return Self{y: y}
+		return Self{y: y.clone()}
 	end 'create'
 
-	function createIterator() returns In throws IterationError where Y implements Copyable
+	function createIterator() returns In throws IterationError
 		var items = Items.create(1, zeroed: false)
-		items.push(self.y)
+		items.push(self.y.clone())
 		return In.create(1, items: items)
 	end 'createIterator'
 end 'Outer'

@@ -749,15 +749,15 @@ extension Container
 	end 'checkOnly'
 end 'Container'
 
-type Bag uses Element implements Container with Element
+type Bag uses Element implements Container with Element where Element implements Copyable
 	export var value as Element
 
 	static function create(v Element) returns Self where Element implements Copyable
-		return Self{value: v}
+		return Self{value: v.clone()}
 	end 'create'
 
-	function only() returns Element where Element implements Copyable
-		return self.value
+	function only() returns Element
+		return self.value.clone()
 	end 'only'
 end 'Bag'
 

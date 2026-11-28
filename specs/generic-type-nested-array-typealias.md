@@ -2594,13 +2594,13 @@ interface Appendable uses Func
 end 'Appendable'
 
 extension Appendable
-	function absorbTwice(a Func, b Func)
+	function absorbTwice(mutates self, a Func, b Func)
 		self.absorb(a)
 		self.absorb(b)
 	end 'absorbTwice'
 end 'Appendable'
 
-type Bag uses Op implements Appendable with Integer
+type Bag uses Op implements Appendable with Integer where Op implements Copyable
 	typealias OpArray = Array with Op
 	export var ops as OpArray
 
@@ -2612,15 +2612,15 @@ type Bag uses Op implements Appendable with Integer
 		return self.ops.count()
 	end 'opsCount'
 
-	function absorb(mutates self, other Integer) where Op implements Copyable
-		self.ops.append(self.ops)
+	function absorb(mutates self, other Integer)
+		self.ops.append(self.ops.clone())
 	end 'absorb'
 end 'Bag'
 
 typealias IntBag = Bag with Integer
 
 function main() returns ExitCode
-	let a = IntBag.create()
+	var a = IntBag.create()
 	a.absorbTwice(1, b: 2)
 	if a.opsCount() == 0 'ok'
 		return 0

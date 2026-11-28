@@ -291,7 +291,7 @@ one that needs its instance's layout descriptor.
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
-type Cell uses T implements Equatable
+type Cell uses T implements Equatable where T implements Droppable
 	export typealias Items = Array with T
 	export var n as Val
 
@@ -299,7 +299,7 @@ type Cell uses T implements Equatable
 		return Self{n: n}
 	end 'create'
 
-	function equals(other Self) returns bool where T implements Droppable
+	function equals(other Self) returns bool
 		let scratch = Items.create(0)
 		return n == other.n and scratch.count() == 0
 	end 'equals'

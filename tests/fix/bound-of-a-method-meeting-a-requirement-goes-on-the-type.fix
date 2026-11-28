@@ -1,0 +1,25 @@
+// A method that meets a requirement takes no bound of its own on the type's parameters (E3016), so the bound its body needs
+// goes on the type.
+interface Holder uses Item
+	function first() returns Item
+end 'Holder'
+
+type Box uses T implements Holder with T
+	var item as T
+
+	static function make(consumes item T) returns Self
+		return Self{item: item}
+	end 'make'
+
+	function first() returns T
+		return self.item
+	end 'first'
+end 'Box'
+
+typealias Text = Box with String
+
+function main() returns ExitCode
+	let b = Text.make("x")
+	print("{b.first()}\n")
+	return 0
+end 'main'

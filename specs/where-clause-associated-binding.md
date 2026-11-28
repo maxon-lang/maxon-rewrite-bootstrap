@@ -838,7 +838,7 @@ end 'main'
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
-type Bag uses T implements Equatable
+type Bag uses T implements Equatable where T implements Copyable
 	export typealias Items = Array with T
 	var items as Items
 
@@ -846,7 +846,7 @@ type Bag uses T implements Equatable
 		return Self{items: items}
 	end 'create'
 
-	function equals(other Self) returns bool where T implements Copyable
+	function equals(other Self) returns bool
 		let copy = try other.items.slice(0, endIndex: other.items.count()) otherwise return false
 		return copy.count() == items.count()
 	end 'equals'

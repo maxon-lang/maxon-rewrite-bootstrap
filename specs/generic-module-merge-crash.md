@@ -27,11 +27,11 @@ interface Mergeable uses Func
 end 'Mergeable'
 
 extension Mergeable
-	function merge(source Self)
+	function merge(mutates self, source Self) where Func implements Droppable
 		self.appendOps(source)
 		for i in 0 upto source.itemCount() 'eachItem'
 			let src = source.getItem(i)
-			let copy = self.cloneItem(src)
+			var copy = self.cloneItem(src)
 			self.pushItem(copy)
 		end 'eachItem'
 	end 'merge'
@@ -47,7 +47,7 @@ end 'Wrapper'
 
 typealias WrapperArray = Array with Wrapper
 
-type Container uses Op implements Mergeable with Wrapper
+type Container uses Op implements Mergeable with Wrapper where Op implements Copyable
 	typealias OpArray = Array with Op
 	export var ops as OpArray
 	export var items as WrapperArray
@@ -60,7 +60,7 @@ type Container uses Op implements Mergeable with Wrapper
 		return self.ops.count()
 	end 'opsCount'
 
-	function appendOps(mutates self, source Self) where Op implements Copyable
+	function appendOps(mutates self, source Self)
 		self.ops.append(source.ops)
 	end 'appendOps'
 
@@ -75,15 +75,15 @@ type Container uses Op implements Mergeable with Wrapper
 	end 'getItem'
 
 	function pushItem(mutates self, mutates item Wrapper)
-		self.items.push(item)
+		self.items.push(item.clone())
 	end 'pushItem'
 
 	function cloneItem(src Wrapper) returns Wrapper
 		return Wrapper.create(src.value)
 	end 'cloneItem'
 
-	function pushOp(op Op)
-		self.ops.push(op)
+	function pushOp(mutates self, op Op)
+		self.ops.push(op.clone())
 	end 'pushOp'
 end 'Container'
 
@@ -92,12 +92,12 @@ typealias IntContainer = Container with Integer
 typealias ExitCode = int(0 to 125)
 
 function main() returns ExitCode
-	let a = IntContainer.create()
+	var a = IntContainer.create()
 	a.pushOp(10)
 	a.pushOp(20)
-	let first = Wrapper.create(99)
+	var first = Wrapper.create(99)
 	a.pushItem(first)
-	let b = IntContainer.create()
+	var b = IntContainer.create()
 	b.merge(a)
 	if b.opsCount() == 2 and b.itemCount() == 1 'check'
 		let item = b.getItem(0)

@@ -1175,14 +1175,25 @@ export function lackBoundFix(p ast.Project, ms ast.ModuleState, fn ast.FuncID, i
 	return paramBoundFix(p, ms: ms, fn: fn, param: last.owner, bound: capName)
 end 'lackBoundFix'
 
-// paramBoundFix writes the bound on the type parameter param in the header of fn, the function whose body needs it. In a
-// method of an extension of an interface the bound is the method's own, so a conformer that binds an associated type to a
-// type without it lacks that method alone.
+// paramBoundFix writes the bound on the type parameter param in the header of fn, the function whose body needs it, or, where
+// fn is a method that meets a requirement of an interface its type's declaration says the type implements, in the header
+// of that declaration: a bound of the method's own would make the type implement the interface only for some instances
+// (E3016). In a method of an extension of an interface the bound is the method's own, so a conformer that binds an
+// associated type to a type without it lacks that method alone.
 export function paramBoundFix(p ast.Project, ms ast.ModuleState, fn ast.FuncID, param ast.TypeID, bound String) returns diag.Fix
 	if fn == ast.noFunc or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).isClosure 'noHeader'
 		return diag.Fix.none()
 	end 'noHeader'
-	return boundFix(ms.tree(), decl: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).nodeID, param: ast.typeName(ms.types, reads: p.types, t: param), bound: bound)
+	let paramName = ast.typeName(ms.types, reads: p.types, t: param)
+	let owner = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).ownerTy
+	if owner != ast.noType and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).extendedIface == ast.noType and meetsRequirement(p, ms: ms, owner: owner, name: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).name) 'witness'
+		let decl = ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: owner)).decl.clone()
+		if decl.module != ms.module 'elsewhere'
+			return diag.Fix.none()
+		end 'elsewhere'
+		return boundFix(ms.tree(), decl: ast.declNodeID(p, ref: decl), param: paramName, bound: bound)
+	end 'witness'
+	return boundFix(ms.tree(), decl: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).nodeID, param: paramName, bound: bound)
 end 'paramBoundFix'
 
 export function copyAdviceText(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, ifCopyable String, otherwiseText String) returns String

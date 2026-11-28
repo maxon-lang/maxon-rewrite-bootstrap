@@ -631,15 +631,15 @@ interface Holder uses Element
 	function held() returns Element
 end 'Holder'
 
-type Box uses T implements Holder with T
+type Box uses T implements Holder with T where T implements Copyable
 	let value as T
 
-	function held() returns T where T implements Copyable
-		return value
+	function held() returns T
+		return value.clone()
 	end 'held'
 
 	static function create(value T) returns Self where T implements Copyable
-		return Self{value: value}
+		return Self{value: value.clone()}
 	end 'create'
 end 'Box'
 
@@ -1433,15 +1433,15 @@ interface Holder uses Element
 	function held() returns Element
 end 'Holder'
 
-type Box uses T implements Holder with (T)
+type Box uses T implements Holder with (T) where T implements Copyable
 	let value as T
 
-	function held() returns T where T implements Copyable
-		return value
+	function held() returns T
+		return value.clone()
 	end 'held'
 
 	static function create(value T) returns Self where T implements Copyable
-		return Self{value: value}
+		return Self{value: value.clone()}
 	end 'create'
 end 'Box'
 
@@ -4413,7 +4413,7 @@ public interface Maker
 	static function spawn() returns Self
 end 'Maker'
 
-public type Bag uses Element implements Holder with Element, Maker
+public type Bag uses Element implements Holder with Element, Maker where Element implements Copyable
 	typealias ElementArray = Array with Element
 	var items = ElementArray.create(0)
 
@@ -4421,12 +4421,12 @@ public type Bag uses Element implements Holder with Element, Maker
 		return Self{}
 	end 'spawn'
 
-	function absorb(mutates self, value ElementArray) where Element implements Copyable
+	function absorb(mutates self, value ElementArray)
 		items = value.clone()
 	end 'absorb'
 
 	function count() returns Num
-		return items.count()
+		return try items.count() as Num otherwise panic("out of range")
 	end 'count'
 end 'Bag'
 

@@ -1399,7 +1399,7 @@ end 'main'
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type BoxIter uses T implements Iterator with T
+type BoxIter uses T implements Iterator with T where T implements Copyable
 	export typealias TArr = Array with T
 	var items as TArr
 	var at = 0 as Count
@@ -1408,7 +1408,7 @@ type BoxIter uses T implements Iterator with T
 		if items.count() == 0 'empty'
 			throw IterationError.exhausted
 		end 'empty'
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 
 	function current() returns borrowed T
@@ -1416,22 +1416,22 @@ type BoxIter uses T implements Iterator with T
 	end 'current'
 
 	function advance(mutates self) throws IterationError
-		at = at + 1
+		at = try at + 1 otherwise panic("out of range")
 		if at >= items.count() 'done'
 			throw IterationError.exhausted
 		end 'done'
 	end 'advance'
 end 'BoxIter'
 
-type Box uses T implements Iterable with (T, BoxIter)
+type Box uses T implements Iterable with (T, BoxIter) where T implements Copyable
 	typealias TArr = Array with T
 	var items as TArr
 
 	static function create(items TArr) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 
-	function createIterator() returns BoxIter throws IterationError where T implements Copyable
+	function createIterator() returns BoxIter throws IterationError
 		return try BoxIter.create(items.clone())
 	end 'createIterator'
 end 'Box'
@@ -1441,15 +1441,15 @@ typealias IntArray = Array with Integer
 typealias B = Box with Integer
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(3)
 	a.push(4)
 	let b = B.create(a)
 	var total = 0 as Integer
 	for x in b 'walk'
-		total = total + x
+		total = try total + x otherwise panic("out of range")
 	end 'walk'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

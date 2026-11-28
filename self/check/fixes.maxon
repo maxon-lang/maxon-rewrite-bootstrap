@@ -826,12 +826,13 @@ function endsDeclFix(t ast.Tree, td ast.TypeDecl, calls ast.StringList) returns 
 	return fixOf(fixKindEnds, edits: edits)
 end 'endsDeclFix'
 
-// boundFix gives the type parameter named param the bound in the where clause of the function declared at decl, a type
-// parameter of its own or of the type it is a method of: what "add the bound 'where T implements Copyable'" asks for.
+// boundFix gives the type parameter named param the bound in the where clause of the function or the type declared at decl,
+// a type parameter of its own or, for a function, of the type it is a method of: what "add the bound 'where T implements
+// Copyable'" asks for.
 export function boundFix(t ast.Tree, decl ast.NodeID, param String, bound String) returns diag.Fix
-	if decl == 0 or t.kindOf(decl) != ast.NodeKind.funcDecl 'notFunction'
+	if decl == 0 or not (t.kindOf(decl) == ast.NodeKind.funcDecl or t.kindOf(decl) == ast.NodeKind.typeDecl or t.kindOf(decl) == ast.NodeKind.unionDecl) 'noHeader'
 		return diag.Fix.none()
-	end 'notFunction'
+	end 'noHeader'
 	match consumes ast.boundPlace(t.text, at: t.startOf(decl) as Count, param: param) 'place'
 		some(place) then return fixOf(fixKindBound, edits: boundEdits(t, place: place, param: param, bound: bound))
 		none then return diag.Fix.none()

@@ -58,7 +58,7 @@ export type BagIter uses Element implements Iterator with Element
 	var item as Element
 
 	static function create(v Element) returns Self where Element implements Copyable
-		return Self{item: v}
+		return Self{item: v.clone()}
 	end 'create'
 
 	export function current() returns borrowed Element
@@ -70,14 +70,14 @@ export type BagIter uses Element implements Iterator with Element
 	end 'advance'
 end 'BagIter'
 
-type Bag uses Element implements Iterable with (Element, BagIter)
+type Bag uses Element implements Iterable with (Element, BagIter) where Element implements Copyable
 	var item as Element
 
 	static function create(v Element) returns Self where Element implements Copyable
-		return Self{item: v}
+		return Self{item: v.clone()}
 	end 'create'
 
-	export function createIterator() returns BagIter throws IterationError where Element implements Copyable
+	export function createIterator() returns BagIter throws IterationError
 		return BagIter.create(item)
 	end 'createIterator'
 end 'Bag'
@@ -114,7 +114,7 @@ export type BagIter uses Element implements Iterator with Element
 	var item as Element
 
 	static function create(v Element) returns Self where Element implements Copyable
-		return Self{item: v}
+		return Self{item: v.clone()}
 	end 'create'
 
 	export function current() returns borrowed Element
@@ -126,15 +126,15 @@ export type BagIter uses Element implements Iterator with Element
 	end 'advance'
 end 'BagIter'
 
-type Bag uses Element implements Iterable with (Element, BagIter)
+type Bag uses Element implements Iterable with (Element, BagIter) where Element implements Copyable
 	var item as Element
 	var result as Int
 
 	static function create(v Element) returns Self where Element implements Copyable
-		return Self{item: v, result: 0}
+		return Self{item: v.clone(), result: 0}
 	end 'create'
 
-	export function createIterator() returns BagIter throws IterationError where Element implements Copyable
+	export function createIterator() returns BagIter throws IterationError
 		return BagIter.create(item)
 	end 'createIterator'
 end 'Bag'
