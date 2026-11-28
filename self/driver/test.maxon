@@ -37,9 +37,11 @@ let expectMemoryPrefix = "// memory-limit:"
 
 let nativeOnlyDirective = "// native-only"
 
-// A program that holds every processor while it runs, as a test of preemption does, runs with no other test's executable
-// running, as a spec test of maxon's that says `runs: alone` does: beside it, a program whose run is a chain of short waits on
-// the system, such as one that starts a hundred children one after another, waits a slice for each and outlives its deadline.
+// A program that holds every processor while it runs, as a test of preemption does, runs with the machine to itself: once every
+// other test has ended, with no executable and no compile of another test beside it, and each such program after the one before it,
+// so that the run drains once for all of them. As a spec test of maxon's that says `runs: alone` does: beside it, a program
+// whose run is a chain of short waits on the system, such as one that starts a hundred children one after another, waits a slice
+// for each and outlives its deadline, or one that measures a wake within a few milliseconds.
 let runsAloneDirective = "// runs: alone"
 
 // A program that runs for long, which a run of the corpus leaves out unless it is given the --manual flag, or the program's own

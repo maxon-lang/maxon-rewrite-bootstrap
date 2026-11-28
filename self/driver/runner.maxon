@@ -171,15 +171,6 @@ union PendingRun
 			spec(value) gives value.index
 		end 'pending'
 	end 'index'
-
-	// runsAlone is whether the executable runs with no other running. A spec test that says it runs alone is skipped before it
-	// is compiled, so every spec test that runs shares the machine.
-	function runsAlone() returns bool
-		return match self 'pending'
-			corpus(value) gives value.expect.runsAlone
-			spec(_) gives false
-		end 'pending'
-	end 'runsAlone'
 end 'PendingRun'
 
 typealias PendingRuns = Array with PendingRun
@@ -290,14 +281,18 @@ typealias ResultSlot = table.Option with TestResult
 typealias ResultSlots = Array with ResultSlot
 
 // Board is what the cown of a run of tests holds: the slot of each test's result, the next test to start, how many are under
-// way and how many of their executables run and whether the one that runs runs alone, the compiled tests that wait for their run,
+// way and how many of their executables run, the tests that run alone and wait for the rest to end, the compiled tests that wait for their run,
 // how many results were taken in, the tally, and the executables that could not be deleted.
 type Board
 	var results as ResultSlots
 	var next as Count
 	var underWay as Count
 	var running as Count
-	var alone as bool
+	// deferred are the tests that run alone (runsAlone), by their places, and deferredAt how many of them have started: they wait until
+	// every other test has ended, and then each compiles and runs with the machine to itself, one after another, so that the run
+	// drains once for all of them and not once for each.
+	var deferred as CountList
+	var deferredAt as Count
 	var waiting as PendingRuns
 	var taken as Count
 	var ended as bool
@@ -309,27 +304,49 @@ type Board
 		for _ in 0 upto tests 'slots'
 			results.push(table.Option.none)
 		end 'slots'
-		return Board{results: results, next: 0, underWay: 0, running: 0, alone: false, waiting: PendingRuns.create(0), taken: 0, ended: false, tally: tally, scratch: scratch}
+		return Board{results: results, next: 0, underWay: 0, running: 0, deferred: CountList.create(0), deferredAt: 0, waiting: PendingRuns.create(0), taken: 0, ended: false, tally: tally, scratch: scratch}
 	end 'make'
 
 	// fill starts the tests after the last one started while fewer than the window are under way. A test that the run leaves
-	// out without compiling it is done as it is reached.
+	// out without compiling it is done as it is reached, and one that runs alone is put by until every test has been reached and
+	// every one that was started has ended; each of those then starts alone, one after another (startDeferred).
 	function fill(mutates self, bench frozen with Bench)
 		while next < results.count() and underWay < bench.width.window 'start'
 			let index = next
 			next = offsetBy(next, by: 1)
-			if bench.verbose 'say'
-				print(startLine(bench.jobs[index]))
-			end 'say'
 			if isLeftOut(bench.jobs[index]) 'leftOut'
+				sayStart(bench, index: index)
 				results[index] = table.Option.some(leftOutResult(bench.jobs[index]))
-			end 'leftOut' else 'run'
+			end 'leftOut' else if runsAlone(bench.jobs[index]) 'alone'
+				deferred.push(index)
+			end 'alone' else 'run'
+				sayStart(bench, index: index)
 				underWay = offsetBy(underWay, by: 1)
 				startJob(bench, index: index)
 			end 'run'
 		end 'start'
+		startDeferred(bench)
 		takeReady(bench)
 	end 'fill'
+
+	// startDeferred starts the next test that runs alone, once nothing else is under way: no compile and no executable of another
+	// test goes on beside it, and the test after it waits for it to end.
+	function startDeferred(mutates self, bench frozen with Bench)
+		if next < results.count() or underWay > 0 or deferredAt >= deferred.count() 'busy'
+			return
+		end 'busy'
+		let index = deferred.get(deferredAt)
+		deferredAt = offsetBy(deferredAt, by: 1)
+		sayStart(bench, index: index)
+		underWay = offsetBy(underWay, by: 1)
+		startJob(bench, index: index)
+	end 'startDeferred'
+
+	function sayStart(bench frozen with Bench, index Count)
+		if bench.verbose 'say'
+			print(startLine(bench.jobs[index]))
+		end 'say'
+	end 'sayStart'
 
 	// staged takes in what the compile of the test at index gave.
 	function staged(mutates self, bench frozen with Bench, index Count, consumes staged Staged)
@@ -345,16 +362,9 @@ type Board
 	end 'queueRun'
 
 	// startRuns starts the runs of the compiled tests that wait, the earliest first, while fewer executables than the cap run.
-	// An executable that runs alone starts once every other has ended, and none starts while it runs.
 	function startRuns(mutates self, bench frozen with Bench)
-		while running < bench.width.executables and waiting.count() > 0 and not alone 'start'
+		while running < bench.width.executables and waiting.count() > 0 'start'
 			let at = earliestWaiting(waiting)
-			if waiting[at].runsAlone() 'alone'
-				if running > 0 'drain'
-					return
-				end 'drain'
-				alone = true
-			end 'alone'
 			running = offsetBy(running, by: 1)
 			let last = waiting.pop()
 			if at < waiting.count() 'inside'
@@ -368,7 +378,6 @@ type Board
 	// released counts the end of an executable's run, which lets another start.
 	function released(mutates self, bench frozen with Bench)
 		running = try running - 1 otherwise panic("test: an executable ends that never started")
-		alone = false
 		startRuns(bench)
 	end 'released'
 
@@ -458,6 +467,15 @@ function startLine(job Job) returns String
 		spec(value) gives "RUN  {value.key}\n"
 	end 'job'
 end 'startLine'
+
+// runsAlone is whether the test runs with the machine to itself: a program of the corpus that says `// runs: alone`. A spec test that
+// says it runs alone is skipped before it is compiled, so every spec test that runs shares the machine.
+function runsAlone(job Job) returns bool
+	return match job 'job'
+		corpus(value) gives value.expect.runsAlone
+		spec(_) gives false
+	end 'job'
+end 'runsAlone'
 
 // isLeftOut is whether the run leaves the test out without compiling it.
 function isLeftOut(job Job) returns bool
