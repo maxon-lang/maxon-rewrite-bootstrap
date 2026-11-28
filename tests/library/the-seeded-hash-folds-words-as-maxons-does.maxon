@@ -1,19 +1,11 @@
-// maxon's software fold of a word and of spans of every length class (a few bytes, a half word, a word, a pair, a stride
-// of three pairs and what is left after it) under one seed, and its ordered words read and appended in both orders.
-typealias Lengths = Array with Count
+// maxon's fold of a word under one seed, which is the software fold on every tier, and its ordered words read and appended
+// in both orders. Its spans are tests/runtime/the-hash-tiers-fold-spans-as-maxons-do.maxon's, since a span folds by the
+// process's tier.
 
 function main() returns ExitCode
 	let seed = 0x0123456789abcdef as HashDigest
 	print("{__Builtins.hashWord(0 as HashDigest, seed)}\n")
 	print("{__Builtins.hashWord(42 as HashDigest, seed)}\n")
-	let lengths = Lengths from [0, 1, 3, 4, 7, 8, 15, 16, 17, 31, 47, 48, 49, 64, 97, 100]
-	for n in lengths 'each'
-		var bytes = ByteArray.create(0)
-		for i in 0 upto n 'fill'
-			bytes.push((((i mod 256) * 37 + 11) mod 256) as Byte)
-		end 'fill'
-		print("{n} {__Builtins.hashBytes(bytes, 0, bytes.count(), seed)}\n")
-	end 'each'
 	var words = ByteArray.create(0)
 	__Builtins.appendBigEndian(words, 0x0102 as OrderedWord, 2)
 	__Builtins.appendLittleEndian(words, 0x03040506 as OrderedWord, 4)
@@ -33,22 +25,6 @@ end 'main'
 
 //> 7659338948286149400
 //> 16831108802964612672
-//> 0 2903639648808299679
-//> 1 15299854545381281532
-//> 3 17651810559095129502
-//> 4 12664182338031673024
-//> 7 9539343477266515130
-//> 8 15420722200603929861
-//> 15 8123461622193575052
-//> 16 16653663220231839501
-//> 17 10473793055772558786
-//> 31 12888682513911047742
-//> 47 1567327606483448184
-//> 48 11810827506579897483
-//> 49 14051948118509452206
-//> 64 3437971449587318213
-//> 97 11838801164153290
-//> 100 17513720085797285898
 //> 14 1 2 6 3 7 14
 //> 258 50595078 506664896818842894
 //> past the end

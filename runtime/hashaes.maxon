@@ -1,0 +1,297 @@
+// The AES tier of the seeded hash, maxon's aesHash routine (maxon-bin/Compiler/Targets/X64/X64AesHashRuntime.maxon and
+// its arm64 twin): the fold of a span of bytes by AES rounds, which the process takes in place of the software fold of
+// hashfold.maxon where its processor has AES and MAXON_HASH_TIER does not ask for software (hash.maxon). A span is folded
+// by the class of its length: at most 16 bytes as one block of its first and last words, at most 32, 64 or 128 bytes as
+// 2, 4 or 8 lanes, the first half from its start and the rest from its end, and a longer one as 8 lanes from its end that
+// take in its whole octets of blocks from the start. Each lane starts as a block of the span under the seed's state,
+// which a round steps after each lane; the lanes take rounds of the tier's keys, fold pairwise into the first, and a
+// finish of two rounds ends it. Every vector is a local of the one function, as the runtime's vectors must be.
+
+// The four round keys of the tier, two little-endian words each: maxon's AesHashKeyWordList.
+let aesHashKey0Low = 0x6a09e667f3bcc908 as Count
+
+let aesHashKey0High = 0xbb67ae8584caa73b as Count
+
+let aesHashKey1Low = 0x3c6ef372fe94f82b as Count
+
+let aesHashKey1High = 0xa54ff53a5f1d36f1 as Count
+
+let aesHashKey2Low = 0x510e527fade682d1 as Count
+
+let aesHashKey2High = 0x9b05688c2b3e6c1f as Count
+
+let aesHashKey3Low = 0x1f83d9abfb41bd6b as Count
+
+let aesHashKey3High = 0x5be0cd19137e2179 as Count
+
+// The upper bounds of the classes of a span's length, and the bytes and the shift of the octet of blocks that the long
+// class takes in a turn.
+let aesHashTailBytes = 16 as Count
+
+let aesHashPairBytes = 32 as Count
+
+let aesHashQuadBytes = 64 as Count
+
+let aesHashOctetBytes = 128 as Count
+
+let aesHashOctetShift = 7 as Count
+
+// The pieces of a tail of at most 16 bytes: a quarter is 4 bytes, a half 8.
+let aesHashQuarterBytes = 4 as Count
+
+let aesHashHalfBytes = 8 as Count
+
+let aesHashQuarterBits = 32 as Count
+
+let aesHashByteBits = 8 as Count
+
+let aesHashWordBits = 64 as Count
+
+let aesHashByteMask = 0xFF as AesBits
+
+let aesHashQuarterMask = 0xFFFFFFFF as AesBits
+
+// aesHashSpan is the AES tier's fold of the count bytes at an address under a seed. Each class of length is a function of
+// its own, so that only the long ones save the vector registers their lanes take that a call keeps.
+function aesHashSpan(input Count, count Count, seed Count) returns Count
+	if count <= aesHashTailBytes 'tail'
+		return aesHashTail(input, count: count, seed: seed)
+	end 'tail'
+	if count <= aesHashPairBytes 'pair'
+		return aesHashPair(input, count: count, seed: seed)
+	end 'pair'
+	if count <= aesHashQuadBytes 'quad'
+		return aesHashQuad(input, count: count, seed: seed)
+	end 'quad'
+	return aesHashOctets(input, count: count, seed: seed)
+end 'aesHashSpan'
+
+// aesHashTail folds a span of at most 16 bytes as one block of its first and last words, or of its first, middle and last
+// bytes.
+function aesHashTail(input Count, count Count, seed Count) returns Count
+	var low = 0 as Count
+	var high = 0 as Count
+	if count >= aesHashHalfBytes 'halves'
+		low = __Raw.loadWord(input, offset: 0)
+		high = __Raw.loadWord(input, offset: count - aesHashHalfBytes)
+	end 'halves' else if count >= aesHashQuarterBytes 'quarters'
+		low = __Raw.loadWord32(input, offset: 0) or (((__Raw.loadWord32(input, offset: count - aesHashQuarterBytes) as AesBits) shl aesHashQuarterBits) as Count)
+	end 'quarters' else if count > 0 'bytes'
+		let first = __Raw.loadByte(input, offset: 0) as Count
+		let middle = __Raw.loadByte(input, offset: count shr 1) as Count
+		let last = __Raw.loadByte(input, offset: count - 1) as Count
+		low = first or (middle shl aesHashByteBits) or (last shl (aesHashByteBits + aesHashByteBits))
+	end 'bytes'
+	return aesHashBlock(low, high: high, count: count, seed: seed)
+end 'aesHashTail'
+
+// aesHashShort is aesHashTail of the 1 to 15 bytes that a String holds in its two words, the first eight in the first and
+// the rest in the second, each the lowest byte first and zero past the bytes: the same block, gathered from the words with
+// no access to memory.
+function aesHashShort(first Count, rest Count, count Count, seed Count) returns Count
+	let lowWord = first as AesBits
+	let bytes = count as AesBits
+	let byteBits = aesHashByteBits as AesBits
+	var low = 0 as AesBits
+	var high = 0 as AesBits
+	if count >= aesHashHalfBytes 'halves'
+		low = lowWord
+		high = lowWord
+		if count > aesHashHalfBytes 'past'
+			let shift = (bytes - (aesHashHalfBytes as AesBits)) * byteBits
+			high = (lowWord shr shift) or ((rest as AesBits) shl ((aesHashWordBits as AesBits) - shift))
+		end 'past'
+	end 'halves' else if count >= aesHashQuarterBytes 'quarters'
+		let top = (lowWord shr ((bytes - (aesHashQuarterBytes as AesBits)) * byteBits)) and aesHashQuarterMask
+		low = (lowWord and aesHashQuarterMask) or (top shl aesHashQuarterBits)
+	end 'quarters' else 'bytes'
+		let middle = (lowWord shr ((bytes shr 1) * byteBits)) and aesHashByteMask
+		let last = (lowWord shr ((bytes - 1) * byteBits)) and aesHashByteMask
+		low = (lowWord and aesHashByteMask) or (middle shl aesHashByteBits) or (last shl (aesHashByteBits + aesHashByteBits))
+	end 'bytes'
+	return aesHashBlock(low as Count, high: high as Count, count: count, seed: seed)
+end 'aesHashShort'
+
+// aesHashBlock folds the block of a tail, two little-endian words, under the seed's state for count bytes.
+function aesHashBlock(low Count, high Count, count Count, seed Count) returns Count
+	let k1 = __Raw.vectorOfWords(aesHashKey1Low, high: aesHashKey1High)
+	let k2 = __Raw.vectorOfWords(aesHashKey2Low, high: aesHashKey2High)
+	let k3 = __Raw.vectorOfWords(aesHashKey3Low, high: aesHashKey3High)
+	var state = __Raw.vectorXor(__Raw.vectorOfWords(seed, high: count), right: __Raw.vectorOfWords(aesHashKey0Low, high: aesHashKey0High))
+	state = __Raw.vectorAesEncrypt(state, key: k1)
+	var lane = __Raw.vectorXor(__Raw.vectorOfWords(low, high: high), right: state)
+	lane = __Raw.vectorAesEncrypt(lane, key: k1)
+	lane = __Raw.vectorAesEncrypt(lane, key: k2)
+	lane = __Raw.vectorAesEncrypt(lane, key: k3)
+	return __Raw.vectorWord(lane, lane: 0)
+end 'aesHashBlock'
+
+// aesHashPair folds a span of 17 to 32 bytes as two lanes.
+function aesHashPair(input Count, count Count, seed Count) returns Count
+	let k1 = __Raw.vectorOfWords(aesHashKey1Low, high: aesHashKey1High)
+	let k2 = __Raw.vectorOfWords(aesHashKey2Low, high: aesHashKey2High)
+	let k3 = __Raw.vectorOfWords(aesHashKey3Low, high: aesHashKey3High)
+	var state = __Raw.vectorXor(__Raw.vectorOfWords(seed, high: count), right: __Raw.vectorOfWords(aesHashKey0Low, high: aesHashKey0High))
+	state = __Raw.vectorAesEncrypt(state, key: k1)
+	let past = __Raw.wrappingAdd(input, right: count)
+	let back = __Raw.wrappingSub(past, right: aesHashPairBytes)
+	var l0 = __Raw.vectorXor(__Raw.vectorLoad(input, offset: 0), right: state)
+	state = __Raw.vectorAesEncrypt(state, key: k2)
+	var l1 = __Raw.vectorXor(__Raw.vectorLoad(back, offset: 16), right: state)
+	l0 = __Raw.vectorAesEncrypt(l0, key: k1)
+	l1 = __Raw.vectorAesEncrypt(l1, key: k1)
+	l0 = __Raw.vectorAesEncrypt(l0, key: k2)
+	l1 = __Raw.vectorAesEncrypt(l1, key: k2)
+	l0 = __Raw.vectorAesEncrypt(l0, key: l1)
+	l0 = __Raw.vectorAesEncrypt(l0, key: k3)
+	l0 = __Raw.vectorAesEncrypt(l0, key: k1)
+	return __Raw.vectorWord(l0, lane: 0)
+end 'aesHashPair'
+
+// aesHashQuad folds a span of 33 to 64 bytes as four lanes.
+function aesHashQuad(input Count, count Count, seed Count) returns Count
+	let k1 = __Raw.vectorOfWords(aesHashKey1Low, high: aesHashKey1High)
+	let k2 = __Raw.vectorOfWords(aesHashKey2Low, high: aesHashKey2High)
+	let k3 = __Raw.vectorOfWords(aesHashKey3Low, high: aesHashKey3High)
+	var state = __Raw.vectorXor(__Raw.vectorOfWords(seed, high: count), right: __Raw.vectorOfWords(aesHashKey0Low, high: aesHashKey0High))
+	state = __Raw.vectorAesEncrypt(state, key: k1)
+	let past = __Raw.wrappingAdd(input, right: count)
+	let back = __Raw.wrappingSub(past, right: aesHashQuadBytes)
+	var l0 = __Raw.vectorXor(__Raw.vectorLoad(input, offset: 0), right: state)
+	state = __Raw.vectorAesEncrypt(state, key: k2)
+	var l1 = __Raw.vectorXor(__Raw.vectorLoad(input, offset: 16), right: state)
+	state = __Raw.vectorAesEncrypt(state, key: k2)
+	var l2 = __Raw.vectorXor(__Raw.vectorLoad(back, offset: 32), right: state)
+	state = __Raw.vectorAesEncrypt(state, key: k2)
+	var l3 = __Raw.vectorXor(__Raw.vectorLoad(back, offset: 48), right: state)
+	l0 = __Raw.vectorAesEncrypt(l0, key: k1)
+	l1 = __Raw.vectorAesEncrypt(l1, key: k1)
+	l2 = __Raw.vectorAesEncrypt(l2, key: k1)
+	l3 = __Raw.vectorAesEncrypt(l3, key: k1)
+	l0 = __Raw.vectorAesEncrypt(l0, key: k2)
+	l1 = __Raw.vectorAesEncrypt(l1, key: k2)
+	l2 = __Raw.vectorAesEncrypt(l2, key: k2)
+	l3 = __Raw.vectorAesEncrypt(l3, key: k2)
+	l0 = __Raw.vectorAesEncrypt(l0, key: l2)
+	l1 = __Raw.vectorAesEncrypt(l1, key: l3)
+	l0 = __Raw.vectorAesEncrypt(l0, key: l1)
+	l0 = __Raw.vectorAesEncrypt(l0, key: k3)
+	l0 = __Raw.vectorAesEncrypt(l0, key: k1)
+	return __Raw.vectorWord(l0, lane: 0)
+end 'aesHashQuad'
+
+// aesHashOctets folds a longer span as eight lanes: one class to 128 bytes, and past it the long class.
+function aesHashOctets(input Count, count Count, seed Count) returns Count
+	let k1 = __Raw.vectorOfWords(aesHashKey1Low, high: aesHashKey1High)
+	let k2 = __Raw.vectorOfWords(aesHashKey2Low, high: aesHashKey2High)
+	let k3 = __Raw.vectorOfWords(aesHashKey3Low, high: aesHashKey3High)
+	var state = __Raw.vectorXor(__Raw.vectorOfWords(seed, high: count), right: __Raw.vectorOfWords(aesHashKey0Low, high: aesHashKey0High))
+	state = __Raw.vectorAesEncrypt(state, key: k1)
+	let past = __Raw.wrappingAdd(input, right: count)
+	let back = __Raw.wrappingSub(past, right: aesHashOctetBytes)
+	var l0 = __Raw.vectorZero()
+	var l1 = __Raw.vectorZero()
+	var l2 = __Raw.vectorZero()
+	var l3 = __Raw.vectorZero()
+	var l4 = __Raw.vectorZero()
+	var l5 = __Raw.vectorZero()
+	var l6 = __Raw.vectorZero()
+	var l7 = __Raw.vectorZero()
+	if count <= aesHashOctetBytes 'octet'
+		l0 = __Raw.vectorXor(__Raw.vectorLoad(input, offset: 0), right: state)
+		state = __Raw.vectorAesEncrypt(state, key: k2)
+		l1 = __Raw.vectorXor(__Raw.vectorLoad(input, offset: 16), right: state)
+		state = __Raw.vectorAesEncrypt(state, key: k2)
+		l2 = __Raw.vectorXor(__Raw.vectorLoad(input, offset: 32), right: state)
+		state = __Raw.vectorAesEncrypt(state, key: k2)
+		l3 = __Raw.vectorXor(__Raw.vectorLoad(input, offset: 48), right: state)
+		state = __Raw.vectorAesEncrypt(state, key: k2)
+		l4 = __Raw.vectorXor(__Raw.vectorLoad(back, offset: 64), right: state)
+		state = __Raw.vectorAesEncrypt(state, key: k2)
+		l5 = __Raw.vectorXor(__Raw.vectorLoad(back, offset: 80), right: state)
+		state = __Raw.vectorAesEncrypt(state, key: k2)
+		l6 = __Raw.vectorXor(__Raw.vectorLoad(back, offset: 96), right: state)
+		state = __Raw.vectorAesEncrypt(state, key: k2)
+		l7 = __Raw.vectorXor(__Raw.vectorLoad(back, offset: 112), right: state)
+		l0 = __Raw.vectorAesEncrypt(l0, key: k1)
+		l1 = __Raw.vectorAesEncrypt(l1, key: k1)
+		l2 = __Raw.vectorAesEncrypt(l2, key: k1)
+		l3 = __Raw.vectorAesEncrypt(l3, key: k1)
+		l4 = __Raw.vectorAesEncrypt(l4, key: k1)
+		l5 = __Raw.vectorAesEncrypt(l5, key: k1)
+		l6 = __Raw.vectorAesEncrypt(l6, key: k1)
+		l7 = __Raw.vectorAesEncrypt(l7, key: k1)
+		l0 = __Raw.vectorAesEncrypt(l0, key: k2)
+		l1 = __Raw.vectorAesEncrypt(l1, key: k2)
+		l2 = __Raw.vectorAesEncrypt(l2, key: k2)
+		l3 = __Raw.vectorAesEncrypt(l3, key: k2)
+		l4 = __Raw.vectorAesEncrypt(l4, key: k2)
+		l5 = __Raw.vectorAesEncrypt(l5, key: k2)
+		l6 = __Raw.vectorAesEncrypt(l6, key: k2)
+		l7 = __Raw.vectorAesEncrypt(l7, key: k2)
+	end 'octet' else 'long'
+		l0 = __Raw.vectorXor(__Raw.vectorLoad(back, offset: 0), right: state)
+		state = __Raw.vectorAesEncrypt(state, key: k2)
+		l1 = __Raw.vectorXor(__Raw.vectorLoad(back, offset: 16), right: state)
+		state = __Raw.vectorAesEncrypt(state, key: k2)
+		l2 = __Raw.vectorXor(__Raw.vectorLoad(back, offset: 32), right: state)
+		state = __Raw.vectorAesEncrypt(state, key: k2)
+		l3 = __Raw.vectorXor(__Raw.vectorLoad(back, offset: 48), right: state)
+		state = __Raw.vectorAesEncrypt(state, key: k2)
+		l4 = __Raw.vectorXor(__Raw.vectorLoad(back, offset: 64), right: state)
+		state = __Raw.vectorAesEncrypt(state, key: k2)
+		l5 = __Raw.vectorXor(__Raw.vectorLoad(back, offset: 80), right: state)
+		state = __Raw.vectorAesEncrypt(state, key: k2)
+		l6 = __Raw.vectorXor(__Raw.vectorLoad(back, offset: 96), right: state)
+		state = __Raw.vectorAesEncrypt(state, key: k2)
+		l7 = __Raw.vectorXor(__Raw.vectorLoad(back, offset: 112), right: state)
+		var at = input
+		var octets = ((count - 1) shr aesHashOctetShift) as Count
+		while octets > 0 'octets'
+			l0 = __Raw.vectorAesEncrypt(__Raw.vectorAesEncrypt(l0, key: k1), key: __Raw.vectorLoad(at, offset: 0))
+			l1 = __Raw.vectorAesEncrypt(__Raw.vectorAesEncrypt(l1, key: k1), key: __Raw.vectorLoad(at, offset: 16))
+			l2 = __Raw.vectorAesEncrypt(__Raw.vectorAesEncrypt(l2, key: k1), key: __Raw.vectorLoad(at, offset: 32))
+			l3 = __Raw.vectorAesEncrypt(__Raw.vectorAesEncrypt(l3, key: k1), key: __Raw.vectorLoad(at, offset: 48))
+			l4 = __Raw.vectorAesEncrypt(__Raw.vectorAesEncrypt(l4, key: k1), key: __Raw.vectorLoad(at, offset: 64))
+			l5 = __Raw.vectorAesEncrypt(__Raw.vectorAesEncrypt(l5, key: k1), key: __Raw.vectorLoad(at, offset: 80))
+			l6 = __Raw.vectorAesEncrypt(__Raw.vectorAesEncrypt(l6, key: k1), key: __Raw.vectorLoad(at, offset: 96))
+			l7 = __Raw.vectorAesEncrypt(__Raw.vectorAesEncrypt(l7, key: k1), key: __Raw.vectorLoad(at, offset: 112))
+			at = __Raw.wrappingAdd(at, right: aesHashOctetBytes)
+			octets = octets - 1
+		end 'octets'
+		l0 = __Raw.vectorAesEncrypt(l0, key: k1)
+		l1 = __Raw.vectorAesEncrypt(l1, key: k1)
+		l2 = __Raw.vectorAesEncrypt(l2, key: k1)
+		l3 = __Raw.vectorAesEncrypt(l3, key: k1)
+		l4 = __Raw.vectorAesEncrypt(l4, key: k1)
+		l5 = __Raw.vectorAesEncrypt(l5, key: k1)
+		l6 = __Raw.vectorAesEncrypt(l6, key: k1)
+		l7 = __Raw.vectorAesEncrypt(l7, key: k1)
+		l0 = __Raw.vectorAesEncrypt(l0, key: k2)
+		l1 = __Raw.vectorAesEncrypt(l1, key: k2)
+		l2 = __Raw.vectorAesEncrypt(l2, key: k2)
+		l3 = __Raw.vectorAesEncrypt(l3, key: k2)
+		l4 = __Raw.vectorAesEncrypt(l4, key: k2)
+		l5 = __Raw.vectorAesEncrypt(l5, key: k2)
+		l6 = __Raw.vectorAesEncrypt(l6, key: k2)
+		l7 = __Raw.vectorAesEncrypt(l7, key: k2)
+		l0 = __Raw.vectorAesEncrypt(l0, key: k3)
+		l1 = __Raw.vectorAesEncrypt(l1, key: k3)
+		l2 = __Raw.vectorAesEncrypt(l2, key: k3)
+		l3 = __Raw.vectorAesEncrypt(l3, key: k3)
+		l4 = __Raw.vectorAesEncrypt(l4, key: k3)
+		l5 = __Raw.vectorAesEncrypt(l5, key: k3)
+		l6 = __Raw.vectorAesEncrypt(l6, key: k3)
+		l7 = __Raw.vectorAesEncrypt(l7, key: k3)
+	end 'long'
+	l0 = __Raw.vectorAesEncrypt(l0, key: l4)
+	l1 = __Raw.vectorAesEncrypt(l1, key: l5)
+	l2 = __Raw.vectorAesEncrypt(l2, key: l6)
+	l3 = __Raw.vectorAesEncrypt(l3, key: l7)
+	l0 = __Raw.vectorAesEncrypt(l0, key: l2)
+	l1 = __Raw.vectorAesEncrypt(l1, key: l3)
+	l0 = __Raw.vectorAesEncrypt(l0, key: l1)
+	l0 = __Raw.vectorAesEncrypt(l0, key: k3)
+	l0 = __Raw.vectorAesEncrypt(l0, key: k1)
+	return __Raw.vectorWord(l0, lane: 0)
+end 'aesHashOctets'

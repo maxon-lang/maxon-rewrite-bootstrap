@@ -1,9 +1,12 @@
-// The hash entries, which run the fold of hashfold.maxon, and the ordered words of maxon's library. The process's hash
-// state, its secret and the fold of no bytes under it, is made by the first hash of the process that needs it, as maxon's
-// __hash_init is: the secret is the one MAXON_HASH_SEED pins, 16 hexadecimal digits, or 8 bytes of the system's entropy.
-// A pin that is not 16 hexadecimal digits ends the process with maxon's message and exit code 1. The state hangs off the
-// main thread's context, which every thread reaches, so every thread hashes alike, and a program that never asks for the
-// seed never reads the environment or the system's entropy.
+// The hash entries, which run the fold of the process's tier (the software fold of hashfold.maxon or the AES rounds of
+// hashaes.maxon), and the ordered words of maxon's library. The process's hash state, its secret, its tier and the fold
+// of no bytes under the secret, is made by the first hash of a span or of the seed, as maxon's __hash_init is: the secret
+// is the one MAXON_HASH_SEED pins, 16 hexadecimal digits, or 8 bytes of the system's entropy, and the tier the one
+// MAXON_HASH_TIER names or the best the processor runs. A pin that is not 16 hexadecimal digits, and a tier that is none or
+// that the processor cannot run, end the process with maxon's message and exit code 1. A word is folded by the software fold
+// on every tier. The state hangs off the main thread's context, which
+// every thread reaches, so every thread hashes alike, and a program that hashes no span and never asks for the seed never
+// reads the environment or the system's entropy.
 
 // HashInput is a span the fold reads (hashfold.maxon): the address of its first byte.
 typealias HashInput = int(0 to u64.max)
@@ -35,6 +38,25 @@ let hashSeedRefusalExitCode = 1 as Count
 let hashSecretBytes = 8 as Count
 
 let hashPinned = 1 as Count
+
+// The hash tiers, maxon's HashTier: the software fold of hashfold.maxon and the AES rounds of hashaes.maxon. The process
+// takes the best its processor runs, or the one MAXON_HASH_TIER names, with maxon's refusals of a name that is no tier
+// and of a tier the processor cannot run.
+let hashTierSoftware = 0 as Count
+
+let hashTierAes = 1 as Count
+
+let hashTierVariable = "MAXON_HASH_TIER"
+
+let hashTierAesName = "aes"
+
+let hashTierSoftwareName = "software"
+
+let hashTierRefusalPrefix = "MAXON_HASH_TIER="
+
+let hashTierUnknownTail = " is not a hash tier: expected aes or software\n"
+
+let hashTierUnavailableTail = " is not available on this host: its best hash tier is software\n"
 
 #if os(Windows)
 	// The system's entropy is ProcessPrng's, as maxon's runtime draws it, in a library that the import table does not
@@ -130,11 +152,101 @@ function makeHashState() returns Count
 	end 'pinned' else 'drawn'
 		secret = drawEntropy()
 	end 'drawn'
+	let tier = chooseHashTier(room)
 	unkeep(room, bytes: hashPinBytes)
 	__Raw.storeWord(state, offset: hashSecretOffset, value: secret)
-	__Raw.storeWord(state, offset: hashSeedOffset, value: hashEmptyFold(secret as HashWord) as Count)
+	__Raw.storeWord(state, offset: hashTierOffset, value: tier)
+	var seed = hashEmptyFold(secret as HashWord) as Count
+	if tier == hashTierAes 'aes'
+		seed = aesHashSpan(0, count: 0, seed: secret)
+	end 'aes'
+	__Raw.storeWord(state, offset: hashSeedOffset, value: seed)
 	return state
 end 'makeHashState'
+
+// chooseHashTier is the tier of the process: the best its processor runs, or the one MAXON_HASH_TIER names, read into
+// room; a name that is no tier, or a tier the processor cannot run, ends the process with maxon's message and exit code 1.
+function chooseHashTier(room Count) returns Count
+	var best = hashTierSoftware
+	if cpuHasAes() 'aes'
+		best = hashTierAes
+	end 'aes'
+	let length = osEnvironmentBytes(hashTierVariable, room: room, capacity: hashPinBytes)
+	if length == 0 'unset'
+		return best
+	end 'unset'
+	if hashTierNamed(room, length: length, name: hashTierSoftwareName) 'software'
+		return hashTierSoftware
+	end 'software'
+	if not hashTierNamed(room, length: length, name: hashTierAesName) 'unknown'
+		refuseHashTier(room, length: length, tail: hashTierUnknownTail)
+	end 'unknown'
+	if best != hashTierAes 'unavailable'
+		refuseHashTier(room, length: length, tail: hashTierUnavailableTail)
+	end 'unavailable'
+	return hashTierAes
+end 'chooseHashTier'
+
+// hashTierNamed is whether the length bytes at an address are a tier's name.
+function hashTierNamed(at Count, length Count, name String) returns bool
+	if length != __Raw.stringLength(name) 'length'
+		return false
+	end 'length'
+	let bytes = __Raw.stringBytes(name)
+	for i in 0 upto length 'bytes'
+		if __Raw.loadByte(at, offset: i) != __Raw.loadByte(bytes, offset: i) 'differs'
+			return false
+		end 'differs'
+	end 'bytes'
+	return true
+end 'hashTierNamed'
+
+// refuseHashTier ends the process over a MAXON_HASH_TIER of length bytes at an address, with maxon's message.
+function refuseHashTier(value Count, length Count, tail String)
+	let handle = standardError()
+	writeHandle(handle, text: hashTierRefusalPrefix)
+	var shown = length
+	if shown > hashSeedShownBytes 'long'
+		shown = hashSeedShownBytes
+	end 'long'
+	writeHandle(handle, text: stringOfBytes(value, length: shown))
+	writeHandle(handle, text: tail)
+	exitProcess(hashSeedRefusalExitCode)
+end 'refuseHashTier'
+
+// hashTierIsAes is whether the process folds spans by the AES tier: the word of the processor's features keeps the tier
+// once a hash has looked, so a hash reads one word for it. A probe of the features that raced the note may have written
+// the word without it, which only sends the next hash to note it again.
+function hashTierIsAes() returns bool
+	let features = __Raw.loadWord(__Raw.cpuFeaturesAddress(), offset: 0)
+	if (features and featureHashChosen) != 0 'known'
+		return (features and featureHashAes) != 0
+	end 'known'
+	return noteHashTier()
+end 'hashTierIsAes'
+
+// noteHashTier keeps the tier of the process's hash state, which it makes if no hash has, in the word of the features.
+function noteHashTier() returns bool
+	let aes = __Raw.loadWord(processHashState(), offset: hashTierOffset) == hashTierAes
+	var bits = featureHashChosen
+	if aes 'aes'
+		bits = bits or featureHashAes
+	end 'aes'
+	let at = __Raw.cpuFeaturesAddress()
+	var was = __Raw.loadWord(at, offset: 0)
+	while __Raw.compareExchange(at, offset: 0, expected: was, desired: was or bits) != was 'note'
+		was = __Raw.loadWord(at, offset: 0)
+	end 'note'
+	return aes
+end 'noteHashTier'
+
+// hashTieredSpan is the fold of the count bytes at an address under a seed by the process's tier.
+function hashTieredSpan(input Count, count Count, seed Count) returns Count
+	if hashTierIsAes() 'aes'
+		return aesHashSpan(input, count: count, seed: seed)
+	end 'aes'
+	return hashSpan(input as HashInput, count: count, seed: seed as HashWord) as Count
+end 'hashTieredSpan'
 
 // refuseHashSeed ends the process over a pin of length bytes at an address that is not a secret, with maxon's message.
 function refuseHashSeed(pin Count, length Count)
@@ -218,9 +330,9 @@ function hashBytes(array Count, at Count, count Count, seed Count) returns Count
 		panic("a hashed span reaches past the end of its array")
 	end 'outside'
 	if count == 0 'empty'
-		return hashSpan(0, count: 0, seed: seed as HashWord) as Count
+		return hashTieredSpan(0, count: 0, seed: seed)
 	end 'empty'
-	return hashSpan(collectionPlace(array, index: at, elementBytes: byteBytes) as HashInput, count: count, seed: seed as HashWord) as Count
+	return hashTieredSpan(collectionPlace(array, index: at, elementBytes: byteBytes), count: count, seed: seed)
 end 'hashBytes'
 
 // hashStringBytes is __Builtins.hashBytes of a string: the fold of the count bytes of the string from an index under a
@@ -232,12 +344,15 @@ function hashStringBytes(text String, at Count, count Count, seed Count) returns
 		panic("a hashed span reaches past the end of its string")
 	end 'outside'
 	if count == 0 'empty'
-		return hashSpan(0, count: 0, seed: seed as HashWord) as Count
+		return hashTieredSpan(0, count: 0, seed: seed)
 	end 'empty'
 	if at == 0 and count == length and isInline(text) 'inline'
+		if hashTierIsAes() 'aes'
+			return aesHashShort(__Raw.stringFirstWord(text), rest: inlineRest(text), count: count, seed: seed)
+		end 'aes'
 		return hashShortFold(__Raw.stringFirstWord(text) as HashWord, rest: inlineRest(text) as HashWord, count: count, seed: seed as HashWord) as Count
 	end 'inline'
-	return hashSpan(__Raw.wrappingAdd(__Raw.stringBytes(text), right: at) as HashInput, count: count, seed: seed as HashWord) as Count
+	return hashTieredSpan(__Raw.wrappingAdd(__Raw.stringBytes(text), right: at), count: count, seed: seed)
 end 'hashStringBytes'
 
 function hashLoadWord(input HashInput, at Count) returns HashWord
