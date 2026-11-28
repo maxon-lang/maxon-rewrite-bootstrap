@@ -176,6 +176,8 @@
 // their operand into rdx:rax.
 (bin.mulhi.unsigned x y) => (Copy rax x) (MulReg y) (Copy r rdx)
 (bin.mulhi x y) => (Copy rax x) (ImulReg y) (Copy r rdx)
+// A mask of the low 32 bits, which no immediate of and holds, is a 32-bit move.
+(bin.and x (const [c])) && c == lowWordMask => (MovReg32Reg r x)
 (bin.and x (const [c])) && fitsImm32(c) => (AndRegImm x [c])
 (bin.and x y) => (AndRegReg x y)
 (bin.or x (const [c])) && fitsImm8(c) => (OrRegImm8 x [c])

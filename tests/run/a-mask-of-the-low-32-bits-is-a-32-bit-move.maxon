@@ -1,0 +1,29 @@
+// A word masked to its low 32 bits keeps those bits and clears the rest, which x64 does by a 32-bit move: the mask of a
+// sum, of a shift and of a word with every bit set, as 32-bit arithmetic writes them.
+typealias Word64 = bits(64)
+
+typealias Words = Array with Word64
+
+let lowMask = 0xFFFFFFFF as Word64
+
+function masked(a Word64, b Word64) returns Word64
+	let sum = (a + b) and lowMask
+	let shifted = (a shl 7) and lowMask
+	return sum xor shifted
+end 'masked'
+
+function main() returns ExitCode
+	let samples = Words from [0, 1, 0xFFFFFFFF, 0x100000000, 0xFFFFFFFFFFFFFFFF, 0x123456789ABCDEF0, 0x80000000]
+	for a in samples 'a'
+		print("{masked(a, b: 0xFFFFFFFF)} {a and lowMask}\n")
+	end 'a'
+	return 0
+end 'main'
+
+//> 4294967295 0
+//> 128 1
+//> 126 4294967295
+//> 4294967295 0
+//> 126 4294967295
+//> 3302205167 2596069104
+//> 2147483647 2147483648

@@ -251,6 +251,10 @@ var literal = []struct {
 	want []byte
 }{
 	{"Ud2", nil, []byte{0x0F, 0x0B}},
+	// mov eax, ecx; mov r9d, r12d; mov eax, r8d.
+	{"MovReg32Reg", []int64{0, 1}, []byte{0x89, 0xC8}},
+	{"MovReg32Reg", []int64{9, 12}, []byte{0x45, 0x89, 0xE1}},
+	{"MovReg32Reg", []int64{0, 8}, []byte{0x44, 0x89, 0xC0}},
 	{"RepeCmpsb", nil, []byte{0xF3, 0xA6}},
 	{"StoreBaseDispImm8", []int64{6, 0, '-'}, []byte{0xC6, 0x06, '-'}},
 	{"StoreBaseDispImm32", []int64{6, 0, -2}, []byte{0x48, 0xC7, 0x06, 0xFE, 0xFF, 0xFF, 0xFF}},

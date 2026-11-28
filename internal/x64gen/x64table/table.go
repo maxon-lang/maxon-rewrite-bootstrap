@@ -443,6 +443,11 @@ func buildForms() []form {
 			name: "MovzxRegWordBaseDisp", mnemonic: "movzx", operands: []operand{reg("dest", fieldReg, write), mem()},
 			rexW: true, opcode: []byte{opcodeHigh, 0xB7}, modrm: modOperands, effects: reads,
 		},
+		// A 32-bit move clears the upper half of its destination: the mask of a word's low 32 bits in one instruction.
+		form{
+			name: "MovReg32Reg", mnemonic: "mov", operands: []operand{reg("dest", fieldRM, write), reg("src", fieldReg, read)},
+			opcode: []byte{0x89}, modrm: modOperands, effects: noEffects,
+		},
 		// A 32-bit load clears the upper half of its register, which is the zero extension a raw load gives.
 		form{
 			name: "LoadReg32BaseDisp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg, write), mem()},

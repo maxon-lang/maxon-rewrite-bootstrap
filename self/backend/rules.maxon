@@ -12,6 +12,9 @@ function fitsImm32(c ir.Word) returns bool
 	return c >= imm32Min and c <= imm32Max
 end 'fitsImm32'
 
+// lowWordMask is the mask of a word's low 32 bits, which a 32-bit move applies on x64.
+let lowWordMask = 0xFFFFFFFF as ir.Word
+
 // fitsImm8 is whether a word is the sign extension of an 8-bit immediate.
 function fitsImm8(c ir.Word) returns bool
 	return c >= imm8Min and c <= imm8Max
