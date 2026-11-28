@@ -197,6 +197,26 @@
 (neg.checked x [f]) => (NegReg x) (JccRel32 [MCond.overflow] [f])
 (not x) => (NotReg x)
 (trailingZeros x) => (TzcntRegReg r x)
+
+// The vectors of the runtime's source, in xmm registers: unaligned 16-byte moves, the integer forms of SSE2 and the
+// lane moves of SSE4.1. A vector of zeros is the zero extension that movq gives its upper lane.
+(vecLoad a:(bin.add.!checked x (const [c]))) && fitsImm32(c) and sel.fuses(fn, r: a) => (MovupsRegBaseDisp r x [c])
+(vecLoad a) => (MovupsRegBaseDisp r a [0])
+(vecStore a:(bin.add.!checked x (const [c])) v) && fitsImm32(c) and sel.fuses(fn, r: a) => (MovupsBaseDispReg x [c] v)
+(vecStore a v) => (MovupsBaseDispReg a [0] v)
+(vecZero) => (MovRegImm32 z [0]) (MovqXmmReg r z)
+(vecFromWords lo hi) => (MovqXmmReg r lo) (PinsrqXmmRegImm8 r hi [1])
+(vecWord x [0]) => (MovqRegXmm r x)
+(vecWord x [n]) => (PextrqRegXmmImm8 r x [n])
+(vecBin.xor x y) => (PxorRegReg x y)
+(vecBin.and x y) => (PandRegReg x y)
+(vecBin.or x y) => (PorRegReg x y)
+(vecBin.addlanes32 x y) => (PadddRegReg x y)
+(vecBin.shufflebytes x y) => (PshufbRegReg x y)
+(vecShift.bytesup x [n]) => (PslldqRegImm8 x [n])
+(vecShift.bytesdown x [n]) => (PsrldqRegImm8 x [n])
+(vecShift.lanesleft x [n]) => (PsllqRegImm8 x [n])
+(vecShift.lanesright x [n]) => (PsrlqRegImm8 x [n])
 // A comparison with 0 is a test, which sets the flags as cmp does; a constant that fits is compared as an immediate.
 (cmp x (const [0])) => (TestRegReg x x) (SetccReg [cmpCondition(ins)] b) (MovzxRegReg8 r b)
 (cmp (const [0]) x) => (TestRegReg x x) (SetccReg [swapped(cmpCondition(ins))] b) (MovzxRegReg8 r b)

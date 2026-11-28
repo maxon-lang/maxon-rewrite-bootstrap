@@ -1,0 +1,135 @@
+// The 128-bit vectors of the runtime's source: each __Raw vector intrinsic against the words it must give, a load at an
+// unaligned address and a store back, and a function that holds more vectors live than the target has registers, across a
+// call, so that its vectors are spilled and reloaded whole. A vector is no parameter, so each result is taken apart into
+// its two words where it is made.
+//> load ok
+//> store ok
+//> xor ok
+//> and ok
+//> or ok
+//> addLanes32 ok
+//> shuffleBytes ok
+//> shuffleBytes zero ok
+//> shiftBytesUp ok
+//> shiftBytesDown ok
+//> shiftLanesLeft ok
+//> shiftLanesRight ok
+//> zero ok
+//> spilled ok
+
+let testBufferBytes = 64 as Count
+
+let testLoadOffset = 3 as Count
+
+let testStoreOffset = 32 as Count
+
+let testHighOffset = 8 as Count
+
+function main() returns ExitCode
+	let buffer = alloc(testBufferBytes)
+	for i in 0 upto testBufferBytes 'fill'
+		__Raw.storeByte(buffer, offset: i, value: i as Byte)
+	end 'fill'
+	let v = __Raw.vectorLoad(buffer, offset: testLoadOffset)
+	testExpect("load", low: __Raw.vectorWord(v, lane: 0), high: __Raw.vectorWord(v, lane: 1), wantLow: 0x0A09080706050403, wantHigh: 0x1211100F0E0D0C0B)
+	__Raw.vectorStore(buffer, offset: testStoreOffset, value: v)
+	testExpect("store", low: __Raw.loadWord(buffer, offset: testStoreOffset), high: __Raw.loadWord(buffer, offset: testStoreOffset + testHighOffset), wantLow: 0x0A09080706050403, wantHigh: 0x1211100F0E0D0C0B)
+	let w = __Raw.vectorOfWords(0xFF00FF00FF00FF00, high: 0x0F0F0F0F0F0F0F0F)
+	let xored = __Raw.vectorXor(v, right: w)
+	testExpect("xor", low: __Raw.vectorWord(xored, lane: 0), high: __Raw.vectorWord(xored, lane: 1), wantLow: 0xF509F707F905FB03, wantHigh: 0x1D1E1F0001020304)
+	let anded = __Raw.vectorAnd(v, right: w)
+	testExpect("and", low: __Raw.vectorWord(anded, lane: 0), high: __Raw.vectorWord(anded, lane: 1), wantLow: 0x0A00080006000400, wantHigh: 0x0201000F0E0D0C0B)
+	let ored = __Raw.vectorOr(v, right: w)
+	testExpect("or", low: __Raw.vectorWord(ored, lane: 0), high: __Raw.vectorWord(ored, lane: 1), wantLow: 0xFF09FF07FF05FF03, wantHigh: 0x1F1F1F0F0F0F0F0F)
+	let doubled = __Raw.vectorAddLanes32(v, right: v)
+	testExpect("addLanes32", low: __Raw.vectorWord(doubled, lane: 0), high: __Raw.vectorWord(doubled, lane: 1), wantLow: 0x1412100E0C0A0806, wantHigh: 0x2422201E1C1A1816)
+	let reversed = __Raw.vectorShuffleBytes(v, picks: __Raw.vectorOfWords(0x08090A0B0C0D0E0F, high: 0x0001020304050607))
+	testExpect("shuffleBytes", low: __Raw.vectorWord(reversed, lane: 0), high: __Raw.vectorWord(reversed, lane: 1), wantLow: 0x0B0C0D0E0F101112, wantHigh: 0x030405060708090A)
+	let cleared = __Raw.vectorShuffleBytes(v, picks: __Raw.vectorOfWords(0x8080808080808080, high: 0x0000000000000080))
+	testExpect("shuffleBytes zero", low: __Raw.vectorWord(cleared, lane: 0), high: __Raw.vectorWord(cleared, lane: 1), wantLow: 0, wantHigh: 0x0303030303030300)
+	let up = __Raw.vectorShiftBytesUp(v, bytes: 1)
+	testExpect("shiftBytesUp", low: __Raw.vectorWord(up, lane: 0), high: __Raw.vectorWord(up, lane: 1), wantLow: 0x0908070605040300, wantHigh: 0x11100F0E0D0C0B0A)
+	let down = __Raw.vectorShiftBytesDown(v, bytes: 1)
+	testExpect("shiftBytesDown", low: __Raw.vectorWord(down, lane: 0), high: __Raw.vectorWord(down, lane: 1), wantLow: 0x0B0A090807060504, wantHigh: 0x001211100F0E0D0C)
+	let left = __Raw.vectorShiftLanesLeft(v, bits: 8)
+	testExpect("shiftLanesLeft", low: __Raw.vectorWord(left, lane: 0), high: __Raw.vectorWord(left, lane: 1), wantLow: 0x0908070605040300, wantHigh: 0x11100F0E0D0C0B00)
+	let right = __Raw.vectorShiftLanesRight(v, bits: 8)
+	testExpect("shiftLanesRight", low: __Raw.vectorWord(right, lane: 0), high: __Raw.vectorWord(right, lane: 1), wantLow: 0x000A090807060504, wantHigh: 0x001211100F0E0D0C)
+	let zero = __Raw.vectorZero()
+	testExpect("zero", low: __Raw.vectorWord(zero, lane: 0), high: __Raw.vectorWord(zero, lane: 1), wantLow: 0, wantHigh: 0)
+	testSpilled()
+	free(buffer)
+	return 0
+end 'main'
+
+// testSpilled holds twenty vectors across a call, more than x64's sixteen xmm registers and more than either target keeps
+// across a call, and folds them in an order that reads each after the call.
+function testSpilled()
+	let a0 = __Raw.vectorOfWords(1, high: 101)
+	let a1 = __Raw.vectorOfWords(2, high: 102)
+	let a2 = __Raw.vectorOfWords(4, high: 104)
+	let a3 = __Raw.vectorOfWords(8, high: 108)
+	let a4 = __Raw.vectorOfWords(16, high: 116)
+	let a5 = __Raw.vectorOfWords(32, high: 132)
+	let a6 = __Raw.vectorOfWords(64, high: 164)
+	let a7 = __Raw.vectorOfWords(128, high: 228)
+	let a8 = __Raw.vectorOfWords(256, high: 356)
+	let a9 = __Raw.vectorOfWords(512, high: 612)
+	let b0 = __Raw.vectorOfWords(1024, high: 1124)
+	let b1 = __Raw.vectorOfWords(2048, high: 2148)
+	let b2 = __Raw.vectorOfWords(4096, high: 4196)
+	let b3 = __Raw.vectorOfWords(8192, high: 8292)
+	let b4 = __Raw.vectorOfWords(16384, high: 16484)
+	let b5 = __Raw.vectorOfWords(32768, high: 32868)
+	let b6 = __Raw.vectorOfWords(65536, high: 65636)
+	let b7 = __Raw.vectorOfWords(131072, high: 131172)
+	let b8 = __Raw.vectorOfWords(262144, high: 262244)
+	let b9 = __Raw.vectorOfWords(524288, high: 524388)
+	let text = itoa(testBufferBytes, unsigned: true)
+	var sum = __Raw.vectorXor(b9, right: b8)
+	sum = __Raw.vectorXor(sum, right: b7)
+	sum = __Raw.vectorXor(sum, right: b6)
+	sum = __Raw.vectorXor(sum, right: b5)
+	sum = __Raw.vectorXor(sum, right: b4)
+	sum = __Raw.vectorXor(sum, right: b3)
+	sum = __Raw.vectorXor(sum, right: b2)
+	sum = __Raw.vectorXor(sum, right: b1)
+	sum = __Raw.vectorXor(sum, right: b0)
+	sum = __Raw.vectorXor(sum, right: a9)
+	sum = __Raw.vectorXor(sum, right: a8)
+	sum = __Raw.vectorXor(sum, right: a7)
+	sum = __Raw.vectorXor(sum, right: a6)
+	sum = __Raw.vectorXor(sum, right: a5)
+	sum = __Raw.vectorXor(sum, right: a4)
+	sum = __Raw.vectorXor(sum, right: a3)
+	sum = __Raw.vectorXor(sum, right: a2)
+	sum = __Raw.vectorXor(sum, right: a1)
+	sum = __Raw.vectorXor(sum, right: a0)
+	if text.byteLength() != 2 'text'
+		panic("the call's result was lost")
+	end 'text'
+	testExpect("spilled", low: __Raw.vectorWord(sum, lane: 0), high: __Raw.vectorWord(sum, lane: 1), wantLow: 1048575, wantHigh: testHighs())
+end 'testSpilled'
+
+// testHighs is the exclusive or of the high words testSpilled makes its vectors of.
+function testHighs() returns Count
+	var high = 0 as Count
+	var low = 1 as Count
+	for _ in 0 upto 20 'each'
+		high = high xor __Raw.wrappingAdd(low, right: 100)
+		low = __Raw.wrappingAdd(low, right: low)
+	end 'each'
+	return high
+end 'testHighs'
+
+function testExpect(name String, low Count, high Count, wantLow Count, wantHigh Count)
+	if low == wantLow and high == wantHigh 'same'
+		testWrite("{name} ok\n")
+		return
+	end 'same'
+	testWrite("{name} gave {itoa(low, unsigned: true)} {itoa(high, unsigned: true)}\n")
+end 'testExpect'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'

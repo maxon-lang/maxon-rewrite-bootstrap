@@ -75,6 +75,13 @@ export enum Opcode
 	opElemLoad
 	opLoadByte
 	opLoadWord
+	opVecLoad
+	opVecStore
+	opVecZero
+	opVecFromWords
+	opVecWord
+	opVecBin
+	opVecShift
 	opBuffer
 	opElemAt
 	opElemAddrAt
@@ -598,6 +605,123 @@ export function collectionOf(code Byte) returns Collection
 	end 'code'
 end 'collectionOf'
 
+// VecBinOp is the operation of a VecBin on two 128-bit vectors: the bitwise xor, and and or, the sum of each
+// 32-bit lane (wrapping), and the bytes of Left picked by the bytes of Right (ShuffleBytes: a byte of Right below 16 gives
+// that byte of Left, and one of 128 or more gives 0; Right holds no other byte, where x64 and arm64 differ).
+export enum VecBinOp
+	vecXor
+	vecAnd
+	vecOr
+	vecAddLanes32
+	vecShuffleBytes
+end 'VecBinOp'
+
+// vecBinOpText is how the printer writes a VecBinOp.
+export function vecBinOpText(v VecBinOp) returns String
+	if v == VecBinOp.vecXor 'vecXor'
+		return "xor"
+	end 'vecXor'
+	if v == VecBinOp.vecAnd 'vecAnd'
+		return "and"
+	end 'vecAnd'
+	if v == VecBinOp.vecOr 'vecOr'
+		return "or"
+	end 'vecOr'
+	if v == VecBinOp.vecAddLanes32 'vecAddLanes32'
+		return "addlanes32"
+	end 'vecAddLanes32'
+	if v == VecBinOp.vecShuffleBytes 'vecShuffleBytes'
+		return "shufflebytes"
+	end 'vecShuffleBytes'
+	panic("ir: a VecBinOp with no text")
+end 'vecBinOpText'
+
+// vecBinOpCode is the number an instruction holds a VecBinOp as, the one Go's VecBinOp has.
+export function vecBinOpCode(v VecBinOp) returns Byte
+	if v == VecBinOp.vecXor 'vecXor'
+		return 0 as Byte
+	end 'vecXor'
+	if v == VecBinOp.vecAnd 'vecAnd'
+		return 1 as Byte
+	end 'vecAnd'
+	if v == VecBinOp.vecOr 'vecOr'
+		return 2 as Byte
+	end 'vecOr'
+	if v == VecBinOp.vecAddLanes32 'vecAddLanes32'
+		return 3 as Byte
+	end 'vecAddLanes32'
+	if v == VecBinOp.vecShuffleBytes 'vecShuffleBytes'
+		return 4 as Byte
+	end 'vecShuffleBytes'
+	panic("ir: a VecBinOp with no number")
+end 'vecBinOpCode'
+
+// vecBinOpOf is the VecBinOp an instruction holds as a number.
+export function vecBinOpOf(code Byte) returns VecBinOp
+	return match code 'code'
+		0 gives VecBinOp.vecXor
+		1 gives VecBinOp.vecAnd
+		2 gives VecBinOp.vecOr
+		3 gives VecBinOp.vecAddLanes32
+		4 gives VecBinOp.vecShuffleBytes
+		default panic("ir: a number that is no VecBinOp")
+	end 'code'
+end 'vecBinOpOf'
+
+// VecShiftOp is the operation of a VecShift: the whole vector shifted by Amount bytes toward its high or its low
+// end, zeros coming in, or each 64-bit lane shifted by Amount bits.
+export enum VecShiftOp
+	vecShiftBytesUp
+	vecShiftBytesDown
+	vecShiftLanesLeft
+	vecShiftLanesRight
+end 'VecShiftOp'
+
+// vecShiftOpText is how the printer writes a VecShiftOp.
+export function vecShiftOpText(v VecShiftOp) returns String
+	if v == VecShiftOp.vecShiftBytesUp 'vecShiftBytesUp'
+		return "bytesup"
+	end 'vecShiftBytesUp'
+	if v == VecShiftOp.vecShiftBytesDown 'vecShiftBytesDown'
+		return "bytesdown"
+	end 'vecShiftBytesDown'
+	if v == VecShiftOp.vecShiftLanesLeft 'vecShiftLanesLeft'
+		return "lanesleft"
+	end 'vecShiftLanesLeft'
+	if v == VecShiftOp.vecShiftLanesRight 'vecShiftLanesRight'
+		return "lanesright"
+	end 'vecShiftLanesRight'
+	panic("ir: a VecShiftOp with no text")
+end 'vecShiftOpText'
+
+// vecShiftOpCode is the number an instruction holds a VecShiftOp as, the one Go's VecShiftOp has.
+export function vecShiftOpCode(v VecShiftOp) returns Byte
+	if v == VecShiftOp.vecShiftBytesUp 'vecShiftBytesUp'
+		return 0 as Byte
+	end 'vecShiftBytesUp'
+	if v == VecShiftOp.vecShiftBytesDown 'vecShiftBytesDown'
+		return 1 as Byte
+	end 'vecShiftBytesDown'
+	if v == VecShiftOp.vecShiftLanesLeft 'vecShiftLanesLeft'
+		return 2 as Byte
+	end 'vecShiftLanesLeft'
+	if v == VecShiftOp.vecShiftLanesRight 'vecShiftLanesRight'
+		return 3 as Byte
+	end 'vecShiftLanesRight'
+	panic("ir: a VecShiftOp with no number")
+end 'vecShiftOpCode'
+
+// vecShiftOpOf is the VecShiftOp an instruction holds as a number.
+export function vecShiftOpOf(code Byte) returns VecShiftOp
+	return match code 'code'
+		0 gives VecShiftOp.vecShiftBytesUp
+		1 gives VecShiftOp.vecShiftBytesDown
+		2 gives VecShiftOp.vecShiftLanesLeft
+		3 gives VecShiftOp.vecShiftLanesRight
+		default panic("ir: a number that is no VecShiftOp")
+	end 'code'
+end 'vecShiftOpOf'
+
 // flagBorrow is on a StoreSlot whose slot only names a part of the match subject for the arm, and owns nothing, on a
 // Box that only lends the value it holds, and on a StoreField of a field that borrows what it holds.
 export let flagBorrow = 1 as Byte
@@ -788,6 +912,27 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opLoadWord 'opLoadWord'
 		return 1
 	end 'opLoadWord'
+	if op == Opcode.opVecLoad 'opVecLoad'
+		return 1
+	end 'opVecLoad'
+	if op == Opcode.opVecStore 'opVecStore'
+		return 2
+	end 'opVecStore'
+	if op == Opcode.opVecZero 'opVecZero'
+		return 0
+	end 'opVecZero'
+	if op == Opcode.opVecFromWords 'opVecFromWords'
+		return 0
+	end 'opVecFromWords'
+	if op == Opcode.opVecWord 'opVecWord'
+		return 0
+	end 'opVecWord'
+	if op == Opcode.opVecBin 'opVecBin'
+		return 0
+	end 'opVecBin'
+	if op == Opcode.opVecShift 'opVecShift'
+		return 0
+	end 'opVecShift'
 	if op == Opcode.opBuffer 'opBuffer'
 		return 1
 	end 'opBuffer'
@@ -1398,6 +1543,67 @@ export function newLoadWord(dst Reg, src Reg, index Reg, width RawWidth) returns
 	return r
 end 'newLoadWord'
 
+// VecLoad reads the 16 bytes at an address, which need no alignment.
+export function newVecLoad(dst Reg, addr Reg) returns Instr
+	var r = Instr.make(Opcode.opVecLoad)
+	r.dst = dst
+	r.a = addr
+	return r
+end 'newVecLoad'
+
+// VecStore writes the vector Src to the 16 bytes at an address, which need no alignment.
+export function newVecStore(addr Reg, src Reg) returns Instr
+	var r = Instr.make(Opcode.opVecStore)
+	r.a = addr
+	r.b = src
+	return r
+end 'newVecStore'
+
+// VecZero gives the vector of 16 zero bytes.
+export function newVecZero(dst Reg) returns Instr
+	var r = Instr.make(Opcode.opVecZero)
+	r.dst = dst
+	return r
+end 'newVecZero'
+
+// VecFromWords gives the vector whose low 64-bit lane is Low and whose high lane is High.
+export function newVecFromWords(dst Reg, low Reg, high Reg) returns Instr
+	var r = Instr.make(Opcode.opVecFromWords)
+	r.dst = dst
+	r.a = low
+	r.b = high
+	return r
+end 'newVecFromWords'
+
+// VecWord gives the 64-bit lane Lane (0, the low one, or 1) of the vector Src.
+export function newVecWord(dst Reg, src Reg, lane Count) returns Instr
+	var r = Instr.make(Opcode.opVecWord)
+	r.dst = dst
+	r.a = src
+	r.imm = try lane as Word otherwise panic("ir: vecWord lane is out of range")
+	return r
+end 'newVecWord'
+
+// VecBin is Left Op Right on two vectors.
+export function newVecBin(dst Reg, op VecBinOp, left Reg, right Reg) returns Instr
+	var r = Instr.make(Opcode.opVecBin)
+	r.dst = dst
+	r.sub = vecBinOpCode(op)
+	r.a = left
+	r.b = right
+	return r
+end 'newVecBin'
+
+// VecShift is the vector Src shifted by Op by Amount, a constant: 1 to 15 bytes, or 1 to 63 bits.
+export function newVecShift(dst Reg, op VecShiftOp, src Reg, amount Count) returns Instr
+	var r = Instr.make(Opcode.opVecShift)
+	r.dst = dst
+	r.sub = vecShiftOpCode(op)
+	r.a = src
+	r.imm = try amount as Word otherwise panic("ir: vecShift amount is out of range")
+	return r
+end 'newVecShift'
+
 // Buffer reads the address of the elements of Src, an array or a byte array, which a push that grows it moves.
 export function newBuffer(dst Reg, src Reg) returns Instr
 	var r = Instr.make(Opcode.opBuffer)
@@ -1906,6 +2112,27 @@ export function opcodeName(op Opcode) returns String
 	if op == Opcode.opLoadWord 'opLoadWord'
 		return "LoadWord"
 	end 'opLoadWord'
+	if op == Opcode.opVecLoad 'opVecLoad'
+		return "VecLoad"
+	end 'opVecLoad'
+	if op == Opcode.opVecStore 'opVecStore'
+		return "VecStore"
+	end 'opVecStore'
+	if op == Opcode.opVecZero 'opVecZero'
+		return "VecZero"
+	end 'opVecZero'
+	if op == Opcode.opVecFromWords 'opVecFromWords'
+		return "VecFromWords"
+	end 'opVecFromWords'
+	if op == Opcode.opVecWord 'opVecWord'
+		return "VecWord"
+	end 'opVecWord'
+	if op == Opcode.opVecBin 'opVecBin'
+		return "VecBin"
+	end 'opVecBin'
+	if op == Opcode.opVecShift 'opVecShift'
+		return "VecShift"
+	end 'opVecShift'
 	if op == Opcode.opBuffer 'opBuffer'
 		return "Buffer"
 	end 'opBuffer'
@@ -2733,6 +2960,97 @@ export function loadWordWidth(x Instr) returns RawWidth
 	return rawWidthOf(x.sub)
 end 'loadWordWidth'
 
+export function vecLoadAddr(x Instr) returns Reg
+	if x.op != Opcode.opVecLoad 'op'
+		wrongInstr("vecLoadAddr", found: x.op)
+	end 'op'
+	return x.a
+end 'vecLoadAddr'
+
+export function vecStoreAddr(x Instr) returns Reg
+	if x.op != Opcode.opVecStore 'op'
+		wrongInstr("vecStoreAddr", found: x.op)
+	end 'op'
+	return x.a
+end 'vecStoreAddr'
+
+export function vecStoreSrc(x Instr) returns Reg
+	if x.op != Opcode.opVecStore 'op'
+		wrongInstr("vecStoreSrc", found: x.op)
+	end 'op'
+	return x.b
+end 'vecStoreSrc'
+
+export function vecFromWordsLow(x Instr) returns Reg
+	if x.op != Opcode.opVecFromWords 'op'
+		wrongInstr("vecFromWordsLow", found: x.op)
+	end 'op'
+	return x.a
+end 'vecFromWordsLow'
+
+export function vecFromWordsHigh(x Instr) returns Reg
+	if x.op != Opcode.opVecFromWords 'op'
+		wrongInstr("vecFromWordsHigh", found: x.op)
+	end 'op'
+	return x.b
+end 'vecFromWordsHigh'
+
+export function vecWordSrc(x Instr) returns Reg
+	if x.op != Opcode.opVecWord 'op'
+		wrongInstr("vecWordSrc", found: x.op)
+	end 'op'
+	return x.a
+end 'vecWordSrc'
+
+export function vecWordLane(x Instr) returns Count
+	if x.op != Opcode.opVecWord 'op'
+		wrongInstr("vecWordLane", found: x.op)
+	end 'op'
+	return try x.imm as Count otherwise panic("ir: vecWord lane is out of range")
+end 'vecWordLane'
+
+export function vecBinOp(x Instr) returns VecBinOp
+	if x.op != Opcode.opVecBin 'op'
+		wrongInstr("vecBinOp", found: x.op)
+	end 'op'
+	return vecBinOpOf(x.sub)
+end 'vecBinOp'
+
+export function vecBinLeft(x Instr) returns Reg
+	if x.op != Opcode.opVecBin 'op'
+		wrongInstr("vecBinLeft", found: x.op)
+	end 'op'
+	return x.a
+end 'vecBinLeft'
+
+export function vecBinRight(x Instr) returns Reg
+	if x.op != Opcode.opVecBin 'op'
+		wrongInstr("vecBinRight", found: x.op)
+	end 'op'
+	return x.b
+end 'vecBinRight'
+
+export function vecShiftOp(x Instr) returns VecShiftOp
+	if x.op != Opcode.opVecShift 'op'
+		wrongInstr("vecShiftOp", found: x.op)
+	end 'op'
+	return vecShiftOpOf(x.sub)
+end 'vecShiftOp'
+
+export function vecShiftSrc(x Instr) returns Reg
+	if x.op != Opcode.opVecShift 'op'
+		wrongInstr("vecShiftSrc", found: x.op)
+	end 'op'
+	return x.a
+end 'vecShiftSrc'
+
+export function vecShiftAmount(x Instr) returns Count
+	if x.op != Opcode.opVecShift 'op'
+		wrongInstr("vecShiftAmount", found: x.op)
+	end 'op'
+	return try x.imm as Count otherwise panic("ir: vecShift amount is out of range")
+end 'vecShiftAmount'
+
 export function bufferSrc(x Instr) returns Reg
 	if x.op != Opcode.opBuffer 'op'
 		wrongInstr("bufferSrc", found: x.op)
@@ -3508,6 +3826,27 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opLoadWord 'opLoadWord'
 		return table.Option.some(x.dst)
 	end 'opLoadWord'
+	if x.op == Opcode.opVecLoad 'opVecLoad'
+		return table.Option.some(x.dst)
+	end 'opVecLoad'
+	if x.op == Opcode.opVecStore 'opVecStore'
+		return table.Option.none
+	end 'opVecStore'
+	if x.op == Opcode.opVecZero 'opVecZero'
+		return table.Option.some(x.dst)
+	end 'opVecZero'
+	if x.op == Opcode.opVecFromWords 'opVecFromWords'
+		return table.Option.some(x.dst)
+	end 'opVecFromWords'
+	if x.op == Opcode.opVecWord 'opVecWord'
+		return table.Option.some(x.dst)
+	end 'opVecWord'
+	if x.op == Opcode.opVecBin 'opVecBin'
+		return table.Option.some(x.dst)
+	end 'opVecBin'
+	if x.op == Opcode.opVecShift 'opVecShift'
+		return table.Option.some(x.dst)
+	end 'opVecShift'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		return table.Option.some(x.dst)
 	end 'opBuffer'
@@ -3753,6 +4092,27 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opLoadWord 'opLoadWord'
 		return table.Option.none
 	end 'opLoadWord'
+	if x.op == Opcode.opVecLoad 'opVecLoad'
+		return table.Option.none
+	end 'opVecLoad'
+	if x.op == Opcode.opVecStore 'opVecStore'
+		return table.Option.none
+	end 'opVecStore'
+	if x.op == Opcode.opVecZero 'opVecZero'
+		return table.Option.none
+	end 'opVecZero'
+	if x.op == Opcode.opVecFromWords 'opVecFromWords'
+		return table.Option.none
+	end 'opVecFromWords'
+	if x.op == Opcode.opVecWord 'opVecWord'
+		return table.Option.none
+	end 'opVecWord'
+	if x.op == Opcode.opVecBin 'opVecBin'
+		return table.Option.none
+	end 'opVecBin'
+	if x.op == Opcode.opVecShift 'opVecShift'
+		return table.Option.none
+	end 'opVecShift'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		return table.Option.none
 	end 'opBuffer'
@@ -3889,6 +4249,13 @@ export function instrCanFail(x Instr) returns bool
 		opElemLoad gives false
 		opLoadByte gives false
 		opLoadWord gives false
+		opVecLoad gives false
+		opVecStore gives false
+		opVecZero gives false
+		opVecFromWords gives false
+		opVecWord gives false
+		opVecBin gives false
+		opVecShift gives false
 		opBuffer gives false
 		opElemAt gives false
 		opElemAddrAt gives false
@@ -4117,6 +4484,36 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 		out.push(loadWordIndex(x))
 		return
 	end 'opLoadWord'
+	if x.op == Opcode.opVecLoad 'opVecLoad'
+		out.push(vecLoadAddr(x))
+		return
+	end 'opVecLoad'
+	if x.op == Opcode.opVecStore 'opVecStore'
+		out.push(vecStoreAddr(x))
+		out.push(vecStoreSrc(x))
+		return
+	end 'opVecStore'
+	if x.op == Opcode.opVecZero 'opVecZero'
+		return
+	end 'opVecZero'
+	if x.op == Opcode.opVecFromWords 'opVecFromWords'
+		out.push(vecFromWordsLow(x))
+		out.push(vecFromWordsHigh(x))
+		return
+	end 'opVecFromWords'
+	if x.op == Opcode.opVecWord 'opVecWord'
+		out.push(vecWordSrc(x))
+		return
+	end 'opVecWord'
+	if x.op == Opcode.opVecBin 'opVecBin'
+		out.push(vecBinLeft(x))
+		out.push(vecBinRight(x))
+		return
+	end 'opVecBin'
+	if x.op == Opcode.opVecShift 'opVecShift'
+		out.push(vecShiftSrc(x))
+		return
+	end 'opVecShift'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		out.push(bufferSrc(x))
 		return
@@ -4446,6 +4843,33 @@ export function instrWrites(x Instr, mutates out RegList)
 		out.push(x.dst)
 		return
 	end 'opLoadWord'
+	if x.op == Opcode.opVecLoad 'opVecLoad'
+		out.push(x.dst)
+		return
+	end 'opVecLoad'
+	if x.op == Opcode.opVecStore 'opVecStore'
+		return
+	end 'opVecStore'
+	if x.op == Opcode.opVecZero 'opVecZero'
+		out.push(x.dst)
+		return
+	end 'opVecZero'
+	if x.op == Opcode.opVecFromWords 'opVecFromWords'
+		out.push(x.dst)
+		return
+	end 'opVecFromWords'
+	if x.op == Opcode.opVecWord 'opVecWord'
+		out.push(x.dst)
+		return
+	end 'opVecWord'
+	if x.op == Opcode.opVecBin 'opVecBin'
+		out.push(x.dst)
+		return
+	end 'opVecBin'
+	if x.op == Opcode.opVecShift 'opVecShift'
+		out.push(x.dst)
+		return
+	end 'opVecShift'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		out.push(x.dst)
 		return
@@ -4768,6 +5192,36 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 		x.b = renamedReg(names, r: x.b)
 		return
 	end 'opLoadWord'
+	if x.op == Opcode.opVecLoad 'opVecLoad'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opVecLoad'
+	if x.op == Opcode.opVecStore 'opVecStore'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opVecStore'
+	if x.op == Opcode.opVecZero 'opVecZero'
+		return
+	end 'opVecZero'
+	if x.op == Opcode.opVecFromWords 'opVecFromWords'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opVecFromWords'
+	if x.op == Opcode.opVecWord 'opVecWord'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opVecWord'
+	if x.op == Opcode.opVecBin 'opVecBin'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opVecBin'
+	if x.op == Opcode.opVecShift 'opVecShift'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opVecShift'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		x.a = renamedReg(names, r: x.a)
 		return
@@ -5191,6 +5645,42 @@ export function relocateInstr(mutates x Instr, at Relocation)
 		x.b = renamedReg(at.names, r: x.b)
 		return
 	end 'opLoadWord'
+	if x.op == Opcode.opVecLoad 'opVecLoad'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opVecLoad'
+	if x.op == Opcode.opVecStore 'opVecStore'
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opVecStore'
+	if x.op == Opcode.opVecZero 'opVecZero'
+		x.dst = renamedReg(at.names, r: x.dst)
+		return
+	end 'opVecZero'
+	if x.op == Opcode.opVecFromWords 'opVecFromWords'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opVecFromWords'
+	if x.op == Opcode.opVecWord 'opVecWord'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opVecWord'
+	if x.op == Opcode.opVecBin 'opVecBin'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opVecBin'
+	if x.op == Opcode.opVecShift 'opVecShift'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opVecShift'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		x.dst = renamedReg(at.names, r: x.dst)
 		x.a = renamedReg(at.names, r: x.a)
@@ -5447,6 +5937,13 @@ export interface InstrVisitor
 	function visitElemLoad(mutates self, f IrFunction, x Instr)
 	function visitLoadByte(mutates self, f IrFunction, x Instr)
 	function visitLoadWord(mutates self, f IrFunction, x Instr)
+	function visitVecLoad(mutates self, f IrFunction, x Instr)
+	function visitVecStore(mutates self, f IrFunction, x Instr)
+	function visitVecZero(mutates self, f IrFunction, x Instr)
+	function visitVecFromWords(mutates self, f IrFunction, x Instr)
+	function visitVecWord(mutates self, f IrFunction, x Instr)
+	function visitVecBin(mutates self, f IrFunction, x Instr)
+	function visitVecShift(mutates self, f IrFunction, x Instr)
 	function visitBuffer(mutates self, f IrFunction, x Instr)
 	function visitElemAt(mutates self, f IrFunction, x Instr)
 	function visitElemAddrAt(mutates self, f IrFunction, x Instr)
@@ -5670,6 +6167,34 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitLoadWord(f, x: x)
 		return
 	end 'opLoadWord'
+	if x.op == Opcode.opVecLoad 'opVecLoad'
+		visitor.visitVecLoad(f, x: x)
+		return
+	end 'opVecLoad'
+	if x.op == Opcode.opVecStore 'opVecStore'
+		visitor.visitVecStore(f, x: x)
+		return
+	end 'opVecStore'
+	if x.op == Opcode.opVecZero 'opVecZero'
+		visitor.visitVecZero(f, x: x)
+		return
+	end 'opVecZero'
+	if x.op == Opcode.opVecFromWords 'opVecFromWords'
+		visitor.visitVecFromWords(f, x: x)
+		return
+	end 'opVecFromWords'
+	if x.op == Opcode.opVecWord 'opVecWord'
+		visitor.visitVecWord(f, x: x)
+		return
+	end 'opVecWord'
+	if x.op == Opcode.opVecBin 'opVecBin'
+		visitor.visitVecBin(f, x: x)
+		return
+	end 'opVecBin'
+	if x.op == Opcode.opVecShift 'opVecShift'
+		visitor.visitVecShift(f, x: x)
+		return
+	end 'opVecShift'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		visitor.visitBuffer(f, x: x)
 		return
@@ -6008,6 +6533,27 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 	if x.op == Opcode.opLoadWord 'opLoadWord'
 		return "{resultText(x.dst)}word.{rawWidthText(loadWordWidth(x))} %{loadWordSrc(x)}, %{loadWordIndex(x)}"
 	end 'opLoadWord'
+	if x.op == Opcode.opVecLoad 'opVecLoad'
+		return "{resultText(x.dst)}vecload %{vecLoadAddr(x)}"
+	end 'opVecLoad'
+	if x.op == Opcode.opVecStore 'opVecStore'
+		return "vecstore %{vecStoreAddr(x)}, %{vecStoreSrc(x)}"
+	end 'opVecStore'
+	if x.op == Opcode.opVecZero 'opVecZero'
+		return "{resultText(x.dst)}veczero"
+	end 'opVecZero'
+	if x.op == Opcode.opVecFromWords 'opVecFromWords'
+		return "{resultText(x.dst)}vecwords %{vecFromWordsLow(x)}, %{vecFromWordsHigh(x)}"
+	end 'opVecFromWords'
+	if x.op == Opcode.opVecWord 'opVecWord'
+		return "{resultText(x.dst)}vecword %{vecWordSrc(x)}, {vecWordLane(x)}"
+	end 'opVecWord'
+	if x.op == Opcode.opVecBin 'opVecBin'
+		return "{resultText(x.dst)}vec{vecBinOpText(vecBinOp(x))} %{vecBinLeft(x)}, %{vecBinRight(x)}"
+	end 'opVecBin'
+	if x.op == Opcode.opVecShift 'opVecShift'
+		return "{resultText(x.dst)}vec{vecShiftOpText(vecShiftOp(x))} %{vecShiftSrc(x)}, {vecShiftAmount(x)}"
+	end 'opVecShift'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		return "{resultText(x.dst)}buffer %{bufferSrc(x)}"
 	end 'opBuffer'
@@ -6306,6 +6852,20 @@ export function printedOpNames() returns ast.StringList
 	names.push("threadcontext")
 	names.push("throw")
 	names.push("trap")
+	names.push("vecaddlanes32")
+	names.push("vecand")
+	names.push("vecbytesdown")
+	names.push("vecbytesup")
+	names.push("veclanesleft")
+	names.push("veclanesright")
+	names.push("vecload")
+	names.push("vecor")
+	names.push("vecshufflebytes")
+	names.push("vecstore")
+	names.push("vecword")
+	names.push("vecwords")
+	names.push("vecxor")
+	names.push("veczero")
 	names.push("when")
 	names.push("word")
 	names.push("word.16")

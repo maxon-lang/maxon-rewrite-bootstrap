@@ -238,7 +238,7 @@ function arm64EncodeCopy(mutates u CodeUnit, x MInstr)
 	end 'same'
 	match classOfNumber(arm64Arch, number: physicalNumber(x.a)) 'class'
 		gpr then encodeArm64MovRegReg(u.asm.code, dest: arm64GeneralRegister(x.a), src: arm64GeneralRegister(x.b))
-		xmm then encodeArm64FmovDD(u.asm.code, dest: arm64VectorRegister(x.a), src: arm64VectorRegister(x.b))
+		xmm then encodeArm64OrrVec16(u.asm.code, dest: arm64VectorRegister(x.a), left: arm64VectorRegister(x.b), right: arm64VectorRegister(x.b))
 	end 'class'
 end 'arm64EncodeCopy'
 
@@ -247,7 +247,8 @@ end 'arm64EncodeCopy'
 function arm64FrameAccess(mutates u CodeUnit, load bool, r MReg, disp FullRangeInt)
 	var base = arm64FramePointer
 	var offset = disp
-	if not arm64Ldr64OffHolds(disp) 'far'
+	let isVector = classOfNumber(arm64Arch, number: physicalNumber(r)) == RegClass.xmm
+	if not arm64Ldr64OffHolds(disp) or (isVector and not arm64LdrQOffHolds(disp)) 'far'
 		u.asm.arm64AddImm(arm64AddressScratch, src: arm64FramePointer, value: disp)
 		base = arm64AddressScratch
 		offset = 0
@@ -269,9 +270,9 @@ end 'arm64EncodeWordAccess'
 
 function arm64EncodeVectorAccess(mutates u CodeUnit, load bool, r Arm64Register, base Arm64Register, disp Imm32)
 	if load 'load'
-		encodeArm64LdrDOff(u.asm.code, dest: r, base: base, disp: disp)
+		encodeArm64LdrQOff(u.asm.code, dest: r, base: base, disp: disp)
 	end 'load' else 'store'
-		encodeArm64StrDOff(u.asm.code, src: r, base: base, disp: disp)
+		encodeArm64StrQOff(u.asm.code, src: r, base: base, disp: disp)
 	end 'store'
 end 'arm64EncodeVectorAccess'
 

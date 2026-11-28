@@ -1,0 +1,106 @@
+// The __Raw vector intrinsics of the runtime's source: each is one vector operation of the IR on registers of kind
+// kindVector, which the back ends keep in xmm and q registers.
+
+// Where a vector intrinsic's constant may be: a lane, a shift by bytes and a shift of a 64-bit lane by bits.
+let vectorLanes = 2 as Count
+
+let vectorShiftBytesLimit = 16 as Count
+
+let vectorShiftBitsLimit = 64 as Count
+
+function vectorReg(mutates l Lowerer) returns Reg
+	return newReg(l, kind: IrKind.kindVector)
+end 'vectorReg'
+
+// vectorConstant is the constant the argument at index of the call writes, which is at least 1 (0 for a lane) and below
+// limit: the runtime's source writes a lane or a shift as a literal or a named constant, so any other is a compiler fault.
+function vectorConstant(p ast.Project, ms ast.ModuleState, l Lowerer, c CallSite, index Count, least Count, limit Count) returns Count
+	let t = exprType(p, module: l.module, node: c.ordered[index])
+	if ast.typeKind(ms.types, reads: p.types, t: t) != ast.TypeKind.constInt 'notConstant'
+		panic("lower: a lane or a shift of a vector intrinsic that is not a constant")
+	end 'notConstant'
+	let v = try constBits(p, ms: ms, t: t) as Count otherwise panic("lower: a lane or a shift of a vector intrinsic below 0")
+	if v < least or v >= limit 'outside'
+		panic("lower: a lane or a shift of a vector intrinsic past what the vector has")
+	end 'outside'
+	return v
+end 'vectorConstant'
+
+function vectorBin(mutates l Lowerer, op VecBinOp, args RegList) returns Reg
+	let d = vectorReg(l)
+	emit(l, i: newVecBin(d, op: op, left: args[0], right: args[1]))
+	return d
+end 'vectorBin'
+
+function vectorShift(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, op VecShiftOp, args RegList, limit Count) returns Reg
+	let d = vectorReg(l)
+	emit(l, i: newVecShift(d, op: op, src: args[0], amount: vectorConstant(p, ms: ms, l: l, c: c, index: 1, least: 1, limit: limit)))
+	return d
+end 'vectorShift'
+
+function lowerRawVectorLoad(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let at = rawAddress(l, address: args[0], offset: args[1])
+	let d = vectorReg(l)
+	emit(l, i: newVecLoad(d, addr: at))
+	return d
+end 'lowerRawVectorLoad'
+
+function lowerRawVectorStore(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let at = rawAddress(l, address: args[0], offset: args[1])
+	emit(l, i: newVecStore(at, src: args[2]))
+	return konst(l, value: 0 as Word)
+end 'lowerRawVectorStore'
+
+function lowerRawVectorZero(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let d = vectorReg(l)
+	emit(l, i: newVecZero(d))
+	return d
+end 'lowerRawVectorZero'
+
+function lowerRawVectorOfWords(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let d = vectorReg(l)
+	emit(l, i: newVecFromWords(d, low: args[0], high: args[1]))
+	return d
+end 'lowerRawVectorOfWords'
+
+function lowerRawVectorWord(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newVecWord(d, src: args[0], lane: vectorConstant(p, ms: ms, l: l, c: c, index: 1, least: 0, limit: vectorLanes)))
+	return d
+end 'lowerRawVectorWord'
+
+function lowerRawVectorXor(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorBin(l, op: VecBinOp.vecXor, args: args)
+end 'lowerRawVectorXor'
+
+function lowerRawVectorAnd(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorBin(l, op: VecBinOp.vecAnd, args: args)
+end 'lowerRawVectorAnd'
+
+function lowerRawVectorOr(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorBin(l, op: VecBinOp.vecOr, args: args)
+end 'lowerRawVectorOr'
+
+function lowerRawVectorAddLanes32(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorBin(l, op: VecBinOp.vecAddLanes32, args: args)
+end 'lowerRawVectorAddLanes32'
+
+function lowerRawVectorShuffleBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorBin(l, op: VecBinOp.vecShuffleBytes, args: args)
+end 'lowerRawVectorShuffleBytes'
+
+function lowerRawVectorShiftBytesUp(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorShift(l, p: p, ms: ms, c: c, op: VecShiftOp.vecShiftBytesUp, args: args, limit: vectorShiftBytesLimit)
+end 'lowerRawVectorShiftBytesUp'
+
+function lowerRawVectorShiftBytesDown(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorShift(l, p: p, ms: ms, c: c, op: VecShiftOp.vecShiftBytesDown, args: args, limit: vectorShiftBytesLimit)
+end 'lowerRawVectorShiftBytesDown'
+
+function lowerRawVectorShiftLanesLeft(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorShift(l, p: p, ms: ms, c: c, op: VecShiftOp.vecShiftLanesLeft, args: args, limit: vectorShiftBitsLimit)
+end 'lowerRawVectorShiftLanesLeft'
+
+function lowerRawVectorShiftLanesRight(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorShift(l, p: p, ms: ms, c: c, op: VecShiftOp.vecShiftLanesRight, args: args, limit: vectorShiftBitsLimit)
+end 'lowerRawVectorShiftLanesRight'

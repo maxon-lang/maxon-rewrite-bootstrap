@@ -15,6 +15,22 @@ end 'fitsImm32'
 // lowWordMask is the mask of a word's low 32 bits, which a 32-bit move applies on x64.
 let lowWordMask = 0xFFFFFFFF as ir.Word
 
+// vectorBytes is the size of a vector of the IR, which ext's byte positions count in, and laneShiftLimit the most its
+// 64-bit lanes shift by, which ushr's field takes the shift from.
+let vectorBytes = 16 as Count
+
+let laneShiftLimit = 64 as Count
+
+// arm64ExtUpPosition is the position of ext that shifts a vector up by n bytes: its bytes from 16 - n on, after n zeros.
+function arm64ExtUpPosition(n Count) returns Count
+	return try vectorBytes - n otherwise panic("backend: a vector shifted past its bytes")
+end 'arm64ExtUpPosition'
+
+// arm64UshrField is the field of ushr that shifts each 64-bit lane right by n bits.
+function arm64UshrField(n Count) returns Count
+	return try laneShiftLimit - n otherwise panic("backend: a lane shifted past its bits")
+end 'arm64UshrField'
+
 // fitsImm8 is whether a word is the sign extension of an 8-bit immediate.
 function fitsImm8(c ir.Word) returns bool
 	return c >= imm8Min and c <= imm8Max

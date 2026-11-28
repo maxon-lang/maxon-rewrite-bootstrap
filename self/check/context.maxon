@@ -907,6 +907,7 @@ export function typeIsNominal(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID
 		unionTy gives true
 		builtinArray gives true
 		builtinSlotKey gives true
+		builtinVector128 gives true
 		builtinFrozen gives true
 		builtinCown gives true
 		builtinCursor gives true

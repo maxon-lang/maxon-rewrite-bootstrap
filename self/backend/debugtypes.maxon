@@ -12,6 +12,8 @@
 // Sizes and alignments of what the table describes.
 let wordSize = 8 as Count
 
+let vectorSize = 16 as Count
+
 let boolSize = 1 as Count
 
 // severalValuesName is how the table names noType, the payload of a case that holds more than one value, or a type it
@@ -178,6 +180,7 @@ type DebugTypes
 			unionTy then self.describeCases(p, ms: ms, ref: ref, name: name, kind: unionKind(p, ms: ms, t: t))
 			builtinArray then self.describeArray(p, ms: ms, ref: ref, name: name)
 			builtinSlotKey then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: wordSize, align: wordSize, flag: 0)
+			builtinVector128 then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: vectorSize, align: vectorSize, flag: 0)
 			builtinFrozen or
 			builtinCown or
 			builtinCursor or

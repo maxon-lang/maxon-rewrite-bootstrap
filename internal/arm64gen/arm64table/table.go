@@ -435,6 +435,47 @@ func floatForms() []form {
 	}
 }
 
+// The fields of the vector forms' immediates: ext's byte position, and the shift of a 64-bit lane, whose immh:immb is
+// 64 + n for shl and 128 - n for ushr, so that with immh's top bit in the opcode the field holds n, or 64 - n.
+const (
+	extImmAt     = 11
+	extImmBits   = 4
+	laneShiftAt  = 16
+	laneShiftBit = 6
+	// laneShiftLimit is the most a 64-bit lane is shifted by, which ushr's field takes the shift from.
+	laneShiftLimit = 64
+	// vectorBytes is the size of a q register, the unit of its load's and store's scaled offset.
+	vectorBytes = 16
+)
+
+// vectorForms are the forms on a whole 128-bit q register (the IR's vectors), and its moves: a q register's load and
+// store, and the copy of all of it.
+func vectorForms() []form {
+	three := func(name, mnemonic string, opcode uint32) form {
+		return form{name: name, mnemonic: mnemonic, opcode: opcode,
+			operands: []operand{vec("dest", rdAt, write), vec("left", rnAt, read), vec("right", rmAt, read)}}
+	}
+	return []form{
+		load("LdrQOff", "ldr", 0x3DC00000, vec("dest", rdAt, write), base(), offset(vectorBytes)),
+		store("StrQOff", "str", 0x3D800000, vec("src", rdAt, read), base(), offset(vectorBytes)),
+		three("OrrVec16", "orr", 0x4EA01C00),
+		three("EorVec16", "eor", 0x6E201C00),
+		three("AndVec16", "and", 0x4E201C00),
+		three("AddVec4S", "add", 0x4EA08400),
+		// tbl of one table register: each byte of right indexes left's bytes, and one past 15 gives 0.
+		three("TblVec16", "tbl", 0x4E000000),
+		{name: "ExtVec16", mnemonic: "ext", opcode: 0x6E000000, operands: []operand{
+			vec("dest", rdAt, write), vec("left", rnAt, read), vec("right", rmAt, read), imm("imm", extImmAt, extImmBits)}},
+		{name: "ShlVec2D", mnemonic: "shl", opcode: 0x4F405400, operands: []operand{
+			vec("dest", rdAt, write), vec("src", rnAt, read), imm("shift", laneShiftAt, laneShiftBit)}},
+		{name: "UshrVec2D", mnemonic: "ushr", opcode: 0x6F400400, operands: []operand{
+			vec("dest", rdAt, write), vec("src", rnAt, read), imm("shift", laneShiftAt, laneShiftBit)}},
+		// ins of a word into the high lane, which keeps the low one, and umov of the high lane into a word.
+		{name: "InsVecD1", mnemonic: "ins", opcode: 0x4E181C00, operands: []operand{vec("dest", rdAt, readWrite), reg("src", rnAt, read)}},
+		twoReg("UmovXD1", "umov", 0x4E183C00, reg("dest", rdAt, write), vec("src", rnAt, read)),
+	}
+}
+
 var forms = buildForms()
 
 func buildForms() []form {
@@ -539,6 +580,7 @@ func buildForms() []form {
 		form{name: "Ret", mnemonic: "ret", opcode: 0xD65F03C0, ret: true},
 	)
 	fs = append(fs, floatForms()...)
+	fs = append(fs, vectorForms()...)
 	fs = append(fs,
 		// The ordered and exclusive accesses and the LSE atomics, which the runtime's scheduler is written on (README,
 		// "The runtime"): each orders as acquire and release, so that the weakly ordered target keeps what x64's order

@@ -968,6 +968,48 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrRawStringOfWords 'intrRawStringOfWords'
 		return lowerRawStringOfWords(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawStringOfWords'
+	if op == ast.Intrinsic.intrRawVectorLoad 'intrRawVectorLoad'
+		return lowerRawVectorLoad(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorLoad'
+	if op == ast.Intrinsic.intrRawVectorStore 'intrRawVectorStore'
+		return lowerRawVectorStore(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorStore'
+	if op == ast.Intrinsic.intrRawVectorZero 'intrRawVectorZero'
+		return lowerRawVectorZero(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorZero'
+	if op == ast.Intrinsic.intrRawVectorOfWords 'intrRawVectorOfWords'
+		return lowerRawVectorOfWords(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorOfWords'
+	if op == ast.Intrinsic.intrRawVectorWord 'intrRawVectorWord'
+		return lowerRawVectorWord(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorWord'
+	if op == ast.Intrinsic.intrRawVectorXor 'intrRawVectorXor'
+		return lowerRawVectorXor(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorXor'
+	if op == ast.Intrinsic.intrRawVectorAnd 'intrRawVectorAnd'
+		return lowerRawVectorAnd(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorAnd'
+	if op == ast.Intrinsic.intrRawVectorOr 'intrRawVectorOr'
+		return lowerRawVectorOr(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorOr'
+	if op == ast.Intrinsic.intrRawVectorAddLanes32 'intrRawVectorAddLanes32'
+		return lowerRawVectorAddLanes32(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorAddLanes32'
+	if op == ast.Intrinsic.intrRawVectorShuffleBytes 'intrRawVectorShuffleBytes'
+		return lowerRawVectorShuffleBytes(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorShuffleBytes'
+	if op == ast.Intrinsic.intrRawVectorShiftBytesUp 'intrRawVectorShiftBytesUp'
+		return lowerRawVectorShiftBytesUp(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorShiftBytesUp'
+	if op == ast.Intrinsic.intrRawVectorShiftBytesDown 'intrRawVectorShiftBytesDown'
+		return lowerRawVectorShiftBytesDown(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorShiftBytesDown'
+	if op == ast.Intrinsic.intrRawVectorShiftLanesLeft 'intrRawVectorShiftLanesLeft'
+		return lowerRawVectorShiftLanesLeft(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorShiftLanesLeft'
+	if op == ast.Intrinsic.intrRawVectorShiftLanesRight 'intrRawVectorShiftLanesRight'
+		return lowerRawVectorShiftLanesRight(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorShiftLanesRight'
 	if op == ast.Intrinsic.intrRawHeapAddress 'intrRawHeapAddress'
 		return lowerRawHeapAddress(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawHeapAddress'
@@ -2014,6 +2056,48 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrRawStringOfWords 'intrRawStringOfWords'
 		return false
 	end 'intrRawStringOfWords'
+	if op == ast.Intrinsic.intrRawVectorLoad 'intrRawVectorLoad'
+		return false
+	end 'intrRawVectorLoad'
+	if op == ast.Intrinsic.intrRawVectorStore 'intrRawVectorStore'
+		return false
+	end 'intrRawVectorStore'
+	if op == ast.Intrinsic.intrRawVectorZero 'intrRawVectorZero'
+		return false
+	end 'intrRawVectorZero'
+	if op == ast.Intrinsic.intrRawVectorOfWords 'intrRawVectorOfWords'
+		return false
+	end 'intrRawVectorOfWords'
+	if op == ast.Intrinsic.intrRawVectorWord 'intrRawVectorWord'
+		return false
+	end 'intrRawVectorWord'
+	if op == ast.Intrinsic.intrRawVectorXor 'intrRawVectorXor'
+		return false
+	end 'intrRawVectorXor'
+	if op == ast.Intrinsic.intrRawVectorAnd 'intrRawVectorAnd'
+		return false
+	end 'intrRawVectorAnd'
+	if op == ast.Intrinsic.intrRawVectorOr 'intrRawVectorOr'
+		return false
+	end 'intrRawVectorOr'
+	if op == ast.Intrinsic.intrRawVectorAddLanes32 'intrRawVectorAddLanes32'
+		return false
+	end 'intrRawVectorAddLanes32'
+	if op == ast.Intrinsic.intrRawVectorShuffleBytes 'intrRawVectorShuffleBytes'
+		return false
+	end 'intrRawVectorShuffleBytes'
+	if op == ast.Intrinsic.intrRawVectorShiftBytesUp 'intrRawVectorShiftBytesUp'
+		return false
+	end 'intrRawVectorShiftBytesUp'
+	if op == ast.Intrinsic.intrRawVectorShiftBytesDown 'intrRawVectorShiftBytesDown'
+		return false
+	end 'intrRawVectorShiftBytesDown'
+	if op == ast.Intrinsic.intrRawVectorShiftLanesLeft 'intrRawVectorShiftLanesLeft'
+		return false
+	end 'intrRawVectorShiftLanesLeft'
+	if op == ast.Intrinsic.intrRawVectorShiftLanesRight 'intrRawVectorShiftLanesRight'
+		return false
+	end 'intrRawVectorShiftLanesRight'
 	if op == ast.Intrinsic.intrRawHeapAddress 'intrRawHeapAddress'
 		return false
 	end 'intrRawHeapAddress'

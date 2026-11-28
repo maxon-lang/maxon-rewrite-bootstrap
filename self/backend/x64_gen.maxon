@@ -1094,6 +1094,114 @@ export function encodeMovupsBaseDispReg(mutates code ByteArray, base X64Register
 	writeMem(code, regBits: regLow3(src), base: base, disp: disp)
 end 'encodeMovupsBaseDispReg'
 
+// pxor dest, src: 66 0F EF /r.
+export function encodePxorRegReg(mutates code ByteArray, dest X64Register, src X64Register)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0xEF)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+end 'encodePxorRegReg'
+
+// pand dest, src: 66 0F DB /r.
+export function encodePandRegReg(mutates code ByteArray, dest X64Register, src X64Register)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0xDB)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+end 'encodePandRegReg'
+
+// por dest, src: 66 0F EB /r.
+export function encodePorRegReg(mutates code ByteArray, dest X64Register, src X64Register)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0xEB)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+end 'encodePorRegReg'
+
+// paddd dest, src: 66 0F FE /r.
+export function encodePadddRegReg(mutates code ByteArray, dest X64Register, src X64Register)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0xFE)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+end 'encodePadddRegReg'
+
+// pshufb dest, src: 66 0F 38 00 /r.
+export function encodePshufbRegReg(mutates code ByteArray, dest X64Register, src X64Register)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0x38)
+	code.push(0x00)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+end 'encodePshufbRegReg'
+
+// psrlq dest, imm: 66 0F 73 /2.
+export function encodePsrlqRegImm8(mutates code ByteArray, dest X64Register, imm Imm8)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: X64Register.rax, indexField: X64Register.rax, rmField: dest, force: false)
+	code.push(0x0F)
+	code.push(0x73)
+	writeModRmReg(code, regBits: 2, rm: dest)
+	writeImm8(code, value: imm)
+end 'encodePsrlqRegImm8'
+
+// psrldq dest, imm: 66 0F 73 /3.
+export function encodePsrldqRegImm8(mutates code ByteArray, dest X64Register, imm Imm8)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: X64Register.rax, indexField: X64Register.rax, rmField: dest, force: false)
+	code.push(0x0F)
+	code.push(0x73)
+	writeModRmReg(code, regBits: 3, rm: dest)
+	writeImm8(code, value: imm)
+end 'encodePsrldqRegImm8'
+
+// psllq dest, imm: 66 0F 73 /6.
+export function encodePsllqRegImm8(mutates code ByteArray, dest X64Register, imm Imm8)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: X64Register.rax, indexField: X64Register.rax, rmField: dest, force: false)
+	code.push(0x0F)
+	code.push(0x73)
+	writeModRmReg(code, regBits: 6, rm: dest)
+	writeImm8(code, value: imm)
+end 'encodePsllqRegImm8'
+
+// pslldq dest, imm: 66 0F 73 /7.
+export function encodePslldqRegImm8(mutates code ByteArray, dest X64Register, imm Imm8)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: X64Register.rax, indexField: X64Register.rax, rmField: dest, force: false)
+	code.push(0x0F)
+	code.push(0x73)
+	writeModRmReg(code, regBits: 7, rm: dest)
+	writeImm8(code, value: imm)
+end 'encodePslldqRegImm8'
+
+// pinsrq dest, src, imm: 66 REX.W 0F 3A 22 /r.
+export function encodePinsrqXmmRegImm8(mutates code ByteArray, dest X64Register, src X64Register, imm Imm8)
+	code.push(0x66)
+	emitRex(code, wide: true, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0x3A)
+	code.push(0x22)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+	writeImm8(code, value: imm)
+end 'encodePinsrqXmmRegImm8'
+
+// pextrq dest, src, imm: 66 REX.W 0F 3A 16 /r.
+export function encodePextrqRegXmmImm8(mutates code ByteArray, dest X64Register, src X64Register, imm Imm8)
+	code.push(0x66)
+	emitRex(code, wide: true, regField: src, indexField: X64Register.rax, rmField: dest, force: false)
+	code.push(0x0F)
+	code.push(0x3A)
+	code.push(0x16)
+	writeModRmReg(code, regBits: regLow3(src), rm: dest)
+	writeImm8(code, value: imm)
+end 'encodePextrqRegXmmImm8'
+
 // int3 : CC.
 export function encodeInt3(mutates code ByteArray)
 	code.push(0xCC)
@@ -1347,6 +1455,17 @@ export enum X64Form
 	movsdRegRip
 	movupsRegBaseDisp
 	movupsBaseDispReg
+	pxorRegReg
+	pandRegReg
+	porRegReg
+	padddRegReg
+	pshufbRegReg
+	psrlqRegImm8
+	psrldqRegImm8
+	psllqRegImm8
+	pslldqRegImm8
+	pinsrqXmmRegImm8
+	pextrqRegXmmImm8
 	int3
 	nop1
 	nop2
@@ -1546,16 +1665,27 @@ export function encodeMachineForm(mutates code ByteArray, form FormID, a X64Regi
 		109 then encodeMovsdRegRip(code, dest: a, disp: 0)
 		110 then encodeMovupsRegBaseDisp(code, dest: a, base: b, disp: aux)
 		111 then encodeMovupsBaseDispReg(code, base: a, disp: aux, src: b)
-		112 then encodeInt3(code)
-		113 then encodeNop1(code)
-		114 then encodeNop2(code)
-		115 then encodeNop3(code)
-		116 then encodeNop4(code)
-		117 then encodeNop5(code)
-		118 then encodeNop6(code)
-		119 then encodeNop7(code)
-		120 then encodeNop8(code)
-		121 then encodeNop9(code)
+		112 then encodePxorRegReg(code, dest: a, src: c)
+		113 then encodePandRegReg(code, dest: a, src: c)
+		114 then encodePorRegReg(code, dest: a, src: c)
+		115 then encodePadddRegReg(code, dest: a, src: c)
+		116 then encodePshufbRegReg(code, dest: a, src: c)
+		117 then encodePsrlqRegImm8(code, dest: a, imm: try imm as Imm8 otherwise panic("backend: the immediate of PsrlqRegImm8 does not fit it"))
+		118 then encodePsrldqRegImm8(code, dest: a, imm: try imm as Imm8 otherwise panic("backend: the immediate of PsrldqRegImm8 does not fit it"))
+		119 then encodePsllqRegImm8(code, dest: a, imm: try imm as Imm8 otherwise panic("backend: the immediate of PsllqRegImm8 does not fit it"))
+		120 then encodePslldqRegImm8(code, dest: a, imm: try imm as Imm8 otherwise panic("backend: the immediate of PslldqRegImm8 does not fit it"))
+		121 then encodePinsrqXmmRegImm8(code, dest: a, src: c, imm: try imm as Imm8 otherwise panic("backend: the immediate of PinsrqXmmRegImm8 does not fit it"))
+		122 then encodePextrqRegXmmImm8(code, dest: a, src: b, imm: try imm as Imm8 otherwise panic("backend: the immediate of PextrqRegXmmImm8 does not fit it"))
+		123 then encodeInt3(code)
+		124 then encodeNop1(code)
+		125 then encodeNop2(code)
+		126 then encodeNop3(code)
+		127 then encodeNop4(code)
+		128 then encodeNop5(code)
+		129 then encodeNop6(code)
+		130 then encodeNop7(code)
+		131 then encodeNop8(code)
+		132 then encodeNop9(code)
 		default then panic("backend: a machine instruction of a form of no x64 form")
 	end 'form'
 end 'encodeMachineForm'

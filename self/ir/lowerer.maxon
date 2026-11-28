@@ -316,6 +316,10 @@ end 'regKind'
 
 // kindOfType is the kind of a value of a type in a register: for a value held in place, its address, which drops nothing.
 function kindOfType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns IrKind
+	// A vector of the runtime's source is one register of its own kind, and only a local holds one.
+	if ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.builtinVector128 'vector'
+		return IrKind.kindVector
+	end 'vector'
 	return match heldAs(p, ms: ms, t: t) 'holding'
 		heldWord gives IrKind.kindScalar
 		heldString gives IrKind.kindString

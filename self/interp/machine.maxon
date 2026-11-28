@@ -202,6 +202,35 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		try execLoadByte(vm, x: x) otherwise ignore
 	end 'visitLoadByte'
 
+	// The vector operations are only in the runtime's source, which the interpreter never runs (README, "The runtime").
+	function visitVecLoad(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: a vector operation, which only the runtime's source has")
+	end 'visitVecLoad'
+
+	function visitVecStore(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: a vector operation, which only the runtime's source has")
+	end 'visitVecStore'
+
+	function visitVecZero(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: a vector operation, which only the runtime's source has")
+	end 'visitVecZero'
+
+	function visitVecFromWords(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: a vector operation, which only the runtime's source has")
+	end 'visitVecFromWords'
+
+	function visitVecWord(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: a vector operation, which only the runtime's source has")
+	end 'visitVecWord'
+
+	function visitVecBin(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: a vector operation, which only the runtime's source has")
+	end 'visitVecBin'
+
+	function visitVecShift(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: a vector operation, which only the runtime's source has")
+	end 'visitVecShift'
+
 	function visitLoadWord(mutates self, f ir.IrFunction, x ir.Instr)
 		try execLoadWord(vm, x: x) otherwise ignore
 	end 'visitLoadWord'

@@ -27,6 +27,7 @@ function holdsBorrowWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, mutat
 		builtinFrozen gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
 		builtinCown gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
 		builtinSlotKey gives false
+		builtinVector128 gives false
 		builtinPromise gives false
 		builtinReply gives false
 		builtinService gives false
@@ -109,6 +110,7 @@ function holdsReplyWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, mutate
 		builtinService gives false
 		builtinCursor gives false
 		builtinSlotKey gives false
+		builtinVector128 gives false
 		typeParam gives false
 		invalid gives false
 		primBool gives false
@@ -215,6 +217,7 @@ function unsendableWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, functi
 		constFloat gives ""
 		enumTy gives ""
 		builtinSlotKey gives ""
+		builtinVector128 gives ""
 		builtinCown gives ""
 		builtinService gives ""
 		builtinReply gives ""

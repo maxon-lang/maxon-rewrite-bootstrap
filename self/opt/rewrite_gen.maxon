@@ -148,6 +148,27 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs ir.Defs, m
 	if op == ir.Opcode.opLoadWord 'opcodeLoadWord'
 		return false
 	end 'opcodeLoadWord'
+	if op == ir.Opcode.opVecLoad 'opcodeVecLoad'
+		return false
+	end 'opcodeVecLoad'
+	if op == ir.Opcode.opVecStore 'opcodeVecStore'
+		return false
+	end 'opcodeVecStore'
+	if op == ir.Opcode.opVecZero 'opcodeVecZero'
+		return false
+	end 'opcodeVecZero'
+	if op == ir.Opcode.opVecFromWords 'opcodeVecFromWords'
+		return false
+	end 'opcodeVecFromWords'
+	if op == ir.Opcode.opVecWord 'opcodeVecWord'
+		return false
+	end 'opcodeVecWord'
+	if op == ir.Opcode.opVecBin 'opcodeVecBin'
+		return false
+	end 'opcodeVecBin'
+	if op == ir.Opcode.opVecShift 'opcodeVecShift'
+		return false
+	end 'opcodeVecShift'
 	if op == ir.Opcode.opBuffer 'opcodeBuffer'
 		return false
 	end 'opcodeBuffer'

@@ -471,11 +471,19 @@ export type Spiller
 	end 'insertRanked'
 
 	// slotFor is the slot of a value, given out the first time one is needed.
-	function slotFor(mutates self, rootReg MReg) returns SpillSlot
+	// slotFor is the slot of a value, given out at its first spill: a word for a general register, and for an xmm register,
+	// which may hold a 128-bit vector, two words 16-aligned in the frame, named by the slot of their lowest address.
+	function slotFor(mutates self, fn MirFunction, rootReg MReg) returns SpillSlot
 		let v = vregIndex(rootReg)
 		if slotOf[v] == noDef 'new'
-			slotOf[v] = indexOfCount(slots)
-			slots = nextCount(slots)
+			if fn.classes[v] == RegClass.xmm 'vector'
+				slots = try slots + slots mod vectorSlotWords otherwise panic("backend: a frame past 2 GiB")
+				slotOf[v] = indexOfCount(try slots + vectorSlotBelow(fn.arch) otherwise panic("backend: a frame past 2 GiB"))
+				slots = try slots + vectorSlotWords otherwise panic("backend: a frame past 2 GiB")
+			end 'vector' else 'word'
+				slotOf[v] = indexOfCount(slots)
+				slots = nextCount(slots)
+			end 'word'
 		end 'new'
 		return try slotOf[v] as SpillSlot otherwise panic("backend: a frame past 2 GiB")
 	end 'slotFor'
@@ -487,7 +495,7 @@ export type Spiller
 			return
 		end 'done'
 		stored[v] = true
-		let slot = self.slotFor(rootReg)
+		let slot = self.slotFor(fn, rootReg: rootReg)
 		let b = countOfIndex(lv.defBlock[v])
 		var at = fn.blocks[b].first
 		if lv.defAt[v] != noDef 'instr'
@@ -560,7 +568,7 @@ export type Spiller
 		if fn.instrs[k].kind != MKind.spill or slotOf[v] == noDef 'notStore'
 			return true
 		end 'notStore'
-		if spillSlotOf(fn.instrs[k]) != self.slotFor(rootReg) 'otherSlot'
+		if spillSlotOf(fn.instrs[k]) != self.slotFor(fn, rootReg: rootReg) 'otherSlot'
 			return true
 		end 'otherSlot'
 		deleted[k] = true
@@ -673,7 +681,7 @@ export type Spiller
 				self.insert(pos, x: x)
 				result.remats = nextCount(result.remats)
 			end 'remat' else 'reload'
-				let slot = self.slotFor(rootReg)
+				let slot = self.slotFor(fn, rootReg: rootReg)
 				self.insert(pos, x: newReload(piece, slot: slot))
 				result.reloads = nextCount(result.reloads)
 			end 'reload'
@@ -1394,7 +1402,7 @@ function makeRoom(mutates fn MirFunction, mutates s Spiller, b Count, k Count, i
 		if cold and (call or s.pickedTier == tierHotInLoop) 'bracket'
 			let v = vregIndex(victim)
 			let rootReg = s.root[v]
-			let slot = s.slotFor(rootReg)
+			let slot = s.slotFor(fn, rootReg: rootReg)
 			s.insertRanked(k, rank: rankFirst, x: newSpill(victim, slot: slot))
 			s.insertRanked(bracketClose(fn, s: s, k: k, until: fn.blocks[b].endAt), rank: rankFirst, x: newRestore(victim, slot: slot))
 			s.fwdOut[v] = true

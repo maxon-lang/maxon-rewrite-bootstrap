@@ -42,8 +42,20 @@ export typealias MBlockIDList = Array with MBlockID
 // SpillSlot is a word of the frame that a value lives in while it is not in a register.
 export typealias SpillSlot = int(0 to 2147483647)
 
-// spillSlotBytes is the size of a spill slot: a word, whatever the value's class.
+// spillSlotBytes is the size of a spill slot: a word. A value of an xmm register takes vectorSlotWords of them, which hold
+// a 128-bit vector whole.
 let spillSlotBytes = 8
+
+let vectorSlotWords = 2
+
+// vectorSlotBelow is which of the two slots of an xmm register's value is at their lower address, the one a spill names:
+// x64's slots go down from the frame pointer, and arm64's up.
+function vectorSlotBelow(arch ast.TargetArch) returns Count
+	return match arch 'arch'
+		x64 gives 1
+		arm64 gives 0
+	end 'arch'
+end 'vectorSlotBelow'
 
 // RegClass is the register file a value lives in: a general register, or a vector register, which holds a float.
 export enum RegClass
