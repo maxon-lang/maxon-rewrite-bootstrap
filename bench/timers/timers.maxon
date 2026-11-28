@@ -1,0 +1,428 @@
+// The timers benchmark (bench/README.md, out/dev/timers-design.md §5): what a service timer costs on the timers' one heap,
+// against Go's time.AfterFunc and Reset (bench/timers/gobench). Each lane runs on `workers` services, which the scheduler
+// spreads over the processors (MAXON_MAX_PROCS), and every timer posts to the service that armed it.
+//
+//	timers run <count> <workers> <stormMs> <churnServices> <churnTimers> <churnMs>
+//	timers idle <count>
+//
+// run arms count timers 1 to 2 hours out, spread over the workers (ns an arm, the heap growing to count), resets random ones
+// of them to a random deadline 1 to 2 hours out for stormMs (resets/s), cancels them, arms count timers again toward one
+// instant and times their fires from that instant to the last one handled (ns a fire), then has churnServices services
+// each keep churnTimers 1 ms one-shots, each re-armed by the handler of its own fire, for churnMs (fires/s, which the
+// handlers count themselves). Each lane prints one `result` line. idle arms count timers an hour out toward one service
+// when it reads `a` on its standard input, says `armed` with the heap's boxes and bytes, and ends at `q` or the end of its
+// input: the driver (gobench idle) reads its memory and CPU between the two.
+typealias Timers = Array with Timer
+
+typealias Workers = Array with Worker.handle
+
+typealias Took = Array with Promise with DurationNanos
+
+typealias Counts = Array with Promise with Count
+
+typealias Stamps = Array with Promise with InstantNanos
+
+// Seed is the state of a worker's generator, Lehmer's minimal standard (Park and Miller): seed times 48271, mod 2^31 - 1.
+typealias Seed = int(1 to 2147483647)
+
+// farMs is how far out a far timer is armed: farMs to twice it.
+let farMs = 3600000 as DurationMs
+
+// churnClockEvery is how many fires a churning service handles between its readings of the clock.
+let churnClockEvery = 256 as Count
+
+type Worker implements Ends
+	var timers as Timers
+	var seed as Seed
+	var fires as Count
+	var lastFire as InstantNanos
+	var churning as bool
+	var churnMs as DurationMs
+	var windowFrom as InstantNanos
+	var windowUntil as InstantNanos
+	var fromFires as Count
+	var fromAt as InstantNanos
+	var untilFires as Count
+	var untilAt as InstantNanos
+
+	static function create(seed Seed) returns Self
+		return Self{timers: Timers.create(0), seed: seed, fires: 0, lastFire: 0, churning: false, churnMs: 1, windowFrom: 0, windowUntil: 0, fromFires: 0, fromAt: 0, untilFires: 0, untilAt: 0}
+	end 'create'
+
+	function next(mutates self, below Count) returns Count
+		self.seed = try ((self.seed * 48271) mod 2147483647) as Seed otherwise 1
+		return try (self.seed as Count) mod below otherwise 0
+	end 'next'
+
+	// armFar arms n timers farMs to 2·farMs out and gives the nanoseconds it took.
+	export function armFar(mutates self, n Count) returns DurationNanos
+		self.timers.reserve(n as ElementIndex)
+		let started = Clock.nowNanos()
+		for i in 0 upto n 'arm'
+			let ms = try farMs + (self.next(farMs as Count) as DurationMs) otherwise farMs
+			self.timers.push(Timer.notifyAfter(ms, message: self.handle.post(Worker.Message.fired)))
+		end 'arm'
+		return Clock.elapsedNanos(started)
+	end 'armFar'
+
+	// armAt arms n timers due at the instant at, a reading of Clock.nowMs, and gives the nanoseconds it took.
+	export function armAt(mutates self, n Count, at InstantMs) returns DurationNanos
+		self.timers.reserve(n as ElementIndex)
+		self.fires = 0
+		let started = Clock.nowNanos()
+		var now = Clock.nowMs()
+		for i in 0 upto n 'arm'
+			if i mod 1024 == 0 'clock'
+				now = Clock.nowMs()
+			end 'clock'
+			let ms = try at - now otherwise 0
+			self.timers.push(Timer.notifyAfter(ms, message: self.handle.post(Worker.Message.fired)))
+		end 'arm'
+		return Clock.elapsedNanos(started)
+	end 'armAt'
+
+	export function fired(mutates self)
+		self.fires = try self.fires + 1 otherwise self.fires
+		self.lastFire = Clock.nowNanos()
+	end 'fired'
+
+	export function firesSeen() returns Count
+		return self.fires
+	end 'firesSeen'
+
+	export function lastFireAt() returns InstantNanos
+		return self.lastFire
+	end 'lastFireAt'
+
+	// churnRate is the fires a second from the instant from to until, 0 where the handlers never saw both.
+	export function churnRate() returns Count
+		if self.fromAt == 0 or self.untilAt <= self.fromAt 'unseen'
+			return 0
+		end 'unseen'
+		return perSecond(try self.untilFires - self.fromFires otherwise 0, ns: self.untilAt - self.fromAt)
+	end 'churnRate'
+
+	// storm resets random timers of this worker to farMs to 2·farMs from now until the instant until, and gives the count.
+	export function storm(mutates self, until InstantNanos) returns Count
+		let count = self.timers.count() as Count
+		var resets = 0 as Count
+		while Clock.nowNanos() < until 'resets'
+			for k in 0 upto 256 'batch'
+				let at = self.next(count)
+				let ms = try farMs + (self.next(farMs as Count) as DurationMs) otherwise farMs
+				_ = self.timers[at].reset(ms)
+			end 'batch'
+			resets = try resets + 256 otherwise resets
+		end 'resets'
+		return resets
+	end 'storm'
+
+	// cancelAll cancels every timer this worker holds and gives the nanoseconds it took.
+	export function cancelAll(mutates self) returns DurationNanos
+		self.churning = false
+		let started = Clock.nowNanos()
+		while not self.timers.isEmpty() 'cancel'
+			let t = self.timers.pop()
+			t.cancel()
+		end 'cancel'
+		return Clock.elapsedNanos(started)
+	end 'cancelAll'
+
+	// churnStart arms n timers of ms each, the handler of each fire arming its timer again until the instant until. The
+	// handlers count the fires from the instant from to until themselves, every churnClockEvery fires, since a send to a
+	// service that its own timers keep behind waits until they stop (bench/README.md).
+	export function churnStart(mutates self, n Count, ms DurationMs, from InstantNanos, until InstantNanos) returns Count
+		self.churning = true
+		self.churnMs = ms
+		self.fires = 0
+		self.windowFrom = from
+		self.windowUntil = until
+		self.fromAt = 0
+		self.untilAt = 0
+		for i in 0 upto n 'arm'
+			self.timers.push(Timer.notifyAfter(ms, message: self.handle.post(Worker.Message.tick(i))))
+		end 'arm'
+		return n
+	end 'churnStart'
+
+	export function tick(mutates self, i Count)
+		self.fires = try self.fires + 1 otherwise self.fires
+		if self.churning and self.fires mod churnClockEvery == 0 'clock'
+			let now = Clock.nowNanos()
+			if self.fromAt == 0 and now >= self.windowFrom 'from'
+				self.fromAt = now
+				self.fromFires = self.fires
+			end 'from'
+			if now >= self.windowUntil 'until'
+				self.untilAt = now
+				self.untilFires = self.fires
+				self.churning = false
+			end 'until'
+		end 'clock'
+		if self.churning 'again'
+			self.timers[i].rearm(self.churnMs, message: self.handle.post(Worker.Message.tick(i)))
+		end 'again'
+	end 'tick'
+
+	function finish(consumes self)
+		var held = self.timers
+		while not held.isEmpty() 'cancel'
+			let t = held.pop()
+			t.cancel()
+		end 'cancel'
+		held.dropEmpty()
+	end 'finish'
+end 'Worker'
+
+// digits is the count a decimal argument writes, 0 where it is not one.
+function digits(text String) returns Count
+	var value = 0 as Count
+	for i in 0 upto text.byteLength() 'each'
+		let digit = try (text.byteAt(i) as Count) - 48 otherwise return 0
+		if digit > 9 'other'
+			return 0
+		end 'other'
+		value = try value * 10 + digit otherwise return 0
+	end 'each'
+	return value
+end 'digits'
+
+function argAt(args Array with String, at Count) returns Count
+	return digits(args[at])
+end 'argAt'
+
+function spawnWorkers(n Count) returns Workers
+	var ws = Workers.create(0)
+	for i in 0 upto n 'spawn'
+		let seed = try (i * 7919 + 17) as Seed otherwise 1
+		ws.push(spawn Worker.create(seed))
+	end 'spawn'
+	return ws
+end 'spawnWorkers'
+
+// share is worker w's part of n among k workers.
+function share(n Count, w Count, k Count) returns Count
+	let base = try n / k otherwise 0
+	return try base + 1 otherwise base if w < (try n mod k otherwise 0) else base
+end 'share'
+
+// slowest awaits each promise and gives the longest.
+function slowest(mutates ps Took) returns DurationNanos
+	var most = 0 as DurationNanos
+	for i in 0 upto ps.count() 'await'
+		let took = await ps[i]
+		most = took if took > most else most
+	end 'await'
+	return most
+end 'slowest'
+
+function cancelAll(ws Workers) returns DurationNanos
+	var ps = Took.create(0)
+	for w in 0 upto ws.count() 'send'
+		ps.push(try ws[w].cancelAll() otherwise panic("a send to a service that runs"))
+	end 'send'
+	return slowest(ps)
+end 'cancelAll'
+
+function firesOf(ws Workers) returns Count
+	var ps = Counts.create(0)
+	for w in 0 upto ws.count() 'send'
+		ps.push(try ws[w].firesSeen() otherwise panic("a send to a service that runs"))
+	end 'send'
+	var total = 0 as Count
+	for i in 0 upto ps.count() 'await'
+		total = try total + await ps[i] otherwise total
+	end 'await'
+	return total
+end 'firesOf'
+
+function lastFireOf(ws Workers) returns InstantNanos
+	var ps = Stamps.create(0)
+	for w in 0 upto ws.count() 'send'
+		ps.push(try ws[w].lastFireAt() otherwise panic("a send to a service that runs"))
+	end 'send'
+	var last = 0 as InstantNanos
+	for i in 0 upto ps.count() 'await'
+		let at = await ps[i]
+		last = at if at > last else last
+	end 'await'
+	return last
+end 'lastFireOf'
+
+function stopAll(consumes ws Workers)
+	for w in 0 upto ws.count() 'stop'
+		let done = ws[w].stopped()
+		ws[w].shutdown()
+		await done
+	end 'stop'
+end 'stopAll'
+
+function perEach(ns DurationNanos, n Count) returns DurationNanos
+	return try ns / (n as DurationNanos) otherwise 0
+end 'perEach'
+
+function perSecond(n Count, ns DurationNanos) returns Count
+	return try ((n as Count) * 1000000000) / (ns as Count) otherwise 0
+end 'perSecond'
+
+function run(args Array with String) returns ExitCode
+	if args.count() < 8 'usage'
+		print("usage: timers run <count> <workers> <stormMs> <churnServices> <churnTimers> <churnMs>\n")
+		return 2
+	end 'usage'
+	let n = argAt(args, at: 2)
+	let k = argAt(args, at: 3)
+	let stormMs = argAt(args, at: 4) as DurationNanos
+	let churnServices = argAt(args, at: 5)
+	let churnTimers = argAt(args, at: 6)
+	let churnMs = argAt(args, at: 7) as DurationNanos
+	if n == 0 or k == 0 'zero'
+		print("timers: count and workers must be above 0\n")
+		return 2
+	end 'zero'
+	let ws = spawnWorkers(k)
+	// (a) arms toward far deadlines, from every worker at once: the heap grows to n.
+	var arms = Took.create(0)
+	for w in 0 upto k 'arm'
+		arms.push(try ws[w].armFar(share(n, w: w, k: k)) otherwise panic("a send to a service that runs"))
+	end 'arm'
+	let armNs = slowest(arms)
+	print("result arm count={n} workers={k} ns={perEach(armNs, n: n)}\n")
+	// (b) a reset storm on the armed timers.
+	if stormMs > 0 'storm'
+		var storms = Counts.create(0)
+		let stormStart = Clock.nowNanos()
+		let until = try stormStart + stormMs * 1000000 otherwise stormStart
+		for w in 0 upto k 'send'
+			storms.push(try ws[w].storm(until) otherwise panic("a send to a service that runs"))
+		end 'send'
+		var resets = 0 as Count
+		for i in 0 upto storms.count() 'await'
+			resets = try resets + await storms[i] otherwise resets
+		end 'await'
+		let stormNs = Clock.elapsedNanos(stormStart)
+		print("result reset count={n} workers={k} resets={resets} perSec={perSecond(resets, ns: stormNs)}\n")
+	end 'storm'
+	let cancelNs = cancelAll(ws)
+	print("result cancel count={n} workers={k} ns={perEach(cancelNs, n: n)}\n")
+	// (a) fires: n timers due at one instant, far enough out that every arm is made before it.
+	let margin = try 50 + (armNs as Count) * 3 / 1000000 otherwise 1000
+	let at = try Clock.nowMs() + margin otherwise Clock.nowMs()
+	var fireArms = Took.create(0)
+	for w in 0 upto k 'arm'
+		fireArms.push(try ws[w].armAt(share(n, w: w, k: k), at: at) otherwise panic("a send to a service that runs"))
+	end 'arm'
+	_ = slowest(fireArms)
+	let armedBy = Clock.nowMs()
+	while firesOf(ws) < n 'wait'
+		sleep(5)
+	end 'wait'
+	let fireNs = try lastFireOf(ws) - (at as InstantNanos) * 1000000 otherwise 0
+	let late = try armedBy - at otherwise 0
+	print("result fire count={n} workers={k} ns={perEach(fireNs, n: n)} armsPastDeadlineMs={late}\n")
+	_ = cancelAll(ws)
+	stopAll(ws)
+	// (c) churn: one-shots re-armed by their own handlers.
+	if churnServices > 0 and churnTimers > 0 'churn'
+		let cs = spawnWorkers(churnServices)
+		let from = try Clock.nowNanos() + 300000000 otherwise 0
+		let until = try from + churnMs * 1000000 otherwise 0
+		var started = Counts.create(0)
+		for w in 0 upto churnServices 'start'
+			started.push(try cs[w].churnStart(churnTimers, ms: 1, from: from, until: until) otherwise panic("a send to a service that runs"))
+		end 'start'
+		for i in 0 upto started.count() 'await'
+			_ = await started[i]
+		end 'await'
+		sleep(try (churnMs as Milliseconds) + 400 otherwise 400)
+		var rates = Counts.create(0)
+		for w in 0 upto churnServices 'ask'
+			rates.push(try cs[w].churnRate() otherwise panic("a send to a service that runs"))
+		end 'ask'
+		var rate = 0 as Count
+		for i in 0 upto rates.count() 'sum'
+			rate = try rate + await rates[i] otherwise rate
+		end 'sum'
+		print("result churn services={churnServices} timers={churnTimers} perSec={rate}\n")
+		_ = cancelAll(cs)
+		stopAll(cs)
+	end 'churn'
+	return 0
+end 'run'
+
+type Sink
+	var fires as Count
+
+	static function create() returns Self
+		return Self{fires: 0}
+	end 'create'
+
+	export function fired(mutates self)
+		self.fires = try self.fires + 1 otherwise self.fires
+	end 'fired'
+end 'Sink'
+
+// waitFor reads standard input until it holds the byte want, false at its end.
+function waitFor(mutates input StdinReader, want String) returns bool
+	while true 'read'
+		let read = try input.readLine() otherwise return false
+		var found = false
+		match read 'line'
+			line(text) then found = text.contains(want)
+			ended then return false
+		end 'line'
+		if found 'found'
+			return true
+		end 'found'
+	end 'read'
+end 'waitFor'
+
+function idle(args Array with String) returns ExitCode
+	if args.count() < 3 'usage'
+		print("usage: timers idle <count>\n")
+		return 2
+	end 'usage'
+	let n = argAt(args, at: 2)
+	let sink = spawn Sink.create()
+	var timers = Timers.create(0)
+	timers.reserve(n as ElementIndex)
+	var input = Console.stdin()
+	print("ready\n")
+	if not waitFor(input, want: "a") 'gone'
+		timers.dropEmpty()
+		sink.shutdown()
+		return 1
+	end 'gone'
+	let heapBefore = HeapStats.process()
+	let started = Clock.nowNanos()
+	for i in 0 upto n 'arm'
+		timers.push(Timer.notifyAfter(farMs, message: sink.post(Sink.Message.fired)))
+	end 'arm'
+	let took = Clock.elapsedNanos(started)
+	let heapAfter = HeapStats.process()
+	let boxes = try (heapAfter.allocations - heapAfter.frees) - (heapBefore.allocations - heapBefore.frees) otherwise 0
+	let asked = try heapAfter.bytes - heapBefore.bytes otherwise 0
+	print("armed {took} {boxes} {asked}\n")
+	_ = waitFor(input, want: "q")
+	while not timers.isEmpty() 'cancel'
+		let t = timers.pop()
+		t.cancel()
+	end 'cancel'
+	timers.dropEmpty()
+	let done = sink.stopped()
+	sink.shutdown()
+	await done
+	return 0
+end 'idle'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() >= 2 and args[1] == "run" 'run'
+		return run(args)
+	end 'run'
+	if args.count() >= 2 and args[1] == "idle" 'idle'
+		return idle(args)
+	end 'idle'
+	print("usage: timers run <count> <workers> <stormMs> <churnServices> <churnTimers> <churnMs> | timers idle <count>\n")
+	return 2
+end 'main'
