@@ -4,8 +4,12 @@
 // writer's close, a FIFO has no entry and its calls block instead, to the same results. /dev/null, a character device that
 // epoll refuses on Linux, is read and written as a plain file. The other end of each FIFO is the shell's, started detached,
 // so the opens, which wait for the other end, wait on another process and not on this program. Each step is watched by a timer
-// re-armed before it with a message that names it: a step that waits past 6 s, within the runner's deadline, says which it was
-// and ends the program, and the copy is waited for 4 s at most.
+// re-armed before it with a message that names it: a step that waits past 6 s, within the runner's deadline, says which it was,
+// with the pid of the shell at the FIFO's other end and the FIFO's path, and ends the program (a detached child's handle is its
+// pid alone, so how it ended cannot be asked, and a handler may not run a child to look, E3221: the gate's sampler records the
+// pid's `ps` line and who holds the FIFO open once a FIFO is 4 s old);
+// the copy is waited for 4 s at most. Paths left by an earlier run whose pid this one has are removed first, mkfifo's exit is
+// checked, and each path is checked to be a FIFO before a shell opens it.
 // unsupported-targets: x64-windows
 // native-only
 // runs: alone
@@ -27,8 +31,9 @@ type Watchdog
 		return Self{}
 	end 'create'
 
-	export function stuck(mutates self, step String)
-		panic("stuck for {stepBudgetMs} ms at {step}")
+	export function stuck(mutates self, step String, child Pid, path String)
+		let who = "no child started" if child == 0 else "its other end the detached child {child}"
+		panic("stuck for {stepBudgetMs} ms at {step}; {who}, at {path}")
 	end 'stuck'
 end 'Watchdog'
 
@@ -39,20 +44,19 @@ function shellArguments(script String) returns Arguments
 	return arguments
 end 'shellArguments'
 
-// shell runs a script to its end and says whether it ran.
+// shell runs a script to its end and says whether it ran and exited with 0.
 function shell(script String) returns bool
 	let sh = try FilePath.from("/bin/sh") otherwise return false
-	_ = try Subprocess.run(Executable.path(sh), arguments: shellArguments(script)) otherwise return false
-	return true
+	let out = try Subprocess.run(Executable.path(sh), arguments: shellArguments(script)) otherwise return false
+	return out.succeeded()
 end 'shell'
 
-// detached starts a script that this program does not wait for, and says whether it started.
-function detached(script String) returns bool
-	let sh = try FilePath.from("/bin/sh") otherwise return false
+// detached starts a script that this program does not wait for, and gives its pid, or 0 where it did not start.
+function detached(script String) returns Pid
+	let sh = try FilePath.from("/bin/sh") otherwise return 0
 	var configuration = Configuration.create(MxExecutable.path(sh))
 	configuration.arguments = shellArguments(script)
-	_ = try configuration.runDetached() otherwise return false
-	return true
+	return try configuration.runDetached() otherwise 0
 end 'detached'
 
 function failureName(e __ManagedFileError) returns String
@@ -130,31 +134,36 @@ end 'devNull'
 
 // steps runs the program's steps, re-arming the step timer with a message that names each before it starts.
 function steps(dog Watchdog.handle, mutates step Timer, inbound String, outbound String, copy String) returns ExitCode
-	if not shell("mkfifo '{inbound}' '{outbound}'") 'unmade'
+	if not shell("rm -f '{inbound}' '{outbound}' '{copy}' && mkfifo '{inbound}' '{outbound}' && [ -p '{inbound}' ] && [ -p '{outbound}' ]") 'unmade'
+		print("the FIFOs were not made\n")
 		return 1
 	end 'unmade'
-	if not detached("exec 3>'{inbound}'; sleep 1; printf ping >&3; exec 3>&-") 'writer'
+	let writer = detached("exec 3>'{inbound}'; sleep 1; printf ping >&3; exec 3>&-")
+	if writer == 0 'writer'
+		print("the writer did not start\n")
 		return 2
 	end 'writer'
-	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("the open and read of the inbound FIFO, the writer's ping")))
+	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("the open and read of the inbound FIFO, the writer's ping", child: writer, path: inbound.clone())))
 	var buffer = try Bytes.create(16, elementSize: 1) otherwise return 3
 	let reads = try readFifo(inbound, buffer: buffer) otherwise (e) 'unread'
 		print("read: {failureName(e)}\n")
 		return 4
 	end 'unread'
 	print("read: {reads}: {String.from(ByteArray.init(buffer))}\n")
-	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("the open and write of the outbound FIFO, its reader")))
-	if not detached("cat '{outbound}' > '{copy}'") 'reader'
+	let reader = detached("cat '{outbound}' > '{copy}'")
+	if reader == 0 'reader'
+		print("the reader did not start\n")
 		return 5
 	end 'reader'
+	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("the open and write of the outbound FIFO, its reader", child: reader, path: outbound.clone())))
 	let wrote = try writeFifo(outbound) otherwise (e) 'unwritten'
 		print("write: {failureName(e)}\n")
 		return 6
 	end 'unwritten'
-	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("the copy of the outbound FIFO")))
+	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("the copy of the outbound FIFO", child: reader, path: copy.clone())))
 	let out = try FilePath.from(copy) otherwise return 7
 	print("wrote: {wrote}, the reader got {copied(out)}\n")
-	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("/dev/null")))
+	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("/dev/null", child: 0, path: "/dev/null")))
 	let null = try devNull() otherwise (e) 'nulled'
 		print("/dev/null: {failureName(e)}\n")
 		return 8
@@ -170,7 +179,7 @@ function main() returns ExitCode
 	let copy = "{base}_copy"
 	let dog = spawn Watchdog.create()
 	let dogEnded = dog.stopped()
-	var step = Timer.notifyAfter(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("making the FIFOs")))
+	var step = Timer.notifyAfter(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("making the FIFOs", child: 0, path: inbound.clone())))
 	let code = steps(dog, step: step, inbound: inbound, outbound: outbound, copy: copy)
 	step.cancel()
 	dog.shutdown()
