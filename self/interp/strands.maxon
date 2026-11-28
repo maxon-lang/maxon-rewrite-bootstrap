@@ -5,7 +5,8 @@
 // where its burst ends, so two members never interleave. A thread that waits is parked: the entry that waited leaves the
 // thread at its instruction, which runs again once the thread is readied and holds its strand. Time is the interpreter's
 // clock, which a sleep's timer is set on and which the scheduler moves to the earliest timer when no thread can run, so a
-// run of sleeps takes no time and orders its timers as their deadlines do.
+// run of sleeps takes no time and orders its timers as their deadlines do. A timer that posts a message is set on the same
+// clock (posted.maxon).
 
 // longestSleepNanos is the most a sleep waits, as the runtime's: about 146 years, so a deadline stays inside a word.
 let longestSleepNanos = 4611686018427387904 as Count
@@ -126,7 +127,8 @@ function yieldStrand(mutates vm Vm) returns bool
 	return true
 end 'yieldStrand'
 
-// wakeDue readies every sleeper whose timer is due, in the order they went to sleep.
+// wakeDue readies every sleeper whose timer is due, in the order they went to sleep, and then queues the messages of the
+// timers that are due (fireTimers).
 function wakeDue(mutates vm Vm)
 	var i = 0 as Count
 	while i < vm.sleepers.count() 'sleepers'
@@ -140,21 +142,28 @@ function wakeDue(mutates vm Vm)
 			i = i + 1
 		end 'later'
 	end 'sleepers'
+	fireTimers(vm)
 end 'wakeDue'
 
-// advanceClock moves the clock to the earliest timer, which is what time does when nothing can run.
+// advanceClock moves the clock to the earliest timer, a sleep's or one that posts a message, which is what time does when
+// nothing can run.
 function advanceClock(mutates vm Vm)
-	var earliest = vm.threads[vm.sleepers[0]].wakeAt
-	for i in 1 upto vm.sleepers.count() 'sleepers'
-		let at = vm.threads[vm.sleepers[i]].wakeAt
-		if at < earliest 'earlier'
+	var earliest = vm.timers.earliest()
+	for t in vm.sleepers 'sleepers'
+		let at = vm.threads[t].wakeAt
+		if earliest == noTimer or at < earliest 'earlier'
 			earliest = at
 		end 'earlier'
 	end 'sleepers'
-	if earliest > vm.clockNanos 'later'
+	if earliest != noTimer and earliest > vm.clockNanos 'later'
 		vm.clockNanos = earliest
 	end 'later'
 end 'advanceClock'
+
+// timersSet is whether a timer is set on the clock: a sleep's, or one that posts a message.
+function timersSet(vm Vm) returns bool
+	return vm.sleepers.count() > 0 or vm.timers.armedCount > 0
+end 'timersSet'
 
 // execAsync starts a call as a coroutine of the strand of the thread that runs: its arguments are taken as the call's
 // would be, and it waits in the strand's queue until the members before it wait.
@@ -456,14 +465,19 @@ function entrySleep(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 		return
 	end 'cancelled'
 	let ms = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 0))
+	vm.threads[t].wakeAt = try vm.clockNanos + sleepNanos(ms) otherwise panic("interp: a sleep past the end of the clock")
+	vm.sleepers.push(t)
+	waitHere(vm)
+end 'entrySleep'
+
+// sleepNanos is how long a sleep or a timer of a number of milliseconds waits, at most longestSleepNanos.
+function sleepNanos(ms Count) returns ir.Word
 	var nanos = try ms * (nanosPerMillisecond as Count) otherwise longestSleepNanos
 	if nanos > longestSleepNanos 'long'
 		nanos = longestSleepNanos
 	end 'long'
-	vm.threads[t].wakeAt = try vm.clockNanos + (nanos as ir.Word) otherwise panic("interp: a sleep past the end of the clock")
-	vm.sleepers.push(t)
-	waitHere(vm)
-end 'entrySleep'
+	return nanos as ir.Word
+end 'sleepNanos'
 
 // entryYield lets the members of the strand that wait run first, else the other threads.
 function entryYield(mutates vm Vm, f ir.IrFunction, x ir.Instr)
@@ -630,18 +644,20 @@ end 'slowsSenders'
 // entryServiceStart gives a message's place in the mailbox back as its behaviour starts, given the address of the state, and
 // names the service as the one the thread runs a message of.
 function entryServiceStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let c = vm.address(argAt(f, x: x, i: 0))
-	let service = vm.h.cellHolder[c]
-	if c == 0 or vm.h.oKind[service] != kindCown 'notState'
-		panic("interp: rt.service.start is given no service's state")
-	end 'notState'
-	let at = vm.h.oData[service]
-	let passed = startTaken(vm.h.shareds[at])
-	try unmuteEntries(vm, senders: passed)
-	vm.threads[vm.cur].service = service
-	let b = vm.threads[vm.cur].behaviour
+	let service = stateService(vm, f: f, x: x, what: "rt.service.start")
+	let b = try startMessage(vm, service: service, posted: false)
 	noteHandled(vm, b: b)
 end 'entryServiceStart'
+
+// startMessage is the start of a message of a service, sent or posted, on the thread that runs it: the count it was among
+// steps down and the senders whose marks the start passes are let go (startTaken), the service is the one the thread runs a
+// message of, and the message's behaviour is given.
+function startMessage(mutates vm Vm, service Count, posted bool) returns Count throws Halt
+	let passed = startTaken(vm.h.shareds[vm.h.oData[service]], posted: posted)
+	try unmuteEntries(vm, senders: passed)
+	vm.threads[vm.cur].service = service
+	return vm.threads[vm.cur].behaviour
+end 'startMessage'
 
 // Backpressure, as the runtime's (runtime/service.maxon), with vm.turnLimit for its turn: a service is behind when a send
 // finds a turn's worth of its messages queued, counting its own; once a turn of its messages has run with more queued, until
@@ -652,7 +668,7 @@ end 'entryServiceStart'
 // places of the gate, less those of the tasks parked on it, which are queued only once they are let go (listSender); a
 // listed service's send to the same receiver moves its mark to that send's (markAgain). A start that passes the oldest
 // marks lets those senders go, in order, unless the receiver is listed on another itself (startTaken), and a service whose
-// queue empties lets them all go. The interpreter has no posted messages, so a mark counts none.
+// queue empties lets them all go. A mark counts the posted messages queued too, as the runtime's does (countedAhead).
 let muteNone = 0 as Count
 
 let muteKept = 1 as Count
@@ -699,7 +715,7 @@ function senderSlowed(mutates vm Vm, receiver Count)
 end 'senderSlowed'
 
 // countedAhead is what a mark counts ahead of a sender slowed on a service: the places of its gate, less those of the tasks
-// parked on it, whose messages are not queued.
+// parked on it, whose messages are not queued, and the posted messages queued on it.
 function countedAhead(d SharedData) returns Count
 	var parked = 0 as Count
 	for e in d.senders 'senders'
@@ -707,7 +723,8 @@ function countedAhead(d SharedData) returns Count
 			parked = try parked + 1 otherwise panic("interp: a count of tasks past a word")
 		end 'task'
 	end 'senders'
-	return try d.gate mod serviceClosed - parked otherwise panic("interp: more tasks parked than places")
+	let sent = try d.gate mod serviceClosed - parked otherwise panic("interp: more tasks parked than places")
+	return try sent + d.posted otherwise panic("interp: a count past a word")
 end 'countedAhead'
 
 // listSender lists entry on a service with its mark, no earlier than the mark of the entry before: a task (own 1) has its own
@@ -737,11 +754,16 @@ function markAgain(mutates d SharedData, entry Count)
 	d.marks = marks
 end 'markAgain'
 
-// startTaken is a message's start on a service: its place is given back and the count of those started steps, and the senders
-// whose marks that count has passed are taken off the list, oldest first, to be let go, unless the service is listed on
-// another, whose catching up or the service's own mute lets them go.
-function startTaken(mutates d SharedData) returns CountList
-	d.gate = try d.gate - 1 otherwise panic("interp: a message taken that no send reserved")
+// startTaken is a message's start on a service: its place is given back, or for a posted message its count among the posted
+// ones queued, and the count of those started steps, and the senders whose marks that count has passed are taken off the list,
+// oldest first, to be let go, unless the service is listed on another, whose catching up or the service's own mute lets them
+// go.
+function startTaken(mutates d SharedData, posted bool) returns CountList
+	if posted 'posted'
+		d.posted = try d.posted - 1 otherwise panic("interp: a posted message started that was not queued")
+	end 'posted' else 'sent'
+		d.gate = try d.gate - 1 otherwise panic("interp: a message taken that no send reserved")
+	end 'sent'
 	d.handled = try d.handled + 1 otherwise panic("interp: a count of starts past a word")
 	var passed = CountList.create(0)
 	if d.listedOn != 0 'listed'
@@ -923,13 +945,16 @@ function endedIfClosed(mutates vm Vm, service Count)
 	end 'ended'
 end 'endedIfClosed'
 
-// serviceEnded finishes every watch of a service that has ended.
+// serviceEnded finishes every watch of a service that has ended, once it has taken back the arms of the timers that would post
+// to it, and gives the watches that post (givePostedWatches).
 function serviceEnded(mutates vm Vm, service Count)
+	disarmArmed(vm, service: service)
 	let at = vm.h.oData[service]
 	let rows = exchange(vm.h.shareds[at].watchers, value: CountList.create(0))
 	for i in 0 upto rows.count() 'rows'
 		finishPromise(vm, row: rows[i])
 	end 'rows'
+	givePostedWatches(vm, service: service)
 end 'serviceEnded'
 
 // entryServiceFreed is the runtime's call from the drop of a service's last handle, which the interpreter makes itself where
@@ -989,68 +1014,28 @@ function entryServiceStopNowSelf(mutates vm Vm, f ir.IrFunction, x ir.Instr) thr
 	end 'message'
 end 'entryServiceStopNowSelf'
 
-// Posted messages (runtime/service.maxon, "Posted messages") are not modelled yet: a program that makes one stops, as one that
-// opens a socket does, and says `// native-only`.
-function haltPosted(mutates vm Vm, what String) returns Halt
-	return unmodelled(vm, what: "{what} is not run by the interpreter, which does not model posted messages yet: mark the program native-only")
-end 'haltPosted'
-
-function entryServiceNotifyStopped(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw haltPosted(vm, what: "notifyStopped")
-end 'entryServiceNotifyStopped'
-
-function entryServicePostedNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw haltPosted(vm, what: "a posted message")
-end 'entryServicePostedNew'
-
-function entryServicePostedCancel(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw haltPosted(vm, what: "a posted message")
-end 'entryServicePostedCancel'
-
-function entryTimerNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw haltPosted(vm, what: "a timer")
-end 'entryTimerNew'
-
-function entryTimerRearm(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw haltPosted(vm, what: "a timer")
-end 'entryTimerRearm'
-
-function entryTimerNext(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw haltPosted(vm, what: "a timer")
-end 'entryTimerNext'
-
-function entryTimerReset(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw haltPosted(vm, what: "a timer")
-end 'entryTimerReset'
-
-function entryTimerCancel(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw haltPosted(vm, what: "a timer")
-end 'entryTimerCancel'
-
-function entryServicePostedStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	throw haltPosted(vm, what: "a posted message")
-end 'entryServicePostedStart'
-
 // entryServiceSelfHandle is `self.handle`: another owner of the service whose message the thread runs.
 function entryServiceSelfHandle(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	let service = messageOf(vm, t: vm.cur)
 	if service == 0 'off'
 		panic("interp: self.handle off a message of its service")
 	end 'off'
-	let at = vm.h.oData[service]
-	vm.h.shareds[at].count = try vm.h.shareds[at].count + 1 otherwise panic("interp: a count past a word")
+	addOwner(vm, service: service)
 	giveRef(vm, x: x, o: service)
 end 'entryServiceSelfHandle'
+
+// addOwner is another owner of a service: a handle, or a posted record's hold.
+function addOwner(mutates vm Vm, service Count)
+	let at = vm.h.oData[service]
+	vm.h.shareds[at].count = try vm.h.shareds[at].count + 1 otherwise panic("interp: a count past a word")
+end 'addOwner'
 
 // entryServiceStopStart is entryServiceStart of a message of a type that implements StopsNow, and says whether its service was
 // stopped at once, so that it is not handled.
 function entryServiceStopStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let service = stateService(vm, f: f, x: x, what: "rt.service.stopStart")
 	let at = vm.h.oData[service]
-	let passed = startTaken(vm.h.shareds[at])
-	try unmuteEntries(vm, senders: passed)
-	vm.threads[vm.cur].service = service
-	let b = vm.threads[vm.cur].behaviour
+	let b = try startMessage(vm, service: service, posted: false)
 	if vm.h.shareds[at].stoppedNow 'stopped'
 		noteStopped(vm, b: b)
 		giveNum(vm, x: x, n: stopStoppedWord)
@@ -1324,11 +1309,8 @@ end 'markedOf'
 function entryServiceShedStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let service = stateService(vm, f: f, x: x, what: "rt.service.shedStart")
 	let at = vm.h.oData[service]
-	let passed = startTaken(vm.h.shareds[at])
-	try unmuteEntries(vm, senders: passed)
+	let b = try startMessage(vm, service: service, posted: false)
 	vm.h.shareds[at].sheds = true
-	vm.threads[vm.cur].service = service
-	let b = vm.threads[vm.cur].behaviour
 	if vm.h.shareds[at].stoppedNow 'stopped'
 		noteStopped(vm, b: b)
 		giveNum(vm, x: x, n: shedStoppedWord)

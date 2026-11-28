@@ -4,6 +4,9 @@
 // slowed (its mark), not once the queue is empty, so each ask of main, a task the send parks, is answered after a
 // backlog's worth of fires; before, the send waited for an empty queue that never came. The service is behind while
 // main asks, so underLoad() sees it so. The stop ends the re-arming, and the end of the service cancels its timers.
+// Not interpreted: it needs timers that post faster than their service handles them, which takes real time passing while
+// the handlers run: the interpreter's clock moves only when nothing can run, so its 1 ms timers never get ahead (and 32768
+// of them run far too slowly).
 // native-only
 //> the first ask was answered after fires, behind
 //> the second ask was answered after more fires, behind

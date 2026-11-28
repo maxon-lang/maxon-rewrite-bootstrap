@@ -3,7 +3,6 @@
 // ticker is armed already, so m is dropped, never handled, and the reset's message posts a period after the reset, not on
 // the old grid, which would be 6 ms after it; the tick after that is two periods after the reset. Twenty rounds of it, and
 // the ticker is cancelled at the end, with nothing left.
-// native-only
 //> 20 resets in a tick's handler: every next after one dropped, every reset's tick at least 10 ms after it, the next at least 20
 export typealias Amount = int(0 to 1000000)
 

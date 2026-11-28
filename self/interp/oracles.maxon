@@ -158,8 +158,8 @@ function queueBound(d Deliveries, service Count, turn Count) returns table.Optio
 end 'queueBound'
 
 // postedOutstanding is the term of a bound for the posted messages queued on a service and not started, which a timer, a
-// readiness or a watch of a stop each hold at most one of: none here, as the interpreter runs no posted message (a program
-// that makes one stops, strands.maxon).
+// readiness or a watch of a stop each hold at most one of: none here, since the most a slowed send finds queued is read from
+// the gate, which counts sent messages alone (entryServiceReserve).
 function postedOutstanding() returns Count
 	return 0
 end 'postedOutstanding'

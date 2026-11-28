@@ -3,7 +3,6 @@
 // queued already, and m is dropped, never handled, the reset's tick going on. The live boxes
 // of the process after the cancel are what they were before the ticker was made, give or take a few, where a box left
 // for each tick or each dropped message would be thousands, and the program ends with nothing left.
-// native-only
 //> 2000 ticks, 199 messages dropped by a next after a reset: none handled, no box left for them
 export typealias Amount = int(0 to 1000000)
 

@@ -2,6 +2,8 @@
 // message of its service while it ticks at a period of 0, armed or with a tick queued and not started, the queued tick is
 // dropped, never handled, and none comes after. A ticker the state still holds at the end is cancelled by its finish, and
 // nothing is left.
+// Not interpreted: main sleeps 1 ms at a time while a 0 ms ticker spins, and the interpreter's clock moves only when
+// nothing can run, so main's sleep would never end.
 // native-only
 //> cancelled in its third tick's handler: 3 ticks, none after
 //> cancelled by another message while it ticks at 0 ms: no tick after

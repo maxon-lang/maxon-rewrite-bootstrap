@@ -4,6 +4,7 @@
 // the next of the grid, 60 ms. The ticker is cancelled at its third tick, and nothing is left.
 // Manual: it bounds a wake's lateness to under a period; run it when the timer heap, the event wait or the runtime's timed
 // wait changes, on every target. The gate's a-late-ticker-handler-skips-the-ticks-it-missed holds the rest.
+// Not interpreted: it bounds a wake's real lateness, which the interpreter's simulated clock does not have.
 // native-only
 // runs: alone
 // runs: manual

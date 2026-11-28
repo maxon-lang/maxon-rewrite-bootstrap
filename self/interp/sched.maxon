@@ -174,9 +174,17 @@ end 'requireMutable'
 
 // schedule is a `when`: the behaviour joins the queue of each cown it names and holds a count on each until it has run.
 function schedule(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let cowns = try behaviourCowns(vm, f: f, x: x)
+	let b = try addBehaviour(vm, f: f, x: x)
+	noteMessage(vm, b: b, cowns: cowns)
+	vm.behaviours.cowns.push(cowns)
+	queueBehaviour(vm, b: b, posted: false)
+end 'schedule'
+
+// behaviourCowns are the cowns a `when` names, each live and named once.
+function behaviourCowns(mutates vm Vm, f ir.IrFunction, x ir.Instr) returns CountList throws Halt
 	vm.tracking = true
 	vm.concurrent = true
-	let body = vm.prog.fnChildren[vm.curFn][ir.whenBody(f, x: x)]
 	let cownsStart = ir.whenCownsStart(x)
 	let cownsCount = ir.whenCownsCount(x)
 	var cowns = CountList.create(0)
@@ -193,6 +201,12 @@ function schedule(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		end 'twice'
 		cowns.push(o)
 	end 'cowns'
+	return cowns
+end 'behaviourCowns'
+
+// addBehaviour makes the row of the behaviour a `when` makes, with what it captured, whose cowns its caller then adds.
+function addBehaviour(mutates vm Vm, f ir.IrFunction, x ir.Instr) returns Count throws Halt
+	let body = vm.prog.fnChildren[vm.curFn][ir.whenBody(f, x: x)]
 	let capturesStart = ir.whenCapturesStart(x)
 	let capturesCount = ir.whenCapturesCount(x)
 	var capturesN = ir.WordList.create(0)
@@ -221,16 +235,29 @@ function schedule(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	vm.behaviours.pair.push(0)
 	vm.behaviours.pairSeq.push(0)
 	vm.behaviours.handled.push(0)
-	noteMessage(vm, b: b, cowns: cowns)
 	vm.scheduled = try vm.scheduled + 1 otherwise panic("interp: more behaviours than memory")
-	for i in 0 upto cowns.count() 'queues'
-		let at = vm.h.oData[cowns[i]]
-		vm.h.shareds[at].count = try vm.h.shareds[at].count + 1 otherwise panic("interp: a count past a word")
-		vm.h.shareds[at].queue.push(b)
+	return b
+end 'addBehaviour'
+
+// queueBehaviour queues behaviour b on each cown it names, in the order behaviours were queued, and among those that have not
+// started. A `when` takes a count on each cown now; a posted record took its own when it was made, and is counted among the
+// posted messages its service holds queued (posted), which a sender's mark counts.
+function queueBehaviour(mutates vm Vm, b Count, posted bool)
+	let cowns = vm.behaviours.cowns[b].clone()
+	for c in cowns 'queues'
+		queueOn(vm.h.shareds[vm.h.oData[c]], b: b, posted: posted)
 	end 'queues'
-	vm.behaviours.cowns.push(cowns)
 	vm.pending.push(b)
-end 'schedule'
+end 'queueBehaviour'
+
+function queueOn(mutates d SharedData, b Count, posted bool)
+	if posted 'posted'
+		d.posted = try d.posted + 1 otherwise panic("interp: a count past a word")
+	end 'posted' else 'held'
+		d.count = try d.count + 1 otherwise panic("interp: a count past a word")
+	end 'held'
+	d.queue.push(b)
+end 'queueOn'
 
 // beginBehaviour starts the thread of a behaviour that has every cown it named. The body takes access to each cown's value, and
 // then what was captured. The thread's frame is made when it first has the turn.
@@ -466,7 +493,7 @@ end 'resumeThread'
 function runScheduler(mutates job Interp, p ast.Project, modules ModuleFunctions, paths CountLists)
 	job.m.vm.threads.push(Thread.new(job.m.vm.prog.mainFn, behaviour: 0))
 	while job.m.vm.fatal == fatalNone 'turns'
-		if job.m.vm.sleepers.count() > 0 'timers'
+		if timersSet(job.m.vm) 'timers'
 			wakeDue(job.m.vm)
 		end 'timers'
 		// The threads that can take the next step: every one that has not finished and waits for nothing and holds its strand,
@@ -486,7 +513,7 @@ function runScheduler(mutates job Interp, p ast.Project, modules ModuleFunctions
 		end 'pending'
 		let total = try threadIds.count() + startable.count() otherwise panic("interp: more threads than memory")
 		if total == 0 'none'
-			if job.m.vm.sleepers.count() > 0 'sleeping'
+			if timersSet(job.m.vm) 'sleeping'
 				advanceClock(job.m.vm)
 				continue 'turns'
 			end 'sleeping'

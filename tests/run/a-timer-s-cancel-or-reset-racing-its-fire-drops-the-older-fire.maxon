@@ -4,6 +4,8 @@
 // its timer's cancel or a reset that said the timer was spent, never before the deadline of a reset to later that said it
 // moved the fire (the lazy reset that a fire must not slip past), and the message of an arm that rearm replaced is never
 // handled after the rearm. Every timer is cancelled in the end, and nothing is left: no timer, record or message.
+// Not interpreted: its 20000 raced timers take the interpreter past its deadline: it runs a scale this large far too
+// slowly.
 // native-only
 //> 10000 timers raced toward another service: no fire after a cancel or a spent reset, none early, none replaced, none twice
 //> 10000 timers raced toward their own service: no fire after a cancel or a spent reset, none early, none replaced, none twice

@@ -5,6 +5,7 @@
 // time it is armed. Each ticker is cancelled at its last tick, and nothing is left.
 // Manual: it bounds a wake's lateness, which a loaded machine stretches past 559 ms; run it when the timer heap, the event wait
 // or the runtime's timed wait changes, on every target. The gate's a-ticker-s-ticks-stay-on-its-grid holds the rest.
+// Not interpreted: it bounds a wake's real lateness, which the interpreter's simulated clock does not have.
 // native-only
 // runs: alone
 // runs: manual

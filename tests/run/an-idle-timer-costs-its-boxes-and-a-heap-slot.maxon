@@ -2,6 +2,8 @@
 // record, its union's box and the handle's, with their headers, beside its 16-byte slot of the timers' heap (counted with the
 // heap's doubling slack, at most half again), at most 256 bytes in all. The frames of main hold the timers and cancel each as
 // the chain returns, so the program ends with nothing left.
+// Not interpreted: it measures the runtime's boxes and heap slots, which the interpreter's timers and posted records are
+// not.
 // native-only
 //> 100000 idle timers: 4 boxes each, at most 256 bytes each with a heap slot
 export typealias Amount = int(0 to 1000000)

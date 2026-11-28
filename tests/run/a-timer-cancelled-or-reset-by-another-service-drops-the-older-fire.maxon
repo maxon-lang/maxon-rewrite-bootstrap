@@ -5,6 +5,8 @@
 // that said the timer was spent, never before the deadline of a reset to later, and the message of an arm that rearm
 // replaced is never handled after the rearm; every timer reset from an hour out to 1 ms fires once before its holder's
 // final cancel. Nothing is left in the end.
+// Not interpreted: its 8000 timers, handed across services, take the interpreter past its deadline: it runs a scale this
+// large far too slowly.
 // native-only
 //> 8000 timers handed across services: no fire after a cancel or a spent reset, none early, none replaced, none twice, none lost
 export typealias Amount = int(0 to 1000000)

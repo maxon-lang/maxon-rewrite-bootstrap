@@ -311,10 +311,11 @@ function execAlloc(mutates vm Vm, x ir.Instr)
 	vm.setRef(x.dst, o: o)
 end 'execAlloc'
 
-// execWhen schedules a behaviour.
+// execWhen schedules a behaviour, or makes the record of a posted message, which it gives (makePosted).
 function execWhen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	if x.dst != ir.noReg 'posted'
-		throw haltPosted(vm, what: "a posted message")
+		try makePosted(vm, f: f, x: x)
+		return
 	end 'posted'
 	try schedule(vm, f: f, x: x)
 end 'execWhen'

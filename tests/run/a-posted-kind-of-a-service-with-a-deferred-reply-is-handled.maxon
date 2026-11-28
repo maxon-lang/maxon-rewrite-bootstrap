@@ -2,7 +2,6 @@
 // one that gives none: the posted message's dispatch reaches only the kinds a post can name (E3955), so it never calls the
 // replying kind's handler, which takes the cell of a reply that no post has. The posted handler runs, and the deferred reply
 // is answered as ever.
-// native-only
 //> told: the child stopped
 //> the deferred reply: answered
 export typealias Amount = int(0 to 1000000)

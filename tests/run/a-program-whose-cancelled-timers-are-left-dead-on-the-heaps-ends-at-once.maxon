@@ -3,6 +3,8 @@
 // lazy delete), on whichever processors the services ran on, too few on a heap for its owner to sweep them. Nothing is
 // live once main returns, so the drain stops at once instead of waiting in the event queue for a dead timer's hour, and the
 // count of the boxes left sweeps the dead timers off first.
+// Not interpreted: its 16000 timers take the interpreter past its deadline, and its point is the runtime's per-processor
+// heaps, which the interpreter has none of.
 // native-only
 //> 8 services, 16000 timers handed on, 2000 cancelled, all ended
 export typealias Amount = int(0 to 1000000)

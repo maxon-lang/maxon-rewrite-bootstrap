@@ -373,7 +373,7 @@ function unref(mutates vm Vm, o Count) throws Halt
 		throw violation(vm, kind: countWrong, message: message)
 	end 'below'
 	if vm.h.shareds[at].count == 0 'last'
-		if vm.h.oKind[o] == kindCown and vm.h.shareds[at].watchers.count() > 0 'watched'
+		if vm.h.oKind[o] == kindCown and (vm.h.shareds[at].watchers.count() > 0 or vm.postedWatches.watches(o)) 'watched'
 			// A service that is freed has ended.
 			serviceEnded(vm, service: o)
 		end 'watched'

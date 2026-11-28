@@ -143,9 +143,14 @@ type SharedData
 	var stoppedNow as bool
 	// watchers are the promises of the watches of its stop that its end has not finished (strands.maxon, "Watching a stop").
 	var watchers as CountList
+	// posted is how many posted messages are queued on the service and have not started, which a sender's mark counts as it
+	// counts the gate's; armedEnded is whether its end has taken back the arms of the timers that would post to it, after
+	// which no arm toward it is made (posted.maxon).
+	var posted as Count
+	var armedEnded as bool
 
 	static function new() returns SharedData
-		return SharedData{count: 1, holders: CountList.create(0), queue: CountList.create(0), running: 0, ending: 0, cell: 0, owned: BoolList.create(0), gate: 0, behind: false, muted: false, turn: 0, senders: CountList.create(0), marks: CountList.create(0), handled: 0, most: 0, listedOn: 0, kept: 0, pending: CountList.create(0), sheds: false, stoppedNow: false, watchers: CountList.create(0)}
+		return SharedData{count: 1, holders: CountList.create(0), queue: CountList.create(0), running: 0, ending: 0, cell: 0, owned: BoolList.create(0), gate: 0, behind: false, muted: false, turn: 0, senders: CountList.create(0), marks: CountList.create(0), handled: 0, most: 0, listedOn: 0, kept: 0, pending: CountList.create(0), sheds: false, stoppedNow: false, watchers: CountList.create(0), posted: 0, armedEnded: false}
 	end 'new'
 end 'SharedData'
 

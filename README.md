@@ -2389,7 +2389,11 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   with the runtime's gate (capacity, the messages sent and not started, closed), and its messages are behaviours. Time is a
   **simulated clock**: a sleep sets a timer on it, and when no thread can run the scheduler moves the clock to the earliest
   timer, so a run of sleeps takes no time and wakes threads in the order of their deadlines (those due at once in the order
-  they slept). Members of one strand reach each other's data, and a coroutine reaches the cowns its root's behaviour holds.
+  they slept). A timer that posts a message (`Timer`, `Ticker`) is set on the same clock, and a posted message is a behaviour of
+  its service that no send queued, queued by its timer's fire, a cancel or a watched service's end (`posted.maxon`): its start
+  takes no place in the gate, a mark counts it while it is queued, and a cancel, a reset or a rearm drops a fire that is queued
+  and has not started. Timers due at once fire in the order they are due, then in the order they were armed. Members of one
+  strand reach each other's data, and a coroutine reaches the cowns its root's behaviour holds.
   When no thread can run and no timer is set while a thread waits or a behaviour is queued, the run is a **deadlock**, reported
   as a violation that names each waiting thread and where it waits. The tests are in `strands.maxtest`.
 - **Who owns what.** A value belongs to the thread whose frame holds it, to the cown whose value it is part of, or to a frozen
@@ -5323,8 +5327,10 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   ended already. The watch is an entry of the scheduler's list whose cell is the record, so it is not live: the watched
   service keeps the program alive, not the watch; and a watcher that ends first is told nothing, its watch dropped on it. A
   message posted to a service that has ended, by an arm or a watch made after its end, is dropped too, never handled, so
-  nothing runs on an ended service's state, which may be gone. The interpreter does not model posted messages yet: a program that makes one is `// native-only`. A reason argument, H4's, can
-  come later.
+  nothing runs on an ended service's state, which may be gone. The interpreter runs posted messages, timers and tickers as the runtime does, on its simulated clock (`self/interp/posted.maxon`): a
+  record is a behaviour that no send queued, a timer a row that holds the record it is armed with or the one of its fire queued and not started,
+  and the clock moves to the earliest armed timer when nothing can run; a socket's readiness stays native-only, as sockets do. A reason
+  argument, H4's, can come later.
   **A timer posts a message** (`stdlib/service/Timer.maxon`, "Timers that post a message" in `runtime/timers.maxon`):
   `let t = Timer.notifyAfter(5000, message: self.handle.post(Conn.Message.idleTimeout()))` posts the message once, at least
   that many milliseconds (`clock.DurationMs`, at most about 146 years, as a sleep) later, with no green thread waiting for it:

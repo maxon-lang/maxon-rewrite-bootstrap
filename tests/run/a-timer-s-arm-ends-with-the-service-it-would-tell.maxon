@@ -1,7 +1,6 @@
 // The end of a service takes back the arm of each timer that would post to it, by a shutdown or by stopNow: its message is
 // never handled, and the timer's handle, kept in another service's state, finds it spent and is cancelled by that state's
 // finish. A finish that cancels an armed timer drops its message too. The program ends with no timer armed and nothing left.
-// native-only
 //> shut down while armed: never told
 //> stopped at once while armed: never told
 //> cancelled by a finish while armed: never told

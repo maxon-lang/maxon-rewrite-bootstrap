@@ -1,7 +1,6 @@
 // Timer.notifyAfter(ms, message: h.post(m)) posts m to the service once, at least ms milliseconds later. A reset to
 // later moves a pending fire and says so, as does one to earlier; once the timer is spent its reset says false. rearm arms a
 // spent timer again with a new message, and a cancel before the fire drops the message, never handled.
-// native-only
 //> one-shot: fired after at least 20 ms
 //> a reset to later moved the fire past 80 ms
 //> a spent timer's reset says false

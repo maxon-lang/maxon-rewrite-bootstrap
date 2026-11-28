@@ -1,0 +1,548 @@
+// Posted messages and the timers that post them, as the runtime runs them (runtime/service.maxon, "Posted messages";
+// runtime/timers.maxon, "Timers that post a message"), on the interpreter's clock. A posted record is a behaviour of one
+// service, its message, which `h.post(m)` makes with no acquire and which holds a count on the service from
+// rt.service.postedNew on; the runtime queues it later, as a timer's fire, a cancel, a watched service's end or the end of its
+// own service does, and it then runs as a message whose start (rt.service.postedStart) takes no place in the gate and says
+// whether it runs or drops what it holds. A timer is a row of its own that holds the record it is armed with, or the one of
+// its last fire, queued and not started; a cancel, a reset or an arm anew drops that fire, as Go 1.23's Stop and Reset do.
+// The armed timers are on a list in the order they were armed, as the runtime's heap holds them, swept lazily: a cancel or a
+// disarm leaves its timer dead where it is, and the sweep that a due timer brings on takes it off (Go's zombies). A socket's
+// readiness is no source here: the interpreter has no sockets (socket.maxon).
+
+// The bits of a posted record's mark: made by `h.post(m)`, cancelled (its start drops what it holds), armed on a timer (whose
+// row the record names), and listed on its service's arms, which the service's end takes back.
+let postedMadeBit = 1 as Count
+
+let postedCancelledBit = 2 as Count
+
+let postedOnTimerBit = 4 as Count
+
+let postedListedBit = 8 as Count
+
+// The words rt.service.postedStart answers: run the message, or drop what it holds.
+let postedRunWord = 0 as ir.Word
+
+let postedDroppedWord = 1 as ir.Word
+
+// PostedRecords are the posted records' columns by the id of their behaviour, rows for the other behaviours being 0: the
+// mark, the service it posts to, and the timer it was armed on.
+type PostedRecords
+	var marks as CountList
+	var services as CountList
+	var timers as CountList
+
+	static function new() returns PostedRecords
+		return PostedRecords{marks: CountList.create(0), services: CountList.create(0), timers: CountList.create(0)}
+	end 'new'
+
+	// made gives behaviour b its row, a posted record to service.
+	function made(mutates self, b Count, service Count)
+		while marks.count() <= b 'grow'
+			marks.push(0)
+			services.push(0)
+			timers.push(0)
+		end 'grow'
+		marks.set(b, value: postedMadeBit)
+		try services.set(b, value: service) otherwise panic("interp: a posted record past its rows")
+	end 'made'
+
+	// isPosted is whether behaviour b is a posted record.
+	function isPosted(b Count) returns bool
+		return b < marks.count() and (self.mark(b) and postedMadeBit) != 0
+	end 'isPosted'
+
+	function mark(b Count) returns Count
+		return try marks.get(b) otherwise panic("interp: no posted record {b}")
+	end 'mark'
+
+	function has(b Count, bit Count) returns bool
+		return (self.mark(b) and bit) != 0
+	end 'has'
+
+	function set(mutates self, b Count, bit Count)
+		let mark = self.mark(b) or bit
+		try marks.set(b, value: mark) otherwise panic("interp: no posted record {b}")
+	end 'set'
+
+	function clear(mutates self, b Count, bit Count)
+		let mark = self.mark(b)
+		if (mark and bit) != 0 'held'
+			try marks.set(b, value: mark - bit) otherwise panic("interp: no posted record {b}")
+		end 'held'
+	end 'clear'
+
+	function service(b Count) returns Count
+		return try services.get(b) otherwise panic("interp: no posted record {b}")
+	end 'service'
+
+	function timer(b Count) returns Count
+		return try timers.get(b) otherwise panic("interp: no posted record {b}")
+	end 'timer'
+
+	function setTimer(mutates self, b Count, timer Count)
+		try timers.set(b, value: timer) otherwise panic("interp: no posted record {b}")
+	end 'setTimer'
+end 'PostedRecords'
+
+// PostedWatches are the watches of a stop that post a message (`h.notifyStopped(w.post(m))`), in the order they were made:
+// the service each watches, which it holds no count on, and its record.
+type PostedWatches
+	var watched as CountList
+	var records as CountList
+
+	static function new() returns PostedWatches
+		return PostedWatches{watched: CountList.create(0), records: CountList.create(0)}
+	end 'new'
+
+	// watches is whether a watch watches service.
+	function watches(service Count) returns bool
+		return watched.contains(service)
+	end 'watches'
+end 'PostedWatches'
+
+// Timers are the timers that post a message, by their id from 1: when each is due, or was at its last fire, its period in
+// nanoseconds (0 for a Timer), the record it is armed with or 0, the record of its last fire while that is queued and has
+// not started or 0, and whether it is on the list of the armed. next is no later than the earliest armed timer is due, or
+// noTimer while none is armed, so that a turn looks at the list only once a timer may be due.
+type Timers
+	var whens as ir.WordList
+	var periods as ir.WordList
+	var armedRecords as CountList
+	var inFlights as CountList
+	var onList as BoolList
+	var list as CountList
+	var next as ir.Word
+	var armedCount as Count
+
+	static function new() returns Timers
+		var t = Timers{whens: ir.WordList.create(0), periods: ir.WordList.create(0), armedRecords: CountList.create(0), inFlights: CountList.create(0), onList: BoolList.create(0), list: CountList.create(0), next: noTimer, armedCount: 0}
+		_ = t.add()
+		return t
+	end 'new'
+
+	// add is a new timer, armed with nothing.
+	function add(mutates self) returns Count
+		let id = whens.count()
+		whens.push(0)
+		periods.push(0)
+		armedRecords.push(0)
+		inFlights.push(0)
+		onList.push(false)
+		return id
+	end 'add'
+
+	function when(t Count) returns ir.Word
+		return try whens.get(t) otherwise panic("interp: no timer {t}")
+	end 'when'
+
+	function setWhen(mutates self, t Count, at ir.Word)
+		try whens.set(t, value: at) otherwise panic("interp: no timer {t}")
+		self.lowerNext(at)
+	end 'setWhen'
+
+	function period(t Count) returns ir.Word
+		return try periods.get(t) otherwise panic("interp: no timer {t}")
+	end 'period'
+
+	function setPeriod(mutates self, t Count, period ir.Word)
+		try periods.set(t, value: period) otherwise panic("interp: no timer {t}")
+	end 'setPeriod'
+
+	function armed(t Count) returns Count
+		return try armedRecords.get(t) otherwise panic("interp: no timer {t}")
+	end 'armed'
+
+	function inFlight(t Count) returns Count
+		return try inFlights.get(t) otherwise panic("interp: no timer {t}")
+	end 'inFlight'
+
+	function setInFlight(mutates self, t Count, record Count)
+		try inFlights.set(t, value: record) otherwise panic("interp: no timer {t}")
+	end 'setInFlight'
+
+	// lowerNext makes next no later than at.
+	function lowerNext(mutates self, at ir.Word)
+		if next == noTimer or at < next 'earlier'
+			next = at
+		end 'earlier'
+	end 'lowerNext'
+
+	// arm arms timer t with record at at: one that was armed already keeps its place on the list, as an entry on the
+	// runtime's heap is modified where it is.
+	function arm(mutates self, t Count, record Count, at ir.Word)
+		if self.armed(t) == 0 'fresh'
+			armedCount = try armedCount + 1 otherwise panic("interp: more timers than memory")
+		end 'fresh'
+		try armedRecords.set(t, value: record) otherwise panic("interp: no timer {t}")
+		let listed = try onList.get(t) otherwise panic("interp: no timer {t}")
+		if not listed 'list'
+			try onList.set(t, value: true) otherwise panic("interp: no timer {t}")
+			list.push(t)
+		end 'list'
+		self.setWhen(t, at: at)
+	end 'arm'
+
+	// disarm takes the record off an armed timer, which is left dead on the list.
+	function disarm(mutates self, t Count)
+		try armedRecords.set(t, value: 0) otherwise panic("interp: no timer {t}")
+		armedCount = try armedCount - 1 otherwise panic("interp: a timer disarmed that was not armed")
+	end 'disarm'
+
+	// takeDue takes the armed timers due at now off the list, in the order they are due, those due at once in the order they
+	// are on it, and sweeps the dead off; next becomes the earliest of those left.
+	function takeDue(mutates self, now ir.Word) returns CountList
+		var due = CountList.create(0)
+		var kept = CountList.create(0)
+		var earliest = noTimer
+		let current = exchange(list, value: CountList.create(0))
+		for t in current 'timers'
+			let at = self.when(t)
+			if self.armed(t) == 0 or at <= now 'off'
+				try onList.set(t, value: false) otherwise panic("interp: no timer {t}")
+				if self.armed(t) != 0 'due'
+					due.push(t)
+				end 'due'
+				continue 'timers'
+			end 'off'
+			kept.push(t)
+			if earliest == noTimer or at < earliest 'earlier'
+				earliest = at
+			end 'earlier'
+		end 'timers'
+		list = kept
+		next = earliest
+		// An insertion sort by when, which keeps the order of the list among those due at once.
+		var sorted = CountList.create(0)
+		for t in due 'insert'
+			var at = sorted.count()
+			while at > 0 'back'
+				let before = try sorted.get(at - 1) otherwise panic("interp: a sorted timer past the list")
+				if self.when(before) <= self.when(t) 'placed'
+					break 'back'
+				end 'placed'
+				at = at - 1
+			end 'back'
+			sorted.insert(at, value: t)
+		end 'insert'
+		return sorted
+	end 'takeDue'
+
+	// earliest is when the earliest armed timer is due, or noTimer, which next becomes.
+	function earliest(mutates self) returns ir.Word
+		var at = noTimer
+		for t in list 'timers'
+			if self.armed(t) != 0 and (at == noTimer or self.when(t) < at) 'earlier'
+				at = self.when(t)
+			end 'earlier'
+		end 'timers'
+		next = at
+		return at
+	end 'earliest'
+end 'Timers'
+
+// timerGrid is the next tick of a periodic timer whose last tick was at last: the first of last plus a whole number of periods
+// that is past now, or now for a period of 0 (runtime/timers.maxon's timerGrid).
+function timerGrid(last ir.Word, period ir.Word, now ir.Word) returns ir.Word
+	if period == 0 'once'
+		return now
+	end 'once'
+	let late = (try now - last otherwise panic("interp: a tick past the clock")) if now > last else 0
+	let skipped = late - late mod period
+	return try last + skipped + period otherwise panic("interp: a timer past the end of the clock")
+end 'timerGrid'
+
+// timerDue is when a timer of a number of milliseconds from now is due.
+function timerDue(vm Vm, ms Count) returns ir.Word
+	return try vm.clockNanos + sleepNanos(ms) otherwise panic("interp: a timer past the end of the clock")
+end 'timerDue'
+
+// makePosted is a `when` that gives its record: the record of a posted message to the one service it names, which is not
+// queued, and which takes its count on the service at rt.service.postedNew.
+function makePosted(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let cowns = try behaviourCowns(vm, f: f, x: x)
+	if cowns.count() != 1 'one'
+		panic("interp: a posted record names {cowns.count()} cowns, not its service")
+	end 'one'
+	let service = cowns.first()
+	let b = try addBehaviour(vm, f: f, x: x)
+	vm.posted.made(b, service: service)
+	vm.behaviours.cowns.push(cowns)
+	vm.setNum(x.dst, n: try b as ir.Word otherwise panic("interp: a behaviour past a word"))
+end 'makePosted'
+
+// recordArg is the posted record an entry is given as its argument i.
+function recordArg(vm Vm, f ir.IrFunction, x ir.Instr, i Count) returns Count
+	let b = ir.bitsOfWord(argNum(vm, f: f, x: x, i: i))
+	if not vm.posted.isPosted(b) 'notPosted'
+		panic("interp: {b} is no posted record")
+	end 'notPosted'
+	return b
+end 'recordArg'
+
+// timerArg is the timer an entry is given as its argument i.
+function timerArg(vm Vm, f ir.IrFunction, x ir.Instr, i Count) returns Count
+	let t = ir.bitsOfWord(argNum(vm, f: f, x: x, i: i))
+	if t == 0 or t >= vm.timers.whens.count() 'notTimer'
+		panic("interp: {t} is no timer")
+	end 'notTimer'
+	return t
+end 'timerArg'
+
+// postedQueue queues a posted record on its service, behind what is queued there, with the count it took when it was made.
+function postedQueue(mutates vm Vm, record Count)
+	queueBehaviour(vm, b: record, posted: true)
+end 'postedQueue'
+
+// postedDrop queues a posted record cancelled, so that its start drops what it holds and its handler never runs.
+function postedDrop(mutates vm Vm, record Count)
+	vm.posted.set(record, bit: postedCancelledBit)
+	postedQueue(vm, record: record)
+end 'postedDrop'
+
+function entryServicePostedNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let record = recordArg(vm, f: f, x: x, i: 0)
+	addOwner(vm, service: vm.posted.service(record))
+	giveNum(vm, x: x, n: argNum(vm, f: f, x: x, i: 0))
+end 'entryServicePostedNew'
+
+// entryServicePostedCancel is the drop of a posted message that no source took.
+function entryServicePostedCancel(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	postedDrop(vm, record: recordArg(vm, f: f, x: x, i: 0))
+end 'entryServicePostedCancel'
+
+// entryServicePostedStart is what a posted record's behaviour calls as it starts: no place of the gate is given back, the
+// service is the one the thread runs a message of, the shedding horizon is cleared where it is this record (horizon is the
+// horizon's word plus 1, or 0), the record is off its service's arms and its timer no longer names it as in flight, and it
+// runs unless it was cancelled, its service was stopped at once or has ended, or the state is gone.
+function entryServicePostedStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let service = stateService(vm, f: f, x: x, what: "rt.service.postedStart")
+	let b = try startMessage(vm, service: service, posted: true)
+	let horizon = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let at = try vm.h.oData.get(service) otherwise panic("interp: a service past the heap")
+	let ends = postedStarts(vm.h.shareds[at], horizon: horizon, b: b)
+	vm.posted.clear(b, bit: postedListedBit)
+	if vm.posted.has(b, bit: postedOnTimerBit) 'timer'
+		let t = vm.posted.timer(b)
+		if vm.timers.inFlight(t) == b 'inFlight'
+			vm.timers.setInFlight(t, record: 0)
+		end 'inFlight'
+	end 'timer'
+	let held = vm.h.refOf(vm.address(argAt(f, x: x, i: 0))) != 0
+	if ends or not held or vm.posted.has(b, bit: postedCancelledBit) 'dropped'
+		giveNum(vm, x: x, n: postedDroppedWord)
+		return
+	end 'dropped'
+	giveNum(vm, x: x, n: postedRunWord)
+end 'entryServicePostedStart'
+
+// postedStarts clears a shedding horizon that is posted record b, and says whether the service it starts on drops it: one
+// that was stopped at once, or whose end has taken its arms back.
+function postedStarts(mutates d SharedData, horizon Count, b Count) returns bool
+	if horizon != 0 'horizon'
+		let slot = horizon - 1
+		let held = try d.pending.get(slot) otherwise panic("interp: a horizon past the pending words")
+		if held == b 'mine'
+			try d.pending.set(slot, value: 0) otherwise panic("interp: a horizon past the pending words")
+		end 'mine'
+	end 'horizon'
+	return d.stoppedNow or d.armedEnded
+end 'postedStarts'
+
+// entryServiceNotifyStopped registers a posted record to be queued once a service has ended, as rt.service.stopped registers a
+// watch, and at once where it has ended already. The watch holds no count on the service it watches.
+function entryServiceNotifyStopped(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let watched = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a watch of a stop")
+	let record = recordArg(vm, f: f, x: x, i: 1)
+	vm.postedWatches.watched.push(watched)
+	vm.postedWatches.records.push(record)
+	endedIfClosed(vm, service: watched)
+end 'entryServiceNotifyStopped'
+
+// givePostedWatches is what the end of a service does to the watches that post: one that watches it is queued, and one whose
+// record tells it is dropped, its record cancelled, since nothing is told to a service that has ended.
+function givePostedWatches(mutates vm Vm, service Count)
+	if vm.postedWatches.records.isEmpty() 'none'
+		return
+	end 'none'
+	var watched = CountList.create(0)
+	var records = CountList.create(0)
+	var given = CountList.create(0)
+	for i in 0 upto vm.postedWatches.records.count() 'watches'
+		let w = try vm.postedWatches.watched.get(i) otherwise panic("interp: a watch past the list")
+		let r = vm.postedWatches.records.get(i)
+		if w == service 'told'
+			given.push(r)
+		end 'told' else if vm.posted.service(r) == service 'watcher'
+			vm.posted.set(r, bit: postedCancelledBit)
+			given.push(r)
+		end 'watcher' else 'kept'
+			watched.push(w)
+			records.push(r)
+		end 'kept'
+	end 'watches'
+	vm.postedWatches.watched = watched
+	vm.postedWatches.records = records
+	for r in given 'given'
+		postedQueue(vm, record: r)
+	end 'given'
+end 'givePostedWatches'
+
+// disarmArmed is what the end of a service does to the posted records listed on it: each is taken off, and one that its timer
+// is still armed with is queued cancelled, the timer left dead, so no timer posts to a service that has ended. A record
+// that its timer fired or dropped already is queued and runs, or drops what it holds, as it starts. It is done once.
+function disarmArmed(mutates vm Vm, service Count)
+	let at = try vm.h.oData.get(service) otherwise panic("interp: a service past the heap")
+	if not armsEnd(vm.h.shareds[at]) 'again'
+		return
+	end 'again'
+	var dropped = CountList.create(0)
+	for b in 1 upto vm.posted.marks.count() 'records'
+		if not vm.posted.has(b, bit: postedListedBit) or vm.posted.service(b) != service 'other'
+			continue 'records'
+		end 'other'
+		vm.posted.clear(b, bit: postedListedBit)
+		if vm.posted.has(b, bit: postedOnTimerBit) and vm.timers.armed(vm.posted.timer(b)) == b 'armed'
+			vm.timers.disarm(vm.posted.timer(b))
+			dropped.push(b)
+		end 'armed'
+	end 'records'
+	for b in dropped 'dropped'
+		postedDrop(vm, record: b)
+	end 'dropped'
+end 'disarmArmed'
+
+// armsEnd marks a service's arms taken back for good, and says whether this is the first time.
+function armsEnd(mutates d SharedData) returns bool
+	if d.armedEnded 'again'
+		return false
+	end 'again'
+	d.armedEnded = true
+	return true
+end 'armsEnd'
+
+// armsEnded is whether the end of a service has taken its arms back, after which an arm toward it is dropped.
+function armsEnded(d SharedData) returns bool
+	return d.armedEnded
+end 'armsEnded'
+
+// listArmed lists a record armed on a timer on the service it posts to, and says whether it did: a service that has ended
+// lists none, and the record is marked cancelled, for its caller to queue at once in place of arming it.
+function listArmed(mutates vm Vm, record Count) returns bool
+	let at = try vm.h.oData.get(vm.posted.service(record)) otherwise panic("interp: a service past the heap")
+	if armsEnded(vm.h.shareds[at]) 'ended'
+		vm.posted.set(record, bit: postedCancelledBit)
+		return false
+	end 'ended'
+	vm.posted.set(record, bit: postedListedBit)
+	return true
+end 'listArmed'
+
+// timerArm arms timer t with a posted record, in whatever state it is: at due with a period in nanoseconds, the record it was
+// armed with dropped, as is a fire queued and not started; or, on its grid, at its next tick past due, now, with the period
+// it has, where a timer that holds a record, armed or fired and queued, keeps it and the record given is dropped, since a
+// ticker has one message outstanding at most (runtime/timers.maxon's timerArm).
+function timerArm(mutates vm Vm, t Count, record Count, due ir.Word, period ir.Word, onGrid bool)
+	vm.posted.set(record, bit: postedOnTimerBit)
+	vm.posted.setTimer(record, timer: t)
+	if not listArmed(vm, record: record) 'ended'
+		vm.posted.clear(record, bit: postedOnTimerBit)
+		vm.posted.setTimer(record, timer: 0)
+		postedQueue(vm, record: record)
+		return
+	end 'ended'
+	var dropped = 0 as Count
+	if onGrid and (vm.timers.armed(t) != 0 or vm.timers.inFlight(t) != 0) 'held'
+		dropped = record
+	end 'held' else 'arm'
+		timerDropInFlight(vm, t: t)
+		dropped = vm.timers.armed(t)
+		var at = due
+		if onGrid 'grid'
+			at = timerGrid(vm.timers.when(t), period: vm.timers.period(t), now: due)
+		end 'grid' else 'period'
+			vm.timers.setPeriod(t, period: period)
+		end 'period'
+		vm.timers.arm(t, record: record, at: at)
+	end 'arm'
+	if dropped != 0 'dropped'
+		postedDrop(vm, record: dropped)
+	end 'dropped'
+end 'timerArm'
+
+// timerDropInFlight drops the record of a timer's fire that is queued and has not started: its start drops what it holds.
+function timerDropInFlight(mutates vm Vm, t Count)
+	let record = vm.timers.inFlight(t)
+	if record != 0 'queued'
+		vm.posted.set(record, bit: postedCancelledBit)
+		vm.timers.setInFlight(t, record: 0)
+	end 'queued'
+end 'timerDropInFlight'
+
+// fireTimers queues the record of every armed timer that is due, in the order they are due: each timer is spent, and names
+// the record as in flight until it starts.
+function fireTimers(mutates vm Vm)
+	if vm.timers.next == noTimer or vm.timers.next > vm.clockNanos 'notDue'
+		return
+	end 'notDue'
+	let now = vm.clockNanos
+	let due = vm.timers.takeDue(now)
+	for t in due 'due'
+		let record = vm.timers.armed(t)
+		vm.timers.disarm(t)
+		vm.timers.setInFlight(t, record: record)
+		postedQueue(vm, record: record)
+	end 'due'
+end 'fireTimers'
+
+// entryTimerNew is a timer armed with a posted record to fire in a number of milliseconds, with a period in milliseconds, 0
+// for one fire.
+function entryTimerNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let ms = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 0))
+	let period = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let record = recordArg(vm, f: f, x: x, i: 2)
+	let t = vm.timers.add()
+	timerArm(vm, t: t, record: record, due: timerDue(vm, ms: ms), period: sleepNanos(period), onGrid: false)
+	giveNum(vm, x: x, n: try t as ir.Word otherwise panic("interp: a timer past a word"))
+end 'entryTimerNew'
+
+// entryTimerRearm arms a timer anew, in whatever state it is: a Timer's rearm, a Ticker's reset.
+function entryTimerRearm(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let t = timerArg(vm, f: f, x: x, i: 0)
+	let ms = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let period = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 2))
+	let record = recordArg(vm, f: f, x: x, i: 3)
+	timerArm(vm, t: t, record: record, due: timerDue(vm, ms: ms), period: sleepNanos(period), onGrid: false)
+end 'entryTimerRearm'
+
+// entryTimerNext arms a Ticker for its next tick on its grid, unless it holds a record already.
+function entryTimerNext(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let t = timerArg(vm, f: f, x: x, i: 0)
+	let record = recordArg(vm, f: f, x: x, i: 1)
+	let now = vm.clockNanos
+	timerArm(vm, t: t, record: record, due: now, period: 0, onGrid: true)
+end 'entryTimerNext'
+
+// entryTimerReset moves the fire of an armed timer to a number of milliseconds from now and says so, and else says false, a
+// fire queued and not started dropped.
+function entryTimerReset(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let t = timerArg(vm, f: f, x: x, i: 0)
+	let ms = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	if vm.timers.armed(t) == 0 'spent'
+		timerDropInFlight(vm, t: t)
+		giveFlag(vm, x: x, b: false)
+		return
+	end 'spent'
+	vm.timers.setWhen(t, at: timerDue(vm, ms: ms))
+	giveFlag(vm, x: x, b: true)
+end 'entryTimerReset'
+
+// entryTimerCancel ends a timer's handle: the record it is armed with and a fire queued and not started are dropped.
+function entryTimerCancel(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let t = timerArg(vm, f: f, x: x, i: 0)
+	timerDropInFlight(vm, t: t)
+	let armed = vm.timers.armed(t)
+	if armed != 0 'armed'
+		vm.timers.disarm(t)
+		postedDrop(vm, record: armed)
+	end 'armed'
+end 'entryTimerCancel'
