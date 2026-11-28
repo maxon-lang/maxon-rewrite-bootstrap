@@ -6505,12 +6505,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   bytes (`read(count)`, `wouldBlock` or `ended`), so a read allocates nothing of its own and a connection holds no buffer between
   requests; a buffer it grows comes from the thread's heap, whose size classes and kept runs are the pool.
   **A server's sends** (`stdlib/net/sending.maxon`, `socketSendPair` and `socketSendFile` in `runtime/socket.maxon`):
-  `sendPair(head, body:)` sends two buffers in one vectored send, `sendmsg` on Linux and `WSASend` on Windows, so a response's
+  `sendPair(head, body:)` sends two buffers in one vectored send, `sendmsg` on Linux, `writev` on macOS and `WSASend` on Windows, so a response's
   head and body leave together with neither copied behind the other, and the rest as the socket takes it; `sendFile(reader, deadlineMs:)` sends
-  what a `File.openRead` reader holds unread and then the file from its position by `sendfile` on Linux and `TransmitFile` on
-  Windows, a slice at a time, each under its own write deadline, and closes the file. On macOS `writev` and `sendfile` wait
-  for a seed that links them (`macosImports` lists them): until then a pair is sent as the socket takes its first buffer and
-  then the second, and a file is read and sent. On Windows a `TransmitFile` call is of at most 256 KB, made with an OVERLAPPED
+  what a `File.openRead` reader holds unread and then the file from its position by `sendfile` on Linux and macOS and `TransmitFile` on
+  Windows, a slice at a time, each under its own write deadline, and closes the file. macOS's `sendfile` sends from an offset and does not
+  move the file's position, so the runtime reads the position (`lseek`) and moves it on by what was sent, which on a socket that does not
+  wait may be part of a slice before it fails with EAGAIN. On Windows a `TransmitFile` call is of at most 256 KB, made with an OVERLAPPED
   whose event a wait completion packet ties to the completion port, so the green thread parks on a user event's entry until
   the peer has taken the bytes (a call without an OVERLAPPED blocks the thread, and a call cannot be cancelled in the middle
   without resetting the connection), and the file's position is read and moved on by the runtime, which the call does not

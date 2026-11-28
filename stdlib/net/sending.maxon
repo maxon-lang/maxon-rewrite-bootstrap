@@ -116,33 +116,16 @@ public extension TcpClient
 		return NetworkError.timedOut if socket.timedOut() else NetworkError.sendFailed
 	end 'sendFailure'
 
-	#if os(macOS)
-		// Until the seed links libSystem's sendfile (runtime/macos_socket.maxon), the file is read and its bytes sent.
-		function sendFileRest(mutates self, mutates source file.FileSource, deadlineMs SocketDeadlineMs) returns BytePos throws NetworkError
-			var total = 0 as BytePos
-			while true 'slices'
-				let chunk = try source.readSome(SendFileSliceBytes as stream.ReadCapacity) otherwise throw NetworkError.sendFailed
-				if chunk.isEmpty() 'end'
-					return total
-				end 'end'
-				try self.setWriteDeadline(deadlineMs)
-				let sent = try self.sendAll(chunk)
-				total = try total + sent otherwise panic("sendFile: a file longer than a position")
-			end 'slices'
-			return total
-		end 'sendFileRest'
-	#else
-		function sendFileRest(mutates self, mutates source file.FileSource, deadlineMs SocketDeadlineMs) returns BytePos throws NetworkError
-			var total = 0 as BytePos
-			while true 'slices'
-				try self.setWriteDeadline(deadlineMs)
-				let sent = try source.file.sendOn(socket.word, count: SendFileSliceBytes) otherwise throw self.sendFailure()
-				if sent == 0 'end'
-					return total
-				end 'end'
-				total = try total + sent otherwise panic("sendFile: a file longer than a position")
-			end 'slices'
-			return total
-		end 'sendFileRest'
-	#endif
+	function sendFileRest(mutates self, mutates source file.FileSource, deadlineMs SocketDeadlineMs) returns BytePos throws NetworkError
+		var total = 0 as BytePos
+		while true 'slices'
+			try self.setWriteDeadline(deadlineMs)
+			let sent = try source.file.sendOn(socket.word, count: SendFileSliceBytes) otherwise throw self.sendFailure()
+			if sent == 0 'end'
+				return total
+			end 'end'
+			total = try total + sent otherwise panic("sendFile: a file longer than a position")
+		end 'slices'
+		return total
+	end 'sendFileRest'
 end 'TcpClient'

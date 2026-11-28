@@ -1458,6 +1458,9 @@ let macosIovecBytes = 16 as Count
 // macosIovecLengthOffset is where a struct iovec holds its length.
 let macosIovecLengthOffset = 8 as Count
 
+// macosSeekCur is SEEK_CUR: an lseek from the file's position, which an lseek of 0 reads and sendfile does not move.
+let macosSeekCur = 1 as Count
+
 // macosSoKeepalive is SO_KEEPALIVE: a connection that stays idle is probed, and ended when its peer stops answering, as Go sets it.
 let macosSoKeepalive = 8 as Count
 

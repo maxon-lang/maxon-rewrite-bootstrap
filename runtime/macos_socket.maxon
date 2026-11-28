@@ -152,16 +152,33 @@
 
 	let vectorCallRoom = 0 as Count
 
-	// sendVectorCall sends the first buffer of an io vector alone, its count or -errno, and the caller sends the rest: writev
-	// sends them all in one call once the seed links it (macosImports lists it).
+	// sendVectorCall is one send of the count buffers of an io vector (writev, which raises no SIGPIPE on a socket made with
+	// SO_NOSIGPIPE), its count or -errno.
 	function sendVectorCall(fd Count, vector Count, count Count) returns Count
-		return socketCall(fd, mode: eventWrite, buffer: __Raw.loadWord(vector, offset: 0), length: __Raw.loadWord(vector, offset: iovecLengthOffset))
+		return checked(__Raw.callImport3("writev", arg1: fd, arg2: vector, arg3: count))
 	end 'sendVectorCall'
 
-	// sendFileCall is libSystem's sendfile from the position lseek reads, which it then moves on, once the seed links both
-	// (macosImports lists them); until then the library sends a file on macOS by reading it, and never calls this.
+	// sendFileCall is one sendfile of up to count bytes of a file from its position, which it then moves on by what was sent, as
+	// Linux's sendfile with no offset does: its count, 0 at the end of the file, or -errno. macOS's sendfile sends from an
+	// offset it is given (lseek reads the position) and does not move it, and on a socket that does not wait it may send part of
+	// the bytes and still fail with EAGAIN: what it sent is the count then, and the next call finds the socket full. A regular
+	// file's read may wait on its device, so it is made in the blocking bracket.
 	function sendFileCall(fd Count, file Count, count Count) returns Count
-		runtimeFatal("a file is sent on a socket by sendfile on macOS, which this build of the runtime does not link")
-		return 0
+		enterBlocking()
+		let from = checked(__Raw.callImport3("lseek", arg1: file, arg2: 0, arg3: macosSeekCur))
+		if failed(from) 'unplaced'
+			exitBlocking()
+			return from
+		end 'unplaced'
+		var length = count
+		let result = checkedInt(__Raw.callImport6("sendfile", arg1: file, arg2: fd, arg3: from, arg4: __Raw.addressOf(length), arg5: 0, arg6: 0))
+		if length > 0 'sent'
+			_ = checked(__Raw.callImport3("lseek", arg1: file, arg2: length, arg3: macosSeekCur))
+		end 'sent'
+		exitBlocking()
+		if length > 0 or not failed(result) 'counted'
+			return length
+		end 'counted'
+		return result
 	end 'sendFileCall'
 #endif
