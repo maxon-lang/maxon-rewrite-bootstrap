@@ -60,8 +60,6 @@ let DefaultWriteDeadlineMs = 60000
 
 let DefaultIdleTimeoutMs = 75000
 
-let DefaultMaxDrainBytes = 262144
-
 let DefaultLingerMs = 500
 
 let DefaultLingerBytes = 262144
@@ -93,8 +91,6 @@ public type ServerConfig
 	public var writeDeadlineMs as net.SocketDeadlineMs
 	/// A kept-alive connection with no request coming is closed after this long.
 	public var idleTimeoutMs as net.SocketDeadlineMs
-	/// After an answer, an unread body up to this many bytes is read and dropped to keep the connection; a longer one closes it.
-	public var maxDrainBytes as HttpByteCap
 	/// A connection closed with bytes still coming reads and drops them for at most this long and this many bytes first, so
 	/// that the close does not reset the answer before the client reads it (RFC 9112 §9.6).
 	public var lingerMs as net.SocketDeadlineMs
@@ -103,7 +99,7 @@ public type ServerConfig
 	public var maxConnections as ConnectionCap
 
 	public static function create() returns ServerConfig
-		return ServerConfig{headDeadlineMs: DefaultHeadDeadlineMs, maxHeadBytes: DefaultMaxHeadBytes, maxRequestLineBytes: DefaultMaxRequestLineBytes, maxHeaderCount: DefaultMaxHeaderCount, bodyDeadlineMs: DefaultBodyDeadlineMs, maxBodyBytes: DefaultMaxBodyBytes, writeDeadlineMs: DefaultWriteDeadlineMs, idleTimeoutMs: DefaultIdleTimeoutMs, maxDrainBytes: DefaultMaxDrainBytes, lingerMs: DefaultLingerMs, lingerBytes: DefaultLingerBytes, maxConnections: ConnectionCap.unlimited}
+		return ServerConfig{headDeadlineMs: DefaultHeadDeadlineMs, maxHeadBytes: DefaultMaxHeadBytes, maxRequestLineBytes: DefaultMaxRequestLineBytes, maxHeaderCount: DefaultMaxHeaderCount, bodyDeadlineMs: DefaultBodyDeadlineMs, maxBodyBytes: DefaultMaxBodyBytes, writeDeadlineMs: DefaultWriteDeadlineMs, idleTimeoutMs: DefaultIdleTimeoutMs, lingerMs: DefaultLingerMs, lingerBytes: DefaultLingerBytes, maxConnections: ConnectionCap.unlimited}
 	end 'create'
 end 'ServerConfig'
 

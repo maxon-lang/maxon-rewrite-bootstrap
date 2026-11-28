@@ -6677,9 +6677,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   the bytes of answered requests are dropped once, when a read leaves a request unfinished behind them or the last is
   answered. A request's body is copied once out of the bytes that have come, as a `ByteArray`. A connection that closes after an answer lingers first (RFC 9112 §9.6): it shuts its sending and reads and
   drops what its client still sends, for at most `lingerMs` and `lingerBytes`, so the close does not reset the answer before
-  the client reads it. Not yet: the drain of an unread body after an answer kept alive (`maxDrainBytes`), which waits for a
-  handler that can answer before the body is read: every body is read whole before the answer today, and a refusal from the
-  head closes. maxon's `accept()`, `HttpServerLimits` and `HttpServeEnd` are not provided; the spec tests of maxon's server
+  the client reads it. There is no drain of an unread body after an answer kept alive, and so no setting for one: every body
+  is read whole before the handler is called and a refusal from the head closes, so no answer leaves a body unread; the drain
+  comes with bodies streamed to the handler. maxon's `accept()`, `HttpServerLimits` and `HttpServeEnd` are not provided; the spec tests of maxon's server
   and responder (`http-server.md`, `http-responder.md`), which are written to its handler, are skipped with this reason.
 - **A handler answers through a linear exchange and returns the token the answer gives** (`stdlib/http/exchange.maxon`).
   `HttpHandler`'s one requirement is `handle(consumes exchange HttpExchange) returns HttpAnswered`, and it throws nothing,
