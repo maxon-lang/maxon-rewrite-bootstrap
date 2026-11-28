@@ -13,8 +13,10 @@ coordinating session).
 
 1. **Commit in your own worktree.** The patch is cut from commits against the merge base, never as "the diff against
    origin/main": main moves, and such a diff reverts what landed meanwhile.
-2. **Look at CI first.** `gh run list --branch main --limit 3`: when the last finished run of main is red, nothing
-   lands except the fix for it. Do not wait for a run that is in progress.
+2. **Look at CI first.** `gh run list --branch main --limit 3`. A red main does not stop a landing when its red has a
+   known cause and somebody is fixing it: land, and say in the report what is red and who has it. Hold only when nobody
+   owns the red (finding its owner is then the first job) or when your change touches what fails. Never wait for a run
+   that is in progress.
 3. **Rebase onto `origin/main`** and resolve your own conflicts. A generated file in conflict is regenerated, never
    merged by hand.
 4. **Run the focused gate on the rebased tip** (below). The full gate (`.\check.ps1`, `./check.sh`) is CI's job on
@@ -101,7 +103,7 @@ One short message to the coordinating session, before the push ("landing in 1 mi
 - the commits and what each does, in a line;
 - the gate's **total and its slowest steps**, and the step list when it changed;
 - the counts: corpus, behaviours, specs passed, lost and new;
-- the state of main's last finished CI run;
+- the state of main's last finished CI run, and when it is red, what is red and who is fixing it;
 - anything that failed once, anything left open.
 
 Gate time is watched: a step more than about 15% over its recent runs on that machine is explained in the report.
