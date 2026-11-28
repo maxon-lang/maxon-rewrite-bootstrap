@@ -9,7 +9,8 @@
 // pid alone, so how it ended cannot be asked, and a handler may not run a child to look, E3221: the gate's sampler records the
 // pid's `ps` line and who holds the FIFO open once a FIFO is 4 s old);
 // the copy is waited for 4 s at most. Paths left by an earlier run whose pid this one has are removed first, mkfifo's exit is
-// checked, and each path is checked to be a FIFO before a shell opens it.
+// checked, and each path is checked to be a FIFO before a shell opens it. A read, write or /dev/null call that fails panics
+// with the error's name, on standard error, which the runner shows where it hides standard output.
 // unsupported-targets: x64-windows
 // native-only
 // runs: alone
@@ -146,8 +147,7 @@ function steps(dog Watchdog.handle, mutates step Timer, inbound String, outbound
 	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("the open and read of the inbound FIFO, the writer's ping", child: writer, path: inbound.clone())))
 	var buffer = try Bytes.create(16, elementSize: 1) otherwise return 3
 	let reads = try readFifo(inbound, buffer: buffer) otherwise (e) 'unread'
-		print("read: {failureName(e)}\n")
-		return 4
+		panic("the read of the inbound FIFO failed: {failureName(e)}")
 	end 'unread'
 	print("read: {reads}: {String.from(ByteArray.init(buffer))}\n")
 	let reader = detached("cat '{outbound}' > '{copy}'")
@@ -157,16 +157,14 @@ function steps(dog Watchdog.handle, mutates step Timer, inbound String, outbound
 	end 'reader'
 	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("the open and write of the outbound FIFO, its reader", child: reader, path: outbound.clone())))
 	let wrote = try writeFifo(outbound) otherwise (e) 'unwritten'
-		print("write: {failureName(e)}\n")
-		return 6
+		panic("the write of the outbound FIFO failed: {failureName(e)}")
 	end 'unwritten'
 	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("the copy of the outbound FIFO", child: reader, path: copy.clone())))
 	let out = try FilePath.from(copy) otherwise return 7
 	print("wrote: {wrote}, the reader got {copied(out)}\n")
 	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("/dev/null", child: 0, path: "/dev/null")))
 	let null = try devNull() otherwise (e) 'nulled'
-		print("/dev/null: {failureName(e)}\n")
-		return 8
+		panic("/dev/null failed: {failureName(e)}")
 	end 'nulled'
 	print("/dev/null: {null}\n")
 	return 0
