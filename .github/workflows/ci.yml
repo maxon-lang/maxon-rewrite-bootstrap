@@ -1,6 +1,7 @@
-# The gate on the hosts GitHub runs: x64 Linux and arm64 macOS run `./check.sh`, and arm64 Linux, which has no seed, runs
-# natively the lanes of a compiler that the x64 Linux job cross-built (README, "Continuous integration"). There is no Windows
-# job: the Windows gate needs WSL for its Linux corpus.
+# The gate on the hosts GitHub runs: x64 Linux and arm64 macOS run `./check.sh`, arm64 Linux, which has no seed, runs natively
+# the lanes of a compiler that the x64 Linux job cross-built, and x64 Windows runs the lanes of its own target
+# (`gate check --host-only`: the runner has no WSL distribution, qemu or Mac, and the run names each step it leaves out)
+# (README, "Continuous integration").
 name: ci
 
 on:
@@ -76,3 +77,23 @@ jobs:
           cache-dependency-path: go.mod
       - name: Gate
         run: ./check.sh
+
+  windows-x64:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      # The runner's git converts line endings (its system config has core.autocrlf=true), and the repository's files are as committed:
+      # a layout check rejects a carriage return. Its long paths are already on (LongPathsEnabled), and git is asked for them too.
+      - name: Git settings
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.longpaths true
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.mod
+      # The runner has no WSL, qemu or Mac, so the gate runs only the lanes of x64 Windows, names each step it leaves out and
+      # still compiles for the other targets (cmd/gate, ownLanes).
+      - name: Gate
+        run: go run ./cmd/gate check --host-only
