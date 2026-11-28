@@ -2007,6 +2007,7 @@ note: <fragment>:42:10: `StepGen` is converted to `Sink` here
 ```
 
 <!-- test: error.freeze-names-the-path-through-a-nested-conformer-to-the-function-value -->
+<!-- skip: language difference: maxon refuses to freeze a value that holds an interface value whose conformer holds a function value (E3171), by walking the conformers the program converts to the interface, and this compiler lets such an interface value cross, as a function value crosses (D5, README, Where it differs from Maxon: interface values) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -2025,7 +2026,7 @@ end 'Shape'
 type Stepper implements Shape
 	export let step as Step
 
-	static function create(consumes step Step) returns Self
+	static function create(step Step) returns Self
 		return Self{step: step}
 	end 'create'
 
@@ -2051,8 +2052,8 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(mutates self, n Tally)
-		self.seen = try self.seen + n otherwise panic("out of range")
+	export function look(n Tally)
+		self.seen = self.seen + n
 	end 'look'
 end 'Door'
 
@@ -2060,7 +2061,7 @@ type W implements Shape
 	let s as Stepper
 
 	static function create(s Stepper) returns Self
-		return Self{s: s.clone()}
+		return Self{s: s}
 	end 'create'
 
 	function area() returns Tally
@@ -2071,7 +2072,7 @@ end 'W'
 type Holder
 	export let shape as Shape
 
-	static function create(consumes shape Shape) returns Self
+	static function create(shape Shape) returns Self
 		return Self{shape: shape}
 	end 'create'
 end 'Holder'
@@ -2079,7 +2080,7 @@ end 'Holder'
 function main() returns ExitCode
 	let d = spawn Door.create()
 	d.shutdown()
-	let f = freeze(Holder.create(W.create(Stepper.create(function(n Tally) gives try n + 1 otherwise panic("out of range")))))
+	let f = freeze(Holder.create(W.create(Stepper.create(function(n Tally) gives n + 1))))
 	print("{f.shape.area()} {Plain.create().area()}\n")
 	return 0
 end 'main'
@@ -3137,6 +3138,7 @@ end 'main'
 ```
 
 <!-- test: error.freeze-through-interfaces-names-tuple-and-instance-conformers -->
+<!-- skip: language difference: maxon refuses to freeze a value that holds an interface value whose conformer holds a function value (E3171), by walking the conformers the program converts to the interface, and this compiler lets such an interface value cross, as a function value crosses (D5, README, Where it differs from Maxon: interface values) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.
@@ -3163,7 +3165,7 @@ end 'I3'
 type Stepper
 	export let step as Step
 
-	static function create(consumes step Step) returns Self
+	static function create(step Step) returns Self
 		return Self{step: step}
 	end 'create'
 end 'Stepper'
@@ -3171,8 +3173,8 @@ end 'Stepper'
 type Box uses T
 	export let item as T
 
-	static function create(item T) returns Self where T implements Copyable
-		return Self{item: item.clone()}
+	static function create(item T) returns Self
+		return Self{item: item}
 	end 'create'
 end 'Box'
 
@@ -3223,7 +3225,7 @@ end 'DeepBag'
 type H1
 	export let s as I1
 
-	static function create(consumes s I1) returns Self
+	static function create(s I1) returns Self
 		return Self{s: s}
 	end 'create'
 end 'H1'
@@ -3231,7 +3233,7 @@ end 'H1'
 type H2
 	export let s as I2
 
-	static function create(consumes s I2) returns Self
+	static function create(s I2) returns Self
 		return Self{s: s}
 	end 'create'
 end 'H2'
@@ -3239,7 +3241,7 @@ end 'H2'
 type H3
 	export let s as I3
 
-	static function create(consumes s I3) returns Self
+	static function create(s I3) returns Self
 		return Self{s: s}
 	end 'create'
 end 'H3'
@@ -3251,8 +3253,8 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(mutates self, n Tally)
-		self.seen = try self.seen + n otherwise panic("out of range")
+	export function look(n Tally)
+		self.seen = self.seen + n
 	end 'look'
 end 'Door'
 

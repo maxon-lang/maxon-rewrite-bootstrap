@@ -6826,8 +6826,6 @@ regions-everywhere.md: a-var-written-through-and-passed-to-a-reading-function-is
 regions-everywhere.md: a-write-through-a-let-bound-to-ordinary-data-is-legal
 regions-freeze.md: a-string-conformer-widened-to-a-share-reached-interface-runs
 regions-freeze.md: clone-in-a-generic-body-of-a-record-that-holds-itself-through-an-array-runs
-regions-freeze.md: error.freeze-names-the-path-through-a-nested-conformer-to-the-function-value
-regions-freeze.md: error.freeze-through-interfaces-names-tuple-and-instance-conformers
 regions-freeze.md: freeze-door-in-a-generic-body-naming-an-instance-over-an-unread-parameter-runs
 regions-freeze.md: freeze-of-a-deeper-instance-whose-fields-do-not-depend-on-the-parameter-runs
 regions-freeze.md: freeze-of-a-fresh-call-runs
@@ -7408,7 +7406,6 @@ service-message-capabilities.md: an-isolated-parameters-number-is-read-in-the-st
 service-message-capabilities.md: an-os-handle-needs-no-word-on-a-factory-or-a-reply
 service-message-capabilities.md: error.a-promise-parameter-keeps-e3217-after-an-unmarked-record
 service-message-capabilities.md: error.a-state-field-holding-a-promise-keeps-e3216-beside-an-unmarked-record
-service-message-capabilities.md: error.an-unmarked-interface-value-parameter-is-refused
 service-message-capabilities.md: marked-parameters-replies-and-factories-run
 service-message-capabilities.md: marked-union-parameters-replies-and-factories-run
 service-message-capabilities.md: only-the-factory-the-spawn-names-is-judged

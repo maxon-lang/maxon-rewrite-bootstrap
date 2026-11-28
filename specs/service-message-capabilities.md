@@ -244,6 +244,7 @@ error E3217: <fragment>:18:15: parameter `numbers` of the message `Summer.add` i
 ```
 
 <!-- test: error.an-unmarked-interface-value-parameter-is-refused -->
+<!-- skip: language difference: maxon refuses an interface value that holds a function value as a message's parameter (E3217), and this compiler lets it cross (D5); the call through the interface value that the message then makes is judged by E3221, a message that calls through an interface may wait on another party, whose check is D4's -->
 A value held at an interface type is a record behind a witness.
 
 ```maxon

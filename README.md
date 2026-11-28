@@ -5916,7 +5916,13 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   whatever the argument, where maxon monomorphizes the function for a concrete argument. `clone()` of one needs the
   interface to extend `Copyable`, which an interface may do and a type may not. maxon has no way to get the value back;
   here `try x as Square` takes it out of the box and fails with `CastError.otherType`, an error of minimaxon's own, where
-  the box holds another type. A `mutates` parameter of an interface type takes only an interface value.
+  the box holds another type. A `mutates` parameter of an interface type takes only an interface value. An interface value
+  crosses between threads (frozen, sent in a message or a reply, held by a cown, taken by a behaviour, read by a
+  `parallel for`) as the value in its box does, which is judged where it is put there (`ast.unsendable`, `E3919` for a
+  promise, `E3927` for a borrow, and in generic code at each instance), where maxon walks the conformers the program
+  converts to the interface at the doors that share it and refuses one that holds a function value (`E3171`, `E3217`,
+  `E3963` are not raised for an interface value; the spec tests that expect them are skipped with that reason). A function
+  value in the box crosses into a service, which a message can call only through the interface's methods (`E3221`).
 - Grapheme clusters follow UAX #29 from the Unicode 16.0.0 tables (without GB9c), where maxon's own rules join only the
   marks in a few ranges; a string of other Extend, SpacingMark or Prepend code points counts fewer clusters here. The views
   of a string (`bytes()`, `codepoints()`, `utf16()`) and their iterators hold a copy of the string rather than viewing it.
