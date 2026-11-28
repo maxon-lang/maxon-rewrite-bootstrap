@@ -13,16 +13,22 @@
 // behind) or with main waiting on it: main is then slowed and parked until the relay's mute, and the relay passes on the
 // message it runs and what it held, at most turn + 2, and is muted for the rest. So the consumer holds at most
 // turn + (turn + 4), the bound runtime/service.maxon proves.
+//
+// The instance is small, because the interpreter's time grows with the square of the messages (3000 of them took it 15 s
+// a schedule): 400 are over six turns, so that a send slowed later than at turnBehaviours finds the queue past a bound. A
+// runtime that slowed at 65 queues 66 in direct, and one that slowed at 128 queues 129 in direct and past the relay's bound.
 // schedules: 6
-//> direct: handled=3000, within its bound
-//> relayed: handled=3000, the relay and the consumer within their bounds
+//> direct: handled=400, within its bound
+//> relayed: handled=400, the relay and the consumer within their bounds
 export typealias Amount = int(0 to 1000000)
 
-let messages = 3000 as Amount
+typealias Divisor = int(1 to 1000000)
 
-let work = 200 as Amount
+let messages = 400 as Amount
 
-let sinkModulus = 1000 as Amount
+let work = 70 as Amount
+
+let sinkModulus = 1000 as Divisor
 
 // turn is the runtime's turnBehaviours: the interpreter's turn is shorter, so the bounds hold there with room.
 let turn = 64 as Count
@@ -30,16 +36,19 @@ let turn = 64 as Count
 type Consumer
 	var handled as Amount
 	var sink as Amount
+	// modulus is a field, so that each spin of take costs a division that the compiler cannot fold into a multiplication: the
+	// consumer is slower than the sends to it with few spins, where the interpreter, which counts instructions, runs it fast.
+	var modulus as Divisor
 
 	static function create() returns Self
-		return Self{handled: 0, sink: 0}
+		return Self{handled: 0, sink: 0, modulus: sinkModulus}
 	end 'create'
 
 	export function take(mutates self)
 		self.handled = try self.handled + 1 otherwise 0
 		var spun = self.sink
 		for i in 0 upto work 'work'
-			spun = (spun + i) mod sinkModulus
+			spun = (spun + i) mod self.modulus
 		end 'work'
 		self.sink = spun
 	end 'take'

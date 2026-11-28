@@ -9,23 +9,30 @@
 // each of its two producers then sends it the handler that was slowed, and, if it drains on, what it holds, at most turn +
 // 2, and the one more main's let-go adds: turn + 4; main sends it one and parks; a consumer sends nothing, so it is never
 // muted and lets no one go early. So a consumer holds at most turn + 2 * (turn + 4) + 1.
+//
+// The instance is small, because the interpreter's time grows with the square of the messages (400 rounds took it 4 s a
+// schedule): 180 rounds send each producer nearly three turns, so that a send slowed later than at turnBehaviours finds a
+// producer's queue past its bound: a runtime that slowed at 128 queues 129 in a producer and 252 in a consumer. A consumer
+// reaches 65 to 130 here, as it did at 400 rounds, short of the argument's worst case of 201, which only a worse mistake passes.
 // schedules: 6
-//> handled=2800, produced=2400, every queue within its bound
+//> handled=1260, produced=1080, every queue within its bound
 export typealias Amount = int(0 to 1000000)
 
-let rounds = 400 as Amount
+typealias Divisor = int(1 to 1000000)
+
+let rounds = 180 as Amount
 
 let producerCount = 6 as Amount
 
 let consumerCount = 3 as Amount
 
-let work = 150 as Amount
+let work = 30 as Amount
 
-let sinkModulus = 1000 as Amount
+let sinkModulus = 1000 as Divisor
 
-let handledInAll = 2800 as Amount
+let handledInAll = 1260 as Amount
 
-let producedInAll = 2400 as Amount
+let producedInAll = 1080 as Amount
 
 let turn = 64 as Count
 
@@ -36,16 +43,19 @@ typealias Producers = Array with Producer.handle
 type Consumer
 	var handled as Amount
 	var sink as Amount
+	// modulus is a field, so that each spin of take costs a division that the compiler cannot fold into a multiplication: the
+	// consumer is slower than the sends to it with few spins, where the interpreter, which counts instructions, runs it fast.
+	var modulus as Divisor
 
 	static function create() returns Self
-		return Self{handled: 0, sink: 0}
+		return Self{handled: 0, sink: 0, modulus: sinkModulus}
 	end 'create'
 
 	export function take(mutates self)
 		self.handled = try self.handled + 1 otherwise 0
 		var spun = self.sink
 		for i in 0 upto work 'work'
-			spun = (spun + i) mod sinkModulus
+			spun = (spun + i) mod self.modulus
 		end 'work'
 		self.sink = spun
 	end 'take'

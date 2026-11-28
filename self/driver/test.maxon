@@ -966,12 +966,9 @@ end 'workerCountText'
 
 // runInterpreted runs a program under the tracking interpreter, which must give what the program expects and break no rule of
 // the memory model. A program that schedules behaviours runs under several schedules, and each must give the same output.
-// It has no deadline in real time, only the step limit: libraryservice-backpressure-bounds-a-slow-consumer takes 99 s of interpretation (6 schedules of 18 million
-// instructions) and ...-mutes-and-unmutes-many-producers 23 s, which a deadline of 10 s fails, and under the load of a gate a schedule
-// that takes 1 s alone takes more than 10.
 function runInterpreted(compiled CompiledProgram, expect Expectation) returns TestResult
 	for schedule in 0 upto expect.schedules 'schedules'
-		let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, deadlineMs: interp.noDeadlineMs, workingDirectory: inheritedDirectory, seed: interp.seedOf(schedule), wantFrees: expect.frees.count() > 0, races: true, stdin: expect.stdin)
+		let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, deadlineMs: testRunDeadlineMs, workingDirectory: inheritedDirectory, seed: interp.seedOf(schedule), wantFrees: expect.frees.count() > 0, races: true, stdin: expect.stdin)
 		var atSeed = ""
 		if out.behaviours > 0 'scheduled'
 			atSeed = " under the schedule of seed {schedule}"
@@ -981,7 +978,7 @@ function runInterpreted(compiled CompiledProgram, expect Expectation) returns Te
 			return TestResult.failed("the interpreter found a violation of the memory model{atSeed}:\n{joinLines(out.violations)}")
 		end 'violated'
 		if out.timedOut 'timedOut'
-			return TestResult.failed("the interpreter timed out{atSeed}")
+			return TestResult.failed("timed out (interpreted): the interpreter ran past the run deadline of {testRunDeadlineMs} ms or its step limit{atSeed}")
 		end 'timedOut'
 		if out.unmodelled 'unmodelled'
 			return TestResult.failed("the interpreter does not model what the program uses{atSeed}: {trimSpace(out.stderr)}")
