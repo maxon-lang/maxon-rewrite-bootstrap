@@ -487,8 +487,19 @@ func selftestRunsTarget(h host, t string) (string, error) {
 	return runsTarget(h, t)
 }
 
+// behavioursRunTarget is why the host does not rerun the programs that schedule behaviours for a target, or "" when it
+// does: as runsTarget, but never through an emulator. Those programs claim timings (a ticker's grid, a backpressured
+// sender's deadline) that qemu-user's slowdown breaks, and a qemu lane is a cheap check only; arm64's behaviours run where
+// arm64 is native (CI's arm64 runner, the Mac).
+func behavioursRunTarget(h host, t string) (string, error) {
+	if strings.HasPrefix(t, "arm64-") && !strings.HasPrefix(h.target, "arm64-") {
+		return t + "'s behaviours run only on an arm64 host (CI's arm64 runner, the Mac): under qemu-user their timing claims fail, where 600 runs on arm64 passed", nil
+	}
+	return runsTarget(h, t)
+}
+
 func (r suiteRun) otherBehaviours(t string) error {
-	why, err := runsTarget(r.h, t)
+	why, err := behavioursRunTarget(r.h, t)
 	if err != nil || why != "" {
 		if why != "" {
 			skip("behaviours on "+t, why)

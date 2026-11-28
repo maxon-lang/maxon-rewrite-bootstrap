@@ -235,7 +235,7 @@ func (h host) ownTargetOnly() host {
 
 // armLinuxLanes are the lanes that arm64 Linux runs natively on a compiler that x64 Linux cross-built (gate suites): the
 // compiler's own suites, and the corpus and the reruns of the programs that schedule behaviours for arm64-linux, which an
-// x64 host can run only under qemu and does not.
+// x64 host runs only the corpus of, under qemu, and never the behaviours (behavioursRunTarget).
 var armLinuxLanes = []string{"checks", "native", "native-behaviours"}
 
 func currentHost() (host, error) {

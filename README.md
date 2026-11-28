@@ -375,7 +375,10 @@ its target, since the host's `selftest` runs the code of the host's target alone
 under WSL, and the `arm64-linux` compiler's runs only on an arm64 host, CI's arm64 runner or the Mac's Linux VM, never
 under qemu-user, where it ran 43 minutes without ending; the `mac` lane skips when the Mac's share does not answer within a
 few seconds), and the reruns of the programs that schedule behaviours of the first three
-(`*-behaviours`). The gate runs them one after another. `--concurrent` on `gate suites`, or `MINIMAXON_GATE_CONCURRENT=1` for the gate, runs
+(`*-behaviours`). Those reruns never run under qemu-user either: their programs claim timings (a ticker's grid, a
+backpressured sender's deadline) that the emulator's slowdown breaks, which lost a test in three seed renewals in a row where
+600 runs of each on arm64 passed, and a qemu lane is a cheap check only. So `arm64-linux-behaviours` runs where arm64 is
+native, CI's arm64 runner and the Mac's Linux VM, and an x64 host keeps only `arm64-linux`'s corpus under qemu. The gate runs them one after another. `--concurrent` on `gate suites`, or `MINIMAXON_GATE_CONCURRENT=1` for the gate, runs
 each lane as a process of its own, all at once (the behaviours lanes in a second phase, with two executables at a time each), so that the gate
 takes as long as its longest lane of each phase (about 70 s here against about 190 s one after another) and a lane that fails ends the others. It
 is not the default because a test with a deadline failed in it now and then when other work shared the machine: a program of timers run on one
