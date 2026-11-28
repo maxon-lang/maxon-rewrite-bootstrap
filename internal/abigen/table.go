@@ -534,7 +534,7 @@ var layouts = []layoutConst{
 	// other processors take the lock to steal what is due or to cancel or reset a timer on the heap, and the thread that
 	// waits in the event queue and the monitor read the earliest.
 	{"procTimersLockOffset", 288, false, toRuntime,
-		"where a processor holds its timers' lock (Go's timers.mu): 1 while a thread holds it. It guards the processor's heap, the processor word of each entry on it (a timer's in its timerHoldsOffset, greenTimerHeapOffset) and the index of each entry on it, and the clear of an event waiter's state word's address after its deadline's timer is taken off. It comes after a service's armedLock and before a timer's own lock (Go's timers < timer) and the page heap's lock; no thread holds two processors' timers' locks at once, takes the scheduler's lock while it holds one, or takes one while it holds the scheduler's."},
+		"where a processor holds its timers' lock (Go's timers.mu): 1 while a thread holds it. It guards the processor's heap and the index of each entry on it, and, with the entry's own lock, the processor word of each entry on it (a timer's in its timerHoldsOffset, greenTimerHeapOffset) and the when its slot says. It comes after a service's armedLock and before an entry's own lock (a timer's, a green thread's timer lock: Go's timers < timer) and the page heap's lock; no thread holds two processors' timers' locks at once, takes one while it holds an entry's lock, takes the scheduler's lock while it holds one, or takes one while it holds the scheduler's."},
 	{"procTimersOffset", 289, false, toRuntime,
 		"where a processor holds the address of its timers' heap, a 4-ary min-heap of 16-byte slots {when, entry} (Go's timerWhen) by when each is due, whose entries are the sleeping green threads and the timers that post a message, under the processor's timers' lock."},
 	{"procTimerCountOffset", 290, false, toRuntime,
@@ -543,6 +543,10 @@ var layouts = []layoutConst{
 		"where a processor holds how many timers its heap has room for, under its timers' lock."},
 	{"procTimerNextOffset", 292, false, toRuntime,
 		"where a processor holds when the earliest timer of its heap is due, in nanoseconds, or 0 when there is none (Go's minWhenHeap): written under its timers' lock and read without it."},
+	{"procTimerZombiesOffset", 293, false, toRuntime,
+		"where a processor holds how many entries of its heap are dead (Go's ts.zombies): cancelled or cleared where they are, for its owner to take off; changed atomically under the entry's lock, by any processor."},
+	{"procTimerModifiedOffset", 294, false, toRuntime,
+		"where a processor holds a lower bound of the whens of the entries of its heap moved to earlier than their slots say, 0 for none (Go's minWhenModified): lowered with a compare-exchange under the entry's lock, by any processor, and exchanged for 0 by the scan that puts them in their places (timersAdjust)."},
 	{"procBytes", 304, false, toRuntime,
 		"the size of a processor."},
 
@@ -565,7 +569,7 @@ var layouts = []layoutConst{
 	{"greenKindOffset", 7, false, toRuntime,
 		"where a green thread holds whether it runs a behaviour, whose record the scheduler frees when it finishes, or is awaited."},
 	{"greenWhenOffset", 8, false, toRuntime,
-		"where a green thread holds when its sleep ends, in nanoseconds, while it is on a processor's timers' heap, whose slot holds it too, and 0 (noTimer) while it is not, written under that heap's lock."},
+		"where a green thread holds when its sleep or its deadline ends, in nanoseconds, and 0 (noTimer) while it has none, when its timer is dead where it is on a heap or on none, written under its timer lock (greenTimerLockOffset)."},
 	{"greenPreemptOffset", 9, false, toRuntime,
 		"where a green thread holds 1 while the monitor asks that it be stopped (Go's g.preempt)."},
 	{"greenArgsOffset", 10, false, toRuntime | toSelfBack,
@@ -621,8 +625,12 @@ var layouts = []layoutConst{
 	{"greenMarkOffset", 66, false, toRuntime,
 		"where a task parked on a service that slows it holds its mark: the count of the service's messages that must start before it is let go."},
 	{"greenTimerHeapOffset", 67, false, toRuntime,
-		"where a green thread holds the processor whose timers' heap holds its timer (Go's t.ts), 0 while it is on none, written under that processor's timers' lock."},
-	{"greenBytes", 68, false, toRuntime,
+		"where a green thread holds the processor whose timers' heap holds its timer, live or dead (Go's t.ts), 0 while it is on none, written under that processor's timers' lock and the green thread's timer lock."},
+	{"greenTimerLockOffset", 68, false, toRuntime,
+		"where a green thread holds the lock of its timer (Go's t.mu): 1 while a thread holds it. It guards its wake (greenWhenOffset) and the when its slot says (greenTimerKeyedOffset), and the clear of its state word's address after a wait with a deadline, against the claim of the deadline's wake; it comes after the lock of the heap its timer is on."},
+	{"greenTimerKeyedOffset", 69, false, toRuntime,
+		"where a green thread holds when the slot of its timer on a heap says it is due, written under that heap's lock and its timer lock."},
+	{"greenBytes", 70, false, toRuntime,
 		"the size of a green thread's record."},
 
 	// A selector: the record of an awaitAny that waits, which every promise it waits on names as its waiter, tagged, as the

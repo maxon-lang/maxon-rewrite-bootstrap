@@ -1,0 +1,97 @@
+// Eight services each arm 2000 timers an hour out and hand each to the next service, which cancels one in eight and holds
+// the rest until its service is shut down; a cancel and a service's end leave a timer dead on the heap it is on (Go's
+// lazy delete), on whichever processors the services ran on, too few on a heap for its owner to sweep them. Nothing is
+// live once main returns, so the drain stops at once instead of waiting in the event queue for a dead timer's hour, and the
+// count of the boxes left sweeps the dead timers off first.
+// native-only
+//> 8 services, 16000 timers handed on, 2000 cancelled, all ended
+export typealias Amount = int(0 to 1000000)
+
+export typealias Held = Array with Timer
+
+export typealias Workers = Array with Worker.handle
+
+export typealias Runs = Array with Promise with Amount
+
+let perWorker = 2000 as Amount
+
+type Worker implements Ends
+	var held as Held
+	var seen as Amount
+	var cancelled as Amount
+
+	static function create() returns Self
+		return Self{held: Held.create(0), seen: 0, cancelled: 0}
+	end 'create'
+
+	export function fired(mutates self)
+		self.cancelled = self.cancelled
+	end 'fired'
+
+	export function take(mutates self, consumes t Timer)
+		self.seen = try self.seen + 1 otherwise self.seen
+		if self.seen mod 8 == 0 'cancel'
+			t.cancel()
+			self.cancelled = try self.cancelled + 1 otherwise self.cancelled
+			return
+		end 'cancel'
+		self.held.push(t)
+	end 'take'
+
+	export function count() returns Amount
+		return self.cancelled
+	end 'count'
+
+	export function arm(mutates self, n Amount, to Worker.handle) returns Amount
+		for i in 0 upto n 'each'
+			try to.take(Timer.notifyAfter(3600000, message: to.post(Worker.Message.fired))) otherwise panic("a send to a service that runs")
+		end 'each'
+		return n
+	end 'arm'
+
+	function finish(consumes self)
+		var ts = self.held
+		while ts.count() > 0 'cancel'
+			let t = ts.pop()
+			t.cancel()
+		end 'cancel'
+		ts.dropEmpty()
+	end 'finish'
+end 'Worker'
+
+function main() returns ExitCode
+	let k = 8 as Amount
+	var ws = Workers.create(0)
+	for w in 0 upto k 'spawn'
+		ws.push(spawn Worker.create())
+	end 'spawn'
+	var runs = Runs.create(0)
+	for w in 0 upto k 'arm'
+		let me = try ws.get(w as ElementIndex) otherwise panic("a worker")
+		let to = try ws.get(((w + 1) mod k) as ElementIndex) otherwise panic("a worker")
+		runs.push(try me.arm(perWorker, to: to.clone()) otherwise panic("a send to a service that runs"))
+	end 'arm'
+	var armed = 0 as Amount
+	while runs.count() > 0 'runs'
+		let r = runs.pop()
+		armed = try armed + (await r) otherwise armed
+	end 'runs'
+	var counts = Runs.create(0)
+	for w in 0 upto k 'count'
+		let me = try ws.get(w as ElementIndex) otherwise panic("a worker")
+		counts.push(try me.count() otherwise panic("a send to a service that runs"))
+	end 'count'
+	var cancelled = 0 as Amount
+	while counts.count() > 0 'counts'
+		let c = counts.pop()
+		cancelled = try cancelled + (await c) otherwise cancelled
+	end 'counts'
+	print("{k} services, {armed} timers handed on, {cancelled} cancelled, all ended\n")
+	while ws.count() > 0 'end'
+		let w = ws.pop()
+		let d = w.stopped()
+		w.shutdown()
+		await d
+	end 'end'
+	return 0
+end 'main'

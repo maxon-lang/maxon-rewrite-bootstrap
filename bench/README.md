@@ -71,15 +71,19 @@ What a service timer (`stdlib/service/Timer.maxon`) costs on the timers' heaps, 
 processor under the processor's timers' lock (`runtime/timers.maxon`), against Go's `time.AfterFunc`, `Reset` and `Stop` on its per-P heaps
 (out/dev/timers-design.md §5, "Measurement plan").
 
-- `bench/timers/timers.maxon run <count> <workers> <stormMs> <churnServices> <churnTimers> <churnMs>` runs four lanes on
-  `workers` services, every timer posting to the service that armed it:
+- `bench/timers/timers.maxon run <count> <workers> <stormMs> <churnServices> <churnTimers> <churnMs>` runs five lanes on
+  `workers` services, every timer posting to the service that armed it, or in xcancel to the one it is handed to:
   - **arm**: each worker arms its share of `count` timers 1 to 2 hours out, at random, all at once, so the heap grows to
     `count`; the result is the wall time of the slowest worker over `count`, nanoseconds a timer for the whole set.
   - **reset**: for `stormMs` each worker resets random timers of its own to a random deadline 1 to 2 hours out, so about
-    half move later, which takes the timer's lock alone, and half earlier, which takes the heap's; resets a second in all.
+    half move later and half earlier, each under the timer's lock alone; resets a second in all.
     Then **cancel** frees them all.
   - **fire**: `count` timers armed again toward one instant far enough out that every arm is made before it (the result
     says how far past it the arms ran, always 0 here); the time from that instant to the last handler over `count`.
+  - **xcancel**: each worker arms its share of `count` timers 1 to 2 hours out toward the next worker and hands each to it
+    as it is armed; then every worker cancels the timers it was handed, all at once, so a cancel is of a timer on the heap
+    of the processor that ran the worker that armed it, mostly not its own (Go's: each goroutine stops the timers that the
+    one before it made).
   - **churn**: `churnServices` services each keep `churnTimers` 1 ms one-shots, each re-armed by the handler of its own fire
     (`rearm`), for `churnMs`; fires a second in all. 16 × 4096 timers ask for 65 million fires a second, so the lane measures
     what the runtime can fire, not the timers' period. Each handler counts its window's fires itself, reading the clock
@@ -87,7 +91,7 @@ processor under the processor's timers' lock (`runtime/timers.maxon`), against G
     timers keep behind never returns (below).
 - `bench/timers/timers.maxon idle <count>` arms `count` timers an hour out toward one service when it reads `a` on its
   standard input, and says what the heap holds then.
-- `bench/timers/gobench` (Go, `go build` only) is the baseline: `run` is the same four lanes with `AfterFunc` on goroutines,
+- `bench/timers/gobench` (Go, `go build` only) is the baseline: `run` is the same five lanes with `AfterFunc` on goroutines,
   `Reset` and `Stop`, a churn's callback calling `Reset(1ms)` on its own timer; `idlechild` is the idle side; and `idle`
   drives either, reading the program's memory (`ps -o rss` and `footprint`) before and after its arms and its user and
   system CPU over an idle period after them.
@@ -106,31 +110,36 @@ processors share the work and rise where they contend:
 
 | lane | procs 1 | procs 2 | procs 4 | procs 8 |
 |---|---|---|---|---|
-| arm, 1e5 armed, ns a timer: minimaxon / Go | 64 / 180 | 34 / 126 | 18 / 76 | 18 / 58 |
-| arm, 1e6 armed | 66 / 173 | 35 / 86 | 19 / 50 | 17 / 45 |
-| fire, 1e5 due at once, ns a fire | 164 / 609 | 147 / 488 | 58 / 309 | 82 / 238 |
-| fire, 1e6 due at once | 265 / 562 | 142 / 494 | 76 / 300 | 72 / 313 |
-| cancel, 1e5 armed, ns a timer | 28 / 6 | 14 / 3 | 7 / 8 | 9 / 10 |
-| cancel, 1e6 armed | 39 / 6 | 21 / 3 | 13 / 5 | 15 / 9 |
-| reset storm on 1e5 armed, millions a second | 47.0 / 37.8 | 93.3 / 73.4 | 195 / 140 | 321 / 192 |
-| reset storm on 1e6 armed | 12.2 / 8.9 | 23.5 / 17.9 | 45.2 / 30.3 | 68.0 / 50.2 |
-| churn, 16 services × 4096 1 ms one-shots, millions of fires a second | 7.6 / 3.7 | 14.8 / 4.7 | 25.7 / 6.5 | 24.9 / 6.5 |
+| arm, 1e5 armed, ns a timer: minimaxon / Go | 68 / 179 | 36 / 126 | 19 / 58 | 17 / 55 |
+| arm, 1e6 armed | 71 / 175 | 38 / 84 | 22 / 52 | 18 / 39 |
+| fire, 1e5 due at once, ns a fire | 177 / 627 | 156 / 491 | 97 / 282 | 85 / 294 |
+| fire, 1e6 due at once | 269 / 566 | 164 / 475 | 92 / 240 | 105 / 276 |
+| cancel, 1e5 armed, ns a timer | 11 / 6 | 5 / 3 | 3 / 7 | 9 / 8 |
+| cancel, 1e6 armed | 10 / 6 | 5 / 5 | 5 / 4 | 15 / 8 |
+| xcancel, 1e5 armed by another worker, ns a timer | 13 / 7 | 9 / 14 | 9 / 12 | 7 / 3 |
+| xcancel, 1e6 | 56 / 19 | 23 / 10 | 15 / 6 | 24 / 9 |
+| reset storm on 1e5 armed, millions a second | 45.2 / 37.6 | 91.0 / 73.1 | 182 / 120 | 298 / 192 |
+| reset storm on 1e6 armed | 12.3 / 8.6 | 22.6 / 17.6 | 41.7 / 31.2 | 66.4 / 49.8 |
+| churn, 16 services × 4096 1 ms one-shots, millions of fires a second | 7.1 / 3.7 | 13.9 / 4.6 | 23.6 / 6.3 | 23.1 / 6.4 |
 
 Idle, 1e6 timers armed an hour out: minimaxon's RSS grows by 257 B a timer (4 heap boxes, 200 B asked: the 56-byte timer
-record, its posted record and message, and the array's 8-byte slot of the handle), Go's by 161-167 B. Over an idle 5 s
-minimaxon used 10 ms of CPU, so once and not while idle, with 4 threads; Go none, with 10.
+record, its posted record and message, and the array's 8-byte slot of the handle), Go's by 161-170 B. Over an idle 5 s
+minimaxon used 10 ms of CPU, so once and not while idle, with 4 threads; Go none, with 10-11.
 
 The timers are on a heap for each processor (runtime/timers.maxon, Go's p.timers): an arm goes on the heap of the processor
 that makes it, a thread that looks for work runs its own processor's due timers and steals the other processors' due ones,
-and a cancel or a reset to earlier from another processor takes the lock of the heap the timer is on. On one processor a
-timer still costs less than Go's to arm, reset and fire (64 against 180 ns an arm, 164 against 609 a fire, where Go's
-callback starts a goroutine); a cancel costs about 5 ns more than on the one heap before (22 and 34 ns), the price of
-finding the timer's heap. Arms, cancels and fires now scale with the processors where on the one heap they fell (an arm
-took 176 ns at 8 processors, a cancel 144, a fire 185), and the churn runs 24.9 million fires a second at 8 processors,
-3.3 times the 7.6 of one, where the one heap ran 2.68, 0.35 times. Before the per-P heaps a sample of the churn at 8
-processors had about 85% of the busy threads' samples in `spinLock`'s `yieldThread` under the one timers' lock; now about
-4% of them are in `spinLock` at all. Go's lazy stop (zombies swept by the heap's owner) is not built: a cancel from
-another processor takes that heap's lock, which the spins of 8 services cancelling 8e5 timers armed by others show.
+and, as in Go, a cancel, a reset or an arm anew of a timer on a heap takes the timer's own lock alone, from whichever
+processor makes it: a cancel leaves the timer dead on its heap (Go's zombie), which the heap's owner takes off as it comes
+to the top or when the dead are a quarter of the heap, and a move to earlier lowers the heap's earliest modified when,
+which makes the owner put the moved timers in their places when it is due. On one processor a timer costs less than Go's
+to arm, reset and fire (68 against 179 ns an arm, 177 against 627 a fire, where Go's callback starts a goroutine). Arms,
+cancels and fires scale with the processors where on the one heap they fell (an arm took 176 ns at 8 processors, a cancel
+144, a fire 185), and the churn runs 23.1 million fires a second at 8 processors, 3.3 times the 7.1 of one, where the one
+heap ran 2.68, 0.35 times. Before the per-P heaps a sample of the churn at 8 processors had about 85% of the busy threads'
+samples in `spinLock`'s `yieldThread` under the one timers' lock; with them about 4% are in `spinLock` at all. The xcancel
+lane, each worker cancelling the timers another armed, took 30 to 35 ns a timer at 1 processor and 13 to 15 at 8 at 1e5
+when such a cancel took the lock of the timer's heap; the lazy cancel takes 13 and 7 to 9. The fire lane follows the cancel
+lane, whose cancels leave their timers dead on the heaps until a sweep, which its fires pay for.
 
 A bug the churn found, which the runtime has not fixed: a send from main to a service whose own timers keep it behind
 never returns: the send is slowed by backpressure until the

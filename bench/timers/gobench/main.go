@@ -6,10 +6,11 @@
 //
 // run is bench/timers/timers.maxon's lanes with time.AfterFunc, Reset and Stop, on GOMAXPROCS processors, printing the
 // same result lines: arms from every worker toward deadlines 1 to 2 hours out, a reset storm on random ones of them, their
-// cancels, fires of count timers due at one instant timed from it to the last callback, and a churn of 1 ms one-shots each
-// re-armed by its own callback. idlechild is the Go side of the idle lane, the protocol of `timers idle`: it says `ready`,
-// arms count timers an hour out at `a` on its standard input, says `armed`, and ends at `q`. idle runs either program with
-// the count appended and reads its memory before and after the arms and its CPU over an idle period.
+// cancels, fires of count timers due at one instant timed from it to the last callback, stops of timers that another worker
+// armed, and a churn of 1 ms one-shots each re-armed by its own callback. idlechild is the Go side of the idle lane, the
+// protocol of `timers idle`: it says `ready`, arms count timers an hour out at `a` on its standard input, says `armed`, and
+// ends at `q`. idle runs either program with the count appended and reads its memory before and after the arms and its CPU
+// over an idle period.
 package main
 
 import (
@@ -194,6 +195,29 @@ func run(args []string) {
 	for w := range k {
 		timers[w] = nil
 	}
+
+	// (e) cross-processor cancels: each worker arms its share far out, and each worker then stops the timers the one
+	// before it armed, all at once.
+	parallel(k, func(w int) {
+		r := rand.New(rand.NewPCG(uint64(w), 31))
+		m := share(n, w, k)
+		ts := make([]*time.Timer, 0, m)
+		c := &counts[w]
+		for range m {
+			d := far + time.Duration(r.Int64N(int64(far/time.Millisecond)))*time.Millisecond
+			ts = append(ts, time.AfterFunc(d, func() { c.n.Add(1) }))
+		}
+		timers[w] = ts
+	})
+	xcancelNs := parallel(k, func(w int) {
+		for _, t := range timers[(w+k-1)%k] {
+			t.Stop()
+		}
+	})
+	for w := range k {
+		timers[w] = nil
+	}
+	fmt.Printf("result xcancel count=%d workers=%d ns=%d\n", n, k, xcancelNs.Nanoseconds()/int64(n))
 
 	// (c) churn: one-shots re-armed by their own callbacks.
 	if churnServices > 0 && churnTimers > 0 {

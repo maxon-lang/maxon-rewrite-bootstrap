@@ -86,6 +86,21 @@ type Worker implements Ends
 		self.lastFire = Clock.nowNanos()
 	end 'fired'
 
+	// armHanded arms n timers farMs to 2·farMs out toward the worker to and hands each to it as it is armed, for the
+	// cross-processor cancel (e); it gives n once every timer is sent.
+	export function armHanded(mutates self, n Count, to Worker.handle) returns Count
+		for i in 0 upto n 'arm'
+			let ms = try farMs + (self.next(farMs as Count) as DurationMs) otherwise farMs
+			try to.take(Timer.notifyAfter(ms, message: to.post(Worker.Message.fired))) otherwise panic("a send to a service that runs")
+		end 'arm'
+		return n
+	end 'armHanded'
+
+	// take holds a timer another worker armed.
+	export function take(mutates self, consumes t Timer)
+		self.timers.push(t)
+	end 'take'
+
 	export function firesSeen() returns Count
 		return self.fires
 	end 'firesSeen'
@@ -321,6 +336,18 @@ function run(args Array with String) returns ExitCode
 	let late = try armedBy - at otherwise 0
 	print("result fire count={n} workers={k} ns={perEach(fireNs, n: n)} armsPastDeadlineMs={late}\n")
 	_ = cancelAll(ws)
+	// (e) cross-processor cancels: each worker arms its share far out and hands each timer, as it is armed, to the next
+	// worker, toward which it posts; then every worker cancels the timers it was handed at once, so each cancel is of a
+	// timer on the heap of the processor that ran the worker that armed it, mostly another processor than its own.
+	var handed = Counts.create(0)
+	for w in 0 upto k 'hand'
+		handed.push(try ws[w].armHanded(share(n, w: w, k: k), to: ws[(w + 1) mod k].clone()) otherwise panic("a send to a service that runs"))
+	end 'hand'
+	for i in 0 upto handed.count() 'await'
+		_ = await handed[i]
+	end 'await'
+	let xcancelNs = cancelAll(ws)
+	print("result xcancel count={n} workers={k} ns={perEach(xcancelNs, n: n)}\n")
 	stopAll(ws)
 	// (c) churn: one-shots re-armed by their own handlers.
 	if churnServices > 0 and churnTimers > 0 'churn'

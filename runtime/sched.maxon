@@ -538,8 +538,13 @@ function waitInEventQueue(context Count, scheduler Count) returns bool
 end 'waitInEventQueue'
 
 // eventsPending is whether a thread should wait in the event queue rather than stop: a timer is armed or a green thread waits
-// on an event entry.
+// on an event entry. Once nothing is left (nothingLeft, exact with every processor idle) every entry left on a heap is
+// dead, since an armed timer and a sleeping green thread are live, and none is waited for: the drain's main thread, and the
+// threads that quiesceForCount waits to park, stop instead of waiting until a dead entry's when.
 function eventsPending(scheduler Count) returns bool
+	if nothingLeft(scheduler) 'drained'
+		return false
+	end 'drained'
 	return timersNext(scheduler) != noTimer or __Raw.loadAcquire(scheduler, offset: schedEventWaitersOffset) > 0
 end 'eventsPending'
 
@@ -1351,8 +1356,11 @@ end 'requestedWorkers'
 // thread of the list and its heap is not counted (startMonitor), and with nothing left it readies, wakes and starts nothing.
 //
 // The wait ends because every other thread reaches the idle list once the drain has ended, which nothingLeft decided under the
-// lock with every processor idle and no behaviour or green thread live. No timer is left, since a sleep's timer is taken off
-// when it is due and a deadline's by its green thread before it goes on (eventWaitOnce), and no green thread waits on an event
+// lock with every processor idle and no behaviour or green thread live. No live timer is left, since a sleep's timer is taken
+// off when it is due and a deadline's is made dead by its green thread before it goes on (eventWaitOnce), and the dead ones
+// left on the heaps, and the timers that only their slots hold, are swept first (sweepTimers), since the main thread holds a
+// processor again (regainProc), so nothingLeft is false for the others and eventsPending would keep one waiting in the
+// event queue until a dead entry's when; no green thread waits on an event
 // entry (eventWait counts it among the waiters only while it waits), so eventsPending is false and no queue holds work. A
 // thread is then either on the idle list; or between idling its processor and stopThread (findRunnable after idleProcPut,
 // endDrain among it), which finds no work to take a processor for and goes on to stopThread; or in the event queue's wait,
@@ -1366,6 +1374,7 @@ function quiesceForCount(context Count)
 	if scheduler == noScheduler 'oneThread'
 		return
 	end 'oneThread'
+	sweepTimers(scheduler)
 	var parked = 0 as Count
 	while true 'quiesce'
 		lockScheduler(scheduler)
