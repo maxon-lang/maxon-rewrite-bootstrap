@@ -1289,13 +1289,13 @@ func isLibraryHelper(file string) bool {
 // helper's other names become export, since a public function may not name a less visible type (E3167). A type of them keeps
 // its public members too: a program writes to a file through maxon's FileWriter (`FileWriter.open(path)`), and encrypts with
 // the ciphers of `helpers/crypto/` (`Aes.create(key)`) and their errors, and the HTTP codec's parsers and what they give, which
-// maxon's HTTP spec tests call.
+// maxon's HTTP spec tests and bench/http call.
 var publicHelperNames = []string{
 	"SortComparator", "swap", "FileWriter",
 	"Aead", "AeadError", "AeadSealedParts", "Aes", "AesCounter", "AesError", "AesKeyStreamError",
 	"ChaCha20", "ChaCha20Counter", "ChaCha20Error", "Poly1305", "Poly1305Error",
 	"HttpUrlScheme", "HttpConnectTarget", "HttpRequestHead", "HttpResponseStatus", "httpConnectTargetOf", "httpBuildRequest",
-	"httpResponseStatusOf", "httpParseRequestHead",
+	"httpResponseStatusOf", "httpParseRequestHead", "httpDeclaredBodyLength", "httpBuildResponseHead",
 }
 
 // publicHelperKinds are the declarations that a name of publicHelperNames keeps public as.

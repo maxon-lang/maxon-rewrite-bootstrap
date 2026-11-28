@@ -228,7 +228,7 @@ export function httpRequireSendableResponse(response HttpResponse) throws HttpSe
 	end 'eachHeader'
 end 'httpRequireSendableResponse'
 
-export function httpBuildResponseHead(response HttpResponse) returns String throws HttpServerError
+public function httpBuildResponseHead(response HttpResponse) returns String throws HttpServerError
 	try httpRequireSendableResponse(response)
 	return httpBuildSendableResponseHead(response)
 end 'httpBuildResponseHead'
@@ -373,7 +373,7 @@ export function declaredLengthOf(headers HttpHeaders, bound url.UrlDecimalBound)
 	end 'declared'
 end 'declaredLengthOf'
 
-export function httpDeclaredBodyLength(headers HttpHeaders, cap HttpByteCap) returns BytePos throws HttpServerError
+public function httpDeclaredBodyLength(headers HttpHeaders, cap HttpByteCap) returns BytePos throws HttpServerError
 	match declaredLengthOf(headers, bound: cap as url.UrlDecimalBound) 'declared'
 		undeclared then return 0
 		value(length) then return length
