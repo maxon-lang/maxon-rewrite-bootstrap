@@ -112,7 +112,12 @@ func suites(h host, compilerPath string, args []string) error {
 	pinHashSeed()
 	steps, phases := run.steps()
 	if h.lanes != nil && run.lane == "" {
-		fmt.Printf("%s runs the lanes %s only: the compiler is another host's build, and the other lanes are that host's\n", h.target, strings.Join(h.lanes, ", "))
+		fmt.Printf("%s runs the lanes %s only: %s\n", h.target, strings.Join(h.lanes, ", "), h.lanesWhy)
+		for _, s := range steps {
+			if s.lane != "prelude" && !slices.Contains(h.lanes, s.lane) {
+				skip(s.name, h.lanesWhy)
+			}
+		}
 	}
 	if run.lane != "" {
 		err := runLaneSteps(steps, []string{run.lane})
@@ -257,6 +262,9 @@ func (r suiteRun) lanesAtOnce(phases [][]string) error {
 				return err
 			}
 			args := append([]string{"suites", r.compiler, "--lane=" + name}, r.testArgs...)
+			if r.h.hostOnly {
+				args = append(args, hostOnlyFlag)
+			}
 			if r.recordSpecs != "" {
 				args = append(args, recordSpecsFlag+r.recordSpecs)
 			}
@@ -369,6 +377,8 @@ func wslVariables(have, name string) string {
 // does not skip it.
 func runsTarget(h host, t string) (string, error) {
 	switch {
+	case h.hostOnly:
+		return hostOnlyWhy, nil
 	case h.windows() && strings.HasSuffix(t, "-linux"):
 		return "", assertWsl()
 	case !h.windows() && t == "x64-windows":

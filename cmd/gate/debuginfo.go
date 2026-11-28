@@ -300,7 +300,7 @@ func faultRunner(h host, t, exe string) (*exec.Cmd, string, error) {
 			return nil, "", err
 		}
 		return exec.Command(fixed), "", nil
-	case h.windows():
+	case h.windows() && !h.hostOnly:
 		if err := assertWsl(); err != nil {
 			return nil, "", err
 		}

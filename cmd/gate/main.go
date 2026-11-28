@@ -5,8 +5,8 @@
 // apart in what they check. A step that cannot run on the host says so and why, and is skipped; every other step that fails
 // stops the command.
 //
-//	go run ./cmd/gate check [--record-specs=<maxon specs dir>] [test args...]
-//	go run ./cmd/gate suites <compiler> [test args...]
+//	go run ./cmd/gate check [--host-only] [--record-specs=<maxon specs dir>] [test args...]
+//	go run ./cmd/gate suites [--host-only] <compiler> [test args...]
 //	go run ./cmd/gate seed [--staged]
 //	go run ./cmd/gate specs [--advance-source] <maxon specs dir>
 //	go run ./cmd/gate stdlib [--check] <maxon stdlib dir>
@@ -32,10 +32,14 @@ import (
 )
 
 const usage = `usage:
-  gate check [--record-specs=<maxon specs dir>] [test args...]
-                                     the gate: Go checks, generators, a compiler from the seed and the suites on it; with the
-                                     flag it first converts the specs from maxon's and its spec step also writes specs/passed.txt
-  gate suites <compiler> [args...]   the suites a compiler must pass (on arm64 Linux, which has no seed, the lanes it runs natively)
+  gate check [--host-only] [--record-specs=<maxon specs dir>] [test args...]
+                                     the gate: Go checks, generators, a compiler from the seed and the suites on it; with
+                                     --record-specs it first converts the specs from maxon's and its spec step also writes
+                                     specs/passed.txt; --host-only runs only the lanes of the host's own target and names each
+                                     step it leaves out (CI's Windows runner has no WSL, qemu or Mac), and on Windows then also
+                                     checks that the compiler reproduces itself
+  gate suites [--host-only] <compiler> [args...]
+                                     the suites a compiler must pass (on arm64 Linux, which has no seed, the lanes it runs natively)
   gate seed [--staged]               renew the seeds, each proven to reproduce itself; --staged for a change of a layout\n                                     the seed bakes in, which it cannot compile the runtime of: run before committing it
   gate specs [--advance-source] <maxon specs dir>
                                      regenerate specs/ from maxon's spec tests and write specs/passed.txt again; specs/SOURCE
@@ -73,6 +77,10 @@ func gate() {
 		fail(err)
 	}
 	args := os.Args[2:]
+	if (os.Args[1] == "check" || os.Args[1] == "suites") && slices.Contains(args, hostOnlyFlag) {
+		args = slices.DeleteFunc(slices.Clone(args), func(a string) bool { return a == hostOnlyFlag })
+		h = h.ownTargetOnly()
+	}
 	if h.seed == "" && os.Args[1] != "suites" {
 		fail(fmt.Errorf("%s: %s has no committed seed to build the compiler from; it runs the lanes of a compiler that another host built: gate suites <compiler> (README, \"Continuous integration\")", os.Args[1], h.target))
 	}
@@ -188,6 +196,33 @@ type host struct {
 	// lanes are the only lanes of the suites that this host runs, nil for all of them. A host without a seed gets its
 	// compiler from another host, and runs the lanes that only it can: the other lanes are that host's.
 	lanes []string
+	// lanesWhy is why the host runs only those lanes, which a run says for each step it leaves out.
+	lanesWhy string
+	// hostOnly is whether the run is --host-only: it runs no other target's executables, and says so.
+	hostOnly bool
+}
+
+// hostOnlyFlag has a host run only the lanes of its own target, which is the gate of a host with no way to run the others'
+// code: GitHub's Windows runner has no WSL for x64-linux's corpus, no qemu for arm64-linux's and no Mac. A Windows machine
+// without WSL fails those lanes instead (runsTarget), so leaving them out is asked for, and each step left out is named in
+// the output. The compiles for the other targets, which run nothing, stay.
+const hostOnlyFlag = "--host-only"
+
+// hostOnlyWhy is what a run says of each step it leaves out.
+const hostOnlyWhy = hostOnlyFlag + ": the other targets' executables run on other hosts, and only their compiles run here"
+
+// ownLanes are the lanes of the host's own target: the compiler's suites, the specs and the corpus and the behaviours reruns
+// that run natively. A lane for another target is left out of a host-only run.
+var ownLanes = []string{"checks", "builds", "specs", "native", "native-behaviours"}
+
+// ownTargetOnly is the host as a host-only run has it.
+func (h host) ownTargetOnly() host {
+	h.hostOnly = true
+	if h.lanes == nil {
+		h.lanes = ownLanes
+		h.lanesWhy = hostOnlyWhy
+	}
+	return h
 }
 
 // armLinuxLanes are the lanes that arm64 Linux runs natively on a compiler that x64 Linux cross-built (gate suites): the
@@ -203,6 +238,7 @@ func currentHost() (host, error) {
 	h := host{target: name, seed: hosts.SeedPath(name)}
 	if name == "arm64-linux" {
 		h.lanes = armLinuxLanes
+		h.lanesWhy = "the compiler is another host's build, and the other lanes are that host's"
 	}
 	if runtime.GOOS == "windows" {
 		h.exe = ".exe"

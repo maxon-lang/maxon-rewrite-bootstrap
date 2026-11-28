@@ -14,7 +14,7 @@ import (
 // check runs every check AGENTS.md requires, fixing what can be fixed mechanically first (formatting, go fix's modernizers
 // and the generated files), so a slip there never costs a second run, and stops at the first that fails. The seed builds
 // self/ into bin/, and the suites test that compiler. Whether a compiler reproduces itself is checked only where a seed is
-// renewed (gate seed). Go builds and tests only the generators and the tools.
+// renewed (gate seed), and by a host-only gate on Windows. Go builds and tests only the generators and the tools.
 func check(h host, testArgs []string) error {
 	compiler := h.compiler("minimaxon")
 	steps := []step{
@@ -33,7 +33,17 @@ func check(h host, testArgs []string) error {
 	if err := runSteps(steps); err != nil {
 		return err
 	}
-	return suites(h, compiler, testArgs)
+	if err := suites(h, compiler, testArgs); err != nil {
+		return err
+	}
+	// A seed renewal is the one place that proves a compiler reproduces itself, and a host-only gate on Windows has no renewal
+	// to run it: the seed builds C1, C1 builds C2 and C2 builds C3, the same bytes as C2.
+	if h.hostOnly && h.windows() {
+		return runSteps([]step{{"compiler reproduces itself", func() error {
+			return chain(abs(h.seed), h.compiler("c1"), h.compiler("c2"), h.compiler("c3"), nil)
+		}}})
+	}
+	return nil
 }
 
 // generatedRoots are where the generated files are, each named *_gen.*.
