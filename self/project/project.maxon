@@ -762,6 +762,7 @@ function allocIfaceShell(mutates ms ast.ModuleState, p ast.Project, ref ast.Decl
 	var e = ast.TypeEntry.make(ast.TypeKind.interfaceTy, name: ifd.name.clone())
 	e.hasDecl = true
 	e.decl = ref.clone()
+	e.requiresService = ifd.requiresService
 	let tid = ast.allocShell(ms.types, module: ref.module, e: e, completer: ast.Phase.declare)
 	allocShellTypeParams(ms, p: p, modID: ref.module, tid: tid, tps: ifd.typeParams, errs: errs)
 	ast.setDeclType(ms, ref: ref, t: tid)

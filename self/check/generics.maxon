@@ -214,7 +214,7 @@ end 'requireCapabilities'
 
 // requireImplements files what an implementation lacks of one requirement: the requirement when the method is missing,
 // with the interface it comes from when it is inherited, and the method beside the requirement when its signature differs.
-function requireImplements(c Checker, p ast.Project, mutates ms ast.ModuleState, site ast.NodeID, nt ast.TypeID, own ast.TypeID, req ast.Requirement, inherited bool, conditional bool, mutates lacks Shortfall, mutates errs diag.ErrorList)
+function requireImplements(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, site ast.NodeID, nt ast.TypeID, own ast.TypeID, req ast.Requirement, inherited bool, conditional bool, mutates lacks Shortfall, mutates errs diag.ErrorList)
 	let iface = req.iface
 	let sig = req.sig
 	let selfParams = requirementParams(p, ms: ms, iface: iface)
@@ -238,6 +238,7 @@ function requireImplements(c Checker, p ast.Project, mutates ms ast.ModuleState,
 	let sigStatic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).isStatic
 	let sigResult = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).result
 	if m != ast.noFunc and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).isStatic == sigStatic and (sigStatic or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: m).selfConv == sigConv) and witnessMatches(c, p: p, ms: ms, m: m, own: own, wantSpecs: wantSpecs, wantReturn: wantReturn, wantError: sigError, wantResult: sigResult) 'matches'
+		noteRequirementMet(c, p: p, ms: ms, site: site, req: req, method: m)
 		return
 	end 'matches'
 	let wanted = signatureText(p, ms: ms, name: sigName, isStatic: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).isStatic, specs: wantSpecs, ret: wantReturn, err: sigError, result: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).result)

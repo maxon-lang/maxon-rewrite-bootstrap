@@ -5,7 +5,9 @@
 // module published (ast.Typing.waiting), which the verify of a module reads of the modules it names; one whose module
 // published nothing is an unknown, which may wait on another party. E3073 refuses an async call of a function that never
 // waits, and E3221 a holder of a service that may wait on another party: an unknown never makes the first refuse a correct
-// program, and makes the second refuse what it cannot show sound.
+// program, and makes the second refuse what it cannot show sound. A call of a requirement of an interface that requires service
+// is none of the unknowns: it may wait but not on another party, since each method that meets such a requirement is held to a
+// message's rules where it meets it (requirements.maxon).
 //
 // A call through a bound of a type parameter (a Map's key.hash()) is judged at the instance's type arguments: a generic
 // function's facts keep its bound calls apart (WaitFact.bounds, published as ast.Typing.boundCalls with what its calls reach),
@@ -26,12 +28,44 @@ export type WaitFact
 	// bounds are the calls the function makes through the bounds of its type parameters.
 	export var bounds as ast.BoundCallList
 	export var partyWaits as bool
+	// blind is whether a call of the function is one the check cannot see into (a function value, an interface that does not
+	// require service), which partyWaits counts as a wait on another party; a method that meets a requirement of an
+	// interface that requires service is refused for it apart from a reply it waits on (requirements.maxon).
+	export var blind as bool
 	export var sends as UnpolicedSends
 
 	export static function make(waits bool, consumes calls ast.FuncIDList, consumes callArgs ast.TypeIDLists, consumes bounds ast.BoundCallList) returns WaitFact
-		return WaitFact{waits: waits, calls: calls, callArgs: callArgs, bounds: bounds, partyWaits: false, sends: UnpolicedSends.create(0)}
+		return WaitFact{waits: waits, calls: calls, callArgs: callArgs, bounds: bounds, partyWaits: false, blind: false, sends: UnpolicedSends.create(0)}
 	end 'make'
 end 'WaitFact'
+
+// PartyCause is what makes a function wait on another party, as the wait inference found it first: a reply it keeps, or the
+// start of a service whose factory throws; a call whose target the check cannot see (a function value, an interface that
+// does not require service, a type parameter's method that stays one); or a function of another module that may.
+export enum PartyCause
+	noCause
+	replyKept
+	callUnseen
+	otherModule
+end 'PartyCause'
+
+// PartyWhy is the first cause the wait inference found since it was cleared, and the function it was found in: a method that
+// meets a requirement of an interface that requires service is refused for it in words that name it (requirements.maxon).
+export type PartyWhy
+	export var cause as PartyCause
+	export var at as ast.FuncID
+
+	export static function none() returns PartyWhy
+		return PartyWhy{cause: PartyCause.noCause, at: ast.noFunc}
+	end 'none'
+
+	export function note(mutates self, found PartyCause, place ast.FuncID)
+		if self.cause == PartyCause.noCause 'first'
+			self.cause = found
+			self.at = place
+		end 'first'
+	end 'note'
+end 'PartyWhy'
 
 export typealias WaitFacts = table.IntMap with WaitFact
 
@@ -54,6 +88,7 @@ export typealias PendingAsyncList = Array with PendingAsync
 function startWaits(mutates c Checker)
 	c.waitNow = false
 	c.partyWaitNow = false
+	c.blindNow = false
 	c.waitCalls = ast.FuncIDList.create(0)
 	c.waitCallArgs = ast.TypeIDLists.create(0)
 	c.waitBounds = ast.BoundCallList.create(0)
@@ -67,6 +102,7 @@ function finishWaits(mutates c Checker)
 	end 'none'
 	var fact = WaitFact.make(c.waitNow, calls: exchange(c.waitCalls, value: ast.FuncIDList.create(0)), callArgs: exchange(c.waitCallArgs, value: ast.TypeIDLists.create(0)), bounds: exchange(c.waitBounds, value: ast.BoundCallList.create(0)))
 	fact.partyWaits = c.partyWaitNow
+	fact.blind = c.blindNow
 	fact.sends = exchange(c.waitSends, value: UnpolicedSends.create(0))
 	c.waits.insert(c.rootFn as Count, value: fact)
 end 'finishWaits'
@@ -86,10 +122,18 @@ function noteCallWaits(mutates c Checker, p ast.Project, ms ast.ModuleState, cal
 	if k == ast.CallKind.callValue 'unknown'
 		c.waitNow = true
 		c.partyWaitNow = true
+		c.blindNow = true
 		return
 	end 'unknown'
 	if k == ast.CallKind.callBound 'bound'
+		let requirement = c.typing.calls.valueAt(slot).method
 		let receiver = c.typing.calls.valueAt(slot).receiverTy
+		// Every method that meets a requirement of an interface that requires service is held to a message's rules where it
+		// meets it (requirements.maxon), so the call may sleep or do I/O and waits on no other party and sends no unpoliced kind.
+		if ast.requirementRequiresService(ms.types, reads: p.types, owner: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: requirement).ownerTy) 'service'
+			c.waitNow = true
+			return
+		end 'service'
 		noteBoundCall(c, p: p, ms: ms, call: call, receiver: receiver)
 		return
 	end 'bound'
@@ -108,6 +152,7 @@ function noteBoundCall(mutates c Checker, p ast.Project, ms ast.ModuleState, cal
 	let param = ast.contentType(ms.types, reads: p.types, t: receiver)
 	if ms.tree().kindOf(callee) != ast.NodeKind.memberExpr or ast.typeKind(ms.types, reads: p.types, t: param) != ast.TypeKind.typeParam 'unknown'
 		c.partyWaitNow = true
+		c.blindNow = true
 		return
 	end 'unknown'
 	c.waitBounds.push(ast.BoundCall.make(param, member: ast.memberExprName(ms.tree(), id: callee).clone()))
@@ -231,6 +276,7 @@ function waitingOf(mutates c Checker, p ast.Project, ms ast.ModuleState, f ast.F
 	end 'unchecked'
 	let fact = c.waits.valueAt(slot).clone()
 	if fact.partyWaits 'party'
+		c.partyWhy.note(PartyCause.callUnseen if fact.blind else PartyCause.replyKept, place: fid)
 		return ast.Waiting.waitsOnParty
 	end 'party'
 	var most = ast.Waiting.waitsParked if fact.waits else ast.Waiting.waitsNever
@@ -242,7 +288,7 @@ function waitingOf(mutates c Checker, p ast.Project, ms ast.ModuleState, f ast.F
 		end 'onParty'
 		most = mostOf(most, b: reached)
 	end 'calls'
-	return mostOf(most, b: boundsAt(c, p: p, ms: ms, bounds: fact.bounds, generics: generics, args: given, roots: roots, unresolved: unresolved, visited: visited))
+	return mostOf(most, b: boundsAt(c, p: p, ms: ms, owner: fid, bounds: fact.bounds, generics: generics, args: given, roots: roots, unresolved: unresolved, visited: visited))
 end 'waitingOf'
 
 // instanceVerdict is what an instance of another module's function f may wait for: what its module published, and its
@@ -250,6 +296,9 @@ end 'waitingOf'
 function instanceVerdict(mutates c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, module diag.ModuleID, generics ast.TypeIDList, args ast.TypeIDList, roots ast.TypeIDList, mutates unresolved ast.BoundCallList, mutates visited BoolIntMap) returns ast.Waiting
 	let published = publishedWaiting(p, module: module, f: f)
 	if published == ast.Waiting.waitsOnParty or module == diag.stdlibID 'known'
+		if published == ast.Waiting.waitsOnParty 'party'
+			c.partyWhy.note(PartyCause.otherModule, place: f)
+		end 'party'
 		return published
 	end 'known'
 	let bounds = typingOf(p, module: module).boundCalls.getOr(f as Count, fallback: ast.BoundCallList.create(0))
@@ -264,7 +313,7 @@ function instanceVerdict(mutates c Checker, p ast.Project, ms ast.ModuleState, f
 			none then break
 		end 'seen'
 	end 'cached'
-	let verdict = mostOf(published, b: boundsAt(c, p: p, ms: ms, bounds: bounds, generics: generics, args: args, roots: roots, unresolved: unresolved, visited: visited))
+	let verdict = mostOf(published, b: boundsAt(c, p: p, ms: ms, owner: f, bounds: bounds, generics: generics, args: args, roots: roots, unresolved: unresolved, visited: visited))
 	if cacheable 'keep'
 		c.instanceWaits.insert(key, value: verdict)
 	end 'keep'
@@ -274,7 +323,7 @@ end 'instanceVerdict'
 // boundsAt is the most that bound calls may wait for at the type arguments args of the function whose generics they name:
 // each is the method of its type argument, judged at that type's own arguments; one whose argument is a type parameter is
 // left for the publication where it is one of roots, and is an unknown otherwise.
-function boundsAt(mutates c Checker, p ast.Project, ms ast.ModuleState, bounds ast.BoundCallList, generics ast.TypeIDList, args ast.TypeIDList, roots ast.TypeIDList, mutates unresolved ast.BoundCallList, mutates visited BoolIntMap) returns ast.Waiting
+function boundsAt(mutates c Checker, p ast.Project, ms ast.ModuleState, owner ast.FuncID, bounds ast.BoundCallList, generics ast.TypeIDList, args ast.TypeIDList, roots ast.TypeIDList, mutates unresolved ast.BoundCallList, mutates visited BoolIntMap) returns ast.Waiting
 	var most = ast.Waiting.waitsNever
 	for i in 0 upto bounds.count() 'bounds'
 		let t = argOf(bounds[i].param, generics: generics, args: args)
@@ -283,6 +332,7 @@ function boundsAt(mutates c Checker, p ast.Project, ms ast.ModuleState, bounds a
 				unresolved.push(ast.BoundCall.make(t, member: bounds[i].member.clone()))
 				continue 'bounds'
 			end 'root'
+			c.partyWhy.note(PartyCause.callUnseen, place: owner)
 			return ast.Waiting.waitsOnParty
 		end 'parameter'
 		let method = match consumes methodLookup(c, p: p, ms: ms, t: t, name: bounds[i].member) 'lookup'
@@ -291,6 +341,7 @@ function boundsAt(mutates c Checker, p ast.Project, ms ast.ModuleState, bounds a
 			ambiguous gives ast.noFunc
 		end 'lookup'
 		if method == ast.noFunc 'unseen'
+			c.partyWhy.note(PartyCause.callUnseen, place: owner)
 			return ast.Waiting.waitsOnParty
 		end 'unseen'
 		let own = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: ast.contentType(ms.types, reads: p.types, t: t)).typeArgs)

@@ -142,6 +142,21 @@ end 'verifyFirstHops'
 // walkFirstHops reports the first hops of the posted kind that the function f of the module makes, by its body and the
 // functions of the module it calls.
 function walkFirstHops(c Checker, p ast.Project, ms ast.ModuleState, posted ast.FuncID, f ast.FuncID, mutates visited BoolIntMap, mutates reported BoolIntMap, mutates errs diag.ErrorList)
+	var hops = UnpolicedSends.create(0)
+	unpolicedSendsOf(c, p: p, ms: ms, f: f, visited: visited, found: hops)
+	for hop in hops 'hops'
+		if reported.has(hop.node as Count) 'seen'
+			continue 'hops'
+		end 'seen'
+		reported.insert(hop.node as Count, value: true)
+		checkFail(c.modID, off: ms.tree().reportStartOf(hop.node), code: diag.errPolicyFedFromOutside, msg: fedFromOutside(p, ms: ms, kind: hop.kind, posted: posted, via: hop.via), errs: errs)
+	end 'hops'
+end 'walkFirstHops'
+
+// unpolicedSendsOf collects into found the sends of a kind that names no policy that the function f of the module makes, by
+// its body and the functions of the module it calls: each with its kind, and for a call of another module's function that
+// sends one, the function called, by what its module published.
+function unpolicedSendsOf(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, mutates visited BoolIntMap, mutates found UnpolicedSends)
 	let fid = declaredFunc(p, ms: ms, f: f)
 	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).module != c.modID or visited.has(fid as Count) 'done'
 		return
@@ -153,20 +168,15 @@ function walkFirstHops(c Checker, p ast.Project, ms ast.ModuleState, posted ast.
 	end 'unchecked'
 	let fact = c.waits.valueAt(slot)
 	for send in fact.sends 'sends'
-		if send.kind == ast.noFunc 'foreign'
-			reportForeign(c, p: p, ms: ms, node: send.node, posted: posted, via: send.via, reported: reported, errs: errs)
-			continue 'sends'
-		end 'foreign'
-		if reported.has(send.node as Count) 'seen'
-			continue 'sends'
-		end 'seen'
-		reported.insert(send.node as Count, value: true)
-		checkFail(c.modID, off: ms.tree().reportStartOf(send.node), code: diag.errPolicyFedFromOutside, msg: fedFromOutside(p, ms: ms, kind: send.kind, posted: posted, via: ast.noFunc), errs: errs)
+		let kind = send.kind if send.kind != ast.noFunc else publishedKind(p, ms: ms, f: send.via)
+		if kind != ast.noFunc 'unpoliced'
+			found.push(UnpolicedSend.make(send.node, kind: kind, via: send.via))
+		end 'unpoliced'
 	end 'sends'
 	for callee in fact.calls 'calls'
-		walkFirstHops(c, p: p, ms: ms, posted: posted, f: callee, visited: visited, reported: reported, errs: errs)
+		unpolicedSendsOf(c, p: p, ms: ms, f: callee, visited: visited, found: found)
 	end 'calls'
-end 'walkFirstHops'
+end 'unpolicedSendsOf'
 
 // reportForeign reports, at node, a first hop of the posted kind that via, a function of another module, makes, by what its
 // module published: a kind with no policy it sends, if any.
@@ -189,6 +199,9 @@ function funcTitle(p ast.Project, ms ast.ModuleState, f ast.FuncID) returns Stri
 	return "{ast.typeName(ms.types, reads: p.types, t: owner)}.{name}"
 end 'funcTitle'
 
+// policyMenu lists the policies of the library, one line each, for the error that asks a kind to name one.
+let policyMenu = "\n  @policy(Keep)        every message is handled; the source waits (clients wait, the kernel's buffers fill)\n  @policy(Refuse)      a new message is not handled; its sender gets 'busy' at once and can answer \"try later\"\n  @policy(DropNewest)  a new message is thrown away and counted; for telemetry\n  @policy(DropOldest)  the longest-waiting message is thrown away, so the newest is handled\n  @policy(Latest)      only the newest message is kept; an older undelivered one is replaced"
+
 // fedFromOutside is the text of E3957 for a first hop of the kind, a kind with no policy, from the posted kind, made by via
 // where that is a function of another module that sends it, or noFunc for a send written here.
 function fedFromOutside(p ast.Project, ms ast.ModuleState, kind ast.FuncID, posted ast.FuncID, via ast.FuncID) returns String
@@ -201,8 +214,7 @@ function fedFromOutside(p ast.Project, ms ast.ModuleState, kind ast.FuncID, post
 	if ast.typeKind(ms.types, reads: p.types, t: owner) == ast.TypeKind.interfaceTy 'requirement'
 		return "'{receiver}.{name}' is sent through '{receiver}.handle' with work from a source that cannot be slowed ('{source}', which the runtime posts{by}), and an interface handle does not say what each service behind it does with that work when it falls behind: send it through the service's own handle, and put an '@policy(...)' before its 'export function {name}'"
 	end 'requirement'
-	let menu = "\n  @policy(Keep)        every message is handled; the source waits (clients wait, the kernel's buffers fill)\n  @policy(Refuse)      a new message is not handled; its sender gets 'busy' at once and can answer \"try later\"\n  @policy(DropNewest)  a new message is thrown away and counted; for telemetry\n  @policy(DropOldest)  the longest-waiting message is thrown away, so the newest is handled\n  @policy(Latest)      only the newest message is kept; an older undelivered one is replaced"
-	return "'{receiver}.{name}' receives work from a source that cannot be slowed ('{source}', which the runtime posts{by}), so '{receiver}' must say what happens to that work when it falls behind. Put one of these before 'export function {name}' (or your own, '@policy(YourType)', a type that implements 'OverloadPolicy'):{menu}"
+	return "'{receiver}.{name}' receives work from a source that cannot be slowed ('{source}', which the runtime posts{by}), so '{receiver}' must say what happens to that work when it falls behind. Put one of these before 'export function {name}' (or your own, '@policy(YourType)', a type that implements 'OverloadPolicy'):{policyMenu}"
 end 'fedFromOutside'
 
 // publishUnpoliced keeps in the module's typing a kind with no policy that each of its functions sends, by its body or a
@@ -223,28 +235,11 @@ end 'publishUnpoliced'
 
 // unpolicedKind is a kind with no policy that f sends, by its body or the functions of the module it calls, or noFunc.
 function unpolicedKind(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, mutates visited BoolIntMap) returns ast.FuncID
-	let fid = declaredFunc(p, ms: ms, f: f)
-	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).module != c.modID or visited.has(fid as Count) 'done'
-		return ast.noFunc
-	end 'done'
-	visited.insert(fid as Count, value: true)
-	var slot as Count
-	if not c.waits.find(fid as Count, slot: slot) 'unchecked'
-		return ast.noFunc
-	end 'unchecked'
-	let fact = c.waits.valueAt(slot)
-	for send in fact.sends 'sends'
-		let kind = send.kind if send.kind != ast.noFunc else publishedKind(p, ms: ms, f: send.via)
-		if kind != ast.noFunc 'found'
-			return kind
-		end 'found'
-	end 'sends'
-	for callee in fact.calls 'calls'
-		let kind = unpolicedKind(c, p: p, ms: ms, f: callee, visited: visited)
-		if kind != ast.noFunc 'reached'
-			return kind
-		end 'reached'
-	end 'calls'
+	var found = UnpolicedSends.create(0)
+	unpolicedSendsOf(c, p: p, ms: ms, f: f, visited: visited, found: found)
+	for send in found 'first'
+		return send.kind
+	end 'first'
 	return ast.noFunc
 end 'unpolicedKind'
 

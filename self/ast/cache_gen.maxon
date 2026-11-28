@@ -2152,6 +2152,7 @@ function storeTypeEntry(mutates w table.CacheWriter, v TypeEntry)
 	storeDeclRef(w, v: v.decl)
 	w.flag(v.isNoncopyable)
 	w.flag(v.isService)
+	w.flag(v.requiresService)
 	w.word64(v.origin as table.Word64)
 	w.flag(v.declaring)
 	storeArrayOfTypeID(w, v: v.typeParams)
@@ -2190,6 +2191,7 @@ extension TypeEntry
 		let theDecl = DeclRef.cacheLoad(r)
 		let theIsNoncopyable = r.flag()
 		let theIsService = r.flag()
+		let theRequiresService = r.flag()
 		let theOrigin = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
 		let theDeclaring = r.flag()
 		let theTypeParams = loadArrayOfTypeID(r)
@@ -2213,7 +2215,7 @@ extension TypeEntry
 		let theSupertype = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
 		let theMayBorrow = r.flag()
 		let theFamily = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
-		return TypeEntry{id: theId, kind: theKind, name: theName, inferred: theInferred, minVal: theMinVal, maxVal: theMaxVal, bitsWidth: theBitsWidth, hasDecl: theHasDecl, decl: theDecl, isNoncopyable: theIsNoncopyable, isService: theIsService, origin: theOrigin, declaring: theDeclaring, typeParams: theTypeParams, typeArgs: theTypeArgs, conforms: theConforms, bounds: theBounds, fields: theFields, cases: theCases, hasExplicitRaw: theHasExplicitRaw, rawKind: theRawKind, methods: theMethods, sigs: theSigs, boundIface: theBoundIface, dropFunc: theDropFunc, selfParam: theSelfParam, paramConvs: theParamConvs, isTuple: theIsTuple, mutatesCaptures: theMutatesCaptures, isBrand: theIsBrand, brandKey: theBrandKey, supertype: theSupertype, mayBorrow: theMayBorrow, family: theFamily}
+		return TypeEntry{id: theId, kind: theKind, name: theName, inferred: theInferred, minVal: theMinVal, maxVal: theMaxVal, bitsWidth: theBitsWidth, hasDecl: theHasDecl, decl: theDecl, isNoncopyable: theIsNoncopyable, isService: theIsService, requiresService: theRequiresService, origin: theOrigin, declaring: theDeclaring, typeParams: theTypeParams, typeArgs: theTypeArgs, conforms: theConforms, bounds: theBounds, fields: theFields, cases: theCases, hasExplicitRaw: theHasExplicitRaw, rawKind: theRawKind, methods: theMethods, sigs: theSigs, boundIface: theBoundIface, dropFunc: theDropFunc, selfParam: theSelfParam, paramConvs: theParamConvs, isTuple: theIsTuple, mutatesCaptures: theMutatesCaptures, isBrand: theIsBrand, brandKey: theBrandKey, supertype: theSupertype, mayBorrow: theMayBorrow, family: theFamily}
 	end 'cacheLoad'
 end 'TypeEntry'
 

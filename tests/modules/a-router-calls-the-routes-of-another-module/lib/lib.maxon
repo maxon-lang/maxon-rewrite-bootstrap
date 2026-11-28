@@ -1,0 +1,17 @@
+export typealias Amount = int(0 to 1000000)
+
+// Route requires service: each method that meets a requirement of it is held to a message's rules, in the module that
+// declares the conformance, which every module that names Route reads from its declaration.
+export interface Route extends Copyable requires service
+	function handle(request Amount) returns Amount
+end 'Route'
+
+export type Doubler implements Route
+	export static function make() returns Self
+		return Self{}
+	end 'make'
+
+	export function handle(request Amount) returns Amount
+		return try request * 2 otherwise 0
+	end 'handle'
+end 'Doubler'

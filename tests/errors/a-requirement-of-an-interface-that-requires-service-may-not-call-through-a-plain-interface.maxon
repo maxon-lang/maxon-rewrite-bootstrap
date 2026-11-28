@@ -1,0 +1,41 @@
+// A call through an interface that does not require service runs a method the check cannot see, so a method that meets a
+// requirement of an interface that requires service may not make one (E3221); a call through one that does is a router's.
+export typealias Amount = int(0 to 1000000)
+
+interface Scale
+	function apply(n Amount) returns Amount
+end 'Scale'
+
+type Twice implements Scale
+	static function make() returns Self
+		return Self{}
+	end 'make'
+
+	function apply(n Amount) returns Amount
+		return try n * 2 otherwise 0
+	end 'apply'
+end 'Twice'
+
+interface Route requires service
+	function handle(request Amount) returns Amount
+end 'Route'
+
+type Scaled implements Route
+	var scale as Scale
+
+	static function make(consumes scale Scale) returns Self
+		return Self{scale: scale}
+	end 'make'
+
+	function handle(request Amount) returns Amount
+		return self.scale.apply(request)
+	end 'handle'
+end 'Scaled'
+
+function main() returns ExitCode
+	let scaled = Scaled.make(Twice.make() as Scale)
+	print("{scaled.handle(1)}\n")
+	return 0
+end 'main'
+
+// expect-error: E3221 at 30:2

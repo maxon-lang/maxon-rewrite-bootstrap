@@ -1,0 +1,33 @@
+// A call through a function value runs what the check cannot see, which may wait on another party, so a method that meets a
+// requirement of an interface that requires service may not make one (E3221).
+export typealias Amount = int(0 to 1000000)
+
+typealias Step = function(Amount) returns Amount
+
+interface Route requires service
+	function handle(request Amount) returns Amount
+end 'Route'
+
+type Apply implements Route
+	var step as Step
+
+	static function make(consumes step Step) returns Self
+		return Self{step: step}
+	end 'make'
+
+	function handle(request Amount) returns Amount
+		return self.step(request)
+	end 'handle'
+end 'Apply'
+
+function same(n Amount) returns Amount
+	return n
+end 'same'
+
+function main() returns ExitCode
+	let apply = Apply.make(same)
+	print("{apply.handle(1)}\n")
+	return 0
+end 'main'
+
+// expect-error: E3221 at 18:2

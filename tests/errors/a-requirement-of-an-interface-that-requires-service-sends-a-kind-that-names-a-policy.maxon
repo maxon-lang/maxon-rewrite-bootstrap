@@ -1,0 +1,45 @@
+// A method that meets a requirement of an interface that requires service may be fed from outside the program, so each message
+// it sends names what becomes of it while its receiver is behind (E3957): `@policy(Keep)` is the answer that changes nothing.
+// The send is refused at the send, in the method or in a function of its module that it calls.
+export typealias Amount = int(0 to 1000000)
+
+interface Route requires service
+	function handle(request Amount) returns Amount
+end 'Route'
+
+service Log
+	var seen as Amount
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	export function note(mutates self, request Amount)
+		self.seen = try self.seen + request otherwise 0
+	end 'note'
+end 'Log'
+
+function record(log Log.handle, request Amount)
+	try log.note(request) otherwise ignore
+end 'record'
+
+type Tell implements Route
+	var log as Log.handle
+
+	static function make(consumes log Log.handle) returns Self
+		return Self{log: log}
+	end 'make'
+
+	function handle(request Amount) returns Amount
+		record(self.log, request: request)
+		return request
+	end 'handle'
+end 'Tell'
+
+function main() returns ExitCode
+	let tell = Tell.make(spawn Log.create())
+	print("{tell.handle(1)}\n")
+	return 0
+end 'main'
+
+// expect-error: E3957 at 23:10

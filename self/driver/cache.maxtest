@@ -53,3 +53,24 @@ test 'a use is written down at most once an hour'
 		panic("a file ahead of the clock is written again")
 	end 'ahead'
 end 'a use is written down at most once an hour'
+
+// publicOf is the digest of the public text of one file of text, as a module's shown text is made.
+function publicOf(text String) returns table.Digest
+	var files = ast.FileSpanList.create(0)
+	let size = try text.byteLength() as diag.U32 otherwise panic("a test file past the range of an offset")
+	files.push(ast.FileSpan.make("m.maxon", text: text, start: 0 as diag.U32, endOff: size))
+	return publicDigest("m", text: text, files: files)
+end 'publicOf'
+
+test 'the clause of an interface that requires service is part of the public text of its module'
+	let plain = "interface Route\n\tfunction handle(n Count) returns Count\nend 'Route'\n"
+	let serviced = "interface Route requires service\n\tfunction handle(n Count) returns Count\nend 'Route'\n"
+	if publicOf(plain).equals(publicOf(serviced)) 'same'
+		panic("the summary of a module is the same with and without `requires service` on its interface")
+	end 'same'
+	let body = "type Echo implements Route\n\tfunction handle(n Count) returns Count\n\t\treturn n\n\tend 'handle'\nend 'Echo'\n"
+	let other = "type Echo implements Route\n\tfunction handle(n Count) returns Count\n\t\treturn n + 1\n\tend 'handle'\nend 'Echo'\n"
+	if not publicOf(body).equals(publicOf(other)) 'bodies'
+		panic("the summary of a module changes with the body of a method that no other module copies")
+	end 'bodies'
+end 'the clause of an interface that requires service is part of the public text of its module'

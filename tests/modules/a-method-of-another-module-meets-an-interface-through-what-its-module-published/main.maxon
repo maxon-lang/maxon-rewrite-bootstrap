@@ -1,0 +1,20 @@
+// A method that another module declares meets a requirement here, by an extension that says its type implements the
+// interface: it is judged by what its module published of it, a wait on another party (E3210) and a send that names no
+// policy (E3957), at the conformance. A method that waits for nothing and sends nothing is accepted.
+extension lib.Waiter implements lib.Route
+end 'Waiter'
+
+extension lib.Teller implements lib.Route
+end 'Teller'
+
+extension lib.Quiet implements lib.Route
+end 'Quiet'
+
+function main() returns ExitCode
+	let quiet = lib.Quiet.make()
+	print("{quiet.handle(1)}\n")
+	return 0
+end 'main'
+
+// expect-error: E3210 at 4:11
+// expect-error: E3957 at 7:11

@@ -1,0 +1,21 @@
+// A type that implements the interface of another module that requires service is held to its rules where the conformance is
+// declared, here: the flag is read from the interface's declaration, and the wait is the method's own (E3210).
+type Audit implements lib.Route
+	var ledger as lib.Ledger.handle
+
+	static function make(consumes ledger lib.Ledger.handle) returns Self
+		return Self{ledger: ledger}
+	end 'make'
+
+	function handle(request lib.Amount) returns lib.Amount
+		return try await self.ledger.read() otherwise 0
+	end 'handle'
+end 'Audit'
+
+function main() returns ExitCode
+	let audit = Audit.make(spawn lib.Ledger.create())
+	print("{audit.handle(1)}\n")
+	return 0
+end 'main'
+
+// expect-error: E3210 at 10:2

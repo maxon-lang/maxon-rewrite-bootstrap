@@ -1,0 +1,41 @@
+// A generic type's conformance is judged where it is declared, where the methods of its type parameters are not seen, so a
+// method that meets a requirement of an interface that requires service may not call one (E3221).
+export typealias Amount = int(0 to 1000000)
+
+interface Measure
+	function size() returns Amount
+end 'Measure'
+
+interface Route requires service
+	function handle(request Amount) returns Amount
+end 'Route'
+
+type Sized uses T implements Route where T implements Measure
+	var item as T
+
+	static function make(consumes item T) returns Self
+		return Self{item: item}
+	end 'make'
+
+	function handle(request Amount) returns Amount
+		return self.item.size()
+	end 'handle'
+end 'Sized'
+
+type Unit implements Measure
+	static function make() returns Self
+		return Self{}
+	end 'make'
+
+	function size() returns Amount
+		return 1
+	end 'size'
+end 'Unit'
+
+function main() returns ExitCode
+	let sized = Sized.make(Unit.make())
+	print("{sized.handle(1)}\n")
+	return 0
+end 'main'
+
+// expect-error: E3221 at 20:2

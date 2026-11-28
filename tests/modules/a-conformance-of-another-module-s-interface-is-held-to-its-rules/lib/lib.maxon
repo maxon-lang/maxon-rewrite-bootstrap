@@ -1,0 +1,17 @@
+export typealias Amount = int(0 to 1000000)
+
+export interface Route requires service
+	function handle(request Amount) returns Amount
+end 'Route'
+
+export service Ledger
+	var total as Amount
+
+	export static function create() returns Self
+		return Self{total: 0}
+	end 'create'
+
+	@policy(Keep) export function read() returns Amount
+		return self.total
+	end 'read'
+end 'Ledger'

@@ -365,6 +365,9 @@ export type TypeEntry
 	export var isNoncopyable as bool
 	// isService is whether the type was declared with `service`, whose export instance methods are messages by declaration.
 	export var isService as bool
+	// requiresService is whether an interface was declared with `requires service`: each method that meets one of its
+	// requirements meets the rules of a message of a service fed from outside, which a message that calls one relies on.
+	export var requiresService as bool
 	export var origin as TypeID
 	export var declaring as bool
 	export var typeParams as TypeIDList
@@ -402,7 +405,7 @@ export type TypeEntry
 
 	export static function make(kind TypeKind, consumes name String) returns TypeEntry
 		let z = I128.zero()
-		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, bitsWidth: 0 as Count, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, isService: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, rawKind: RawKind.integer, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0), isTuple: false, mutatesCaptures: false, isBrand: false, brandKey: "", supertype: noType, mayBorrow: false, family: noType}
+		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, bitsWidth: 0 as Count, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, isService: false, requiresService: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, rawKind: RawKind.integer, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0), isTuple: false, mutatesCaptures: false, isBrand: false, brandKey: "", supertype: noType, mayBorrow: false, family: noType}
 	end 'make'
 
 	export function findMethod(methodName String) returns table.Option with FuncID
@@ -1594,6 +1597,7 @@ export function instantiateType(mutates tt TypeSlot, reads TypeTable, origin Typ
 	e.isTuple = typeEntry(tt, reads: reads, t: baseOrigin).isTuple
 	e.isNoncopyable = origNoncopyable
 	e.isService = typeEntry(tt, reads: reads, t: baseOrigin).isService
+	e.requiresService = typeEntry(tt, reads: reads, t: baseOrigin).requiresService
 	e.hasDecl = hasOrigDecl
 	e.decl = origDecl
 	let id = allocShape(tt, e: e, word: word)
@@ -2858,6 +2862,12 @@ end 'isServiceType'
 export function serviceState(tt TypeSlot, reads TypeTable, t TypeID) returns TypeID
 	return typeEntry(tt, reads: reads, t: t).typeArgs[0]
 end 'serviceState'
+
+// requirementRequiresService is whether owner, the interface that declares a requirement, was declared with `requires
+// service`: the methods that meet its requirements are held to the rules of a message (check/requirements.maxon).
+export function requirementRequiresService(tt TypeSlot, reads TypeTable, owner TypeID) returns bool
+	return owner != noType and typeEntry(tt, reads: reads, t: originOf(tt, reads: reads, t: owner)).requiresService
+end 'requirementRequiresService'
 
 // isInterfaceHandle is whether a type is `I.handle`, the handle of a service known only by an interface I its type
 // implements: a value of it is an interface value, the box of a table and the handle of the service's own type, whose

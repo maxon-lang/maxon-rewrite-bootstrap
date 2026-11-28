@@ -1,0 +1,42 @@
+// A message calls a route through an interface of another module that requires service: the call is no wait on another
+// party, so the router is no holder that may wait (E3221), and the routes of both modules are held to the rules where
+// each conformance is declared.
+type Offset implements lib.Route
+	var by as lib.Amount
+
+	static function make(by lib.Amount) returns Self
+		return Self{by: by}
+	end 'make'
+
+	function handle(request lib.Amount) returns lib.Amount
+		return try request + self.by otherwise 0
+	end 'handle'
+end 'Offset'
+
+service Router
+	var routes as Array with lib.Route
+
+	static function create() returns Self
+		var routes as Array with lib.Route
+		routes = Array.create(0)
+		routes.push(lib.Doubler.make() as lib.Route)
+		routes.push(Offset.make(3) as lib.Route)
+		return Self{routes: routes}
+	end 'create'
+
+	export function route(mutates self, index Count, request lib.Amount) returns lib.Amount
+		let found = try self.routes.get(index) otherwise return 0
+		return found.handle(request)
+	end 'route'
+end 'Router'
+
+function main() returns ExitCode
+	let router = spawn Router.create()
+	let first = try await router.route(0, request: 5) otherwise 0
+	let second = try await router.route(1, request: 5) otherwise 0
+	print("{first} {second}\n")
+	router.shutdown()
+	return 0
+end 'main'
+
+//> 10 8

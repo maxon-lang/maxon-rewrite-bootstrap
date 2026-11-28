@@ -1,0 +1,39 @@
+// A method that meets a requirement of an interface that requires service may be called by a message, which holds its service
+// while it runs, so it may not wait for a reply of another service (E3210). The type that has it is no service.
+export typealias Amount = int(0 to 1000000)
+
+interface Route requires service
+	function handle(request Amount) returns Amount
+end 'Route'
+
+service Ledger
+	var total as Amount
+
+	static function create() returns Self
+		return Self{total: 0}
+	end 'create'
+
+	@policy(Keep) export function read() returns Amount
+		return self.total
+	end 'read'
+end 'Ledger'
+
+type Audit implements Route
+	var ledger as Ledger.handle
+
+	static function make(consumes ledger Ledger.handle) returns Self
+		return Self{ledger: ledger}
+	end 'make'
+
+	function handle(request Amount) returns Amount
+		return try await self.ledger.read() otherwise 0
+	end 'handle'
+end 'Audit'
+
+function main() returns ExitCode
+	let audit = Audit.make(spawn Ledger.create())
+	print("{audit.handle(1)}\n")
+	return 0
+end 'main'
+
+// expect-error: E3210 at 28:2

@@ -4109,7 +4109,8 @@ end 'main'
   or a reply, held by a cown, taken by a behaviour and read by the iterations of a `parallel for`. Putting a value in one
   asks what a message's argument asks (`ast.unsendable`, see "Services"), so a value that holds a promise is `E3919`, as
   one that holds a borrow is `E3927`; what the box holds is judged there and never again, and a function value in it
-  crosses, which a message can call only through the interface's methods (`E3221`). A frozen interface value is read as
+  crosses, which a message can call only through the interface's methods (`E3221`, unless the interface requires service, see
+  "Services"). A frozen interface value is read as
   any frozen value is: a call of a method whose receiver is `let` reads the frozen box and writes nothing. In generic
   code the check cannot see what a type parameter holds, so each instance is judged at its own type arguments where it
   boxes a value of a type that mentions one (`ir.requireBoxCrossing`), as `freeze` and `cown` are, and refused there as
@@ -5316,7 +5317,35 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   union; a post of a kind of another module is refused at the post. Only the first hop needs a policy: a send in the
   handler of a first hop's kind is a second hop and needs none, and the posted kind itself names none (the runtime
   coalesces its posts). `E3948` and `busy` apply to a first hop's policy as to any. A call through a function value or an
-  interface, whose target the check cannot see, is taken to send nothing.
+  interface, whose target the check cannot see, is taken to send nothing, unless the interface requires service, whose
+  requirements are held to this rule where each is met (the next bullet).
+- **An interface that requires service** (`interface Route requires service`, after the `extends` and `where` clauses;
+  `verifyRequirements` in `self/check/requirements.maxon`): every method that meets one of its requirements meets the rules of
+  a message of a service that a source outside the program feeds, so a message may call it through a value of the interface,
+  which a router of routes does (`E3221` refuses a call through any other interface). It does not make the type that
+  implements the interface a service: the type is declared with `type` as ever (or is an `enum` or a `union`), and nobody
+  spawns it. Only the methods that meet a requirement are held to the rules; the type's other methods are not, unless a
+  requirement's method calls one. At each conformance, checked in the module that declares it once its bodies are checked,
+  each such method (the type's own, or one that an extension adds; one of another module is judged at the conformance by
+  what its module published, `ast.Typing.waiting` and `unpoliced`):
+  - waits on no other party: it keeps no reply, starts no service whose factory throws, and calls no function that may
+    (`E3210`, maxon's code for a requirement that waits, which maxon refuses of every requirement), though it may sleep and do
+    I/O;
+  - calls nothing the check cannot see into: a call through a function value, through an interface that does not require
+    service, or of a method of a type parameter that stays one is `E3221`, as it is in a message; a call through an interface
+    that requires service is not one;
+  - sends only kinds that name a policy, `@policy(Keep)` among them (`E3957`, at the send, as for a posted kind's first hop):
+    its own sends, those of the module's functions it calls, and, for a function of another module, what that module
+    published. A send through an `I.handle` names no policy and is refused.
+
+  A call of a requirement of such an interface, through a value of it or a bound `where T implements Route`, may sleep or do
+  I/O and nothing more (`noteCallWaits`): it adds no wait on another party and no send. The flag is part of the interface's
+  declaration (`ast.TypeEntry.requiresService`), so a module that names the interface reads it from there, and of the public
+  text that the build cache's summary of a module digests (`publicDigest`), whose header line holds it. It holds for the
+  requirements that the interface declares, and for those that an interface extending it inherits, but an interface that
+  extends it holds the requirements it declares itself to it only by saying so. A generic type's conformance is judged once,
+  at its declaration, where the methods of its type parameters are not seen: a requirement's method that calls one is
+  `E3221`, and one that calls none is accepted for every instance.
 - **Stops** (`stdlib/services/Stop.maxon`, `declareAwaitErrors` in `self/check/policies.maxon`, `startStopping` and
   `dropUnhandled` in `self/ir/services.maxon`, "Stops" in `runtime/service.maxon`): a service stops in one of two ways, chosen
   at the stop. `h.shutdown()` by the owner of its handle, or `self.stop()` in one of its messages, closes its mailbox and lets
@@ -5498,8 +5527,8 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   180 bytes on Windows, the factories' records freed into the heap's classes, which keeps freed slots for reuse. maxon runs
   a service's messages on one runner, up to 64 a turn; here each is its own behaviour on the one cown.
 - **Holders never wait** (`E3221`): a message or a factory of a `service` the module declares, or of a `type` it spawns, that keeps a reply, starts a
-  service whose factory throws, calls through a function value or an interface, whose target the check cannot see, or
-  calls a function that may do one of these, is refused, so services never wait on each other in a cycle. A function of
+  service whose factory throws, calls through a function value or an interface, whose target the check cannot see (an
+  interface that requires service excepted), or calls a function that may do one of these, is refused, so services never wait on each other in a cycle. A function of
   another module is judged by what its module's check published (`ast.Typing.waiting`), one that published nothing as one
   that may wait; a `service` is held to the rule at its declaration, in its own module, and a `type` of another module that this one
   spawns here, at the spawn.
@@ -5710,6 +5739,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   spawns, by its name (the files of one run are all read for the spawns, and the code of a spec test is one program), a generic
   type excepted, which a service cannot be yet.
   `spawn` starts a `service` alone, where maxon's starts any type, so a `spawn` of a `type` is `E3134`.
+- **An interface may say `requires service`, which maxon does not have.** The methods that meet its requirements are held to
+  a message's rules, so a message may call one through a value of the interface (see "Services"); the types that implement it
+  are no services. Where maxon refuses every method that meets a requirement for waiting (`E3210`), this compiler does so for
+  those of such an interface alone.
 - **A mailbox has no capacity.** A program writes `spawn T.create()` where maxon writes `spawn(capacity: n) T.create()`,
   sends with no `sendTimeout:`, and matches only `serviceStopped`, the one case of `SendError`, where maxon matches
   `mailboxFull` too: a send never fails or waits for room, and fails only once the service has stopped. The runtime slows
@@ -5990,7 +6023,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   promise, `E3927` for a borrow, and in generic code at each instance), where maxon walks the conformers the program
   converts to the interface at the doors that share it and refuses one that holds a function value (`E3171`, `E3217`,
   `E3963` are not raised for an interface value; the spec tests that expect them are skipped with that reason). A function
-  value in the box crosses into a service, which a message can call only through the interface's methods (`E3221`).
+  value in the box crosses into a service, which a message can call only through the interface's methods (`E3221`, unless the
+  interface requires service).
 - Associated types held at an interface (see "Interface values"): maxon holds an associated type at an interface for the
   whole program wherever a use site writes it so (`Bag with Cursor`), and refuses every conformer of the interface whose
   binding there does not implement that interface (`E3126`), or that binds the interface itself (`E3120`), and the holding
@@ -6174,9 +6208,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   for a value that cannot be shared), since a frozen value is read by every thread that holds it and a cown's value by
   its behaviours. A message that calls through a function value or an interface is `E3221`, where
   maxon's inference counts such a call as no wait: the check cannot see what it runs, so it cannot show that the holder
-  never waits on another party (the spec tests that run one are skipped with that reason); and so a method that waits may
-  meet a requirement, where maxon refuses it (`E3210`, a requirement never waits; the spec tests that expect that are
-  skipped with that reason). A
+  never waits on another party (the spec tests that run one are skipped with that reason), unless the interface says
+  `requires service`; and so a method that waits may meet a requirement, where maxon refuses it (`E3210`, a requirement
+  never waits; the spec tests that expect that are skipped with that reason), unless the requirement's interface says
+  `requires service`. A
   factory that throws runs on the spawner's green thread, where maxon's runs on the service's while the spawner waits.
   A send's error is the built-in `SendError` (`serviceStopped`) and gives the arguments no way back,
   where maxon's `<Service>.<message>.sendError` carries them (the spec tests whose handler binds them are skipped with

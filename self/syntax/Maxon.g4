@@ -302,8 +302,11 @@ extendsClause returns [[]*TypeRef interfaces]
     : 'extends' interfaces+=typeRef (',' interfaces+=typeRef)*
     ;
 
+// 'requires service' says that each method which meets one of the interface's requirements meets the rules of a message
+// of a service that a source outside the program feeds (README, "Services"), so a message may call it through a value of
+// the interface. It does not make the type that implements the interface a service.
 interfaceDecl
-    : visibility=('export' | 'public')? 'interface' name=Name{declares} (typeParams=usesClause parents=extendsClause? | parents=extendsClause typeParams=usesClause?)? where=whereClause? Newline
+    : visibility=('export' | 'public')? 'interface' name=Name{declares} (typeParams=usesClause parents=extendsClause? | parents=extendsClause typeParams=usesClause?)? where=whereClause? ('requires' requiresService='service')? Newline
       (Indent ((aliases+=aliasDecl | methods+=funcSig) Newline)+ Dedent)?
       'end' end=endLabel?
     ;

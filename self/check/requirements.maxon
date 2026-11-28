@@ -1,0 +1,137 @@
+// The requirements of an interface that requires service (README, "Services"): each method that meets one is held to the
+// rules of a message of a service that a source outside the program feeds, so a message may call it through a value of the
+// interface (waits.maxon, noteCallWaits, takes such a call for one that may sleep or do I/O and nothing more). The method
+// waits on no other party (E3210), calls nothing the check cannot see into (E3221), and sends only kinds that name a policy
+// (E3957). It does not make the type that has the method a service, and a method of the type that meets no requirement is
+// held to nothing unless a requirement's method calls it.
+//
+// The rules are checked once, where the conformance is declared, from the facts of the module's bodies and what the modules
+// it names published (ast.Typing.waiting, unpoliced), so no module looks for the types that implement an interface. A
+// generic type's conformance is judged at its declaration, where the methods of its type parameters are not seen, so a
+// requirement's method that calls one is refused.
+
+// PendingRequirement is a method that meets a requirement of an interface that requires service, noted where the
+// conformance is declared, whose facts exist once the bodies of the module are checked.
+export type PendingRequirement
+	export var site as ast.NodeID
+	export var sig as ast.FuncID
+	export var method as ast.FuncID
+
+	export static function make(site ast.NodeID, sig ast.FuncID, method ast.FuncID) returns PendingRequirement
+		return PendingRequirement{site: site, sig: sig, method: method}
+	end 'make'
+end 'PendingRequirement'
+
+export typealias PendingRequirementList = Array with PendingRequirement
+
+// noteRequirementMet notes the method that meets the requirement req at the conformance site, if its interface requires service.
+function noteRequirementMet(mutates c Checker, p ast.Project, ms ast.ModuleState, site ast.NodeID, req ast.Requirement, method ast.FuncID)
+	if not ast.requirementRequiresService(ms.types, reads: p.types, owner: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: req.sig).ownerTy) 'plain'
+		return
+	end 'plain'
+	c.pendingRequirements.push(PendingRequirement.make(site, sig: req.sig, method: method))
+end 'noteRequirementMet'
+
+// verifyRequirements refuses each method that meets a requirement of an interface that requires service and is not one a
+// message may call, once however many conformances name it.
+function verifyRequirements(mutates c Checker, p ast.Project, ms ast.ModuleState, mutates errs diag.ErrorList)
+	let pending = c.pendingRequirements.clone()
+	var checked = BoolIntMap.new()
+	var sent = BoolIntMap.new()
+	for requirement in pending 'pending'
+		let method = declaredFunc(p, ms: ms, f: requirement.method)
+		if checked.has(method as Count) 'again'
+			continue 'pending'
+		end 'again'
+		checked.insert(method as Count, value: true)
+		verifyRequirement(c, p: p, ms: ms, requirement: requirement, method: method, sent: sent, errs: errs)
+	end 'pending'
+end 'verifyRequirements'
+
+// verifyRequirement refuses the method of a requirement for each rule it breaks: at the method where the module declares it,
+// at the conformance where another module does, and a send that names no policy at the send.
+function verifyRequirement(mutates c Checker, p ast.Project, ms ast.ModuleState, requirement PendingRequirement, method ast.FuncID, mutates sent BoolIntMap, mutates errs diag.ErrorList)
+	let entry = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).clone()
+	let own = entry.module == c.modID
+	let site = ms.tree().startOf(entry.nodeID) if own else offsetOf(c, p: p, ms: ms, node: requirement.site)
+	let held = "'{methodTitle(p, ms: ms, f: method)}' meets '{methodTitle(p, ms: ms, f: requirement.sig)}', a requirement of an interface that requires service, so a message may call it"
+	if entry.intrinsic != ast.Intrinsic.intrNone 'intrinsic'
+		if entry.intrinsic == ast.Intrinsic.intrArrayAwaitAny 'select'
+			checkFail(c.modID, off: site, code: diag.errCapabilityConversion, msg: "{held} and it may not wait on another party, which it does (it awaits a reply or a coroutine that the check cannot see)", errs: errs)
+		end 'select'
+		return
+	end 'intrinsic'
+	c.partyWhy = PartyWhy.none()
+	var visited = BoolIntMap.new()
+	if mayWaitOnParty(c, p: p, ms: ms, f: method, visited: visited) 'party'
+		let why = c.partyWhy.clone()
+		if why.cause == PartyCause.callUnseen 'unseen'
+			checkFail(c.modID, off: site, code: diag.errHolderMayWait, msg: "{held}, but it calls what the check cannot see{inFunction(p, ms: ms, method: method, at: why.at)}: a function value, an interface that does not require service or a method of a type parameter, which may wait on another party; call a function by name, or through an interface that requires service", errs: errs)
+		end 'unseen' else 'waits'
+			checkFail(c.modID, off: site, code: diag.errCapabilityConversion, msg: "{held} and it may not wait on another party, which it does ({partyWaitText(p, ms: ms, method: method, why: why)}); take the reply in another message, or leave the wait out of the method", errs: errs)
+		end 'waits'
+	end 'party'
+	if own 'sends'
+		var unpoliced = UnpolicedSends.create(0)
+		var seen = BoolIntMap.new()
+		unpolicedSendsOf(c, p: p, ms: ms, f: method, visited: seen, found: unpoliced)
+		for send in unpoliced 'unpoliced'
+			if sent.has(send.node as Count) 'again'
+				continue 'unpoliced'
+			end 'again'
+			sent.insert(send.node as Count, value: true)
+			checkFail(c.modID, off: ms.tree().reportStartOf(send.node), code: diag.errPolicyFedFromOutside, msg: "{held} from a source that cannot be slowed, and {sendWithoutPolicyText(p, ms: ms, kind: send.kind, via: send.via)}", errs: errs)
+		end 'unpoliced'
+		return
+	end 'sends'
+	let kind = publishedKind(p, ms: ms, f: method)
+	if kind != ast.noFunc 'foreign'
+		checkFail(c.modID, off: site, code: diag.errPolicyFedFromOutside, msg: "{held} from a source that cannot be slowed, and {sendWithoutPolicyText(p, ms: ms, kind: kind, via: ast.noFunc)}", errs: errs)
+	end 'foreign'
+end 'verifyRequirement'
+
+// methodTitle is how a message names a function: 'Type.name' for a method, with the name of the type a generic one is declared
+// as, and its name otherwise.
+function methodTitle(p ast.Project, ms ast.ModuleState, f ast.FuncID) returns String
+	let owner = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).ownerTy
+	let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).name.clone()
+	if owner == ast.noType 'free'
+		return name
+	end 'free'
+	return "{ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: owner)).name}.{name}"
+end 'methodTitle'
+
+// inFunction says where a cause was found when it is not the method itself.
+function inFunction(p ast.Project, ms ast.ModuleState, method ast.FuncID, at ast.FuncID) returns String
+	if at == ast.noFunc or at == method 'itself'
+		return ""
+	end 'itself'
+	return ", in '{methodTitle(p, ms: ms, f: at)}', which it calls"
+end 'inFunction'
+
+// partyWaitText is how a method waits on another party, by the cause the wait inference found first.
+function partyWaitText(p ast.Project, ms ast.ModuleState, method ast.FuncID, why PartyWhy) returns String
+	if why.cause == PartyCause.replyKept 'reply'
+		return "it keeps or awaits a reply of a service, or starts a service whose factory throws{inFunction(p, ms: ms, method: method, at: why.at)}"
+	end 'reply'
+	if why.cause == PartyCause.otherModule and why.at == method 'published'
+		return "its module published that it may wait on another party or call what the check cannot see"
+	end 'published'
+	if why.cause == PartyCause.otherModule 'module'
+		return "it calls '{methodTitle(p, ms: ms, f: why.at)}', which may wait on another party or call what the check cannot see"
+	end 'module'
+	return "it calls what may wait on another party"
+end 'partyWaitText'
+
+// sendWithoutPolicyText says that a method sends a kind that names no policy, by itself or by the function via of another
+// module that it calls, and what to name.
+function sendWithoutPolicyText(p ast.Project, ms ast.ModuleState, kind ast.FuncID, via ast.FuncID) returns String
+	let owner = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: kind).ownerTy
+	let receiver = ast.typeName(ms.types, reads: p.types, t: owner)
+	let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: kind).name.clone()
+	let by = "" if via == ast.noFunc else ", in a send that '{methodTitle(p, ms: ms, f: via)}' makes"
+	if ast.typeKind(ms.types, reads: p.types, t: owner) == ast.TypeKind.interfaceTy 'requirement'
+		return "it sends '{receiver}.{name}' through '{receiver}.handle'{by}, which does not say what each service behind it does with that work when it falls behind: send it through the service's own handle, and put an '@policy(...)' before its 'export function {name}'"
+	end 'requirement'
+	return "it sends '{receiver}.{name}'{by}, which names no policy, so '{receiver}' must say what happens to that work when it falls behind. Put one of these before 'export function {name}' (or your own, '@policy(YourType)', a type that implements 'OverloadPolicy'):{policyMenu}"
+end 'sendWithoutPolicyText'
