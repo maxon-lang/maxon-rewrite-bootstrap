@@ -1010,6 +1010,69 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrRawVectorShiftLanesRight 'intrRawVectorShiftLanesRight'
 		return lowerRawVectorShiftLanesRight(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawVectorShiftLanesRight'
+	if op == ast.Intrinsic.intrRawVectorShuffleDwords 'intrRawVectorShuffleDwords'
+		return lowerRawVectorShuffleDwords(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorShuffleDwords'
+	if op == ast.Intrinsic.intrRawVectorAlignBytes 'intrRawVectorAlignBytes'
+		return lowerRawVectorAlignBytes(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorAlignBytes'
+	if op == ast.Intrinsic.intrRawVectorBlendWords 'intrRawVectorBlendWords'
+		return lowerRawVectorBlendWords(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorBlendWords'
+	if op == ast.Intrinsic.intrRawVectorAesEncrypt 'intrRawVectorAesEncrypt'
+		return lowerRawVectorAesEncrypt(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorAesEncrypt'
+	if op == ast.Intrinsic.intrRawVectorAesEncryptLast 'intrRawVectorAesEncryptLast'
+		return lowerRawVectorAesEncryptLast(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorAesEncryptLast'
+	if op == ast.Intrinsic.intrRawVectorAesDecrypt 'intrRawVectorAesDecrypt'
+		return lowerRawVectorAesDecrypt(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorAesDecrypt'
+	if op == ast.Intrinsic.intrRawVectorAesDecryptLast 'intrRawVectorAesDecryptLast'
+		return lowerRawVectorAesDecryptLast(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorAesDecryptLast'
+	if op == ast.Intrinsic.intrRawVectorAesInverseMix 'intrRawVectorAesInverseMix'
+		return lowerRawVectorAesInverseMix(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorAesInverseMix'
+	if op == ast.Intrinsic.intrRawVectorClmul 'intrRawVectorClmul'
+		return lowerRawVectorClmul(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorClmul'
+	if op == ast.Intrinsic.intrRawVectorAese 'intrRawVectorAese'
+		return lowerRawVectorAese(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorAese'
+	if op == ast.Intrinsic.intrRawVectorAesd 'intrRawVectorAesd'
+		return lowerRawVectorAesd(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorAesd'
+	if op == ast.Intrinsic.intrRawVectorAesmc 'intrRawVectorAesmc'
+		return lowerRawVectorAesmc(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorAesmc'
+	if op == ast.Intrinsic.intrRawVectorSha256Rounds2 'intrRawVectorSha256Rounds2'
+		return lowerRawVectorSha256Rounds2(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorSha256Rounds2'
+	if op == ast.Intrinsic.intrRawVectorSha256Message1 'intrRawVectorSha256Message1'
+		return lowerRawVectorSha256Message1(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorSha256Message1'
+	if op == ast.Intrinsic.intrRawVectorSha256Message2 'intrRawVectorSha256Message2'
+		return lowerRawVectorSha256Message2(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorSha256Message2'
+	if op == ast.Intrinsic.intrRawVectorSha256H 'intrRawVectorSha256H'
+		return lowerRawVectorSha256H(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorSha256H'
+	if op == ast.Intrinsic.intrRawVectorSha256H2 'intrRawVectorSha256H2'
+		return lowerRawVectorSha256H2(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorSha256H2'
+	if op == ast.Intrinsic.intrRawVectorSha256Su0 'intrRawVectorSha256Su0'
+		return lowerRawVectorSha256Su0(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorSha256Su0'
+	if op == ast.Intrinsic.intrRawVectorSha256Su1 'intrRawVectorSha256Su1'
+		return lowerRawVectorSha256Su1(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawVectorSha256Su1'
+	if op == ast.Intrinsic.intrRawCpuid 'intrRawCpuid'
+		return lowerRawCpuid(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawCpuid'
+	if op == ast.Intrinsic.intrRawCpuFeaturesAddress 'intrRawCpuFeaturesAddress'
+		return lowerRawCpuFeaturesAddress(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawCpuFeaturesAddress'
 	if op == ast.Intrinsic.intrRawHeapAddress 'intrRawHeapAddress'
 		return lowerRawHeapAddress(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawHeapAddress'
@@ -2098,6 +2161,69 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrRawVectorShiftLanesRight 'intrRawVectorShiftLanesRight'
 		return false
 	end 'intrRawVectorShiftLanesRight'
+	if op == ast.Intrinsic.intrRawVectorShuffleDwords 'intrRawVectorShuffleDwords'
+		return false
+	end 'intrRawVectorShuffleDwords'
+	if op == ast.Intrinsic.intrRawVectorAlignBytes 'intrRawVectorAlignBytes'
+		return false
+	end 'intrRawVectorAlignBytes'
+	if op == ast.Intrinsic.intrRawVectorBlendWords 'intrRawVectorBlendWords'
+		return false
+	end 'intrRawVectorBlendWords'
+	if op == ast.Intrinsic.intrRawVectorAesEncrypt 'intrRawVectorAesEncrypt'
+		return false
+	end 'intrRawVectorAesEncrypt'
+	if op == ast.Intrinsic.intrRawVectorAesEncryptLast 'intrRawVectorAesEncryptLast'
+		return false
+	end 'intrRawVectorAesEncryptLast'
+	if op == ast.Intrinsic.intrRawVectorAesDecrypt 'intrRawVectorAesDecrypt'
+		return false
+	end 'intrRawVectorAesDecrypt'
+	if op == ast.Intrinsic.intrRawVectorAesDecryptLast 'intrRawVectorAesDecryptLast'
+		return false
+	end 'intrRawVectorAesDecryptLast'
+	if op == ast.Intrinsic.intrRawVectorAesInverseMix 'intrRawVectorAesInverseMix'
+		return false
+	end 'intrRawVectorAesInverseMix'
+	if op == ast.Intrinsic.intrRawVectorClmul 'intrRawVectorClmul'
+		return false
+	end 'intrRawVectorClmul'
+	if op == ast.Intrinsic.intrRawVectorAese 'intrRawVectorAese'
+		return false
+	end 'intrRawVectorAese'
+	if op == ast.Intrinsic.intrRawVectorAesd 'intrRawVectorAesd'
+		return false
+	end 'intrRawVectorAesd'
+	if op == ast.Intrinsic.intrRawVectorAesmc 'intrRawVectorAesmc'
+		return false
+	end 'intrRawVectorAesmc'
+	if op == ast.Intrinsic.intrRawVectorSha256Rounds2 'intrRawVectorSha256Rounds2'
+		return false
+	end 'intrRawVectorSha256Rounds2'
+	if op == ast.Intrinsic.intrRawVectorSha256Message1 'intrRawVectorSha256Message1'
+		return false
+	end 'intrRawVectorSha256Message1'
+	if op == ast.Intrinsic.intrRawVectorSha256Message2 'intrRawVectorSha256Message2'
+		return false
+	end 'intrRawVectorSha256Message2'
+	if op == ast.Intrinsic.intrRawVectorSha256H 'intrRawVectorSha256H'
+		return false
+	end 'intrRawVectorSha256H'
+	if op == ast.Intrinsic.intrRawVectorSha256H2 'intrRawVectorSha256H2'
+		return false
+	end 'intrRawVectorSha256H2'
+	if op == ast.Intrinsic.intrRawVectorSha256Su0 'intrRawVectorSha256Su0'
+		return false
+	end 'intrRawVectorSha256Su0'
+	if op == ast.Intrinsic.intrRawVectorSha256Su1 'intrRawVectorSha256Su1'
+		return false
+	end 'intrRawVectorSha256Su1'
+	if op == ast.Intrinsic.intrRawCpuid 'intrRawCpuid'
+		return false
+	end 'intrRawCpuid'
+	if op == ast.Intrinsic.intrRawCpuFeaturesAddress 'intrRawCpuFeaturesAddress'
+		return false
+	end 'intrRawCpuFeaturesAddress'
 	if op == ast.Intrinsic.intrRawHeapAddress 'intrRawHeapAddress'
 		return false
 	end 'intrRawHeapAddress'

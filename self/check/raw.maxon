@@ -110,3 +110,14 @@ function checkViewMember(mutates c Checker, p ast.Project, mutates ms ast.Module
 	let args = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: t).typeArgs)
 	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: view.origin, args: args, errs: errs)
 end 'checkViewMember'
+
+// refusesHeldVector refuses the runtime's 128-bit vector written at off as place: a parameter, a result, a field, a payload,
+// an element or a type argument. No calling convention passes one and no layout holds one, so a vector lives only in a
+// local, which keeps it in a vector register or a slot of the frame.
+function refusesHeldVector(c Checker, p ast.Project, ms ast.ModuleState, off diag.U32, t ast.TypeID, place String, mutates errs diag.ErrorList) returns bool
+	if t == ast.noType or ast.typeKind(ms.types, reads: p.types, t: t) != ast.TypeKind.builtinVector128 'other'
+		return false
+	end 'other'
+	checkFail(c.modID, off: off, code: diag.errVectorOutsideLocal, msg: "a __Vector128 cannot be {place}, which no convention passes and no layout holds: keep the vector in a local, and pass its two words (__Raw.vectorWord) or the address it is stored at", errs: errs)
+	return true
+end 'refusesHeldVector'

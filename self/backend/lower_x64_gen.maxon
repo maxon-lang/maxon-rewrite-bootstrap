@@ -224,6 +224,46 @@ export function x64SelectInstr(mutates sel Selector, fn ir.IrFunction, ins ir.In
 		x64SelectVecShift(sel, fn: fn, ins: ins)
 		return
 	end 'opcodeVecShift'
+	if op == ir.Opcode.opVecShuffleDwords 'opcodeVecShuffleDwords'
+		x64SelectVecShuffleDwords(sel, fn: fn, ins: ins)
+		return
+	end 'opcodeVecShuffleDwords'
+	if op == ir.Opcode.opVecAlignBytes 'opcodeVecAlignBytes'
+		x64SelectVecAlignBytes(sel, fn: fn, ins: ins)
+		return
+	end 'opcodeVecAlignBytes'
+	if op == ir.Opcode.opVecBlendWords 'opcodeVecBlendWords'
+		x64SelectVecBlendWords(sel, fn: fn, ins: ins)
+		return
+	end 'opcodeVecBlendWords'
+	if op == ir.Opcode.opVecAes 'opcodeVecAes'
+		x64SelectVecAes(sel, fn: fn, ins: ins)
+		return
+	end 'opcodeVecAes'
+	if op == ir.Opcode.opVecAesInvMix 'opcodeVecAesInvMix'
+		x64SelectVecAesInvMix(sel, fn: fn, ins: ins)
+		return
+	end 'opcodeVecAesInvMix'
+	if op == ir.Opcode.opVecAesArm 'opcodeVecAesArm'
+		x64SelectVecAesArm(sel, fn: fn, ins: ins)
+		return
+	end 'opcodeVecAesArm'
+	if op == ir.Opcode.opVecAesMix 'opcodeVecAesMix'
+		x64SelectVecAesMix(sel, fn: fn, ins: ins)
+		return
+	end 'opcodeVecAesMix'
+	if op == ir.Opcode.opVecClmul 'opcodeVecClmul'
+		x64SelectVecClmul(sel, fn: fn, ins: ins)
+		return
+	end 'opcodeVecClmul'
+	if op == ir.Opcode.opVecSha 'opcodeVecSha'
+		x64SelectVecSha(sel, fn: fn, ins: ins)
+		return
+	end 'opcodeVecSha'
+	if op == ir.Opcode.opCpuid 'opcodeCpuid'
+		x64SelectCpuid(sel, fn: fn, ins: ins)
+		return
+	end 'opcodeCpuid'
 	if op == ir.Opcode.opBuffer 'opcodeBuffer'
 		x64SelectBuffer(sel, fn: fn, ins: ins)
 		return
@@ -684,9 +724,9 @@ end 'x64SelectGlobalAddr'
 
 // x64SelectCallImport writes the machine instructions of callImport by the first of its rules that matches.
 function x64SelectCallImport(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule257(sel, fn: fn, ins: ins) 'x64Rule257'
+	if x64Rule272(sel, fn: fn, ins: ins) 'x64Rule272'
 		return
-	end 'x64Rule257'
+	end 'x64Rule272'
 	panic("backend: no rule of x64.rules selects this callImport")
 end 'x64SelectCallImport'
 
@@ -743,17 +783,17 @@ end 'x64SelectThreadContext'
 
 // x64SelectCallCode writes the machine instructions of callCode by the first of its rules that matches.
 function x64SelectCallCode(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule258(sel, fn: fn, ins: ins) 'x64Rule258'
+	if x64Rule273(sel, fn: fn, ins: ins) 'x64Rule273'
 		return
-	end 'x64Rule258'
+	end 'x64Rule273'
 	panic("backend: no rule of x64.rules selects this callCode")
 end 'x64SelectCallCode'
 
 // x64SelectCallHost writes the machine instructions of callHost by the first of its rules that matches.
 function x64SelectCallHost(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule259(sel, fn: fn, ins: ins) 'x64Rule259'
+	if x64Rule274(sel, fn: fn, ins: ins) 'x64Rule274'
 		return
-	end 'x64Rule259'
+	end 'x64Rule274'
 	panic("backend: no rule of x64.rules selects this callHost")
 end 'x64SelectCallHost'
 
@@ -767,9 +807,9 @@ end 'x64SelectCodeAddress'
 
 // x64SelectBodyAddress writes the machine instructions of bodyAddress by the first of its rules that matches.
 function x64SelectBodyAddress(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule270(sel, fn: fn, ins: ins) 'x64Rule270'
+	if x64Rule285(sel, fn: fn, ins: ins) 'x64Rule285'
 		return
-	end 'x64Rule270'
+	end 'x64Rule285'
 	panic("backend: no rule of x64.rules selects this bodyAddress")
 end 'x64SelectBodyAddress'
 
@@ -942,26 +982,12 @@ end 'x64SelectBin'
 
 // x64SelectCmp writes the machine instructions of cmp by the first of its rules that matches.
 function x64SelectCmp(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule221(sel, fn: fn, ins: ins) 'x64Rule221'
+	if x64Rule236(sel, fn: fn, ins: ins) 'x64Rule236'
 		return
-	end 'x64Rule221'
-	if x64Rule222(sel, fn: fn, ins: ins) 'x64Rule222'
+	end 'x64Rule236'
+	if x64Rule237(sel, fn: fn, ins: ins) 'x64Rule237'
 		return
-	end 'x64Rule222'
-	if x64Rule223(sel, fn: fn, ins: ins) 'x64Rule223'
-		return
-	end 'x64Rule223'
-	if x64Rule224(sel, fn: fn, ins: ins) 'x64Rule224'
-		return
-	end 'x64Rule224'
-	if x64Rule225(sel, fn: fn, ins: ins) 'x64Rule225'
-		return
-	end 'x64Rule225'
-	panic("backend: no rule of x64.rules selects this cmp")
-end 'x64SelectCmp'
-
-// x64SelectFBin writes the machine instructions of fBin by the first of its rules that matches.
-function x64SelectFBin(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	end 'x64Rule237'
 	if x64Rule238(sel, fn: fn, ins: ins) 'x64Rule238'
 		return
 	end 'x64Rule238'
@@ -971,68 +997,82 @@ function x64SelectFBin(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	if x64Rule240(sel, fn: fn, ins: ins) 'x64Rule240'
 		return
 	end 'x64Rule240'
-	if x64Rule241(sel, fn: fn, ins: ins) 'x64Rule241'
-		return
-	end 'x64Rule241'
-	panic("backend: no rule of x64.rules selects this fBin")
-end 'x64SelectFBin'
+	panic("backend: no rule of x64.rules selects this cmp")
+end 'x64SelectCmp'
 
-// x64SelectFCmp writes the machine instructions of fCmp by the first of its rules that matches.
-function x64SelectFCmp(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule242(sel, fn: fn, ins: ins) 'x64Rule242'
-		return
-	end 'x64Rule242'
-	if x64Rule243(sel, fn: fn, ins: ins) 'x64Rule243'
-		return
-	end 'x64Rule243'
-	if x64Rule244(sel, fn: fn, ins: ins) 'x64Rule244'
-		return
-	end 'x64Rule244'
-	if x64Rule245(sel, fn: fn, ins: ins) 'x64Rule245'
-		return
-	end 'x64Rule245'
-	if x64Rule246(sel, fn: fn, ins: ins) 'x64Rule246'
-		return
-	end 'x64Rule246'
-	if x64Rule247(sel, fn: fn, ins: ins) 'x64Rule247'
-		return
-	end 'x64Rule247'
-	panic("backend: no rule of x64.rules selects this fCmp")
-end 'x64SelectFCmp'
-
-// x64SelectFUnary writes the machine instructions of fUnary by the first of its rules that matches.
-function x64SelectFUnary(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule248(sel, fn: fn, ins: ins) 'x64Rule248'
-		return
-	end 'x64Rule248'
-	if x64Rule249(sel, fn: fn, ins: ins) 'x64Rule249'
-		return
-	end 'x64Rule249'
-	if x64Rule250(sel, fn: fn, ins: ins) 'x64Rule250'
-		return
-	end 'x64Rule250'
-	if x64Rule251(sel, fn: fn, ins: ins) 'x64Rule251'
-		return
-	end 'x64Rule251'
-	panic("backend: no rule of x64.rules selects this fUnary")
-end 'x64SelectFUnary'
-
-// x64SelectIntToFloat writes the machine instructions of intToFloat by the first of its rules that matches.
-function x64SelectIntToFloat(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+// x64SelectFBin writes the machine instructions of fBin by the first of its rules that matches.
+function x64SelectFBin(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	if x64Rule253(sel, fn: fn, ins: ins) 'x64Rule253'
 		return
 	end 'x64Rule253'
 	if x64Rule254(sel, fn: fn, ins: ins) 'x64Rule254'
 		return
 	end 'x64Rule254'
+	if x64Rule255(sel, fn: fn, ins: ins) 'x64Rule255'
+		return
+	end 'x64Rule255'
+	if x64Rule256(sel, fn: fn, ins: ins) 'x64Rule256'
+		return
+	end 'x64Rule256'
+	panic("backend: no rule of x64.rules selects this fBin")
+end 'x64SelectFBin'
+
+// x64SelectFCmp writes the machine instructions of fCmp by the first of its rules that matches.
+function x64SelectFCmp(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if x64Rule257(sel, fn: fn, ins: ins) 'x64Rule257'
+		return
+	end 'x64Rule257'
+	if x64Rule258(sel, fn: fn, ins: ins) 'x64Rule258'
+		return
+	end 'x64Rule258'
+	if x64Rule259(sel, fn: fn, ins: ins) 'x64Rule259'
+		return
+	end 'x64Rule259'
+	if x64Rule260(sel, fn: fn, ins: ins) 'x64Rule260'
+		return
+	end 'x64Rule260'
+	if x64Rule261(sel, fn: fn, ins: ins) 'x64Rule261'
+		return
+	end 'x64Rule261'
+	if x64Rule262(sel, fn: fn, ins: ins) 'x64Rule262'
+		return
+	end 'x64Rule262'
+	panic("backend: no rule of x64.rules selects this fCmp")
+end 'x64SelectFCmp'
+
+// x64SelectFUnary writes the machine instructions of fUnary by the first of its rules that matches.
+function x64SelectFUnary(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if x64Rule263(sel, fn: fn, ins: ins) 'x64Rule263'
+		return
+	end 'x64Rule263'
+	if x64Rule264(sel, fn: fn, ins: ins) 'x64Rule264'
+		return
+	end 'x64Rule264'
+	if x64Rule265(sel, fn: fn, ins: ins) 'x64Rule265'
+		return
+	end 'x64Rule265'
+	if x64Rule266(sel, fn: fn, ins: ins) 'x64Rule266'
+		return
+	end 'x64Rule266'
+	panic("backend: no rule of x64.rules selects this fUnary")
+end 'x64SelectFUnary'
+
+// x64SelectIntToFloat writes the machine instructions of intToFloat by the first of its rules that matches.
+function x64SelectIntToFloat(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if x64Rule268(sel, fn: fn, ins: ins) 'x64Rule268'
+		return
+	end 'x64Rule268'
+	if x64Rule269(sel, fn: fn, ins: ins) 'x64Rule269'
+		return
+	end 'x64Rule269'
 	panic("backend: no rule of x64.rules selects this intToFloat")
 end 'x64SelectIntToFloat'
 
 // x64SelectFloatToInt writes the machine instructions of floatToInt by the first of its rules that matches.
 function x64SelectFloatToInt(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule255(sel, fn: fn, ins: ins) 'x64Rule255'
+	if x64Rule270(sel, fn: fn, ins: ins) 'x64Rule270'
 		return
-	end 'x64Rule255'
+	end 'x64Rule270'
 	panic("backend: no rule of x64.rules selects this floatToInt")
 end 'x64SelectFloatToInt'
 
@@ -1065,18 +1105,18 @@ end 'x64SelectTrailingZeros'
 
 // x64SelectGuard writes the machine instructions of guard by the first of its rules that matches.
 function x64SelectGuard(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule228(sel, fn: fn, ins: ins) 'x64Rule228'
+	if x64Rule243(sel, fn: fn, ins: ins) 'x64Rule243'
 		return
-	end 'x64Rule228'
-	if x64Rule229(sel, fn: fn, ins: ins) 'x64Rule229'
+	end 'x64Rule243'
+	if x64Rule244(sel, fn: fn, ins: ins) 'x64Rule244'
 		return
-	end 'x64Rule229'
-	if x64Rule230(sel, fn: fn, ins: ins) 'x64Rule230'
+	end 'x64Rule244'
+	if x64Rule245(sel, fn: fn, ins: ins) 'x64Rule245'
 		return
-	end 'x64Rule230'
-	if x64Rule231(sel, fn: fn, ins: ins) 'x64Rule231'
+	end 'x64Rule245'
+	if x64Rule246(sel, fn: fn, ins: ins) 'x64Rule246'
 		return
-	end 'x64Rule231'
+	end 'x64Rule246'
 	panic("backend: no rule of x64.rules selects this guard")
 end 'x64SelectGuard'
 
@@ -1244,6 +1284,95 @@ function x64SelectVecShift(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	panic("backend: no rule of x64.rules selects this vecShift")
 end 'x64SelectVecShift'
 
+// x64SelectVecShuffleDwords writes the machine instructions of vecShuffleDwords by the first of its rules that matches.
+function x64SelectVecShuffleDwords(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if x64Rule220(sel, fn: fn, ins: ins) 'x64Rule220'
+		return
+	end 'x64Rule220'
+	panic("backend: no rule of x64.rules selects this vecShuffleDwords")
+end 'x64SelectVecShuffleDwords'
+
+// x64SelectVecAlignBytes writes the machine instructions of vecAlignBytes by the first of its rules that matches.
+function x64SelectVecAlignBytes(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if x64Rule221(sel, fn: fn, ins: ins) 'x64Rule221'
+		return
+	end 'x64Rule221'
+	panic("backend: no rule of x64.rules selects this vecAlignBytes")
+end 'x64SelectVecAlignBytes'
+
+// x64SelectVecBlendWords writes the machine instructions of vecBlendWords by the first of its rules that matches.
+function x64SelectVecBlendWords(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if x64Rule222(sel, fn: fn, ins: ins) 'x64Rule222'
+		return
+	end 'x64Rule222'
+	panic("backend: no rule of x64.rules selects this vecBlendWords")
+end 'x64SelectVecBlendWords'
+
+// x64SelectVecAes writes the machine instructions of vecAes by the first of its rules that matches.
+function x64SelectVecAes(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if x64Rule223(sel, fn: fn, ins: ins) 'x64Rule223'
+		return
+	end 'x64Rule223'
+	if x64Rule224(sel, fn: fn, ins: ins) 'x64Rule224'
+		return
+	end 'x64Rule224'
+	if x64Rule225(sel, fn: fn, ins: ins) 'x64Rule225'
+		return
+	end 'x64Rule225'
+	if x64Rule226(sel, fn: fn, ins: ins) 'x64Rule226'
+		return
+	end 'x64Rule226'
+	panic("backend: no rule of x64.rules selects this vecAes")
+end 'x64SelectVecAes'
+
+// x64SelectVecAesInvMix writes the machine instructions of vecAesInvMix by the first of its rules that matches.
+function x64SelectVecAesInvMix(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if x64Rule227(sel, fn: fn, ins: ins) 'x64Rule227'
+		return
+	end 'x64Rule227'
+	panic("backend: no rule of x64.rules selects this vecAesInvMix")
+end 'x64SelectVecAesInvMix'
+
+// x64SelectVecAesArm writes the machine instructions of vecAesArm by the first of its rules that matches.
+function x64SelectVecAesArm(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if x64Rule233(sel, fn: fn, ins: ins) 'x64Rule233'
+		return
+	end 'x64Rule233'
+	panic("backend: no rule of x64.rules selects this vecAesArm")
+end 'x64SelectVecAesArm'
+
+// x64SelectVecAesMix writes the machine instructions of vecAesMix by the first of its rules that matches.
+function x64SelectVecAesMix(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if x64Rule234(sel, fn: fn, ins: ins) 'x64Rule234'
+		return
+	end 'x64Rule234'
+	panic("backend: no rule of x64.rules selects this vecAesMix")
+end 'x64SelectVecAesMix'
+
+// x64SelectVecClmul writes the machine instructions of vecClmul by the first of its rules that matches.
+function x64SelectVecClmul(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if x64Rule228(sel, fn: fn, ins: ins) 'x64Rule228'
+		return
+	end 'x64Rule228'
+	panic("backend: no rule of x64.rules selects this vecClmul")
+end 'x64SelectVecClmul'
+
+// x64SelectVecSha writes the machine instructions of vecSha by the first of its rules that matches.
+function x64SelectVecSha(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if x64Rule231(sel, fn: fn, ins: ins) 'x64Rule231'
+		return
+	end 'x64Rule231'
+	panic("backend: no rule of x64.rules selects this vecSha")
+end 'x64SelectVecSha'
+
+// x64SelectCpuid writes the machine instructions of cpuid by the first of its rules that matches.
+function x64SelectCpuid(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if x64Rule232(sel, fn: fn, ins: ins) 'x64Rule232'
+		return
+	end 'x64Rule232'
+	panic("backend: no rule of x64.rules selects this cpuid")
+end 'x64SelectCpuid'
+
 // x64SelectBuffer writes the machine instructions of buffer by the first of its rules that matches.
 function x64SelectBuffer(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	if x64Rule124(sel, fn: fn, ins: ins) 'x64Rule124'
@@ -1319,129 +1448,129 @@ end 'x64SelectStrMake'
 
 // x64SelectAlloc writes the machine instructions of alloc by the first of its rules that matches.
 function x64SelectAlloc(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule265(sel, fn: fn, ins: ins) 'x64Rule265'
+	if x64Rule280(sel, fn: fn, ins: ins) 'x64Rule280'
 		return
-	end 'x64Rule265'
+	end 'x64Rule280'
 	panic("backend: no rule of x64.rules selects this alloc")
 end 'x64SelectAlloc'
 
 // x64SelectCall writes the machine instructions of call by the first of its rules that matches.
 function x64SelectCall(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule260(sel, fn: fn, ins: ins) 'x64Rule260'
+	if x64Rule275(sel, fn: fn, ins: ins) 'x64Rule275'
 		return
-	end 'x64Rule260'
+	end 'x64Rule275'
 	panic("backend: no rule of x64.rules selects this call")
 end 'x64SelectCall'
 
 // x64SelectCallRuntime writes the machine instructions of callRuntime by the first of its rules that matches.
 function x64SelectCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule261(sel, fn: fn, ins: ins) 'x64Rule261'
+	if x64Rule276(sel, fn: fn, ins: ins) 'x64Rule276'
 		return
-	end 'x64Rule261'
+	end 'x64Rule276'
 	panic("backend: no rule of x64.rules selects this callRuntime")
 end 'x64SelectCallRuntime'
 
 // x64SelectWhen writes the machine instructions of when by the first of its rules that matches.
 function x64SelectWhen(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule266(sel, fn: fn, ins: ins) 'x64Rule266'
+	if x64Rule281(sel, fn: fn, ins: ins) 'x64Rule281'
 		return
-	end 'x64Rule266'
+	end 'x64Rule281'
 	panic("backend: no rule of x64.rules selects this when")
 end 'x64SelectWhen'
 
 // x64SelectAsync writes the machine instructions of async by the first of its rules that matches.
 function x64SelectAsync(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule267(sel, fn: fn, ins: ins) 'x64Rule267'
+	if x64Rule282(sel, fn: fn, ins: ins) 'x64Rule282'
 		return
-	end 'x64Rule267'
+	end 'x64Rule282'
 	panic("backend: no rule of x64.rules selects this async")
 end 'x64SelectAsync'
 
 // x64SelectClosure writes the machine instructions of closure by the first of its rules that matches.
 function x64SelectClosure(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule268(sel, fn: fn, ins: ins) 'x64Rule268'
+	if x64Rule283(sel, fn: fn, ins: ins) 'x64Rule283'
 		return
-	end 'x64Rule268'
+	end 'x64Rule283'
 	panic("backend: no rule of x64.rules selects this closure")
 end 'x64SelectClosure'
 
 // x64SelectFuncValue writes the machine instructions of funcValue by the first of its rules that matches.
 function x64SelectFuncValue(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule269(sel, fn: fn, ins: ins) 'x64Rule269'
+	if x64Rule284(sel, fn: fn, ins: ins) 'x64Rule284'
 		return
-	end 'x64Rule269'
+	end 'x64Rule284'
 	panic("backend: no rule of x64.rules selects this funcValue")
 end 'x64SelectFuncValue'
 
 // x64SelectCallValue writes the machine instructions of callValue by the first of its rules that matches.
 function x64SelectCallValue(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule262(sel, fn: fn, ins: ins) 'x64Rule262'
+	if x64Rule277(sel, fn: fn, ins: ins) 'x64Rule277'
 		return
-	end 'x64Rule262'
+	end 'x64Rule277'
 	panic("backend: no rule of x64.rules selects this callValue")
 end 'x64SelectCallValue'
 
 // x64SelectBox writes the machine instructions of box by the first of its rules that matches.
 function x64SelectBox(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule271(sel, fn: fn, ins: ins) 'x64Rule271'
+	if x64Rule286(sel, fn: fn, ins: ins) 'x64Rule286'
 		return
-	end 'x64Rule271'
+	end 'x64Rule286'
 	panic("backend: no rule of x64.rules selects this box")
 end 'x64SelectBox'
 
 // x64SelectFrameBox writes the machine instructions of frameBox by the first of its rules that matches.
 function x64SelectFrameBox(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule272(sel, fn: fn, ins: ins) 'x64Rule272'
+	if x64Rule287(sel, fn: fn, ins: ins) 'x64Rule287'
 		return
-	end 'x64Rule272'
+	end 'x64Rule287'
 	panic("backend: no rule of x64.rules selects this frameBox")
 end 'x64SelectFrameBox'
 
 // x64SelectFrameArea writes the machine instructions of frameArea by the first of its rules that matches.
 function x64SelectFrameArea(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule273(sel, fn: fn, ins: ins) 'x64Rule273'
+	if x64Rule288(sel, fn: fn, ins: ins) 'x64Rule288'
 		return
-	end 'x64Rule273'
+	end 'x64Rule288'
 	panic("backend: no rule of x64.rules selects this frameArea")
 end 'x64SelectFrameArea'
 
 // x64SelectCallWitness writes the machine instructions of callWitness by the first of its rules that matches.
 function x64SelectCallWitness(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule263(sel, fn: fn, ins: ins) 'x64Rule263'
+	if x64Rule278(sel, fn: fn, ins: ins) 'x64Rule278'
 		return
-	end 'x64Rule263'
+	end 'x64Rule278'
 	panic("backend: no rule of x64.rules selects this callWitness")
 end 'x64SelectCallWitness'
 
 // x64SelectIsType writes the machine instructions of isType by the first of its rules that matches.
 function x64SelectIsType(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule264(sel, fn: fn, ins: ins) 'x64Rule264'
+	if x64Rule279(sel, fn: fn, ins: ins) 'x64Rule279'
 		return
-	end 'x64Rule264'
+	end 'x64Rule279'
 	panic("backend: no rule of x64.rules selects this isType")
 end 'x64SelectIsType'
 
 // x64SelectDrop writes the machine instructions of drop by the first of its rules that matches.
 function x64SelectDrop(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule274(sel, fn: fn, ins: ins) 'x64Rule274'
+	if x64Rule289(sel, fn: fn, ins: ins) 'x64Rule289'
 		return
-	end 'x64Rule274'
+	end 'x64Rule289'
 	panic("backend: no rule of x64.rules selects this drop")
 end 'x64SelectDrop'
 
 // x64SelectDropSlot writes the machine instructions of dropSlot by the first of its rules that matches.
 function x64SelectDropSlot(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule275(sel, fn: fn, ins: ins) 'x64Rule275'
+	if x64Rule290(sel, fn: fn, ins: ins) 'x64Rule290'
 		return
-	end 'x64Rule275'
+	end 'x64Rule290'
 	panic("backend: no rule of x64.rules selects this dropSlot")
 end 'x64SelectDropSlot'
 
 // x64SelectDropAt writes the machine instructions of dropAt by the first of its rules that matches.
 function x64SelectDropAt(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule276(sel, fn: fn, ins: ins) 'x64Rule276'
+	if x64Rule291(sel, fn: fn, ins: ins) 'x64Rule291'
 		return
-	end 'x64Rule276'
+	end 'x64Rule291'
 	panic("backend: no rule of x64.rules selects this dropAt")
 end 'x64SelectDropAt'
 
@@ -1469,84 +1598,84 @@ end 'x64SelectMoveAt'
 
 // x64SelectCopy writes the machine instructions of copy by the first of its rules that matches.
 function x64SelectCopy(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if x64Rule277(sel, fn: fn, ins: ins) 'x64Rule277'
+	if x64Rule292(sel, fn: fn, ins: ins) 'x64Rule292'
 		return
-	end 'x64Rule277'
+	end 'x64Rule292'
 	panic("backend: no rule of x64.rules selects this copy")
 end 'x64SelectCopy'
 
 // x64SelectJump writes the machine instructions of jump by the first of its rules that matches.
 function x64SelectJump(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if x64Rule282(sel, fn: fn, ins: ins) 'x64Rule282'
+	if x64Rule297(sel, fn: fn, ins: ins) 'x64Rule297'
 		return
-	end 'x64Rule282'
+	end 'x64Rule297'
 	panic("backend: no rule of x64.rules selects this jump")
 end 'x64SelectJump'
 
 // x64SelectBranch writes the machine instructions of branch by the first of its rules that matches.
 function x64SelectBranch(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if x64Rule283(sel, fn: fn, ins: ins) 'x64Rule283'
+	if x64Rule298(sel, fn: fn, ins: ins) 'x64Rule298'
 		return
-	end 'x64Rule283'
-	if x64Rule284(sel, fn: fn, ins: ins) 'x64Rule284'
+	end 'x64Rule298'
+	if x64Rule299(sel, fn: fn, ins: ins) 'x64Rule299'
 		return
-	end 'x64Rule284'
-	if x64Rule286(sel, fn: fn, ins: ins) 'x64Rule286'
+	end 'x64Rule299'
+	if x64Rule301(sel, fn: fn, ins: ins) 'x64Rule301'
 		return
-	end 'x64Rule286'
-	if x64Rule288(sel, fn: fn, ins: ins) 'x64Rule288'
+	end 'x64Rule301'
+	if x64Rule303(sel, fn: fn, ins: ins) 'x64Rule303'
 		return
-	end 'x64Rule288'
-	if x64Rule290(sel, fn: fn, ins: ins) 'x64Rule290'
+	end 'x64Rule303'
+	if x64Rule305(sel, fn: fn, ins: ins) 'x64Rule305'
 		return
-	end 'x64Rule290'
-	if x64Rule293(sel, fn: fn, ins: ins) 'x64Rule293'
+	end 'x64Rule305'
+	if x64Rule308(sel, fn: fn, ins: ins) 'x64Rule308'
 		return
-	end 'x64Rule293'
-	if x64Rule294(sel, fn: fn, ins: ins) 'x64Rule294'
+	end 'x64Rule308'
+	if x64Rule309(sel, fn: fn, ins: ins) 'x64Rule309'
 		return
-	end 'x64Rule294'
-	if x64Rule295(sel, fn: fn, ins: ins) 'x64Rule295'
+	end 'x64Rule309'
+	if x64Rule310(sel, fn: fn, ins: ins) 'x64Rule310'
 		return
-	end 'x64Rule295'
-	if x64Rule296(sel, fn: fn, ins: ins) 'x64Rule296'
+	end 'x64Rule310'
+	if x64Rule311(sel, fn: fn, ins: ins) 'x64Rule311'
 		return
-	end 'x64Rule296'
-	if x64Rule297(sel, fn: fn, ins: ins) 'x64Rule297'
+	end 'x64Rule311'
+	if x64Rule312(sel, fn: fn, ins: ins) 'x64Rule312'
 		return
-	end 'x64Rule297'
+	end 'x64Rule312'
 	panic("backend: no rule of x64.rules selects this branch")
 end 'x64SelectBranch'
 
 // x64SelectSwitch writes the machine instructions of switch by the first of its rules that matches.
 function x64SelectSwitch(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if x64Rule298(sel, fn: fn, ins: ins) 'x64Rule298'
+	if x64Rule313(sel, fn: fn, ins: ins) 'x64Rule313'
 		return
-	end 'x64Rule298'
+	end 'x64Rule313'
 	panic("backend: no rule of x64.rules selects this switch")
 end 'x64SelectSwitch'
 
 // x64SelectRet writes the machine instructions of ret by the first of its rules that matches.
 function x64SelectRet(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if x64Rule299(sel, fn: fn, ins: ins) 'x64Rule299'
+	if x64Rule314(sel, fn: fn, ins: ins) 'x64Rule314'
 		return
-	end 'x64Rule299'
+	end 'x64Rule314'
 	panic("backend: no rule of x64.rules selects this ret")
 end 'x64SelectRet'
 
 // x64SelectTrap writes the machine instructions of trap by the first of its rules that matches.
 function x64SelectTrap(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if x64Rule301(sel, fn: fn, ins: ins) 'x64Rule301'
+	if x64Rule316(sel, fn: fn, ins: ins) 'x64Rule316'
 		return
-	end 'x64Rule301'
+	end 'x64Rule316'
 	panic("backend: no rule of x64.rules selects this trap")
 end 'x64SelectTrap'
 
 // x64SelectThrow writes the machine instructions of throw by the first of its rules that matches.
 function x64SelectThrow(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	if x64Rule300(sel, fn: fn, ins: ins) 'x64Rule300'
+	if x64Rule315(sel, fn: fn, ins: ins) 'x64Rule315'
 		return
-	end 'x64Rule300'
+	end 'x64Rule315'
 	panic("backend: no rule of x64.rules selects this throw")
 end 'x64SelectThrow'
 
@@ -4894,8 +5023,140 @@ function x64Rule219(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	return true
 end 'x64Rule219'
 
-// x64.rules:221: (cmp x (const [0])) => (TestRegReg x x) (SetccReg [cmpCondition(ins)] b) (MovzxRegReg8 r b)
+// x64.rules:220: (vecShuffleDwords x [n]) => (PshufdRegRegImm8 r x [imm8OfByte(n)])
+function x64Rule220(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	let vX = ir.vecShuffleDwordsSrc(ins)
+	let vN = ir.vecShuffleDwordsOrder(ins)
+	let i1 = try (imm8OfByte(vN)) as Imm8 otherwise panic("backend: a value of x64.rules:220 does not fit Imm8")
+	let t2 = sel.resultOf(ins.dst)
+	var mi3 = newX64Target(X64Form.pshufdRegRegImm8, a: t2, b: vregOf(vX), c: noMReg, aux: 0, imm: i1 as FullRangeInt)
+	sel.emit(mi3)
+	return true
+end 'x64Rule220'
+
+// x64.rules:221: (vecAlignBytes h l [n]) => (PalignrRegRegImm8 h l [n])
 function x64Rule221(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	let vH = ir.vecAlignBytesHigh(ins)
+	let vL = ir.vecAlignBytesLow(ins)
+	let vN = ir.vecAlignBytesAmount(ins)
+	let i1 = try (vN) as Imm8 otherwise panic("backend: a value of x64.rules:221 does not fit Imm8")
+	let t2 = sel.resultOf(ins.dst)
+	var mi3 = newX64Target(X64Form.palignrRegRegImm8, a: t2, b: vregOf(vH), c: vregOf(vL), aux: 0, imm: i1 as FullRangeInt)
+	sel.emit(mi3)
+	return true
+end 'x64Rule221'
+
+// x64.rules:222: (vecBlendWords x y [n]) => (PblendwRegRegImm8 x y [imm8OfByte(n)])
+function x64Rule222(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	let vX = ir.vecBlendWordsLeft(ins)
+	let vY = ir.vecBlendWordsRight(ins)
+	let vN = ir.vecBlendWordsMask(ins)
+	let i1 = try (imm8OfByte(vN)) as Imm8 otherwise panic("backend: a value of x64.rules:222 does not fit Imm8")
+	let t2 = sel.resultOf(ins.dst)
+	var mi3 = newX64Target(X64Form.pblendwRegRegImm8, a: t2, b: vregOf(vX), c: vregOf(vY), aux: 0, imm: i1 as FullRangeInt)
+	sel.emit(mi3)
+	return true
+end 'x64Rule222'
+
+// x64.rules:223: (vecAes.enc s k) => (AesencRegReg s k)
+function x64Rule223(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	if ir.vecAesOp(ins) != ir.VecAesOp.vecAesEnc 'm1'
+		return false
+	end 'm1'
+	let vS = ir.vecAesState(ins)
+	let vK = ir.vecAesKey(ins)
+	let t1 = sel.resultOf(ins.dst)
+	var mi2 = newX64Target(X64Form.aesencRegReg, a: t1, b: vregOf(vS), c: vregOf(vK), aux: 0, imm: 0)
+	sel.emit(mi2)
+	return true
+end 'x64Rule223'
+
+// x64.rules:224: (vecAes.enclast s k) => (AesenclastRegReg s k)
+function x64Rule224(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	if ir.vecAesOp(ins) != ir.VecAesOp.vecAesEncLast 'm1'
+		return false
+	end 'm1'
+	let vS = ir.vecAesState(ins)
+	let vK = ir.vecAesKey(ins)
+	let t1 = sel.resultOf(ins.dst)
+	var mi2 = newX64Target(X64Form.aesenclastRegReg, a: t1, b: vregOf(vS), c: vregOf(vK), aux: 0, imm: 0)
+	sel.emit(mi2)
+	return true
+end 'x64Rule224'
+
+// x64.rules:225: (vecAes.dec s k) => (AesdecRegReg s k)
+function x64Rule225(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	if ir.vecAesOp(ins) != ir.VecAesOp.vecAesDec 'm1'
+		return false
+	end 'm1'
+	let vS = ir.vecAesState(ins)
+	let vK = ir.vecAesKey(ins)
+	let t1 = sel.resultOf(ins.dst)
+	var mi2 = newX64Target(X64Form.aesdecRegReg, a: t1, b: vregOf(vS), c: vregOf(vK), aux: 0, imm: 0)
+	sel.emit(mi2)
+	return true
+end 'x64Rule225'
+
+// x64.rules:226: (vecAes.declast s k) => (AesdeclastRegReg s k)
+function x64Rule226(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	if ir.vecAesOp(ins) != ir.VecAesOp.vecAesDecLast 'm1'
+		return false
+	end 'm1'
+	let vS = ir.vecAesState(ins)
+	let vK = ir.vecAesKey(ins)
+	let t1 = sel.resultOf(ins.dst)
+	var mi2 = newX64Target(X64Form.aesdeclastRegReg, a: t1, b: vregOf(vS), c: vregOf(vK), aux: 0, imm: 0)
+	sel.emit(mi2)
+	return true
+end 'x64Rule226'
+
+// x64.rules:227: (vecAesInvMix x) => (AesimcRegReg r x)
+function x64Rule227(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	let vX = ir.vecAesInvMixSrc(ins)
+	let t1 = sel.resultOf(ins.dst)
+	var mi2 = newX64Target(X64Form.aesimcRegReg, a: t1, b: vregOf(vX), c: noMReg, aux: 0, imm: 0)
+	sel.emit(mi2)
+	return true
+end 'x64Rule227'
+
+// x64.rules:228: (vecClmul x y [n]) => (PclmulqdqRegRegImm8 x y [n])
+function x64Rule228(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	let vX = ir.vecClmulLeft(ins)
+	let vY = ir.vecClmulRight(ins)
+	let vN = ir.vecClmulSelect(ins)
+	let i1 = try (vN) as Imm8 otherwise panic("backend: a value of x64.rules:228 does not fit Imm8")
+	let t2 = sel.resultOf(ins.dst)
+	var mi3 = newX64Target(X64Form.pclmulqdqRegRegImm8, a: t2, b: vregOf(vX), c: vregOf(vY), aux: 0, imm: i1 as FullRangeInt)
+	sel.emit(mi3)
+	return true
+end 'x64Rule228'
+
+// x64.rules:231: (vecSha) => (emitVecSha)
+function x64Rule231(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitVecSha(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule231'
+
+// x64.rules:232: (cpuid) => (emitCpuid)
+function x64Rule232(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitCpuid(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule232'
+
+// x64.rules:233: (vecAesArm) => (emitArm64Operation)
+function x64Rule233(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitArm64Operation(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule233'
+
+// x64.rules:234: (vecAesMix) => (emitArm64Operation)
+function x64Rule234(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitArm64Operation(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule234'
+
+// x64.rules:236: (cmp x (const [0])) => (TestRegReg x x) (SetccReg [cmpCondition(ins)] b) (MovzxRegReg8 r b)
+function x64Rule236(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	let vX = ir.cmpLeft(ins)
 	let reg1 = ir.cmpRight(ins)
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opConst) 'm1'
@@ -4915,10 +5176,10 @@ function x64Rule221(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi7 = newX64Target(X64Form.movzxRegReg8, a: t6, b: t4, c: noMReg, aux: 0, imm: 0)
 	sel.emit(mi7)
 	return true
-end 'x64Rule221'
+end 'x64Rule236'
 
-// x64.rules:222: (cmp (const [0]) x) => (TestRegReg x x) (SetccReg [swapped(cmpCondition(ins))] b) (MovzxRegReg8 r b)
-function x64Rule222(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:237: (cmp (const [0]) x) => (TestRegReg x x) (SetccReg [swapped(cmpCondition(ins))] b) (MovzxRegReg8 r b)
+function x64Rule237(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	let reg1 = ir.cmpLeft(ins)
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opConst) 'm1'
 		return false
@@ -4938,10 +5199,10 @@ function x64Rule222(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi7 = newX64Target(X64Form.movzxRegReg8, a: t6, b: t4, c: noMReg, aux: 0, imm: 0)
 	sel.emit(mi7)
 	return true
-end 'x64Rule222'
+end 'x64Rule237'
 
-// x64.rules:223: (cmp x (const [k])) && fitsImm32(k) => (CmpRegImm x [k]) (SetccReg [cmpCondition(ins)] b) (MovzxRegReg8 r b)
-function x64Rule223(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:238: (cmp x (const [k])) && fitsImm32(k) => (CmpRegImm x [k]) (SetccReg [cmpCondition(ins)] b) (MovzxRegReg8 r b)
+function x64Rule238(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	let vX = ir.cmpLeft(ins)
 	let reg1 = ir.cmpRight(ins)
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opConst) 'm1'
@@ -4952,7 +5213,7 @@ function x64Rule223(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	if not (fitsImm32(vK)) 'm2'
 		return false
 	end 'm2'
-	let i3 = try (vK) as Imm32 otherwise panic("backend: a value of x64.rules:223 does not fit Imm32")
+	let i3 = try (vK) as Imm32 otherwise panic("backend: a value of x64.rules:238 does not fit Imm32")
 	var mi4 = newX64Target(chooseCmpRegImm(i3), a: vregOf(vX), b: noMReg, c: noMReg, aux: 0, imm: i3 as FullRangeInt)
 	sel.emit(mi4)
 	let t5 = sel.newTemp()
@@ -4963,10 +5224,10 @@ function x64Rule223(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi8 = newX64Target(X64Form.movzxRegReg8, a: t7, b: t5, c: noMReg, aux: 0, imm: 0)
 	sel.emit(mi8)
 	return true
-end 'x64Rule223'
+end 'x64Rule238'
 
-// x64.rules:224: (cmp (const [k]) x) && fitsImm32(k) => (CmpRegImm x [k]) (SetccReg [swapped(cmpCondition(ins))] b) (MovzxRegReg8 r b)
-function x64Rule224(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:239: (cmp (const [k]) x) && fitsImm32(k) => (CmpRegImm x [k]) (SetccReg [swapped(cmpCondition(ins))] b) (MovzxRegReg8 r b)
+function x64Rule239(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	let reg1 = ir.cmpLeft(ins)
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opConst) 'm1'
 		return false
@@ -4977,7 +5238,7 @@ function x64Rule224(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	if not (fitsImm32(vK)) 'm2'
 		return false
 	end 'm2'
-	let i3 = try (vK) as Imm32 otherwise panic("backend: a value of x64.rules:224 does not fit Imm32")
+	let i3 = try (vK) as Imm32 otherwise panic("backend: a value of x64.rules:239 does not fit Imm32")
 	var mi4 = newX64Target(chooseCmpRegImm(i3), a: vregOf(vX), b: noMReg, c: noMReg, aux: 0, imm: i3 as FullRangeInt)
 	sel.emit(mi4)
 	let t5 = sel.newTemp()
@@ -4988,10 +5249,10 @@ function x64Rule224(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi8 = newX64Target(X64Form.movzxRegReg8, a: t7, b: t5, c: noMReg, aux: 0, imm: 0)
 	sel.emit(mi8)
 	return true
-end 'x64Rule224'
+end 'x64Rule239'
 
-// x64.rules:225: (cmp x y) => (CmpRegReg x y) (SetccReg [cmpCondition(ins)] b) (MovzxRegReg8 r b)
-function x64Rule225(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:240: (cmp x y) => (CmpRegReg x y) (SetccReg [cmpCondition(ins)] b) (MovzxRegReg8 r b)
+function x64Rule240(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	let vX = ir.cmpLeft(ins)
 	let vY = ir.cmpRight(ins)
 	var mi1 = newX64Target(X64Form.cmpRegReg, a: vregOf(vX), b: vregOf(vY), c: noMReg, aux: 0, imm: 0)
@@ -5004,10 +5265,10 @@ function x64Rule225(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi5 = newX64Target(X64Form.movzxRegReg8, a: t4, b: t2, c: noMReg, aux: 0, imm: 0)
 	sel.emit(mi5)
 	return true
-end 'x64Rule225'
+end 'x64Rule240'
 
-// x64.rules:228: (guard.NonNegative x [_] [f]) => (TestRegReg x x) (JccRel32 [MCond.sign] [f])
-function x64Rule228(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:243: (guard.NonNegative x [_] [f]) => (TestRegReg x x) (JccRel32 [MCond.sign] [f])
+function x64Rule243(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	if ir.guardKind(ins) != ir.GuardKind.guardNonNegative 'm1'
 		return false
 	end 'm1'
@@ -5022,10 +5283,10 @@ function x64Rule228(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	mi3.aux = r2.aux
 	sel.emit(mi3)
 	return true
-end 'x64Rule228'
+end 'x64Rule243'
 
-// x64.rules:229: (guard.NonZero x [_] [f]) => (TestRegReg x x) (JccRel32 [MCond.equal] [f])
-function x64Rule229(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:244: (guard.NonZero x [_] [f]) => (TestRegReg x x) (JccRel32 [MCond.equal] [f])
+function x64Rule244(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	if ir.guardKind(ins) != ir.GuardKind.guardNonZero 'm1'
 		return false
 	end 'm1'
@@ -5040,17 +5301,17 @@ function x64Rule229(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	mi3.aux = r2.aux
 	sel.emit(mi3)
 	return true
-end 'x64Rule229'
+end 'x64Rule244'
 
-// x64.rules:230: (guard x [bound] [f]) && fitsImm32(bound) => (CmpRegImm x [bound]) (JccRel32 [guardFailure(ins)] [f])
-function x64Rule230(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:245: (guard x [bound] [f]) && fitsImm32(bound) => (CmpRegImm x [bound]) (JccRel32 [guardFailure(ins)] [f])
+function x64Rule245(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	let vX = ir.guardSrc(ins)
 	let vBound = ir.guardBound(ins)
 	let vF = ins.c as ir.BlockID
 	if not (fitsImm32(vBound)) 'm1'
 		return false
 	end 'm1'
-	let i1 = try (vBound) as Imm32 otherwise panic("backend: a value of x64.rules:230 does not fit Imm32")
+	let i1 = try (vBound) as Imm32 otherwise panic("backend: a value of x64.rules:245 does not fit Imm32")
 	var mi2 = newX64Target(chooseCmpRegImm(i1), a: vregOf(vX), b: noMReg, c: noMReg, aux: 0, imm: i1 as FullRangeInt)
 	sel.emit(mi2)
 	let r3 = sel.edgeTo(fn, target: vF, start: 0, count: 0)
@@ -5060,10 +5321,10 @@ function x64Rule230(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	mi4.aux = r3.aux
 	sel.emit(mi4)
 	return true
-end 'x64Rule230'
+end 'x64Rule245'
 
-// x64.rules:231: (guard x [bound] [f]) => (MovRegImm t [bound]) (CmpRegReg x t) (JccRel32 [guardFailure(ins)] [f])
-function x64Rule231(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:246: (guard x [bound] [f]) => (MovRegImm t [bound]) (CmpRegReg x t) (JccRel32 [guardFailure(ins)] [f])
+function x64Rule246(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	let vX = ir.guardSrc(ins)
 	let vBound = ir.guardBound(ins)
 	let vF = ins.c as ir.BlockID
@@ -5080,10 +5341,10 @@ function x64Rule231(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	mi6.aux = r5.aux
 	sel.emit(mi6)
 	return true
-end 'x64Rule231'
+end 'x64Rule246'
 
-// x64.rules:238: (fBin.add x y) => (AddsdRegReg x y)
-function x64Rule238(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:253: (fBin.add x y) => (AddsdRegReg x y)
+function x64Rule253(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	if ir.fBinOp(ins) != ir.FBinOp.fBinAdd 'm1'
 		return false
 	end 'm1'
@@ -5093,10 +5354,10 @@ function x64Rule238(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi2 = newX64Target(X64Form.addsdRegReg, a: t1, b: vregOf(vX), c: vregOf(vY), aux: 0, imm: 0)
 	sel.emit(mi2)
 	return true
-end 'x64Rule238'
+end 'x64Rule253'
 
-// x64.rules:239: (fBin.sub x y) => (SubsdRegReg x y)
-function x64Rule239(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:254: (fBin.sub x y) => (SubsdRegReg x y)
+function x64Rule254(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	if ir.fBinOp(ins) != ir.FBinOp.fBinSub 'm1'
 		return false
 	end 'm1'
@@ -5106,10 +5367,10 @@ function x64Rule239(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi2 = newX64Target(X64Form.subsdRegReg, a: t1, b: vregOf(vX), c: vregOf(vY), aux: 0, imm: 0)
 	sel.emit(mi2)
 	return true
-end 'x64Rule239'
+end 'x64Rule254'
 
-// x64.rules:240: (fBin.mul x y) => (MulsdRegReg x y)
-function x64Rule240(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:255: (fBin.mul x y) => (MulsdRegReg x y)
+function x64Rule255(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	if ir.fBinOp(ins) != ir.FBinOp.fBinMul 'm1'
 		return false
 	end 'm1'
@@ -5119,10 +5380,10 @@ function x64Rule240(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi2 = newX64Target(X64Form.mulsdRegReg, a: t1, b: vregOf(vX), c: vregOf(vY), aux: 0, imm: 0)
 	sel.emit(mi2)
 	return true
-end 'x64Rule240'
+end 'x64Rule255'
 
-// x64.rules:241: (fBin.div x y) => (DivsdRegReg x y)
-function x64Rule241(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:256: (fBin.div x y) => (DivsdRegReg x y)
+function x64Rule256(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	if ir.fBinOp(ins) != ir.FBinOp.fBinDiv 'm1'
 		return false
 	end 'm1'
@@ -5132,10 +5393,10 @@ function x64Rule241(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi2 = newX64Target(X64Form.divsdRegReg, a: t1, b: vregOf(vX), c: vregOf(vY), aux: 0, imm: 0)
 	sel.emit(mi2)
 	return true
-end 'x64Rule241'
+end 'x64Rule256'
 
-// x64.rules:242: (fCmp.eq x y) => (UcomisdRegReg x y) (SetccReg [MCond.equal] e) (SetccReg [MCond.noParity] p) (MovzxRegReg8 r e) (MovzxRegReg8 q p) (AndRegReg r q)
-function x64Rule242(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:257: (fCmp.eq x y) => (UcomisdRegReg x y) (SetccReg [MCond.equal] e) (SetccReg [MCond.noParity] p) (MovzxRegReg8 r e) (MovzxRegReg8 q p) (AndRegReg r q)
+function x64Rule257(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	if ir.fCmpOp(ins) != ir.CmpOp.cmpEq 'm1'
 		return false
 	end 'm1'
@@ -5161,10 +5422,10 @@ function x64Rule242(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi11 = newX64Target(X64Form.andRegReg, a: t10, b: t6, c: t8, aux: 0, imm: 0)
 	sel.emit(mi11)
 	return true
-end 'x64Rule242'
+end 'x64Rule257'
 
-// x64.rules:243: (fCmp.ne x y) => (UcomisdRegReg x y) (SetccReg [MCond.notEqual] e) (SetccReg [MCond.parity] p) (MovzxRegReg8 r e) (MovzxRegReg8 q p) (OrRegReg r q)
-function x64Rule243(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:258: (fCmp.ne x y) => (UcomisdRegReg x y) (SetccReg [MCond.notEqual] e) (SetccReg [MCond.parity] p) (MovzxRegReg8 r e) (MovzxRegReg8 q p) (OrRegReg r q)
+function x64Rule258(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	if ir.fCmpOp(ins) != ir.CmpOp.cmpNe 'm1'
 		return false
 	end 'm1'
@@ -5190,10 +5451,10 @@ function x64Rule243(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi11 = newX64Target(X64Form.orRegReg, a: t10, b: t6, c: t8, aux: 0, imm: 0)
 	sel.emit(mi11)
 	return true
-end 'x64Rule243'
+end 'x64Rule258'
 
-// x64.rules:244: (fCmp.lt x y) => (UcomisdRegReg y x) (SetccReg [MCond.above] b) (MovzxRegReg8 r b)
-function x64Rule244(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:259: (fCmp.lt x y) => (UcomisdRegReg y x) (SetccReg [MCond.above] b) (MovzxRegReg8 r b)
+function x64Rule259(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	if ir.fCmpOp(ins) != ir.CmpOp.cmpLt 'm1'
 		return false
 	end 'm1'
@@ -5209,10 +5470,10 @@ function x64Rule244(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi5 = newX64Target(X64Form.movzxRegReg8, a: t4, b: t2, c: noMReg, aux: 0, imm: 0)
 	sel.emit(mi5)
 	return true
-end 'x64Rule244'
+end 'x64Rule259'
 
-// x64.rules:245: (fCmp.le x y) => (UcomisdRegReg y x) (SetccReg [MCond.aboveEqual] b) (MovzxRegReg8 r b)
-function x64Rule245(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:260: (fCmp.le x y) => (UcomisdRegReg y x) (SetccReg [MCond.aboveEqual] b) (MovzxRegReg8 r b)
+function x64Rule260(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	if ir.fCmpOp(ins) != ir.CmpOp.cmpLe 'm1'
 		return false
 	end 'm1'
@@ -5228,10 +5489,10 @@ function x64Rule245(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi5 = newX64Target(X64Form.movzxRegReg8, a: t4, b: t2, c: noMReg, aux: 0, imm: 0)
 	sel.emit(mi5)
 	return true
-end 'x64Rule245'
+end 'x64Rule260'
 
-// x64.rules:246: (fCmp.gt x y) => (UcomisdRegReg x y) (SetccReg [MCond.above] b) (MovzxRegReg8 r b)
-function x64Rule246(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:261: (fCmp.gt x y) => (UcomisdRegReg x y) (SetccReg [MCond.above] b) (MovzxRegReg8 r b)
+function x64Rule261(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	if ir.fCmpOp(ins) != ir.CmpOp.cmpGt 'm1'
 		return false
 	end 'm1'
@@ -5247,10 +5508,10 @@ function x64Rule246(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi5 = newX64Target(X64Form.movzxRegReg8, a: t4, b: t2, c: noMReg, aux: 0, imm: 0)
 	sel.emit(mi5)
 	return true
-end 'x64Rule246'
+end 'x64Rule261'
 
-// x64.rules:247: (fCmp.ge x y) => (UcomisdRegReg x y) (SetccReg [MCond.aboveEqual] b) (MovzxRegReg8 r b)
-function x64Rule247(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:262: (fCmp.ge x y) => (UcomisdRegReg x y) (SetccReg [MCond.aboveEqual] b) (MovzxRegReg8 r b)
+function x64Rule262(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	if ir.fCmpOp(ins) != ir.CmpOp.cmpGe 'm1'
 		return false
 	end 'm1'
@@ -5266,10 +5527,10 @@ function x64Rule247(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi5 = newX64Target(X64Form.movzxRegReg8, a: t4, b: t2, c: noMReg, aux: 0, imm: 0)
 	sel.emit(mi5)
 	return true
-end 'x64Rule247'
+end 'x64Rule262'
 
-// x64.rules:248: (fUnary.sqrt x) => (SqrtsdRegReg r x)
-function x64Rule248(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:263: (fUnary.sqrt x) => (SqrtsdRegReg r x)
+function x64Rule263(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	if ir.fUnaryOp(ins) != ir.FUnaryOp.fUnarySqrt 'm1'
 		return false
 	end 'm1'
@@ -5278,10 +5539,10 @@ function x64Rule248(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi2 = newX64Target(X64Form.sqrtsdRegReg, a: t1, b: vregOf(vX), c: noMReg, aux: 0, imm: 0)
 	sel.emit(mi2)
 	return true
-end 'x64Rule248'
+end 'x64Rule263'
 
-// x64.rules:249: (fUnary.round x) => (RoundsdRegRegImm8 r x [roundNearest])
-function x64Rule249(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:264: (fUnary.round x) => (RoundsdRegRegImm8 r x [roundNearest])
+function x64Rule264(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	if ir.fUnaryOp(ins) != ir.FUnaryOp.fUnaryRound 'm1'
 		return false
 	end 'm1'
@@ -5291,10 +5552,10 @@ function x64Rule249(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi3 = newX64Target(X64Form.roundsdRegRegImm8, a: t2, b: vregOf(vX), c: noMReg, aux: 0, imm: i1 as FullRangeInt)
 	sel.emit(mi3)
 	return true
-end 'x64Rule249'
+end 'x64Rule264'
 
-// x64.rules:250: (fUnary.floor x) => (RoundsdRegRegImm8 r x [roundDown])
-function x64Rule250(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:265: (fUnary.floor x) => (RoundsdRegRegImm8 r x [roundDown])
+function x64Rule265(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	if ir.fUnaryOp(ins) != ir.FUnaryOp.fUnaryFloor 'm1'
 		return false
 	end 'm1'
@@ -5304,10 +5565,10 @@ function x64Rule250(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi3 = newX64Target(X64Form.roundsdRegRegImm8, a: t2, b: vregOf(vX), c: noMReg, aux: 0, imm: i1 as FullRangeInt)
 	sel.emit(mi3)
 	return true
-end 'x64Rule250'
+end 'x64Rule265'
 
-// x64.rules:251: (fUnary.ceil x) => (RoundsdRegRegImm8 r x [roundUp])
-function x64Rule251(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:266: (fUnary.ceil x) => (RoundsdRegRegImm8 r x [roundUp])
+function x64Rule266(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	if ir.fUnaryOp(ins) != ir.FUnaryOp.fUnaryCeil 'm1'
 		return false
 	end 'm1'
@@ -5317,10 +5578,10 @@ function x64Rule251(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi3 = newX64Target(X64Form.roundsdRegRegImm8, a: t2, b: vregOf(vX), c: noMReg, aux: 0, imm: i1 as FullRangeInt)
 	sel.emit(mi3)
 	return true
-end 'x64Rule251'
+end 'x64Rule266'
 
-// x64.rules:253: (intToFloat.!unsigned x) => (Cvtsi2sdRegReg r x)
-function x64Rule253(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:268: (intToFloat.!unsigned x) => (Cvtsi2sdRegReg r x)
+function x64Rule268(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	if ir.intToFloatUnsigned(ins) 'm1'
 		return false
 	end 'm1'
@@ -5329,151 +5590,151 @@ function x64Rule253(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) return
 	var mi2 = newX64Target(X64Form.cvtsi2sdRegReg, a: t1, b: vregOf(vX), c: noMReg, aux: 0, imm: 0)
 	sel.emit(mi2)
 	return true
-end 'x64Rule253'
+end 'x64Rule268'
 
-// x64.rules:254: (intToFloat) => (emitUnsignedToFloat)
-function x64Rule254(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:269: (intToFloat) => (emitUnsignedToFloat)
+function x64Rule269(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	emitUnsignedToFloat(sel, fn: fn, ins: ins)
 	return true
-end 'x64Rule254'
+end 'x64Rule269'
 
-// x64.rules:255: (floatToInt x) => (Cvttsd2siRegReg r x)
-function x64Rule255(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+// x64.rules:270: (floatToInt x) => (Cvttsd2siRegReg r x)
+function x64Rule270(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
 	let vX = ir.floatToIntSrc(ins)
 	let t1 = sel.resultOf(ins.dst)
 	var mi2 = newX64Target(X64Form.cvttsd2siRegReg, a: t1, b: vregOf(vX), c: noMReg, aux: 0, imm: 0)
 	sel.emit(mi2)
 	return true
-end 'x64Rule255'
-
-// x64.rules:257: (callImport) => (emitCallImport)
-function x64Rule257(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitCallImport(sel, fn: fn, ins: ins)
-	return true
-end 'x64Rule257'
-
-// x64.rules:258: (callCode) => (emitCallCode)
-function x64Rule258(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitCallCode(sel, fn: fn, ins: ins)
-	return true
-end 'x64Rule258'
-
-// x64.rules:259: (callHost) => (emitCallHost)
-function x64Rule259(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitCallHost(sel, fn: fn, ins: ins)
-	return true
-end 'x64Rule259'
-
-// x64.rules:260: (call) => (emitCall)
-function x64Rule260(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitCall(sel, fn: fn, ins: ins)
-	return true
-end 'x64Rule260'
-
-// x64.rules:261: (callRuntime) => (emitCallRuntime)
-function x64Rule261(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitCallRuntime(sel, fn: fn, ins: ins)
-	return true
-end 'x64Rule261'
-
-// x64.rules:262: (callValue) => (emitCallValue)
-function x64Rule262(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitCallValue(sel, fn: fn, ins: ins)
-	return true
-end 'x64Rule262'
-
-// x64.rules:263: (callWitness) => (emitCallWitness)
-function x64Rule263(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitCallWitness(sel, fn: fn, ins: ins)
-	return true
-end 'x64Rule263'
-
-// x64.rules:264: (isType) => (emitIsType)
-function x64Rule264(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitIsType(sel, fn: fn, ins: ins)
-	return true
-end 'x64Rule264'
-
-// x64.rules:265: (alloc) => (emitAlloc)
-function x64Rule265(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitAlloc(sel, fn: fn, ins: ins)
-	return true
-end 'x64Rule265'
-
-// x64.rules:266: (when) => (emitWhen)
-function x64Rule266(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitWhen(sel, fn: fn, ins: ins)
-	return true
-end 'x64Rule266'
-
-// x64.rules:267: (async) => (emitAsync)
-function x64Rule267(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitAsync(sel, fn: fn, ins: ins)
-	return true
-end 'x64Rule267'
-
-// x64.rules:268: (closure) => (emitClosure)
-function x64Rule268(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitClosure(sel, fn: fn, ins: ins)
-	return true
-end 'x64Rule268'
-
-// x64.rules:269: (funcValue) => (emitFuncValue)
-function x64Rule269(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitFuncValue(sel, fn: fn, ins: ins)
-	return true
-end 'x64Rule269'
-
-// x64.rules:270: (bodyAddress) => (emitBodyAddress)
-function x64Rule270(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitBodyAddress(sel, fn: fn, ins: ins)
-	return true
 end 'x64Rule270'
 
-// x64.rules:271: (box) => (emitBox)
-function x64Rule271(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitBox(sel, fn: fn, ins: ins)
-	return true
-end 'x64Rule271'
-
-// x64.rules:272: (frameBox) => (emitFrameBox)
+// x64.rules:272: (callImport) => (emitCallImport)
 function x64Rule272(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitFrameBox(sel, fn: fn, ins: ins)
+	emitCallImport(sel, fn: fn, ins: ins)
 	return true
 end 'x64Rule272'
 
-// x64.rules:273: (frameArea) => (emitFrameArea)
+// x64.rules:273: (callCode) => (emitCallCode)
 function x64Rule273(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitFrameArea(sel, fn: fn, ins: ins)
+	emitCallCode(sel, fn: fn, ins: ins)
 	return true
 end 'x64Rule273'
 
-// x64.rules:274: (drop) => (emitDropValue)
+// x64.rules:274: (callHost) => (emitCallHost)
 function x64Rule274(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitDropValue(sel, fn: fn, ins: ins)
+	emitCallHost(sel, fn: fn, ins: ins)
 	return true
 end 'x64Rule274'
 
-// x64.rules:275: (dropSlot) => (emitDropSlot)
+// x64.rules:275: (call) => (emitCall)
 function x64Rule275(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitDropSlot(sel, fn: fn, ins: ins)
+	emitCall(sel, fn: fn, ins: ins)
 	return true
 end 'x64Rule275'
 
-// x64.rules:276: (dropAt) => (emitDropAt)
+// x64.rules:276: (callRuntime) => (emitCallRuntime)
 function x64Rule276(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitDropAt(sel, fn: fn, ins: ins)
+	emitCallRuntime(sel, fn: fn, ins: ins)
 	return true
 end 'x64Rule276'
 
-// x64.rules:277: (copy) => (emitCopyValue)
+// x64.rules:277: (callValue) => (emitCallValue)
 function x64Rule277(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
-	emitCopyValue(sel, fn: fn, ins: ins)
+	emitCallValue(sel, fn: fn, ins: ins)
 	return true
 end 'x64Rule277'
 
-// x64.rules:282: (jump [b]) => (JmpRel32 [b])
-function x64Rule282(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:278: (callWitness) => (emitCallWitness)
+function x64Rule278(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitCallWitness(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule278'
+
+// x64.rules:279: (isType) => (emitIsType)
+function x64Rule279(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitIsType(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule279'
+
+// x64.rules:280: (alloc) => (emitAlloc)
+function x64Rule280(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitAlloc(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule280'
+
+// x64.rules:281: (when) => (emitWhen)
+function x64Rule281(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitWhen(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule281'
+
+// x64.rules:282: (async) => (emitAsync)
+function x64Rule282(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitAsync(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule282'
+
+// x64.rules:283: (closure) => (emitClosure)
+function x64Rule283(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitClosure(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule283'
+
+// x64.rules:284: (funcValue) => (emitFuncValue)
+function x64Rule284(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitFuncValue(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule284'
+
+// x64.rules:285: (bodyAddress) => (emitBodyAddress)
+function x64Rule285(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitBodyAddress(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule285'
+
+// x64.rules:286: (box) => (emitBox)
+function x64Rule286(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitBox(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule286'
+
+// x64.rules:287: (frameBox) => (emitFrameBox)
+function x64Rule287(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitFrameBox(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule287'
+
+// x64.rules:288: (frameArea) => (emitFrameArea)
+function x64Rule288(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitFrameArea(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule288'
+
+// x64.rules:289: (drop) => (emitDropValue)
+function x64Rule289(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitDropValue(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule289'
+
+// x64.rules:290: (dropSlot) => (emitDropSlot)
+function x64Rule290(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitDropSlot(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule290'
+
+// x64.rules:291: (dropAt) => (emitDropAt)
+function x64Rule291(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitDropAt(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule291'
+
+// x64.rules:292: (copy) => (emitCopyValue)
+function x64Rule292(mutates sel Selector, fn ir.IrFunction, ins ir.Instr) returns bool
+	emitCopyValue(sel, fn: fn, ins: ins)
+	return true
+end 'x64Rule292'
+
+// x64.rules:297: (jump [b]) => (JmpRel32 [b])
+function x64Rule297(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let vB = ir.jumpTarget(ins)
 	let r1 = sel.edgeTo(fn, target: vB, start: ir.jumpArgsStart(ins), count: ir.jumpArgsCount(ins))
 	var mi2 = newX64Target(X64Form.jmpRel32, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
@@ -5481,10 +5742,10 @@ function x64Rule282(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns
 	mi2.aux = r1.aux
 	sel.emit(mi2)
 	return true
-end 'x64Rule282'
+end 'x64Rule297'
 
-// x64.rules:283: (branch c:(cmp x (const [0])) [yes] [no]) && sel.fuses(fn, r: c) => (TestRegReg x x) (JccRel32 [negated(condOf(sel, fn: fn, r: c))] [no]) (JmpRel32 [yes])
-function x64Rule283(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:298: (branch c:(cmp x (const [0])) [yes] [no]) && sel.fuses(fn, r: c) => (TestRegReg x x) (JccRel32 [negated(condOf(sel, fn: fn, r: c))] [no]) (JmpRel32 [yes])
+function x64Rule298(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -5519,10 +5780,10 @@ function x64Rule283(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns
 	mi9.aux = r8.aux
 	sel.emit(mi9)
 	return true
-end 'x64Rule283'
+end 'x64Rule298'
 
-// x64.rules:284: (branch c:(cmp (const [0]) x) [yes] [no]) && sel.fuses(fn, r: c) => (TestRegReg x x) (JccRel32 [negated(swapped(condOf(sel, fn: fn, r: c)))] [no]) (JmpRel32 [yes])
-function x64Rule284(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:299: (branch c:(cmp (const [0]) x) [yes] [no]) && sel.fuses(fn, r: c) => (TestRegReg x x) (JccRel32 [negated(swapped(condOf(sel, fn: fn, r: c)))] [no]) (JmpRel32 [yes])
+function x64Rule299(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -5557,10 +5818,10 @@ function x64Rule284(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns
 	mi9.aux = r8.aux
 	sel.emit(mi9)
 	return true
-end 'x64Rule284'
+end 'x64Rule299'
 
-// x64.rules:286: (branch c:(cmp x (const [k])) [yes] [no]) && fitsImm32(k) and sel.fuses(fn, r: c) => (CmpRegImm x [k]) (JccRel32 [negated(condOf(sel, fn: fn, r: c))] [no]) (JmpRel32 [yes])
-function x64Rule286(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:301: (branch c:(cmp x (const [k])) [yes] [no]) && fitsImm32(k) and sel.fuses(fn, r: c) => (CmpRegImm x [k]) (JccRel32 [negated(condOf(sel, fn: fn, r: c))] [no]) (JmpRel32 [yes])
+function x64Rule301(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -5579,7 +5840,7 @@ function x64Rule286(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns
 	if not (fitsImm32(vK) and sel.fuses(fn, r: vC)) 'm3'
 		return false
 	end 'm3'
-	let i5 = try (vK) as Imm32 otherwise panic("backend: a value of x64.rules:286 does not fit Imm32")
+	let i5 = try (vK) as Imm32 otherwise panic("backend: a value of x64.rules:301 does not fit Imm32")
 	var mi6 = newX64Target(chooseCmpRegImm(i5), a: vregOf(vX), b: noMReg, c: noMReg, aux: 0, imm: i5 as FullRangeInt)
 	sel.emit(mi6)
 	let r7 = sel.edgeTo(fn, target: vNo, start: ir.branchFalseArgsStart(ins), count: ir.branchFalseArgsCount(ins))
@@ -5594,10 +5855,10 @@ function x64Rule286(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns
 	mi10.aux = r9.aux
 	sel.emit(mi10)
 	return true
-end 'x64Rule286'
+end 'x64Rule301'
 
-// x64.rules:288: (branch c:(cmp (const [k]) x) [yes] [no]) && fitsImm32(k) and sel.fuses(fn, r: c) => (CmpRegImm x [k]) (JccRel32 [negated(swapped(condOf(sel, fn: fn, r: c)))] [no]) (JmpRel32 [yes])
-function x64Rule288(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:303: (branch c:(cmp (const [k]) x) [yes] [no]) && fitsImm32(k) and sel.fuses(fn, r: c) => (CmpRegImm x [k]) (JccRel32 [negated(swapped(condOf(sel, fn: fn, r: c)))] [no]) (JmpRel32 [yes])
+function x64Rule303(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -5616,7 +5877,7 @@ function x64Rule288(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns
 	if not (fitsImm32(vK) and sel.fuses(fn, r: vC)) 'm3'
 		return false
 	end 'm3'
-	let i5 = try (vK) as Imm32 otherwise panic("backend: a value of x64.rules:288 does not fit Imm32")
+	let i5 = try (vK) as Imm32 otherwise panic("backend: a value of x64.rules:303 does not fit Imm32")
 	var mi6 = newX64Target(chooseCmpRegImm(i5), a: vregOf(vX), b: noMReg, c: noMReg, aux: 0, imm: i5 as FullRangeInt)
 	sel.emit(mi6)
 	let r7 = sel.edgeTo(fn, target: vNo, start: ir.branchFalseArgsStart(ins), count: ir.branchFalseArgsCount(ins))
@@ -5631,10 +5892,10 @@ function x64Rule288(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns
 	mi10.aux = r9.aux
 	sel.emit(mi10)
 	return true
-end 'x64Rule288'
+end 'x64Rule303'
 
-// x64.rules:290: (branch c:(cmp x y) [yes] [no]) && sel.fuses(fn, r: c) => (CmpRegReg x y) (JccRel32 [negated(condOf(sel, fn: fn, r: c))] [no]) (JmpRel32 [yes])
-function x64Rule290(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:305: (branch c:(cmp x y) [yes] [no]) && sel.fuses(fn, r: c) => (CmpRegReg x y) (JccRel32 [negated(condOf(sel, fn: fn, r: c))] [no]) (JmpRel32 [yes])
+function x64Rule305(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opCmp) 'm1'
@@ -5662,10 +5923,10 @@ function x64Rule290(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns
 	mi7.aux = r6.aux
 	sel.emit(mi7)
 	return true
-end 'x64Rule290'
+end 'x64Rule305'
 
-// x64.rules:293: (branch c:(fCmp.lt x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg y x) (JccRel32 [MCond.belowEqual] [no]) (JmpRel32 [yes])
-function x64Rule293(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:308: (branch c:(fCmp.lt x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg y x) (JccRel32 [MCond.belowEqual] [no]) (JmpRel32 [yes])
+function x64Rule308(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opFCmp) 'm1'
@@ -5696,10 +5957,10 @@ function x64Rule293(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns
 	mi7.aux = r6.aux
 	sel.emit(mi7)
 	return true
-end 'x64Rule293'
+end 'x64Rule308'
 
-// x64.rules:294: (branch c:(fCmp.le x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg y x) (JccRel32 [MCond.below] [no]) (JmpRel32 [yes])
-function x64Rule294(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:309: (branch c:(fCmp.le x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg y x) (JccRel32 [MCond.below] [no]) (JmpRel32 [yes])
+function x64Rule309(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opFCmp) 'm1'
@@ -5730,10 +5991,10 @@ function x64Rule294(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns
 	mi7.aux = r6.aux
 	sel.emit(mi7)
 	return true
-end 'x64Rule294'
+end 'x64Rule309'
 
-// x64.rules:295: (branch c:(fCmp.gt x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg x y) (JccRel32 [MCond.belowEqual] [no]) (JmpRel32 [yes])
-function x64Rule295(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:310: (branch c:(fCmp.gt x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg x y) (JccRel32 [MCond.belowEqual] [no]) (JmpRel32 [yes])
+function x64Rule310(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opFCmp) 'm1'
@@ -5764,10 +6025,10 @@ function x64Rule295(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns
 	mi7.aux = r6.aux
 	sel.emit(mi7)
 	return true
-end 'x64Rule295'
+end 'x64Rule310'
 
-// x64.rules:296: (branch c:(fCmp.ge x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg x y) (JccRel32 [MCond.below] [no]) (JmpRel32 [yes])
-function x64Rule296(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:311: (branch c:(fCmp.ge x y) [yes] [no]) && sel.fuses(fn, r: c) => (UcomisdRegReg x y) (JccRel32 [MCond.below] [no]) (JmpRel32 [yes])
+function x64Rule311(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let reg1 = ir.branchCond(ins)
 	let vC = reg1
 	if not sel.definedBy(fn, r: reg1, op: ir.Opcode.opFCmp) 'm1'
@@ -5798,10 +6059,10 @@ function x64Rule296(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns
 	mi7.aux = r6.aux
 	sel.emit(mi7)
 	return true
-end 'x64Rule296'
+end 'x64Rule311'
 
-// x64.rules:297: (branch c [yes] [no]) => (TestRegReg c c) (JccRel32 [MCond.equal] [no]) (JmpRel32 [yes])
-function x64Rule297(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:312: (branch c [yes] [no]) => (TestRegReg c c) (JccRel32 [MCond.equal] [no]) (JmpRel32 [yes])
+function x64Rule312(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	let vC = ir.branchCond(ins)
 	let vYes = ir.branchIfTrue(ins)
 	let vNo = ir.branchIfFalse(ins)
@@ -5819,29 +6080,29 @@ function x64Rule297(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns
 	mi5.aux = r4.aux
 	sel.emit(mi5)
 	return true
-end 'x64Rule297'
+end 'x64Rule312'
 
-// x64.rules:298: (switch) => (emitSwitch)
-function x64Rule298(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:313: (switch) => (emitSwitch)
+function x64Rule313(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	emitSwitch(sel, fn: fn, ins: ins)
 	return true
-end 'x64Rule298'
+end 'x64Rule313'
 
-// x64.rules:299: (ret) => (emitRet)
-function x64Rule299(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:314: (ret) => (emitRet)
+function x64Rule314(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	emitRet(sel, fn: fn, ins: ins)
 	return true
-end 'x64Rule299'
+end 'x64Rule314'
 
-// x64.rules:300: (throw) => (emitThrow)
-function x64Rule300(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:315: (throw) => (emitThrow)
+function x64Rule315(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	emitThrow(sel, fn: fn, ins: ins)
 	return true
-end 'x64Rule300'
+end 'x64Rule315'
 
-// x64.rules:301: (trap) => (Ud2)
-function x64Rule301(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
+// x64.rules:316: (trap) => (Ud2)
+function x64Rule316(mutates sel Selector, fn ir.IrFunction, ins ir.Term) returns bool
 	var mi1 = newX64Target(X64Form.ud2, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
 	sel.emit(mi1)
 	return true
-end 'x64Rule301'
+end 'x64Rule316'

@@ -82,6 +82,16 @@ export enum Opcode
 	opVecWord
 	opVecBin
 	opVecShift
+	opVecShuffleDwords
+	opVecAlignBytes
+	opVecBlendWords
+	opVecAes
+	opVecAesInvMix
+	opVecAesArm
+	opVecAesMix
+	opVecClmul
+	opVecSha
+	opCpuid
 	opBuffer
 	opElemAt
 	opElemAddrAt
@@ -722,6 +732,177 @@ export function vecShiftOpOf(code Byte) returns VecShiftOp
 	end 'code'
 end 'vecShiftOpOf'
 
+// VecAesOp is the round of a VecAes, as x64's AES instructions do it: Enc is ShiftRows, SubBytes and MixColumns
+// and then the key's exclusive or, EncLast the same without MixColumns, and Dec and DecLast their inverses (InvShiftRows,
+// InvSubBytes, InvMixColumns, the key), which arm64 makes of aese and aesd with a zero key, aesmc or aesimc and an eor.
+export enum VecAesOp
+	vecAesEnc
+	vecAesEncLast
+	vecAesDec
+	vecAesDecLast
+end 'VecAesOp'
+
+// vecAesOpText is how the printer writes a VecAesOp.
+export function vecAesOpText(v VecAesOp) returns String
+	if v == VecAesOp.vecAesEnc 'vecAesEnc'
+		return "enc"
+	end 'vecAesEnc'
+	if v == VecAesOp.vecAesEncLast 'vecAesEncLast'
+		return "enclast"
+	end 'vecAesEncLast'
+	if v == VecAesOp.vecAesDec 'vecAesDec'
+		return "dec"
+	end 'vecAesDec'
+	if v == VecAesOp.vecAesDecLast 'vecAesDecLast'
+		return "declast"
+	end 'vecAesDecLast'
+	panic("ir: a VecAesOp with no text")
+end 'vecAesOpText'
+
+// vecAesOpCode is the number an instruction holds a VecAesOp as, the one Go's VecAesOp has.
+export function vecAesOpCode(v VecAesOp) returns Byte
+	if v == VecAesOp.vecAesEnc 'vecAesEnc'
+		return 0 as Byte
+	end 'vecAesEnc'
+	if v == VecAesOp.vecAesEncLast 'vecAesEncLast'
+		return 1 as Byte
+	end 'vecAesEncLast'
+	if v == VecAesOp.vecAesDec 'vecAesDec'
+		return 2 as Byte
+	end 'vecAesDec'
+	if v == VecAesOp.vecAesDecLast 'vecAesDecLast'
+		return 3 as Byte
+	end 'vecAesDecLast'
+	panic("ir: a VecAesOp with no number")
+end 'vecAesOpCode'
+
+// vecAesOpOf is the VecAesOp an instruction holds as a number.
+export function vecAesOpOf(code Byte) returns VecAesOp
+	return match code 'code'
+		0 gives VecAesOp.vecAesEnc
+		1 gives VecAesOp.vecAesEncLast
+		2 gives VecAesOp.vecAesDec
+		3 gives VecAesOp.vecAesDecLast
+		default panic("ir: a number that is no VecAesOp")
+	end 'code'
+end 'vecAesOpOf'
+
+// VecAesArmOp is the round of a VecAesArm, as arm64's aese and aesd do it: the key's exclusive or first, and then
+// ShiftRows and SubBytes, or their inverses, with no MixColumns.
+export enum VecAesArmOp
+	vecAesArmEncrypt
+	vecAesArmDecrypt
+end 'VecAesArmOp'
+
+// vecAesArmOpText is how the printer writes a VecAesArmOp.
+export function vecAesArmOpText(v VecAesArmOp) returns String
+	if v == VecAesArmOp.vecAesArmEncrypt 'vecAesArmEncrypt'
+		return "aese"
+	end 'vecAesArmEncrypt'
+	if v == VecAesArmOp.vecAesArmDecrypt 'vecAesArmDecrypt'
+		return "aesd"
+	end 'vecAesArmDecrypt'
+	panic("ir: a VecAesArmOp with no text")
+end 'vecAesArmOpText'
+
+// vecAesArmOpCode is the number an instruction holds a VecAesArmOp as, the one Go's VecAesArmOp has.
+export function vecAesArmOpCode(v VecAesArmOp) returns Byte
+	if v == VecAesArmOp.vecAesArmEncrypt 'vecAesArmEncrypt'
+		return 0 as Byte
+	end 'vecAesArmEncrypt'
+	if v == VecAesArmOp.vecAesArmDecrypt 'vecAesArmDecrypt'
+		return 1 as Byte
+	end 'vecAesArmDecrypt'
+	panic("ir: a VecAesArmOp with no number")
+end 'vecAesArmOpCode'
+
+// vecAesArmOpOf is the VecAesArmOp an instruction holds as a number.
+export function vecAesArmOpOf(code Byte) returns VecAesArmOp
+	return match code 'code'
+		0 gives VecAesArmOp.vecAesArmEncrypt
+		1 gives VecAesArmOp.vecAesArmDecrypt
+		default panic("ir: a number that is no VecAesArmOp")
+	end 'code'
+end 'vecAesArmOpOf'
+
+// VecShaOp is the SHA-256 instruction of a VecSha: x64's Rnds2, Msg1 and Msg2, and arm64's H, H2, Su0 and Su1, each
+// of which only its own back end selects, since the two instruction sets split the rounds and the schedule differently.
+export enum VecShaOp
+	vecShaRnds2
+	vecShaMsg1
+	vecShaMsg2
+	vecShaH
+	vecShaH2
+	vecShaSu0
+	vecShaSu1
+end 'VecShaOp'
+
+// vecShaOpText is how the printer writes a VecShaOp.
+export function vecShaOpText(v VecShaOp) returns String
+	if v == VecShaOp.vecShaRnds2 'vecShaRnds2'
+		return "sha256rnds2"
+	end 'vecShaRnds2'
+	if v == VecShaOp.vecShaMsg1 'vecShaMsg1'
+		return "sha256msg1"
+	end 'vecShaMsg1'
+	if v == VecShaOp.vecShaMsg2 'vecShaMsg2'
+		return "sha256msg2"
+	end 'vecShaMsg2'
+	if v == VecShaOp.vecShaH 'vecShaH'
+		return "sha256h"
+	end 'vecShaH'
+	if v == VecShaOp.vecShaH2 'vecShaH2'
+		return "sha256h2"
+	end 'vecShaH2'
+	if v == VecShaOp.vecShaSu0 'vecShaSu0'
+		return "sha256su0"
+	end 'vecShaSu0'
+	if v == VecShaOp.vecShaSu1 'vecShaSu1'
+		return "sha256su1"
+	end 'vecShaSu1'
+	panic("ir: a VecShaOp with no text")
+end 'vecShaOpText'
+
+// vecShaOpCode is the number an instruction holds a VecShaOp as, the one Go's VecShaOp has.
+export function vecShaOpCode(v VecShaOp) returns Byte
+	if v == VecShaOp.vecShaRnds2 'vecShaRnds2'
+		return 0 as Byte
+	end 'vecShaRnds2'
+	if v == VecShaOp.vecShaMsg1 'vecShaMsg1'
+		return 1 as Byte
+	end 'vecShaMsg1'
+	if v == VecShaOp.vecShaMsg2 'vecShaMsg2'
+		return 2 as Byte
+	end 'vecShaMsg2'
+	if v == VecShaOp.vecShaH 'vecShaH'
+		return 3 as Byte
+	end 'vecShaH'
+	if v == VecShaOp.vecShaH2 'vecShaH2'
+		return 4 as Byte
+	end 'vecShaH2'
+	if v == VecShaOp.vecShaSu0 'vecShaSu0'
+		return 5 as Byte
+	end 'vecShaSu0'
+	if v == VecShaOp.vecShaSu1 'vecShaSu1'
+		return 6 as Byte
+	end 'vecShaSu1'
+	panic("ir: a VecShaOp with no number")
+end 'vecShaOpCode'
+
+// vecShaOpOf is the VecShaOp an instruction holds as a number.
+export function vecShaOpOf(code Byte) returns VecShaOp
+	return match code 'code'
+		0 gives VecShaOp.vecShaRnds2
+		1 gives VecShaOp.vecShaMsg1
+		2 gives VecShaOp.vecShaMsg2
+		3 gives VecShaOp.vecShaH
+		4 gives VecShaOp.vecShaH2
+		5 gives VecShaOp.vecShaSu0
+		6 gives VecShaOp.vecShaSu1
+		default panic("ir: a number that is no VecShaOp")
+	end 'code'
+end 'vecShaOpOf'
+
 // flagBorrow is on a StoreSlot whose slot only names a part of the match subject for the arm, and owns nothing, on a
 // Box that only lends the value it holds, and on a StoreField of a field that borrows what it holds.
 export let flagBorrow = 1 as Byte
@@ -933,6 +1114,36 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opVecShift 'opVecShift'
 		return 0
 	end 'opVecShift'
+	if op == Opcode.opVecShuffleDwords 'opVecShuffleDwords'
+		return 0
+	end 'opVecShuffleDwords'
+	if op == Opcode.opVecAlignBytes 'opVecAlignBytes'
+		return 0
+	end 'opVecAlignBytes'
+	if op == Opcode.opVecBlendWords 'opVecBlendWords'
+		return 0
+	end 'opVecBlendWords'
+	if op == Opcode.opVecAes 'opVecAes'
+		return 0
+	end 'opVecAes'
+	if op == Opcode.opVecAesInvMix 'opVecAesInvMix'
+		return 0
+	end 'opVecAesInvMix'
+	if op == Opcode.opVecAesArm 'opVecAesArm'
+		return 0
+	end 'opVecAesArm'
+	if op == Opcode.opVecAesMix 'opVecAesMix'
+		return 0
+	end 'opVecAesMix'
+	if op == Opcode.opVecClmul 'opVecClmul'
+		return 0
+	end 'opVecClmul'
+	if op == Opcode.opVecSha 'opVecSha'
+		return 0
+	end 'opVecSha'
+	if op == Opcode.opCpuid 'opCpuid'
+		return 0
+	end 'opCpuid'
 	if op == Opcode.opBuffer 'opBuffer'
 		return 1
 	end 'opBuffer'
@@ -1604,6 +1815,111 @@ export function newVecShift(dst Reg, op VecShiftOp, src Reg, amount Count) retur
 	return r
 end 'newVecShift'
 
+// VecShuffleDwords gives the vector whose 32-bit lane i is lane (Order >> 2i) & 3 of Src, Order a constant
+// below 256: x64's pshufd.
+export function newVecShuffleDwords(dst Reg, src Reg, order Count) returns Instr
+	var r = Instr.make(Opcode.opVecShuffleDwords)
+	r.dst = dst
+	r.a = src
+	r.imm = try order as Word otherwise panic("ir: vecShuffleDwords order is out of range")
+	return r
+end 'newVecShuffleDwords'
+
+// VecAlignBytes gives the 16 bytes from byte Amount on of the 32 that are Low and then High, Amount a constant
+// from 1 to 15: x64's palignr and arm64's ext.
+export function newVecAlignBytes(dst Reg, high Reg, low Reg, amount Count) returns Instr
+	var r = Instr.make(Opcode.opVecAlignBytes)
+	r.dst = dst
+	r.a = high
+	r.b = low
+	r.imm = try amount as Word otherwise panic("ir: vecAlignBytes amount is out of range")
+	return r
+end 'newVecAlignBytes'
+
+// VecBlendWords gives the vector whose 16-bit lane i is Right's where bit i of Mask is set and Left's where it
+// is clear, Mask a constant below 256: x64's pblendw.
+export function newVecBlendWords(dst Reg, left Reg, right Reg, mask Count) returns Instr
+	var r = Instr.make(Opcode.opVecBlendWords)
+	r.dst = dst
+	r.a = left
+	r.b = right
+	r.imm = try mask as Word otherwise panic("ir: vecBlendWords mask is out of range")
+	return r
+end 'newVecBlendWords'
+
+// VecAes is one AES round of State with the round key Key, by Op.
+export function newVecAes(dst Reg, op VecAesOp, state Reg, key Reg) returns Instr
+	var r = Instr.make(Opcode.opVecAes)
+	r.dst = dst
+	r.sub = vecAesOpCode(op)
+	r.a = state
+	r.b = key
+	return r
+end 'newVecAes'
+
+// VecAesInvMix is InvMixColumns of Src, which turns an encryption round key into the decryption key of the same
+// round: x64's aesimc and arm64's.
+export function newVecAesInvMix(dst Reg, src Reg) returns Instr
+	var r = Instr.make(Opcode.opVecAesInvMix)
+	r.dst = dst
+	r.a = src
+	return r
+end 'newVecAesInvMix'
+
+// VecAesArm is arm64's aese or aesd of State with Key, by Op; only arm64's back end selects it.
+export function newVecAesArm(dst Reg, op VecAesArmOp, state Reg, key Reg) returns Instr
+	var r = Instr.make(Opcode.opVecAesArm)
+	r.dst = dst
+	r.sub = vecAesArmOpCode(op)
+	r.a = state
+	r.b = key
+	return r
+end 'newVecAesArm'
+
+// VecAesMix is MixColumns of Src, arm64's aesmc; only arm64's back end selects it.
+export function newVecAesMix(dst Reg, src Reg) returns Instr
+	var r = Instr.make(Opcode.opVecAesMix)
+	r.dst = dst
+	r.a = src
+	return r
+end 'newVecAesMix'
+
+// VecClmul is the carry-less product of a 64-bit lane of Left and one of Right, the 128 bits of it: Select is
+// 0x00, 0x01, 0x10 or 0x11, whose low digit picks Left's lane and whose high digit Right's, as pclmulqdq's immediate does.
+export function newVecClmul(dst Reg, left Reg, right Reg, select Count) returns Instr
+	var r = Instr.make(Opcode.opVecClmul)
+	r.dst = dst
+	r.a = left
+	r.b = right
+	r.imm = try select as Word otherwise panic("ir: vecClmul select is out of range")
+	return r
+end 'newVecClmul'
+
+// VecSha is the SHA-256 instruction Op of its two or three vectors in Args, the first of which the instruction
+// reads and gives the result in place of: x64's Rnds2 takes the state's C, D, G and H, then A, B, E and F, then the two
+// message words with their constants (which it reads in xmm0), Msg1 and Msg2 two vectors of the schedule; arm64's H and H2
+// take the half of the state they give, the other half and the message words with their constants, Su0 two vectors of the
+// schedule and Su1 three.
+export function newVecSha(dst Reg, op VecShaOp, argsStart Reg, argsCount Reg) returns Instr
+	var r = Instr.make(Opcode.opVecSha)
+	r.dst = dst
+	r.sub = vecShaOpCode(op)
+	r.a = argsStart
+	r.b = argsCount
+	return r
+end 'newVecSha'
+
+// Cpuid gives the word that x64's cpuid of the leaf Leaf and the subleaf Subleaf writes to the register Register,
+// a constant: 0 for eax, 1 for ebx, 2 for ecx and 3 for edx; only x64's back end selects it.
+export function newCpuid(dst Reg, leaf Reg, subleaf Reg, register Count) returns Instr
+	var r = Instr.make(Opcode.opCpuid)
+	r.dst = dst
+	r.a = leaf
+	r.b = subleaf
+	r.imm = try register as Word otherwise panic("ir: cpuid register is out of range")
+	return r
+end 'newCpuid'
+
 // Buffer reads the address of the elements of Src, an array or a byte array, which a push that grows it moves.
 export function newBuffer(dst Reg, src Reg) returns Instr
 	var r = Instr.make(Opcode.opBuffer)
@@ -2133,6 +2449,36 @@ export function opcodeName(op Opcode) returns String
 	if op == Opcode.opVecShift 'opVecShift'
 		return "VecShift"
 	end 'opVecShift'
+	if op == Opcode.opVecShuffleDwords 'opVecShuffleDwords'
+		return "VecShuffleDwords"
+	end 'opVecShuffleDwords'
+	if op == Opcode.opVecAlignBytes 'opVecAlignBytes'
+		return "VecAlignBytes"
+	end 'opVecAlignBytes'
+	if op == Opcode.opVecBlendWords 'opVecBlendWords'
+		return "VecBlendWords"
+	end 'opVecBlendWords'
+	if op == Opcode.opVecAes 'opVecAes'
+		return "VecAes"
+	end 'opVecAes'
+	if op == Opcode.opVecAesInvMix 'opVecAesInvMix'
+		return "VecAesInvMix"
+	end 'opVecAesInvMix'
+	if op == Opcode.opVecAesArm 'opVecAesArm'
+		return "VecAesArm"
+	end 'opVecAesArm'
+	if op == Opcode.opVecAesMix 'opVecAesMix'
+		return "VecAesMix"
+	end 'opVecAesMix'
+	if op == Opcode.opVecClmul 'opVecClmul'
+		return "VecClmul"
+	end 'opVecClmul'
+	if op == Opcode.opVecSha 'opVecSha'
+		return "VecSha"
+	end 'opVecSha'
+	if op == Opcode.opCpuid 'opCpuid'
+		return "Cpuid"
+	end 'opCpuid'
 	if op == Opcode.opBuffer 'opBuffer'
 		return "Buffer"
 	end 'opBuffer'
@@ -3051,6 +3397,183 @@ export function vecShiftAmount(x Instr) returns Count
 	return try x.imm as Count otherwise panic("ir: vecShift amount is out of range")
 end 'vecShiftAmount'
 
+export function vecShuffleDwordsSrc(x Instr) returns Reg
+	if x.op != Opcode.opVecShuffleDwords 'op'
+		wrongInstr("vecShuffleDwordsSrc", found: x.op)
+	end 'op'
+	return x.a
+end 'vecShuffleDwordsSrc'
+
+export function vecShuffleDwordsOrder(x Instr) returns Count
+	if x.op != Opcode.opVecShuffleDwords 'op'
+		wrongInstr("vecShuffleDwordsOrder", found: x.op)
+	end 'op'
+	return try x.imm as Count otherwise panic("ir: vecShuffleDwords order is out of range")
+end 'vecShuffleDwordsOrder'
+
+export function vecAlignBytesHigh(x Instr) returns Reg
+	if x.op != Opcode.opVecAlignBytes 'op'
+		wrongInstr("vecAlignBytesHigh", found: x.op)
+	end 'op'
+	return x.a
+end 'vecAlignBytesHigh'
+
+export function vecAlignBytesLow(x Instr) returns Reg
+	if x.op != Opcode.opVecAlignBytes 'op'
+		wrongInstr("vecAlignBytesLow", found: x.op)
+	end 'op'
+	return x.b
+end 'vecAlignBytesLow'
+
+export function vecAlignBytesAmount(x Instr) returns Count
+	if x.op != Opcode.opVecAlignBytes 'op'
+		wrongInstr("vecAlignBytesAmount", found: x.op)
+	end 'op'
+	return try x.imm as Count otherwise panic("ir: vecAlignBytes amount is out of range")
+end 'vecAlignBytesAmount'
+
+export function vecBlendWordsLeft(x Instr) returns Reg
+	if x.op != Opcode.opVecBlendWords 'op'
+		wrongInstr("vecBlendWordsLeft", found: x.op)
+	end 'op'
+	return x.a
+end 'vecBlendWordsLeft'
+
+export function vecBlendWordsRight(x Instr) returns Reg
+	if x.op != Opcode.opVecBlendWords 'op'
+		wrongInstr("vecBlendWordsRight", found: x.op)
+	end 'op'
+	return x.b
+end 'vecBlendWordsRight'
+
+export function vecBlendWordsMask(x Instr) returns Count
+	if x.op != Opcode.opVecBlendWords 'op'
+		wrongInstr("vecBlendWordsMask", found: x.op)
+	end 'op'
+	return try x.imm as Count otherwise panic("ir: vecBlendWords mask is out of range")
+end 'vecBlendWordsMask'
+
+export function vecAesOp(x Instr) returns VecAesOp
+	if x.op != Opcode.opVecAes 'op'
+		wrongInstr("vecAesOp", found: x.op)
+	end 'op'
+	return vecAesOpOf(x.sub)
+end 'vecAesOp'
+
+export function vecAesState(x Instr) returns Reg
+	if x.op != Opcode.opVecAes 'op'
+		wrongInstr("vecAesState", found: x.op)
+	end 'op'
+	return x.a
+end 'vecAesState'
+
+export function vecAesKey(x Instr) returns Reg
+	if x.op != Opcode.opVecAes 'op'
+		wrongInstr("vecAesKey", found: x.op)
+	end 'op'
+	return x.b
+end 'vecAesKey'
+
+export function vecAesInvMixSrc(x Instr) returns Reg
+	if x.op != Opcode.opVecAesInvMix 'op'
+		wrongInstr("vecAesInvMixSrc", found: x.op)
+	end 'op'
+	return x.a
+end 'vecAesInvMixSrc'
+
+export function vecAesArmOp(x Instr) returns VecAesArmOp
+	if x.op != Opcode.opVecAesArm 'op'
+		wrongInstr("vecAesArmOp", found: x.op)
+	end 'op'
+	return vecAesArmOpOf(x.sub)
+end 'vecAesArmOp'
+
+export function vecAesArmState(x Instr) returns Reg
+	if x.op != Opcode.opVecAesArm 'op'
+		wrongInstr("vecAesArmState", found: x.op)
+	end 'op'
+	return x.a
+end 'vecAesArmState'
+
+export function vecAesArmKey(x Instr) returns Reg
+	if x.op != Opcode.opVecAesArm 'op'
+		wrongInstr("vecAesArmKey", found: x.op)
+	end 'op'
+	return x.b
+end 'vecAesArmKey'
+
+export function vecAesMixSrc(x Instr) returns Reg
+	if x.op != Opcode.opVecAesMix 'op'
+		wrongInstr("vecAesMixSrc", found: x.op)
+	end 'op'
+	return x.a
+end 'vecAesMixSrc'
+
+export function vecClmulLeft(x Instr) returns Reg
+	if x.op != Opcode.opVecClmul 'op'
+		wrongInstr("vecClmulLeft", found: x.op)
+	end 'op'
+	return x.a
+end 'vecClmulLeft'
+
+export function vecClmulRight(x Instr) returns Reg
+	if x.op != Opcode.opVecClmul 'op'
+		wrongInstr("vecClmulRight", found: x.op)
+	end 'op'
+	return x.b
+end 'vecClmulRight'
+
+export function vecClmulSelect(x Instr) returns Count
+	if x.op != Opcode.opVecClmul 'op'
+		wrongInstr("vecClmulSelect", found: x.op)
+	end 'op'
+	return try x.imm as Count otherwise panic("ir: vecClmul select is out of range")
+end 'vecClmulSelect'
+
+export function vecShaOp(x Instr) returns VecShaOp
+	if x.op != Opcode.opVecSha 'op'
+		wrongInstr("vecShaOp", found: x.op)
+	end 'op'
+	return vecShaOpOf(x.sub)
+end 'vecShaOp'
+
+// vecShaArgsStart is where the args of a VecSha start in their pool.
+export function vecShaArgsStart(x Instr) returns Count
+	if x.op != Opcode.opVecSha 'op'
+		wrongInstr("vecShaArgsStart", found: x.op)
+	end 'op'
+	return try x.a as Count otherwise panic("ir: vecSha args is out of range")
+end 'vecShaArgsStart'
+
+// vecShaArgsCount is how many args a VecSha has.
+export function vecShaArgsCount(x Instr) returns Count
+	if x.op != Opcode.opVecSha 'op'
+		wrongInstr("vecShaArgsCount", found: x.op)
+	end 'op'
+	return try x.b as Count otherwise panic("ir: vecSha args is out of range")
+end 'vecShaArgsCount'
+
+export function cpuidLeaf(x Instr) returns Reg
+	if x.op != Opcode.opCpuid 'op'
+		wrongInstr("cpuidLeaf", found: x.op)
+	end 'op'
+	return x.a
+end 'cpuidLeaf'
+
+export function cpuidSubleaf(x Instr) returns Reg
+	if x.op != Opcode.opCpuid 'op'
+		wrongInstr("cpuidSubleaf", found: x.op)
+	end 'op'
+	return x.b
+end 'cpuidSubleaf'
+
+export function cpuidRegister(x Instr) returns Count
+	if x.op != Opcode.opCpuid 'op'
+		wrongInstr("cpuidRegister", found: x.op)
+	end 'op'
+	return try x.imm as Count otherwise panic("ir: cpuid register is out of range")
+end 'cpuidRegister'
+
 export function bufferSrc(x Instr) returns Reg
 	if x.op != Opcode.opBuffer 'op'
 		wrongInstr("bufferSrc", found: x.op)
@@ -3847,6 +4370,36 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opVecShift 'opVecShift'
 		return table.Option.some(x.dst)
 	end 'opVecShift'
+	if x.op == Opcode.opVecShuffleDwords 'opVecShuffleDwords'
+		return table.Option.some(x.dst)
+	end 'opVecShuffleDwords'
+	if x.op == Opcode.opVecAlignBytes 'opVecAlignBytes'
+		return table.Option.some(x.dst)
+	end 'opVecAlignBytes'
+	if x.op == Opcode.opVecBlendWords 'opVecBlendWords'
+		return table.Option.some(x.dst)
+	end 'opVecBlendWords'
+	if x.op == Opcode.opVecAes 'opVecAes'
+		return table.Option.some(x.dst)
+	end 'opVecAes'
+	if x.op == Opcode.opVecAesInvMix 'opVecAesInvMix'
+		return table.Option.some(x.dst)
+	end 'opVecAesInvMix'
+	if x.op == Opcode.opVecAesArm 'opVecAesArm'
+		return table.Option.some(x.dst)
+	end 'opVecAesArm'
+	if x.op == Opcode.opVecAesMix 'opVecAesMix'
+		return table.Option.some(x.dst)
+	end 'opVecAesMix'
+	if x.op == Opcode.opVecClmul 'opVecClmul'
+		return table.Option.some(x.dst)
+	end 'opVecClmul'
+	if x.op == Opcode.opVecSha 'opVecSha'
+		return table.Option.some(x.dst)
+	end 'opVecSha'
+	if x.op == Opcode.opCpuid 'opCpuid'
+		return table.Option.some(x.dst)
+	end 'opCpuid'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		return table.Option.some(x.dst)
 	end 'opBuffer'
@@ -4113,6 +4666,36 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opVecShift 'opVecShift'
 		return table.Option.none
 	end 'opVecShift'
+	if x.op == Opcode.opVecShuffleDwords 'opVecShuffleDwords'
+		return table.Option.none
+	end 'opVecShuffleDwords'
+	if x.op == Opcode.opVecAlignBytes 'opVecAlignBytes'
+		return table.Option.none
+	end 'opVecAlignBytes'
+	if x.op == Opcode.opVecBlendWords 'opVecBlendWords'
+		return table.Option.none
+	end 'opVecBlendWords'
+	if x.op == Opcode.opVecAes 'opVecAes'
+		return table.Option.none
+	end 'opVecAes'
+	if x.op == Opcode.opVecAesInvMix 'opVecAesInvMix'
+		return table.Option.none
+	end 'opVecAesInvMix'
+	if x.op == Opcode.opVecAesArm 'opVecAesArm'
+		return table.Option.none
+	end 'opVecAesArm'
+	if x.op == Opcode.opVecAesMix 'opVecAesMix'
+		return table.Option.none
+	end 'opVecAesMix'
+	if x.op == Opcode.opVecClmul 'opVecClmul'
+		return table.Option.none
+	end 'opVecClmul'
+	if x.op == Opcode.opVecSha 'opVecSha'
+		return table.Option.none
+	end 'opVecSha'
+	if x.op == Opcode.opCpuid 'opCpuid'
+		return table.Option.none
+	end 'opCpuid'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		return table.Option.none
 	end 'opBuffer'
@@ -4256,6 +4839,16 @@ export function instrCanFail(x Instr) returns bool
 		opVecWord gives false
 		opVecBin gives false
 		opVecShift gives false
+		opVecShuffleDwords gives false
+		opVecAlignBytes gives false
+		opVecBlendWords gives false
+		opVecAes gives false
+		opVecAesInvMix gives false
+		opVecAesArm gives false
+		opVecAesMix gives false
+		opVecClmul gives false
+		opVecSha gives false
+		opCpuid gives false
 		opBuffer gives false
 		opElemAt gives false
 		opElemAddrAt gives false
@@ -4514,6 +5107,52 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 		out.push(vecShiftSrc(x))
 		return
 	end 'opVecShift'
+	if x.op == Opcode.opVecShuffleDwords 'opVecShuffleDwords'
+		out.push(vecShuffleDwordsSrc(x))
+		return
+	end 'opVecShuffleDwords'
+	if x.op == Opcode.opVecAlignBytes 'opVecAlignBytes'
+		out.push(vecAlignBytesHigh(x))
+		out.push(vecAlignBytesLow(x))
+		return
+	end 'opVecAlignBytes'
+	if x.op == Opcode.opVecBlendWords 'opVecBlendWords'
+		out.push(vecBlendWordsLeft(x))
+		out.push(vecBlendWordsRight(x))
+		return
+	end 'opVecBlendWords'
+	if x.op == Opcode.opVecAes 'opVecAes'
+		out.push(vecAesState(x))
+		out.push(vecAesKey(x))
+		return
+	end 'opVecAes'
+	if x.op == Opcode.opVecAesInvMix 'opVecAesInvMix'
+		out.push(vecAesInvMixSrc(x))
+		return
+	end 'opVecAesInvMix'
+	if x.op == Opcode.opVecAesArm 'opVecAesArm'
+		out.push(vecAesArmState(x))
+		out.push(vecAesArmKey(x))
+		return
+	end 'opVecAesArm'
+	if x.op == Opcode.opVecAesMix 'opVecAesMix'
+		out.push(vecAesMixSrc(x))
+		return
+	end 'opVecAesMix'
+	if x.op == Opcode.opVecClmul 'opVecClmul'
+		out.push(vecClmulLeft(x))
+		out.push(vecClmulRight(x))
+		return
+	end 'opVecClmul'
+	if x.op == Opcode.opVecSha 'opVecSha'
+		f.regsInto(vecShaArgsStart(x), count: vecShaArgsCount(x), out: out)
+		return
+	end 'opVecSha'
+	if x.op == Opcode.opCpuid 'opCpuid'
+		out.push(cpuidLeaf(x))
+		out.push(cpuidSubleaf(x))
+		return
+	end 'opCpuid'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		out.push(bufferSrc(x))
 		return
@@ -4870,6 +5509,46 @@ export function instrWrites(x Instr, mutates out RegList)
 		out.push(x.dst)
 		return
 	end 'opVecShift'
+	if x.op == Opcode.opVecShuffleDwords 'opVecShuffleDwords'
+		out.push(x.dst)
+		return
+	end 'opVecShuffleDwords'
+	if x.op == Opcode.opVecAlignBytes 'opVecAlignBytes'
+		out.push(x.dst)
+		return
+	end 'opVecAlignBytes'
+	if x.op == Opcode.opVecBlendWords 'opVecBlendWords'
+		out.push(x.dst)
+		return
+	end 'opVecBlendWords'
+	if x.op == Opcode.opVecAes 'opVecAes'
+		out.push(x.dst)
+		return
+	end 'opVecAes'
+	if x.op == Opcode.opVecAesInvMix 'opVecAesInvMix'
+		out.push(x.dst)
+		return
+	end 'opVecAesInvMix'
+	if x.op == Opcode.opVecAesArm 'opVecAesArm'
+		out.push(x.dst)
+		return
+	end 'opVecAesArm'
+	if x.op == Opcode.opVecAesMix 'opVecAesMix'
+		out.push(x.dst)
+		return
+	end 'opVecAesMix'
+	if x.op == Opcode.opVecClmul 'opVecClmul'
+		out.push(x.dst)
+		return
+	end 'opVecClmul'
+	if x.op == Opcode.opVecSha 'opVecSha'
+		out.push(x.dst)
+		return
+	end 'opVecSha'
+	if x.op == Opcode.opCpuid 'opCpuid'
+		out.push(x.dst)
+		return
+	end 'opCpuid'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		out.push(x.dst)
 		return
@@ -5222,6 +5901,52 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 		x.a = renamedReg(names, r: x.a)
 		return
 	end 'opVecShift'
+	if x.op == Opcode.opVecShuffleDwords 'opVecShuffleDwords'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opVecShuffleDwords'
+	if x.op == Opcode.opVecAlignBytes 'opVecAlignBytes'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opVecAlignBytes'
+	if x.op == Opcode.opVecBlendWords 'opVecBlendWords'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opVecBlendWords'
+	if x.op == Opcode.opVecAes 'opVecAes'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opVecAes'
+	if x.op == Opcode.opVecAesInvMix 'opVecAesInvMix'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opVecAesInvMix'
+	if x.op == Opcode.opVecAesArm 'opVecAesArm'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opVecAesArm'
+	if x.op == Opcode.opVecAesMix 'opVecAesMix'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opVecAesMix'
+	if x.op == Opcode.opVecClmul 'opVecClmul'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opVecClmul'
+	if x.op == Opcode.opVecSha 'opVecSha'
+		renameRegs(args, start: vecShaArgsStart(x), count: vecShaArgsCount(x), names: names)
+		return
+	end 'opVecSha'
+	if x.op == Opcode.opCpuid 'opCpuid'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opCpuid'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		x.a = renamedReg(names, r: x.a)
 		return
@@ -5681,6 +6406,62 @@ export function relocateInstr(mutates x Instr, at Relocation)
 		x.a = renamedReg(at.names, r: x.a)
 		return
 	end 'opVecShift'
+	if x.op == Opcode.opVecShuffleDwords 'opVecShuffleDwords'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opVecShuffleDwords'
+	if x.op == Opcode.opVecAlignBytes 'opVecAlignBytes'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opVecAlignBytes'
+	if x.op == Opcode.opVecBlendWords 'opVecBlendWords'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opVecBlendWords'
+	if x.op == Opcode.opVecAes 'opVecAes'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opVecAes'
+	if x.op == Opcode.opVecAesInvMix 'opVecAesInvMix'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opVecAesInvMix'
+	if x.op == Opcode.opVecAesArm 'opVecAesArm'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opVecAesArm'
+	if x.op == Opcode.opVecAesMix 'opVecAesMix'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opVecAesMix'
+	if x.op == Opcode.opVecClmul 'opVecClmul'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opVecClmul'
+	if x.op == Opcode.opVecSha 'opVecSha'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = shiftedReg(x.a, by: at.args)
+		return
+	end 'opVecSha'
+	if x.op == Opcode.opCpuid 'opCpuid'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opCpuid'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		x.dst = renamedReg(at.names, r: x.dst)
 		x.a = renamedReg(at.names, r: x.a)
@@ -5944,6 +6725,16 @@ export interface InstrVisitor
 	function visitVecWord(mutates self, f IrFunction, x Instr)
 	function visitVecBin(mutates self, f IrFunction, x Instr)
 	function visitVecShift(mutates self, f IrFunction, x Instr)
+	function visitVecShuffleDwords(mutates self, f IrFunction, x Instr)
+	function visitVecAlignBytes(mutates self, f IrFunction, x Instr)
+	function visitVecBlendWords(mutates self, f IrFunction, x Instr)
+	function visitVecAes(mutates self, f IrFunction, x Instr)
+	function visitVecAesInvMix(mutates self, f IrFunction, x Instr)
+	function visitVecAesArm(mutates self, f IrFunction, x Instr)
+	function visitVecAesMix(mutates self, f IrFunction, x Instr)
+	function visitVecClmul(mutates self, f IrFunction, x Instr)
+	function visitVecSha(mutates self, f IrFunction, x Instr)
+	function visitCpuid(mutates self, f IrFunction, x Instr)
 	function visitBuffer(mutates self, f IrFunction, x Instr)
 	function visitElemAt(mutates self, f IrFunction, x Instr)
 	function visitElemAddrAt(mutates self, f IrFunction, x Instr)
@@ -6195,6 +6986,46 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitVecShift(f, x: x)
 		return
 	end 'opVecShift'
+	if x.op == Opcode.opVecShuffleDwords 'opVecShuffleDwords'
+		visitor.visitVecShuffleDwords(f, x: x)
+		return
+	end 'opVecShuffleDwords'
+	if x.op == Opcode.opVecAlignBytes 'opVecAlignBytes'
+		visitor.visitVecAlignBytes(f, x: x)
+		return
+	end 'opVecAlignBytes'
+	if x.op == Opcode.opVecBlendWords 'opVecBlendWords'
+		visitor.visitVecBlendWords(f, x: x)
+		return
+	end 'opVecBlendWords'
+	if x.op == Opcode.opVecAes 'opVecAes'
+		visitor.visitVecAes(f, x: x)
+		return
+	end 'opVecAes'
+	if x.op == Opcode.opVecAesInvMix 'opVecAesInvMix'
+		visitor.visitVecAesInvMix(f, x: x)
+		return
+	end 'opVecAesInvMix'
+	if x.op == Opcode.opVecAesArm 'opVecAesArm'
+		visitor.visitVecAesArm(f, x: x)
+		return
+	end 'opVecAesArm'
+	if x.op == Opcode.opVecAesMix 'opVecAesMix'
+		visitor.visitVecAesMix(f, x: x)
+		return
+	end 'opVecAesMix'
+	if x.op == Opcode.opVecClmul 'opVecClmul'
+		visitor.visitVecClmul(f, x: x)
+		return
+	end 'opVecClmul'
+	if x.op == Opcode.opVecSha 'opVecSha'
+		visitor.visitVecSha(f, x: x)
+		return
+	end 'opVecSha'
+	if x.op == Opcode.opCpuid 'opCpuid'
+		visitor.visitCpuid(f, x: x)
+		return
+	end 'opCpuid'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		visitor.visitBuffer(f, x: x)
 		return
@@ -6554,6 +7385,36 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 	if x.op == Opcode.opVecShift 'opVecShift'
 		return "{resultText(x.dst)}vec{vecShiftOpText(vecShiftOp(x))} %{vecShiftSrc(x)}, {vecShiftAmount(x)}"
 	end 'opVecShift'
+	if x.op == Opcode.opVecShuffleDwords 'opVecShuffleDwords'
+		return "{resultText(x.dst)}vecshufdwords %{vecShuffleDwordsSrc(x)}, {vecShuffleDwordsOrder(x)}"
+	end 'opVecShuffleDwords'
+	if x.op == Opcode.opVecAlignBytes 'opVecAlignBytes'
+		return "{resultText(x.dst)}vecalignbytes %{vecAlignBytesHigh(x)}, %{vecAlignBytesLow(x)}, {vecAlignBytesAmount(x)}"
+	end 'opVecAlignBytes'
+	if x.op == Opcode.opVecBlendWords 'opVecBlendWords'
+		return "{resultText(x.dst)}vecblendwords %{vecBlendWordsLeft(x)}, %{vecBlendWordsRight(x)}, {vecBlendWordsMask(x)}"
+	end 'opVecBlendWords'
+	if x.op == Opcode.opVecAes 'opVecAes'
+		return "{resultText(x.dst)}vecaes.{vecAesOpText(vecAesOp(x))} %{vecAesState(x)}, %{vecAesKey(x)}"
+	end 'opVecAes'
+	if x.op == Opcode.opVecAesInvMix 'opVecAesInvMix'
+		return "{resultText(x.dst)}vecaesinvmix %{vecAesInvMixSrc(x)}"
+	end 'opVecAesInvMix'
+	if x.op == Opcode.opVecAesArm 'opVecAesArm'
+		return "{resultText(x.dst)}vecaesarm.{vecAesArmOpText(vecAesArmOp(x))} %{vecAesArmState(x)}, %{vecAesArmKey(x)}"
+	end 'opVecAesArm'
+	if x.op == Opcode.opVecAesMix 'opVecAesMix'
+		return "{resultText(x.dst)}vecaesmix %{vecAesMixSrc(x)}"
+	end 'opVecAesMix'
+	if x.op == Opcode.opVecClmul 'opVecClmul'
+		return "{resultText(x.dst)}vecclmul %{vecClmulLeft(x)}, %{vecClmulRight(x)}, {vecClmulSelect(x)}"
+	end 'opVecClmul'
+	if x.op == Opcode.opVecSha 'opVecSha'
+		return "{resultText(x.dst)}vecsha.{vecShaOpText(vecShaOp(x))}({f.regsText(vecShaArgsStart(x), count: vecShaArgsCount(x))})"
+	end 'opVecSha'
+	if x.op == Opcode.opCpuid 'opCpuid'
+		return "{resultText(x.dst)}cpuid %{cpuidLeaf(x)}, %{cpuidSubleaf(x)}, {cpuidRegister(x)}"
+	end 'opCpuid'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		return "{resultText(x.dst)}buffer %{bufferSrc(x)}"
 	end 'opBuffer'
@@ -6758,6 +7619,7 @@ export function printedOpNames() returns ast.StringList
 	names.push("codeaddr")
 	names.push("const")
 	names.push("copy")
+	names.push("cpuid")
 	names.push("ctz")
 	names.push("datum")
 	names.push("div")
@@ -6853,13 +7715,35 @@ export function printedOpNames() returns ast.StringList
 	names.push("throw")
 	names.push("trap")
 	names.push("vecaddlanes32")
+	names.push("vecaes")
+	names.push("vecaes.dec")
+	names.push("vecaes.declast")
+	names.push("vecaes.enc")
+	names.push("vecaes.enclast")
+	names.push("vecaesarm")
+	names.push("vecaesarm.aesd")
+	names.push("vecaesarm.aese")
+	names.push("vecaesinvmix")
+	names.push("vecaesmix")
+	names.push("vecalignbytes")
 	names.push("vecand")
+	names.push("vecblendwords")
 	names.push("vecbytesdown")
 	names.push("vecbytesup")
+	names.push("vecclmul")
 	names.push("veclanesleft")
 	names.push("veclanesright")
 	names.push("vecload")
 	names.push("vecor")
+	names.push("vecsha")
+	names.push("vecsha.sha256h")
+	names.push("vecsha.sha256h2")
+	names.push("vecsha.sha256msg1")
+	names.push("vecsha.sha256msg2")
+	names.push("vecsha.sha256rnds2")
+	names.push("vecsha.sha256su0")
+	names.push("vecsha.sha256su1")
+	names.push("vecshufdwords")
 	names.push("vecshufflebytes")
 	names.push("vecstore")
 	names.push("vecword")

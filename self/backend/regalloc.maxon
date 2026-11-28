@@ -1252,7 +1252,8 @@ export type Colourer
 		sequenceCopies(out, arch: arch, dsts: dsts, srcs: srcs, through: through, callerSaved: callerSaved, result: result)
 	end 'edgeCopies'
 
-	// savedRegisters is the callee-saved registers the coloured function writes, which its frame keeps for its caller.
+	// savedRegisters is the callee-saved registers the coloured function writes, which its frame keeps for its caller: the
+	// registers its instructions define, and those a form writes that no operand names (cpuid's ebx).
 	function savedRegisters(fn MirFunction) returns RegMask
 		var used = 0 as RegMask
 		for k in 0 upto fn.instrs.count() 'instrs'
@@ -1261,6 +1262,9 @@ export type Colourer
 					used = used or maskOfMReg(fn.instrs[k].a)
 				end 'defines'
 			end 'writes'
+			if fn.instrs[k].kind == MKind.target 'fixed'
+				used = used or formWrites(fn.instrs[k].form)
+			end 'fixed'
 		end 'instrs'
 		return used and calleeSaved and not reservedMask(arch)
 	end 'savedRegisters'

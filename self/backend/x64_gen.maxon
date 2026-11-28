@@ -1202,6 +1202,132 @@ export function encodePextrqRegXmmImm8(mutates code ByteArray, dest X64Register,
 	writeImm8(code, value: imm)
 end 'encodePextrqRegXmmImm8'
 
+// pshufd dest, src, imm: 66 0F 70 /r.
+export function encodePshufdRegRegImm8(mutates code ByteArray, dest X64Register, src X64Register, imm Imm8)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0x70)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+	writeImm8(code, value: imm)
+end 'encodePshufdRegRegImm8'
+
+// palignr dest, src, imm: 66 0F 3A 0F /r.
+export function encodePalignrRegRegImm8(mutates code ByteArray, dest X64Register, src X64Register, imm Imm8)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0x3A)
+	code.push(0x0F)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+	writeImm8(code, value: imm)
+end 'encodePalignrRegRegImm8'
+
+// pblendw dest, src, imm: 66 0F 3A 0E /r.
+export function encodePblendwRegRegImm8(mutates code ByteArray, dest X64Register, src X64Register, imm Imm8)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0x3A)
+	code.push(0x0E)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+	writeImm8(code, value: imm)
+end 'encodePblendwRegRegImm8'
+
+// aesenc dest, src: 66 0F 38 DC /r.
+export function encodeAesencRegReg(mutates code ByteArray, dest X64Register, src X64Register)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0x38)
+	code.push(0xDC)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+end 'encodeAesencRegReg'
+
+// aesenclast dest, src: 66 0F 38 DD /r.
+export function encodeAesenclastRegReg(mutates code ByteArray, dest X64Register, src X64Register)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0x38)
+	code.push(0xDD)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+end 'encodeAesenclastRegReg'
+
+// aesdec dest, src: 66 0F 38 DE /r.
+export function encodeAesdecRegReg(mutates code ByteArray, dest X64Register, src X64Register)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0x38)
+	code.push(0xDE)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+end 'encodeAesdecRegReg'
+
+// aesdeclast dest, src: 66 0F 38 DF /r.
+export function encodeAesdeclastRegReg(mutates code ByteArray, dest X64Register, src X64Register)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0x38)
+	code.push(0xDF)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+end 'encodeAesdeclastRegReg'
+
+// aesimc dest, src: 66 0F 38 DB /r.
+export function encodeAesimcRegReg(mutates code ByteArray, dest X64Register, src X64Register)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0x38)
+	code.push(0xDB)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+end 'encodeAesimcRegReg'
+
+// pclmulqdq dest, src, imm: 66 0F 3A 44 /r.
+export function encodePclmulqdqRegRegImm8(mutates code ByteArray, dest X64Register, src X64Register, imm Imm8)
+	code.push(0x66)
+	emitRex(code, wide: false, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0x3A)
+	code.push(0x44)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+	writeImm8(code, value: imm)
+end 'encodePclmulqdqRegRegImm8'
+
+// sha256rnds2 dest, src: 0F 38 CB /r.
+export function encodeSha256rnds2RegReg(mutates code ByteArray, dest X64Register, src X64Register)
+	emitRex(code, wide: false, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0x38)
+	code.push(0xCB)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+end 'encodeSha256rnds2RegReg'
+
+// sha256msg1 dest, src: 0F 38 CC /r.
+export function encodeSha256msg1RegReg(mutates code ByteArray, dest X64Register, src X64Register)
+	emitRex(code, wide: false, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0x38)
+	code.push(0xCC)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+end 'encodeSha256msg1RegReg'
+
+// sha256msg2 dest, src: 0F 38 CD /r.
+export function encodeSha256msg2RegReg(mutates code ByteArray, dest X64Register, src X64Register)
+	emitRex(code, wide: false, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x0F)
+	code.push(0x38)
+	code.push(0xCD)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+end 'encodeSha256msg2RegReg'
+
+// cpuid : 0F A2.
+export function encodeCpuid(mutates code ByteArray)
+	code.push(0x0F)
+	code.push(0xA2)
+end 'encodeCpuid'
+
 // int3 : CC.
 export function encodeInt3(mutates code ByteArray)
 	code.push(0xCC)
@@ -1466,6 +1592,19 @@ export enum X64Form
 	pslldqRegImm8
 	pinsrqXmmRegImm8
 	pextrqRegXmmImm8
+	pshufdRegRegImm8
+	palignrRegRegImm8
+	pblendwRegRegImm8
+	aesencRegReg
+	aesenclastRegReg
+	aesdecRegReg
+	aesdeclastRegReg
+	aesimcRegReg
+	pclmulqdqRegRegImm8
+	sha256rnds2RegReg
+	sha256msg1RegReg
+	sha256msg2RegReg
+	cpuid
 	int3
 	nop1
 	nop2
@@ -1676,16 +1815,29 @@ export function encodeMachineForm(mutates code ByteArray, form FormID, a X64Regi
 		120 then encodePslldqRegImm8(code, dest: a, imm: try imm as Imm8 otherwise panic("backend: the immediate of PslldqRegImm8 does not fit it"))
 		121 then encodePinsrqXmmRegImm8(code, dest: a, src: c, imm: try imm as Imm8 otherwise panic("backend: the immediate of PinsrqXmmRegImm8 does not fit it"))
 		122 then encodePextrqRegXmmImm8(code, dest: a, src: b, imm: try imm as Imm8 otherwise panic("backend: the immediate of PextrqRegXmmImm8 does not fit it"))
-		123 then encodeInt3(code)
-		124 then encodeNop1(code)
-		125 then encodeNop2(code)
-		126 then encodeNop3(code)
-		127 then encodeNop4(code)
-		128 then encodeNop5(code)
-		129 then encodeNop6(code)
-		130 then encodeNop7(code)
-		131 then encodeNop8(code)
-		132 then encodeNop9(code)
+		123 then encodePshufdRegRegImm8(code, dest: a, src: b, imm: try imm as Imm8 otherwise panic("backend: the immediate of PshufdRegRegImm8 does not fit it"))
+		124 then encodePalignrRegRegImm8(code, dest: a, src: c, imm: try imm as Imm8 otherwise panic("backend: the immediate of PalignrRegRegImm8 does not fit it"))
+		125 then encodePblendwRegRegImm8(code, dest: a, src: c, imm: try imm as Imm8 otherwise panic("backend: the immediate of PblendwRegRegImm8 does not fit it"))
+		126 then encodeAesencRegReg(code, dest: a, src: c)
+		127 then encodeAesenclastRegReg(code, dest: a, src: c)
+		128 then encodeAesdecRegReg(code, dest: a, src: c)
+		129 then encodeAesdeclastRegReg(code, dest: a, src: c)
+		130 then encodeAesimcRegReg(code, dest: a, src: b)
+		131 then encodePclmulqdqRegRegImm8(code, dest: a, src: c, imm: try imm as Imm8 otherwise panic("backend: the immediate of PclmulqdqRegRegImm8 does not fit it"))
+		132 then encodeSha256rnds2RegReg(code, dest: a, src: c)
+		133 then encodeSha256msg1RegReg(code, dest: a, src: c)
+		134 then encodeSha256msg2RegReg(code, dest: a, src: c)
+		135 then encodeCpuid(code)
+		136 then encodeInt3(code)
+		137 then encodeNop1(code)
+		138 then encodeNop2(code)
+		139 then encodeNop3(code)
+		140 then encodeNop4(code)
+		141 then encodeNop5(code)
+		142 then encodeNop6(code)
+		143 then encodeNop7(code)
+		144 then encodeNop8(code)
+		145 then encodeNop9(code)
 		default then panic("backend: a machine instruction of a form of no x64 form")
 	end 'form'
 end 'encodeMachineForm'

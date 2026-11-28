@@ -166,7 +166,17 @@ export type ClassChoice
 			opVecWord then self.wantsGpr(x.dst)
 			opVecZero or
 			opVecBin or
-			opVecShift then return
+			opVecShift or
+			opVecShuffleDwords or
+			opVecAlignBytes or
+			opVecBlendWords or
+			opVecAes or
+			opVecAesInvMix or
+			opVecAesArm or
+			opVecAesMix or
+			opVecClmul or
+			opVecSha then return
+			opCpuid or
 			opStr or
 			opDatum or
 			opSlotAddr or

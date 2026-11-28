@@ -189,6 +189,16 @@ var enums = []enum{
 		{"BytesUp", "bytesup", noCase}, {"BytesDown", "bytesdown", noCase},
 		{"LanesLeft", "lanesleft", noCase}, {"LanesRight", "lanesright", noCase},
 	}},
+	{Name: "VecAesOp", Prefix: "VecAes", Doc: "VecAesOp is the round of a VecAes, as x64's AES instructions do it: Enc is ShiftRows, SubBytes and MixColumns\n// and then the key's exclusive or, EncLast the same without MixColumns, and Dec and DecLast their inverses (InvShiftRows,\n// InvSubBytes, InvMixColumns, the key), which arm64 makes of aese and aesd with a zero key, aesmc or aesimc and an eor.", Cases: []enumCase{
+		{"Enc", "enc", noCase}, {"EncLast", "enclast", noCase}, {"Dec", "dec", noCase}, {"DecLast", "declast", noCase},
+	}},
+	{Name: "VecAesArmOp", Prefix: "VecAesArm", Doc: "VecAesArmOp is the round of a VecAesArm, as arm64's aese and aesd do it: the key's exclusive or first, and then\n// ShiftRows and SubBytes, or their inverses, with no MixColumns.", Cases: []enumCase{
+		{"Encrypt", "aese", noCase}, {"Decrypt", "aesd", noCase},
+	}},
+	{Name: "VecShaOp", Prefix: "VecSha", Doc: "VecShaOp is the SHA-256 instruction of a VecSha: x64's Rnds2, Msg1 and Msg2, and arm64's H, H2, Su0 and Su1, each\n// of which only its own back end selects, since the two instruction sets split the rounds and the schedule differently.", Cases: []enumCase{
+		{"Rnds2", "sha256rnds2", noCase}, {"Msg1", "sha256msg1", noCase}, {"Msg2", "sha256msg2", noCase},
+		{"H", "sha256h", noCase}, {"H2", "sha256h2", noCase}, {"Su0", "sha256su0", noCase}, {"Su1", "sha256su1", noCase},
+	}},
 }
 
 // flag is a bit of an instruction's Flags.
@@ -377,6 +387,28 @@ var ops = []op{
 	{Name: "VecShift", Eval: noEval, Doc: "VecShift is the vector Src shifted by Op by Amount, a constant: 1 to 15 bytes, or 1 to 63 bits.",
 		Result: valueResult, Operands: []operand{{Name: "Op", Kind: kEnum, Field: fSub, Enum: "VecShiftOp"}, reg("Src", fA), num("Amount")},
 		Text: "vec{Op} {Src}, {Amount}"},
+	{Name: "VecShuffleDwords", Eval: noEval, Doc: "VecShuffleDwords gives the vector whose 32-bit lane i is lane (Order >> 2i) & 3 of Src, Order a constant\n// below 256: x64's pshufd.",
+		Result: valueResult, Operands: []operand{reg("Src", fA), num("Order")}, Text: "vecshufdwords {Src}, {Order}"},
+	{Name: "VecAlignBytes", Eval: noEval, Doc: "VecAlignBytes gives the 16 bytes from byte Amount on of the 32 that are Low and then High, Amount a constant\n// from 1 to 15: x64's palignr and arm64's ext.",
+		Result: valueResult, Operands: []operand{reg("High", fA), reg("Low", fB), num("Amount")}, Text: "vecalignbytes {High}, {Low}, {Amount}"},
+	{Name: "VecBlendWords", Eval: noEval, Doc: "VecBlendWords gives the vector whose 16-bit lane i is Right's where bit i of Mask is set and Left's where it\n// is clear, Mask a constant below 256: x64's pblendw.",
+		Result: valueResult, Operands: []operand{reg("Left", fA), reg("Right", fB), num("Mask")}, Text: "vecblendwords {Left}, {Right}, {Mask}"},
+	{Name: "VecAes", Eval: noEval, Doc: "VecAes is one AES round of State with the round key Key, by Op.", Result: valueResult,
+		Operands: []operand{{Name: "Op", Kind: kEnum, Field: fSub, Enum: "VecAesOp"}, reg("State", fA), reg("Key", fB)},
+		Text:     "vecaes.{Op} {State}, {Key}"},
+	{Name: "VecAesInvMix", Eval: noEval, Doc: "VecAesInvMix is InvMixColumns of Src, which turns an encryption round key into the decryption key of the same\n// round: x64's aesimc and arm64's.",
+		Result: valueResult, Operands: []operand{reg("Src", fA)}, Text: "vecaesinvmix {Src}"},
+	{Name: "VecAesArm", Eval: noEval, Doc: "VecAesArm is arm64's aese or aesd of State with Key, by Op; only arm64's back end selects it.", Result: valueResult,
+		Operands: []operand{{Name: "Op", Kind: kEnum, Field: fSub, Enum: "VecAesArmOp"}, reg("State", fA), reg("Key", fB)},
+		Text:     "vecaesarm.{Op} {State}, {Key}"},
+	{Name: "VecAesMix", Eval: noEval, Doc: "VecAesMix is MixColumns of Src, arm64's aesmc; only arm64's back end selects it.", Result: valueResult,
+		Operands: []operand{reg("Src", fA)}, Text: "vecaesmix {Src}"},
+	{Name: "VecClmul", Eval: noEval, Doc: "VecClmul is the carry-less product of a 64-bit lane of Left and one of Right, the 128 bits of it: Select is\n// 0x00, 0x01, 0x10 or 0x11, whose low digit picks Left's lane and whose high digit Right's, as pclmulqdq's immediate does.",
+		Result: valueResult, Operands: []operand{reg("Left", fA), reg("Right", fB), num("Select")}, Text: "vecclmul {Left}, {Right}, {Select}"},
+	{Name: "VecSha", Eval: noEval, Doc: "VecSha is the SHA-256 instruction Op of its two or three vectors in Args, the first of which the instruction\n// reads and gives the result in place of: x64's Rnds2 takes the state's C, D, G and H, then A, B, E and F, then the two\n// message words with their constants (which it reads in xmm0), Msg1 and Msg2 two vectors of the schedule; arm64's H and H2\n// take the half of the state they give, the other half and the message words with their constants, Su0 two vectors of the\n// schedule and Su1 three.",
+		Result: valueResult, Operands: []operand{{Name: "Op", Kind: kEnum, Field: fSub, Enum: "VecShaOp"}, argsOp}, Text: "vecsha.{Op}({Args})"},
+	{Name: "Cpuid", Eval: noEval, Doc: "Cpuid gives the word that x64's cpuid of the leaf Leaf and the subleaf Subleaf writes to the register Register,\n// a constant: 0 for eax, 1 for ebx, 2 for ecx and 3 for edx; only x64's back end selects it.", Result: valueResult,
+		Operands: []operand{reg("Leaf", fA), reg("Subleaf", fB), num("Register")}, Text: "cpuid {Leaf}, {Subleaf}, {Register}"},
 	// A native build splits every element access (self/opt/buffers.maxon) into the read of the array's buffer, which
 	// common subexpression elimination and loop-invariant code motion then treat as they treat any read, and the access
 	// at the index; the interpreter never sees them.

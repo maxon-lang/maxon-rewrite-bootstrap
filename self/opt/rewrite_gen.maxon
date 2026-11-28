@@ -169,6 +169,36 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs ir.Defs, m
 	if op == ir.Opcode.opVecShift 'opcodeVecShift'
 		return false
 	end 'opcodeVecShift'
+	if op == ir.Opcode.opVecShuffleDwords 'opcodeVecShuffleDwords'
+		return false
+	end 'opcodeVecShuffleDwords'
+	if op == ir.Opcode.opVecAlignBytes 'opcodeVecAlignBytes'
+		return false
+	end 'opcodeVecAlignBytes'
+	if op == ir.Opcode.opVecBlendWords 'opcodeVecBlendWords'
+		return false
+	end 'opcodeVecBlendWords'
+	if op == ir.Opcode.opVecAes 'opcodeVecAes'
+		return false
+	end 'opcodeVecAes'
+	if op == ir.Opcode.opVecAesInvMix 'opcodeVecAesInvMix'
+		return false
+	end 'opcodeVecAesInvMix'
+	if op == ir.Opcode.opVecAesArm 'opcodeVecAesArm'
+		return false
+	end 'opcodeVecAesArm'
+	if op == ir.Opcode.opVecAesMix 'opcodeVecAesMix'
+		return false
+	end 'opcodeVecAesMix'
+	if op == ir.Opcode.opVecClmul 'opcodeVecClmul'
+		return false
+	end 'opcodeVecClmul'
+	if op == ir.Opcode.opVecSha 'opcodeVecSha'
+		return false
+	end 'opcodeVecSha'
+	if op == ir.Opcode.opCpuid 'opcodeCpuid'
+		return false
+	end 'opcodeCpuid'
 	if op == ir.Opcode.opBuffer 'opcodeBuffer'
 		return false
 	end 'opcodeBuffer'

@@ -87,7 +87,17 @@ export function motionOf(x ir.Instr) returns Motion
 		opVecFromWords or
 		opVecWord or
 		opVecBin or
-		opVecShift gives Motion.pure
+		opVecShift or
+		opVecShuffleDwords or
+		opVecAlignBytes or
+		opVecBlendWords or
+		opVecAes or
+		opVecAesInvMix or
+		opVecAesArm or
+		opVecAesMix or
+		opVecClmul or
+		opVecSha or
+		opCpuid gives Motion.pure
 		opBin gives binMotion(x)
 		opLength gives lengthMotion(x)
 		opNeg gives Motion.check if ir.instrCanFail(x) else Motion.pure

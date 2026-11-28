@@ -12,16 +12,16 @@ function vectorReg(mutates l Lowerer) returns Reg
 	return newReg(l, kind: IrKind.kindVector)
 end 'vectorReg'
 
-// vectorConstant is the constant the argument at index of the call writes, which is at least 1 (0 for a lane) and below
-// limit: the runtime's source writes a lane or a shift as a literal or a named constant, so any other is a compiler fault.
+// vectorConstant is the constant the argument at index of the call writes, which is at least least and below limit: the
+// runtime's source writes a lane, a shift or a selection as a literal or a named constant, so any other is a compiler fault.
 function vectorConstant(p ast.Project, ms ast.ModuleState, l Lowerer, c CallSite, index Count, least Count, limit Count) returns Count
 	let t = exprType(p, module: l.module, node: c.ordered[index])
 	if ast.typeKind(ms.types, reads: p.types, t: t) != ast.TypeKind.constInt 'notConstant'
-		panic("lower: a lane or a shift of a vector intrinsic that is not a constant")
+		panic("lower: a lane, a shift or a selection of a vector intrinsic that is not a constant")
 	end 'notConstant'
-	let v = try constBits(p, ms: ms, t: t) as Count otherwise panic("lower: a lane or a shift of a vector intrinsic below 0")
+	let v = try constBits(p, ms: ms, t: t) as Count otherwise panic("lower: a lane, a shift or a selection of a vector intrinsic below 0")
 	if v < least or v >= limit 'outside'
-		panic("lower: a lane or a shift of a vector intrinsic past what the vector has")
+		panic("lower: a lane, a shift or a selection of a vector intrinsic past what it may be")
 	end 'outside'
 	return v
 end 'vectorConstant'
@@ -104,3 +104,136 @@ end 'lowerRawVectorShiftLanesLeft'
 function lowerRawVectorShiftLanesRight(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return vectorShift(l, p: p, ms: ms, c: c, op: VecShiftOp.vecShiftLanesRight, args: args, limit: vectorShiftBitsLimit)
 end 'lowerRawVectorShiftLanesRight'
+
+// Where the constants of the shuffles, the carry-less product and cpuid may be: an order of 32-bit lanes and a mask of
+// 16-bit ones are a byte, pclmulqdq's lanes are the low bit of each of its two digits, and cpuid names one of four
+// registers.
+let vectorByteLimit = 256 as Count
+
+let clmulHighLeft = 0x01 as Count
+
+let clmulHighRight = 0x10 as Count
+
+let cpuidRegisters = 4 as Count
+
+function lowerRawVectorShuffleDwords(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let d = vectorReg(l)
+	emit(l, i: newVecShuffleDwords(d, src: args[0], order: vectorConstant(p, ms: ms, l: l, c: c, index: 1, least: 0, limit: vectorByteLimit)))
+	return d
+end 'lowerRawVectorShuffleDwords'
+
+function lowerRawVectorAlignBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let d = vectorReg(l)
+	emit(l, i: newVecAlignBytes(d, high: args[0], low: args[1], amount: vectorConstant(p, ms: ms, l: l, c: c, index: 2, least: 1, limit: vectorShiftBytesLimit)))
+	return d
+end 'lowerRawVectorAlignBytes'
+
+function lowerRawVectorBlendWords(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let d = vectorReg(l)
+	emit(l, i: newVecBlendWords(d, left: args[0], right: args[1], mask: vectorConstant(p, ms: ms, l: l, c: c, index: 2, least: 0, limit: vectorByteLimit)))
+	return d
+end 'lowerRawVectorBlendWords'
+
+function vectorAes(mutates l Lowerer, op VecAesOp, args RegList) returns Reg
+	let d = vectorReg(l)
+	emit(l, i: newVecAes(d, op: op, state: args[0], key: args[1]))
+	return d
+end 'vectorAes'
+
+function lowerRawVectorAesEncrypt(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorAes(l, op: VecAesOp.vecAesEnc, args: args)
+end 'lowerRawVectorAesEncrypt'
+
+function lowerRawVectorAesEncryptLast(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorAes(l, op: VecAesOp.vecAesEncLast, args: args)
+end 'lowerRawVectorAesEncryptLast'
+
+function lowerRawVectorAesDecrypt(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorAes(l, op: VecAesOp.vecAesDec, args: args)
+end 'lowerRawVectorAesDecrypt'
+
+function lowerRawVectorAesDecryptLast(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorAes(l, op: VecAesOp.vecAesDecLast, args: args)
+end 'lowerRawVectorAesDecryptLast'
+
+function lowerRawVectorAesInverseMix(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let d = vectorReg(l)
+	emit(l, i: newVecAesInvMix(d, src: args[0]))
+	return d
+end 'lowerRawVectorAesInverseMix'
+
+function vectorAesArm(mutates l Lowerer, op VecAesArmOp, args RegList) returns Reg
+	let d = vectorReg(l)
+	emit(l, i: newVecAesArm(d, op: op, state: args[0], key: args[1]))
+	return d
+end 'vectorAesArm'
+
+function lowerRawVectorAese(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorAesArm(l, op: VecAesArmOp.vecAesArmEncrypt, args: args)
+end 'lowerRawVectorAese'
+
+function lowerRawVectorAesd(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorAesArm(l, op: VecAesArmOp.vecAesArmDecrypt, args: args)
+end 'lowerRawVectorAesd'
+
+function lowerRawVectorAesmc(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let d = vectorReg(l)
+	emit(l, i: newVecAesMix(d, src: args[0]))
+	return d
+end 'lowerRawVectorAesmc'
+
+// lowerRawVectorClmul takes only the four selections of pclmulqdq's immediate that pick a lane of each operand.
+function lowerRawVectorClmul(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let select = vectorConstant(p, ms: ms, l: l, c: c, index: 2, least: 0, limit: vectorByteLimit)
+	if (select and not (clmulHighLeft or clmulHighRight)) != 0 'lanes'
+		panic("lower: a carry-less product's selection that is not 0x00, 0x01, 0x10 or 0x11")
+	end 'lanes'
+	let d = vectorReg(l)
+	emit(l, i: newVecClmul(d, left: args[0], right: args[1], select: select))
+	return d
+end 'lowerRawVectorClmul'
+
+function vectorSha(mutates l Lowerer, op VecShaOp, args RegList) returns Reg
+	let d = vectorReg(l)
+	let instr = l.b.vecSha(d, op: op, args: args)
+	emit(l, i: instr)
+	return d
+end 'vectorSha'
+
+function lowerRawVectorSha256Rounds2(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorSha(l, op: VecShaOp.vecShaRnds2, args: args)
+end 'lowerRawVectorSha256Rounds2'
+
+function lowerRawVectorSha256Message1(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorSha(l, op: VecShaOp.vecShaMsg1, args: args)
+end 'lowerRawVectorSha256Message1'
+
+function lowerRawVectorSha256Message2(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorSha(l, op: VecShaOp.vecShaMsg2, args: args)
+end 'lowerRawVectorSha256Message2'
+
+function lowerRawVectorSha256H(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorSha(l, op: VecShaOp.vecShaH, args: args)
+end 'lowerRawVectorSha256H'
+
+function lowerRawVectorSha256H2(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorSha(l, op: VecShaOp.vecShaH2, args: args)
+end 'lowerRawVectorSha256H2'
+
+function lowerRawVectorSha256Su0(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorSha(l, op: VecShaOp.vecShaSu0, args: args)
+end 'lowerRawVectorSha256Su0'
+
+function lowerRawVectorSha256Su1(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return vectorSha(l, op: VecShaOp.vecShaSu1, args: args)
+end 'lowerRawVectorSha256Su1'
+
+function lowerRawCpuid(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newCpuid(d, leaf: args[0], subleaf: args[1], register: vectorConstant(p, ms: ms, l: l, c: c, index: 2, least: 0, limit: cpuidRegisters)))
+	return d
+end 'lowerRawCpuid'
+
+function lowerRawCpuFeaturesAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return globalAddress(l, symbol: Rt.rtCpuFeatures)
+end 'lowerRawCpuFeaturesAddress'

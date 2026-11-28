@@ -735,6 +735,41 @@ func rawFunctions() []function {
 		raw("vectorShiftBytesDown", []string{"value Vector128", "bytes Count"}, "Vector128", "RawVectorShiftBytesDown"),
 		raw("vectorShiftLanesLeft", []string{"value Vector128", "bits Count"}, "Vector128", "RawVectorShiftLanesLeft"),
 		raw("vectorShiftLanesRight", []string{"value Vector128", "bits Count"}, "Vector128", "RawVectorShiftLanesRight"),
+		// The shuffles by a constant: of the 32-bit lanes of one vector, lane i the one that bits 2i and 2i + 1 of order
+		// name (x64's pshufd); the 16 bytes from byte `bytes` on, 1 to 15, of low and then high (palignr, ext); and the 16-bit
+		// lanes of right where bit i of mask is set and of left where it is clear (pblendw).
+		raw("vectorShuffleDwords", []string{"value Vector128", "order Count"}, "Vector128", "RawVectorShuffleDwords"),
+		raw("vectorAlignBytes", []string{"high Vector128", "low Vector128", "bytes Count"}, "Vector128", "RawVectorAlignBytes"),
+		raw("vectorBlendWords", []string{"left Vector128", "right Vector128", "mask Count"}, "Vector128", "RawVectorBlendWords"),
+		// The AES rounds as x64's instructions do them, on both targets: a round (ShiftRows, SubBytes, MixColumns, then the
+		// key), the last one (with no MixColumns), their inverses, and InvMixColumns, which makes a decryption key of an
+		// encryption one. The carry-less product of a 64-bit lane of left and one of right, select 0x00, 0x01, 0x10 or 0x11
+		// as pclmulqdq's immediate picks them.
+		raw("vectorAesEncrypt", []string{"state Vector128", "key Vector128"}, "Vector128", "RawVectorAesEncrypt"),
+		raw("vectorAesEncryptLast", []string{"state Vector128", "key Vector128"}, "Vector128", "RawVectorAesEncryptLast"),
+		raw("vectorAesDecrypt", []string{"state Vector128", "key Vector128"}, "Vector128", "RawVectorAesDecrypt"),
+		raw("vectorAesDecryptLast", []string{"state Vector128", "key Vector128"}, "Vector128", "RawVectorAesDecryptLast"),
+		raw("vectorAesInverseMix", []string{"value Vector128"}, "Vector128", "RawVectorAesInverseMix"),
+		raw("vectorClmul", []string{"left Vector128", "right Vector128", "select Count"}, "Vector128", "RawVectorClmul"),
+		// arm64's own AES instructions, which only its back end has: aese and aesd (the key first, then ShiftRows and
+		// SubBytes or their inverses) and aesmc (MixColumns).
+		raw("vectorAese", []string{"state Vector128", "key Vector128"}, "Vector128", "RawVectorAese"),
+		raw("vectorAesd", []string{"state Vector128", "key Vector128"}, "Vector128", "RawVectorAesd"),
+		raw("vectorAesmc", []string{"value Vector128"}, "Vector128", "RawVectorAesmc"),
+		// The SHA-256 instructions of each target, which only its back end has: x64's sha256rnds2 (two rounds of the state's
+		// C, D, G, H with its A, B, E, F and two message words with their constants in the low half of words), sha256msg1 and
+		// sha256msg2; arm64's sha256h, sha256h2, sha256su0 and sha256su1.
+		raw("vectorSha256Rounds2", []string{"state Vector128", "other Vector128", "words Vector128"}, "Vector128", "RawVectorSha256Rounds2"),
+		raw("vectorSha256Message1", []string{"left Vector128", "right Vector128"}, "Vector128", "RawVectorSha256Message1"),
+		raw("vectorSha256Message2", []string{"left Vector128", "right Vector128"}, "Vector128", "RawVectorSha256Message2"),
+		raw("vectorSha256H", []string{"abcd Vector128", "efgh Vector128", "words Vector128"}, "Vector128", "RawVectorSha256H"),
+		raw("vectorSha256H2", []string{"efgh Vector128", "abcd Vector128", "words Vector128"}, "Vector128", "RawVectorSha256H2"),
+		raw("vectorSha256Su0", []string{"first Vector128", "second Vector128"}, "Vector128", "RawVectorSha256Su0"),
+		raw("vectorSha256Su1", []string{"first Vector128", "third Vector128", "fourth Vector128"}, "Vector128", "RawVectorSha256Su1"),
+		// x64's cpuid of a leaf and a subleaf, the word of the register a constant names (0 eax, 1 ebx, 2 ecx, 3 edx), and
+		// the word of the data that the runtime keeps what it found of the processor's features in, 0 until it looks.
+		raw("cpuid", []string{"leaf Count", "subleaf Count", "register Count"}, "Count", "RawCpuid"),
+		raw("cpuFeaturesAddress", nil, "Count", "RawCpuFeaturesAddress"),
 		raw("heapAddress", nil, "Count", "RawHeapAddress"),
 		raw("stdoutAddress", nil, "Count", "RawStdoutAddress"),
 		raw("stderrAddress", nil, "Count", "RawStderrAddress"),
@@ -1484,6 +1519,7 @@ var entries = []entry{
 	{"TlsOffset", "g.tlsOffset", "Runtime", roleGlobal, "where the thread-local slot is in a thread's TEB, which a read of the thread's context loads at"},
 	{"MainContext", "g.mainContext", "Runtime", roleGlobal, "the context of the main thread, which the entry stores in the thread-local slot"},
 	{"ProcessStart", "g.processStart", "Runtime", roleGlobal, "the stack pointer a Linux process starts with, at the argument count, then the arguments and the environment, which the entry keeps"},
+	{"CpuFeatures", "g.cpuFeatures", "Runtime", roleGlobal, "the word the runtime keeps what it found of the processor's features in, 0 until it first looks (__Raw.cpuFeaturesAddress)"},
 	{"ThreadStart", "rt.threadStart", "Runtime", roleInternal, "(context) by Win64: the start of a thread the runtime makes, which keeps stack for the fault handler, stores the context in the thread-local slot and calls workerMain"},
 	{"StackSwitch", "rt.stackSwitch", "Runtime", roleInternal, "(pair) -> the record it left: saves the registers of the running stack into the switch record at the pair's first word and goes on the stack of the record at its second, by the internal convention (README, \"Green threads\")"},
 	{"CopyBytes", "rt.copyBytes", "Runtime", roleInternal, "(source, target, count) by the internal convention: copies count bytes, count above 0, between places that do not overlap, with the copy routines' copy (__Raw.copyBytes)"},

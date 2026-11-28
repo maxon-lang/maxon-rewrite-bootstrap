@@ -1018,6 +1018,61 @@ export function encodeArm64UmovXD1(mutates code ByteArray, dest Arm64Register, s
 	arm64Emit(code, word: 0x4E183C00 or arm64RegisterField(dest, at: 0) or arm64RegisterField(src, at: 5))
 end 'encodeArm64UmovXD1'
 
+// dup dest, src, lane: 0x4E040400.
+export function encodeArm64DupVec4SLane(mutates code ByteArray, dest Arm64Register, src Arm64Register, lane Arm64Imm2)
+	arm64Emit(code, word: 0x4E040400 or arm64RegisterField(dest, at: 0) or arm64RegisterField(src, at: 5) or ((lane as Arm64Bits) shl 19))
+end 'encodeArm64DupVec4SLane'
+
+// aese dest, src: 0x4E284800.
+export function encodeArm64AeseVec(mutates code ByteArray, dest Arm64Register, src Arm64Register)
+	arm64Emit(code, word: 0x4E284800 or arm64RegisterField(dest, at: 0) or arm64RegisterField(src, at: 5))
+end 'encodeArm64AeseVec'
+
+// aesd dest, src: 0x4E285800.
+export function encodeArm64AesdVec(mutates code ByteArray, dest Arm64Register, src Arm64Register)
+	arm64Emit(code, word: 0x4E285800 or arm64RegisterField(dest, at: 0) or arm64RegisterField(src, at: 5))
+end 'encodeArm64AesdVec'
+
+// aesmc dest, src: 0x4E286800.
+export function encodeArm64AesmcVec(mutates code ByteArray, dest Arm64Register, src Arm64Register)
+	arm64Emit(code, word: 0x4E286800 or arm64RegisterField(dest, at: 0) or arm64RegisterField(src, at: 5))
+end 'encodeArm64AesmcVec'
+
+// aesimc dest, src: 0x4E287800.
+export function encodeArm64AesimcVec(mutates code ByteArray, dest Arm64Register, src Arm64Register)
+	arm64Emit(code, word: 0x4E287800 or arm64RegisterField(dest, at: 0) or arm64RegisterField(src, at: 5))
+end 'encodeArm64AesimcVec'
+
+// pmull dest, left, right: 0x0EE0E000.
+export function encodeArm64PmullVec1Q(mutates code ByteArray, dest Arm64Register, left Arm64Register, right Arm64Register)
+	arm64Emit(code, word: 0x0EE0E000 or arm64RegisterField(dest, at: 0) or arm64RegisterField(left, at: 5) or arm64RegisterField(right, at: 16))
+end 'encodeArm64PmullVec1Q'
+
+// pmull2 dest, left, right: 0x4EE0E000.
+export function encodeArm64Pmull2Vec1Q(mutates code ByteArray, dest Arm64Register, left Arm64Register, right Arm64Register)
+	arm64Emit(code, word: 0x4EE0E000 or arm64RegisterField(dest, at: 0) or arm64RegisterField(left, at: 5) or arm64RegisterField(right, at: 16))
+end 'encodeArm64Pmull2Vec1Q'
+
+// sha256h dest, src: 0x5E004000.
+export function encodeArm64Sha256hVec(mutates code ByteArray, dest Arm64Register, src Arm64Register)
+	arm64Emit(code, word: 0x5E004000 or arm64RegisterField(dest, at: 0) or arm64RegisterField(src, at: 5))
+end 'encodeArm64Sha256hVec'
+
+// sha256h2 dest, src: 0x5E005000.
+export function encodeArm64Sha256h2Vec(mutates code ByteArray, dest Arm64Register, src Arm64Register)
+	arm64Emit(code, word: 0x5E005000 or arm64RegisterField(dest, at: 0) or arm64RegisterField(src, at: 5))
+end 'encodeArm64Sha256h2Vec'
+
+// sha256su0 dest, src: 0x5E282800.
+export function encodeArm64Sha256su0Vec(mutates code ByteArray, dest Arm64Register, src Arm64Register)
+	arm64Emit(code, word: 0x5E282800 or arm64RegisterField(dest, at: 0) or arm64RegisterField(src, at: 5))
+end 'encodeArm64Sha256su0Vec'
+
+// sha256su1 dest, src: 0x5E006000.
+export function encodeArm64Sha256su1Vec(mutates code ByteArray, dest Arm64Register, src Arm64Register)
+	arm64Emit(code, word: 0x5E006000 or arm64RegisterField(dest, at: 0) or arm64RegisterField(src, at: 5))
+end 'encodeArm64Sha256su1Vec'
+
 // ldar dest, [base]: 0xC8DFFC00.
 export function encodeArm64Ldar(mutates code ByteArray, dest Arm64Register, base Arm64Register)
 	arm64Emit(code, word: 0xC8DFFC00 or arm64RegisterField(dest, at: 0) or arm64RegisterField(base, at: 5))
@@ -1510,6 +1565,17 @@ export enum Arm64Form
 	ushrVec2D
 	insVecD1
 	umovXD1
+	dupVec4SLane
+	aeseVec
+	aesdVec
+	aesmcVec
+	aesimcVec
+	pmullVec1Q
+	pmull2Vec1Q
+	sha256hVec
+	sha256h2Vec
+	sha256su0Vec
+	sha256su1Vec
 	ldar
 	stlr
 	ldaxr
@@ -1714,24 +1780,35 @@ export function encodeArm64MachineForm(mutates code ByteArray, form FormID, a Ar
 		386 then encodeArm64UshrVec2D(code, dest: a, src: b, shift: try imm as Arm64Imm6 otherwise panic("backend: the immediate of UshrVec2D does not fit it"))
 		387 then encodeArm64InsVecD1(code, dest: a, src: c)
 		388 then encodeArm64UmovXD1(code, dest: a, src: b)
-		389 then encodeArm64Ldar(code, dest: a, base: b)
-		390 then encodeArm64Stlr(code, src: a, base: b)
-		391 then encodeArm64Ldaxr(code, dest: a, base: b)
-		392 then encodeArm64Stlxr(code, status: a, src: b, base: c)
-		393 then encodeArm64CasalX0(code, src: a, base: b)
-		394 then encodeArm64Ldaddal(code, dest: a, src: b, base: c)
-		395 then encodeArm64Swpal(code, dest: a, src: b, base: c)
-		396 then encodeArm64DmbIsh(code)
-		397 then encodeArm64Isb(code)
-		398 then encodeArm64Yield(code)
-		399 then encodeArm64Nop(code)
-		400 then encodeArm64Brk(code, imm: try imm as Arm64Imm16 otherwise panic("backend: the immediate of Brk does not fit it"))
-		401 then encodeArm64Svc(code)
-		402 then encodeArm64MrsTpidr(code, dest: a)
-		403 then encodeArm64MrsTpidrro(code, dest: a)
-		404 then encodeArm64MsrTpidr(code, src: a)
-		405 then encodeArm64MrsNzcv(code, dest: a)
-		406 then encodeArm64MsrNzcv(code, src: a)
+		389 then encodeArm64DupVec4SLane(code, dest: a, src: b, lane: try imm as Arm64Imm2 otherwise panic("backend: the immediate of DupVec4SLane does not fit it"))
+		390 then encodeArm64AeseVec(code, dest: a, src: c)
+		391 then encodeArm64AesdVec(code, dest: a, src: c)
+		392 then encodeArm64AesmcVec(code, dest: a, src: b)
+		393 then encodeArm64AesimcVec(code, dest: a, src: b)
+		394 then encodeArm64PmullVec1Q(code, dest: a, left: b, right: c)
+		395 then encodeArm64Pmull2Vec1Q(code, dest: a, left: b, right: c)
+		396 then encodeArm64Sha256hVec(code, dest: a, src: c)
+		397 then encodeArm64Sha256h2Vec(code, dest: a, src: c)
+		398 then encodeArm64Sha256su0Vec(code, dest: a, src: c)
+		399 then encodeArm64Sha256su1Vec(code, dest: a, src: c)
+		400 then encodeArm64Ldar(code, dest: a, base: b)
+		401 then encodeArm64Stlr(code, src: a, base: b)
+		402 then encodeArm64Ldaxr(code, dest: a, base: b)
+		403 then encodeArm64Stlxr(code, status: a, src: b, base: c)
+		404 then encodeArm64CasalX0(code, src: a, base: b)
+		405 then encodeArm64Ldaddal(code, dest: a, src: b, base: c)
+		406 then encodeArm64Swpal(code, dest: a, src: b, base: c)
+		407 then encodeArm64DmbIsh(code)
+		408 then encodeArm64Isb(code)
+		409 then encodeArm64Yield(code)
+		410 then encodeArm64Nop(code)
+		411 then encodeArm64Brk(code, imm: try imm as Arm64Imm16 otherwise panic("backend: the immediate of Brk does not fit it"))
+		412 then encodeArm64Svc(code)
+		413 then encodeArm64MrsTpidr(code, dest: a)
+		414 then encodeArm64MrsTpidrro(code, dest: a)
+		415 then encodeArm64MsrTpidr(code, src: a)
+		416 then encodeArm64MrsNzcv(code, dest: a)
+		417 then encodeArm64MsrNzcv(code, src: a)
 		default then panic("backend: a machine instruction of a form of no arm64 form")
 	end 'form'
 end 'encodeArm64MachineForm'

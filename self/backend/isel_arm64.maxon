@@ -848,3 +848,133 @@ function emitArm64LoadParam(mutates sel Selector, fn ir.IrFunction, ins ir.Instr
 		sel.copy(second, src: word)
 	end 'string'
 end 'emitArm64LoadParam'
+
+// The shuffles that arm64 has no one instruction of. A lane of 32 bits is two bits of an order and four bytes of a tbl's
+// picks; a lane of 16 bits is one bit of a mask and two bytes; the order that swaps the two halves is ext's of 8 bytes.
+let dwordOrderBits = 2 as Count
+
+let dwordOrderLanes = 4 as Count
+
+let dwordLaneMask = 3 as Count
+
+// dwordLanesInHalf are the 32-bit lanes of a 64-bit half, of which the lane's place in its half is the low bit.
+let dwordLanesInHalf = 2 as Count
+
+let dwordInHalfMask = 1 as Count
+
+let dwordBytes = 4 as Count
+
+let byteBits = 8 as Count
+
+let halvesSwapped = 0x4E as Count
+
+let vectorHalfBytes = 8 as Count
+
+let broadcastOrder = 0x55 as Count
+
+let wordLaneBits = 16 as Count
+
+let wordLanesInWord = 4 as Count
+
+let wordLaneOnes = 0xFFFF as Count
+
+// emitArm64ShuffleDwords is pshufd: dup where every lane is the same one, ext where the halves swap, and else tbl with the
+// picks of the order's bytes.
+function emitArm64ShuffleDwords(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let order = ir.vecShuffleDwordsOrder(ins)
+	let x = vregOf(ir.vecShuffleDwordsSrc(ins))
+	let r = sel.resultOf(ins.dst)
+	let lane = order and dwordLaneMask
+	if order == lane * broadcastOrder 'broadcast'
+		sel.arm64Instr(Arm64Form.dupVec4SLane, a: r, b: x, c: noMReg, aux: 0, imm: lane as FullRangeInt)
+		return
+	end 'broadcast'
+	if order == halvesSwapped 'swapped'
+		sel.arm64Instr(Arm64Form.extVec16, a: r, b: x, c: x, aux: 0, imm: vectorHalfBytes as FullRangeInt)
+		return
+	end 'swapped'
+	var low = 0 as Count
+	var high = 0 as Count
+	for i in 0 upto dwordOrderLanes 'lanes'
+		let picked = (order shr (i * dwordOrderBits)) and dwordLaneMask
+		for j in 0 upto dwordBytes 'bytes'
+			let pick = picked * dwordBytes + j
+			let at = ((i and dwordInHalfMask) * dwordBytes + j) * byteBits
+			if i < dwordLanesInHalf 'low'
+				low = low or (pick shl at)
+			end 'low' else 'high'
+				high = high or (pick shl at)
+			end 'high'
+		end 'bytes'
+	end 'lanes'
+	let picks = arm64VectorOfWords(sel, low: low, high: high)
+	sel.arm64Instr(Arm64Form.tblVec16, a: r, b: x, c: picks, aux: 0, imm: 0)
+end 'emitArm64ShuffleDwords'
+
+// emitArm64BlendWords is pblendw: left with the bits where left and right differ that the mask's lanes cover flipped.
+function emitArm64BlendWords(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let mask = ir.vecBlendWordsMask(ins)
+	let left = vregOf(ir.vecBlendWordsLeft(ins))
+	let right = vregOf(ir.vecBlendWordsRight(ins))
+	var low = 0 as Count
+	var high = 0 as Count
+	for i in 0 upto wordLanesInWord 'lanes'
+		if ((mask shr i) and 1) != 0 'lowLane'
+			low = low or (wordLaneOnes shl (i * wordLaneBits))
+		end 'lowLane'
+		if ((mask shr (i + wordLanesInWord)) and 1) != 0 'highLane'
+			high = high or (wordLaneOnes shl (i * wordLaneBits))
+		end 'highLane'
+	end 'lanes'
+	let lanes = arm64VectorOfWords(sel, low: low, high: high)
+	let differ = sel.newTempOf(RegClass.xmm)
+	sel.arm64Instr(Arm64Form.eorVec16, a: differ, b: left, c: right, aux: 0, imm: 0)
+	let taken = sel.newTempOf(RegClass.xmm)
+	sel.arm64Instr(Arm64Form.andVec16, a: taken, b: differ, c: lanes, aux: 0, imm: 0)
+	let d = sel.resultOf(ins.dst)
+	sel.arm64Instr(Arm64Form.eorVec16, a: d, b: left, c: taken, aux: 0, imm: 0)
+end 'emitArm64BlendWords'
+
+// arm64VectorOfWords is a new vector register of two words that the selection knows, its low lane and its high one.
+function arm64VectorOfWords(mutates sel Selector, low Count, high Count) returns MReg
+	let lowWord = sel.constant(ir.wordOfBits(low) as FullRangeInt)
+	let highWord = sel.constant(ir.wordOfBits(high) as FullRangeInt)
+	let half = sel.newTempOf(RegClass.xmm)
+	sel.arm64Instr(Arm64Form.fmovDX, a: half, b: lowWord, c: noMReg, aux: 0, imm: 0)
+	let whole = sel.newTempOf(RegClass.xmm)
+	sel.arm64Instr(Arm64Form.insVecD1, a: whole, b: half, c: highWord, aux: 0, imm: 0)
+	return whole
+end 'arm64VectorOfWords'
+
+// emitVecShaArm64 selects the SHA-256 instructions, which read and write their first vector: sha256h, sha256h2 and
+// sha256su1 read their third in v0, the first vector register. x64's instructions have no arm64 form.
+function emitVecShaArm64(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let start = ir.vecShaArgsStart(ins)
+	let first = argAt(fn, start: start, index: 0)
+	let second = argAt(fn, start: start, index: 1)
+	match ir.vecShaOp(ins) 'op'
+		vecShaH then emitArm64ShaThree(sel, ins: ins, form: Arm64Form.sha256hVec, first: first, second: second, third: argAt(fn, start: start, index: 2))
+		vecShaH2 then emitArm64ShaThree(sel, ins: ins, form: Arm64Form.sha256h2Vec, first: first, second: second, third: argAt(fn, start: start, index: 2))
+		vecShaSu1 then emitArm64ShaThree(sel, ins: ins, form: Arm64Form.sha256su1Vec, first: first, second: second, third: argAt(fn, start: start, index: 2))
+		vecShaSu0 then emitArm64ShaTwo(sel, ins: ins, form: Arm64Form.sha256su0Vec, first: first, second: second)
+		vecShaRnds2 or
+		vecShaMsg1 or
+		vecShaMsg2 then emitX64Operation(sel, fn: fn, ins: ins)
+	end 'op'
+end 'emitVecShaArm64'
+
+function emitArm64ShaThree(mutates sel Selector, ins ir.Instr, form Arm64Form, first MReg, second MReg, third MReg)
+	sel.copy(physOfCount(arm64FirstVector), src: third)
+	emitArm64ShaTwo(sel, ins: ins, form: form, first: first, second: second)
+end 'emitArm64ShaThree'
+
+// emitArm64ShaTwo is a SHA-256 form that reads and writes first, which the instruction's result is defined in.
+function emitArm64ShaTwo(mutates sel Selector, ins ir.Instr, form Arm64Form, first MReg, second MReg)
+	let d = sel.resultOf(ins.dst)
+	sel.arm64Instr(form, a: d, b: first, c: second, aux: 0, imm: 0)
+end 'emitArm64ShaTwo'
+
+// emitX64Operation refuses an operation of x64's instructions, which the runtime's source has only under #if arch(x64).
+function emitX64Operation(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	panic("backend: {ir.opcodeName(ins.op)} is an x64 instruction, which arm64 has no form of: the runtime's source has it only under #if arch(x64)")
+end 'emitX64Operation'

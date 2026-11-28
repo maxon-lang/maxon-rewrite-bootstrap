@@ -285,6 +285,9 @@ function paramSpecs(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 		if failedSince(errs, mark: mark) 'failed'
 			return
 		end 'failed'
+		if refusesHeldVector(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: prm.typeRef), t: t, place: "a parameter", errs: errs) 'vector'
+			return
+		end 'vector'
 		if prm.defaultRef != 0 and ast.isByAddress(conv) 'byAddress'
 			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: prm.defaultRef), code: diag.errUnsupportedFeature, msg: "Unsupported: a default value on the {conv.keyword()} parameter '{prm.name}': it passes a place of the caller's, which a default is not", errs: errs)
 			return
@@ -298,7 +301,11 @@ function returnOf(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	if returnsRef == 0 'none'
 		return p.builtins.voidTy
 	end 'none'
-	return resolveTypeRef(c, p: p, ms: ms, tr: returnsRef, selfTy: selfTy, errs: errs)
+	let t = resolveTypeRef(c, p: p, ms: ms, tr: returnsRef, selfTy: selfTy, errs: errs)
+	if refusesHeldVector(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: returnsRef), t: t, place: "a result", errs: errs) 'vector'
+		return ast.noType
+	end 'vector'
+	return t
 end 'returnOf'
 
 // errorOf is the error a function's 'throws' names, or none for a function that throws nothing. An error is an enum, whose

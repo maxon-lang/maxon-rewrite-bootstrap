@@ -446,6 +446,9 @@ const (
 	laneShiftLimit = 64
 	// vectorBytes is the size of a q register, the unit of its load's and store's scaled offset.
 	vectorBytes = 16
+	// dup's lane of 32 bits is the top two bits of its imm5, whose low three are 100.
+	dupLaneAt   = 19
+	dupLaneBits = 2
 )
 
 // vectorForms are the forms on a whole 128-bit q register (the IR's vectors), and its moves: a q register's load and
@@ -473,6 +476,27 @@ func vectorForms() []form {
 		// ins of a word into the high lane, which keeps the low one, and umov of the high lane into a word.
 		{name: "InsVecD1", mnemonic: "ins", opcode: 0x4E181C00, operands: []operand{vec("dest", rdAt, readWrite), reg("src", rnAt, read)}},
 		twoReg("UmovXD1", "umov", 0x4E183C00, reg("dest", rdAt, write), vec("src", rnAt, read)),
+		// dup of one 32-bit lane into all four.
+		{name: "DupVec4SLane", mnemonic: "dup", opcode: 0x4E040400, operands: []operand{
+			vec("dest", rdAt, write), vec("src", rnAt, read), imm("lane", dupLaneAt, dupLaneBits)}},
+		// The cryptographic extension's AES rounds, which read the key's exclusive or with the state they give, and its
+		// MixColumns and InvMixColumns.
+		twoReg("AeseVec", "aese", 0x4E284800, vec("dest", rdAt, readWrite), vec("src", rnAt, read)),
+		twoReg("AesdVec", "aesd", 0x4E285800, vec("dest", rdAt, readWrite), vec("src", rnAt, read)),
+		twoReg("AesmcVec", "aesmc", 0x4E286800, vec("dest", rdAt, write), vec("src", rnAt, read)),
+		twoReg("AesimcVec", "aesimc", 0x4E287800, vec("dest", rdAt, write), vec("src", rnAt, read)),
+		// pmull of the low 64-bit lanes into the 128 bits of their carry-less product, and pmull2 of the high ones.
+		three("PmullVec1Q", "pmull", 0x0EE0E000),
+		three("Pmull2Vec1Q", "pmull2", 0x4EE0E000),
+		// The SHA-256 instructions: sha256h, sha256h2 and sha256su1 read a third vector, which a machine instruction has
+		// no room for beside the one they read and write, so they read it in v0, whose number their opcodes hold.
+		{name: "Sha256hVec", mnemonic: "sha256h", opcode: 0x5E004000, operands: []operand{vec("dest", rdAt, readWrite), vec("src", rnAt, read)},
+			fixedUses: []string{"d0"}},
+		{name: "Sha256h2Vec", mnemonic: "sha256h2", opcode: 0x5E005000, operands: []operand{vec("dest", rdAt, readWrite), vec("src", rnAt, read)},
+			fixedUses: []string{"d0"}},
+		twoReg("Sha256su0Vec", "sha256su0", 0x5E282800, vec("dest", rdAt, readWrite), vec("src", rnAt, read)),
+		{name: "Sha256su1Vec", mnemonic: "sha256su1", opcode: 0x5E006000, operands: []operand{vec("dest", rdAt, readWrite), vec("src", rnAt, read)},
+			fixedUses: []string{"d0"}},
 	}
 }
 

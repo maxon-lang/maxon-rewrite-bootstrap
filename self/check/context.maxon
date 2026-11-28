@@ -1395,7 +1395,7 @@ function resolveTupleTypeRef(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	for i in 0 upto ms.tree().listLen(elemsRef) 'each'
 		let node = ms.tree().listAt(elemsRef, index: i) as ast.NodeID
 		let t = resolveTypeRef(c, p: p, ms: ms, tr: node, selfTy: selfTy, errs: errs)
-		if t == ast.noType 'failed'
+		if t == ast.noType or refusesHeldVector(c, p: p, ms: ms, off: ms.tree().startOf(node), t: t, place: "an element of a tuple", errs: errs) 'failed'
 			return ast.noType
 		end 'failed'
 		elems.push(t)
@@ -1411,7 +1411,11 @@ function resolveTypeArg(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 		checkFail(c.modID, off: ms.tree().startOf(tr), code: diag.errBareTypeArgument, msg: diag.bareTypeArgument(bare), errs: errs)
 		return ast.noType
 	end 'bare'
-	return resolveTypeRef(c, p: p, ms: ms, tr: tr, selfTy: selfTy, errs: errs)
+	let t = resolveTypeRef(c, p: p, ms: ms, tr: tr, selfTy: selfTy, errs: errs)
+	if refusesHeldVector(c, p: p, ms: ms, off: ms.tree().startOf(tr), t: t, place: "a type argument, the element of a collection among them", errs: errs) 'vector'
+		return ast.noType
+	end 'vector'
+	return t
 end 'resolveTypeArg'
 
 // bareNumberName is "int" or "float" when a type reference is that word alone, and "" for any other.
