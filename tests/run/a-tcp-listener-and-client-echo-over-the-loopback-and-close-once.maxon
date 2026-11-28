@@ -4,7 +4,6 @@
 // an IPv6 one binds over ::1, and a malformed one, a host holding a NUL and the empty host fail to resolve without reaching a
 // resolver. A name is resolved: localhost through the system's resolver on macOS and Windows and /etc/hosts on Linux. A connect
 // to a port whose listener has closed fails.
-// runs: manual
 // native-only
 //> the server heard: ping
 //> the server read the end

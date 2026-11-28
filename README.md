@@ -6491,6 +6491,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   its functions by name, since a program imports from kernel32 alone. A connected or accepted socket's keepalive (15 s, 15 s,
   9 probes) is set by `TCP_KEEPIDLE`, `TCP_KEEPINTVL` and `TCP_KEEPCNT`, which Windows 10 version 1709 has (1703 for the count),
   so on an earlier Windows the keepalive stays as the system has it.
+  A connect to the loopback (127/8 or `::1`) first sets `SIO_TCP_INITIAL_RTO` to no SYN retransmission, as Go's `net/fd_windows.go` does, so
+  that a connect to a closed port fails at once: Windows sends the SYN again twice after the RST and the connect waits 2 s for it
+  (a loopback loses no packet; before Windows 10 version 1709 the system refuses the call and the connect keeps its 2 s).
 
 ## Changing the language
 

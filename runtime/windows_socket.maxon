@@ -85,6 +85,20 @@
 
 	let sioBaseHandle = 0x48000022 as Count
 
+	// SIO_TCP_INITIAL_RTO (IOC_IN, IOC_VENDOR and 17) takes the 4 bytes of a TCP_INITIAL_RTO_PARAMETERS: an Rtt of
+	// TCP_INITIAL_RTO_UNSPECIFIED_RTT (0xFFFF, the system's own) and MaxSynRetransmissions of TCP_INITIAL_RTO_NO_SYN_RETRANSMISSIONS
+	// (0xFE).
+	let sioTcpInitialRto = 0x98000011 as Count
+
+	let initialRtoNoSynRetransmissions = 0xFEFFFF as Count
+
+	let initialRtoBytes = 4 as Count
+
+	// loopbackFirstByte starts every IPv4 loopback address; ipv6LoopbackLastWord is the last 8 bytes of ::1, read as a word.
+	let loopbackFirstByte = 127 as Byte
+
+	let ipv6LoopbackLastWord = 0x0100000000000000 as Count
+
 	let handleFlagInherit = 1 as Count
 
 	// invalidSocket is INVALID_SOCKET, and socketError what an int-returning function gives for a failure (-1, its low 32 bits).
@@ -351,8 +365,31 @@
 	end 'acceptCall'
 
 	function connectCall(fd Count, name Count, length Count) returns Count
+		if isLoopbackName(name, length: length) 'loopback'
+			failFastOnLoopback(fd)
+		end 'loopback'
 		return intResult(__Raw.callHost3(winsockFunction(connectSlot), arg1: fd, arg2: name, arg3: length))
 	end 'connectCall'
+
+	// isLoopbackName is whether a sockaddr names the loopback: an IPv4 address that starts with 127, or ::1.
+	function isLoopbackName(name Count, length Count) returns bool
+		if length == sockaddrIn4Bytes 'four'
+			return __Raw.loadByte(name, offset: sockaddrIn4AddressOffset) == loopbackFirstByte
+		end 'four'
+		let high = __Raw.loadWord(name, offset: sockaddrIn6AddressOffset)
+		let low = __Raw.loadWord(name, offset: __Raw.wrappingAdd(sockaddrIn6AddressOffset, right: wordBytes))
+		return high == 0 and low == ipv6LoopbackLastWord
+	end 'isLoopbackName'
+
+	// failFastOnLoopback has a connect that the loopback refuses end at once, as Go's does (net/fd_windows.go): Windows sends a SYN
+	// again twice after the RST of a closed port, and a connect to a port that nobody listens on waits 2 s for it, where a
+	// loopback loses no packet. It is an optimisation of a connect that fails, so a system that refuses it (before Windows 10
+	// version 1709) leaves the connect as it was.
+	function failFastOnLoopback(fd Count)
+		var parameters = initialRtoNoSynRetransmissions
+		var returned = 0 as Count
+		_ = __Raw.callHost9(winsockFunction(wsaIoctlSlot), arg1: fd, arg2: sioTcpInitialRto, arg3: __Raw.addressOf(parameters), arg4: initialRtoBytes, arg5: 0, arg6: 0, arg7: __Raw.addressOf(returned), arg8: 0, arg9: 0)
+	end 'failFastOnLoopback'
 
 	function socketOptionRead(fd Count, level Count, option Count, value Count, lengthAddress Count) returns Count
 		return intResult(__Raw.callHost5(winsockFunction(getsockoptSlot), arg1: fd, arg2: level, arg3: option, arg4: value, arg5: lengthAddress))
