@@ -101,6 +101,24 @@ function boxInto(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, n
 		checkFail(c.modID, off: at, code: diag.errUnsupportedFeature, msg: "Unsupported: a constant of the interface type '{ifaceName}': a constant is read anew wherever it is named, and an interface value is the box of the value it holds; declare the constant at '{srcName}'", errs: errs)
 		return false
 	end 'outside'
+	if not holdable(c, p: p, ms: ms, at: at, src: src, iface: iface, errs: errs) 'refused'
+		return false
+	end 'refused'
+	// A try that passes its failure on gives its expression's value, which is what is put in the box.
+	let valueNode = ast.through(ms.tree(), e: node)
+	if not c.typing.boxes.has(valueNode as Count) 'first'
+		c.typing.boxes.insert(valueNode as Count, value: iface)
+		c.pendingBoxes.push(PendingBox.make(at, src: src, iface: iface, withinFn: c.boundedFn, code: diag.errTypeMismatch, refusal: wrong.conformWords(srcName, iface: ifaceName)))
+		recordUse(c, call: valueNode)
+	end 'first'
+	return true
+end 'boxInto'
+
+// holdable is whether a value of the type src may be in a value of iface, which owns it, drops it, crosses between threads
+// and, where iface extends Copyable, is copied; it refuses the value where it may not.
+function holdable(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, at diag.U32, src ast.TypeID, iface ast.TypeID, mutates errs diag.ErrorList) returns bool
+	let ifaceName = nameOfType(p, ms: ms, t: iface)
+	let srcName = gotName(p, ms: ms, t: src)
 	if holdsBorrow(p, ms: ms, t: src) 'borrows'
 		checkFail(c.modID, off: at, code: diag.errBorrowEscapes, msg: "a value of '{srcName}' holds a borrow, so it cannot be put in a '{ifaceName}' value, which owns what it holds and may outlive what it borrows; pass it where a '{srcName}' is taken", errs: errs)
 		return false
@@ -124,15 +142,8 @@ function boxInto(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, n
 			return false
 		end 'notCopyable'
 	end 'copyable'
-	// A try that passes its failure on gives its expression's value, which is what is put in the box.
-	let valueNode = ast.through(ms.tree(), e: node)
-	if not c.typing.boxes.has(valueNode as Count) 'first'
-		c.typing.boxes.insert(valueNode as Count, value: iface)
-		c.pendingBoxes.push(PendingBox.make(at, src: src, iface: iface, withinFn: c.boundedFn, code: diag.errTypeMismatch, refusal: wrong.conformWords(srcName, iface: ifaceName)))
-		recordUse(c, call: valueNode)
-	end 'first'
 	return true
-end 'boxInto'
+end 'holdable'
 
 // verifyBoxes checks that the type of each value the module puts in an interface value implements the interface, by a
 // declaration that the module sees: the conformance that the box is given.
@@ -156,9 +167,29 @@ function requireBoxConforms(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	match consumes ast.conformanceSource(p, ms: ms, from: c.modID, t: src, iface: box.iface) 'source'
 		found(_) then return
 		ambiguous(first, second) then failAmbiguousConformance(c, p: p, off: box.off, typeName: nameOfType(p, ms: ms, t: src), ifaceName: ifaceName, first: first, second: second, errs: errs)
-		absent then checkFail(c.modID, off: box.off, code: box.code.clone(), msg: box.refusal.clone(), errs: errs)
+		absent then requireWidened(c, p: p, ms: ms, box: box, errs: errs)
 	end 'source'
 end 'requireBoxConforms'
+
+// requireWidened checks a value put in an interface value that no declaration says its type implements: its type binds the
+// interface's associated types otherwise, and is widened to it (ast.widening), each value its methods give for a held one
+// being put in a value of the interface it is held at, which must be able to hold it.
+function requireWidened(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, box PendingBox, mutates errs diag.ErrorList)
+	match consumes ast.widening(p, ms: ms, from: c.modID, t: box.src, iface: box.iface) 'widened'
+		some(w) then requireHoldable(c, p: p, ms: ms, at: box.off, widening: w, errs: errs)
+		none then checkFail(c.modID, off: box.off, code: box.code.clone(), msg: box.refusal.clone(), errs: errs)
+	end 'widened'
+end 'requireWidened'
+
+function requireHoldable(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, at diag.U32, widening ast.Widening, mutates errs diag.ErrorList)
+	for i in 0 upto widening.from.count() 'each'
+		let from = widening.from.get(i)
+		let heldAt = try widening.heldAt.get(i) otherwise panic("check: a widening's interfaces past their count")
+		if from != ast.noType and not holdable(c, p: p, ms: ms, at: at, src: from, iface: heldAt, errs: errs) 'refused'
+			return
+		end 'refused'
+	end 'each'
+end 'requireHoldable'
 
 // checkInterfaceCast types a cast to an interface: a value of a type that implements it is put in a value of it, as where
 // a value of it is expected. An interface value converts to no other interface, as in maxon.

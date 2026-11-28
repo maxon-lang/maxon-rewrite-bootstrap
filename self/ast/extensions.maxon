@@ -383,6 +383,14 @@ export union ConformanceLookup
 	absent
 	found(conformance Conformance)
 	ambiguous(first Conformance, second Conformance)
+
+	export function isAbsent() returns bool
+		return match self 'k'
+			absent gives true
+			found(_) gives false
+			ambiguous(_, _) gives false
+		end 'k'
+	end 'isAbsent'
 end 'ConformanceLookup'
 
 // conformanceSource is the declaration that says t implements iface (or an interface that extends it) where code in the
@@ -414,6 +422,162 @@ export function conformanceSource(p Project, mutates ms ModuleState, from diag.M
 	end 'one'
 	return ConformanceLookup.ambiguous(seen[0].clone(), second: seen[1].clone())
 end 'conformanceSource'
+
+// A Widening is how a value of a type is put in a value of an interface whose associated types it binds otherwise
+// (README, "Associated types held at an interface"): have is the instance of the interface, or of one that extends it, that
+// a declaration of the type says it implements, and source that declaration. For each requirement of the interface wanted,
+// in table order, from is the type the type's method gives, which the table puts in a value of the interface heldAt, or
+// noType where the method meets the requirement as it is.
+export type Widening
+	export var have as TypeID
+	export var source as Conformance
+	export var from as TypeIDList
+	export var heldAt as TypeIDList
+
+	export static function make(have TypeID, consumes source Conformance, consumes from TypeIDList, consumes heldAt TypeIDList) returns Widening
+		return Widening{have: have, source: source, from: from, heldAt: heldAt}
+	end 'make'
+end 'Widening'
+
+// boxConformance is the declaration by which a value of t is put in a value of iface where code in the module from sees
+// it: one that says t implements iface, or else one that widens it (widening).
+export function boxConformance(p Project, mutates ms ModuleState, from diag.ModuleID, t TypeID, iface TypeID) returns ConformanceLookup
+	let exact = conformanceSource(p, ms: ms, from: from, t: t, iface: iface)
+	if not exact.isAbsent() 'declared'
+		return exact
+	end 'declared'
+	return match consumes widening(p, ms: ms, from: from, t: t, iface: iface) 'widened'
+		some(w) gives ConformanceLookup.found(w.source)
+		none gives ConformanceLookup.absent
+	end 'widened'
+end 'boxConformance'
+
+// widening is how a value of t is put in a value of iface, an interface instance that t implements at other associated
+// types: where each one iface binds is the one t's declaration binds, or an interface that that type implements, and each
+// requirement takes what it took and throws what it threw, and gives what it gave or a value of a type put in the
+// interface it is held at. A requirement's result is made by t's own method, which says what it is, so its box is made
+// in the table; a parameter comes from the caller, whose value of the interface may hold any type, so a position that a
+// parameter names is never widened, nor one that a result names inside another type, whose value would have to be made
+// anew. None where t is not widened to iface.
+export function widening(p Project, mutates ms ModuleState, from diag.ModuleID, t TypeID, iface TypeID) returns table.Option with Widening
+	if typeKind(ms.types, reads: p.types, t: iface) != TypeKind.interfaceTy or isInterfaceHandle(ms.types, reads: p.types, t: iface) 'notAnInterface'
+		return table.Option.none
+	end 'notAnInterface'
+	// A String's or a Character's method takes its receiver as words a table passes through a routine of its own.
+	if t == p.builtins.stringTy or t == p.builtins.characterTy or typeArgsOf(ms.types, reads: p.types, t: iface).count() == 0 'unwidened'
+		return table.Option.none
+	end 'unwidened'
+	let wantOrig = originOf(ms.types, reads: p.types, t: iface)
+	let written = seenInterfaces(p, ms: ms, from: from, t: t)
+	for each in written 'each'
+		let have = conformanceAt(p, ms: ms, written: each, t: t)
+		let bound = conformerBindings(ms.types, reads: p.types, have: have, want: wantOrig)
+		if not bound.isSome() 'other'
+			continue 'each'
+		end 'other'
+		let bindings = bound.unwrap()
+		if not bindingsWiden(p, ms: ms, from: from, bindings: bindings, want: iface) 'unmet'
+			continue 'each'
+		end 'unmet'
+		let results = widenedResults(p, ms: ms, t: t, wantOrig: wantOrig, bindings: bindings, want: iface)
+		if not results.isSome() 'differs'
+			continue 'each'
+		end 'differs'
+		let w = results.unwrap()
+		match consumes conformanceSource(p, ms: ms, from: from, t: t, iface: have) 'source'
+			found(c) then return table.Option.some(Widening.make(have, source: c, from: w.from.clone(), heldAt: w.heldAt.clone()))
+			absent then continue 'each'
+			ambiguous(_, _) then continue 'each'
+		end 'source'
+	end 'each'
+	return table.Option.none
+end 'widening'
+
+// conformerBindings are the types the interface instance have binds for the associated types of the interface declaration
+// want, which it is an instance of or extends, or none.
+function conformerBindings(tt TypeSlot, reads TypeTable, have TypeID, want TypeID) returns table.Option with TypeIDList
+	if originOf(tt, reads: reads, t: have) == want 'same'
+		return table.Option.some(typeArgsOf(tt, reads: reads, t: have))
+	end 'same'
+	return ancestorBindings(tt, reads: reads, have: have, want: want)
+end 'conformerBindings'
+
+// bindingsWiden is whether each type bindings has is the one the interface instance want binds there, or a type that is not
+// an interface and is put in the interface want binds there, by the conformance code in the module from sees.
+function bindingsWiden(p Project, mutates ms ModuleState, from diag.ModuleID, bindings TypeIDList, want TypeID) returns bool
+	let wanted = typeArgsOf(ms.types, reads: p.types, t: want)
+	if bindings.count() != wanted.count() 'count'
+		return false
+	end 'count'
+	for i in 0 upto wanted.count() 'each'
+		let bound = bindings.get(i)
+		let held = wanted.get(i)
+		if bound == held 'same'
+			continue 'each'
+		end 'same'
+		if typeKind(ms.types, reads: p.types, t: held) != TypeKind.interfaceTy or typeKind(ms.types, reads: p.types, t: bound) == TypeKind.interfaceTy 'notHeld'
+			return false
+		end 'notHeld'
+		if boxConformance(p, ms: ms, from: from, t: bound, iface: held).isAbsent() 'unconforming'
+			return false
+		end 'unconforming'
+	end 'each'
+	return true
+end 'bindingsWiden'
+
+// widenedResults is the part of a Widening its requirements give: for each requirement of want, the interface instance
+// that t's declaration of wantOrig binds as bindings, what the method gives where the table boxes it. None where a
+// requirement differs otherwise.
+function widenedResults(p Project, mutates ms ModuleState, t TypeID, wantOrig TypeID, bindings TypeIDList, want TypeID) returns table.Option with Widening
+	var haveReqs = RequirementList.create(0)
+	collectRequirements(ms.types, reads: p.types, iface: wantOrig, bindings: bindings, out: haveReqs)
+	let wantReqs = requirementsOf(ms.types, reads: p.types, iface: want)
+	var results = TypeIDList.create(0)
+	var heldAt = TypeIDList.create(0)
+	for i in 0 upto wantReqs.count() 'each'
+		let wantReq = wantReqs.get(i)
+		let haveReq = try haveReqs.get(i) otherwise panic("ast: the interface's requirements at two bindings differ in count")
+		let sig = wantReq.sig
+		var params = TypeIDList.create(0)
+		let declaring = originOf(ms.types, reads: p.types, t: wantReq.iface)
+		params.push(typeEntry(ms.types, reads: p.types, t: declaring).selfParam)
+		params.append(typeEntry(ms.types, reads: p.types, t: declaring).typeParams)
+		var haveArgs = TypeIDList.create(0)
+		haveArgs.push(t)
+		haveArgs.append(haveReq.bindings)
+		var wantArgs = TypeIDList.create(0)
+		wantArgs.push(t)
+		wantArgs.append(wantReq.bindings)
+		for spec in funcEntry(ms.funcs, funcReads: p.funcs, f: sig).params 'params'
+			let ty = spec.ty
+			if substituteType(ms.types, reads: p.types, t: ty, params: params, args: haveArgs) != substituteType(ms.types, reads: p.types, t: ty, params: params, args: wantArgs) 'parameter'
+				return table.Option.none
+			end 'parameter'
+		end 'params'
+		let thrown = funcEntry(ms.funcs, funcReads: p.funcs, f: sig).errTy
+		if thrown != noType and substituteType(ms.types, reads: p.types, t: thrown, params: params, args: haveArgs) != substituteType(ms.types, reads: p.types, t: thrown, params: params, args: wantArgs) 'thrown'
+			return table.Option.none
+		end 'thrown'
+		let ret = funcEntry(ms.funcs, funcReads: p.funcs, f: sig).retTy
+		var given = noType
+		var held = noType
+		if ret != noType 'result'
+			given = substituteType(ms.types, reads: p.types, t: ret, params: params, args: haveArgs)
+			held = substituteType(ms.types, reads: p.types, t: ret, params: params, args: wantArgs)
+		end 'result'
+		if given == held 'asItIs'
+			results.push(noType)
+			heldAt.push(noType)
+			continue 'each'
+		end 'asItIs'
+		if funcEntry(ms.funcs, funcReads: p.funcs, f: sig).result == ResultConv.resultBorrowed or given == noType or held == noType or not bindings.contains(given) or typeKind(ms.types, reads: p.types, t: held) != TypeKind.interfaceTy 'nested'
+			return table.Option.none
+		end 'nested'
+		results.push(given)
+		heldAt.push(held)
+	end 'each'
+	return table.Option.some(Widening.make(noType, source: Conformance.make(diag.stdlibID, inBody: false), from: results, heldAt: heldAt))
+end 'widenedResults'
 
 // declaresConformance is whether the declaration of t says it implements iface, with t's type arguments in what it binds.
 export function declaresConformance(p Project, mutates ms ModuleState, t TypeID, iface TypeID) returns bool

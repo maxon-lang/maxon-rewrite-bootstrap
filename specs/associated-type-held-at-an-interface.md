@@ -102,7 +102,7 @@ typealias IntegerBag = Bag with (Integer, IntegerCursor)
 function total(source IntegerBag) returns Integer
 	var sum = 0 as Integer
 	for item in source 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'total'
@@ -172,7 +172,7 @@ type DownCursor implements Cursor with Integer
 	end 'create'
 
 	function current() returns Integer
-		return self.pos * 100
+		return try self.pos * 100 otherwise panic("out of range")
 	end 'current'
 
 	function advance(mutates self) throws IterationError
@@ -214,7 +214,7 @@ typealias IntegerBag = Bag with (Integer, IntegerCursor)
 function total(source IntegerBag) returns Integer
 	var sum = 0 as Integer
 	for item in source 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'total'
@@ -238,7 +238,7 @@ end 'pick'
 function main() returns ExitCode
 	print("{pick(true)}\n")
 	print("{pick(false)}\n")
-	print("{total(UpBag.create(4)) + total(DownBag.create(3))}\n")
+	print("{try total(UpBag.create(4)) + total(DownBag.create(3)) otherwise panic("out of range")}\n")
 	return 0
 end 'main'
 ```
@@ -343,7 +343,7 @@ typealias LineDoc = Doc with Lines
 function widthOf(source LineDoc) returns Integer
 	var total = 0 as Integer
 	for text in source 'walk'
-		total = total + (text.byteLength() as Integer)
+		total = try total + (text.byteLength() as Integer) otherwise panic("out of range")
 	end 'walk'
 	return total
 end 'widthOf'
@@ -768,11 +768,11 @@ type UpCursor uses Slot implements Cursor
 	let limit as Integer
 	let spare as Slot
 
-	static function create(limit Integer, spare Slot) returns Self throws IterationError
+	static function create(limit Integer, spare Slot) returns Self throws IterationError where Slot implements Copyable
 		if limit < 1 'empty'
 			throw IterationError.exhausted
 		end 'empty'
-		return Self{pos: 1, limit: limit, spare: spare}
+		return Self{pos: 1, limit: limit, spare: spare.clone()}
 	end 'create'
 
 	function current() returns Integer
@@ -806,7 +806,7 @@ typealias CursorBag = Bag with Cursor
 function total(source CursorBag) returns Integer
 	var sum = 0 as Integer
 	for item in source 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'total'
@@ -978,7 +978,7 @@ typealias CursorBag = Bag with Cursor
 function total(source CursorBag) returns Integer
 	var sum = 0 as Integer
 	for item in source 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'total'
@@ -1077,7 +1077,7 @@ type UpCursor uses Slot implements Cursor
 	var pos as Tally
 	let spare as Slot
 
-	static function create(pos Tally, spare Slot) returns Self
+	static function create(pos Tally, spare Slot) returns Self where Slot implements Copyable
 		return Self{pos: pos, spare: spare}
 	end 'create'
 
@@ -1090,11 +1090,11 @@ type UpBag uses Slot implements Bag with SlotCursor
 	typealias SlotCursor = UpCursor with Slot
 	let spare as Slot
 
-	static function create(spare Slot) returns Self
+	static function create(spare Slot) returns Self where Slot implements Copyable
 		return Self{spare: spare}
 	end 'create'
 
-	function createIterator() returns SlotCursor throws IterationError
+	function createIterator() returns SlotCursor throws IterationError where Slot implements Copyable
 		return SlotCursor.create(7, spare: self.spare)
 	end 'createIterator'
 end 'UpBag'
@@ -1106,7 +1106,7 @@ typealias CursorBag = Bag with Cursor
 type Holder
 	export let cursor as Cursor
 
-	static function create(cursor Cursor) returns Self
+	static function create(consumes cursor Cursor) returns Self
 		return Self{cursor: cursor}
 	end 'create'
 end 'Holder'
@@ -1118,8 +1118,8 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(n Tally)
-		self.seen = self.seen + n
+	export function look(mutates self, n Tally)
+		self.seen = try self.seen + n otherwise panic("out of range")
 	end 'look'
 end 'Door'
 
@@ -1642,7 +1642,7 @@ end 'Bag'
 type Wrap uses X, Y implements Probe
 	let x as X
 
-	static function create(x X) returns Self
+	static function create(x X) returns Self where X implements Copyable
 		return Self{x: x}
 	end 'create'
 
@@ -1654,7 +1654,7 @@ end 'Wrap'
 type Inner uses W implements Cursor where W implements Probe
 	let w as W
 
-	static function create(w W) returns Self
+	static function create(w W) returns Self where W implements Copyable
 		return Self{w: w}
 	end 'create'
 
@@ -1668,11 +1668,11 @@ type Outer uses X, Y implements Bag with In
 	typealias In = Inner with Pairing
 	let x as X
 
-	static function create(x X) returns Self
+	static function create(x X) returns Self where X implements Copyable
 		return Self{x: x}
 	end 'create'
 
-	function createIterator() returns In throws IterationError
+	function createIterator() returns In throws IterationError where X implements Droppable
 		return In.create(Pairing.create(self.x))
 	end 'createIterator'
 end 'Outer'
@@ -1688,7 +1688,7 @@ typealias CursorBag = Bag with Cursor
 type Holder
 	export let cursor as Cursor
 
-	static function create(cursor Cursor) returns Self
+	static function create(consumes cursor Cursor) returns Self
 		return Self{cursor: cursor}
 	end 'create'
 end 'Holder'
@@ -1700,8 +1700,8 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(n Tally)
-		self.seen = self.seen + n
+	export function look(mutates self, n Tally)
+		self.seen = try self.seen + n otherwise panic("out of range")
 	end 'look'
 end 'Door'
 
@@ -1744,7 +1744,7 @@ type Item uses T, P implements Cursor
 	typealias PItems = Array with P
 	export let items as PItems
 
-	static function create(t T, items PItems) returns Self
+	static function create(t T, items PItems) returns Self where T implements Copyable
 		return Self{t: t, items: items}
 	end 'create'
 
@@ -1758,12 +1758,12 @@ type Outer uses X, Y implements Bag with In
 	typealias Items = Array with Y
 	let y as Y
 
-	static function create(y Y) returns Self
+	static function create(y Y) returns Self where Y implements Copyable
 		return Self{y: y}
 	end 'create'
 
-	function createIterator() returns In throws IterationError
-		let items = Items.create(1, zeroed: false)
+	function createIterator() returns In throws IterationError where Y implements Copyable
+		var items = Items.create(1, zeroed: false)
 		items.push(self.y)
 		return In.create(1, items: items)
 	end 'createIterator'
@@ -1778,7 +1778,7 @@ typealias CursorBag = Bag with Cursor
 type Holder
 	export let cursor as Cursor
 
-	static function create(cursor Cursor) returns Self
+	static function create(consumes cursor Cursor) returns Self
 		return Self{cursor: cursor}
 	end 'create'
 end 'Holder'
@@ -1790,8 +1790,8 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(n Tally)
-		self.seen = self.seen + n
+	export function look(mutates self, n Tally)
+		self.seen = try self.seen + n otherwise panic("out of range")
 	end 'look'
 end 'Door'
 
@@ -1846,7 +1846,7 @@ type Heavy implements Weigh
 	end 'create'
 
 	function weigh() returns Tally
-		return self.n + self.m
+		return try self.n + self.m otherwise panic("out of range")
 	end 'weigh'
 end 'Heavy'
 
@@ -1861,8 +1861,8 @@ end 'Bag'
 type Item uses T, P implements Cursor where P implements Weigh
 	let t as T
 
-	static function create(t T) returns Self
-		return Self{t: t}
+	static function create(t T) returns Self where T implements Copyable
+		return Self{t: t.clone()}
 	end 'create'
 
 	function current() returns Tally
@@ -1874,8 +1874,8 @@ type Outer uses X, Y implements Bag with In where Y implements Weigh
 	typealias In = Item with (Tally, Y)
 	let x as X
 
-	static function create(x X) returns Self
-		return Self{x: x}
+	static function create(x X) returns Self where X implements Copyable
+		return Self{x: x.clone()}
 	end 'create'
 
 	function createIterator() returns In throws IterationError
@@ -1892,7 +1892,7 @@ typealias CursorBag = Bag with Cursor
 type Holder
 	export let cursor as Cursor
 
-	static function create(cursor Cursor) returns Self
+	static function create(consumes cursor Cursor) returns Self
 		return Self{cursor: cursor}
 	end 'create'
 end 'Holder'
@@ -1904,8 +1904,8 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(n Tally)
-		self.seen = self.seen + n
+	export function look(mutates self, n Tally)
+		self.seen = try self.seen + n otherwise panic("out of range")
 	end 'look'
 end 'Door'
 
@@ -1960,7 +1960,7 @@ type Heavy implements Weigh
 	end 'create'
 
 	function weigh() returns Tally
-		return self.n + self.m
+		return try self.n + self.m otherwise panic("out of range")
 	end 'weigh'
 end 'Heavy'
 
@@ -1988,8 +1988,8 @@ type Outer uses X, Y implements Bag with In where Y implements Weigh
 	typealias In = Item with (Tally, Y)
 	let x as X
 
-	static function create(x X) returns Self
-		return Self{x: x}
+	static function create(x X) returns Self where X implements Copyable
+		return Self{x: x.clone()}
 	end 'create'
 
 	function createIterator() returns In throws IterationError
@@ -2006,7 +2006,7 @@ typealias CursorBag = Bag with Cursor
 type Holder
 	export let cursor as Cursor
 
-	static function create(cursor Cursor) returns Self
+	static function create(consumes cursor Cursor) returns Self
 		return Self{cursor: cursor}
 	end 'create'
 end 'Holder'
@@ -2018,8 +2018,8 @@ type Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(n Tally)
-		self.seen = self.seen + n
+	export function look(mutates self, n Tally)
+		self.seen = try self.seen + n otherwise panic("out of range")
 	end 'look'
 end 'Door'
 

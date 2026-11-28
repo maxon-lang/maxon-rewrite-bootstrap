@@ -474,6 +474,27 @@ function noteTable(p ast.Project, mutates ms ast.ModuleState, module diag.Module
 	return true
 end 'noteTable'
 
+// noteWidening adds what a widening stub runs to those found: the method it calls, and the methods of the table it boxes
+// that method's result with.
+function noteWidening(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, stub ast.FuncID, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
+	let entry = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: stub).clone()
+	if not noteFound(p, ms: ms, module: module, site: site, target: entry.widens, found: found, errs: errs) 'deep'
+		return false
+	end 'deep'
+	let unbound = ast.TypeIDList.create(0)
+	var methods = ast.FuncIDList.create(0)
+	match consumes witnessTable(p, ms: ms, module: entry.module, site: site, src: entry.widenedFrom, iface: entry.retTy, bindParams: unbound.clone(), bindArgs: unbound.clone(), bindWitnesses: ast.WitnessList.create(0), errs: errs) 'table'
+		some(t) then methods = t.methods
+		none then return false
+	end 'table'
+	for method in methods 'methods'
+		if not noteFound(p, ms: ms, module: module, site: site, target: method, found: found, errs: errs) 'deep'
+			return false
+		end 'deep'
+	end 'methods'
+	return true
+end 'noteWidening'
+
 // noteInstance adds the instance a call at site runs to those found, when it is a new one, and says whether its type
 // arguments are finite. A target that is none was refused already.
 function noteInstance(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, consumes target table.Option with ast.FuncID, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
@@ -493,6 +514,9 @@ function noteFound(p ast.Project, mutates ms ast.ModuleState, module diag.Module
 		// A send stub runs the instances of its message's generic policies, as a send through the service's own handle does.
 		return ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sends).intrinsic != ast.Intrinsic.intrNone or notePolicies(p, ms: ms, module: module, site: site, handler: sends, found: found, errs: errs)
 	end 'stub'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).widens != ast.noFunc 'widening'
+		return noteWidening(p, ms: ms, module: module, site: site, stub: target, found: found, errs: errs)
+	end 'widening'
 	if not requireFinite(p, ms: ms, module: module, site: site, instance: target, errs: errs) 'deep'
 		return false
 	end 'deep'
@@ -533,7 +557,7 @@ function followInstances(p ast.Project, mutates ms ast.ModuleState, mutates foun
 	var next = from
 	while next < found.list.count() 'follow'
 		let instance = found.list[next]
-		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: instance).sendsTo != ast.noFunc 'stub'
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: instance).sendsTo != ast.noFunc or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: instance).widens != ast.noFunc 'stub'
 			next = succ(next)
 			continue 'follow'
 		end 'stub'

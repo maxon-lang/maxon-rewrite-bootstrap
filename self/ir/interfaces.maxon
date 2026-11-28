@@ -6,6 +6,10 @@
 // kind.
 let tableWord = "table"
 
+// widenedWord tells apart the table of a value widened to an interface instance (ast.Widening), by the types the instance
+// binds, from that of its own conformance, which the link name of an interface instance does not.
+let widenedWord = "widened to"
+
 // tableConcrete is the type whose table a value of the type t is boxed with: t itself, but an integer constant is a value
 // of the integer type that its extensions add methods to.
 function tableConcrete(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns ast.TypeID
@@ -33,6 +37,8 @@ export function witnessTable(p ast.Project, mutates ms ast.ModuleState, module d
 		return handleTable(p, ms: ms, module: module, site: site, concrete: concrete, wanted: wanted, errs: errs)
 	end 'handle'
 	var conformance = module
+	var widened as table.Option with ast.Widening
+	widened = table.Option.none
 	if ast.typeKind(ms.types, reads: p.types, t: src) == ast.TypeKind.typeParam 'passed'
 		conformance = passedWitness(p, ms: ms, enclosing: bindWitnesses, param: src, iface: wanted)
 	end 'passed' else 'seen'
@@ -42,8 +48,11 @@ export function witnessTable(p ast.Project, mutates ms ast.ModuleState, module d
 		match consumes ast.conformanceSource(p, ms: ms, from: module, t: concrete, iface: wanted) 'source'
 			found(c) then conformance = c.module
 			ambiguous(first, second) then pushInstanceError(p, module: module, site: site, code: diag.errAmbiguousConformance, message: ast.ambiguousConformanceText(p, from: module, typeName: concreteName, ifaceName: ifaceName, first: first, second: second), errs: errs)
-			absent then pushInstanceError(p, module: module, site: site, code: diag.errTypeMismatch, message: diag.notConforming(concreteName, iface: ifaceName), errs: errs)
+			absent then widened = widenedOrRefused(p, ms: ms, module: module, site: site, concrete: concrete, wanted: wanted, errs: errs)
 		end 'source'
+		if widened.isSome() 'widened'
+			conformance = widened.clone().unwrap().source.module
+		end 'widened'
 		if errs.count() > mark 'refused'
 			return table.Option.none
 		end 'refused'
@@ -52,7 +61,7 @@ export function witnessTable(p ast.Project, mutates ms ast.ModuleState, module d
 	var methods = ast.FuncIDList.create(0)
 	for i in 0 upto reqs.count() 'methods'
 		let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: reqs[i].sig).name.clone()
-		match consumes witnessFor(p, ms: ms, module: module, site: site, recv: concrete, name: name, conformance: conformance, errs: errs) 'method'
+		match consumes tableMethod(p, ms: ms, module: module, site: site, concrete: concrete, name: name, conformance: conformance, widened: widened, index: i, errs: errs) 'method'
 			some(fid) then methods.push(fid)
 			none then return table.Option.none
 		end 'method'
@@ -68,9 +77,64 @@ export function witnessTable(p ast.Project, mutates ms ast.ModuleState, module d
 			return table.Option.none
 		end 'deferring'
 	end 'methods'
-	let symbol = "{tableWord} {ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: concrete)} as {ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: wanted)} by {ast.moduleLinkPath(p, modID: conformance)}"
+	var symbol = "{tableWord} {ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: concrete)} as {ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: wanted)} by {ast.moduleLinkPath(p, modID: conformance)}"
+	if widened.isSome() 'widened'
+		// The table of a value widened to an instance has stubs where the conformance's own has the methods.
+		symbol = "{symbol} {widenedWord} {boundLinkName(p, ms: ms, t: wanted)}"
+	end 'widened'
 	return table.Option.some(WitnessTable.make(symbol, concrete: concrete, iface: wanted, methods: methods))
 end 'witnessTable'
+
+// boundLinkName names the type t in a link name with what each interface instance in it binds, which the link name of an
+// interface instance leaves out.
+function boundLinkName(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns String
+	let name = ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: t)
+	if ast.typeKind(ms.types, reads: p.types, t: t) != ast.TypeKind.interfaceTy 'other'
+		return name
+	end 'other'
+	var args = ast.StringList.create(0)
+	for arg in ast.typeArgsOf(ms.types, reads: p.types, t: t) 'args'
+		args.push(boundLinkName(p, ms: ms, t: arg))
+	end 'args'
+	return "{name}[{ast.joinNames(args, sep: ", ")}]"
+end 'boundLinkName'
+
+// widenedOrRefused is how a value of concrete, which no declaration the module sees says implements wanted, is widened to
+// it, or none after it refused the conformance.
+function widenedOrRefused(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, concrete ast.TypeID, wanted ast.TypeID, mutates errs diag.ErrorList) returns table.Option with ast.Widening
+	let widened = ast.widening(p, ms: ms, from: module, t: concrete, iface: wanted)
+	if not widened.isSome() 'refused'
+		pushInstanceError(p, module: module, site: site, code: diag.errTypeMismatch, message: diag.notConforming(ast.typeName(ms.types, reads: p.types, t: concrete), iface: ast.typeName(ms.types, reads: p.types, t: wanted)), errs: errs)
+	end 'refused'
+	return widened
+end 'widenedOrRefused'
+
+// tableMethod is the method in place index of the table of a value of concrete, which the conformance's method name meets:
+// that method, or where the value is widened and the requirement's result boxed, the stub that boxes it. It is none after
+// it refused one.
+function tableMethod(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, concrete ast.TypeID, name String, conformance diag.ModuleID, widened table.Option with ast.Widening, index Count, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
+	let found = witnessFor(p, ms: ms, module: module, site: site, recv: concrete, name: name, conformance: conformance, errs: errs)
+	if not found.isSome() or not widened.isSome() 'asItIs'
+		return found
+	end 'asItIs'
+	let w = widened.clone().unwrap()
+	let from = try w.from.get(index) otherwise panic("lower: a widening has no result for the requirement {index}")
+	if from == ast.noType 'unboxed'
+		return found
+	end 'unboxed'
+	let heldAt = try w.heldAt.get(index) otherwise panic("lower: a widening has no interface for the requirement {index}")
+	return widenedMethod(p, ms: ms, module: module, site: site, method: found.unwrap(), concrete: concrete, from: from, heldAt: heldAt, errs: errs)
+end 'tableMethod'
+
+// widenedMethod is the stub that a table of a value widened to an interface calls for method, which gives a value of the
+// type from that the table puts in a value of heldAt (ast.widenStub), or none after it refused the table of that box.
+function widenedMethod(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, method ast.FuncID, concrete ast.TypeID, from ast.TypeID, heldAt ast.TypeID, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
+	let unbound = ast.TypeIDList.create(0)
+	return match consumes witnessTable(p, ms: ms, module: module, site: site, src: from, iface: heldAt, bindParams: unbound.clone(), bindArgs: unbound.clone(), bindWitnesses: ast.WitnessList.create(0), errs: errs) 'held'
+		some(t) gives table.Option.some(ast.widenStub(ms.funcs, funcReads: p.funcs, tt: ms.types, reads: p.types, module: module, method: method, owner: concrete, from: from, heldAt: heldAt, heldTable: t.symbol))
+		none gives table.Option.none
+	end 'held'
+end 'widenedMethod'
 
 // tableOfBox is the table that lowering boxes the value of e with, which the module's instances were found for.
 function tableOfBox(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, src ast.TypeID, iface ast.TypeID) returns WitnessTable
@@ -193,3 +257,60 @@ function interfaceOfReceiver(p ast.Project, mutates ms ast.ModuleState, t ast.Ty
 	end 'interface'
 	return ast.noType
 end 'interfaceOfReceiver'
+
+// lowerWidenStub is the IR of a widening stub (ast.widenStub): it passes what it is given to its method as it was given,
+// and puts the value the method gives in a new box on the heap, with the table of its type as the stub's interface, which
+// it gives. A method that fails fails the stub with its error, which is the requirement's, and has dropped what it took.
+function lowerWidenStub(p ast.Project, mutates ms ast.ModuleState, fn ast.FuncID, mutates instances InstanceSet) returns IrFunction
+	var l = Lowerer.new(exchange(instances, value: InstanceSet.new()))
+	let stub = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).clone()
+	let unbound = ast.TypeIDList.create(0)
+	begin(l, p: p, ms: ms, fn: fn, bindParams: unbound.clone(), bindArgs: unbound.clone(), bindWitnesses: ast.WitnessList.create(0), name: "")
+	_ = enterPropagating(l)
+	var args = RegList.create(0)
+	var index = 0 as Count
+	if stub.hasReceiver 'receiver'
+		let kind = passedKind(l, p: p, ms: ms, conv: stub.selfConv, t: stub.ownerTy)
+		args.push(paramReg(l, index: index, kind: kind))
+		index = succ(index)
+	end 'receiver'
+	for param in stub.params 'params'
+		let kind = passedKind(l, p: p, ms: ms, conv: param.conv, t: param.ty)
+		args.push(paramReg(l, index: index, kind: kind))
+		index = succ(index)
+	end 'params'
+	let from = stub.widenedFrom
+	let v = newReg(l, kind: kindOf(l, p: p, ms: ms, t: from))
+	if stub.errTy == ast.noType 'plain'
+		emitCall(l, p: p, ms: ms, dst: v, target: stub.widens, args: args)
+	end 'plain' else 'throwing'
+		var errKind = IrKind.kindScalar
+		if errorInBox(ms.types, reads: p.types, t: stub.errTy) 'union'
+			errKind = IrKind.kindManaged
+		end 'union'
+		let err = newReg(l, kind: errKind)
+		emitThrowingCall(l, p: p, ms: ms, dst: v, target: stub.widens, args: args, err: err)
+		let ok = l.b.newBlock()
+		let zero = konst(l, value: 0 as Word)
+		let failed = compare(l, op: CmpOp.cmpNe, a: err, b: zero, unsigned: false)
+		let errDrop = errorDropType(l, p: p, ms: ms, t: stub.errTy)
+		let thrown = failureBiased(l, p: p, ms: ms, errorCase: 0 as Count, err: err, errDrop: errDrop, bias: errorBias(ms.types, reads: p.types, t: stub.errTy))
+		l.b.terminate(l.cur, t: newBranch(failed, ifTrue: thrown, ifFalse: ok))
+		l.cur = ok
+	end 'throwing'
+	let table = tableOfBox(l, p: p, ms: ms, e: 0 as ast.NodeID, src: from, iface: stub.retTy)
+	let box = newReg(l, kind: IrKind.kindManaged)
+	let held = boxed(l, p: p, ms: ms, v: v, t: from)
+	let instr = l.b.box(box, t: table, src: held)
+	emit(l, i: instr)
+	return finishStub(l, p: p, ms: ms, fn: fn, result: box, instances: instances)
+end 'lowerWidenStub'
+
+// passedKind is the kind of the register that a function is given for a parameter of the type t that it takes as conv: the
+// box of a value held in place that it consumes, which its caller boxed (argValue), and otherwise the value's own.
+function passedKind(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, conv ast.Convention, t ast.TypeID) returns IrKind
+	if conv == ast.Convention.convConsumes or conv == ast.Convention.convDestructs 'consumed'
+		return holderKind(l, p: p, ms: ms, t: t)
+	end 'consumed'
+	return kindOf(l, p: p, ms: ms, t: t)
+end 'passedKind'

@@ -3769,11 +3769,11 @@ type TextCur implements Cursor with String
 	let s as String
 
 	function item() returns String
-		return s
+		return s.clone()
 	end 'item'
 
 	static function create(s String) returns Self
-		return Self{s: s}
+		return Self{s: s.clone()}
 	end 'create'
 end 'TextCur'
 
@@ -3806,7 +3806,7 @@ function firstOf(b IntBag) returns Integer
 end 'firstOf'
 
 function main() returns ExitCode
-	return (firstOf(GoodBag.create(7)) + (BadBag.create(1).cursor().item().byteLength() as Integer)) as ExitCode
+	return try (firstOf(GoodBag.create(7)) + (BadBag.create(1).cursor().item().byteLength() as Integer)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

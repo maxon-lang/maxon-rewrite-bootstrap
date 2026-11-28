@@ -2162,7 +2162,9 @@ that copies it (where the interface extends `Copyable`), the one that names its 
 interface requires, its own and then those of the interfaces it extends (`ast.requirementsOf`). An entry is a jump to the
 routine or the method, so calling the entry is calling it with the arguments as they are. The program is closed, so no
 table is made at run time: every module that boxes a value with a conformance writes the table in its unit, and the link
-keeps one, as it does an instance.
+keeps one, as it does an instance. The table of a value widened to an interface instance (see "Interface values", "Associated types held at an
+interface") ends its link name with `widened to` and the instance with what each interface in it binds, since it calls a
+stub, named for the table it boxes the result with, where the conformance's own table calls the method.
 
 | Instruction | Does |
 |---|---|
@@ -4078,6 +4080,21 @@ end 'main'
 - **Which interfaces.** One whose requirement names `Self`, or is static, is a bound and nothing else (`E3905`, in the
   verify stage, when every interface has its requirements); one with associated types is a value type with them bound
   (`Seq with Integer`).
+- **Associated types held at an interface.** A value goes in an interface value whose associated type is held at an
+  interface it binds otherwise: an `UpBag`, which `implements Bag with (Integer, UpCursor)`, is put in a `Bag with
+  (Integer, Cursor with Integer)` where `UpCursor` implements `Cursor with Integer`, as maxon's
+  `associated-type-held-at-an-interface` holds it (`ast.widening`). Each type the instance binds is the one the
+  conformance binds, or an interface that type implements by the conformance the module sees, widened in turn; each
+  requirement takes and throws what it does at the conformance's bindings, and gives the same or, where its result is a
+  held associated type itself, a value of the type the conformance binds there, which is put in a value of the interface
+  it is held at. The value's table calls, for such a requirement, a stub that calls the conformer's method and puts what
+  it gives in a new box with its own type's table (`ast.widenStub`, `ir.lowerWidenStub`), so each value a held result
+  gives is boxed as it comes out, and is no view; the other requirements are the methods, and a value of the instance
+  the conformance binds is boxed with the conformance's own table, with no stub (`tests/ir`). A position that a
+  parameter names, a result that names it inside another type, and a result that is lent are not widened, since the
+  box of such a value would have to come from the caller or be made of a value that already exists; a value whose type
+  is not widened to the instance is `E3005`. A generic's bound is never met by a widening: an instance calls the
+  conformer's method directly, which gives the value unboxed.
 - **In a generic.** An interface value meets a bound of its own interface (another, even one it extends, is `E3017`), so
   a generic instantiated at one (`twice(a)` with `a` a `Shape` value, `Holder with Shape`) calls through its table where
   the body calls through the bound. A call with a value of the concrete type is an instance of its own, monomorphized as

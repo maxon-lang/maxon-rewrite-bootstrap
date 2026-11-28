@@ -528,7 +528,7 @@ typealias IntegerBag = Bag with (Integer, IntegerCursor)
 function total(source IntegerBag) returns Integer
 	var sum = 0 as Integer
 	for item in source 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'total'

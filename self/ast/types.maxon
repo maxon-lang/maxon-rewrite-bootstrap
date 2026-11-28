@@ -520,9 +520,13 @@ export type FuncEntry
 	export var conditionalBounds as Count
 	// sendsTo is, for a send stub (sendStub), the message it sends, and noFunc for every other function.
 	export var sendsTo as FuncID
+	// widens is, for a widening stub (widenStub), the method it calls, whose result, of the type widenedFrom, it puts in a value
+	// of its own result's interface; noFunc for every other function.
+	export var widens as FuncID
+	export var widenedFrom as TypeID
 
 	export static function make(consumes name String, consumes visibility String, module diag.ModuleID, nodeID NodeID) returns FuncEntry
-		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), retTy: noType, result: ResultConv.resultOwned, lendsPlace: false, errTy: noType, policy: noType, policyWritten: false, pendingSlot: noPendingSlot, policyField: noPolicyField, shedPolicy: noShedPolicy, awaitErrTy: noType, deferredTy: noType, deferredErrTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false, extendedIface: noType, conditionalBounds: 0 as Count, sendsTo: noFunc}
+		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), retTy: noType, result: ResultConv.resultOwned, lendsPlace: false, errTy: noType, policy: noType, policyWritten: false, pendingSlot: noPendingSlot, policyField: noPolicyField, shedPolicy: noShedPolicy, awaitErrTy: noType, deferredTy: noType, deferredErrTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32, isTest: false, extendedIface: noType, conditionalBounds: 0 as Count, sendsTo: noFunc, widens: noFunc, widenedFrom: noType}
 	end 'make'
 end 'FuncEntry'
 
@@ -2896,8 +2900,42 @@ export function sendStub(mutates ft FuncSlot, funcReads FuncTable, module diag.M
 	return id
 end 'sendStub'
 
+// widenStub is the function that the table of a value widened to an interface (Widening) calls for the requirement that
+// method meets: it takes what method takes, as method does, and puts the value of the type from that method gives in a value
+// of heldAt, with the table named heldTable, which it gives. One for each in the slot of the module whose stage asks for it,
+// which boxes the value, as an instance is; its name tells it apart by the table it boxes with.
+export function widenStub(mutates ft FuncSlot, funcReads FuncTable, mutates tt TypeSlot, reads TypeTable, module diag.ModuleID, method FuncID, owner TypeID, from TypeID, heldAt TypeID, heldTable String) returns FuncID
+	let key = "widen;{method};{owner};{heldTable}"
+	var slot as Count
+	if ft.instCache.find(key, slot: slot) 'hit'
+		return ft.instCache.valueAt(slot)
+	end 'hit'
+	let m = funcEntry(ft, funcReads: funcReads, f: method).clone()
+	var generics = TypeIDList.create(0)
+	if m.genericOrigin != noFunc 'instance'
+		generics = cloneTypeArgs(funcEntry(ft, funcReads: funcReads, f: m.genericOrigin).generics)
+	end 'instance'
+	var stub = FuncEntry.make("{m.name} widened by {heldTable}", visibility: "export", module: module, nodeID: 0 as NodeID)
+	stub.hasReceiver = m.hasReceiver
+	stub.selfConv = m.selfConv
+	stub.ownerTy = owner
+	stub.widens = method
+	stub.widenedFrom = from
+	stub.retTy = heldAt
+	stub.errTy = substituteType(tt, reads: reads, t: m.errTy, params: generics, args: m.typeArgs)
+	for param in m.params 'params'
+		var spec = param.clone()
+		spec.ty = substituteType(tt, reads: reads, t: spec.ty, params: generics, args: m.typeArgs)
+		stub.paramTypes.push(spec.ty)
+		stub.params.push(spec)
+	end 'params'
+	let id = allocFuncIn(ft, f: stub)
+	ft.instCache.insert(key, value: id)
+	return id
+end 'widenStub'
+
 // isLinkedOnce is whether the code of a function is made by every module that needs it, as an instance's or a send stub's
 // is, so that the link keeps one definition of its name.
 export function isLinkedOnce(f FuncEntry) returns bool
-	return f.genericOrigin != noFunc or f.sendsTo != noFunc
+	return f.genericOrigin != noFunc or f.sendsTo != noFunc or f.widens != noFunc
 end 'isLinkedOnce'

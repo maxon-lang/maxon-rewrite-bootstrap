@@ -1,0 +1,56 @@
+// A value whose conformance binds the associated types its interface value binds is boxed with the table of its own
+// methods: the call through it is the method's, and boxes nothing. Only a value widened to an interface instance that holds
+// an associated type at an interface pays for it, in the stub its table calls, which boxes each result once: the count is
+// the property (README, "Associated types held at an interface").
+// expect-ir: first has no box
+// expect-ir: first has some callwitness
+// expect-ir: firstWidened has no box
+// expect-ir: UpBag.createIterator widened by table export::UpCursor as Cursor by export calls UpBag.createIterator
+// expect-ir: UpBag.createIterator widened by table export::UpCursor as Cursor by export has 1 box
+
+typealias Integer = int(i64.min to i64.max)
+
+interface Cursor uses Element
+	function current() returns Element
+end 'Cursor'
+
+interface Bag uses Element, Iter
+	function createIterator() returns Iter
+end 'Bag'
+
+type UpCursor implements Cursor with Integer
+	let pos as Integer
+
+	static function create(pos Integer) returns Self
+		return Self{pos: pos}
+	end 'create'
+
+	function current() returns Integer
+		return self.pos
+	end 'current'
+end 'UpCursor'
+
+type UpBag implements Bag with (Integer, UpCursor)
+	let start as Integer
+
+	static function create(start Integer) returns Self
+		return Self{start: start}
+	end 'create'
+
+	function createIterator() returns UpCursor
+		return UpCursor.create(self.start)
+	end 'createIterator'
+end 'UpBag'
+
+function first(source Bag with (Integer, UpCursor)) returns Integer
+	return source.createIterator().current()
+end 'first'
+
+function firstWidened(source Bag with (Integer, Cursor with Integer)) returns Integer
+	return source.createIterator().current()
+end 'firstWidened'
+
+function main() returns ExitCode
+	print("{first(UpBag.create(3))} {firstWidened(UpBag.create(4))}\n")
+	return 0
+end 'main'

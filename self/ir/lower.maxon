@@ -1124,6 +1124,9 @@ export function lowerFunction(p ast.Project, mutates ms ast.ModuleState, fn ast.
 	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).sendsTo != ast.noFunc 'stub'
 		return lowerSendStub(p, ms: ms, fn: fn, instances: instances)
 	end 'stub'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).widens != ast.noFunc 'widening'
+		return lowerWidenStub(p, ms: ms, fn: fn, instances: instances)
+	end 'widening'
 	var l = Lowerer.new(exchange(instances, value: InstanceSet.new()))
 	var bindParams = ast.TypeIDList.create(0)
 	var bindArgs = ast.TypeIDList.create(0)

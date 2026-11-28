@@ -1,0 +1,60 @@
+// The table of a value widened to an interface boxes what the conformer's method gives, and where the method fails the
+// call through the table fails with its error, having made no box; a String the cursor gives is owned by the caller.
+typealias Integer = int(i64.min to i64.max)
+
+enum Refusal implements Error
+	closed
+end 'Refusal'
+
+interface Cursor uses Element
+	function current() returns Element
+end 'Cursor'
+
+interface Source uses Element, Iter
+	function open(tag String) returns Iter throws Refusal
+end 'Source'
+
+type Note implements Cursor with String
+	let text as String
+
+	static function create(consumes text String) returns Self
+		return Self{text: text}
+	end 'create'
+
+	function current() returns String
+		return "{self.text}!"
+	end 'current'
+end 'Note'
+
+type Desk implements Source with (String, Note)
+	let shut as bool
+
+	static function create(shut bool) returns Self
+		return Self{shut: shut}
+	end 'create'
+
+	function open(tag String) returns Note throws Refusal
+		if self.shut 'closed'
+			throw Refusal.closed
+		end 'closed'
+		return Note.create(tag.clone())
+	end 'open'
+end 'Desk'
+
+typealias Notes = Source with (String, Cursor with String)
+
+function read(source Notes, tag String) returns String
+	let cursor = try source.open(tag) otherwise 'refused'
+		return "refused"
+	end 'refused'
+	return cursor.current()
+end 'read'
+
+function main() returns ExitCode
+	print("{read(Desk.create(false), tag: "open")}\n")
+	print("{read(Desk.create(true), tag: "shut")}\n")
+	return 0
+end 'main'
+
+//> open!
+//> refused
