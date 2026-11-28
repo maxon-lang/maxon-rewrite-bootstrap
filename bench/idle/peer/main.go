@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand/v2"
+	"minimaxon/bench/procstat"
 	"net"
 	"os"
 	"os/exec"
@@ -104,14 +105,6 @@ func goServer(args []string) {
 			os.Exit(0)
 		}
 	}
-}
-
-type sample struct {
-	rssKB, footprintKB int64
-	userSec, sysSec    float64
-	threads            int
-	// nonpagedKB is the system's nonpaged pool, which the kernel's requests for a connection's readiness are charged to: Windows only.
-	nonpagedKB int64
 }
 
 func run(args []string) {
@@ -238,18 +231,18 @@ func run(args []string) {
 	q := func(p float64) time.Duration { return rtts[min(len(rtts)-1, int(p*float64(len(rtts))))] }
 	perConn := func(a, b int64) float64 { return float64(b-a) * 1024 / float64(*n) }
 	fmt.Printf("RESULT label=%s os=%s n=%d retries=%d\n", *label, runtime.GOOS, *n, retries)
-	fmt.Printf("  rss KB: before %d, after accepts %d, after idle %d, after wakes %d\n", before.rssKB, after.rssKB, idled.rssKB, woken.rssKB)
-	fmt.Printf("  bytes/conn (rss): %.0f after accepts, %.0f after idle, %.0f after wakes\n", perConn(before.rssKB, after.rssKB), perConn(before.rssKB, idled.rssKB), perConn(before.rssKB, woken.rssKB))
-	if before.footprintKB > 0 {
-		fmt.Printf("  footprint KB: before %d, after accepts %d, after wakes %d; bytes/conn %.0f after accepts, %.0f after wakes\n", before.footprintKB, after.footprintKB, woken.footprintKB, perConn(before.footprintKB, after.footprintKB), perConn(before.footprintKB, woken.footprintKB))
+	fmt.Printf("  rss KB: before %d, after accepts %d, after idle %d, after wakes %d\n", before.RSSKB, after.RSSKB, idled.RSSKB, woken.RSSKB)
+	fmt.Printf("  bytes/conn (rss): %.0f after accepts, %.0f after idle, %.0f after wakes\n", perConn(before.RSSKB, after.RSSKB), perConn(before.RSSKB, idled.RSSKB), perConn(before.RSSKB, woken.RSSKB))
+	if before.FootprintKB > 0 {
+		fmt.Printf("  footprint KB: before %d, after accepts %d, after wakes %d; bytes/conn %.0f after accepts, %.0f after wakes\n", before.FootprintKB, after.FootprintKB, woken.FootprintKB, perConn(before.FootprintKB, after.FootprintKB), perConn(before.FootprintKB, woken.FootprintKB))
 	}
-	if before.nonpagedKB > 0 {
-		fmt.Printf("  system nonpaged pool KB: before %d, after accepts %d, after wakes %d; bytes/conn %.0f after accepts, %.0f after wakes\n", before.nonpagedKB, after.nonpagedKB, woken.nonpagedKB, perConn(before.nonpagedKB, after.nonpagedKB), perConn(before.nonpagedKB, woken.nonpagedKB))
+	if before.NonpagedKB > 0 {
+		fmt.Printf("  system nonpaged pool KB: before %d, after accepts %d, after wakes %d; bytes/conn %.0f after accepts, %.0f after wakes\n", before.NonpagedKB, after.NonpagedKB, woken.NonpagedKB, perConn(before.NonpagedKB, after.NonpagedKB), perConn(before.NonpagedKB, woken.NonpagedKB))
 	}
 	fmt.Printf("  heap: %.2f boxes live/conn, %.0f bytes/conn (minimaxon: bytes asked by the accepts; Go: heap live + stacks)\n", float64(report[1])/float64(*n), float64(report[2])/float64(*n))
-	fmt.Printf("  OS threads: before %d, after accepts %d, after wakes %d\n", before.threads, after.threads, woken.threads)
+	fmt.Printf("  OS threads: before %d, after accepts %d, after wakes %d\n", before.Threads, after.Threads, woken.Threads)
 	fmt.Printf("  setup: %.0f conn/s accepted (server, %.3f s), %.0f conn/s end to end (peer, %.3f s)\n", float64(*n)/(float64(serverNs)/1e9), float64(serverNs)/1e9, float64(*n)/setupWall.Seconds(), setupWall.Seconds())
-	fmt.Printf("  idle %v CPU: user %.2f s, sys %.2f s\n", *idle, idled.userSec-after.userSec, idled.sysSec-after.sysSec)
+	fmt.Printf("  idle %v CPU: user %.2f s, sys %.2f s\n", *idle, idled.UserSec-after.UserSec, idled.SysSec-after.SysSec)
 	fmt.Printf("  wake sample %d of %d: p50 %v, p99 %v, max %v\n", k, *n, q(0.50), q(0.99), rtts[len(rtts)-1])
 }
 
@@ -268,4 +261,13 @@ func fail(format string, args ...any) {
 	}
 	fmt.Fprintf(os.Stderr, "peer: "+format+"\n", args...)
 	os.Exit(1)
+}
+
+// sample is procstat's reading of the server, and measure takes one.
+type sample = procstat.Sample
+
+func measure(pid int) sample {
+	s, err := procstat.Measure(pid)
+	check(err)
+	return s
 }

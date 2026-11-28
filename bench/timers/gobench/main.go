@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand/v2"
+	"minimaxon/bench/procstat"
 	"os"
 	"os/exec"
 	"runtime"
@@ -315,8 +316,8 @@ func idle(args []string) {
 	check(cmd.Wait())
 	perTimer := func(kb int64) int64 { return kb * 1024 / int64(*n) }
 	fmt.Printf("result idle label=%s count=%d armNs=%d heapBoxes=%d heapBytes=%d rssPerTimer=%d footprintPerTimer=%d idleCpuMs=%d idleSec=%.0f threads=%d\n",
-		*label, *n, took/int64(*n), boxes, bytes, perTimer(after.rssKB-before.rssKB), perTimer(after.footprintKB-before.footprintKB),
-		int64((idled.userSec+idled.sysSec-after.userSec-after.sysSec)*1000), period.Seconds(), idled.threads)
+		*label, *n, took/int64(*n), boxes, bytes, perTimer(after.RSSKB-before.RSSKB), perTimer(after.FootprintKB-before.FootprintKB),
+		int64((idled.UserSec+idled.SysSec-after.UserSec-after.SysSec)*1000), period.Seconds(), idled.Threads)
 }
 
 func check(err error) {
@@ -328,4 +329,13 @@ func check(err error) {
 func fail(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, "gobench: "+format+"\n", args...)
 	os.Exit(1)
+}
+
+// sample is procstat's reading of the server, and measure takes one.
+type sample = procstat.Sample
+
+func measure(pid int) sample {
+	s, err := procstat.Measure(pid)
+	check(err)
+	return s
 }

@@ -94,6 +94,11 @@ own lock (`runtime/timers.maxon`), against Go's `time.AfterFunc`, `Reset` and `S
 - `bench/timers/run.sh` builds both and runs each processor count of `PROCS` (`MAXON_MAX_PROCS` and `GOMAXPROCS`, one worker
   a processor) at each count of `COUNTS`, the churn once a processor count, then the idle lanes; `STORM_MS`, `CHURN_SERVICES`,
   `CHURN_TIMERS`, `CHURN_MS`, `IDLE_N` and `IDLE` set the rest. The whole lane takes about a minute.
+- On Windows the lanes are run by hand, as idle's are (`run.sh` needs a shell and its binaries `.exe`): build
+  `bin/timers.exe` and `bin/timers-gobench.exe`, then `timers.exe run ...` and `timers-gobench.exe run ...` under
+  `MAXON_MAX_PROCS` and `GOMAXPROCS`, and `timers-gobench.exe idle -n N -idle 5s -label minimaxon -- bin/timers.exe idle`.
+  The baseline reads the server through `bench/procstat`, which bench/idle's peer shares: the working set and private
+  bytes, CPU and threads on Windows, as `ps`, `footprint` and `/proc` give them elsewhere.
 
 Measured on an Apple M3 (arm64 macOS, 4 performance and 4 efficiency cores, 24 GB), one run of `bench/timers/run.sh` with
 its defaults; ns are the wall time of the whole set over its count, so they fall as the processors share the work and rise
