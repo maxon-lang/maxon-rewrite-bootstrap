@@ -1,11 +1,13 @@
 // A server's stop (RFC 9112 §9.6, a graceful close) closes its listener and each connection that holds no request at once,
 // lets a connection whose request has begun to arrive finish it and be answered, and closes one still open at the stop's
 // deadline unanswered; `stop` returns once every connection has ended. The bytes a client sent before the stop count as
-// begun, whether or not the connection had read them yet.
+// begun, whether or not the connection had read them yet. The stop reaches each connection in a message of its own, so the
+// busy connection may take it before the end of its request, and answer with `Connection: close`, or after it has answered
+// and gone idle, and close then: the answer is whole either way, and the test leaves the one header out of what it prints.
 // native-only
 //> a probe: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 19\r\nConnection: close\r\n\r\nGET /probe HTTP/1.1
 //> the idle connection: closed with nothing sent
-//> the busy connection: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 18\r\nConnection: close\r\n\r\nGET /busy HTTP/1.1
+//> the busy connection: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 18\r\n\r\nGET /busy HTTP/1.1
 //> the stalled connection: closed with nothing sent
 //> stopped
 function shown(text String) returns String
@@ -57,7 +59,7 @@ function main() returns ExitCode
 	let idleGot = readToEnd(idle)
 	print("the idle connection: {"closed with nothing sent" if idleGot.isEmpty() else idleGot}\n")
 	_ = try busy.send("\r\n") otherwise 0
-	print("the busy connection: {readToEnd(busy)}\n")
+	print("the busy connection: {readToEnd(busy).replace("Connection: close\\r\\n", with: "")}\n")
 	let stalledGot = readToEnd(stalled)
 	print("the stalled connection: {"closed with nothing sent" if stalledGot.isEmpty() else stalledGot}\n")
 	_ = await stopping

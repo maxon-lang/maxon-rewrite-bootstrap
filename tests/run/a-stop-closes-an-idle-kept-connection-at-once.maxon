@@ -5,7 +5,7 @@
 // reached the server is idle to it, closed at once with the bytes unread (a reset). The stop reaches each connection in a
 // message of its own, so the busy connection may take it before the request's body, and answer with `Connection: close`,
 // or after it has answered and gone idle, and close then: either way the answer is whole and the connection then closes,
-// and the test leaves the one header out of what it prints (the deadline test holds the header).
+// and the test leaves the one header out of what it prints: no test can tell which came first.
 // native-only
 //> idle: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 17\r\n\r\nGET /one HTTP/1.1
 //> busy: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 17\r\n\r\nGET /two HTTP/1.1
