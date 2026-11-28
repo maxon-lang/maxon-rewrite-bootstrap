@@ -80,7 +80,18 @@ var (
 	conversionChange = under("cmd/convert/", "self/driver/skips", "stdlib/", "specs/")
 	interpretChange  = under("specs/", "stdlib/", "cmd/convert/", "self/interp/", "self/driver/")
 	stdlibChange     = under("stdlib/")
+	// generatorChange is a change to a generator (internal/) or to a file one reads outside it, or to a generated file itself:
+	// the inputs are the ones the generators of internal/ name by path.
+	generatorChange = either(under("internal/"), trigger{"a generator's input or a *_gen.* file", func(path string) bool {
+		return slices.Contains(generatorInputs, path) || strings.Contains(path, "_gen.")
+	}})
 )
+
+// generatorInputs are the files outside internal/ that a generator reads (internal/*gen name them by path).
+var generatorInputs = []string{
+	"self/diag/codes.tsv", "self/diag/messages.tsv", "self/driver/skips.tsv", "self/syntax/Maxon.g4",
+	"runtime/hashfold.maxon", "runtime/textops.maxon",
+}
 
 // focusRule says when the focused gate runs a step: always, or when a changed path is one of the trigger's.
 type focusRule struct {
@@ -95,7 +106,10 @@ func when(t trigger) focusRule { return focusRule{when: t} }
 // focusedRules are the steps of the gate's lists that the focused gate runs, by name, and when. The steps of the lists that
 // are not here are left out.
 var focusedRules = map[string]focusRule{
+	"format":                     when(goChange),
+	"go fix":                     when(goChange),
 	"vet":                        when(goChange),
+	"generators":                 when(generatorChange),
 	"Go tests":                   when(goChange),
 	"compiler from the seed":     always,
 	"envrun":                     always,

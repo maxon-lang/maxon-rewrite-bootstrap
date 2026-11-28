@@ -355,14 +355,16 @@ tip the steps that what it changed calls for. It is no list of steps of its own:
 lists a rule by its name, and a test holds every rule to a step that exists. Always: the compiler from the seed, `fmt --check self runtime tests stdlib`,
 `check self --tests --verify-reads`, `check runtime` and `check stdlib` for the host's target, `selftest`, the host corpus, the spec step
 (`test specs --require-passed`) and the proof that the compiler reproduces itself (C2 and C3 are the same bytes). By the paths changed since `--since` (the
-merge base with `origin/main` unless given) and in the working tree: Go (`internal/`, `cmd/`, any `.go` file) adds `go vet ./...` for windows, linux and
-darwin and `go test ./...`; `runtime/`, `self/backend/`, `self/ir/`, `self/interp/` or a test program that uses the scheduler adds the behaviours under
+merge base with `origin/main` unless given) and in the working tree: Go (`internal/`, `cmd/`, any `.go` file) adds gofmt, `go fix`, `go vet ./...` for
+windows, linux and darwin and `go test ./...`; `internal/`, a generator's input outside it (`self/diag/codes.tsv`, `messages.tsv`,
+`self/driver/skips.tsv`, `self/syntax/Maxon.g4`, `runtime/hashfold.maxon`, `runtime/textops.maxon`) or a `*_gen.*` file adds the generators,
+which fail on a stale generated file; `runtime/`, `self/backend/`, `self/ir/`, `self/interp/` or a test program that uses the scheduler adds the behaviours under
 1, 2 and 4 workers; `cmd/convert/`, `self/driver/skips*`, `stdlib/` or `specs/` adds the regeneration of `specs/` (`gate specs`, from maxon's specs
 directory, which `--maxon-specs` or `MAXON_SPECS` names), after which the spec step replays the regeneration's saved results with `--require-passed`
 instead of running every test again (a listed test that stopped passing is `LOST` there, which the regeneration's record mode does not fail); `specs/`,
 `stdlib/`, `cmd/convert/`, `self/interp/` or `self/driver/` puts `--interpret` on the spec step; `stdlib/` adds the check that it regenerates from maxon's
 (`--maxon-stdlib` or `MAXON_STDLIB`). The run prints the steps it chose and the paths that called for each, names the steps it leaves out in one line (the
-other targets' lanes and compiles, fuzz, debug info, the cache, formatting and the generators: CI runs them), prints each step's time, ends with
+other targets' lanes and compiles, fuzz, debug info and the cache: CI runs them), prints each step's time, ends with
 `gate time: total X min; slowest: ...` and the time of every step, prints main's last finished CI run as a NOTE when it is red (a red main with a known owner
 does not stop a landing), and exits 1 at the first step that fails.
 

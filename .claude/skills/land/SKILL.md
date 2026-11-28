@@ -50,13 +50,14 @@ Always, on the rebased tip: build from the seed, `fmt --check self runtime tests
 `check self --tests --verify-reads`, `check runtime`, `check stdlib` (the host's target), `selftest`, the host corpus
 as the gate runs it, the spec step (`test specs --require-passed`) and the chain (C2 identical to C3).
 
-By the paths changed: Go (`internal/`, `cmd/`, any `.go` file) adds `go vet ./...` for windows, linux and darwin and
-`go test ./...`; `runtime/`, `self/backend/`, `self/ir/`, `self/interp/` or a test program that uses the scheduler adds the
+By the paths changed: Go (`internal/`, `cmd/`, any `.go` file) adds gofmt, `go fix`, `go vet ./...` for windows, linux
+and darwin and `go test ./...`; `internal/`, a generator's input (`codes.tsv`, `messages.tsv`, `skips.tsv`, `Maxon.g4`,
+`runtime/hashfold.maxon`, `runtime/textops.maxon`) or a `*_gen.*` file adds the generators, which fail on a stale generated file; `runtime/`, `self/backend/`, `self/ir/`, `self/interp/` or a test program that uses the scheduler adds the
 behaviours (`--worker-counts=1,2,4`); `cmd/convert/`, `self/driver/skips*`, `stdlib/` or `specs/` adds the regeneration of
 `specs/` (`gate specs`); `specs/`, `stdlib/`, `cmd/convert/`, `self/interp/` or `self/driver/` puts `--interpret` on the spec
 step; `stdlib/` adds the check that it regenerates from maxon's. The run prints which steps it chose and the paths that
 called for them, then each step's time, then `gate time: total X min; slowest: ...`. Not in it, and named in one line:
-the cross-target lanes and compiles, fuzz, debug info, the cache and the formatting and generator steps. CI runs them. The
+the cross-target lanes and compiles, fuzz, debug info and the cache. CI runs them. The
 self-build comparison (`cmd/selfab`) is not a step either: run it by hand when a layout, a lock or a hot path of the back end,
 the IR or the runtime moved.
 Main's last finished CI run is printed as a NOTE when it is red, which does not stop the landing.
