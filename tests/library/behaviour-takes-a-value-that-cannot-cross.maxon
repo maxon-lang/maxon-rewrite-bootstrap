@@ -1,21 +1,6 @@
-// A behaviour runs on another thread, so what it takes crosses by the rule of a message's arguments: a value at an
-// interface type is of a type the behaviour does not know, which may hold what cannot cross.
-interface Shape
-	function area() returns Count
-end 'Shape'
-
-type Square implements Shape
-	var side as Count
-
-	static function make(side Count) returns Square
-		return Square{side: side}
-	end 'make'
-
-	function area() returns Count
-		return try self.side * self.side otherwise 0
-	end 'area'
-end 'Square'
-
+// A behaviour runs on another thread, so what it takes crosses by the rule of a message's arguments: a promise, whose
+// coroutine belongs to the strand that started it, does not, and an interface value does, since what is put in its box
+// crosses.
 type Total
 	export var sum as Count
 
@@ -24,13 +9,18 @@ type Total
 	end 'make'
 end 'Total'
 
+function nap(n Count) returns Count
+	sleep(1)
+	return n
+end 'nap'
+
 function main() returns ExitCode
 	let total = cown(Total.make())
-	let shape = Square.make(3) as Shape
+	let pending = async nap(3)
 	when total as t 'add'
-		t.sum = shape.area()
+		t.sum = try await pending otherwise 0
 	end 'add'
 	return 0
 end 'main'
 
-// expect-error: E3909 at 31:11
+// expect-error: E3909 at 21:21

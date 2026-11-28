@@ -1,5 +1,5 @@
 // A behaviour in generic code takes a value of a type parameter, which crosses to the behaviour's thread only where the
-// type argument does: each instance is judged at its own, and an interface value does not cross.
+// type argument does: each instance is judged at its own, and a value that holds a promise does not cross.
 interface Named
 	function named() returns String
 end 'Named'
@@ -33,8 +33,25 @@ end 'relay'
 function main() returns ExitCode
 	let log = cown(Log.make())
 	relay(share(log), item: Word.make("fine"))
-	relay(log, item: Word.make("boxed") as Named)
+	relay(log, item: Late.make(async nap(1)))
 	return 0
 end 'main'
+
+function nap(n Count) returns Count
+	sleep(1)
+	return n
+end 'nap'
+
+type Late implements Named
+	var p as Promise with Count
+
+	static function make(consumes p Promise with Count) returns Late
+		return Late{p: p}
+	end 'make'
+
+	function named() returns String
+		return "late"
+	end 'named'
+end 'Late'
 
 // expect-error: E3909 at 29:16
