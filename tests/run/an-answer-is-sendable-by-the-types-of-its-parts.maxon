@@ -1,0 +1,96 @@
+// An answer's parts are sendable by their types (RFC 9110 §5.1, §5.5): a field's name is made of token bytes only, a field's
+// value of no CR, LF or NUL, and the fields refuse Content-Length, Connection and Transfer-Encoding, which the connection
+// states; each refusal comes where the part is made, so the handler can answer otherwise. A status is a final one, its reason
+// the status's own. A body given with a status that has none (204, 304, RFC 9110 §6.4.1) is not sent, and the connection is
+// kept for the next request.
+// native-only
+//> a name with a space: invalidName
+//> a value with a line feed: invalidValue
+//> a Content-Length of the handler's: statedByTheConnection
+//> a Connection of the handler's: statedByTheConnection
+//> HTTP/1.1 204 No Content\r\n\r\nHTTP/1.1 304 Not Modified\r\nETag: "a"\r\n\r\nHTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok
+function shown(text String) returns String
+	return text.replace("\r\n", with: "\\r\\n")
+end 'shown'
+
+function nameOf(e HttpFieldError) returns String
+	return match e 'e'
+		invalidName gives "invalidName"
+		invalidValue gives "invalidValue"
+		statedByTheConnection gives "statedByTheConnection"
+	end 'e'
+end 'nameOf'
+
+function refusalOfName(text String) returns String
+	_ = try HttpFieldName.of(text) otherwise (e) 'refused'
+		return nameOf(e)
+	end 'refused'
+	return "made"
+end 'refusalOfName'
+
+function refusalOfValue(text String) returns String
+	_ = try HttpFieldValue.of(text) otherwise (e) 'refused'
+		return nameOf(e)
+	end 'refused'
+	return "made"
+end 'refusalOfValue'
+
+function refusalOfAdding(name String) returns String
+	var fields = HttpFields.create()
+	let named = try HttpFieldName.of(name) otherwise (e) 'refused'
+		return nameOf(e)
+	end 'refused'
+	try fields.add(named, value: HttpFieldValue.plainText) otherwise (e) 'refused'
+		return nameOf(e)
+	end 'refused'
+	return "added"
+end 'refusalOfAdding'
+
+type Bodiless implements HttpHandler
+	let etag as HttpFieldName
+	let version as HttpFieldValue
+
+	static function create() returns Self
+		let etag = try HttpFieldName.of("ETag") otherwise panic("ETag is a field's name")
+		let version = try HttpFieldValue.of("\"a\"") otherwise panic("a quoted tag is a field's value")
+		return Self{etag: etag, version: version}
+	end 'create'
+
+	function handle(consumes exchange HttpExchange) returns HttpAnswered
+		let target = exchange.request.target()
+		if target == "/none" 'none'
+			return exchange.respondWith(StatusCode.noContent, body: "dropped", contentType: HttpFieldValue.plainText)
+		end 'none'
+		if target == "/same" 'same'
+			var fields = HttpFields.create()
+			try fields.add(self.etag, value: self.version) otherwise return exchange.fail(StatusCode.internalServerError)
+			return exchange.respond(HttpAnswer.create(StatusCode.notModified, fields: fields, body: "dropped too"))
+		end 'same'
+		return exchange.respondWith(StatusCode.ok, body: "ok", contentType: HttpFieldValue.plainText)
+	end 'handle'
+end 'Bodiless'
+
+function main() returns ExitCode
+	print("a name with a space: {refusalOfName("X Made")}\n")
+	print("a value with a line feed: {refusalOfValue("a\nb")}\n")
+	print("a Content-Length of the handler's: {refusalOfAdding("content-length")}\n")
+	print("a Connection of the handler's: {refusalOfAdding("Connection")}\n")
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
+	let port = server.port()
+	let serving = server.serve(freeze(Bodiless.create()))
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
+	try client.setReadDeadline(5000) otherwise ignore
+	_ = try client.send("GET /none HTTP/1.1\r\nHost: a\r\n\r\nGET /same HTTP/1.1\r\nHost: a\r\n\r\nGET /ok HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n") otherwise 0
+	var all = ByteArray.create(0)
+	while true 'reading'
+		let chunk = try client.readSome(4096) otherwise break 'reading'
+		if chunk.isEmpty() 'closed'
+			break 'reading'
+		end 'closed'
+		all.append(chunk)
+	end 'reading'
+	try client.close() otherwise ignore
+	print("{shown(String.from(all))}\n")
+	serving.stop(1000)
+	return 0
+end 'main'

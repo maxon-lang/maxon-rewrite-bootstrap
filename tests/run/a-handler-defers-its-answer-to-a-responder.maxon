@@ -33,14 +33,17 @@ function answerTo(port NetworkPort, request String) returns String
 end 'answerTo'
 
 type Later implements HttpHandler
+	// The content type of the answers, made once: maxon's text/plain, with no charset.
+	let plainText as HttpFieldValue
+
 	static function create() returns Self
-		return Self{}
+		return Self{plainText: try HttpFieldValue.of("text/plain") otherwise panic("text/plain is a field's value")}
 	end 'create'
 
 	function handle(consumes exchange HttpExchange) returns HttpAnswered
 		let target = exchange.request.target()
 		if target == "/now" 'now'
-			return exchange.respondWith(StatusCode.ok, body: "now", contentType: "text/plain")
+			return exchange.respondWith(StatusCode.ok, body: "now", contentType: self.plainText)
 		end 'now'
 		let (responder, answered) = exchange.respondLater()
 		if target == "/busy" 'busy'
@@ -48,7 +51,7 @@ type Later implements HttpHandler
 		end 'busy' else if target == "/drop" 'drop'
 			responder.abandon()
 		end 'drop' else 'later'
-			responder.respondWith(StatusCode.ok, body: "later: {target}", contentType: "text/plain")
+			responder.respondWith(StatusCode.ok, body: "later: {target}", contentType: self.plainText)
 		end 'later'
 		return answered
 	end 'handle'

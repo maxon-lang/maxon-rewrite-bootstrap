@@ -17,19 +17,22 @@ end 'shown'
 let BigDoublings = 25
 
 type Big implements HttpHandler
+	// The content type of the answers, made once: maxon's text/plain, with no charset.
+	let plainText as HttpFieldValue
+
 	static function create() returns Self
-		return Self{}
+		return Self{plainText: try HttpFieldValue.of("text/plain") otherwise panic("text/plain is a field's value")}
 	end 'create'
 
 	function handle(consumes exchange HttpExchange) returns HttpAnswered
 		if exchange.request.target() != "/big" 'small'
-			return exchange.respondWith(StatusCode.ok, body: "small", contentType: "text/plain")
+			return exchange.respondWith(StatusCode.ok, body: "small", contentType: self.plainText)
 		end 'small'
 		var body = "x"
 		for i in 0 upto BigDoublings 'double'
 			body = "{body}{body}"
 		end 'double'
-		return exchange.respondWith(StatusCode.ok, body: body, contentType: "text/plain")
+		return exchange.respondWith(StatusCode.ok, body: body, contentType: self.plainText)
 	end 'handle'
 end 'Big'
 

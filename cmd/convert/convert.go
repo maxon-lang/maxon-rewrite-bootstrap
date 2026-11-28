@@ -142,6 +142,7 @@ func convertProgram(file, src string, kind inputKind, names programNames) Result
 	lines = rewriteFileEndings(lines)
 	if kind == sourceFile {
 		lines = addFileSyncs(lines)
+		narrowStatusNumbers(lines)
 	}
 	if kind == specProgram {
 		lines = rewriteSocketEndings(lines, names.expectsError)

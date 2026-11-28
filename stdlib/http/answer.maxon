@@ -1,0 +1,123 @@
+// What a server's answer is made of, each part sendable by its type (README, "Where it differs from Maxon"): a field's name
+// is a token, a field's value holds no CR, LF or NUL, the fields leave to the connection what it states itself, and a status
+// is a final one, its reason the status's own. A constructor that can fail fails where the handler makes the part, which can
+// answer something else; once made, an answer always reaches the connection whole, so answering it has no failure of its own.
+
+/// Why a part of an answer cannot be made.
+public enum HttpFieldError implements Error
+	/// A field's name holds a byte that is no token's (RFC 9110 §5.1), or none.
+	invalidName
+	/// A field's value holds a CR, an LF or a NUL, which would end its line or the head (RFC 9110 §5.5).
+	invalidValue
+	/// The field is one the connection states itself: Content-Length, Connection or Transfer-Encoding.
+	statedByTheConnection
+end 'HttpFieldError'
+
+let NulByte = 0 as Byte
+
+let CarriageReturnByte = 13 as Byte
+
+let LineFeedByte = 10 as Byte
+
+/// A field's name: token bytes only (RFC 9110 §5.1).
+public type HttpFieldName
+	let text as String
+
+	/// The name `name`, or `invalidName` where it is empty or holds a byte that is no token's.
+	public static function of(name String) returns HttpFieldName throws HttpFieldError
+		if not isToken(name) 'notAToken'
+			throw HttpFieldError.invalidName
+		end 'notAToken'
+		return HttpFieldName{text: name.clone()}
+	end 'of'
+
+	/// The name as it is sent.
+	public function name() returns String
+		return self.text.clone()
+	end 'name'
+end 'HttpFieldName'
+
+/// A field's value: no CR, LF or NUL (RFC 9110 §5.5). The common content types are constants, each with its usual charset.
+public type HttpFieldValue
+	let text as String
+	/// `text/plain; charset=utf-8`.
+	public static let plainText = HttpFieldValue{text: "text/plain; charset=utf-8"}
+	/// `text/html; charset=utf-8`.
+	public static let html = HttpFieldValue{text: "text/html; charset=utf-8"}
+	/// `application/json`, whose text is UTF-8 by its definition (RFC 8259 §8.1).
+	public static let json = HttpFieldValue{text: "application/json"}
+	/// `application/octet-stream`.
+	public static let octetStream = HttpFieldValue{text: "application/octet-stream"}
+	/// `application/x-www-form-urlencoded`, a form's fields.
+	public static let formUrlEncoded = HttpFieldValue{text: "application/x-www-form-urlencoded"}
+
+	/// The value `value`, or `invalidValue` where it holds a CR, an LF or a NUL.
+	public static function of(value String) returns HttpFieldValue throws HttpFieldError
+		for b in value.bytes() 'eachByte'
+			if b == CarriageReturnByte or b == LineFeedByte or b == NulByte 'endsALine'
+				throw HttpFieldError.invalidValue
+			end 'endsALine'
+		end 'eachByte'
+		return HttpFieldValue{text: value.clone()}
+	end 'of'
+
+	/// The value as it is sent.
+	public function value() returns String
+		return self.text.clone()
+	end 'value'
+end 'HttpFieldValue'
+
+// A field of an answer, its name and its value.
+type HttpField
+	let name as HttpFieldName
+	let value as HttpFieldValue
+
+	static function of(name HttpFieldName, value HttpFieldValue) returns HttpField
+		return HttpField{name: name.clone(), value: value.clone()}
+	end 'of'
+end 'HttpField'
+
+typealias HttpFieldList = Array with HttpField
+
+/// The fields of an answer, in the order they were added, each sent as one line.
+public type HttpFields
+	var fields as HttpFieldList
+
+	/// No fields.
+	public static function create() returns HttpFields
+		return HttpFields{fields: HttpFieldList.create(0)}
+	end 'create'
+
+	/// Add a field, after those added before it; `statedByTheConnection` for Content-Length, Connection and
+	/// Transfer-Encoding, which the connection states as the answer and its keep-alive say.
+	public function add(mutates self, name HttpFieldName, value HttpFieldValue) throws HttpFieldError
+		let lowered = name.text.toLower()
+		if lowered == ContentLengthHeaderName or lowered == ConnectionHeaderName or lowered == TransferEncodingHeaderName 'stated'
+			throw HttpFieldError.statedByTheConnection
+		end 'stated'
+		self.fields.push(HttpField.of(name, value: value))
+	end 'add'
+
+	// lines are the fields as the lines of a head.
+	function lines() returns String
+		var all = ""
+		for field in self.fields 'each'
+			all = "{all}{field.name.text}{HeaderNameValueSeparator}{field.value.text}{HttpLineBreak}"
+		end 'each'
+		return all
+	end 'lines'
+end 'HttpFields'
+
+/// A server's answer to a request: a final status, its fields and its body. Its reason is the status's own
+/// (`reasonPhraseOf`), its length and Connection field are the connection's to state, and a body on a status that has none
+/// (204, 304) is not sent, so every answer can be sent as it is.
+public type HttpAnswer
+	public let status as StatusCode
+	public let fields as HttpFields
+	public let body as String
+
+	/// An answer of `status` with `fields` and `body`.
+	public static function create(status StatusCode, fields HttpFields, body String) returns HttpAnswer
+		return HttpAnswer{status: status.clone(), fields: fields.clone(), body: body.clone()}
+	end 'create'
+end 'HttpAnswer'

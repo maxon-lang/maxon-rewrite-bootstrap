@@ -102,7 +102,7 @@ public type HttpRequest
 end 'HttpRequest'
 
 /// A status code's three-digit number.
-public typealias HttpStatusNumber = int(100 to 999)
+public typealias HttpStatusNumber = int(200 to 999)
 
 /// HTTP status codes. A status with no named case is `other`, carrying its number.
 public union StatusCode
@@ -190,7 +190,6 @@ public function statusCodeOf(number HttpStatusNumber) returns StatusCode
 		502 gives StatusCode.badGateway
 		503 gives StatusCode.serviceUnavailable
 		505 gives StatusCode.httpVersionNotSupported
-		100 upto 200 or
 		203 or
 		205 upto 301 or
 		303 or

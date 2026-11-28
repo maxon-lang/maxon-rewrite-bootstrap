@@ -9,10 +9,12 @@ function shown(text String) returns String
 end 'shown'
 
 type Files implements HttpHandler
+	// The content type of the answers, made once: maxon's text/plain, with no charset.
+	let plainText as HttpFieldValue
 	let path as String
 
 	static function create(path String) returns Self
-		return Self{path: path.clone()}
+		return Self{plainText: try HttpFieldValue.of("text/plain") otherwise panic("text/plain is a field's value"), path: path.clone()}
 	end 'create'
 
 	function handle(consumes exchange HttpExchange) returns HttpAnswered
@@ -23,7 +25,7 @@ type Files implements HttpHandler
 		if target == "/partial" 'partial'
 			_ = try opened.readBytes(4) otherwise ByteArray.create(0)
 		end 'partial'
-		return exchange.respondFile(opened, contentType: "text/plain")
+		return exchange.respondFile(opened, contentType: self.plainText)
 	end 'handle'
 end 'Files'
 

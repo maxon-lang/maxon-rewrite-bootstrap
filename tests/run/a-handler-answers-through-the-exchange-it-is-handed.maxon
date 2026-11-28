@@ -1,15 +1,15 @@
 // A handler answers each request through the exchange it is handed, and returns the HttpAnswered the answer gives: with a
-// status and a body (respondWith), with a response of fields of its own (respond), with a status alone (fail), or not at
+// status and a body (respondWith), with an answer of fields of its own (respond), with a status alone (fail), or not at
 // all, closing the connection (abandon). It reads the request's method, target, fields and body, and it may consult a
 // service by a send that keeps no reply, whose kind names a policy (Refuse here), as a requirement of an interface that
 // requires service must. A connection is kept after each answer, a failure's among them (RFC 9112 §9.3).
 // native-only
-//> /hello: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 2\r\nConnection: close\r\n\r\nhi
-//> /fields: HTTP/1.1 201 Created\r\nContent-Length: 6\r\nConnection: close\r\nx-made-by: the handler\r\n\r\nmade 3
+//> /hello: HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: 2\r\nConnection: close\r\n\r\nhi
+//> /fields: HTTP/1.1 201 Created\r\nContent-Length: 6\r\nConnection: close\r\nX-Made-By: the handler\r\n\r\nmade 3
 //> /echo: HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: 5\r\nConnection: close\r\n\r\nabcde
-//> /missing then /hello, kept: HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\nHTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 2\r\nConnection: close\r\n\r\nhi
+//> /missing then /hello, kept: HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\nHTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: 2\r\nConnection: close\r\n\r\nhi
 //> /drop: [closed with no answer]
-//> /fields to a HEAD: HTTP/1.1 201 Created\r\nContent-Length: 6\r\nConnection: close\r\nx-made-by: the handler\r\n\r\n
+//> /fields to a HEAD: HTTP/1.1 201 Created\r\nContent-Length: 6\r\nConnection: close\r\nX-Made-By: the handler\r\n\r\n
 //> counted: 7
 //> stopped
 function shown(text String) returns String
@@ -60,29 +60,34 @@ end 'Tally'
 type Site implements HttpHandler
 	let greeting as String
 	let tally as Tally.handle
+	// The field the handler adds to an answer, its name and its value made once.
+	let madeBy as HttpFieldName
+	let theHandler as HttpFieldValue
 
 	static function create(greeting String, tally Tally.handle) returns Self
-		return Self{greeting: greeting.clone(), tally: tally.clone()}
+		let madeBy = try HttpFieldName.of("X-Made-By") otherwise panic("X-Made-By is a field's name")
+		let theHandler = try HttpFieldValue.of("the handler") otherwise panic("the handler is a field's value")
+		return Self{greeting: greeting.clone(), tally: tally.clone(), madeBy: madeBy, theHandler: theHandler}
 	end 'create'
 
 	function handle(consumes exchange HttpExchange) returns HttpAnswered
 		_ = try self.tally.record() otherwise return exchange.fail(StatusCode.serviceUnavailable)
 		let target = exchange.request.target()
 		if target == "/hello" 'hello'
-			return exchange.respondWith(StatusCode.ok, body: self.greeting, contentType: "text/plain")
+			return exchange.respondWith(StatusCode.ok, body: self.greeting, contentType: HttpFieldValue.plainText)
 		end 'hello'
 		if target == "/fields" 'fields'
-			var fields = HttpHeaders.create()
-			fields.set("X-Made-By", value: "the handler")
+			var fields = HttpFields.create()
+			try fields.add(self.madeBy, value: self.theHandler) otherwise return exchange.fail(StatusCode.internalServerError)
 			let by = match exchange.request.field("x-request") 'by'
 				found(value) gives value.clone()
 				absent gives "nobody"
 			end 'by'
-			return exchange.respond(HttpResponse.create(StatusCode.created, reasonPhrase: "Created", responseHeaders: fields, responseBody: "made {by}"))
+			return exchange.respond(HttpAnswer.create(StatusCode.created, fields: fields, body: "made {by}"))
 		end 'fields'
 		if target == "/echo" 'echo'
 			let body = String.from(exchange.requestBody)
-			return exchange.respondWith(StatusCode.ok, body: body, contentType: "application/octet-stream")
+			return exchange.respondWith(StatusCode.ok, body: body, contentType: HttpFieldValue.octetStream)
 		end 'echo'
 		if target == "/drop" 'drop'
 			return exchange.abandon()

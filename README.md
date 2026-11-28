@@ -6686,7 +6686,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   where maxon's is `handle(exchange mutable HttpExchange) throws HttpServerError` beside `faulted(fault)`, which is gone: a
   handler answers its own failures (`return exchange.fail(StatusCode.internalServerError)`). An `HttpExchange` owns the
   request (`request`, a `RequestHead`, and `requestBody`) and the connection's socket and the answer's outcome, a `Wire`,
-  which the connection moves out of its state for the call; each way to answer, `respond(response)`,
+  which the connection moves out of its state for the call; each way to answer, `respond(answer)`,
   `respondWith(code, body:, contentType:)`, `fail(code)`, `respondFile(opened, contentType:)` (the rest of an open file, by
   the system's file send, its length stated from the open file's size and position, so the connection is kept, and the file
   closed within the call) `abandon()` (a close with no answer) and `respondLater()`, consumes it and gives the
@@ -6694,9 +6694,21 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   answering twice is a use after a move (`E3102`), and a handler that does not answer has no value to return: maxon's
   run-time stage checks (`alreadyResponded`), its 500 in the handler's place and its report of an unanswered request are not
   here. An answer is a parking send under the write deadline that throws nothing: a failed send is the connection's, which
-  closes. The connection states each answer's length and its `Connection` field, as its keep-alive says. An answer that
-  cannot be sent as it is (a body on a status that has none, a reason, a field or a content type that would end its line) is
-  not sent, and the connection closes, where maxon's throws `invalidResponse`. The handler is shared frozen by every
+  closes. The connection states each answer's length and its `Connection` field, as its keep-alive says. **An answer is
+  sendable by the types of its parts** (`stdlib/http/answer.maxon`), so answering has no failure of its own and maxon's
+  `invalidResponse` throw is gone: `respond` takes an `HttpAnswer` (a status, `HttpFields` and a body), the server's own,
+  where maxon's takes the client's `HttpResponse`, which the client keeps; a field's name is an `HttpFieldName`
+  (`HttpFieldName.of(text)`, token bytes only) and its value an `HttpFieldValue` (`HttpFieldValue.of(text)`, no CR, LF or
+  NUL), each of whose constructors throws `HttpFieldError` where the handler makes it and can answer otherwise; `HttpFields`
+  keeps its fields in the order they were added and refuses Content-Length, Connection and Transfer-Encoding at `add`
+  (`statedByTheConnection`), which the connection states; there is no custom reason, an answer's reason being its status's
+  (`reasonPhraseOf`); `respondWith`'s and `respondFile`'s `contentType` is an `HttpFieldValue`, the common ones constants
+  with their usual charset (`plainText`, `html`, `json`, `octetStream`, `formUrlEncoded`); and a body given with a status that
+  has none (204, 304) is left out, the head sent and the connection kept. A value made by a constructor that throws is not
+  the initializer of a module-level `let` (`E3220`), so a handler makes its own once, in its factory, and keeps it. A
+  `StatusCode` is a final status: `HttpStatusNumber` is 200 to 999, where maxon's is 100 to 999, so no answer carries an
+  informational status, which only the connection sends (100 Continue), and no response a client gives its caller is one
+  (the client skips an interim response, as maxon's does, and refuses a 101). The handler is shared frozen by every
   connection (`server.serve(freeze(Hello.create()))`), one count per connection, and is read only; a
   connection calls it in its own message, which `HttpHandler`'s `requires service` allows, so a handler waits on no service
   and names a policy for each kind it sends (`E3210`, `E3957`). A handler that must consult a service defers its answer:

@@ -107,14 +107,17 @@ end 'connected'
 
 // Echo answers each request with its request line, and with how many bytes its body had where it had one.
 type Echo implements HttpHandler
+	// The content type of the answers, made once: maxon's text/plain, with no charset.
+	let plainText as HttpFieldValue
+
 	static function create() returns Self
-		return Self{}
+		return Self{plainText: try HttpFieldValue.of("text/plain") otherwise panic("text/plain is a field's value")}
 	end 'create'
 
 	function handle(consumes exchange HttpExchange) returns HttpAnswered
 		let line = "{methodName(exchange.request.method)} {exchange.request.target()} HTTP/1.{exchange.request.minorVersion}"
 		let count = exchange.requestBody.count()
-		return exchange.respondWith(StatusCode.ok, body: "{line} with {count} bytes" if count > 0 else line, contentType: "text/plain")
+		return exchange.respondWith(StatusCode.ok, body: "{line} with {count} bytes" if count > 0 else line, contentType: self.plainText)
 	end 'handle'
 end 'Echo'
 

@@ -90,41 +90,34 @@ type Answering
 		return Answering{keeps: keeps, minorVersion: minorVersion, headOnly: headOnly, writeDeadlineMs: writeDeadlineMs}
 	end 'of'
 
-	// response writes `response`: its status, reason, fields and body, its length and the Connection field stated by the
-	// connection, a field of the response's own of either name left out. One that cannot be sent as it is (a body on a status
-	// that has none, a reason or a field that would end its line) is not sent, and the connection closes.
-	function response(mutates wire Wire, response HttpResponse)
-		try httpRequireSendableResponse(response) otherwise 'unsendable'
-			wire.outcome = Outcome.broken
-			return
-		end 'unsendable'
-		let content = response.body()
-		let carries = httpStatusAllowsContent(response.statusCode())
-		var lines = statusLine(response.statusCode(), reason: response.reason())
+	// answer writes an answer: its status and the status's reason, its length where the status has a body and the Connection
+	// field, which the connection states, its fields, and its body, which a HEAD and a status that has none (204, 304) are not
+	// sent (RFC 9110 §6.4.1, §9.3.2).
+	function answer(mutates wire Wire, answer HttpAnswer)
+		let carries = httpStatusAllowsContent(answer.status)
+		var lines = statusLine(answer.status, reason: reasonOf(answer.status))
 		if carries 'length'
-			appendHeaderLine(lines, name: SentContentLengthName, value: "{content.byteLength()}")
+			appendHeaderLine(lines, name: SentContentLengthName, value: "{answer.body.byteLength()}")
 		end 'length'
-		lines = "{lines}{self.field()}"
-		appendHeaderLines(lines, headers: response.headers(), skipping: ConnectionHeaderName)
-		lines = "{lines}{HttpLineBreak}"
-		wire.send(lines, body: content if carries and not self.headOnly else "", keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
-	end 'response'
+		lines = "{lines}{self.field()}{answer.fields.lines()}{HttpLineBreak}"
+		self.sendBody(wire, head: lines, body: answer.body, carries: carries)
+	end 'answer'
 
-	// bodied writes `code`, its reason phrase, and `body` of the type `contentType`. A body on a status that has none (1xx, 204,
-	// 304), or a content type that would end its line, is not sent, and the connection closes.
-	function bodied(mutates wire Wire, code StatusCode, body String, contentType String)
+	// bodied writes `code`, its reason phrase, and `body` of the type `contentType`, the body left out where the status has
+	// none (204, 304) or the request is a HEAD.
+	function bodied(mutates wire Wire, code StatusCode, body String, contentType HttpFieldValue)
 		let carries = httpStatusAllowsContent(code)
-		if (not carries and not body.isEmpty()) or not isFieldContent(contentType) 'unsendable'
-			wire.outcome = Outcome.broken
-			return
-		end 'unsendable'
-		let lines = answerHead(code, contentType: contentType, length: body.byteLength() as Count, carries: carries, field: self.field())
-		if self.headOnly 'headOnly'
-			wire.send(lines, body: "", keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
+		let lines = answerHead(code, contentType: contentType.text, length: body.byteLength() as Count, carries: carries, field: self.field())
+		self.sendBody(wire, head: lines, body: body, carries: carries)
+	end 'bodied'
+
+	function sendBody(mutates wire Wire, head String, body String, carries bool)
+		if self.headOnly or not carries 'headOnly'
+			wire.send(head, body: "", keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
 			return
 		end 'headOnly'
-		wire.send(lines, body: body, keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
-	end 'bodied'
+		wire.send(head, body: body, keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
+	end 'sendBody'
 
 	// failure writes `code` and its reason phrase, and no body.
 	function failure(mutates wire Wire, code StatusCode)
@@ -133,18 +126,13 @@ type Answering
 	end 'failure'
 
 	// file writes 200 and the rest of an open file of the type `contentType`, its length stated, and closes the file.
-	function file(mutates wire Wire, consumes opened file.FileStreamReader, contentType String)
+	function file(mutates wire Wire, consumes opened file.FileStreamReader, contentType HttpFieldValue)
 		let length = try restOf(opened) otherwise 'unsized'
 			closeFile(opened)
 			wire.outcome = Outcome.broken
 			return
 		end 'unsized'
-		if not isFieldContent(contentType) 'unsendable'
-			closeFile(opened)
-			wire.outcome = Outcome.broken
-			return
-		end 'unsendable'
-		let lines = answerHead(StatusCode.ok, contentType: contentType, length: length, carries: true, field: self.field())
+		let lines = answerHead(StatusCode.ok, contentType: contentType.text, length: length, carries: true, field: self.field())
 		if self.headOnly 'headOnly'
 			closeFile(opened)
 			wire.send(lines, body: "", keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
@@ -182,16 +170,18 @@ public type HttpExchange
 		return HttpExchange{request: head, requestBody: body, held: wire, own: own, answering: answering.clone()}
 	end 'over'
 
-	/// Answer with `response`: its status, reason, fields and body. The connection states the body's length and whether it is
-	/// kept; a `Content-Length` or `Connection` field of the response's own is left out.
-	public function respond(consumes self, response HttpResponse) returns HttpAnswered
+	/// Answer with `answer`: its status, with the status's reason, its fields and its body. The connection states the body's
+	/// length and whether the connection is kept. A body on a status that has none (204, 304) is left out, as the answer to a
+	/// HEAD leaves out every body.
+	public function respond(consumes self, answer HttpAnswer) returns HttpAnswered
 		var wire = self.held
-		self.answering.response(wire, response: response)
+		self.answering.answer(wire, answer: answer)
 		return HttpAnswered.over(wire, own: self.own)
 	end 'respond'
 
-	/// Answer with `code`, its reason phrase, and `body` of the type `contentType`.
-	public function respondWith(consumes self, code StatusCode, body String, contentType String) returns HttpAnswered
+	/// Answer with `code`, its reason phrase, and `body` of the type `contentType` (`HttpFieldValue.plainText`, or a value
+	/// made once by `HttpFieldValue.of`). A body on a status that has none (204, 304) is left out.
+	public function respondWith(consumes self, code StatusCode, body String, contentType HttpFieldValue) returns HttpAnswered
 		var wire = self.held
 		self.answering.bodied(wire, code: code, body: body, contentType: contentType)
 		return HttpAnswered.over(wire, own: self.own)
@@ -208,8 +198,9 @@ public type HttpExchange
 	/// Answer 200 with the rest of an open file of the type `contentType`: what its reader holds unread, and then the file from
 	/// its position, by `sendfile` (`TransmitFile` on Windows), so the file never passes through the process, each slice under the
 	/// write deadline. The connection states its length, read from the open file, and so keeps the connection. The file is closed
-	/// within the call, whether or not the send succeeds; a file whose size cannot be read is not sent, and the connection closes.
-	public function respondFile(consumes self, consumes opened file.FileStreamReader, contentType String) returns HttpAnswered
+	/// within the call, whether or not the send succeeds; a file whose size the system will not tell is not sent, and the
+	/// connection closes, as after a send that fails.
+	public function respondFile(consumes self, consumes opened file.FileStreamReader, contentType HttpFieldValue) returns HttpAnswered
 		var wire = self.held
 		self.answering.file(wire, opened: opened, contentType: contentType)
 		return HttpAnswered.over(wire, own: self.own)
@@ -263,13 +254,13 @@ public type HttpResponder
 		return HttpResponder{conn: conn}
 	end 'over'
 
-	/// Answer with `response`, as `HttpExchange.respond` does.
-	public function respond(destructs self, response HttpResponse)
-		try self.conn.deliver(Deferred.response(response.clone())) otherwise ignore
+	/// Answer with `answer`, as `HttpExchange.respond` does.
+	public function respond(destructs self, answer HttpAnswer)
+		try self.conn.deliver(Deferred.answer(answer.clone())) otherwise ignore
 	end 'respond'
 
 	/// Answer with `code`, its reason phrase, and `body` of the type `contentType`, as `HttpExchange.respondWith` does.
-	public function respondWith(destructs self, code StatusCode, body String, contentType String)
+	public function respondWith(destructs self, code StatusCode, body String, contentType HttpFieldValue)
 		try self.conn.deliver(Deferred.bodied(code.clone(), body: body.clone(), contentType: contentType.clone())) otherwise ignore
 	end 'respondWith'
 
@@ -286,8 +277,8 @@ end 'HttpResponder'
 
 // A deferred answer, which a responder sends its connection.
 export union Deferred
-	response(response HttpResponse)
-	bodied(code StatusCode, body String, contentType String)
+	answer(answer HttpAnswer)
+	bodied(code StatusCode, body String, contentType HttpFieldValue)
 	failure(code StatusCode)
 	abandoned
 end 'Deferred'

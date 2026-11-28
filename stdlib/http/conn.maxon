@@ -16,8 +16,19 @@
 // The most bytes one read takes from the socket.
 let ReadChunkBytes = 16384
 
-// What the connection sends where a request asked to be told to send its body (RFC 9110 §10.1.1).
-let ContinueLine = "HTTP/1.1 100 Continue\r\n\r\n"
+// An informational status (1xx, RFC 9110 §15.2), which only the connection sends, ahead of the answer: StatusCode, an
+// answer's status, holds final statuses alone. Its one case is the 100 Continue sent where a request asked to be told to send
+// its body (RFC 9110 §10.1.1).
+enum Informational
+	toContinue
+
+	// line is the status's head, which carries no field.
+	function line() returns String
+		return match self 'status'
+			toContinue gives "HTTP/1.1 100 Continue\r\n\r\n"
+		end 'status'
+	end 'line'
+end 'Informational'
 
 // Where the connection's Wire is: in its state, or lent to the exchange of the handler's call.
 union WireSlot
@@ -153,7 +164,7 @@ export service Conn implements services.Ends
 		let writing = Answering.of(answering.keeps and not self.stopping, minorVersion: answering.minorVersion, headOnly: answering.headOnly, writeDeadlineMs: answering.writeDeadlineMs)
 		var wire = self.takeWire()
 		match answer 'answer'
-			response(response) then writing.response(wire, response: response)
+			answer(given) then writing.answer(wire, answer: given)
 			bodied(code, body, contentType) then writing.bodied(wire, code: code, body: body, contentType: contentType)
 			failure(code) then writing.failure(wire, code: code)
 			abandoned then wire.outcome = Outcome.broken
@@ -271,7 +282,7 @@ export service Conn implements services.Ends
 			return
 		end 'tooLarge'
 		if length > 0 and head.expectsContinue and self.arrived.count() == through 'toldToSend'
-			if not self.sendHead(ContinueLine, body: "") 'gone'
+			if not self.sendHead(Informational.toContinue.line(), body: "") 'gone'
 				self.close()
 				return
 			end 'gone'

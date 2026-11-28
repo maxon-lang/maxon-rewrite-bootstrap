@@ -59,3 +59,12 @@ func TestConvertOrphanedMemberOfABuiltinRecordIsDropped(t *testing.T) {
 		t.Errorf("want an extension of File without readText and whole, with kept:\n%s", got)
 	}
 }
+
+// A status number is a final status's: the alias starts at 200, and the arm of the informational numbers is dropped.
+func TestConvertStatusNumbersAreFinal(t *testing.T) {
+	in := "public typealias HttpStatusNumber = int(100 to 999)\n\nfunction of(number HttpStatusNumber) returns Count\n\treturn match number 'which'\n\t\t200 gives 1\n\t\t100 upto 200 or\n\t\t201 to 999 gives 2\n\tend 'which'\nend 'of'\n"
+	got := Convert("test.maxon", in, sourceFile).Text
+	if !strings.Contains(got, "int(200 to 999)") || strings.Contains(got, "100 upto 200") {
+		t.Errorf("the statuses were not narrowed:\n%s", got)
+	}
+}
