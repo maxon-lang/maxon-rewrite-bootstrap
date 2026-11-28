@@ -41,6 +41,7 @@ aes-hardware.md: aes-hardware.fips-197-vectors
 aes-hardware.md: aes-hardware.gcm-intrinsics-match-the-mcgrew-viega-vectors
 aes-hardware.md: aes-hardware.gcm-large-messages-match-the-software-backing
 aes-hardware.md: aes-hardware.gcm-literal-arrays-are-copied-before-they-are-written
+aes-hardware.md: aes-hardware.gcm-seal-and-open-match-the-software-backing
 aes-hardware.md: aes-hardware.gcm-seal-and-open-take-any-length-at-any-offset
 aes-hardware.md: aes-hardware.matches-the-bitsliced-cipher
 aes-hardware.md: aes-hardware.nist-sp-800-38a-ctr-vectors

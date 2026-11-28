@@ -1045,6 +1045,7 @@ seal-012 [522dc1f099567d07f47f37a32a84427d643a8cdcbfe5c0c97598a2bd2555d1aa8cb08e
 ```
 
 <!-- test: aes-hardware.gcm-seal-and-open-match-the-software-backing -->
+<!-- native: its interpreted run takes over 10 s (it is stopped at the run deadline), over the 2 s the gate may spend on one test -->
 <!-- tier: stdlib -->
 `AesGcm` chooses the CPU's instructions once, in `create`. For each key size, associated data of 0, 1, 13, 16, 17, 31, 32,
 33, 127, 128 and 129 bytes and every data length from 0 to 300 bytes (the 8-block loop, the single blocks and the partial last
@@ -1439,16 +1440,17 @@ fatal error: a hardware crypto routine was handed a buffer or schedule of the wr
 ```
 
 <!-- test: aes-hardware.a-gcm-output-that-partly-overlaps-its-source-ends-the-program -->
+<!-- skip: language difference: a call cannot pass the array it writes as another of its arguments, so the conversion passes a copy of the sealed array and the two regions never overlap (README, Where it differs from Maxon) -->
 <!-- tier: stdlib -->
 `aesGcmOpen` over the array it reads is in place at 0, where the two regions are the same bytes, and refused at 8, where
 they overlap without being the same.
 ```maxon
 function main() returns ExitCode
-	var key = ByteArray.create(0)
-	var schedule = ByteArray.create(0)
-	var keyBlock = ByteArray.create(0)
-	var nonce = ByteArray.create(0)
-	var sealed = ByteArray.create(0)
+	let key = ByteArray.create(0)
+	let schedule = ByteArray.create(0)
+	let keyBlock = ByteArray.create(0)
+	let nonce = ByteArray.create(0)
+	let sealed = ByteArray.create(0)
 	let additional = ByteArray.create(0)
 	key.resize(16)
 	schedule.resize(352)
@@ -1457,9 +1459,9 @@ function main() returns ExitCode
 	sealed.resize(48)
 	__Builtins.aesExpandKey(schedule, key)
 	__Builtins.aesGcmInit(keyBlock, schedule)
-	_ = __Builtins.aesGcmOpen(sealed, 0, keyBlock, nonce, additional, sealed.clone())
+	_ = __Builtins.aesGcmOpen(sealed, 0, keyBlock, nonce, additional, sealed)
 	print("the same bytes are in place\n")
-	_ = __Builtins.aesGcmOpen(sealed, 8, keyBlock, nonce, additional, sealed.clone())
+	_ = __Builtins.aesGcmOpen(sealed, 8, keyBlock, nonce, additional, sealed)
 	return 0
 end 'main'
 ```
