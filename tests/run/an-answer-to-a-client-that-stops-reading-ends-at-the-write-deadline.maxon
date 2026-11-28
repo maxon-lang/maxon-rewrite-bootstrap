@@ -2,8 +2,8 @@
 // that stops making progress): the send fails there, which the connection, not the handler, records, and it closes the
 // connection, its answer cut short. The handler returns and the server serves on. The deadline is short here, and the answer
 // far larger than what the sockets hold, so the client reads what was sent before the deadline and then the close.
-// Not on Windows until it is known whether the answer fits Windows' loopback send buffer or a send there does not honour
-// the write deadline (there it reads "cut short: false").
+// Not on Windows: a nonblocking Windows send is taken whole by the kernel, so it never parks; until sends are sliced the
+// deadline cannot be shown.
 // native-only
 // unsupported-targets: x64-windows
 //> cut short: true
