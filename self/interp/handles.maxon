@@ -118,6 +118,14 @@ function entryFileSync(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 end 'entryFileSync'
 
 // entryFileClose ends the handle: what it wrote is in the file already, so there is nothing to report.
+function entryFileSize(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltHandleRow(vm, row: "__Builtins.fileSize")
+end 'entryFileSize'
+
+function entryFilePosition(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltHandleRow(vm, row: "__Builtins.filePosition")
+end 'entryFilePosition'
+
 function entryFileClose(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	try errorWord(vm, f: f, x: x, word: 0)
 end 'entryFileClose'

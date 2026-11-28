@@ -177,6 +177,24 @@ function fileSync(handle Count, errorAddress Count)
 	endWithError(errorAddress, osError: osError, table: fileWriteFailures())
 end 'fileSync'
 
+// fileSize is the size of the file whose box is the handle's word (sizeOfFileHandle), and sets the error word with readFailed
+// where the system refuses it. It is one bracketed call into the kernel.
+function fileSize(handle Count, errorAddress Count) returns Count
+	var size = 0 as Count
+	let osError = sizeOfFileHandle(__Raw.loadWord(handle, offset: fileHandleOffset), sizeAddress: __Raw.addressOf(size))
+	endWithError(errorAddress, osError: osError, table: fileReadFailures())
+	return size
+end 'fileSize'
+
+// filePosition is the position of the file whose box is the handle's word, where its next read or send starts
+// (positionOfFileHandle), and sets the error word with readFailed where the system refuses it.
+function filePosition(handle Count, errorAddress Count) returns Count
+	var position = 0 as Count
+	let osError = positionOfFileHandle(__Raw.loadWord(handle, offset: fileHandleOffset), positionAddress: __Raw.addressOf(position))
+	endWithError(errorAddress, osError: osError, table: fileReadFailures())
+	return position
+end 'filePosition'
+
 // closeFailures is the table of a close: whatever the system's close reports, the bytes written may not be in the file.
 function closeFailures() returns Count
 	return failureCases(managedFileWriteFailed, accessDenied: managedFileWriteFailed, busy: managedFileWriteFailed, alreadyExists: managedFileWriteFailed, other: managedFileWriteFailed)

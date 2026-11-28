@@ -845,6 +845,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrManagedFileSync 'intrManagedFileSync'
 		return lowerManagedFileSync(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrManagedFileSync'
+	if op == ast.Intrinsic.intrManagedFileSize 'intrManagedFileSize'
+		return lowerManagedFileSize(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedFileSize'
+	if op == ast.Intrinsic.intrManagedFilePosition 'intrManagedFilePosition'
+		return lowerManagedFilePosition(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedFilePosition'
 	if op == ast.Intrinsic.intrManagedFileClose 'intrManagedFileClose'
 		return lowerManagedFileClose(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrManagedFileClose'
@@ -2041,6 +2047,12 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrManagedFileSync 'intrManagedFileSync'
 		return false
 	end 'intrManagedFileSync'
+	if op == ast.Intrinsic.intrManagedFileSize 'intrManagedFileSize'
+		return false
+	end 'intrManagedFileSize'
+	if op == ast.Intrinsic.intrManagedFilePosition 'intrManagedFilePosition'
+		return false
+	end 'intrManagedFilePosition'
 	if op == ast.Intrinsic.intrManagedFileClose 'intrManagedFileClose'
 		return false
 	end 'intrManagedFileClose'

@@ -203,9 +203,10 @@ function waitingIntrinsic(op ast.Intrinsic) returns bool
 end 'waitingIntrinsic'
 
 // waitingHandleRow is whether a row of an open file waits: an open, a read and a write, which park the green thread on a
-// handle that waits on the event queue, and the sync and the close, which are calls into the kernel that a file system may hold.
+// handle that waits on the event queue, and the sync, the size, the position and the close, which are calls into the kernel that
+// a file system may hold.
 function waitingHandleRow(op ast.Intrinsic) returns bool
-	return op == ast.Intrinsic.intrManagedFileOpenRead or op == ast.Intrinsic.intrManagedFileOpenWrite or op == ast.Intrinsic.intrManagedFileOpenWriteExecutable or op == ast.Intrinsic.intrManagedFileOpenCreateNew or op == ast.Intrinsic.intrManagedFileReadAppending or op == ast.Intrinsic.intrManagedFileWrite or op == ast.Intrinsic.intrManagedFileSync or op == ast.Intrinsic.intrManagedFileClose
+	return op == ast.Intrinsic.intrManagedFileOpenRead or op == ast.Intrinsic.intrManagedFileOpenWrite or op == ast.Intrinsic.intrManagedFileOpenWriteExecutable or op == ast.Intrinsic.intrManagedFileOpenCreateNew or op == ast.Intrinsic.intrManagedFileReadAppending or op == ast.Intrinsic.intrManagedFileWrite or op == ast.Intrinsic.intrManagedFileSync or op == ast.Intrinsic.intrManagedFileSize or op == ast.Intrinsic.intrManagedFilePosition or op == ast.Intrinsic.intrManagedFileClose
 end 'waitingHandleRow'
 
 // waitingSocketRow is whether a row of a socket waits: a connect, an accept, a read and a send, which park the green thread on the

@@ -871,6 +871,14 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryFileSync(vm, f: f, x: x)
 		return
 	end 'rtFileSync'
+	if symbol == ir.Rt.rtFileSize 'rtFileSize'
+		try entryFileSize(vm, f: f, x: x)
+		return
+	end 'rtFileSize'
+	if symbol == ir.Rt.rtFilePosition 'rtFilePosition'
+		try entryFilePosition(vm, f: f, x: x)
+		return
+	end 'rtFilePosition'
 	if symbol == ir.Rt.rtFileClose 'rtFileClose'
 		try entryFileClose(vm, f: f, x: x)
 		return

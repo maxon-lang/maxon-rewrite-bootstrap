@@ -45,10 +45,38 @@ type Wire
 			return
 		end 'unsent'
 	end 'send'
+
+	// sendFile sends an answer's head and then the rest of an open file by the system's file send, each slice under the write
+	// deadline, and closes the file whether or not the send succeeds.
+	function sendFile(mutates self, head String, consumes opened file.FileStreamReader, keeps bool, writeDeadlineMs net.SocketDeadlineMs)
+		self.send(head, body: "", keeps: keeps, writeDeadlineMs: writeDeadlineMs)
+		if self.outcome == Outcome.broken 'gone'
+			closeFile(opened)
+			return
+		end 'gone'
+		_ = try self.client.sendFile(opened, deadlineMs: writeDeadlineMs) otherwise 'unsent'
+			self.outcome = Outcome.broken
+			return
+		end 'unsent'
+	end 'sendFile'
 end 'Wire'
 
+// closeFile closes an open file a server does not send, or no more of.
+function closeFile(consumes opened file.FileStreamReader)
+	var reading = opened
+	try reading.source.close() otherwise ignore
+end 'closeFile'
+
+// restOf is how many bytes are left to send of an open file: what its reader holds unread, and the file from its position.
+function restOf(opened file.FileStreamReader) returns Count throws __ManagedFileError
+	let size = try opened.source.file.size()
+	let position = try opened.source.file.position()
+	let left = try size - position otherwise 0
+	return try left + (opened.unreadBytes() as Count) otherwise panic("restOf: a file longer than a count")
+end 'restOf'
+
 /// A request a connection has read, and the one way to answer it. It is linear: each of `respond`, `respondWith`, `fail`,
-/// and `abandon` consumes it and gives the `HttpAnswered` that the handler returns. Answering throws nothing:
+/// `respondFile` and `abandon` consumes it and gives the `HttpAnswered` that the handler returns. Answering throws nothing:
 /// a send that fails is the connection's, which closes.
 public type HttpExchange
 	/// The request's head: its method, target and fields.
@@ -115,6 +143,32 @@ public type HttpExchange
 		wire.send(lines, body: "", keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
 		return HttpAnswered.over(wire)
 	end 'fail'
+
+	/// Answer 200 with the rest of an open file of the type `contentType`: what its reader holds unread, and then the file from
+	/// its position, by `sendfile` (`TransmitFile` on Windows), so the file never passes through the process, each slice under the
+	/// write deadline. The connection states its length, read from the open file, and so keeps the connection. The file is closed
+	/// within the call, whether or not the send succeeds; a file whose size cannot be read is not sent, and the connection closes.
+	public function respondFile(consumes self, consumes opened file.FileStreamReader, contentType String) returns HttpAnswered
+		var wire = self.held
+		let length = try restOf(opened) otherwise 'unsized'
+			closeFile(opened)
+			wire.outcome = Outcome.broken
+			return HttpAnswered.over(wire)
+		end 'unsized'
+		if not isFieldContent(contentType) 'unsendable'
+			closeFile(opened)
+			wire.outcome = Outcome.broken
+			return HttpAnswered.over(wire)
+		end 'unsendable'
+		let lines = answerHead(StatusCode.ok, contentType: contentType, length: length, carries: true, field: connectionField(self.keeps, minorVersion: self.request.minorVersion))
+		if self.request.method == HttpMethod.head 'headOnly'
+			closeFile(opened)
+			wire.send(lines, body: "", keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
+			return HttpAnswered.over(wire)
+		end 'headOnly'
+		wire.sendFile(lines, opened: opened, keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
+		return HttpAnswered.over(wire)
+	end 'respondFile'
 
 	/// Close the connection with no answer.
 	public function abandon(consumes self) returns HttpAnswered

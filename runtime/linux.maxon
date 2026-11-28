@@ -544,6 +544,29 @@
 		return osErrorOf(result)
 	end 'syncFileHandle'
 
+	// sizeOfFileHandle stores the size of an open file's fd, by fstat, at sizeAddress: the errno that it fails with, or 0.
+	function sizeOfFileHandle(fd Count, sizeAddress Count) returns Count
+		let stat = alloc(linuxStatBytes)
+		enterBlocking()
+		let statted = __Raw.syscall2(linuxSysFstat, arg1: fd, arg2: stat)
+		exitBlocking()
+		__Raw.storeWord(sizeAddress, offset: 0, value: __Raw.loadWord(stat, offset: linuxStatSizeOffset))
+		free(stat)
+		return osErrorOf(statted)
+	end 'sizeOfFileHandle'
+
+	// positionOfFileHandle stores the position of an open file's fd, by an lseek of 0 from SEEK_CUR, at positionAddress: the
+	// errno that it fails with, or 0.
+	function positionOfFileHandle(fd Count, positionAddress Count) returns Count
+		enterBlocking()
+		let result = __Raw.syscall3(linuxSysLseek, arg1: fd, arg2: 0, arg3: linuxSeekCur)
+		exitBlocking()
+		if not failed(result) 'placed'
+			__Raw.storeWord(positionAddress, offset: 0, value: result)
+		end 'placed'
+		return osErrorOf(result)
+	end 'positionOfFileHandle'
+
 	// statPath fills a struct stat of the file a path names and gives 0, or gives -errno, as statCString does for a
 	// zero-terminated path.
 	function statPath(path String, stat Count) returns Count

@@ -53,6 +53,18 @@ public type __ManagedFile
 		try __Builtins.fileSync(word)
 	end 'sync'
 
+	/// The file's size in bytes, by `fstat` on Linux and macOS and `GetFileSizeEx` on Windows; `readFailed` when the system
+	/// refuses it.
+	public function size() returns Count throws __ManagedFileError
+		return try __Builtins.fileSize(word)
+	end 'size'
+
+	/// The file's position, where its next read or send starts, by `lseek` on Linux and macOS and `SetFilePointerEx` on Windows;
+	/// `readFailed` when the system refuses it.
+	public function position() returns Count throws __ManagedFileError
+		return try __Builtins.filePosition(word)
+	end 'position'
+
 	/// Send up to `count` bytes of the file from its position, which moves on by what is sent, on the connected socket whose
 	/// word is `socket`, by the system's sendfile, so the bytes never pass through the process, and give the count, 0 at the end
 	/// of the file. It parks only while the socket takes none, until the socket's write deadline.

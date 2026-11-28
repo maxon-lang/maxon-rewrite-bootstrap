@@ -915,6 +915,30 @@ let nanosPerFileTimeStep = 100 as Count
 		return win32
 	end 'syncFileHandle'
 
+	// sizeOfFileHandle stores the size of an open file's HANDLE, by GetFileSizeEx, at sizeAddress: its Win32 error, read before
+	// exitBlocking, or 0.
+	function sizeOfFileHandle(file Count, sizeAddress Count) returns Count
+		var win32 = 0 as Count
+		enterBlocking()
+		if dword(__Raw.callImport2("GetFileSizeEx", arg1: file, arg2: sizeAddress)) == 0 'failed'
+			win32 = win32Error()
+		end 'failed'
+		exitBlocking()
+		return win32
+	end 'sizeOfFileHandle'
+
+	// positionOfFileHandle stores the position of an open file's HANDLE, by a SetFilePointerEx of 0 from FILE_CURRENT, at
+	// positionAddress: its Win32 error, read before exitBlocking, or 0.
+	function positionOfFileHandle(file Count, positionAddress Count) returns Count
+		var win32 = 0 as Count
+		enterBlocking()
+		if dword(__Raw.callImport4("SetFilePointerEx", arg1: file, arg2: 0, arg3: positionAddress, arg4: fileCurrent)) == 0 'failed'
+			win32 = win32Error()
+		end 'failed'
+		exitBlocking()
+		return win32
+	end 'positionOfFileHandle'
+
 	// openWide is openFile of a zero-terminated UTF-16 path, which it frees.
 	function openWide(widePath Count, access Count, share Count, disposition Count, flags Count, win32Address Count) returns Count
 		enterBlocking()

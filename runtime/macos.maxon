@@ -598,6 +598,32 @@
 		return result
 	end 'fullSync'
 
+	// sizeOfFileHandle stores the size of an open file's fd, by fstat, at sizeAddress: the errno that it fails with, read before
+	// exitBlocking, or 0.
+	function sizeOfFileHandle(fd Count, sizeAddress Count) returns Count
+		let stat = newStat()
+		enterBlocking()
+		let statted = sysFstat(fd, stat: stat)
+		let osError = osErrorOf(statted)
+		exitBlocking()
+		__Raw.storeWord(sizeAddress, offset: 0, value: __Raw.loadWord(stat, offset: macosStatSizeOffset))
+		free(stat)
+		return osError
+	end 'sizeOfFileHandle'
+
+	// positionOfFileHandle stores the position of an open file's fd, by an lseek of 0 from SEEK_CUR, at positionAddress: the
+	// errno that it fails with, read before exitBlocking, or 0.
+	function positionOfFileHandle(fd Count, positionAddress Count) returns Count
+		enterBlocking()
+		let result = checked(__Raw.callImport3("lseek", arg1: fd, arg2: 0, arg3: macosSeekCur))
+		let osError = osErrorOf(result)
+		exitBlocking()
+		if not failed(result) 'placed'
+			__Raw.storeWord(positionAddress, offset: 0, value: result)
+		end 'placed'
+		return osError
+	end 'positionOfFileHandle'
+
 	// statPath fills a struct stat of the file a path names and gives 0, or gives -errno, as statCString does for a
 	// zero-terminated path.
 	function statPath(path String, stat Count) returns Count

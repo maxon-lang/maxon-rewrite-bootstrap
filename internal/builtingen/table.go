@@ -73,7 +73,7 @@ var rawLibraryTypes = []struct {
 	Named   rawSurface
 }{
 	// __ManagedFile is maxon's owned handle of an open file, which FileSource and FileWriter hold.
-	{"__ManagedFile", "stdlib/file/managedFile.maxon", []string{"openRead", "openWrite", "openWriteExecutable", "openCreateNew", "readAppending", "write", "sync", "sendOn", "close"}, rawSurface{What: "the raw OS file handle type is nameable", Instead: "use 'File'"}},
+	{"__ManagedFile", "stdlib/file/managedFile.maxon", []string{"openRead", "openWrite", "openWriteExecutable", "openCreateNew", "readAppending", "write", "sync", "size", "position", "sendOn", "close"}, rawSurface{What: "the raw OS file handle type is nameable", Instead: "use 'File'"}},
 	// __ManagedSocket is maxon's owned TCP socket, which TcpClient and TcpListener hold.
 	{"__ManagedSocket", "stdlib/net/managedSocket.maxon", []string{"tcpConnect", "bindListener", "boundPort", "accept", "sendFrom", "recv", "timedOut", "setReadDeadline", "setWriteDeadline", "shutdownWrite", "ofAccepted", "close"}, rawSurface{What: "the raw OS socket type is nameable", Instead: "use 'TcpClient' or 'TcpListener'"}},
 }
@@ -1386,6 +1386,9 @@ var tableFunctions = []function{
 	// The sync forces the file's data to its device and throws writeFailed with what the system reports, as Go's Sync does: the
 	// handle stays open whether or not it throws.
 	{Owner: "Builtins", Name: "fileSync", Static: true, Params: []string{"_ Count"}, Throws: "ManagedFileError", Intrinsic: "ManagedFileSync", Instead: "File"},
+	// The size of an open file and its position, which a server reads to state the length of what it sends of the file.
+	{Owner: "Builtins", Name: "fileSize", Static: true, Params: []string{"_ Count"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFileSize", Instead: "File"},
+	{Owner: "Builtins", Name: "filePosition", Static: true, Params: []string{"_ Count"}, Result: "Count", Throws: "ManagedFileError", Intrinsic: "ManagedFilePosition", Instead: "File"},
 	{Owner: "Builtins", Name: "fileClose", Static: true, Params: []string{"_ Count"}, Throws: "ManagedFileError", Intrinsic: "ManagedFileClose", Instead: "File"},
 	// The rows of a TCP socket under the library's __ManagedSocket, whose word they give and take (runtime/socket.maxon): a socket
 	// of the runtime's, an fd that does not wait, registered with the event queue for good, whose calls are made first and park
@@ -1751,6 +1754,8 @@ var entries = []entry{
 	{"FileReadAppending", "rt.file.readAppending", "Os", roleCall, "(handle, buffer ByteArray, most, error) -> count: reads up to most bytes after the buffer's length, which grows by them, within its capacity; 0 at the end of the file"},
 	{"FileWrite", "rt.file.write", "Os", roleCall, "(handle, buffer ByteArray, error) -> count: writes the whole buffer"},
 	{"FileSync", "rt.file.sync", "Os", roleCall, "(handle, error): forces the handle's data to its device in one bracketed call into the kernel, as Go's File.Sync does (macOS F_FULLFSYNC, fsync where the file system has none; Linux fsync; Windows FlushFileBuffers); what the system reports sets the error word with writeFailed, the handle open all the same"},
+	{"FileSize", "rt.file.size", "Os", roleCall, "(handle, error) -> size: the open file's size in bytes, in one bracketed call into the kernel (Linux and macOS fstat, Windows GetFileSizeEx); what the system reports sets the error word with readFailed"},
+	{"FilePosition", "rt.file.position", "Os", roleCall, "(handle, error) -> position: the open file's position, where its next read or send starts, in one bracketed call into the kernel (Linux and macOS lseek, Windows SetFilePointerEx); what the system reports sets the error word with readFailed"},
 	{"FileClose", "rt.file.close", "Os", roleCall, "(handle, error): closes the handle and frees its box, in one bracketed call into the kernel, which never parks the green thread or yields; what the system's close reports sets the error word with writeFailed, the handle closed all the same"},
 	// The socket's entries (runtime/socket.maxon); one that fails sets the error word with a __ManagedSocketError's case, or a
 	// __ManagedListenerError's of a listener's entry.
@@ -2064,6 +2069,8 @@ var runtimeFunctions = []runtimeFunction{
 	{"FileReadAppending", "fileReadAppending(handle Count, buffer Count, most Count, errorAddress Count) Count"},
 	{"FileWrite", "fileWrite(handle Count, buffer Count, errorAddress Count) Count"},
 	{"FileSync", "fileSync(handle Count, errorAddress Count)"},
+	{"FileSize", "fileSize(handle Count, errorAddress Count) Count"},
+	{"FilePosition", "filePosition(handle Count, errorAddress Count) Count"},
 	{"FileClose", "fileClose(handle Count, errorAddress Count)"},
 	{"SocketListen", "socketListen(address Count, port Count, errorAddress Count) Count"},
 	{"SocketBoundPort", "socketBoundPort(socket Count, errorAddress Count) Count"},

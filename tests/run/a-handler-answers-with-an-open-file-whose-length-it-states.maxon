@@ -1,0 +1,53 @@
+// A handler answers with an open file by respondFile, which states the file's length (RFC 9110 §8.6) from the open file,
+// what its reader holds unread and the file from its position, so the connection is kept for the next request
+// (RFC 9112 §9.3); the bytes go by the system's file send. A file that the handler read some of first is sent from where it
+// read to, the answer to a HEAD is its head alone, and a handler answers a file that does not open itself, with a 404.
+// native-only
+//> HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 26\r\n\r\nabcdefghijklmnopqrstuvwxyzHTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 26\r\n\r\nHTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 22\r\n\r\nefghijklmnopqrstuvwxyzHTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n
+function shown(text String) returns String
+	return text.replace("\r\n", with: "\\r\\n")
+end 'shown'
+
+type Files implements HttpHandler
+	let path as String
+
+	static function create(path String) returns Self
+		return Self{path: path.clone()}
+	end 'create'
+
+	function handle(consumes exchange HttpExchange) returns HttpAnswered
+		let target = exchange.request.target()
+		let name = self.path.clone() if target != "/missing" else "{self.path}.missing"
+		let named = try FilePath.from(name) otherwise return exchange.fail(StatusCode.badRequest)
+		var opened = try File.openRead(named) otherwise return exchange.fail(StatusCode.notFound)
+		if target == "/partial" 'partial'
+			_ = try opened.readBytes(4) otherwise ByteArray.create(0)
+		end 'partial'
+		return exchange.respondFile(opened, contentType: "text/plain")
+	end 'handle'
+end 'Files'
+
+function main() returns ExitCode
+	let name = "minimaxon_respond_file_{Process.id()}.txt"
+	let path = try FilePath.from(name) otherwise return 1
+	try File.createText(path, content: "abcdefghijklmnopqrstuvwxyz") otherwise return 2
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
+	let port = server.port()
+	let serving = server.serve(freeze(Files.create(name)))
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
+	try client.setReadDeadline(5000) otherwise ignore
+	_ = try client.send("GET /file HTTP/1.1\r\nHost: a\r\n\r\nHEAD /file HTTP/1.1\r\nHost: a\r\n\r\nGET /partial HTTP/1.1\r\nHost: a\r\n\r\nGET /missing HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n") otherwise 0
+	var all = ByteArray.create(0)
+	while true 'reading'
+		let chunk = try client.readSome(4096) otherwise break 'reading'
+		if chunk.isEmpty() 'closed'
+			break 'reading'
+		end 'closed'
+		all.append(chunk)
+	end 'reading'
+	try client.close() otherwise ignore
+	print("{shown(String.from(all))}\n")
+	serving.stop(1000)
+	try File.delete(path) otherwise return 3
+	return 0
+end 'main'

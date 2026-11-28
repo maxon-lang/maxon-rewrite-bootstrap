@@ -6687,7 +6687,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   handler answers its own failures (`return exchange.fail(StatusCode.internalServerError)`). An `HttpExchange` owns the
   request (`request`, a `RequestHead`, and `requestBody`) and the connection's socket and the answer's outcome, a `Wire`,
   which the connection moves out of its state for the call; each way to answer, `respond(response)`,
-  `respondWith(code, body:, contentType:)`, `fail(code)` and `abandon()` (a close with no answer), consumes it and gives the
+  `respondWith(code, body:, contentType:)`, `fail(code)`, `respondFile(opened, contentType:)` (the rest of an open file, by
+  the system's file send, its length stated from the open file's size and position, so the connection is kept, and the file
+  closed within the call) and `abandon()` (a close with no answer), consumes it and gives the
   one `HttpAnswered`, linear, which only the library makes, and from which the connection takes the `Wire` back. So
   answering twice is a use after a move (`E3102`), and a handler that does not answer has no value to return: maxon's
   run-time stage checks (`alreadyResponded`), its 500 in the handler's place and its report of an unanswered request are not
@@ -6709,6 +6711,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `st_ctime`, the inode's last change, since a struct stat has no birth time. Here a file's birth time is given where the system
   records one, and `notReported` where it does not, so a program never takes a change time for a creation time; `FileInfo.create`
   takes one. The spec test that compares it with a number (`file-info.timestamps`) is skipped with this reason.
+- **An open file has a size and a position, which maxon's has not.** `__ManagedFile.size()` is the open file's size, by `fstat` on
+  Linux and macOS and `GetFileSizeEx` on Windows, and `position()` where its next read starts, by `lseek` and `SetFilePointerEx`;
+  each throws `__ManagedFileError.readFailed` where the system refuses it. maxon's `File.info` stats a path. A server states the
+  length of the file it sends from them (`HttpExchange.respondFile`).
 - **A file has a sync, which maxon's has not.** maxon's `__ManagedFile` and `FileWriter` have no way to force a file's data to
   its device. Here `__ManagedFile.sync()` (`mutates self`) does, and `FileWriter.sync()` over it, as Go's `File.Sync` does on
   each system: on macOS `fcntl(F_FULLFSYNC)`, which has the device write its own cache, falling back to `fsync` where the file

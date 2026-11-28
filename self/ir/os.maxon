@@ -390,6 +390,26 @@ function lowerManagedFileSync(mutates l Lowerer, p ast.Project, ms ast.ModuleSta
 	return lowerManagedFileHandleEntry(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtFileSync)
 end 'lowerManagedFileSync'
 
+// lowerManagedFileSize is the runtime's size of the open file whose handle's word is the call's one argument, which the
+// library's __ManagedFile.size gives; it sets the error word with readFailed where the system refuses it.
+function lowerManagedFileSize(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerManagedFileCount(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtFileSize)
+end 'lowerManagedFileSize'
+
+// lowerManagedFilePosition is the runtime's position of the open file whose handle's word is the call's one argument, which
+// the library's __ManagedFile.position gives.
+function lowerManagedFilePosition(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerManagedFileCount(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtFilePosition)
+end 'lowerManagedFilePosition'
+
+// lowerManagedFileCount is a call of the runtime's entry of the handle whose word is the call's one argument, which gives a
+// count and sets the error word when the system reports an error.
+function lowerManagedFileCount(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, args RegList, symbol Rt) returns Reg
+	let handle = try args.get(0) otherwise panic("a call on a file takes its handle's word, which the checker has seen")
+	let dst = newReg(l, kind: IrKind.kindScalar)
+	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: symbol, args: argsOf1(handle))
+end 'lowerManagedFileCount'
+
 // lowerManagedFileClose ends the handle whose word is the call's one argument, which the library's __ManagedFile.close gives up:
 // the runtime's close, which closes it whether or not it fails and sets the error word with writeFailed when the system's
 // close reports an error, as Go's Close does.
