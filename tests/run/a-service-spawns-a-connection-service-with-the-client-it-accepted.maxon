@@ -1,0 +1,59 @@
+// The shape of the library's acceptor: an accepted TcpClient has a destructor, and the acceptor gives it to the factory of a
+// connection service, which keeps it in its state and closes it in its finish. Here the front service accepts in a message,
+// spawns the connection with the client, and the connection greets its peer.
+// native-only
+//> the peer read: hello
+export typealias Amount = int(0 to 1000000)
+
+service Conn implements Ends
+	var client as TcpClient
+
+	static function create(consumes client TcpClient) returns Self
+		return Self{client: client}
+	end 'create'
+
+	export function greet(mutates self)
+		_ = try self.client.send("hello") otherwise 0
+	end 'greet'
+
+	function finish(consumes self)
+		try self.client.close() otherwise ignore
+	end 'finish'
+end 'Conn'
+
+service Front implements Ends
+	var listener as TcpListener
+
+	static function create(consumes listener TcpListener) returns Self
+		return Self{listener: listener}
+	end 'create'
+
+	export function admit(mutates self)
+		let client = try self.listener.accept() otherwise return
+		let conn = spawn Conn.create(client)
+		try conn.greet() otherwise ignore
+		conn.shutdown()
+	end 'admit'
+
+	function finish(consumes self)
+		try self.listener.close() otherwise ignore
+	end 'finish'
+end 'Front'
+
+function main() returns ExitCode
+	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	let port = listener.port()
+	let front = spawn Front.create(listener)
+	var peer = try TcpClient.connect("127.0.0.1", port: port) otherwise (e) 'connect'
+		front.shutdown()
+		return 2
+	end 'connect'
+	try front.admit() otherwise panic("a send to a service that runs")
+	let got = try peer.readSome(16) otherwise panic("a read that waits")
+	print("the peer read: {String.from(got)}\n")
+	try peer.close() otherwise ignore
+	let stopped = front.stopped()
+	front.shutdown()
+	await stopped
+	return 0
+end 'main'

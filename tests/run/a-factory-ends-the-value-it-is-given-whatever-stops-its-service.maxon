@@ -1,0 +1,69 @@
+// A factory's `consumes` parameter may be a value that cannot be dropped, and is never lost: the factory is queued with its
+// service before any handle exists, and no stop, policy or post reaches it, so it always runs, whatever stops its service
+// first, and ends the value or keeps it in the state, which implements Ends. Here the service is stopped at once, shut down,
+// and left by its last handle before its factory has run.
+// schedules: 6
+//> the factory: ended token 1
+//> the factory: ended token 2
+//> the factory: ended token 3
+//> finish: ended token 4
+export typealias Amount = int(0 to 1000000)
+
+type Token
+	var id as Amount
+
+	static function make(id Amount) returns Token
+		return Token{id: id}
+	end 'make'
+
+	function end(destructs self, by String)
+		print("{by}: ended token {self.id}\n")
+	end 'end'
+end 'Token'
+
+service Opener implements StopsNow
+	static function create(consumes token Token) returns Self
+		token.end("the factory")
+		return Self{}
+	end 'create'
+	export function nothing()
+	end 'nothing'
+end 'Opener'
+
+service Keeper implements Ends
+	var token as Token
+
+	static function create(consumes token Token) returns Self
+		return Self{token: token}
+	end 'create'
+	export function nothing()
+	end 'nothing'
+
+	function finish(consumes self)
+		self.token.end("finish")
+	end 'finish'
+end 'Keeper'
+
+// release takes the last handle of an opener and drops it.
+function release(consumes opener Opener.handle)
+end 'release'
+
+function main() returns ExitCode
+	let a = spawn Opener.create(Token.make(1))
+	let aStopped = a.stopped()
+	a.stopNow()
+	await aStopped
+	let b = spawn Opener.create(Token.make(2))
+	let bStopped = b.stopped()
+	b.shutdown()
+	await bStopped
+	let c = spawn Opener.create(Token.make(3))
+	let cStopped = c.stopped()
+	release(c)
+	await cStopped
+	let k = spawn Keeper.create(Token.make(4))
+	let kStopped = k.stopped()
+	k.shutdown()
+	await kStopped
+	return 0
+end 'main'
