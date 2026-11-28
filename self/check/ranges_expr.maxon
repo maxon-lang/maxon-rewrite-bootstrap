@@ -966,6 +966,9 @@ end 'rangeMidpointBound'
 // right operand changes begin in written. An exact result outside bound, if there is one, is one the code cannot reach.
 function rangeOperate(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, l Span, rs Span, rightFrom Count, bound table.Option with Span) returns Span
 	let op = ast.binaryExprOp(ms.tree(), id: e)
+	if isComparisonOp(op) and r.typing.arith.has(e as Count) 'comparison'
+		rangeRequireWord(r, p: p, ms: ms, e: e, l: l, rs: rs)
+	end 'comparison'
 	if isComparisonOp(op) or not ast.isIntType(ms.types, reads: p.types, t: typeOf(r, e: e)) 'noSpan'
 		return noSpan()
 	end 'noSpan'
@@ -975,6 +978,7 @@ function rangeOperate(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast
 	end 'unsigned'
 	let lt = rangeTightened(r, p: p, ms: ms, e: ast.binaryExprL(ms.tree(), id: e), v: l, since: rightFrom)
 	let rt = rangeTightened(r, p: p, ms: ms, e: ast.binaryExprR(ms.tree(), id: e), v: rs, since: r.written.count())
+	rangeRequireWord(r, p: p, ms: ms, e: e, l: lt, rs: rt)
 	let computed = arithmetic(op, l: lt, r: rt, word: word)
 	var exact = computed.span.clone()
 	var fails = computed.fails
@@ -998,6 +1002,28 @@ function rangeOperate(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast
 	end 'known'
 	return rangeResult(r, p: p, ms: ms, e: e, op: op, exact: exact, fails: fails, word: word, known: known)
 end 'rangeOperate'
+
+// rangeRequireWord refuses an operation in the unsigned word (operandWord) of an operand whose type may be negative where
+// the state does not prove it is not, as no 64-bit word then holds both operands. l and rs are the operands' spans. A shift
+// and a bitwise operator take no such word: a shift's count is no operand of the word, and the others an operand's alias.
+function rangeRequireWord(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, l Span, rs Span)
+	let op = ast.binaryExprOp(ms.tree(), id: e)
+	if op == "shl" or op == "shr" or isLogicalOp(op) 'noWord'
+		return
+	end 'noWord'
+	if r.probing or isDead(r, s: r.st) or not ast.isUnsignedInt(ms.types, reads: p.types, t: arithOf(r, e: e).operand) 'unsigned'
+		return
+	end 'unsigned'
+	let leftTy = typeOf(r, e: ast.binaryExprL(ms.tree(), id: e))
+	let rightTy = typeOf(r, e: ast.binaryExprR(ms.tree(), id: e))
+	if not ast.isIntType(ms.types, reads: p.types, t: leftTy) or not ast.isIntType(ms.types, reads: p.types, t: rightTy) 'notInts'
+		return
+	end 'notInts'
+	if (l.isEmpty() or not l.lo.isNeg()) and (rs.isEmpty() or not rs.lo.isNeg()) 'proven'
+		return
+	end 'proven'
+	rangeRaise(r, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: mixedWordText(p, ms: ms, l: leftTy, r: rightTy))
+end 'rangeRequireWord'
 
 // wraps is whether an operation on a bits(64) pattern is computed modulo 2^64, as against failing past the word: an
 // addition, a subtraction, a product, and a left shift, which drops the bits shifted past the word.

@@ -3196,7 +3196,10 @@ type with no cast, as `value as T` does, where the range analysis proves that it
 `if count >= 0 and count <= 255` for `return count` in a function that returns an alias of 0 to 255; where it does
 not, it is `E3057` ("the value may not fit"), and the fix is `try <value> as T otherwise panic("out of range")`. A
 literal that does not fit is `E3005`, and an assignment, an argument and an initialiser still need the cast. Comparisons take any two integers one word holds, an alias against an anonymous range or a constant
-included; only two different aliases are `E3005`. The branches of a conditional or a `match` with no type to
+included; only two different aliases are `E3005`. An arithmetic operator or a comparison of an integer whose type may
+be negative with one whose type may pass i64.max computes in the unsigned word, and is `E3005` unless the range analysis
+proves the first not negative where the operation runs, by the conditions that guard it: `left + first` of a `Count` and
+`let first = column - top if column > top else 0` is accepted, as maxon accepts it. The branches of a conditional or a `match` with no type to
 take give their alias when both are of it, or one is and holds the other, and otherwise a range that holds both. A
 `try` is that of the call when its fallback is a literal, as in maxon, where a literal outside the alias of the call's
 result is `E3005` (`try score() otherwise 101` of an `int(0 to 100)`); any other fallback of an integer joins with the

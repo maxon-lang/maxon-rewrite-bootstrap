@@ -744,26 +744,36 @@ export function requireOneAlias(c Checker, p ast.Project, ms ast.ModuleState, of
 end 'requireOneAlias'
 
 export function wordOf(c Checker, p ast.Project, ms ast.ModuleState, off diag.U32, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let lmin = rangeLo(ms.types, reads: p.types, t: l)
-	let lmax = rangeHi(ms.types, reads: p.types, t: l)
-	let rmin = rangeLo(ms.types, reads: p.types, t: r)
-	let rmax = rangeHi(ms.types, reads: p.types, t: r)
-	let i64m = ast.I128.i64Max()
-	if not lmax.gt(i64m) and not rmax.gt(i64m) 'signed'
-		return p.builtins.anon64Ty
-	end 'signed'
-	if lmin.isNeg() or rmin.isNeg() 'badMix'
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "no 64-bit word holds both {ast.typeName(ms.types, reads: p.types, t: l)} and {ast.typeName(ms.types, reads: p.types, t: r)}: one may be negative and the other is past i64.max; cast one with 'as <Alias>' to a range that is not negative, or that stays within i64.max", errs: errs)
+	let word = wordSpanning(p, ms: ms, l: l, r: r)
+	if word == p.builtins.anonU64Ty and (rangeLo(ms.types, reads: p.types, t: l).isNeg() or rangeLo(ms.types, reads: p.types, t: r).isNeg()) 'badMix'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: mixedWordText(p, ms: ms, l: l, r: r), errs: errs)
 		return ast.noType
 	end 'badMix'
-	return p.builtins.anonU64Ty
+	return word
 end 'wordOf'
 
+// wordSpanning is the signed word where neither type passes i64.max, and the unsigned word where one does.
+function wordSpanning(p ast.Project, ms ast.ModuleState, l ast.TypeID, r ast.TypeID) returns ast.TypeID
+	let i64m = ast.I128.i64Max()
+	if rangeHi(ms.types, reads: p.types, t: l).gt(i64m) or rangeHi(ms.types, reads: p.types, t: r).gt(i64m) 'unsigned'
+		return p.builtins.anonU64Ty
+	end 'unsigned'
+	return p.builtins.anon64Ty
+end 'wordSpanning'
+
+// mixedWordText refuses two integer types of which one may be negative and the other may pass i64.max.
+export function mixedWordText(p ast.Project, ms ast.ModuleState, l ast.TypeID, r ast.TypeID) returns String
+	return "no 64-bit word holds both {ast.typeName(ms.types, reads: p.types, t: l)} and {ast.typeName(ms.types, reads: p.types, t: r)}: one may be negative and the other is past i64.max; cast one with 'as <Alias>' to a range that is not negative, or that stays within i64.max"
+end 'mixedWordText'
+
+// operandWord is the word an operator computes in. Where one operand's type may be negative and the other's may pass
+// i64.max it is the unsigned word, and the range analysis, which knows what the conditions around the operation say of
+// its operands, requires the one that may be negative not to be (rangeRequireWord), as after 'if column > top'.
 export function operandWord(c Checker, p ast.Project, ms ast.ModuleState, off diag.U32, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	if not requireOneAlias(c, p: p, ms: ms, off: off, clash: Clash.operator(op.clone()), l: l, r: r, errs: errs) 'bad'
 		return ast.noType
 	end 'bad'
-	return wordOf(c, p: p, ms: ms, off: off, l: l, r: r, errs: errs)
+	return wordSpanning(p, ms: ms, l: l, r: r)
 end 'operandWord'
 
 export function exactType(p ast.Project, mutates ms ast.ModuleState, word ast.TypeID, lo ast.I128, hi ast.I128) returns ast.TypeID

@@ -1,0 +1,20 @@
+typealias Index = int(0 to u64.max)
+
+let top = 9
+
+function at(index Index) returns Count
+	return index as Count
+end 'at'
+
+function main() returns ExitCode
+	let left = 5 as Index
+	var total = 0 as Count
+	for column in 0 upto 19 'columns'
+		let first = column - top if column >= 0 else 0
+		total = try total + at(left + first) otherwise 0
+	end 'columns'
+	print("{total}\n")
+	return 0
+end 'main'
+
+// expect-error: E3005 at 14:31
