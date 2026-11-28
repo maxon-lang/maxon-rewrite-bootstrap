@@ -167,9 +167,15 @@ func extractTree(revision, path, dir string) error {
 	}
 }
 
-// chain has seed build c1, c1 build c2 and c2 build c3, each uncached and C3 with its IR verified, through wrap when it is
-// not nil, and refuses unless c2 and c3 are the same bytes.
+// chain has seed build c1, c1 build c2 and c2 build C3, each uncached and C3 with its IR verified, through wrap when it is
+// not nil, and refuses unless C2 and C3 are the same bytes. C3 is built in the directory c3 under C2's own file name, as an
+// executable may hold its name: a Mach-O one is signed with it as its identifier, so two compilers of the same bytes but
+// for that name could not be told apart from two that differ (sameDir).
 func chain(seed, c1, c2, c3 string, wrap func(compiler string, args ...string) (string, []string)) error {
+	if err := sameDir(c3); err != nil {
+		return err
+	}
+	c3 = filepath.Join(c3, filepath.Base(c2))
 	for _, s := range [][2]string{{seed, c1}, {c1, c2}, {c2, c3}} {
 		name, args := s[0], []string{"build", "self", "-o", s[1]}
 		if s[1] == c3 {
@@ -190,6 +196,15 @@ func chain(seed, c1, c2, c3 string, wrap func(compiler string, args ...string) (
 		return fmt.Errorf("seed not renewed: %s and %s differ, so the compiler does not reproduce itself", c2, c3)
 	}
 	return nil
+}
+
+// sameDir makes dir an empty directory for C3, removing what is there first: a file of that name, which a chain that built
+// C3 under the name dir left, or a C3 of an earlier chain.
+func sameDir(dir string) error {
+	if err := os.RemoveAll(dir); err != nil {
+		return err
+	}
+	return os.MkdirAll(dir, 0o755)
 }
 
 func stage(name string, env []string, compiler string, args ...string) error {
