@@ -58,10 +58,11 @@ function paramsToMemory(mutates fn MirFunction, g MirGraph, convs Conventions) r
 			var over = excess[addCounts(pointSlots(b), b: c)]
 			while over > 0 'take'
 				let p = lightestParam(fn, b: b, c: c, weights: weights, memory: memory)
-				let slot = fn.slotsGiven()
+				let free = fn.slotsGiven()
+				let slot = spillSlotGiven(fn.arch, class: fn.classes[p], free: free)
 				memory[p] = true
 				slotOf[p] = slot
-				fn.spillSlots = nextCount(slot)
+				fn.spillSlots = spillSlotsAfter(fn.classes[p], free: free)
 				moved.values.push(vregAt(p))
 				moved.slots.push(slot)
 				touched[b] = true

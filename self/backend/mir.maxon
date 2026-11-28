@@ -57,6 +57,24 @@ function vectorSlotBelow(arch ast.TargetArch) returns Count
 	end 'arch'
 end 'vectorSlotBelow'
 
+// spillSlotGiven is the spill slot a value of the class takes when the slots from free on are free: a word, or for an xmm
+// register's value the pair from the first even slot on, named by its slot at the lower address. Every spill slot is
+// given out through it and spillSlotsAfter.
+function spillSlotGiven(arch ast.TargetArch, class RegClass, free Count) returns Count
+	return match class 'class'
+		gpr gives free
+		xmm gives try free + free mod vectorSlotWords + vectorSlotBelow(arch) otherwise panic("backend: a frame past 2 GiB")
+	end 'class'
+end 'spillSlotGiven'
+
+// spillSlotsAfter is the first free slot once a value of the class took its slot from free on.
+function spillSlotsAfter(class RegClass, free Count) returns Count
+	return match class 'class'
+		gpr gives nextCount(free)
+		xmm gives try free + free mod vectorSlotWords + vectorSlotWords otherwise panic("backend: a frame past 2 GiB")
+	end 'class'
+end 'spillSlotsAfter'
+
 // RegClass is the register file a value lives in: a general register, or a vector register, which holds a float.
 export enum RegClass
 	gpr

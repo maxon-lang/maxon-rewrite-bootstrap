@@ -333,16 +333,28 @@ function arm64EncodeTarget(mutates u CodeUnit, fn MirFunction, lay BlockLayout, 
 	end 'ref'
 end 'arm64EncodeTarget'
 
-// arm64SavedDisp is where the frame keeps the nth of the callee-saved registers the function's values were given: in the
-// words above its slots.
-function arm64SavedDisp(fn MirFunction, nth Count) returns FullRangeInt
-	return arm64WordDisp(try fn.slotsGiven() + nth otherwise panic("backend: a frame past memory")) as FullRangeInt
+// arm64SavedDisp is where the frame keeps a callee-saved register the function's values were given, the words before it
+// taken by those before it: in the words above its slots.
+function arm64SavedDisp(fn MirFunction, word Count) returns FullRangeInt
+	return arm64WordDisp(try fn.slotsGiven() + word otherwise panic("backend: a frame past memory")) as FullRangeInt
 end 'arm64SavedDisp'
+
+// arm64SavedWords is the words of the frame that a callee-saved register takes: a general register one, and a vector
+// register two, since a value the convention keeps in one across a call may be a 128-bit vector.
+function arm64SavedWords(r Count) returns Count
+	return 1 if r < arm64FirstVector else vectorSlotWords
+end 'arm64SavedWords'
 
 // arm64FrameSize is the bytes a function's frame takes below its caller's stack pointer: the outgoing arguments, the frame
 // record, the slots and the callee-saved registers, a multiple of the stack's alignment.
 function arm64FrameSize(fn MirFunction) returns Count
-	let saved = try maskCount(fn.savedRegs) * wordBytes otherwise panic("backend: a frame past memory")
+	var words = 0 as Count
+	for r in 0 upto arm64RegisterFileSize 'registers'
+		if maskHas(fn.savedRegs, number: regNumOfCount(r)) 'saved'
+			words = try words + arm64SavedWords(r) otherwise panic("backend: a frame past memory")
+		end 'saved'
+	end 'registers'
+	let saved = try words * wordBytes otherwise panic("backend: a frame past memory")
 	return alignUp(try fn.outgoingBytes + arm64FrameRecordBytes + fn.frameBytes() + saved otherwise panic("backend: a frame past memory"), alignment: arm64StackAlignment)
 end 'arm64FrameSize'
 
@@ -381,13 +393,13 @@ function arm64EncodeFrameSetup(mutates u CodeUnit, fn MirFunction, framed bool)
 end 'arm64EncodeFrameSetup'
 
 // arm64SaveCallee stores, or loads back, the callee-saved registers the function's values were given, in the words above
-// its slots, the general ones and then the d ones, each in the order of the register file.
+// its slots, the general ones and then the vector ones whole, each in the order of the register file.
 function arm64SaveCallee(mutates u CodeUnit, fn MirFunction, load bool)
-	var nth = 0 as Count
+	var word = 0 as Count
 	for r in 0 upto arm64RegisterFileSize 'registers'
 		if maskHas(fn.savedRegs, number: regNumOfCount(r)) 'saved'
-			arm64FrameAccess(u, load: load, r: physOfCount(r), disp: arm64SavedDisp(fn, nth: nth))
-			nth = nextCount(nth)
+			arm64FrameAccess(u, load: load, r: physOfCount(r), disp: arm64SavedDisp(fn, word: word))
+			word = try word + arm64SavedWords(r) otherwise panic("backend: a frame past memory")
 		end 'saved'
 	end 'registers'
 end 'arm64SaveCallee'

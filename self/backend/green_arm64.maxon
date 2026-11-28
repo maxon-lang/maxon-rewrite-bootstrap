@@ -145,8 +145,8 @@ function emitArm64GreenStart(mutates u CodeUnit)
 	u.asm.arm64Brk()
 end 'emitArm64GreenStart'
 
-// The frame of rt.asyncPreempt: a word for each general register by its number, the flags, a word for each d register,
-// and at its top the word below the stack pointer the green thread was stopped at, which asyncPreempted writes the
+// The frame of rt.asyncPreempt: a word for each general register by its number, the flags, two words for each vector
+// register, which the stopped code may hold a 128-bit vector in, and at its top the word below the stack pointer the green thread was stopped at, which asyncPreempted writes the
 // address it was stopped at into (runtime's resumeAt) and rt.asyncPreempt branches through.
 let preemptGeneralSlots = 31
 
@@ -156,7 +156,9 @@ let preemptVectorsDisp = 256
 
 let preemptVectorCount = 32
 
-let preemptFrameBytes = 528
+let preemptVectorBytes = 16
+
+let preemptFrameBytes = 784
 
 // emitArm64AsyncPreempt writes rt.asyncPreempt, which a green thread the monitor stops resumes in, with the stack pointer
 // it was stopped at: the stopped code is in the middle of whatever it was doing and may be using any register, so this
@@ -167,7 +169,7 @@ let preemptFrameBytes = 528
 function emitArm64AsyncPreempt(mutates u CodeUnit, system ast.TargetSystem)
 	let resume = arm64ResumeRegister
 	let resumeDisp = arm64Disp(try preemptFrameBytes - wordBytes otherwise panic("backend: a frame below zero"))
-	let vectorsEnd = arm64Disp(try preemptVectorsDisp + preemptVectorCount * wordBytes otherwise panic("backend: a frame past memory"))
+	let vectorsEnd = arm64Disp(try preemptVectorsDisp + preemptVectorCount * preemptVectorBytes otherwise panic("backend: a frame past memory"))
 	let generalsEnd = arm64Disp(try preemptGeneralSlots * wordBytes otherwise panic("backend: a frame past memory"))
 	if vectorsEnd > resumeDisp or generalsEnd > preemptFlagsDisp 'layout'
 		panic("backend: rt.asyncPreempt's frame does not hold every register")
@@ -183,14 +185,14 @@ function emitArm64AsyncPreempt(mutates u CodeUnit, system ast.TargetSystem)
 	encodeArm64MrsNzcv(u.asm.code, dest: resume)
 	u.asm.arm64Store(Arm64Register.sp, disp: preemptFlagsDisp, src: resume)
 	for n in 0 upto preemptVectorCount 'saveVectors'
-		u.asm.arm64StoreVector(Arm64Register.sp, disp: arm64Disp(preemptVectorsDisp + n * wordBytes), n: n)
+		u.asm.arm64StoreVectorWhole(Arm64Register.sp, disp: arm64Disp(preemptVectorsDisp + n * preemptVectorBytes), n: n)
 	end 'saveVectors'
 	emitArm64LoadContext(u, system: system, dst: resume)
 	u.asm.arm64Mov(arm64ArgWord(), src: resume)
 	u.asm.arm64Load(resume, base: resume, disp: arm64Disp(contextPreemptCodeOffset))
 	u.asm.arm64CallRegister(resume)
 	for n in 0 upto preemptVectorCount 'loadVectors'
-		u.asm.arm64LoadVector(n, base: Arm64Register.sp, disp: arm64Disp(preemptVectorsDisp + n * wordBytes))
+		u.asm.arm64LoadVectorWhole(n, base: Arm64Register.sp, disp: arm64Disp(preemptVectorsDisp + n * preemptVectorBytes))
 	end 'loadVectors'
 	u.asm.arm64Load(resume, base: Arm64Register.sp, disp: preemptFlagsDisp)
 	encodeArm64MsrNzcv(u.asm.code, src: resume)

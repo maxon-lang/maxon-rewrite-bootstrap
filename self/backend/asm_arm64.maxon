@@ -238,6 +238,16 @@ extension Asm
 		encodeArm64StrDOff(code, src: arm64VectorOfNumber(n), base: base, disp: try disp as Imm32 otherwise panic("backend: an offset past 32 bits"))
 	end 'arm64StoreVector'
 
+	// arm64LoadVectorWhole and arm64StoreVectorWhole move all 128 bits of the vector register n at base plus disp, which the
+	// scaled offset of a q register holds.
+	export function arm64LoadVectorWhole(mutates self, n Count, base Arm64Register, disp FullRangeInt)
+		encodeArm64LdrQOff(code, dest: arm64VectorOfNumber(n), base: base, disp: try disp as Imm32 otherwise panic("backend: an offset past 32 bits"))
+	end 'arm64LoadVectorWhole'
+
+	export function arm64StoreVectorWhole(mutates self, base Arm64Register, disp FullRangeInt, n Count)
+		encodeArm64StrQOff(code, src: arm64VectorOfNumber(n), base: base, disp: try disp as Imm32 otherwise panic("backend: an offset past 32 bits"))
+	end 'arm64StoreVectorWhole'
+
 	export function arm64LoadWord32(mutates self, dst Arm64Register, base Arm64Register, disp FullRangeInt)
 		encodeArm64Ldr32Off(code, dest: dst, base: base, disp: try disp as Imm32 otherwise panic("backend: an offset past 32 bits"))
 	end 'arm64LoadWord32'
