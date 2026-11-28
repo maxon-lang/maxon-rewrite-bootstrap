@@ -155,7 +155,7 @@ end 'acquireOne'
 // thunk's to drop, since only the compiled code knows the types of the values they hold. Each successor holds a hold of
 // its own, taken before it queued, or for one of one cown by this release before the thunk's drop, so the drop that frees
 // a cown is the one after the last behaviour that names it.
-function releaseCowns(record Count, service Count)
+function releaseCowns(record Count, svc Count)
 	let n = __Raw.loadWord(record, offset: behaviourCownCountOffset)
 	for i in 0 upto n 'slots'
 		let slot = requestSlot(record, index: i)
@@ -163,8 +163,8 @@ function releaseCowns(record Count, service Count)
 		if next == notQueued 'last'
 			let cown = __Raw.loadWord(slot, offset: requestCownOffset)
 			if __Raw.compareExchange(cown, offset: cownTailOffset, expected: slot, desired: notQueued) == slot 'idle'
-				if cown == service 'caughtUp'
-					releasedIdle(service)
+				if cown == svc 'caughtUp'
+					releasedIdle(svc)
 				end 'caughtUp'
 				continue 'slots'
 			end 'idle'

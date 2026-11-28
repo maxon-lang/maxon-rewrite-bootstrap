@@ -719,6 +719,7 @@ function allocRecordShell(mutates ms ast.ModuleState, p ast.Project, ref ast.Dec
 	e.hasDecl = true
 	e.decl = ref.clone()
 	e.isNoncopyable = td.isNoncopyable
+	e.isService = td.isService
 	let tid = ast.allocShell(ms.types, module: ref.module, e: e, completer: ast.Phase.declare)
 	allocShellTypeParams(ms, p: p, modID: ref.module, tid: tid, tps: td.typeParams, errs: errs)
 	ast.setDeclType(ms, ref: ref, t: tid)

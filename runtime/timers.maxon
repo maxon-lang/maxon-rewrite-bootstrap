@@ -734,7 +734,7 @@ function slotsBytes(slots Count) returns Count
 	return try slots * timerSlotBytes otherwise panic("the timers outgrow memory")
 end 'slotsBytes'
 
-// Timers that post a message (service.Timer, stdlib/service/Timer.maxon): a timer is a record of its own, not a green thread,
+// Timers that post a message (services.Timer, stdlib/services/Timer.maxon): a timer is a record of its own, not a green thread,
 // on the heap as its address plus timerEntryTag, which holds the posted record it is armed with. When it is due, runTimers
 // marks the record in flight and queues it on its service, and the arm is spent; the record's start
 // (servicePostedStart, timerRecordStarts) clears that mark. A cancel, a reset or an arm anew drops a message whose
@@ -757,7 +757,7 @@ let timerLockOffset = 0 as Count
 // (timerKeyedOffset).
 let timerWhenOffset = 8 as Count
 
-// timerPeriodOffset is the period of a periodic timer (service.Ticker), in nanoseconds, or 0 for a timer that fires once. A
+// timerPeriodOffset is the period of a periodic timer (services.Ticker), in nanoseconds, or 0 for a timer that fires once. A
 // periodic timer fires once for each arm, as any timer does, and its handler arms it for the next tick (timerNext), which is
 // on its grid: its last tick, in timerWhenOffset while it is not armed, plus a whole number of periods.
 let timerPeriodOffset = 16 as Count
@@ -812,8 +812,8 @@ function unlockTimer(timer Count)
 	spinUnlock(timer, offset: timerLockOffset)
 end 'unlockTimer'
 
-// timerNew is a timer, armed with a posted record to fire in a number of milliseconds (service.Timer.notifyAfter), or with a
-// period in milliseconds, its first tick a period from now (service.Ticker.notifyEvery).
+// timerNew is a timer, armed with a posted record to fire in a number of milliseconds (services.Timer.notifyAfter), or with a
+// period in milliseconds, its first tick a period from now (services.Ticker.notifyEvery).
 function timerNew(ms Count, period Count, record Count) returns Count
 	let timer = alloc(timerBytes)
 	__Raw.storeWord(timer, offset: timerHoldsOffset, value: 1)
@@ -828,10 +828,10 @@ function timerRearm(timer Count, ms Count, period Count, record Count)
 	timerArm(context, timer: timer, record: record, due: timerDue(context, ms: ms), period: sleepNanos(period), onGrid: false)
 end 'timerRearm'
 
-// timerNext arms a periodic timer with a posted record for its next tick (service.Ticker.next): the first of its last tick
+// timerNext arms a periodic timer with a posted record for its next tick (services.Ticker.next): the first of its last tick
 // plus a whole number of periods that is past now, Go's when + period*(1 + late/period) worked out at the arm, so the ticks
 // do not drift and the ticks missed while the handler was late are skipped, never burst, nor one fired at once. A ticker
-// holds one record at most: one that a rearm (service.Ticker.reset) armed while its last tick's handler ran keeps the
+// holds one record at most: one that a rearm (services.Ticker.reset) armed while its last tick's handler ran keeps the
 // record it was armed with, still armed or fired and queued, and the record given here is dropped.
 function timerNext(timer Count, record Count)
 	let context = __Raw.threadContext()

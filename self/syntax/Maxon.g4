@@ -162,8 +162,10 @@ constDecl
 	High I128
 }
 
+// A `service` has the body of a type, and its export instance methods are its messages by declaration, where `self.handle`,
+// `self.stop()` and `reply.later()` are written (README, "Services"). It is a reserved word, so no module is named `service`.
 typeDecl
-    : visibility=('export' | 'public')? 'type' name=Name{declares} ('is' noncopyable='noncopyable')? typeParams=usesClause? conforms=conformsClause? where=whereClause? Newline
+    : visibility=('export' | 'public')? ('type' | isService='service') name=Name{declares} ('is' noncopyable='noncopyable')? typeParams=usesClause? conforms=conformsClause? where=whereClause? Newline
       (Indent ((aliases+=aliasDecl | fields+=fieldDecl | {atStaticLet}? statics+=staticLetDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;

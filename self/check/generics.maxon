@@ -585,10 +585,11 @@ function spelled(c Checker, p ast.Project, ms ast.ModuleState, iface ast.TypeID)
 	return name
 end 'spelled'
 
+// declarationWord is the word that declares the type t, as a message tells its author to write: `service` for a service, `type` for any other record.
 function declarationWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns String
 	let kind = ast.typeKind(ms.types, reads: p.types, t: t)
 	if kind == ast.TypeKind.record 'record'
-		return "type"
+		return "service" if ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: t)).isService else "type"
 	end 'record'
 	if kind == ast.TypeKind.enumTy 'enum'
 		return "enum"

@@ -1,0 +1,21 @@
+// A service is checked at its declaration, whether or not a module spawns it: its state holds no promise.
+export typealias Amount = int(0 to 1000000)
+
+function nap() returns Amount
+	sleep(1)
+	return 1
+end 'nap'
+
+service Keeper
+	var pending as Promise with Amount
+
+	static function create() returns Self
+		return Self{pending: async nap()}
+	end 'create'
+end 'Keeper'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3216 at 9:9

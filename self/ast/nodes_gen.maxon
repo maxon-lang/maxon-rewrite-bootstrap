@@ -97,6 +97,7 @@ export function isReserved(word String) returns bool
 		"from" or
 		"to" or
 		"type" or
+		"service" or
 		"is" or
 		"noncopyable" or
 		"var" or
@@ -288,6 +289,7 @@ export type TypeDecl
 	export var id as NodeID
 	export var name as String
 	export var visibility as String
+	export var isService as bool
 	export var isNoncopyable as bool
 	export var typeParams as TypeParamList
 	export var conforms as diag.U32
@@ -299,7 +301,7 @@ export type TypeDecl
 	export var endRef as NodeID
 
 	export static function make(id NodeID) returns TypeDecl
-		return TypeDecl{id: id, name: "", visibility: "", isNoncopyable: false, typeParams: TypeParamList.create(0), conforms: 0 as diag.U32, whereList: ConstraintList.create(0), aliases: AliasDeclList.create(0), fields: FieldDeclList.create(0), statics: ConstDeclList.create(0), methods: FuncDeclList.create(0), endRef: 0 as NodeID}
+		return TypeDecl{id: id, name: "", visibility: "", isService: false, isNoncopyable: false, typeParams: TypeParamList.create(0), conforms: 0 as diag.U32, whereList: ConstraintList.create(0), aliases: AliasDeclList.create(0), fields: FieldDeclList.create(0), statics: ConstDeclList.create(0), methods: FuncDeclList.create(0), endRef: 0 as NodeID}
 	end 'make'
 end 'TypeDecl'
 

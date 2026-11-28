@@ -363,6 +363,8 @@ export type TypeEntry
 	export var hasDecl as bool
 	export var decl as DeclRef
 	export var isNoncopyable as bool
+	// isService is whether the type was declared with `service`, whose export instance methods are messages by declaration.
+	export var isService as bool
 	export var origin as TypeID
 	export var declaring as bool
 	export var typeParams as TypeIDList
@@ -400,7 +402,7 @@ export type TypeEntry
 
 	export static function make(kind TypeKind, consumes name String) returns TypeEntry
 		let z = I128.zero()
-		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, bitsWidth: 0 as Count, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, rawKind: RawKind.integer, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0), isTuple: false, mutatesCaptures: false, isBrand: false, brandKey: "", supertype: noType, mayBorrow: false, family: noType}
+		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, bitsWidth: 0 as Count, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, isService: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, rawKind: RawKind.integer, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0), isTuple: false, mutatesCaptures: false, isBrand: false, brandKey: "", supertype: noType, mayBorrow: false, family: noType}
 	end 'make'
 
 	export function findMethod(methodName String) returns table.Option with FuncID
@@ -1587,6 +1589,7 @@ export function instantiateType(mutates tt TypeSlot, reads TypeTable, origin Typ
 	e.typeArgs = cloneTypeArgs(args)
 	e.isTuple = typeEntry(tt, reads: reads, t: baseOrigin).isTuple
 	e.isNoncopyable = origNoncopyable
+	e.isService = typeEntry(tt, reads: reads, t: baseOrigin).isService
 	e.hasDecl = hasOrigDecl
 	e.decl = origDecl
 	let id = allocShape(tt, e: e, word: word)

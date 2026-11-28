@@ -33,7 +33,7 @@ typealias ConnSlots = Array with ConnSlot
 typealias SlotIndices = Array with Count
 
 union AcceptorTimer
-	armed(timer service.Timer)
+	armed(timer services.Timer)
 	none
 end 'AcceptorTimer'
 
@@ -52,7 +52,7 @@ enum AcceptorPhase
 	closing
 end 'AcceptorPhase'
 
-export type Acceptor implements service.Ends
+export type Acceptor implements services.Ends
 	var listener as ListenerHold
 	let handler as frozen with StandIn
 	let config as frozen with ServerConfig
@@ -120,7 +120,7 @@ export type Acceptor implements service.Ends
 			self.stop()
 			return
 		end 'none'
-		let old = exchange(self.deadline, value: AcceptorTimer.armed(service.Timer.notifyAfter(timerMsOf(deadlineMs), message: self.handle.post(Acceptor.Message.stopDeadline))))
+		let old = exchange(self.deadline, value: AcceptorTimer.armed(services.Timer.notifyAfter(timerMsOf(deadlineMs), message: self.handle.post(Acceptor.Message.stopDeadline))))
 		match consumes old 'old'
 			armed(timer) then timer.cancel()
 			none then return
@@ -222,7 +222,7 @@ export type Acceptor implements service.Ends
 	function armRetry(mutates self, me Acceptor.handle)
 		let waitMs = self.retryMs
 		self.retryMs = MostAcceptRetryMs if waitMs >= MostAcceptRetryMs / 2 else waitMs * 2
-		let old = exchange(self.retry, value: AcceptorTimer.armed(service.Timer.notifyAfter(waitMs, message: me.post(Acceptor.Message.retryAccept))))
+		let old = exchange(self.retry, value: AcceptorTimer.armed(services.Timer.notifyAfter(waitMs, message: me.post(Acceptor.Message.retryAccept))))
 		match consumes old 'old'
 			armed(timer) then timer.cancel()
 			none then return

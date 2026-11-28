@@ -1,0 +1,14 @@
+// A service is checked at its declaration, whether or not a module spawns it: its state reaches no handle to its own service.
+service Echo
+	var me as Array with Echo.handle
+
+	static function create() returns Self
+		return Self{me: Array.create(0)}
+	end 'create'
+end 'Echo'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E4014 at 2:9

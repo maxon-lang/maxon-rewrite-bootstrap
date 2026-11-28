@@ -122,8 +122,8 @@ function isTaskSender(key Count) returns bool
 	return key mod senderTag == 1
 end 'isTaskSender'
 
-function serviceSender(service Count) returns Count
-	return try service * senderTag otherwise panic("interp: an object past a word")
+function serviceSender(svc Count) returns Count
+	return try svc * senderTag otherwise panic("interp: an object past a word")
 end 'serviceSender'
 
 function taskSender(t Count) returns Count
@@ -139,19 +139,19 @@ end 'taskSender'
 // of the relay sends it one message. The header counts a service's messages from its first slowed send to its mute, which
 // is a whole handler's, so a relay whose handler sends more passes its consumer more per mute, and that shape states no
 // number.
-function queueBound(d Deliveries, service Count, turn Count) returns table.Option with Count
-	let senders = d.sendersOf(service)
-	let receivers = d.receiversOf(serviceSender(service))
+function queueBound(d Deliveries, svc Count, turn Count) returns table.Option with Count
+	let senders = d.sendersOf(svc)
+	let receivers = d.receiversOf(serviceSender(svc))
 	let posted = postedOutstanding()
 	if receivers.count() == 0 and onlyTasks(senders) 'leaf'
 		let tasks = senders.count()
 		let parked = tasks if tasks > turn else turn
 		return table.Option.some(try parked + tasks + posted otherwise panic("interp: a bound past a word"))
 	end 'leaf'
-	if isRelay(d, service: service) 'relay'
+	if isRelay(d, svc: svc) 'relay'
 		return table.Option.some(try turn + 2 + posted otherwise panic("interp: a bound past a word"))
 	end 'relay'
-	if receivers.count() == 0 and senders.count() == 1 and not isTaskSender(senders[0]) and isRelay(d, service: senders[0] / senderTag) and d.sendsPerHandler(senders[0], to: service) <= 1 'consumer'
+	if receivers.count() == 0 and senders.count() == 1 and not isTaskSender(senders[0]) and isRelay(d, svc: senders[0] / senderTag) and d.sendsPerHandler(senders[0], to: svc) <= 1 'consumer'
 		return table.Option.some(try 2 * turn + 4 + posted otherwise panic("interp: a bound past a word"))
 	end 'consumer'
 	return table.Option.none
@@ -165,10 +165,10 @@ function postedOutstanding() returns Count
 end 'postedOutstanding'
 
 // isRelay is whether one task alone sends to a service, which sends to one other service alone.
-function isRelay(d Deliveries, service Count) returns bool
-	let senders = d.sendersOf(service)
-	let receivers = d.receiversOf(serviceSender(service))
-	return senders.count() == 1 and isTaskSender(senders[0]) and receivers.count() == 1 and receivers[0] != service
+function isRelay(d Deliveries, svc Count) returns bool
+	let senders = d.sendersOf(svc)
+	let receivers = d.receiversOf(serviceSender(svc))
+	return senders.count() == 1 and isTaskSender(senders[0]) and receivers.count() == 1 and receivers[0] != svc
 end 'isRelay'
 
 function onlyTasks(senders CountList) returns bool
@@ -207,9 +207,9 @@ function noteMessage(mutates vm Vm, b Count, cowns CountList)
 		return
 	end 'other'
 	var from = taskSender(vm.cur)
-	let service = messageOf(vm, t: vm.cur)
-	if service != 0 'service'
-		from = serviceSender(service)
+	let svc = messageOf(vm, t: vm.cur)
+	if svc != 0 'service'
+		from = serviceSender(svc)
 	end 'service'
 	let pair = vm.deliveries.pairOf(from, to: to)
 	vm.behaviours.pair[b] = pair
@@ -266,22 +266,22 @@ function checkEnded(mutates vm Vm)
 	end 'behaviours'
 	var seen = CountList.create(0)
 	for i in 1 upto vm.deliveries.receiver.count() 'pairs'
-		let service = vm.deliveries.receiver[i]
-		if seen.contains(service) 'again'
+		let svc = vm.deliveries.receiver[i]
+		if seen.contains(svc) 'again'
 			continue 'pairs'
 		end 'again'
-		seen.push(service)
+		seen.push(svc)
 		// A pending word holds one message at most, whose behaviour its sends queue without being slowed.
-		var words = vm.h.shareds[vm.h.oData[service]].pending.count()
-		if vm.h.shareds[vm.h.oData[service]].sheds 'horizon'
+		var words = vm.h.shareds[vm.h.oData[svc]].pending.count()
+		if vm.h.shareds[vm.h.oData[svc]].sheds 'horizon'
 			words = try words - 1 otherwise panic("interp: a service that sheds without its horizon")
 		end 'horizon'
-		let bound = queueBound(vm.deliveries, service: service, turn: vm.turnLimit)
+		let bound = queueBound(vm.deliveries, svc: svc, turn: vm.turnLimit)
 		if bound.isSome() 'stated'
-			let most = vm.h.shareds[vm.h.oData[service]].most
+			let most = vm.h.shareds[vm.h.oData[svc]].most
 			let limit = try bound.unwrap() + words otherwise panic("interp: a bound past a word")
 			if most > limit 'over'
-				oracleFails(vm, oracle: oracleBound, found: "{objectText(vm, o: service)} held {most} messages, past the {limit} its senders and receivers allow with a turn of {vm.turnLimit}")
+				oracleFails(vm, oracle: oracleBound, found: "{objectText(vm, o: svc)} held {most} messages, past the {limit} its senders and receivers allow with a turn of {vm.turnLimit}")
 			end 'over'
 		end 'stated'
 	end 'pairs'

@@ -1372,7 +1372,7 @@ end 'reportIfHidden'
 // typeNoun names the kind of a type declaration in a message.
 function typeNoun(d ast.Decl) returns String
 	return match d 'k'
-		typeDecl(_) gives "type"
+		typeDecl(td) gives ast.typeDeclKeyword(td)
 		enumDecl(_) gives "enum"
 		unionDecl(_) gives "union"
 		aliasDecl(_) gives "typealias"
@@ -1488,7 +1488,7 @@ function resolveTopDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, d
 	match d 'k'
 		funcDecl(fd) then resolveFuncDecl(r, p: p, ms: ms, f: fd, s: declSurface(r, d: d, noun: "function"), fieldNames: emptyFields, hasReceiver: false, errs: errs)
 		constDecl(cd) then resolveTopConst(r, p: p, ms: ms, cd: cd, errs: errs)
-		typeDecl(td) then resolveTypeDecl(r, p: p, ms: ms, td: td, s: declSurface(r, d: d, noun: "type"), errs: errs)
+		typeDecl(td) then resolveTypeDecl(r, p: p, ms: ms, td: td, s: declSurface(r, d: d, noun: ast.typeDeclKeyword(td)), errs: errs)
 		enumDecl(ed) then resolveEnumDecl(r, p: p, ms: ms, ed: ed, s: declSurface(r, d: d, noun: "enum"), errs: errs)
 		unionDecl(ud) then resolveUnionDecl(r, p: p, ms: ms, ud: ud, s: declSurface(r, d: d, noun: "union"), errs: errs)
 		aliasDecl(ad) then resolveTopAlias(r, p: p, ad: ad, s: declSurface(r, d: d, noun: "typealias"), errs: errs)
@@ -1550,10 +1550,10 @@ function resolveTypeDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, 
 		end 'hd'
 	end 'flds'
 	let emptyFields = BoolStrMap.new()
-	let service = r.spawned.contains(td.name)
+	let svc = td.isService or r.spawned.contains(td.name)
 	for i in 0 upto td.methods.count() 'meths'
 		var surface = methodSurface(r, owner: td.name, m: td.methods[i])
-		if service and not td.methods[i].isStatic 'message'
+		if svc and not td.methods[i].isStatic 'message'
 			// A message is as visible as its service and no more, as maxon holds it (E3167).
 			surface.tier = narrower(surface.tier, b: s.tier)
 		end 'message'

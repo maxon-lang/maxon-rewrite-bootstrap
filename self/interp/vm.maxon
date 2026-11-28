@@ -268,7 +268,7 @@ type Thread
 	// pins is how many pins to its machine the thread holds.
 	var pins as Count
 	// service is the service whose message the thread runs, which the message's start names, or 0.
-	var service as Count
+	var svc as Count
 	// sendTo is the service a send of the thread took a place in, until the thread schedules its message, or 0.
 	var sendTo as Count
 	// wakeAt is when the thread's sleep ends on the interpreter's clock, or noTimer.
@@ -293,7 +293,7 @@ type Thread
 	var joining as Count
 
 	static function new(name Count, behaviour Count) returns Thread
-		return Thread{name: name, behaviour: behaviour, promise: 0, strand: 0, done: false, begun: false, finished: false, ticked: false, parked: false, woke: false, yielding: false, pins: 0, service: 0, sendTo: 0, wakeAt: noTimer, stackTop: 0, retN: 0, retR: 0, errN: 0, errR: 0, startN: ir.WordList.create(0), startR: ir.WordList.create(0), regN: ir.WordList.create(0), regR: ir.WordList.create(0), frames: CountList.create(0), windows: Windows.create(0), dropWaits: CountList.create(0), job: 0, joining: 0}
+		return Thread{name: name, behaviour: behaviour, promise: 0, strand: 0, done: false, begun: false, finished: false, ticked: false, parked: false, woke: false, yielding: false, pins: 0, svc: 0, sendTo: 0, wakeAt: noTimer, stackTop: 0, retN: 0, retR: 0, errN: 0, errR: 0, startN: ir.WordList.create(0), startR: ir.WordList.create(0), regN: ir.WordList.create(0), regR: ir.WordList.create(0), frames: CountList.create(0), windows: Windows.create(0), dropWaits: CountList.create(0), job: 0, joining: 0}
 	end 'new'
 end 'Thread'
 

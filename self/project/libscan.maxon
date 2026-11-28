@@ -294,7 +294,7 @@ end 'addNew'
 // declaresName is whether the keyword from at to endAt opens a declaration that a module of the library declares by a name
 // that a program writes bare: everything but an extension, which no name stands for.
 function declaresName(text String, at Count, endAt Count) returns bool
-	return wordIs(text, at: at, endAt: endAt, word: "function") or wordIs(text, at: at, endAt: endAt, word: "type") or wordIs(text, at: at, endAt: endAt, word: "let") or wordIs(text, at: at, endAt: endAt, word: "enum") or wordIs(text, at: at, endAt: endAt, word: "union") or wordIs(text, at: at, endAt: endAt, word: "typealias") or wordIs(text, at: at, endAt: endAt, word: "interface")
+	return wordIs(text, at: at, endAt: endAt, word: "function") or wordIs(text, at: at, endAt: endAt, word: "type") or wordIs(text, at: at, endAt: endAt, word: "service") or wordIs(text, at: at, endAt: endAt, word: "let") or wordIs(text, at: at, endAt: endAt, word: "enum") or wordIs(text, at: at, endAt: endAt, word: "union") or wordIs(text, at: at, endAt: endAt, word: "typealias") or wordIs(text, at: at, endAt: endAt, word: "interface")
 end 'declaresName'
 
 // extendedName is the name of the type that the extension whose header is from (the type it extends, after the keyword) to

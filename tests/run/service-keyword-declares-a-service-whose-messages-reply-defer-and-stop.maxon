@@ -1,0 +1,72 @@
+// A `service` is declared as a type is and is the only kind of declaration whose export instance methods are messages by
+// declaration: a message replies, defers its reply with reply.later(), passes self.handle to another service and stops its own
+// service with self.stop(), and `spawn` starts a service as it starts a type.
+// schedules: 6
+//> audited 42
+//> deferred answer 42
+export typealias Amount = int(0 to 1000000)
+
+export typealias Waiting = Array with Reply with Amount
+
+service Ledger
+	var total as Amount
+	var waiting as Waiting
+
+	static function create() returns Self
+		return Self{total: 0, waiting: Waiting.create(0)}
+	end 'create'
+
+	export function deposit(mutates self, amount Amount)
+		self.total = try self.total + amount otherwise 0
+	end 'deposit'
+
+	export function ask(mutates self) returns Amount throws ReplyStopped
+		let pending = reply.later()
+		self.waiting.push(pending)
+		return
+	end 'ask'
+
+	export function settle(mutates self)
+		while self.waiting.count() > 0 'each'
+			let pending = self.waiting.pop()
+			pending.answer(self.total)
+		end 'each'
+	end 'settle'
+
+	export function report(mutates self, back Auditor.handle)
+		try back.record(self.total) otherwise ignore
+	end 'report'
+end 'Ledger'
+
+service Auditor
+	var seen as Amount
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	export function begin(mutates self, ledger Ledger.handle)
+		try ledger.report(self.handle) otherwise ignore
+	end 'begin'
+
+	export function record(mutates self, total Amount)
+		self.seen = total
+		print("audited {self.seen}\n")
+		self.stop()
+	end 'record'
+end 'Auditor'
+
+function main() returns ExitCode
+	let ledger = spawn Ledger.create()
+	let auditor = spawn Auditor.create()
+	let done = auditor.stopped()
+	try ledger.deposit(40) otherwise panic("a send to a service that runs")
+	let asked = try ledger.ask() otherwise panic("a send to a service that runs")
+	try ledger.deposit(2) otherwise panic("a send to a service that runs")
+	try ledger.settle() otherwise panic("a send to a service that runs")
+	try auditor.begin(ledger.clone()) otherwise panic("a send to a service that runs")
+	let answer = try await asked otherwise 0
+	await done
+	print("deferred answer {answer}\n")
+	return 0
+end 'main'

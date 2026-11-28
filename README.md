@@ -611,7 +611,7 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   `stdlib/` is not, and its root holds no file (a `.maxon` file there is `E3928`, which names the module to move it to), so
   `stdlib/` lists only modules: `array` (the methods of `Array` and its sorts), `string`, `character`, `characterset`, `map`,
   `set`, `list`, `range`, `parsable`, `json`, `url`, `http` (`HttpClient` and `HttpServer`), `tls`, `filepath`, `stream`, `console`, `math`, `random`, `base64`, `pem`, `clock`,
-  `directory`, `process`, `subprocess`, `cell`, `slotmap`, `unicode`, `ascii`, `sha2`, `heap`, `service` (the overload policies, minimaxon's own), the `core` and `_helpers`. The `core` holds the
+  `directory`, `process`, `subprocess`, `cell`, `slotmap`, `unicode`, `ascii`, `sha2`, `heap`, `services` (the overload policies, minimaxon's own), the `core` and `_helpers`. The `core` holds the
   interfaces, the conformances that the built-in types need to meet them and the hashing: a module sees an `extension
   <built-in> implements I` only when the module that writes it declares `I` (see "Extensions"), so each conformance of
   `Array`, `String`, `Character`, `FilePath`, the integers and the floats is written in the module that declares the
@@ -3152,7 +3152,8 @@ edit to `runtime/` rebuilds everything.
   `let` constant. A function, a type and a union can be generic (see "Generics"). A `type` or a `union` can say
   `is noncopyable` right after its name (`type Socket is noncopyable`; never an `enum`), which takes `Copyable` from it,
   and a method of either can be a destructor (`function commit(destructs self)`), which takes both (see "Capabilities and
-  destructors").
+  destructors"). A `service` is a `type` written with `service` in place of `type`
+  (see "Services").
 - Function values (see "Function values"): a function type, named by a typealias
   (`typealias Step = function(Count, mutates Box) returns Count`, also in the body of a type, an interface or an extension, and `... mutates captures` for
   one whose closures change what they capture), a function named without a call, a closure `function(n Count) gives n +
@@ -5140,7 +5141,20 @@ Not yet: parallel fors in the programs `fuzz` writes.
 maxon's surface, on cowns, behaviours and green threads (`self/check/services.maxon`, `self/ir/services.maxon`,
 `runtime/service.maxon`):
 
-- `spawn T.f(args)` starts a service of the type `T`, declared with `type` and no type parameters, whose static factory
+- `service Name ... end 'Name'` declares a service: it has the body of a `type` (its fields, `static function`s and methods;
+  `service Ledger is noncopyable`, `service Conn implements Ends` and `export service` are written as for a type), and its export
+  instance methods are **messages by declaration**, so `self.handle`, `self.stop()` and `reply.later()` are written in them
+  whether or not any module spawns it, and the rules of a service are checked once, at its declaration, in the module that
+  declares it (`self/check/services.maxon`, `checkServiceDecl`): its state holds no promise (`E3216`) and reaches no handle to
+  its own service (`E4014`), and implements `Ends` where it holds a value that cannot be dropped (`E3956`, with the fix at the
+  declaration); each message takes and gives only what crosses (`E3217`, `E3140`) at the message; no message or factory may wait
+  on another party (`E3221`, "Coroutines: async and await"); and the policies of its messages (`E3946` to `E3951`, `E3957`, see "Overload
+  policies") are read from the declaration whoever spawns it. A `spawn` of a `service` of another module checks nothing of it
+  again: it only holds the factory it calls to what crosses (`E3217`, `E3140`). A service takes no type parameters yet
+  (`E2015`). `service` is a reserved word (see "Where it differs from Maxon"). Until `spawn` takes only a `service`, `spawn` also
+  starts a `type`, whose rules are checked at the first spawn in the module, as maxon checks them.
+- `spawn T.f(args)` starts a service of the type `T`, declared with `service` or, until `spawn` takes only a `service`, with
+  `type`, and with no type parameters, whose static factory
   `f` returns `T`, and gives its handle, a `T.handle` (`E3134` for any other target). A mailbox has no capacity. A factory
   that cannot throw runs as the service's first message; one that throws runs where the spawn is, and the spawn fails
   with its error (`try spawn ...`).
@@ -5195,7 +5209,7 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   go by its mark as the runtime does. An oracle that fails is an internal
   error that names it, the seed of the schedule and the standard input, never a report of the program. `fuzz --services`
   runs the brute force of them (see "Tests").
-- **Overload policies** (`stdlib/service/Overload.maxon`, `self/check/policies.maxon`, `lowerPolicySend` in
+- **Overload policies** (`stdlib/services/Overload.maxon`, `self/check/policies.maxon`, `lowerPolicySend` in
   `self/ir/services.maxon`): a message kind says what becomes of its work while its service is behind by naming a policy
   before its `export function`, `@policy(Refuse) export function handle(request Request) returns Response`; a kind that
   names none, or `Keep`, compiles as it did, and its senders are slowed. A policy is a type that implements the library's
@@ -5242,7 +5256,7 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   names a policy has no union. The library's `PerClientFair` (`PerClientFair.create(clientOf)`, a field of the service) is
   fair to the clients of a service that is behind: it sheds the oldest messages of each client that holds more than its
   share of a turn, the client named by the key function it is given, which reads the message's arguments.
-- **Shedding** (`SheddingPolicy`, `PendingView` and `DropOldest` in `stdlib/service/Overload.maxon`, `startShedding` in
+- **Shedding** (`SheddingPolicy`, `PendingView` and `DropOldest` in `stdlib/services/Overload.maxon`, `startShedding` in
   `self/ir/services.maxon`, "Shedding" in `runtime/service.maxon`): a policy that also implements `SheddingPolicy` has
   `function shed(mutates self, pending PendingView with Api.Message)`, which runs on the receiver, single-threaded as a handler, at
   the start of a message while the service is behind, once for the messages queued since its last view ended, so each
@@ -5281,7 +5295,7 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   handler of a first hop's kind is a second hop and needs none, and the posted kind itself names none (the runtime
   coalesces its posts). `E3948` and `busy` apply to a first hop's policy as to any. A call through a function value or an
   interface, whose target the check cannot see, is taken to send nothing.
-- **Stops** (`stdlib/service/Stop.maxon`, `declareAwaitErrors` in `self/check/policies.maxon`, `startStopping` and
+- **Stops** (`stdlib/services/Stop.maxon`, `declareAwaitErrors` in `self/check/policies.maxon`, `startStopping` and
   `dropUnhandled` in `self/ir/services.maxon`, "Stops" in `runtime/service.maxon`): a service stops in one of two ways, chosen
   at the stop. `h.shutdown()` by the owner of its handle, or `self.stop()` in one of its messages, closes its mailbox and lets
   the queued messages run, as maxon's shutdown does, so a reply always comes. `self.stopNow()`, or `h.stopNow()`, ends it at
@@ -5290,14 +5304,14 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   what it holds, the box of a pending word among it, and fails the await of its reply with `serviceStopped`. Its slowed senders
   are let go at once and it slows none again, and its shedding horizon is never read again. A type that declares a method
   named `stop` or `stopNow` keeps the name, and `self.stop()` off a message stops nothing.
-  **A state that ends with its service** is one whose type implements the library's `Ends` (`stdlib/service/Ends.maxon`),
+  **A state that ends with its service** is one whose type implements the library's `Ends` (`stdlib/services/Ends.maxon`),
   `function finish(consumes self)`, which is no message: the service gives it the state once it has stopped, after the
   messages queued before the stop have run (the behaviour a stop queues, `endState` in `self/ir/services.maxon`), and, where
   nobody stops it, where its last handle goes, in place of the state's drop (the service's ending word, which
   `rt.service.ending` sets at the spawn, as a cown's `dropWith:` destructor; the drop of the last owner calls it with the
   state, which a stop's behaviour has taken out first where one ran). A state that cannot be dropped, one that holds an open
-  file, a socket or another value with a destructor, is `E3956` unless its type implements `Ends` (at the type's declaration
-  in its own module, and at the spawn in another): the service would drop what only a destructor may end. `minimaxon fix`
+  file, a socket or another value with a destructor, is `E3956` unless its type implements `Ends` (at the declaration of a
+  `service`, and of a `type` in its own module that it spawns; at the spawn of a `type` of another module): the service would drop what only a destructor may end. `minimaxon fix`
   (kind `ends`) declares the type `Ends`, after the interfaces it implements, and writes its `finish` last in its body, with a
   line that ends each such field where its type has one way to end it that takes nothing (`try self.out.close() otherwise
   ignore`); the body of `finish` ends each field that cannot be dropped, as any `consumes self` must (`E3919`), and what it
@@ -5315,7 +5329,7 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   the scheduler's list (`schedWatchersOffset`, "Watching a stop" in `runtime/service.maxon`), so a service nobody watches holds
   nothing for it, and the end of a service reads the list's one word to find nobody watches.
   **A posted message** is a message the runtime posts to a service, which no sender awaits: `h.post(m)` makes one, the
-  library's `PostedMessage` (`stdlib/service/Posted.maxon`), of `m`, a value of the service's own message union that may carry
+  library's `PostedMessage` (`stdlib/services/Posted.maxon`), of `m`, a value of the service's own message union that may carry
   a key (`E3954`), of a kind whose handler returns and throws nothing, since nobody awaits it (`E3955`): a value written as a
   case is that case's, and any other value may be any case, so every one must be. It is linear: a source of posted messages
   takes it, and its `cancel()` drops it unhandled. It is a behaviour of the service that no send queued (`postedRecord` and
@@ -5333,7 +5347,7 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   record is a behaviour that no send queued, a timer a row that holds the record it is armed with or the one of its fire queued and not started,
   and the clock moves to the earliest armed timer when nothing can run; a socket's readiness stays native-only, as sockets do. A reason
   argument, H4's, can come later.
-  **A timer posts a message** (`stdlib/service/Timer.maxon`, "Timers that post a message" in `runtime/timers.maxon`):
+  **A timer posts a message** (`stdlib/services/Timer.maxon`, "Timers that post a message" in `runtime/timers.maxon`):
   `let t = Timer.notifyAfter(5000, message: self.handle.post(Conn.Message.idleTimeout()))` posts the message once, at least
   that many milliseconds (`clock.DurationMs`, at most about 146 years, as a sleep) later, with no green thread waiting for it:
   the timer is a 56-byte record on the timers' heap that holds the posted record. `t.reset(ms)` moves a fire still pending and
@@ -5342,7 +5356,7 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   and Reset do, so a handler never sees a fire older than the last reset. A `Timer` is linear, as a `PostedMessage` is
   (`E3919`), so a state that holds one implements `Ends` and its `finish` cancels it; an armed timer is live and keeps its
   service and the program alive, and the end of the service takes the arm back, its message never handled.
-  **A ticker posts a message on every tick of a period** (`stdlib/service/Ticker.maxon`, `timerNext` in `runtime/timers.maxon`):
+  **A ticker posts a message on every tick of a period** (`stdlib/services/Ticker.maxon`, `timerNext` in `runtime/timers.maxon`):
   `let t = Ticker.notifyEvery(10, message: self.handle.post(Poll.Message.tick))` posts its message one period from now, and
   the handler of each tick arms the next with a fresh message, `self.ticker.next(self.handle.post(Poll.Message.tick))`,
   as a socket's readiness is armed anew, so a ticker holds one posted record at a time, as a timer does. The ticks are on a
@@ -5371,7 +5385,7 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   message, with replies of a kept and of a shed kind pending. Not yet: naming the error of such an await in a type, so a
   program keeps an array of such replies only as `[first]` and `push` infer it.
 - **Deferred replies** (`self/check/replies.maxon`, `lowerReplyLater` and `lowerReplyAnswer` in `self/ir/services.maxon`,
-  "Deferred reply" in `runtime/service.maxon`, `stdlib/service/Reply.maxon`), maxon's (`specs/deferred-reply.md`): written as
+  "Deferred reply" in `runtime/service.maxon`, `stdlib/services/Reply.maxon`), maxon's (`specs/deferred-reply.md`): written as
   the whole initializer of a first-level `let` of a message's body, `let pending = reply.later()` takes the message's reply as a
   `Reply with T`, `T` its reply type, which the message parks in its state, a container or a message argument to another
   service, and which some message answers later with `pending.answer(value)`, which consumes it and never waits: a handler that
@@ -5405,8 +5419,9 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   factory of a service's state aside), an async call of a function that takes one, a closure that captures one, and a value
   that holds one widened to an interface type. `await` of a Reply is `E3005`. The interpreter models a Reply as an object of
   the promise row it answers, whose free fails it, and its oracles hold every reply to one answer; `fuzz --services` parks
-  replies of a deferring kind and answers some, so the stops of its graphs drop the others. Not yet: refusing a deferring
-  message of a type that no module spawns, which maxon reports.
+  replies of a deferring kind and answers some, so the stops of its graphs drop the others. A deferring message of a
+  `service` is checked at its declaration, whether or not a module spawns it. Not yet: refusing `reply.later()` in a `type`
+  that no module spawns, which maxon reports (`E3222`); it comes with `spawn` taking only a `service`.
 - A handler that returns or throws **replies**: the send gives `Promise with R` (or `Promise with (R, E)`), which the
   sender awaits as an async call's promise (`try await h.total() otherwise 0`, or `let p = try h.total()` and `await p`);
   `_ = try h.total() ...` drops the reply on the service, and a reply sent as a statement is `E3190`. A reply's promise is
@@ -5439,7 +5454,7 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   interface its own type implements is `E4014`, as one that reaches its own handle. Not yet: an `I.handle` that becomes the
   handle of an interface `I` extends.
 - **What crosses** is one predicate, `ast.unsendable` (`self/ast/crossing.maxon`), for every parameter of a message and of
-  the factory, every reply and every error a message throws, at the spawn, and for what a behaviour takes: a scalar, a
+  the factory, every reply and every error a message throws, at the message of a `service` and at the spawn of a `type`, and for what a behaviour takes: a scalar, a
   float, a `String`, an enum, a value that owns its parts and holds only what crosses, a `frozen with T` of such a value, a
   cown, a handle, an interface value and a function value cross; a borrow, a promise, and anything that holds one do
   not (`E3217`, `E3140` for a reply). A function value crosses as a frozen value does: its closure owns what it
@@ -5460,11 +5475,12 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   Linux (RssAnon) with every core; with one processor, where the spawner runs the whole burst before any factory, about
   180 bytes on Windows, the factories' records freed into the heap's classes, which keeps freed slots for reuse. maxon runs
   a service's messages on one runner, up to 64 a turn; here each is its own behaviour on the one cown.
-- **Holders never wait** (`E3221`): a message or a factory of a type the module spawns that keeps a reply, starts a
+- **Holders never wait** (`E3221`): a message or a factory of a `service` the module declares, or of a `type` it spawns, that keeps a reply, starts a
   service whose factory throws, calls through a function value or an interface, whose target the check cannot see, or
   calls a function that may do one of these, is refused, so services never wait on each other in a cycle. A function of
   another module is judged by what its module's check published (`ast.Typing.waiting`), one that published nothing as one
-  that may wait; a type of another module that this one spawns is held to the rule here, at the spawn.
+  that may wait; a `service` is held to the rule at its declaration, in its own module, and a `type` of another module that this one
+  spawns here, at the spawn.
 - **In the IR** a spawn is `rt.service.new` (a cown whose value is the state, with the mailbox's gate after the cown's
   words) and, for a factory that cannot throw, a `when` on it whose body calls the factory and stores the state. A send
   reads the handle, lowers the arguments as a `consumes` call's, takes a place in the mailbox (`rt.service.reserve`, which
@@ -5663,6 +5679,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   the iterations split among the processors (see "The parallel loop"). It is a statement, not a library function taking
   a closure, so the body is an ordinary block that may throw; `parallel` is a reserved word, and the conversion warns
   of a Maxon name `parallel`.
+- **A service is declared with `service`, which maxon does not have.** `service Name ... end 'Name'` has the body of a `type`,
+  and its export instance methods are its messages by declaration, where maxon makes any type a service only where a
+  `spawn` of it appears (see "Services"). Its rules (`E3216`, `E4014`, `E3956`, `E3217`, `E3140`, `E3221`, the policies) are
+  checked once, at its declaration, in its own module, where maxon checks them at a spawn, so a service that no module spawns
+  is refused too. `service` is a reserved word, so the library's module that held the overload policies is `services` and
+  the conversion warns of a Maxon name `service`. `spawn` also still starts a `type`, as maxon does.
 - **A mailbox has no capacity.** A program writes `spawn T.create()` where maxon writes `spawn(capacity: n) T.create()`,
   sends with no `sendTimeout:`, and matches only `serviceStopped`, the one case of `SendError`, where maxon matches
   `mailboxFull` too: a send never fails or waits for room, and fails only once the service has stopped. The runtime slows

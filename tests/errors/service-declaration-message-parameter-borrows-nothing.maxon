@@ -1,0 +1,21 @@
+// A service is checked at its declaration, whether or not a module spawns it: a message takes what moves into the service,
+// and nothing is lent to it.
+export typealias Amount = int(0 to 1000000)
+
+service Counter
+	var n as Amount
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function fill(mutates into Array with Amount)
+		into.push(self.n)
+	end 'fill'
+end 'Counter'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3217 at 12:18

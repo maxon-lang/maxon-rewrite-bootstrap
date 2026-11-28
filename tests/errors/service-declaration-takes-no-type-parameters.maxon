@@ -1,0 +1,14 @@
+// A service takes no type parameters yet, as a spawned type did not: it is refused at its declaration, where it is spawned or not.
+service Box uses Item
+	var held as Item
+
+	static function create(consumes held Item) returns Self
+		return Self{held: held}
+	end 'create'
+end 'Box'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2015 at 2:9

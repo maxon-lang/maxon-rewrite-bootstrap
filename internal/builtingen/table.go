@@ -1404,12 +1404,12 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "socketClose", Static: true, Params: []string{"_ Count"}, Throws: "ManagedSocketError", Intrinsic: "ManagedSocketClose", Instead: "a TcpClient's close()"},
 	// postedCancel queues the record of a posted message that no registration took as cancelled, so it drops what it holds.
 	{Owner: "Builtins", Name: "postedCancel", Static: true, Params: []string{"_ Count"}, Intrinsic: "ServicePostedCancel", Instead: "a PostedMessage's cancel()"},
-	// The rows of a timer that posts a message (stdlib/service/Timer.maxon): timerNew is a timer armed to post a message's record
+	// The rows of a timer that posts a message (stdlib/services/Timer.maxon): timerNew is a timer armed to post a message's record
 	// in a number of milliseconds, with a period in milliseconds, 0 for one fire (a Timer) and the ticks of a Ticker else;
 	// timerRearm arms it anew with another record and a period, dropping the message it held (a Timer's rearm, a Ticker's
 	// reset); timerNext arms a Ticker with another record for its next tick on its grid, unless it holds one; timerReset moves
 	// the fire of an armed timer and says whether it did; timerCancel ends and frees it.
-	{Owner: "Builtins", Name: "timerNew", Static: true, Params: []string{"_ Count", "_ Count", "_ Count"}, Result: "Count", Intrinsic: "ServiceTimerNew", Instead: "service.Timer.notifyAfter(ms, message: m)"},
+	{Owner: "Builtins", Name: "timerNew", Static: true, Params: []string{"_ Count", "_ Count", "_ Count"}, Result: "Count", Intrinsic: "ServiceTimerNew", Instead: "services.Timer.notifyAfter(ms, message: m)"},
 	{Owner: "Builtins", Name: "timerRearm", Static: true, Params: []string{"_ Count", "_ Count", "_ Count", "_ Count"}, Intrinsic: "ServiceTimerRearm", Instead: "a Timer's rearm(ms, message: m) or a Ticker's reset(period, message: m)"},
 	{Owner: "Builtins", Name: "timerNext", Static: true, Params: []string{"_ Count", "_ Count"}, Intrinsic: "ServiceTimerNext", Instead: "a Ticker's next(message: m)"},
 	{Owner: "Builtins", Name: "timerReset", Static: true, Params: []string{"_ Count", "_ Count"}, Result: "Bool", Intrinsic: "ServiceTimerReset", Instead: "a Timer's reset(ms)"},

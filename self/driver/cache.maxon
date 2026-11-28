@@ -313,7 +313,7 @@ function afterModifiers(text String, at Count, lineEnd Count) returns Count
 end 'afterModifiers'
 
 function opensScope(text String, at Count) returns bool
-	return startsWith(text, at: at, prefix: "type ") or startsWith(text, at: at, prefix: "union ") or startsWith(text, at: at, prefix: "enum ") or startsWith(text, at: at, prefix: "interface ") or startsWith(text, at: at, prefix: "extension ")
+	return startsWith(text, at: at, prefix: "type ") or startsWith(text, at: at, prefix: "service ") or startsWith(text, at: at, prefix: "union ") or startsWith(text, at: at, prefix: "enum ") or startsWith(text, at: at, prefix: "interface ") or startsWith(text, at: at, prefix: "extension ")
 end 'opensScope'
 
 function isFunctionHeader(text String, at Count) returns bool

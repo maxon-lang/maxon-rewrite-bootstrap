@@ -447,7 +447,7 @@ function requireStopsNow(c Checker, p ast.Project, ms ast.ModuleState, node ast.
 		failAt(c, p: p, ms: ms, node: node, code: diag.errStopNowUndeclared, msg: "stopNow() would drop the messages queued on the service behind '{stateName}.handle', whose senders through it await their replies as if they always ran, since no requirement of '{stateName}' fails with serviceStopped: stop it at once through its own handle, whose type implements StopsNow, or with shutdown(), which runs the queued messages first", errs: errs)
 		return false
 	end 'interface'
-	failAt(c, p: p, ms: ms, node: node, code: diag.errStopNowUndeclared, msg: "stopNow() would drop the messages queued on '{stateName}', whose senders await their replies as if they always ran, since '{stateName}' does not implement StopsNow: declare 'type {stateName} implements StopsNow', which tells each await of its replies that it may fail with serviceStopped, or stop it with shutdown() (self.stop() in a message), which runs the queued messages first", errs: errs)
+	failAt(c, p: p, ms: ms, node: node, code: diag.errStopNowUndeclared, msg: "stopNow() would drop the messages queued on '{stateName}', whose senders await their replies as if they always ran, since '{stateName}' does not implement StopsNow: declare '{declarationWord(p, ms: ms, t: state)} {stateName} implements StopsNow', which tells each await of its replies that it may fail with serviceStopped, or stop it with shutdown() (self.stop() in a message), which runs the queued messages first", errs: errs)
 	return false
 end 'requireStopsNow'
 
@@ -472,21 +472,46 @@ function requireNoFrozenContents(c Checker, p ast.Project, ms ast.ModuleState, c
 	return true
 end 'requireNoFrozenContents'
 
-// requireService checks, once for each type a module spawns, what maxon checks at the spawn that makes the type a service:
-// its state holds no promise (E3216) and reaches no handle to its own service (E4014), and each of its messages and the
-// factory carry only what can cross (E3217, E3140). It is false when it refused something.
+// requireService checks at a spawn what the spawn makes of its target. The factory carries only what can cross (E3217, E3140)
+// at each spawn, whichever factory it is. A `service` was checked once at its declaration (checkServiceDecl); a type that
+// is no service is checked once, at its first spawn in the module, as maxon does: its state holds no promise (E3216) and
+// reaches no handle to its own service (E4014), and each of its messages carries only what can cross. It is false when it
+// refused something.
 function requireService(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, state ast.TypeID, factory ast.FuncID, mutates errs diag.ErrorList) returns bool
-	let stateName = nameOfType(p, ms: ms, t: state)
-	if ast.typeKind(ms.types, reads: p.types, t: state) != ast.TypeKind.record or ast.typeEntry(ms.types, reads: p.types, t: state).typeArgs.count() > 0 'notRecord'
-		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: "'{stateName}' is not a type declared with 'type' and no type parameters, and only such a type can be a service yet", errs: errs)
+	let declared = ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: state)).isService
+	if not declared and (ast.typeKind(ms.types, reads: p.types, t: state) != ast.TypeKind.record or ast.typeEntry(ms.types, reads: p.types, t: state).typeArgs.count() > 0) 'notRecord'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: "'{nameOfType(p, ms: ms, t: state)}' is not a type declared with 'type' and no type parameters, and only such a type can be a service yet", errs: errs)
 		return false
 	end 'notRecord'
 	let mark = errs.count()
 	requireCrossingParams(c, p: p, ms: ms, e: e, what: "the factory '{ast.funcEntry(ms.funcs, funcReads: p.funcs, f: factory).name}'", fn: factory, errs: errs)
-	if holdsType(c.servicesChecked, t: state) 'checked'
+	if declared or holdsType(c.servicesChecked, t: state) 'checked'
 		return not failedSince(errs, mark: mark)
 	end 'checked'
 	c.servicesChecked.push(state)
+	requireServiceState(c, p: p, ms: ms, e: e, state: state, errs: errs)
+	requireMessages(c, p: p, ms: ms, e: e, state: state, atMessage: false, errs: errs)
+	return not failedSince(errs, mark: mark)
+end 'requireService'
+
+// checkServiceDecl checks a `service` once, at its declaration, in its own module, whether or not any module spawns it: its
+// state holds no promise (E3216), reaches no handle to its own service (E4014) and can be dropped or implements Ends (E3956),
+// and each message carries only what can cross (E3217, E3140), at the message. The wait of its messages and its factories
+// (E3221) is judged with the module's other functions (verifyHolders). A service takes no type parameters.
+export function checkServiceDecl(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, td ast.TypeDecl, tid ast.TypeID, mutates errs diag.ErrorList)
+	if td.typeParams.count() > 0 'generic'
+		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: td.id), code: diag.errUnsupportedFeature, msg: "the service '{td.name}' has type parameters, and only a service with none can be spawned yet", errs: errs)
+		return
+	end 'generic'
+	c.services.push(tid)
+	requireServiceState(c, p: p, ms: ms, e: td.id, state: tid, errs: errs)
+	requireMessages(c, p: p, ms: ms, e: td.id, state: tid, atMessage: true, errs: errs)
+end 'checkServiceDecl'
+
+// requireServiceState refuses a service whose state holds a promise (E3216), cannot be dropped and does not implement Ends
+// (E3956), or reaches a handle to its own service (E4014), at e.
+function requireServiceState(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, state ast.TypeID, mutates errs diag.ErrorList)
+	let stateName = nameOfType(p, ms: ms, t: state)
 	var visiting = ast.TypeIDList.create(0)
 	if holdsPromise(p, ms: ms, t: state, visiting: visiting) 'promise'
 		failAt(c, p: p, ms: ms, node: e, code: diag.errServiceStatePromise, msg: "the state of the service '{stateName}' holds a promise, and each message may run on another green thread while a coroutine belongs to the strand that started it: await the coroutine in the message that starts it, and keep its result", errs: errs)
@@ -497,15 +522,19 @@ function requireService(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	if reachesThroughCown(p, ms: ms, from: state, target: state, via: false, services: true, path: path, visited: visited) 'cycle'
 		failAt(c, p: p, ms: ms, node: e, code: diag.errTypeCycle, msg: "the state of the service '{stateName}' reaches a handle to its own service (via {ast.joinNames(path, sep: " -> ")}), which would keep the service alive for ever: pass the handle with each message that needs it instead", errs: errs)
 	end 'cycle'
+end 'requireServiceState'
+
+// requireMessages checks each message of the service state, at its own declaration where atMessage, and at e otherwise.
+function requireMessages(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, state ast.TypeID, atMessage bool, mutates errs diag.ErrorList)
 	let orig = ast.originOf(ms.types, reads: p.types, t: state)
 	for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).methods.count() 'methods'
 		let method = ast.typeEntry(ms.types, reads: p.types, t: orig).methods[i].func
 		if isMessage(p, ms: ms, method: method) 'message'
-			requireMessage(c, p: p, ms: ms, e: e, method: method, errs: errs)
+			let site = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).nodeID if atMessage else e
+			requireMessage(c, p: p, ms: ms, e: site, method: method, errs: errs)
 		end 'message'
 	end 'methods'
-	return not failedSince(errs, mark: mark)
-end 'requireService'
+end 'requireMessages'
 
 // requireEnds refuses a service whose state holds a value that cannot be dropped, an open file or a socket, where its type
 // does not implement Ends (E3956): the service would drop that value when it stops, which only its destructor may end. The
@@ -521,7 +550,7 @@ function requireEnds(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	end 'droppable'
 	let stateName = nameOfType(p, ms: ms, t: state)
 	let why = lackWhyText(ms.types, reads: p.types, info: lacking, capName: "Droppable")
-	let msg = "the state of the service '{stateName}' cannot be dropped ({why}), so the service cannot end it when it stops: declare 'type {stateName} implements Ends' and its 'function finish(consumes self)', which is given the state once the service has stopped, and end each such field there"
+	let msg = "the state of the service '{stateName}' cannot be dropped ({why}), so the service cannot end it when it stops: declare '{declarationWord(p, ms: ms, t: state)} {stateName} implements Ends' and its 'function finish(consumes self)', which is given the state once the service has stopped, and end each such field there"
 	let orig = ast.originOf(ms.types, reads: p.types, t: state)
 	let hasDecl = ast.typeEntry(ms.types, reads: p.types, t: orig).hasDecl
 	let ref = ast.typeEntry(ms.types, reads: p.types, t: orig).decl.clone()
@@ -657,36 +686,53 @@ function holdsPromise(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, m
 	return found
 end 'holdsPromise'
 
-// verifyHolders is E3221 for each message, and each factory, of a type that the module spawns, that may wait on another
-// party: it holds its service while it waits, so two services that wait on each other would wait for ever. What a function
-// of another module may wait for is what its module published; a call through a function value or an interface, whose
-// target the check cannot see, is taken to wait on another party. A type of the module is refused at the message, and one
-// of another module, whose check may not spawn it, at the spawn that makes it a service here.
+// verifyHolders is E3221 for each message, and each factory, of a service the module declares and of a type that the module
+// spawns, that may wait on another party: it holds its service while it waits, so two services that wait on each other would
+// wait for ever. What a function of another module may wait for is what its module published; a call through a function value
+// or an interface, whose target the check cannot see, is taken to wait on another party. A service is refused at the message
+// in its own module, whether or not any module spawns it. A type that is no service is refused at the message in its own
+// module, and in another module, whose check may not spawn it, at the spawn that makes it a service here.
 function verifyHolders(mutates c Checker, p ast.Project, ms ast.ModuleState, mutates errs diag.ErrorList)
-	for i in 0 upto c.spawned.count() 'services'
-		let orig = ast.originOf(ms.types, reads: p.types, t: c.spawned[i])
+	for i in 0 upto c.services.count() 'declared'
+		let state = c.services[i]
+		verifyHoldersOf(c, p: p, ms: ms, state: state, own: true, site: 0 as ast.NodeID, errs: errs)
+	end 'declared'
+	for i in 0 upto c.spawned.count() 'spawned'
+		let state = c.spawned[i]
+		let site = c.spawnSites[i]
+		let orig = ast.originOf(ms.types, reads: p.types, t: state)
+		if ast.typeEntry(ms.types, reads: p.types, t: orig).isService 'declared'
+			continue 'spawned'
+		end 'declared'
 		let own = ast.typeEntry(ms.types, reads: p.types, t: orig).decl.module == c.modID
-		for j in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).methods.count() 'methods'
-			let method = ast.typeEntry(ms.types, reads: p.types, t: orig).methods[j].func
-			let entry = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).clone()
-			let factory = entry.isStatic and entry.retTy == c.spawned[i]
-			if not isMessage(p, ms: ms, method: method) and not factory 'other'
-				continue 'methods'
-			end 'other'
-			var visited = BoolIntMap.new()
-			if not mayWaitOnParty(c, p: p, ms: ms, f: method, visited: visited) 'never'
-				continue 'methods'
-			end 'never'
-			let kind = "factory" if factory and not isMessage(p, ms: ms, method: method) else "message"
-			let fix = "send the request with this service's handle and handle the reply in another message, and call through a function value or an interface only what a message may wait for"
-			if own 'atMessage'
-				checkFail(c.modID, off: ms.tree().startOf(entry.nodeID), code: diag.errHolderMayWait, msg: "the {kind} '{entry.name}' may wait on another party (it awaits a reply from a service, starts one whose factory throws, or calls what may, or what the check cannot see) while holding its own service; {fix}", errs: errs)
-			end 'atMessage' else 'atSpawn'
-				checkFail(c.modID, off: ms.tree().reportStartOf(c.spawnSites[i]), code: diag.errHolderMayWait, msg: "this spawn makes '{nameOfType(p, ms: ms, t: c.spawned[i])}' a service, and its {kind} '{entry.name}' may wait on another party (it awaits a reply from a service, starts one whose factory throws, or calls what may, or what the check cannot see) while holding the service; {fix}", errs: errs)
-			end 'atSpawn'
-		end 'methods'
-	end 'services'
+		verifyHoldersOf(c, p: p, ms: ms, state: state, own: own, site: site, errs: errs)
+	end 'spawned'
 end 'verifyHolders'
+
+// verifyHoldersOf is E3221 for the messages and the factories of the service state, at each where own, and at the spawn site
+// otherwise.
+function verifyHoldersOf(mutates c Checker, p ast.Project, ms ast.ModuleState, state ast.TypeID, own bool, site ast.NodeID, mutates errs diag.ErrorList)
+	let orig = ast.originOf(ms.types, reads: p.types, t: state)
+	for j in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).methods.count() 'methods'
+		let method = ast.typeEntry(ms.types, reads: p.types, t: orig).methods[j].func
+		let entry = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).clone()
+		let factory = entry.isStatic and entry.retTy == state
+		if not isMessage(p, ms: ms, method: method) and not factory 'other'
+			continue 'methods'
+		end 'other'
+		var visited = BoolIntMap.new()
+		if not mayWaitOnParty(c, p: p, ms: ms, f: method, visited: visited) 'never'
+			continue 'methods'
+		end 'never'
+		let kind = "factory" if factory and not isMessage(p, ms: ms, method: method) else "message"
+		let fix = "send the request with this service's handle and handle the reply in another message, and call through a function value or an interface only what a message may wait for"
+		if own 'atMessage'
+			checkFail(c.modID, off: ms.tree().startOf(entry.nodeID), code: diag.errHolderMayWait, msg: "the {kind} '{entry.name}' may wait on another party (it awaits a reply from a service, starts one whose factory throws, or calls what may, or what the check cannot see) while holding its own service; {fix}", errs: errs)
+		end 'atMessage' else 'atSpawn'
+			checkFail(c.modID, off: ms.tree().reportStartOf(site), code: diag.errHolderMayWait, msg: "this spawn makes '{nameOfType(p, ms: ms, t: state)}' a service, and its {kind} '{entry.name}' may wait on another party (it awaits a reply from a service, starts one whose factory throws, or calls what may, or what the check cannot see) while holding the service; {fix}", errs: errs)
+		end 'atSpawn'
+	end 'methods'
+end 'verifyHoldersOf'
 
 // requireReplyHandled refuses a send whose reply is neither awaited, kept nor dropped on purpose: maxon's E3190, for the
 // call that a statement makes.

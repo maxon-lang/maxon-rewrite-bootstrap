@@ -172,23 +172,23 @@ let releaseHeld = 1 as Count
 // serviceCreate is a service of one owner with no message queued, holding state: the state the factory gave when it ran on
 // the spawner, or 0 until the behaviour that runs the factory on the service stores it.
 function serviceCreate(state Count) returns Count
-	let service = alloc(serviceBytes)
-	__Raw.storeWord(service, offset: cownCountOffset, value: firstOwner)
-	__Raw.storeWord(service, offset: cownTailOffset, value: notQueued)
-	__Raw.storeWord(service, offset: cownEndingOffset, value: 0)
-	__Raw.storeWord(service, offset: cownValueOffset, value: state)
-	__Raw.storeWord(service, offset: serviceGateOffset, value: 0)
-	__Raw.storeWord(service, offset: serviceHandledOffset, value: 0)
-	__Raw.storeWord(service, offset: serviceReleaseAtOffset, value: noMark)
-	__Raw.storeWord(service, offset: serviceMutedOffset, value: noSender)
-	__Raw.storeWord(service, offset: serviceMostOffset, value: 0)
-	__Raw.storeWord(service, offset: serviceLinkOffset, value: noSender)
-	__Raw.storeWord(service, offset: serviceWaitOffset, value: waitNone)
-	__Raw.storeWord(service, offset: serviceArmedOffset, value: 0)
-	__Raw.storeWord(service, offset: servicePostedOffset, value: 0)
-	__Raw.storeWord(service, offset: serviceMarkOffset, value: 0)
-	__Raw.storeWord(service, offset: serviceOnOffset, value: noService)
-	return service
+	let svc = alloc(serviceBytes)
+	__Raw.storeWord(svc, offset: cownCountOffset, value: firstOwner)
+	__Raw.storeWord(svc, offset: cownTailOffset, value: notQueued)
+	__Raw.storeWord(svc, offset: cownEndingOffset, value: 0)
+	__Raw.storeWord(svc, offset: cownValueOffset, value: state)
+	__Raw.storeWord(svc, offset: serviceGateOffset, value: 0)
+	__Raw.storeWord(svc, offset: serviceHandledOffset, value: 0)
+	__Raw.storeWord(svc, offset: serviceReleaseAtOffset, value: noMark)
+	__Raw.storeWord(svc, offset: serviceMutedOffset, value: noSender)
+	__Raw.storeWord(svc, offset: serviceMostOffset, value: 0)
+	__Raw.storeWord(svc, offset: serviceLinkOffset, value: noSender)
+	__Raw.storeWord(svc, offset: serviceWaitOffset, value: waitNone)
+	__Raw.storeWord(svc, offset: serviceArmedOffset, value: 0)
+	__Raw.storeWord(svc, offset: servicePostedOffset, value: 0)
+	__Raw.storeWord(svc, offset: serviceMarkOffset, value: 0)
+	__Raw.storeWord(svc, offset: serviceOnOffset, value: noService)
+	return svc
 end 'serviceCreate'
 
 // serviceReserve takes a place in the mailbox for a message, by a compare-exchange of the gate, unless the service is shut
@@ -246,28 +246,28 @@ function servicePendingHeld(handle Count, slot Count) returns bool
 end 'servicePendingHeld'
 
 function serviceCreatePending(state Count, words Count) returns Count
-	let service = alloc(pendingOffset(words))
-	__Raw.storeWord(service, offset: cownCountOffset, value: firstOwner)
-	__Raw.storeWord(service, offset: cownTailOffset, value: notQueued)
-	__Raw.storeWord(service, offset: cownEndingOffset, value: 0)
-	__Raw.storeWord(service, offset: cownValueOffset, value: state)
-	__Raw.storeWord(service, offset: serviceGateOffset, value: 0)
-	__Raw.storeWord(service, offset: serviceHandledOffset, value: 0)
-	__Raw.storeWord(service, offset: serviceReleaseAtOffset, value: noMark)
-	__Raw.storeWord(service, offset: serviceMutedOffset, value: noSender)
-	__Raw.storeWord(service, offset: serviceMostOffset, value: 0)
-	__Raw.storeWord(service, offset: serviceLinkOffset, value: noSender)
-	__Raw.storeWord(service, offset: serviceWaitOffset, value: waitNone)
-	__Raw.storeWord(service, offset: serviceArmedOffset, value: 0)
-	__Raw.storeWord(service, offset: servicePostedOffset, value: 0)
-	__Raw.storeWord(service, offset: serviceMarkOffset, value: 0)
-	__Raw.storeWord(service, offset: serviceOnOffset, value: noService)
+	let svc = alloc(pendingOffset(words))
+	__Raw.storeWord(svc, offset: cownCountOffset, value: firstOwner)
+	__Raw.storeWord(svc, offset: cownTailOffset, value: notQueued)
+	__Raw.storeWord(svc, offset: cownEndingOffset, value: 0)
+	__Raw.storeWord(svc, offset: cownValueOffset, value: state)
+	__Raw.storeWord(svc, offset: serviceGateOffset, value: 0)
+	__Raw.storeWord(svc, offset: serviceHandledOffset, value: 0)
+	__Raw.storeWord(svc, offset: serviceReleaseAtOffset, value: noMark)
+	__Raw.storeWord(svc, offset: serviceMutedOffset, value: noSender)
+	__Raw.storeWord(svc, offset: serviceMostOffset, value: 0)
+	__Raw.storeWord(svc, offset: serviceLinkOffset, value: noSender)
+	__Raw.storeWord(svc, offset: serviceWaitOffset, value: waitNone)
+	__Raw.storeWord(svc, offset: serviceArmedOffset, value: 0)
+	__Raw.storeWord(svc, offset: servicePostedOffset, value: 0)
+	__Raw.storeWord(svc, offset: serviceMarkOffset, value: 0)
+	__Raw.storeWord(svc, offset: serviceOnOffset, value: noService)
 	var i = 0 as Count
 	while i < words 'words'
-		__Raw.storeWord(service, offset: pendingOffset(i), value: 0)
+		__Raw.storeWord(svc, offset: pendingOffset(i), value: 0)
 		i = __Raw.wrappingAdd(i, right: 1)
 	end 'words'
-	return service
+	return svc
 end 'serviceCreatePending'
 
 function pendingOffset(slot Count) returns Count
@@ -343,11 +343,11 @@ function serviceUnderLoad() returns bool
 	if g == noGreen 'off'
 		return false
 	end 'off'
-	let service = messageOf(g)
-	if service == noService 'task'
+	let svc = messageOf(g)
+	if svc == noService 'task'
 		return false
 	end 'task'
-	let gate = __Raw.loadAcquire(service, offset: serviceGateOffset)
+	let gate = __Raw.loadAcquire(svc, offset: serviceGateOffset)
 	return gate < serviceClosed and (gate and serviceSlowing) >= turnBehaviours
 end 'serviceUnderLoad'
 
@@ -578,7 +578,7 @@ function startCounted(handle Count, offset Count)
 end 'startCounted'
 
 function cownRelease(record Count)
-	releaseCowns(record, service: noService)
+	releaseCowns(record, svc: noService)
 end 'cownRelease'
 
 // serviceShutdown closes the mailbox once: the bit stays set, and the messages queued before it still run.
@@ -627,11 +627,11 @@ end 'serviceStopNow'
 
 // letSendersGo lets go the senders a service that was stopped at once slows: it is no longer behind, and those listed on it
 // are unmuted, as at a catching up. slowsSenders is false of it from then on, so none is listed again.
-function letSendersGo(service Count)
-	let newest = lockMuted(service)
-	clearGateFlag(service, flag: serviceBehind)
-	ringTaken(service, newest: newest)
-	unlockMuted(service, newest: noSender)
+function letSendersGo(svc Count)
+	let newest = lockMuted(svc)
+	clearGateFlag(svc, flag: serviceBehind)
+	ringTaken(svc, newest: newest)
+	unlockMuted(svc, newest: noSender)
 	unmuteRing(newest)
 end 'letSendersGo'
 
@@ -681,27 +681,27 @@ function serviceEnding(handle Count, ending Count)
 end 'serviceEnding'
 
 function serviceStopSelf()
-	let service = runningService()
-	if service != noService 'message'
-		serviceShutdown(service)
+	let svc = runningService()
+	if svc != noService 'message'
+		serviceShutdown(svc)
 	end 'message'
 end 'serviceStopSelf'
 
 function serviceStopNowSelf()
-	let service = runningService()
-	if service != noService 'message'
-		serviceStopNow(service)
+	let svc = runningService()
+	if svc != noService 'message'
+		serviceStopNow(svc)
 	end 'message'
 end 'serviceStopNowSelf'
 
 // serviceSelfHandle is `self.handle`: another owner of the service whose message runs, as a copy of a handle is. The checker
 // refuses it off a message (E3953), so a call that finds none is the compiler's fault.
 function serviceSelfHandle() returns Count
-	let service = runningService()
-	if service == noService 'off'
+	let svc = runningService()
+	if svc == noService 'off'
 		panic("self.handle off a message of its service")
 	end 'off'
-	return share(service)
+	return share(svc)
 end 'serviceSelfHandle'
 
 // Watching a stop (README, "Stops"): `h.stopped()` is a promise of no value that the end of the service completes: once its
@@ -896,8 +896,8 @@ let armedLock = 1 as Count
 let armedEnded = 2 as Count
 
 // armedHasEnded is whether the end of a service has taken back its arms, after which none is listed.
-function armedHasEnded(service Count) returns bool
-	return (__Raw.loadAcquire(service, offset: serviceArmedOffset) and armedEnded) != 0
+function armedHasEnded(svc Count) returns bool
+	return (__Raw.loadAcquire(svc, offset: serviceArmedOffset) and armedEnded) != 0
 end 'armedHasEnded'
 
 function postedPrevOffset() returns Count
@@ -923,10 +923,10 @@ function postedSlotOffset() returns Count
 	return cownOffset(1, index: 5)
 end 'postedSlotOffset'
 
-function lockArmed(service Count) returns Count
+function lockArmed(svc Count) returns Count
 	while true 'lock'
-		let word = __Raw.loadAcquire(service, offset: serviceArmedOffset)
-		if (word and armedLock) == 0 and __Raw.compareExchange(service, offset: serviceArmedOffset, expected: word, desired: __Raw.wrappingAdd(word, right: armedLock)) == word 'taken'
+		let word = __Raw.loadAcquire(svc, offset: serviceArmedOffset)
+		if (word and armedLock) == 0 and __Raw.compareExchange(svc, offset: serviceArmedOffset, expected: word, desired: __Raw.wrappingAdd(word, right: armedLock)) == word 'taken'
 			return word
 		end 'taken'
 		__Raw.spinPause()
@@ -934,17 +934,17 @@ function lockArmed(service Count) returns Count
 	return 0
 end 'lockArmed'
 
-function unlockArmed(service Count, head Count)
-	__Raw.storeRelease(service, offset: serviceArmedOffset, value: head)
+function unlockArmed(svc Count, head Count)
+	__Raw.storeRelease(svc, offset: serviceArmedOffset, value: head)
 end 'unlockArmed'
 
 // armedListAdd lists an armed record on the service it posts to, and says whether it did: a service that has ended lists
 // none, and the record is marked cancelled, for its caller to queue at once in place of arming it (a late arm to an ended
 // service is dropped, its captures dropped, and nothing runs on the ended state).
-function armedListAdd(service Count, record Count) returns bool
-	let head = lockArmed(service)
+function armedListAdd(svc Count, record Count) returns bool
+	let head = lockArmed(svc)
 	if (head and armedEnded) != 0 'ended'
-		unlockArmed(service, head: head)
+		unlockArmed(svc, head: head)
 		setPostedMark(record, bit: postedCancelled)
 		return false
 	end 'ended'
@@ -955,16 +955,16 @@ function armedListAdd(service Count, record Count) returns bool
 	if head != 0 'after'
 		__Raw.storeWord(head, offset: postedPrevOffset(), value: record)
 	end 'after'
-	unlockArmed(service, head: record)
+	unlockArmed(svc, head: record)
 	return true
 end 'armedListAdd'
 
 // armedListRemove takes a record that was armed off the list of its service as it starts, where the end has not taken it off.
-function armedListRemove(service Count, record Count)
+function armedListRemove(svc Count, record Count)
 	if (postedMark(record) and postedArmedOnce) == 0 'never'
 		return
 	end 'never'
-	var head = lockArmed(service)
+	var head = lockArmed(svc)
 	if (postedMark(record) and postedListed) != 0 'listed'
 		clearPostedMark(record, bit: postedListed)
 		let prev = __Raw.loadWord(record, offset: postedPrevOffset())
@@ -978,7 +978,7 @@ function armedListRemove(service Count, record Count)
 			__Raw.storeWord(next, offset: postedPrevOffset(), value: prev)
 		end 'before'
 	end 'listed'
-	unlockArmed(service, head: head)
+	unlockArmed(svc, head: head)
 end 'armedListRemove'
 
 // disarmArmed takes back each arm of a service that has ended: a record still armed, on an event entry or on a timer
@@ -986,11 +986,11 @@ end 'armedListRemove'
 // timer queued already runs, as a message queued before a shutdown does. Each record is taken off under the lock, which its
 // start takes too, and armedEnded is left in the word, so no arm is listed after. An end that comes again (a posted record
 // queued on the ended service ends it once more as it goes) finds none.
-function disarmArmed(service Count)
-	if __Raw.loadAcquire(service, offset: serviceArmedOffset) == armedEnded 'again'
+function disarmArmed(svc Count)
+	if __Raw.loadAcquire(svc, offset: serviceArmedOffset) == armedEnded 'again'
 		return
 	end 'again'
-	let word = lockArmed(service)
+	let word = lockArmed(svc)
 	var record = word if (word and armedEnded) == 0 else __Raw.wrappingSub(word, right: armedEnded)
 	while record != 0 'records'
 		let next = __Raw.loadWord(record, offset: postedNextOffset())
@@ -1008,7 +1008,7 @@ function disarmArmed(service Count)
 		end 'disarmed'
 		record = next
 	end 'records'
-	unlockArmed(service, head: armedEnded)
+	unlockArmed(svc, head: armedEnded)
 end 'disarmArmed'
 
 // clearPostedMark takes a bit off a posted record's mark.
@@ -1081,20 +1081,20 @@ function serviceEnded(handle Count)
 	if scheduler == 0 or __Raw.loadAcquire(scheduler, offset: schedWatchersOffset) == noWatch 'unwatched'
 		return
 	end 'unwatched'
-	let given = takeWatches(scheduler, service: handle, cell: noWatch)
+	let given = takeWatches(scheduler, svc: handle, cell: noWatch)
 	giveWatches(given)
 end 'serviceEnded'
 
 // takeWatches takes off the scheduler's list the watches of a service, or the one of a cell, and gives them linked.
-function takeWatches(scheduler Count, service Count, cell Count) returns Count
+function takeWatches(scheduler Count, svc Count, cell Count) returns Count
 	var taken = noWatch
 	lockScheduler(scheduler)
 	var kept = noWatch
 	var watch = __Raw.loadWord(scheduler, offset: schedWatchersOffset)
 	while watch != noWatch 'list'
 		let next = __Raw.loadWord(watch, offset: watchNextOffset)
-		var mine = __Raw.loadWord(watch, offset: watchCellOffset) == cell if cell != noWatch else __Raw.loadWord(watch, offset: watchServiceOffset) == service
-		if not mine and cell == noWatch and watchedBy(watch, service: service) 'watcher'
+		var mine = __Raw.loadWord(watch, offset: watchCellOffset) == cell if cell != noWatch else __Raw.loadWord(watch, offset: watchServiceOffset) == svc
+		if not mine and cell == noWatch and watchedBy(watch, svc: svc) 'watcher'
 			// The service that a posted watch tells has ended: it is told nothing, and the watch's message is dropped.
 			setPostedMark(__Raw.wrappingSub(__Raw.loadWord(watch, offset: watchCellOffset), right: postedTag), bit: postedCancelled)
 			mine = true
@@ -1129,15 +1129,15 @@ function giveWatches(first Count)
 end 'giveWatches'
 
 // watchedBy is whether a watch is a posted one that tells the service: a record whose cown it is.
-function watchedBy(watch Count, service Count) returns bool
+function watchedBy(watch Count, svc Count) returns bool
 	let cell = __Raw.loadWord(watch, offset: watchCellOffset)
-	return (cell and postedTag) != 0 and __Raw.loadWord(__Raw.wrappingSub(cell, right: postedTag), offset: cownOffset(1, index: 0)) == service
+	return (cell and postedTag) != 0 and __Raw.loadWord(__Raw.wrappingSub(cell, right: postedTag), offset: cownOffset(1, index: 0)) == svc
 end 'watchedBy'
 
 // unwatch is the cancel of a watch's promise: its entry, if no end took it yet, is taken off and its cell given.
 function unwatch(cell Count)
 	let scheduler = __Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset)
-	giveWatches(takeWatches(scheduler, service: noService, cell: cell))
+	giveWatches(takeWatches(scheduler, svc: noService, cell: cell))
 end 'unwatch'
 
 // isWatch is whether an awaited cell is a watch's.
@@ -1191,15 +1191,15 @@ function messageOf(g Count) returns Count
 	if __Raw.loadWord(g, offset: greenKindOffset) != greenBehaviour 'task'
 		return noService
 	end 'task'
-	let service = __Raw.loadWord(g, offset: greenServiceOffset)
-	if service == noService or not isMessageOf(__Raw.loadWord(g, offset: greenArgOffset), service: service) 'other'
+	let svc = __Raw.loadWord(g, offset: greenServiceOffset)
+	if svc == noService or not isMessageOf(__Raw.loadWord(g, offset: greenArgOffset), svc: svc) 'other'
 		return noService
 	end 'other'
-	return service
+	return svc
 end 'messageOf'
 
-function isMessageOf(record Count, service Count) returns bool
-	return __Raw.loadWord(record, offset: behaviourCownCountOffset) == 1 and __Raw.loadWord(record, offset: cownOffset(1, index: 0)) == service
+function isMessageOf(record Count, svc Count) returns bool
+	return __Raw.loadWord(record, offset: behaviourCownCountOffset) == 1 and __Raw.loadWord(record, offset: cownOffset(1, index: 0)) == svc
 end 'isMessageOf'
 
 // listService lists a sender on a receiver that is behind, once, however many such receivers it sends to: it stays listed
@@ -1255,16 +1255,16 @@ end 'markAgain'
 // on its way to the queue that waits on nobody, so the service reaches the mark by running. The counts are read before the
 // started count, and a start steps the started count first (startCounted), so a start in between can make the mark
 // longer, never shorter.
-function slowedMark(service Count) returns Count
-	let ahead = countedAhead(service)
-	return __Raw.wrappingAdd(__Raw.loadAcquire(service, offset: serviceHandledOffset), right: ahead)
+function slowedMark(svc Count) returns Count
+	let ahead = countedAhead(svc)
+	return __Raw.wrappingAdd(__Raw.loadAcquire(svc, offset: serviceHandledOffset), right: ahead)
 end 'slowedMark'
 
 // countedAhead is what a mark counts ahead of a sender slowed on a service: the gate's places less the parked ones, and the
 // posted messages queued.
-function countedAhead(service Count) returns Count
-	let gate = __Raw.loadAcquire(service, offset: serviceGateOffset)
-	let posted = __Raw.loadAcquire(service, offset: servicePostedOffset)
+function countedAhead(svc Count) returns Count
+	let gate = __Raw.loadAcquire(svc, offset: serviceGateOffset)
+	let posted = __Raw.loadAcquire(svc, offset: servicePostedOffset)
 	let queued = __Raw.wrappingSub(gate and serviceQueued, right: (gate and serviceParked) / serviceParkedUnit)
 	return __Raw.wrappingAdd(queued, right: posted)
 end 'countedAhead'
@@ -1272,10 +1272,10 @@ end 'countedAhead'
 // ringMark is the mark of a sender that joins a service's ring now, under its lock: slowedMark, or the newest entry's where
 // that is later, so the marks along the ring never fall and its oldest entries are the ones a start passes first. A ring
 // that was empty makes the mark the service's release point.
-function ringMark(service Count, newest Count) returns Count
-	var mark = slowedMark(service)
+function ringMark(svc Count, newest Count) returns Count
+	var mark = slowedMark(svc)
 	if newest == noSender 'first'
-		__Raw.storeRelease(service, offset: serviceReleaseAtOffset, value: mark)
+		__Raw.storeRelease(svc, offset: serviceReleaseAtOffset, value: mark)
 		return mark
 	end 'first'
 	let before = entryMark(newest)
@@ -1294,9 +1294,9 @@ end 'entryMark'
 
 // unparkPlaces takes the places of n slowed tasks that a lock holder lets go off the gate's parked count: from then on
 // each is a place on its way to the queue.
-function unparkPlaces(service Count, n Count)
+function unparkPlaces(svc Count, n Count)
 	if n > 0 'some'
-		_ = __Raw.atomicAdd(service, offset: serviceGateOffset, value: __Raw.wrappingSub(0, right: try n * serviceParkedUnit otherwise panic("a parked count past the gate")))
+		_ = __Raw.atomicAdd(svc, offset: serviceGateOffset, value: __Raw.wrappingSub(0, right: try n * serviceParkedUnit otherwise panic("a parked count past the gate")))
 	end 'some'
 end 'unparkPlaces'
 
@@ -1325,8 +1325,8 @@ end 'parkSender'
 
 // slowsSenders is whether a service is behind or muted, read under the lock of its list, which its catching up and its
 // mute take the list under.
-function slowsSenders(service Count) returns bool
-	let gate = __Raw.loadAcquire(service, offset: serviceGateOffset)
+function slowsSenders(svc Count) returns bool
+	let gate = __Raw.loadAcquire(svc, offset: serviceGateOffset)
 	if (gate and serviceStoppedNow) != 0 'stopped'
 		return false
 	end 'stopped'
@@ -1337,12 +1337,12 @@ end 'slowsSenders'
 // queued after the message, and it is behind itself, by its turns or the length of its queue, or has senders waiting on
 // it. Its senders are slowed, so it passes on only what it holds, and it is muted once that is gone. The queue is read and
 // not the gate's count, which holds the message of a task parked at its send before it is queued.
-function drainsOn(service Count, record Count) returns bool
+function drainsOn(svc Count, record Count) returns bool
 	if queueEmpty(record) 'drained'
 		return false
 	end 'drained'
-	let gate = __Raw.loadAcquire(service, offset: serviceGateOffset)
-	return (gate and serviceBehind) != 0 or (gate and serviceQueued) >= turnBehaviours or __Raw.loadAcquire(service, offset: serviceMutedOffset) > mutedLock
+	let gate = __Raw.loadAcquire(svc, offset: serviceGateOffset)
+	return (gate and serviceBehind) != 0 or (gate and serviceQueued) >= turnBehaviours or __Raw.loadAcquire(svc, offset: serviceMutedOffset) > mutedLock
 end 'drainsOn'
 
 // queueEmpty is whether no message is queued, or being queued, after a behaviour of one cown.
@@ -1359,18 +1359,18 @@ function behaviourRelease(record Count, finish Count) returns Count
 	let context = __Raw.threadContext()
 	let g = __Raw.loadWord(context, offset: contextGreenOffset)
 	if g == noGreen 'off'
-		releaseCowns(record, service: noService)
+		releaseCowns(record, svc: noService)
 		return releaseHandedOn
 	end 'off'
-	let service = __Raw.loadWord(g, offset: greenServiceOffset)
-	if service != noService and __Raw.loadAcquire(service, offset: serviceWaitOffset) == waitListed and isMessageOf(record, service: service) 'listed'
-		if drainsOn(service, record: record) 'drains'
-			drainsBehind(service)
-		end 'drains' else if keepsRelease(context, record: record, service: service, finish: finish) 'kept'
+	let svc = __Raw.loadWord(g, offset: greenServiceOffset)
+	if svc != noService and __Raw.loadAcquire(svc, offset: serviceWaitOffset) == waitListed and isMessageOf(record, svc: svc) 'listed'
+		if drainsOn(svc, record: record) 'drains'
+			drainsBehind(svc)
+		end 'drains' else if keepsRelease(context, record: record, svc: svc, finish: finish) 'kept'
 			return releaseHeld
 		end 'kept'
 	end 'listed'
-	releaseCowns(record, service: service)
+	releaseCowns(record, svc: svc)
 	return releaseHandedOn
 end 'behaviourRelease'
 
@@ -1378,34 +1378,34 @@ end 'behaviourRelease'
 // that every send to it from then on is slowed and its senders wait for its mute: what it passes on while listed is what
 // it held as it began to drain (the consumer's bound in the header). It is set before the release that hands on the next
 // message, so no send in between finds fewer than a turn's worth.
-function drainsBehind(service Count)
-	if (__Raw.loadAcquire(service, offset: serviceGateOffset) and serviceQueued) >= turnBehaviours 'length'
-		setGateFlag(service, flag: serviceBehind)
+function drainsBehind(svc Count)
+	if (__Raw.loadAcquire(svc, offset: serviceGateOffset) and serviceQueued) >= turnBehaviours 'length'
+		setGateFlag(svc, flag: serviceBehind)
 	end 'length'
 end 'drainsBehind'
 
 // keepsRelease mutes a listed service as its message's handler ends, and says whether it did: not when the service it
 // waits on caught up first. The muted behaviour stays counted among the live ones until its finish has run. The muted flag
 // is set before the record is offered, so the unmute that takes the record clears it after.
-function keepsRelease(context Count, record Count, service Count, finish Count) returns bool
+function keepsRelease(context Count, record Count, svc Count, finish Count) returns bool
 	__Raw.storeWord(record, offset: behaviourRunOffset, value: finish)
 	stepLive(context, change: 1)
-	muteService(service)
-	if __Raw.compareExchange(service, offset: serviceWaitOffset, expected: waitListed, desired: record) == waitListed 'kept'
+	muteService(svc)
+	if __Raw.compareExchange(svc, offset: serviceWaitOffset, expected: waitListed, desired: record) == waitListed 'kept'
 		return true
 	end 'kept'
-	clearGateFlag(service, flag: serviceMuted)
+	clearGateFlag(svc, flag: serviceMuted)
 	stepLive(context, change: stepDown)
 	return false
 end 'keepsRelease'
 
 // muteService marks a service muted and lets go the senders listed on it, under its lock, so that whoever is listed on it
 // from then on was listed after its mute (the progress argument).
-function muteService(service Count)
-	let newest = lockMuted(service)
-	setGateFlag(service, flag: serviceMuted)
-	ringTaken(service, newest: newest)
-	unlockMuted(service, newest: noSender)
+function muteService(svc Count)
+	let newest = lockMuted(svc)
+	setGateFlag(svc, flag: serviceMuted)
+	ringTaken(svc, newest: newest)
+	unlockMuted(svc, newest: noSender)
 	unmuteRing(newest)
 end 'muteService'
 
@@ -1413,10 +1413,10 @@ end 'muteService'
 // release counting as its service's own messages' do, so one that empties the queue makes the service catch up, which a
 // task parked on the service while it was muted waits for; and the rest of the list its unmute was handed is unmuted.
 function behaviourResumed(record Count)
-	let service = __Raw.loadWord(record, offset: cownOffset(1, index: 0))
-	let rest = __Raw.loadWord(service, offset: serviceLinkOffset)
-	__Raw.storeWord(service, offset: serviceLinkOffset, value: noSender)
-	releaseCowns(record, service: service)
+	let svc = __Raw.loadWord(record, offset: cownOffset(1, index: 0))
+	let rest = __Raw.loadWord(svc, offset: serviceLinkOffset)
+	__Raw.storeWord(svc, offset: serviceLinkOffset, value: noSender)
+	releaseCowns(record, svc: svc)
 	if rest != noSender 'rest'
 		unmuteFrom(rest)
 	end 'rest'
@@ -1425,17 +1425,17 @@ end 'behaviourResumed'
 // markBehind makes the service whose message a turn ran last behind, when the behaviour the turn hands on is its next
 // message: the turn ended at turnBehaviours with messages still queued.
 function markBehind(g Count, record Count)
-	let service = __Raw.loadWord(g, offset: greenServiceOffset)
-	if service != noService and isMessageOf(record, service: service) 'next'
-		setGateFlag(service, flag: serviceBehind)
+	let svc = __Raw.loadWord(g, offset: greenServiceOffset)
+	if svc != noService and isMessageOf(record, svc: svc) 'next'
+		setGateFlag(svc, flag: serviceBehind)
 	end 'next'
 end 'markBehind'
 
 // releasedIdle is what the release that empties a service's queue does: it catches up, and a closed one has ended.
-function releasedIdle(service Count)
-	caughtUpIfSlowing(service)
-	if __Raw.loadAcquire(service, offset: serviceGateOffset) >= serviceClosed 'closed'
-		endedIfClosed(service)
+function releasedIdle(svc Count)
+	caughtUpIfSlowing(svc)
+	if __Raw.loadAcquire(svc, offset: serviceGateOffset) >= serviceClosed 'closed'
+		endedIfClosed(svc)
 	end 'closed'
 end 'releasedIdle'
 
@@ -1445,24 +1445,24 @@ end 'releasedIdle'
 // into a full queue. A message queued since holds the tail, and the release that next finds the queue empty catches up,
 // or a start passes the marks of its senders (takeProgress). An empty queue is where every mark is passed but those that
 // count a place still on its way to the queue.
-function caughtUpIfSlowing(service Count)
-	if (__Raw.loadAcquire(service, offset: serviceGateOffset) and serviceBehind) != 0 or __Raw.loadAcquire(service, offset: serviceMutedOffset) != noSender 'slowing'
-		let newest = lockMuted(service)
-		if __Raw.loadAcquire(service, offset: cownTailOffset) != notQueued 'refilled'
-			unlockMuted(service, newest: newest)
+function caughtUpIfSlowing(svc Count)
+	if (__Raw.loadAcquire(svc, offset: serviceGateOffset) and serviceBehind) != 0 or __Raw.loadAcquire(svc, offset: serviceMutedOffset) != noSender 'slowing'
+		let newest = lockMuted(svc)
+		if __Raw.loadAcquire(svc, offset: cownTailOffset) != notQueued 'refilled'
+			unlockMuted(svc, newest: newest)
 			return
 		end 'refilled'
-		clearGateFlag(service, flag: serviceBehind)
-		ringTaken(service, newest: newest)
-		unlockMuted(service, newest: noSender)
+		clearGateFlag(svc, flag: serviceBehind)
+		ringTaken(svc, newest: newest)
+		unlockMuted(svc, newest: noSender)
 		unmuteRing(newest)
 	end 'slowing'
 end 'caughtUpIfSlowing'
 
 // ringTaken is what a lock holder that takes a service's whole ring off does under the lock: the places of the tasks on it
 // are no longer parked, and no mark is left to reach.
-function ringTaken(service Count, newest Count)
-	__Raw.storeRelease(service, offset: serviceReleaseAtOffset, value: noMark)
+function ringTaken(svc Count, newest Count)
+	__Raw.storeRelease(svc, offset: serviceReleaseAtOffset, value: noMark)
 	if newest == noSender 'empty'
 		return
 	end 'empty'
@@ -1477,21 +1477,21 @@ function ringTaken(service Count, newest Count)
 			break 'ring'
 		end 'round'
 	end 'ring'
-	unparkPlaces(service, n: tasks)
+	unparkPlaces(svc, n: tasks)
 end 'ringTaken'
 
 // takeProgress is what the holder of a service does at a start that has reached the release point: under the lock it lets go,
 // oldest first, the senders whose marks the service's started count has passed, and makes the next one's mark the release
 // point, or noMark where none is left. The marks never fall along the ring (ringMark), so those passed are the oldest. The
 // decision is the lock holder's, on the started count, which only grows: no sender is let go on a count that was past.
-function takeProgress(service Count)
-	let newest = lockMuted(service)
+function takeProgress(svc Count)
+	let newest = lockMuted(svc)
 	if newest == noSender 'none'
-		__Raw.storeRelease(service, offset: serviceReleaseAtOffset, value: noMark)
-		unlockMuted(service, newest: newest)
+		__Raw.storeRelease(svc, offset: serviceReleaseAtOffset, value: noMark)
+		unlockMuted(svc, newest: newest)
 		return
 	end 'none'
-	let handled = __Raw.loadWord(service, offset: serviceHandledOffset)
+	let handled = __Raw.loadWord(svc, offset: serviceHandledOffset)
 	let oldest = senderLink(newest)
 	var last = noSender
 	var entry = oldest
@@ -1507,19 +1507,19 @@ function takeProgress(service Count)
 		entry = senderLink(entry)
 	end 'passed'
 	if last == noSender 'early'
-		__Raw.storeRelease(service, offset: serviceReleaseAtOffset, value: entryMark(oldest))
-		unlockMuted(service, newest: newest)
+		__Raw.storeRelease(svc, offset: serviceReleaseAtOffset, value: entryMark(oldest))
+		unlockMuted(svc, newest: newest)
 		return
 	end 'early'
-	unparkPlaces(service, n: tasks)
+	unparkPlaces(svc, n: tasks)
 	if last == newest 'whole'
-		__Raw.storeRelease(service, offset: serviceReleaseAtOffset, value: noMark)
-		unlockMuted(service, newest: noSender)
+		__Raw.storeRelease(svc, offset: serviceReleaseAtOffset, value: noMark)
+		unlockMuted(svc, newest: noSender)
 	end 'whole' else 'part'
 		let next = senderLink(last)
 		setSenderLink(newest, link: next)
-		__Raw.storeRelease(service, offset: serviceReleaseAtOffset, value: entryMark(next))
-		unlockMuted(service, newest: newest)
+		__Raw.storeRelease(svc, offset: serviceReleaseAtOffset, value: entryMark(next))
+		unlockMuted(svc, newest: newest)
 	end 'part'
 	setSenderLink(last, link: noSender)
 	unmuteFrom(oldest)
@@ -1545,15 +1545,15 @@ function unmuteFrom(first Count)
 		let next = senderLink(entry)
 		var queued = true
 		if (entry and senderService) != 0 'service'
-			let service = __Raw.wrappingSub(entry, right: senderService)
-			let kept = __Raw.compareExchange(service, offset: serviceWaitOffset, expected: waitListed, desired: waitNone)
+			let svc = __Raw.wrappingSub(entry, right: senderService)
+			let kept = __Raw.compareExchange(svc, offset: serviceWaitOffset, expected: waitListed, desired: waitNone)
 			if kept == waitListed 'running'
 				queued = false
 			end 'running' else 'muted'
-				__Raw.storeWord(service, offset: serviceWaitOffset, value: waitNone)
-				clearGateFlag(service, flag: serviceMuted)
+				__Raw.storeWord(svc, offset: serviceWaitOffset, value: waitNone)
+				clearGateFlag(svc, flag: serviceMuted)
 				woken = __Raw.wrappingAdd(woken, right: 1)
-				__Raw.storeWord(service, offset: serviceLinkOffset, value: next if woken == turnBehaviours else noSender)
+				__Raw.storeWord(svc, offset: serviceLinkOffset, value: next if woken == turnBehaviours else noSender)
 				onGlobalQueue(context, entry: behaviourEntry(kept))
 			end 'muted'
 		end 'service' else 'task'
@@ -1582,10 +1582,10 @@ end 'onGlobalQueue'
 
 // lockMuted takes the lock of a service's list of slowed senders and gives the ring's newest entry; only its holder
 // changes the ring, and unlockMuted lets it go with the newest entry it leaves.
-function lockMuted(service Count) returns Count
+function lockMuted(svc Count) returns Count
 	while true 'lock'
-		let word = __Raw.loadAcquire(service, offset: serviceMutedOffset)
-		if (word and mutedLock) == 0 and __Raw.compareExchange(service, offset: serviceMutedOffset, expected: word, desired: __Raw.wrappingAdd(word, right: mutedLock)) == word 'taken'
+		let word = __Raw.loadAcquire(svc, offset: serviceMutedOffset)
+		if (word and mutedLock) == 0 and __Raw.compareExchange(svc, offset: serviceMutedOffset, expected: word, desired: __Raw.wrappingAdd(word, right: mutedLock)) == word 'taken'
 			return word
 		end 'taken'
 		__Raw.spinPause()
@@ -1593,8 +1593,8 @@ function lockMuted(service Count) returns Count
 	return noSender
 end 'lockMuted'
 
-function unlockMuted(service Count, newest Count)
-	__Raw.storeRelease(service, offset: serviceMutedOffset, value: newest)
+function unlockMuted(svc Count, newest Count)
+	__Raw.storeRelease(svc, offset: serviceMutedOffset, value: newest)
 end 'unlockMuted'
 
 // ringAdd adds an entry after the newest of a ring, as the newest, and gives it.
@@ -1624,10 +1624,10 @@ function setSenderLink(entry Count, link Count)
 end 'setSenderLink'
 
 // setGateFlag and clearGateFlag set and clear a flag of a service's gate, beside the sends that step its count.
-function setGateFlag(service Count, flag Count)
-	var gate = __Raw.loadAcquire(service, offset: serviceGateOffset)
+function setGateFlag(svc Count, flag Count)
+	var gate = __Raw.loadAcquire(svc, offset: serviceGateOffset)
 	while (gate and flag) == 0 'set'
-		let seen = __Raw.compareExchange(service, offset: serviceGateOffset, expected: gate, desired: __Raw.wrappingAdd(gate, right: flag))
+		let seen = __Raw.compareExchange(svc, offset: serviceGateOffset, expected: gate, desired: __Raw.wrappingAdd(gate, right: flag))
 		if seen == gate 'done'
 			return
 		end 'done'
@@ -1635,10 +1635,10 @@ function setGateFlag(service Count, flag Count)
 	end 'set'
 end 'setGateFlag'
 
-function clearGateFlag(service Count, flag Count)
-	var gate = __Raw.loadAcquire(service, offset: serviceGateOffset)
+function clearGateFlag(svc Count, flag Count)
+	var gate = __Raw.loadAcquire(svc, offset: serviceGateOffset)
 	while (gate and flag) != 0 'clear'
-		let seen = __Raw.compareExchange(service, offset: serviceGateOffset, expected: gate, desired: __Raw.wrappingSub(gate, right: flag))
+		let seen = __Raw.compareExchange(svc, offset: serviceGateOffset, expected: gate, desired: __Raw.wrappingSub(gate, right: flag))
 		if seen == gate 'done'
 			return
 		end 'done'

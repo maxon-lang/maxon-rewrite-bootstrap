@@ -86,3 +86,7 @@ test 'a keyword as a name'
 	let edits = try keywordEdits(sourceOf(text.clone(), path: "names.maxon"), old: "with", replacement: "using", errs: errs) otherwise panic("a keyword as a name: the lexer refused the program")
 	table.assertEqStr(applyEdits(text, edits: edits), expected: "function with(extension Count) returns Count\n\treturn extension\nend 'with'\n\ntypealias Counts = Array using Count\n", label: "a rename of a keyword leaves the names it spells")
 end 'a keyword as a name'
+
+test 'a service keeps its block'
+	expectLayout("a service laid out as a type is", input: "export   service Ledger  implements   Ends\n\tvar total as Count\n\tstatic function create() returns Self\n\t\treturn make(0,1)\n\tend 'create'\nend 'Ledger'\n", expected: "export service Ledger implements Ends\n\tvar total as Count\n\n\tstatic function create() returns Self\n\t\treturn make(0, 1)\n\tend 'create'\nend 'Ledger'\n")
+end 'a service keeps its block'

@@ -852,7 +852,7 @@ export let libraryRangeModule = "range"
 export let libraryHelpersModule = "_helpers"
 
 // libraryServiceModule declares the overload policies, which a message's '@policy' names and its send calls.
-export let libraryServiceModule = "service"
+export let libraryServiceModule = "services"
 
 // isLibraryModule is whether the module of the id is one of the standard library's.
 export function isLibraryModule(p Project, modID diag.ModuleID) returns bool

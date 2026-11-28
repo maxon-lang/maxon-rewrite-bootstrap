@@ -37,6 +37,11 @@ function methodNamesOf(xd ExtensionDecl) returns StringList
 	return names
 end 'methodNamesOf'
 
+// typeDeclKeyword is the word that opens a type declaration: `service` for a service, `type` for any other.
+export function typeDeclKeyword(td TypeDecl) returns String
+	return "service" if td.isService else "type"
+end 'typeDeclKeyword'
+
 // typeMethodNamesOf are the names of the methods that a type declares and another module may call.
 function typeMethodNamesOf(td TypeDecl) returns StringList
 	var names = StringList.create(0)
@@ -89,7 +94,7 @@ export union Decl
 		return match self 'd'
 			funcDecl(_) gives "function"
 			constDecl(_) gives "let"
-			typeDecl(_) gives "type"
+			typeDecl(v) gives typeDeclKeyword(v)
 			enumDecl(_) gives "enum"
 			unionDecl(_) gives "union"
 			aliasDecl(_) gives "typealias"

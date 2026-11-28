@@ -2575,7 +2575,7 @@ export function rawCallInstead(b Builtins, owner TypeID, name String) returns ta
 			return table.Option.some("a PostedMessage's cancel()")
 		end 'postedCancel'
 		if name == "timerNew" 'timerNew'
-			return table.Option.some("service.Timer.notifyAfter(ms, message: m)")
+			return table.Option.some("services.Timer.notifyAfter(ms, message: m)")
 		end 'timerNew'
 		if name == "timerRearm" 'timerRearm'
 			return table.Option.some("a Timer's rearm(ms, message: m) or a Ticker's reset(period, message: m)")

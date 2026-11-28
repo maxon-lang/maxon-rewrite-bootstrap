@@ -28,11 +28,11 @@ end 'expectOracle'
 function mainSending(mutates p ast.Project, body ir.IrFunction, places Count) returns ir.IrFunction
 	var b = Fn.new(p, name: "main", convs: ir.convs0())
 	let state = b.alloc(1)
-	let service = b.runtime(ir.Rt.rtServiceNew, kind: ir.IrKind.kindManaged, args: ir.regs1(state))
+	let svc = b.runtime(ir.Rt.rtServiceNew, kind: ir.IrKind.kindManaged, args: ir.regs1(state))
 	for i in 0 upto places 'places'
-		_ = b.runtime(ir.Rt.rtServiceReserve, kind: ir.IrKind.kindScalar, args: ir.regs1(service))
+		_ = b.runtime(ir.Rt.rtServiceReserve, kind: ir.IrKind.kindScalar, args: ir.regs1(svc))
 	end 'places'
-	b.schedule(body.clone(), cowns: ir.regs1(service), captures: ir.RegList.create(0))
+	b.schedule(body.clone(), cowns: ir.regs1(svc), captures: ir.RegList.create(0))
 	let zero = b.konst(0)
 	return b.ret(zero)
 end 'mainSending'
@@ -72,9 +72,9 @@ test 'a run that backpressure alone holds fails progress'
 	var p = ir.irProject()
 	var b = Fn.new(p, name: "main", convs: ir.convs0())
 	let state = b.alloc(1)
-	let service = b.runtime(ir.Rt.rtServiceNew, kind: ir.IrKind.kindManaged, args: ir.regs1(state))
-	_ = b.runtime(ir.Rt.rtServiceReserve, kind: ir.IrKind.kindScalar, args: ir.regs1(service))
-	_ = b.runtime(ir.Rt.rtServiceReserve, kind: ir.IrKind.kindScalar, args: ir.regs1(service))
+	let svc = b.runtime(ir.Rt.rtServiceNew, kind: ir.IrKind.kindManaged, args: ir.regs1(state))
+	_ = b.runtime(ir.Rt.rtServiceReserve, kind: ir.IrKind.kindScalar, args: ir.regs1(svc))
+	_ = b.runtime(ir.Rt.rtServiceReserve, kind: ir.IrKind.kindScalar, args: ir.regs1(svc))
 	let zero = b.konst(0)
 	let out = runOracles(p, main: b.ret(zero), others: ir.IrFunctionList.create(0), seed: 0)
 	expectOracle("held", out: out, oracle: oracleProgress, fragment: "every task parked at a send")
@@ -97,21 +97,21 @@ test 'the queue bound follows the shape of the senders'
 	_ = d.pairOf(taskSender(1), to: 7)
 	_ = d.pairOf(serviceSender(7), to: 8)
 	_ = d.pairOf(taskSender(2), to: 9)
-	let relay = queueBound(d, service: 7, turn: turn)
-	let consumer = queueBound(d, service: 8, turn: turn)
-	let leaf = queueBound(d, service: 9, turn: turn)
+	let relay = queueBound(d, svc: 7, turn: turn)
+	let consumer = queueBound(d, svc: 8, turn: turn)
+	let leaf = queueBound(d, svc: 9, turn: turn)
 	if not relay.isSome() or relay.unwrap() != turn + 2 or not consumer.isSome() or consumer.unwrap() != 2 * turn + 4 or not leaf.isSome() or leaf.unwrap() != turn + 1 'wrong'
 		panic("the bounds of a relay, its consumer and a leaf of one task are wrong")
 	end 'wrong'
 	// Past a turn's worth of tasks, each can hold a place unqueued as the leaf's queue empties.
 	_ = d.pairOf(taskSender(1), to: 9)
-	let two = queueBound(d, service: 9, turn: turn)
-	let short = queueBound(d, service: 9, turn: 1)
+	let two = queueBound(d, svc: 9, turn: turn)
+	let short = queueBound(d, svc: 9, turn: 1)
 	if not two.isSome() or two.unwrap() != turn + 2 or not short.isSome() or short.unwrap() != 4 'tasks'
 		panic("the bounds of a leaf of two tasks with a turn of 3 and of 1 are not 5 and 4")
 	end 'tasks'
 	_ = d.pairOf(taskSender(2), to: 8)
-	if queueBound(d, service: 8, turn: turn).isSome() 'stated'
+	if queueBound(d, svc: 8, turn: turn).isSome() 'stated'
 		panic("a consumer that a task sends to beside the relay has a bound")
 	end 'stated'
 end 'the queue bound follows the shape of the senders'
@@ -126,17 +126,17 @@ test 'a relay whose handler sends many leaves its consumer without a bound'
 	let relayed = d.pairOf(serviceSender(7), to: 8)
 	_ = d.send(relayed, from: 4)
 	_ = d.send(relayed, from: 6)
-	let single = queueBound(d, service: 8, turn: turn)
+	let single = queueBound(d, svc: 8, turn: turn)
 	if not single.isSome() or single.unwrap() != 2 * turn + 4 'single'
 		panic("the consumer of a relay that sends one message per handler has no bound of two turns and 4")
 	end 'single'
 	for i in 0 upto 3 'many'
 		_ = d.send(relayed, from: 5)
 	end 'many'
-	if d.sendsPerHandler(serviceSender(7), to: 8) != 3 or queueBound(d, service: 8, turn: turn).isSome() 'stated'
+	if d.sendsPerHandler(serviceSender(7), to: 8) != 3 or queueBound(d, svc: 8, turn: turn).isSome() 'stated'
 		panic("the consumer of a relay whose handler sends three messages has a bound")
 	end 'stated'
-	if not queueBound(d, service: 7, turn: turn).isSome() 'relay'
+	if not queueBound(d, svc: 7, turn: turn).isSome() 'relay'
 		panic("the relay lost its own bound")
 	end 'relay'
 end 'a relay whose handler sends many leaves its consumer without a bound'

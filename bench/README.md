@@ -67,7 +67,7 @@ Go's none, and a wake's round trip is p50 67 µs, p99 101 µs for minimaxon and 
 
 ## timers: service timers
 
-What a service timer (`stdlib/service/Timer.maxon`) costs on the timers' heaps, a 4-ary heap of 16-byte slots for each
+What a service timer (`stdlib/services/Timer.maxon`) costs on the timers' heaps, a 4-ary heap of 16-byte slots for each
 processor under the processor's timers' lock (`runtime/timers.maxon`), against Go's `time.AfterFunc`, `Reset` and `Stop` on its per-P heaps
 (out/dev/timers-design.md §5, "Measurement plan").
 

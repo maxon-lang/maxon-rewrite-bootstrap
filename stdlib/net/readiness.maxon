@@ -28,12 +28,12 @@ end 'AcceptAttempt'
 
 public extension TcpClient
 	/// Post `message` to its service once the connection may have bytes to read, or has ended: once, until it is armed again.
-	public function notifyReadable(mutates self, consumes message service.PostedMessage)
+	public function notifyReadable(mutates self, consumes message services.PostedMessage)
 		__Builtins.socketNotify(socket.word, readMode, message.registered())
 	end 'notifyReadable'
 
 	/// Post `message` to its service once the connection may take bytes again: once, until it is armed again.
-	public function notifyWritable(mutates self, consumes message service.PostedMessage)
+	public function notifyWritable(mutates self, consumes message services.PostedMessage)
 		__Builtins.socketNotify(socket.word, writeMode, message.registered())
 	end 'notifyWritable'
 
@@ -75,7 +75,7 @@ end 'TcpClient'
 
 public extension TcpListener
 	/// Post `message` to its service once a connection may be waiting to be accepted: once, until it is armed again.
-	public function notifyAcceptable(mutates self, consumes message service.PostedMessage)
+	public function notifyAcceptable(mutates self, consumes message services.PostedMessage)
 		__Builtins.socketNotify(socket.word, readMode, message.registered())
 	end 'notifyAcceptable'
 

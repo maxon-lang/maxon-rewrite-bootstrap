@@ -1,0 +1,7 @@
+// A service of another module is held to its rules where it is declared, once: this spawn of it reports nothing of its own.
+function main() returns ExitCode
+	let peer = spawn lib.Peer.create()
+	let asker = spawn lib.Asker.create()
+	try asker.ask(peer.clone()) otherwise ignore
+	return 0
+end 'main'

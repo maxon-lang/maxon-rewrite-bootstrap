@@ -1,0 +1,21 @@
+// A service is checked at its declaration, whether or not a module spawns it: the type a message's '@policy' names
+// implements OverloadPolicy.
+export typealias Amount = int(0 to 1000000)
+
+service Sink
+	var seen as Amount
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	@policy(Amount) export function take(mutates self, n Amount)
+		self.seen = n
+	end 'take'
+end 'Sink'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3947 at 12:10

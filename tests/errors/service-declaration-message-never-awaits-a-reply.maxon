@@ -1,0 +1,33 @@
+// A service is checked at its declaration, whether or not a module spawns it: a message that awaits a reply from another
+// service would hold its own service while it waits.
+export typealias Amount = int(0 to 1000000)
+
+service Peer
+	var n as Amount
+
+	static function create() returns Self
+		return Self{n: 1}
+	end 'create'
+
+	export function value() returns Amount
+		return self.n
+	end 'value'
+end 'Peer'
+
+service Asker
+	var got as Amount
+
+	static function create() returns Self
+		return Self{got: 0}
+	end 'create'
+
+	export function ask(mutates self, peer Peer.handle)
+		self.got = try await peer.value() otherwise 0
+	end 'ask'
+end 'Asker'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3221 at 24:2

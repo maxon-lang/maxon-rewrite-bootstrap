@@ -34,7 +34,7 @@ export type StandIn
 end 'StandIn'
 
 union ConnTimer
-	armed(timer service.Timer)
+	armed(timer services.Timer)
 	none
 end 'ConnTimer'
 
@@ -59,7 +59,7 @@ let KeptAliveField = "Connection: keep-alive\r\n"
 
 let ClosingField = "Connection: close\r\n"
 
-export type Conn implements service.Ends
+export type Conn implements services.Ends
 	var client as net.TcpClient
 	let handler as frozen with StandIn
 	let config as frozen with ServerConfig
@@ -77,7 +77,7 @@ export type Conn implements service.Ends
 	end 'create'
 
 	/// Arm the socket for the first request, and its head deadline.
-	@policy(service.Keep) export function begin(mutates self)
+	@policy(services.Keep) export function begin(mutates self)
 		self.arm(self.config.headDeadlineMs.clone(), me: self.handle)
 		self.client.notifyReadable(self.handle.post(Conn.Message.readable))
 	end 'begin'
@@ -126,7 +126,7 @@ export type Conn implements service.Ends
 	end 'stopGracefully'
 
 	/// The server's stop deadline has passed: close now.
-	@policy(service.Keep) export function closeNow(mutates self)
+	@policy(services.Keep) export function closeNow(mutates self)
 		self.close()
 		self.stop()
 	end 'closeNow'
@@ -346,7 +346,7 @@ export type Conn implements service.Ends
 	end 'sendHead'
 
 	function arm(mutates self, ms net.SocketDeadlineMs, me Conn.handle)
-		let old = exchange(self.timer, value: ConnTimer.armed(service.Timer.notifyAfter(timerMsOf(ms), message: me.post(Conn.Message.timedOut))))
+		let old = exchange(self.timer, value: ConnTimer.armed(services.Timer.notifyAfter(timerMsOf(ms), message: me.post(Conn.Message.timedOut))))
 		match consumes old 'old'
 			armed(t) then t.cancel()
 			none then return

@@ -279,23 +279,23 @@ end 'beginBehaviour'
 
 // finishBehaviour releases the cowns of a behaviour that has run, unless backpressure mutes it (keepMuted).
 function finishBehaviour(mutates vm Vm, b Count) throws Halt
-	let service = vm.threads[vm.cur].service
-	if mutes(vm, b: b, service: service) 'muted'
-		let kept = try keepMuted(vm, b: b, service: service)
+	let svc = vm.threads[vm.cur].svc
+	if mutes(vm, b: b, svc: svc) 'muted'
+		let kept = try keepMuted(vm, b: b, svc: svc)
 		if kept 'kept'
 			return
 		end 'kept'
 	end 'muted'
-	if service != 0 and isMessageOf(vm, b: b, service: service) 'message'
-		drainsBehind(vm.h.shareds[vm.h.oData[service]], turn: vm.turnLimit)
+	if svc != 0 and isMessageOf(vm, b: b, svc: svc) 'message'
+		drainsBehind(vm.h.shareds[vm.h.oData[svc]], turn: vm.turnLimit)
 	end 'message'
-	try releaseBehaviour(vm, b: b, service: service)
+	try releaseBehaviour(vm, b: b, svc: svc)
 end 'finishBehaviour'
 
 // releaseBehaviour gives back the cowns of a behaviour: the next behaviour in each queue may now start, and the count the
 // behaviour held on each is given back, which frees a cown that nothing else refers to. service is the service whose message
 // the behaviour is, or 0, whose turn the release counts (countTurn).
-function releaseBehaviour(mutates vm Vm, b Count, service Count) throws Halt
+function releaseBehaviour(mutates vm Vm, b Count, svc Count) throws Halt
 	for i in 0 upto vm.behaviours.cowns[b].count() 'cowns'
 		let c = vm.behaviours.cowns[b][i]
 		let at = vm.h.oData[c]
@@ -304,9 +304,9 @@ function releaseBehaviour(mutates vm Vm, b Count, service Count) throws Halt
 		end 'order'
 		try vm.h.shareds[at].queue.remove(0) otherwise ignore
 		vm.h.shareds[at].running = 0
-		if c == service 'message'
-			try countTurn(vm, service: c)
-			endedIfClosed(vm, service: c)
+		if c == svc 'message'
+			try countTurn(vm, svc: c)
+			endedIfClosed(vm, svc: c)
 		end 'message'
 		try unref(vm, o: c)
 	end 'cowns'

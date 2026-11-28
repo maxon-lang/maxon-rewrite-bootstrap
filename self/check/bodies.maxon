@@ -33,9 +33,15 @@ function checkDeclBody(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	end 'k'
 end 'checkDeclBody'
 
+// checkRecordBody checks a type: its fields' defaults and the whole of it (checkNominalBody), then, where it is a `service`
+// that the whole of it left no error on, the rules of a service, once, here (checkServiceDecl).
 function checkRecordBody(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, td ast.TypeDecl, tid ast.TypeID, mutates errs diag.ErrorList)
+	let mark = errs.count()
 	checkFieldDefaults(c, p: p, ms: ms, tid: tid, errs: errs)
 	checkNominalBody(c, p: p, ms: ms, id: td.id, tid: tid, errs: errs)
+	if td.isService and not failedSince(errs, mark: mark) 'service'
+		checkServiceDecl(c, p: p, ms: ms, td: td, tid: tid, errs: errs)
+	end 'service'
 end 'checkRecordBody'
 
 // checkNominalBody checks a type or a union as a whole: that it does not contain itself, that a cown cannot reach itself
