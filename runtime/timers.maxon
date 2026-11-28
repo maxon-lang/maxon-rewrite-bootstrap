@@ -439,7 +439,14 @@ function timerArm(context Count, timer Count, record Count, due Count, period Co
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	setPostedMark(record, bit: postedOnTimer)
 	__Raw.storeWord(record, offset: postedTimerOffset(), value: timer)
-	armedListAdd(__Raw.loadWord(record, offset: cownOffset(1, index: 0)), record: record)
+	if not armedListAdd(__Raw.loadWord(record, offset: cownOffset(1, index: 0)), record: record) 'ended'
+		// The service has ended (armedEnded): the record, never listed and so seen by no end, is cancelled; it leaves the timer
+		// as it was and names it no more, and is queued at once, so its thunk drops what it holds and nothing runs.
+		clearPostedMark(record, bit: postedOnTimer)
+		__Raw.storeWord(record, offset: postedTimerOffset(), value: 0)
+		postedQueue(record)
+		return
+	end 'ended'
 	lockTimers(scheduler)
 	lockTimer(timer)
 	__Raw.storeWord(timer, offset: timerHoldsOffset, value: __Raw.wrappingAdd(__Raw.loadWord(timer, offset: timerHoldsOffset), right: 1))
