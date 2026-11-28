@@ -1,0 +1,70 @@
+// The pipelining benchmark (bench/README.md, "http"): what a connection of the library's server costs a request when many
+// come in one write (pipelined, RFC 9112 §9.3.2), against Go's net/http server (bench/http/gobench pipeline).
+//
+//	pipeline <rounds> <requests>...
+//
+// For each count of requests, a client on the loopback sends that many small GETs in one write on one kept connection and
+// reads their answers, rounds times, and prints `result pipeline-<requests> <ns a request>`. A connection reads the
+// requests where they lie in the bytes that have come, so the cost of a request does not grow with how many share a write.
+typealias Rounds = int(1 to 100000000)
+
+let Request = "GET /p HTTP/1.1\r\nHost: a\r\n\r\n"
+
+function digits(text String) returns Count
+	var value = 0 as Count
+	for i in 0 upto text.byteLength() 'each'
+		let digit = try (text.byteAt(i) as Count) - 48 otherwise return 0
+		if digit > 9 'other'
+			return 0
+		end 'other'
+		value = try value * 10 + digit otherwise return 0
+	end 'each'
+	return value
+end 'digits'
+
+// readBytes reads until `wanted` bytes have come, and gives how many did.
+function readBytes(mutates client TcpClient, wanted Count) returns Count
+	var got = 0 as Count
+	while got < wanted 'reading'
+		let chunk = try client.readSome(65536) otherwise return got
+		if chunk.isEmpty() 'closed'
+			return got
+		end 'closed'
+		got = try got + chunk.count() otherwise return got
+	end 'reading'
+	return got
+end 'readBytes'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	let rounds = try digits(args[1].clone() if args.count() > 1 else "0") as Rounds otherwise 1000
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("bench: a server on the loopback")
+	let port = server.port()
+	let serving = server.serve(ServerConfig.create())
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("bench: a connection to the server")
+	try client.setReadDeadline(10000) otherwise ignore
+	// One request first, to learn the length of an answer.
+	_ = try client.send(Request) otherwise 0
+	let first = try client.readSome(4096) otherwise panic("bench: the first answer")
+	let answerBytes = first.count()
+	for a in 2 upto args.count() 'counts'
+		let requests = digits(args[a])
+		var batch = ""
+		for _ in 0 upto requests 'build'
+			batch = "{batch}{Request}"
+		end 'build'
+		let wanted = try answerBytes * requests otherwise panic("bench: the answers past memory")
+		var sum = 0 as Count
+		let started = Clock.nowNanos()
+		for _ in 0 upto rounds as Count 'rounds'
+			_ = try client.send(batch) otherwise 0
+			sum = try sum + readBytes(client, wanted: wanted) otherwise 0
+		end 'rounds'
+		let took = try Clock.nowNanos() - started otherwise 0
+		let each = try (rounds as Count) * requests otherwise 1
+		print("result pipeline-{requests} {took / (each if each > 0 else 1)} ns  (sum {sum})\n")
+	end 'counts'
+	try client.close() otherwise ignore
+	serving.stop(1000)
+	return 0
+end 'main'

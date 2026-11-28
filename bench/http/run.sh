@@ -11,12 +11,14 @@
 # nothing runs inside its tree.
 set -e
 cd "$(dirname "$0")/../.."
-: "${ROUNDS:=100000}" "${COMPILER:=bin/minimaxon}" "${MAXON:=$HOME/Dev/maxon/maxon-bin/.maxon/maxon}"
+: "${ROUNDS:=100000}" "${PIPELINE_ROUNDS:=200}" "${COMPILER:=bin/minimaxon}" "${MAXON:=$HOME/Dev/maxon/maxon-bin/.maxon/maxon}"
 root=$(pwd)
 "$COMPILER" build bench/http/codec.maxon -o bin/http-codec
+"$COMPILER" build bench/http/pipeline.maxon -o bin/http-pipeline
 go build -o bin/http-gobench ./bench/http/gobench
 echo "== minimaxon"
 bin/http-codec "$ROUNDS" < /dev/null
+bin/http-pipeline "$PIPELINE_ROUNDS" 1 10 100 1000 < /dev/null
 if [ -x "$MAXON" ]; then
 	work=$(mktemp -d "${TMPDIR:-/tmp}/http-bench-maxon.XXXXXX")
 	cp bench/http/maxon/codec.maxon "$work/main.maxon"
@@ -27,3 +29,4 @@ if [ -x "$MAXON" ]; then
 fi
 echo "== go"
 bin/http-gobench "$ROUNDS" < /dev/null
+bin/http-gobench pipeline "$PIPELINE_ROUNDS" 1 10 100 1000 < /dev/null

@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -72,7 +73,62 @@ func lane(name string, rounds int, started time.Time, sum int) {
 	fmt.Printf("result %s %d ns  (sum %d)\n", name, time.Since(started).Nanoseconds()/int64(rounds), sum)
 }
 
+// pipeline is the baseline of bench/http/pipeline.maxon: net/http's server on the loopback, answering each GET with its
+// request line, and a client that sends n requests in one write on one kept connection and reads their n answers, rounds
+// times for each n.
+func pipeline(args []string) {
+	rounds, _ := strconv.Atoi(args[0])
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		panic(err)
+	}
+	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte(r.Method + " " + r.URL.RequestURI() + " " + r.Proto))
+	})}
+	go server.Serve(ln)
+	conn, err := net.Dial("tcp", ln.Addr().String())
+	if err != nil {
+		panic(err)
+	}
+	const request = "GET /p HTTP/1.1\r\nHost: a\r\n\r\n"
+	buf := make([]byte, 65536)
+	for _, arg := range args[1:] {
+		n, _ := strconv.Atoi(arg)
+		batch := []byte(strings.Repeat(request, n))
+		sum, started := 0, time.Now()
+		for range rounds {
+			if _, err := conn.Write(batch); err != nil {
+				panic(err)
+			}
+			// Each answer ends with its body, the request line.
+			seen, tail := 0, []byte{}
+			for seen < n {
+				k, err := conn.Read(buf)
+				if err != nil {
+					panic(err)
+				}
+				tail = append(tail, buf[:k]...)
+				c := bytes.Count(tail, []byte("GET /p HTTP/1.1"))
+				seen += c
+				if c > 0 {
+					tail = tail[bytes.LastIndex(tail, []byte("GET /p HTTP/1.1"))+15:]
+				}
+				sum += k
+			}
+		}
+		perRequest := time.Since(started).Nanoseconds() / int64(rounds*n)
+		fmt.Printf("result pipeline-%d %d ns  (sum %d)\n", n, perRequest, sum)
+	}
+	conn.Close()
+	server.Close()
+}
+
 func main() {
+	if len(os.Args) > 2 && os.Args[1] == "pipeline" {
+		pipeline(os.Args[2:])
+		return
+	}
 	rounds := 100000
 	if len(os.Args) > 1 {
 		rounds, _ = strconv.Atoi(os.Args[1])

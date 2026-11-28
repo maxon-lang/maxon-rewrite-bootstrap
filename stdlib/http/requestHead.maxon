@@ -143,11 +143,12 @@ type FieldFacts
 	end 'none'
 end 'FieldFacts'
 
-/// Read a request's head out of `bytes`, from their start: at most `maxHead` bytes of head, `maxLine` of request line and
-/// `maxFields` field lines, each past it a 431.
-public function parseRequestHead(bytes ByteArray, maxHead Count, maxLine Count, maxFields Count) returns HeadParse
+/// Read a request's head out of `bytes`, from `from`, where the bytes before it are those of requests already read (a
+/// connection's pipelined requests are read in place, one after another): at most `maxHead` bytes of head, `maxLine` of
+/// request line and `maxFields` field lines, each past it a 431. `through` is where the head ends in `bytes`.
+public function parseRequestHead(bytes ByteArray, from Count, maxHead Count, maxLine Count, maxFields Count) returns HeadParse
 	let count = bytes.count()
-	var start = 0 as Count
+	var start = from
 	var skipped = 0 as Count
 	while skipped < MostLeadingEmptyLines and (try start + 1 otherwise panic("out of range")) < count and bytes[start] == CarriageReturn and bytes[try start + 1 otherwise panic("out of range")] == LineFeed 'leading'
 		start = try start + 2 otherwise panic("out of range")
@@ -267,8 +268,16 @@ public function parseRequestHead(bytes ByteArray, maxHead Count, maxLine Count, 
 	end 'expectation'
 	let framing = BodyFraming.length(facts.length) if facts.contentLengths > 0 and facts.length > 0 else BodyFraming.none
 	let closes = facts.closes or (minor == 0 and not facts.keepsAlive)
-	let kept = try bytes.slice(0, endIndex: through as ElementIndex) otherwise panic("parseRequestHead: the head lies in what has come")
-	let head = RequestHead.over(kept, method: method, minorVersion: 1 if minor > 0 else 0, framing: framing, closes: closes, expectsContinue: facts.expectsContinue and minor > 0, targetStart: targetStart, targetEnd: targetEnd, fields: fields)
+	let kept = try bytes.slice(from as ElementIndex, endIndex: through as ElementIndex) otherwise panic("parseRequestHead: the head lies in what has come")
+	// The head keeps its own bytes, so its ranges are taken from where it starts.
+	if from > 0 'rebased'
+		for i in 0 upto fields.count() 'each'
+			fields[i] = try fields[i] - from otherwise panic("parseRequestHead: a field lies in the head")
+		end 'each'
+	end 'rebased'
+	let shiftedStart = try targetStart - from otherwise panic("parseRequestHead: the target lies in the head")
+	let shiftedEnd = try targetEnd - from otherwise panic("parseRequestHead: the target lies in the head")
+	let head = RequestHead.over(kept, method: method, minorVersion: 1 if minor > 0 else 0, framing: framing, closes: closes, expectsContinue: facts.expectsContinue and minor > 0, targetStart: shiftedStart, targetEnd: shiftedEnd, fields: fields)
 	return HeadParse.parsed(head, through: through)
 end 'parseRequestHead'
 

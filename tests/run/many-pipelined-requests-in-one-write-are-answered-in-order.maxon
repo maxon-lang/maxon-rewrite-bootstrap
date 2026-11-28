@@ -1,0 +1,49 @@
+// Many requests sent in one write without waiting for their answers (pipelined, RFC 9112 §9.3.2) are answered in the order
+// they came, each read where it lies in the bytes that have come: 600 of them, the last saying Connection: close, and the
+// client reads every answer, whole and in order, and then the close.
+// native-only
+//> 600 requests in one write: every answer whole and in order
+//> stopped
+
+let Requests = 600 as Count
+
+function readToEnd(mutates client TcpClient) returns String
+	var all = ByteArray.create(0)
+	while true 'reading'
+		let chunk = try client.readSome(65536) otherwise return "{String.from(all)} [the read failed]"
+		if chunk.isEmpty() 'closed'
+			break 'reading'
+		end 'closed'
+		all.append(chunk)
+	end 'reading'
+	return String.from(all)
+end 'readToEnd'
+
+function answerTo(line String, closes bool) returns String
+	let field = "Connection: close\r\n" if closes else ""
+	return "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {line.byteLength()}\r\n{field}\r\n{line}"
+end 'answerTo'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
+	let port = server.port()
+	let serving = server.serve(ServerConfig.create())
+	var requests = ""
+	var expected = ""
+	for i in 0 upto Requests 'each'
+		let last = i + 1 == Requests
+		let field = "Connection: close\r\n" if last else ""
+		requests = "{requests}GET /{i} HTTP/1.1\r\nHost: a\r\n{field}\r\n"
+		expected = "{expected}{answerTo("GET /{i} HTTP/1.1", closes: last)}"
+	end 'each'
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
+	try client.setReadDeadline(5000) otherwise ignore
+	_ = try client.send(requests) otherwise 0
+	let got = readToEnd(client)
+	try client.close() otherwise ignore
+	let verdict = "every answer whole and in order" if got == expected else "{got.byteLength()} bytes, not the {expected.byteLength()} expected"
+	print("{Requests} requests in one write: {verdict}\n")
+	serving.stop(1000)
+	print("stopped\n")
+	return 0
+end 'main'

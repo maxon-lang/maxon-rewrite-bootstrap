@@ -148,42 +148,60 @@ fast as it drains, so its queue never empties. With one service of n 1 ms one-sh
 an ordinary message after 200 ms returns in 2 ms at n = 16384 and never at n = 24576 or 32768, at 1 or 4 processors; a
 `sleep` in main still returns on time.
 
-## http: the HTTP codec
+## http: the HTTP codec and pipelining
 
-What the library's server parser (stdlib/http, `requestHead.maxon`) costs to read a request, and what its HTTP codec converted
-from maxon's (`helpers/http/httpHelpers.maxon`) costs to write a response, against maxon's compiler on maxon's codec and Go's
-net/http.
+What the library's server parser (stdlib/http, `requestHead.maxon`) costs to read a request, what its HTTP codec converted
+from maxon's (`helpers/http/httpHelpers.maxon`) costs to write a response, and what a connection of the server costs a
+request when many come in one write, against maxon's compiler on maxon's codec and Go's net/http.
 
 - `bench/http/codec.maxon <rounds>` runs four lanes, each `rounds` times, and prints `result <lane> <ns a request>`:
   - **parse-get**: a GET with a dozen headers, parsed in place from its bytes by `parseRequestHead` (method, version, framing,
     the fields as ranges of the head) and its target made a String, as a connection hands it to a handler;
-  - **parse-post-64k**: a POST of a 64 KiB body, its head parsed so and its body, framed by its Content-Length, made a String;
+  - **parse-post-64k**: a POST of a 64 KiB body, its head parsed so and its body, framed by its Content-Length, copied out
+    once as bytes, as a connection gives it (and as Go's `io.ReadAll` does);
   - **write-small**: a 200 with four headers and a 12-byte body, its head built by `httpBuildResponseHead` and joined to the body;
   - **write-64k**: the same with a 64 KiB body.
-- `bench/http/maxon/codec.maxon` is the same program in maxon's dialect, over maxon's own library and its parser, built by maxon's
-  compiler (its maxon-bin build, `MAXON`); `run.sh` copies it to a directory of its own under `TMPDIR` and builds it there, so
-  nothing runs inside maxon's tree.
+- `bench/http/pipeline.maxon <rounds> <requests>...` serves on the loopback and, for each count, sends that many small GETs in
+  one write on one kept connection and reads their answers, `rounds` times, printing `result pipeline-<requests> <ns a
+  request>`; `gobench pipeline <rounds> <requests>...` is the same against net/http's server.
+- `bench/http/maxon/codec.maxon` is the codec program in maxon's dialect, over maxon's own library and its parser, built by
+  maxon's compiler (its maxon-bin build, `MAXON`); `run.sh` copies it to a directory of its own under `TMPDIR` and builds it
+  there, so nothing runs inside maxon's tree.
 - `bench/http/gobench` (Go, `go build` only) is the baseline: `http.ReadRequest` on a `bufio.Reader` over the request's bytes,
   the POST's body read by `io.ReadAll`, and `http.Response.Write` into a buffer.
-- `bench/http/run.sh` builds the three and runs each; `ROUNDS` sets the requests a lane times (100000 by default).
+- `bench/http/run.sh` builds the three and runs each; `ROUNDS` sets the requests a codec lane times (100000 by default) and
+  `PIPELINE_ROUNDS` the rounds of the pipelining lanes (200).
 
-Measured on an Apple M3 (arm64 macOS), `ROUNDS=50000 bench/http/run.sh`, maxon's compiler `maxon dev (e1209d7b3 2026-11-17)`,
-ns a request, the median of three runs:
+Measured on an Apple M3 (arm64 macOS), maxon's compiler `maxon dev (e1209d7b3 2026-11-17)`, ns a request, the median of three
+interleaved runs, the codec with `ROUNDS=50000`:
 
 | lane | minimaxon | maxon | Go |
 |---|---|---|---|
-| parse-get | 1090 | 48011 | 1935 |
-| parse-post-64k | 11589 | 153124 | 10464 |
-| write-small | 1128 | 2813 | 761 |
-| write-64k | 16856 | 26573 | 12089 |
+| parse-get | 1173 | 50364 | 1917 |
+| parse-post-64k | 3426 | 163806 | 10728 |
+| write-small | 1131 | 2975 | 792 |
+| write-64k | 17988 | 28525 | 12192 |
 
-parse-get is 0.56 times Go's: the parser scans the head's bytes once, keeps its fields as ranges of one copy of the head and
-makes a String only of what the handler is handed. parse-post-64k is 1.11 times Go's: the body's 64 KiB are copied twice, by
-`Array.slice` and by `String.from`, each one copy of the bytes. Before `Array.slice` copied a span of plain data in one copy
-(`rt.array.appendSpan`), it pushed a byte at a time, about 1.8 ns a byte, and these two lanes were 2293 and 126383. The writes
-are the converted codec's, 1.4 to 1.5 times Go's. write-64k measured alone, after no other lane, is the same before and after
-the slice's change (16838 and 16992); after the parse lanes it reads about 4% slower than it did, as the heap they leave lays
-the 64 KiB strings out differently.
+parse-get is 0.61 times Go's: the parser scans the head's bytes once, keeps its fields as ranges of one copy of the head and
+makes a String only of what the handler is handed. parse-post-64k is 0.32 times Go's: the body's 64 KiB are copied once, by
+`Array.slice`; it was 12475 while the body was also made a String (`String.from`, a second copy that also checks the bytes are
+UTF-8, about 9 µs of the 64 KiB), and 126383 before `Array.slice` copied a span of plain data in one copy (`rt.array.appendSpan`).
+The writes are the converted codec's, 1.4 to 1.5 times Go's; write-64k reads about 4% slower after the parse lanes than alone,
+as the heap they leave lays the 64 KiB strings out differently.
+
+Pipelining, `pipeline 200 1 10 100 1000`, ns a request, before and after a connection read each request where it lies:
+
+| requests in one write | minimaxon, compacting after each answer | minimaxon, read in place | Go |
+|---|---|---|---|
+| 1 | 56295 | 58128 | 58966 |
+| 10 | 8395 | 8744 | 9146 |
+| 100 | 3485 | 3460 | 5035 |
+| 1000 | 3877 | 3584 | 3832 |
+
+One request is a round trip on the loopback, two wakes; with many in a write the cost is the answers' sends, one system call
+each. From 100 to 1000 a request costs 4% more read in place, against 11% more when the bytes left after each answer were
+copied to the front of the buffer, which copied each request's bytes once for every request before it in the same read (a
+read takes at most 16 KiB, which bounded it).
 
 ## slice: copying a span of an array
 

@@ -6557,7 +6557,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   only where the request said `Connection: close`, was HTTP/1.0 without `keep-alive` (an HTTP/1.0 one kept is answered
   `Connection: keep-alive`), was refused, or the server is stopping, and a stop closes an idle connection at once. Pipelined
   requests are answered in order: the bytes past a request are parsed as the next one in the same message, before the socket
-  is armed again. A connection that closes after an answer lingers first (RFC 9112 §9.6): it shuts its sending and reads and
+  is armed again, where they lie (`parseRequestHead(bytes, from:)`), so no request's bytes are copied for those before it;
+  the bytes of answered requests are dropped once, when a read leaves a request unfinished behind them or the last is
+  answered. A request's body is copied once out of the bytes that have come, as a `ByteArray`. A connection that closes after an answer lingers first (RFC 9112 §9.6): it shuts its sending and reads and
   drops what its client still sends, for at most `lingerMs` and `lingerBytes`, so the close does not reset the answer before
   the client reads it. Not yet: the handler (a stand-in answers with the request line and the body's length), and the drain
   of an unread body after an answer kept alive (`maxDrainBytes`), which waits for a handler that can answer before the body
