@@ -101,7 +101,7 @@ unset or empty; a Mac never renews the seeds, but proves the macOS one when they
 
 ### Continuous integration
 
-`.github/workflows/ci.yml` runs on every push to `main`, `cloud/**` and `eric-pc/**`, on every pull request and on demand, in three
+`.github/workflows/ci.yml` runs on every push to `main`, `proven-access`, `cloud/**` and `eric-pc/**`, on every pull request and on demand, in four
 jobs. `linux-x64` (`ubuntu-latest`) runs `./check.sh`, the whole x64 Linux gate, then has the compiler the gate built
 (`bin/minimaxon`) build itself for `arm64-linux` and keeps that executable as an artifact. `linux-arm64` (`ubuntu-24.04-arm`,
 GitHub's native arm64 Linux runner) starts when it has ended, and runs that compiler natively with
@@ -109,8 +109,14 @@ GitHub's native arm64 Linux runner) starts when it has ended, and runs that comp
 and `suites` runs the lanes in `armLinuxLanes` (`checks`, `native` and `native-behaviours`: the compiler's own suites, and the corpus and the
 behaviours reruns for `arm64-linux` with `--verify-ir`), each step the same as on every other host, instead of under qemu. The
 compiler finds `runtime/` and `stdlib/` by walking up from its executable, which sits in `bin/` of that job's checkout. `macos-arm64`
-(`macos-latest`) runs `./check.sh`, the arm64 macOS gate. There is no Windows job, since the Windows gate needs WSL. A job fails on
-the step that fails, with the gate's own output.
+(`macos-latest`) runs `./check.sh`, the arm64 macOS gate. `windows-x64` (`windows-latest`, two cores and a runner whose WSL has no distribution) runs `go run ./cmd/gate check --host-only`: the
+Windows gate on the lanes of x64 Windows alone. `--host-only` is a flag of the gate, not a second list of steps: the lanes of the other
+targets' executables (`x64-linux`'s corpus and behaviours under WSL, `arm64-linux`'s under qemu and `arm64-macos`'s on the Mac) are left out, and the run
+names every step it leaves out, as `corpus on x64-linux: skipped on this host, --host-only: ...`, where a Windows machine without WSL
+fails those steps. The compiles for the other targets (`compiles for x64-linux` and the like) still run, and the job ends with the one check that
+only a seed renewal makes otherwise: the compiler builds itself, and that build builds a third that is the same bytes. The runner's Defender has real-time
+protection off, so nothing scans the executables the gate builds; its git converts line endings and the job turns that off first. The job takes
+19 to 23 minutes on the runner's 2 cores, the spec tests nearly half of it. A job fails on the step that fails, with the gate's own output.
 
 `.github/workflows/nightly-fuzz.yml` runs `fuzz --native` every night, and on demand over a range given as `start` and `count`, on
 arm64 macOS and arm64 Linux. By default a night runs 20,000 seeds from the days since 2026-01-01 times 20,000, so no two nights
@@ -339,6 +345,9 @@ counts the new passes, and runs each test that passes under the interpreter too,
 first step that fails. That the compiler reproduces itself (the seed builds C1, C1 builds C2, C2 builds C3, and C3 is
 byte-identical to C2) is checked where the seeds are renewed, `.\seed.ps1`, which then runs the same suites on C2 and
 proves the Linux seed under WSL and the macOS seed on the Mac (`seed/README.md`).
+`--host-only` (`check.ps1 --host-only`, CI's Windows job) is the gate of a host that cannot run the other targets' executables: it runs the lanes of the host's
+own target (`ownLanes` in `cmd/gate`), names each step of the other lanes that it leaves out, compiles for the other targets as the hosts that do not run
+them do, and on Windows ends with the proof that the compiler reproduces itself that a seed renewal makes.
 
 The suites (`cmd/gate`) group their steps in lanes that share nothing but the compiler and the checkout: `checks` (the Go tests, `selftest`, `check runtime`
 and `check stdlib`, `check self`, the layout and `fuzz`), `builds` (the benchmarks and `self` for arm64, the cache, the debug info), `specs`, the
