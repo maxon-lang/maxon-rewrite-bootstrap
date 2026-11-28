@@ -30,6 +30,9 @@ type libSystemFunction struct {
 var macosImports = []libSystemFunction{
 	{name: "_exit"},
 	{name: "write"},
+	{name: "writev"},
+	{name: "sendfile"},
+	{name: "lseek"},
 	{name: "read"},
 	{name: "open", variadic: true, fixed: 2},
 	{name: "close"},

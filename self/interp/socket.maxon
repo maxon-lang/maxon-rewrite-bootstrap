@@ -74,3 +74,11 @@ end 'entrySocketTryAccept'
 function entrySocketSetKeepAlive(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	throw haltSocketRow(vm, row: "__Builtins.socketSetKeepAlive")
 end 'entrySocketSetKeepAlive'
+
+function entrySocketSendPair(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSocketRow(vm, row: "__Builtins.socketSendPair")
+end 'entrySocketSendPair'
+
+function entrySocketSendFile(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltSocketRow(vm, row: "__Builtins.socketSendFile")
+end 'entrySocketSendFile'

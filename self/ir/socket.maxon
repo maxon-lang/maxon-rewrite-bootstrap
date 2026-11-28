@@ -84,3 +84,11 @@ end 'lowerManagedSocketTryAccept'
 function lowerManagedSocketSetKeepAlive(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return socketFailingVoid(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtSocketSetKeepAlive)
 end 'lowerManagedSocketSetKeepAlive'
+
+function lowerManagedSocketSendPair(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return socketFailing(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtSocketSendPair)
+end 'lowerManagedSocketSendPair'
+
+function lowerManagedSocketSendFile(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return socketFailing(l, p: p, ms: ms, c: c, args: args, symbol: Rt.rtSocketSendFile)
+end 'lowerManagedSocketSendFile'

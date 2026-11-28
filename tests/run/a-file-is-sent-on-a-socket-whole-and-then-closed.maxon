@@ -1,0 +1,107 @@
+// TcpClient.sendFile sends an open file whole on a connection, a slice at a time, by the system's sendfile where the system
+// links it, and closes the file: a file of several megabytes, more than a slice and the socket's buffer, arrives byte for
+// byte, an empty file sends nothing, and a file whose first line was read sends the rest, what its reader holds and then the file. The file is closed after the send, so it can be deleted then.
+// native-only
+//> 2621447 bytes sent, 2621447 read, every byte the file's
+//> 0 bytes sent, 0 read
+//> after a line was read: 23 bytes sent, second line|third line|
+//> deleted after the send
+#if os(Windows)
+	function tempRoot() returns String
+		let temp = try Process.environmentVariable("TEMP") otherwise panic("TEMP is not set")
+		return "{temp}\\minimaxon_send_file_test"
+	end 'tempRoot'
+
+	let separator = "\\"
+#else
+	function tempRoot() returns String
+		return "/tmp/minimaxon_send_file_test_{Process.id()}"
+	end 'tempRoot'
+
+	let separator = "/"
+#endif
+
+let FileBytes = 2621447
+
+function path(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("not a path")
+end 'path'
+
+function byteAt(i Count) returns Byte
+	return (i mod 251) as Byte
+end 'byteAt'
+
+function sendTheFile(mutates listener TcpListener, name String, skipFirst bool) returns BytePos
+	var conn = try listener.accept() otherwise return 0
+	var reader = try File.openRead(path(name)) otherwise 'unopened'
+		try conn.close() otherwise ignore
+		return 0
+	end 'unopened'
+	if skipFirst 'readFirst'
+		_ = try reader.readLine() otherwise panic("cannot read the file's first line")
+	end 'readFirst'
+	let sent = try conn.sendFile(reader, deadlineMs: 10000) otherwise 0
+	try conn.close() otherwise ignore
+	return sent
+end 'sendTheFile'
+
+function readAll(mutates client TcpClient) returns ByteArray
+	var all = ByteArray.create(0)
+	while true 'reading'
+		let chunk = try client.readSome(65536) otherwise return all
+		if chunk.isEmpty() 'closed'
+			return all
+		end 'closed'
+		all.append(chunk)
+	end 'reading'
+	return all
+end 'readAll'
+
+function theFiles(got ByteArray) returns bool
+	for i in 0 upto got.count() 'each'
+		if (try got.get(i as ElementIndex) otherwise return false) != byteAt(i) 'differs'
+			return false
+		end 'differs'
+	end 'each'
+	return true
+end 'theFiles'
+
+function sendAndRead(mutates listener TcpListener, name String, skipFirst bool) returns (BytePos, ByteArray)
+	let port = listener.port()
+	let sending = async sendTheFile(listener, name: name, skipFirst: skipFirst)
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the listener")
+	try client.setReadDeadline(10000) otherwise ignore
+	let got = readAll(client)
+	let sent = await sending
+	try client.close() otherwise ignore
+	return (sent, got)
+end 'sendAndRead'
+
+function main() returns ExitCode
+	let root = tempRoot()
+	_ = Directory.create(path(root))
+	let big = "{root}{separator}big.bin"
+	var content = ByteArray.create(0)
+	for i in 0 upto FileBytes 'fill'
+		content.push(byteAt(i))
+	end 'fill'
+	try File.writeBinary(path(big), content: content) otherwise panic("cannot write")
+	let empty = "{root}{separator}empty.bin"
+	try File.writeBinary(path(empty), content: ByteArray.create(0)) otherwise panic("cannot write")
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise panic("a listener on the loopback")
+	let (sent, got) = sendAndRead(listener, name: big, skipFirst: false)
+	print("{sent} bytes sent, {got.count()} read, {"every byte the file's" if theFiles(got) else "not the file's bytes"}\n")
+	let (sentEmpty, gotEmpty) = sendAndRead(listener, name: empty, skipFirst: false)
+	print("{sentEmpty} bytes sent, {gotEmpty.count()} read\n")
+	let lines = "{root}{separator}lines.txt"
+	try File.writeText(path(lines), content: "first line\nsecond line\nthird line\n") otherwise panic("cannot write")
+	let (sentRest, gotRest) = sendAndRead(listener, name: lines, skipFirst: true)
+	print("after a line was read: {sentRest} bytes sent, {String.from(gotRest).replace("\n", with: "|")}\n")
+	try listener.close() otherwise ignore
+	try File.delete(path(big)) otherwise panic("cannot delete")
+	try File.delete(path(empty)) otherwise panic("cannot delete")
+	try File.delete(path(lines)) otherwise panic("cannot delete")
+	try Directory.delete(path(root)) otherwise panic("cannot delete the directory")
+	print("deleted after the send\n")
+	return 0
+end 'main'

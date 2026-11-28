@@ -73,7 +73,7 @@ var rawLibraryTypes = []struct {
 	Named   rawSurface
 }{
 	// __ManagedFile is maxon's owned handle of an open file, which FileSource and FileWriter hold.
-	{"__ManagedFile", "stdlib/file/managedFile.maxon", []string{"openRead", "openWrite", "openWriteExecutable", "openCreateNew", "readAppending", "write", "sync", "close"}, rawSurface{What: "the raw OS file handle type is nameable", Instead: "use 'File'"}},
+	{"__ManagedFile", "stdlib/file/managedFile.maxon", []string{"openRead", "openWrite", "openWriteExecutable", "openCreateNew", "readAppending", "write", "sync", "sendOn", "close"}, rawSurface{What: "the raw OS file handle type is nameable", Instead: "use 'File'"}},
 	// __ManagedSocket is maxon's owned TCP socket, which TcpClient and TcpListener hold.
 	{"__ManagedSocket", "stdlib/net/managedSocket.maxon", []string{"tcpConnect", "bindListener", "boundPort", "accept", "sendFrom", "recv", "timedOut", "setReadDeadline", "setWriteDeadline", "shutdownWrite", "ofAccepted", "close"}, rawSurface{What: "the raw OS socket type is nameable", Instead: "use 'TcpClient' or 'TcpListener'"}},
 }
@@ -1375,6 +1375,12 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "socketConnect", Static: true, Params: []string{"_ ManagedMemory with Byte", "_ NetworkPort", "_ Count"}, Result: "Count", Throws: "ManagedSocketError", Intrinsic: "ManagedSocketConnect", Instead: "TcpClient.connect(host, port)"},
 	{Owner: "Builtins", Name: "socketReadAppending", Static: true, Params: []string{"_ Count", "mutates _ ManagedMemory with Byte", "_ Count"}, Result: "Count", Throws: "ManagedSocketError", Intrinsic: "ManagedSocketReadAppending", Instead: "a TcpClient's readSome(most)"},
 	{Owner: "Builtins", Name: "socketSendFrom", Static: true, Params: []string{"_ Count", "_ ManagedMemory with Byte", "_ Count", "_ Count"}, Result: "Count", Throws: "ManagedSocketError", Intrinsic: "ManagedSocketSendFrom", Instead: "a TcpClient's send(data)"},
+	// socketSendPair sends the bytes of a first buffer from an index and then a second buffer, in one vectored send of the
+	// system's, so a response's head and body leave together with neither copied behind the other; socketSendFile sends up to
+	// count bytes of an open file from its position, which it moves on, by the system's sendfile, with no copy into the process,
+	// and gives 0 at the end of the file. Each parks only while the socket takes none, until the write deadline, as socketSendFrom does.
+	{Owner: "Builtins", Name: "socketSendPair", Static: true, Params: []string{"_ Count", "_ ManagedMemory with Byte", "_ Count", "_ ManagedMemory with Byte"}, Result: "Count", Throws: "ManagedSocketError", Intrinsic: "ManagedSocketSendPair", Instead: "a TcpClient's sendPair(head, body)"},
+	{Owner: "Builtins", Name: "socketSendFile", Static: true, Params: []string{"_ Count", "_ Count", "_ Count"}, Result: "Count", Throws: "ManagedSocketError", Intrinsic: "ManagedSocketSendFile", Instead: "a TcpClient's sendFile(file)"},
 	{Owner: "Builtins", Name: "socketSetReadDeadline", Static: true, Params: []string{"_ Count", "_ Count"}, Intrinsic: "ManagedSocketSetReadDeadline", Instead: "a TcpClient's setReadDeadline(milliseconds)"},
 	{Owner: "Builtins", Name: "socketSetWriteDeadline", Static: true, Params: []string{"_ Count", "_ Count"}, Intrinsic: "ManagedSocketSetWriteDeadline", Instead: "a TcpClient's setWriteDeadline(milliseconds)"},
 	// socketSetKeepAlive sets the idle time before a connected socket's first keepalive probe, in milliseconds rounded up to a
@@ -1714,6 +1720,8 @@ var entries = []entry{
 	{"SocketConnect", "rt.socket.connect", "Os", roleCall, "(address ByteArray, port, ms, error) -> socket: a TCP socket connected to the address and the port, parking while the connection is made, until ms milliseconds (0 for none) have passed (timedOut); connectFailed for a refusal or any other failure"},
 	{"SocketReadAppending", "rt.socket.readAppending", "Os", roleCall, "(socket, buffer ByteArray, most, error) -> count: reads up to most bytes after the buffer's length, which grows by them, within its capacity (bufferOutOfBounds past it), 0 once the peer has ended its sending, parking only while none have come, until the read deadline (timedOut); recvFailed for a read the system refused"},
 	{"SocketSendFrom", "rt.socket.sendFrom", "Os", roleCall, "(socket, buffer ByteArray, at, count, error) -> count: sends up to count bytes of the buffer from the index, which must lie in its length (bufferOutOfBounds), in one call that may take fewer, parking only while the socket takes none, until the write deadline (timedOut); sendFailed for a send the system refused, a peer that has gone among them, which raises no signal"},
+	{"SocketSendPair", "rt.socket.sendPair", "Os", roleCall, "(socket, first ByteArray, at, second ByteArray, error) -> count: sends the first buffer from the index, which must lie in its length (bufferOutOfBounds), and then the second, in one vectored call that may take fewer, parking only while the socket takes none, until the write deadline (timedOut); sendFailed as sendFrom's"},
+	{"SocketSendFile", "rt.socket.sendFile", "Os", roleCall, "(socket, file, count, error) -> count: sends up to count bytes of the open file from its position, which it moves on, by the system's sendfile, in one call that may take fewer, 0 at the end of the file, parking only while the socket takes none, until the write deadline (timedOut); sendFailed as sendFrom's, and for a file the system cannot send from"},
 	{"SocketSetReadDeadline", "rt.socket.setReadDeadline", "Os", roleCall, "(socket, ms): the deadline of the socket's reads and accepts, ms milliseconds from now, or none for 0"},
 	{"SocketSetWriteDeadline", "rt.socket.setWriteDeadline", "Os", roleCall, "(socket, ms): the deadline of the socket's sends, ms milliseconds from now, or none for 0"},
 	{"SocketSetKeepAlive", "rt.socket.setKeepAlive", "Os", roleCall, "(socket, ms, error): the socket probes its peer once it has been idle for ms milliseconds, rounded up to a second, or never for 0; sendFailed when the system refuses it"},
@@ -2012,6 +2020,8 @@ var runtimeFunctions = []runtimeFunction{
 	{"SocketConnect", "socketConnect(address Count, port Count, ms Count, errorAddress Count) Count"},
 	{"SocketReadAppending", "socketReadAppending(socket Count, buffer Count, most Count, errorAddress Count) Count"},
 	{"SocketSendFrom", "socketSendFrom(socket Count, buffer Count, at Count, count Count, errorAddress Count) Count"},
+	{"SocketSendPair", "socketSendPair(socket Count, first Count, at Count, second Count, errorAddress Count) Count"},
+	{"SocketSendFile", "socketSendFile(socket Count, file Count, count Count, errorAddress Count) Count"},
 	{"SocketSetReadDeadline", "socketSetReadDeadline(socket Count, ms Count)"},
 	{"SocketSetWriteDeadline", "socketSetWriteDeadline(socket Count, ms Count)"},
 	{"SocketSetKeepAlive", "socketSetKeepAlive(socket Count, ms Count, errorAddress Count)"},

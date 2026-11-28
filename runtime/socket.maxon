@@ -379,11 +379,34 @@ end 'socketSendFrom'
 // be ready, until the deadline the socket holds at an offset: a count, or a transfer's failure (eventio.maxon). A deadline
 // that ends it sets the socket's timedOut.
 function socketTransfer(socket Count, mode Count, buffer Count, length Count, deadlineOffset Count) returns Count
+	let asked = length if length < socketMostBytes else socketMostBytes
+	return socketTransferBy(socket, mode: mode, call: plainCall, buffer: buffer, length: asked, file: 0, deadlineOffset: deadlineOffset)
+end 'socketTransfer'
+
+// The calls a transfer makes: a read or a send of one buffer; a send of the count buffers of an io vector, which the caller
+// puts vectorCallRoom bytes after the start of a zeroed area; or a send of length bytes of the file whose fd is file from its
+// position.
+let plainCall = 0 as Count
+
+let vectorCall = 1 as Count
+
+let fileCall = 2 as Count
+
+// socketTransferBy is socketTransfer of one of the calls.
+function socketTransferBy(socket Count, mode Count, call Count, buffer Count, length Count, file Count, deadlineOffset Count) returns Count
 	let fd = __Raw.loadWord(socket, offset: socketFdOffset)
 	let entry = __Raw.loadWord(socket, offset: socketEntryOffset)
-	let asked = length if length < socketMostBytes else socketMostBytes
 	while true 'attempt'
-		let result = socketCall(fd, mode: mode, buffer: buffer, length: asked)
+		var result = 0 as Count
+		if call == vectorCall 'vector'
+			result = sendVectorCall(fd, vector: buffer, count: length)
+		end 'vector' else 'one'
+			if call == fileCall 'file'
+				result = sendFileCall(fd, file: file, count: length)
+			end 'file' else 'plain'
+				result = socketCall(fd, mode: mode, buffer: buffer, length: length)
+			end 'plain'
+		end 'one'
 		if not failed(result) 'moved'
 			return result
 		end 'moved'
@@ -404,7 +427,73 @@ function socketTransfer(socket Count, mode Count, buffer Count, length Count, de
 		end 'ended'
 	end 'attempt'
 	return transferFailed
-end 'socketTransfer'
+end 'socketTransferBy'
+
+// socketSendPair sends the bytes of a first byte array from an index, which lies in its length, and then the whole of a
+// second, in one vectored send of the system's, and gives the count it took of both, which may be fewer, parking only while
+// it takes none, until the socket's write deadline; the caller sends the rest. So a response's head and body leave in one
+// call, and neither is copied behind the other.
+function socketSendPair(socket Count, first Count, at Count, second Count, errorAddress Count) returns Count
+	__Raw.storeWord(socket, offset: socketTimedOutOffset, value: unset)
+	let firstLength = collectionLength(first)
+	if at > firstLength 'past'
+		failWith(errorAddress, errorCase: socketBufferOutOfBounds)
+		return 0
+	end 'past'
+	var firstCount = (firstLength - at) as Count
+	if firstCount > socketMostBytes 'firstCapped'
+		firstCount = socketMostBytes
+	end 'firstCapped'
+	var secondCount = collectionLength(second) as Count
+	if secondCount > socketMostBytes - firstCount 'secondCapped'
+		secondCount = socketMostBytes - firstCount
+	end 'secondCapped'
+	let total = __Raw.wrappingAdd(firstCount, right: secondCount)
+	if total == 0 'nothing'
+		succeed(errorAddress)
+		return 0
+	end 'nothing'
+	let room = __Raw.wrappingAdd(vectorCallRoom, right: __Raw.wrappingAdd(iovecBytes, right: iovecBytes))
+	let area = alloc(room)
+	zeroRange(area, from: 0, to: room)
+	let vector = __Raw.wrappingAdd(area, right: vectorCallRoom)
+	__Raw.storeWord(vector, offset: 0, value: __Raw.wrappingAdd(collectionData(first), right: at))
+	__Raw.storeWord(vector, offset: iovecLengthOffset, value: firstCount)
+	__Raw.storeWord(vector, offset: iovecBytes, value: collectionData(second))
+	__Raw.storeWord(vector, offset: __Raw.wrappingAdd(iovecBytes, right: iovecLengthOffset), value: secondCount)
+	let sent = socketTransferBy(socket, mode: eventWrite, call: vectorCall, buffer: vector, length: pairBuffers, file: 0, deadlineOffset: socketWriteDeadlineOffset)
+	free(area)
+	if sent > total 'refused'
+		failWith(errorAddress, errorCase: socketTimedOutCase if sent == transferExpired else socketSendFailed)
+		return 0
+	end 'refused'
+	succeed(errorAddress)
+	return sent
+end 'socketSendPair'
+
+// pairBuffers is the count of a pair's io vector.
+let pairBuffers = 2 as Count
+
+// socketSendFile sends up to count bytes of an open file from its position, which it moves on, on a connected socket, by the
+// system's sendfile,
+// with no copy into the process, and gives the count it took, which may be fewer, 0 at the end of the file, parking only
+// while the socket takes none, until the socket's write deadline. A file the system cannot send from fails sendFailed.
+function socketSendFile(socket Count, file Count, count Count, errorAddress Count) returns Count
+	__Raw.storeWord(socket, offset: socketTimedOutOffset, value: unset)
+	let asked = count if count < socketMostBytes else socketMostBytes
+	if asked == 0 'nothing'
+		succeed(errorAddress)
+		return 0
+	end 'nothing'
+	let fileFd = __Raw.loadWord(file, offset: fileHandleOffset)
+	let sent = socketTransferBy(socket, mode: eventWrite, call: fileCall, buffer: 0, length: asked, file: fileFd, deadlineOffset: socketWriteDeadlineOffset)
+	if sent > asked 'refused'
+		failWith(errorAddress, errorCase: socketTimedOutCase if sent == transferExpired else socketSendFailed)
+		return 0
+	end 'refused'
+	succeed(errorAddress)
+	return sent
+end 'socketSendFile'
 
 // socketShutdownWrite ends a socket's sending, which its peer reads as the end, and sets the error word to sendFailed when
 // the system refuses it.

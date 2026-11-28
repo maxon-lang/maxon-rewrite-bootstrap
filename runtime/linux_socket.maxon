@@ -114,4 +114,30 @@
 	function sockaddrFamily(name Count, length Count)
 		__Raw.storeWord16(name, offset: 0, value: systemFamily(length))
 	end 'sockaddrFamily'
+
+	let iovecBytes = linuxIovecBytes
+
+	let iovecLengthOffset = linuxIovecLengthOffset
+
+	// vectorCallRoom is what sendVectorCall needs before the io vector: the message header that sendmsg reads.
+	let vectorCallRoom = linuxMsghdrBytes
+
+	// sendVectorCall is one send of the count buffers of an io vector (sendmsg, which raises no SIGPIPE), its count or -errno.
+	// The caller zeroed the message header before the vector.
+	function sendVectorCall(fd Count, vector Count, count Count) returns Count
+		let header = __Raw.wrappingSub(vector, right: vectorCallRoom)
+		__Raw.storeWord(header, offset: linuxMsghdrIovOffset, value: vector)
+		__Raw.storeWord(header, offset: linuxMsghdrIovlenOffset, value: count)
+		return __Raw.syscall3(linuxSysSendmsg, arg1: fd, arg2: header, arg3: linuxMsgNosignal)
+	end 'sendVectorCall'
+
+	// sendFileCall is one sendfile of up to count bytes of a file from its position, which it moves on (no offset is given),
+	// its count, 0 at the end of the file, or -errno. A regular file's read may wait on its device, so it is made in the
+	// blocking bracket.
+	function sendFileCall(fd Count, file Count, count Count) returns Count
+		enterBlocking()
+		let result = __Raw.syscall4(linuxSysSendfile, arg1: fd, arg2: file, arg3: 0, arg4: count)
+		exitBlocking()
+		return result
+	end 'sendFileCall'
 #endif

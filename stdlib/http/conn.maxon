@@ -64,11 +64,6 @@ export type Conn implements service.Ends
 
 	/// Arm the socket for the first request, and its head deadline.
 	@policy(service.Keep) export function begin(mutates self)
-		try self.client.setWriteDeadline(self.config.writeDeadlineMs) otherwise 'gone'
-			self.close()
-			self.stop()
-			return
-		end 'gone'
 		self.arm(self.config.headDeadlineMs.clone(), me: self.handle)
 		self.client.notifyReadable(self.handle.post(Conn.Message.readable))
 	end 'begin'
@@ -117,8 +112,8 @@ export type Conn implements service.Ends
 		while self.phase == ConnPhase.readingHead 'reading'
 			var blocked = false
 			var ended = false
-			match consumes try self.client.readAvailable(ReadChunkBytes) otherwise net.ReadAttempt.ended 'read'
-				bytes(data) then self.arrived.append(data)
+			match try self.client.readAvailableInto(self.arrived, most: ReadChunkBytes) otherwise net.ReadInto.ended 'read'
+				read then break
 				wouldBlock then blocked = true
 				ended then ended = true
 			end 'read'
@@ -148,6 +143,7 @@ export type Conn implements service.Ends
 
 	function answer(mutates self, head String)
 		let body = self.handler.bodyFor(head)
+		self.arrived = ByteArray.create(0)
 		self.send(StatusCode.ok, body: body)
 		self.close()
 	end 'answer'
@@ -161,14 +157,12 @@ export type Conn implements service.Ends
 		self.send(code, body: "")
 	end 'answerStatus'
 
-	// send writes the answer's head and then its body, two sends, so the body is never copied behind the head. A send that
-	// fails ends the connection, which the caller closes.
+	// send writes the answer's head and its body in one vectored send, so the body is never copied behind the head, under the
+	// write deadline, which is per send. A send that fails ends the connection, which the caller closes.
 	function send(mutates self, code StatusCode, body String)
 		let head = "HTTP/1.1 {code.number()} {reasonPhraseOf(code)}\r\nContent-Type: text/plain\r\nContent-Length: {body.byteLength()}\r\nConnection: close\r\n\r\n"
-		_ = try self.client.send(head) otherwise return
-		if body.byteLength() > 0 'withBody'
-			_ = try self.client.send(body) otherwise return
-		end 'withBody'
+		try self.client.setWriteDeadline(self.config.writeDeadlineMs) otherwise return
+		_ = try self.client.sendPair(head, body: body) otherwise return
 	end 'send'
 
 	function arm(mutates self, ms net.SocketDeadlineMs, me Conn.handle)

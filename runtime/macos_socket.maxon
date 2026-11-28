@@ -145,4 +145,23 @@
 	function resolveFree(found Count)
 		_ = __Raw.callImport1("freeaddrinfo", arg1: found)
 	end 'resolveFree'
+
+	let iovecBytes = macosIovecBytes
+
+	let iovecLengthOffset = macosIovecLengthOffset
+
+	let vectorCallRoom = 0 as Count
+
+	// sendVectorCall sends the first buffer of an io vector alone, its count or -errno, and the caller sends the rest: writev
+	// sends them all in one call once the seed links it (macosImports lists it).
+	function sendVectorCall(fd Count, vector Count, count Count) returns Count
+		return socketCall(fd, mode: eventWrite, buffer: __Raw.loadWord(vector, offset: 0), length: __Raw.loadWord(vector, offset: iovecLengthOffset))
+	end 'sendVectorCall'
+
+	// sendFileCall is libSystem's sendfile from the position lseek reads, which it then moves on, once the seed links both
+	// (macosImports lists them); until then the library sends a file on macOS by reading it, and never calls this.
+	function sendFileCall(fd Count, file Count, count Count) returns Count
+		runtimeFatal("a file is sent on a socket by sendfile on macOS, which this build of the runtime does not link")
+		return 0
+	end 'sendFileCall'
 #endif

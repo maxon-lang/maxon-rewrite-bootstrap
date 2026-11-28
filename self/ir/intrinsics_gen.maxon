@@ -836,6 +836,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrManagedSocketSendFrom 'intrManagedSocketSendFrom'
 		return lowerManagedSocketSendFrom(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrManagedSocketSendFrom'
+	if op == ast.Intrinsic.intrManagedSocketSendPair 'intrManagedSocketSendPair'
+		return lowerManagedSocketSendPair(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketSendPair'
+	if op == ast.Intrinsic.intrManagedSocketSendFile 'intrManagedSocketSendFile'
+		return lowerManagedSocketSendFile(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrManagedSocketSendFile'
 	if op == ast.Intrinsic.intrManagedSocketSetReadDeadline 'intrManagedSocketSetReadDeadline'
 		return lowerManagedSocketSetReadDeadline(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrManagedSocketSetReadDeadline'
@@ -1987,6 +1993,12 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrManagedSocketSendFrom 'intrManagedSocketSendFrom'
 		return false
 	end 'intrManagedSocketSendFrom'
+	if op == ast.Intrinsic.intrManagedSocketSendPair 'intrManagedSocketSendPair'
+		return false
+	end 'intrManagedSocketSendPair'
+	if op == ast.Intrinsic.intrManagedSocketSendFile 'intrManagedSocketSendFile'
+		return false
+	end 'intrManagedSocketSendFile'
 	if op == ast.Intrinsic.intrManagedSocketSetReadDeadline 'intrManagedSocketSetReadDeadline'
 		return false
 	end 'intrManagedSocketSetReadDeadline'

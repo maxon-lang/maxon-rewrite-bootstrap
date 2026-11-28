@@ -1,0 +1,82 @@
+// TcpClient.sendPair sends a head and then a body in one vectored send where the socket takes them both, and the rest as the
+// socket takes it: a body of several megabytes, more than the socket's buffer holds, arrives whole and after the head, as
+// does an empty body and an empty head. The reader reads slowly at first, so the sends park on a full socket.
+// native-only
+//> 3145728 bytes: the head first, then every byte of the body in order
+//> 7 bytes: head:
+//> 4 bytes: body
+let BodyBytes = 3145728
+
+let Pattern = 251
+
+function bodyOf(length Count) returns String
+	var bytes = ByteArray.create(0)
+	for i in 0 upto length 'fill'
+		bytes.push((97 + i mod 26) as Byte)
+	end 'fill'
+	return String.from(bytes)
+end 'bodyOf'
+
+function sendBoth(mutates listener TcpListener, head String, body String) returns BytePos
+	var conn = try listener.accept() otherwise return 0
+	let sent = try conn.sendPair(head, body: body) otherwise 0
+	try conn.close() otherwise ignore
+	return sent
+end 'sendBoth'
+
+function readAll(mutates client TcpClient, slowly bool) returns ByteArray
+	var all = ByteArray.create(0)
+	var reads = 0 as Count
+	while true 'reading'
+		if slowly and reads < 3 'slow'
+			sleep(20)
+		end 'slow'
+		let chunk = try client.readSome(65536) otherwise return all
+		if chunk.isEmpty() 'closed'
+			return all
+		end 'closed'
+		all.append(chunk)
+		reads = try reads + 1 otherwise reads
+	end 'reading'
+	return all
+end 'readAll'
+
+function inOrder(got ByteArray, head String) returns bool
+	let headLength = head.byteLength()
+	if got.count() != (try headLength + BodyBytes otherwise 0) 'length'
+		return false
+	end 'length'
+	if String.from(try got.slice(0, endIndex: headLength) otherwise return false) != head 'head'
+		return false
+	end 'head'
+	for i in 0 upto BodyBytes 'body'
+		if (try got.get((try headLength + i otherwise 0) as ElementIndex) otherwise return false) != (97 + i mod 26) as Byte 'differs'
+			return false
+		end 'differs'
+	end 'body'
+	return true
+end 'inOrder'
+
+function exchangeOf(mutates listener TcpListener, head String, body String, slowly bool) returns ByteArray
+	let port = listener.port()
+	let sending = async sendBoth(listener, head: head, body: body)
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the listener")
+	try client.setReadDeadline(10000) otherwise ignore
+	let got = readAll(client, slowly: slowly)
+	_ = await sending
+	try client.close() otherwise ignore
+	return got
+end 'exchangeOf'
+
+function main() returns ExitCode
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise panic("a listener on the loopback")
+	let head = "HTTP/1.1 200 OK\r\nContent-Length: {BodyBytes}\r\n\r\n"
+	let big = exchangeOf(listener, head: head, body: bodyOf(BodyBytes), slowly: true)
+	print("{try big.count() - head.byteLength() otherwise 0} bytes: {"the head first, then every byte of the body in order" if inOrder(big, head: head) else "out of order"}\n")
+	let headOnly = exchangeOf(listener, head: "head:\r\n", body: "", slowly: false)
+	print("{headOnly.count()} bytes: {String.from(headOnly).replace("\r\n", with: "")}\n")
+	let bodyOnly = exchangeOf(listener, head: "", body: "body", slowly: false)
+	print("{bodyOnly.count()} bytes: {String.from(bodyOnly)}\n")
+	try listener.close() otherwise ignore
+	return 0
+end 'main'

@@ -855,6 +855,14 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entrySocketSendFrom(vm, f: f, x: x)
 		return
 	end 'rtSocketSendFrom'
+	if symbol == ir.Rt.rtSocketSendPair 'rtSocketSendPair'
+		try entrySocketSendPair(vm, f: f, x: x)
+		return
+	end 'rtSocketSendPair'
+	if symbol == ir.Rt.rtSocketSendFile 'rtSocketSendFile'
+		try entrySocketSendFile(vm, f: f, x: x)
+		return
+	end 'rtSocketSendFile'
 	if symbol == ir.Rt.rtSocketSetReadDeadline 'rtSocketSetReadDeadline'
 		try entrySocketSetReadDeadline(vm, f: f, x: x)
 		return

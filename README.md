@@ -6475,7 +6475,17 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   takes), which the runtime posts to the service once the
   socket may be ready, and the arm is spent; the handler reads with `readAvailable(most)` (`bytes`, `wouldBlock` or `ended`),
   sends with `trySend(data)` (the count taken, 0 where none) and accepts with `tryAccept()` (`accepted` or `wouldBlock`), none of
-  which waits, and arms the socket again. No green thread is tied to an idle socket: the arm is the record in the entry's state
+  which waits, and arms the socket again. `readAvailableInto(buffer, most:)` reads into a buffer the caller lends, after its
+  bytes (`read(count)`, `wouldBlock` or `ended`), so a read allocates nothing of its own and a connection holds no buffer between
+  requests; a buffer it grows comes from the thread's heap, whose size classes and kept runs are the pool.
+  **A server's sends** (`stdlib/net/sending.maxon`, `socketSendPair` and `socketSendFile` in `runtime/socket.maxon`):
+  `sendPair(head, body:)` sends two buffers in one vectored send, `sendmsg` on Linux, so a response's head and body leave
+  together with neither copied behind the other, and the rest as the socket takes it; `sendFile(reader, deadlineMs:)` sends
+  what a `File.openRead` reader holds unread and then the file from its position by `sendfile` on Linux, a slice at a time,
+  each under its own write deadline, and closes the file. On macOS `writev` and `sendfile` wait for a seed that links them
+  (`macosImports` lists them): until then a pair is sent as the socket takes its first buffer and then the second, and a file
+  is read and sent. On Windows a pair is sent so too, and a file is not sent: `TransmitFile` is not built, and the runtime
+  stops with a message that says so. No green thread is tied to an idle socket: the arm is the record in the entry's state
   word (the record plus 1, beside a green thread's address), set by one compare-exchange and no system call, since the
   registration stays edge-triggered; an event delivers it without a green thread or a processor, onto the take's list where
   its service is idle and behind the behaviour ahead where it is not. An edge that came before the arm posts the message at
@@ -6510,7 +6520,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   is a service on the listener's readiness (`acceptor.maxon`), which keeps each connection's handle in a slot table and
   learns of its end by `conn.notifyStopped(...)`; at `ServerConfig.maxConnections` it leaves the listener unarmed until a
   connection ends, so the kernel's backlog holds the rest. Each connection is a service of its own (`conn.maxon`) on its
-  socket's readiness and one `Timer`. `ServerConfig` holds the limits and deadlines, sized for clients that misbehave by
+  socket's readiness and one `Timer`; a connection that has sent no byte of a head when its head deadline passes is closed with
+  no 408, as an idle one is. `ServerConfig` holds the limits and deadlines, sized for clients that misbehave by
   bug, not for attackers. Not yet: the handler (a stand-in answers with the request line), keep-alive, bodies and the
   limits other than the head's size and deadline; every answer closes its connection. maxon's `accept()`, `serve(handler)`
   and `HttpServerLimits` are not provided.

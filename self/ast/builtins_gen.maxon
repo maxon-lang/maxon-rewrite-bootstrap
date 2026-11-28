@@ -548,6 +548,8 @@ export enum Intrinsic
 	intrManagedSocketConnect
 	intrManagedSocketReadAppending
 	intrManagedSocketSendFrom
+	intrManagedSocketSendPair
+	intrManagedSocketSendFile
 	intrManagedSocketSetReadDeadline
 	intrManagedSocketSetWriteDeadline
 	intrManagedSocketSetKeepAlive
@@ -1193,6 +1195,8 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrManagedSocketConnect or
 		intrManagedSocketReadAppending or
 		intrManagedSocketSendFrom or
+		intrManagedSocketSendPair or
+		intrManagedSocketSendFile or
 		intrManagedSocketSetReadDeadline or
 		intrManagedSocketSetWriteDeadline or
 		intrManagedSocketSetKeepAlive or
@@ -1571,6 +1575,8 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrManagedSocketConnect or
 		intrManagedSocketReadAppending or
 		intrManagedSocketSendFrom or
+		intrManagedSocketSendPair or
+		intrManagedSocketSendFile or
 		intrManagedSocketSetReadDeadline or
 		intrManagedSocketSetWriteDeadline or
 		intrManagedSocketSetKeepAlive or
@@ -1997,6 +2003,8 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrManagedSocketConnect or
 		intrManagedSocketReadAppending or
 		intrManagedSocketSendFrom or
+		intrManagedSocketSendPair or
+		intrManagedSocketSendFile or
 		intrManagedSocketSetReadDeadline or
 		intrManagedSocketSetWriteDeadline or
 		intrManagedSocketSetKeepAlive or
@@ -2483,6 +2491,12 @@ export function rawCallInstead(b Builtins, owner TypeID, name String) returns ta
 		if name == "socketSendFrom" 'socketSendFrom'
 			return table.Option.some("a TcpClient's send(data)")
 		end 'socketSendFrom'
+		if name == "socketSendPair" 'socketSendPair'
+			return table.Option.some("a TcpClient's sendPair(head, body)")
+		end 'socketSendPair'
+		if name == "socketSendFile" 'socketSendFile'
+			return table.Option.some("a TcpClient's sendFile(file)")
+		end 'socketSendFile'
 		if name == "socketSetReadDeadline" 'socketSetReadDeadline'
 			return table.Option.some("a TcpClient's setReadDeadline(milliseconds)")
 		end 'socketSetReadDeadline'
@@ -4369,84 +4383,99 @@ function declareBuiltinsMethods(mutates tt TypeSlot, reads TypeTable, mutates ft
 	ps108.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
 	let f109 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketSendFrom, name: "socketSendFrom", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps108, listed: true)
 	ft.lists[funcList(ft, f: f109)][funcIndex(ft, f: f109)].errTy = b.managedSocketErrorTy
-	var ps110 = ParamSpecList.create(0)
-	ps110.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	ps110.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketSetReadDeadline, name: "socketSetReadDeadline", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps110, listed: true)
-	var ps111 = ParamSpecList.create(0)
-	ps111.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	ps111.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketSetWriteDeadline, name: "socketSetWriteDeadline", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps111, listed: true)
+	let ty110 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	let ty111 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
 	var ps112 = ParamSpecList.create(0)
 	ps112.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps112.push(ParamSpec.make("_", ty: ty110, conv: Convention.convLet))
 	ps112.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	let f113 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketSetKeepAlive, name: "socketSetKeepAlive", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps112, listed: true)
+	ps112.push(ParamSpec.make("_", ty: ty111, conv: Convention.convLet))
+	let f113 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketSendPair, name: "socketSendPair", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps112, listed: true)
 	ft.lists[funcList(ft, f: f113)][funcIndex(ft, f: f113)].errTy = b.managedSocketErrorTy
 	var ps114 = ParamSpecList.create(0)
 	ps114.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketTimedOut, name: "socketTimedOut", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps114, listed: true)
-	var ps115 = ParamSpecList.create(0)
-	ps115.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	let f116 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketShutdownWrite, name: "socketShutdownWrite", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps115, listed: true)
-	ft.lists[funcList(ft, f: f116)][funcIndex(ft, f: f116)].errTy = b.managedSocketErrorTy
+	ps114.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps114.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f115 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketSendFile, name: "socketSendFile", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps114, listed: true)
+	ft.lists[funcList(ft, f: f115)][funcIndex(ft, f: f115)].errTy = b.managedSocketErrorTy
+	var ps116 = ParamSpecList.create(0)
+	ps116.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps116.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketSetReadDeadline, name: "socketSetReadDeadline", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps116, listed: true)
 	var ps117 = ParamSpecList.create(0)
 	ps117.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	let f118 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketClose, name: "socketClose", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps117, listed: true)
-	ft.lists[funcList(ft, f: f118)][funcIndex(ft, f: f118)].errTy = b.managedSocketErrorTy
-	var ps119 = ParamSpecList.create(0)
-	ps119.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrServicePostedCancel, name: "postedCancel", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps119, listed: true)
+	ps117.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketSetWriteDeadline, name: "socketSetWriteDeadline", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps117, listed: true)
+	var ps118 = ParamSpecList.create(0)
+	ps118.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps118.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f119 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketSetKeepAlive, name: "socketSetKeepAlive", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps118, listed: true)
+	ft.lists[funcList(ft, f: f119)][funcIndex(ft, f: f119)].errTy = b.managedSocketErrorTy
 	var ps120 = ParamSpecList.create(0)
 	ps120.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	ps120.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	ps120.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrServiceTimerNew, name: "timerNew", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps120, listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketTimedOut, name: "socketTimedOut", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps120, listed: true)
 	var ps121 = ParamSpecList.create(0)
 	ps121.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	ps121.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	ps121.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	ps121.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrServiceTimerRearm, name: "timerRearm", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps121, listed: true)
-	var ps122 = ParamSpecList.create(0)
-	ps122.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	ps122.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrServiceTimerNext, name: "timerNext", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps122, listed: true)
+	let f122 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketShutdownWrite, name: "socketShutdownWrite", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps121, listed: true)
+	ft.lists[funcList(ft, f: f122)][funcIndex(ft, f: f122)].errTy = b.managedSocketErrorTy
 	var ps123 = ParamSpecList.create(0)
 	ps123.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	ps123.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrServiceTimerReset, name: "timerReset", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps123, listed: true)
-	var ps124 = ParamSpecList.create(0)
-	ps124.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrServiceTimerCancel, name: "timerCancel", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps124, listed: true)
+	let f124 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketClose, name: "socketClose", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps123, listed: true)
+	ft.lists[funcList(ft, f: f124)][funcIndex(ft, f: f124)].errTy = b.managedSocketErrorTy
 	var ps125 = ParamSpecList.create(0)
 	ps125.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	ps125.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	ps125.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketNotify, name: "socketNotify", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps125, listed: true)
-	let ty126 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrServicePostedCancel, name: "postedCancel", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps125, listed: true)
+	var ps126 = ParamSpecList.create(0)
+	ps126.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps126.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps126.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrServiceTimerNew, name: "timerNew", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps126, listed: true)
 	var ps127 = ParamSpecList.create(0)
 	ps127.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	ps127.push(ParamSpec.make("_", ty: ty126, conv: Convention.convMutates))
 	ps127.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	let f128 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketTryRead, name: "socketTryRead", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps127, listed: true)
-	ft.lists[funcList(ft, f: f128)][funcIndex(ft, f: f128)].errTy = b.managedSocketErrorTy
-	let ty129 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	ps127.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps127.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrServiceTimerRearm, name: "timerRearm", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps127, listed: true)
+	var ps128 = ParamSpecList.create(0)
+	ps128.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps128.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrServiceTimerNext, name: "timerNext", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps128, listed: true)
+	var ps129 = ParamSpecList.create(0)
+	ps129.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps129.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrServiceTimerReset, name: "timerReset", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps129, listed: true)
 	var ps130 = ParamSpecList.create(0)
 	ps130.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	ps130.push(ParamSpec.make("_", ty: ty129, conv: Convention.convLet))
-	ps130.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	ps130.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	let f131 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketTrySend, name: "socketTrySend", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps130, listed: true)
-	ft.lists[funcList(ft, f: f131)][funcIndex(ft, f: f131)].errTy = b.managedSocketErrorTy
-	var ps132 = ParamSpecList.create(0)
-	ps132.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
-	let f133 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketTryAccept, name: "socketTryAccept", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps132, listed: true)
-	ft.lists[funcList(ft, f: f133)][funcIndex(ft, f: f133)].errTy = b.managedListenerErrorTy
-	let ty134 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
-	var ps135 = ParamSpecList.create(0)
-	ps135.push(ParamSpec.make("_", ty: ty134, conv: Convention.convLet))
-	let f136 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketResolve, name: "socketResolve", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps135, listed: true)
-	ft.lists[funcList(ft, f: f136)][funcIndex(ft, f: f136)].errTy = b.managedSocketErrorTy
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrServiceTimerCancel, name: "timerCancel", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps130, listed: true)
+	var ps131 = ParamSpecList.create(0)
+	ps131.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps131.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps131.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketNotify, name: "socketNotify", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps131, listed: true)
+	let ty132 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps133 = ParamSpecList.create(0)
+	ps133.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps133.push(ParamSpec.make("_", ty: ty132, conv: Convention.convMutates))
+	ps133.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f134 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketTryRead, name: "socketTryRead", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps133, listed: true)
+	ft.lists[funcList(ft, f: f134)][funcIndex(ft, f: f134)].errTy = b.managedSocketErrorTy
+	let ty135 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps136 = ParamSpecList.create(0)
+	ps136.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps136.push(ParamSpec.make("_", ty: ty135, conv: Convention.convLet))
+	ps136.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	ps136.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f137 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketTrySend, name: "socketTrySend", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps136, listed: true)
+	ft.lists[funcList(ft, f: f137)][funcIndex(ft, f: f137)].errTy = b.managedSocketErrorTy
+	var ps138 = ParamSpecList.create(0)
+	ps138.push(ParamSpec.make("_", ty: b.countTy, conv: Convention.convLet))
+	let f139 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketTryAccept, name: "socketTryAccept", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps138, listed: true)
+	ft.lists[funcList(ft, f: f139)][funcIndex(ft, f: f139)].errTy = b.managedListenerErrorTy
+	let ty140 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps141 = ParamSpecList.create(0)
+	ps141.push(ParamSpec.make("_", ty: ty140, conv: Convention.convLet))
+	let f142 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrManagedSocketResolve, name: "socketResolve", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps141, listed: true)
+	ft.lists[funcList(ft, f: f142)][funcIndex(ft, f: f142)].errTy = b.managedSocketErrorTy
 end 'declareBuiltinsMethods'
 
 function declareRawMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

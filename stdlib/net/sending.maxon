@@ -1,0 +1,148 @@
+// The calls a server makes for speed: a read into a buffer the caller lends, so a read allocates nothing of its own and a
+// connection keeps no buffer between requests; a send of two buffers in one vectored call, so a response's head and body
+// leave together with neither copied behind the other; and a send of an open file by the system's sendfile, so the file never
+// passes through the process.
+
+// The most bytes of a file one sendfile is asked for: the system sends what the socket takes of it.
+let SendFileSliceBytes = 1048576 as Count
+
+/// What a read into a lent buffer found: bytes, now after the buffer's own, nothing yet, or the end of the peer's sending.
+public union ReadInto
+	read(count Count)
+	wouldBlock
+	ended
+end 'ReadInto'
+
+public extension TcpClient
+	/// Read up to `most` bytes that have come into `buffer`, after the bytes it holds, never waiting: `wouldBlock` where none
+	/// have, `ended` once the peer has ended its sending. The buffer grows to hold them where it must, and otherwise nothing is
+	/// allocated.
+	public function readAvailableInto(mutates self, mutates buffer ByteArray, most stream.ReadCapacity) returns ReadInto throws stream.StreamError
+		let held = buffer.count()
+		let wanted = held + (most as Count)
+		let room = try buffer.capacity() as Count otherwise 0
+		if room < wanted 'grow'
+			buffer.reserve(wanted as ElementIndex)
+		end 'grow'
+		let received = try __Builtins.socketTryRead(socket.word, buffer.managed, most as Count) otherwise 'recvErr'
+			throw stream.StreamError.failed("receiving from the socket failed")
+		end 'recvErr'
+		if received == wouldBlockWord 'none'
+			return ReadInto.wouldBlock
+		end 'none'
+		if received == 0 'end'
+			return ReadInto.ended
+		end 'end'
+		return ReadInto.read(received)
+	end 'readAvailableInto'
+
+	/// Send all of `head` and then all of `body`, in one vectored send where the socket takes them, parking while it takes
+	/// none, as `send` does; `timedOut` once the write deadline passes, `connectionClosed` where the peer is gone.
+	public function sendPair(mutates self, head String, body String) returns BytePos throws NetworkError
+		let first = head.addressableBytes()
+		let second = body.addressableBytes()
+		let firstLength = first.length() as BytePos
+		var sentOfFirst = 0 as BytePos
+		var sentOfSecond = 0 as BytePos
+		while sentOfFirst < firstLength 'together'
+			let sent = try __Builtins.socketSendPair(socket.word, first, sentOfFirst as Count, second) otherwise throw self.sendFailure()
+			if sent == 0 'closed'
+				throw NetworkError.connectionClosed
+			end 'closed'
+			let leftOfFirst = firstLength - sentOfFirst
+			if sent < leftOfFirst 'partOfTheHead'
+				sentOfFirst = try sentOfFirst + sent otherwise panic("sendPair: more of the head sent than it holds")
+			end 'partOfTheHead' else 'theHead'
+				sentOfFirst = firstLength
+				sentOfSecond = try (sent as BytePos) - leftOfFirst otherwise panic("sendPair: the head sent short")
+			end 'theHead'
+		end 'together'
+		let secondLength = second.length() as BytePos
+		while sentOfSecond < secondLength 'rest'
+			let left = secondLength - sentOfSecond
+			let sent = try socket.sendFrom(second, offset: sentOfSecond, count: left if left < SendSliceBytes else SendSliceBytes) otherwise throw self.sendFailure()
+			if sent == 0 'closed'
+				throw NetworkError.connectionClosed
+			end 'closed'
+			sentOfSecond = try sentOfSecond + sent otherwise panic("sendPair: more of the body sent than it holds")
+		end 'rest'
+		return try firstLength + secondLength otherwise panic("sendPair: a response longer than a position")
+	end 'sendPair'
+
+	/// Send the rest of an open file, what its reader holds unread and then the file from where it is, and close it, whether or
+	/// not the send succeeds, since an open file is ended by its one owner: by the system's sendfile, a slice at a time, each
+	/// slice under a write deadline of `deadlineMs` set as it starts (0 for none), so a large file to a slow but live reader is
+	/// not cut while one that stops reading is. Throws `timedOut` past a slice's deadline, `connectionClosed` where the peer is
+	/// gone and `sendFailed` otherwise.
+	public function sendFile(mutates self, consumes reader file.FileStreamReader, deadlineMs SocketDeadlineMs) returns BytePos throws NetworkError
+		var reading = reader
+		let sent = try self.sendFileFrom(reading, deadlineMs: deadlineMs) otherwise (e) 'failed'
+			try reading.source.close() otherwise ignore
+			throw e
+		end 'failed'
+		try reading.source.close() otherwise ignore
+		return sent
+	end 'sendFile'
+
+	// sendFileFrom sends what the reader holds unread, then the file.
+	function sendFileFrom(mutates self, mutates reader file.FileStreamReader, deadlineMs SocketDeadlineMs) returns BytePos throws NetworkError
+		let unread = reader.unreadBytes()
+		var held = 0 as BytePos
+		if unread > 0 'buffered'
+			let bytes = try reader.readBytes(unread) otherwise throw NetworkError.sendFailed
+			try self.setWriteDeadline(deadlineMs)
+			held = try self.sendAll(bytes)
+		end 'buffered'
+		let rest = try self.sendFileRest(reader.source, deadlineMs: deadlineMs)
+		return try held + rest otherwise panic("sendFile: a file longer than a position")
+	end 'sendFileFrom'
+
+	// sendAll sends every byte of `bytes`, parking while the socket takes none.
+	function sendAll(mutates self, bytes ByteArray) returns BytePos throws NetworkError
+		var at = 0 as BytePos
+		let length = bytes.count() as BytePos
+		while at < length 'sending'
+			let left = length - at
+			let sent = try socket.sendFrom(bytes.managed, offset: at, count: left if left < SendSliceBytes else SendSliceBytes) otherwise throw self.sendFailure()
+			if sent == 0 'closed'
+				throw NetworkError.connectionClosed
+			end 'closed'
+			at = try at + sent otherwise panic("sendAll: more sent than there was")
+		end 'sending'
+		return length
+	end 'sendAll'
+
+	function sendFailure(mutates self) returns NetworkError
+		return NetworkError.timedOut if socket.timedOut() else NetworkError.sendFailed
+	end 'sendFailure'
+
+	#if os(macOS)
+		// Until the seed links libSystem's sendfile (runtime/macos_socket.maxon), the file is read and its bytes sent.
+		function sendFileRest(mutates self, mutates source file.FileSource, deadlineMs SocketDeadlineMs) returns BytePos throws NetworkError
+			var total = 0 as BytePos
+			while true 'slices'
+				let chunk = try source.readSome(SendFileSliceBytes as stream.ReadCapacity) otherwise throw NetworkError.sendFailed
+				if chunk.isEmpty() 'end'
+					return total
+				end 'end'
+				try self.setWriteDeadline(deadlineMs)
+				let sent = try self.sendAll(chunk)
+				total = try total + sent otherwise panic("sendFile: a file longer than a position")
+			end 'slices'
+			return total
+		end 'sendFileRest'
+	#else
+		function sendFileRest(mutates self, mutates source file.FileSource, deadlineMs SocketDeadlineMs) returns BytePos throws NetworkError
+			var total = 0 as BytePos
+			while true 'slices'
+				try self.setWriteDeadline(deadlineMs)
+				let sent = try source.file.sendOn(socket.word, count: SendFileSliceBytes) otherwise throw self.sendFailure()
+				if sent == 0 'end'
+					return total
+				end 'end'
+				total = try total + sent otherwise panic("sendFile: a file longer than a position")
+			end 'slices'
+			return total
+		end 'sendFileRest'
+	#endif
+end 'TcpClient'

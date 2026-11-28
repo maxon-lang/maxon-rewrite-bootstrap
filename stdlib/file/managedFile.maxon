@@ -53,6 +53,13 @@ public type __ManagedFile
 		try __Builtins.fileSync(word)
 	end 'sync'
 
+	/// Send up to `count` bytes of the file from its position, which moves on by what is sent, on the connected socket whose
+	/// word is `socket`, by the system's sendfile, so the bytes never pass through the process, and give the count, 0 at the end
+	/// of the file. It parks only while the socket takes none, until the socket's write deadline.
+	export function sendOn(mutates self, socket Count, count Count) returns Count throws __ManagedSocketError
+		return try __Builtins.socketSendFile(socket, word, count)
+	end 'sendOn'
+
 	/// Close the file. It is closed whether or not this throws; `writeFailed` says the system's close reported an error, so
 	/// what was written may not all be in the file.
 	public function close(destructs self) throws __ManagedFileError

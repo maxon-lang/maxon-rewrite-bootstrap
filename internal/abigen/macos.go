@@ -86,6 +86,8 @@ var macosABI = []layoutConst{
 	{"macosSoNosigpipe", 0x1022, true, toRuntime, "SO_NOSIGPIPE: a write to a socket whose peer has gone fails with EPIPE and sends no SIGPIPE."},
 	{"macosIpprotoTcp", 6, true, toRuntime, "IPPROTO_TCP: the level of TCP's options."},
 	{"macosTcpNodelay", 1, true, toRuntime, "TCP_NODELAY: a send goes out at once, not held back to join the next (Nagle's algorithm off), as Go sets it."},
+	{"macosIovecBytes", 16, true, toRuntime, "a struct iovec: the buffer's address, then its length, which writev reads."},
+	{"macosIovecLengthOffset", 8, true, toRuntime, "where a struct iovec holds its length."},
 	{"macosSoKeepalive", 8, true, toRuntime, "SO_KEEPALIVE: a connection that stays idle is probed, and ended when its peer stops answering, as Go sets it."},
 	{"macosTcpKeepalive", 0x10, true, toRuntime, "TCP_KEEPALIVE: how many seconds a connection stays idle before its first probe, Linux's TCP_KEEPIDLE."},
 	{"macosTcpKeepintvl", 0x101, true, toRuntime, "TCP_KEEPINTVL: how many seconds between the probes that go unanswered."},

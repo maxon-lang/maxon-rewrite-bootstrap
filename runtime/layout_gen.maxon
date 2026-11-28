@@ -963,6 +963,21 @@ let linuxIpv6V6only = 26 as Count
 // linuxMsgNosignal is MSG_NOSIGNAL: a send to a peer that has gone fails with EPIPE and raises no SIGPIPE.
 let linuxMsgNosignal = 16384 as Count
 
+// linuxIovecBytes is a struct iovec: the buffer's address, then its length.
+let linuxIovecBytes = 16 as Count
+
+// linuxIovecLengthOffset is where a struct iovec holds its length.
+let linuxIovecLengthOffset = 8 as Count
+
+// linuxMsghdrBytes is a struct msghdr: the peer's address and its length, the io vector and its count, the control data and its length, the flags.
+let linuxMsghdrBytes = 56 as Count
+
+// linuxMsghdrIovOffset is where a struct msghdr holds the address of its io vector.
+let linuxMsghdrIovOffset = 16 as Count
+
+// linuxMsghdrIovlenOffset is where a struct msghdr holds how many buffers its io vector has.
+let linuxMsghdrIovlenOffset = 24 as Count
+
 // linuxShutWrite is SHUT_WR: shutdown ends the sending half, which the peer reads as the end.
 let linuxShutWrite = 1 as Count
 
@@ -1437,6 +1452,12 @@ let macosIpprotoTcp = 6 as Count
 // macosTcpNodelay is TCP_NODELAY: a send goes out at once, not held back to join the next (Nagle's algorithm off), as Go sets it.
 let macosTcpNodelay = 1 as Count
 
+// macosIovecBytes is a struct iovec: the buffer's address, then its length, which writev reads.
+let macosIovecBytes = 16 as Count
+
+// macosIovecLengthOffset is where a struct iovec holds its length.
+let macosIovecLengthOffset = 8 as Count
+
 // macosSoKeepalive is SO_KEEPALIVE: a connection that stays idle is probed, and ended when its peer stops answering, as Go sets it.
 let macosSoKeepalive = 8 as Count
 
@@ -1732,6 +1753,12 @@ let macosSpawnSetSid = 1024 as Count
 	// linuxSysRecvfrom is recvfrom(fd, buffer, count, flags, address, address length).
 	let linuxSysRecvfrom = 207 as Count
 
+	// linuxSysSendmsg is sendmsg(fd, message header, flags): a send of the buffers its io vector names, in one call.
+	let linuxSysSendmsg = 211 as Count
+
+	// linuxSysSendfile is sendfile(out fd, in fd, offset address, count): a send of a file's bytes from the offset, which it moves on, with no copy into the process.
+	let linuxSysSendfile = 71 as Count
+
 	// linuxSysShutdown is shutdown(fd, how).
 	let linuxSysShutdown = 210 as Count
 
@@ -1950,6 +1977,12 @@ let macosSpawnSetSid = 1024 as Count
 
 	// linuxSysRecvfrom is recvfrom(fd, buffer, count, flags, address, address length).
 	let linuxSysRecvfrom = 45 as Count
+
+	// linuxSysSendmsg is sendmsg(fd, message header, flags): a send of the buffers its io vector names, in one call.
+	let linuxSysSendmsg = 46 as Count
+
+	// linuxSysSendfile is sendfile(out fd, in fd, offset address, count): a send of a file's bytes from the offset, which it moves on, with no copy into the process.
+	let linuxSysSendfile = 40 as Count
 
 	// linuxSysShutdown is shutdown(fd, how).
 	let linuxSysShutdown = 48 as Count
