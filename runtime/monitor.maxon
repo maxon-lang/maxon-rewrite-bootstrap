@@ -52,7 +52,7 @@ function startMonitor(scheduler Count)
 	__Raw.storeWord(context, offset: contextStartCodeOffset, value: __Raw.codeAddress("monitorMain"))
 	#if os(Windows)
 		__Raw.storeWord(scheduler, offset: schedRegistersOffset, value: keep(__Raw.wrappingAdd(windowsContextBytes, right: windowsContextAlignment)))
-		__Raw.storeWord(scheduler, offset: schedMonitorTimerOffset, value: __Raw.callImport4("CreateWaitableTimerExW", arg1: 0, arg2: 0, arg3: createWaitableTimerHighResolution, arg4: timerAllAccess))
+		__Raw.storeWord(scheduler, offset: schedMonitorTimerOffset, value: highResolutionTimer())
 	#else
 		__Raw.storeWord(context, offset: contextSignalCodeOffset, value: __Raw.codeAddress("preemptSignal"))
 	#endif
@@ -323,6 +323,13 @@ end 'takeExitClaim'
 	let createWaitableTimerHighResolution = 2 as Count
 
 	let timerAllAccess = 0x1F0003 as Count
+
+	// highResolutionTimer makes a waitable timer of high resolution (Go's createHighResTimer), set to a relative time in units
+	// of 100 ns and not by the system's timer tick, and gives its handle, or 0 where the system makes none (before Windows 10
+	// 1803).
+	function highResolutionTimer() returns Count
+		return __Raw.callImport4("CreateWaitableTimerExW", arg1: 0, arg2: 0, arg3: createWaitableTimerHighResolution, arg4: timerAllAccess)
+	end 'highResolutionTimer'
 
 	// hundredNanosPerMicro is how many of a waitable timer's units a microsecond is.
 	let hundredNanosPerMicro = 10 as Count

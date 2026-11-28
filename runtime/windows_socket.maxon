@@ -175,12 +175,8 @@
 	// winsockMake loads ws2_32, starts it and finds the functions of it and of ntdll that the sockets call.
 	function winsockMake() returns Count
 		let table = keep(winsockTableBytes)
-		let library = cStringOf("ws2_32.dll")
-		let winsock = __Raw.callImport1("LoadLibraryA", arg1: library)
-		free(library)
-		let system = cStringOf("ntdll.dll")
-		let native = __Raw.callImport1("GetModuleHandleA", arg1: system)
-		free(system)
+		let winsock = libraryLoad("ws2_32.dll")
+		let native = libraryLoaded("ntdll.dll")
 		if winsock == 0 or native == 0 'unloaded'
 			panic("the operating system has no sockets: ws2_32.dll cannot be loaded")
 		end 'unloaded'
@@ -216,11 +212,33 @@
 		return table
 	end 'winsockMake'
 
-	// winsockFind finds a function of a loaded library by its name and keeps its address in a slot of the table.
-	function winsockFind(table Count, slot Count, module Count, name String)
+	// libraryLoad loads a library by its name and gives its module, or 0.
+	function libraryLoad(name String) returns Count
+		let text = cStringOf(name)
+		let module = __Raw.callImport1("LoadLibraryA", arg1: text)
+		free(text)
+		return module
+	end 'libraryLoad'
+
+	// libraryLoaded gives the module of a library that the process has loaded already, by its name, or 0.
+	function libraryLoaded(name String) returns Count
+		let text = cStringOf(name)
+		let module = __Raw.callImport1("GetModuleHandleA", arg1: text)
+		free(text)
+		return module
+	end 'libraryLoaded'
+
+	// libraryFunction gives the address of a function of a loaded library by its name, or 0 where it has none.
+	function libraryFunction(module Count, name String) returns Count
 		let text = cStringOf(name)
 		let address = __Raw.callImport2("GetProcAddress", arg1: module, arg2: text)
 		free(text)
+		return address
+	end 'libraryFunction'
+
+	// winsockFind finds a function of a loaded library by its name and keeps its address in a slot of the table.
+	function winsockFind(table Count, slot Count, module Count, name String)
+		let address = libraryFunction(module, name: name)
 		if address == 0 'missing'
 			panic("the operating system's sockets lack the function {name}")
 		end 'missing'
