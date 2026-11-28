@@ -1,10 +1,14 @@
 // The handler of a 10 ms ticker's first tick ends 35 ms after the tick, so the ticks of 20, 30 and 40 ms pass while it runs:
-// its next(m) arms the first tick of the grid past now, the one of 50 ms, so exactly 3 ticks are skipped and none is
-// fired at once for being late, as Go's Ticker would fire the one its channel kept. The tick after it, handled at once, is
-// the next of the grid, 60 ms. The ticker is cancelled at its third tick, and nothing is left.
+// its next(m) arms the first tick of the grid past now, so the ticks missed are skipped and none is fired at once for being
+// late, as Go's Ticker would fire the one its channel kept. The tick after it, handled at once, is the next of the grid.
+// Whatever the wake's lateness, which this test does not bound (a manual test holds the next tick at grid tick 5 and the
+// one after at 6 when the timers or the event wait change), each comes at or after the first grid point past its next(m),
+// read in whole milliseconds from the test's start, at or before which the grid starts: the second tick at grid tick 4 or
+// later and after the late handler ended, the third after the second. The ticker is cancelled at its third tick, and
+// nothing is left.
 // native-only
 // runs: alone
-//> a 35 ms handler of a 10 ms ticker skipped 3 ticks: the next came at grid tick 5, none at once, then tick 6
+//> a 35 ms handler of a 10 ms ticker: the next tick on the first grid point after the handler, none at once, then the next
 export typealias Amount = int(0 to 1000000)
 
 typealias Tickers = Array with Ticker
@@ -20,9 +24,11 @@ type Pacer implements Ends
 	var ticks as Amount
 	var second as DurationMs
 	var third as DurationMs
+	var firstCall as DurationMs
+	var secondCall as DurationMs
 
 	static function create() returns Self
-		return Self{tickers: Tickers.create(0), start: Clock.nowMs(), ticks: 0, second: 0, third: 0}
+		return Self{tickers: Tickers.create(0), start: Clock.nowMs(), ticks: 0, second: 0, third: 0, firstCall: 0, secondCall: 0}
 	end 'create'
 
 	export function begin(mutates self) returns Amount
@@ -49,6 +55,12 @@ type Pacer implements Ends
 			t.cancel()
 			return
 		end 'third'
+		let called = Clock.elapsedMs(self.start)
+		if self.ticks == 1 'first'
+			self.firstCall = called
+		end 'first' else 'second'
+			self.secondCall = called
+		end 'second'
 		t.next(self.handle.post(Pacer.Message.tick))
 		self.tickers.push(t)
 	end 'tick'
@@ -57,8 +69,16 @@ type Pacer implements Ends
 		return self.ticks >= 3
 	end 'isDone'
 
+	// at is when the second or third tick came (which 2 or 3), or when the first or second tick's next(m) was called (which
+	// 1 or 4).
 	export function at(which Amount) returns DurationMs
-		return self.second if which == 2 else self.third
+		if which == 1 'first'
+			return self.firstCall
+		end 'first'
+		if which == 2 'second'
+			return self.second
+		end 'second'
+		return self.third if which == 3 else self.secondCall
 	end 'at'
 
 	function finish(consumes self)
@@ -76,10 +96,11 @@ function atOf(p Pacer.handle, which Amount) returns DurationMs
 	return await pending
 end 'atOf'
 
-// gridTick is the tick of the grid that a tick handled at ms after the start is, its wake rounded to the nearest.
-function gridTick(ms DurationMs) returns DurationMs
-	return (try ms + period / 2 otherwise ms) / period
-end 'gridTick'
+// onGrid is the first reading a tick may have after a next(m) read at c: c rounded up to a multiple of the period.
+function onGrid(c DurationMs) returns DurationMs
+	let up = try c + period - 1 otherwise c
+	return try up - up mod period otherwise c
+end 'onGrid'
 
 function main() returns ExitCode
 	let p = spawn Pacer.create()
@@ -93,15 +114,15 @@ function main() returns ExitCode
 		end 'done'
 		sleep(5)
 	end 'wait'
+	let firstCall = atOf(p, which: 1)
 	let second = atOf(p, which: 2)
+	let secondCall = atOf(p, which: 4)
 	let third = atOf(p, which: 3)
-	let secondTick = gridTick(second)
-	let thirdTick = gridTick(third)
-	let skipped = try secondTick - 2 otherwise 0
-	if second >= 50 and skipped == 3 and thirdTick == 6 'skipped'
-		print("a 35 ms handler of a 10 ms ticker skipped {skipped} ticks: the next came at grid tick {secondTick}, none at once, then tick {thirdTick}\n")
+	let afterHandler = second >= onGrid(firstCall) and firstCall >= period + lateBy and second >= 4 * period
+	if afterHandler and third >= onGrid(secondCall) and third >= second 'skipped'
+		print("a 35 ms handler of a 10 ms ticker: the next tick on the first grid point after the handler, none at once, then the next\n")
 	end 'skipped' else 'wrong'
-		print("a 35 ms handler of a 10 ms ticker: the next tick at {second} ms (grid tick {secondTick}), then {third} ms (grid tick {thirdTick})\n")
+		print("a 35 ms handler of a 10 ms ticker: its next(m) at {firstCall} ms, the next tick at {second} ms, its next(m) at {secondCall} ms, then {third} ms\n")
 	end 'wrong'
 	p.shutdown()
 	await done

@@ -1,11 +1,14 @@
 // Ticker.notifyEvery(10, message: h.post(m)) posts m every 10 ms, the handler of each tick arming the next with
-// next(m). The ticks are on a grid, the first tick plus a whole number of periods, worked out when next is called, so a
-// handler that takes 4 ms of each 10 does not push the ticks back: the 50th tick comes 500 ms after the ticker was made, where
-// a ticker armed a period after each handler would come at 700 ms, and none comes early. A period of 0 ticks at once each
-// time it is armed. Each ticker is cancelled at its last tick, and nothing is left.
+// next(m). The ticks are on a grid, the first tick plus a whole number of periods, worked out when next is called: each
+// tick comes at or after the first grid point past the moment its next(m) was called, never before it and never at once
+// for being late, whatever the wake's own lateness, which this test does not bound (a manual test holds the 50th tick
+// within a few ms of 500 when the timers or the event wait change). The grid starts when the ticker is made, at or after
+// the test's start, and the clock reads whole milliseconds, so a tick read at t ms after a next(m) read at c is on the grid
+// when t >= c rounded up to a multiple of the period, and none is early when the k-th comes at or after k periods. A period
+// of 0 ticks at once each time it is armed. Each ticker is cancelled at its last tick, and nothing is left.
 // native-only
 // runs: alone
-//> 50 ticks of 10 ms: none early, the 50th within 500 to 559 ms of the start: the grid holds
+//> 50 ticks of 10 ms: none early, each on the first grid point after its next, none at once
 //> 100 ticks of 0 ms: none early
 export typealias Amount = int(0 to 1000000)
 
@@ -19,10 +22,11 @@ type Pacer implements Ends
 	var most as Amount
 	var ticks as Amount
 	var early as Amount
-	var lastAt as DurationMs
+	var calledAt as DurationMs
+	var offGrid as Amount
 
 	static function create() returns Self
-		return Self{tickers: Tickers.create(0), start: Clock.nowMs(), period: 0, work: 0, most: 0, ticks: 0, early: 0, lastAt: 0}
+		return Self{tickers: Tickers.create(0), start: Clock.nowMs(), period: 0, work: 0, most: 0, ticks: 0, early: 0, calledAt: 0, offGrid: 0}
 	end 'create'
 
 	export function begin(mutates self, every DurationMs, busy DurationMs, count Amount) returns Amount
@@ -31,7 +35,8 @@ type Pacer implements Ends
 		self.most = count
 		self.ticks = 0
 		self.early = 0
-		self.lastAt = 0
+		self.calledAt = 0
+		self.offGrid = 0
 		self.start = Clock.nowMs()
 		self.tickers.push(Ticker.notifyEvery(every, message: self.handle.post(Pacer.Message.tick)))
 		return count
@@ -44,7 +49,9 @@ type Pacer implements Ends
 		if at < due 'early'
 			self.early = try self.early + 1 otherwise self.early
 		end 'early'
-		self.lastAt = at
+		if self.ticks > 1 and at < onGrid(self.calledAt, period: self.period) 'off'
+			self.offGrid = try self.offGrid + 1 otherwise self.offGrid
+		end 'off'
 		var t = try self.tickers.pop() otherwise panic("a tick with no ticker")
 		if self.ticks == self.most 'last'
 			t.cancel()
@@ -53,6 +60,7 @@ type Pacer implements Ends
 		if self.work > 0 'work'
 			sleep(self.work as Milliseconds)
 		end 'work'
+		self.calledAt = Clock.elapsedMs(self.start)
 		t.next(self.handle.post(Pacer.Message.tick))
 		self.tickers.push(t)
 	end 'tick'
@@ -65,9 +73,9 @@ type Pacer implements Ends
 		return self.early
 	end 'earlyTicks'
 
-	export function lastTickAt() returns DurationMs
-		return self.lastAt
-	end 'lastTickAt'
+	export function offGridTicks() returns Amount
+		return self.offGrid
+	end 'offGridTicks'
 
 	function finish(consumes self)
 		var ts = self.tickers
@@ -94,10 +102,19 @@ function earlyOf(p Pacer.handle) returns Amount
 	return await pending
 end 'earlyOf'
 
-function lastOf(p Pacer.handle) returns DurationMs
-	let pending = try p.lastTickAt() otherwise panic("a send to a service that runs")
+function offGridOf(p Pacer.handle) returns Amount
+	let pending = try p.offGridTicks() otherwise panic("a send to a service that runs")
 	return await pending
-end 'lastOf'
+end 'offGridOf'
+
+// onGrid is the first reading a tick may have after a next(m) read at c: c rounded up to a multiple of the period.
+function onGrid(c DurationMs, period DurationMs) returns DurationMs
+	if period == 0 'once'
+		return c
+	end 'once'
+	let up = try c + period - 1 otherwise c
+	return try up - up mod period otherwise c
+end 'onGrid'
 
 function main() returns ExitCode
 	let p = spawn Pacer.create()
@@ -106,11 +123,11 @@ function main() returns ExitCode
 	_ = await begun
 	awaitDone(p)
 	let early = earlyOf(p)
-	let last = lastOf(p)
-	if early == 0 and last >= 500 and last < 560 'grid'
-		print("50 ticks of 10 ms: none early, the 50th within 500 to 559 ms of the start: the grid holds\n")
+	let off = offGridOf(p)
+	if early == 0 and off == 0 'grid'
+		print("50 ticks of 10 ms: none early, each on the first grid point after its next, none at once\n")
 	end 'grid' else 'drift'
-		print("50 ticks of 10 ms: {early} early, the 50th at {last} ms\n")
+		print("50 ticks of 10 ms: {early} early, {off} before the first grid point after their next\n")
 	end 'drift'
 	let again = try p.begin(0, busy: 0, count: 100) otherwise panic("a send to a service that runs")
 	_ = await again
