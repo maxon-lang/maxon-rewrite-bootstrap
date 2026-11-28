@@ -74,6 +74,7 @@ export enum Rt
 	rtStackSwitch
 	rtCopyBytes
 	rtStackWipe
+	rtVectorRegistersStore
 	rtGreenStart
 	rtAsyncPreempt
 	rtPreemptHandler
@@ -538,6 +539,9 @@ export function rtSymbol(r Rt) returns String
 	if r == Rt.rtStackWipe 'rtStackWipe'
 		return "rt.stackWipe"
 	end 'rtStackWipe'
+	if r == Rt.rtVectorRegistersStore 'rtVectorRegistersStore'
+		return "rt.vectorRegistersStore"
+	end 'rtVectorRegistersStore'
 	if r == Rt.rtGreenStart 'rtGreenStart'
 		return "rt.greenStart"
 	end 'rtGreenStart'
@@ -1497,6 +1501,9 @@ export function rtText(r Rt) returns String
 	if r == Rt.rtStackWipe 'rtStackWipe'
 		return "rt.stackWipe"
 	end 'rtStackWipe'
+	if r == Rt.rtVectorRegistersStore 'rtVectorRegistersStore'
+		return "rt.vectorRegistersStore"
+	end 'rtVectorRegistersStore'
 	if r == Rt.rtGreenStart 'rtGreenStart'
 		return "rt.greenStart"
 	end 'rtGreenStart'
@@ -2315,6 +2322,7 @@ export function rtTexts() returns ast.StringList
 	texts.push("rt.stackSwitch")
 	texts.push("rt.copyBytes")
 	texts.push("rt.stackWipe")
+	texts.push("rt.vectorRegistersStore")
 	texts.push("rt.greenStart")
 	texts.push("rt.asyncPreempt")
 	texts.push("rt.preemptHandler")
@@ -2780,746 +2788,749 @@ export function rtCode(r Rt) returns Count
 	if r == Rt.rtStackWipe 'rtStackWipe'
 		return 71
 	end 'rtStackWipe'
-	if r == Rt.rtGreenStart 'rtGreenStart'
+	if r == Rt.rtVectorRegistersStore 'rtVectorRegistersStore'
 		return 72
+	end 'rtVectorRegistersStore'
+	if r == Rt.rtGreenStart 'rtGreenStart'
+		return 73
 	end 'rtGreenStart'
 	if r == Rt.rtAsyncPreempt 'rtAsyncPreempt'
-		return 73
+		return 74
 	end 'rtAsyncPreempt'
 	if r == Rt.rtPreemptHandler 'rtPreemptHandler'
-		return 74
+		return 75
 	end 'rtPreemptHandler'
 	if r == Rt.rtSigreturn 'rtSigreturn'
-		return 75
+		return 76
 	end 'rtSigreturn'
 	if r == Rt.rtPreemptibleCode 'rtPreemptibleCode'
-		return 76
+		return 77
 	end 'rtPreemptibleCode'
 	if r == Rt.rtSchedDrain 'rtSchedDrain'
-		return 77
+		return 78
 	end 'rtSchedDrain'
 	if r == Rt.rtWorkerMain 'rtWorkerMain'
-		return 78
+		return 79
 	end 'rtWorkerMain'
 	if r == Rt.rtEnterBlocking 'rtEnterBlocking'
-		return 79
+		return 80
 	end 'rtEnterBlocking'
 	if r == Rt.rtExitBlocking 'rtExitBlocking'
-		return 80
+		return 81
 	end 'rtExitBlocking'
 	if r == Rt.rtExitClaim 'rtExitClaim'
-		return 81
+		return 82
 	end 'rtExitClaim'
 	if r == Rt.rtCownAcquire 'rtCownAcquire'
-		return 82
+		return 83
 	end 'rtCownAcquire'
 	if r == Rt.rtBehaviourRelease 'rtBehaviourRelease'
-		return 83
+		return 84
 	end 'rtBehaviourRelease'
 	if r == Rt.rtBehaviourResumed 'rtBehaviourResumed'
-		return 84
+		return 85
 	end 'rtBehaviourResumed'
 	if r == Rt.rtPinUnheld 'rtPinUnheld'
-		return 85
+		return 86
 	end 'rtPinUnheld'
 	if r == Rt.rtMainRun 'rtMainRun'
-		return 86
+		return 87
 	end 'rtMainRun'
 	if r == Rt.rtMainGreen 'rtMainGreen'
-		return 87
+		return 88
 	end 'rtMainGreen'
 	if r == Rt.rtAsyncNew 'rtAsyncNew'
-		return 88
+		return 89
 	end 'rtAsyncNew'
 	if r == Rt.rtAsyncStart 'rtAsyncStart'
-		return 89
+		return 90
 	end 'rtAsyncStart'
 	if r == Rt.rtAsyncAwait 'rtAsyncAwait'
-		return 90
+		return 91
 	end 'rtAsyncAwait'
 	if r == Rt.rtAsyncWait 'rtAsyncWait'
-		return 91
+		return 92
 	end 'rtAsyncWait'
 	if r == Rt.rtAsyncError 'rtAsyncError'
-		return 92
+		return 93
 	end 'rtAsyncError'
 	if r == Rt.rtAsyncTake 'rtAsyncTake'
-		return 93
+		return 94
 	end 'rtAsyncTake'
 	if r == Rt.rtAsyncCancel 'rtAsyncCancel'
-		return 94
+		return 95
 	end 'rtAsyncCancel'
 	if r == Rt.rtAsyncAwaitAny 'rtAsyncAwaitAny'
-		return 95
+		return 96
 	end 'rtAsyncAwaitAny'
 	if r == Rt.rtAsyncComplete 'rtAsyncComplete'
-		return 96
+		return 97
 	end 'rtAsyncComplete'
 	if r == Rt.rtSleep 'rtSleep'
-		return 97
+		return 98
 	end 'rtSleep'
 	if r == Rt.rtYield 'rtYield'
-		return 98
+		return 99
 	end 'rtYield'
 	if r == Rt.rtParallelRun 'rtParallelRun'
-		return 99
+		return 100
 	end 'rtParallelRun'
 	if r == Rt.rtSchedPin 'rtSchedPin'
-		return 100
+		return 101
 	end 'rtSchedPin'
 	if r == Rt.rtSchedUnpin 'rtSchedUnpin'
-		return 101
+		return 102
 	end 'rtSchedUnpin'
 	if r == Rt.rtSchedPinDepth 'rtSchedPinDepth'
-		return 102
+		return 103
 	end 'rtSchedPinDepth'
 	if r == Rt.rtSchedCurrentMachine 'rtSchedCurrentMachine'
-		return 103
+		return 104
 	end 'rtSchedCurrentMachine'
 	if r == Rt.rtHashSeed 'rtHashSeed'
-		return 104
+		return 105
 	end 'rtHashSeed'
 	if r == Rt.rtHashSeedDraw 'rtHashSeedDraw'
-		return 105
+		return 106
 	end 'rtHashSeedDraw'
 	if r == Rt.rtHeapThreadAllocs 'rtHeapThreadAllocs'
-		return 106
+		return 107
 	end 'rtHeapThreadAllocs'
 	if r == Rt.rtHeapThreadFrees 'rtHeapThreadFrees'
-		return 107
+		return 108
 	end 'rtHeapThreadFrees'
 	if r == Rt.rtHeapThreadBytes 'rtHeapThreadBytes'
-		return 108
+		return 109
 	end 'rtHeapThreadBytes'
 	if r == Rt.rtHeapProcessAllocs 'rtHeapProcessAllocs'
-		return 109
+		return 110
 	end 'rtHeapProcessAllocs'
 	if r == Rt.rtHeapProcessFrees 'rtHeapProcessFrees'
-		return 110
+		return 111
 	end 'rtHeapProcessFrees'
 	if r == Rt.rtHeapProcessLive 'rtHeapProcessLive'
-		return 111
+		return 112
 	end 'rtHeapProcessLive'
 	if r == Rt.rtHeapProcessBytes 'rtHeapProcessBytes'
-		return 112
+		return 113
 	end 'rtHeapProcessBytes'
 	if r == Rt.rtHeapScavenge 'rtHeapScavenge'
-		return 113
+		return 114
 	end 'rtHeapScavenge'
 	if r == Rt.rtRandomFill 'rtRandomFill'
-		return 114
+		return 115
 	end 'rtRandomFill'
 	if r == Rt.rtHashWord 'rtHashWord'
-		return 115
+		return 116
 	end 'rtHashWord'
 	if r == Rt.rtHashBytes 'rtHashBytes'
-		return 116
+		return 117
 	end 'rtHashBytes'
 	if r == Rt.rtHashStringBytes 'rtHashStringBytes'
-		return 117
+		return 118
 	end 'rtHashStringBytes'
 	if r == Rt.rtCpuHasAes 'rtCpuHasAes'
-		return 118
+		return 119
 	end 'rtCpuHasAes'
 	if r == Rt.rtAesExpandKey 'rtAesExpandKey'
-		return 119
+		return 120
 	end 'rtAesExpandKey'
 	if r == Rt.rtAesEncryptBlock 'rtAesEncryptBlock'
-		return 120
+		return 121
 	end 'rtAesEncryptBlock'
 	if r == Rt.rtAesDecryptBlock 'rtAesDecryptBlock'
-		return 121
+		return 122
 	end 'rtAesDecryptBlock'
 	if r == Rt.rtAesCtrXor 'rtAesCtrXor'
-		return 122
+		return 123
 	end 'rtAesCtrXor'
 	if r == Rt.rtAesGcmInit 'rtAesGcmInit'
-		return 123
+		return 124
 	end 'rtAesGcmInit'
 	if r == Rt.rtAesGcmSeal 'rtAesGcmSeal'
-		return 124
+		return 125
 	end 'rtAesGcmSeal'
 	if r == Rt.rtAesGcmOpen 'rtAesGcmOpen'
-		return 125
+		return 126
 	end 'rtAesGcmOpen'
 	if r == Rt.rtCpuHasSha 'rtCpuHasSha'
-		return 126
+		return 127
 	end 'rtCpuHasSha'
 	if r == Rt.rtSha256Blocks 'rtSha256Blocks'
-		return 127
+		return 128
 	end 'rtSha256Blocks'
 	if r == Rt.rtBytesReadWord 'rtBytesReadWord'
-		return 128
+		return 129
 	end 'rtBytesReadWord'
 	if r == Rt.rtBytesAppendWord 'rtBytesAppendWord'
-		return 129
+		return 130
 	end 'rtBytesAppendWord'
 	if r == Rt.rtServiceNew 'rtServiceNew'
-		return 130
+		return 131
 	end 'rtServiceNew'
 	if r == Rt.rtServiceReserve 'rtServiceReserve'
-		return 131
+		return 132
 	end 'rtServiceReserve'
 	if r == Rt.rtServiceStart 'rtServiceStart'
-		return 132
+		return 133
 	end 'rtServiceStart'
 	if r == Rt.rtServiceShutdown 'rtServiceShutdown'
-		return 133
+		return 134
 	end 'rtServiceShutdown'
 	if r == Rt.rtServiceStopNow 'rtServiceStopNow'
-		return 134
+		return 135
 	end 'rtServiceStopNow'
 	if r == Rt.rtServiceStopSelf 'rtServiceStopSelf'
-		return 135
+		return 136
 	end 'rtServiceStopSelf'
 	if r == Rt.rtServiceStopNowSelf 'rtServiceStopNowSelf'
-		return 136
+		return 137
 	end 'rtServiceStopNowSelf'
 	if r == Rt.rtServiceSelfHandle 'rtServiceSelfHandle'
-		return 137
+		return 138
 	end 'rtServiceSelfHandle'
 	if r == Rt.rtServicePostedCancel 'rtServicePostedCancel'
-		return 138
+		return 139
 	end 'rtServicePostedCancel'
 	if r == Rt.rtTimerNew 'rtTimerNew'
-		return 139
+		return 140
 	end 'rtTimerNew'
 	if r == Rt.rtTimerRearm 'rtTimerRearm'
-		return 140
+		return 141
 	end 'rtTimerRearm'
 	if r == Rt.rtTimerNext 'rtTimerNext'
-		return 141
+		return 142
 	end 'rtTimerNext'
 	if r == Rt.rtTimerReset 'rtTimerReset'
-		return 142
+		return 143
 	end 'rtTimerReset'
 	if r == Rt.rtTimerCancel 'rtTimerCancel'
-		return 143
+		return 144
 	end 'rtTimerCancel'
 	if r == Rt.rtServiceNotifyStopped 'rtServiceNotifyStopped'
-		return 144
+		return 145
 	end 'rtServiceNotifyStopped'
 	if r == Rt.rtServicePostedNew 'rtServicePostedNew'
-		return 145
+		return 146
 	end 'rtServicePostedNew'
 	if r == Rt.rtServicePostedStart 'rtServicePostedStart'
-		return 146
+		return 147
 	end 'rtServicePostedStart'
 	if r == Rt.rtServiceStopped 'rtServiceStopped'
-		return 147
+		return 148
 	end 'rtServiceStopped'
 	if r == Rt.rtServiceFreed 'rtServiceFreed'
-		return 148
+		return 149
 	end 'rtServiceFreed'
 	if r == Rt.rtServiceStopStart 'rtServiceStopStart'
-		return 149
+		return 150
 	end 'rtServiceStopStart'
 	if r == Rt.rtServiceMostQueued 'rtServiceMostQueued'
-		return 150
+		return 151
 	end 'rtServiceMostQueued'
 	if r == Rt.rtServiceNewPending 'rtServiceNewPending'
-		return 151
+		return 152
 	end 'rtServiceNewPending'
 	if r == Rt.rtServiceTryReserve 'rtServiceTryReserve'
-		return 152
+		return 153
 	end 'rtServiceTryReserve'
 	if r == Rt.rtServiceQueued 'rtServiceQueued'
-		return 153
+		return 154
 	end 'rtServiceQueued'
 	if r == Rt.rtServiceTurn 'rtServiceTurn'
-		return 154
+		return 155
 	end 'rtServiceTurn'
 	if r == Rt.rtServicePlace 'rtServicePlace'
-		return 155
+		return 156
 	end 'rtServicePlace'
 	if r == Rt.rtServiceUnplace 'rtServiceUnplace'
-		return 156
+		return 157
 	end 'rtServiceUnplace'
 	if r == Rt.rtServicePutPending 'rtServicePutPending'
-		return 157
+		return 158
 	end 'rtServicePutPending'
 	if r == Rt.rtServicePendingHeld 'rtServicePendingHeld'
-		return 158
+		return 159
 	end 'rtServicePendingHeld'
 	if r == Rt.rtServiceTakePending 'rtServiceTakePending'
-		return 159
+		return 160
 	end 'rtServiceTakePending'
 	if r == Rt.rtServiceUnderLoad 'rtServiceUnderLoad'
-		return 160
+		return 161
 	end 'rtServiceUnderLoad'
 	if r == Rt.rtServiceShedStart 'rtServiceShedStart'
-		return 161
+		return 162
 	end 'rtServiceShedStart'
 	if r == Rt.rtServiceShedMarked 'rtServiceShedMarked'
-		return 162
+		return 163
 	end 'rtServiceShedMarked'
 	if r == Rt.rtServiceViewOpen 'rtServiceViewOpen'
-		return 163
+		return 164
 	end 'rtServiceViewOpen'
 	if r == Rt.rtServiceViewCount 'rtServiceViewCount'
-		return 164
+		return 165
 	end 'rtServiceViewCount'
 	if r == Rt.rtServiceViewClose 'rtServiceViewClose'
-		return 165
+		return 166
 	end 'rtServiceViewClose'
 	if r == Rt.rtServiceViewMessages 'rtServiceViewMessages'
-		return 166
+		return 167
 	end 'rtServiceViewMessages'
 	if r == Rt.rtServiceViewMark 'rtServiceViewMark'
-		return 167
+		return 168
 	end 'rtServiceViewMark'
 	if r == Rt.rtServiceViewMarked 'rtServiceViewMarked'
-		return 168
+		return 169
 	end 'rtServiceViewMarked'
 	if r == Rt.rtReplyNew 'rtReplyNew'
-		return 169
+		return 170
 	end 'rtReplyNew'
 	if r == Rt.rtReplyGive 'rtReplyGive'
-		return 170
+		return 171
 	end 'rtReplyGive'
 	if r == Rt.rtServiceStateHeld 'rtServiceStateHeld'
-		return 171
+		return 172
 	end 'rtServiceStateHeld'
 	if r == Rt.rtServiceCurrent 'rtServiceCurrent'
-		return 172
+		return 173
 	end 'rtServiceCurrent'
 	if r == Rt.rtServiceBehaviourStart 'rtServiceBehaviourStart'
-		return 173
+		return 174
 	end 'rtServiceBehaviourStart'
 	if r == Rt.rtServiceStateEnds 'rtServiceStateEnds'
-		return 174
+		return 175
 	end 'rtServiceStateEnds'
 	if r == Rt.rtReplyDefer 'rtReplyDefer'
-		return 175
+		return 176
 	end 'rtReplyDefer'
 	if r == Rt.rtReplyHeld 'rtReplyHeld'
-		return 176
+		return 177
 	end 'rtReplyHeld'
 	if r == Rt.rtReplyAnswer 'rtReplyAnswer'
-		return 177
+		return 178
 	end 'rtReplyAnswer'
 	if r == Rt.rtReplyDrop 'rtReplyDrop'
-		return 178
+		return 179
 	end 'rtReplyDrop'
 	if r == Rt.rtReplyDropString 'rtReplyDropString'
-		return 179
+		return 180
 	end 'rtReplyDropString'
 	if r == Rt.rtServiceEnding 'rtServiceEnding'
-		return 180
+		return 181
 	end 'rtServiceEnding'
 	if r == Rt.rtArrayNew 'rtArrayNew'
-		return 181
+		return 182
 	end 'rtArrayNew'
 	if r == Rt.rtArrayLen 'rtArrayLen'
-		return 182
+		return 183
 	end 'rtArrayLen'
 	if r == Rt.rtArrayElem 'rtArrayElem'
-		return 183
+		return 184
 	end 'rtArrayElem'
 	if r == Rt.rtArrayInsert 'rtArrayInsert'
-		return 184
+		return 185
 	end 'rtArrayInsert'
 	if r == Rt.rtArrayRemove 'rtArrayRemove'
-		return 185
+		return 186
 	end 'rtArrayRemove'
 	if r == Rt.rtArrayPop 'rtArrayPop'
-		return 186
+		return 187
 	end 'rtArrayPop'
 	if r == Rt.rtArrayFill 'rtArrayFill'
-		return 187
+		return 188
 	end 'rtArrayFill'
 	if r == Rt.rtArrayCapacity 'rtArrayCapacity'
-		return 188
+		return 189
 	end 'rtArrayCapacity'
 	if r == Rt.rtBytesReserve 'rtBytesReserve'
-		return 189
+		return 190
 	end 'rtBytesReserve'
 	if r == Rt.rtArrayReserve 'rtArrayReserve'
-		return 190
+		return 191
 	end 'rtArrayReserve'
 	if r == Rt.rtStrsElem 'rtStrsElem'
-		return 191
+		return 192
 	end 'rtStrsElem'
 	if r == Rt.rtStrsOpen 'rtStrsOpen'
-		return 192
+		return 193
 	end 'rtStrsOpen'
 	if r == Rt.rtStrsClose 'rtStrsClose'
-		return 193
+		return 194
 	end 'rtStrsClose'
 	if r == Rt.rtStrsFill 'rtStrsFill'
-		return 194
+		return 195
 	end 'rtStrsFill'
 	if r == Rt.rtStrsReserve 'rtStrsReserve'
-		return 195
+		return 196
 	end 'rtStrsReserve'
 	if r == Rt.rtRecsElem 'rtRecsElem'
-		return 196
+		return 197
 	end 'rtRecsElem'
 	if r == Rt.rtRecsOpen 'rtRecsOpen'
-		return 197
+		return 198
 	end 'rtRecsOpen'
 	if r == Rt.rtRecsClose 'rtRecsClose'
-		return 198
+		return 199
 	end 'rtRecsClose'
 	if r == Rt.rtRecsReserve 'rtRecsReserve'
-		return 199
+		return 200
 	end 'rtRecsReserve'
 	if r == Rt.rtRecsShrink 'rtRecsShrink'
-		return 200
+		return 201
 	end 'rtRecsShrink'
 	if r == Rt.rtArrayShrink 'rtArrayShrink'
-		return 201
+		return 202
 	end 'rtArrayShrink'
 	if r == Rt.rtArrayAppendSpan 'rtArrayAppendSpan'
-		return 202
+		return 203
 	end 'rtArrayAppendSpan'
 	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
-		return 203
+		return 204
 	end 'rtFrozenFreeze'
 	if r == Rt.rtFrozenGet 'rtFrozenGet'
-		return 204
+		return 205
 	end 'rtFrozenGet'
 	if r == Rt.rtShare 'rtShare'
-		return 205
+		return 206
 	end 'rtShare'
 	if r == Rt.rtCownNew 'rtCownNew'
-		return 206
+		return 207
 	end 'rtCownNew'
 	if r == Rt.rtBytesNew 'rtBytesNew'
-		return 207
+		return 208
 	end 'rtBytesNew'
 	if r == Rt.rtBytesLen 'rtBytesLen'
-		return 208
+		return 209
 	end 'rtBytesLen'
 	if r == Rt.rtBytesGet 'rtBytesGet'
-		return 209
+		return 210
 	end 'rtBytesGet'
 	if r == Rt.rtBytesElem 'rtBytesElem'
-		return 210
+		return 211
 	end 'rtBytesElem'
 	if r == Rt.rtBytesSet 'rtBytesSet'
-		return 211
+		return 212
 	end 'rtBytesSet'
 	if r == Rt.rtBytesInsert 'rtBytesInsert'
-		return 212
+		return 213
 	end 'rtBytesInsert'
 	if r == Rt.rtBytesRemove 'rtBytesRemove'
-		return 213
+		return 214
 	end 'rtBytesRemove'
 	if r == Rt.rtBytesAppend 'rtBytesAppend'
-		return 214
+		return 215
 	end 'rtBytesAppend'
 	if r == Rt.rtBytesAppendStr 'rtBytesAppendStr'
-		return 215
+		return 216
 	end 'rtBytesAppendStr'
 	if r == Rt.rtBytesToString 'rtBytesToString'
-		return 216
+		return 217
 	end 'rtBytesToString'
 	if r == Rt.rtOsArgs 'rtOsArgs'
-		return 217
+		return 218
 	end 'rtOsArgs'
 	if r == Rt.rtOsEnvironmentVariable 'rtOsEnvironmentVariable'
-		return 218
+		return 219
 	end 'rtOsEnvironmentVariable'
 	if r == Rt.rtOsExecutablePath 'rtOsExecutablePath'
-		return 219
+		return 220
 	end 'rtOsExecutablePath'
 	if r == Rt.rtOsCurrentPath 'rtOsCurrentPath'
-		return 220
+		return 221
 	end 'rtOsCurrentPath'
 	if r == Rt.rtOsProcessId 'rtOsProcessId'
-		return 221
+		return 222
 	end 'rtOsProcessId'
 	if r == Rt.rtOsSetExitCode 'rtOsSetExitCode'
-		return 222
+		return 223
 	end 'rtOsSetExitCode'
 	if r == Rt.rtOsExitAtOnce 'rtOsExitAtOnce'
-		return 223
+		return 224
 	end 'rtOsExitAtOnce'
 	if r == Rt.rtOsEnvironmentEntry 'rtOsEnvironmentEntry'
-		return 224
+		return 225
 	end 'rtOsEnvironmentEntry'
 	if r == Rt.rtOsEnterBackgroundPriority 'rtOsEnterBackgroundPriority'
-		return 225
+		return 226
 	end 'rtOsEnterBackgroundPriority'
 	if r == Rt.rtOsClockNanos 'rtOsClockNanos'
-		return 226
+		return 227
 	end 'rtOsClockNanos'
 	if r == Rt.rtOsClockMillis 'rtOsClockMillis'
-		return 227
+		return 228
 	end 'rtOsClockMillis'
 	if r == Rt.rtOsTickMillis 'rtOsTickMillis'
-		return 228
+		return 229
 	end 'rtOsTickMillis'
 	if r == Rt.rtOsThreadCpuTicks 'rtOsThreadCpuTicks'
-		return 229
+		return 230
 	end 'rtOsThreadCpuTicks'
 	if r == Rt.rtOsUnixNanos 'rtOsUnixNanos'
-		return 230
+		return 231
 	end 'rtOsUnixNanos'
 	if r == Rt.rtOsUnixSeconds 'rtOsUnixSeconds'
-		return 231
+		return 232
 	end 'rtOsUnixSeconds'
 	if r == Rt.rtOsMachineCpuCount 'rtOsMachineCpuCount'
-		return 232
+		return 233
 	end 'rtOsMachineCpuCount'
 	if r == Rt.rtOsProcessorCount 'rtOsProcessorCount'
-		return 233
+		return 234
 	end 'rtOsProcessorCount'
 	if r == Rt.rtOsPathFrom 'rtOsPathFrom'
-		return 234
+		return 235
 	end 'rtOsPathFrom'
 	if r == Rt.rtOsReadText 'rtOsReadText'
-		return 235
+		return 236
 	end 'rtOsReadText'
 	if r == Rt.rtOsReadBinary 'rtOsReadBinary'
-		return 236
+		return 237
 	end 'rtOsReadBinary'
 	if r == Rt.rtOsWriteTextMode 'rtOsWriteTextMode'
-		return 237
+		return 238
 	end 'rtOsWriteTextMode'
 	if r == Rt.rtOsWriteBinaryMode 'rtOsWriteBinaryMode'
-		return 238
+		return 239
 	end 'rtOsWriteBinaryMode'
 	if r == Rt.rtOsRename 'rtOsRename'
-		return 239
+		return 240
 	end 'rtOsRename'
 	if r == Rt.rtOsDelete 'rtOsDelete'
-		return 240
+		return 241
 	end 'rtOsDelete'
 	if r == Rt.rtOsFileInfo 'rtOsFileInfo'
-		return 241
+		return 242
 	end 'rtOsFileInfo'
 	if r == Rt.rtOsIsDirectory 'rtOsIsDirectory'
-		return 242
+		return 243
 	end 'rtOsIsDirectory'
 	if r == Rt.rtOsExists 'rtOsExists'
-		return 243
+		return 244
 	end 'rtOsExists'
 	if r == Rt.rtOsCreateDirectory 'rtOsCreateDirectory'
-		return 244
+		return 245
 	end 'rtOsCreateDirectory'
 	if r == Rt.rtOsDeleteDirectory 'rtOsDeleteDirectory'
-		return 245
+		return 246
 	end 'rtOsDeleteDirectory'
 	if r == Rt.rtOsList 'rtOsList'
-		return 246
+		return 247
 	end 'rtOsList'
 	if r == Rt.rtFileOpenRead 'rtFileOpenRead'
-		return 247
+		return 248
 	end 'rtFileOpenRead'
 	if r == Rt.rtFileOpenWrite 'rtFileOpenWrite'
-		return 248
+		return 249
 	end 'rtFileOpenWrite'
 	if r == Rt.rtFileOpenWriteExecutable 'rtFileOpenWriteExecutable'
-		return 249
+		return 250
 	end 'rtFileOpenWriteExecutable'
 	if r == Rt.rtFileOpenCreateNew 'rtFileOpenCreateNew'
-		return 250
+		return 251
 	end 'rtFileOpenCreateNew'
 	if r == Rt.rtFileReadAppending 'rtFileReadAppending'
-		return 251
+		return 252
 	end 'rtFileReadAppending'
 	if r == Rt.rtFileWrite 'rtFileWrite'
-		return 252
+		return 253
 	end 'rtFileWrite'
 	if r == Rt.rtFileSync 'rtFileSync'
-		return 253
+		return 254
 	end 'rtFileSync'
 	if r == Rt.rtFileClose 'rtFileClose'
-		return 254
+		return 255
 	end 'rtFileClose'
 	if r == Rt.rtSocketListen 'rtSocketListen'
-		return 255
+		return 256
 	end 'rtSocketListen'
 	if r == Rt.rtSocketBoundPort 'rtSocketBoundPort'
-		return 256
+		return 257
 	end 'rtSocketBoundPort'
 	if r == Rt.rtSocketAccept 'rtSocketAccept'
-		return 257
+		return 258
 	end 'rtSocketAccept'
 	if r == Rt.rtSocketConnect 'rtSocketConnect'
-		return 258
+		return 259
 	end 'rtSocketConnect'
 	if r == Rt.rtSocketReadAppending 'rtSocketReadAppending'
-		return 259
+		return 260
 	end 'rtSocketReadAppending'
 	if r == Rt.rtSocketSendFrom 'rtSocketSendFrom'
-		return 260
+		return 261
 	end 'rtSocketSendFrom'
 	if r == Rt.rtSocketSendPair 'rtSocketSendPair'
-		return 261
+		return 262
 	end 'rtSocketSendPair'
 	if r == Rt.rtSocketSendFile 'rtSocketSendFile'
-		return 262
+		return 263
 	end 'rtSocketSendFile'
 	if r == Rt.rtSocketSetReadDeadline 'rtSocketSetReadDeadline'
-		return 263
+		return 264
 	end 'rtSocketSetReadDeadline'
 	if r == Rt.rtSocketSetWriteDeadline 'rtSocketSetWriteDeadline'
-		return 264
+		return 265
 	end 'rtSocketSetWriteDeadline'
 	if r == Rt.rtSocketSetKeepAlive 'rtSocketSetKeepAlive'
-		return 265
+		return 266
 	end 'rtSocketSetKeepAlive'
 	if r == Rt.rtSocketTimedOut 'rtSocketTimedOut'
-		return 266
+		return 267
 	end 'rtSocketTimedOut'
 	if r == Rt.rtSocketShutdownWrite 'rtSocketShutdownWrite'
-		return 267
+		return 268
 	end 'rtSocketShutdownWrite'
 	if r == Rt.rtSocketClose 'rtSocketClose'
-		return 268
+		return 269
 	end 'rtSocketClose'
 	if r == Rt.rtSocketNotify 'rtSocketNotify'
-		return 269
+		return 270
 	end 'rtSocketNotify'
 	if r == Rt.rtSocketTryRead 'rtSocketTryRead'
-		return 270
+		return 271
 	end 'rtSocketTryRead'
 	if r == Rt.rtSocketTrySend 'rtSocketTrySend'
-		return 271
+		return 272
 	end 'rtSocketTrySend'
 	if r == Rt.rtSocketTryAccept 'rtSocketTryAccept'
-		return 272
+		return 273
 	end 'rtSocketTryAccept'
 	if r == Rt.rtSocketResolve 'rtSocketResolve'
-		return 273
+		return 274
 	end 'rtSocketResolve'
 	if r == Rt.rtDebugLaunch 'rtDebugLaunch'
-		return 274
+		return 275
 	end 'rtDebugLaunch'
 	if r == Rt.rtDebugWaitEvent 'rtDebugWaitEvent'
-		return 275
+		return 276
 	end 'rtDebugWaitEvent'
 	if r == Rt.rtDebugContinueEvent 'rtDebugContinueEvent'
-		return 276
+		return 277
 	end 'rtDebugContinueEvent'
 	if r == Rt.rtDebugReadMemory 'rtDebugReadMemory'
-		return 277
+		return 278
 	end 'rtDebugReadMemory'
 	if r == Rt.rtDebugWriteCode 'rtDebugWriteCode'
-		return 278
+		return 279
 	end 'rtDebugWriteCode'
 	if r == Rt.rtDebugReadContext 'rtDebugReadContext'
-		return 279
+		return 280
 	end 'rtDebugReadContext'
 	if r == Rt.rtDebugWriteContext 'rtDebugWriteContext'
-		return 280
+		return 281
 	end 'rtDebugWriteContext'
 	if r == Rt.rtDebugSuspend 'rtDebugSuspend'
-		return 281
+		return 282
 	end 'rtDebugSuspend'
 	if r == Rt.rtDebugResume 'rtDebugResume'
-		return 282
+		return 283
 	end 'rtDebugResume'
 	if r == Rt.rtDebugBreakIn 'rtDebugBreakIn'
-		return 283
+		return 284
 	end 'rtDebugBreakIn'
 	if r == Rt.rtDebugDetach 'rtDebugDetach'
-		return 284
+		return 285
 	end 'rtDebugDetach'
 	if r == Rt.rtDebugCloseHandle 'rtDebugCloseHandle'
-		return 285
+		return 286
 	end 'rtDebugCloseHandle'
 	if r == Rt.rtDebugTerminate 'rtDebugTerminate'
-		return 286
+		return 287
 	end 'rtDebugTerminate'
 	if r == Rt.rtOsRun 'rtOsRun'
-		return 287
+		return 288
 	end 'rtOsRun'
 	if r == Rt.rtOsRunIn 'rtOsRunIn'
-		return 288
+		return 289
 	end 'rtOsRunIn'
 	if r == Rt.rtOsRunInput 'rtOsRunInput'
-		return 289
+		return 290
 	end 'rtOsRunInput'
 	if r == Rt.rtSubprocessSpawn 'rtSubprocessSpawn'
-		return 290
+		return 291
 	end 'rtSubprocessSpawn'
 	if r == Rt.rtSubprocessGetPid 'rtSubprocessGetPid'
-		return 291
+		return 292
 	end 'rtSubprocessGetPid'
 	if r == Rt.rtSubprocessWaitCollect 'rtSubprocessWaitCollect'
-		return 292
+		return 293
 	end 'rtSubprocessWaitCollect'
 	if r == Rt.rtSubprocessResultStatusKind 'rtSubprocessResultStatusKind'
-		return 293
+		return 294
 	end 'rtSubprocessResultStatusKind'
 	if r == Rt.rtSubprocessResultStatusCode 'rtSubprocessResultStatusCode'
-		return 294
+		return 295
 	end 'rtSubprocessResultStatusCode'
 	if r == Rt.rtSubprocessResultStdout 'rtSubprocessResultStdout'
-		return 295
+		return 296
 	end 'rtSubprocessResultStdout'
 	if r == Rt.rtSubprocessResultStderr 'rtSubprocessResultStderr'
-		return 296
+		return 297
 	end 'rtSubprocessResultStderr'
 	if r == Rt.rtSubprocessResultDurationMs 'rtSubprocessResultDurationMs'
-		return 297
+		return 298
 	end 'rtSubprocessResultDurationMs'
 	if r == Rt.rtSubprocessResultRelease 'rtSubprocessResultRelease'
-		return 298
+		return 299
 	end 'rtSubprocessResultRelease'
 	if r == Rt.rtSubprocessReleaseHandle 'rtSubprocessReleaseHandle'
-		return 299
+		return 300
 	end 'rtSubprocessReleaseHandle'
 	if r == Rt.rtSubprocessEndTree 'rtSubprocessEndTree'
-		return 300
+		return 301
 	end 'rtSubprocessEndTree'
 	if r == Rt.rtSubprocessSpawnStreaming 'rtSubprocessSpawnStreaming'
-		return 301
+		return 302
 	end 'rtSubprocessSpawnStreaming'
 	if r == Rt.rtSubprocessReadAvailable 'rtSubprocessReadAvailable'
-		return 302
+		return 303
 	end 'rtSubprocessReadAvailable'
 	if r == Rt.rtSubprocessStdoutState 'rtSubprocessStdoutState'
-		return 303
+		return 304
 	end 'rtSubprocessStdoutState'
 	if r == Rt.rtSubprocessStderrState 'rtSubprocessStderrState'
-		return 304
+		return 305
 	end 'rtSubprocessStderrState'
 	if r == Rt.rtSubprocessWriteStdinAll 'rtSubprocessWriteStdinAll'
-		return 305
+		return 306
 	end 'rtSubprocessWriteStdinAll'
 	if r == Rt.rtSubprocessWriteStdinBytes 'rtSubprocessWriteStdinBytes'
-		return 306
+		return 307
 	end 'rtSubprocessWriteStdinBytes'
 	if r == Rt.rtSubprocessQueueStdin 'rtSubprocessQueueStdin'
-		return 307
+		return 308
 	end 'rtSubprocessQueueStdin'
 	if r == Rt.rtSubprocessPushStdin 'rtSubprocessPushStdin'
-		return 308
+		return 309
 	end 'rtSubprocessPushStdin'
 	if r == Rt.rtSubprocessAwaitStdinWritable 'rtSubprocessAwaitStdinWritable'
-		return 309
+		return 310
 	end 'rtSubprocessAwaitStdinWritable'
 	if r == Rt.rtSubprocessCloseStdin 'rtSubprocessCloseStdin'
-		return 310
+		return 311
 	end 'rtSubprocessCloseStdin'
 	if r == Rt.rtSubprocessWaitExit 'rtSubprocessWaitExit'
-		return 311
+		return 312
 	end 'rtSubprocessWaitExit'
 	if r == Rt.rtSubprocessPollExit 'rtSubprocessPollExit'
-		return 312
+		return 313
 	end 'rtSubprocessPollExit'
 	if r == Rt.rtSubprocessExitSignal 'rtSubprocessExitSignal'
-		return 313
+		return 314
 	end 'rtSubprocessExitSignal'
 	if r == Rt.rtSubprocessLastErrorCode 'rtSubprocessLastErrorCode'
-		return 314
+		return 315
 	end 'rtSubprocessLastErrorCode'
 	if r == Rt.rtSubprocessLastErrorMessage 'rtSubprocessLastErrorMessage'
-		return 315
+		return 316
 	end 'rtSubprocessLastErrorMessage'
 	if r == Rt.rtSubprocessResolveOnPath 'rtSubprocessResolveOnPath'
-		return 316
+		return 317
 	end 'rtSubprocessResolveOnPath'
 	if r == Rt.rtOsReadStdin 'rtOsReadStdin'
-		return 317
+		return 318
 	end 'rtOsReadStdin'
 	if r == Rt.rtOsStdoutWantsColor 'rtOsStdoutWantsColor'
-		return 318
+		return 319
 	end 'rtOsStdoutWantsColor'
 	panic("ir: rtNone has no number")
 end 'rtCode'
@@ -3598,253 +3609,254 @@ export function rtOf(code Count) returns Rt
 		69 gives Rt.rtStackSwitch
 		70 gives Rt.rtCopyBytes
 		71 gives Rt.rtStackWipe
-		72 gives Rt.rtGreenStart
-		73 gives Rt.rtAsyncPreempt
-		74 gives Rt.rtPreemptHandler
-		75 gives Rt.rtSigreturn
-		76 gives Rt.rtPreemptibleCode
-		77 gives Rt.rtSchedDrain
-		78 gives Rt.rtWorkerMain
-		79 gives Rt.rtEnterBlocking
-		80 gives Rt.rtExitBlocking
-		81 gives Rt.rtExitClaim
-		82 gives Rt.rtCownAcquire
-		83 gives Rt.rtBehaviourRelease
-		84 gives Rt.rtBehaviourResumed
-		85 gives Rt.rtPinUnheld
-		86 gives Rt.rtMainRun
-		87 gives Rt.rtMainGreen
-		88 gives Rt.rtAsyncNew
-		89 gives Rt.rtAsyncStart
-		90 gives Rt.rtAsyncAwait
-		91 gives Rt.rtAsyncWait
-		92 gives Rt.rtAsyncError
-		93 gives Rt.rtAsyncTake
-		94 gives Rt.rtAsyncCancel
-		95 gives Rt.rtAsyncAwaitAny
-		96 gives Rt.rtAsyncComplete
-		97 gives Rt.rtSleep
-		98 gives Rt.rtYield
-		99 gives Rt.rtParallelRun
-		100 gives Rt.rtSchedPin
-		101 gives Rt.rtSchedUnpin
-		102 gives Rt.rtSchedPinDepth
-		103 gives Rt.rtSchedCurrentMachine
-		104 gives Rt.rtHashSeed
-		105 gives Rt.rtHashSeedDraw
-		106 gives Rt.rtHeapThreadAllocs
-		107 gives Rt.rtHeapThreadFrees
-		108 gives Rt.rtHeapThreadBytes
-		109 gives Rt.rtHeapProcessAllocs
-		110 gives Rt.rtHeapProcessFrees
-		111 gives Rt.rtHeapProcessLive
-		112 gives Rt.rtHeapProcessBytes
-		113 gives Rt.rtHeapScavenge
-		114 gives Rt.rtRandomFill
-		115 gives Rt.rtHashWord
-		116 gives Rt.rtHashBytes
-		117 gives Rt.rtHashStringBytes
-		118 gives Rt.rtCpuHasAes
-		119 gives Rt.rtAesExpandKey
-		120 gives Rt.rtAesEncryptBlock
-		121 gives Rt.rtAesDecryptBlock
-		122 gives Rt.rtAesCtrXor
-		123 gives Rt.rtAesGcmInit
-		124 gives Rt.rtAesGcmSeal
-		125 gives Rt.rtAesGcmOpen
-		126 gives Rt.rtCpuHasSha
-		127 gives Rt.rtSha256Blocks
-		128 gives Rt.rtBytesReadWord
-		129 gives Rt.rtBytesAppendWord
-		130 gives Rt.rtServiceNew
-		131 gives Rt.rtServiceReserve
-		132 gives Rt.rtServiceStart
-		133 gives Rt.rtServiceShutdown
-		134 gives Rt.rtServiceStopNow
-		135 gives Rt.rtServiceStopSelf
-		136 gives Rt.rtServiceStopNowSelf
-		137 gives Rt.rtServiceSelfHandle
-		138 gives Rt.rtServicePostedCancel
-		139 gives Rt.rtTimerNew
-		140 gives Rt.rtTimerRearm
-		141 gives Rt.rtTimerNext
-		142 gives Rt.rtTimerReset
-		143 gives Rt.rtTimerCancel
-		144 gives Rt.rtServiceNotifyStopped
-		145 gives Rt.rtServicePostedNew
-		146 gives Rt.rtServicePostedStart
-		147 gives Rt.rtServiceStopped
-		148 gives Rt.rtServiceFreed
-		149 gives Rt.rtServiceStopStart
-		150 gives Rt.rtServiceMostQueued
-		151 gives Rt.rtServiceNewPending
-		152 gives Rt.rtServiceTryReserve
-		153 gives Rt.rtServiceQueued
-		154 gives Rt.rtServiceTurn
-		155 gives Rt.rtServicePlace
-		156 gives Rt.rtServiceUnplace
-		157 gives Rt.rtServicePutPending
-		158 gives Rt.rtServicePendingHeld
-		159 gives Rt.rtServiceTakePending
-		160 gives Rt.rtServiceUnderLoad
-		161 gives Rt.rtServiceShedStart
-		162 gives Rt.rtServiceShedMarked
-		163 gives Rt.rtServiceViewOpen
-		164 gives Rt.rtServiceViewCount
-		165 gives Rt.rtServiceViewClose
-		166 gives Rt.rtServiceViewMessages
-		167 gives Rt.rtServiceViewMark
-		168 gives Rt.rtServiceViewMarked
-		169 gives Rt.rtReplyNew
-		170 gives Rt.rtReplyGive
-		171 gives Rt.rtServiceStateHeld
-		172 gives Rt.rtServiceCurrent
-		173 gives Rt.rtServiceBehaviourStart
-		174 gives Rt.rtServiceStateEnds
-		175 gives Rt.rtReplyDefer
-		176 gives Rt.rtReplyHeld
-		177 gives Rt.rtReplyAnswer
-		178 gives Rt.rtReplyDrop
-		179 gives Rt.rtReplyDropString
-		180 gives Rt.rtServiceEnding
-		181 gives Rt.rtArrayNew
-		182 gives Rt.rtArrayLen
-		183 gives Rt.rtArrayElem
-		184 gives Rt.rtArrayInsert
-		185 gives Rt.rtArrayRemove
-		186 gives Rt.rtArrayPop
-		187 gives Rt.rtArrayFill
-		188 gives Rt.rtArrayCapacity
-		189 gives Rt.rtBytesReserve
-		190 gives Rt.rtArrayReserve
-		191 gives Rt.rtStrsElem
-		192 gives Rt.rtStrsOpen
-		193 gives Rt.rtStrsClose
-		194 gives Rt.rtStrsFill
-		195 gives Rt.rtStrsReserve
-		196 gives Rt.rtRecsElem
-		197 gives Rt.rtRecsOpen
-		198 gives Rt.rtRecsClose
-		199 gives Rt.rtRecsReserve
-		200 gives Rt.rtRecsShrink
-		201 gives Rt.rtArrayShrink
-		202 gives Rt.rtArrayAppendSpan
-		203 gives Rt.rtFrozenFreeze
-		204 gives Rt.rtFrozenGet
-		205 gives Rt.rtShare
-		206 gives Rt.rtCownNew
-		207 gives Rt.rtBytesNew
-		208 gives Rt.rtBytesLen
-		209 gives Rt.rtBytesGet
-		210 gives Rt.rtBytesElem
-		211 gives Rt.rtBytesSet
-		212 gives Rt.rtBytesInsert
-		213 gives Rt.rtBytesRemove
-		214 gives Rt.rtBytesAppend
-		215 gives Rt.rtBytesAppendStr
-		216 gives Rt.rtBytesToString
-		217 gives Rt.rtOsArgs
-		218 gives Rt.rtOsEnvironmentVariable
-		219 gives Rt.rtOsExecutablePath
-		220 gives Rt.rtOsCurrentPath
-		221 gives Rt.rtOsProcessId
-		222 gives Rt.rtOsSetExitCode
-		223 gives Rt.rtOsExitAtOnce
-		224 gives Rt.rtOsEnvironmentEntry
-		225 gives Rt.rtOsEnterBackgroundPriority
-		226 gives Rt.rtOsClockNanos
-		227 gives Rt.rtOsClockMillis
-		228 gives Rt.rtOsTickMillis
-		229 gives Rt.rtOsThreadCpuTicks
-		230 gives Rt.rtOsUnixNanos
-		231 gives Rt.rtOsUnixSeconds
-		232 gives Rt.rtOsMachineCpuCount
-		233 gives Rt.rtOsProcessorCount
-		234 gives Rt.rtOsPathFrom
-		235 gives Rt.rtOsReadText
-		236 gives Rt.rtOsReadBinary
-		237 gives Rt.rtOsWriteTextMode
-		238 gives Rt.rtOsWriteBinaryMode
-		239 gives Rt.rtOsRename
-		240 gives Rt.rtOsDelete
-		241 gives Rt.rtOsFileInfo
-		242 gives Rt.rtOsIsDirectory
-		243 gives Rt.rtOsExists
-		244 gives Rt.rtOsCreateDirectory
-		245 gives Rt.rtOsDeleteDirectory
-		246 gives Rt.rtOsList
-		247 gives Rt.rtFileOpenRead
-		248 gives Rt.rtFileOpenWrite
-		249 gives Rt.rtFileOpenWriteExecutable
-		250 gives Rt.rtFileOpenCreateNew
-		251 gives Rt.rtFileReadAppending
-		252 gives Rt.rtFileWrite
-		253 gives Rt.rtFileSync
-		254 gives Rt.rtFileClose
-		255 gives Rt.rtSocketListen
-		256 gives Rt.rtSocketBoundPort
-		257 gives Rt.rtSocketAccept
-		258 gives Rt.rtSocketConnect
-		259 gives Rt.rtSocketReadAppending
-		260 gives Rt.rtSocketSendFrom
-		261 gives Rt.rtSocketSendPair
-		262 gives Rt.rtSocketSendFile
-		263 gives Rt.rtSocketSetReadDeadline
-		264 gives Rt.rtSocketSetWriteDeadline
-		265 gives Rt.rtSocketSetKeepAlive
-		266 gives Rt.rtSocketTimedOut
-		267 gives Rt.rtSocketShutdownWrite
-		268 gives Rt.rtSocketClose
-		269 gives Rt.rtSocketNotify
-		270 gives Rt.rtSocketTryRead
-		271 gives Rt.rtSocketTrySend
-		272 gives Rt.rtSocketTryAccept
-		273 gives Rt.rtSocketResolve
-		274 gives Rt.rtDebugLaunch
-		275 gives Rt.rtDebugWaitEvent
-		276 gives Rt.rtDebugContinueEvent
-		277 gives Rt.rtDebugReadMemory
-		278 gives Rt.rtDebugWriteCode
-		279 gives Rt.rtDebugReadContext
-		280 gives Rt.rtDebugWriteContext
-		281 gives Rt.rtDebugSuspend
-		282 gives Rt.rtDebugResume
-		283 gives Rt.rtDebugBreakIn
-		284 gives Rt.rtDebugDetach
-		285 gives Rt.rtDebugCloseHandle
-		286 gives Rt.rtDebugTerminate
-		287 gives Rt.rtOsRun
-		288 gives Rt.rtOsRunIn
-		289 gives Rt.rtOsRunInput
-		290 gives Rt.rtSubprocessSpawn
-		291 gives Rt.rtSubprocessGetPid
-		292 gives Rt.rtSubprocessWaitCollect
-		293 gives Rt.rtSubprocessResultStatusKind
-		294 gives Rt.rtSubprocessResultStatusCode
-		295 gives Rt.rtSubprocessResultStdout
-		296 gives Rt.rtSubprocessResultStderr
-		297 gives Rt.rtSubprocessResultDurationMs
-		298 gives Rt.rtSubprocessResultRelease
-		299 gives Rt.rtSubprocessReleaseHandle
-		300 gives Rt.rtSubprocessEndTree
-		301 gives Rt.rtSubprocessSpawnStreaming
-		302 gives Rt.rtSubprocessReadAvailable
-		303 gives Rt.rtSubprocessStdoutState
-		304 gives Rt.rtSubprocessStderrState
-		305 gives Rt.rtSubprocessWriteStdinAll
-		306 gives Rt.rtSubprocessWriteStdinBytes
-		307 gives Rt.rtSubprocessQueueStdin
-		308 gives Rt.rtSubprocessPushStdin
-		309 gives Rt.rtSubprocessAwaitStdinWritable
-		310 gives Rt.rtSubprocessCloseStdin
-		311 gives Rt.rtSubprocessWaitExit
-		312 gives Rt.rtSubprocessPollExit
-		313 gives Rt.rtSubprocessExitSignal
-		314 gives Rt.rtSubprocessLastErrorCode
-		315 gives Rt.rtSubprocessLastErrorMessage
-		316 gives Rt.rtSubprocessResolveOnPath
-		317 gives Rt.rtOsReadStdin
-		318 gives Rt.rtOsStdoutWantsColor
+		72 gives Rt.rtVectorRegistersStore
+		73 gives Rt.rtGreenStart
+		74 gives Rt.rtAsyncPreempt
+		75 gives Rt.rtPreemptHandler
+		76 gives Rt.rtSigreturn
+		77 gives Rt.rtPreemptibleCode
+		78 gives Rt.rtSchedDrain
+		79 gives Rt.rtWorkerMain
+		80 gives Rt.rtEnterBlocking
+		81 gives Rt.rtExitBlocking
+		82 gives Rt.rtExitClaim
+		83 gives Rt.rtCownAcquire
+		84 gives Rt.rtBehaviourRelease
+		85 gives Rt.rtBehaviourResumed
+		86 gives Rt.rtPinUnheld
+		87 gives Rt.rtMainRun
+		88 gives Rt.rtMainGreen
+		89 gives Rt.rtAsyncNew
+		90 gives Rt.rtAsyncStart
+		91 gives Rt.rtAsyncAwait
+		92 gives Rt.rtAsyncWait
+		93 gives Rt.rtAsyncError
+		94 gives Rt.rtAsyncTake
+		95 gives Rt.rtAsyncCancel
+		96 gives Rt.rtAsyncAwaitAny
+		97 gives Rt.rtAsyncComplete
+		98 gives Rt.rtSleep
+		99 gives Rt.rtYield
+		100 gives Rt.rtParallelRun
+		101 gives Rt.rtSchedPin
+		102 gives Rt.rtSchedUnpin
+		103 gives Rt.rtSchedPinDepth
+		104 gives Rt.rtSchedCurrentMachine
+		105 gives Rt.rtHashSeed
+		106 gives Rt.rtHashSeedDraw
+		107 gives Rt.rtHeapThreadAllocs
+		108 gives Rt.rtHeapThreadFrees
+		109 gives Rt.rtHeapThreadBytes
+		110 gives Rt.rtHeapProcessAllocs
+		111 gives Rt.rtHeapProcessFrees
+		112 gives Rt.rtHeapProcessLive
+		113 gives Rt.rtHeapProcessBytes
+		114 gives Rt.rtHeapScavenge
+		115 gives Rt.rtRandomFill
+		116 gives Rt.rtHashWord
+		117 gives Rt.rtHashBytes
+		118 gives Rt.rtHashStringBytes
+		119 gives Rt.rtCpuHasAes
+		120 gives Rt.rtAesExpandKey
+		121 gives Rt.rtAesEncryptBlock
+		122 gives Rt.rtAesDecryptBlock
+		123 gives Rt.rtAesCtrXor
+		124 gives Rt.rtAesGcmInit
+		125 gives Rt.rtAesGcmSeal
+		126 gives Rt.rtAesGcmOpen
+		127 gives Rt.rtCpuHasSha
+		128 gives Rt.rtSha256Blocks
+		129 gives Rt.rtBytesReadWord
+		130 gives Rt.rtBytesAppendWord
+		131 gives Rt.rtServiceNew
+		132 gives Rt.rtServiceReserve
+		133 gives Rt.rtServiceStart
+		134 gives Rt.rtServiceShutdown
+		135 gives Rt.rtServiceStopNow
+		136 gives Rt.rtServiceStopSelf
+		137 gives Rt.rtServiceStopNowSelf
+		138 gives Rt.rtServiceSelfHandle
+		139 gives Rt.rtServicePostedCancel
+		140 gives Rt.rtTimerNew
+		141 gives Rt.rtTimerRearm
+		142 gives Rt.rtTimerNext
+		143 gives Rt.rtTimerReset
+		144 gives Rt.rtTimerCancel
+		145 gives Rt.rtServiceNotifyStopped
+		146 gives Rt.rtServicePostedNew
+		147 gives Rt.rtServicePostedStart
+		148 gives Rt.rtServiceStopped
+		149 gives Rt.rtServiceFreed
+		150 gives Rt.rtServiceStopStart
+		151 gives Rt.rtServiceMostQueued
+		152 gives Rt.rtServiceNewPending
+		153 gives Rt.rtServiceTryReserve
+		154 gives Rt.rtServiceQueued
+		155 gives Rt.rtServiceTurn
+		156 gives Rt.rtServicePlace
+		157 gives Rt.rtServiceUnplace
+		158 gives Rt.rtServicePutPending
+		159 gives Rt.rtServicePendingHeld
+		160 gives Rt.rtServiceTakePending
+		161 gives Rt.rtServiceUnderLoad
+		162 gives Rt.rtServiceShedStart
+		163 gives Rt.rtServiceShedMarked
+		164 gives Rt.rtServiceViewOpen
+		165 gives Rt.rtServiceViewCount
+		166 gives Rt.rtServiceViewClose
+		167 gives Rt.rtServiceViewMessages
+		168 gives Rt.rtServiceViewMark
+		169 gives Rt.rtServiceViewMarked
+		170 gives Rt.rtReplyNew
+		171 gives Rt.rtReplyGive
+		172 gives Rt.rtServiceStateHeld
+		173 gives Rt.rtServiceCurrent
+		174 gives Rt.rtServiceBehaviourStart
+		175 gives Rt.rtServiceStateEnds
+		176 gives Rt.rtReplyDefer
+		177 gives Rt.rtReplyHeld
+		178 gives Rt.rtReplyAnswer
+		179 gives Rt.rtReplyDrop
+		180 gives Rt.rtReplyDropString
+		181 gives Rt.rtServiceEnding
+		182 gives Rt.rtArrayNew
+		183 gives Rt.rtArrayLen
+		184 gives Rt.rtArrayElem
+		185 gives Rt.rtArrayInsert
+		186 gives Rt.rtArrayRemove
+		187 gives Rt.rtArrayPop
+		188 gives Rt.rtArrayFill
+		189 gives Rt.rtArrayCapacity
+		190 gives Rt.rtBytesReserve
+		191 gives Rt.rtArrayReserve
+		192 gives Rt.rtStrsElem
+		193 gives Rt.rtStrsOpen
+		194 gives Rt.rtStrsClose
+		195 gives Rt.rtStrsFill
+		196 gives Rt.rtStrsReserve
+		197 gives Rt.rtRecsElem
+		198 gives Rt.rtRecsOpen
+		199 gives Rt.rtRecsClose
+		200 gives Rt.rtRecsReserve
+		201 gives Rt.rtRecsShrink
+		202 gives Rt.rtArrayShrink
+		203 gives Rt.rtArrayAppendSpan
+		204 gives Rt.rtFrozenFreeze
+		205 gives Rt.rtFrozenGet
+		206 gives Rt.rtShare
+		207 gives Rt.rtCownNew
+		208 gives Rt.rtBytesNew
+		209 gives Rt.rtBytesLen
+		210 gives Rt.rtBytesGet
+		211 gives Rt.rtBytesElem
+		212 gives Rt.rtBytesSet
+		213 gives Rt.rtBytesInsert
+		214 gives Rt.rtBytesRemove
+		215 gives Rt.rtBytesAppend
+		216 gives Rt.rtBytesAppendStr
+		217 gives Rt.rtBytesToString
+		218 gives Rt.rtOsArgs
+		219 gives Rt.rtOsEnvironmentVariable
+		220 gives Rt.rtOsExecutablePath
+		221 gives Rt.rtOsCurrentPath
+		222 gives Rt.rtOsProcessId
+		223 gives Rt.rtOsSetExitCode
+		224 gives Rt.rtOsExitAtOnce
+		225 gives Rt.rtOsEnvironmentEntry
+		226 gives Rt.rtOsEnterBackgroundPriority
+		227 gives Rt.rtOsClockNanos
+		228 gives Rt.rtOsClockMillis
+		229 gives Rt.rtOsTickMillis
+		230 gives Rt.rtOsThreadCpuTicks
+		231 gives Rt.rtOsUnixNanos
+		232 gives Rt.rtOsUnixSeconds
+		233 gives Rt.rtOsMachineCpuCount
+		234 gives Rt.rtOsProcessorCount
+		235 gives Rt.rtOsPathFrom
+		236 gives Rt.rtOsReadText
+		237 gives Rt.rtOsReadBinary
+		238 gives Rt.rtOsWriteTextMode
+		239 gives Rt.rtOsWriteBinaryMode
+		240 gives Rt.rtOsRename
+		241 gives Rt.rtOsDelete
+		242 gives Rt.rtOsFileInfo
+		243 gives Rt.rtOsIsDirectory
+		244 gives Rt.rtOsExists
+		245 gives Rt.rtOsCreateDirectory
+		246 gives Rt.rtOsDeleteDirectory
+		247 gives Rt.rtOsList
+		248 gives Rt.rtFileOpenRead
+		249 gives Rt.rtFileOpenWrite
+		250 gives Rt.rtFileOpenWriteExecutable
+		251 gives Rt.rtFileOpenCreateNew
+		252 gives Rt.rtFileReadAppending
+		253 gives Rt.rtFileWrite
+		254 gives Rt.rtFileSync
+		255 gives Rt.rtFileClose
+		256 gives Rt.rtSocketListen
+		257 gives Rt.rtSocketBoundPort
+		258 gives Rt.rtSocketAccept
+		259 gives Rt.rtSocketConnect
+		260 gives Rt.rtSocketReadAppending
+		261 gives Rt.rtSocketSendFrom
+		262 gives Rt.rtSocketSendPair
+		263 gives Rt.rtSocketSendFile
+		264 gives Rt.rtSocketSetReadDeadline
+		265 gives Rt.rtSocketSetWriteDeadline
+		266 gives Rt.rtSocketSetKeepAlive
+		267 gives Rt.rtSocketTimedOut
+		268 gives Rt.rtSocketShutdownWrite
+		269 gives Rt.rtSocketClose
+		270 gives Rt.rtSocketNotify
+		271 gives Rt.rtSocketTryRead
+		272 gives Rt.rtSocketTrySend
+		273 gives Rt.rtSocketTryAccept
+		274 gives Rt.rtSocketResolve
+		275 gives Rt.rtDebugLaunch
+		276 gives Rt.rtDebugWaitEvent
+		277 gives Rt.rtDebugContinueEvent
+		278 gives Rt.rtDebugReadMemory
+		279 gives Rt.rtDebugWriteCode
+		280 gives Rt.rtDebugReadContext
+		281 gives Rt.rtDebugWriteContext
+		282 gives Rt.rtDebugSuspend
+		283 gives Rt.rtDebugResume
+		284 gives Rt.rtDebugBreakIn
+		285 gives Rt.rtDebugDetach
+		286 gives Rt.rtDebugCloseHandle
+		287 gives Rt.rtDebugTerminate
+		288 gives Rt.rtOsRun
+		289 gives Rt.rtOsRunIn
+		290 gives Rt.rtOsRunInput
+		291 gives Rt.rtSubprocessSpawn
+		292 gives Rt.rtSubprocessGetPid
+		293 gives Rt.rtSubprocessWaitCollect
+		294 gives Rt.rtSubprocessResultStatusKind
+		295 gives Rt.rtSubprocessResultStatusCode
+		296 gives Rt.rtSubprocessResultStdout
+		297 gives Rt.rtSubprocessResultStderr
+		298 gives Rt.rtSubprocessResultDurationMs
+		299 gives Rt.rtSubprocessResultRelease
+		300 gives Rt.rtSubprocessReleaseHandle
+		301 gives Rt.rtSubprocessEndTree
+		302 gives Rt.rtSubprocessSpawnStreaming
+		303 gives Rt.rtSubprocessReadAvailable
+		304 gives Rt.rtSubprocessStdoutState
+		305 gives Rt.rtSubprocessStderrState
+		306 gives Rt.rtSubprocessWriteStdinAll
+		307 gives Rt.rtSubprocessWriteStdinBytes
+		308 gives Rt.rtSubprocessQueueStdin
+		309 gives Rt.rtSubprocessPushStdin
+		310 gives Rt.rtSubprocessAwaitStdinWritable
+		311 gives Rt.rtSubprocessCloseStdin
+		312 gives Rt.rtSubprocessWaitExit
+		313 gives Rt.rtSubprocessPollExit
+		314 gives Rt.rtSubprocessExitSignal
+		315 gives Rt.rtSubprocessLastErrorCode
+		316 gives Rt.rtSubprocessLastErrorMessage
+		317 gives Rt.rtSubprocessResolveOnPath
+		318 gives Rt.rtOsReadStdin
+		319 gives Rt.rtOsStdoutWantsColor
 		default panic("ir: a number that is no runtime symbol")
 	end 'code'
 end 'rtOf'
@@ -4075,6 +4087,9 @@ export function rtUnit(r Rt) returns RtUnit
 	if r == Rt.rtStackWipe 'rtStackWipe'
 		return RtUnit.rtUnitRuntime
 	end 'rtStackWipe'
+	if r == Rt.rtVectorRegistersStore 'rtVectorRegistersStore'
+		return RtUnit.rtUnitRuntime
+	end 'rtVectorRegistersStore'
 	if r == Rt.rtGreenStart 'rtGreenStart'
 		return RtUnit.rtUnitRuntime
 	end 'rtGreenStart'
@@ -6073,6 +6088,7 @@ export function rtGivesString(r Rt) returns bool
 		rtStackSwitch or
 		rtCopyBytes or
 		rtStackWipe or
+		rtVectorRegistersStore or
 		rtGreenStart or
 		rtAsyncPreempt or
 		rtPreemptHandler or

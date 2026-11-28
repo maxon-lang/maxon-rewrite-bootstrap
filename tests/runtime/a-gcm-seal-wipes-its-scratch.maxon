@@ -1,0 +1,116 @@
+// AES-GCM's seal leaves nothing of its scratch behind: once it returns, the stack its calls took below its caller's is
+// zero and so are the vector registers that the internal convention lets a call change, where the pass it makes, called
+// without the wipe, leaves words in both.
+//> stack wiped 1
+//> registers wiped 1
+//> stack left 1
+//> registers left 1
+
+// testSlackBytes is what the scan leaves out at the top of the callees' stack: the caller's frame below its marker and
+// the frame of the seal itself, which holds the seal's return address and saved registers but no scratch of the pass.
+let testSlackBytes = 256 as Count
+
+let testKeyBytes = 16 as Count
+
+let testScheduleBytes = 352 as Count
+
+let testTextBytes = 200 as Count
+
+let testAdditionalBytes = 20 as Count
+
+let testTagBytes = 16 as Count
+
+// testVectorRegistersBytes is room for every vector register of either back end, sixteen bytes each.
+let testVectorRegistersBytes = 512 as Count
+
+function main() returns ExitCode
+	let key = testBox(testKeyBytes, seed: 1)
+	let schedule = testBox(testScheduleBytes, seed: 0)
+	aesExpandKey(schedule, key: key)
+	let keyBlock = testBox(aesGcmTableBytes + testScheduleBytes / 2, seed: 0)
+	aesGcmInit(keyBlock, schedule: schedule)
+	let nonce = testBox(aesGcmNonceBytes, seed: 7)
+	let additional = testBox(testAdditionalBytes, seed: 11)
+	let text = testBox(testTextBytes, seed: 3)
+	let output = testBox(testTextBytes + testTagBytes, seed: 0)
+	let registers = alloc(testVectorRegistersBytes + wordBytes)
+	let wiped = testSeal(output, keyBlock: keyBlock, nonce: nonce, additional: additional, text: text, registers: registers, wiping: true)
+	report("stack wiped", ok: wiped == 0)
+	report("registers wiped", ok: testNonzeroRegisters(registers, count: __Raw.loadWord(registers, offset: testVectorRegistersBytes)) == 0)
+	let left = testSeal(output, keyBlock: keyBlock, nonce: nonce, additional: additional, text: text, registers: registers, wiping: false)
+	report("stack left", ok: left > 0)
+	report("registers left", ok: testNonzeroRegisters(registers, count: __Raw.loadWord(registers, offset: testVectorRegistersBytes)) > 0)
+	free(registers)
+	free(output)
+	free(text)
+	free(additional)
+	free(nonce)
+	free(keyBlock)
+	free(schedule)
+	free(key)
+	return 0
+end 'main'
+
+// testSeal seals the text, by aesGcmSeal or, not wiping, by the pass it makes, then stores the vector registers and
+// gives how many words of the stack below its own the calls left that are not zero, past the slack at the top. It calls
+// nothing between the seal and the scan but the store of the registers, whose one word lies in the slack.
+function testSeal(output Count, keyBlock Count, nonce Count, additional Count, text Count, registers Count, wiping bool) returns Count
+	var marker = 0 as Count
+	let top = __Raw.addressOf(marker)
+	let depth = __Raw.calleeStackDepth()
+	if wiping 'wiping'
+		aesGcmSeal(output, outputAt: 0, keyBlock: keyBlock, nonce: nonce, additionalData: additional, plaintext: text)
+	end 'wiping' else 'leaving'
+		_ = aesGcmPass(output, outputAt: 0, keyBlock: keyBlock, nonce: nonce, additionalData: additional, source: text, opening: false)
+	end 'leaving'
+	let count = __Raw.storeVectorRegisters(registers)
+	__Raw.storeWord(registers, offset: testVectorRegistersBytes, value: count)
+	var nonzero = 0 as Count
+	var at = __Raw.wrappingSub(top, right: depth)
+	let limit = __Raw.wrappingSub(top, right: testSlackBytes)
+	while at < limit 'scan'
+		if __Raw.loadWord(at, offset: 0) != 0 'nonzero'
+			nonzero = __Raw.wrappingAdd(nonzero, right: 1)
+		end 'nonzero'
+		at = __Raw.wrappingAdd(at, right: wordBytes)
+	end 'scan'
+	return nonzero
+end 'testSeal'
+
+// testNonzeroRegisters is how many of the stored vector registers are not zero.
+function testNonzeroRegisters(registers Count, count Count) returns Count
+	var nonzero = 0 as Count
+	var at = registers
+	for i in 0 upto count 'registers'
+		if __Raw.loadWord(at, offset: 0) != 0 or __Raw.loadWord(at, offset: wordBytes) != 0 'nonzero'
+			nonzero = __Raw.wrappingAdd(nonzero, right: 1)
+		end 'nonzero'
+		at = __Raw.wrappingAdd(at, right: wordBytes + wordBytes)
+	end 'registers'
+	return nonzero
+end 'testNonzeroRegisters'
+
+// testBox is a byte array's box of a length, whose bytes count up from seed (all zero for seed 0).
+function testBox(bytes Count, seed Count) returns Count
+	let box = alloc(__Raw.wrappingAdd(arrayDataOffset + wordBytes, right: bytes))
+	__Raw.storeWord(box, offset: arrayLengthOffset, value: bytes)
+	__Raw.storeWord(box, offset: arrayCapacityOffset, value: bytes)
+	let data = __Raw.wrappingAdd(box, right: arrayDataOffset + wordBytes)
+	__Raw.storeWord(box, offset: arrayDataOffset, value: data)
+	for i in 0 upto bytes 'bytes'
+		var value = 0 as Count
+		if seed != 0 'counting'
+			value = __Raw.wrappingAdd(seed, right: i) and 0xFF
+		end 'counting'
+		__Raw.storeByte(data, offset: i, value: value as Byte)
+	end 'bytes'
+	return box
+end 'testBox'
+
+function report(name String, ok bool)
+	if ok 'ok'
+		print("{name} 1\n")
+	end 'ok' else 'wrong'
+		print("{name} 0\n")
+	end 'wrong'
+end 'report'

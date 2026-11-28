@@ -798,6 +798,9 @@ func rawFunctions() []function {
 		// floor (rt.stackWipe), which leaves nothing of the calls' scratch behind.
 		raw("calleeStackDepth", nil, "Count", "RawCalleeStackDepth"),
 		raw("wipeStack", []string{"bytes Count", "floor Count"}, "", "RawWipeStack"),
+		// storeVectorRegisters stores the vector registers the internal convention lets a call change at an address, sixteen
+		// bytes each, and gives how many (rt.vectorRegistersStore): a test reads through it that a wipe zeroed them.
+		raw("storeVectorRegisters", []string{"at Count"}, "Count", "RawStoreVectorRegisters"),
 		// codeAddress is the address of the code of the function of the runtime that a string literal names, which takes
 		// one word: the run of a behaviour's record that a test of the scheduler builds by hand.
 		checked(own(raw("codeAddress", []string{"name String"}, "Count", "RawCodeAddress"))),
@@ -1554,6 +1557,7 @@ var entries = []entry{
 	{"StackSwitch", "rt.stackSwitch", "Runtime", roleInternal, "(pair) -> the record it left: saves the registers of the running stack into the switch record at the pair's first word and goes on the stack of the record at its second, by the internal convention (README, \"Green threads\")"},
 	{"CopyBytes", "rt.copyBytes", "Runtime", roleInternal, "(source, target, count) by the internal convention: copies count bytes, count above 0, between places that do not overlap, with the copy routines' copy (__Raw.copyBytes)"},
 	{"StackWipe", "rt.stackWipe", "Runtime", roleInternal, "(bytes, floor): zeroes the vector registers the internal convention lets a call change, then the bytes below the caller's stack pointer down to the higher of floor and that pointer less bytes, from the top down"},
+	{"VectorRegistersStore", "rt.vectorRegistersStore", "Runtime", roleInternal, "(at) -> count: stores the vector registers the internal convention lets a call change at the address, sixteen bytes each in the order of their numbers"},
 	{"GreenStart", "rt.greenStart", "Runtime", roleInternal, "the code a green thread's stack starts at, which a switch onto a stack that has not run returns to: it calls the code in r12 with the word in rbx"},
 	{"AsyncPreempt", "rt.asyncPreempt", "Runtime", roleInternal, "the code the monitor makes a green thread it stops return into, at the address it stopped at: it saves every register and the flags, calls the code at contextPreemptCodeOffset of the thread's context with the context, and gives them back"},
 	{"PreemptHandler", "rt.preemptHandler", "Runtime", roleInternal, "(signal, siginfo, context) by System V: the handler of the Linux preemption signal, which calls the code at contextSignalCodeOffset of the thread's context with the signal's context"},

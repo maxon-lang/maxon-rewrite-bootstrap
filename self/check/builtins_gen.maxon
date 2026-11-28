@@ -355,13 +355,13 @@ function checkIntrinsicArgs(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	if op == ast.Intrinsic.intrRawGreenStartAddress or op == ast.Intrinsic.intrRawAsyncPreemptAddress or op == ast.Intrinsic.intrRawPreemptibleCodeAddress or op == ast.Intrinsic.intrRawCalleeStackDepth 'signature91'
 		return
 	end 'signature91'
-	if op == ast.Intrinsic.intrRawWipeStack or op == ast.Intrinsic.intrRawCallHost or op == ast.Intrinsic.intrRawSyscall or op == ast.Intrinsic.intrRawProcessStartAddress 'signature92'
+	if op == ast.Intrinsic.intrRawWipeStack or op == ast.Intrinsic.intrRawStoreVectorRegisters or op == ast.Intrinsic.intrRawCallHost or op == ast.Intrinsic.intrRawSyscall 'signature92'
 		return
 	end 'signature92'
-	if op == ast.Intrinsic.intrRawPreemptHandlerAddress or op == ast.Intrinsic.intrRawSignalReturnAddress or op == ast.Intrinsic.intrEnumHash or op == ast.Intrinsic.intrEnumEquals 'signature93'
+	if op == ast.Intrinsic.intrRawProcessStartAddress or op == ast.Intrinsic.intrRawPreemptHandlerAddress or op == ast.Intrinsic.intrRawSignalReturnAddress or op == ast.Intrinsic.intrEnumHash 'signature93'
 		return
 	end 'signature93'
-	if op == ast.Intrinsic.intrEnumFromRawValue 'signature94'
+	if op == ast.Intrinsic.intrEnumEquals or op == ast.Intrinsic.intrEnumFromRawValue 'signature94'
 		return
 	end 'signature94'
 	panic("check: {op.name} is no intrinsic")

@@ -740,15 +740,20 @@ function aesGhashPowers(table Count, low Count, high Count)
 end 'aesGhashPowers'
 
 // aesGcmSeal is __Builtins.aesGcmSeal: the cipher text of the plain text and then its tag, written into output from
-// outputAt.
+// outputAt. The pass's counter, accumulator and mask stay in its vectors and frames, so the wipe zeroes them before the
+// caller runs on.
 function aesGcmSeal(output Count, outputAt Count, keyBlock Count, nonce Count, additionalData Count, plaintext Count)
 	_ = aesGcmPass(output, outputAt: outputAt, keyBlock: keyBlock, nonce: nonce, additionalData: additionalData, source: plaintext, opening: false)
+	__Raw.wipeStack(__Raw.calleeStackDepth(), floor: stackFloor())
 end 'aesGcmSeal'
 
 // aesGcmOpen is __Builtins.aesGcmOpen: the plain text of a cipher text followed by its tag, written into output from
 // outputAt, and whether the tag is the one the cipher text and the additional data give, compared without a branch on it.
+// It wipes the pass's scratch as aesGcmSeal does.
 function aesGcmOpen(output Count, outputAt Count, keyBlock Count, nonce Count, additionalData Count, sealed Count) returns bool
-	return aesGcmPass(output, outputAt: outputAt, keyBlock: keyBlock, nonce: nonce, additionalData: additionalData, source: sealed, opening: true)
+	let right = aesGcmPass(output, outputAt: outputAt, keyBlock: keyBlock, nonce: nonce, additionalData: additionalData, source: sealed, opening: true)
+	__Raw.wipeStack(__Raw.calleeStackDepth(), floor: stackFloor())
+	return right
 end 'aesGcmOpen'
 
 // aesGcmPass is a seal or an open: the checks of each buffer, then GHASH of the additional data, the counter mode from

@@ -173,6 +173,11 @@ let wipeCursor = X64Register.r10
 
 let wipeZero = X64Register.r8
 
+// wipeBlockBytes is what one turn of rt.stackWipe's first loop zeroes, by vector stores of a register it zeroed; the
+// words below the last whole block are zeroed one at a time. It is under a page, so the stores go down the stack a page
+// at a time, as the system grows a thread's stack through its guard page.
+let wipeBlockBytes = 64 as Count
+
 // emitStackWipe writes rt.stackWipe: given a count of bytes and a floor, it takes its return address off the stack, zeroes
 // the xmm registers the internal convention lets a call change, then the words below the stack pointer from the top down
 // to the higher of the floor and the stack pointer less the bytes, the return address's word among them, and returns.
@@ -185,13 +190,24 @@ function emitStackWipe(mutates u CodeUnit)
 	end 'scratch'
 	u.asm.pop(wipeReturn)
 	let changed = x64InternalCallerSaved()
+	var zeroed = X64Register.rax
+	var anyZeroed = false
 	for r in x64FirstVector upto x64RegisterFileSize 'vectors'
 		if maskHas(changed, number: regNumOfCount(r)) 'changed'
 			let v = x64RegisterOf((r - x64FirstVector) as RegNum)
 			encodePxorRegReg(u.asm.code, dest: v, src: v)
+			if not anyZeroed 'first'
+				zeroed = v
+				anyZeroed = true
+			end 'first'
 		end 'changed'
 	end 'vectors'
+	if not anyZeroed 'none'
+		panic("backend: the internal convention lets a call change no xmm register")
+	end 'none'
 	let floorReady = u.asm.newLabel()
+	let blocks = u.asm.newLabel()
+	let blocksDone = u.asm.newLabel()
 	let loop = u.asm.newLabel()
 	let done = u.asm.newLabel()
 	u.asm.mov(wipeCursor, src: X64Register.rsp)
@@ -201,6 +217,16 @@ function emitStackWipe(mutates u CodeUnit)
 	u.asm.jcc(MCond.aboveEqual, label: floorReady)
 	u.asm.mov(wipeLow, src: floorWord)
 	u.asm.bind(floorReady)
+	u.asm.bind(blocks)
+	u.asm.subImm(wipeCursor, imm: imm32Of(wipeBlockBytes))
+	u.asm.cmp(wipeCursor, right: wipeLow)
+	u.asm.jcc(MCond.below, label: blocksDone)
+	for k in 0 upto wipeBlockBytes / vectorBytes 'block'
+		encodeMovupsBaseDispReg(u.asm.code, base: wipeCursor, disp: imm32Of(k * vectorBytes), src: zeroed)
+	end 'block'
+	u.asm.jmp(blocks)
+	u.asm.bind(blocksDone)
+	u.asm.addImm(wipeCursor, imm: imm32Of(wipeBlockBytes))
 	u.asm.bitXor(wipeZero, src: wipeZero)
 	u.asm.bind(loop)
 	u.asm.cmp(wipeCursor, right: wipeLow)
@@ -213,6 +239,26 @@ function emitStackWipe(mutates u CodeUnit)
 	u.asm.ret()
 	u.setSectionStack(wordBytes)
 end 'emitStackWipe'
+
+// emitVectorRegistersStore writes rt.vectorRegistersStore: given an address, it stores the xmm registers the internal
+// convention lets a call change there, sixteen bytes each in the order of their numbers, and gives how many it stored.
+// Only a test that a wipe leaves those registers zero names it.
+function emitVectorRegistersStore(mutates u CodeUnit)
+	u.beginSection()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtVectorRegistersStore))
+	let changed = x64InternalCallerSaved()
+	var stored = 0 as Count
+	for r in x64FirstVector upto x64RegisterFileSize 'vectors'
+		if maskHas(changed, number: regNumOfCount(r)) 'changed'
+			let v = x64RegisterOf((r - x64FirstVector) as RegNum)
+			encodeMovupsBaseDispReg(u.asm.code, base: argWord(), disp: imm32Of(stored * vectorBytes), src: v)
+			stored = stored + 1
+		end 'changed'
+	end 'vectors'
+	u.asm.movImm(resultWord(), imm: stored as FullRangeInt)
+	u.asm.ret()
+	u.setSectionStack(wordBytes)
+end 'emitVectorRegistersStore'
 
 // vectorRegisters is how many xmm registers there are, all of which rt.asyncPreempt saves.
 let vectorRegisters = 16

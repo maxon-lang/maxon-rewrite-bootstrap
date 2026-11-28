@@ -90,6 +90,7 @@ function emitArm64GreenRoutines(mutates u CodeUnit, system ast.TargetSystem)
 	emitArm64GreenStart(u)
 	emitArm64AsyncPreempt(u, system: system)
 	emitArm64StackWipe(u)
+	emitArm64VectorRegistersStore(u)
 end 'emitArm64GreenRoutines'
 
 // The registers of rt.stackWipe, which the internal convention lets a call change: the lowest address it zeroes, the one
@@ -107,13 +108,24 @@ function emitArm64StackWipe(mutates u CodeUnit)
 	u.beginSection()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtStackWipe))
 	let changed = arm64InternalCallerSaved()
+	var zeroed = Arm64Register.x0
+	var anyZeroed = false
 	for r in arm64FirstVector upto arm64RegisterFileSize 'vectors'
 		if maskHas(changed, number: regNumOfCount(r)) 'changed'
 			let v = arm64RegisterOf((r - arm64FirstVector) as RegNum)
 			encodeArm64EorVec16(u.asm.code, dest: v, left: v, right: v)
+			if not anyZeroed 'first'
+				zeroed = v
+				anyZeroed = true
+			end 'first'
 		end 'changed'
 	end 'vectors'
+	if not anyZeroed 'none'
+		panic("backend: the internal convention lets a call change no vector register")
+	end 'none'
 	let floorReady = u.asm.newLabel()
+	let blocks = u.asm.newLabel()
+	let blocksDone = u.asm.newLabel()
 	let loop = u.asm.newLabel()
 	let done = u.asm.newLabel()
 	u.asm.arm64Mov(arm64WipeCursor, src: Arm64Register.sp)
@@ -122,6 +134,16 @@ function emitArm64StackWipe(mutates u CodeUnit)
 	u.asm.arm64BranchIf(MCond.aboveEqual, label: floorReady)
 	u.asm.arm64Mov(arm64WipeLow, src: arm64InternalArg(1))
 	u.asm.bind(floorReady)
+	u.asm.bind(blocks)
+	u.asm.arm64AddImm(arm64WipeCursor, src: arm64WipeCursor, value: -(wipeBlockBytes as FullRangeInt))
+	u.asm.arm64Cmp(arm64WipeCursor, right: arm64WipeLow)
+	u.asm.arm64BranchIf(MCond.below, label: blocksDone)
+	for k in 0 upto wipeBlockBytes / vectorBytes 'block'
+		encodeArm64StrQOff(u.asm.code, src: zeroed, base: arm64WipeCursor, disp: imm32Of(k * vectorBytes))
+	end 'block'
+	u.asm.arm64Jump(blocks)
+	u.asm.bind(blocksDone)
+	u.asm.arm64AddImm(arm64WipeCursor, src: arm64WipeCursor, value: wipeBlockBytes as FullRangeInt)
 	u.asm.arm64MovImm(arm64WipeStep, value: wordBytes as FullRangeInt)
 	u.asm.bind(loop)
 	u.asm.arm64Cmp(arm64WipeCursor, right: arm64WipeLow)
@@ -133,6 +155,26 @@ function emitArm64StackWipe(mutates u CodeUnit)
 	u.asm.arm64Ret()
 	u.setSectionStack(0)
 end 'emitArm64StackWipe'
+
+// emitArm64VectorRegistersStore writes rt.vectorRegistersStore: given an address, it stores the vector registers the
+// internal convention lets a call change there, sixteen bytes each in the order of their numbers, and gives how many it
+// stored. Only a test that a wipe leaves those registers zero names it.
+function emitArm64VectorRegistersStore(mutates u CodeUnit)
+	u.beginSection()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtVectorRegistersStore))
+	let changed = arm64InternalCallerSaved()
+	var stored = 0 as Count
+	for r in arm64FirstVector upto arm64RegisterFileSize 'vectors'
+		if maskHas(changed, number: regNumOfCount(r)) 'changed'
+			let v = arm64RegisterOf((r - arm64FirstVector) as RegNum)
+			encodeArm64StrQOff(u.asm.code, src: v, base: arm64ArgWord(), disp: imm32Of(stored * vectorBytes))
+			stored = stored + 1
+		end 'changed'
+	end 'vectors'
+	u.asm.arm64MovImm(arm64ResultWord(), value: stored as FullRangeInt)
+	u.asm.arm64Ret()
+	u.setSectionStack(0)
+end 'emitArm64VectorRegistersStore'
 
 // emitArm64StackSwitch writes rt.stackSwitch: given the address of a pair of switch records, it pushes its return address
 // on the running stack, saves the registers of the running stack into the first record, goes on the stack of the second
