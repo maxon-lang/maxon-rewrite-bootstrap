@@ -36,14 +36,14 @@ type PostedRecords
 	end 'new'
 
 	// made gives behaviour b its row, a posted record to service.
-	function made(mutates self, b Count, service Count)
+	function made(mutates self, b Count, svc Count)
 		while marks.count() <= b 'grow'
 			marks.push(0)
 			services.push(0)
 			timers.push(0)
 		end 'grow'
 		marks.set(b, value: postedMadeBit)
-		try services.set(b, value: service) otherwise panic("interp: a posted record past its rows")
+		try services.set(b, value: svc) otherwise panic("interp: a posted record past its rows")
 	end 'made'
 
 	// isPosted is whether behaviour b is a posted record.
@@ -71,9 +71,9 @@ type PostedRecords
 		end 'held'
 	end 'clear'
 
-	function service(b Count) returns Count
+	function svc(b Count) returns Count
 		return try services.get(b) otherwise panic("interp: no posted record {b}")
-	end 'service'
+	end 'svc'
 
 	function timer(b Count) returns Count
 		return try timers.get(b) otherwise panic("interp: no posted record {b}")
@@ -95,8 +95,8 @@ type PostedWatches
 	end 'new'
 
 	// watches is whether a watch watches service.
-	function watches(service Count) returns bool
-		return watched.contains(service)
+	function watches(svc Count) returns bool
+		return watched.contains(svc)
 	end 'watches'
 end 'PostedWatches'
 
@@ -263,9 +263,9 @@ function makePosted(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	if cowns.count() != 1 'one'
 		panic("interp: a posted record names {cowns.count()} cowns, not its service")
 	end 'one'
-	let service = cowns.first()
+	let svc = cowns.first()
 	let b = try addBehaviour(vm, f: f, x: x)
-	vm.posted.made(b, service: service)
+	vm.posted.made(b, svc: svc)
 	vm.behaviours.cowns.push(cowns)
 	vm.setNum(x.dst, n: try b as ir.Word otherwise panic("interp: a behaviour past a word"))
 end 'makePosted'
@@ -301,7 +301,7 @@ end 'postedDrop'
 
 function entryServicePostedNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let record = recordArg(vm, f: f, x: x, i: 0)
-	addOwner(vm, service: vm.posted.service(record))
+	addOwner(vm, svc: vm.posted.svc(record))
 	giveNum(vm, x: x, n: argNum(vm, f: f, x: x, i: 0))
 end 'entryServicePostedNew'
 
@@ -315,10 +315,10 @@ end 'entryServicePostedCancel'
 // horizon's word plus 1, or 0), the record is off its service's arms and its timer no longer names it as in flight, and it
 // runs unless it was cancelled, its service was stopped at once or has ended, or the state is gone.
 function entryServicePostedStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = stateService(vm, f: f, x: x, what: "rt.service.postedStart")
-	let b = try startMessage(vm, service: service, posted: true)
+	let svc = stateService(vm, f: f, x: x, what: "rt.service.postedStart")
+	let b = try startMessage(vm, svc: svc, posted: true)
 	let horizon = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
-	let at = try vm.h.oData.get(service) otherwise panic("interp: a service past the heap")
+	let at = try vm.h.oData.get(svc) otherwise panic("interp: a service past the heap")
 	let ends = postedStarts(vm.h.shareds[at], horizon: horizon, b: b)
 	vm.posted.clear(b, bit: postedListedBit)
 	if vm.posted.has(b, bit: postedOnTimerBit) 'timer'
@@ -355,12 +355,12 @@ function entryServiceNotifyStopped(mutates vm Vm, f ir.IrFunction, x ir.Instr) t
 	let record = recordArg(vm, f: f, x: x, i: 1)
 	vm.postedWatches.watched.push(watched)
 	vm.postedWatches.records.push(record)
-	endedIfClosed(vm, service: watched)
+	endedIfClosed(vm, svc: watched)
 end 'entryServiceNotifyStopped'
 
 // givePostedWatches is what the end of a service does to the watches that post: one that watches it is queued, and one whose
 // record tells it is dropped, its record cancelled, since nothing is told to a service that has ended.
-function givePostedWatches(mutates vm Vm, service Count)
+function givePostedWatches(mutates vm Vm, svc Count)
 	if vm.postedWatches.records.isEmpty() 'none'
 		return
 	end 'none'
@@ -370,9 +370,9 @@ function givePostedWatches(mutates vm Vm, service Count)
 	for i in 0 upto vm.postedWatches.records.count() 'watches'
 		let w = try vm.postedWatches.watched.get(i) otherwise panic("interp: a watch past the list")
 		let r = vm.postedWatches.records.get(i)
-		if w == service 'told'
+		if w == svc 'told'
 			given.push(r)
-		end 'told' else if vm.posted.service(r) == service 'watcher'
+		end 'told' else if vm.posted.svc(r) == svc 'watcher'
 			vm.posted.set(r, bit: postedCancelledBit)
 			given.push(r)
 		end 'watcher' else 'kept'
@@ -390,14 +390,14 @@ end 'givePostedWatches'
 // disarmArmed is what the end of a service does to the posted records listed on it: each is taken off, and one that its timer
 // is still armed with is queued cancelled, the timer left dead, so no timer posts to a service that has ended. A record
 // that its timer fired or dropped already is queued and runs, or drops what it holds, as it starts. It is done once.
-function disarmArmed(mutates vm Vm, service Count)
-	let at = try vm.h.oData.get(service) otherwise panic("interp: a service past the heap")
+function disarmArmed(mutates vm Vm, svc Count)
+	let at = try vm.h.oData.get(svc) otherwise panic("interp: a service past the heap")
 	if not armsEnd(vm.h.shareds[at]) 'again'
 		return
 	end 'again'
 	var dropped = CountList.create(0)
 	for b in 1 upto vm.posted.marks.count() 'records'
-		if not vm.posted.has(b, bit: postedListedBit) or vm.posted.service(b) != service 'other'
+		if not vm.posted.has(b, bit: postedListedBit) or vm.posted.svc(b) != svc 'other'
 			continue 'records'
 		end 'other'
 		vm.posted.clear(b, bit: postedListedBit)
@@ -428,7 +428,7 @@ end 'armsEnded'
 // listArmed lists a record armed on a timer on the service it posts to, and says whether it did: a service that has ended
 // lists none, and the record is marked cancelled, for its caller to queue at once in place of arming it.
 function listArmed(mutates vm Vm, record Count) returns bool
-	let at = try vm.h.oData.get(vm.posted.service(record)) otherwise panic("interp: a service past the heap")
+	let at = try vm.h.oData.get(vm.posted.svc(record)) otherwise panic("interp: a service past the heap")
 	if armsEnded(vm.h.shareds[at]) 'ended'
 		vm.posted.set(record, bit: postedCancelledBit)
 		return false

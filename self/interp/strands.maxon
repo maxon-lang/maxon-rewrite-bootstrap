@@ -493,15 +493,15 @@ end 'entryYield'
 // empty mailbox.
 function entryServiceNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	vm.tracking = true
-	let service = try newShared(vm, f: f, kind: kindCown, src: argAt(f, x: x, i: 0), what: "the new service")
-	giveRef(vm, x: x, o: service)
+	let svc = try newShared(vm, f: f, kind: kindCown, src: argAt(f, x: x, i: 0), what: "the new service")
+	giveRef(vm, x: x, o: svc)
 end 'entryServiceNew'
 
 // entryServiceReserve takes a place in a service's mailbox for a message, unless the service is shut down, which it gives as
 // the case of SendError plus 1, and slows the sender of a service that is behind or muted (senderSlowed).
 function entryServiceReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
-	let at = vm.h.oData[service]
+	let svc = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
+	let at = vm.h.oData[svc]
 	let gate = vm.h.shareds[at].gate
 	if gate >= serviceClosed 'closed'
 		giveNum(vm, x: x, n: caseWord(ast.sendServiceStopped))
@@ -510,19 +510,19 @@ function entryServiceReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws 
 	let queued = gate + 1
 	vm.h.shareds[at].gate = queued
 	giveNum(vm, x: x, n: 0)
-	noteReserved(vm, receiver: service)
+	noteReserved(vm, receiver: svc)
 	if slowsSenders(vm, at: at, queued: gate) 'slowing'
 		if queued > vm.h.shareds[at].most 'most'
 			vm.h.shareds[at].most = queued
 		end 'most'
-		senderSlowed(vm, receiver: service)
+		senderSlowed(vm, receiver: svc)
 	end 'slowing'
 end 'entryServiceReserve'
 
 // entryServiceMostQueued gives the most messages a slowed send to a service found queued with its own.
 function entryServiceMostQueued(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a service's queue")
-	giveNum(vm, x: x, n: ir.wordOfBits(vm.h.shareds[vm.h.oData[service]].most))
+	let svc = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a service's queue")
+	giveNum(vm, x: x, n: ir.wordOfBits(vm.h.shareds[vm.h.oData[svc]].most))
 end 'entryServiceMostQueued'
 
 // The words of a send of a kind with a policy (rt.service.tryReserve): a place taken, and the service behind, so that the
@@ -532,20 +532,20 @@ let sendBehind = 3 as ir.Word
 // entryServiceNewPending makes a service whose type has kinds of a coalescing policy, each with its pending word, empty.
 function entryServiceNewPending(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	vm.tracking = true
-	let service = try newShared(vm, f: f, kind: kindCown, src: argAt(f, x: x, i: 0), what: "the new service")
+	let svc = try newShared(vm, f: f, kind: kindCown, src: argAt(f, x: x, i: 0), what: "the new service")
 	let words = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
-	let at = vm.h.oData[service]
+	let at = vm.h.oData[svc]
 	for i in 0 upto words 'words'
 		vm.h.shareds[at].pending.push(0)
 	end 'words'
-	giveRef(vm, x: x, o: service)
+	giveRef(vm, x: x, o: svc)
 end 'entryServiceNewPending'
 
 // entryServiceTryReserve is the send of a kind with a policy: a place is taken as entryServiceReserve takes it while the
 // service is not behind, and while it is, none is, and the send asks the policy (sendBehind).
 function entryServiceTryReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
-	let at = vm.h.oData[service]
+	let svc = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
+	let at = vm.h.oData[svc]
 	let gate = vm.h.shareds[at].gate
 	if gate >= serviceClosed 'closed'
 		giveNum(vm, x: x, n: caseWord(ast.sendServiceStopped))
@@ -557,13 +557,13 @@ function entryServiceTryReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) thro
 	end 'behind'
 	vm.h.shareds[at].gate = gate + 1
 	giveNum(vm, x: x, n: 0)
-	noteReserved(vm, receiver: service)
+	noteReserved(vm, receiver: svc)
 end 'entryServiceTryReserve'
 
 // entryServiceQueued gives the messages a service holds, shut down or not.
 function entryServiceQueued(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a service's queue")
-	giveNum(vm, x: x, n: ir.wordOfBits(vm.h.shareds[vm.h.oData[service]].gate mod serviceClosed))
+	let svc = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a service's queue")
+	giveNum(vm, x: x, n: ir.wordOfBits(vm.h.shareds[vm.h.oData[svc]].gate mod serviceClosed))
 end 'entryServiceQueued'
 
 function entryServiceTurn(mutates vm Vm, f ir.IrFunction, x ir.Instr)
@@ -572,8 +572,8 @@ end 'entryServiceTurn'
 
 // entryServicePlace takes a place for the message of a pending word, which never slows its sender.
 function entryServicePlace(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
-	let at = vm.h.oData[service]
+	let svc = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
+	let at = vm.h.oData[svc]
 	let gate = vm.h.shareds[at].gate
 	if gate >= serviceClosed 'closed'
 		giveNum(vm, x: x, n: caseWord(ast.sendServiceStopped))
@@ -581,22 +581,22 @@ function entryServicePlace(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Ha
 	end 'closed'
 	vm.h.shareds[at].gate = gate + 1
 	giveNum(vm, x: x, n: 0)
-	noteReserved(vm, receiver: service)
+	noteReserved(vm, receiver: svc)
 end 'entryServicePlace'
 
 // entryServiceUnplace gives back the place of a message that replaced a pending one, which no behaviour is scheduled for.
 function entryServiceUnplace(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
-	let at = vm.h.oData[service]
+	let svc = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
+	let at = vm.h.oData[svc]
 	vm.h.shareds[at].gate = try vm.h.shareds[at].gate - 1 otherwise panic("interp: a place given back that no send took")
 	vm.threads[vm.cur].sendTo = 0
 end 'entryServiceUnplace'
 
 // entryServicePutPending puts a message's box in a pending word and gives the box it held, or 0.
 function entryServicePutPending(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
+	let svc = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
 	let slot = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
-	let at = vm.h.oData[service]
+	let at = vm.h.oData[svc]
 	let old = vm.h.shareds[at].pending[slot]
 	vm.h.shareds[at].pending[slot] = argRef(vm, f: f, x: x, i: 2)
 	giveRef(vm, x: x, o: old)
@@ -605,12 +605,12 @@ end 'entryServicePutPending'
 // entryServiceTakePending gives the box of a pending word, given the address of the service's state, and leaves it empty.
 function entryServiceTakePending(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let c = vm.address(argAt(f, x: x, i: 0))
-	let service = vm.h.cellHolder[c]
-	if c == 0 or vm.h.oKind[service] != kindCown 'notState'
+	let svc = vm.h.cellHolder[c]
+	if c == 0 or vm.h.oKind[svc] != kindCown 'notState'
 		panic("interp: rt.service.takePending is given no service's state")
 	end 'notState'
 	let slot = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
-	let at = vm.h.oData[service]
+	let at = vm.h.oData[svc]
 	let box = exchange(vm.h.shareds[at].pending[slot], value: 0)
 	if box == 0 'empty'
 		panic("interp: a pending message's behaviour found its word empty")
@@ -620,19 +620,19 @@ end 'entryServiceTakePending'
 
 // entryServicePendingHeld gives whether a pending word holds a message.
 function entryServicePendingHeld(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
+	let svc = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a send")
 	let slot = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
-	giveFlag(vm, x: x, b: vm.h.shareds[vm.h.oData[service]].pending[slot] != 0)
+	giveFlag(vm, x: x, b: vm.h.shareds[vm.h.oData[svc]].pending[slot] != 0)
 end 'entryServicePendingHeld'
 
 // entryServiceUnderLoad gives whether the service whose message the thread runs is behind, and false off a message.
 function entryServiceUnderLoad(mutates vm Vm, f ir.IrFunction, x ir.Instr)
-	let service = messageOf(vm, t: vm.cur)
-	if service == 0 'task'
+	let svc = messageOf(vm, t: vm.cur)
+	if svc == 0 'task'
 		giveFlag(vm, x: x, b: false)
 		return
 	end 'task'
-	let at = vm.h.oData[service]
+	let at = vm.h.oData[svc]
 	giveFlag(vm, x: x, b: slowsSenders(vm, at: at, queued: vm.h.shareds[at].gate mod serviceClosed))
 end 'entryServiceUnderLoad'
 
@@ -644,18 +644,18 @@ end 'slowsSenders'
 // entryServiceStart gives a message's place in the mailbox back as its behaviour starts, given the address of the state, and
 // names the service as the one the thread runs a message of.
 function entryServiceStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = stateService(vm, f: f, x: x, what: "rt.service.start")
-	let b = try startMessage(vm, service: service, posted: false)
+	let svc = stateService(vm, f: f, x: x, what: "rt.service.start")
+	let b = try startMessage(vm, svc: svc, posted: false)
 	noteHandled(vm, b: b)
 end 'entryServiceStart'
 
 // startMessage is the start of a message of a service, sent or posted, on the thread that runs it: the count it was among
 // steps down and the senders whose marks the start passes are let go (startTaken), the service is the one the thread runs a
 // message of, and the message's behaviour is given.
-function startMessage(mutates vm Vm, service Count, posted bool) returns Count throws Halt
-	let passed = startTaken(vm.h.shareds[vm.h.oData[service]], posted: posted)
+function startMessage(mutates vm Vm, svc Count, posted bool) returns Count throws Halt
+	let passed = startTaken(vm.h.shareds[vm.h.oData[svc]], posted: posted)
 	try unmuteEntries(vm, senders: passed)
-	vm.threads[vm.cur].service = service
+	vm.threads[vm.cur].svc = svc
 	return vm.threads[vm.cur].behaviour
 end 'startMessage'
 
@@ -789,24 +789,24 @@ end 'takeSenders'
 // messageOf is the service whose message thread t runs, or 0 for a task.
 function messageOf(vm Vm, t Count) returns Count
 	let b = vm.threads[t].behaviour
-	let service = vm.threads[t].service
-	if b == 0 or service == 0 or not isMessageOf(vm, b: b, service: service) 'task'
+	let svc = vm.threads[t].svc
+	if b == 0 or svc == 0 or not isMessageOf(vm, b: b, svc: svc) 'task'
 		return 0
 	end 'task'
-	return service
+	return svc
 end 'messageOf'
 
-function isMessageOf(vm Vm, b Count, service Count) returns bool
-	return vm.behaviours.cowns[b].count() == 1 and vm.behaviours.cowns[b][0] == service
+function isMessageOf(vm Vm, b Count, svc Count) returns bool
+	return vm.behaviours.cowns[b].count() == 1 and vm.behaviours.cowns[b][0] == svc
 end 'isMessageOf'
 
 // mutes is whether behaviour b, a message of service that has run, is muted as its handler ends: its service is listed on
 // a receiver and does not drain on.
-function mutes(vm Vm, b Count, service Count) returns bool
-	if service == 0 or not isMessageOf(vm, b: b, service: service) 'other'
+function mutes(vm Vm, b Count, svc Count) returns bool
+	if svc == 0 or not isMessageOf(vm, b: b, svc: svc) 'other'
 		return false
 	end 'other'
-	let at = vm.h.oData[service]
+	let at = vm.h.oData[svc]
 	return vm.h.shareds[at].listedOn != 0 and not drainsOn(vm, at: at)
 end 'mutes'
 
@@ -828,10 +828,10 @@ end 'drainsBehind'
 // keepMuted mutes a service as its message's handler ends, and says whether it did: it lets go the senders listed on it so
 // far (the progress argument), which may make the receiver it waits on catch up first. Muted, its behaviour keeps its
 // cowns and its service runs no message.
-function keepMuted(mutates vm Vm, b Count, service Count) returns bool throws Halt
-	let at = vm.h.oData[service]
+function keepMuted(mutates vm Vm, b Count, svc Count) returns bool throws Halt
+	let at = vm.h.oData[svc]
 	vm.h.shareds[at].muted = true
-	try unmuteSenders(vm, service: service)
+	try unmuteSenders(vm, svc: svc)
 	if vm.h.shareds[at].listedOn == 0 'caughtUp'
 		vm.h.shareds[at].muted = false
 		return false
@@ -845,11 +845,11 @@ end 'keepMuted'
 
 // countTurn counts a message of a service that has run: with none left the service catches up, and after vm.turnLimit with
 // more queued it is behind.
-function countTurn(mutates vm Vm, service Count) throws Halt
-	let at = vm.h.oData[service]
+function countTurn(mutates vm Vm, svc Count) throws Halt
+	let at = vm.h.oData[svc]
 	if vm.h.shareds[at].queue.count() == 0 'drained'
 		vm.h.shareds[at].turn = 0
-		try caughtUp(vm, service: service)
+		try caughtUp(vm, svc: svc)
 		return
 	end 'drained'
 	vm.h.shareds[at].turn = try vm.h.shareds[at].turn + 1 otherwise panic("interp: a turn past a word")
@@ -860,16 +860,16 @@ function countTurn(mutates vm Vm, service Count) throws Halt
 end 'countTurn'
 
 // caughtUp is a service that is no longer behind: its senders are unmuted in order.
-function caughtUp(mutates vm Vm, service Count) throws Halt
-	vm.h.shareds[vm.h.oData[service]].behind = false
-	try unmuteSenders(vm, service: service)
+function caughtUp(mutates vm Vm, svc Count) throws Halt
+	vm.h.shareds[vm.h.oData[svc]].behind = false
+	try unmuteSenders(vm, svc: svc)
 end 'caughtUp'
 
 // unmuteSenders unmutes the senders listed on a service, in order: a muted one's kept behaviour releases its cowns, a running
 // one is no longer listed, and a parked task is readied. A kept message's release counts as its service's own messages' do:
 // one that empties the queue makes the service catch up, which a task parked on it while it was muted waits for.
-function unmuteSenders(mutates vm Vm, service Count) throws Halt
-	let at = vm.h.oData[service]
+function unmuteSenders(mutates vm Vm, svc Count) throws Halt
+	let at = vm.h.oData[svc]
 	let senders = takeSenders(vm.h.shareds[at])
 	try unmuteEntries(vm, senders: senders)
 end 'unmuteSenders'
@@ -891,7 +891,7 @@ function unmuteEntries(mutates vm Vm, senders CountList) throws Halt
 		vm.h.shareds[sat].kept = 0
 		vm.h.shareds[sat].muted = false
 		vm.behaviours.mute[b] = muteNone
-		try releaseBehaviour(vm, b: b, service: s)
+		try releaseBehaviour(vm, b: b, svc: s)
 	end 'senders'
 end 'unmuteEntries'
 
@@ -907,61 +907,61 @@ function mutedBehaviours(vm Vm) returns CountList
 end 'mutedBehaviours'
 
 function entryServiceShutdown(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a shutdown")
-	closeService(vm, service: service)
+	let svc = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a shutdown")
+	closeService(vm, svc: svc)
 end 'entryServiceShutdown'
 
 // closeService closes a service's mailbox once, so every later send fails with serviceStopped, and gives its watches where it
 // holds no message.
-function closeService(mutates vm Vm, service Count)
-	let at = vm.h.oData[service]
+function closeService(mutates vm Vm, svc Count)
+	let at = vm.h.oData[svc]
 	if vm.h.shareds[at].gate < serviceClosed 'open'
 		vm.h.shareds[at].gate = try vm.h.shareds[at].gate + serviceClosed otherwise panic("interp: a gate past a word")
 	end 'open'
-	endedIfClosed(vm, service: service)
+	endedIfClosed(vm, svc: svc)
 end 'closeService'
 
 // Watching a stop, as the runtime's (runtime/service.maxon, "Watching a stop"): a watch is a promise that no coroutine
 // finishes, listed on its service, which the end of the service finishes: once it is closed and holds no message, or once it
 // is freed. Its cancel finishes it and takes it off.
 function entryServiceStopped(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a watch of a stop")
+	let svc = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a watch of a stop")
 	let row = vm.promises.add(0)
 	vm.promises.started[row] = true
-	vm.promises.watches[row] = service
+	vm.promises.watches[row] = svc
 	let o = vm.h.newObject(kindPromise, site: vm.site())
 	vm.h.oData[o] = row
-	vm.h.shareds[vm.h.oData[service]].watchers.push(row)
-	endedIfClosed(vm, service: service)
+	vm.h.shareds[vm.h.oData[svc]].watchers.push(row)
+	endedIfClosed(vm, svc: svc)
 	giveRef(vm, x: x, o: o)
 end 'entryServiceStopped'
 
 // endedIfClosed gives the watches of a service that is closed and holds no message: none sent and not started, none queued,
 // none running and none kept muted.
-function endedIfClosed(mutates vm Vm, service Count)
-	let at = vm.h.oData[service]
+function endedIfClosed(mutates vm Vm, svc Count)
+	let at = vm.h.oData[svc]
 	if vm.h.shareds[at].gate == serviceClosed and vm.h.shareds[at].queue.count() == 0 and vm.h.shareds[at].running == 0 and vm.h.shareds[at].kept == 0 'ended'
-		serviceEnded(vm, service: service)
+		serviceEnded(vm, svc: svc)
 	end 'ended'
 end 'endedIfClosed'
 
 // serviceEnded finishes every watch of a service that has ended, once it has taken back the arms of the timers that would post
 // to it, and gives the watches that post (givePostedWatches).
-function serviceEnded(mutates vm Vm, service Count)
-	disarmArmed(vm, service: service)
-	let at = vm.h.oData[service]
+function serviceEnded(mutates vm Vm, svc Count)
+	disarmArmed(vm, svc: svc)
+	let at = vm.h.oData[svc]
 	let rows = exchange(vm.h.shareds[at].watchers, value: CountList.create(0))
 	for i in 0 upto rows.count() 'rows'
 		finishPromise(vm, row: rows[i])
 	end 'rows'
-	givePostedWatches(vm, service: service)
+	givePostedWatches(vm, svc: svc)
 end 'serviceEnded'
 
 // entryServiceFreed is the runtime's call from the drop of a service's last handle, which the interpreter makes itself where
 // it frees a cown (unref).
 function entryServiceFreed(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a freed service")
-	serviceEnded(vm, service: service)
+	let svc = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a freed service")
+	serviceEnded(vm, svc: svc)
 end 'entryServiceFreed'
 
 // unwatch is the cancel of a watch that its service has not finished: it is taken off and finished.
@@ -985,57 +985,57 @@ let stopStoppedWord = 1 as ir.Word
 let shedStoppedWord = 3 as ir.Word
 
 function entryServiceStopNow(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a stop")
-	try stopServiceNow(vm, service: service)
+	let svc = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "a stop")
+	try stopServiceNow(vm, svc: svc)
 end 'entryServiceStopNow'
 
-function stopServiceNow(mutates vm Vm, service Count) throws Halt
-	let at = vm.h.oData[service]
+function stopServiceNow(mutates vm Vm, svc Count) throws Halt
+	let at = vm.h.oData[svc]
 	if vm.h.shareds[at].stoppedNow 'again'
 		return
 	end 'again'
-	closeService(vm, service: service)
+	closeService(vm, svc: svc)
 	vm.h.shareds[at].stoppedNow = true
-	try caughtUp(vm, service: service)
+	try caughtUp(vm, svc: svc)
 end 'stopServiceNow'
 
 // entryServiceStopSelf and entryServiceStopNowSelf stop the service whose message the thread runs, and nothing off a message.
 function entryServiceStopSelf(mutates vm Vm, f ir.IrFunction, x ir.Instr)
-	let service = messageOf(vm, t: vm.cur)
-	if service != 0 'message'
-		closeService(vm, service: service)
+	let svc = messageOf(vm, t: vm.cur)
+	if svc != 0 'message'
+		closeService(vm, svc: svc)
 	end 'message'
 end 'entryServiceStopSelf'
 
 function entryServiceStopNowSelf(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = messageOf(vm, t: vm.cur)
-	if service != 0 'message'
-		try stopServiceNow(vm, service: service)
+	let svc = messageOf(vm, t: vm.cur)
+	if svc != 0 'message'
+		try stopServiceNow(vm, svc: svc)
 	end 'message'
 end 'entryServiceStopNowSelf'
 
 // entryServiceSelfHandle is `self.handle`: another owner of the service whose message the thread runs.
 function entryServiceSelfHandle(mutates vm Vm, f ir.IrFunction, x ir.Instr)
-	let service = messageOf(vm, t: vm.cur)
-	if service == 0 'off'
+	let svc = messageOf(vm, t: vm.cur)
+	if svc == 0 'off'
 		panic("interp: self.handle off a message of its service")
 	end 'off'
-	addOwner(vm, service: service)
-	giveRef(vm, x: x, o: service)
+	addOwner(vm, svc: svc)
+	giveRef(vm, x: x, o: svc)
 end 'entryServiceSelfHandle'
 
 // addOwner is another owner of a service: a handle, or a posted record's hold.
-function addOwner(mutates vm Vm, service Count)
-	let at = vm.h.oData[service]
+function addOwner(mutates vm Vm, svc Count)
+	let at = vm.h.oData[svc]
 	vm.h.shareds[at].count = try vm.h.shareds[at].count + 1 otherwise panic("interp: a count past a word")
 end 'addOwner'
 
 // entryServiceStopStart is entryServiceStart of a message of a type that implements StopsNow, and says whether its service was
 // stopped at once, so that it is not handled.
 function entryServiceStopStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = stateService(vm, f: f, x: x, what: "rt.service.stopStart")
-	let at = vm.h.oData[service]
-	let b = try startMessage(vm, service: service, posted: false)
+	let svc = stateService(vm, f: f, x: x, what: "rt.service.stopStart")
+	let at = vm.h.oData[svc]
+	let b = try startMessage(vm, svc: svc, posted: false)
 	if vm.h.shareds[at].stoppedNow 'stopped'
 		noteStopped(vm, b: b)
 		giveNum(vm, x: x, n: stopStoppedWord)
@@ -1096,35 +1096,35 @@ end 'entryServiceStateHeld'
 // entryServiceEnding gives a service whose state type implements Ends its finish, which ends the state in place of its drop
 // where the service is freed with the state still in it, as a cown's dropWith: destructor ends its value.
 function entryServiceEnding(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "the ending of a service")
-	giveEnding(vm, f: f, x: x, cown: service)
+	let svc = try shared(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindCown, what: "the ending of a service")
+	giveEnding(vm, f: f, x: x, cown: svc)
 end 'entryServiceEnding'
 
 // entryServiceBehaviourStart makes the service of a behaviour that is no message, its factory's or the one a stop queues to
 // drop its state, the one the thread runs a message of, as a message's start does with no place in the mailbox to give back,
 // so that its release is the service's (releaseBehaviour).
 function entryServiceBehaviourStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = stateService(vm, f: f, x: x, what: "rt.service.behaviourStart")
-	vm.threads[vm.cur].service = service
+	let svc = stateService(vm, f: f, x: x, what: "rt.service.behaviourStart")
+	vm.threads[vm.cur].svc = svc
 end 'entryServiceBehaviourStart'
 
 // entryServiceStateEnds is whether the behaviour that runs is the last of its service, which drops a state that can hold a
 // Reply: the service is closed, its gate counts no message still to start, from its send's reservation on, and it holds its
 // state.
 function entryServiceStateEnds(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = stateService(vm, f: f, x: x, what: "rt.service.stateEnds")
-	let at = vm.h.oData[service]
+	let svc = stateService(vm, f: f, x: x, what: "rt.service.stateEnds")
+	let at = vm.h.oData[svc]
 	let c = vm.address(argAt(f, x: x, i: 0))
 	giveFlag(vm, x: x, b: vm.h.shareds[at].gate == serviceClosed and vm.h.refOf(c) != 0)
 end 'entryServiceStateEnds'
 
 // entryServiceCurrent is the service whose message the thread runs.
 function entryServiceCurrent(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = messageOf(vm, t: vm.cur)
-	if service == 0 'off'
+	let svc = messageOf(vm, t: vm.cur)
+	if svc == 0 'off'
 		panic("interp: rt.service.current off a message")
 	end 'off'
-	giveRef(vm, x: x, o: service)
+	giveRef(vm, x: x, o: svc)
 end 'entryServiceCurrent'
 
 // replyStoppedError is the error word a deferred reply dropped unanswered fails its sender's await with: the case
@@ -1287,11 +1287,11 @@ end 'markOf'
 // stateService is the service whose state the address an entry is given is.
 function stateService(mutates vm Vm, f ir.IrFunction, x ir.Instr, what String) returns Count
 	let c = vm.address(argAt(f, x: x, i: 0))
-	let service = vm.h.cellHolder[c]
-	if c == 0 or vm.h.oKind[service] != kindCown 'notState'
+	let svc = vm.h.cellHolder[c]
+	if c == 0 or vm.h.oKind[svc] != kindCown 'notState'
 		panic("interp: {what} is given no service's state")
 	end 'notState'
-	return service
+	return svc
 end 'stateService'
 
 // markedOf is what becomes of behaviour b, a message that starts: it runs, or it was shed, which counts it delivered once.
@@ -1307,9 +1307,9 @@ end 'markedOf'
 // entryServiceShedStart is entryServiceStart of a message of a type with shedding kinds, and says whether it runs, was shed,
 // or the policies' shed is due first, which is where the service is behind, or the coin says so, and no view holds it.
 function entryServiceShedStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = stateService(vm, f: f, x: x, what: "rt.service.shedStart")
-	let at = vm.h.oData[service]
-	let b = try startMessage(vm, service: service, posted: false)
+	let svc = stateService(vm, f: f, x: x, what: "rt.service.shedStart")
+	let at = vm.h.oData[svc]
+	let b = try startMessage(vm, svc: svc, posted: false)
 	vm.h.shareds[at].sheds = true
 	if vm.h.shareds[at].stoppedNow 'stopped'
 		noteStopped(vm, b: b)
@@ -1347,8 +1347,8 @@ end 'entryServiceShedMarked'
 // entryServiceViewOpen gives a view of the behaviours of a shedding policy's kinds queued on the service, from the one that
 // starts up to the horizon, which the first view of a start sets to the newest queued.
 function entryServiceViewOpen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let service = stateService(vm, f: f, x: x, what: "rt.service.viewOpen")
-	let at = vm.h.oData[service]
+	let svc = stateService(vm, f: f, x: x, what: "rt.service.viewOpen")
+	let at = vm.h.oData[svc]
 	let slot = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
 	let policy = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 2))
 	let queue = vm.h.shareds[at].queue.clone()
