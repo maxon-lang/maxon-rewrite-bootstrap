@@ -353,8 +353,11 @@ end 'timersNext'
 
 // stealTimers is the timers' half of Go's stealWork: the timers of the other processors that are due are run onto the
 // running thread's processor (runTimersAt), and it says whether any were due. Unlike Go's, which runs them on the last
-// round of a spinning thread's steal alone, every search for work that finds no work of its own does it, whether or not the
-// thread may spin, since it reads two words of each processor and takes no lock unless a timer is due there.
+// round of a spinning thread's steal alone, every search for work does it, right after its own processor's timers and
+// before any run queue, since it reads two words of each processor, reads the clock only when one has a timer armed, and
+// takes no lock unless a timer is due there: a processor whose search took global work first (a preempted green thread
+// goes to the global queue) or a thread handed an idle processor other than the one whose heap holds the due timer
+// would otherwise leave it on a heap that nobody runs.
 function stealTimers(context Count, proc Count) returns bool
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	var now = noTimer

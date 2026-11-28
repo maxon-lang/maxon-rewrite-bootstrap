@@ -346,8 +346,9 @@ function startPinned(context Count, g Count)
 	wakeThread(pinnedTo)
 end 'startPinned'
 
-// findRunnable is Go's: the next green thread for the thread's processor, from its timers, its run queue, the global run
-// queue, the other processors' timers that are due (stealTimers), the event queue and the other processors' queues, or else the processor goes idle and the thread waits, in the event queue
+// findRunnable is Go's: the next green thread for the thread's processor, from its timers and the other processors' timers
+// that are due (stealTimers, before any queue), its run queue, the global run queue, the event queue and the other
+// processors' queues, or else the processor goes idle and the thread waits, in the event queue
 // when something is pending there, until it is handed a processor. It gives noGreen only on the main thread's drain,
 // once nothing is left. procInheritOffset of the processor it gave it for says whether it came from runnext (runqGet).
 function findRunnable(context Count) returns Count
@@ -364,6 +365,10 @@ function findRunnable(context Count) returns Count
 			end 'found'
 		end 'fair'
 		runTimers(context, proc: proc)
+		// The other processors' due timers too, before any queue: a sleep due on a processor that is idle, or whose thread
+		// takes its work from the global queue at each slice end, as a preempted green thread goes there, is run by the next
+		// search for work on any processor, never left on a heap that nobody runs.
+		_ = stealTimers(context, proc: proc)
 		let own = runqGet(proc)
 		if own != noGreen 'own'
 			return own
@@ -376,12 +381,6 @@ function findRunnable(context Count) returns Count
 				return global
 			end 'found'
 		end 'global'
-		if stealTimers(context, proc: proc) 'stoleTimers'
-			let fired = runqGet(proc)
-			if fired != noGreen 'found'
-				return fired
-			end 'found'
-		end 'stoleTimers'
 		if __Raw.loadAcquire(scheduler, offset: schedEventWaitersOffset) > 0 and __Raw.loadAcquire(scheduler, offset: schedLastTakeOffset) != 0 'take'
 			let taken = eventsReadied(context, proc: proc, list: takeEvents(context, delay: takeEventsNoWait))
 			if taken != noGreen 'found'
