@@ -4,6 +4,7 @@
 // a ticker armed a period after each handler would come at 700 ms, and none comes early. A period of 0 ticks at once each
 // time it is armed. Each ticker is cancelled at its last tick, and nothing is left.
 // native-only
+// runs: alone
 //> 50 ticks of 10 ms: none early, the 50th within 500 to 559 ms of the start: the grid holds
 //> 100 ticks of 0 ms: none early
 export typealias Amount = int(0 to 1000000)

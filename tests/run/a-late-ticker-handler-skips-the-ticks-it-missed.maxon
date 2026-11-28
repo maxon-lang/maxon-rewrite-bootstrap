@@ -3,6 +3,7 @@
 // fired at once for being late, as Go's Ticker would fire the one its channel kept. The tick after it, handled at once, is
 // the next of the grid, 60 ms. The ticker is cancelled at its third tick, and nothing is left.
 // native-only
+// runs: alone
 //> a 35 ms handler of a 10 ms ticker skipped 3 ticks: the next came at grid tick 5, none at once, then tick 6
 export typealias Amount = int(0 to 1000000)
 

@@ -283,8 +283,9 @@ goroutine's is. Where it differs from Go, and why:
   one); a thread's remote frees wait until it allocates again; and the leak check sums every thread's heap (`liveBoxes`
   walks `schedAllThreadsOffset`), which a per-processor heap must replace with a sum over the processors and the threads
   that hold none.
-- **The monitor sleeps by `Sleep` on Windows**, whose resolution is the system timer's (often 15.6 ms), since the
-  executable imports no high-resolution timer: a green thread runs 10 ms to about 30 ms before it is stopped there.
+- **The monitor sleeps on a high-resolution waitable timer on Windows** (`sleepMicros`, Go's `usleep2HighRes`), where the
+  system makes one (Windows 10 1803 on), and otherwise by `Sleep`, whose resolution is the system timer's (often 15.6 ms): there
+  a green thread runs 10 ms to about 30 ms before it is stopped.
 - **A child of macOS inherits the raised open-file limit.** The scheduler raises the soft RLIMIT_NOFILE to the hard one as it
   is made (`ulimit.maxon`), on macOS no higher than `kern.maxfilesperproc`, as Go's syscall package does at start-up; a
   program whose code reaches no scheduler keeps the limit it was given. Go gives a child the limit the process started with
