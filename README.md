@@ -6499,13 +6499,16 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   bytes (`read(count)`, `wouldBlock` or `ended`), so a read allocates nothing of its own and a connection holds no buffer between
   requests; a buffer it grows comes from the thread's heap, whose size classes and kept runs are the pool.
   **A server's sends** (`stdlib/net/sending.maxon`, `socketSendPair` and `socketSendFile` in `runtime/socket.maxon`):
-  `sendPair(head, body:)` sends two buffers in one vectored send, `sendmsg` on Linux, so a response's head and body leave
-  together with neither copied behind the other, and the rest as the socket takes it; `sendFile(reader, deadlineMs:)` sends
-  what a `File.openRead` reader holds unread and then the file from its position by `sendfile` on Linux, a slice at a time,
-  each under its own write deadline, and closes the file. On macOS `writev` and `sendfile` wait for a seed that links them
-  (`macosImports` lists them): until then a pair is sent as the socket takes its first buffer and then the second, and a file
-  is read and sent. On Windows a pair is sent so too, and a file is not sent: `TransmitFile` is not built, and the runtime
-  stops with a message that says so. No green thread is tied to an idle socket: the arm is the record in the entry's state
+  `sendPair(head, body:)` sends two buffers in one vectored send, `sendmsg` on Linux and `WSASend` on Windows, so a response's
+  head and body leave together with neither copied behind the other, and the rest as the socket takes it; `sendFile(reader, deadlineMs:)` sends
+  what a `File.openRead` reader holds unread and then the file from its position by `sendfile` on Linux and `TransmitFile` on
+  Windows, a slice at a time, each under its own write deadline, and closes the file. On macOS `writev` and `sendfile` wait
+  for a seed that links them (`macosImports` lists them): until then a pair is sent as the socket takes its first buffer and
+  then the second, and a file is read and sent. On Windows a `TransmitFile` call is of at most 256 KB, made with an OVERLAPPED
+  whose event a wait completion packet ties to the completion port, so the green thread parks on a user event's entry until
+  the peer has taken the bytes (a call without an OVERLAPPED blocks the thread, and a call cannot be cancelled in the middle
+  without resetting the connection), and the file's position is read and moved on by the runtime, which the call does not
+  do; the write deadline does not end a call whose peer stops reading, which it does on Linux. No green thread is tied to an idle socket: the arm is the record in the entry's state
   word (the record plus 1, beside a green thread's address), set by one compare-exchange and no system call, since the
   registration stays edge-triggered; an event delivers it without a green thread or a processor, onto the take's list where
   its service is idle and behind the behaviour ahead where it is not. An edge that came before the arm posts the message at
@@ -6591,7 +6594,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `\Device\Afd` (`IOCTL_AFD_POLL` on the runtime's completion port, `runtime/windows_poll.maxon`), the interface under Winsock that
   libuv, mio and wepoll use, instead of keeping an overlapped read of no bytes on each socket. The interface is stable from Windows
   Vista on, and an armed idle socket costs about 1.1 KB of nonpaged pool for it, against about 0.5 KB for a zero-byte read
-  (`runtime/README.md`, "The readiness of a socket on Windows"). The runtime loads `ws2_32.dll` at the first socket and finds
+  (`runtime/README.md`, "The readiness of a socket on Windows"). The runtime loads `ws2_32.dll` and `mswsock.dll` at the first socket and finds
   its functions by name, since a program imports from kernel32 alone. A connected or accepted socket's keepalive (15 s, 15 s,
   9 probes) is set by `TCP_KEEPIDLE`, `TCP_KEEPINTVL` and `TCP_KEEPCNT`, which Windows 10 version 1709 has (1703 for the count),
   so on an earlier Windows the keepalive stays as the system has it.

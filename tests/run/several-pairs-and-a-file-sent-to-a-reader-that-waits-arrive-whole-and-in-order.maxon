@@ -1,0 +1,135 @@
+// Several vectored sends and then a file on one connection to a reader that does not read at first: the socket is full by the
+// later pairs, so their sends would wait and are made again once it takes bytes, and the file is sent in slices that each
+// park until the peer has read them, with the reader a coroutine of the same green thread. A slice of the file is a fraction of
+// what the library asks for, so each call moves fewer bytes than were asked and the next continues it, and the stream arrives
+// whole and in order.
+// native-only
+//> 18874632 bytes of the 6 pairs, as sent
+//> 2621447 bytes of the file, as sent
+//> the stream: whole and in order
+let BodyBytes = 3145728
+
+let FileBytes = 2621447
+
+let PairCount = 6
+
+let Head = "HTTP/1.1 200 OK\r\nContent-Length: 3145728\r\n\r\n"
+
+#if os(Windows)
+	function tempRoot() returns String
+		let temp = try Process.environmentVariable("TEMP") otherwise panic("TEMP is not set")
+		return "{temp}\\minimaxon_send_waiting_test"
+	end 'tempRoot'
+
+	let separator = "\\"
+#else
+	function tempRoot() returns String
+		return "/tmp/minimaxon_send_waiting_test_{Process.id()}"
+	end 'tempRoot'
+
+	let separator = "/"
+#endif
+
+function path(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("not a path")
+end 'path'
+
+// letterAt is the byte at a place of a segment of the stream: a letter that runs through the alphabet from the segment's start.
+function letterAt(i Count) returns Byte
+	return (97 + i mod 26) as Byte
+end 'letterAt'
+
+function bodyOf(length Count) returns String
+	var bytes = ByteArray.create(0)
+	for i in 0 upto length 'fill'
+		bytes.push(letterAt(i))
+	end 'fill'
+	return String.from(bytes)
+end 'bodyOf'
+
+function sendAll(mutates listener TcpListener, name String, body String) returns BytePos
+	var conn = try listener.accept() otherwise return 0
+	var total = 0 as BytePos
+	for i in 0 upto PairCount 'pairs'
+		let sent = try conn.sendPair(Head, body: body) otherwise 0
+		total = try total + sent otherwise total
+	end 'pairs'
+	var reader = try File.openRead(path(name)) otherwise 'unopened'
+		try conn.close() otherwise ignore
+		return 0
+	end 'unopened'
+	let file = try conn.sendFile(reader, deadlineMs: 10000) otherwise 0
+	try conn.close() otherwise ignore
+	return try total + file otherwise total
+end 'sendAll'
+
+function readAll(mutates client TcpClient) returns ByteArray
+	var all = ByteArray.create(0)
+	var reads = 0 as Count
+	while true 'reading'
+		if reads < 2 'slow'
+			sleep(200)
+		end 'slow'
+		let chunk = try client.readSome(65536) otherwise return all
+		if chunk.isEmpty() 'closed'
+			return all
+		end 'closed'
+		all.append(chunk)
+		reads = try reads + 1 otherwise reads
+	end 'reading'
+	return all
+end 'readAll'
+
+// segmentIs is whether the bytes of the stream from a place, as many as the segment has, run through the alphabet from the
+// segment's start, as a body's and the file's letters do.
+function segmentIs(got ByteArray, from Count, length Count) returns bool
+	for i in 0 upto length 'each'
+		let at = try from + i otherwise return false
+		if (try got.get(at as ElementIndex) otherwise return false) != letterAt(i) 'differs'
+			return false
+		end 'differs'
+	end 'each'
+	return true
+end 'segmentIs'
+
+function headIs(got ByteArray, from Count) returns bool
+	let stop = try from + Head.byteLength() otherwise return false
+	return String.from(try got.slice(from, endIndex: stop) otherwise return false) == Head
+end 'headIs'
+
+function main() returns ExitCode
+	let root = tempRoot()
+	_ = Directory.create(path(root))
+	let name = "{root}{separator}file.bin"
+	var content = ByteArray.create(0)
+	for i in 0 upto FileBytes 'fill'
+		content.push(letterAt(i))
+	end 'fill'
+	try File.writeBinary(path(name), content: content) otherwise panic("cannot write")
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise panic("a listener on the loopback")
+	let port = listener.port()
+	let body = bodyOf(BodyBytes)
+	let sending = async sendAll(listener, name: name, body: body)
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the listener")
+	try client.setReadDeadline(10000) otherwise ignore
+	let got = readAll(client)
+	let sent = await sending
+	try client.close() otherwise ignore
+	try listener.close() otherwise ignore
+	let headBytes = Head.byteLength()
+	var at = 0 as Count
+	var pairsOk = true
+	for i in 0 upto PairCount 'pairs'
+		pairsOk = pairsOk and headIs(got, from: at) and segmentIs(got, from: try at + headBytes otherwise 0, length: BodyBytes)
+		at = try (try at + headBytes otherwise 0) + BodyBytes otherwise 0
+	end 'pairs'
+	let fileOk = segmentIs(got, from: at, length: FileBytes)
+	let wanted = try at + FileBytes otherwise 0
+	let whole = got.count() == wanted and sent == (wanted as BytePos)
+	print("{at} bytes of the {PairCount} pairs, {"as sent" if pairsOk else "not as sent"}\n")
+	print("{FileBytes} bytes of the file, {"as sent" if fileOk else "not as sent"}\n")
+	print("the stream: {"whole and in order" if whole else "not whole"}\n")
+	try File.delete(path(name)) otherwise panic("cannot delete")
+	try Directory.delete(path(root)) otherwise panic("cannot delete the directory")
+	return 0
+end 'main'

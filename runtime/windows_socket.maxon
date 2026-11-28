@@ -1,7 +1,7 @@
 // The calls of a socket on Windows (socket.maxon): ws2_32's, each giving what it returned or -error, the Winsock error read at once
 // (WSAGetLastError, which is the calling thread's: the runtime's code is never stopped by the monitor, so the thread is the same
-// from the call to the read). A PE imports from kernel32 alone, so the runtime loads ws2_32 and finds the functions of it and of
-// ntdll that its sockets call by their names, once, at the first socket, as it finds ProcessPrng (hash.maxon): the table of them is
+// from the call to the read). A PE imports from kernel32 alone, so the runtime loads ws2_32 and mswsock and finds the functions of them, of
+// ntdll and of kernel32 that its sockets call by their names, once, at the first socket, as it finds ProcessPrng (hash.maxon): the table of them is
 // a block the scheduler's record points at (schedWinsockOffset), and the calls go by their addresses (__Raw.callHostN). A socket is
 // made, and an accepted one set, not to wait (FIONBIO) and not to be inherited by a child (WSA_FLAG_NO_HANDLE_INHERIT, and
 // HANDLE_FLAG_INHERIT cleared on an accepted one, as Go's and libuv's are); a read and a send of it are recv and send, which
@@ -161,13 +161,31 @@
 
 	let ntCancelIoFileExSlot = 168 as Count
 
+	// WSASend, WSAGetOverlappedResult, mswsock's TransmitFile and kernel32's SetFilePointerEx, found by name like the rest: a
+	// vectored send, what an overlapped call moved, a file sent, and the file's position moved on.
+	let wsaSendSlot = 176 as Count
+
+	let wsaGetOverlappedResultSlot = 184 as Count
+
+	let transmitFileSlot = 192 as Count
+
+	let setFilePointerExSlot = 200 as Count
+
+	// ntdll's wait completion packet calls, which tie an event to the completion port: where the system lacks them (before
+	// Windows 8) the slots stay 0 and a file is not sent.
+	let ntCreateWaitPacketSlot = 208 as Count
+
+	let ntAssociateWaitPacketSlot = 216 as Count
+
+	let ntCancelWaitPacketSlot = 224 as Count
+
 	// winsockGroupsOffset is where the table holds the first of the groups of AFD handles that have room for a socket, and
 	// winsockSpareGroupsOffset the first of the group records that are free, both under the scheduler's lock.
-	let winsockGroupsOffset = 176 as Count
+	let winsockGroupsOffset = 232 as Count
 
-	let winsockSpareGroupsOffset = 184 as Count
+	let winsockSpareGroupsOffset = 240 as Count
 
-	let winsockTableBytes = 192 as Count
+	let winsockTableBytes = 248 as Count
 
 	// winsockTable is the table of the process's sockets, which the first call makes: ws2_32 loaded and started, and the functions
 	// the sockets call found. A thread that is late with its own makes the same table, and its copy is given back.
@@ -186,13 +204,16 @@
 		return table
 	end 'winsockTable'
 
-	// winsockMake loads ws2_32, starts it and finds the functions of it and of ntdll that the sockets call.
+	// winsockMake loads ws2_32 and mswsock, starts Winsock and finds the functions of them, of ntdll and of kernel32 that the
+	// sockets call.
 	function winsockMake() returns Count
 		let table = keep(winsockTableBytes)
 		let winsock = libraryLoad("ws2_32.dll")
+		let extensions = libraryLoad("mswsock.dll")
 		let native = libraryLoaded("ntdll.dll")
-		if winsock == 0 or native == 0 'unloaded'
-			panic("the operating system has no sockets: ws2_32.dll cannot be loaded")
+		let kernel = libraryLoaded("kernel32.dll")
+		if winsock == 0 or extensions == 0 or native == 0 or kernel == 0 'unloaded'
+			panic("the operating system has no sockets: ws2_32.dll or mswsock.dll cannot be loaded")
 		end 'unloaded'
 		winsockFind(table, slot: wsaStartupSlot, module: winsock, name: "WSAStartup")
 		winsockFind(table, slot: wsaSocketSlot, module: winsock, name: "WSASocketW")
@@ -216,6 +237,13 @@
 		winsockFind(table, slot: ntCreateFileSlot, module: native, name: "NtCreateFile")
 		winsockFind(table, slot: ntDeviceIoControlFileSlot, module: native, name: "NtDeviceIoControlFile")
 		winsockFind(table, slot: ntCancelIoFileExSlot, module: native, name: "NtCancelIoFileEx")
+		winsockFind(table, slot: wsaSendSlot, module: winsock, name: "WSASend")
+		winsockFind(table, slot: wsaGetOverlappedResultSlot, module: winsock, name: "WSAGetOverlappedResult")
+		winsockFind(table, slot: transmitFileSlot, module: extensions, name: "TransmitFile")
+		winsockFind(table, slot: setFilePointerExSlot, module: kernel, name: "SetFilePointerEx")
+		__Raw.storeWord(table, offset: ntCreateWaitPacketSlot, value: libraryFunction(native, name: "NtCreateWaitCompletionPacket"))
+		__Raw.storeWord(table, offset: ntAssociateWaitPacketSlot, value: libraryFunction(native, name: "NtAssociateWaitCompletionPacket"))
+		__Raw.storeWord(table, offset: ntCancelWaitPacketSlot, value: libraryFunction(native, name: "NtCancelWaitCompletionPacket"))
 		let data = alloc(winsockDataBytes)
 		zeroRange(data, from: 0, to: winsockDataBytes)
 		let started = dword(__Raw.callHost2(__Raw.loadWord(table, offset: wsaStartupSlot), arg1: winsockVersion, arg2: data))
@@ -445,22 +473,185 @@
 		_ = __Raw.callHost1(winsockFunction(freeaddrinfoSlot), arg1: found)
 	end 'resolveFree'
 
-	// The io vector of a vectored send: a WSABUF's words, read as an iovec's, its buffer's address first and then its length.
+	// The io vector of a vectored send: an iovec is the buffer's address and then its length, 8 bytes each, and a WSABUF the
+	// reverse, a 32-bit length padded to 8 bytes and then the address, so the vector's words cannot be handed to WSASend as
+	// they are. sendVectorCall builds the WSABUFs before the vector, in the room the caller leaves (vectorCallRoom), on every
+	// call: a send that would wait is made again by the transfer with the same vector.
 	let iovecBytes = 16 as Count
 
 	let iovecLengthOffset = 8 as Count
 
-	let vectorCallRoom = 0 as Count
+	let wsabufBytes = 16 as Count
 
-	// sendVectorCall sends the first buffer of an io vector alone, with send, its count or -error; the caller sends the rest.
-	// WSASend would send them all in one call.
+	let wsabufAddressOffset = 8 as Count
+
+	// The room is a pair's WSABUFs, the one vectored send there is (socketSendPair); a vector of more is sent as far as the room
+	// reaches, and the caller sends the rest, as it does where a send takes fewer.
+	let vectorCallRoom = (pairBuffers * wsabufBytes) as Count
+
+	// sendVectorCall is one WSASend, in the form of send (no OVERLAPPED, so a socket that does not wait gives WSAEWOULDBLOCK
+	// where it takes nothing, and none that it takes only part of), of up to pairBuffers buffers of an io vector: the count it
+	// took of them all, which may be fewer, or -error. The caller zeroed the room before the vector.
 	function sendVectorCall(fd Count, vector Count, count Count) returns Count
-		return socketCall(fd, mode: eventWrite, buffer: __Raw.loadWord(vector, offset: 0), length: __Raw.loadWord(vector, offset: iovecLengthOffset))
+		let buffers = count if count < pairBuffers else pairBuffers
+		let wsabufs = __Raw.wrappingSub(vector, right: vectorCallRoom)
+		for i in 0 upto buffers 'each'
+			let iovec = __Raw.wrappingAdd(vector, right: i * iovecBytes)
+			let wsabuf = __Raw.wrappingAdd(wsabufs, right: i * wsabufBytes)
+			__Raw.storeWord32(wsabuf, offset: 0, value: __Raw.loadWord(iovec, offset: iovecLengthOffset))
+			__Raw.storeWord(wsabuf, offset: wsabufAddressOffset, value: __Raw.loadWord(iovec, offset: 0))
+		end 'each'
+		var sent = 0 as Count
+		let result = intResult(__Raw.callHost7(winsockFunction(wsaSendSlot), arg1: fd, arg2: wsabufs, arg3: buffers, arg4: __Raw.addressOf(sent), arg5: 0, arg6: 0, arg7: 0))
+		if failed(result) 'refused'
+			return result
+		end 'refused'
+		return dword(sent)
 	end 'sendVectorCall'
 
-	// sendFileCall would be TransmitFile, which is not built: a file is not sent on a socket on Windows.
+	// TransmitFile's flag that completes the call once the transport has the data, without the peer's acknowledgement of it
+	// (TF_WRITE_BEHIND), as Go's sendfile passes it; WSA_IO_PENDING, the answer of a call that goes on; SetFilePointerEx's
+	// moves from the current position and from the start (FILE_CURRENT, FILE_BEGIN); and the OVERLAPPED (overlappedBytes), its file
+	// offset at 16 (Offset and OffsetHigh, one word) and its event at 24.
+	let transmitWriteBehind = 4 as Count
+
+	let wsaIoPending = 997 as Count
+
+	let fileCurrent = 1 as Count
+
+	let fileBegin = 0 as Count
+
+	// CreateEventW's manual-reset.
+	let manualReset = 1 as Count
+
+	let overlappedOffsetOffset = 16 as Count
+
+	let overlappedEventOffset = 24 as Count
+
+	// transmitMostBytes is the most one TransmitFile is asked to send: a call that the peer does not take moves nothing until it
+	// has taken what was asked, and one that is cancelled in the middle breaks the connection, so what is asked is a slice that a
+	// peer that reads takes at once; the library asks for the next when the call returns.
+	let transmitMostBytes = 262144 as Count
+
+	// sendFileCall is one TransmitFile of up to count bytes of a file from its position, which it moves on: its count, 0 at the
+	// end of the file, or -error.
+	//
+	// TransmitFile does not wait on a socket that does not wait: without an OVERLAPPED it blocks the thread until the peer has
+	// taken everything, which deadlocks a peer that is a coroutine of the same green thread, and with one it goes on and
+	// completes once the peer has, whatever room the socket reports (a socket that polls writable can have a call of 4 KB
+	// pending). It is never cancelled once it moves bytes, since a cancel in the middle of a slice resets the connection. So the
+	// call is made with an OVERLAPPED whose event is tied to the completion port by a wait completion packet, keyed by a user
+	// event's entry, and the green thread parks on that entry (transmitOverlapped): no polling and no thread held, whatever
+	// the peer takes. The write deadline is not honoured, since this call is not given it: a peer that stops reading holds the
+	// call until it reads or closes.
+	//
+	// A call with an OVERLAPPED sends from the offset the OVERLAPPED holds and leaves the file's position where it was, and one
+	// asked for more than the file holds from its offset fails WSAEINVAL, so the position is read first, the count is held to
+	// the file's rest, and the position is moved on by what was sent.
 	function sendFileCall(fd Count, file Count, count Count) returns Count
-		runtimeFatal("a file is sent on a socket by TransmitFile on Windows, which is not built yet")
-		return 0
+		var position = 0 as Count
+		if dword(__Raw.callHost4(winsockFunction(setFilePointerExSlot), arg1: file, arg2: 0, arg3: __Raw.addressOf(position), arg4: fileCurrent)) == 0 'unplaced'
+			return __Raw.wrappingSub(0, right: einval)
+		end 'unplaced'
+		var size = 0 as Count
+		if dword(__Raw.callImport2("GetFileSizeEx", arg1: file, arg2: __Raw.addressOf(size))) == 0 'unsized'
+			return __Raw.wrappingSub(0, right: einval)
+		end 'unsized'
+		if position >= size 'ended'
+			return 0
+		end 'ended'
+		var asked = (size - position) as Count
+		if asked > count 'fewer'
+			asked = count
+		end 'fewer'
+		if asked > transmitMostBytes 'slice'
+			asked = transmitMostBytes
+		end 'slice'
+		let moved = transmitOverlapped(fd, file: file, from: position, count: asked)
+		if failed(moved) 'refused'
+			return moved
+		end 'refused'
+		if dword(__Raw.callHost4(winsockFunction(setFilePointerExSlot), arg1: file, arg2: __Raw.wrappingAdd(position, right: moved), arg3: 0, arg4: fileBegin)) == 0 'unplaced'
+			return __Raw.wrappingSub(0, right: einval)
+		end 'unplaced'
+		return moved
 	end 'sendFileCall'
+
+	// transmitOverlapped sends count bytes of a file from an offset by one TransmitFile and parks the green thread until it
+	// has completed: the count it moved, or -error. The event of its OVERLAPPED is manual-reset, tied to the port before the
+	// call by a wait completion packet whose key is a user event's entry, so the packet is queued once the call completes, and
+	// a wake that the entry's last owner left is found out by the OVERLAPPED's status, which says the call is still going.
+	// A wait that ends without the call, the coroutine's cancel or the socket's close, cancels it, which resets the
+	// connection, and waits in the blocking bracket for the cancel to complete, since the kernel writes into the OVERLAPPED
+	// until it has.
+	function transmitOverlapped(fd Count, file Count, from Count, count Count) returns Count
+		let create = winsockFunction(ntCreateWaitPacketSlot)
+		let associate = winsockFunction(ntAssociateWaitPacketSlot)
+		let cancel = winsockFunction(ntCancelWaitPacketSlot)
+		if create == 0 or associate == 0 or cancel == 0 'unsupported'
+			return __Raw.wrappingSub(0, right: einval)
+		end 'unsupported'
+		let event = __Raw.callImport4("CreateEventW", arg1: noEventAttributes, arg2: manualReset, arg3: startsUnset, arg4: noEventName)
+		if event == 0 'unevented'
+			return __Raw.wrappingSub(0, right: einval)
+		end 'unevented'
+		var packet = 0 as Count
+		if dword(__Raw.callHost3(create, arg1: __Raw.addressOf(packet), arg2: genericAll, arg3: 0)) != statusSuccess 'unpacketed'
+			closeHandle(event)
+			return __Raw.wrappingSub(0, right: einval)
+		end 'unpacketed'
+		let entry = eventUserNew()
+		let overlapped = alloc(overlappedBytes)
+		zeroRange(overlapped, from: 0, to: overlappedBytes)
+		__Raw.storeWord(overlapped, offset: overlappedOffsetOffset, value: from)
+		__Raw.storeWord(overlapped, offset: overlappedEventOffset, value: event)
+		let port = __Raw.loadWord(schedulerOf(__Raw.threadContext()), offset: schedEventQueueOffset)
+		var signaled = 0 as Count
+		var moved = 0 as Count
+		var failure = 0 as Count
+		if dword(__Raw.callHost8(associate, arg1: packet, arg2: port, arg3: event, arg4: entry, arg5: 0, arg6: 0, arg7: 0, arg8: __Raw.addressOf(signaled))) != statusSuccess 'untied'
+			failure = __Raw.wrappingSub(0, right: einval)
+		end 'untied' else 'tied'
+			failure = transmitStarted(fd, file: file, count: count, overlapped: overlapped, entry: entry)
+		end 'tied'
+		if failure == 0 'completed'
+			var flags = 0 as Count
+			if dword(__Raw.callHost5(winsockFunction(wsaGetOverlappedResultSlot), arg1: fd, arg2: overlapped, arg3: __Raw.addressOf(moved), arg4: 0, arg5: __Raw.addressOf(flags))) == 0 'unfinished'
+				failure = lastError()
+			end 'unfinished'
+		end 'completed'
+		_ = __Raw.callHost2(cancel, arg1: packet, arg2: 1)
+		closeHandle(packet)
+		closeHandle(event)
+		eventUserFree(entry)
+		free(overlapped)
+		if failure != 0 'failed'
+			return failure
+		end 'failed'
+		return dword(moved)
+	end 'transmitOverlapped'
+
+	// transmitStarted makes the TransmitFile and parks until it completes: 0 for a call that completed, which the OVERLAPPED
+	// tells the result of, or -error.
+	function transmitStarted(fd Count, file Count, count Count, overlapped Count, entry Count) returns Count
+		if dword(__Raw.callHost7(winsockFunction(transmitFileSlot), arg1: fd, arg2: file, arg3: count, arg4: 0, arg5: overlapped, arg6: 0, arg7: transmitWriteBehind)) != 0 'completed'
+			return 0
+		end 'completed'
+		let started = lastError()
+		if errnoOf(started) != wsaIoPending 'refused'
+			return started
+		end 'refused'
+		var status = eventReady
+		while status == eventReady and dword(__Raw.loadAcquire(overlapped, offset: 0)) == statusPending 'going'
+			status = eventWait(entry, mode: eventRead, deadline: eventNoDeadline)
+		end 'going'
+		if status == eventReady 'done'
+			return 0
+		end 'done'
+		_ = __Raw.callImport2("CancelIoEx", arg1: fd, arg2: overlapped)
+		enterBlocking()
+		_ = __Raw.callImport2("WaitForSingleObject", arg1: __Raw.loadWord(overlapped, offset: overlappedEventOffset), arg2: waitForever)
+		exitBlocking()
+		return __Raw.wrappingSub(0, right: econnaborted)
+	end 'transmitStarted'
 #endif
