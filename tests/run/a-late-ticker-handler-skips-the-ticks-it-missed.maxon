@@ -7,7 +7,6 @@
 // later and after the late handler ended, the third after the second. The ticker is cancelled at its third tick, and
 // nothing is left.
 // native-only
-// runs: alone
 //> a 35 ms handler of a 10 ms ticker: the next tick on the first grid point after the handler, none at once, then the next
 export typealias Amount = int(0 to 1000000)
 

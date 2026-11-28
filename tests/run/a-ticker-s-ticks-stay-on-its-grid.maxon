@@ -7,7 +7,6 @@
 // when t >= c rounded up to a multiple of the period, and none is early when the k-th comes at or after k periods. A period
 // of 0 ticks at once each time it is armed. Each ticker is cancelled at its last tick, and nothing is left.
 // native-only
-// runs: alone
 //> 50 ticks of 10 ms: none early, each on the first grid point after its next, none at once
 //> 100 ticks of 0 ms: none early
 export typealias Amount = int(0 to 1000000)
