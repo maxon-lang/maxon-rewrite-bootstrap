@@ -171,25 +171,30 @@ end 'TestOutcome'
 type TestResult
 	var outcome as TestOutcome
 	var detail as String
+	// runNanos is how long all the runs of the executable of a test that passed took, and runs how many they were, and
+	// interpretedNanos how long the interpreter took: the report of the slowest tests (Slowest) divides the first by the second.
+	var runNanos as Count
+	var runs as Count
+	var interpretedNanos as Count
 
 	static function passed() returns TestResult
-		return TestResult{outcome: TestOutcome.testPassed, detail: ""}
+		return TestResult{outcome: TestOutcome.testPassed, detail: "", runNanos: 0, runs: 0, interpretedNanos: 0}
 	end 'passed'
 
 	static function failed(consumes detail String) returns TestResult
-		return TestResult{outcome: TestOutcome.testFailed, detail: detail}
+		return TestResult{outcome: TestOutcome.testFailed, detail: detail, runNanos: 0, runs: 0, interpretedNanos: 0}
 	end 'failed'
 
 	static function unsupported(consumes reason String) returns TestResult
-		return TestResult{outcome: TestOutcome.testUnsupported, detail: reason}
+		return TestResult{outcome: TestOutcome.testUnsupported, detail: reason, runNanos: 0, runs: 0, interpretedNanos: 0}
 	end 'unsupported'
 
 	static function leftOut() returns TestResult
-		return TestResult{outcome: TestOutcome.testLeftOut, detail: ""}
+		return TestResult{outcome: TestOutcome.testLeftOut, detail: "", runNanos: 0, runs: 0, interpretedNanos: 0}
 	end 'leftOut'
 
 	static function manual() returns TestResult
-		return TestResult{outcome: TestOutcome.testManual, detail: ""}
+		return TestResult{outcome: TestOutcome.testManual, detail: "", runNanos: 0, runs: 0, interpretedNanos: 0}
 	end 'manual'
 end 'TestResult'
 
@@ -461,6 +466,12 @@ let behavioursFlag = "--behaviours"
 // naming them in the summary; a run of one such program by its own path includes it as well.
 let manualFlag = "--manual"
 
+// slowestFlag has a run end with the N tests that passed and took longest, with the time of a run of each one's executable (the
+// time of all its runs divided by their number, as the gate runs a program that schedules behaviours more than once) and, for
+// a program of the corpus, the interpreter's: how a machine finds the tests that are over the second or two that the gate may
+// spend on one, which are run by hand (runsManualDirective).
+let slowestFlag = "--slowest="
+
 let repeatFlag = "--repeat="
 
 // compileOnlyFlag compiles every program of the corpus, or every spec test, and runs none, as the programs of tests/check
@@ -497,6 +508,8 @@ type CorpusOptions
 	var behavioursOnly as bool
 	// includesManual has the run include the programs that are run by hand (manualFlag).
 	var includesManual as bool
+	// slowest is how many of the slowest tests the run reports at its end, or 0 for none (slowestFlag).
+	var slowest as Count
 	var repeats as Count
 	// target is the target the programs are compiled for, whose executables runner starts.
 	var target as ast.Target
@@ -516,12 +529,12 @@ type CorpusOptions
 	var workingDirectory as String
 
 	static function new() returns CorpusOptions
-		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, includesManual: false, repeats: behaviourRuns, target: hostTarget(), runner: TargetRunner.native, verifiesIr: false, compilesOnly: false, interprets: false, workerCounts: CountList.create(0), envRunner: "", workingDirectory: inheritedDirectory}
+		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, includesManual: false, slowest: 0, repeats: behaviourRuns, target: hostTarget(), runner: TargetRunner.native, verifiesIr: false, compilesOnly: false, interprets: false, workerCounts: CountList.create(0), envRunner: "", workingDirectory: inheritedDirectory}
 	end 'new'
 end 'CorpusOptions'
 
 // testCommand is `test [dir|file.md] [--verbose] [--update-positions] [--behaviours] [--repeat=N] [--executables=N]
-// [--compile-only] [--manual] [--interpret] [--skip-passed] [--require-passed] [--record-passed] [--save-results=file] [--replay-results=file]`: the corpus is the given directory of programs, or the spec files at the given path, or
+// [--compile-only] [--manual] [--slowest=N] [--interpret] [--skip-passed] [--require-passed] [--record-passed] [--save-results=file] [--replay-results=file]`: the corpus is the given directory of programs, or the spec files at the given path, or
 // else the nearest tests directory from the executable's upward. With --update-positions a test whose expect-error got its
 // code at another place has the directive rewritten to that place, as after a change that only moves code, such as renaming
 // a keyword. --behaviours runs only the programs that schedule behaviours, natively, and --repeat runs the executable of each
@@ -582,7 +595,16 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 			corpusFlags = true
 		end 'behaviours' else if rest[i] == manualFlag 'manual'
 			corpus.includesManual = true
-		end 'manual' else if rest[i] == compileOnlyFlag 'compileOnly'
+		end 'manual' else if hasPrefix(rest[i], prefix: slowestFlag) 'slowest'
+			corpus.slowest = match consumes parseCount(afterPrefix(rest[i], prefix: slowestFlag)) 'count'
+				some(n) gives n
+				none gives 0
+			end 'count'
+			if corpus.slowest < 1 'malformed'
+				printError("test: {slowestFlag} takes a number of tests from 1\n")
+				return usageExitCode
+			end 'malformed'
+		end 'slowest' else if rest[i] == compileOnlyFlag 'compileOnly'
 			corpus.compilesOnly = true
 		end 'compileOnly' else if rest[i] == interpretFlag 'interpret'
 			corpus.interprets = true
@@ -754,7 +776,7 @@ function runTests(dir String, options CorpusOptions, width RunWidth) returns Exi
 		jobs.push(Job.corpus(CorpusJob.make(file, name: name, expect: expect, leftOut: leftOut, byHand: byHand)))
 	end 'tests'
 	let tests = jobs.count()
-	startTests(prepareSharedRuntime(options.target), host: SharedRuntime.none(), jobs: jobs, files: SpecFiles.create(0), corpus: options.clone(), verbose: options.verbose, scratch: Scratch.make("test", suffix: executableExtension(options.target)), width: width, tally: Tally.corpus(CorpusTally.make(tests)))
+	startTests(prepareSharedRuntime(options.target), host: SharedRuntime.none(), jobs: jobs, files: SpecFiles.create(0), corpus: options.clone(), verbose: options.verbose, scratch: Scratch.make("test", suffix: executableExtension(options.target)), width: width, tally: Tally.corpus(CorpusTally.make(tests, slowest: options.slowest)))
 	return compiledByBehaviours
 end 'runTests'
 
@@ -904,12 +926,14 @@ function checkTest(expect Expectation, file String, consumes compiled CompiledPr
 end 'checkTest'
 
 // runNativeRuns runs the executable runs times, and each run must give what the program expects; a failure says which run
-// it was and under what worker count, since a program that schedules behaviours runs under another schedule each time.
+// it was and under what worker count, since a program that schedules behaviours runs under another schedule each time. A
+// pass says how long the runs took and how many they were.
 function runNativeRuns(exe String, expect Expectation, runs Count, options CorpusOptions) returns TestResult
 	var counts = options.workerCounts.clone()
 	if counts.count() == 0 'inherited'
 		counts.push(0)
 	end 'inherited'
+	let started = Clock.nowNanos() as Count
 	for at in 0 upto counts.count() 'counts'
 		let workers = counts[at]
 		for run in 0 upto runs 'runs'
@@ -923,8 +947,16 @@ function runNativeRuns(exe String, expect Expectation, runs Count, options Corpu
 			end 'failed'
 		end 'runs'
 	end 'counts'
-	return TestResult.passed()
+	var passed = TestResult.passed()
+	passed.runNanos = elapsedSince(started)
+	passed.runs = try counts.count() * runs otherwise panic("test: more runs than memory")
+	return passed
 end 'runNativeRuns'
+
+// elapsedSince is the time since started, a reading of the clock.
+function elapsedSince(started Count) returns Count
+	return try (Clock.nowNanos() as Count) - started otherwise panic("test: the clock went backwards")
+end 'elapsedSince'
 
 // workerCountText says what worker count the executables the runner starts run with.
 function workerCountText() returns String

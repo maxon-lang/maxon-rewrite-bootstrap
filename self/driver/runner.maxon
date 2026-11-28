@@ -230,9 +230,10 @@ type CorpusTally
 	var unsupported as Count
 	var leftOut as Count
 	var byHand as ast.StringList
+	var slowest as Slowest
 
-	static function make(tests Count) returns CorpusTally
-		return CorpusTally{tests: tests, failures: ast.StringList.create(0), unsupported: 0, leftOut: 0, byHand: ast.StringList.create(0)}
+	static function make(tests Count, slowest Count) returns CorpusTally
+		return CorpusTally{tests: tests, failures: ast.StringList.create(0), unsupported: 0, leftOut: 0, byHand: ast.StringList.create(0), slowest: Slowest.make(slowest)}
 	end 'make'
 
 	// take counts the result of the test called name and prints its line, unless the run left it out.
@@ -254,6 +255,7 @@ type CorpusTally
 			unsupported = offsetBy(unsupported, by: 1)
 		end 'unsupported'
 		print("{status}  {name}\n")
+		slowest.note(name, result: result)
 	end 'take'
 
 	// finish prints the failures and the counts, and gives the code the run exits with.
@@ -268,12 +270,74 @@ type CorpusTally
 			manual = ", {byHand.count()} manual, left out: {joinWith(byHand, separator: ", ")}"
 		end 'byHand'
 		print("{passed} passed, {failures.count()} failed, {unsupported} not yet supported{manual}\n")
+		slowest.report()
 		if failures.count() == 0 'clean'
 			return 0
 		end 'clean'
 		return diagnosticsExitCode
 	end 'finish'
 end 'CorpusTally'
+
+// TestTiming is how long a test that passed took: a run of its executable, the runs there were, and the interpreter's run.
+type TestTiming
+	var name as String
+	var runNanos as Count
+	var runs as Count
+	var interpretedNanos as Count
+
+	static function make(consumes name String, runNanos Count, runs Count, interpretedNanos Count) returns TestTiming
+		return TestTiming{name: name, runNanos: runNanos, runs: runs, interpretedNanos: interpretedNanos}
+	end 'make'
+end 'TestTiming'
+
+typealias TestTimings = Array with TestTiming
+
+// Slowest keeps the time of each test that passed, for a run that reports the slowest of them (slowestFlag): shown is how many
+// it lists, or 0 for none, which keeps nothing.
+type Slowest
+	var shown as Count
+	var timings as TestTimings
+
+	static function make(shown Count) returns Slowest
+		return Slowest{shown: shown, timings: TestTimings.create(0)}
+	end 'make'
+
+	// note keeps the time of the test called name when it passed after a run of its executable.
+	function note(mutates self, name String, result TestResult)
+		if shown == 0 or result.outcome != TestOutcome.testPassed or result.runs == 0 'untimed'
+			return
+		end 'untimed'
+		timings.push(TestTiming.make(name.clone(), runNanos: result.runNanos / result.runs, runs: result.runs, interpretedNanos: result.interpretedNanos))
+	end 'note'
+
+	// report prints the slowest tests, the one with the longest run first, with the time of a run in milliseconds.
+	function report()
+		if shown == 0 or timings.count() == 0 'none'
+			return
+		end 'none'
+		var listed = CountList.create(0)
+		print("\nslowest tests, by milliseconds a run of the executable took (runs; milliseconds of the interpreter):\n")
+		for _ in 0 upto shown 'ranks'
+			var at = 0 as Count
+			var longest = 0 as Count
+			var found = false
+			for i in 0 upto timings.count() 'each'
+				let nanos = timings.get(i).runNanos
+				if not listed.contains(i) and (not found or nanos > longest) 'slower'
+					at = i
+					longest = nanos
+					found = true
+				end 'slower'
+			end 'each'
+			if not found 'all'
+				return
+			end 'all'
+			listed.push(at)
+			let slow = try timings.get(at) otherwise return
+			print("{millisText(slow.runNanos)} ms a run ({slow.runs}; {millisText(slow.interpretedNanos)})  {slow.name}\n")
+		end 'ranks'
+	end 'report'
+end 'Slowest'
 
 // ResultSlot is the result of a test, once it is in and until it is taken in.
 typealias ResultSlot = table.Option with TestResult
@@ -570,7 +634,7 @@ function runCompiledProgram(bench frozen with Bench, consumes pending CorpusPend
 	var result = runNativeRuns(pending.exe, expect: pending.expect, runs: pending.runs, options: bench.corpus)
 	releaseExecutable(bench)
 	if result.outcome != TestOutcome.testFailed and pending.interprets 'interpreted'
-		result = runInterpreted(pending.compiled, expect: pending.expect)
+		result = interpretedAfter(result, compiled: pending.compiled, expect: pending.expect)
 	end 'interpreted'
 	var finished = Finished.make(result)
 	finished.left = discarded(pending.exe)
@@ -578,15 +642,37 @@ function runCompiledProgram(bench frozen with Bench, consumes pending CorpusPend
 end 'runCompiledProgram'
 
 function runSpecPending(bench frozen with Bench, consumes pending SpecPending)
+	let started = Clock.nowNanos() as Count
 	var result = checkSpecRun(pending.test, text: bench.files[pending.file].text, exe: pending.exe, directory: bench.corpus.workingDirectory, envRunner: bench.corpus.envRunner)
+	if result.outcome == TestOutcome.testPassed 'timed'
+		result.runNanos = elapsedSince(started)
+		result.runs = 1
+	end 'timed'
 	releaseExecutable(bench)
 	if result.outcome != TestOutcome.testFailed and pending.interprets 'interpreted'
-		result = interpretedViolations(pending.compiled)
+		result = keepingTimes(interpretedViolations(pending.compiled), earlier: result)
 	end 'interpreted'
 	var finished = Finished.make(result)
 	finished.left = discarded(pending.exe)
 	settleJob(bench, index: pending.index, finished: finished)
 end 'runSpecPending'
+
+// interpretedAfter is the result of the interpreter's run of a program whose native runs ended in native, with the time of
+// the native runs and the interpreter's.
+function interpretedAfter(native TestResult, compiled CompiledProgram, expect Expectation) returns TestResult
+	let started = Clock.nowNanos() as Count
+	var result = keepingTimes(runInterpreted(compiled, expect: expect), earlier: native)
+	result.interpretedNanos = elapsedSince(started)
+	return result
+end 'interpretedAfter'
+
+// keepingTimes is result with the time of the runs of the executable that earlier says.
+function keepingTimes(consumes result TestResult, earlier TestResult) returns TestResult
+	var kept = result
+	kept.runNanos = earlier.runNanos
+	kept.runs = earlier.runs
+	return kept
+end 'keepingTimes'
 
 // doneBuilt is a test that is done once compiled, whose executable at exe is deleted where the compile made it (built).
 function doneBuilt(consumes result TestResult, exe String, built bool) returns Staged
