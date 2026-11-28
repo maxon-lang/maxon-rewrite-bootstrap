@@ -1,0 +1,62 @@
+// Two values of the bare 'A' may hold types that bind A's associated type to different types, so what one's requirement
+// gives is not what the other's takes: a call that names the associated type is refused (E3120), where it would hand one
+// conformer's value to the other's method.
+typealias Tally = int(0 to u64.max)
+
+typealias Real = float(0.0 to 10.0)
+
+interface A uses X
+	function makeX() returns X
+	function take(consumes x X) returns Tally
+end 'A'
+
+type Big
+	let a as Tally
+	let b as Tally
+	let c as Tally
+	let d as String
+
+	static function create() returns Self
+		return Self{a: 1, b: 20, c: 300, d: "four"}
+	end 'create'
+end 'Big'
+
+type P implements A with Big
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function makeX() returns Big
+		return Big.create()
+	end 'makeX'
+
+	function take(consumes x Big) returns Tally
+		print("{x.d}\n")
+		return try x.a + x.b + x.c otherwise 0
+	end 'take'
+end 'P'
+
+type Q implements A with Real
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function makeX() returns Real
+		return 2.5
+	end 'makeX'
+
+	function take(consumes x Real) returns Tally
+		return 5 if x > 2.0 else 0
+	end 'take'
+end 'Q'
+
+function via(a A, b A) returns Tally
+	return a.take(b.makeX())
+end 'via'
+
+function main() returns ExitCode
+	print("{via(Q.create(), b: P.create())} {via(P.create(), b: Q.create())}\n")
+	return 0
+end 'main'
+
+// expect-error: E3120 at 54:11

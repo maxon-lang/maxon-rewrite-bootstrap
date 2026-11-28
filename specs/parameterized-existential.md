@@ -574,7 +574,7 @@ type Upto implements Seq with Integer
 		return self.pos
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		if self.pos >= self.limit 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'

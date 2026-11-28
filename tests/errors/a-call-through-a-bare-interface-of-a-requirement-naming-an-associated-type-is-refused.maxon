@@ -1,0 +1,35 @@
+// A value of a bare interface says nothing of what its type binds the interface's associated types to, so a requirement
+// whose signature names one is not called through it: the value's type must be an instance that says it.
+typealias Tally = int(0 to u64.max)
+
+interface Named uses Part
+	function name() returns String
+	function part() returns Part
+end 'Named'
+
+type Word implements Named with Tally
+	let text as String
+
+	static function create(consumes text String) returns Self
+		return Self{text: text}
+	end 'create'
+
+	function name() returns String
+		return self.text.clone()
+	end 'name'
+
+	function part() returns Tally
+		return 4
+	end 'part'
+end 'Word'
+
+function partOf(n Named) returns Tally
+	return n.part()
+end 'partOf'
+
+function main() returns ExitCode
+	print("{partOf(Word.create("word"))}\n")
+	return 0
+end 'main'
+
+// expect-error: E3120 at 27:11

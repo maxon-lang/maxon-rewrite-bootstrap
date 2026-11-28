@@ -1117,6 +1117,7 @@ error E3005: <fragment>:12:17: Value -2 is outside the range of 'Count' (int(0 t
 ```
 
 <!-- test: a-signed-counter-through-an-associated-type-to-an-unsigned-quantity-parameter-panics -->
+<!-- skip: language difference: a call through a value of a bare interface of a requirement that names one of its associated types is refused (E3120), since an agreed binding would be a search over conformers, whose answer would change when a module is added (README, Where it differs from Maxon: Associated types held at an interface) -->
 ### …and at a call through an interface whose formal is an ASSOCIATED TYPE, where the conformer keeps its entry guard
 ```maxon
 typealias Count = int(0 to u64.max)

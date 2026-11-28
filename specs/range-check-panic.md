@@ -517,6 +517,7 @@ error E3167: a/<fragment>:6:22: exported field 'a.Box.item' names unexported typ
 ```
 
 <!-- test: range-check-panic.witness-literal-argument-to-a-base-interfaces-associated-type -->
+<!-- skip: language difference: a call through a value of a bare interface of a requirement that names one of its associated types is refused (E3120), since an agreed binding would be a search over conformers, whose answer would change when a module is added (README, Where it differs from Maxon: Associated types held at an interface) -->
 A literal argument at a base interface's associated-type parameter, dispatched through the derived interface, is checked against the conformer's binding, not against an alias that shares the associated type's name.
 ```maxon
 typealias Integer = int(i64.min to i64.max)

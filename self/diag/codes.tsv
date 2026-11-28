@@ -100,6 +100,7 @@ ErrDuplicateTestName	E3107	semanticDuplicateTestName	Two tests of a module have 
 ErrThrowsNotAnErrorEnum	E3113	throwsTypeNotAnErrorEnum	A 'throws' clause names something other than an enum or a union.
 ErrAmbiguousBound	E3114	semanticAmbiguousWitnessDispatch	A method call on a type parameter names a method that more than one of its bounds declares.
 ErrStaticRequirementNotDispatchable	E3116	semanticStaticRequirementNotDispatchable	A static requirement of an interface is called through a type parameter, which has no receiver to dispatch on.
+ErrUnclaimedAssociatedType	E3120	associatedTypeReturnNotMachineWord	A call through a value of a bare interface runs a requirement whose signature names an associated type that the value does not say the type of.
 ErrIfTryDiscardsResult	E3124	ifTryDiscardsResult	An 'if try' with no binding tests a call that returns a value, which it discards.
 ErrHeldBindingNotConforming	E3126	heldAssociatedTypeBindingNotConforming	A value is widened to an interface instance that holds an associated type at an interface which the type its conformance binds there does not implement.
 ErrMatchArmPayloadBindingConflict	E3129	matchArmPayloadBindingConflict	An arm that binds a payload covers more than one case, so on another case's path the arm would read a value no pattern bound.

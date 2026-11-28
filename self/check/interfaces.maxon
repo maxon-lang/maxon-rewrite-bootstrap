@@ -266,6 +266,11 @@ function witnessCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		return ast.noType
 	end 'inheritedTwice'
 	let sig = named[0].sig
+	let unclaimed = unclaimedIn(ms, p: p, iface: iface, req: named[0])
+	if unclaimed != "" 'unclaimed'
+		failAt(c, p: p, ms: ms, node: call, code: diag.errUnclaimedAssociatedType, msg: "'{ifaceName}.{name}' names the associated type '{unclaimed}', and a value of the bare '{ifaceName}' holds a value of any type that implements it, whatever that type binds '{unclaimed}' to, so nothing here says what the call takes or gives: declare the value at '{ifaceName} with <binding>', which says it", errs: errs)
+		return ast.noType
+	end 'unclaimed'
 	let selfParams = requirementParams(p, ms: ms, iface: named[0].iface)
 	let selfArgs = requirementBindings(iface, req: named[0])
 	let specs = applySpecs(p, ms: ms, specs: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).params.clone(), params: selfParams, args: selfArgs)
@@ -278,3 +283,33 @@ function witnessCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	c.typing.calls.insert(call as Count, value: info)
 	return ast.substituteType(ms.types, reads: p.types, t: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).retTy, params: selfParams, args: selfArgs)
 end 'witnessCall'
+
+// unclaimedIn is the name of an associated type of iface, a bare interface, which says none of them, that the signature of
+// req names where iface is the receiver's type, or empty where it names none or iface is an instance. An agreed binding that
+// every conformer gives would be a search over the conformers, whose answer changes when a module is added, so the value's
+// type must say it.
+function unclaimedIn(mutates ms ast.ModuleState, p ast.Project, iface ast.TypeID, req ast.Requirement) returns String
+	let associated = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: iface).typeParams)
+	if ast.originOf(ms.types, reads: p.types, t: iface) != iface or associated.count() == 0 'claimed'
+		return ""
+	end 'claimed'
+	let params = requirementParams(p, ms: ms, iface: req.iface)
+	let args = requirementBindings(iface, req: req)
+	var named = oneType(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: req.sig).retTy)
+	named.push(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: req.sig).errTy)
+	for spec in ast.funcEntry(ms.funcs, funcReads: p.funcs, f: req.sig).params 'params'
+		named.push(spec.ty)
+	end 'params'
+	for t in named 'types'
+		if t == ast.noType 'none'
+			continue 'types'
+		end 'none'
+		let read = ast.substituteType(ms.types, reads: p.types, t: t, params: params, args: args)
+		for a in associated 'associated'
+			if ast.mentionsType(ms.types, reads: p.types, t: read, target: a) 'names'
+				return ast.typeName(ms.types, reads: p.types, t: a)
+			end 'names'
+		end 'associated'
+	end 'types'
+	return ""
+end 'unclaimedIn'

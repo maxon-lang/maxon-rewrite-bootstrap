@@ -4082,7 +4082,8 @@ end 'main'
   (`E3057`), as any operation that can fail. A type that does not implement the interface is `E3009`.
 - **Which interfaces.** One whose requirement names `Self`, or is static, is a bound and nothing else (`E3905`, in the
   verify stage, when every interface has its requirements); one with associated types is a value type with them bound
-  (`Seq with Integer`), or bare (`Seq`), a value of any type that implements it whatever that type binds them to.
+  (`Seq with Integer`), or bare (`Seq`), a value of any type that implements it whatever that type binds them to, through
+  which only a requirement whose signature names none of them is called (`E3120`, see "Where it differs from Maxon").
 - **Associated types held at an interface.** A value goes in an interface value whose associated type is held at an
   interface it binds otherwise: an `UpBag`, which `implements Bag with (Integer, UpCursor)`, is put in a `Bag with
   (Integer, Cursor with Integer)` where `UpCursor` implements `Cursor with Integer`, as maxon's
@@ -6034,7 +6035,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   no widening, since an interface value is one word, so `E3120` is not raised for it (the spec test that expects it is
   skipped with that reason). A bare interface may be held at (`Bag with Cursor` where `Cursor` has associated types of
   its own), and maxon's `E2015` for a holding whose conformers its share walk would follow through ever deeper instances
-  is not raised, since no share walk is made (the spec test that expects it is skipped with that reason).
+  is not raised, since no share walk is made (the spec test that expects it is skipped with that reason). A call through a
+  value of a bare interface of a requirement whose signature names one of its associated types is `E3120`: the value's
+  type must say the binding (`Bag with (Integer, Cursor)`). maxon types such a dispatch by the binding every conformer of
+  the program agrees on, refused only where they disagree (`E3119`) or the binding is not a plain word; an agreed binding
+  is a search over the conformers, whose answer would change when a module is added, so here the receiver says it, and
+  no such fold is made, per module or for the program (the spec tests that dispatch so are skipped with that reason).
 - Grapheme clusters follow UAX #29 from the Unicode 16.0.0 tables (without GB9c), where maxon's own rules join only the
   marks in a few ranges; a string of other Extend, SpacingMark or Prepend code points counts fewer clusters here. The views
   of a string (`bytes()`, `codepoints()`, `utf16()`) and their iterators hold a copy of the string rather than viewing it.

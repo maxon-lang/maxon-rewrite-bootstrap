@@ -6182,6 +6182,7 @@ parameter-write-seeds.md: a-callee-that-pushes-into-a-fresh-array-leaves-the-par
 parameter-write-seeds.md: a-callee-that-writes-an-array-held-by-a-fresh-record-leaves-the-parameter-alone
 parameterized-existential.md: a-call-result-carries-the-instance-its-declared-return-names
 parameterized-existential.md: a-generic-alias-binding-agrees-with-the-conformers-instance
+parameterized-existential.md: error.associated-type-bound-to-an-existential-alias
 parameterized-existential.md: parameterized.associated-type-held-at-an-interface
 parameterized-existential.md: parameterized.every-producer-of-one
 parentheses.md: complex-expression
