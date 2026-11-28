@@ -63,7 +63,7 @@ func either(triggers ...trigger) trigger {
 // schedulerWords are the words of which a test program has one when it runs the scheduler, so that it runs under several
 // worker counts: self/driver/test.maxon's `mentionsConcurrency` takes the same ones (whenWord and the others, which
 // focused_test.go holds to this list).
-var schedulerWords = []string{"when", "async", "sleep", "Scheduler", "parallel"}
+var schedulerWords = []string{"when", "async", "sleep", "Scheduler", "parallel", "spawn", "post", "notifyAfter", "Timer"}
 
 // schedulerTest is a program or a test of the corpus (tests/) that has one of the words of a program that schedules behaviours.
 var schedulerTest = trigger{"a program of tests/ that uses the scheduler", func(path string) bool {

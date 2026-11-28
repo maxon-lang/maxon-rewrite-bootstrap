@@ -67,9 +67,17 @@ let schedulerUsed = "used"
 let schedulerUnused = "none"
 
 // The words of which every program that runs the scheduler has one in one of its files: a behaviour's when, a coroutine's
-// async, a sleep, the Scheduler's yield, and a parallel loop. A run of the behaviours alone compiles only the programs that have one, and
-// the link then says which of them run the scheduler.
+// async, a sleep, the Scheduler's yield, a parallel loop, and a service's spawn, post, notifyAfter or Timer. A run of the
+// behaviours alone compiles only the programs that have one, and the link then says which of them run the scheduler.
 let whenWord = "when"
+
+let spawnWord = "spawn"
+
+let postWord = "post"
+
+let notifyAfterWord = "notifyAfter"
+
+let timerWord = "Timer"
 
 let asyncWord = "async"
 
@@ -398,7 +406,7 @@ end 'applyDirective'
 
 // mentionsConcurrency is whether a line has a word that every program that runs the scheduler has.
 function mentionsConcurrency(line String) returns bool
-	return findText(line, needle: whenWord).isSome() or findText(line, needle: asyncWord).isSome() or findText(line, needle: sleepWord).isSome() or findText(line, needle: schedulerWord).isSome() or findText(line, needle: parallelWord).isSome()
+	return findText(line, needle: whenWord).isSome() or findText(line, needle: asyncWord).isSome() or findText(line, needle: sleepWord).isSome() or findText(line, needle: schedulerWord).isSome() or findText(line, needle: parallelWord).isSome() or findText(line, needle: spawnWord).isSome() or findText(line, needle: postWord).isSome() or findText(line, needle: notifyAfterWord).isSome() or findText(line, needle: timerWord).isSome()
 end 'mentionsConcurrency'
 
 // readExpectation reads the directives of a program, a file or a project's directory, whose files are read in order.
