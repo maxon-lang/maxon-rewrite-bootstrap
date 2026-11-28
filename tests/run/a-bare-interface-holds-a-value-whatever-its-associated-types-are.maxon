@@ -1,0 +1,77 @@
+// A bare interface with associated types is the type of a value of any type that implements it, whatever that type binds
+// them to, and a call through it runs a requirement whose signature names none of them. An associated type held at a bare
+// interface (`Maker with Named`) widens each binding that implements it, which claims nothing of its own associated types.
+typealias Tally = int(0 to u64.max)
+
+interface Named uses Part
+	function name() returns String
+	function part() returns Part
+end 'Named'
+
+interface Maker uses Made
+	function make() returns Made
+end 'Maker'
+
+type Word implements Named with Tally
+	let text as String
+
+	static function create(consumes text String) returns Self
+		return Self{text: text}
+	end 'create'
+
+	function name() returns String
+		return self.text.clone()
+	end 'name'
+
+	function part() returns Tally
+		return 4
+	end 'part'
+end 'Word'
+
+type Flag implements Named with bool
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function name() returns String
+		return "flag"
+	end 'name'
+
+	function part() returns bool
+		return true
+	end 'part'
+end 'Flag'
+
+type WordMaker implements Maker with Word
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function make() returns Word
+		return Word.create("made")
+	end 'make'
+end 'WordMaker'
+
+typealias Names = Array with Named
+
+typealias NamedMaker = Maker with Named
+
+function made(maker NamedMaker) returns String
+	let n = maker.make()
+	return n.name()
+end 'made'
+
+function main() returns ExitCode
+	var names = Names.create(0)
+	names.push(Word.create("word"))
+	names.push(Flag.create())
+	for n in names 'each'
+		print("{n.name()}\n")
+	end 'each'
+	print("{made(WordMaker.create())}\n")
+	return 0
+end 'main'
+
+//> word
+//> flag
+//> made

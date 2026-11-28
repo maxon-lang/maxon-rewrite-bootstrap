@@ -1502,6 +1502,10 @@ export function extendsInterface(tt TypeSlot, reads TypeTable, have TypeID, want
 		return true
 	end 'same'
 	let wantOrig = typeEntry(tt, reads: reads, t: want).effectiveOrigin()
+	// The bare declaration of an interface claims nothing of its associated types, so every instance of it is one.
+	if want == wantOrig and typeEntry(tt, reads: reads, t: have).effectiveOrigin() == want 'bare'
+		return true
+	end 'bare'
 	return match consumes ancestorBindings(tt, reads: reads, have: have, want: wantOrig) 'ancestor'
 		some(bindings) gives want == wantOrig or bindings.equals(typeEntry(tt, reads: reads, t: want).typeArgs)
 		none gives false

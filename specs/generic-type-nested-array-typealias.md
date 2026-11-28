@@ -3325,7 +3325,7 @@ end 'main'
 ```maxon
 typealias Level = int(0 to 125)
 
-type Gauge uses T
+type Gauge uses T where T implements Droppable
 	typealias Held = Array with T
 	var item as T
 

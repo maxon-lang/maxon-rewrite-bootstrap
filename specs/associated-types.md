@@ -2003,12 +2003,12 @@ export type B implements alpha.Taker with alpha.Integer
 end 'B'
 
 // --- file: main.maxon
-function useIt(t alpha.Taker) returns Integer
+function useIt(t alpha.Taker) returns alpha.Integer
 	return t.take(10)
 end 'useIt'
 
 function main() returns ExitCode
-	return (useIt(A.create(5)) + useIt(B.create(6))) as ExitCode
+	return (useIt(alpha.A.create(5)) + useIt(beta.B.create(6))) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -2230,7 +2230,7 @@ type Wide implements Tally with Integer
 	let base as Integer
 
 	function take(e Integer) returns Integer
-		return base + e
+		return try base + e otherwise panic("out of range")
 	end 'take'
 
 	function label() returns Integer
@@ -2246,7 +2246,7 @@ type Narrow implements Tally with Score
 	let base as Integer
 
 	function take(e Score) returns Integer
-		return base + (e as Integer)
+		return try base + (e as Integer) otherwise panic("out of range")
 	end 'take'
 
 	function label() returns Integer
@@ -2263,7 +2263,7 @@ function useIt(t Tally) returns Integer
 end 'useIt'
 
 function main() returns ExitCode
-	return (useIt(Wide.create(20)) + useIt(Narrow.create(11)) + Wide.create(0).take(20)) as ExitCode
+	return try (useIt(Wide.create(20)) + useIt(Narrow.create(11)) + Wide.create(0).take(20)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3930,7 +3930,7 @@ type UpCursor implements Cursor with Integer
 		return self.pos
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		if self.pos >= self.limit 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'
@@ -3952,7 +3952,7 @@ type DownCursor implements Cursor with Integer
 		return self.pos * 100
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		if self.pos <= 1 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'
@@ -4773,7 +4773,7 @@ type B implements Sink with String
 	end 'create'
 
 	function put(x String) returns Integer
-		return (x.count() as Integer) + self.base
+		return try (x.count() as Integer) + self.base otherwise panic("out of range")
 	end 'put'
 
 	function tag() returns Integer
@@ -4792,7 +4792,7 @@ function tagOf(s Sink) returns Integer
 end 'tagOf'
 
 function main() returns ExitCode
-	print("{useB(B.create()) + tagOf(A.create()) + tagOf(B.create())}\n")
+	print("{try useB(B.create()) + tagOf(A.create()) + tagOf(B.create()) otherwise panic("out of range")}\n")
 	return 0
 end 'main'
 ```

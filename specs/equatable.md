@@ -305,7 +305,7 @@ type Cell uses T implements Equatable where T implements Droppable
 	end 'equals'
 end 'Cell'
 
-type Holder uses T
+type Holder uses T where T implements Droppable
 	export typealias C = Cell with T
 	var a as C
 	var b as C

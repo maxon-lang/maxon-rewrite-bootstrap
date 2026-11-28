@@ -827,6 +827,7 @@ end 'main'
 ```
 
 <!-- test: held.a-generic-instance-conforming-through-extends -->
+<!-- skip: language difference: a generic body is checked once against its bounds, never per instance, so what its bounds do not give is refused in the body (README, Where it differs from Maxon: Generics are checked once against their bounds, never per instantiation) -->
 ⭐⭐ **`stdlib/Array.maxon`'s OWN SHAPE, TO THE LETTER.** `type ArrayIterator uses Element implements
 BidirectionalIterator with Element` with `interface BidirectionalIterator extends Iterator`, bound into
 `Array`'s `implements … Iterable with (Element, ArrayIter)` and held at `Iterator` by
@@ -864,7 +865,7 @@ type UpCursor uses Element implements BiCursor with Element
 		return self.pos
 	end 'current'
 
-	function advance(mutates self) throws IterationError
+	function advance() throws IterationError
 		if self.pos >= self.limit 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'
@@ -1249,6 +1250,7 @@ note: <fragment>:47:34: `StepCursor` is converted to `Cursor` here
 ```
 
 <!-- test: error.held-bindings-naming-ever-deeper-instances-are-refused -->
+<!-- skip: language difference: no share walk over held conformers: a value put in an interface value is judged for crossing where it is boxed (README, Where it differs from Maxon: Interface values), so maxon's refusal of a chain of ever-deeper conformers that its walk would have to judge is not raised, and the program compiles -->
 <!-- positions: moved -->
 `Nest` holds a value of its parameter and binds the associated type of `A` and of `B`, each held at the other, to an instance that nests `Nest`'s own parameter one level deeper, so the conformers a share walk must judge never end.
 
@@ -1337,11 +1339,11 @@ type Nest uses T implements A with Deeper, B with Deeper
 	end 'create'
 
 	function makeX() returns Deeper
-		return Deeper.create(self.n + 1)
+		return Deeper.create(try self.n + 1 otherwise panic("out of range"))
 	end 'makeX'
 
 	function makeY() returns Deeper
-		return Deeper.create(self.n + 2)
+		return Deeper.create(try self.n + 2 otherwise panic("out of range"))
 	end 'makeY'
 end 'Nest'
 
@@ -1358,15 +1360,15 @@ service Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(n Tally)
-		self.seen = self.seen + n
+	export function look(mutates self, n Tally)
+		self.seen = try self.seen + n otherwise panic("out of range")
 	end 'look'
 end 'Door'
 
 type Holder
 	export let a as A
 
-	static function create(a A) returns Self
+	static function create(consumes a A) returns Self
 		return Self{a: a}
 	end 'create'
 end 'Holder'
@@ -1415,19 +1417,19 @@ end 'J'
 type Box uses T
 	let item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Box'
 
-type Foo uses T implements Plain0, I with Next
+type Foo uses T implements Plain0, I with Next where T implements Droppable and Copyable
 	typealias Boxed = Box with T
 	typealias Next = Bar with Boxed
 	let held as T
 	let n as Tally
 
-	static function create(held T, n Tally) returns Self
-		return Self{held: held, n: n}
+	static function create(held T, n Tally) returns Self where T implements Copyable
+		return Self{held: held.clone(), n: n}
 	end 'create'
 
 	function id0() returns Tally
@@ -1435,17 +1437,17 @@ type Foo uses T implements Plain0, I with Next
 	end 'id0'
 
 	function makeA() returns Next
-		return Next.create(Boxed.create(self.held), n: self.n + 1)
+		return Next.create(Boxed.create(self.held), n: try self.n + 1 otherwise panic("out of range"))
 	end 'makeA'
 end 'Foo'
 
-type Bar uses U implements Plain0, J with Back
+type Bar uses U implements Plain0, J with Back where U implements Droppable and Copyable
 	typealias Back = Foo with U
 	let held as U
 	let n as Tally
 
-	static function create(held U, n Tally) returns Self
-		return Self{held: held, n: n}
+	static function create(held U, n Tally) returns Self where U implements Copyable
+		return Self{held: held.clone(), n: n}
 	end 'create'
 
 	function id0() returns Tally
@@ -1469,7 +1471,7 @@ type Other implements Plain0, J with Other
 	end 'id0'
 
 	function makeB() returns Other
-		return Other.create(self.n + 1)
+		return Other.create(try self.n + 1 otherwise panic("out of range"))
 	end 'makeB'
 end 'Other'
 
@@ -1486,15 +1488,15 @@ service Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(n Tally)
-		self.seen = self.seen + n
+	export function look(mutates self, n Tally)
+		self.seen = try self.seen + n otherwise panic("out of range")
 	end 'look'
 end 'Door'
 
 type Holder
 	export let i as I
 
-	static function create(i I) returns Self
+	static function create(consumes i I) returns Self
 		return Self{i: i}
 	end 'create'
 end 'Holder'
@@ -1535,8 +1537,8 @@ end 'A'
 type Cell uses T
 	export let item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1549,7 +1551,7 @@ type P uses T implements A with Next
 	end 'create'
 
 	function makeX() returns Next
-		return Next.create(self.n + 1)
+		return Next.create(try self.n + 1 otherwise panic("out of range"))
 	end 'makeX'
 end 'P'
 
@@ -1562,7 +1564,7 @@ type Q uses T implements A with Next
 	end 'create'
 
 	function makeX() returns Next
-		return Next.create(self.n + 1)
+		return Next.create(try self.n + 1 otherwise panic("out of range"))
 	end 'makeX'
 end 'Q'
 
@@ -1575,7 +1577,7 @@ type R uses T implements A with Next
 	end 'create'
 
 	function makeX() returns Next
-		return Next.create(self.n + 1)
+		return Next.create(try self.n + 1 otherwise panic("out of range"))
 	end 'makeX'
 end 'R'
 
@@ -1590,15 +1592,15 @@ service Door
 		return Self{seen: 0}
 	end 'create'
 
-	export function look(n Tally)
-		self.seen = self.seen + n
+	export function look(mutates self, n Tally)
+		self.seen = try self.seen + n otherwise panic("out of range")
 	end 'look'
 end 'Door'
 
 type Holder
 	export let a as A
 
-	static function create(a A) returns Self
+	static function create(consumes a A) returns Self
 		return Self{a: a}
 	end 'create'
 end 'Holder'

@@ -4082,7 +4082,7 @@ end 'main'
   (`E3057`), as any operation that can fail. A type that does not implement the interface is `E3009`.
 - **Which interfaces.** One whose requirement names `Self`, or is static, is a bound and nothing else (`E3905`, in the
   verify stage, when every interface has its requirements); one with associated types is a value type with them bound
-  (`Seq with Integer`).
+  (`Seq with Integer`), or bare (`Seq`), a value of any type that implements it whatever that type binds them to.
 - **Associated types held at an interface.** A value goes in an interface value whose associated type is held at an
   interface it binds otherwise: an `UpBag`, which `implements Bag with (Integer, UpCursor)`, is put in a `Bag with
   (Integer, Cursor with Integer)` where `UpCursor` implements `Cursor with Integer`, as maxon's
@@ -6032,7 +6032,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   value, checked where the value is put in the interface value, by the conformance that module sees: `E3126` and `E2015`
   are raised there, a conformer that is never widened is not refused, and a binding that is the interface itself needs
   no widening, since an interface value is one word, so `E3120` is not raised for it (the spec test that expects it is
-  skipped with that reason).
+  skipped with that reason). A bare interface may be held at (`Bag with Cursor` where `Cursor` has associated types of
+  its own), and maxon's `E2015` for a holding whose conformers its share walk would follow through ever deeper instances
+  is not raised, since no share walk is made (the spec test that expects it is skipped with that reason).
 - Grapheme clusters follow UAX #29 from the Unicode 16.0.0 tables (without GB9c), where maxon's own rules join only the
   marks in a few ranges; a string of other Extend, SpacingMark or Prepend code points counts fewer clusters here. The views
   of a string (`bytes()`, `codepoints()`, `utf16()`) and their iterators hold a copy of the string rather than viewing it.

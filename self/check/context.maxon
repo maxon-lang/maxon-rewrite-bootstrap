@@ -1184,10 +1184,13 @@ end 'lackBoundFix'
 // (E3016). In a method of an extension of an interface the bound is the method's own, so a conformer that binds an
 // associated type to a type without it lacks that method alone.
 export function paramBoundFix(p ast.Project, ms ast.ModuleState, fn ast.FuncID, param ast.TypeID, bound String) returns diag.Fix
-	if fn == ast.noFunc or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).isClosure 'noHeader'
+	let paramName = ast.typeName(ms.types, reads: p.types, t: param)
+	if fn == ast.noFunc 'outsideFunctions'
+		return boundFix(ms.tree(), decl: declaringTypeNode(p, ms: ms, param: param), param: paramName, bound: bound)
+	end 'outsideFunctions'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).isClosure 'noHeader'
 		return diag.Fix.none()
 	end 'noHeader'
-	let paramName = ast.typeName(ms.types, reads: p.types, t: param)
 	let owner = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).ownerTy
 	if owner != ast.noType and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).extendedIface == ast.noType and meetsRequirement(p, ms: ms, owner: owner, name: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).name) 'witness'
 		let decl = ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: owner)).decl.clone()
@@ -1198,6 +1201,23 @@ export function paramBoundFix(p ast.Project, ms ast.ModuleState, fn ast.FuncID, 
 	end 'witness'
 	return boundFix(ms.tree(), decl: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).nodeID, param: paramName, bound: bound)
 end 'paramBoundFix'
+
+// declaringTypeNode is the declaration of the type of this module whose type parameter param is, where a bound outside its
+// functions (a typealias, a field, a conformance) needs one, or no node.
+function declaringTypeNode(p ast.Project, ms ast.ModuleState, param ast.TypeID) returns ast.NodeID
+	let count = p.modules[ast.modIndex(ms.module)].decls.count()
+	for i in 0 upto count 'decls'
+		let ref = ast.DeclRef.make(ms.module, ordinal: try i as ast.DeclOrdinal otherwise panic("too many declarations"))
+		if not ast.declIsType(p, ref: ref) 'other'
+			continue 'decls'
+		end 'other'
+		let declared = ast.declType(p, ms: ms, ref: ref)
+		if declared.isSome() and ast.typeEntry(ms.types, reads: p.types, t: declared.unwrap()).typeParams.contains(param) 'owns'
+			return ast.declNodeID(p, ref: ref)
+		end 'owns'
+	end 'decls'
+	return 0 as ast.NodeID
+end 'declaringTypeNode'
 
 export function copyAdviceText(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, ifCopyable String, otherwiseText String) returns String
 	let l = lacksCap(c, p: p, ms: ms, wantCopy: true, t: t)
@@ -1592,6 +1612,10 @@ function applyTypeArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	var resolvedArgs = ast.TypeIDList.create(0)
 	if argCount == 0 'bare'
 		resolvedArgs = boundByName(p, ms: ms, target: target, selfTy: selfTy)
+		if resolvedArgs.count() == 0 and ast.typeKind(ms.types, reads: p.types, t: target) == ast.TypeKind.interfaceTy 'unclaimed'
+			// A bare interface is a value of any type that implements it, whatever that type binds its associated types to.
+			return target
+		end 'unclaimed'
 	end 'bare'
 	for i in 0 upto argCount 'eachA'
 		let aNode = ms.tree().listAt(argsRef, index: i) as ast.NodeID

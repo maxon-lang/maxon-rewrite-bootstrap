@@ -843,7 +843,7 @@ type Bag uses T implements Equatable where T implements Copyable
 	var items as Items
 
 	static function create(items Items) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 
 	function equals(other Self) returns bool
@@ -864,13 +864,13 @@ type Keeper uses A where A implements Equatable
 	end 'touch'
 end 'Keeper'
 
-type Outer uses U
+type Outer uses U where U implements Copyable
 	export typealias Bagged = Bag with U
 	export typealias Kept = Keeper with Bagged
 	var kept as Kept
 
 	static function create(kept Kept) returns Self
-		return Self{kept: kept}
+		return Self{kept: kept.clone()}
 	end 'create'
 
 	function poke() returns Val
