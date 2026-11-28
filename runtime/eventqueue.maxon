@@ -479,6 +479,11 @@ function entryGive(scheduler Count, entry Count)
 	unlockScheduler(scheduler)
 end 'entryGive'
 
+// eventWaitCut is a delay of a take that waits, cut to the longest wait the system is given.
+function eventWaitCut(delay Count) returns Count
+	return delay if delay < longestEventWaitNanos else longestEventWaitNanos
+end 'eventWaitCut'
+
 // eventWaitArgument is a take's delay in nanoseconds as the timeout argument of the system's wait, the one place a delay
 // reaches it: takeEventsForever is the system's wait with no end, and any other delay is cut to the longest wait the system
 // is given (longestEventWaitNanos, from longestKeventSeconds, longestEpollMillis or longestPortWaitMillis), since each system
@@ -491,7 +496,7 @@ function eventWaitArgument(context Count, delay Count) returns Count
 		if delay == takeEventsForever 'forever'
 			return noTimeout
 		end 'forever'
-		let cut = delay if delay < longestEventWaitNanos else longestEventWaitNanos
+		let cut = eventWaitCut(delay)
 		let timeout = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockClockOffset)
 		__Raw.storeWord(timeout, offset: 0, value: cut / nanosPerSecond)
 		__Raw.storeWord(timeout, offset: wordBytes, value: cut mod nanosPerSecond)
@@ -500,7 +505,7 @@ function eventWaitArgument(context Count, delay Count) returns Count
 		if delay == takeEventsForever 'forever'
 			return eventWaitForeverMillis
 		end 'forever'
-		let cut = delay if delay < longestEventWaitNanos else longestEventWaitNanos
+		let cut = eventWaitCut(delay)
 		return __Raw.wrappingAdd(cut, right: nanosPerMilli - 1) / nanosPerMilli
 	#endif
 end 'eventWaitArgument'
@@ -544,6 +549,19 @@ end 'tookBreak'
 	// eventPollKey is the completion key of the AFD handles that poll sockets (windows_poll.maxon): no entry's address, and not
 	// eventBreakKey.
 	let eventPollKey = 2 as Count
+
+	// eventTimerKey is the key of the packet that the wait timer's expiry is (initWaitTimer): no entry's address, and neither
+	// eventBreakKey nor eventPollKey.
+	let eventTimerKey = 3 as Count
+
+	// waitTimerUnitNanos is the unit of a waitable timer's time, 100 ns, and genericAll the access NtCreateWaitCompletionPacket is
+	// asked for.
+	let waitTimerUnitNanos = 100 as Count
+
+	let genericAll = 0x10000000 as Count
+
+	// signaledByte is the BOOLEAN that NtAssociateWaitCompletionPacket sets where the timer has expired already.
+	let signaledByte = 0xFF as Count
 
 	// skipOnSuccess is FILE_SKIP_COMPLETION_PORT_ON_SUCCESS | FILE_SKIP_SET_EVENT_ON_HANDLE: an operation that completes
 	// at once posts no completion, and sets no event of the handle.
@@ -602,7 +620,77 @@ end 'tookBreak'
 			panic("cannot make the event queue's completion port")
 		end 'failed'
 		__Raw.storeWord(scheduler, offset: schedEventQueueOffset, value: port)
+		initWaitTimer(scheduler)
 	end 'initEventQueue'
+
+	// initWaitTimer makes what ends the wait of the thread in the event queue at the earliest timer's time and not at the next tick
+	// of the system's timer, 15.6 ms unless a program has asked for finer, as Go's minit and initHighResTimer do (netpoll_windows.go):
+	// a high-resolution waitable timer and a wait completion packet, which eventTimerQueue ties to the port so that the timer's
+	// expiry is a completion that the wait takes. Go has them for each thread, and one is enough here, since one thread at most waits
+	// in the event queue, whichever it is. Where the system makes no such timer it does what Go does: asks for a timer tick of 1 ms
+	// (timeBeginPeriod) for as long as the process runs. Where it has the timer but not the packet (Wine), the wait ends by its
+	// timeout alone, in whole milliseconds.
+	function initWaitTimer(scheduler Count)
+		let timer = highResolutionTimer()
+		if timer == 0 'coarse'
+			askFineTimerTick()
+			return
+		end 'coarse'
+		let native = libraryLoaded("ntdll.dll")
+		let create = libraryFunction(native, name: "NtCreateWaitCompletionPacket")
+		let associate = libraryFunction(native, name: "NtAssociateWaitCompletionPacket")
+		let cancel = libraryFunction(native, name: "NtCancelWaitCompletionPacket")
+		var packet = 0 as Count
+		if create != 0 and associate != 0 and cancel != 0 'packets'
+			_ = __Raw.callHost3(create, arg1: __Raw.addressOf(packet), arg2: genericAll, arg3: 0)
+		end 'packets'
+		if packet == 0 'unpacketed'
+			closeHandle(timer)
+			return
+		end 'unpacketed'
+		__Raw.storeWord(scheduler, offset: schedWaitTimerOffset, value: timer)
+		__Raw.storeWord(scheduler, offset: schedWaitAssociateOffset, value: associate)
+		__Raw.storeWord(scheduler, offset: schedWaitCancelOffset, value: cancel)
+		__Raw.storeWord(scheduler, offset: schedWaitPacketOffset, value: packet)
+	end 'initWaitTimer'
+
+	// askFineTimerTick is Go's osRelax(false) where the system makes no high-resolution timer: winmm's timeBeginPeriod(1), found by
+	// name since the executable imports from kernel32 alone, which makes the system's timer tick 1 ms for the whole process (Go
+	// takes it back, timeEndPeriod, while every processor is idle; this runtime does not).
+	function askFineTimerTick()
+		let multimedia = libraryLoad("winmm.dll")
+		if multimedia == 0 'unloaded'
+			return
+		end 'unloaded'
+		let begin = libraryFunction(multimedia, name: "timeBeginPeriod")
+		if begin != 0 'found'
+			_ = __Raw.callHost1(begin, arg1: 1)
+		end 'found'
+	end 'askFineTimerTick'
+
+	// eventTimerQueue has the wait timer expire a delay of nanoseconds from now, as Go's netpollQueueTimer does: it cancels the
+	// packet that the timer's last arm left (a packet can be tied to one timer only, and one that is signaled and not taken is
+	// removed), sets the timer and ties it to the port again. It says true where the timer had expired by then, so that the wait
+	// is not made, and false where the wait is to be made: its timeout is all that ends it where the packet is not (a packet the
+	// system could not cancel yet, which a break that came with the timer's expiry leaves, or a call that failed).
+	function eventTimerQueue(scheduler Count, delay Count) returns bool
+		let packet = __Raw.loadWord(scheduler, offset: schedWaitPacketOffset)
+		if packet == 0 'none'
+			return false
+		end 'none'
+		let cancelled = dword(__Raw.callHost2(__Raw.loadWord(scheduler, offset: schedWaitCancelOffset), arg1: packet, arg2: 1))
+		if cancelled != statusSuccess and cancelled != statusCancelled 'pending'
+			return false
+		end 'pending'
+		let timer = __Raw.loadWord(scheduler, offset: schedWaitTimerOffset)
+		var due = __Raw.wrappingSub(0, right: delay / waitTimerUnitNanos)
+		if __Raw.callImport6("SetWaitableTimer", arg1: timer, arg2: __Raw.addressOf(due), arg3: 0, arg4: 0, arg5: 0, arg6: 0) == 0 'unset'
+			return false
+		end 'unset'
+		var signaled = 0 as Count
+		let tied = dword(__Raw.callHost8(__Raw.loadWord(scheduler, offset: schedWaitAssociateOffset), arg1: packet, arg2: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg3: timer, arg4: eventTimerKey, arg5: 0, arg6: 0, arg7: 0, arg8: __Raw.addressOf(signaled)))
+		return tied == statusSuccess and (signaled and signaledByte) != 0
+	end 'eventTimerQueue'
 
 	// takeEvents takes what has completed, waiting up to delay nanoseconds for something when nothing has, into the thread's
 	// block, and gives the list of the green threads it readied. A completion of a handle's operation names the OVERLAPPED
@@ -612,6 +700,9 @@ end 'tookBreak'
 		let entries = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockEventsOffset)
 		var got = 0 as Count
 		let wait = eventWaitArgument(context, delay: delay)
+		if delay != takeEventsForever and delay != takeEventsNoWait and eventTimerQueue(scheduler, delay: eventWaitCut(delay)) 'expired'
+			return noGreen
+		end 'expired'
 		if __Raw.callImport6("GetQueuedCompletionStatusEx", arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: entries, arg3: eventSlots, arg4: __Raw.addressOf(got), arg5: wait, arg6: notAlertable) == 0 'none'
 			if dword(__Raw.callImport0("GetLastError")) == waitTimeout 'timedOut'
 				return noGreen
@@ -628,7 +719,10 @@ end 'tookBreak'
 				if key == eventPollKey 'poll'
 					list = pollCompleted(__Raw.loadWord(entry, offset: windowsEntryOverlappedOffset), list: list)
 				end 'poll' else 'operation'
-					list = eventQueuedForCompletion(entry, key: key, list: list)
+					// The wait timer's expiry ends the wait and names no event: the thread looks at its timers.
+					if key != eventTimerKey 'event'
+						list = eventQueuedForCompletion(entry, key: key, list: list)
+					end 'event'
 				end 'operation'
 			end 'completion'
 			entry = __Raw.wrappingAdd(entry, right: windowsEntryBytes)
