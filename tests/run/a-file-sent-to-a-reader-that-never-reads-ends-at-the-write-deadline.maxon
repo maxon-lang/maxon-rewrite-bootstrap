@@ -1,0 +1,74 @@
+// TcpClient.sendFile runs each slice of a file under the socket's write deadline, so a peer that connects and never reads ends the send at
+// the deadline with NetworkError.timedOut, where the file is larger than the sockets between them hold: on Windows the pending TransmitFile
+// is cancelled and its cancelled completion awaited, and the program then ends with nothing left waiting.
+// native-only
+//> the send failed as a timeout: true
+//> ended after the deadline and before a second: true
+//> deleted after the send
+#if os(Windows)
+	function tempRoot() returns String
+		let temp = try Process.environmentVariable("TEMP") otherwise panic("TEMP is not set")
+		return "{temp}\\minimaxon_send_deadline_test"
+	end 'tempRoot'
+
+	let separator = "\\"
+#else
+	function tempRoot() returns String
+		return "/tmp/minimaxon_send_deadline_test_{Process.id()}"
+	end 'tempRoot'
+
+	let separator = "/"
+#endif
+
+let FileBytes = 8388608
+
+let DeadlineMs = 200
+
+function path(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("not a path")
+end 'path'
+
+function byteAt(i Count) returns Byte
+	return (i mod 251) as Byte
+end 'byteAt'
+
+// sendTheFile accepts one connection and sends the file to it, and gives whether the send ended as a timeout and how long it took.
+function sendTheFile(mutates listener TcpListener, name String) returns (bool, DurationMs)
+	var conn = try listener.accept() otherwise return (false, 0)
+	var reader = try File.openRead(path(name)) otherwise 'unopened'
+		try conn.close() otherwise ignore
+		return (false, 0)
+	end 'unopened'
+	let started = Clock.nowMs()
+	var timedOut = false
+	try conn.sendFile(reader, deadlineMs: DeadlineMs) otherwise (e) 'failed'
+		timedOut = e == NetworkError.timedOut
+	end 'failed'
+	let elapsed = Clock.elapsedMs(started)
+	try conn.close() otherwise ignore
+	return (timedOut, elapsed)
+end 'sendTheFile'
+
+function main() returns ExitCode
+	let root = tempRoot()
+	_ = Directory.create(path(root))
+	let big = "{root}{separator}big.bin"
+	var content = ByteArray.create(0)
+	for i in 0 upto FileBytes 'fill'
+		content.push(byteAt(i))
+	end 'fill'
+	try File.writeBinary(path(big), content: content) otherwise panic("cannot write")
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise panic("a listener on the loopback")
+	let port = listener.port()
+	let sending = async sendTheFile(listener, name: big)
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the listener")
+	let (timedOut, elapsed) = await sending
+	try client.close() otherwise ignore
+	try listener.close() otherwise ignore
+	print("the send failed as a timeout: {timedOut}\n")
+	print("ended after the deadline and before a second: {elapsed >= 150 and elapsed < 1000}\n")
+	try File.delete(path(big)) otherwise panic("cannot delete")
+	try Directory.delete(path(root)) otherwise panic("cannot delete the directory")
+	print("deleted after the send\n")
+	return 0
+end 'main'

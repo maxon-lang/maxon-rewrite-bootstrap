@@ -402,7 +402,16 @@ function socketTransferBy(socket Count, mode Count, call Count, buffer Count, le
 			result = sendVectorCall(fd, vector: buffer, count: length)
 		end 'vector' else 'one'
 			if call == fileCall 'file'
-				result = sendFileCall(fd, file: file, count: length)
+				#if os(Windows)
+					// A file send that is pending is not made again but waits in the call, which the deadline ends.
+					result = sendFileUntil(fd, file: file, count: length, deadline: __Raw.loadWord(socket, offset: deadlineOffset))
+					if result == transferExpired 'late'
+						__Raw.storeWord(socket, offset: socketTimedOutOffset, value: set)
+						return transferExpired
+					end 'late'
+				#else
+					result = sendFileCall(fd, file: file, count: length)
+				#endif
 			end 'file' else 'plain'
 				result = socketCall(fd, mode: mode, buffer: buffer, length: length)
 			end 'plain'

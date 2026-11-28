@@ -533,22 +533,23 @@
 	// peer that reads takes at once; the library asks for the next when the call returns.
 	let transmitMostBytes = 262144 as Count
 
-	// sendFileCall is one TransmitFile of up to count bytes of a file from its position, which it moves on: its count, 0 at the
-	// end of the file, or -error.
+	// sendFileUntil is one TransmitFile of up to count bytes of a file from its position, which it moves on, ended at a deadline
+	// (eventNoDeadline for none): its count, 0 at the end of the file, transferExpired where the deadline ended it, or -error. It
+	// is what the other systems' sendFileCall is, which has the socket's transfer wait for a socket that would wait and so
+	// end that wait at the deadline; a call that is pending here is not made again, so the wait is this function's.
 	//
 	// TransmitFile does not wait on a socket that does not wait: without an OVERLAPPED it blocks the thread until the peer has
 	// taken everything, which deadlocks a peer that is a coroutine of the same green thread, and with one it goes on and
 	// completes once the peer has, whatever room the socket reports (a socket that polls writable can have a call of 4 KB
-	// pending). It is never cancelled once it moves bytes, since a cancel in the middle of a slice resets the connection. So the
-	// call is made with an OVERLAPPED whose event is tied to the completion port by a wait completion packet, keyed by a user
-	// event's entry, and the green thread parks on that entry (transmitOverlapped): no polling and no thread held, whatever
-	// the peer takes. The write deadline is not honoured, since this call is not given it: a peer that stops reading holds the
-	// call until it reads or closes.
+	// pending). So the call is made with an OVERLAPPED whose event is tied to the completion port by a wait completion packet,
+	// keyed by a user event's entry, and the green thread parks on that entry (transmitOverlapped): no polling and no thread
+	// held, whatever the peer takes. A peer that stops reading holds the call until the deadline, which cancels it: a cancel in
+	// the middle of a slice resets the connection, which is the price of a deadline that has passed.
 	//
 	// A call with an OVERLAPPED sends from the offset the OVERLAPPED holds and leaves the file's position where it was, and one
 	// asked for more than the file holds from its offset fails WSAEINVAL, so the position is read first, the count is held to
 	// the file's rest, and the position is moved on by what was sent.
-	function sendFileCall(fd Count, file Count, count Count) returns Count
+	function sendFileUntil(fd Count, file Count, count Count, deadline Count) returns Count
 		var position = 0 as Count
 		if dword(__Raw.callHost4(winsockFunction(setFilePointerExSlot), arg1: file, arg2: 0, arg3: __Raw.addressOf(position), arg4: fileCurrent)) == 0 'unplaced'
 			return __Raw.wrappingSub(0, right: einval)
@@ -567,7 +568,7 @@
 		if asked > transmitMostBytes 'slice'
 			asked = transmitMostBytes
 		end 'slice'
-		let moved = transmitOverlapped(fd, file: file, from: position, count: asked)
+		let moved = transmitOverlapped(fd, file: file, from: position, count: asked, deadline: deadline)
 		if failed(moved) 'refused'
 			return moved
 		end 'refused'
@@ -575,16 +576,16 @@
 			return __Raw.wrappingSub(0, right: einval)
 		end 'unplaced'
 		return moved
-	end 'sendFileCall'
+	end 'sendFileUntil'
 
 	// transmitOverlapped sends count bytes of a file from an offset by one TransmitFile and parks the green thread until it
-	// has completed: the count it moved, or -error. The event of its OVERLAPPED is manual-reset, tied to the port before the
-	// call by a wait completion packet whose key is a user event's entry, so the packet is queued once the call completes, and
-	// a wake that the entry's last owner left is found out by the OVERLAPPED's status, which says the call is still going.
-	// A wait that ends without the call, the coroutine's cancel or the socket's close, cancels it, which resets the
-	// connection, and waits in the blocking bracket for the cancel to complete, since the kernel writes into the OVERLAPPED
-	// until it has.
-	function transmitOverlapped(fd Count, file Count, from Count, count Count) returns Count
+	// has completed or a deadline has passed: the count it moved, transferExpired or -error. The event of its OVERLAPPED is
+	// manual-reset, tied to the port before the call by a wait completion packet whose key is a user event's entry, so the
+	// packet is queued once the call completes, and a wake that the entry's last owner left is found out by the OVERLAPPED's
+	// status, which says the call is still going. A wait that ends without the call, the deadline, the coroutine's cancel or
+	// the socket's close, cancels it, which resets the connection, and waits in the blocking bracket for the cancel to
+	// complete, since the kernel writes into the OVERLAPPED until it has.
+	function transmitOverlapped(fd Count, file Count, from Count, count Count, deadline Count) returns Count
 		let create = winsockFunction(ntCreateWaitPacketSlot)
 		let associate = winsockFunction(ntAssociateWaitPacketSlot)
 		let cancel = winsockFunction(ntCancelWaitPacketSlot)
@@ -612,7 +613,7 @@
 		if dword(__Raw.callHost8(associate, arg1: packet, arg2: port, arg3: event, arg4: entry, arg5: 0, arg6: 0, arg7: 0, arg8: __Raw.addressOf(signaled))) != statusSuccess 'untied'
 			failure = __Raw.wrappingSub(0, right: einval)
 		end 'untied' else 'tied'
-			failure = transmitStarted(fd, file: file, count: count, overlapped: overlapped, entry: entry)
+			failure = transmitStarted(fd, file: file, count: count, overlapped: overlapped, entry: entry, deadline: deadline)
 		end 'tied'
 		if failure == 0 'completed'
 			var flags = 0 as Count
@@ -631,9 +632,9 @@
 		return dword(moved)
 	end 'transmitOverlapped'
 
-	// transmitStarted makes the TransmitFile and parks until it completes: 0 for a call that completed, which the OVERLAPPED
-	// tells the result of, or -error.
-	function transmitStarted(fd Count, file Count, count Count, overlapped Count, entry Count) returns Count
+	// transmitStarted makes the TransmitFile and parks until it completes or the deadline passes: 0 for a call that completed,
+	// which the OVERLAPPED tells the result of, transferExpired for a call that the deadline cancelled, or -error.
+	function transmitStarted(fd Count, file Count, count Count, overlapped Count, entry Count, deadline Count) returns Count
 		if dword(__Raw.callHost7(winsockFunction(transmitFileSlot), arg1: fd, arg2: file, arg3: count, arg4: 0, arg5: overlapped, arg6: 0, arg7: transmitWriteBehind)) != 0 'completed'
 			return 0
 		end 'completed'
@@ -643,7 +644,7 @@
 		end 'refused'
 		var status = eventReady
 		while status == eventReady and dword(__Raw.loadAcquire(overlapped, offset: 0)) == statusPending 'going'
-			status = eventWait(entry, mode: eventRead, deadline: eventNoDeadline)
+			status = eventWait(entry, mode: eventRead, deadline: deadline)
 		end 'going'
 		if status == eventReady 'done'
 			return 0
@@ -652,6 +653,9 @@
 		enterBlocking()
 		_ = __Raw.callImport2("WaitForSingleObject", arg1: __Raw.loadWord(overlapped, offset: overlappedEventOffset), arg2: waitForever)
 		exitBlocking()
+		if status == eventExpired 'expired'
+			return transferExpired
+		end 'expired'
 		return __Raw.wrappingSub(0, right: econnaborted)
 	end 'transmitStarted'
 #endif

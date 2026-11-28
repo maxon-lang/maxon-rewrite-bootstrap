@@ -6508,7 +6508,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   whose event a wait completion packet ties to the completion port, so the green thread parks on a user event's entry until
   the peer has taken the bytes (a call without an OVERLAPPED blocks the thread, and a call cannot be cancelled in the middle
   without resetting the connection), and the file's position is read and moved on by the runtime, which the call does not
-  do; the write deadline does not end a call whose peer stops reading, which it does on Linux. No green thread is tied to an idle socket: the arm is the record in the entry's state
+  do; the call's wait ends at the socket's write deadline (`sendFileUntil`, which the socket's transfer gives the deadline, where
+  the other systems' `sendFileCall` waits in the transfer), which cancels the call (`CancelIoEx`, which resets the connection),
+  waits for its cancelled completion, and sets the socket's timed-out flag as any send's deadline does. No green thread is tied to an idle socket: the arm is the record in the entry's state
   word (the record plus 1, beside a green thread's address), set by one compare-exchange and no system call, since the
   registration stays edge-triggered; an event delivers it without a green thread or a processor, onto the take's list where
   its service is idle and behind the behaviour ahead where it is not. An edge that came before the arm posts the message at
