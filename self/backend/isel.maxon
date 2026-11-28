@@ -1586,6 +1586,10 @@ end 'Source'
 // spilled as any other code, which --timings counts. So a program that compiles without the optimizations compiles with
 // them, and a function compiles only as optimized (README, "E5001 and the optimizations").
 function selectOrRefuse(mutates sel Selector, p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, at Count, f ir.IrFunction, path CountList, mutates source Source, mutates forms F, symbol String, instance bool, closure bool, mutates errs diag.ErrorList) uses F where F implements SourceForms
+	if vectorCrossesCall(f) 'vectorAcrossCall'
+		reportVectorAcrossCall(p, ms: ms, f: f, errs: errs)
+		return
+	end 'vectorAcrossCall'
 	let refusals = selectFunction(sel, p: p, ms: ms, f: f, symbol: symbol, instance: instance, closure: closure, rule: HotLoops.refuse)
 	if refusals.count() == 0 'compiled'
 		return

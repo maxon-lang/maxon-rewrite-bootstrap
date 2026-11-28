@@ -5,7 +5,7 @@
 #   maxon      the case of ErrorCode in maxon-bin/Compiler/ErrorCodeRegistry.maxon that has this number, or - for a code
 #              of minimaxon's own; `diaggen --maxon <maxon repository>` checks both against the registry
 #   meaning    what the compiler refuses
-# A code of minimaxon's own takes a number from E1900 (lexer), E3900 (semantic) or E9900 (internal), which maxon does not use.
+# A code of minimaxon's own takes a number from E1900 (lexer), E3900 (semantic), E5900 (back end) or E9900 (internal), which maxon does not use.
 ErrUnterminatedString	E1002	lexerUnterminatedString	A string literal, or an interpolation in one, is not closed before its line or the source ends.
 ErrInvalidEscape	E1004	lexerInvalidEscape	An escape in a literal is malformed, a byte string holds a character that is no byte, or the source is not well-formed UTF-8.
 ErrUnescapedBrace	E1006	lexerUnescapedBrace	An interpolation is not closed on its line and a quote follows its brace, so the brace was meant as text and is written escaped.
@@ -190,4 +190,5 @@ ErrVectorOutsideLocal	E3965	-	The runtime's 128-bit vector is a parameter, a res
 ErrInvalidFieldAccess	E4006	invalidFieldAccess	A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 ErrTypeCycle	E4014	irTypeCycle	A type contains itself.
 ErrRegisterPressure	E5001	registerPressure	A loop holds more values at once than the target has registers of their class, so a load or store would land in the loop.
+ErrVectorAcrossCall	E5900	-	A vector of the runtime's source is held across a call, which keeps no vector: the switch of a green thread keeps half of each vector register on arm64.
 ErrUnsupported	E9000	-	A construct the compiler does not support yet.

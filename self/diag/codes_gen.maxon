@@ -552,5 +552,8 @@ export let errTypeCycle = "E4014"
 // A loop holds more values at once than the target has registers of their class, so a load or store would land in the loop.
 export let errRegisterPressure = "E5001"
 
+// A vector of the runtime's source is held across a call, which keeps no vector: the switch of a green thread keeps half of each vector register on arm64.
+export let errVectorAcrossCall = "E5900"
+
 // A construct the compiler does not support yet.
 export let errUnsupported = "E9000"

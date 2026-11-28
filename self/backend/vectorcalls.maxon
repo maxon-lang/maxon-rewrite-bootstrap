@@ -1,0 +1,150 @@
+// A vector of the runtime's source lives in a register from the operation that makes it to its last read, and no call may
+// come between: the switch of a green thread keeps only the low half of each vector register that arm64's convention has a
+// call keep, so a vector held across a call that switched would come back with half of it lost. The check runs on the
+// IR the back end is given, and only where a function has a vector.
+
+// VectorCalls is the state of the check, kept from one function to the next: the vector registers by their index among
+// the function's vectors, and for each block which of them are live where it starts.
+type VectorCalls
+	var index as CountList
+	var vectors as Count
+	var liveIn as BoolList
+	var live as BoolList
+	var reads as ir.RegList
+	var writes as ir.RegList
+	var edges as ir.SuccessorVisitor
+
+	static function new() returns VectorCalls
+		return VectorCalls{index: CountList.create(0), vectors: 0, liveIn: BoolList.create(0), live: BoolList.create(0), reads: ir.RegList.create(0), writes: ir.RegList.create(0), edges: ir.SuccessorVisitor.new()}
+	end 'new'
+
+	// crossesCall is whether a vector of f is live after a call that f makes and needed after it returns.
+	function crossesCall(mutates self, f ir.IrFunction) returns bool
+		index.clear()
+		vectors = 0
+		for r in 0 upto f.regs.count() 'regs'
+			if f.regs[r] == ir.IrKind.kindVector 'vector'
+				index.push(vectors)
+				vectors = ir.succ(vectors)
+			end 'vector' else 'other'
+				index.push(f.regs.count())
+			end 'other'
+		end 'regs'
+		if vectors == 0 'none'
+			return false
+		end 'none'
+		liveIn.clear()
+		for i in 0 upto self.cell(f.blocks.count(), v: 0) 'cells'
+			liveIn.push(false)
+		end 'cells'
+		var changed = true
+		while changed 'fixpoint'
+			changed = false
+			var b = f.blocks.count()
+			while b > 0 'blocks'
+				b = b - 1
+				if self.walk(f, b: b) 'crossed'
+					return true
+				end 'crossed'
+				for v in 0 upto vectors 'store'
+					if live[v] and not liveIn[self.cell(b, v: v)] 'grew'
+						liveIn[self.cell(b, v: v)] = true
+						changed = true
+					end 'grew'
+				end 'store'
+			end 'blocks'
+		end 'fixpoint'
+		return false
+	end 'crossesCall'
+
+	// walk leaves in live the vectors live where block b starts, from what liveIn says of its successors, and is whether a
+	// call of b has one live after it.
+	function walk(mutates self, f ir.IrFunction, b Count) returns bool
+		live.clear()
+		for v in 0 upto vectors 'clear'
+			live.push(false)
+		end 'clear'
+		edges.clear()
+		ir.visitTerm(edges, f: f, t: f.blocks[b].term)
+		for e in 0 upto edges.out.count() 'successors'
+			self.joinBlock(ir.blockIndex(edges.out[e]))
+		end 'successors'
+		reads.clear()
+		ir.termReads(f, t: f.blocks[b].term, out: reads)
+		self.markReads()
+		var k = f.blocks[b].endAt
+		while k > f.blocks[b].first 'instrs'
+			k = k - 1
+			match ir.instrFail(f.instrs[k]) 'fail'
+				some(target) then self.joinBlock(ir.blockIndex(target))
+				none then break
+			end 'fail'
+			writes.clear()
+			ir.instrWrites(f.instrs[k], out: writes)
+			for i in 0 upto writes.count() 'writes'
+				let at = index[regIndex(writes[i])]
+				if at < vectors 'vector'
+					live[at] = false
+				end 'vector'
+			end 'writes'
+			if (ir.opEffects(f.instrs[k].op) and ir.effectCalls) != 0 'call'
+				for v in 0 upto vectors 'held'
+					if live[v] 'live'
+						return true
+					end 'live'
+				end 'held'
+			end 'call'
+			reads.clear()
+			ir.instrReads(f, x: f.instrs[k], out: reads)
+			self.markReads()
+		end 'instrs'
+		for i in 0 upto f.blocks[b].paramCount 'params'
+			let at = index[regIndex(f.blockParam(b, i: i))]
+			if at < vectors 'vector'
+				live[at] = false
+			end 'vector'
+		end 'params'
+		return false
+	end 'walk'
+
+	// cell is where liveIn keeps whether vector v is live where block b starts.
+	function cell(b Count, v Count) returns Count
+		return try b * vectors + v otherwise panic("backend: the live vectors of a function past memory")
+	end 'cell'
+
+	function joinBlock(mutates self, target Count)
+		for v in 0 upto vectors 'join'
+			if liveIn[self.cell(target, v: v)] 'live'
+				live[v] = true
+			end 'live'
+		end 'join'
+	end 'joinBlock'
+
+	function markReads(mutates self)
+		for i in 0 upto reads.count() 'reads'
+			let at = index[regIndex(reads[i])]
+			if at < vectors 'vector'
+				live[at] = true
+			end 'vector'
+		end 'reads'
+	end 'markReads'
+end 'VectorCalls'
+
+// vectorCrossesCall is whether f holds a vector across a call, which only a function with a vector is walked for.
+function vectorCrossesCall(f ir.IrFunction) returns bool
+	for r in 0 upto f.regs.count() 'regs'
+		if f.regs[r] == ir.IrKind.kindVector 'vector'
+			var check = VectorCalls.new()
+			return check.crossesCall(f)
+		end 'vector'
+	end 'regs'
+	return false
+end 'vectorCrossesCall'
+
+// reportVectorAcrossCall reports E5900 at the declaration of f, an instance's at its generic's, as E5001 is reported.
+function reportVectorAcrossCall(p ast.Project, ms ast.ModuleState, f ir.IrFunction, mutates errs diag.ErrorList)
+	let entry = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f.decl)
+	let module = entry.module
+	let offset = p.modules[ast.modIndex(module)].tree.startOf(entry.nodeID)
+	diag.pushSiteError(errs, code: diag.errVectorAcrossCall, message: "a vector of '{entry.name}' is still to be read after a call the function makes, and a call keeps no vector: the switch of a green thread in it keeps half of each vector register on arm64; make the vector after the call, or store it with __Raw.vectorStore before the call and load it after", module: module, offset: offset)
+end 'reportVectorAcrossCall'
