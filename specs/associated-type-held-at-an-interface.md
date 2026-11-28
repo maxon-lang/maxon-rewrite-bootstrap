@@ -396,7 +396,7 @@ type OneCursor implements Cursor
 		return self.pos
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		throw IterationError.exhausted
 	end 'advance'
 end 'OneCursor'
@@ -546,6 +546,7 @@ error E3126: <fragment>:21:6: 'OddBag' binds 'Bag's associated type 'Iter' to 'T
 ```
 
 <!-- test: error.a-conformer-binds-the-holding-interface-itself -->
+<!-- skip: language difference: an interface value is one word, the box of the value and its table, so a requirement may give one and maxon's E3120 for a conformer that binds an associated type to the interface it is held at is not raised: the conformance binds what the interface value binds, and the program runs -->
 ⚠ **A HOLDING SUPPLIES THE SECOND WORD FOR A CONCRETE BINDING, AND HAS NOTHING LEFT TO SUPPLY WHEN THE
 BINDING IS ALREADY AN INTERFACE.** `WeirdBag` binds `Iter` to `Cursor` itself, so the impl is asked to hand
 back both words out of a witness call that returns one — E3120's fat-pointer clause, which the holding
@@ -1143,7 +1144,7 @@ end 'main'
 ```
 
 <!-- test: error.held-binding-whose-conformer-holds-a-function-value-is-frozen -->
-<!-- skip: language difference: maxon refuses to freeze a value that holds an interface value whose conformer holds a function value (E3171), and this compiler lets such an interface value cross (D5), so E3171 no longer fires and the program is then refused with E3005, because this compiler does not yet widen an associated type to an interface (StepCursor to Cursor, as 'Bag with StepCursor' passed as 'Bag with Cursor'); 20 other tests of this file fail for the same reason -->
+<!-- skip: language difference: maxon refuses to freeze a value that holds an interface value whose conformer holds a function value (E3171), and this compiler lets such an interface value cross (D5), so the program compiles -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi answers E3104 for the `spawn` before any share door is judged, and the door is judged for this cause only in a program that spawns a service.

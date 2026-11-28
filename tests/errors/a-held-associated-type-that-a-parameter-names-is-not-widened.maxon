@@ -1,0 +1,44 @@
+typealias Integer = int(i64.min to i64.max)
+
+interface Cursor
+	function current() returns Integer
+end 'Cursor'
+
+interface Sink uses Item
+	function take(it Item) returns Integer
+end 'Sink'
+
+type OneCursor implements Cursor
+	let pos as Integer
+
+	static function create() returns Self
+		return Self{pos: 7}
+	end 'create'
+
+	function current() returns Integer
+		return self.pos
+	end 'current'
+end 'OneCursor'
+
+type Adder implements Sink with OneCursor
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function take(it OneCursor) returns Integer
+		return it.current()
+	end 'take'
+end 'Adder'
+
+function useIt(s Sink with Cursor) returns Integer
+	return s.take(OneCursor.create())
+end 'useIt'
+
+function main() returns ExitCode
+	print("{useIt(Adder.create())}\n")
+	return 0
+end 'main'
+
+// A requirement that takes the held associated type is given a value of the interface by its caller, which may hold any
+// type that implements it, where the conformer's method takes its own binding: the value is not widened.
+// expect-error: E2015 at 38:10

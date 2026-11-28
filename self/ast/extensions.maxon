@@ -479,19 +479,99 @@ export function widening(p Project, mutates ms ModuleState, from diag.ModuleID, 
 		if not bindingsWiden(p, ms: ms, from: from, bindings: bindings, want: iface) 'unmet'
 			continue 'each'
 		end 'unmet'
-		let results = widenedResults(p, ms: ms, t: t, wantOrig: wantOrig, bindings: bindings, want: iface)
-		if not results.isSome() 'differs'
-			continue 'each'
-		end 'differs'
-		let w = results.unwrap()
-		match consumes conformanceSource(p, ms: ms, from: from, t: t, iface: have) 'source'
-			found(c) then return table.Option.some(Widening.make(have, source: c, from: w.from.clone(), heldAt: w.heldAt.clone()))
-			absent then continue 'each'
-			ambiguous(_, _) then continue 'each'
-		end 'source'
+		match consumes widenedResults(p, ms: ms, t: t, wantOrig: wantOrig, bindings: bindings, want: iface) 'results'
+			widened(w) then return declaredWidening(p, ms: ms, from: from, t: t, have: have, results: w)
+			refused(_) then continue 'each'
+		end 'results'
 	end 'each'
 	return table.Option.none
 end 'widening'
+
+// declaredWidening is the widening of the requirements' results, by the declaration that code in the module from sees
+// say t implements have; none where it sees none, or two.
+function declaredWidening(p Project, mutates ms ModuleState, from diag.ModuleID, t TypeID, have TypeID, consumes results Widening) returns table.Option with Widening
+	return match consumes conformanceSource(p, ms: ms, from: from, t: t, iface: have) 'source'
+		found(c) gives table.Option.some(Widening.make(have, source: c, from: results.from, heldAt: results.heldAt))
+		absent gives table.Option.none
+		ambiguous(_, _) gives table.Option.none
+	end 'source'
+end 'declaredWidening'
+
+// A WideningRefusal is why a value of a type is not widened to an interface instance that holds an associated type at an
+// interface where a declaration of the type binds another type there (widening): that type does not implement the
+// interface, or a requirement names the associated type otherwise than as its whole result. It names the associated type,
+// the type the declaration binds and the interface the instance holds it at.
+export union WideningRefusal
+	unrelated
+	unconforming(name String, binding TypeID, heldAt TypeID)
+	notAResult(name String, binding TypeID, heldAt TypeID, requirement String)
+end 'WideningRefusal'
+
+// wideningRefusal says why a value of t is not widened to iface where a declaration of t that code in the module from sees
+// binds a type at a position that iface holds at an interface, and is unrelated where none does.
+export function wideningRefusal(p Project, mutates ms ModuleState, from diag.ModuleID, t TypeID, iface TypeID) returns WideningRefusal
+	if typeKind(ms.types, reads: p.types, t: iface) != TypeKind.interfaceTy or isInterfaceHandle(ms.types, reads: p.types, t: iface) 'notAnInterface'
+		return WideningRefusal.unrelated
+	end 'notAnInterface'
+	let wantOrig = originOf(ms.types, reads: p.types, t: iface)
+	let wanted = typeArgsOf(ms.types, reads: p.types, t: iface)
+	let names = cloneTypeArgs(typeEntry(ms.types, reads: p.types, t: wantOrig).typeParams)
+	for each in seenInterfaces(p, ms: ms, from: from, t: t) 'each'
+		let have = conformanceAt(p, ms: ms, written: each, t: t)
+		let bound = conformerBindings(ms.types, reads: p.types, have: have, want: wantOrig)
+		if not bound.isSome() 'other'
+			continue 'each'
+		end 'other'
+		let bindings = bound.unwrap()
+		if bindings.count() != wanted.count() or names.count() != wanted.count() 'count'
+			continue 'each'
+		end 'count'
+		if not heldOnly(ms.types, reads: p.types, bindings: bindings, wanted: wanted) 'otherwise'
+			continue 'each'
+		end 'otherwise'
+		var held = false
+		var heldName = ""
+		var heldBinding = noType
+		var heldIface = noType
+		for i in 0 upto wanted.count() 'positions'
+			let binding = bindings.get(i)
+			let heldAt = wanted.get(i)
+			if binding == heldAt 'same'
+				continue 'positions'
+			end 'same'
+			if boxConformance(p, ms: ms, from: from, t: binding, iface: heldAt).isAbsent() 'unconforming'
+				return WideningRefusal.unconforming(typeName(ms.types, reads: p.types, t: names.get(i)), binding: binding, heldAt: heldAt)
+			end 'unconforming'
+			if not held 'first'
+				held = true
+				heldName = typeName(ms.types, reads: p.types, t: names.get(i))
+				heldBinding = binding
+				heldIface = heldAt
+			end 'first'
+		end 'positions'
+		if not held 'same'
+			continue 'each'
+		end 'same'
+		match consumes widenedResults(p, ms: ms, t: t, wantOrig: wantOrig, bindings: bindings, want: iface) 'results'
+			widened(_) then continue 'each'
+			refused(requirement) then return WideningRefusal.notAResult(heldName.clone(), binding: heldBinding, heldAt: heldIface, requirement: requirement)
+		end 'results'
+	end 'each'
+	return WideningRefusal.unrelated
+end 'wideningRefusal'
+
+// heldOnly is whether each type bindings, a declaration's, binds is the one wanted binds, or a type that is not an interface
+// where wanted binds an interface.
+function heldOnly(tt TypeSlot, reads TypeTable, bindings TypeIDList, wanted TypeIDList) returns bool
+	for i in 0 upto wanted.count() 'each'
+		let binding = try bindings.get(i) otherwise panic("ast: a binding past the count of the interface's")
+		let heldAt = wanted.get(i)
+		if binding != heldAt and (typeKind(tt, reads: reads, t: heldAt) != TypeKind.interfaceTy or typeKind(tt, reads: reads, t: binding) == TypeKind.interfaceTy) 'otherwise'
+			return false
+		end 'otherwise'
+	end 'each'
+	return true
+end 'heldOnly'
 
 // conformerBindings are the types the interface instance have binds for the associated types of the interface declaration
 // want, which it is an instance of or extends, or none.
@@ -506,29 +586,29 @@ end 'conformerBindings'
 // an interface and is put in the interface want binds there, by the conformance code in the module from sees.
 function bindingsWiden(p Project, mutates ms ModuleState, from diag.ModuleID, bindings TypeIDList, want TypeID) returns bool
 	let wanted = typeArgsOf(ms.types, reads: p.types, t: want)
-	if bindings.count() != wanted.count() 'count'
+	if bindings.count() != wanted.count() or not heldOnly(ms.types, reads: p.types, bindings: bindings, wanted: wanted) 'otherwise'
 		return false
-	end 'count'
+	end 'otherwise'
 	for i in 0 upto wanted.count() 'each'
 		let bound = bindings.get(i)
 		let held = wanted.get(i)
-		if bound == held 'same'
-			continue 'each'
-		end 'same'
-		if typeKind(ms.types, reads: p.types, t: held) != TypeKind.interfaceTy or typeKind(ms.types, reads: p.types, t: bound) == TypeKind.interfaceTy 'notHeld'
-			return false
-		end 'notHeld'
-		if boxConformance(p, ms: ms, from: from, t: bound, iface: held).isAbsent() 'unconforming'
+		if bound != held and boxConformance(p, ms: ms, from: from, t: bound, iface: held).isAbsent() 'unconforming'
 			return false
 		end 'unconforming'
 	end 'each'
 	return true
 end 'bindingsWiden'
 
+// WidenedResults is what the requirements of an interface instance make of a widening to it: the part of a Widening they
+// give, or the first requirement that names a held associated type otherwise than as its whole result.
+union WidenedResults
+	widened(w Widening)
+	refused(requirement String)
+end 'WidenedResults'
+
 // widenedResults is the part of a Widening its requirements give: for each requirement of want, the interface instance
-// that t's declaration of wantOrig binds as bindings, what the method gives where the table boxes it. None where a
-// requirement differs otherwise.
-function widenedResults(p Project, mutates ms ModuleState, t TypeID, wantOrig TypeID, bindings TypeIDList, want TypeID) returns table.Option with Widening
+// that t's declaration of wantOrig binds as bindings, what the method gives where the table boxes it.
+function widenedResults(p Project, mutates ms ModuleState, t TypeID, wantOrig TypeID, bindings TypeIDList, want TypeID) returns WidenedResults
 	var haveReqs = RequirementList.create(0)
 	collectRequirements(ms.types, reads: p.types, iface: wantOrig, bindings: bindings, out: haveReqs)
 	let wantReqs = requirementsOf(ms.types, reads: p.types, iface: want)
@@ -551,12 +631,12 @@ function widenedResults(p Project, mutates ms ModuleState, t TypeID, wantOrig Ty
 		for spec in funcEntry(ms.funcs, funcReads: p.funcs, f: sig).params 'params'
 			let ty = spec.ty
 			if substituteType(ms.types, reads: p.types, t: ty, params: params, args: haveArgs) != substituteType(ms.types, reads: p.types, t: ty, params: params, args: wantArgs) 'parameter'
-				return table.Option.none
+				return WidenedResults.refused(funcEntry(ms.funcs, funcReads: p.funcs, f: sig).name.clone())
 			end 'parameter'
 		end 'params'
 		let thrown = funcEntry(ms.funcs, funcReads: p.funcs, f: sig).errTy
 		if thrown != noType and substituteType(ms.types, reads: p.types, t: thrown, params: params, args: haveArgs) != substituteType(ms.types, reads: p.types, t: thrown, params: params, args: wantArgs) 'thrown'
-			return table.Option.none
+			return WidenedResults.refused(funcEntry(ms.funcs, funcReads: p.funcs, f: sig).name.clone())
 		end 'thrown'
 		let ret = funcEntry(ms.funcs, funcReads: p.funcs, f: sig).retTy
 		var given = noType
@@ -571,12 +651,12 @@ function widenedResults(p Project, mutates ms ModuleState, t TypeID, wantOrig Ty
 			continue 'each'
 		end 'asItIs'
 		if funcEntry(ms.funcs, funcReads: p.funcs, f: sig).result == ResultConv.resultBorrowed or given == noType or held == noType or not bindings.contains(given) or typeKind(ms.types, reads: p.types, t: held) != TypeKind.interfaceTy 'nested'
-			return table.Option.none
+			return WidenedResults.refused(funcEntry(ms.funcs, funcReads: p.funcs, f: sig).name.clone())
 		end 'nested'
 		results.push(given)
 		heldAt.push(held)
 	end 'each'
-	return table.Option.some(Widening.make(noType, source: Conformance.make(diag.stdlibID, inBody: false), from: results, heldAt: heldAt))
+	return WidenedResults.widened(Widening.make(noType, source: Conformance.make(diag.stdlibID, inBody: false), from: results, heldAt: heldAt))
 end 'widenedResults'
 
 // declaresConformance is whether the declaration of t says it implements iface, with t's type arguments in what it binds.

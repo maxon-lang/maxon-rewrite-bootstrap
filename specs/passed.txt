@@ -473,6 +473,10 @@ assignment.md: error.wrong-enum-in-struct-literal-field-errors
 assignment.md: error.wrong-enum-into-an-enum-field
 assignment.md: multiple-assignments
 associated-type-held-at-an-interface.md: a-use-site-binding-a-type-parameter-is-a-claim-about-each-instantiation
+associated-type-held-at-an-interface.md: error.a-conformer-binds-something-that-does-not-conform
+associated-type-held-at-an-interface.md: error.a-generic-instance-whose-base-does-not-conform
+associated-type-held-at-an-interface.md: error.a-non-conforming-binding-that-is-never-dispatched
+associated-type-held-at-an-interface.md: error.held-position-reaches-a-parameter
 associated-type-held-at-an-interface.md: held.a-conformer-binds-a-generic-instance
 associated-type-held-at-an-interface.md: held.a-conformer-reaching-the-holding-through-extends
 associated-type-held-at-an-interface.md: held.bindings-differing-in-a-constrained-position-keep-their-own-tables

@@ -1,0 +1,40 @@
+typealias Integer = int(i64.min to i64.max)
+
+interface Cursor
+	function current() returns Integer
+end 'Cursor'
+
+interface Bag uses Iter
+	function createIterator() returns Iter
+end 'Bag'
+
+type Tally
+	let pos as Integer
+
+	static function create() returns Self
+		return Self{pos: 3}
+	end 'create'
+end 'Tally'
+
+type OddBag implements Bag with Tally
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function createIterator() returns Tally
+		return Tally.create()
+	end 'createIterator'
+end 'OddBag'
+
+function keep(source Bag with Cursor) returns Integer
+	return 7
+end 'keep'
+
+function main() returns ExitCode
+	print("{keep(OddBag.create())}\n")
+	return 0
+end 'main'
+
+// A value is widened to an interface instance only where each type its conformance binds at a held position implements
+// the interface the instance holds it at, since each value a requirement gives there is put in a value of it.
+// expect-error: E3126 at 34:10

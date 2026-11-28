@@ -285,6 +285,9 @@ export let errStaticRequirementNotDispatchable = "E3116"
 // An 'if try' with no binding tests a call that returns a value, which it discards.
 export let errIfTryDiscardsResult = "E3124"
 
+// A value is widened to an interface instance that holds an associated type at an interface which the type its conformance binds there does not implement.
+export let errHeldBindingNotConforming = "E3126"
+
 // An arm that binds a payload covers more than one case, so on another case's path the arm would read a value no pattern bound.
 export let errMatchArmPayloadBindingConflict = "E3129"
 

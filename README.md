@@ -4093,7 +4093,9 @@ end 'main'
   the conformance binds is boxed with the conformance's own table, with no stub (`tests/ir`). A position that a
   parameter names, a result that names it inside another type, and a result that is lent are not widened, since the
   box of such a value would have to come from the caller or be made of a value that already exists; a value whose type
-  is not widened to the instance is `E3005`. A generic's bound is never met by a widening: an instance calls the
+  is not widened to the instance is `E3005`, or `E3126` where a type the conformance binds does not implement the
+  interface the instance holds it at, and `E2015` where a requirement names a held position otherwise than as its whole
+  result (see "Where it differs from Maxon"). A generic's bound is never met by a widening: an instance calls the
   conformer's method directly, which gives the value unboxed.
 - **In a generic.** An interface value meets a bound of its own interface (another, even one it extends, is `E3017`), so
   a generic instantiated at one (`twice(a)` with `a` a `Shape` value, `Holder with Shape`) calls through its table where
@@ -5983,6 +5985,14 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   converts to the interface at the doors that share it and refuses one that holds a function value (`E3171`, `E3217`,
   `E3963` are not raised for an interface value; the spec tests that expect them are skipped with that reason). A function
   value in the box crosses into a service, which a message can call only through the interface's methods (`E3221`).
+- Associated types held at an interface (see "Interface values"): maxon holds an associated type at an interface for the
+  whole program wherever a use site writes it so (`Bag with Cursor`), and refuses every conformer of the interface whose
+  binding there does not implement that interface (`E3126`), or that binds the interface itself (`E3120`), and the holding
+  itself where a requirement takes the associated type as a parameter (`E2015`). Here a widening is a conversion of one
+  value, checked where the value is put in the interface value, by the conformance that module sees: `E3126` and `E2015`
+  are raised there, a conformer that is never widened is not refused, and a binding that is the interface itself needs
+  no widening, since an interface value is one word, so `E3120` is not raised for it (the spec test that expects it is
+  skipped with that reason).
 - Grapheme clusters follow UAX #29 from the Unicode 16.0.0 tables (without GB9c), where maxon's own rules join only the
   marks in a few ranges; a string of other Extend, SpacingMark or Prepend code points counts fewer clusters here. The views
   of a string (`bytes()`, `codepoints()`, `utf16()`) and their iterators hold a copy of the string rather than viewing it.

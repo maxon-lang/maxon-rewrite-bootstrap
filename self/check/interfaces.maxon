@@ -177,9 +177,22 @@ end 'requireBoxConforms'
 function requireWidened(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, box PendingBox, mutates errs diag.ErrorList)
 	match consumes ast.widening(p, ms: ms, from: c.modID, t: box.src, iface: box.iface) 'widened'
 		some(w) then requireHoldable(c, p: p, ms: ms, at: box.off, widening: w, errs: errs)
-		none then checkFail(c.modID, off: box.off, code: box.code.clone(), msg: box.refusal.clone(), errs: errs)
+		none then refuseWidening(c, p: p, ms: ms, box: box, errs: errs)
 	end 'widened'
 end 'requireWidened'
+
+// refuseWidening refuses a value that is not widened to the interface instance it is put in: where its type's conformance
+// binds an associated type that the instance holds at an interface, the refusal says why that binding is not widened.
+function refuseWidening(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, box PendingBox, mutates errs diag.ErrorList)
+	let typeName = nameOfType(p, ms: ms, t: box.src)
+	let ifaceName = nameOfType(p, ms: ms, t: box.iface)
+	let declName = nameOfType(p, ms: ms, t: ast.originOf(ms.types, reads: p.types, t: box.iface))
+	match consumes ast.wideningRefusal(p, ms: ms, from: c.modID, t: box.src, iface: box.iface) 'why'
+		unrelated then checkFail(c.modID, off: box.off, code: box.code.clone(), msg: box.refusal.clone(), errs: errs)
+		unconforming(name, binding, heldAt) then checkFail(c.modID, off: box.off, code: diag.errHeldBindingNotConforming, msg: "'{typeName}' binds '{declName}'s associated type '{name}' to '{nameOfType(p, ms: ms, t: binding)}', and the '{ifaceName}' it is put in here holds '{name}' at the interface type '{nameOfType(p, ms: ms, t: heldAt)}' — a value widened to it has each value of a held associated type put in a value of that interface, so the binding must implement it, and '{nameOfType(p, ms: ms, t: binding)}' does not implement '{nameOfType(p, ms: ms, t: heldAt)}'. Declare the conformance, or hold '{name}' at an interface that '{nameOfType(p, ms: ms, t: binding)}' implements", errs: errs)
+		notAResult(name, binding, heldAt, requirement) then checkFail(c.modID, off: box.off, code: diag.errUnsupportedFeature, msg: "Unsupported: '{typeName}' binds '{declName}'s associated type '{name}' to '{nameOfType(p, ms: ms, t: binding)}', and the '{ifaceName}' it is put in here holds '{name}' at the interface type '{nameOfType(p, ms: ms, t: heldAt)}', which the requirement '{requirement}' names otherwise than as its whole result — a value of the interface passed in may hold any type that implements it, and a value inside another one or lent cannot be put in a box of its own where the table gives it. Hold '{name}' at an interface only where every requirement that names it returns it, or bind it to '{nameOfType(p, ms: ms, t: binding)}'", errs: errs)
+	end 'why'
+end 'refuseWidening'
 
 function requireHoldable(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, at diag.U32, widening ast.Widening, mutates errs diag.ErrorList)
 	for i in 0 upto widening.from.count() 'each'
