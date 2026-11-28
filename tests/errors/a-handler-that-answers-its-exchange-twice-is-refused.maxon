@@ -1,0 +1,21 @@
+// Each way to answer an HttpExchange consumes it, so a handler that answers twice uses the exchange after it moved (E3102):
+// a request has one answer, which the compiler proves, and no check at run time is left.
+type Twice implements HttpHandler
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function handle(consumes exchange HttpExchange) returns HttpAnswered
+		let first = exchange.fail(StatusCode.notFound)
+		return exchange.fail(StatusCode.internalServerError)
+	end 'handle'
+end 'Twice'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
+	let serving = server.serve(freeze(Twice.create() as HttpHandler))
+	serving.stop(0)
+	return 0
+end 'main'
+
+// expect-error: E3102

@@ -54,7 +54,7 @@ end 'AcceptorPhase'
 
 export service Acceptor implements services.Ends
 	var listener as ListenerHold
-	let handler as frozen with StandIn
+	let handler as frozen with HttpHandler
 	let config as frozen with ServerConfig
 	var slots as ConnSlots
 	var freeSlots as SlotIndices
@@ -65,7 +65,7 @@ export service Acceptor implements services.Ends
 	var retry as AcceptorTimer
 	var deadline as AcceptorTimer
 
-	export static function create(consumes listener net.TcpListener, handler frozen with StandIn, config frozen with ServerConfig) returns Self
+	export static function create(consumes listener net.TcpListener, handler frozen with HttpHandler, config frozen with ServerConfig) returns Self
 		return Self{listener: ListenerHold.open(listener), handler: handler.clone(), config: config.clone(), slots: ConnSlots.create(0), freeSlots: SlotIndices.create(0), openCount: 0, listening: Listening.retrying, phase: AcceptorPhase.serving, retryMs: FirstAcceptRetryMs, retry: AcceptorTimer.none, deadline: AcceptorTimer.none}
 	end 'create'
 

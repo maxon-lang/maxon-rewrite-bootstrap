@@ -30,11 +30,36 @@ function answerTo(port NetworkPort, request String) returns String
 	return answer
 end 'answerTo'
 
+// Echo answers each request with its request line, and with how many bytes its body had where it had one.
+type Echo implements HttpHandler
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function handle(consumes exchange HttpExchange) returns HttpAnswered
+		let line = "{methodName(exchange.request.method)} {exchange.request.target()} HTTP/1.{exchange.request.minorVersion}"
+		let count = exchange.requestBody.count()
+		return exchange.respondWith(StatusCode.ok, body: "{line} with {count} bytes" if count > 0 else line, contentType: "text/plain")
+	end 'handle'
+end 'Echo'
+
+function methodName(method HttpMethod) returns String
+	return match method 'method'
+		get gives "GET"
+		post gives "POST"
+		put gives "PUT"
+		delete gives "DELETE"
+		head gives "HEAD"
+		patch gives "PATCH"
+		options gives "OPTIONS"
+	end 'method'
+end 'methodName'
+
 function main() returns ExitCode
 	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
 	let port = server.port()
 	var config = ServerConfig.create()
-	let serving = server.serve(config)
+	let serving = server.serve(freeze(Echo.create() as HttpHandler), config: config)
 	print("GET: {answerTo(port, request: "GET /page HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n")}\n")
 	print("HEAD: {answerTo(port, request: "HEAD /page HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n")}\n")
 	serving.stop(1000)

@@ -1,0 +1,110 @@
+// A handler answers each request through the exchange it is handed, and returns the HttpAnswered the answer gives: with a
+// status and a body (respondWith), with a response of fields of its own (respond), with a status alone (fail), or not at
+// all, closing the connection (abandon). It reads the request's method, target, fields and body, and it may consult a
+// service by a send that keeps no reply, whose kind names a policy (Refuse here), as a requirement of an interface that
+// requires service must. A connection is kept after each answer, a failure's among them (RFC 9112 §9.3).
+// native-only
+//> /hello: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 2\r\nConnection: close\r\n\r\nhi
+//> /fields: HTTP/1.1 201 Created\r\nContent-Length: 6\r\nConnection: close\r\nx-made-by: the handler\r\n\r\nmade 3
+//> /echo: HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: 5\r\nConnection: close\r\n\r\nabcde
+//> /missing then /hello, kept: HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\nHTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 2\r\nConnection: close\r\n\r\nhi
+//> /drop: [closed with no answer]
+//> /fields to a HEAD: HTTP/1.1 201 Created\r\nContent-Length: 6\r\nConnection: close\r\nx-made-by: the handler\r\n\r\n
+//> counted: 7
+//> stopped
+function shown(text String) returns String
+	return text.replace("\r\n", with: "\\r\\n")
+end 'shown'
+
+// readToEnd reads what the server sends until it closes the connection.
+function readToEnd(mutates client TcpClient) returns String
+	var all = ByteArray.create(0)
+	while true 'reading'
+		let chunk = try client.readSome(4096) otherwise return "{shown(String.from(all))} [the read failed]"
+		if chunk.isEmpty() 'closed'
+			break 'reading'
+		end 'closed'
+		all.append(chunk)
+	end 'reading'
+	return shown(String.from(all))
+end 'readToEnd'
+
+function answerTo(port NetworkPort, request String) returns String
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "no connection"
+	try client.setReadDeadline(5000) otherwise ignore
+	_ = try client.send(request) otherwise 0
+	let answer = readToEnd(client)
+	try client.close() otherwise ignore
+	return "[closed with no answer]" if answer.isEmpty() else answer
+end 'answerTo'
+
+typealias Seen = int(0 to 1000000)
+
+service Tally
+	var seen as Seen
+
+	static function create() returns Self
+		return Self{seen: 0}
+	end 'create'
+
+	@policy(Refuse) export function record(mutates self) returns Seen
+		self.seen = try self.seen + 1 otherwise 0
+		return self.seen
+	end 'record'
+
+	export function count() returns Seen
+		return self.seen
+	end 'count'
+end 'Tally'
+
+type Site implements HttpHandler
+	let greeting as String
+	let tally as Tally.handle
+
+	static function create(greeting String, tally Tally.handle) returns Self
+		return Self{greeting: greeting.clone(), tally: tally.clone()}
+	end 'create'
+
+	function handle(consumes exchange HttpExchange) returns HttpAnswered
+		_ = try self.tally.record() otherwise return exchange.fail(StatusCode.serviceUnavailable)
+		let target = exchange.request.target()
+		if target == "/hello" 'hello'
+			return exchange.respondWith(StatusCode.ok, body: self.greeting, contentType: "text/plain")
+		end 'hello'
+		if target == "/fields" 'fields'
+			var fields = HttpHeaders.create()
+			fields.set("X-Made-By", value: "the handler")
+			let by = match exchange.request.field("x-request") 'by'
+				found(value) gives value.clone()
+				absent gives "nobody"
+			end 'by'
+			return exchange.respond(HttpResponse.create(StatusCode.created, reasonPhrase: "Created", responseHeaders: fields, responseBody: "made {by}"))
+		end 'fields'
+		if target == "/echo" 'echo'
+			let body = String.from(exchange.requestBody)
+			return exchange.respondWith(StatusCode.ok, body: body, contentType: "application/octet-stream")
+		end 'echo'
+		if target == "/drop" 'drop'
+			return exchange.abandon()
+		end 'drop'
+		return exchange.fail(StatusCode.notFound)
+	end 'handle'
+end 'Site'
+
+function main() returns ExitCode
+	let tally = spawn Tally.create()
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
+	let port = server.port()
+	let serving = server.serve(freeze(Site.create("hi", tally: tally) as HttpHandler))
+	print("/hello: {answerTo(port, request: "GET /hello HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n")}\n")
+	print("/fields: {answerTo(port, request: "GET /fields HTTP/1.1\r\nHost: a\r\nX-Request: 3\r\nConnection: close\r\n\r\n")}\n")
+	print("/echo: {answerTo(port, request: "POST /echo HTTP/1.1\r\nHost: a\r\nContent-Length: 5\r\nConnection: close\r\n\r\nabcde")}\n")
+	print("/missing then /hello, kept: {answerTo(port, request: "GET /missing HTTP/1.1\r\nHost: a\r\n\r\nGET /hello HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n")}\n")
+	print("/drop: {answerTo(port, request: "GET /drop HTTP/1.1\r\nHost: a\r\n\r\n")}\n")
+	print("/fields to a HEAD: {answerTo(port, request: "HEAD /fields HTTP/1.1\r\nHost: a\r\nX-Request: 3\r\nConnection: close\r\n\r\n")}\n")
+	serving.stop(1000)
+	print("counted: {try await tally.count() otherwise 0}\n")
+	tally.shutdown()
+	print("stopped\n")
+	return 0
+end 'main'

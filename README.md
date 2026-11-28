@@ -6651,7 +6651,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   can make. The `tlsFailed` cases of `HttpError` and `HttpServerError` are kept, for when TLS comes. A converted file of the
   library leaves out what runs a session (`cmd/convert`, tls.go).
 - **The HTTP server is minimaxon's own design, not maxon's** (being built; `stdlib/http`). `HttpServer.bind(host, port:)`
-  gives a linear server that `close()` or `serve(config)` ends; `serve` gives an `HttpServing`, whose `stop(deadlineMs)`
+  gives a linear server that `close()` or `serve(handler, config:)` ends, `config` a `ServerConfig.create()` where it is left
+  out; `serve` gives an `HttpServing`, whose `stop(deadlineMs)`
   closes the listener, closes each connection that holds no request at once, lets one whose request has begun to arrive
   finish its answer, closes those still open at the deadline, and returns once every connection has ended. The accept loop
   is a service on the listener's readiness (`acceptor.maxon`), which keeps each connection's handle in a slot table and
@@ -6675,10 +6676,27 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   the bytes of answered requests are dropped once, when a read leaves a request unfinished behind them or the last is
   answered. A request's body is copied once out of the bytes that have come, as a `ByteArray`. A connection that closes after an answer lingers first (RFC 9112 §9.6): it shuts its sending and reads and
   drops what its client still sends, for at most `lingerMs` and `lingerBytes`, so the close does not reset the answer before
-  the client reads it. Not yet: the handler (a stand-in answers with the request line and the body's length), and the drain
-  of an unread body after an answer kept alive (`maxDrainBytes`), which waits for a handler that can answer before the body
-  is read: every body is read whole before the answer today, and a refusal from the head closes. maxon's `accept()`,
-  `serve(handler)` and `HttpServerLimits` are not provided.
+  the client reads it. Not yet: the drain of an unread body after an answer kept alive (`maxDrainBytes`), which waits for a
+  handler that can answer before the body is read: every body is read whole before the answer today, and a refusal from the
+  head closes. maxon's `accept()`, `HttpServerLimits` and `HttpServeEnd` are not provided; the spec tests of maxon's server
+  and responder (`http-server.md`, `http-responder.md`), which are written to its handler, are skipped with this reason.
+- **A handler answers through a linear exchange and returns the token the answer gives** (`stdlib/http/exchange.maxon`).
+  `HttpHandler`'s one requirement is `handle(consumes exchange HttpExchange) returns HttpAnswered`, and it throws nothing,
+  where maxon's is `handle(exchange mutable HttpExchange) throws HttpServerError` beside `faulted(fault)`, which is gone: a
+  handler answers its own failures (`return exchange.fail(StatusCode.internalServerError)`). An `HttpExchange` owns the
+  request (`request`, a `RequestHead`, and `requestBody`) and the connection's socket and the answer's outcome, a `Wire`,
+  which the connection moves out of its state for the call; each way to answer, `respond(response)`,
+  `respondWith(code, body:, contentType:)`, `fail(code)` and `abandon()` (a close with no answer), consumes it and gives the
+  one `HttpAnswered`, linear, which only the library makes, and from which the connection takes the `Wire` back. So
+  answering twice is a use after a move (`E3102`), and a handler that does not answer has no value to return: maxon's
+  run-time stage checks (`alreadyResponded`), its 500 in the handler's place and its report of an unanswered request are not
+  here. An answer is a parking send under the write deadline that throws nothing: a failed send is the connection's, which
+  closes. The connection states each answer's length and its `Connection` field, as its keep-alive says. An answer that
+  cannot be sent as it is (a body on a status that has none, a reason, a field or a content type that would end its line) is
+  not sent, and the connection closes, where maxon's throws `invalidResponse`. The handler is shared frozen by every
+  connection (`server.serve(freeze(Hello.create() as HttpHandler))`), one count per connection, and is read only; a
+  connection calls it in its own message, which `HttpHandler`'s `requires service` allows, so a handler waits on no service
+  and names a policy for each kind it sends (`E3210`, `E3957`).
 - **There is no TEST-NET-1 short-circuit.** minimaxon has no TEST-NET-1 short-circuit; a connect dials as Go's does and the OS's timeout applies, where maxon's runtime refuses `192.0.2.0/24` without dialling (its two spec tests that connect there with no deadline are skipped with this reason).
 - **A file's close throws.** maxon's `close()` throws nothing and its drop discards what the system's close reports. Here,
   as Go's `Close` does, `close()` throws it, `__ManagedFileError.writeFailed`, which `FileWriter.close` throws as

@@ -9,8 +9,9 @@
 // drops what the client still sends, for at most ServerConfig.lingerMs and lingerBytes, so that the close does not reset
 // the answer before the client has read it.
 //
-// Until the handler can be called from here (an interface value that may be called in a message), a request is answered
-// by StandIn, which says what it read.
+// The handler is called in the connection's own message, once a request's body has come, with an HttpExchange that owns the
+// connection's Wire for the call: the Wire's slot in the state is empty meanwhile, and the Wire comes back in the
+// HttpAnswered the handler returns, whose outcome says whether the connection is kept, closes or failed.
 
 // The most bytes one read takes from the socket.
 let ReadChunkBytes = 16384
@@ -18,20 +19,11 @@ let ReadChunkBytes = 16384
 // What the connection sends where a request asked to be told to send its body (RFC 9110 §10.1.1).
 let ContinueLine = "HTTP/1.1 100 Continue\r\n\r\n"
 
-/// Answers in the handler's place until the handler is called from the connection.
-export type StandIn
-	let reason as String
-
-	export static function create() returns StandIn
-		return StandIn{reason: "the handler is not called yet"}
-	end 'create'
-
-	/// The answer to a request: its request line, and how many bytes its body had where it had one.
-	export function bodyFor(head RequestHead, body ByteArray) returns String
-		let line = "{httpMethodToString(head.method)} {head.target()} HTTP/1.{head.minorVersion}"
-		return "{line} with {body.count()} bytes" if body.count() > 0 else line
-	end 'bodyFor'
-end 'StandIn'
+// Where the connection's Wire is: in its state, or lent to the exchange of the handler's call.
+union WireSlot
+	held(wire Wire)
+	lent
+end 'WireSlot'
 
 union ConnTimer
 	armed(timer services.Timer)
@@ -53,15 +45,9 @@ union PendingHead
 	none
 end 'PendingHead'
 
-// The Connection field of an answer: none where an HTTP/1.1 connection is kept, which is its default; keep-alive where an
-// HTTP/1.0 one is, which it is not (RFC 9112 §9.3); close where the connection closes after it.
-let KeptAliveField = "Connection: keep-alive\r\n"
-
-let ClosingField = "Connection: close\r\n"
-
 export service Conn implements services.Ends
-	var client as net.TcpClient
-	let handler as frozen with StandIn
+	var socket as WireSlot
+	let handler as frozen with HttpHandler
 	let config as frozen with ServerConfig
 	var arrived as ByteArray
 	// Where the bytes of the request being read start in arrived: those before it are of requests already answered.
@@ -72,14 +58,14 @@ export service Conn implements services.Ends
 	var stopping as bool
 	var lingered as Count
 
-	export static function create(consumes client net.TcpClient, handler frozen with StandIn, config frozen with ServerConfig) returns Self
-		return Self{client: client, handler: handler.clone(), config: config.clone(), arrived: ByteArray.create(0), consumed: 0, phase: ConnPhase.readingHead, pending: PendingHead.none, timer: ConnTimer.none, stopping: false, lingered: 0}
+	export static function create(consumes client net.TcpClient, handler frozen with HttpHandler, config frozen with ServerConfig) returns Self
+		return Self{socket: WireSlot.held(Wire.over(client)), handler: handler.clone(), config: config.clone(), arrived: ByteArray.create(0), consumed: 0, phase: ConnPhase.readingHead, pending: PendingHead.none, timer: ConnTimer.none, stopping: false, lingered: 0}
 	end 'create'
 
 	/// Arm the socket for the first request, and its head deadline.
 	@policy(services.Keep) export function begin(mutates self)
 		self.arm(self.config.headDeadlineMs.clone(), me: self.handle)
-		self.client.notifyReadable(self.handle.post(Conn.Message.readable))
+		self.armReadable(self.handle)
 	end 'begin'
 
 	export function readable(mutates self)
@@ -138,7 +124,10 @@ export service Conn implements services.Ends
 		while self.phase != ConnPhase.closed 'reading'
 			var blocked = false
 			var ended = false
-			match try self.client.readAvailableInto(self.arrived, most: ReadChunkBytes) otherwise net.ReadInto.ended 'read'
+			var wire = self.takeWire()
+			let got = try wire.client.readAvailableInto(self.arrived, most: ReadChunkBytes) otherwise net.ReadInto.ended
+			self.putWire(wire)
+			match got 'read'
 				read then break
 				wouldBlock then blocked = true
 				ended then ended = true
@@ -156,7 +145,7 @@ export service Conn implements services.Ends
 			end 'cutShort'
 			if blocked 'nothingMore'
 				if arming 'arm'
-					self.client.notifyReadable(me.post(Conn.Message.readable))
+					self.armReadable(me)
 				end 'arm'
 				return
 			end 'nothingMore'
@@ -229,14 +218,10 @@ export service Conn implements services.Ends
 			return
 		end 'tooLarge'
 		if length > 0 and head.expectsContinue and self.arrived.count() == through 'toldToSend'
-			try self.client.setWriteDeadline(self.config.writeDeadlineMs) otherwise 'gone'
+			if not self.sendHead(ContinueLine, body: "") 'gone'
 				self.close()
 				return
 			end 'gone'
-			_ = try self.client.send(ContinueLine) otherwise 'unsent'
-				self.close()
-				return
-			end 'unsent'
 		end 'toldToSend'
 		let bodyEnd = try through + length otherwise panic("Conn.headParsed: a body past the largest position")
 		self.pending = PendingHead.reading(head, bodyStart: through, bodyEnd: bodyEnd)
@@ -273,26 +258,31 @@ export service Conn implements services.Ends
 		end 'pending'
 	end 'bodyIfWhole'
 
-	// answer answers a request in the handler's place, and keeps the connection for the next one or lingers and closes it. The
-	// answer to a HEAD is the head a GET would have, with no body (RFC 9110 §9.3.2).
+	// answer has the handler answer a request, with the Wire lent to its exchange, and then keeps the connection for the next
+	// request, or lingers and closes it, or closes it at once, as the answer's outcome says.
 	function answer(mutates self, consumes head RequestHead, bodyStart Count, bodyEnd Count, me Conn.handle)
 		let keeps = not head.closes and not self.stopping
-		let field = (KeptAliveField if head.minorVersion == 0 else "") if keeps else ClosingField
 		// The body is copied once, out of the bytes that have come, as the handler is given it.
 		var requestBody = ByteArray.create(0)
 		if bodyEnd > bodyStart 'body'
 			requestBody = try self.arrived.slice(bodyStart as ElementIndex, endIndex: bodyEnd as ElementIndex) otherwise panic("Conn.answer: the body lies in what has come")
 		end 'body'
-		let body = self.handler.bodyFor(head, body: requestBody)
-		let sent = self.sendHead(StatusCode.ok, length: body.byteLength(), body: "" if head.method == HttpMethod.head else body, field: field)
-		if not sent 'gone'
-			self.close()
-			return
-		end 'gone'
-		if not keeps 'closes'
-			self.linger(me)
-			return
-		end 'closes'
+		// A handler is not interrupted: no deadline runs while it answers.
+		self.disarm()
+		let request = HttpExchange.over(self.takeWire(), head: head, body: requestBody, keeps: keeps, writeDeadlineMs: self.config.writeDeadlineMs)
+		let wire = self.handler.handle(request).wireBack()
+		let outcome = wire.outcome
+		self.putWire(wire)
+		match outcome 'outcome'
+			kept then self.keep(bodyEnd, me: me)
+			closing then self.linger(me)
+			broken then self.close()
+		end 'outcome'
+	end 'answer'
+
+	// keep keeps the connection after an answer: it reads the next request where its bytes have come past the last one, and
+	// waits idle for it otherwise.
+	function keep(mutates self, bodyEnd Count, me Conn.handle)
 		let count = self.arrived.count()
 		if bodyEnd < count 'pipelined'
 			// The bytes past the request are the next one's, which has begun: it is read where it lies, and its head deadline
@@ -307,7 +297,7 @@ export service Conn implements services.Ends
 		self.consumed = 0
 		self.phase = ConnPhase.idle
 		self.arm(self.config.idleTimeoutMs.clone(), me: me)
-	end 'answer'
+	end 'keep'
 
 	// refuse answers a request the connection will not serve, and lingers and closes.
 	function refuse(mutates self, code StatusCode, me Conn.handle)
@@ -322,7 +312,13 @@ export service Conn implements services.Ends
 	// client ends its own sending, lingerBytes have come or lingerMs have passed (RFC 9112 §9.6): a close with bytes unread
 	// would reset the connection, and the reset can destroy the answer before the client reads it.
 	function linger(mutates self, me Conn.handle)
-		try self.client.shutdownWrite() otherwise 'gone'
+		var wire = self.takeWire()
+		var shut = true
+		try wire.client.shutdownWrite() otherwise 'failed'
+			shut = false
+		end 'failed'
+		self.putWire(wire)
+		if not shut 'gone'
 			self.close()
 			return
 		end 'gone'
@@ -332,18 +328,42 @@ export service Conn implements services.Ends
 	end 'linger'
 
 	function answerStatus(mutates self, code StatusCode) returns bool
-		return self.sendHead(code, length: 0, body: "", field: ClosingField)
+		return self.sendHead(answerHead(code, contentType: PlainText, length: 0, carries: true, field: ClosingField), body: "")
 	end 'answerStatus'
 
-	// sendHead sends a head that states a body of `length` bytes and carries the Connection field `field`, and then `body`,
-	// in one vectored send, so the body is never copied behind the head, under the write deadline, which is per send. It says
-	// whether the send was whole: one that fails ends the connection, which the caller closes.
-	function sendHead(mutates self, code StatusCode, length Count, body String, field String) returns bool
-		let head = "HTTP/1.1 {code.number()} {reasonOf(code)}\r\nContent-Type: text/plain\r\nContent-Length: {length}\r\n{field}\r\n"
-		try self.client.setWriteDeadline(self.config.writeDeadlineMs) otherwise return false
-		_ = try self.client.sendPair(head, body: body) otherwise return false
-		return true
+	// sendHead sends `head` and then `body` in one vectored send, so the body is never copied behind the head, under the write
+	// deadline, which is per send. It says whether the send was whole: one that fails ends the connection, which the caller
+	// closes.
+	function sendHead(mutates self, head String, body String) returns bool
+		var wire = self.takeWire()
+		wire.send(head, body: body, keeps: true, writeDeadlineMs: self.config.writeDeadlineMs)
+		let sent = wire.outcome != Outcome.broken
+		self.putWire(wire)
+		return sent
 	end 'sendHead'
+
+	function armReadable(mutates self, me Conn.handle)
+		var wire = self.takeWire()
+		wire.client.notifyReadable(me.post(Conn.Message.readable))
+		self.putWire(wire)
+	end 'armReadable'
+
+	// takeWire takes the Wire out of the state, which holds it whenever no handler is answering.
+	function takeWire(mutates self) returns Wire
+		let slot = exchange(self.socket, value: WireSlot.lent)
+		match consumes slot 'slot'
+			held(wire) then return wire
+			lent then panic("Conn.takeWire: the Wire is lent to the exchange of a handler that is answering")
+		end 'slot'
+	end 'takeWire'
+
+	function putWire(mutates self, consumes wire Wire)
+		let slot = exchange(self.socket, value: WireSlot.held(wire))
+		match consumes slot 'slot'
+			held(other) then panic("Conn.putWire: the state holds a Wire already")
+			lent then return
+		end 'slot'
+	end 'putWire'
 
 	function arm(mutates self, ms net.SocketDeadlineMs, me Conn.handle)
 		let old = exchange(self.timer, value: ConnTimer.armed(services.Timer.notifyAfter(timerMsOf(ms), message: me.post(Conn.Message.timedOut))))
@@ -353,13 +373,17 @@ export service Conn implements services.Ends
 		end 'old'
 	end 'arm'
 
-	// close ends the connection: the message that closes it stops the service, and finish closes the socket.
-	function close(mutates self)
+	function disarm(mutates self)
 		let old = exchange(self.timer, value: ConnTimer.none)
 		match consumes old 'old'
 			armed(t) then t.cancel()
-			none then break
+			none then return
 		end 'old'
+	end 'disarm'
+
+	// close ends the connection: the message that closes it stops the service, and finish closes the socket.
+	function close(mutates self)
+		self.disarm()
 		self.phase = ConnPhase.closed
 	end 'close'
 
@@ -369,7 +393,11 @@ export service Conn implements services.Ends
 			armed(armed) then armed.cancel()
 			none then break
 		end 'timer'
-		try self.client.close() otherwise ignore
+		var slot = self.socket
+		match consumes slot 'wire'
+			held(wire) then try wire.client.close() otherwise ignore
+			lent then panic("Conn.finish: the Wire is lent to the exchange of a handler that is answering")
+		end 'wire'
 	end 'finish'
 end 'Conn'
 

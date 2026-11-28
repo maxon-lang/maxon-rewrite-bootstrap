@@ -96,6 +96,7 @@ real `HttpClient` as the peer, and the method, path and query the handler read r
 body.
 
 <!-- test: http-server.get-round-trip -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -142,6 +143,7 @@ URL. The `Host` header arrives bracketed, so the handler's `request.url()` carri
 `host()` is the bare address and `authorityHost()` keeps the brackets.
 
 <!-- test: http-server.an-ipv6-loopback-server-answers-a-bracketed-url -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -189,6 +191,7 @@ right about every short body and wrong about every real one, so the handler answ
 received and the case pins it against the count the client sent.
 
 <!-- test: http-server.post-body-arrives-whole -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -203,7 +206,7 @@ function bigBody() returns String
 	var body = ""
 	var written = 0 as Count
 	while written < ChunkCount 'fill'
-		body = "{body}{ChunkText}"
+		body.append(ChunkText)
 		written = written + 1
 	end 'fill'
 	return body
@@ -246,6 +249,7 @@ served=3 status=200 agreed=true sent=21120
 ### Request headers are case-insensitive
 
 <!-- test: http-server.request-headers-are-case-insensitive -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -295,6 +299,7 @@ served=3 body=mixed/mixed
 assertion: the first handler throws, and only a loop that survived it can answer the second.
 
 <!-- test: http-server.a-throwing-handler-answers-500-and-serves-on -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -357,6 +362,7 @@ first=500 second=200 body=second
 ```
 
 <!-- test: http-server.a-handler-that-throws-after-responding-is-reported-and-not-answered-twice -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 let LatePath = "/late"
@@ -416,6 +422,7 @@ first=200 body=answered second=200
 ```
 
 <!-- test: http-server.a-second-response-is-refused -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 function answerTwice(server HttpServer) returns String
@@ -453,6 +460,7 @@ status=200 body=first second=alreadyResponded
 ```
 
 <!-- test: http-server.an-accept-deadline-ends-serve -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 type EchoPathHandler implements HttpHandler
@@ -505,6 +513,7 @@ idle=acceptDeadlinePassed body=echo/again
 ```
 
 <!-- test: http-server.repeated-request-headers-are-combined-in-order -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -560,6 +569,7 @@ bytes itself and reads the status code back out of the status line as text. The 
 thing pinned; the reason phrase is not, because a phrase is prose and a code is the protocol.
 
 <!-- test: http-server.oversize-headers-answer-431 -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -590,10 +600,10 @@ function oversizeHeaderBlock() returns String
 	var block = "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n"
 	var written = 0 as PadCount
 	while written < PadLines 'pad'
-		block = "{block}X-Pad-{written}: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n"
+		block.append("X-Pad-{written}: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n")
 		written = written + 1
 	end 'pad'
-	block = "{block}\r\n"
+	block.append("\r\n")
 	return block
 end 'oversizeHeaderBlock'
 
@@ -633,6 +643,7 @@ The cap is checked against the DECLARED length, before the body is read, so a cl
 megabytes and sent four bytes is still refused.
 
 <!-- test: http-server.oversize-body-answers-413 -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -685,6 +696,7 @@ status=413 served=1
 ### A chunked request answers 501
 
 <!-- test: http-server.chunked-answers-501 -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -740,6 +752,7 @@ connection and requires a real answer on it. The deadline belongs to the silent 
 lifts it before the second accept, so the second request is not racing a clock of its own.
 
 <!-- test: http-server.a-silent-client-answers-408-and-serves-on -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -803,6 +816,7 @@ silent=408 second=200 body=second served=3
 ### A malformed request line answers 400
 
 <!-- test: http-server.a-malformed-request-line-answers-400 -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -857,6 +871,7 @@ carrying such a line is `malformedRequest` and a RESPONSE carrying one is `HttpE
 A case that only asserted the server half would leave the client free to go on dropping the line.
 
 <!-- test: http-server.a-header-line-without-a-colon-is-malformed -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -935,6 +950,7 @@ its own `send` (a `\r\n` is one character, so the terminator arrives as two), an
 the server's reads come in pieces.
 
 <!-- test: http-server.a-head-block-sent-one-byte-at-a-time-is-parsed -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -1001,6 +1017,7 @@ with the SAME value has one reading and is served. A head block whose terminator
 that crosses the cap is still over the cap.
 
 <!-- test: http-server.an-ambiguous-request-answers-400 -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 let HeadCap = 160
@@ -1032,9 +1049,9 @@ end 'acceptedAs'
 function paddedHead() returns String
 	var head = "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Pad: "
 	while head.byteLength() <= HeadCap 'pad'
-		head = "{head}aaaaaaaaaa"
+		head.append("aaaaaaaaaa")
 	end 'pad'
-	head = "{head}\r\n\r\n"
+	head.append("\r\n\r\n")
 	return head
 end 'paddedHead'
 
@@ -1072,6 +1089,7 @@ status=431 accept=headersTooLarge
 ### Cancelling the serving promise ends serve
 
 <!-- test: http-server.cancel-ends-serve-and-close-releases-the-port -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 `serve` is ended by cancelling the promise that serves, and `close()` then releases the port: the first request is answered,
 and a request made after the cancel and the close finds nothing listening.
@@ -1131,6 +1149,7 @@ status=200 body=serving later=connectFailed
 ```
 
 <!-- test: http-server.serve-on-a-closed-server-ends-closed-at-once -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 `close()` before `serve` leaves nothing to accept on, so `serve` returns `closed` without answering anything.
 
@@ -1172,6 +1191,7 @@ ended=closed
 pass the second half of this case and say nothing about `close()`.
 
 <!-- test: http-server.accept-after-close-throws-listener-closed -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -1219,6 +1239,7 @@ status=200 served=3 refusal=listenerClosed
 ### A `Host` that is not an authority answers 400
 
 <!-- test: http-server.a-host-that-is-not-an-authority-answers-400 -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -1300,6 +1321,7 @@ status=200 accept=served x /p q=/x?y
 ### A header name is a token, and a folded line is refused
 
 <!-- test: http-server.a-header-name-is-a-token-and-a-folded-line-is-refused -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -1362,6 +1384,7 @@ status=200 accept=served x-tight=packed
 ### The request line is read to its grammar
 
 <!-- test: http-server.the-request-line-is-read-to-its-grammar -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -1432,6 +1455,7 @@ status=200 accept=served post /form [hi]
 ### A HEAD response carries no body
 
 <!-- test: http-server.a-head-response-carries-no-body -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -1449,7 +1473,7 @@ function everythingFrom(mutates client TcpClient) returns String
 	var open = true
 	while open 'untilClosed'
 		if let chunk = try client.readSome(ReadBufferBytes) 'more'
-			answer = "{answer}{String.from(chunk)}"
+			answer.append(String.from(chunk))
 			open = not chunk.isEmpty()
 		end 'more' else 'closed'
 			open = false
@@ -1501,6 +1525,7 @@ served=3 Content-Length: 5 body=[]
 ### A handler that returns without responding answers 500 and is reported
 
 <!-- test: http-server.a-handler-that-returns-without-responding-answers-500 -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 let SilentPath = "/silent"
@@ -1562,6 +1587,7 @@ first=500 second=200 body=remembered
 ### A throw whose 500 cannot be sent is reported as unanswered
 
 <!-- test: http-server.a-throw-whose-500-cannot-be-sent-is-reported-as-unanswered -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
@@ -1667,6 +1693,7 @@ reset=true
 ### `serve` answers a protocol fault and serves on
 
 <!-- test: http-server.serve-answers-a-protocol-fault-and-serves-on -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -1738,6 +1765,7 @@ refused=400 next=200 body=after
 ### A 408 reaches a peer that is still sending
 
 <!-- test: http-server.a-408-reaches-a-peer-that-is-still-sending -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 The peer sends the start of a request and then one byte of an endless header at a time, looking for an answer after
 each, so the head is never completed and the peer's loop ends only on an answer: a 408 it reads is one that reached a
@@ -1813,6 +1841,7 @@ status=408 accept=readTimedOut
 ### A 413 reaches a peer that is still sending its body
 
 <!-- test: http-server.a-413-reaches-a-peer-that-is-still-sending-its-body -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -1840,7 +1869,7 @@ function oversizeRequest() returns String
 	var block = "POST /upload HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: {DeclaredBodyBytes}\r\n\r\n"
 	var written = 0 as Count
 	while written < SentBodyChunks 'fill'
-		block = "{block}{BodyChunk}"
+		block.append(BodyChunk)
 		written = written + 1
 	end 'fill'
 	return block
@@ -1883,6 +1912,7 @@ status=413 accept=bodyTooLarge
 ### A head within the cap is accepted when the body arrives in the same read
 
 <!-- test: http-server.a-head-within-the-cap-arrives-with-a-body-past-it -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 let HeaderCap = 1024
@@ -1918,7 +1948,7 @@ function postWithBody() returns String
 	var block = "POST /upload HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: {BodyBytes}\r\n\r\n"
 	var written = 0 as Count
 	while written < BodyBytes 'fill'
-		block = "{block}b"
+		block.append("b")
 		written = written + 1
 	end 'fill'
 	return block
@@ -1961,6 +1991,7 @@ request and begun the answer, so closing the listener after it cannot beat the a
 connection it took has finished, which is when the write deadline has ended the send.
 
 <!-- test: http-server.a-peer-that-never-reads-is-abandoned-at-the-write-deadline -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 let WriteDeadlineMs = 500
@@ -2041,6 +2072,7 @@ A server MUST accept an absolute-form target and take the authority from it rath
 hands no exchange to the caller; the asterisk with any other method is malformed.
 
 <!-- test: http-server.absolute-form-and-options-asterisk -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -2050,7 +2082,7 @@ function everythingFrom(mutates client TcpClient) returns String
 	var open = true
 	while open 'untilClosed'
 		if let chunk = try client.readSome(ReadBufferBytes) 'more'
-			answer = "{answer}{String.from(chunk)}"
+			answer.append(String.from(chunk))
 			open = not chunk.isEmpty()
 		end 'more' else 'closed'
 			open = false
@@ -2124,6 +2156,7 @@ options=200 allow=true then=200 allow=false accept=served x 0 /after no-query
 ### An HTTP/1.0 request needs no `Host`, and a leading empty line is ignored
 
 <!-- test: http-server.http-1-0-needs-no-host-and-a-leading-empty-line-is-ignored -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -2189,6 +2222,7 @@ with one is refused rather than sent. A field name must be a token, and a field 
 may carry no CR, LF or other control, or one response could be read as two.
 
 <!-- test: http-server.a-response-is-held-to-what-its-status-and-fields-allow -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -2198,7 +2232,7 @@ function everythingFrom(mutates client TcpClient) returns String
 	var open = true
 	while open 'untilClosed'
 		if let chunk = try client.readSome(ReadBufferBytes) 'more'
-			answer = "{answer}{String.from(chunk)}"
+			answer.append(String.from(chunk))
 			open = not chunk.isEmpty()
 		end 'more' else 'closed'
 			open = false
@@ -2273,6 +2307,7 @@ answer on its way to the peer. So a server that received more than the one reque
 before it closes.
 
 <!-- test: http-server.bytes-past-the-request-are-drained-before-the-close -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 ```maxon
 let ReadBufferBytes = 4096
@@ -2284,7 +2319,7 @@ function everythingFrom(mutates client TcpClient) returns String
 	var open = true
 	while open 'untilClosed'
 		if let chunk = try client.readSome(ReadBufferBytes) 'more'
-			answer = "{answer}{String.from(chunk)}"
+			answer.append(String.from(chunk))
 			open = not chunk.isEmpty()
 		end 'more' else 'closed'
 			open = false
@@ -2337,6 +2372,7 @@ accept=served /first answered=true
 ```
 
 <!-- test: http-server.a-silent-client-does-not-delay-another-request -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 `serve` reads each connection's request in its own coroutine, so a client that connects and sends nothing holds only its own connection: with no read deadline, so that nothing but the silent client's own `close()` can end its connection, a request made beside it is still answered, and `serve` goes on until its promise is cancelled.
 ```maxon
@@ -2498,6 +2534,7 @@ quick answered beside the loop: true, spin answered once released: true
 ```
 
 <!-- test: http-server.connections-share-state-through-a-service-the-handler-holds -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 4 -->
 The handler is one read-only value every connection reads at once, so what the connections share is a service it holds
 a handle to. Each connection's thread sends the service a message, and the service counts them one at a time: three
@@ -2571,6 +2608,7 @@ end 'exchangeOver'
 ```
 
 <!-- test: http-server.error.a-handler-that-writes-its-own-fields-is-refused -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- positions: moved -->
 The handler is read by every connection at once, so a conformer whose method writes its own field cannot be shared:
 `HttpHandler.handle` is read-only, so the conformer is refused at the requirement, and the program is refused again

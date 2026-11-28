@@ -26,6 +26,7 @@ for an answer. `respondLater` throws `alreadyResponded` on an exchange already a
 ## Tests
 
 <!-- test: a-handler-asks-an-auth-service-and-answers-through-the-continuation -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 The handler defers the answer with `respondLater`, sends the responder to the `Auth` service in a message of its own, and returns. `Auth` answers through the responder, so the answer reaches the client from the service, and `respondWith` is the finalizer that consumes it.
 ```maxon
@@ -127,6 +128,7 @@ allowed=200 welcome denied=401 busy=503
 ```
 
 <!-- test: a-failed-send-hands-the-responder-back-and-the-handler-answers-503 -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 The `Auth` service is shut down, so the handler's send fails `serviceStopped` and carries the responder back. The handler's `otherwise` arm answers 503 through it.
 ```maxon
@@ -211,6 +213,7 @@ busy=503 busy
 ```
 
 <!-- test: the-responder-travels-through-two-services-in-continuation-messages -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 `Auth` passes the responder on to `Directory` in another message, and `Directory` answers. No message waits for the answer.
 ```maxon
@@ -320,6 +323,7 @@ end 'main'
 ```
 
 <!-- test: abandon-closes-the-connection-without-an-answer -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 `abandon` is the finalizer for a responder that cannot answer: it ends the responder and the worker closes the connection, so the client sees no response.
 ```maxon
@@ -372,6 +376,7 @@ no answer: invalidResponse
 ```
 
 <!-- test: an-exchange-from-accept-has-no-worker-to-defer-to -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 `HttpServer.accept` hands out an exchange no worker serves, so `respondLater` throws `deferralUnavailable` and the handler answers directly.
 ```maxon
@@ -413,6 +418,7 @@ status 200 exit 0
 ```
 
 <!-- test: a-responder-the-handler-never-answers-is-refused -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 
@@ -446,6 +452,7 @@ error E3012: <fragment>:10:7: unused variable: 'responder'
 ```
 
 <!-- test: a-responder-left-by-an-early-return-is-refused -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 
@@ -486,6 +493,7 @@ error E3223: <fragment>:13:4: this drops 'responder', a linear value that was ne
 ```
 
 <!-- test: ignoring-a-failed-answer-drops-the-responder -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 
@@ -518,6 +526,7 @@ error E3223: <fragment>:12:3: this drops a linear value that was never consumed:
 ```
 
 <!-- test: answering-twice-is-refused -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- positions: moved -->
 
 ```maxon
@@ -545,7 +554,7 @@ error E3102: <fragment>:10:6: use of moved value 'responder': its ownership move
 ```
 
 <!-- test: a-responder-cannot-be-kept-in-a-field -->
-<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 
 ```maxon
 type Parked
@@ -565,6 +574,7 @@ error E3224: <fragment>:3:6: the field 'waiting' holds a linear value, and a lin
 ```
 
 <!-- test: an-invalid-response-hands-the-responder-back-and-the-service-answers-again -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- procs: 1 -->
 `Auth` answers a `204` that carries a body, which no connection can send. `respondWith` validates the response before it sends, so it throws `invalidResponse` carrying the responder back, and `Auth` answers a valid `500` through it.
 ```maxon
@@ -647,7 +657,7 @@ status=500 fallback
 ```
 
 <!-- test: a-handler-cannot-keep-its-exchange-in-a-container -->
-<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- skip: language difference: the HTTP server is minimaxon's own design, where a handler answers a linear HttpExchange and returns the HttpAnswered its answer gives, throws nothing and has no faulted, with no 500 answered in its place and no run-time stage check, and serve takes the frozen handler and gives an HttpServing, with no accept(), HttpServerLimits or HttpServeEnd (README, Where it differs from Maxon: the HTTP server) -->
 <!-- positions: moved -->
 A handler borrows its exchange for one call, and the exchange holds the connection, so it cannot be pushed anywhere that outlives the call. `request()`, `security()` and `respond()` can therefore never meet an exchange the worker has taken.
 ```maxon

@@ -121,9 +121,9 @@ public type HttpServer
 		return listener.port()
 	end 'port'
 
-	/// Serve the connections that come, each a service of its own under `config`, until `stop` on what this gives.
-	public function serve(destructs self, config ServerConfig) returns HttpServing
-		let handler = freeze(StandIn.create())
+	/// Serve the connections that come, each a service of its own under `config`, until `stop` on what this gives. Every
+	/// connection calls `handler`, which they share frozen, for each request it reads (`server.serve(freeze(Hello.create()))`).
+	public function serve(destructs self, consumes handler frozen with HttpHandler, config ServerConfig = ServerConfig.create()) returns HttpServing
 		let frozenConfig = freeze(config.clone())
 		let acceptor = spawn Acceptor.create(listener, handler: handler, config: frozenConfig)
 		try acceptor.begin() otherwise panic("HttpServer.serve: an acceptor that has just been spawned takes its first message")

@@ -1,0 +1,75 @@
+// An answer that a client stops reading ends at ServerConfig.writeDeadlineMs (RFC 9112 §9.5, a server may close a connection
+// that stops making progress): the send fails there, which the connection, not the handler, records, and it closes the
+// connection, its answer cut short. The handler returns and the server serves on. The deadline is short here, and the answer
+// far larger than what the sockets hold, so the client reads what was sent before the deadline and then the close.
+// native-only
+//> cut short: true
+//> then: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 5\r\nConnection: close\r\n\r\nsmall
+//> stopped
+function shown(text String) returns String
+	return text.replace("\r\n", with: "\\r\\n")
+end 'shown'
+
+// The answer to /big: 2^BigDoublings bytes.
+let BigDoublings = 25
+
+type Big implements HttpHandler
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function handle(consumes exchange HttpExchange) returns HttpAnswered
+		if exchange.request.target() != "/big" 'small'
+			return exchange.respondWith(StatusCode.ok, body: "small", contentType: "text/plain")
+		end 'small'
+		var body = "x"
+		for i in 0 upto BigDoublings 'double'
+			body = "{body}{body}"
+		end 'double'
+		return exchange.respondWith(StatusCode.ok, body: body, contentType: "text/plain")
+	end 'handle'
+end 'Big'
+
+// readCount reads what the server sends until it closes the connection, and gives how many bytes came.
+function readCount(mutates client TcpClient) returns Count
+	var got = 0 as Count
+	while true 'reading'
+		let chunk = try client.readSome(65536) otherwise return got
+		if chunk.isEmpty() 'closed'
+			return got
+		end 'closed'
+		got = try got + chunk.count() otherwise return got
+	end 'reading'
+	return got
+end 'readCount'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
+	let port = server.port()
+	var config = ServerConfig.create()
+	config.writeDeadlineMs = 100
+	let serving = server.serve(freeze(Big.create() as HttpHandler), config: config)
+	var slow = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
+	try slow.setReadDeadline(5000) otherwise ignore
+	_ = try slow.send("GET /big HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n") otherwise 0
+	sleep(600)
+	let got = readCount(slow)
+	try slow.close() otherwise ignore
+	print("cut short: {got > 0 and got < 33554432}\n")
+	var quick = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
+	try quick.setReadDeadline(5000) otherwise ignore
+	_ = try quick.send("GET /small HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n") otherwise 0
+	var all = ByteArray.create(0)
+	while true 'reading'
+		let chunk = try quick.readSome(4096) otherwise break 'reading'
+		if chunk.isEmpty() 'closed'
+			break 'reading'
+		end 'closed'
+		all.append(chunk)
+	end 'reading'
+	try quick.close() otherwise ignore
+	print("then: {shown(String.from(all))}\n")
+	serving.stop(1000)
+	print("stopped\n")
+	return 0
+end 'main'
