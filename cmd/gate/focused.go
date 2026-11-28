@@ -306,9 +306,25 @@ func mainCINote() {
 	fmt.Printf("NOTE: main is red: its last finished CI run is %s %s (%s, %s); a red main with a known owner does not stop a landing: name what is red and who has it in the report, and hold only if nobody owns it or this change touches what fails\n", short, r.Conclusion, r.WorkflowName, r.URL)
 }
 
-// regenerateSpecsReporting is `gate specs`, then the files it changed in specs/, which are the change's to commit.
+// regenerateSpecsReporting is `gate specs`, which says in a line what its run counted (the runner's list of the failures of
+// the tests that are not listed is some thousand lines) and what failed it, then the files it changed in specs/, which are
+// the change's to commit.
 func regenerateSpecsReporting(h host, maxonSpecs string) error {
-	err := regenerateSpecs(h, maxonSpecs, false)
+	out, replayed, err := regeneratedSpecs(h, maxonSpecs, false)
+	if counts := specCounts.FindString(out); counts != "" {
+		fmt.Printf("specs regenerated: %s; %d new, %d dropped\n", counts, len(specNew.FindAllString(out, -1)), len(specDropped.FindAllString(out, -1)))
+	}
+	if replayed != "" {
+		fmt.Println(replayed)
+	}
+	if err != nil {
+		if lost := specLost.FindAllString(out, -1); len(lost) > 0 {
+			fmt.Println(strings.Join(lost, "\n"))
+		} else {
+			lines := strings.Split(strings.TrimSpace(out), "\n")
+			fmt.Println(strings.Join(lines[max(0, len(lines)-20):], "\n"))
+		}
+	}
 	if changes, _ := output(nil, "", "git", "status", "--short", "--", "specs"); strings.TrimSpace(changes) != "" {
 		fmt.Printf("NOTE: the regeneration left these files of specs/ differing from the commit, which the landing carries:\n%s", changes)
 	}

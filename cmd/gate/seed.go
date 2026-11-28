@@ -218,20 +218,25 @@ func wslCommand(compiler string, args ...string) (string, []string) {
 // new passes are added, a listed test that the conversion now skips is dropped (the line "DROPPED"), and a listed test that
 // fails stays, so the gate goes on failing until it is fixed.
 func regenerateSpecs(h host, maxonSpecs string, advance bool) error {
-	pinHashSeed()
-	compiler, err := currentCompiler(h)
-	if err != nil {
-		return err
-	}
-	if err := convertSpecsIfStale(compiler, maxonSpecs, advance); err != nil {
-		return err
-	}
-	out, replayed, err := specRun(compiler, true, "--record-passed")
+	out, replayed, err := regeneratedSpecs(h, maxonSpecs, advance)
 	fmt.Print(out)
 	if replayed != "" {
 		fmt.Println(replayed)
 	}
 	return err
+}
+
+// regeneratedSpecs is regenerateSpecs, giving what the runner wrote and the line that says it replayed instead of printing them.
+func regeneratedSpecs(h host, maxonSpecs string, advance bool) (string, string, error) {
+	pinHashSeed()
+	compiler, err := currentCompiler(h)
+	if err != nil {
+		return "", "", err
+	}
+	if err := convertSpecsIfStale(compiler, maxonSpecs, advance); err != nil {
+		return "", "", err
+	}
+	return specRun(compiler, true, "--record-passed")
 }
 
 // convertSpecsIfStale converts maxon's spec tests and fixes them with the compiler (convertSpecs).
