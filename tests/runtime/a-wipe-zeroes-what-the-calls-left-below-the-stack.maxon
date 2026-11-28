@@ -1,0 +1,46 @@
+// __Raw.wipeStack with __Raw.calleeStackDepth() zeroes the stack that the calls of the function it is written in took: a
+// word that a call left in its frame is there after the call returns and gone after the wipe, and a wipe whose floor is
+// above that word leaves it.
+//> left 1
+//> wiped 1
+//> floored 1
+
+let testSecret = 0x5EC2E75EC2E75EC2 as Count
+
+function main() returns ExitCode
+	report("left", ok: testLeft() == testSecret)
+	report("wiped", ok: testWiped(0) == 0)
+	report("floored", ok: testWiped(wordBytes) == testSecret)
+	return 0
+end 'main'
+
+// testLeft is the word a call left below the stack, read before anything else is called.
+function testLeft() returns Count
+	let at = testScratch(testSecret)
+	return __Raw.loadWord(at, offset: 0)
+end 'testLeft'
+
+// testWiped is the word a call left below the stack once a wipe has run whose floor is above it by above bytes, or 0.
+function testWiped(above Count) returns Count
+	let at = testScratch(testSecret)
+	var floor = 0 as Count
+	if above > 0 'floored'
+		floor = __Raw.wrappingAdd(at, right: above)
+	end 'floored'
+	__Raw.wipeStack(__Raw.calleeStackDepth(), floor: floor)
+	return __Raw.loadWord(at, offset: 0)
+end 'testWiped'
+
+// testScratch keeps a word in its frame and gives where it is, which is below its caller's stack pointer once it returns.
+function testScratch(value Count) returns Count
+	var held = value
+	return __Raw.addressOf(held)
+end 'testScratch'
+
+function report(name String, ok bool)
+	if ok 'ok'
+		print("{name} 1\n")
+	end 'ok' else 'wrong'
+		print("{name} 0\n")
+	end 'wrong'
+end 'report'

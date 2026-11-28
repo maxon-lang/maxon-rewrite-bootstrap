@@ -251,9 +251,13 @@ export type CodeSection
 	export var importFixups as Count
 	export var alignment as Count
 	export var preemptible as bool
+	// stackBytes is the most that the code of the section takes of the stack below its caller's stack pointer, not counting
+	// what the calls it makes take, when stackKnown: the frame of a compiled function and what it pushes for a call.
+	export var stackBytes as Count
+	export var stackKnown as bool
 
 	export static function make(code Count, symbolFixups Count, dataFixups Count, importFixups Count, alignment Count, preemptible bool) returns CodeSection
-		return CodeSection{code: code, symbolFixups: symbolFixups, dataFixups: dataFixups, importFixups: importFixups, alignment: alignment, preemptible: preemptible}
+		return CodeSection{code: code, symbolFixups: symbolFixups, dataFixups: dataFixups, importFixups: importFixups, alignment: alignment, preemptible: preemptible, stackBytes: 0, stackKnown: false}
 	end 'make'
 end 'CodeSection'
 
@@ -271,6 +275,19 @@ export type DataPointer
 end 'DataPointer'
 
 export typealias DataPointerList = Array with DataPointer
+
+// StackDepthWord is a word of the data that the link fills in with the most of the stack that the calls of a function's code
+// may take below its stack pointer (__Raw.calleeStackDepth), the function named by its symbol.
+export type StackDepthWord
+	export var pos as Count
+	export var symbol as String
+
+	export static function make(pos Count, consumes symbol String) returns StackDepthWord
+		return StackDepthWord{pos: pos, symbol: symbol}
+	end 'make'
+end 'StackDepthWord'
+
+export typealias StackDepthWordList = Array with StackDepthWord
 
 // DataSection is the bytes of the executable's data: the strings that code names, the constants it reads and the globals
 // it reads.
@@ -290,10 +307,28 @@ export type DataSection
 	export var readOnly as Array with bool
 	// pointers are the words of the constants that hold addresses, in the order of their offsets.
 	export var pointers as DataPointerList
+	// depths are the words of the constants that the link fills in with a stack depth, in the order of their offsets.
+	export var depths as StackDepthWordList
 
 	export static function new() returns DataSection
-		return DataSection{bytes: ByteArray.create(0), strings: StringOffsets.new(), literals: StringOffsets.new(), inlines: StringOffsets.new(), words: WordOffsets.new(), pieces: CountList.create(0), readOnly: Array.create(0), pointers: DataPointerList.create(0)}
+		return DataSection{bytes: ByteArray.create(0), strings: StringOffsets.new(), literals: StringOffsets.new(), inlines: StringOffsets.new(), words: WordOffsets.new(), pieces: CountList.create(0), readOnly: Array.create(0), pointers: DataPointerList.create(0), depths: StackDepthWordList.create(0)}
 	end 'new'
+
+	// stackDepthOffset is where the word is that the link fills in with the stack depth of the calls of the function of a
+	// symbol, put there once however often it is asked for.
+	export function stackDepthOffset(mutates self, symbol String) returns Count
+		for i in 0 upto depths.count() 'known'
+			if depths[i].symbol == symbol 'same'
+				return depths[i].pos
+			end 'same'
+		end 'known'
+		let at = self.startPiece(true)
+		for _ in 0 upto wordBytes 'room'
+			bytes.push(0)
+		end 'room'
+		depths.push(StackDepthWord.make(at, symbol: symbol.clone()))
+		return at
+	end 'stackDepthOffset'
 
 	// startPiece begins a piece, aligned to a word, which is read-only (constant) or not, and gives its offset.
 	export function startPiece(mutates self, constant bool) returns Count
@@ -497,6 +532,13 @@ export type CodeUnit
 		asm.endLabels()
 		sections.push(CodeSection.make(asm.pos(), symbolFixups: asm.symbolFixups.count(), dataFixups: asm.dataFixups.count(), importFixups: asm.importFixups.count(), alignment: functionAlignment, preemptible: preemptible))
 	end 'beginSection'
+
+	// setSectionStack says how much of the stack the code of the section begun last takes below its caller's stack pointer.
+	export function setSectionStack(mutates self, bytes Count)
+		let last = self.lastSection()
+		sections[last].stackBytes = bytes
+		sections[last].stackKnown = true
+	end 'setSectionStack'
 
 	// sectionOffset is how far the code written next is from the start of the section begun last.
 	function sectionOffset() returns Count

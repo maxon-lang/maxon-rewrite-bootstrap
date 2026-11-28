@@ -310,6 +310,8 @@ var ops = []op{
 		Result: valueResult, Operands: []operand{argsOp}, Effects: []effect{effReads, effWrites}, Text: "cmpxchg({Args})"},
 	{Name: "SpinPause", Eval: noEval, Doc: "SpinPause tells the processor that the thread is waiting in a loop for another one.",
 		Effects: []effect{effReads, effWrites}, Text: "spinpause"},
+	{Name: "CalleeStackDepth", Eval: noEval, Doc: "CalleeStackDepth gives the most of the stack that the calls of the function it is in may take below its stack\n// pointer, which the link finds from the frames of the functions they reach.",
+		Result: valueResult, Text: "calleestackdepth"},
 	{Name: "ThreadContext", Eval: noEval, Doc: "ThreadContext gives the word the running thread keeps in the runtime's thread-local slot: its context.",
 		Result: valueResult, Effects: []effect{effReads}, Text: "threadcontext"},
 	{Name: "CallCode", Eval: noEval, Doc: "CallCode calls the code at the address that is the first of Args with the rest of Args, by the internal\n// convention, and gives what it returns.",

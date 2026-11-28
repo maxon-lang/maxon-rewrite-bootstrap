@@ -24,6 +24,7 @@
 (datum) => (LeaRegRip r [sel.datumRef(fn, ins: ins)])
 (loadGlobal [g]) => (LoadRegRip r [sel.symbolRef(ir.rtSymbol(g))])
 (globalAddr [g]) => (LeaRegRip r [sel.symbolRef(ir.rtSymbol(g))])
+(calleeStackDepth) => (LoadRegRip r [sel.stackDepthRef()])
 (codeAddress) => (LeaRegRip r [sel.calleeRef(ir.codeAddressCallee(fn, x: ins))])
 
 // The frame: slots are words at the frame pointer; emitLoadParam reads parameters, by the convention. A word that an xmm

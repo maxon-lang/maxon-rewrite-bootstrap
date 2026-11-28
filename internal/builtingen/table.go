@@ -792,6 +792,12 @@ func rawFunctions() []function {
 		raw("greenStartAddress", nil, "Count", "RawGreenStartAddress"),
 		raw("asyncPreemptAddress", nil, "Count", "RawAsyncPreemptAddress"),
 		raw("preemptibleCodeAddress", nil, "Count", "RawPreemptibleCodeAddress"),
+		// calleeStackDepth is the most of the stack that the calls of the function it is written in may take below its stack
+		// pointer, which the link finds from the frames of the functions they reach; wipeStack zeroes the vector registers the
+		// internal convention lets a call change and then that many bytes below the caller's stack pointer, but none below
+		// floor (rt.stackWipe), which leaves nothing of the calls' scratch behind.
+		raw("calleeStackDepth", nil, "Count", "RawCalleeStackDepth"),
+		raw("wipeStack", []string{"bytes Count", "floor Count"}, "", "RawWipeStack"),
 		// codeAddress is the address of the code of the function of the runtime that a string literal names, which takes
 		// one word: the run of a behaviour's record that a test of the scheduler builds by hand.
 		checked(own(raw("codeAddress", []string{"name String"}, "Count", "RawCodeAddress"))),
@@ -1547,6 +1553,7 @@ var entries = []entry{
 	{"ThreadStart", "rt.threadStart", "Runtime", roleInternal, "(context) by Win64: the start of a thread the runtime makes, which keeps stack for the fault handler, stores the context in the thread-local slot and calls workerMain"},
 	{"StackSwitch", "rt.stackSwitch", "Runtime", roleInternal, "(pair) -> the record it left: saves the registers of the running stack into the switch record at the pair's first word and goes on the stack of the record at its second, by the internal convention (README, \"Green threads\")"},
 	{"CopyBytes", "rt.copyBytes", "Runtime", roleInternal, "(source, target, count) by the internal convention: copies count bytes, count above 0, between places that do not overlap, with the copy routines' copy (__Raw.copyBytes)"},
+	{"StackWipe", "rt.stackWipe", "Runtime", roleInternal, "(bytes, floor): zeroes the vector registers the internal convention lets a call change, then the bytes below the caller's stack pointer down to the higher of floor and that pointer less bytes, from the top down"},
 	{"GreenStart", "rt.greenStart", "Runtime", roleInternal, "the code a green thread's stack starts at, which a switch onto a stack that has not run returns to: it calls the code in r12 with the word in rbx"},
 	{"AsyncPreempt", "rt.asyncPreempt", "Runtime", roleInternal, "the code the monitor makes a green thread it stops return into, at the address it stopped at: it saves every register and the flags, calls the code at contextPreemptCodeOffset of the thread's context with the context, and gives them back"},
 	{"PreemptHandler", "rt.preemptHandler", "Runtime", roleInternal, "(signal, siginfo, context) by System V: the handler of the Linux preemption signal, which calls the code at contextSignalCodeOffset of the thread's context with the signal's context"},

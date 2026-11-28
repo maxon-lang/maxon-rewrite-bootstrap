@@ -371,6 +371,11 @@ export type Selector
 		return self.symbolRef(f.datums[ir.datumItem(ins)].symbol)
 	end 'datumRef'
 
+	// stackDepthRef is the word that the link fills in with the stack depth of the calls of the function being selected.
+	function stackDepthRef(mutates self) returns Referent
+		return Referent.make(MRef.data, aux: imm32Of(u.data.stackDepthOffset(fnSymbol)))
+	end 'stackDepthRef'
+
 	function calleeRef(mutates self, fid ast.FuncID) returns Referent
 		return self.symbolRef(self.calleeSymbol(fid))
 	end 'calleeRef'
@@ -1529,7 +1534,18 @@ function encodeFunction(mutates sel Selector, fn MirFunction, instance bool)
 		x64 then encodeX64Function(sel.u, fn: fn, instance: instance, start: sel.functionStart, lay: sel.layout)
 		arm64 then encodeArm64Function(sel.u, fn: fn, instance: instance, start: sel.functionStart, lay: sel.layout)
 	end 'arch'
+	sel.u.setSectionStack(stackTaken(fn, framed: sel.layout.framed))
 end 'encodeFunction'
+
+// stackTaken is the most of the stack an encoded function's code takes below its caller's stack pointer, not counting its
+// callees': x64's return address, its frame and what it pushes for a call, or arm64's frame, which holds its calls'
+// arguments too.
+function stackTaken(fn MirFunction, framed bool) returns Count
+	return match fn.arch 'arch'
+		x64 gives try wordBytes + x64FrameSize(fn, framed: framed) + fn.belowFrame otherwise panic("backend: a frame past memory")
+		arm64 gives arm64FrameSize(fn) if framed else 0
+	end 'arch'
+end 'stackTaken'
 
 // SourceForms gives the emit of a module the source form of one of its functions: the IR it had before the expansion of
 // the primitives, leaf inlining and the passes after it, whose instructions hold no more values at once than the program

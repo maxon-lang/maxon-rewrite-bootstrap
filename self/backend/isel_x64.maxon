@@ -97,6 +97,7 @@ extension Selector
 	function callForm(mutates self, form X64Form, code MReg, refers Referent)
 		var stacked as Count
 		let argRegs = self.passArgs(stacked)
+		mir.noteBelowFrame(try stacked * wordBytes otherwise panic("backend: more arguments than memory"))
 		mir.emit(newCall(form, a: code, ref: refers.ref, aux: refers.aux, argRegs: argRegs))
 		self.popWords(stacked)
 		callArgs.clear()
@@ -450,6 +451,7 @@ function emitHostCall(mutates sel Selector, fn ir.IrFunction, ins ir.Instr, star
 	let saved = sel.define(X64Form.movRegReg, b: sp, c: noMReg, aux: 0, imm: 0)
 	sel.target(chooseAndRegImm(-x64StackAlignment), a: sp, b: sp, c: noMReg, aux: 0, imm: -x64StackAlignment)
 	let bytes = imm32Of(frame)
+	sel.mir.noteBelowFrame(try frame + x64StackAlignment otherwise panic("backend: more arguments than memory"))
 	sel.target(chooseSubRegImm(bytes), a: sp, b: sp, c: noMReg, aux: 0, imm: bytes as FullRangeInt)
 	for i in inRegisters upto count 'stack'
 		let at = try x64HostShadowBytes(sel.system) + (i - inRegisters) * wordBytes otherwise panic("backend: more arguments than memory")

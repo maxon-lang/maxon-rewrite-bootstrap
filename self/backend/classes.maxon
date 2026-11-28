@@ -194,6 +194,7 @@ export type ClassChoice
 			opCompareExchange or
 			opSpinPause or
 			opThreadContext or
+			opCalleeStackDepth or
 			opCallCode or
 			opCallHost or
 			opCodeAddress or

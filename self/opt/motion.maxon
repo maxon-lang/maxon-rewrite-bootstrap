@@ -117,7 +117,8 @@ export function motionOf(x ir.Instr) returns Motion
 		opByteAt gives Motion.read
 		opLoadGlobal or
 		opLoadRaw or
-		opThreadContext gives Motion.sharedRead
+		opThreadContext or
+		opCalleeStackDepth gives Motion.sharedRead
 		opAlloc or
 		opClosure or
 		opFuncValue or

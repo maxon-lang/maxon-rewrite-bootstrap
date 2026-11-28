@@ -82,6 +82,9 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs ir.Defs, m
 	if op == ir.Opcode.opSpinPause 'opcodeSpinPause'
 		return false
 	end 'opcodeSpinPause'
+	if op == ir.Opcode.opCalleeStackDepth 'opcodeCalleeStackDepth'
+		return false
+	end 'opcodeCalleeStackDepth'
 	if op == ir.Opcode.opThreadContext 'opcodeThreadContext'
 		return false
 	end 'opcodeThreadContext'
