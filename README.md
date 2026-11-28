@@ -1926,8 +1926,9 @@ match reads the case from the word. A thrown error of such a union is its word p
 enum's case plus 1 is (`ir.errorBias`), and the debug info gives it the kind `unionWord`, each case without a payload at
 the word that stands for it.
 
-A record with no destructor whose every field is a word of nothing to drop or a record held in place is held in place
-(`ir.heldInPlace`, `self/ir/inplace.maxon`): a register holds the address of its words, a scalar of the IR that nothing drops, and every
+A record with no destructor whose every field is a word of nothing to drop or a record held in place, and a tuple whose
+every element is a word of nothing to drop, is held in place (`ir.heldInPlace`, `self/ir/inplace.maxon`), so a function
+that returns such a tuple, as ChaCha20's quarter round its four words, writes it to its caller's area with no box: a register holds the address of its words, a scalar of the IR that nothing drops, and every
 holder that keeps the value copies the words. A literal and a `.clone()` are a frame area of their own (`framearea`, the
 same words each time the frame reaches it) filled with `setfield`s, with no allocation. A local that owns its value keeps
 the words in a frame area of its own, which every store to it copies into (`Lowerer.emit` turns the store of a value into
