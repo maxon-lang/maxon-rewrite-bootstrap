@@ -73,9 +73,12 @@ let deepestInline = 16 as Count
 // inPlaceWithin is heldInPlace with at most depth more records nested inside t.
 function inPlaceWithin(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID, depth Count) returns bool
 	let kind = ast.typeKind(tt, reads: reads, t: t)
-	if kind != ast.TypeKind.record or ast.isTupleType(tt, reads: reads, t: t) 'record'
+	if kind != ast.TypeKind.record 'record'
 		return false
 	end 'record'
+	if ast.isTupleType(tt, reads: reads, t: t) 'tuple'
+		return tupleOfWords(tt, reads: reads, t: t)
+	end 'tuple'
 	let origin = ast.originOf(tt, reads: reads, t: t)
 	if ast.typeEntry(tt, reads: reads, t: origin).dropFunc != ast.noFunc 'destructor'
 		return false
@@ -91,6 +94,20 @@ function inPlaceWithin(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID, depth
 	end 'fields'
 	return true
 end 'inPlaceWithin'
+
+// tupleOfWords is whether every element of the tuple t is a word of nothing to drop: such a tuple is held in place, so a
+// function's tuple result is written to its caller's area rather than a box of its own. A tuple keeps every other element
+// in its form (fieldHolding), so one with a String, a box or a record among them is a box.
+function tupleOfWords(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns bool
+	let origin = ast.originOf(tt, reads: reads, t: t)
+	for i in 0 upto ast.typeEntry(tt, reads: reads, t: origin).fields.count() 'elements'
+		let element = boundType(tt, reads: reads, owner: t, declared: ast.typeEntry(tt, reads: reads, t: origin).fields[i].ty)
+		if valueForm(tt, reads: reads, t: element) != ValueForm.formScalar 'managed'
+			return false
+		end 'managed'
+	end 'elements'
+	return true
+end 'tupleOfWords'
 
 // inPlaceWords is how many words a value held in place takes: its fields', and one for a record of none, as its box.
 function inPlaceWords(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Count

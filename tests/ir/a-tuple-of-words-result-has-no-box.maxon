@@ -1,0 +1,35 @@
+// A tuple of words is held in place: a function that returns one writes it to an area its caller passes, so a call of it
+// allocates no box, as ChaCha20's quarter round returns its four words, and a caller that destructures it allocates nothing.
+// expect-ir: mixed has no alloc
+//> 80 2257 4445 4449
+//> 15676
+
+typealias Word32 = bits(64)
+
+typealias Quad = (Word32, Word32, Word32, Word32)
+
+function quarter(a Word32, b Word32, c Word32, d Word32) returns Quad
+	let a1 = (a + b) and 0xFFFFFFFF
+	let d1 = d xor a1
+	let c1 = (c + d1) and 0xFFFFFFFF
+	return (a1, d1, c1, b xor c1)
+end 'quarter'
+
+function twice(a Word32, b Word32, c Word32, d Word32) returns Quad
+	let (a1, b1, c1, d1) = quarter(a, b: b, c: c, d: d)
+	return quarter(a1, b: b1, c: c1, d: d1)
+end 'twice'
+
+// mixed sums the words of two quarter rounds.
+function mixed(a Word32, b Word32, c Word32, d Word32) returns Word32
+	let (a1, b1, c1, d1) = quarter(a, b: b, c: c, d: d)
+	let (a2, b2, c2, d2) = quarter(a1, b: b1, c: c1, d: d1)
+	return a1 + b1 + c1 + d1 + a2 + b2 + c2 + d2
+end 'mixed'
+
+function main() returns ExitCode
+	let (a, b, c, d) = twice(7, b: 13, c: 2128, d: 40)
+	print("{a} {b} {c} {d}\n")
+	print("{mixed(7, b: 13, c: 2128, d: 40)}\n")
+	return 0
+end 'main'
