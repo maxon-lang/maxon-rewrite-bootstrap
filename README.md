@@ -474,6 +474,12 @@ A program under `tests/library/` is staged in the library tier, as maxon's spec 
 so it may go through the doors of maxon's raw surface (see "Modules"), the buffer cursor of "Borrowing values" among them;
 it is run as any other program is, natively and under the interpreter.
 
+A `.fix` file under `tests/fix/` is a case of `minimaxon fix`: the program, fixed, must check clean in at most two rounds and be the text
+of the `.fixed` file beside it. A file of `// --- file: <path>` sections is a project; when its first line is `// tier: library`, its files
+are the standard library's instead, each at its path below the library's directory, so that the first directories are modules of the library
+and the fixes only a library module gets apply (the function `<module>Anchor` that names another module, which a module needs to call a member of that module's extension, is added once,
+to the module's first file, whichever of its files call: `library-anchor-once`).
+
 A program under `tests/ir/` holds the optimized IR of its functions to claims, so that a regression in generated code fails the
 gate (`self/driver/irexpect.maxon`). It must compile clean and is never run. Its `// expect-ir:` directives each name a function by
 the symbol the IR text gives it (`sum`, `Counter.bump`, `first[Count]`) and say one of `<function> has no <op>`, `<function> has some <op>`,

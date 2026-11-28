@@ -1,0 +1,21 @@
+// tier: library
+// Two files of one library module each call a member of an extension of another module, which the module does not name:
+// the fix adds the one function that names that module, in the module's first file.
+// --- file: alpha/Alpha.maxon
+export type Tag
+	export var n as Count
+end 'Tag'
+
+export extension String
+	export function shout() returns Count
+		return byteLength()
+	end 'shout'
+end 'String'
+// --- file: beta/One.maxon
+export function one(s String) returns Count
+	return s.shout()
+end 'one'
+// --- file: beta/Two.maxon
+export function two(s String) returns Count
+	return s.shout()
+end 'two'

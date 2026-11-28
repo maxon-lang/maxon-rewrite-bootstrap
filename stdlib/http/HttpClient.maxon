@@ -524,3 +524,9 @@ function extensionFollows(line String, from BytePos) returns bool
 	end 'eachBlank'
 	return pos < line.byteLength() and url.urlByteIsOneOf(line.byteAtOrPanic(pos as Count), bytes: ChunkExtensionIntroducer)
 end 'extensionFollows'
+
+function stringAnchor(anchored string.GraphemeIndex)
+end 'stringAnchor'
+
+function parsableAnchor(anchored parsable.ParseError)
+end 'parsableAnchor'

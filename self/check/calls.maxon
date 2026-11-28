@@ -253,7 +253,7 @@ end 'fieldIsFunction'
 // it names, as a program does (resolve.noteLibraryMember), and its code names them by writing one of their declarations,
 // which the fix adds as a function with a parameter of a type of that module. Only a call that failed gets one, so the
 // library has exactly the dependencies its code uses, and a cycle that one makes is E2012 where the call was.
-function libraryNamingFix(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, name String) returns diag.Fix
+function libraryNamingFix(c Checker, p ast.Project, name String) returns diag.Fix
 	if not ast.isLibraryModule(p, modID: c.modID) 'program'
 		return diag.Fix.none()
 	end 'program'
@@ -262,27 +262,34 @@ function libraryNamingFix(c Checker, p ast.Project, ms ast.ModuleState, call ast
 		return diag.Fix.none()
 	end 'none'
 	let hostID = host.unwrap()
-	let fileEnd = ast.endOfModuleFileHolding(p, modID: c.modID, offset: offsetOf(c, p: p, ms: ms, node: call))
 	for hostModule in p.modules 'hosts'
 		if hostModule.id == hostID 'host'
-			return anchorFix(c, hostModule: hostModule, fileEnd: fileEnd)
+			return anchorFix(c, p: p, hostModule: hostModule)
 		end 'host'
 	end 'hosts'
 	panic("check: no module has the id {hostID}")
 end 'libraryNamingFix'
 
-// anchorFix is the edit of libraryNamingFix that adds, before the last newline of a file of the caller that ends at fileEnd,
-// the function whose parameter is of the type that hostModule names.
-function anchorFix(c Checker, hostModule ast.Module, fileEnd diag.U32) returns diag.Fix
+// anchorFix is the edit of libraryNamingFix that adds the function whose parameter is of the type that hostModule names. The
+// module has one such function, where ast.beforeLastNewlineOfFirstFile says, whichever of its files the call is in, so that
+// the fixes of calls in several files are the same edit, which a round makes once. A module that has the function already is
+// given none: the call that still fails is no call that naming the module helps.
+function anchorFix(c Checker, p ast.Project, hostModule ast.Module) returns diag.Fix
 	let typeName = ast.namedTypeOf(hostModule)
 	if not typeName.isSome() 'untyped'
 		return diag.Fix.none()
 	end 'untyped'
 	let qualifier = ast.qualifierOf(hostModule)
 	let anchor = "{qualifier}Anchor"
+	if ast.declaresName(p, modID: c.modID, name: anchor) 'named'
+		return diag.Fix.none()
+	end 'named'
+	let at = ast.beforeLastNewlineOfFirstFile(p, modID: c.modID)
+	if not at.isSome() 'textless'
+		return diag.Fix.none()
+	end 'textless'
 	var edits = diag.FixEdits.create(0)
-	let beforeLastNewline = try (fileEnd as Count) - 1 otherwise panic("a file of no text")
-	edits.push(diag.FixEdit.insert(c.modID, at: beforeLastNewline as diag.U32, text: "\n\nfunction {anchor}(anchored {qualifier}.{typeName.unwrap()})\nend '{anchor}'"))
+	edits.push(diag.FixEdit.insert(c.modID, at: at.unwrap(), text: "\n\nfunction {anchor}(anchored {qualifier}.{typeName.unwrap()})\nend '{anchor}'"))
 	return diag.Fix.make(ast.fixKindName, edits: edits)
 end 'anchorFix'
 
@@ -595,7 +602,7 @@ function callPrimitiveStatic(mutates c Checker, p ast.Project, mutates ms ast.Mo
 		end 'ofFamily'
 		return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callStatic, target: sf, hasGiven: given.count() > 0, given: given, errs: errs)
 	end 'static'
-	return unknownFunction(c, p: p, ms: ms, call: call, name: "{nameOfType(p, ms: ms, t: t)}.{name}", qualifiers: 1 as Count, fix: libraryNamingFix(c, p: p, ms: ms, call: call, name: name), errs: errs)
+	return unknownFunction(c, p: p, ms: ms, call: call, name: "{nameOfType(p, ms: ms, t: t)}.{name}", qualifiers: 1 as Count, fix: libraryNamingFix(c, p: p, name: name), errs: errs)
 end 'callPrimitiveStatic'
 
 // messageUnionNamed is the message union that the expression e names, `Api.Message`, which a program writes before one of
@@ -741,7 +748,7 @@ function unknownTypeFunction(c Checker, p ast.Project, ms ast.ModuleState, call 
 			return ast.noType
 		end 'builtIn'
 	end 'member'
-	return unknownFunction(c, p: p, ms: ms, call: call, name: written, qualifiers: 1 as Count, fix: libraryNamingFix(c, p: p, ms: ms, call: call, name: name), errs: errs)
+	return unknownFunction(c, p: p, ms: ms, call: call, name: written, qualifiers: 1 as Count, fix: libraryNamingFix(c, p: p, name: name), errs: errs)
 end 'unknownTypeFunction'
 
 // callOnValue types 'value.method(...)'.
@@ -782,7 +789,7 @@ function callOnValue(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	end 'stringAppend' else if name == toStringMethod and interpolatesItself(p, ms: ms, t: content) 'toString'
 		fix = toStringFix(ms.tree(), call: call)
 	end 'toString' else 'library'
-		fix = libraryNamingFix(c, p: p, ms: ms, call: call, name: name)
+		fix = libraryNamingFix(c, p: p, name: name)
 	end 'library'
 	return unknownFunction(c, p: p, ms: ms, call: call, name: "{nameOfType(p, ms: ms, t: receiver)}.{name}", qualifiers: 1 as Count, fix: fix, errs: errs)
 end 'callOnValue'

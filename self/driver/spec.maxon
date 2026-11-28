@@ -762,12 +762,17 @@ end 'splitSections'
 // sectionFiles is the files of a multi-file test as the compiler loads them from memory, at the paths they would have in a
 // directory called projectRoot.
 function sectionFiles(sections SourceSections) returns project.SourceFiles
+	return sectionFilesIn(projectRoot, sections: sections)
+end 'sectionFiles'
+
+// sectionFilesIn is the files of a multi-file test at the paths they would have in the directory root.
+function sectionFilesIn(root String, sections SourceSections) returns project.SourceFiles
 	var files = project.SourceFiles.create(0)
 	for i in 0 upto sections.count() 'files'
-		files.push(project.SourceFile.make(project.joinPath(projectRoot, name: nativePath(sections[i].name)), text: "{sections[i].text}\n"))
+		files.push(project.SourceFile.make(project.joinPath(root, name: nativePath(sections[i].name)), text: "{sections[i].text}\n"))
 	end 'files'
 	return files
-end 'sectionFiles'
+end 'sectionFilesIn'
 
 // projectRoot is the directory that the files of a multi-file test are in, which is no directory of the system.
 let projectRoot = "<project>"

@@ -93,6 +93,11 @@ let fixCaseExtension = ".fix"
 
 let fixedExtension = ".fixed"
 
+// libraryCaseLine, the first line of a project fix case, makes its files the standard library's: each is at the path its
+// section names below the library's directory, so that its top directories are modules of the library, which the fix treats
+// as it does the library itself (check.libraryNamingFix).
+let libraryCaseLine = "// tier: library\n"
+
 // fixCaseRounds is the most rounds of fixes a fix case may take: a round makes every fix that the diagnostics name and that
 // can be made together, and the check names every missing try of a function at once, so only a fix that another one's
 // makes needed takes a second round. A case that takes more fixes one thing a round, as a check that stops at the first
@@ -1243,7 +1248,14 @@ function runFixTest(file String, expected String) returns TestResult
 	let wanted = withoutCarriageReturns(readText(expected), loneToo: false)
 	let sections = splitSections(text)
 	if sections.count() > 0 'project'
-		let built = fixProgram(FixProgram.make(projectRoot, name: file.clone(), single: false, files: sectionFiles(sections), candidates: ast.knownTargets()), libraries: noFixLibraries(), expected: table.Option.none, watches: ast.StringList.create(0), only: table.Option.none)
+		var root = projectRoot.clone()
+		if hasPrefix(text, prefix: libraryCaseLine) 'library'
+			match consumes project.libraryDirectory() 'found'
+				some(dir) then root = dir
+				none then return TestResult.failed("a fix case of the library needs the library's directory beside the compiler")
+			end 'found'
+		end 'library'
+		let built = fixProgram(FixProgram.make(root.clone(), name: file.clone(), single: false, files: sectionFilesIn(root, sections: sections), candidates: ast.knownTargets()), libraries: noFixLibraries(), expected: table.Option.none, watches: ast.StringList.create(0), only: table.Option.none)
 		print(built.said)
 		return fixedResult(built, expected: expected, wanted: withoutFinalNewline(wanted), actual: withoutFinalNewline(fixedBlock(text, sections: sections, outcome: built)))
 	end 'project'

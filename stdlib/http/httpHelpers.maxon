@@ -603,9 +603,3 @@ function requireAgreeingRepeat(earlier String, value String) throws HeaderBlockF
 		throw HeaderBlockFault.malformed
 	end 'conflicting'
 end 'requireAgreeingRepeat'
-
-function stringAnchor(anchored string.GraphemeIndex)
-end 'stringAnchor'
-
-function parsableAnchor(anchored parsable.ParseError)
-end 'parsableAnchor'
