@@ -349,6 +349,23 @@ proves the Linux seed under WSL and the macOS seed on the Mac (`seed/README.md`)
 own target (`ownLanes` in `cmd/gate`), names each step of the other lanes that it leaves out, compiles for the other targets as the hosts that do not run
 them do, and on Windows ends with the proof that the compiler reproduces itself that a seed renewal makes.
 
+`--focused` (`go run ./cmd/gate check --focused [--since=<rev>] [--maxon-specs=<dir>] [--maxon-stdlib=<dir>]`, or `check.ps1 --focused`,
+`check.sh --focused`) is the gate of a landing, the one every machine and script calls: CI runs the full gate on main, and a landing runs on its rebased
+tip the steps that what it changed calls for. It is no list of steps of its own: `focusedRules` in `cmd/gate/focused.go` gives each step of the gate's
+lists a rule by its name, and a test holds every rule to a step that exists. Always: the compiler from the seed, `fmt --check self runtime tests stdlib`,
+`check self --tests --verify-reads`, `check runtime` and `check stdlib` for the host's target, `selftest`, the host corpus, the spec step
+(`test specs --require-passed`) and the proof that the compiler reproduces itself (C2 and C3 are the same bytes). By the paths changed since `--since` (the
+merge base with `origin/main` unless given) and in the working tree: Go (`internal/`, `cmd/`, any `.go` file) adds `go vet ./...` for windows, linux and
+darwin and `go test ./...`; `runtime/`, `self/backend/`, `self/ir/`, `self/interp/` or a test program that uses the scheduler adds the behaviours under
+1, 2 and 4 workers; `cmd/convert/`, `self/driver/skips*`, `stdlib/` or `specs/` adds the regeneration of `specs/` (`gate specs`, from maxon's specs
+directory, which `--maxon-specs` or `MAXON_SPECS` names), after which the spec step replays the regeneration's saved results with `--require-passed`
+instead of running every test again (a listed test that stopped passing is `LOST` there, which the regeneration's record mode does not fail); `specs/`,
+`stdlib/`, `cmd/convert/`, `self/interp/` or `self/driver/` puts `--interpret` on the spec step; `stdlib/` adds the check that it regenerates from maxon's
+(`--maxon-stdlib` or `MAXON_STDLIB`). The run prints the steps it chose and the paths that called for each, names the steps it leaves out in one line (the
+other targets' lanes and compiles, fuzz, debug info, the cache, formatting and the generators: CI runs them), prints each step's time, ends with
+`gate time: total X min; slowest: ...` and the time of every step, prints main's last finished CI run as a NOTE when it is red (a red main with a known owner
+does not stop a landing), and exits 1 at the first step that fails.
+
 The suites (`cmd/gate`) group their steps in lanes that share nothing but the compiler and the checkout: `checks` (the Go tests, `selftest`, `check runtime`
 and `check stdlib`, `check self`, the layout and `fuzz`), `builds` (the benchmarks and `self` for arm64, the cache, the debug info), `specs`, the
 corpus of `native`, `x64-linux`, `arm64-linux` and `mac` (each Linux lane first runs `selftest` with the compiler built for

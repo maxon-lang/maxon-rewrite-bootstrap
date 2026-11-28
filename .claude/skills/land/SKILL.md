@@ -34,28 +34,37 @@ exact error.
 
 ## The focused gate
 
+One command, the same on every machine and from every script (`land.ps1`, the Mac's `focused-gate.sh`, a hand-run landing):
+
+```
+go run ./cmd/gate check --focused [--since=<rev>] [--maxon-specs=<dir>] [--maxon-stdlib=<dir>]
+```
+
+(`.\check.ps1 --focused` and `./check.sh --focused` are the same.) `--since` defaults to the merge base with `origin/main`;
+the paths that count are those changed since it plus the working tree. The two maxon directories are maxon's `specs` and
+`stdlib` (or `MAXON_SPECS` and `MAXON_STDLIB`); the run asks for them only when the change calls for the step that reads them.
+It is built from `cmd/gate`'s own step list, each step having a rule by its name (`focusedRules` in `cmd/gate/focused.go`), so
+a step added to the gate is either left out of the landing or given its rule there, never listed a second time.
+
 Always, on the rebased tip: build from the seed, `fmt --check self runtime tests stdlib`,
-`check self --tests --verify-reads`, `check runtime`, `check stdlib`, `selftest`, the host corpus as the gate runs it
-(`minimaxon test --verify-ir`),
-the spec step (`test specs --require-passed`), and the chain (C2 identical to C3).
+`check self --tests --verify-reads`, `check runtime`, `check stdlib` (the host's target), `selftest`, the host corpus
+as the gate runs it, the spec step (`test specs --require-passed`) and the chain (C2 identical to C3).
 
-By what the change touches:
+By the paths changed: Go (`internal/`, `cmd/`, any `.go` file) adds `go vet ./...` for windows, linux and darwin and
+`go test ./...`; `runtime/`, `self/backend/`, `self/ir/`, `self/interp/` or a test program that uses the scheduler adds the
+behaviours (`--worker-counts=1,2,4`); `cmd/convert/`, `self/driver/skips*`, `stdlib/` or `specs/` adds the regeneration of
+`specs/` (`gate specs`); `specs/`, `stdlib/`, `cmd/convert/`, `self/interp/` or `self/driver/` puts `--interpret` on the spec
+step; `stdlib/` adds the check that it regenerates from maxon's. The run prints which steps it chose and the paths that
+called for them, then each step's time, then `gate time: total X min; slowest: ...`. Not in it, and named in one line:
+the cross-target lanes and compiles, fuzz, debug info, the cache and the formatting and generator steps. CI runs them. The
+self-build comparison (`cmd/selfab`) is not a step either: run it by hand when a layout, a lock or a hot path of the back end,
+the IR or the runtime moved.
+Main's last finished CI run is printed as a NOTE when it is red, which does not stop the landing.
 
-| The change touches | Add |
-|---|---|
-| `internal/`, `cmd/`, any `.go` file | `go vet ./...` for `GOOS=windows`, `linux` and `darwin`, and `go test ./...` |
-| `runtime/`, `self/backend`, `self/ir`, `self/interp`, or test programs that run under several worker counts | behaviours (`test --behaviours --worker-counts=1,2,4`) |
-| `cmd/convert/`, `self/driver/skips*`, `stdlib/`, `specs/` | the spec regeneration (`specs.ps1` on Windows, `go run ./cmd/gate specs` elsewhere) |
-| `specs/`, `stdlib/`, `cmd/convert/`, `self/interp`, `self/driver` | `--interpret` on the spec step, as the full gate has |
-| the back end, the IR or the runtime | the self-build comparison when a layout, a lock or a hot path moved |
-
-Not in a focused gate: the cross-target lanes and compiles, fuzz, debug info, cache. CI runs them.
-
-**One spec run per landing.** A regeneration already runs every spec test with the interpreter runs and saves the
-results. Record mode does not fail on a listed test that stopped passing, so replay the saved results against the list
-instead of running every test again:
-`minimaxon test specs --replay-results=<abs>/bin/spec-results.txt --require-passed --env-runner=<abs>/bin/envrun`.
-It prints `LOST` and exits 1 for such a test. Only when the results file was written during this gate.
+**One spec run per landing.** The regeneration runs every spec test and saves the results, and the spec step then replays
+them with `--require-passed` instead of running every test again (record mode does not fail a listed test that stopped
+passing; the replay prints `LOST` and fails). The gate does this by itself, by the stamp of what the results depend on.
+The files the regeneration changed in `specs/` are named in the output: they are part of the landing.
 
 **When the full gate is required:** code whose effect only another lane shows and CI has no job for. Otherwise push
 the branch as `cloud/<name>` or `eric-pc/<name>`, which CI runs on every job, and land when the job that matters is
@@ -73,8 +82,8 @@ green: a Mac change to the Windows timed wait is the example.
 - **Which lanes are CI's.** macOS runs no Linux or Windows executable: the arm64-linux, x64-linux and x64-windows
   lanes are CI's (`cloud/<name>` for a change only they can see, such as one to the Windows timed wait). The OrbStack
   VM `ubuntu` is there for a Linux reproduction, never `maxon-linux`.
-- **The focused gate script** is `~/Dev/agents/minimaxon/out/dev/scripts/focused-gate.sh <worktree> <log name>`: it picks its steps from the
-  paths the branch changes against `origin/main`, as the table above does, and keeps a sampler that records a stalled
+- **The focused gate script** is `~/Dev/agents/minimaxon/out/dev/scripts/focused-gate.sh <worktree> <log name>`: it takes its steps from
+  `./check.sh --focused` (above), not a list of its own, and keeps a sampler that records a stalled
   FIFO test's process table. Its logs, with the steps by time, are in `~/Dev/agents/minimaxon/out/dev/scripts/logs/<log name>/`.
 
 ## Tests
