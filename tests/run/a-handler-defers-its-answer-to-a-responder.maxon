@@ -1,0 +1,66 @@
+// A handler defers its answer with respondLater, which consumes the exchange and gives a linear HttpResponder beside the
+// HttpAnswered it returns; the responder answers later by a message to the connection, which reads nothing more until then,
+// so a request pipelined behind the deferred one is answered after it, in order (RFC 9112 §9.3.2). A responder's fail and
+// abandon answer as the exchange's do, and the connection is kept after a deferred answer as after any.
+// native-only
+//> HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n\r\nlater: /firstHTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 3\r\n\r\nnowHTTP/1.1 503 Service Unavailable\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n
+//> abandoned: [closed with no answer]
+//> stopped
+function shown(text String) returns String
+	return text.replace("\r\n", with: "\\r\\n")
+end 'shown'
+
+// readToEnd reads what the server sends until it closes the connection.
+function readToEnd(mutates client TcpClient) returns String
+	var all = ByteArray.create(0)
+	while true 'reading'
+		let chunk = try client.readSome(4096) otherwise return "{shown(String.from(all))} [the read failed]"
+		if chunk.isEmpty() 'closed'
+			break 'reading'
+		end 'closed'
+		all.append(chunk)
+	end 'reading'
+	return shown(String.from(all))
+end 'readToEnd'
+
+function answerTo(port NetworkPort, request String) returns String
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "no connection"
+	try client.setReadDeadline(5000) otherwise ignore
+	_ = try client.send(request) otherwise 0
+	let answer = readToEnd(client)
+	try client.close() otherwise ignore
+	return "[closed with no answer]" if answer.isEmpty() else answer
+end 'answerTo'
+
+type Later implements HttpHandler
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function handle(consumes exchange HttpExchange) returns HttpAnswered
+		let target = exchange.request.target()
+		if target == "/now" 'now'
+			return exchange.respondWith(StatusCode.ok, body: "now", contentType: "text/plain")
+		end 'now'
+		let (responder, answered) = exchange.respondLater()
+		if target == "/busy" 'busy'
+			responder.fail(StatusCode.serviceUnavailable)
+		end 'busy' else if target == "/drop" 'drop'
+			responder.abandon()
+		end 'drop' else 'later'
+			responder.respondWith(StatusCode.ok, body: "later: {target}", contentType: "text/plain")
+		end 'later'
+		return answered
+	end 'handle'
+end 'Later'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
+	let port = server.port()
+	let serving = server.serve(freeze(Later.create()))
+	print("{answerTo(port, request: "GET /first HTTP/1.1\r\nHost: a\r\n\r\nGET /now HTTP/1.1\r\nHost: a\r\n\r\nGET /busy HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n")}\n")
+	print("abandoned: {answerTo(port, request: "GET /drop HTTP/1.1\r\nHost: a\r\n\r\n")}\n")
+	serving.stop(1000)
+	print("stopped\n")
+	return 0
+end 'main'

@@ -30,14 +30,22 @@ union ConnTimer
 	none
 end 'ConnTimer'
 
-// Where a connection is: reading a request's head or its body, idle between requests, lingering before its close, or closed.
+// Where a connection is: reading a request's head or its body, waiting for an answer deferred, idle between requests,
+// lingering before its close, or closed.
 enum ConnPhase
 	readingHead
 	readingBody
+	deferred
 	idle
 	lingering
 	closed
 end 'ConnPhase'
+
+// How the answer deferred is to be written, and where its request's bytes end in those that have come.
+union Waiting
+	answer(answering Answering, bodyEnd Count)
+	none
+end 'Waiting'
 
 // The head of the request whose body is being read, and where its body starts and ends in the bytes that have come.
 union PendingHead
@@ -57,20 +65,23 @@ export service Conn implements services.Ends
 	var timer as ConnTimer
 	var stopping as bool
 	var lingered as Count
+	var waiting as Waiting
 
 	export static function create(consumes client net.TcpClient, handler frozen with HttpHandler, config frozen with ServerConfig) returns Self
-		return Self{socket: WireSlot.held(Wire.over(client)), handler: handler.clone(), config: config.clone(), arrived: ByteArray.create(0), consumed: 0, phase: ConnPhase.readingHead, pending: PendingHead.none, timer: ConnTimer.none, stopping: false, lingered: 0}
+		return Self{socket: WireSlot.held(Wire.over(client)), handler: handler.clone(), config: config.clone(), arrived: ByteArray.create(0), consumed: 0, phase: ConnPhase.readingHead, pending: PendingHead.none, timer: ConnTimer.none, stopping: false, lingered: 0, waiting: Waiting.none}
 	end 'create'
 
 	/// Arm the socket for the first request, and its head deadline.
 	@policy(services.Keep) export function begin(mutates self)
-		self.arm(self.config.headDeadlineMs.clone(), me: self.handle)
-		self.armReadable(self.handle)
+		var me = OwnHandle.held(self.handle)
+		self.arm(self.config.headDeadlineMs.clone(), me: me)
+		self.armReadable(me)
 	end 'begin'
 
 	export function readable(mutates self)
 		if self.phase != ConnPhase.closed 'reading'
-			self.readRequest(true, me: self.handle)
+			var me = OwnHandle.held(self.handle)
+			self.readRequest(true, me: me)
 		end 'reading'
 		if self.phase == ConnPhase.closed 'over'
 			self.stop()
@@ -81,15 +92,20 @@ export service Conn implements services.Ends
 	// began and stalled is answered 408 first, and the connection lingers. The socket is armed in every phase that has a timer,
 	// so what the linger reads now is read without arming it.
 	export function timedOut(mutates self)
+		// A deferred answer runs on no timer of the connection's: the fire is of the phase before it.
+		if self.phase == ConnPhase.deferred 'deferred'
+			return
+		end 'deferred'
 		let begun = (self.phase == ConnPhase.readingHead and self.arrived.count() > self.consumed) or self.phase == ConnPhase.readingBody
 		if not begun 'quiet'
 			self.close()
 			self.stop()
 			return
 		end 'quiet'
-		self.refuse(StatusCode.requestTimeout, me: self.handle)
+		var me = OwnHandle.held(self.handle)
+		self.refuse(StatusCode.requestTimeout, me: me)
 		if self.phase != ConnPhase.closed 'lingering'
-			self.readRequest(false, me: self.handle)
+			self.readRequest(false, me: me)
 		end 'lingering'
 		if self.phase == ConnPhase.closed 'over'
 			self.stop()
@@ -101,7 +117,8 @@ export service Conn implements services.Ends
 		self.stopping = true
 		// What came before the stop is read first, so a request sent before it is answered.
 		if self.phase != ConnPhase.closed 'reading'
-			self.readRequest(false, me: self.handle)
+			var me = OwnHandle.held(self.handle)
+			self.readRequest(false, me: me)
 		end 'reading'
 		if self.phase == ConnPhase.idle or (self.phase == ConnPhase.readingHead and self.arrived.count() == self.consumed) 'idle'
 			self.close()
@@ -110,6 +127,41 @@ export service Conn implements services.Ends
 			self.stop()
 		end 'over'
 	end 'stopGracefully'
+
+	/// The answer deferred by the request being answered has come from its responder: write it, and go on as after any answer.
+	/// A connection that is not waiting for one has closed, and the answer goes nowhere.
+	@policy(services.Keep) export function deliver(mutates self, answer Deferred)
+		if self.phase != ConnPhase.deferred 'notWaiting'
+			return
+		end 'notWaiting'
+		let taken = exchange(self.waiting, value: Waiting.none)
+		var me = OwnHandle.held(self.handle)
+		match consumes taken 'waiting'
+			answer(answering, bodyEnd) then self.writeDeferred(answer, answering: answering, bodyEnd: bodyEnd, me: me)
+			none then panic("Conn.deliver: a deferred connection waits for an answer")
+		end 'waiting'
+		if self.phase != ConnPhase.closed 'reading'
+			self.readRequest(true, me: me)
+		end 'reading'
+		if self.phase == ConnPhase.closed 'over'
+			self.stop()
+		end 'over'
+	end 'deliver'
+
+	// writeDeferred writes an answer deferred, which is kept only where its request said so and the server is not stopping.
+	function writeDeferred(mutates self, answer Deferred, answering Answering, bodyEnd Count, mutates me OwnHandle)
+		let writing = Answering.of(answering.keeps and not self.stopping, minorVersion: answering.minorVersion, headOnly: answering.headOnly, writeDeadlineMs: answering.writeDeadlineMs)
+		var wire = self.takeWire()
+		match answer 'answer'
+			response(response) then writing.response(wire, response: response)
+			bodied(code, body, contentType) then writing.bodied(wire, code: code, body: body, contentType: contentType)
+			failure(code) then writing.failure(wire, code: code)
+			abandoned then wire.outcome = Outcome.broken
+		end 'answer'
+		let outcome = wire.outcome
+		self.putWire(wire)
+		self.after(outcome, answering: writing, bodyEnd: bodyEnd, me: me)
+	end 'writeDeferred'
 
 	/// The server's stop deadline has passed: close now.
 	@policy(services.Keep) export function closeNow(mutates self)
@@ -120,8 +172,8 @@ export service Conn implements services.Ends
 	// readRequest takes what has come, until a read finds nothing more, which arms the socket again where `arming` (the socket
 	// is armed already otherwise): an arm posts only on bytes that come after it, so bytes left unread would never be told of.
 	// The bytes are read into those the connection keeps of the request, so a read allocates nothing of its own.
-	function readRequest(mutates self, arming bool, me Conn.handle)
-		while self.phase != ConnPhase.closed 'reading'
+	function readRequest(mutates self, arming bool, mutates me OwnHandle)
+		while self.phase != ConnPhase.closed and self.phase != ConnPhase.deferred 'reading'
 			var blocked = false
 			var ended = false
 			var wire = self.takeWire()
@@ -133,7 +185,8 @@ export service Conn implements services.Ends
 				ended then ended = true
 			end 'read'
 			self.advance(me)
-			if self.phase == ConnPhase.closed 'done'
+			// A connection that waits for an answer deferred reads nothing more until it comes.
+			if self.phase == ConnPhase.closed or self.phase == ConnPhase.deferred 'done'
 				return
 			end 'done'
 			if ended 'cutShort'
@@ -155,7 +208,7 @@ export service Conn implements services.Ends
 	// advance does what the bytes that have come allow: it begins a request where an idle connection has its first byte, parses
 	// a head once it is whole, answers a request once its body is, and goes on to the next request in the bytes past it; a
 	// lingering connection drops what came.
-	function advance(mutates self, me Conn.handle)
+	function advance(mutates self, mutates me OwnHandle)
 		while true 'requests'
 			if self.phase == ConnPhase.idle 'idle'
 				if self.arrived.count() == self.consumed 'nothing'
@@ -181,9 +234,9 @@ export service Conn implements services.Ends
 					return
 				end 'more'
 			end 'body'
-			if self.phase == ConnPhase.closed 'closed'
+			if self.phase == ConnPhase.closed or self.phase == ConnPhase.deferred 'stopped'
 				return
-			end 'closed'
+			end 'stopped'
 		end 'requests'
 	end 'advance'
 
@@ -200,7 +253,7 @@ export service Conn implements services.Ends
 	// parseHead reads the head out of what has come, once it is whole: a request with a body goes on to read it, under the body
 	// deadline, told to send it first where it asked to be (Expect: 100-continue), which it is only once its head passed the
 	// limits; one past the body's cap is a 413.
-	function parseHead(mutates self, me Conn.handle)
+	function parseHead(mutates self, mutates me OwnHandle)
 		match consumes parseRequestHead(self.arrived, from: self.consumed, maxHead: self.config.maxHeadBytes as Count, maxLine: self.config.maxRequestLineBytes as Count, maxFields: self.config.maxHeaderCount) 'parse'
 			parsed(head, through) then self.headParsed(head, through: through, me: me)
 			needsMore then self.compact()
@@ -208,7 +261,7 @@ export service Conn implements services.Ends
 		end 'parse'
 	end 'parseHead'
 
-	function headParsed(mutates self, consumes head RequestHead, through Count, me Conn.handle)
+	function headParsed(mutates self, consumes head RequestHead, through Count, mutates me OwnHandle)
 		let length = match head.framing 'framing'
 			length(bytes) gives bytes
 			none gives 0 as Count
@@ -243,7 +296,7 @@ export service Conn implements services.Ends
 	end 'compact'
 
 	// bodyIfWhole answers the request once its body has come.
-	function bodyIfWhole(mutates self, me Conn.handle)
+	function bodyIfWhole(mutates self, mutates me OwnHandle)
 		let whole = match self.pending 'pending'
 			reading(_, _, bodyEnd) gives self.arrived.count() >= bodyEnd
 			none gives false
@@ -260,8 +313,8 @@ export service Conn implements services.Ends
 
 	// answer has the handler answer a request, with the Wire lent to its exchange, and then keeps the connection for the next
 	// request, or lingers and closes it, or closes it at once, as the answer's outcome says.
-	function answer(mutates self, consumes head RequestHead, bodyStart Count, bodyEnd Count, me Conn.handle)
-		let keeps = not head.closes and not self.stopping
+	function answer(mutates self, consumes head RequestHead, bodyStart Count, bodyEnd Count, mutates me OwnHandle)
+		let answering = Answering.of(not head.closes and not self.stopping, minorVersion: head.minorVersion, headOnly: head.method == HttpMethod.head, writeDeadlineMs: self.config.writeDeadlineMs)
 		// The body is copied once, out of the bytes that have come, as the handler is given it.
 		var requestBody = ByteArray.create(0)
 		if bodyEnd > bodyStart 'body'
@@ -269,20 +322,33 @@ export service Conn implements services.Ends
 		end 'body'
 		// A handler is not interrupted: no deadline runs while it answers.
 		self.disarm()
-		let request = HttpExchange.over(self.takeWire(), head: head, body: requestBody, keeps: keeps, writeDeadlineMs: self.config.writeDeadlineMs)
-		let wire = self.handler.handle(request).wireBack()
+		let request = HttpExchange.over(self.takeWire(), own: exchange(me, value: OwnHandle.spent), head: head, body: requestBody, answering: answering)
+		let (wire, own) = self.handler.handle(request).apart()
+		me = own
 		let outcome = wire.outcome
 		self.putWire(wire)
+		self.after(outcome, answering: answering, bodyEnd: bodyEnd, me: me)
+	end 'answer'
+
+	// after goes on as an answer's outcome says: it keeps the connection for the next request, lingers and closes it, closes it
+	// at once, or waits for the answer deferred, reading nothing and running no timer until it comes.
+	function after(mutates self, outcome Outcome, answering Answering, bodyEnd Count, mutates me OwnHandle)
 		match outcome 'outcome'
 			kept then self.keep(bodyEnd, me: me)
 			closing then self.linger(me)
 			broken then self.close()
+			deferred then self.waitFor(answering, bodyEnd: bodyEnd)
 		end 'outcome'
-	end 'answer'
+	end 'after'
+
+	function waitFor(mutates self, answering Answering, bodyEnd Count)
+		self.phase = ConnPhase.deferred
+		self.waiting = Waiting.answer(answering.clone(), bodyEnd: bodyEnd)
+	end 'waitFor'
 
 	// keep keeps the connection after an answer: it reads the next request where its bytes have come past the last one, and
 	// waits idle for it otherwise.
-	function keep(mutates self, bodyEnd Count, me Conn.handle)
+	function keep(mutates self, bodyEnd Count, mutates me OwnHandle)
 		let count = self.arrived.count()
 		if bodyEnd < count 'pipelined'
 			// The bytes past the request are the next one's, which has begun: it is read where it lies, and its head deadline
@@ -300,7 +366,7 @@ export service Conn implements services.Ends
 	end 'keep'
 
 	// refuse answers a request the connection will not serve, and lingers and closes.
-	function refuse(mutates self, code StatusCode, me Conn.handle)
+	function refuse(mutates self, code StatusCode, mutates me OwnHandle)
 		if not self.answerStatus(code) 'gone'
 			self.close()
 			return
@@ -311,7 +377,7 @@ export service Conn implements services.Ends
 	// linger shuts the sending of a connection that is to close and reads and drops what its client still sends, until the
 	// client ends its own sending, lingerBytes have come or lingerMs have passed (RFC 9112 §9.6): a close with bytes unread
 	// would reset the connection, and the reset can destroy the answer before the client reads it.
-	function linger(mutates self, me Conn.handle)
+	function linger(mutates self, mutates me OwnHandle)
 		var wire = self.takeWire()
 		var shut = true
 		try wire.client.shutdownWrite() otherwise 'failed'
@@ -342,9 +408,12 @@ export service Conn implements services.Ends
 		return sent
 	end 'sendHead'
 
-	function armReadable(mutates self, me Conn.handle)
+	function armReadable(mutates self, mutates me OwnHandle)
 		var wire = self.takeWire()
-		wire.client.notifyReadable(me.post(Conn.Message.readable))
+		match me 'me'
+			held(conn) then wire.client.notifyReadable(conn.post(Conn.Message.readable))
+			spent then panic("Conn: an arm posts by the handle of the connection, which a responder takes only once the connection waits, arming nothing")
+		end 'me'
 		self.putWire(wire)
 	end 'armReadable'
 
@@ -365,8 +434,12 @@ export service Conn implements services.Ends
 		end 'slot'
 	end 'putWire'
 
-	function arm(mutates self, ms net.SocketDeadlineMs, me Conn.handle)
-		let old = exchange(self.timer, value: ConnTimer.armed(services.Timer.notifyAfter(timerMsOf(ms), message: me.post(Conn.Message.timedOut))))
+	function arm(mutates self, ms net.SocketDeadlineMs, mutates me OwnHandle)
+		let fresh = match me 'me'
+			held(conn) gives services.Timer.notifyAfter(timerMsOf(ms), message: conn.post(Conn.Message.timedOut))
+			spent gives panic("Conn: an arm posts by the handle of the connection, which a responder takes only once the connection waits, arming nothing")
+		end 'me'
+		let old = exchange(self.timer, value: ConnTimer.armed(fresh))
 		match consumes old 'old'
 			armed(t) then t.cancel()
 			none then return

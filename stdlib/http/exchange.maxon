@@ -15,11 +15,12 @@ public interface HttpHandler requires service
 end 'HttpHandler'
 
 // What the answer to a request leaves the connection to do: keep the connection for the next request, linger and close it,
-// or close it at once (a send that failed, or an exchange abandoned).
+// close it at once (a send that failed, or an exchange abandoned), or wait for an answer deferred.
 enum Outcome
 	kept
 	closing
 	broken
+	deferred
 end 'Outcome'
 
 // A connection's socket and the outcome of the answer it carries. It moves out of the connection's state into the exchange
@@ -75,33 +76,27 @@ function restOf(opened file.FileStreamReader) returns Count throws __ManagedFile
 	return try left + (opened.unreadBytes() as Count) otherwise panic("restOf: a file longer than a count")
 end 'restOf'
 
-/// A request a connection has read, and the one way to answer it. It is linear: each of `respond`, `respondWith`, `fail`,
-/// `respondFile` and `abandon` consumes it and gives the `HttpAnswered` that the handler returns. Answering throws nothing:
-/// a send that fails is the connection's, which closes.
-public type HttpExchange
-	/// The request's head: its method, target and fields.
-	public let request as RequestHead
-	/// The request's body, whole, read up to `ServerConfig.maxBodyBytes`.
-	public let requestBody as ByteArray
-	var held as Wire
-	// Whether the connection is kept after the answer: the request did not say `Connection: close`, was not HTTP/1.0 without
-	// `keep-alive`, and the server is not stopping.
+// How an answer to one request is written: whether the connection is kept after it (the request did not say `Connection:
+// close`, was not HTTP/1.0 without `keep-alive`, and the server is not stopping), its HTTP/1 minor version, whether it was a
+// HEAD, whose answer is the head a GET would have with no body (RFC 9110 §9.3.2), and the write deadline. An exchange answers
+// by it, and so does the connection, for an answer deferred.
+type Answering
 	let keeps as bool
+	let minorVersion as Count
+	let headOnly as bool
 	let writeDeadlineMs as net.SocketDeadlineMs
 
-	static function over(consumes wire Wire, consumes head RequestHead, consumes body ByteArray, keeps bool, writeDeadlineMs net.SocketDeadlineMs) returns HttpExchange
-		return HttpExchange{request: head, requestBody: body, held: wire, keeps: keeps, writeDeadlineMs: writeDeadlineMs}
-	end 'over'
+	static function of(keeps bool, minorVersion Count, headOnly bool, writeDeadlineMs net.SocketDeadlineMs) returns Answering
+		return Answering{keeps: keeps, minorVersion: minorVersion, headOnly: headOnly, writeDeadlineMs: writeDeadlineMs}
+	end 'of'
 
-	/// Answer with `response`: its status, reason, fields and body. The connection states the body's length and whether it is
-	/// kept; a `Content-Length` or `Connection` field of the response's own is left out. A response that cannot be sent as it
-	/// is (a body on a status that has none, a reason or a field that would end its line) is not sent, and the connection
-	/// closes.
-	public function respond(consumes self, response HttpResponse) returns HttpAnswered
-		var wire = self.held
+	// response writes `response`: its status, reason, fields and body, its length and the Connection field stated by the
+	// connection, a field of the response's own of either name left out. One that cannot be sent as it is (a body on a status
+	// that has none, a reason or a field that would end its line) is not sent, and the connection closes.
+	function response(mutates wire Wire, response HttpResponse)
 		try httpRequireSendableResponse(response) otherwise 'unsendable'
 			wire.outcome = Outcome.broken
-			return HttpAnswered.over(wire)
+			return
 		end 'unsendable'
 		let content = response.body()
 		let carries = httpStatusAllowsContent(response.statusCode())
@@ -109,39 +104,105 @@ public type HttpExchange
 		if carries 'length'
 			appendHeaderLine(lines, name: SentContentLengthName, value: "{content.byteLength()}")
 		end 'length'
-		lines = "{lines}{connectionField(self.keeps, minorVersion: self.request.minorVersion)}"
+		lines = "{lines}{self.field()}"
 		appendHeaderLines(lines, headers: response.headers(), skipping: ConnectionHeaderName)
 		lines = "{lines}{HttpLineBreak}"
-		wire.send(lines, body: content if carries and self.request.method != HttpMethod.head else "", keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
-		return HttpAnswered.over(wire)
-	end 'respond'
+		wire.send(lines, body: content if carries and not self.headOnly else "", keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
+	end 'response'
 
-	/// Answer with `code`, its reason phrase, and `body` of the type `contentType`. A body on a status that has none (1xx, 204,
-	/// 304), or a content type that would end its line, is not sent, and the connection closes.
-	public function respondWith(consumes self, code StatusCode, body String, contentType String) returns HttpAnswered
-		var wire = self.held
+	// bodied writes `code`, its reason phrase, and `body` of the type `contentType`. A body on a status that has none (1xx, 204,
+	// 304), or a content type that would end its line, is not sent, and the connection closes.
+	function bodied(mutates wire Wire, code StatusCode, body String, contentType String)
 		let carries = httpStatusAllowsContent(code)
 		if (not carries and not body.isEmpty()) or not isFieldContent(contentType) 'unsendable'
 			wire.outcome = Outcome.broken
-			return HttpAnswered.over(wire)
+			return
 		end 'unsendable'
-		let lines = answerHead(code, contentType: contentType, length: body.byteLength() as Count, carries: carries, field: connectionField(self.keeps, minorVersion: self.request.minorVersion))
-		// The answer to a HEAD is the head a GET would have, with no body (RFC 9110 §9.3.2).
-		if self.request.method == HttpMethod.head 'headOnly'
+		let lines = answerHead(code, contentType: contentType, length: body.byteLength() as Count, carries: carries, field: self.field())
+		if self.headOnly 'headOnly'
 			wire.send(lines, body: "", keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
-			return HttpAnswered.over(wire)
+			return
 		end 'headOnly'
 		wire.send(lines, body: body, keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
-		return HttpAnswered.over(wire)
+	end 'bodied'
+
+	// failure writes `code` and its reason phrase, and no body.
+	function failure(mutates wire Wire, code StatusCode)
+		let lines = answerHead(code, contentType: PlainText, length: 0, carries: httpStatusAllowsContent(code), field: self.field())
+		wire.send(lines, body: "", keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
+	end 'failure'
+
+	// file writes 200 and the rest of an open file of the type `contentType`, its length stated, and closes the file.
+	function file(mutates wire Wire, consumes opened file.FileStreamReader, contentType String)
+		let length = try restOf(opened) otherwise 'unsized'
+			closeFile(opened)
+			wire.outcome = Outcome.broken
+			return
+		end 'unsized'
+		if not isFieldContent(contentType) 'unsendable'
+			closeFile(opened)
+			wire.outcome = Outcome.broken
+			return
+		end 'unsendable'
+		let lines = answerHead(StatusCode.ok, contentType: contentType, length: length, carries: true, field: self.field())
+		if self.headOnly 'headOnly'
+			closeFile(opened)
+			wire.send(lines, body: "", keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
+			return
+		end 'headOnly'
+		wire.sendFile(lines, opened: opened, keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
+	end 'file'
+
+	function field() returns String
+		return connectionField(self.keeps, minorVersion: self.minorVersion)
+	end 'field'
+end 'Answering'
+
+// The handle of the connection whose message runs, which the message takes once (self.handle) and lends to what it calls: an
+// exchange holds it for the handler's call and gives it back in its HttpAnswered, and respondLater moves it into the
+// responder, so a request costs no count of the handle, and only a deferred answer takes one.
+union OwnHandle
+	held(conn Conn.handle)
+	spent
+end 'OwnHandle'
+
+/// A request a connection has read, and the one way to answer it. It is linear: each of `respond`, `respondWith`, `fail`,
+/// `respondFile`, `abandon` and `respondLater` consumes it and gives the `HttpAnswered` that the handler returns. Answering
+/// throws nothing: a send that fails is the connection's, which closes.
+public type HttpExchange
+	/// The request's head: its method, target and fields.
+	public let request as RequestHead
+	/// The request's body, whole, read up to `ServerConfig.maxBodyBytes`.
+	public let requestBody as ByteArray
+	var held as Wire
+	var own as OwnHandle
+	let answering as Answering
+
+	static function over(consumes wire Wire, consumes own OwnHandle, consumes head RequestHead, consumes body ByteArray, answering Answering) returns HttpExchange
+		return HttpExchange{request: head, requestBody: body, held: wire, own: own, answering: answering.clone()}
+	end 'over'
+
+	/// Answer with `response`: its status, reason, fields and body. The connection states the body's length and whether it is
+	/// kept; a `Content-Length` or `Connection` field of the response's own is left out.
+	public function respond(consumes self, response HttpResponse) returns HttpAnswered
+		var wire = self.held
+		self.answering.response(wire, response: response)
+		return HttpAnswered.over(wire, own: self.own)
+	end 'respond'
+
+	/// Answer with `code`, its reason phrase, and `body` of the type `contentType`.
+	public function respondWith(consumes self, code StatusCode, body String, contentType String) returns HttpAnswered
+		var wire = self.held
+		self.answering.bodied(wire, code: code, body: body, contentType: contentType)
+		return HttpAnswered.over(wire, own: self.own)
 	end 'respondWith'
 
 	/// Answer with `code` and its reason phrase, and no body: a handler's answer to its own failure
 	/// (`return exchange.fail(StatusCode.internalServerError)`).
 	public function fail(consumes self, code StatusCode) returns HttpAnswered
 		var wire = self.held
-		let lines = answerHead(code, contentType: PlainText, length: 0, carries: httpStatusAllowsContent(code), field: connectionField(self.keeps, minorVersion: self.request.minorVersion))
-		wire.send(lines, body: "", keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
-		return HttpAnswered.over(wire)
+		self.answering.failure(wire, code: code)
+		return HttpAnswered.over(wire, own: self.own)
 	end 'fail'
 
 	/// Answer 200 with the rest of an open file of the type `contentType`: what its reader holds unread, and then the file from
@@ -150,48 +211,86 @@ public type HttpExchange
 	/// within the call, whether or not the send succeeds; a file whose size cannot be read is not sent, and the connection closes.
 	public function respondFile(consumes self, consumes opened file.FileStreamReader, contentType String) returns HttpAnswered
 		var wire = self.held
-		let length = try restOf(opened) otherwise 'unsized'
-			closeFile(opened)
-			wire.outcome = Outcome.broken
-			return HttpAnswered.over(wire)
-		end 'unsized'
-		if not isFieldContent(contentType) 'unsendable'
-			closeFile(opened)
-			wire.outcome = Outcome.broken
-			return HttpAnswered.over(wire)
-		end 'unsendable'
-		let lines = answerHead(StatusCode.ok, contentType: contentType, length: length, carries: true, field: connectionField(self.keeps, minorVersion: self.request.minorVersion))
-		if self.request.method == HttpMethod.head 'headOnly'
-			closeFile(opened)
-			wire.send(lines, body: "", keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
-			return HttpAnswered.over(wire)
-		end 'headOnly'
-		wire.sendFile(lines, opened: opened, keeps: self.keeps, writeDeadlineMs: self.writeDeadlineMs)
-		return HttpAnswered.over(wire)
+		self.answering.file(wire, opened: opened, contentType: contentType)
+		return HttpAnswered.over(wire, own: self.own)
 	end 'respondFile'
 
 	/// Close the connection with no answer.
 	public function abandon(consumes self) returns HttpAnswered
 		var wire = self.held
 		wire.outcome = Outcome.broken
-		return HttpAnswered.over(wire)
+		return HttpAnswered.over(wire, own: self.own)
 	end 'abandon'
+
+	/// Defer the answer: the handler returns the `HttpAnswered` this gives, and whoever holds the `HttpResponder` answers the
+	/// request later, by a message to the connection. The connection reads nothing more until then; a pipelined request behind
+	/// this one waits for its answer, and is answered after it, in order.
+	public function respondLater(consumes self) returns (HttpResponder, HttpAnswered)
+		var wire = self.held
+		wire.outcome = Outcome.deferred
+		var lent = self.own
+		match consumes lent 'own'
+			held(conn) then return (HttpResponder.over(conn), HttpAnswered.over(wire, own: OwnHandle.spent))
+			spent then panic("HttpExchange.respondLater: an exchange holds the handle of the connection whose message runs")
+		end 'own'
+	end 'respondLater'
 end 'HttpExchange'
 
 /// What answering an exchange gives, which the handler returns: the proof that the request was answered, or deferred. Only the
 /// library makes one, and it is linear, so a handler returns the one its exchange gave on every path.
 public type HttpAnswered
 	let wire as Wire
+	let own as OwnHandle
 
-	static function over(consumes wire Wire) returns HttpAnswered
-		return HttpAnswered{wire: wire}
+	static function over(consumes wire Wire, consumes own OwnHandle) returns HttpAnswered
+		return HttpAnswered{wire: wire, own: own}
 	end 'over'
 
-	// wireBack gives the connection its Wire back, with the answer's outcome.
-	function wireBack(consumes self) returns Wire
-		return self.wire
-	end 'wireBack'
+	// apart gives the connection its Wire back, with the answer's outcome, and the handle it lent, unless respondLater took it.
+	function apart(consumes self) returns (Wire, OwnHandle)
+		return (self.wire, self.own)
+	end 'apart'
 end 'HttpAnswered'
+
+/// The right to answer a request whose answer was deferred (`HttpExchange.respondLater`). It is linear: each of `respond`,
+/// `respondWith`, `fail` and `abandon` ends it, once, so dropping it unanswered is refused at compile time. An answer is a
+/// message to the connection that keeps no reply, so it never waits and is allowed in any message; the connection writes it,
+/// and a send that fails is the connection's, which closes. An answer to a connection that has ended goes nowhere.
+public type HttpResponder
+	let conn as Conn.handle
+
+	static function over(consumes conn Conn.handle) returns HttpResponder
+		return HttpResponder{conn: conn}
+	end 'over'
+
+	/// Answer with `response`, as `HttpExchange.respond` does.
+	public function respond(destructs self, response HttpResponse)
+		try self.conn.deliver(Deferred.response(response.clone())) otherwise ignore
+	end 'respond'
+
+	/// Answer with `code`, its reason phrase, and `body` of the type `contentType`, as `HttpExchange.respondWith` does.
+	public function respondWith(destructs self, code StatusCode, body String, contentType String)
+		try self.conn.deliver(Deferred.bodied(code.clone(), body: body.clone(), contentType: contentType.clone())) otherwise ignore
+	end 'respondWith'
+
+	/// Answer with `code` and its reason phrase, and no body.
+	public function fail(destructs self, code StatusCode)
+		try self.conn.deliver(Deferred.failure(code.clone())) otherwise ignore
+	end 'fail'
+
+	/// Close the connection with no answer.
+	public function abandon(destructs self)
+		try self.conn.deliver(Deferred.abandoned) otherwise ignore
+	end 'abandon'
+end 'HttpResponder'
+
+// A deferred answer, which a responder sends its connection.
+export union Deferred
+	response(response HttpResponse)
+	bodied(code StatusCode, body String, contentType String)
+	failure(code StatusCode)
+	abandoned
+end 'Deferred'
 
 // The content type of an answer that has no body of the handler's: the connection's refusals and fail.
 let PlainText = "text/plain"

@@ -6689,7 +6689,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   which the connection moves out of its state for the call; each way to answer, `respond(response)`,
   `respondWith(code, body:, contentType:)`, `fail(code)`, `respondFile(opened, contentType:)` (the rest of an open file, by
   the system's file send, its length stated from the open file's size and position, so the connection is kept, and the file
-  closed within the call) and `abandon()` (a close with no answer), consumes it and gives the
+  closed within the call) `abandon()` (a close with no answer) and `respondLater()`, consumes it and gives the
   one `HttpAnswered`, linear, which only the library makes, and from which the connection takes the `Wire` back. So
   answering twice is a use after a move (`E3102`), and a handler that does not answer has no value to return: maxon's
   run-time stage checks (`alreadyResponded`), its 500 in the handler's place and its report of an unanswered request are not
@@ -6699,7 +6699,16 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   not sent, and the connection closes, where maxon's throws `invalidResponse`. The handler is shared frozen by every
   connection (`server.serve(freeze(Hello.create()))`), one count per connection, and is read only; a
   connection calls it in its own message, which `HttpHandler`'s `requires service` allows, so a handler waits on no service
-  and names a policy for each kind it sends (`E3210`, `E3957`).
+  and names a policy for each kind it sends (`E3210`, `E3957`). A handler that must consult a service defers its answer:
+  `let (responder, answered) = exchange.respondLater()` gives a linear `HttpResponder` beside the `HttpAnswered` it returns,
+  and whoever holds the responder answers by one of `respond`, `respondWith`, `fail` and `abandon`, each of which ends it, so a
+  responder dropped unanswered is refused at compile time (`E3919`); maxon's responder is linear too, but its answer may fail
+  (`HttpResponderError.notSent`, which hands the responder back) and here it does not: an answer is a message to the
+  connection (`Conn.deliver`, `@policy(Keep)`) that keeps no reply, the connection writes it and a failed send is the
+  connection's, and an answer to a connection that has ended goes nowhere. While it waits, the connection reads nothing and
+  runs no timer (a deadline on the deferred work is the answering service's), so a request pipelined behind the deferred one
+  is answered after it, in order; a stop lets it wait for the answer, and its deadline closes it. The connection's own handle
+  is taken once per message, and an exchange lends it to `respondLater`, so only a deferred answer costs a count of it.
 - **There is no TEST-NET-1 short-circuit.** minimaxon has no TEST-NET-1 short-circuit; a connect dials as Go's does and the OS's timeout applies, where maxon's runtime refuses `192.0.2.0/24` without dialling (its two spec tests that connect there with no deadline are skipped with this reason).
 - **A file's close throws.** maxon's `close()` throws nothing and its drop discards what the system's close reports. Here,
   as Go's `Close` does, `close()` throws it, `__ManagedFileError.writeFailed`, which `FileWriter.close` throws as

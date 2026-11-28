@@ -1,0 +1,21 @@
+// An HttpResponder is linear: each of its answers ends it, so a handler that defers its answer and lets the responder go
+// unanswered on a path is refused (E3919), where maxon's responder closes the connection when it is dropped.
+type Forgetful implements HttpHandler
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	function handle(consumes exchange HttpExchange) returns HttpAnswered
+		let (responder, answered) = exchange.respondLater()
+		return answered
+	end 'handle'
+end 'Forgetful'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
+	let serving = server.serve(freeze(Forgetful.create()))
+	serving.stop(0)
+	return 0
+end 'main'
+
+// expect-error: E3919
