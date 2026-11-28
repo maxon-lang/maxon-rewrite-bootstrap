@@ -580,6 +580,7 @@ retaken=yes
 ```
 
 <!-- test: an-async-child-wait-leaves-the-sleeping-coroutine-running -->
+<!-- manual: runs 2.3 s: the sleeping coroutine outlives a child that ends after seconds, which is waiting -->
 <!-- procs: 1 -->
 <!-- unsupported-targets: wasm32-wasi -->
 Two `async` coroutines share one strand: a streaming child's `wait` in the first and a `sleep` in the second.

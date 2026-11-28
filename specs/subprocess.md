@@ -565,6 +565,7 @@ end 'main'
 ```
 
 <!-- test: subprocess-timeout-carries-the-partial-output -->
+<!-- manual: runs 2.2 s: a deadline of seconds on a child that writes and then sleeps, which is waiting -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐⭐ **A DEADLINE DOES NOT DESTROY WHAT THE CHILD ALREADY SAID.** The runtime hands back the bytes it
 collected before the kill exactly as it does on a clean exit, so `SubprocessError.timeout` carries them:

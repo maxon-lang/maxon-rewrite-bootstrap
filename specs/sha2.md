@@ -235,6 +235,7 @@ sha512-chunked-009 [8e959b75dae313da8cf4f72814fc143f8f7779c6eb9f7fa17299aeadb688
 ```
 
 <!-- test: sha2.a-million-letters -->
+<!-- manual: runs 4.3 s: a million letters hashed twice, which is computing and not waiting -->
 RFC 6234 TEST3: a million repetitions of `a`, hashed in one call and as a thousand chunks of a thousand.
 ```maxon
 function toHex(bytes ByteArray) returns String

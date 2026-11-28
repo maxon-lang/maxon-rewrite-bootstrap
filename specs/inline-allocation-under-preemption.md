@@ -17,6 +17,7 @@ slot.
 ## Tests
 
 <!-- test: eight-services-churning-constant-capacity-arrays-keep-their-sums -->
+<!-- manual: runs 2.2 s: eight services churn arrays under preemption for seconds, which is computing -->
 <!-- procs: 4 -->
 Eight services each build and drop two constant-capacity arrays per round for eight million rounds, on four
 processors, so the monitor stops each runner many times and a stopped runner resumes on another machine as often
