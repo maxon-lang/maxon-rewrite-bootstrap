@@ -26,6 +26,10 @@
 #           the gate may spend on one (README, "Tests"), as a program of the corpus that says `// runs: manual` does. It gets
 #           a `<!-- manual: reason -->` line, and is fixed as any test: a run leaves it out unless it is given --manual, names it
 #           in its summary, and keeps it in specs/passed.txt, where it is not lost for being left out
+#   native  `native`, the name of a spec file, the name of one of its tests or `*` for every test of the file, and the reason:
+#           a test of a compute-heavy library (bignum arithmetic, curves, key schedules) that the interpreter runs for longer
+#           than the gate may spend on one, so it runs natively only. It gets a `<!-- native: reason -->` line, and is fixed
+#           as any test: a run under --interpret does not run it under the interpreter too, and says nothing of it
 #   cause   `cause`, a case of diag.ErrorCause and the reason: a test is skipped when the first diagnostic left after the fixes
 #           has that cause and is not the code the test expects, where the cause tells apart what its code covers
 code	E2027	a match arm that repeats the pattern of an earlier arm
@@ -864,3 +868,4 @@ test	service-registry.md	error.a-withheld-interface-message-spawned-first-is-ref
 test	service-registry.md	error.implementers-of-one-interface-that-disagree-on-a-reply	language difference: a service is held to an interface's requirements where its handle becomes the interface's handle, every requirement a message that takes, gives and fails with what the requirement declares, never by a search of the program for the services a send through the interface handle may reach (README, Where it differs from Maxon)
 run	ErrDiscardOfExistingValue	language difference: E3067 refuses only a discard here, of any value that no call, send, await or panic made, a bare name too, where maxon's also refuses a self-assignment and admits a bare name, a let _ and a value it constructs (README, Where it differs from Maxon: A discard takes a value something made)
 first	ErrDiscardOfExistingValue	language difference: E3067 refuses only a discard here, of any value that no call, send, await or panic made, a bare name too, where maxon's also refuses a self-assignment and admits a bare name, a let _ and a value it constructs (README, Where it differs from Maxon: A discard takes a value something made)
+native	rsa.md	*	every test does bignum modular arithmetic, which the interpreter runs in some 15 seconds a test where the executable takes about a second

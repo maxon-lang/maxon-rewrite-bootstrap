@@ -20,6 +20,11 @@ let skipKey = "skip"
 // run leaves it out for unless it is given --manual, and names in its summary.
 let manualKey = "manual"
 
+// A test that the conversion's rows name as run natively only has a `<!-- native: reason -->` line (skips.tsv, the native rows),
+// which keeps it from the run under the interpreter (interpretsAsWritten): a compute-heavy library's test, which the
+// interpreter runs for longer than the gate may spend on one.
+let nativeKey = "native"
+
 let positionsKey = "positions"
 
 let positionsMoved = "moved"
@@ -208,6 +213,8 @@ type SpecTest
 	var positionsMoved as bool
 	// manual is whether the test is run by hand (manualKey).
 	var manual as bool
+	// native is whether the test runs natively only (nativeKey).
+	var native as bool
 	var hasSource as bool
 	var sourceStart as Count
 	var sourceFinish as Count
@@ -216,7 +223,7 @@ type SpecTest
 	var facilities as ast.StringList
 
 	static function make(consumes name String) returns SpecTest
-		return SpecTest{name: name, markerEnd: 0, skips: ast.StringList.create(0), directives: ast.StringList.create(0), positionsMoved: false, manual: false, hasSource: false, sourceStart: 0, sourceFinish: 0, fences: SpecFenceList.create(0), facilities: ast.StringList.create(0)}
+		return SpecTest{name: name, markerEnd: 0, skips: ast.StringList.create(0), directives: ast.StringList.create(0), positionsMoved: false, manual: false, native: false, hasSource: false, sourceStart: 0, sourceFinish: 0, fences: SpecFenceList.create(0), facilities: ast.StringList.create(0)}
 	end 'make'
 end 'SpecTest'
 
@@ -392,7 +399,9 @@ function addComment(mutates test SpecTest, line String)
 		test.skips.push(value)
 	end 'skip' else if key == manualKey 'manual'
 		test.manual = true
-	end 'manual' else if key == positionsKey and value == positionsMoved 'positions'
+	end 'manual' else if key == nativeKey 'native'
+		test.native = true
+	end 'native' else if key == positionsKey and value == positionsMoved 'positions'
 		test.positionsMoved = true
 	end 'positions' else 'directive'
 		test.directives.push(text)
@@ -1438,9 +1447,9 @@ end 'stageSpecTest'
 
 // interpretsAsWritten is whether the interpreter runs the test as it is written: the interpreter's scheduler has neither a
 // processor count nor a preemption switch, so a test that sets either (environmentOf) is about the native scheduler's, and
-// runs natively only.
+// runs natively only, as does a test with a native line (nativeKey), whose work the interpreter runs too slowly.
 function interpretsAsWritten(test SpecTest) returns bool
-	return environmentOf(test).count() == 0
+	return environmentOf(test).count() == 0 and not test.native
 end 'interpretsAsWritten'
 
 // compiledOnlyFailure is what a spec test that a compile-only run compiled for another target than the host, and that did not

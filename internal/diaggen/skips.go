@@ -20,6 +20,8 @@ const (
 	codeListColumns  = 3
 	testKind         = "test"
 	manualKind       = "manual"
+	nativeKind       = "native"
+	everyTest        = "*"
 	testColumns      = 4
 	causeKind        = "cause"
 	specSuffix       = ".md"
@@ -29,9 +31,10 @@ const (
 )
 
 // skipRow is a row of the skip table: its kind, the codes maxon expects and the codes minimaxon reports for a test that is
-// skipped for the reason, each as the Maxon expression of the code, the spec file and the name of the one test a test or manual row
+// skipped for the reason, each as the Maxon expression of the code, the spec file and the name of the one test a test, manual or native row
 // skips, or the case of diag.ErrorCause that a cause row skips by. An expect row has no reported codes, a run row no
-// expected ones, and a test, manual or cause row neither.
+// expected ones, and a test, manual, native or cause row neither. A native row names everyTest in place of a test for every
+// test of the file.
 type skipRow struct {
 	kind               string
 	expected, reported []string
@@ -100,12 +103,14 @@ func parseSkips(src string, codes []row) ([]skipRow, error) {
 			if s.reported, err = skipCodes(cols[1], known, nil, at); err != nil {
 				return nil, err
 			}
-		case (cols[0] == testKind || cols[0] == manualKind) && len(cols) == testColumns:
+		case (cols[0] == testKind || cols[0] == manualKind || cols[0] == nativeKind) && len(cols) == testColumns:
 			s = skipRow{kind: cols[0], file: cols[1], test: cols[2], reason: cols[3]}
 			key := s.kind + "\t" + s.file + "\t" + s.test
 			switch {
 			case !strings.HasSuffix(s.file, specSuffix) || strings.ContainsAny(s.file, "/\\"+reasonForbidden):
 				return nil, fmt.Errorf("%s: %q is not the name of a spec file: write the file's name, which ends in %s", at, s.file, specSuffix)
+			case s.test == everyTest && s.kind != nativeKind:
+				return nil, fmt.Errorf("%s: only a %s row may name every test of the file with %s", at, nativeKind, everyTest)
 			case s.test == "" || strings.ContainsAny(s.test, reasonForbidden):
 				return nil, fmt.Errorf("%s: the test's name is empty or holds a quote, a backslash or a brace", at)
 			case named[key]:
@@ -122,7 +127,7 @@ func parseSkips(src string, codes []row) ([]skipRow, error) {
 			}
 			causes[s.cause] = true
 		default:
-			return nil, fmt.Errorf("%s: want a %s row of %d tab-separated columns, a %s, %s or %s row of %d, or an %s, %s, %s or %s row of %d", at, maxonOnlyKind, maxonOnlyColumns, skipKind, testKind, manualKind, skipColumns, expectKind, runKind, firstKind, causeKind, codeListColumns)
+			return nil, fmt.Errorf("%s: want a %s row of %d tab-separated columns, a %s, %s, %s or %s row of %d, or an %s, %s, %s or %s row of %d", at, maxonOnlyKind, maxonOnlyColumns, skipKind, testKind, manualKind, nativeKind, skipColumns, expectKind, runKind, firstKind, causeKind, codeListColumns)
 		}
 		if s.reason == "" || strings.ContainsAny(s.reason, reasonForbidden) {
 			return nil, fmt.Errorf("%s: the reason is empty or holds a quote, a backslash or a brace, which Go and Maxon do not escape alike", at)
@@ -159,8 +164,8 @@ func emitMaxonSkips(rows []skipRow) string {
 	b.WriteString("function codeSkipTable() returns CodeSkips\n\tvar skips = CodeSkips.create(0)\n")
 	for _, r := range rows {
 		marker := "skip"
-		if r.kind == manualKind {
-			marker = "manual"
+		if r.kind == manualKind || r.kind == nativeKind {
+			marker = r.kind
 		}
 		line := fmt.Sprintf("%q", "<!-- "+marker+": "+r.reason+" -->\n")
 		switch r.kind {
@@ -186,6 +191,8 @@ func emitMaxonSkips(rows []skipRow) string {
 			fmt.Fprintf(&b, "\tskips.push(CodeSkip.naming(%q, test: %q, line: %s))\n", r.file, r.test, line)
 		case manualKind:
 			fmt.Fprintf(&b, "\tskips.push(CodeSkip.byHand(%q, test: %q, line: %s))\n", r.file, r.test, line)
+		case nativeKind:
+			fmt.Fprintf(&b, "\tskips.push(CodeSkip.nativeOnly(%q, test: %q, line: %s))\n", r.file, r.test, line)
 		case causeKind:
 			fmt.Fprintf(&b, "\tskips.push(CodeSkip.causing(diag.ErrorCause.%s, line: %s))\n", r.cause, line)
 		default:

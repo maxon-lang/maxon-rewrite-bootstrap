@@ -27,6 +27,8 @@ enum CodeSkipKind
 	byCause
 	// manualTest is one test, by its spec file and its name, that is run by hand: it is fixed as any, and gets the line that says so.
 	manualTest
+	// nativeTest is one test, by its spec file and its name, or every test of the file (nativeEvery), that runs natively only.
+	nativeTest
 end 'CodeSkipKind'
 
 // CodeSkip is a row of the skip table: the codes of a test that minimaxon refuses or reports for a known reason, as its kind
@@ -64,6 +66,10 @@ type CodeSkip
 	static function byHand(consumes file String, consumes test String, consumes line String) returns CodeSkip
 		return CodeSkip{kind: CodeSkipKind.manualTest, expected: "", reported: "", file: file, test: test, cause: diag.ErrorCause.none, line: line}
 	end 'byHand'
+
+	static function nativeOnly(consumes file String, consumes test String, consumes line String) returns CodeSkip
+		return CodeSkip{kind: CodeSkipKind.nativeTest, expected: "", reported: "", file: file, test: test, cause: diag.ErrorCause.none, line: line}
+	end 'nativeOnly'
 
 	static function causing(cause diag.ErrorCause, consumes line String) returns CodeSkip
 		return CodeSkip{kind: CodeSkipKind.byCause, expected: "", reported: "", file: "", test: "", cause: cause, line: line}
@@ -149,25 +155,24 @@ function pairAfterFixes(skips CodeSkips, expected table.Option with String, left
 	end 'expects'
 end 'pairAfterFixes'
 
+// nativeEvery is the test that a native row names in place of one's name: every test of the spec file.
+let nativeEvery = "*"
+
+// testLine is the line of the row of this kind that names the test of the spec file named file (a native row also by
+// nativeEvery), or nothing.
+function testLine(skips CodeSkips, kind CodeSkipKind, file String, test String) returns table.Option with String
+	for skip in skips 'rows'
+		if skip.kind == kind and skip.file == file and (skip.test == test or (kind == CodeSkipKind.nativeTest and skip.test == nativeEvery)) 'found'
+			return table.Option.some(skip.line.clone())
+		end 'found'
+	end 'rows'
+	return table.Option.none
+end 'testLine'
+
 // namedSkipLine is the skip line of the test of the spec file named file that the table names, or nothing.
 function namedSkipLine(skips CodeSkips, file String, test String) returns table.Option with String
-	for i in 0 upto skips.count() 'rows'
-		if skips[i].kind == CodeSkipKind.namedTest and skips[i].file == file and skips[i].test == test 'found'
-			return table.Option.some(skips[i].line.clone())
-		end 'found'
-	end 'rows'
-	return table.Option.none
+	return testLine(skips, kind: CodeSkipKind.namedTest, file: file, test: test)
 end 'namedSkipLine'
-
-// manualLine is the line of the test of the spec file named file that the table names as run by hand, or nothing.
-function manualLine(skips CodeSkips, file String, test String) returns table.Option with String
-	for i in 0 upto skips.count() 'rows'
-		if skips[i].kind == CodeSkipKind.manualTest and skips[i].file == file and skips[i].test == test 'found'
-			return table.Option.some(skips[i].line.clone())
-		end 'found'
-	end 'rows'
-	return table.Option.none
-end 'manualLine'
 
 // causeSkipLine is the skip line of a test whose first diagnostic left after the fixes has a cause that the table skips, or
 // nothing.
@@ -1036,10 +1041,18 @@ end 'expectedRuleSkip'
 // file, which with check are only counted and named. exe is where a compile of the test may make its executable.
 function fixSpecTestAt(shared SharedRuntimes, libraries FixLibraries, exe String, skips CodeSkips, display String, text String, test SpecTest, checkOnly bool) returns FixResult
 	var result = FixResult.new()
-	let byHand = manualLine(skips, file: display, test: test.name)
+	var marks = ""
+	let byHand = testLine(skips, kind: CodeSkipKind.manualTest, file: display, test: test.name)
 	if byHand.isSome() and not test.manual 'manual'
-		result.edits.push(syntax.Edit.make(test.markerEnd, until: test.markerEnd, replacement: byHand.unwrap()))
+		marks = "{marks}{byHand.unwrap()}"
 	end 'manual'
+	let nativeOnly = testLine(skips, kind: CodeSkipKind.nativeTest, file: display, test: test.name)
+	if nativeOnly.isSome() and not test.native 'native'
+		marks = "{marks}{nativeOnly.unwrap()}"
+	end 'native'
+	if marks != "" 'marked'
+		result.edits.push(syntax.Edit.make(test.markerEnd, until: test.markerEnd, replacement: marks))
+	end 'marked'
 	let expectSkip = expectedRuleSkip(skips, file: display, test: test, text: text)
 	if expectSkip.isSome() 'ruleSkipped'
 		skipSpecTest(result, test: test, line: expectSkip.unwrap())

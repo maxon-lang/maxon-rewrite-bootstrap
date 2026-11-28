@@ -182,6 +182,11 @@ func TestParseSkipsRefusesBadRows(t *testing.T) {
 		"manual file":       {"manual\ta.txt\tone-test\tr\n", "not the name of a spec file"},
 		"manual twice":      {"manual\ta.md\tone-test\tr\nmanual\ta.md\tone-test\ts\n", "named twice"},
 		"manual and a skip": {"test\ta.md\tone-test\tr\nmanual\ta.md\tone-test\ts\n", ""},
+		"native ok":         {"native\ta.md\tone-test\tr\n", ""},
+		"native every":      {"native\ta.md\t*\tr\n", ""},
+		"native twice":      {"native\ta.md\t*\tr\nnative\ta.md\t*\ts\n", "named twice"},
+		"native and manual": {"manual\ta.md\tone-test\tr\nnative\ta.md\tone-test\ts\n", ""},
+		"manual every":      {"manual\ta.md\t*\tr\n", "only a native row"},
 	} {
 		_, err := parseSkips(tc.src, codes)
 		switch {
@@ -195,7 +200,7 @@ func TestParseSkipsRefusesBadRows(t *testing.T) {
 
 func TestSkipTablePairsEveryExpectedWithEveryReported(t *testing.T) {
 	codes := []row{{"ErrA", "E2001", noMaxonName, "m"}, {"ErrB", "E2002", noMaxonName, "m"}}
-	skips, err := parseSkips("code\tE3223\tm\nskip\tErrA,E3223\tErrA,ErrB\twhy\nexpect\tE3223\tso\nrun\tErrB\tthus\ntest\ta.md\tone-test\tsince\nmanual\tb.md\tslow\tlong\n", codes)
+	skips, err := parseSkips("code\tE3223\tm\nskip\tErrA,E3223\tErrA,ErrB\twhy\nexpect\tE3223\tso\nrun\tErrB\tthus\ntest\ta.md\tone-test\tsince\nmanual\tb.md\tslow\tlong\nnative\tc.md\t*\theavy\n", codes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,6 +214,7 @@ func TestSkipTablePairsEveryExpectedWithEveryReported(t *testing.T) {
 		`CodeSkip.refusing(diag.errB.clone(), line: "<!-- skip: thus -->\n")`,
 		`CodeSkip.naming("a.md", test: "one-test", line: "<!-- skip: since -->\n")`,
 		`CodeSkip.byHand("b.md", test: "slow", line: "<!-- manual: long -->\n")`,
+		`CodeSkip.nativeOnly("c.md", test: "*", line: "<!-- native: heavy -->\n")`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("generated table lacks %s:\n%s", want, got)
