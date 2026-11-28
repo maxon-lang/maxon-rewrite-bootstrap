@@ -21,10 +21,17 @@ end 'AesKeyStreamError'
 
 union AesBacking
 	bitsliced(cipher AesBitsliced)
+	#if arch(x64) or arch(arm64)
+		hardware(schedule AesSchedule)
+	#endif
 end 'AesBacking'
 
 export function aesHardwareAvailable() returns bool
-	return false
+	#if arch(x64) or arch(arm64)
+		return __Builtins.cpuHasAes()
+	#else
+		return false
+	#endif
 end 'aesHardwareAvailable'
 
 /// An AES key schedule, ready to encrypt and decrypt 16-byte blocks in constant time.
@@ -33,6 +40,12 @@ public type Aes
 
 	/// The cipher for a 16-, 24- or 32-byte `key` (AES-128, AES-192 or AES-256).
 	public static function create(key ByteArray) returns Aes throws AesError
+		#if arch(x64) or arch(arm64)
+			if aesHardwareAvailable() 'hardware'
+				try aesRequireKeyLength(key)
+				return Self{backing: AesBacking.hardware(aesHardwareSchedule(key))}
+			end 'hardware'
+		#endif
 		return Self{backing: AesBacking.bitsliced(try AesBitsliced.create(key))}
 	end 'create'
 
@@ -58,6 +71,9 @@ public type Aes
 	public function encryptBlockInto(block ByteArray, mutates output ByteArray, at ElementIndex) throws AesError
 		match backing 'backing'
 			bitsliced(cipher) then try cipher.cryptBlockInto(block, output: output, at: at, direction: AesDirection.encrypt)
+			#if arch(x64) or arch(arm64)
+				hardware(schedule) then try aesHardwareEncryptInto(schedule, block: block, output: output, at: at)
+			#endif
 		end 'backing'
 	end 'encryptBlockInto'
 
@@ -66,6 +82,9 @@ public type Aes
 	public function decryptBlockInto(block ByteArray, mutates output ByteArray, at ElementIndex) throws AesError
 		match backing 'backing'
 			bitsliced(cipher) then try cipher.cryptBlockInto(block, output: output, at: at, direction: AesDirection.decrypt)
+			#if arch(x64) or arch(arm64)
+				hardware(schedule) then try aesHardwareDecryptInto(schedule, block: block, output: output, at: at)
+			#endif
 		end 'backing'
 	end 'decryptBlockInto'
 
@@ -74,12 +93,18 @@ public type Aes
 	public function xorKeyStream(nonce ByteArray, counter AesCounter, data ByteArray) returns ByteArray throws AesKeyStreamError
 		match backing 'backing'
 			bitsliced(cipher) then return try cipher.xorKeyStream(nonce, counter: counter, data: data)
+			#if arch(x64) or arch(arm64)
+				hardware(schedule) then return try aesHardwareXorKeyStream(schedule, nonce: nonce, counter: counter, data: data)
+			#endif
 		end 'backing'
 	end 'xorKeyStream'
 
 	export function xorKeyStreamPastFirstBlock(nonce ByteArray, counter AesCounter, data ByteArray, mutates output ByteArray) returns AesPair throws AesKeyStreamError
 		match backing 'backing'
 			bitsliced(cipher) then return try cipher.xorKeyStreamPastFirstBlock(nonce, counter: counter, data: data, output: output)
+			#if arch(x64) or arch(arm64)
+				hardware(schedule) then return try aesHardwareXorKeyStreamPastFirstBlock(schedule, nonce: nonce, counter: counter, data: data, output: output)
+			#endif
 		end 'backing'
 	end 'xorKeyStreamPastFirstBlock'
 end 'Aes'

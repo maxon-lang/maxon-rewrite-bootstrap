@@ -229,25 +229,32 @@ export type ParamSpec
 	// a built-in has no tree to hold a default expression in.
 	export var hasCaseDefault as bool
 	export var defaultCase as Count
+	// byteBuffer is whether a built-in's parameter of type ByteArray takes a FixedArray with Byte of any count as well, whose
+	// box is an array's: maxon's hardware crypto routines and hashBytes take either.
+	export var byteBuffer as bool
 
 	export static function make(consumes name String, ty TypeID, conv Convention) returns ParamSpec
-		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID, labelled: false, mayOmitLabel: false, hasCaseDefault: false, defaultCase: 0}
+		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID, labelled: false, mayOmitLabel: false, hasCaseDefault: false, defaultCase: 0, byteBuffer: false}
 	end 'make'
 
 	export static function withDefault(consumes name String, ty TypeID, conv Convention, defaultExpr NodeID) returns ParamSpec
-		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: defaultExpr, labelled: false, mayOmitLabel: false, hasCaseDefault: false, defaultCase: 0}
+		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: defaultExpr, labelled: false, mayOmitLabel: false, hasCaseDefault: false, defaultCase: 0, byteBuffer: false}
 	end 'withDefault'
 
 	export static function withCaseDefault(consumes name String, ty TypeID, conv Convention, defaultCase Count) returns ParamSpec
-		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID, labelled: false, mayOmitLabel: false, hasCaseDefault: true, defaultCase: defaultCase}
+		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID, labelled: false, mayOmitLabel: false, hasCaseDefault: true, defaultCase: defaultCase, byteBuffer: false}
 	end 'withCaseDefault'
 
 	export static function labelledFirst(consumes name String, ty TypeID, conv Convention) returns ParamSpec
-		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID, labelled: true, mayOmitLabel: false, hasCaseDefault: false, defaultCase: 0}
+		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID, labelled: true, mayOmitLabel: false, hasCaseDefault: false, defaultCase: 0, byteBuffer: false}
 	end 'labelledFirst'
 
+	export static function byteBuffer(consumes name String, ty TypeID, conv Convention) returns ParamSpec
+		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID, labelled: false, mayOmitLabel: false, hasCaseDefault: false, defaultCase: 0, byteBuffer: true}
+	end 'byteBuffer'
+
 	export static function mayOmitLabel(consumes name String, ty TypeID, conv Convention) returns ParamSpec
-		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID, labelled: false, mayOmitLabel: true, hasCaseDefault: false, defaultCase: 0}
+		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID, labelled: false, mayOmitLabel: true, hasCaseDefault: false, defaultCase: 0, byteBuffer: false}
 	end 'mayOmitLabel'
 
 	// hasDefault is whether a call may leave the argument out.

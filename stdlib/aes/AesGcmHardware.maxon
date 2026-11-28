@@ -1,0 +1,34 @@
+#if arch(x64) or arch(arm64)
+	// The table size restates `AesGcmTableBytes` in `CryptoRuntime.maxon`, which reads the round count
+	// off the key block's length past it: another size is a wrong round count, and a guard ends the
+	// program only when that length is not one the guards accept.
+	let aesGcmHardwareTableBytes = 256
+
+	let aesGcmHardwareTagBytes = 16
+
+	let aesGcmHardwareScheduleHalfShift = 1
+
+	export typealias AesGcmKeyBlock = FixedArray with Byte
+
+	export function aesGcmHardwareKeys(schedule AesSchedule) returns AesGcmKeyBlock
+		var keys = AesGcmKeyBlock.create(try aesGcmHardwareTableBytes + (schedule.count() shr aesGcmHardwareScheduleHalfShift) otherwise panic("out of range"))
+		__Builtins.aesGcmInit(keys, schedule)
+		return keys
+	end 'aesGcmHardwareKeys'
+
+	export function aesGcmHardwareSealInto(mutates output ByteArray, at ElementIndex, keys AesGcmKeyBlock, nonce ByteArray, plaintext ByteArray, additionalData ByteArray)
+		let sealedEnd = try at + plaintext.count() + aesGcmHardwareTagBytes otherwise panic("out of range")
+		if output.count() != sealedEnd 'resizes'
+			output.resize(sealedEnd)
+		end 'resizes'
+		__Builtins.aesGcmSeal(output, at, keys, nonce, additionalData, plaintext)
+	end 'aesGcmHardwareSealInto'
+
+	export function aesGcmHardwareOpen(keys AesGcmKeyBlock, nonce ByteArray, sealed ByteArray, additionalData ByteArray, ciphertextBytes Count) returns ByteArray throws aead.AeadError
+		var plaintext = ByteArray.create(ciphertextBytes)
+		if not __Builtins.aesGcmOpen(plaintext, aesHardwareFirstByte, keys, nonce, additionalData, sealed) 'forged'
+			throw aead.AeadError.authenticationFailed
+		end 'forged'
+		return plaintext
+	end 'aesGcmHardwareOpen'
+#endif

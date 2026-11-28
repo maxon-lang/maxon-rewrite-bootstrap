@@ -1,0 +1,851 @@
+// The processor's AES and carry-less product instructions, and the AES and AES-GCM routines of the library's
+// __Builtins.aes* on them (maxon's CryptoRuntime and X64AesRuntime/Arm64AesRuntime): the key schedule, a block each way,
+// the counter mode and GCM, whose GHASH multiplies by pclmulqdq or pmull in GCM's reflected order of the bits, with the
+// hash subkey shifted up a bit and each product folded twice by the polynomial. A vector is no parameter and is held
+// across no call (E5900), so a routine that keeps vectors from one step to the next is one function, and what one routine
+// gives the next goes in words. The processor's features are probed once, on the first ask.
+
+// The words of the probe: that it has looked, that AES and the carry-less product can run, and that SHA-256 can.
+let featureProbed = 1 as Count
+
+let featureAes = 2 as Count
+
+let featureSha = 4 as Count
+
+#if arch(x64)
+	// cpuid's leaf 1 says in ecx (its register 2, written as a literal, which the lowering reads from the call) whether
+	// AES-NI, PCLMULQDQ, SSSE3 and SSE4.1 are there, and leaf 7 in ebx (its register 1) whether SHA is.
+	let cpuidFeatureLeaf = 1 as Count
+
+	let cpuidStructuredLeaf = 7 as Count
+
+	let cpuidAesBits = 0x2080202 as Count
+
+	let cpuidVectorBaseline = 0x80200 as Count
+
+	let cpuidShaBit = 0x20000000 as Count
+#else
+	// Linux gives the processor's features as the auxiliary vector's AT_HWCAP: AES and PMULL together, and SHA2.
+	let auxHwcap = 16 as Count
+
+	let hwcapAes = 0x18 as Count
+
+	let hwcapSha2 = 0x40 as Count
+#endif
+
+let aesBlockBytes = 16 as Count
+
+let aesBlockShift = 4 as Count
+
+let aesBlockMask = 15 as Count
+
+let aesHalfBlockBytes = 8 as Count
+
+let aesOctetBytes = 128 as Count
+
+let aesOctetShift = 7 as Count
+
+let aesOctetMask = 127 as Count
+
+let aesOctetBlocks = 8 as Count
+
+let aesWordBytes = 4 as Count
+
+let aesKeyWordShift = 2 as Count
+
+let aesShortKeyBytes = 16 as Count
+
+let aesMediumKeyBytes = 24 as Count
+
+let aesLongKeyBytes = 32 as Count
+
+// The words of a 16-, 24- and 32-byte key, and of a schedule's encryption keys.
+typealias AesKeyWords = int(4 to 8)
+
+typealias AesScheduleWords = int(44 to 60)
+
+let aesShortKeyWords = 4 as AesKeyWords
+
+let aesMediumKeyWords = 6 as AesKeyWords
+
+let aesLongKeyWords = 8 as AesKeyWords
+
+let aesSubstitutedPhase = 4 as Count
+
+// The round counts of a 16-, 24- and 32-byte key, and the bytes of a schedule's pair of round keys.
+typealias AesRounds = int(10 to 14)
+
+typealias AesRoundKeyBytes = int(16 to 32)
+
+let aesShortRounds = 10 as AesRounds
+
+let aesMediumRounds = 12 as AesRounds
+
+let aesLongRounds = 14 as AesRounds
+
+let aesRoundKeyPairBytes = 32 as AesRoundKeyBytes
+
+let aesWordMask = 0xFFFFFFFF as Count
+
+let aesByteMask = 0xFF as Count
+
+// Word arithmetic that wraps: the key expansion's words and the bytes of a partial block.
+typealias AesBits = bits(64)
+
+let aesByteBits = 0xFF as AesBits
+
+let aesThreeBytesBits = 24 as Count
+
+let aesBitsPerByte = 8 as Count
+
+let aesBitsPerByteShift = 3 as Count
+
+let aesFieldReduction = 0x11B as AesBits
+
+// The groups of blocks aesCtrXor takes.
+let aesCtrGroups = 8 as Count
+
+// GCM's key block: 256 bytes of the powers of the shifted hash subkey, H^8 first and H^1 last, each beside its Karatsuba
+// half (the exclusive or of its two lanes, in both), then the round keys; GCM's nonce, its tag, its first counter, the
+// one J0 has as a word of the reflected block, and its longest message, 2^32 - 2 blocks.
+let aesGcmTableBytes = 256 as Count
+
+let aesGcmSubkeyAt = 224 as Count
+
+let aesGcmNonceBytes = 12 as Count
+
+let aesGcmTagBytes = 16 as Count
+
+let aesGcmFirstDataCounter = 2 as Count
+
+let aesGcmMaskCounterWord = 0x0100000000000000 as Count
+
+let aesGcmMaxMessageBytes = 68719476704 as Count
+
+// What GHASH folds the cipher text of an octet into: nothing (counter mode), the octet the call wrote before (sealing),
+// or the octet it reads (opening).
+let aesHashNone = 0 as Count
+
+let aesHashSealed = 1 as Count
+
+let aesHashOpened = 2 as Count
+
+// The byte picks that reverse a vector, and GCM's polynomial in the reflected order (1 in the low lane, 0xC2 at the top of
+// the high one), the 0xC2 word a fold multiplies the low lane by. A vector intrinsic takes its lane, shift or selection as
+// a literal, which the lowering reads from the call: the products select 0x00 (the low lanes) and 0x11 (the high ones), and
+// pshufd's order 0x4E swaps the two halves.
+let aesReverseLow = 0x08090A0B0C0D0E0F as Count
+
+let aesReverseHigh = 0x0001020304050607 as Count
+
+let ghashPolynomialHigh = 0xC200000000000000 as Count
+
+let aesWrongSize = "a hardware crypto routine was handed a buffer or schedule of the wrong size"
+
+// cpuFeatures is the word of the processor's features, which the first ask probes and keeps.
+function cpuFeatures() returns Count
+	let at = __Raw.cpuFeaturesAddress()
+	let known = __Raw.loadWord(at, offset: 0)
+	if known != 0 'known'
+		return known
+	end 'known'
+	let found = probeCpu()
+	__Raw.storeWord(at, offset: 0, value: found)
+	return found
+end 'cpuFeatures'
+
+// cpuHasAes is __Builtins.cpuHasAes: whether the processor has the AES instructions and the carry-less product.
+function cpuHasAes() returns bool
+	return (cpuFeatures() and featureAes) != 0
+end 'cpuHasAes'
+
+#if arch(x64)
+	function probeCpu() returns Count
+		var found = featureProbed
+		let highest = __Raw.cpuid(0, subleaf: 0, register: 0)
+		if highest < cpuidFeatureLeaf 'old'
+			return found
+		end 'old'
+		let ecx = __Raw.cpuid(cpuidFeatureLeaf, subleaf: 0, register: 2)
+		if (ecx and cpuidAesBits) == cpuidAesBits 'aes'
+			found = found or featureAes
+		end 'aes'
+		if (ecx and cpuidVectorBaseline) == cpuidVectorBaseline and highest >= cpuidStructuredLeaf 'structured'
+			if (__Raw.cpuid(cpuidStructuredLeaf, subleaf: 0, register: 1) and cpuidShaBit) != 0 'sha'
+				found = found or featureSha
+			end 'sha'
+		end 'structured'
+		return found
+	end 'probeCpu'
+#else
+	#if os(Linux)
+		function probeCpu() returns Count
+			var found = featureProbed
+			var at = environment()
+			while __Raw.loadWord(at, offset: 0) != 0 'environment'
+				at = __Raw.wrappingAdd(at, right: wordBytes)
+			end 'environment'
+			at = __Raw.wrappingAdd(at, right: wordBytes)
+			while __Raw.loadWord(at, offset: 0) != 0 'auxiliary'
+				if __Raw.loadWord(at, offset: 0) == auxHwcap 'hwcap'
+					let hwcap = __Raw.loadWord(at, offset: wordBytes)
+					if (hwcap and hwcapAes) == hwcapAes 'aes'
+						found = found or featureAes
+					end 'aes'
+					if (hwcap and hwcapSha2) != 0 'sha'
+						found = found or featureSha
+					end 'sha'
+				end 'hwcap'
+				at = __Raw.wrappingAdd(at, right: wordBytes * 2)
+			end 'auxiliary'
+			return found
+		end 'probeCpu'
+	#else
+		// Every arm64 Mac has the cryptographic extension.
+		function probeCpu() returns Count
+			return featureProbed or featureAes or featureSha
+		end 'probeCpu'
+	#endif
+#endif
+
+// aesRoundsOf is the round count of round keys of a size, each keyBytes bytes (a schedule's pair of an encryption and a
+// decryption key, or a key block's one): 10, 12 or 14 rounds; any other size ends the program.
+function aesRoundsOf(bytes Count, keyBytes AesRoundKeyBytes) returns AesRounds
+	if bytes == (aesShortRounds + 1) * keyBytes 'short'
+		return aesShortRounds
+	end 'short'
+	if bytes == (aesMediumRounds + 1) * keyBytes 'medium'
+		return aesMediumRounds
+	end 'medium'
+	if bytes == (aesLongRounds + 1) * keyBytes 'long'
+		return aesLongRounds
+	end 'long'
+	runtimeFatal(aesWrongSize)
+	return aesShortRounds
+end 'aesRoundsOf'
+
+// aesRequireSpan ends the program unless the bytes from at lie inside the byte array.
+function aesRequireSpan(array Count, at Count, bytes Count)
+	let length = collectionLength(array)
+	if at > length or bytes > length - at 'outside'
+		runtimeFatal(aesWrongSize)
+	end 'outside'
+end 'aesRequireSpan'
+
+// aesSwap32 is a 32-bit word with its bytes in the other order.
+function aesSwap32(word Count) returns Count
+	let w = word as AesBits
+	return (((w and 0xFF) shl 24) or ((w and 0xFF00) shl 8) or ((w shr 8) and 0xFF00) or ((w shr 24) and 0xFF)) as Count
+end 'aesSwap32'
+
+// aesBlocksBytes is the bytes of a count of blocks, aesWordsBytes of 32-bit words, and aesBitsOf the bits of a count of bytes: counts of what lies in
+// memory, so neither wraps.
+function aesBlocksBytes(blocks Count) returns Count
+	return ((blocks as AesBits) shl aesBlockShift) as Count
+end 'aesBlocksBytes'
+
+function aesWordsBytes(words Count) returns Count
+	return ((words as AesBits) shl aesKeyWordShift) as Count
+end 'aesWordsBytes'
+
+function aesBitsOf(bytes Count) returns Count
+	return ((bytes as AesBits) shl aesBitsPerByteShift) as Count
+end 'aesBitsOf'
+
+// aesLoadTail reads the bytes, fewer than 16, from an address as the two little-endian words of a block that zeros fill.
+function aesLoadTail(at Count, bytes Count, mutates low Count, mutates high Count)
+	var first = 0 as AesBits
+	var second = 0 as AesBits
+	var i = bytes
+	while i > aesHalfBlockBytes 'high'
+		i = i - 1
+		second = (second shl aesBitsPerByte) or (__Raw.loadByte(at, offset: i) as AesBits)
+	end 'high'
+	while i > 0 'low'
+		i = i - 1
+		first = (first shl aesBitsPerByte) or (__Raw.loadByte(at, offset: i) as AesBits)
+	end 'low'
+	low = first as Count
+	high = second as Count
+end 'aesLoadTail'
+
+// aesStoreTail writes the first bytes, fewer than 16, of the block of two little-endian words to an address.
+function aesStoreTail(at Count, bytes Count, low Count, high Count)
+	var word = low
+	for i in 0 upto bytes 'bytes'
+		if i == aesHalfBlockBytes 'second'
+			word = high
+		end 'second'
+		__Raw.storeByte(at, offset: i, value: (word and aesByteMask) as Byte)
+		word = word shr aesBitsPerByte
+	end 'bytes'
+end 'aesStoreTail'
+
+// aesExpandKey is __Builtins.aesExpandKey: the encryption round keys of a 16-, 24- or 32-byte key, then the decryption
+// round keys of the equivalent inverse cipher, the encryption keys in the other order with InvMixColumns on all but the
+// first and the last.
+function aesExpandKey(schedule Count, key Count)
+	let keyBytes = collectionLength(key)
+	var keyWords = aesShortKeyWords
+	var rounds = aesShortRounds
+	if keyBytes == aesMediumKeyBytes 'medium'
+		keyWords = aesMediumKeyWords
+		rounds = aesMediumRounds
+	end 'medium' else if keyBytes == aesLongKeyBytes 'long'
+		keyWords = aesLongKeyWords
+		rounds = aesLongRounds
+	end 'long' else if keyBytes != aesShortKeyBytes 'keySize'
+		runtimeFatal(aesWrongSize)
+		return
+	end 'keySize'
+	if collectionLength(schedule) != (rounds + 1) * aesRoundKeyPairBytes 'scheduleSize'
+		runtimeFatal(aesWrongSize)
+		return
+	end 'scheduleSize'
+	let encryption = collectionData(schedule)
+	aesExpandWords(encryption, key: collectionData(key), keyWords: keyWords, words: (rounds + 1) * aesWordBytes)
+	aesInverseKeys(encryption, rounds: rounds)
+end 'aesExpandKey'
+
+// aesExpandWords is FIPS 197's KeyExpansion of the words of a key, each little-endian: RotWord a rotation by a byte,
+// SubWord the S-box of each byte, and the round constant in the first byte.
+function aesExpandWords(encryption Count, key Count, keyWords AesKeyWords, words AesScheduleWords)
+	for i in 0 upto keyWords as Count 'copy'
+		__Raw.storeWord32(encryption, offset: i * aesWordBytes, value: __Raw.loadWord32(key, offset: i * aesWordBytes))
+	end 'copy'
+	var rcon = 1 as AesBits
+	var phase = 0 as Count
+	for i in keyWords as Count upto words as Count 'expand'
+		var word = __Raw.loadWord32(encryption, offset: (i - 1) * aesWordBytes) as AesBits
+		if phase == 0 'rotated'
+			word = aesSubWord((word shr aesBitsPerByte) or ((word and aesByteBits) shl aesThreeBytesBits)) xor rcon
+			rcon = rcon shl 1
+			if rcon > aesByteBits 'reduced'
+				rcon = rcon xor aesFieldReduction
+			end 'reduced'
+		end 'rotated' else if keyWords == aesLongKeyWords and phase == aesSubstitutedPhase 'substituted'
+			word = aesSubWord(word)
+		end 'substituted'
+		let earlier = __Raw.loadWord32(encryption, offset: aesWordsBytes(__Raw.wrappingSub(i, right: keyWords as Count))) as AesBits
+		__Raw.storeWord32(encryption, offset: i * aesWordBytes, value: (earlier xor word) as Count)
+		phase = __Raw.wrappingAdd(phase, right: 1)
+		if phase == (keyWords as Count) 'wrapped'
+			phase = 0
+		end 'wrapped'
+	end 'expand'
+end 'aesExpandWords'
+
+// aesSubWord is SubWord of a 32-bit word: the last round of the word in each of the four columns under a zero key, whose
+// ShiftRows leaves four equal columns as they are.
+function aesSubWord(word AesBits) returns AesBits
+	let spread = (word or (word shl 32)) as Count
+	let substituted = __Raw.vectorAesEncryptLast(__Raw.vectorOfWords(spread, high: spread), key: __Raw.vectorZero())
+	return (__Raw.vectorWord(substituted, lane: 0) and aesWordMask) as AesBits
+end 'aesSubWord'
+
+// aesInverseKeys writes the decryption round keys after the encryption ones.
+function aesInverseKeys(encryption Count, rounds AesRounds)
+	let decryption = __Raw.wrappingAdd(encryption, right: (rounds + 1) * aesBlockBytes)
+	__Raw.vectorStore(decryption, offset: 0, value: __Raw.vectorLoad(encryption, offset: (rounds as Count) * aesBlockBytes))
+	for round in 1 upto rounds as Count 'middle'
+		__Raw.vectorStore(decryption, offset: round * aesBlockBytes, value: __Raw.vectorAesInverseMix(__Raw.vectorLoad(encryption, offset: aesBlocksBytes(__Raw.wrappingSub(rounds as Count, right: round)))))
+	end 'middle'
+	__Raw.vectorStore(decryption, offset: (rounds as Count) * aesBlockBytes, value: __Raw.vectorLoad(encryption, offset: 0))
+end 'aesInverseKeys'
+
+// aesEncryptBlock is __Builtins.aesEncryptBlock: the 16 bytes at inputAt of input encrypted into output at outputAt.
+function aesEncryptBlock(output Count, outputAt Count, schedule Count, input Count, inputAt Count)
+	aesCryptBlock(output, outputAt: outputAt, schedule: schedule, input: input, inputAt: inputAt, decrypting: false)
+end 'aesEncryptBlock'
+
+// aesDecryptBlock is __Builtins.aesDecryptBlock, the inverse cipher of the same shape.
+function aesDecryptBlock(output Count, outputAt Count, schedule Count, input Count, inputAt Count)
+	aesCryptBlock(output, outputAt: outputAt, schedule: schedule, input: input, inputAt: inputAt, decrypting: true)
+end 'aesDecryptBlock'
+
+function aesCryptBlock(output Count, outputAt Count, schedule Count, input Count, inputAt Count, decrypting bool)
+	let rounds = aesRoundsOf(collectionLength(schedule), keyBytes: aesRoundKeyPairBytes)
+	aesRequireSpan(output, at: outputAt, bytes: aesBlockBytes)
+	aesRequireSpan(input, at: inputAt, bytes: aesBlockBytes)
+	let source = collectionPlace(input, index: inputAt, elementBytes: byteBytes)
+	let keys = collectionData(schedule)
+	var low = __Raw.loadWord(source, offset: 0)
+	var high = __Raw.loadWord(source, offset: aesHalfBlockBytes)
+	if decrypting 'decrypt'
+		aesDecryptWords(__Raw.wrappingAdd(keys, right: (rounds + 1) * aesBlockBytes), rounds: rounds, low: low, high: high)
+	end 'decrypt' else 'encrypt'
+		aesEncryptWords(keys, rounds: rounds, low: low, high: high)
+	end 'encrypt'
+	let target = collectionPlace(output, index: outputAt, elementBytes: byteBytes)
+	__Raw.storeWord(target, offset: 0, value: low)
+	__Raw.storeWord(target, offset: aesHalfBlockBytes, value: high)
+end 'aesCryptBlock'
+
+#if arch(x64)
+	// aesEncryptWords encrypts the block of two little-endian words in place, by the round keys at keys.
+	function aesEncryptWords(keys Count, rounds AesRounds, mutates low Count, mutates high Count)
+		let last = (rounds as Count) * aesBlockBytes
+		var state = __Raw.vectorXor(__Raw.vectorOfWords(low, high: high), right: __Raw.vectorLoad(keys, offset: 0))
+		var at = aesBlockBytes
+		while at < last 'rounds'
+			state = __Raw.vectorAesEncrypt(state, key: __Raw.vectorLoad(keys, offset: at))
+			at = at + aesBlockBytes
+		end 'rounds'
+		state = __Raw.vectorAesEncryptLast(state, key: __Raw.vectorLoad(keys, offset: last))
+		low = __Raw.vectorWord(state, lane: 0)
+		high = __Raw.vectorWord(state, lane: 1)
+	end 'aesEncryptWords'
+
+	// aesDecryptWords decrypts the block of two little-endian words in place, by the decryption round keys at keys.
+	function aesDecryptWords(keys Count, rounds AesRounds, mutates low Count, mutates high Count)
+		let last = (rounds as Count) * aesBlockBytes
+		var state = __Raw.vectorXor(__Raw.vectorOfWords(low, high: high), right: __Raw.vectorLoad(keys, offset: 0))
+		var at = aesBlockBytes
+		while at < last 'rounds'
+			state = __Raw.vectorAesDecrypt(state, key: __Raw.vectorLoad(keys, offset: at))
+			at = at + aesBlockBytes
+		end 'rounds'
+		state = __Raw.vectorAesDecryptLast(state, key: __Raw.vectorLoad(keys, offset: last))
+		low = __Raw.vectorWord(state, lane: 0)
+		high = __Raw.vectorWord(state, lane: 1)
+	end 'aesDecryptWords'
+#else
+	// aesEncryptWords encrypts the block by arm64's rounds, which take the key first: aese and aesmc for all but the last
+	// two keys, aese with the one before the last and the last key's exclusive or.
+	function aesEncryptWords(keys Count, rounds AesRounds, mutates low Count, mutates high Count)
+		let last = (rounds - 1) * aesBlockBytes
+		var state = __Raw.vectorOfWords(low, high: high)
+		var at = 0 as Count
+		while at < last 'rounds'
+			state = __Raw.vectorAesmc(__Raw.vectorAese(state, key: __Raw.vectorLoad(keys, offset: at)))
+			at = at + aesBlockBytes
+		end 'rounds'
+		state = __Raw.vectorXor(__Raw.vectorAese(state, key: __Raw.vectorLoad(keys, offset: last)), right: __Raw.vectorLoad(keys, offset: last + aesBlockBytes))
+		low = __Raw.vectorWord(state, lane: 0)
+		high = __Raw.vectorWord(state, lane: 1)
+	end 'aesEncryptWords'
+
+	// aesDecryptWords decrypts the block by aesd and aesimc with the decryption round keys, as aesEncryptWords encrypts.
+	function aesDecryptWords(keys Count, rounds AesRounds, mutates low Count, mutates high Count)
+		let last = (rounds - 1) * aesBlockBytes
+		var state = __Raw.vectorOfWords(low, high: high)
+		var at = 0 as Count
+		while at < last 'rounds'
+			state = __Raw.vectorAesInverseMix(__Raw.vectorAesd(state, key: __Raw.vectorLoad(keys, offset: at)))
+			at = at + aesBlockBytes
+		end 'rounds'
+		state = __Raw.vectorXor(__Raw.vectorAesd(state, key: __Raw.vectorLoad(keys, offset: last)), right: __Raw.vectorLoad(keys, offset: last + aesBlockBytes))
+		low = __Raw.vectorWord(state, lane: 0)
+		high = __Raw.vectorWord(state, lane: 1)
+	end 'aesDecryptWords'
+#endif
+
+// aesCtrXor is __Builtins.aesCtrXor: the key stream of a group of 1, 2, 4 or 8 counter blocks XORed into the buffer in
+// place, the counter the big-endian last word of the counter block plus counterOffset and one more for each block, wrapping
+// in its 32 bits.
+function aesCtrXor(buffer Count, bufferAt Count, schedule Count, counterBlock Count, counterOffset Count, blocks Count)
+	let rounds = aesRoundsOf(collectionLength(schedule), keyBytes: aesRoundKeyPairBytes)
+	if collectionLength(counterBlock) != aesBlockBytes 'counterSize'
+		runtimeFatal(aesWrongSize)
+		return
+	end 'counterSize'
+	if blocks != 1 and blocks != 2 and blocks != 4 and blocks != aesCtrGroups 'group'
+		runtimeFatal(aesWrongSize)
+		return
+	end 'group'
+	aesRequireSpan(buffer, at: bufferAt, bytes: aesBlocksBytes(blocks))
+	let counterData = collectionData(counterBlock)
+	let nonceLow = __Raw.loadWord(counterData, offset: 0)
+	let tail = __Raw.loadWord(counterData, offset: aesHalfBlockBytes)
+	let counter = __Raw.wrappingAdd(aesSwap32(tail shr 32), right: counterOffset) and aesWordMask
+	let at = collectionPlace(buffer, index: bufferAt, elementBytes: byteBytes)
+	let keys = collectionData(schedule)
+	if blocks == aesCtrGroups 'octet'
+		var low = 0 as Count
+		var high = 0 as Count
+		aesCtrOctets(keys, rounds: rounds, nonceLow: nonceLow, nonceHigh: tail and aesWordMask, counter: counter, source: at, target: at, octets: 1, table: 0, mode: aesHashNone, accLow: low, accHigh: high)
+		return
+	end 'octet'
+	aesCtrBytes(keys, rounds: rounds, nonceLow: nonceLow, nonceHigh: tail and aesWordMask, counter: counter, source: at, target: at, bytes: aesBlocksBytes(blocks))
+end 'aesCtrXor'
+
+// aesCtrBytes XORs the key stream of the counter blocks of a nonce from counter into the bytes from source, written from
+// target, a last block of fewer than 16 bytes read and written as exactly those bytes.
+function aesCtrBytes(keys Count, rounds AesRounds, nonceLow Count, nonceHigh Count, counter Count, source Count, target Count, bytes Count)
+	var done = 0 as Count
+	var next = counter
+	while done < bytes 'blocks'
+		var low = nonceLow
+		var high = nonceHigh or (((aesSwap32(next) as AesBits) shl 32) as Count)
+		aesEncryptWords(keys, rounds: rounds, low: low, high: high)
+		next = __Raw.wrappingAdd(next, right: 1) and aesWordMask
+		let from = __Raw.wrappingAdd(source, right: done)
+		let to = __Raw.wrappingAdd(target, right: done)
+		let left = bytes - done
+		if left >= aesBlockBytes 'whole'
+			let first = __Raw.loadWord(from, offset: 0) xor low
+			let second = __Raw.loadWord(from, offset: aesHalfBlockBytes) xor high
+			__Raw.storeWord(to, offset: 0, value: first)
+			__Raw.storeWord(to, offset: aesHalfBlockBytes, value: second)
+		end 'whole' else 'part'
+			var first = 0 as Count
+			var second = 0 as Count
+			aesLoadTail(from, bytes: left, low: first, high: second)
+			aesStoreTail(to, bytes: left, low: first xor low, high: second xor high)
+		end 'part'
+		done = __Raw.wrappingAdd(done, right: aesBlockBytes)
+	end 'blocks'
+end 'aesCtrBytes'
+
+// aesCtrOctets is the counter mode over octets of 8 blocks, the AES rounds of each octet's blocks side by side, with the
+// GHASH of an octet's cipher text, by the eight powers of the table, between the rounds (maxon's
+// buildAesGcmEncryptChunk): sealing folds the octet written before, opening the octet read, before it is written over. The
+// accumulator is the reflected block of two words. An octet that folds nothing starts from products that the reduction
+// gives back as the accumulator: no low half, and the accumulator as the high half and the middle.
+function aesCtrOctets(keys Count, rounds AesRounds, nonceLow Count, nonceHigh Count, counter Count, source Count, target Count, octets Count, table Count, mode Count, mutates accLow Count, mutates accHigh Count)
+	let reverse = __Raw.vectorOfWords(aesReverseLow, high: aesReverseHigh)
+	var acc = __Raw.vectorOfWords(accLow, high: accHigh)
+	var from = source
+	var to = target
+	var next = counter
+	for octet in 0 upto octets 'octets'
+		var running = __Raw.vectorAddLanes32(__Raw.vectorShuffleBytes(__Raw.vectorOfWords(nonceLow, high: nonceHigh), picks: reverse), right: __Raw.vectorOfWords(next, high: 0))
+		let one = __Raw.vectorOfWords(1, high: 0)
+		var s0 = __Raw.vectorShuffleBytes(running, picks: reverse)
+		running = __Raw.vectorAddLanes32(running, right: one)
+		var s1 = __Raw.vectorShuffleBytes(running, picks: reverse)
+		running = __Raw.vectorAddLanes32(running, right: one)
+		var s2 = __Raw.vectorShuffleBytes(running, picks: reverse)
+		running = __Raw.vectorAddLanes32(running, right: one)
+		var s3 = __Raw.vectorShuffleBytes(running, picks: reverse)
+		running = __Raw.vectorAddLanes32(running, right: one)
+		var s4 = __Raw.vectorShuffleBytes(running, picks: reverse)
+		running = __Raw.vectorAddLanes32(running, right: one)
+		var s5 = __Raw.vectorShuffleBytes(running, picks: reverse)
+		running = __Raw.vectorAddLanes32(running, right: one)
+		var s6 = __Raw.vectorShuffleBytes(running, picks: reverse)
+		running = __Raw.vectorAddLanes32(running, right: one)
+		var s7 = __Raw.vectorShuffleBytes(running, picks: reverse)
+		next = __Raw.wrappingAdd(next, right: aesOctetBlocks) and aesWordMask
+		let hashing = mode == aesHashOpened or (mode == aesHashSealed and octet > 0)
+		var hashed = from
+		if mode == aesHashSealed 'sealed'
+			hashed = __Raw.wrappingSub(to, right: aesOctetBytes)
+		end 'sealed'
+		var low = __Raw.vectorZero()
+		var high = acc
+		var middle = acc
+		if hashing 'first'
+			let block = __Raw.vectorXor(__Raw.vectorShuffleBytes(__Raw.vectorLoad(hashed, offset: 0), picks: reverse), right: acc)
+			low = __Raw.vectorClmul(block, right: __Raw.vectorLoad(table, offset: 0), select: 0x00)
+			high = __Raw.vectorClmul(block, right: __Raw.vectorLoad(table, offset: 0), select: 0x11)
+			middle = __Raw.vectorClmul(__Raw.vectorXor(block, right: __Raw.vectorShuffleDwords(block, order: 0x4E)), right: __Raw.vectorLoad(table, offset: aesBlockBytes), select: 0x00)
+		end 'first'
+		#if arch(x64)
+			let first = __Raw.vectorLoad(keys, offset: 0)
+			s0 = __Raw.vectorXor(s0, right: first)
+			s1 = __Raw.vectorXor(s1, right: first)
+			s2 = __Raw.vectorXor(s2, right: first)
+			s3 = __Raw.vectorXor(s3, right: first)
+			s4 = __Raw.vectorXor(s4, right: first)
+			s5 = __Raw.vectorXor(s5, right: first)
+			s6 = __Raw.vectorXor(s6, right: first)
+			s7 = __Raw.vectorXor(s7, right: first)
+		#endif
+		var round = 1 as Count
+		while round < (rounds as Count) 'rounds'
+			#if arch(x64)
+				let key = __Raw.vectorLoad(keys, offset: aesBlocksBytes(round))
+				s0 = __Raw.vectorAesEncrypt(s0, key: key)
+				s1 = __Raw.vectorAesEncrypt(s1, key: key)
+				s2 = __Raw.vectorAesEncrypt(s2, key: key)
+				s3 = __Raw.vectorAesEncrypt(s3, key: key)
+				s4 = __Raw.vectorAesEncrypt(s4, key: key)
+				s5 = __Raw.vectorAesEncrypt(s5, key: key)
+				s6 = __Raw.vectorAesEncrypt(s6, key: key)
+				s7 = __Raw.vectorAesEncrypt(s7, key: key)
+			#else
+				let key = __Raw.vectorLoad(keys, offset: aesBlocksBytes(__Raw.wrappingSub(round, right: 1)))
+				s0 = __Raw.vectorAesmc(__Raw.vectorAese(s0, key: key))
+				s1 = __Raw.vectorAesmc(__Raw.vectorAese(s1, key: key))
+				s2 = __Raw.vectorAesmc(__Raw.vectorAese(s2, key: key))
+				s3 = __Raw.vectorAesmc(__Raw.vectorAese(s3, key: key))
+				s4 = __Raw.vectorAesmc(__Raw.vectorAese(s4, key: key))
+				s5 = __Raw.vectorAesmc(__Raw.vectorAese(s5, key: key))
+				s6 = __Raw.vectorAesmc(__Raw.vectorAese(s6, key: key))
+				s7 = __Raw.vectorAesmc(__Raw.vectorAese(s7, key: key))
+			#endif
+			if hashing and round < aesOctetBlocks 'hash'
+				let entry = round * (aesRoundKeyPairBytes as Count)
+				let block = __Raw.vectorShuffleBytes(__Raw.vectorLoad(hashed, offset: aesBlocksBytes(round)), picks: reverse)
+				low = __Raw.vectorXor(low, right: __Raw.vectorClmul(block, right: __Raw.vectorLoad(table, offset: entry), select: 0x00))
+				high = __Raw.vectorXor(high, right: __Raw.vectorClmul(block, right: __Raw.vectorLoad(table, offset: entry), select: 0x11))
+				middle = __Raw.vectorXor(middle, right: __Raw.vectorClmul(__Raw.vectorXor(block, right: __Raw.vectorShuffleDwords(block, order: 0x4E)), right: __Raw.vectorLoad(table, offset: entry + aesBlockBytes), select: 0x00))
+			end 'hash'
+			round = round + 1
+		end 'rounds'
+		#if arch(x64)
+			let last = __Raw.vectorLoad(keys, offset: (rounds as Count) * aesBlockBytes)
+			s0 = __Raw.vectorAesEncryptLast(s0, key: last)
+			s1 = __Raw.vectorAesEncryptLast(s1, key: last)
+			s2 = __Raw.vectorAesEncryptLast(s2, key: last)
+			s3 = __Raw.vectorAesEncryptLast(s3, key: last)
+			s4 = __Raw.vectorAesEncryptLast(s4, key: last)
+			s5 = __Raw.vectorAesEncryptLast(s5, key: last)
+			s6 = __Raw.vectorAesEncryptLast(s6, key: last)
+			s7 = __Raw.vectorAesEncryptLast(s7, key: last)
+		#else
+			let key = __Raw.vectorLoad(keys, offset: (rounds - 1) * aesBlockBytes)
+			let last = __Raw.vectorLoad(keys, offset: (rounds as Count) * aesBlockBytes)
+			s0 = __Raw.vectorXor(__Raw.vectorAese(s0, key: key), right: last)
+			s1 = __Raw.vectorXor(__Raw.vectorAese(s1, key: key), right: last)
+			s2 = __Raw.vectorXor(__Raw.vectorAese(s2, key: key), right: last)
+			s3 = __Raw.vectorXor(__Raw.vectorAese(s3, key: key), right: last)
+			s4 = __Raw.vectorXor(__Raw.vectorAese(s4, key: key), right: last)
+			s5 = __Raw.vectorXor(__Raw.vectorAese(s5, key: key), right: last)
+			s6 = __Raw.vectorXor(__Raw.vectorAese(s6, key: key), right: last)
+			s7 = __Raw.vectorXor(__Raw.vectorAese(s7, key: key), right: last)
+		#endif
+		__Raw.vectorStore(to, offset: 0, value: __Raw.vectorXor(s0, right: __Raw.vectorLoad(from, offset: 0)))
+		__Raw.vectorStore(to, offset: 16, value: __Raw.vectorXor(s1, right: __Raw.vectorLoad(from, offset: 16)))
+		__Raw.vectorStore(to, offset: 32, value: __Raw.vectorXor(s2, right: __Raw.vectorLoad(from, offset: 32)))
+		__Raw.vectorStore(to, offset: 48, value: __Raw.vectorXor(s3, right: __Raw.vectorLoad(from, offset: 48)))
+		__Raw.vectorStore(to, offset: 64, value: __Raw.vectorXor(s4, right: __Raw.vectorLoad(from, offset: 64)))
+		__Raw.vectorStore(to, offset: 80, value: __Raw.vectorXor(s5, right: __Raw.vectorLoad(from, offset: 80)))
+		__Raw.vectorStore(to, offset: 96, value: __Raw.vectorXor(s6, right: __Raw.vectorLoad(from, offset: 96)))
+		__Raw.vectorStore(to, offset: 112, value: __Raw.vectorXor(s7, right: __Raw.vectorLoad(from, offset: 112)))
+		if mode != aesHashNone 'reduce'
+			middle = __Raw.vectorXor(middle, right: __Raw.vectorXor(low, right: high))
+			low = __Raw.vectorXor(low, right: __Raw.vectorShiftBytesUp(middle, bytes: 8))
+			high = __Raw.vectorXor(high, right: __Raw.vectorShiftBytesDown(middle, bytes: 8))
+			let fold = __Raw.vectorOfWords(ghashPolynomialHigh, high: 0)
+			low = __Raw.vectorXor(__Raw.vectorShuffleDwords(low, order: 0x4E), right: __Raw.vectorClmul(fold, right: low, select: 0x00))
+			low = __Raw.vectorXor(__Raw.vectorShuffleDwords(low, order: 0x4E), right: __Raw.vectorClmul(fold, right: low, select: 0x00))
+			acc = __Raw.vectorXor(low, right: high)
+		end 'reduce'
+		from = __Raw.wrappingAdd(from, right: aesOctetBytes)
+		to = __Raw.wrappingAdd(to, right: aesOctetBytes)
+	end 'octets'
+	accLow = __Raw.vectorWord(acc, lane: 0)
+	accHigh = __Raw.vectorWord(acc, lane: 1)
+end 'aesCtrOctets'
+
+// aesGhash folds the bytes from data into the accumulator a block at a time by the hash subkey, a last block of fewer
+// than 16 bytes as though zeros followed it.
+function aesGhash(table Count, data Count, bytes Count, mutates accLow Count, mutates accHigh Count)
+	let whole = bytes shr aesBlockShift
+	var blocks = whole
+	var tailLow = 0 as Count
+	var tailHigh = 0 as Count
+	if (bytes and aesBlockMask) != 0 'tail'
+		aesLoadTail(__Raw.wrappingAdd(data, right: aesBlocksBytes(whole)), bytes: bytes and aesBlockMask, low: tailLow, high: tailHigh)
+		blocks = __Raw.wrappingAdd(whole, right: 1)
+	end 'tail'
+	let reverse = __Raw.vectorOfWords(aesReverseLow, high: aesReverseHigh)
+	let fold = __Raw.vectorOfWords(ghashPolynomialHigh, high: 0)
+	let power = __Raw.vectorLoad(table, offset: aesGcmSubkeyAt)
+	let half = __Raw.vectorLoad(table, offset: aesGcmSubkeyAt + aesBlockBytes)
+	var acc = __Raw.vectorOfWords(accLow, high: accHigh)
+	for i in 0 upto blocks 'blocks'
+		var block = __Raw.vectorOfWords(tailLow, high: tailHigh)
+		if i < whole 'whole'
+			block = __Raw.vectorLoad(data, offset: aesBlocksBytes(i))
+		end 'whole'
+		block = __Raw.vectorXor(__Raw.vectorShuffleBytes(block, picks: reverse), right: acc)
+		var low = __Raw.vectorClmul(block, right: power, select: 0x00)
+		var high = __Raw.vectorClmul(block, right: power, select: 0x11)
+		var middle = __Raw.vectorClmul(__Raw.vectorXor(block, right: __Raw.vectorShuffleDwords(block, order: 0x4E)), right: half, select: 0x00)
+		middle = __Raw.vectorXor(middle, right: __Raw.vectorXor(low, right: high))
+		low = __Raw.vectorXor(low, right: __Raw.vectorShiftBytesUp(middle, bytes: 8))
+		high = __Raw.vectorXor(high, right: __Raw.vectorShiftBytesDown(middle, bytes: 8))
+		low = __Raw.vectorXor(__Raw.vectorShuffleDwords(low, order: 0x4E), right: __Raw.vectorClmul(fold, right: low, select: 0x00))
+		low = __Raw.vectorXor(__Raw.vectorShuffleDwords(low, order: 0x4E), right: __Raw.vectorClmul(fold, right: low, select: 0x00))
+		acc = __Raw.vectorXor(low, right: high)
+	end 'blocks'
+	accLow = __Raw.vectorWord(acc, lane: 0)
+	accHigh = __Raw.vectorWord(acc, lane: 1)
+end 'aesGhash'
+
+// aesGcmTag folds GCM's block of the lengths in bits, the additional data's and the cipher text's, into the accumulator,
+// and gives the tag in its place: the accumulator in the order of the bytes, XORed with the mask, E(K, J0).
+function aesGcmTag(table Count, additionalBytes Count, textBytes Count, maskLow Count, maskHigh Count, mutates accLow Count, mutates accHigh Count)
+	let reverse = __Raw.vectorOfWords(aesReverseLow, high: aesReverseHigh)
+	let fold = __Raw.vectorOfWords(ghashPolynomialHigh, high: 0)
+	let power = __Raw.vectorLoad(table, offset: aesGcmSubkeyAt)
+	let block = __Raw.vectorXor(__Raw.vectorOfWords(aesBitsOf(textBytes), high: aesBitsOf(additionalBytes)), right: __Raw.vectorOfWords(accLow, high: accHigh))
+	var low = __Raw.vectorClmul(block, right: power, select: 0x00)
+	var high = __Raw.vectorClmul(block, right: power, select: 0x11)
+	var middle = __Raw.vectorClmul(__Raw.vectorXor(block, right: __Raw.vectorShuffleDwords(block, order: 0x4E)), right: __Raw.vectorLoad(table, offset: aesGcmSubkeyAt + aesBlockBytes), select: 0x00)
+	middle = __Raw.vectorXor(middle, right: __Raw.vectorXor(low, right: high))
+	low = __Raw.vectorXor(low, right: __Raw.vectorShiftBytesUp(middle, bytes: 8))
+	high = __Raw.vectorXor(high, right: __Raw.vectorShiftBytesDown(middle, bytes: 8))
+	low = __Raw.vectorXor(__Raw.vectorShuffleDwords(low, order: 0x4E), right: __Raw.vectorClmul(fold, right: low, select: 0x00))
+	low = __Raw.vectorXor(__Raw.vectorShuffleDwords(low, order: 0x4E), right: __Raw.vectorClmul(fold, right: low, select: 0x00))
+	let tag = __Raw.vectorXor(__Raw.vectorShuffleBytes(__Raw.vectorXor(low, right: high), picks: reverse), right: __Raw.vectorOfWords(maskLow, high: maskHigh))
+	accLow = __Raw.vectorWord(tag, lane: 0)
+	accHigh = __Raw.vectorWord(tag, lane: 1)
+end 'aesGcmTag'
+
+// aesGcmInit is __Builtins.aesGcmInit: the encryption round keys of a schedule after the table of the powers of its hash
+// subkey, H = E(K, 0).
+function aesGcmInit(keyBlock Count, schedule Count)
+	let rounds = aesRoundsOf(collectionLength(schedule), keyBytes: aesRoundKeyPairBytes)
+	let keyBytes = (rounds + 1) * aesBlockBytes
+	if collectionLength(keyBlock) != aesGcmTableBytes + keyBytes 'keyBlockSize'
+		runtimeFatal(aesWrongSize)
+		return
+	end 'keyBlockSize'
+	let table = collectionData(keyBlock)
+	let keys = __Raw.wrappingAdd(table, right: aesGcmTableBytes)
+	let scheduled = collectionData(schedule)
+	var at = 0 as Count
+	while at < keyBytes 'copy'
+		__Raw.storeWord(keys, offset: at, value: __Raw.loadWord(scheduled, offset: at))
+		at = at + wordBytes
+	end 'copy'
+	var low = 0 as Count
+	var high = 0 as Count
+	aesEncryptWords(keys, rounds: rounds, low: low, high: high)
+	aesGhashPowers(table, low: low, high: high)
+end 'aesGcmInit'
+
+// aesGhashPowers writes the table of the powers of the hash subkey of the two words, reflected and shifted up a bit, H^1
+// to H^8 from the last entry back, each a product of the one after it and H.
+function aesGhashPowers(table Count, low Count, high Count)
+	let reverse = __Raw.vectorOfWords(aesReverseLow, high: aesReverseHigh)
+	let fold = __Raw.vectorOfWords(ghashPolynomialHigh, high: 0)
+	let h = __Raw.vectorShuffleBytes(__Raw.vectorOfWords(low, high: high), picks: reverse)
+	let carry = __Raw.wrappingSub(0, right: __Raw.vectorWord(h, lane: 1) shr 63)
+	var shifted = __Raw.vectorOr(__Raw.vectorShiftLanesLeft(h, bits: 1), right: __Raw.vectorShiftBytesUp(__Raw.vectorShiftLanesRight(h, bits: 63), bytes: 8))
+	shifted = __Raw.vectorXor(shifted, right: __Raw.vectorAnd(__Raw.vectorOfWords(1, high: ghashPolynomialHigh), right: __Raw.vectorOfWords(carry, high: carry)))
+	let half = __Raw.vectorXor(shifted, right: __Raw.vectorShuffleDwords(shifted, order: 0x4E))
+	__Raw.vectorStore(table, offset: aesGcmSubkeyAt, value: shifted)
+	__Raw.vectorStore(table, offset: aesGcmSubkeyAt + aesBlockBytes, value: half)
+	var power = shifted
+	var entry = aesGcmSubkeyAt
+	while entry > 0 'powers'
+		entry = __Raw.wrappingSub(entry, right: aesRoundKeyPairBytes as Count)
+		var product = __Raw.vectorClmul(power, right: shifted, select: 0x00)
+		var top = __Raw.vectorClmul(power, right: shifted, select: 0x11)
+		var middle = __Raw.vectorClmul(__Raw.vectorXor(power, right: __Raw.vectorShuffleDwords(power, order: 0x4E)), right: half, select: 0x00)
+		middle = __Raw.vectorXor(middle, right: __Raw.vectorXor(product, right: top))
+		product = __Raw.vectorXor(product, right: __Raw.vectorShiftBytesUp(middle, bytes: 8))
+		top = __Raw.vectorXor(top, right: __Raw.vectorShiftBytesDown(middle, bytes: 8))
+		product = __Raw.vectorXor(__Raw.vectorShuffleDwords(product, order: 0x4E), right: __Raw.vectorClmul(fold, right: product, select: 0x00))
+		product = __Raw.vectorXor(__Raw.vectorShuffleDwords(product, order: 0x4E), right: __Raw.vectorClmul(fold, right: product, select: 0x00))
+		power = __Raw.vectorXor(product, right: top)
+		__Raw.vectorStore(table, offset: entry, value: power)
+		__Raw.vectorStore(table, offset: __Raw.wrappingAdd(entry, right: aesBlockBytes), value: __Raw.vectorXor(power, right: __Raw.vectorShuffleDwords(power, order: 0x4E)))
+	end 'powers'
+end 'aesGhashPowers'
+
+// aesGcmSeal is __Builtins.aesGcmSeal: the cipher text of the plain text and then its tag, written into output from
+// outputAt.
+function aesGcmSeal(output Count, outputAt Count, keyBlock Count, nonce Count, additionalData Count, plaintext Count)
+	_ = aesGcmPass(output, outputAt: outputAt, keyBlock: keyBlock, nonce: nonce, additionalData: additionalData, source: plaintext, opening: false)
+end 'aesGcmSeal'
+
+// aesGcmOpen is __Builtins.aesGcmOpen: the plain text of a cipher text followed by its tag, written into output from
+// outputAt, and whether the tag is the one the cipher text and the additional data give, compared without a branch on it.
+function aesGcmOpen(output Count, outputAt Count, keyBlock Count, nonce Count, additionalData Count, sealed Count) returns bool
+	return aesGcmPass(output, outputAt: outputAt, keyBlock: keyBlock, nonce: nonce, additionalData: additionalData, source: sealed, opening: true)
+end 'aesGcmOpen'
+
+// aesGcmPass is a seal or an open: the checks of each buffer, then GHASH of the additional data, the counter mode from
+// J0's successor with the GHASH of the cipher text, and the tag of the lengths under the mask E(K, J0). The output and the
+// source are the same bytes or apart, which the octets' loads before their stores make safe.
+function aesGcmPass(output Count, outputAt Count, keyBlock Count, nonce Count, additionalData Count, source Count, opening bool) returns bool
+	let keyBlockBytes = collectionLength(keyBlock)
+	if keyBlockBytes < aesGcmTableBytes 'keyBlockSize'
+		runtimeFatal(aesWrongSize)
+		return false
+	end 'keyBlockSize'
+	let rounds = aesRoundsOf(keyBlockBytes - aesGcmTableBytes, keyBytes: aesBlockBytes as AesRoundKeyBytes)
+	if collectionLength(nonce) != aesGcmNonceBytes 'nonceSize'
+		runtimeFatal(aesWrongSize)
+		return false
+	end 'nonceSize'
+	let sourceBytes = collectionLength(source)
+	var length = sourceBytes
+	if opening 'sealed'
+		if sourceBytes < aesGcmTagBytes 'short'
+			runtimeFatal(aesWrongSize)
+			return false
+		end 'short'
+		length = sourceBytes - aesGcmTagBytes
+	end 'sealed'
+	if length > aesGcmMaxMessageBytes 'long'
+		runtimeFatal(aesWrongSize)
+		return false
+	end 'long'
+	var outputBytes = length
+	if not opening 'tagged'
+		outputBytes = length + aesGcmTagBytes
+	end 'tagged'
+	aesRequireSpan(output, at: outputAt, bytes: outputBytes)
+	let region = collectionPlace(output, index: outputAt, elementBytes: byteBytes)
+	let sourceData = collectionData(source)
+	if not aesRegionsApart(region, regionBytes: outputBytes, source: sourceData, sourceBytes: sourceBytes) 'overlap'
+		runtimeFatal(aesWrongSize)
+		return false
+	end 'overlap'
+	let table = collectionData(keyBlock)
+	let keys = __Raw.wrappingAdd(table, right: aesGcmTableBytes)
+	let nonceData = collectionData(nonce)
+	let nonceLow = __Raw.loadWord(nonceData, offset: 0)
+	let nonceHigh = __Raw.loadWord32(nonceData, offset: aesHalfBlockBytes) as Count
+	var maskLow = nonceLow
+	var maskHigh = nonceHigh or aesGcmMaskCounterWord
+	aesEncryptWords(keys, rounds: rounds, low: maskLow, high: maskHigh)
+	var accLow = 0 as Count
+	var accHigh = 0 as Count
+	let additionalBytes = collectionLength(additionalData)
+	if additionalBytes > 0 'additional'
+		aesGhash(table, data: collectionData(additionalData), bytes: additionalBytes, accLow: accLow, accHigh: accHigh)
+	end 'additional'
+	let octets = length shr aesOctetShift
+	let rest = length and aesOctetMask
+	let done = octets * aesOctetBytes
+	let restCounter = (aesGcmFirstDataCounter + octets * aesOctetBlocks) and aesWordMask
+	var mode = aesHashSealed
+	if opening 'opened'
+		mode = aesHashOpened
+	end 'opened'
+	if octets > 0 'octets'
+		aesCtrOctets(keys, rounds: rounds, nonceLow: nonceLow, nonceHigh: nonceHigh, counter: aesGcmFirstDataCounter, source: sourceData, target: region, octets: octets, table: table, mode: mode, accLow: accLow, accHigh: accHigh)
+	end 'octets'
+	if opening 'opening'
+		if rest > 0 'rest'
+			aesGhash(table, data: __Raw.wrappingAdd(sourceData, right: done), bytes: rest, accLow: accLow, accHigh: accHigh)
+			aesCtrBytes(keys, rounds: rounds, nonceLow: nonceLow, nonceHigh: nonceHigh, counter: restCounter, source: __Raw.wrappingAdd(sourceData, right: done), target: __Raw.wrappingAdd(region, right: done), bytes: rest)
+		end 'rest'
+	end 'opening' else 'sealing'
+		if rest > 0 'restSealed'
+			aesCtrBytes(keys, rounds: rounds, nonceLow: nonceLow, nonceHigh: nonceHigh, counter: restCounter, source: __Raw.wrappingAdd(sourceData, right: done), target: __Raw.wrappingAdd(region, right: done), bytes: rest)
+		end 'restSealed'
+		if octets > 0 'lastOctet'
+			aesGhash(table, data: __Raw.wrappingAdd(region, right: __Raw.wrappingSub(done, right: aesOctetBytes)), bytes: aesOctetBytes + rest, accLow: accLow, accHigh: accHigh)
+		end 'lastOctet' else if rest > 0 'restOnly'
+			aesGhash(table, data: region, bytes: rest, accLow: accLow, accHigh: accHigh)
+		end 'restOnly'
+	end 'sealing'
+	aesGcmTag(table, additionalBytes: additionalBytes, textBytes: length, maskLow: maskLow, maskHigh: maskHigh, accLow: accLow, accHigh: accHigh)
+	if not opening 'writeTag'
+		let tagAt = __Raw.wrappingAdd(region, right: length)
+		__Raw.storeWord(tagAt, offset: 0, value: accLow)
+		__Raw.storeWord(tagAt, offset: aesHalfBlockBytes, value: accHigh)
+		return true
+	end 'writeTag'
+	let received = __Raw.wrappingAdd(sourceData, right: length)
+	let difference = (accLow xor __Raw.loadWord(received, offset: 0)) or (accHigh xor __Raw.loadWord(received, offset: aesHalfBlockBytes))
+	return difference == 0
+end 'aesGcmPass'
+
+// aesRegionsApart is whether a region written and a region read are the same bytes or share none, a region of no bytes
+// sharing none wherever it is.
+function aesRegionsApart(region Count, regionBytes Count, source Count, sourceBytes Count) returns bool
+	if regionBytes == 0 or sourceBytes == 0 or region == source 'trivially'
+		return true
+	end 'trivially'
+	return __Raw.wrappingAdd(region, right: regionBytes) <= source or __Raw.wrappingAdd(source, right: sourceBytes) <= region
+end 'aesRegionsApart'

@@ -108,7 +108,13 @@ type param struct {
 	mayOmitLabel bool
 	// defaultCase is the case of an enum parameter that a call leaving the argument out gives, written "= case", or "".
 	defaultCase string
+	// byteBuffer is a buffer of bytes that takes a `FixedArray with Byte` of any count as well as a `ByteArray`, which has
+	// the same box, written as the type "ByteBuffer": maxon's hardware crypto routines take either.
+	byteBuffer bool
 }
+
+// byteBufferType is how a parameter of a row is written that takes a ByteArray or a FixedArray with Byte.
+const byteBufferType = "ByteBuffer"
 
 var conventions = []string{"let", "mutates", "consumes"}
 
@@ -138,7 +144,14 @@ func parseSignature(s string) param {
 	if labelled && mayOmitLabel {
 		fail("parameter %q is both labelled and unlabelled", s)
 	}
-	return param{conv: conv, name: name, ty: parseType(fields[1]), labelled: labelled, mayOmitLabel: mayOmitLabel}
+	ty, byteBuffer := fields[1], fields[1] == byteBufferType
+	if byteBuffer {
+		ty = "Array with Byte"
+	}
+	if byteBuffer && (labelled || mayOmitLabel) {
+		fail("parameter %q is a byte buffer and labelled", s)
+	}
+	return param{conv: conv, name: name, ty: parseType(ty), labelled: labelled, mayOmitLabel: mayOmitLabel, byteBuffer: byteBuffer}
 }
 
 func isConvention(s string) bool {

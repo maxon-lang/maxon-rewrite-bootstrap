@@ -737,6 +737,30 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrMulHigh 'intrMulHigh'
 		return lowerMulHigh(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrMulHigh'
+	if op == ast.Intrinsic.intrCpuHasAes 'intrCpuHasAes'
+		return lowerCpuHasAes(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCpuHasAes'
+	if op == ast.Intrinsic.intrAesExpandKey 'intrAesExpandKey'
+		return lowerAesExpandKey(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrAesExpandKey'
+	if op == ast.Intrinsic.intrAesEncryptBlock 'intrAesEncryptBlock'
+		return lowerAesEncryptBlock(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrAesEncryptBlock'
+	if op == ast.Intrinsic.intrAesDecryptBlock 'intrAesDecryptBlock'
+		return lowerAesDecryptBlock(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrAesDecryptBlock'
+	if op == ast.Intrinsic.intrAesCtrXor 'intrAesCtrXor'
+		return lowerAesCtrXor(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrAesCtrXor'
+	if op == ast.Intrinsic.intrAesGcmInit 'intrAesGcmInit'
+		return lowerAesGcmInit(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrAesGcmInit'
+	if op == ast.Intrinsic.intrAesGcmSeal 'intrAesGcmSeal'
+		return lowerAesGcmSeal(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrAesGcmSeal'
+	if op == ast.Intrinsic.intrAesGcmOpen 'intrAesGcmOpen'
+		return lowerAesGcmOpen(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrAesGcmOpen'
 	if op == ast.Intrinsic.intrHeapProcessAllocs 'intrHeapProcessAllocs'
 		return lowerHeapProcessAllocs(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrHeapProcessAllocs'
@@ -1894,6 +1918,30 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrMulHigh 'intrMulHigh'
 		return false
 	end 'intrMulHigh'
+	if op == ast.Intrinsic.intrCpuHasAes 'intrCpuHasAes'
+		return false
+	end 'intrCpuHasAes'
+	if op == ast.Intrinsic.intrAesExpandKey 'intrAesExpandKey'
+		return false
+	end 'intrAesExpandKey'
+	if op == ast.Intrinsic.intrAesEncryptBlock 'intrAesEncryptBlock'
+		return false
+	end 'intrAesEncryptBlock'
+	if op == ast.Intrinsic.intrAesDecryptBlock 'intrAesDecryptBlock'
+		return false
+	end 'intrAesDecryptBlock'
+	if op == ast.Intrinsic.intrAesCtrXor 'intrAesCtrXor'
+		return false
+	end 'intrAesCtrXor'
+	if op == ast.Intrinsic.intrAesGcmInit 'intrAesGcmInit'
+		return false
+	end 'intrAesGcmInit'
+	if op == ast.Intrinsic.intrAesGcmSeal 'intrAesGcmSeal'
+		return false
+	end 'intrAesGcmSeal'
+	if op == ast.Intrinsic.intrAesGcmOpen 'intrAesGcmOpen'
+		return false
+	end 'intrAesGcmOpen'
 	if op == ast.Intrinsic.intrHeapProcessAllocs 'intrHeapProcessAllocs'
 		return false
 	end 'intrHeapProcessAllocs'

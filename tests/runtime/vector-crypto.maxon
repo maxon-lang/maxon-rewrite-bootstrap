@@ -17,13 +17,6 @@
 //> aes-256 decrypt ok
 //> sha-256 abc ok
 
-// The words of the probe: that it has looked, that AES and the carry-less product can run, and that SHA-256 can.
-let featureProbed = 1 as Count
-
-let featureAes = 2 as Count
-
-let featureSha = 4 as Count
-
 let vectorBytes = 16 as Count
 
 let aes128Rounds = 10 as Count
@@ -58,27 +51,6 @@ let rotateHigh = 0x0C0F0E0D080B0A09 as Count
 
 // GCM's polynomial in the reflected order of the bytes pclmulqdq multiplies: 1 in the low lane and 0xC2 at the top of
 // the high one.
-let ghashPolynomialHigh = 0xC200000000000000 as Count
-
-#if arch(x64)
-	// cpuid's leaf 1 says in ecx (its register 2) whether AES-NI, PCLMULQDQ, SSSE3 and SSE4.1 are there, and leaf 7 in ebx (1) whether SHA is.
-	let cpuidFeatureLeaf = 1 as Count
-
-	let cpuidStructuredLeaf = 7 as Count
-
-	let cpuidAesBits = 0x2080202 as Count
-
-	let cpuidVectorBaseline = 0x80200 as Count
-
-	let cpuidShaBit = 0x20000000 as Count
-#else
-	// Linux gives the processor's features as the auxiliary vector's AT_HWCAP: AES and PMULL together, and SHA2.
-	let auxHwcap = 16 as Count
-
-	let hwcapAes = 0x18 as Count
-
-	let hwcapSha2 = 0x40 as Count
-#endif
 
 function main() returns ExitCode
 	let features = testProbeWord()
@@ -97,13 +69,12 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// testProbeWord probes the processor, keeps what it found in the runtime's word, which no one has written yet, and reads
-// it back.
+// testProbeWord asks the runtime for the processor's features, which its first ask probes and keeps in the runtime's
+// word, and reads the word back.
 function testProbeWord() returns Count
 	let at = __Raw.cpuFeaturesAddress()
 	let before = __Raw.loadWord(at, offset: 0)
-	let found = testProbe()
-	__Raw.storeWord(at, offset: 0, value: found)
+	let found = cpuFeatures()
 	let kept = __Raw.loadWord(at, offset: 0)
 	if before == 0 and kept == found and (found and featureProbed) != 0 'kept'
 		testWrite("probe ok\n")
@@ -112,55 +83,6 @@ function testProbeWord() returns Count
 	end 'lost'
 	return found
 end 'testProbeWord'
-
-#if arch(x64)
-	function testProbe() returns Count
-		var found = featureProbed
-		let highest = __Raw.cpuid(0, subleaf: 0, register: 0)
-		if highest < cpuidFeatureLeaf 'old'
-			return found
-		end 'old'
-		let ecx = __Raw.cpuid(cpuidFeatureLeaf, subleaf: 0, register: 2)
-		if (ecx and cpuidAesBits) == cpuidAesBits 'aes'
-			found = found or featureAes
-		end 'aes'
-		if (ecx and cpuidVectorBaseline) == cpuidVectorBaseline and highest >= cpuidStructuredLeaf 'structured'
-			if (__Raw.cpuid(cpuidStructuredLeaf, subleaf: 0, register: 1) and cpuidShaBit) != 0 'sha'
-				found = found or featureSha
-			end 'sha'
-		end 'structured'
-		return found
-	end 'testProbe'
-#else
-	#if os(Linux)
-		function testProbe() returns Count
-			var found = featureProbed
-			var at = environment()
-			while __Raw.loadWord(at, offset: 0) != 0 'environment'
-				at = __Raw.wrappingAdd(at, right: wordBytes)
-			end 'environment'
-			at = __Raw.wrappingAdd(at, right: wordBytes)
-			while __Raw.loadWord(at, offset: 0) != 0 'auxiliary'
-				if __Raw.loadWord(at, offset: 0) == auxHwcap 'hwcap'
-					let hwcap = __Raw.loadWord(at, offset: wordBytes)
-					if (hwcap and hwcapAes) == hwcapAes 'aes'
-						found = found or featureAes
-					end 'aes'
-					if (hwcap and hwcapSha2) != 0 'sha'
-						found = found or featureSha
-					end 'sha'
-				end 'hwcap'
-				at = __Raw.wrappingAdd(at, right: wordBytes * 2)
-			end 'auxiliary'
-			return found
-		end 'testProbe'
-	#else
-		// Every arm64 Mac has the cryptographic extension.
-		function testProbe() returns Count
-			return featureProbed or featureAes or featureSha
-		end 'testProbe'
-	#endif
-#endif
 
 // testClmulLanes multiplies each pair of 64-bit lanes that a selection picks: 3 and 5 by 7 and 0x100.
 function testClmulLanes()
