@@ -116,7 +116,6 @@ type param struct {
 // byteBufferType is how a parameter of a row is written that takes a ByteArray or a FixedArray with Byte.
 const byteBufferType = "ByteBuffer"
 
-
 var conventions = []string{"let", "mutates", "consumes"}
 
 func parseParam(s string) param {

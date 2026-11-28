@@ -125,4 +125,3 @@ func hardwareDeclaredName(code []token) string {
 	}
 	return ""
 }
-
