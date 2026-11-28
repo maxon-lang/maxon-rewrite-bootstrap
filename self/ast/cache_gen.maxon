@@ -1960,6 +1960,7 @@ function storeParamSpec(mutates w table.CacheWriter, v ParamSpec)
 	w.flag(v.mayOmitLabel)
 	w.flag(v.hasCaseDefault)
 	w.word64(v.defaultCase as table.Word64)
+	w.flag(v.byteBuffer)
 end 'storeParamSpec'
 
 extension ParamSpec
@@ -1972,7 +1973,8 @@ extension ParamSpec
 		let theMayOmitLabel = r.flag()
 		let theHasCaseDefault = r.flag()
 		let theDefaultCase = r.word64() as Count
-		return ParamSpec{name: theName, ty: theTy, conv: theConv, defaultExpr: theDefaultExpr, labelled: theLabelled, mayOmitLabel: theMayOmitLabel, hasCaseDefault: theHasCaseDefault, defaultCase: theDefaultCase}
+		let theByteBuffer = r.flag()
+		return ParamSpec{name: theName, ty: theTy, conv: theConv, defaultExpr: theDefaultExpr, labelled: theLabelled, mayOmitLabel: theMayOmitLabel, hasCaseDefault: theHasCaseDefault, defaultCase: theDefaultCase, byteBuffer: theByteBuffer}
 	end 'cacheLoad'
 end 'ParamSpec'
 

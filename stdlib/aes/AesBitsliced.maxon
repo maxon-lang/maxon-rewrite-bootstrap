@@ -6,11 +6,11 @@
 typealias AesWords = Array with AesWord
 
 // Sized for the largest key: 15 round keys of 8 planes (`AesRoundKeys`) or of 4 words (`AesKeyWords`).
-export typealias AesRoundKeys = FixedArray with 120 AesWord
+typealias AesRoundKeys = FixedArray with 120 AesWord
 
 typealias AesKeyWords = FixedArray with 60 AesWord
 
-export typealias AesRoundCount = int(10 to 14)
+typealias AesRoundCount = int(10 to 14)
 
 typealias AesRoundIndex = int(0 to 14) implements ElementIndex
 
@@ -29,9 +29,9 @@ export enum AesDirection
 	decrypt
 end 'AesDirection'
 
-export let aesBlockBytes = 16
+let aesBlockBytes = 16
 
-export let aesBlockShift = 4
+let aesBlockShift = 4
 
 let aesBatchBlocks = 4
 
@@ -39,7 +39,7 @@ let aesMaskLeadBlocks = 1
 
 let aesBlockWords = 4
 
-export let aesLaneBytes = 8
+let aesLaneBytes = 8
 
 let aesWordBytes = 4
 
@@ -63,15 +63,15 @@ let aesMidKeyBytes = 24
 
 let aesLongKeyBytes = 32
 
-export let aesRoundsOverKeyWords = 6
+let aesRoundsOverKeyWords = 6
 
 let aesLongKeyWords = 8
 
 let aesLongKeySubSlot = 4
 
-export let aesNonceBytes = 12
+let aesNonceBytes = 12
 
-export let aesCounterLimit = 4294967296
+let aesCounterLimit = 4294967296
 
 let aesByteMask = 0xFF as AesWord
 
@@ -602,7 +602,7 @@ type AesState
 		self.q7 = self.q7 xor keys.get(base + 7)
 	end 'addRoundKey'
 
-	export function encrypt(mutates self, keys AesRoundKeys, rounds AesRoundCount)
+	function encrypt(mutates self, keys AesRoundKeys, rounds AesRoundCount)
 		self.addRoundKey(keys, round: 0)
 		for round in 1 upto (rounds as Count) 'middleRounds'
 			self.subBytes()
@@ -613,7 +613,7 @@ type AesState
 		self.addRoundKey(keys, round: rounds as AesRoundIndex)
 	end 'encrypt'
 
-	export function decrypt(mutates self, keys AesRoundKeys, rounds AesRoundCount)
+	function decrypt(mutates self, keys AesRoundKeys, rounds AesRoundCount)
 		self.addRoundKey(keys, round: rounds as AesRoundIndex)
 		for step in 1 upto (rounds as Count) 'middleRounds'
 			self.invShiftRows()
@@ -725,7 +725,7 @@ type AesKeyExpansion
 	end 'roundKeys'
 end 'AesKeyExpansion'
 
-export function aesExpandKey(key ByteArray, rounds AesRoundCount) returns AesRoundKeys
+function aesExpandKey(key ByteArray, rounds AesRoundCount) returns AesRoundKeys
 	let keyWords = key.count() shr aesWordShift
 	let totalWords = ((rounds + 1) shl aesWordShift) as Count
 	var expansion = AesKeyExpansion.create(key)
@@ -741,17 +741,17 @@ export function aesRequireKeyLength(key ByteArray) throws AesError
 	end 'keyLength'
 end 'aesRequireKeyLength'
 
-export function aesRequireBlock(block ByteArray) throws AesError
+function aesRequireBlock(block ByteArray) throws AesError
 	if block.count() != aesBlockBytes 'blockLength'
 		throw AesError.invalidBlockLength
 	end 'blockLength'
 end 'aesRequireBlock'
 
-export function aesOutputIsShort(output ByteArray, at ElementIndex) returns bool
+function aesOutputIsShort(output ByteArray, at ElementIndex) returns bool
 	return output.count() < (try at + aesBlockBytes otherwise panic("out of range"))
 end 'aesOutputIsShort'
 
-export function aesHoldBlock(mutates output ByteArray, at ElementIndex)
+function aesHoldBlock(mutates output ByteArray, at ElementIndex)
 	if aesOutputIsShort(output, at: at) 'short'
 		output.resize(try at + aesBlockBytes otherwise panic("out of range"))
 	end 'short'
@@ -760,7 +760,7 @@ end 'aesHoldBlock'
 export type AesBitsliced
 	// Not zeroed when the `AesBitsliced` is dropped: there is no destructor hook to do it.
 	let roundKeys as AesRoundKeys
-	export let rounds as AesRoundCount
+	let rounds as AesRoundCount
 
 	export static function create(key ByteArray) returns AesBitsliced throws AesError
 		try aesRequireKeyLength(key)

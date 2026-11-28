@@ -1,0 +1,38 @@
+// The interpreter has no vector of the processor's: it answers that it has no AES instructions, so the library takes its
+// bitsliced cipher, and a call of an AES routine itself stops the program, which only a native run takes.
+
+function entryCpuHasAes(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: ir.wordOfBits(0 as Count))
+end 'entryCpuHasAes'
+
+function entryAesExpandKey(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw aesRefused(vm)
+end 'entryAesExpandKey'
+
+function entryAesEncryptBlock(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw aesRefused(vm)
+end 'entryAesEncryptBlock'
+
+function entryAesDecryptBlock(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw aesRefused(vm)
+end 'entryAesDecryptBlock'
+
+function entryAesCtrXor(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw aesRefused(vm)
+end 'entryAesCtrXor'
+
+function entryAesGcmInit(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw aesRefused(vm)
+end 'entryAesGcmInit'
+
+function entryAesGcmSeal(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw aesRefused(vm)
+end 'entryAesGcmSeal'
+
+function entryAesGcmOpen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw aesRefused(vm)
+end 'entryAesGcmOpen'
+
+function aesRefused(mutates vm Vm) returns Halt
+	return trap(vm, message: "the interpreter has no AES instructions: a call of __Builtins.aes* runs only natively")
+end 'aesRefused'

@@ -5,21 +5,12 @@ import (
 	"strings"
 )
 
-// hardwareIntrinsics are the raw intrinsics of maxon's library that drive CPU-specific instructions, which minimaxon does not
-// have: its library is software only, and the same code runs on every target.
-var hardwareIntrinsics = []string{
-	"__Builtins.cpuHasSha", "__Builtins.sha256Blocks",
-	"__Builtins.cpuHasAes", "__Builtins.aesExpandKey", "__Builtins.aesEncryptBlock", "__Builtins.aesDecryptBlock",
-	"__Builtins.aesCtrXor", "__Builtins.aesGcmInit", "__Builtins.aesGcmSeal", "__Builtins.aesGcmOpen",
-}
+// hardwareIntrinsics are the raw intrinsics of maxon's library that drive CPU-specific instructions which minimaxon's runtime
+// does not have yet: SHA-256's. AES and GCM's are runtime/aes.maxon's, so their regions convert as maxon wrote them.
+var hardwareIntrinsics = []string{"__Builtins.cpuHasSha", "__Builtins.sha256Blocks"}
 
-// hardwareDeclarations are the names that maxon's hardware-only files (`helpers/crypto/AesHardware.maxon`,
-// `AesGcmHardware.maxon`, each one conditional region over the intrinsics, so not converted) declare and other files name.
-var hardwareDeclarations = []string{
-	"AesSchedule", "aesHardwareSchedule", "aesHardwareEncryptInto", "aesHardwareDecryptInto", "aesHardwareXorKeyStream",
-	"aesHardwareXorKeyStreamPastFirstBlock", "AesGcmKeyBlock", "aesGcmHardwareKeys", "aesGcmHardwareSealInto",
-	"aesGcmHardwareOpen",
-}
+// hardwareDeclarations are the names that a hardware-only file declares and other files name; none is left out now.
+var hardwareDeclarations = []string{}
 
 // dropHardwareRegions replaces a conditional region (`#if` ... `#endif`) whose first branch calls a hardware intrinsic, or names
 // a declaration that only such a branch declares, by its `#else` branch, or by nothing when it has none: the software path
@@ -134,3 +125,4 @@ func hardwareDeclaredName(code []token) string {
 	}
 	return ""
 }
+

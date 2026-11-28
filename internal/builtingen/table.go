@@ -1312,6 +1312,19 @@ var tableFunctions = []function{
 	// mulHigh is the high word of the 128-bit product of two words of no sign, one instruction on every target, of which
 	// the library's Poly1305 makes its products of 64-bit limbs.
 	{Owner: "Builtins", Name: "mulHigh", Static: true, Params: []string{"_ Count", "_ Count"}, Result: "Count", Intrinsic: "MulHigh", Instead: "a product of the words' 32-bit halves"},
+	// The AES block cipher and AES-GCM on the processor's instructions (AES-NI and PCLMULQDQ on x64, the cryptographic
+	// extension on arm64), maxon's eight library-tier calls over buffers of bytes, runtime/aes.maxon: whether the processor has
+	// them, the schedule of a key (the encryption round keys, then the decryption ones), a block each way, a group of 1, 2, 4
+	// or 8 counter-mode blocks in place, the key block of GCM (the powers of the hash subkey, then the round keys), and a seal
+	// and an open of a whole message. A buffer or a schedule of the wrong size ends the program.
+	{Owner: "Builtins", Name: "cpuHasAes", Static: true, Result: "Bool", Intrinsic: "CpuHasAes", Instead: "Aes.create(key)"},
+	{Owner: "Builtins", Name: "aesExpandKey", Static: true, Params: []string{"mutates _ ByteBuffer", "_ ByteBuffer"}, Intrinsic: "AesExpandKey", Instead: "Aes.create(key)"},
+	{Owner: "Builtins", Name: "aesEncryptBlock", Static: true, Params: []string{"mutates _ ByteBuffer", "_ ElementIndex", "_ ByteBuffer", "_ ByteBuffer", "_ ElementIndex"}, Intrinsic: "AesEncryptBlock", Instead: "an Aes's encryptBlock(block)"},
+	{Owner: "Builtins", Name: "aesDecryptBlock", Static: true, Params: []string{"mutates _ ByteBuffer", "_ ElementIndex", "_ ByteBuffer", "_ ByteBuffer", "_ ElementIndex"}, Intrinsic: "AesDecryptBlock", Instead: "an Aes's decryptBlock(block)"},
+	{Owner: "Builtins", Name: "aesCtrXor", Static: true, Params: []string{"mutates _ ByteBuffer", "_ ElementIndex", "_ ByteBuffer", "_ ByteBuffer", "_ Count", "_ Count"}, Intrinsic: "AesCtrXor", Instead: "an Aes's xorKeyStream(nonce, counter, data)"},
+	{Owner: "Builtins", Name: "aesGcmInit", Static: true, Params: []string{"mutates _ ByteBuffer", "_ ByteBuffer"}, Intrinsic: "AesGcmInit", Instead: "AesGcm.create(key)"},
+	{Owner: "Builtins", Name: "aesGcmSeal", Static: true, Params: []string{"mutates _ ByteBuffer", "_ ElementIndex", "_ ByteBuffer", "_ ByteBuffer", "_ ByteBuffer", "_ ByteBuffer"}, Intrinsic: "AesGcmSeal", Instead: "an AesGcm's seal(nonce, plaintext, additionalData)"},
+	{Owner: "Builtins", Name: "aesGcmOpen", Static: true, Params: []string{"mutates _ ByteBuffer", "_ ElementIndex", "_ ByteBuffer", "_ ByteBuffer", "_ ByteBuffer", "_ ByteBuffer"}, Result: "Bool", Intrinsic: "AesGcmOpen", Instead: "an AesGcm's open(nonce, sealed, additionalData)"},
 	// The counters of the heap (runtime/heap.maxon) that maxon's HeapStats reads: the allocations, frees and bytes of the
 	// running thread's heap and of every thread's; mm* are the process's, since every allocation here is a managed box.
 	// The counts by tag answer 0, as maxon's do outside a --debugstream build, and scavengeMemory runs a release pass of the
@@ -1331,7 +1344,7 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "hashSeed", Static: true, Result: "HashDigest", Intrinsic: "HashSeed", Instead: "Hasher.create()"},
 	{Owner: "Builtins", Name: "drawHashSeed", Static: true, Result: "HashDigest", Intrinsic: "HashSeedDraw", Instead: "HashSeed.random()"},
 	{Owner: "Builtins", Name: "hashWord", Static: true, Params: []string{"_ HashDigest", "_ HashDigest"}, Result: "HashDigest", Intrinsic: "HashWord", Instead: "a Hasher's combine(value)"},
-	{Owner: "Builtins", Name: "hashBytes", Static: true, Params: []string{"_ Array with Byte", "_ ElementIndex", "_ ElementIndex", "_ HashDigest"}, Result: "HashDigest", Intrinsic: "HashBytes", Instead: "a Hasher's combineBytes(bytes)"},
+	{Owner: "Builtins", Name: "hashBytes", Static: true, Params: []string{"_ ByteBuffer", "_ ElementIndex", "_ ElementIndex", "_ HashDigest"}, Result: "HashDigest", Intrinsic: "HashBytes", Instead: "a Hasher's combineBytes(bytes)"},
 	// hashBytes of a String, whose box holds its bytes inline: the call of hashBytes whose first argument is a String.
 	{Owner: "Builtins", Name: "hashBytes", Static: true, Params: []string{"_ String", "_ ElementIndex", "_ ElementIndex", "_ HashDigest"}, Result: "HashDigest", Intrinsic: "HashStringBytes", Field: "HashStringBytes", Instead: "a Hasher's combineBytes(bytes)"},
 	// hashCharacter is the fold of a Character's bytes under a seed, which the library's Character.hash is: minimaxon's, as a
@@ -1575,6 +1588,14 @@ var entries = []entry{
 	{"HashWord", "rt.hash.word", "Source", roleCall, "(word, seed) -> the fold of the word's 8 bytes under the seed"},
 	{"HashBytes", "rt.hash.bytes", "Source", roleCall, "(ByteArray, at, count, seed) -> the fold of the count bytes from at under the seed; a span past the end panics"},
 	{"HashStringBytes", "rt.hash.string", "Source", roleCall, "(String, at, count, seed) -> the fold of the count bytes of the string from at under the seed; a span past the end panics"},
+	{"CpuHasAes", "rt.aes.cpuHas", "Source", roleCall, "() -> bool: whether the processor has the AES instructions and the carry-less product, which the first ask probes"},
+	{"AesExpandKey", "rt.aes.expandKey", "Source", roleCall, "(schedule ByteArray, key ByteArray): the encryption and then the decryption round keys of a 16-, 24- or 32-byte key"},
+	{"AesEncryptBlock", "rt.aes.encryptBlock", "Source", roleCall, "(output ByteArray, at, schedule, input ByteArray, at): one block encrypted"},
+	{"AesDecryptBlock", "rt.aes.decryptBlock", "Source", roleCall, "(output ByteArray, at, schedule, input ByteArray, at): one block decrypted"},
+	{"AesCtrXor", "rt.aes.ctrXor", "Source", roleCall, "(buffer ByteArray, at, schedule, counter block, counter offset, blocks): a group of counter-mode blocks XORed in place"},
+	{"AesGcmInit", "rt.aes.gcmInit", "Source", roleCall, "(key block ByteArray, schedule): the powers of the hash subkey and the round keys"},
+	{"AesGcmSeal", "rt.aes.gcmSeal", "Source", roleCall, "(output ByteArray, at, key block, nonce, additional data, plain text): the cipher text and its tag"},
+	{"AesGcmOpen", "rt.aes.gcmOpen", "Source", roleCall, "(output ByteArray, at, key block, nonce, additional data, sealed) -> bool: the plain text, and whether the tag is right"},
 	{"BytesReadWord", "rt.bytes.readWord", "Source", roleCall, "(ByteArray, at, width, bigEndian, error) -> the width bytes from at as a word, the first the most significant where bigEndian; past the end sets the error to indexOutOfBounds"},
 	{"BytesAppendWord", "rt.bytes.appendWord", "Source", roleCall, "(ByteArray, word, width, bigEndian): appends the word's low width bytes, the most significant first where bigEndian"},
 	{"ServiceNew", "rt.service.new", "Source", roleCall, "(state) -> handle: a service, a cown that holds its state and its mailbox's gate, whose state the factory's behaviour stores when it is 0"},
@@ -1889,6 +1910,14 @@ var runtimeFunctions = []runtimeFunction{
 	{"HashWord", "hashWord(word Count, seed Count) Count"},
 	{"HashBytes", "hashBytes(array Count, at Count, count Count, seed Count) Count"},
 	{"HashStringBytes", "hashStringBytes(text String, at Count, count Count, seed Count) Count"},
+	{"CpuHasAes", "cpuHasAes() Bool"},
+	{"AesExpandKey", "aesExpandKey(schedule Count, key Count)"},
+	{"AesEncryptBlock", "aesEncryptBlock(output Count, outputAt Count, schedule Count, input Count, inputAt Count)"},
+	{"AesDecryptBlock", "aesDecryptBlock(output Count, outputAt Count, schedule Count, input Count, inputAt Count)"},
+	{"AesCtrXor", "aesCtrXor(buffer Count, bufferAt Count, schedule Count, counterBlock Count, counterOffset Count, blocks Count)"},
+	{"AesGcmInit", "aesGcmInit(keyBlock Count, schedule Count)"},
+	{"AesGcmSeal", "aesGcmSeal(output Count, outputAt Count, keyBlock Count, nonce Count, additionalData Count, plaintext Count)"},
+	{"AesGcmOpen", "aesGcmOpen(output Count, outputAt Count, keyBlock Count, nonce Count, additionalData Count, sealed Count) Bool"},
 	{"BytesReadWord", "bytesReadWord(array Count, at Count, width Count, bigEndian Bool, errorAddress Count) Count"},
 	{"BytesAppendWord", "bytesAppendWord(array Count, word Count, width Count, bigEndian Bool)"},
 	{"ServiceNew", "serviceCreate(state Count) Count"},

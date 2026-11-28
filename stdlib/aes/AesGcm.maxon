@@ -252,6 +252,9 @@ end 'AesGcmSoftware'
 
 union AesGcmBacking
 	bitsliced(software AesGcmSoftware)
+	#if arch(x64) or arch(arm64)
+		hardware(keys AesGcmKeyBlock)
+	#endif
 end 'AesGcmBacking'
 
 /// AES-GCM under one 16-, 24- or 32-byte key.
@@ -271,12 +274,22 @@ public type AesGcm implements aead.Aead
 			end 'softwareRefused'
 			return Self{backing: AesGcmBacking.bitsliced(software)}
 		end 'software'
-		panic("AesGcm: the hardware backing was chosen on a target without AES instructions")
+		#if arch(x64) or arch(arm64)
+			try aesRequireKeyLength(key) otherwise (failure) 'refused'
+				throw aesGcmKeyFailure(failure)
+			end 'refused'
+			return Self{backing: AesGcmBacking.hardware(aesGcmHardwareKeys(aesHardwareSchedule(key)))}
+		#else
+			panic("AesGcm: the hardware backing was chosen on a target without AES instructions")
+		#endif
 	end 'build'
 
 	export function usesHardware() returns bool
 		match backing 'backing'
 			bitsliced then return false
+			#if arch(x64) or arch(arm64)
+				hardware then return true
+			#endif
 		end 'backing'
 	end 'usesHardware'
 
@@ -303,6 +316,9 @@ public type AesGcm implements aead.Aead
 	function sealDetachedInto(mutates output ByteArray, at ElementIndex, nonce ByteArray, plaintext ByteArray, additionalData ByteArray)
 		match backing 'backing'
 			bitsliced(software) then sealIntoSoftware(output, at: at, software: software, nonce: nonce, plaintext: plaintext, additionalData: additionalData)
+			#if arch(x64) or arch(arm64)
+				hardware(keys) then aesGcmHardwareSealInto(output, at: at, keys: keys, nonce: nonce, plaintext: plaintext, additionalData: additionalData)
+			#endif
 		end 'backing'
 	end 'sealDetachedInto'
 
@@ -310,8 +326,18 @@ public type AesGcm implements aead.Aead
 		try aead.aeadRequireNonce(nonce, nonceBytes: aesGcmNonceBytes)
 		match backing 'backing'
 			bitsliced(software) then return try openSoftware(software, nonce: nonce, sealed: sealed, additionalData: additionalData)
+			#if arch(x64) or arch(arm64)
+				hardware(keys) then return try openHardware(keys, nonce: nonce, sealed: sealed, additionalData: additionalData)
+			#endif
 		end 'backing'
 	end 'open'
+
+	#if arch(x64) or arch(arm64)
+		function openHardware(keys AesGcmKeyBlock, nonce ByteArray, sealed ByteArray, additionalData ByteArray) returns ByteArray throws aead.AeadError
+			let ciphertextBytes = try aead.aeadCiphertextBytes(sealed, tagBytes: aesGcmTagBytes, plaintextLimit: aesGcmMaxPlaintextBytes)
+			return try aesGcmHardwareOpen(keys, nonce: nonce, sealed: sealed, additionalData: additionalData, ciphertextBytes: ciphertextBytes)
+		end 'openHardware'
+	#endif
 
 	function sealIntoSoftware(mutates output ByteArray, at ElementIndex, software AesGcmSoftware, nonce ByteArray, plaintext ByteArray, additionalData ByteArray)
 		output.resize(at)

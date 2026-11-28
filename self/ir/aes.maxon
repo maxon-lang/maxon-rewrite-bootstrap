@@ -1,0 +1,39 @@
+// The AES and AES-GCM routines of maxon's library on the processor's instructions (__Builtins.aes* and cpuHasAes): each a
+// call of its runtime entry, whose source is runtime/aes.maxon, with the call's arguments as they are.
+
+function lowerCpuHasAes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtCpuHasAes, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerCpuHasAes'
+
+function lowerAesExpandKey(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return aesEntryVoid(l, p: p, c: c, symbol: Rt.rtAesExpandKey, args: args)
+end 'lowerAesExpandKey'
+
+function lowerAesEncryptBlock(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return aesEntryVoid(l, p: p, c: c, symbol: Rt.rtAesEncryptBlock, args: args)
+end 'lowerAesEncryptBlock'
+
+function lowerAesDecryptBlock(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return aesEntryVoid(l, p: p, c: c, symbol: Rt.rtAesDecryptBlock, args: args)
+end 'lowerAesDecryptBlock'
+
+function lowerAesCtrXor(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return aesEntryVoid(l, p: p, c: c, symbol: Rt.rtAesCtrXor, args: args)
+end 'lowerAesCtrXor'
+
+function lowerAesGcmInit(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return aesEntryVoid(l, p: p, c: c, symbol: Rt.rtAesGcmInit, args: args)
+end 'lowerAesGcmInit'
+
+function lowerAesGcmSeal(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return aesEntryVoid(l, p: p, c: c, symbol: Rt.rtAesGcmSeal, args: args)
+end 'lowerAesGcmSeal'
+
+function lowerAesGcmOpen(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtAesGcmOpen, kind: IrKind.kindScalar, args: args.clone())
+end 'lowerAesGcmOpen'
+
+function aesEntryVoid(mutates l Lowerer, p ast.Project, c CallSite, symbol Rt, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: symbol, args: args.clone())
+	return konst(l, value: 0 as Word)
+end 'aesEntryVoid'

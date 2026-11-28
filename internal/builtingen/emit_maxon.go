@@ -110,6 +110,9 @@ func (m *maxonBody) params(f fn, generic string) string {
 		if p.mayOmitLabel {
 			maker = "mayOmitLabel"
 		}
+		if p.byteBuffer {
+			maker = "byteBuffer"
+		}
 		m.line("%s.push(ParamSpec.%s(%q, ty: %s, conv: %s))", v, maker, p.name, types[i], maxonConv(p.conv))
 	}
 	return v

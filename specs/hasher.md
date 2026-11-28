@@ -415,18 +415,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -466,11 +466,11 @@ function bestTier() returns String
 end 'bestTier'
 
 function runUnder(me FilePath, tier String, seedHex String) returns MxCollectedOutput
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(MxExecutable.path(me))
+	var config = Configuration.create(MxExecutable.path(me.clone()))
 	config.arguments = argv
-	config.environment = Environment.inheritUpdating(["MAXON_HASH_TIER": tier, "SEED": seedHex])
+	config.environment = Environment.inheritUpdating(["MAXON_HASH_TIER": tier.clone(), "SEED": seedHex.clone()])
 	return try MxSubprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'runUnder'
 
@@ -488,7 +488,7 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 2
 	let seedHex = toHex(HashSeed.random().toBytes())
 	let tiers = TierList from ["aes", "software"]
-	let digests = StringArray.create(0)
+	var digests = StringArray.create(0)
 	for tier in tiers 'eachTier'
 		let first = runUnder(me, tier: tier, seedHex: seedHex)
 		let second = runUnder(me, tier: tier, seedHex: seedHex)
@@ -1077,19 +1077,19 @@ function words() returns DigestList
 end 'words'
 
 function child() returns ExitCode
-	let states = DigestList.create(0)
+	var states = DigestList.create(0)
 	for _ in 0 upto StateCount 'eachState'
 		states.push(KeyedHasher.empty(HashSeed.random()))
 	end 'eachState'
 	print("states distinct={allDistinct(states)}\n")
 	for (iter, word) in words().enumerated() 'eachWord'
-		let folded = DigestList.create(0)
+		var folded = DigestList.create(0)
 		for state in states 'eachState'
 			folded.push(KeyedHasher.combined(state, value: word))
 		end 'eachState'
 		print("w={iter} distinct={allDistinct(folded)}\n")
 	end 'eachWord'
-	let atOneState = DigestList.create(0)
+	var atOneState = DigestList.create(0)
 	let oneSeed = HashSeed.random()
 	for word in words() 'eachWord'
 		atOneState.push(KeyedHasher.combined(KeyedHasher.empty(oneSeed), value: word))
@@ -1117,11 +1117,11 @@ function hostRuns(tier String) returns bool
 end 'hostRuns'
 
 function runUnder(me FilePath, tier String) returns MxCollectedOutput
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(MxExecutable.path(me))
+	var config = Configuration.create(MxExecutable.path(me.clone()))
 	config.arguments = argv
-	config.environment = Environment.inheritUpdating(["MAXON_HASH_TIER": tier])
+	config.environment = Environment.inheritUpdating(["MAXON_HASH_TIER": tier.clone()])
 	return try MxSubprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'runUnder'
 
@@ -1553,11 +1553,11 @@ function hostRunsAes() returns bool
 end 'hostRunsAes'
 
 function runUnder(me FilePath, tier String) returns MxCollectedOutput
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("child")
-	let config = Configuration.create(MxExecutable.path(me))
+	var config = Configuration.create(MxExecutable.path(me.clone()))
 	config.arguments = argv
-	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": "0123456789abcdef", "MAXON_HASH_TIER": tier])
+	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": "0123456789abcdef", "MAXON_HASH_TIER": tier.clone()])
 	return try MxSubprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'runUnder'
 

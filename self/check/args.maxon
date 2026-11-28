@@ -207,6 +207,9 @@ end 'recordDefaults'
 // where they can be copied.
 function coerceArg(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, value ast.NodeID, callee String, spec ast.ParamSpec, payload bool, mutates errs diag.ErrorList) returns bool
 	let t = ast.nodeType(c.typing, node: value)
+	if spec.byteBuffer and fixedBytes(p, ms: ms, t: t) 'fixedBytes'
+		return true
+	end 'fixedBytes'
 	let temporary = ast.isMutatingFunction(ms.types, reads: p.types, t: spec.ty) and not ast.isStorage(ms.tree(), typing: c.typing, node: value)
 	if ast.isByAddress(spec.conv) and not temporary 'byAddress'
 		if t != spec.ty 'different'
@@ -239,6 +242,16 @@ function coerceArg(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	end 'payload'
 	return coerce(c, p: p, ms: ms, node: value, at: offsetOf(c, p: p, ms: ms, node: call), src: t, target: spec.ty, wrong: Mismatch.argument(argumentLabel(spec.name)), errs: errs)
 end 'coerceArg'
+
+// fixedBytes is whether a type is a FixedArray of bytes, of any count (an argument after the element), which a built-in's byte buffer takes as it takes a
+// ByteArray: both are an array's box.
+function fixedBytes(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
+	if t == ast.noType or ast.originOf(ms.types, reads: p.types, t: t) != p.builtins.fixedArrayOrigin 'notFixed'
+		return false
+	end 'notFixed'
+	let entry = ast.typeEntry(ms.types, reads: p.types, t: t)
+	return entry.typeArgs.count() > 0 and sameType(ms.types, reads: p.types, a: entry.typeArgs[0], b: p.builtins.byteTy)
+end 'fixedBytes'
 
 let asciiZero = 48 as Byte
 

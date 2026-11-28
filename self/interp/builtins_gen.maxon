@@ -327,6 +327,38 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryHashStringBytes(vm, f: f, x: x)
 		return
 	end 'rtHashStringBytes'
+	if symbol == ir.Rt.rtCpuHasAes 'rtCpuHasAes'
+		entryCpuHasAes(vm, f: f, x: x)
+		return
+	end 'rtCpuHasAes'
+	if symbol == ir.Rt.rtAesExpandKey 'rtAesExpandKey'
+		try entryAesExpandKey(vm, f: f, x: x)
+		return
+	end 'rtAesExpandKey'
+	if symbol == ir.Rt.rtAesEncryptBlock 'rtAesEncryptBlock'
+		try entryAesEncryptBlock(vm, f: f, x: x)
+		return
+	end 'rtAesEncryptBlock'
+	if symbol == ir.Rt.rtAesDecryptBlock 'rtAesDecryptBlock'
+		try entryAesDecryptBlock(vm, f: f, x: x)
+		return
+	end 'rtAesDecryptBlock'
+	if symbol == ir.Rt.rtAesCtrXor 'rtAesCtrXor'
+		try entryAesCtrXor(vm, f: f, x: x)
+		return
+	end 'rtAesCtrXor'
+	if symbol == ir.Rt.rtAesGcmInit 'rtAesGcmInit'
+		try entryAesGcmInit(vm, f: f, x: x)
+		return
+	end 'rtAesGcmInit'
+	if symbol == ir.Rt.rtAesGcmSeal 'rtAesGcmSeal'
+		try entryAesGcmSeal(vm, f: f, x: x)
+		return
+	end 'rtAesGcmSeal'
+	if symbol == ir.Rt.rtAesGcmOpen 'rtAesGcmOpen'
+		try entryAesGcmOpen(vm, f: f, x: x)
+		return
+	end 'rtAesGcmOpen'
 	if symbol == ir.Rt.rtBytesReadWord 'rtBytesReadWord'
 		try entryBytesReadWord(vm, f: f, x: x)
 		return
