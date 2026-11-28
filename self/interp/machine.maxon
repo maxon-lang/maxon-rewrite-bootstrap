@@ -691,6 +691,14 @@ function runFrame(mutates m Machine, f ir.IrFunction)
 				_ = timeout(m.vm)
 				return
 			end 'limit'
+			m.vm.sinceClock = try m.vm.sinceClock + 1 otherwise panic("interp: more instructions than a word since the clock was read")
+			if m.vm.sinceClock == clockCheckSteps 'clock'
+				m.vm.sinceClock = 0
+				if elapsedMillis(m.vm.startedNanos) >= m.vm.deadlineMs 'late'
+					_ = timeout(m.vm)
+					return
+				end 'late'
+			end 'clock'
 			if m.vm.concurrent 'concurrent'
 				m.vm.burst = try m.vm.burst - 1 otherwise panic("interp: a thread ran with no burst left")
 				if m.vm.burst == 0 'spent'

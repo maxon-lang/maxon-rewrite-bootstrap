@@ -201,8 +201,8 @@ end 'violationText'
 
 // run is runChecked's outcome, which an oracle of backpressure or the race oracle (races) that failed makes an internal error: a fault of the model or
 // of the design, which the seed reproduces.
-export function run(p ast.Project, modules ModuleFunctions, entry ast.FuncID, stepLimit Count, seed ir.Word, wantFrees bool, races bool, stdin String) returns Outcome
-	let out = runChecked(p, modules: modules, entry: entry, stepLimit: stepLimit, seed: seed, wantFrees: wantFrees, races: races, stdin: stdin)
+export function run(p ast.Project, modules ModuleFunctions, entry ast.FuncID, stepLimit Count, deadlineMs Count, seed ir.Word, wantFrees bool, races bool, stdin String) returns Outcome
+	let out = runChecked(p, modules: modules, entry: entry, stepLimit: stepLimit, deadlineMs: deadlineMs, seed: seed, wantFrees: wantFrees, races: races, stdin: stdin)
 	if out.oracleFailures.count() > 0 'failed'
 		var input = ""
 		if stdin != "" 'input'
@@ -213,16 +213,17 @@ export function run(p ast.Project, modules ModuleFunctions, entry ast.FuncID, st
 	return out
 end 'run'
 
-// runChecked executes the program from main under the schedule of a seed. A run that goes on for more than stepLimit instructions is
-// stopped. main is the first thread; a behaviour it schedules is another, which runs once it has every cown it names,
+// runChecked executes the program from main under the schedule of a seed. A run that goes on for more than stepLimit instructions,
+// or for more than deadlineMs milliseconds of real time (noDeadlineMs for none), is stopped. main is the first thread; a behaviour it
+// schedules is another, which runs once it has every cown it names,
 // interleaved with the others where the seed says. The program ends when main has returned and every behaviour has run, with
 // main's exit code, unless a trap or a violation ends it sooner. The program's standard input is stdin, which then ends. races
 // runs the race oracle, which costs a run that forks about a tenth of its time, so only the test lanes and fuzz ask for it.
-function runChecked(p ast.Project, modules ModuleFunctions, entry ast.FuncID, stepLimit Count, seed ir.Word, wantFrees bool, races bool, stdin String) returns Outcome
+function runChecked(p ast.Project, modules ModuleFunctions, entry ast.FuncID, stepLimit Count, deadlineMs Count, seed ir.Word, wantFrees bool, races bool, stdin String) returns Outcome
 	var prog = Program.new()
 	var paths = CountLists.create(0)
 	prepareProgram(prog, paths: paths, p: p, modules: modules, entry: entry)
-	var vm = Vm.new(prog, limit: stepLimit, seed: seed, stdin: stdin.toByteArray())
+	var vm = Vm.new(prog, limit: stepLimit, deadlineMs: deadlineMs, seed: seed, stdin: stdin.toByteArray())
 	vm.race.enabled = races
 	var job = Interp.new(vm)
 	runScheduler(job, p: p, modules: modules, paths: paths)

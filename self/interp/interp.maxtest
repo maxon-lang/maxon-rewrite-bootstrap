@@ -148,7 +148,7 @@ function runWith(p ast.Project, main ir.IrFunction, others ir.IrFunctionList, se
 	end 'others'
 	var modules = ModuleFunctions.create(0)
 	modules.push(fns)
-	return run(p, modules: modules, entry: main.decl, stepLimit: defaultStepLimit, seed: seed, wantFrees: false, races: true, stdin: "")
+	return run(p, modules: modules, entry: main.decl, stepLimit: defaultStepLimit, deadlineMs: noDeadlineMs, seed: seed, wantFrees: false, races: true, stdin: "")
 end 'runWith'
 
 function runMain(p ast.Project, main ir.IrFunction) returns Outcome
@@ -745,7 +745,7 @@ test 'a frozen value is freed with its last owner'
 	fns.push(b.ret(zero))
 	var modules = ModuleFunctions.create(0)
 	modules.push(fns)
-	let out = run(p, modules: modules, entry: modules[0][0].decl, stepLimit: defaultStepLimit, seed: 0, wantFrees: true, races: true, stdin: "")
+	let out = run(p, modules: modules, entry: modules[0][0].decl, stepLimit: defaultStepLimit, deadlineMs: noDeadlineMs, seed: 0, wantFrees: true, races: true, stdin: "")
 	if out.violations.count() != 0 'violated'
 		panic("{out.violations[0]}")
 	end 'violated'
@@ -930,3 +930,26 @@ test 'an address of an element of a freed array is a use after free once another
 	let zero = b.konst(0)
 	expectViolation("reused", out: runMain(p, main: b.ret(zero)), kind: "use after free", fragments: says("an address into a value that was freed", b: "", c: "", d: ""))
 end 'an address of an element of a freed array is a use after free once another array holds its place'
+
+// A program of more instructions than the interpreter runs between two readings of the clock is ended by a deadline that has
+// already passed, as by the step limit, and runs to its end with none.
+test 'a run past its deadline in real time is a timeout'
+	var p = ir.irProject()
+	var b = Fn.new(p, name: "main", convs: ir.convs0())
+	for i in 0 upto clockCheckSteps * 2 'instructions'
+		_ = b.konst(i as ir.Word)
+	end 'instructions'
+	let zero = b.konst(0)
+	var fns = ir.IrFunctionList.create(0)
+	fns.push(b.ret(zero))
+	var modules = ModuleFunctions.create(0)
+	modules.push(fns)
+	let late = run(p, modules: modules, entry: modules[0][0].decl, stepLimit: defaultStepLimit, deadlineMs: 0, seed: 0, wantFrees: false, races: true, stdin: "")
+	if not late.timedOut 'late'
+		panic("a run past its deadline ended after {late.steps} steps")
+	end 'late'
+	let free = run(p, modules: modules, entry: modules[0][0].decl, stepLimit: defaultStepLimit, deadlineMs: noDeadlineMs, seed: 0, wantFrees: false, races: true, stdin: "")
+	if free.timedOut or free.violations.count() != 0 'free'
+		panic("a run with no deadline did not end clean")
+	end 'free'
+end 'a run past its deadline in real time is a timeout'

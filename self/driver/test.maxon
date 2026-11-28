@@ -968,7 +968,7 @@ end 'workerCountText'
 // the memory model. A program that schedules behaviours runs under several schedules, and each must give the same output.
 function runInterpreted(compiled CompiledProgram, expect Expectation) returns TestResult
 	for schedule in 0 upto expect.schedules 'schedules'
-		let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, seed: interp.seedOf(schedule), wantFrees: expect.frees.count() > 0, races: true, stdin: expect.stdin)
+		let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, deadlineMs: testRunDeadlineMs, seed: interp.seedOf(schedule), wantFrees: expect.frees.count() > 0, races: true, stdin: expect.stdin)
 		var atSeed = ""
 		if out.behaviours > 0 'scheduled'
 			atSeed = " under the schedule of seed {schedule}"
@@ -978,7 +978,7 @@ function runInterpreted(compiled CompiledProgram, expect Expectation) returns Te
 			return TestResult.failed("the interpreter found a violation of the memory model{atSeed}:\n{joinLines(out.violations)}")
 		end 'violated'
 		if out.timedOut 'timedOut'
-			return TestResult.failed("the interpreter timed out{atSeed}")
+			return TestResult.failed("timed out (interpreted): the interpreter ran past the run deadline of {testRunDeadlineMs} ms or its step limit{atSeed}")
 		end 'timedOut'
 		if out.unmodelled 'unmodelled'
 			return TestResult.failed("the interpreter does not model what the program uses{atSeed}: {trimSpace(out.stderr)}")
@@ -1001,14 +1001,18 @@ end 'runInterpreted'
 
 // interpretedViolations runs a program under the interpreter once, for the accesses left unchecked alone: a read the checker
 // proved in range that is not, or a read of an array's element with no test for an empty slot that finds one, fails the test. The output and the exit code are the executable's to give, which the run of it has checked
-// already; a run that outlasts the step limit, ends in a trap of the program or at what the interpreter does not model found
-// no wrong proof, and the rules of the memory model are the corpus's to hold the programs to, which the spec tests, written
-// for maxon, are not.
+// already; a run that ends in a trap of the program or at what the interpreter does not model found no wrong proof, and the
+// rules of the memory model are the corpus's to hold the programs to, which the spec tests, written for maxon, are not. A run
+// that outlasts the run deadline (testRunDeadlineMs, of the clock on the wall, as the executable's is) or the step limit fails
+// as timed out: the test is too slow for the interpreter, and its row of skips.tsv says `native`.
 function interpretedViolations(compiled CompiledProgram) returns TestResult
-	let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, seed: interp.seedOf(0), wantFrees: false, races: true, stdin: "")
+	let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, deadlineMs: testRunDeadlineMs, seed: interp.seedOf(0), wantFrees: false, races: true, stdin: "")
 	if out.uncheckedAccess 'wrong'
 		return TestResult.failed("the interpreter found an access left unchecked whose check fails:\n{joinLines(out.violations)}")
 	end 'wrong'
+	if out.timedOut 'timedOut'
+		return TestResult.failed("timed out (interpreted): the interpreter ran past the run deadline of {testRunDeadlineMs} ms or its step limit")
+	end 'timedOut'
 	return TestResult.passed()
 end 'interpretedViolations'
 
