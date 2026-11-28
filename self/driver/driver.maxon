@@ -120,9 +120,13 @@ type Options
 	// stagesInLibrary compiles the program's modules in the library tier, as maxon's spec runner compiles a case marked
 	// `tier: stdlib`: they may name maxon's raw surface.
 	var stagesInLibrary as bool
+	// sharesLibrary compiles the program on the library that the run's shared runtime holds checked and compiled, after
+	// the runtime, instead of adding the library's modules to the program; the options that SharedRuntime.prepare is given
+	// ask it to compile the library, with its IR as lowered where keepsLowered.
+	var sharesLibrary as bool
 
 	static function new() returns Options
-		return Options{emitIr: false, keepsIrText: false, verifyIr: false, emitMap: false, countAllocations: false, debugInfo: false, keepsLowered: false, timings: false, trace: "", reversesModules: false, verifiesReads: false, runsTests: false, testsUnder: "", includesManual: false, compilesTestsOnly: false, checksTests: false, cacheDir: "", compiler: table.Digest.none(), verifiesCache: false, speculates: false, target: hostTarget(), stagesInLibrary: false}
+		return Options{emitIr: false, keepsIrText: false, verifyIr: false, emitMap: false, countAllocations: false, debugInfo: false, keepsLowered: false, timings: false, trace: "", reversesModules: false, verifiesReads: false, runsTests: false, testsUnder: "", includesManual: false, compilesTestsOnly: false, checksTests: false, cacheDir: "", compiler: table.Digest.none(), verifiesCache: false, speculates: false, target: hostTarget(), stagesInLibrary: false, sharesLibrary: false}
 	end 'new'
 
 	// timesTasks is whether a compile reads the clock around each task, for --timings or --trace.

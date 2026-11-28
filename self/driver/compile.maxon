@@ -86,6 +86,13 @@ end 'noReadyUnits'
 // that compiles at once read them and none waits for another. Each compile adds its program to a copy of the project and
 // links it with the code. The runtime module is in the project by its place and its flags only: its source and its check
 // are what no program reads, and are the most of the project.
+//
+// A run may share the standard library too, which is nearly all of what a program's compile does: the project of the
+// runtime and the library (library), the library's modules each checked and compiled to its unit once, which a program
+// whose options say so (Options.sharesLibrary) is added to and linked with, instead of its compile adding, parsing, resolving
+// and declaring the library's modules again. A library module's stages read the library's source, the runtime and the
+// options of the target and of the allocation count, and never the program, which is why what they make can be shared
+// (the build cache's key of a module holds the same and nothing of any program, cacheSetupOf).
 type SharedRuntime
 	var p as frozen with ast.Project
 	var ready as frozen with backend.UnitList
@@ -93,24 +100,114 @@ type SharedRuntime
 	// the compiler that its keys hold, which the run reads once.
 	var cacheDir as String
 	var compiler as table.Digest
+	// library is p with the library's modules after the runtime, libraryReady the code of the runtime and of those modules,
+	// and libraryFunctions the IR of those modules as the interpreter runs it, kept only where the run interprets
+	// (Options.keepsLowered); sharesLibrary is whether the run has the library, which it has not where the options of prepare did
+	// not ask, or where the library did not compile, and keepsLibraryFunctions whether it has the IR.
+	var library as frozen with ast.Project
+	var libraryReady as frozen with backend.UnitList
+	var libraryFunctions as frozen with backend.FunctionLists
+	var sharesLibrary as bool
+	var keepsLibraryFunctions as bool
 
+	// prepare is the runtime of the options' target, with the library where options.sharesLibrary asks for it, and with
+	// the library's IR where options.keepsLowered does too.
 	static function prepare(options Options, mutates errs diag.ErrorList) returns SharedRuntime
 		var p = projectFor(options)
 		let ready = prepareRuntime(p, options: options, errs: errs)
 		_ = ast.takeBody(p, module: runtimeModule)
-		return SharedRuntime{p: freeze(p), ready: freeze(ready), cacheDir: options.cacheDir.clone(), compiler: options.compiler.clone()}
+		var library = copyOfProject(p)
+		var libraryReady = ready.clone()
+		var libraryFunctions = backend.FunctionLists.create(0)
+		let shares = options.sharesLibrary and errs.count() == 0 and prepareLibrary(library, ready: libraryReady, functions: libraryFunctions, options: options)
+		if not shares 'unshared'
+			library = ast.Project.new("")
+			libraryReady = backend.UnitList.create(0)
+			libraryFunctions = backend.FunctionLists.create(0)
+		end 'unshared'
+		return SharedRuntime{p: freeze(p), ready: freeze(ready), cacheDir: options.cacheDir.clone(), compiler: options.compiler.clone(), library: freeze(library), libraryReady: freeze(libraryReady), libraryFunctions: freeze(libraryFunctions), sharesLibrary: shares, keepsLibraryFunctions: shares and options.keepsLowered}
 	end 'prepare'
 
 	// none is the runtime of a run that compiles no executable: nothing is loaded or checked.
 	static function none() returns SharedRuntime
-		return SharedRuntime{p: freeze(ast.Project.new("")), ready: noReadyUnits(), cacheDir: "", compiler: table.Digest.none()}
+		return SharedRuntime{p: freeze(ast.Project.new("")), ready: noReadyUnits(), cacheDir: "", compiler: table.Digest.none(), library: freeze(ast.Project.new("")), libraryReady: noReadyUnits(), libraryFunctions: freeze(backend.FunctionLists.create(0)), sharesLibrary: false, keepsLibraryFunctions: false}
 	end 'none'
 
-	// projectForProgram is a copy of the project for one program to be added to.
-	function projectForProgram() returns ast.Project
+	// projectForProgram is a copy of the project for one program to be added to: the runtime's, or the runtime's and the
+	// library's where the program's options ask for the library (Options.sharesLibrary).
+	function projectForProgram(options Options) returns ast.Project
+		if options.sharesLibrary 'library'
+			return copyOfProject(library)
+		end 'library'
 		return copyOfProject(p)
 	end 'projectForProgram'
+
+	// readyFor is the code that a program compiled on projectForProgram(options) is linked with.
+	function readyFor(options Options) returns frozen with backend.UnitList
+		if options.sharesLibrary 'library'
+			return share(libraryReady)
+		end 'library'
+		return share(ready)
+	end 'readyFor'
+
+	// withLibraryFunctions is compiled with the IR of the library's modules before its own, as the interpreter runs a program
+	// that was compiled on the library (Options.sharesLibrary) and kept its IR (Options.keepsLowered).
+	function withLibraryFunctions(consumes compiled CompiledProgram) returns CompiledProgram
+		var held = compiled
+		var modules = backend.FunctionLists.create(0)
+		for functions in libraryFunctions 'library'
+			modules.push(functions.clone())
+		end 'library'
+		for functions in held.generated.modules 'program'
+			modules.push(functions.clone())
+		end 'program'
+		held.generated.modules = modules
+		return held
+	end 'withLibraryFunctions'
 end 'SharedRuntime'
+
+// prepareLibrary adds the standard library's modules to p, which holds the runtime alone, compiles them all, adds their
+// units to ready, which holds the runtime's, and, where options keep the IR as lowered, gives it in functions, a list for each
+// module; it is whether the library was found and compiled. A library that does not compile is no error of this: the
+// programs that name its broken module meet the error in their own compile, as they would without it.
+function prepareLibrary(mutates p ast.Project, mutates ready backend.UnitList, mutates functions backend.FunctionLists, options Options) returns bool
+	let dir = match consumes project.libraryDirectory() 'found'
+		some(found) gives found
+		none gives ""
+	end 'found'
+	if dir == "" 'none'
+		return false
+	end 'none'
+	var errs = diag.ErrorList.create(0)
+	let first = p.modules.count()
+	let memory = match consumes project.discoverProjectInto(p, rootPath: dir, errs: errs) 'discovered'
+		some(found) gives found
+		none gives project.SourceFiles.create(0)
+	end 'discovered'
+	var run = runStages(p, from: Stage.parse, memory: memory, first: first, goal: Goal.units, makesProgram: false, output: "", options: libraryOptionsOf(options), ready: freeze(ready.clone()), errs: errs)
+	if errs.count() > 0 'failed'
+		return false
+	end 'failed'
+	let generated = run.generated()
+	if options.keepsLowered 'kept'
+		functions = generated.modules.clone()
+	end 'kept'
+	var made = exchange(run.made, value: backend.UnitList.create(0))
+	for unit in made 'units'
+		ready.push(unit.clone())
+	end 'units'
+	return true
+end 'prepareLibrary'
+
+// libraryOptionsOf are the options of the compile of the library on the shared runtime: those that its code depends on, which
+// are the same as every program's that is compiled on it, and no cache.
+function libraryOptionsOf(options Options) returns Options
+	var libraryOptions = Options.new()
+	libraryOptions.target = options.target.clone()
+	libraryOptions.countAllocations = options.countAllocations
+	libraryOptions.keepsLowered = options.keepsLowered
+	return libraryOptions
+end 'libraryOptionsOf'
 
 // SharedLibrary is the standard library of a run of many checks of programs that no executable is made of: its project alone,
 // checked once and frozen. Each check adds its program to a copy of the project, after the library's modules, which it reads
@@ -204,12 +301,12 @@ end 'CompiledProgram'
 // compileProjectWith is compileProject for a compile that makes an executable of the project at path, on the runtime that
 // the run shares, and keeps what it lowered.
 function compileProjectWith(shared SharedRuntime, path String, output String, options Options, mutates errs diag.ErrorList) returns CompiledProgram
-	var p = shared.projectForProgram()
+	var p = shared.projectForProgram(options)
 	p.keepsSpans = options.debugInfo
 	let first = p.modules.count()
 	var generated = Generated.nothing()
 	match consumes project.discoverProjectInto(p, rootPath: path, errs: errs) 'found'
-		some(memory) then generated = compileDiscovered(p, memory: memory, first: first, ready: shared.ready, output: output, options: options, errs: errs)
+		some(memory) then generated = compileDiscovered(p, memory: memory, first: first, ready: shared.readyFor(options), output: output, options: options, errs: errs)
 		none then generated = Generated.nothing()
 	end 'found'
 	return CompiledProgram.make(p, generated: generated)
@@ -217,21 +314,21 @@ end 'compileProjectWith'
 
 // compileFilesWith is compileProjectWith for a project whose files are held in memory, as the directory at path holds them.
 function compileFilesWith(shared SharedRuntime, path String, files project.SourceFiles, output String, options Options, mutates errs diag.ErrorList) returns CompiledProgram
-	var p = shared.projectForProgram()
+	var p = shared.projectForProgram(options)
 	p.keepsSpans = options.debugInfo
 	let first = p.modules.count()
 	project.discoverFilesInto(p, rootPath: path, files: files, errs: errs)
-	let generated = compileDiscovered(p, memory: files, first: first, ready: shared.ready, output: output, options: options, errs: errs)
+	let generated = compileDiscovered(p, memory: files, first: first, ready: shared.readyFor(options), output: output, options: options, errs: errs)
 	return CompiledProgram.make(p, generated: generated)
 end 'compileFilesWith'
 
 // compileSourceWith is compileProjectWith for a program that is the one file text, named path in the diagnostics.
 function compileSourceWith(shared SharedRuntime, path String, text String, output String, options Options, mutates errs diag.ErrorList) returns CompiledProgram
-	var p = shared.projectForProgram()
+	var p = shared.projectForProgram(options)
 	p.keepsSpans = options.debugInfo
 	let first = p.modules.count()
 	let memory = project.discoverSourceInto(p, path: path, text: text, errs: errs)
-	let generated = compileDiscovered(p, memory: memory, first: first, ready: shared.ready, output: output, options: options, errs: errs)
+	let generated = compileDiscovered(p, memory: memory, first: first, ready: shared.readyFor(options), output: output, options: options, errs: errs)
 	return CompiledProgram.make(p, generated: generated)
 end 'compileSourceWith'
 

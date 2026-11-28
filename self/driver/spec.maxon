@@ -1333,12 +1333,18 @@ function runSpecs(path String, options SpecOptions, compiling CorpusOptions, wid
 	let cacheDir = specCacheDirectory(directory)
 	var host = SharedRuntime.none()
 	if corpus.target.name() != hostTarget().name() 'foreign'
-		host = prepareCachedRuntime(hostTarget(), cacheDir: cacheDir)
+		host = prepareCachedRuntime(hostTarget(), cacheDir: cacheDir, sharesLibrary: false, keepsLowered: false)
 	end 'foreign'
 	let target = corpus.target.clone()
-	startTests(prepareCachedRuntime(target, cacheDir: cacheDir), host: host, jobs: jobs, files: files, corpus: corpus, verbose: options.verbose, scratch: Scratch.make("spec", suffix: executableExtension(target)), width: width, tally: Tally.spec(tally))
+	let sharesLibrary = jobs.count() >= sharedLibraryFromTests and not corpus.verifiesIr
+	startTests(prepareCachedRuntime(target, cacheDir: cacheDir, sharesLibrary: sharesLibrary, keepsLowered: corpus.interprets), host: host, jobs: jobs, files: files, corpus: corpus, verbose: options.verbose, scratch: Scratch.make("spec", suffix: executableExtension(target)), width: width, tally: Tally.spec(tally))
 	return compiledByBehaviours
 end 'runSpecs'
+
+// sharedLibraryFromTests is how many tests a run names from which it compiles the standard library once for all of them
+// (SharedRuntime): that compile takes about half a second, which a test that is compiled on it saves some fifteen milliseconds
+// of the run's time, so a run of fewer tests than this is done sooner when each compiles what it names.
+let sharedLibraryFromTests = 100
 
 // replaySpecs takes the result of each test from the file of results at path, in place of running the tests, and counts and
 // prints them as a run of the tests does. The file must be of these very tests, in this order: it says so by their keys, and
@@ -1490,8 +1496,15 @@ function compileSpecSource(shared SharedRuntime, exe String, test SpecTest, sour
 	options.stagesInLibrary = stagedInLibrary(test)
 	options.debugInfo = buildsDebugInfo(test)
 	options.keepsLowered = keepsLowered
-	// The cache holds a library module as code, and the interpreter runs the IR of every module the program reaches.
-	if not options.debugInfo and not keepsLowered 'cached'
+	// A program is compiled on the run's library (SharedRuntime) when the library's modules are what every program has: none
+	// that stages a library or runtime of its own (the runner skips them, and sourceHasOverlay says it again), none that
+	// writes debug info, whose spans the library was not compiled with, and none whose IR is verified, which is of every
+	// module; one that the interpreter runs needs the library's IR as well (SharedRuntime.keepsLibraryFunctions).
+	let onLibrary = shared.sharesLibrary and not options.debugInfo and not verifies and not sourceHasOverlay(source) and (shared.keepsLibraryFunctions or not keepsLowered)
+	if onLibrary 'shared'
+		options.sharesLibrary = true
+	end 'shared' else if not options.debugInfo and not keepsLowered 'cached'
+		// The cache holds a library module as code, and the interpreter runs the IR of every module the program reaches.
 		options.cacheDir = shared.cacheDir.clone()
 		options.compiler = shared.compiler.clone()
 		options.speculates = shared.cacheDir != ""
@@ -1506,6 +1519,9 @@ function compileSpecSource(shared SharedRuntime, exe String, test SpecTest, sour
 	if not keepsLowered 'dropped'
 		return CompiledProgram.nothing()
 	end 'dropped'
+	if options.sharesLibrary 'library'
+		return shared.withLibraryFunctions(compiled)
+	end 'library'
 	return compiled
 end 'compileSpecSource'
 
