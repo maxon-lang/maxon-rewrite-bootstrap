@@ -6591,7 +6591,8 @@ differs from Maxon" in the same change. A change to the syntax touches many prog
   `runtime/` move to the new form and the old one goes. A change that they do not use needs no new seed. A change of a layout
   that the seed bakes into the code it makes and the runtime shares with it (a String's two words) lands in one commit with
   seeds renewed for it by `.\seed.ps1 --staged`, run before it is committed (`seed/README.md`).
-- **`.\check.ps1`** runs every check this repository requires (see "Tests"), formatting and applying `go fix` first,
+- **`.\check.ps1`** runs every check this repository requires (see "Tests"), formatting and applying `go fix` first
+  (a tracked file either rewrites fails the run, named and left rewritten for committing, as a stale generated file does),
   and stops at the first failure. The seed builds `self/` as `bin\minimaxon.exe`, which runs every later step, so a change that only the compiled
   `self/` shows (a symbol that two modules
   share, a runtime behaviour) fails here. Arguments go to `minimaxon test`, so `.\check.ps1 --update-positions` works.
