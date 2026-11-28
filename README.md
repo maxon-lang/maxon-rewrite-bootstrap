@@ -604,7 +604,7 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   declare, by its `#else` branch or leaves it out, so `Sha2`, `Aes` and `AesGcm` are software only (`AesBitsliced`) on every
   target. An identity comparison of two bare names in the library (AEAD's `aeadSharesOutput`: `nonce is output`) is `false`,
   and `is not` is `true`, since a call cannot borrow an array it writes as another of its arguments here. The ciphers of
-  maxon's `helpers/crypto/` (`Aes`, `ChaCha20`, `Poly1305`, `Aead` and their errors) stay public, as programs name them. Maxon's driftsort grows its merge scratch with `resize`, which no tier may do to an array of a type parameter
+  maxon's `helpers/crypto/` (`Aes`, `ChaCha20`, `Aead` and their errors) stay public, as programs name them. `Poly1305` and `ChaCha20Poly1305` are not converted yet: for x64 the loop of Poly1305's `mac` needs more registers than there are (`E5001`), so its spec tests, which pass on arm64, would compile for one target and not the other. Maxon's driftsort grows its merge scratch with `resize`, which no tier may do to an array of a type parameter
   here, and then writes it as a prefix from slot 0 before it reads it; the conversion makes the resize a `reserve`, and a
   function that stores to the scratch by index empties it first (`truncate(0)`) and pushes each element instead. The same holds of an array that a program resizes and then fills from 0 in a loop over a counter, as some of maxon's
   spec tests of the library tier do: the resize is a `truncate(0)` and a `reserve`, and each store a push. It leaves out a conditional region that declares only names the compiler builds in (maxon's `ExitCode`,
