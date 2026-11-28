@@ -1,0 +1,38 @@
+// A lane, a shift, an order or a selection of a vector intrinsic may be the name of a constant as well as a literal: the
+// lowering reads the value the checker found for it.
+//> lane ok
+//> shift ok
+//> order ok
+//> align ok
+
+let testHighLane = 1 as Count
+
+let testShiftBytes = 4 as Count
+
+let testSwapHalves = 0x4E as Count
+
+let testAlignBytes = 8 as Count
+
+function main() returns ExitCode
+	let v = __Raw.vectorOfWords(0x1111111111111111, high: 0x2222222222222222)
+	let high = __Raw.vectorWord(v, lane: testHighLane)
+	let shifted = __Raw.vectorShiftBytesUp(v, bytes: testShiftBytes)
+	let shiftedLow = __Raw.vectorWord(shifted, lane: 0)
+	let swapped = __Raw.vectorShuffleDwords(v, order: testSwapHalves)
+	let swappedLow = __Raw.vectorWord(swapped, lane: 0)
+	let aligned = __Raw.vectorAlignBytes(v, low: v, bytes: testAlignBytes)
+	let alignedLow = __Raw.vectorWord(aligned, lane: 0)
+	report("lane", ok: high == 0x2222222222222222)
+	report("shift", ok: shiftedLow == 0x1111111100000000)
+	report("order", ok: swappedLow == 0x2222222222222222)
+	report("align", ok: alignedLow == 0x2222222222222222)
+	return 0
+end 'main'
+
+function report(name String, ok bool)
+	if ok 'ok'
+		print("{name} ok\n")
+	end 'ok' else 'wrong'
+		print("{name} wrong\n")
+	end 'wrong'
+end 'report'
